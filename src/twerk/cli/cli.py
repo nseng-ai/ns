@@ -1,5 +1,7 @@
 import click
 
+from twerk.cli.plugins import discover_plugins
+
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
@@ -12,4 +14,5 @@ def cli(ctx: click.Context) -> None:
 
 
 def main() -> None:
+    discover_plugins(cli)
     cli()

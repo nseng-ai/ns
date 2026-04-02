@@ -1,0 +1,18 @@
+[project]
+name = "twerk-objectives"
+version = "0.1.0"
+description = "Objective management plugin for twerk"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1.7",
+]
+
+[project.entry-points."twerk.plugins"]
+objectives = "twerk_objectives.cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/twerk_objectives"]
