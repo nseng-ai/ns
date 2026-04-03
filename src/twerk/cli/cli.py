@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import click
 
 from twerk.cli.plugins import InstalledPluginEntryPointSource, discover_plugins
 
-CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)

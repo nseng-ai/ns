@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from clinkr.machine_command import MachineCommandError
+from clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,11 @@ class ObjectiveListResult:
         }
 
 
+@clinkr_operation(
+    name="list",
+    help="List objectives.",
+    aliases=("ls",),
+)
 def run_list_objectives(
     request: ObjectiveListRequest,
 ) -> ObjectiveListResult | MachineCommandError:

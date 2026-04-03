@@ -4,7 +4,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from clinkr.group import ClinkrGroup
+from clinkr.group import ClinkrGroup, clinkr_group
 
 
 def _make_group() -> ClinkrGroup:
@@ -88,3 +88,40 @@ def test_json_listed_last_in_help() -> None:
         line.strip() for line in lines if line.strip().startswith(("hello", "bye", "json"))
     ]
     assert command_lines[-1].startswith("json")
+
+
+# -- clinkr_group decorator --
+
+
+def test_clinkr_group_decorator_creates_group() -> None:
+    @clinkr_group("grp", help="A group.")
+    def my_group() -> None:
+        pass
+
+    assert isinstance(my_group, ClinkrGroup)
+    assert my_group.name == "grp"
+    assert my_group.help == "A group."
+
+
+def test_clinkr_group_decorator_uses_function_name() -> None:
+    @clinkr_group()
+    def my_group() -> None:
+        pass
+
+    assert my_group.name == "my_group"
+
+
+def test_clinkr_group_decorator_uses_docstring_as_help() -> None:
+    @clinkr_group("grp")
+    def my_group() -> None:
+        """Help from docstring."""
+
+    assert my_group.help == "Help from docstring."
+
+
+def test_clinkr_group_decorator_explicit_help_overrides_docstring() -> None:
+    @clinkr_group("grp", help="Explicit help.")
+    def my_group() -> None:
+        """Docstring help."""
+
+    assert my_group.help == "Explicit help."

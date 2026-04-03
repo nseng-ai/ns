@@ -13,6 +13,7 @@ from clinkr.dataclass_json import (
     read_json_stdin,
     serialize_to_json_dict,
 )
+from clinkr.machine_schema import build_machine_schema_document
 
 
 @dataclass(frozen=True)
@@ -85,8 +86,6 @@ def _apply_machine_command(
     def wrapped_callback(**kwargs: Any) -> Any:
         schema_mode = kwargs.pop("schema_mode", False)
         if schema_mode:
-            from clinkr.machine_schema import build_machine_schema_document
-
             schema_doc = build_machine_schema_document(
                 request_type=request_type,
                 output_types=output_types,

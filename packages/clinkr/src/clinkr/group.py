@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import importlib
+import inspect
+import pkgutil
 from collections.abc import Callable
 from typing import Any
 
 import click
 
 from clinkr.machine_command import MachineCommandError, _apply_machine_command
+from clinkr.operation import get_operation_meta
 from clinkr.params import build_request_from_click_params, extract_click_params
 from clinkr.rendering import default_human_renderer
 
@@ -16,14 +20,16 @@ class ClinkrGroup(click.Group):
     """A Click group that auto-provisions a ``json`` subgroup and supports
     operation registration and command aliases."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, name: str, *, discover: str | None = None, **kwargs: Any) -> None:
+        super().__init__(name, **kwargs)
         self._aliases: dict[str, str] = {}
         self._json_group = click.Group(
             _RESERVED_JSON_NAME,
             help="Machine-readable command variants.",
         )
         super().add_command(self._json_group, _RESERVED_JSON_NAME)
+        if discover is not None:
+            self.discover_operations(discover)
 
     @property
     def json_group(self) -> click.Group:
@@ -79,6 +85,38 @@ class ClinkrGroup(click.Group):
             with formatter.section("Commands"):
                 formatter.write_dl(rows)
 
+    # -- autodiscovery --
+
+    def discover_operations(self, package: str) -> None:
+        """Scan *package* for ``@clinkr_operation``-decorated functions and
+        register each one."""
+        root = importlib.import_module(package)
+        modules = [root]
+
+        if hasattr(root, "__path__"):
+            for _importer, modname, _ispkg in pkgutil.walk_packages(
+                root.__path__, root.__name__ + "."
+            ):
+                modules.append(importlib.import_module(modname))
+
+        for module in modules:
+            for attr_name in dir(module):
+                obj = getattr(module, attr_name)
+                if not callable(obj):
+                    continue
+                meta = get_operation_meta(obj)
+                if meta is None:
+                    continue
+                self.register_operation(
+                    meta.name,
+                    operation=obj,
+                    request_type=meta.request_type,
+                    result_types=meta.result_types,
+                    help=meta.help,
+                    aliases=meta.aliases,
+                    human_renderer=meta.human_renderer,
+                )
+
     # -- operation registration --
 
     def register_operation(
@@ -132,3 +170,25 @@ class ClinkrGroup(click.Group):
         self._json_group.add_command(machine_cmd, name)
         for alias in aliases:
             self.add_alias(name, alias)
+
+
+def clinkr_group(
+    name: str | None = None,
+    *,
+    discover: str | None = None,
+    **kwargs: Any,
+) -> Callable[[Callable[..., Any]], ClinkrGroup]:
+    """Decorator that creates a :class:`ClinkrGroup` from a function.
+
+    Works like ``@click.group()`` but produces a ``ClinkrGroup``.  The
+    function's docstring is used as the group help text when *help* is
+    not provided explicitly.
+    """
+
+    def decorator(fn: Callable[..., Any]) -> ClinkrGroup:
+        resolved_name = name or fn.__name__
+        if "help" not in kwargs and fn.__doc__:
+            kwargs["help"] = inspect.cleandoc(fn.__doc__)
+        return ClinkrGroup(resolved_name, discover=discover, **kwargs)
+
+    return decorator
