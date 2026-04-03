@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from importlib.metadata import entry_points
+from typing import Protocol
 
 import click
 
@@ -10,9 +12,27 @@ logger = logging.getLogger(__name__)
 ENTRY_POINT_GROUP = "twerk.plugins"
 
 
-def discover_plugins(cli: click.Group) -> None:
+class PluginEntryPoint(Protocol):
+    name: str
+
+    def load(self) -> object:
+        """Load the plugin module for this entry point."""
+
+
+class PluginEntryPointSource(ABC):
+    @abstractmethod
+    def get_entry_points(self) -> tuple[PluginEntryPoint, ...]:
+        """Return the plugin entry points available to the CLI."""
+
+
+class InstalledPluginEntryPointSource(PluginEntryPointSource):
+    def get_entry_points(self) -> tuple[PluginEntryPoint, ...]:
+        return tuple(entry_points(group=ENTRY_POINT_GROUP))
+
+
+def discover_plugins(cli: click.Group, *, source: PluginEntryPointSource) -> None:
     """Find and register all installed twerk plugin CLI groups."""
-    for ep in entry_points(group=ENTRY_POINT_GROUP):
+    for ep in source.get_entry_points():
         try:
             module = ep.load()
         except Exception:

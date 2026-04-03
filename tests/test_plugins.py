@@ -1,10 +1,9 @@
 from types import ModuleType
-from unittest.mock import patch
 
 import click
 from click.testing import CliRunner
 
-from twerk.cli.plugins import ENTRY_POINT_GROUP, discover_plugins
+from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 
 
 def _make_plugin_module(group: click.Group) -> ModuleType:
@@ -13,37 +12,43 @@ def _make_plugin_module(group: click.Group) -> ModuleType:
     return mod
 
 
-def _mock_entry_point(name: str, module: ModuleType | Exception):
-    """Create a mock entry point that loads the given module or raises."""
+class FakePluginEntryPoint:
+    def __init__(self, *, name: str, module: ModuleType | Exception) -> None:
+        self.name = name
+        self._module = module
 
-    class FakeEP:
-        def __init__(self):
-            self.name = name
-            self.group = ENTRY_POINT_GROUP
+    def load(self) -> ModuleType:
+        if isinstance(self._module, Exception):
+            raise self._module
+        return self._module
 
-        def load(self):
-            if isinstance(module, Exception):
-                raise module
-            return module
 
-    return FakeEP()
+class FakePluginEntryPointSource(PluginEntryPointSource):
+    def __init__(self, *, entry_points: tuple[FakePluginEntryPoint, ...]) -> None:
+        self._entry_points = entry_points
+
+    def get_entry_points(self) -> tuple[FakePluginEntryPoint, ...]:
+        return self._entry_points
+
+
+def _entry_point_source(*entry_points: FakePluginEntryPoint) -> FakePluginEntryPointSource:
+    return FakePluginEntryPointSource(entry_points=entry_points)
 
 
 class TestDiscoverPlugins:
-    def test_registers_plugin_group(self):
+    def test_registers_plugin_group(self) -> None:
         @click.group("hello")
-        def hello_group():
+        def hello_group() -> None:
             """A test plugin."""
 
         @hello_group.command("world")
-        def world_cmd():
+        def world_cmd() -> None:
             click.echo("hello world")
 
         parent = click.Group("test")
-        ep = _mock_entry_point("hello", _make_plugin_module(hello_group))
+        ep = FakePluginEntryPoint(name="hello", module=_make_plugin_module(hello_group))
 
-        with patch("twerk.cli.plugins.entry_points", return_value=[ep]):
-            discover_plugins(parent)
+        discover_plugins(parent, source=_entry_point_source(ep))
 
         assert "hello" in parent.commands
         runner = CliRunner()
@@ -51,54 +56,49 @@ class TestDiscoverPlugins:
         assert result.exit_code == 0
         assert "hello world" in result.output
 
-    def test_skips_plugin_with_no_cli_group(self):
+    def test_skips_plugin_with_no_cli_group(self) -> None:
         parent = click.Group("test")
-        ep = _mock_entry_point("broken", ModuleType("empty"))
+        ep = FakePluginEntryPoint(name="broken", module=ModuleType("empty"))
 
-        with patch("twerk.cli.plugins.entry_points", return_value=[ep]):
-            discover_plugins(parent)
+        discover_plugins(parent, source=_entry_point_source(ep))
 
         assert len(parent.commands) == 0
 
-    def test_skips_plugin_with_invalid_cli_group(self):
+    def test_skips_plugin_with_invalid_cli_group(self) -> None:
         bad_module = ModuleType("bad")
         bad_module.cli_group = "not a click command"  # type: ignore[attr-defined]
 
         parent = click.Group("test")
-        ep = _mock_entry_point("bad", bad_module)
+        ep = FakePluginEntryPoint(name="bad", module=bad_module)
 
-        with patch("twerk.cli.plugins.entry_points", return_value=[ep]):
-            discover_plugins(parent)
-
-        assert len(parent.commands) == 0
-
-    def test_skips_plugin_that_fails_to_load(self):
-        parent = click.Group("test")
-        ep = _mock_entry_point("crasher", ImportError("boom"))
-
-        with patch("twerk.cli.plugins.entry_points", return_value=[ep]):
-            discover_plugins(parent)
+        discover_plugins(parent, source=_entry_point_source(ep))
 
         assert len(parent.commands) == 0
 
-    def test_no_plugins(self):
+    def test_skips_plugin_that_fails_to_load(self) -> None:
+        parent = click.Group("test")
+        ep = FakePluginEntryPoint(name="crasher", module=ImportError("boom"))
+
+        discover_plugins(parent, source=_entry_point_source(ep))
+
+        assert len(parent.commands) == 0
+
+    def test_no_plugins(self) -> None:
         parent = click.Group("test")
 
-        with patch("twerk.cli.plugins.entry_points", return_value=[]):
-            discover_plugins(parent)
+        discover_plugins(parent, source=_entry_point_source())
 
         assert len(parent.commands) == 0
 
 
 class TestPluginIntegration:
-    def test_objective_plugin(self):
+    def test_objective_plugin(self) -> None:
         import twerk_objectives.cli as obj_cli_module
 
         parent = click.Group("test")
-        ep = _mock_entry_point("objectives", obj_cli_module)
+        ep = FakePluginEntryPoint(name="objectives", module=obj_cli_module)
 
-        with patch("twerk.cli.plugins.entry_points", return_value=[ep]):
-            discover_plugins(parent)
+        discover_plugins(parent, source=_entry_point_source(ep))
 
         runner = CliRunner()
 

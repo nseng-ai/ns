@@ -114,11 +114,11 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
     for candidate in [run_dir / "eval_metadata.json", run_dir.parent / "eval_metadata.json"]:
         if candidate.exists():
             try:
-                metadata = json.loads(candidate.read_text())
+                metadata = json.loads(candidate.read_text(encoding="utf-8"))
                 prompt = metadata.get("prompt", "")
                 eval_id = metadata.get("eval_id")
-            except (json.JSONDecodeError, OSError):
-                pass
+            except (json.JSONDecodeError, OSError) as error:
+                print(f"Warning: failed to read {candidate}: {error}", file=sys.stderr)
             if prompt:
                 break
 
@@ -127,12 +127,12 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
         for candidate in [run_dir / "transcript.md", run_dir / "outputs" / "transcript.md"]:
             if candidate.exists():
                 try:
-                    text = candidate.read_text()
+                    text = candidate.read_text(encoding="utf-8")
                     match = re.search(r"## Eval Prompt\n\n([\s\S]*?)(?=\n##|$)", text)
                     if match:
                         prompt = match.group(1).strip()
-                except OSError:
-                    pass
+                except OSError as error:
+                    print(f"Warning: failed to read {candidate}: {error}", file=sys.stderr)
                 if prompt:
                     break
 
@@ -154,9 +154,9 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
     for candidate in [run_dir / "grading.json", run_dir.parent / "grading.json"]:
         if candidate.exists():
             try:
-                grading = json.loads(candidate.read_text())
-            except (json.JSONDecodeError, OSError):
-                pass
+                grading = json.loads(candidate.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as error:
+                print(f"Warning: failed to read {candidate}: {error}", file=sys.stderr)
             if grading:
                 break
 
@@ -176,8 +176,9 @@ def embed_file(path: Path) -> dict:
 
     if ext in TEXT_EXTENSIONS:
         try:
-            content = path.read_text(errors="replace")
-        except OSError:
+            content = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as error:
+            print(f"Warning: failed to read {path}: {error}", file=sys.stderr)
             content = "(Error reading file)"
         return {
             "name": path.name,
@@ -245,14 +246,23 @@ def load_previous_iteration(workspace: Path) -> dict[str, dict]:
     feedback_path = workspace / "feedback.json"
     if feedback_path.exists():
         try:
-            data = json.loads(feedback_path.read_text())
-            feedback_map = {
-                r["run_id"]: r["feedback"]
-                for r in data.get("reviews", [])
-                if r.get("feedback", "").strip()
-            }
-        except (json.JSONDecodeError, OSError, KeyError):
-            pass
+            data = json.loads(feedback_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as error:
+            print(f"Warning: failed to read {feedback_path}: {error}", file=sys.stderr)
+        else:
+            reviews = data.get("reviews", []) if isinstance(data, dict) else []
+            for review in reviews:
+                if not isinstance(review, dict):
+                    print(
+                        f"Warning: malformed feedback entry in {feedback_path}: {review!r}",
+                        file=sys.stderr,
+                    )
+                    continue
+
+                run_id = review.get("run_id")
+                feedback = review.get("feedback", "")
+                if isinstance(run_id, str) and isinstance(feedback, str) and feedback.strip():
+                    feedback_map[run_id] = feedback
 
     # Load runs (to get outputs)
     prev_runs = find_runs(workspace)
@@ -278,7 +288,7 @@ def generate_html(
 ) -> str:
     """Generate the complete standalone HTML page with embedded data."""
     template_path = Path(__file__).parent / "viewer.html"
-    template = template_path.read_text()
+    template = template_path.read_text(encoding="utf-8")
 
     # Build previous_feedback and previous_outputs maps for the template
     previous_feedback: dict[str, str] = {}
@@ -319,15 +329,23 @@ def _kill_port(port: int) -> None:
             timeout=5,
         )
         for pid_str in result.stdout.strip().split("\n"):
-            if pid_str.strip():
-                try:
-                    os.kill(int(pid_str.strip()), signal.SIGTERM)
-                except (ProcessLookupError, ValueError):
-                    pass
+            cleaned_pid = pid_str.strip()
+            if not cleaned_pid:
+                continue
+            if not cleaned_pid.isdigit():
+                print(f"Note: skipping unexpected pid value {cleaned_pid!r}", file=sys.stderr)
+                continue
+            try:
+                os.kill(int(cleaned_pid), signal.SIGTERM)
+            except ProcessLookupError:
+                print(
+                    f"Note: process {cleaned_pid} exited before it could be terminated",
+                    file=sys.stderr,
+                )
         if result.stdout.strip():
             time.sleep(0.5)
     except subprocess.TimeoutExpired:
-        pass
+        print(f"Note: timed out while checking port {port}", file=sys.stderr)
     except FileNotFoundError:
         print("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
 
@@ -363,9 +381,12 @@ class ReviewHandler(BaseHTTPRequestHandler):
             benchmark = None
             if self.benchmark_path and self.benchmark_path.exists():
                 try:
-                    benchmark = json.loads(self.benchmark_path.read_text())
-                except (json.JSONDecodeError, OSError):
-                    pass
+                    benchmark = json.loads(self.benchmark_path.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError) as error:
+                    print(
+                        f"Warning: failed to read {self.benchmark_path}: {error}",
+                        file=sys.stderr,
+                    )
             html = generate_html(runs, self.skill_name, self.previous, benchmark)
             content = html.encode("utf-8")
             self.send_response(200)
@@ -393,11 +414,14 @@ class ReviewHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 if not isinstance(data, dict) or "reviews" not in data:
                     raise ValueError("Expected JSON object with 'reviews' key")
-                self.feedback_path.write_text(json.dumps(data, indent=2) + "\n")
+                self.feedback_path.write_text(
+                    json.dumps(data, indent=2) + "\n",
+                    encoding="utf-8",
+                )
                 resp = b'{"ok":true}'
                 self.send_response(200)
             except (json.JSONDecodeError, OSError, ValueError) as e:
-                resp = json.dumps({"error": str(e)}).encode()
+                resp = json.dumps({"error": str(e)}).encode("utf-8")
                 self.send_response(500)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp)))
@@ -437,10 +461,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    workspace = args.workspace.resolve()
+    workspace = args.workspace
     if not workspace.is_dir():
         print(f"Error: {workspace} is not a directory", file=sys.stderr)
         sys.exit(1)
+    workspace = workspace.resolve()
 
     runs = find_runs(workspace)
     if not runs:
@@ -452,20 +477,25 @@ def main() -> None:
 
     previous: dict[str, dict] = {}
     if args.previous_workspace:
-        previous = load_previous_iteration(args.previous_workspace.resolve())
+        previous_workspace = args.previous_workspace
+        if previous_workspace.exists():
+            previous_workspace = previous_workspace.resolve()
+        previous = load_previous_iteration(previous_workspace)
 
-    benchmark_path = args.benchmark.resolve() if args.benchmark else None
+    benchmark_path = args.benchmark
+    if benchmark_path and benchmark_path.exists():
+        benchmark_path = benchmark_path.resolve()
     benchmark = None
     if benchmark_path and benchmark_path.exists():
         try:
-            benchmark = json.loads(benchmark_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+            benchmark = json.loads(benchmark_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as error:
+            print(f"Warning: failed to read {benchmark_path}: {error}", file=sys.stderr)
 
     if args.static:
         html = generate_html(runs, skill_name, previous, benchmark)
         args.static.parent.mkdir(parents=True, exist_ok=True)
-        args.static.write_text(html)
+        args.static.write_text(html, encoding="utf-8")
         print(f"\n  Static viewer written to: {args.static}\n")
         sys.exit(0)
 

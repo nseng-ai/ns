@@ -10,8 +10,8 @@ from pathlib import Path
 import yaml
 
 
-def validate_skill(skill_path):
-    """Basic validation of a skill"""
+def validate_skill(skill_path: str | Path) -> tuple[bool, str]:
+    """Basic validation of a skill."""
     skill_path = Path(skill_path)
 
     # Check SKILL.md exists
@@ -20,7 +20,7 @@ def validate_skill(skill_path):
         return False, "SKILL.md not found"
 
     # Read and validate frontmatter
-    content = skill_md.read_text()
+    content = skill_md.read_text(encoding="utf-8")
     if not content.startswith("---"):
         return False, "No YAML frontmatter found"
 
