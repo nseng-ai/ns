@@ -1,0 +1,1 @@
+"""Objective list command."""
