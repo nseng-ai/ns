@@ -1,9 +1,11 @@
 [tool.uv.workspace]
 members = [
+    "packages/twerk-core",
     "packages/twerk-objectives",
 ]
 
 [tool.uv.sources]
+twerk-core = { workspace = true }
 twerk-objectives = { workspace = true }
 
 [project]
@@ -27,6 +29,7 @@ dev = [
     "ruff>=0.5.0",
     "pytest>=8.0.0",
     "pytest-xdist>=3.8.0",
+    "twerk-core",
     "twerk-objectives",
     "ty>=0.0.1a7",
 ]
@@ -41,7 +44,7 @@ packages = ["src/twerk"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-src = ["src", "packages/twerk-objectives/src"]
+src = ["src", "packages/twerk-core/src", "packages/twerk-objectives/src"]
 exclude = [".claude/"]
 
 [tool.ruff.lint]
@@ -54,7 +57,7 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["twerk", "twerk_objectives"]
+known-first-party = ["twerk", "twerk_core", "twerk_objectives"]
 
 [tool.ty.src]
 include = ["src"]
@@ -66,4 +69,4 @@ python = ".venv"
 [tool.pytest.ini_options]
 addopts = "-q"
 pythonpath = ["."]
-testpaths = ["tests", "packages/twerk-objectives/tests"]
+testpaths = ["tests", "packages/twerk-core/tests", "packages/twerk-objectives/tests"]
