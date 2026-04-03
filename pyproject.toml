@@ -49,7 +49,7 @@ target-version = "py311"
 line-length = 100
 src = ["src", "packages/clinkr/src", "packages/twerk-core/src", "packages/twerk-objectives/src"]
 exclude = [".claude/", ".agents/skills/"]
-force-exclude = [".agents/skills/"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = [
