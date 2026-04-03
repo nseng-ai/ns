@@ -4,6 +4,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 ### Vendored Skill Code
 - Treat all files under `.agents/skills/` as vendored third-party code.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`, so the same vendored-code rule applies there.
+- For repo-local skills installed from `skills/<name>/`, treat the copy under `.agents/skills/<name>/` as generated install output. Edit the canonical source in `skills/<name>/` and reinstall it with `npx skills add ./skills/<name> --agent codex claude-code -y` instead of editing the installed copy.
 - Do not apply first-party Python standards or refactoring skills such as `dignified-python`, `fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files under these directories unless the user explicitly asks to modify the vendored dependency itself.
 - When reviewing or editing the repo, exclude `.agents/skills/**/*.py` from normal linting, typechecking, code review, and cleanup expectations; assume those files should remain as-shipped unless the task is specifically about updating vendored skill code.
 
@@ -12,6 +13,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - fake-driven-testing: Use when writing tests, fixing bugs, adding features, or modifying the gateway layer. This skill provides guidance on testing architecture, working with fakes, implementing ABC gateway interfaces, and where different types of tests belong. (file: /Users/schrockn/code/twerk/.claude/skills/fake-driven-testing/SKILL.md)
 - fdt-refactor-mock-to-fake: Refactor tests that use `unittest.mock.patch` or `MagicMock` into the gateway-based fake pattern. Use when test files patch module-level attributes like `subprocess.run`, `shutil.which`, or `os.environ`, or otherwise need source code made injectable before rewriting the tests. (file: /Users/schrockn/code/twerk/.claude/skills/fdt-refactor-mock-to-fake/SKILL.md)
 - graphite: Work with Graphite (`gt`) for stacked PRs, including creating, navigating, and managing PR stacks. Use when the task involves Graphite workflows or stacked-PR operations. (file: /Users/schrockn/code/twerk/.claude/skills/graphite/SKILL.md)
+- gt-stackify-branch: Split a single mixed branch into a clean Graphite stack by planning PR slices, preserving the source branch, rebuilding each slice from trunk, validating the stack, and submitting it when requested. Use when the task is to turn one branch into 2+ stacked PRs. (file: /Users/schrockn/code/twerk/skills/gt-stackify-branch/SKILL.md)
 - skill-creator: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit or optimize an existing skill, or evaluate skill triggering/performance. (file: /Users/schrockn/code/twerk/.claude/skills/skill-creator/SKILL.md)
 
 ### How to use skills
@@ -41,6 +43,9 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - To migrate a skill that only exists in `.claude/skills` into the shared project layout, reinstall it with both `codex` and `claude-code`: `npx skills add <owner>/<repo> --skill <skill-name> --agent codex claude-code -y`
 - If a repo contains multiple skills, pass all of them after `--skill`: `npx skills add dagster-io/fake-driven-testing --skill fake-driven-testing fdt-refactor-mock-to-fake --agent codex claude-code -y`
 - Do not use `--agent claude-code` by itself for this migration. That recopies files into `.claude/skills` instead of creating `.agents/skills/<name>` plus a `.claude/skills/<name>` symlink.
+- For repo-local skills under development, keep the canonical source in `skills/<name>/SKILL.md` and install it with a local path: `npx skills add ./skills/<name> --agent codex claude-code -y`
+- For repo-local skills under development, do not pass `--copy`. The default install creates a managed copy in `.agents/skills/<name>` and a `.claude/skills/<name>` symlink that points at that managed copy.
+- After editing a repo-local skill in `skills/<name>/`, rerun `npx skills add ./skills/<name> --agent codex claude-code -y` to refresh the installed copy. `skills-lock.json` records the local-path source.
 - Expected result after a successful migration:
   `.agents/skills/<name>` contains the real skill files.
   `.claude/skills/<name>` is a symlink to `../../.agents/skills/<name>`.
