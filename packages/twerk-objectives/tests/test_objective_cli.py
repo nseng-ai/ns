@@ -7,14 +7,14 @@ def test_objective_list() -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["list"])
     assert result.exit_code == 0
-    assert result.output.strip() == "[]"
+    assert result.output.strip() == '{\n  "objectives": [],\n  "count": 0\n}'
 
 
 def test_objective_ls_alias() -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["ls"])
     assert result.exit_code == 0
-    assert result.output.strip() == "[]"
+    assert result.output.strip() == '{\n  "objectives": [],\n  "count": 0\n}'
 
 
 def test_objective_help() -> None:
