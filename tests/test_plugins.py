@@ -109,3 +109,7 @@ class TestPluginIntegration:
         result = runner.invoke(parent, ["objective", "ls"])
         assert result.exit_code == 0
         assert "[]" in result.output
+
+        result = runner.invoke(parent, ["objective", "json", "list"], input="")
+        assert result.exit_code == 0
+        assert '"success": true' in result.output
