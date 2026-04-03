@@ -48,7 +48,8 @@ packages = ["src/twerk"]
 target-version = "py311"
 line-length = 100
 src = ["src", "packages/clinkr/src", "packages/twerk-core/src", "packages/twerk-objectives/src"]
-exclude = [".claude/"]
+exclude = [".claude/", ".agents/skills/"]
+force-exclude = [".agents/skills/"]
 
 [tool.ruff.lint]
 select = [
@@ -64,6 +65,7 @@ known-first-party = ["twerk", "twerk_core", "twerk_objectives"]
 
 [tool.ty.src]
 include = ["src"]
+exclude = [".agents/skills/", ".claude/skills/"]
 
 [tool.ty.environment]
 python-version = "3.11"
