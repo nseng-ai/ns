@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import importlib
-import inspect
 import pkgutil
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 import click
@@ -20,7 +20,9 @@ class ClinkrGroup(click.Group):
     """A Click group that auto-provisions a ``json`` subgroup and supports
     operation registration and command aliases."""
 
-    def __init__(self, name: str, *, discover: str | None = None, **kwargs: Any) -> None:
+    def __init__(
+        self, name: str | None = None, *, discover: str | None = None, **kwargs: Any
+    ) -> None:
         super().__init__(name, **kwargs)
         self._aliases: dict[str, str] = {}
         self._json_group = click.Group(
@@ -172,23 +174,76 @@ class ClinkrGroup(click.Group):
             self.add_alias(name, alias)
 
 
-def clinkr_group(
-    name: str | None = None,
-    *,
-    discover: str | None = None,
-    **kwargs: Any,
-) -> Callable[[Callable[..., Any]], ClinkrGroup]:
-    """Decorator that creates a :class:`ClinkrGroup` from a function.
+_GROUP_META_ATTR = "_clinkr_group_meta"
 
-    Works like ``@click.group()`` but produces a ``ClinkrGroup``.  The
-    function's docstring is used as the group help text when *help* is
-    not provided explicitly.
+
+@dataclass(frozen=True)
+class ClinkrGroupMeta:
+    """Metadata attached by the :func:`clinkr_group` decorator."""
+
+    help: str
+
+
+def clinkr_group(
+    *,
+    help: str = "",
+) -> Callable[[Callable[..., ClinkrGroup]], Callable[..., ClinkrGroup]]:
+    """Marker decorator for group definitions.
+
+    Stores top-level display metadata (help string).  The decorated
+    function must return a :class:`ClinkrGroup`.
     """
 
-    def decorator(fn: Callable[..., Any]) -> ClinkrGroup:
-        resolved_name = name or fn.__name__
-        if "help" not in kwargs and fn.__doc__:
-            kwargs["help"] = inspect.cleandoc(fn.__doc__)
-        return ClinkrGroup(resolved_name, discover=discover, **kwargs)
+    def decorator(fn: Callable[..., ClinkrGroup]) -> Callable[..., ClinkrGroup]:
+        setattr(fn, _GROUP_META_ATTR, ClinkrGroupMeta(help=help))
+        return fn
 
     return decorator
+
+
+def get_group_meta(fn: Any) -> ClinkrGroupMeta | None:
+    """Retrieve clinkr group metadata from a function, if present."""
+    return getattr(fn, _GROUP_META_ATTR, None)
+
+
+def discover_group(module_path: str) -> ClinkrGroup:
+    """Import a module, find its ``@clinkr_group``-decorated function,
+    call it, apply metadata, and auto-discover operations from sibling
+    modules.
+
+    The group **name** is taken from the decorated function's name.
+    The **help** string comes from the ``@clinkr_group`` decorator.
+    Operations are discovered from the same *module_path* package.
+    """
+    module = importlib.import_module(module_path)
+
+    group_fn = None
+    meta = None
+    for attr_name in dir(module):
+        obj = getattr(module, attr_name)
+        if not callable(obj):
+            continue
+        found = get_group_meta(obj)
+        if found is not None:
+            if group_fn is not None:
+                raise ValueError(
+                    f"Module {module_path!r} contains multiple @clinkr_group-decorated functions"
+                )
+            group_fn = obj
+            meta = found
+
+    if group_fn is None:
+        raise ValueError(f"Module {module_path!r} has no @clinkr_group-decorated function")
+
+    group = group_fn()
+    if not isinstance(group, ClinkrGroup):
+        raise TypeError(
+            f"@clinkr_group function {group_fn.__qualname__!r} must return "
+            f"a ClinkrGroup, got {type(group).__name__}"
+        )
+
+    group.name = group_fn.__name__
+    if meta.help:
+        group.help = meta.help
+    group.discover_operations(module_path)
+    return group
