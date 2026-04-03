@@ -352,22 +352,3 @@ def utc_now() -> datetime:
     """Small convenience for callers building test or seed objects."""
 
     return datetime.now(tz=UTC)
-
-
-__all__ = [
-    "Objective",
-    "ObjectiveDefinition",
-    "ObjectiveEvent",
-    "ObjectiveEventAnchor",
-    "ObjectiveEventSource",
-    "ObjectiveGraph",
-    "ObjectiveLifecycleState",
-    "ObjectiveNode",
-    "ObjectiveNodeLink",
-    "ObjectiveNodeStatus",
-    "ObjectiveRef",
-    "ObjectiveRoadmapLayout",
-    "ObjectiveRoadmapSection",
-    "ObjectiveSnapshot",
-    "utc_now",
-]

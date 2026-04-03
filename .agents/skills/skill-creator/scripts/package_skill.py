@@ -40,7 +40,7 @@ def should_exclude(rel_path: Path) -> bool:
     return any(fnmatch.fnmatch(name, pat) for pat in EXCLUDE_GLOBS)
 
 
-def package_skill(skill_path, output_dir=None):
+def package_skill(skill_path: str | Path, output_dir: str | Path | None = None) -> Path | None:
     """
     Package a skill folder into a .skill file.
 
@@ -51,7 +51,7 @@ def package_skill(skill_path, output_dir=None):
     Returns:
         Path to the created .skill file, or None if error
     """
-    skill_path = Path(skill_path).resolve()
+    skill_path = Path(skill_path)
 
     # Validate skill folder exists
     if not skill_path.exists():
@@ -61,6 +61,8 @@ def package_skill(skill_path, output_dir=None):
     if not skill_path.is_dir():
         print(f"❌ Error: Path is not a directory: {skill_path}")
         return None
+
+    skill_path = skill_path.resolve()
 
     # Validate SKILL.md exists
     skill_md = skill_path / "SKILL.md"
@@ -80,8 +82,9 @@ def package_skill(skill_path, output_dir=None):
     # Determine output location
     skill_name = skill_path.name
     if output_dir:
-        output_path = Path(output_dir).resolve()
+        output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
+        output_path = output_path.resolve()
     else:
         output_path = Path.cwd()
 
@@ -104,12 +107,12 @@ def package_skill(skill_path, output_dir=None):
         print(f"\n✅ Successfully packaged skill to: {skill_filename}")
         return skill_filename
 
-    except Exception as e:
-        print(f"❌ Error creating .skill file: {e}")
+    except (OSError, ValueError) as error:
+        print(f"❌ Error creating .skill file: {error}")
         return None
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python utils/package_skill.py <path/to/skill-folder> [output-directory]")
         print("\nExample:")

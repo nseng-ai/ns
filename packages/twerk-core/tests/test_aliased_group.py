@@ -1,16 +1,16 @@
 import click
 from click.testing import CliRunner
 
-from twerk_core import AliasedGroup
+from twerk_core.click_utils import AliasedGroup
 
 
-def test_aliased_group_resolves_alias():
+def test_aliased_group_resolves_alias() -> None:
     @click.group("test", cls=AliasedGroup)
-    def grp():
+    def grp() -> None:
         pass
 
     @grp.command("list")
-    def list_cmd():
+    def list_cmd() -> None:
         click.echo("listed")
 
     grp.add_alias("list", "ls")
@@ -21,13 +21,13 @@ def test_aliased_group_resolves_alias():
     assert "listed" in result.output
 
 
-def test_aliased_group_canonical_name_works():
+def test_aliased_group_canonical_name_works() -> None:
     @click.group("test", cls=AliasedGroup)
-    def grp():
+    def grp() -> None:
         pass
 
     @grp.command("list")
-    def list_cmd():
+    def list_cmd() -> None:
         click.echo("listed")
 
     grp.add_alias("list", "ls")
@@ -38,13 +38,13 @@ def test_aliased_group_canonical_name_works():
     assert "listed" in result.output
 
 
-def test_aliased_group_help_shows_aliases():
+def test_aliased_group_help_shows_aliases() -> None:
     @click.group("test", cls=AliasedGroup)
-    def grp():
+    def grp() -> None:
         pass
 
     @grp.command("list")
-    def list_cmd():
+    def list_cmd() -> None:
         """List things."""
 
     grp.add_alias("list", "ls")
@@ -55,13 +55,13 @@ def test_aliased_group_help_shows_aliases():
     assert "list (ls)" in result.output
 
 
-def test_aliased_group_unknown_command():
+def test_aliased_group_unknown_command() -> None:
     @click.group("test", cls=AliasedGroup)
-    def grp():
+    def grp() -> None:
         pass
 
     @grp.command("list")
-    def list_cmd():
+    def list_cmd() -> None:
         click.echo("listed")
 
     runner = CliRunner()

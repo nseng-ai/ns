@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from twerk_objectives import (
+from twerk_objectives.models import (
     Objective,
     ObjectiveDefinition,
     ObjectiveEvent,

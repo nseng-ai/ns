@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from twerk_core import AliasedGroup
+from twerk_core.click_utils import AliasedGroup
 
 
 @click.group("objective", cls=AliasedGroup)
