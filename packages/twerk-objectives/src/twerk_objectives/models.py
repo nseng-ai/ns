@@ -146,9 +146,7 @@ class ObjectiveGraph:
             missing = [dep for dep in node.depends_on if dep not in known_ids]
             if missing:
                 missing_csv = ", ".join(missing)
-                raise ValueError(
-                    f"Node '{node.id}' depends on missing node ids: {missing_csv}"
-                )
+                raise ValueError(f"Node '{node.id}' depends on missing node ids: {missing_csv}")
 
     def node_map(self) -> dict[str, ObjectiveNode]:
         return {node.id: node for node in self.nodes}
@@ -193,11 +191,7 @@ class ObjectiveRoadmapLayout:
 
     @property
     def ordered_node_ids(self) -> tuple[str, ...]:
-        return tuple(
-            node_id
-            for section in self.sections
-            for node_id in section.node_ids
-        )
+        return tuple(node_id for section in self.sections for node_id in section.node_ids)
 
 
 @dataclass(frozen=True)
@@ -341,9 +335,7 @@ class Objective:
         return tuple(remaining)
 
     def events_relevant_to_node(self, node_id: str) -> tuple[ObjectiveEvent, ...]:
-        return tuple(
-            event for event in self.event_log if event.anchor.applies_to_node(node_id)
-        )
+        return tuple(event for event in self.event_log if event.anchor.applies_to_node(node_id))
 
 
 def _require_non_empty(value: str, field_name: str) -> None:

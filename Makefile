@@ -1,4 +1,8 @@
-.PHONY: lint format-check fix ty test fast-ci clean
+.DEFAULT_GOAL := check
+
+.PHONY: check lint format-check fix ty test fast-ci clean
+
+check: lint format-check ty test
 
 lint:
 	uv run ruff check
@@ -16,14 +20,7 @@ ty:
 test:
 	uv run pytest -n auto
 
-fast-ci:
-	@echo "=== Fast CI ===" && \
-	exit_code=0; \
-	echo "\n--- Lint ---" && uv run ruff check || exit_code=1; \
-	echo "\n--- Format Check ---" && uv run ruff format --check || exit_code=1; \
-	echo "\n--- ty ---" && uv run ty check || exit_code=1; \
-	echo "\n--- Tests ---" && uv run pytest -n auto || exit_code=1; \
-	exit $$exit_code
+fast-ci: check
 
 clean:
 	rm -rf dist/*.whl dist/*.tar.gz
