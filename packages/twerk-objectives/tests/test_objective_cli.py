@@ -43,10 +43,6 @@ def test_objective_json_list_schema() -> None:
 
 def test_objective_public_commands_have_json_counterparts() -> None:
     json_group = cli_group.commands["json"]
-    public_commands = {
-        name
-        for name in cli_group.commands
-        if name != "json"
-    }
+    public_commands = {name for name in cli_group.commands if name != "json"}
 
     assert public_commands <= set(json_group.commands)
