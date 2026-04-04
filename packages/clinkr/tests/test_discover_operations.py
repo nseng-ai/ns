@@ -10,8 +10,8 @@ from typing import Any
 
 from click.testing import CliRunner
 
-from clinkr.group import ClinkrGroup
-from clinkr.machine_command import MachineCommandError
+from clinkr.command import ClinkrCommandError
+from clinkr.group import discover_operations
 from clinkr.operation import clinkr_operation
 
 
@@ -29,7 +29,7 @@ class PingResult:
 
 
 @clinkr_operation(name="ping", help="Ping.", aliases=("p",))
-def run_ping(request: PingRequest) -> PingResult | MachineCommandError:
+def run_ping(request: PingRequest) -> PingResult | ClinkrCommandError:
     return PingResult(pong=True)
 
 
@@ -64,8 +64,7 @@ def test_discover_finds_decorated_operations() -> None:
         # and our fake package has an empty __path__, we put the
         # decorated function directly on the root package module.
         pkg.run_ping = run_ping  # type: ignore[attr-defined]
-        group = ClinkrGroup("test", help="Test.")
-        group.discover_operations(pkg_name)
+        group = discover_operations(pkg_name)
 
         assert "ping" in group.commands
         assert "ping" in group.json_group.commands
@@ -82,8 +81,7 @@ def test_discover_alias_works() -> None:
     mod_name = f"{pkg_name}.ops"
     with _fake_package(pkg_name, mod_name, run_ping) as pkg:
         pkg.run_ping = run_ping  # type: ignore[attr-defined]
-        group = ClinkrGroup("test", help="Test.")
-        group.discover_operations(pkg_name)
+        group = discover_operations(pkg_name)
 
         runner = CliRunner()
         result = runner.invoke(group, ["p"])
@@ -96,8 +94,7 @@ def test_discover_empty_package() -> None:
     pkg_name = "_test_discover_empty_pkg"
     mod_name = f"{pkg_name}.ops"
     with _fake_package(pkg_name, mod_name):
-        group = ClinkrGroup("test", help="Test.")
-        group.discover_operations(pkg_name)
+        group = discover_operations(pkg_name)
         # Only the reserved 'json' subgroup should exist.
         public_commands = {n for n in group.commands if n != "json"}
         assert public_commands == set()

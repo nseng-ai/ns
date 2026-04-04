@@ -9,7 +9,7 @@ from clinkr.group import ClinkrGroup
 
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
-    return discover_group("twerk_objectives.cli")
+    return discover_group("twerk_objectives.cli.objective")
 
 
 def test_objective_list(cli_group: ClinkrGroup) -> None:

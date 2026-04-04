@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
-from clinkr.machine_command import MachineCommandError
+from clinkr.command import ClinkrCommandError
 
 _META_ATTR = "_clinkr_operation_meta"
 
@@ -67,7 +67,7 @@ def _extract_types_from_hints(
 
     The function must have exactly one parameter (the request) and a return
     annotation.  If the return type is a Union containing
-    ``MachineCommandError``, the error type is filtered out and the remaining
+    ``ClinkrCommandError``, the error type is filtered out and the remaining
     types become ``result_types``.
     """
     hints = get_type_hints(fn)
@@ -97,13 +97,13 @@ def _extract_types_from_hints(
 
     if origin is Union or origin is types.UnionType:
         args = get_args(return_hint)
-        result_types = tuple(a for a in args if a is not MachineCommandError)
+        result_types = tuple(a for a in args if a is not ClinkrCommandError)
         if not result_types:
             raise TypeError(
                 f"clinkr_operation function {fn.__qualname__}: "
-                "return type union contains only MachineCommandError"
+                "return type union contains only ClinkrCommandError"
             )
-    elif isinstance(return_hint, type) and return_hint is not MachineCommandError:
+    elif isinstance(return_hint, type) and return_hint is not ClinkrCommandError:
         result_types = (return_hint,)
     else:
         raise TypeError(

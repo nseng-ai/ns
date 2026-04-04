@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from clinkr.machine_command import MachineCommandError
+from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation, get_operation_meta
 
 
@@ -20,7 +20,7 @@ class FakeResult:
 
 def test_decorator_attaches_metadata() -> None:
     @clinkr_operation(name="greet", help="Say hi.", aliases=("hi",))
-    def greet(request: FakeRequest) -> FakeResult | MachineCommandError:
+    def greet(request: FakeRequest) -> FakeResult | ClinkrCommandError:
         return FakeResult(message=f"hello {request.name}")
 
     meta = get_operation_meta(greet)
@@ -87,8 +87,8 @@ def test_error_only_machine_command_error_return() -> None:
     with pytest.raises(TypeError, match="cannot infer result_types"):
 
         @clinkr_operation(name="op")
-        def op(request: FakeRequest) -> MachineCommandError:
-            return MachineCommandError(error_type="x", message="y")
+        def op(request: FakeRequest) -> ClinkrCommandError:
+            return ClinkrCommandError(error_type="x", message="y")
 
 
 def test_custom_human_renderer() -> None:

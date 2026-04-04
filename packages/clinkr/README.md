@@ -10,23 +10,23 @@ uv add clinkr
 
 ## Quick Start
 
-Define a group with `@clinkr_group`, put operations in the same package, and use `discover_group` to assemble everything:
+Define a group with `@clinkr_group`, put operations in the same package, and use `discover_group` to assemble everything. The subpackage after `cli/` is the group name, and each submodule is a command:
 
 ```python
-# myapp/cli/__init__.py
+# myapp/cli/myapp/__init__.py
 from clinkr import ClinkrGroup, clinkr_group
 
 
 @clinkr_group(help="My application.")
 def myapp() -> ClinkrGroup:
-    return ClinkrGroup()
+    return ClinkrGroup.discover_subcommands()
 ```
 
 ```python
-# myapp/cli/greet.py
+# myapp/cli/myapp/greet.py
 from dataclasses import dataclass
 
-from clinkr.machine_command import MachineCommandError
+from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
 
 
@@ -42,7 +42,7 @@ class GreetResult:
 
 
 @clinkr_operation(name="greet", help="Greet someone by name.")
-def greet(request: GreetRequest) -> GreetResult | MachineCommandError:
+def greet(request: GreetRequest) -> GreetResult | ClinkrCommandError:
     greeting = f"Hello, {request.name}!"
     if request.loud:
         greeting = greeting.upper()
@@ -53,7 +53,7 @@ def greet(request: GreetRequest) -> GreetResult | MachineCommandError:
 # myapp/main.py
 from clinkr import discover_group
 
-app = discover_group("myapp.cli")
+app = discover_group("myapp.cli.myapp")
 ```
 
 `discover_group` imports the module, finds the `@clinkr_group`-decorated function, calls it to get a `ClinkrGroup`, applies the help text, and auto-discovers all `@clinkr_operation` functions in the package.
@@ -113,7 +113,7 @@ from clinkr import ClinkrGroup, clinkr_group
 
 @clinkr_group(help="Manage users.")
 def users() -> ClinkrGroup:
-    return ClinkrGroup()
+    return ClinkrGroup.discover_subcommands()
 ```
 
 ```python
@@ -159,11 +159,11 @@ Each `ClinkrGroup` gets its own `json` subgroup, so the machine-readable path is
 
 ### `@clinkr_operation`
 
-Decorator that marks a function as a clinkr operation. The function must accept exactly one parameter (the request dataclass) and return a result dataclass or `MachineCommandError`. Request type and result types are inferred from type annotations.
+Decorator that marks a function as a clinkr operation. The function must accept exactly one parameter (the request dataclass) and return a result dataclass or `ClinkrCommandError`. Request type and result types are inferred from type annotations.
 
 ```python
 @clinkr_operation(name="foo", help="Do foo.", aliases=("f",))
-def foo(request: FooRequest) -> FooResult | MachineCommandError:
+def foo(request: FooRequest) -> FooResult | ClinkrCommandError:
     ...
 ```
 
@@ -207,7 +207,7 @@ Pass a `human_renderer` to `@clinkr_operation` to control how results are displa
 |---|---|
 | `operation` | `@clinkr_operation` decorator and metadata |
 | `group` | `ClinkrGroup`, `@clinkr_group` decorator, `discover_group` entry point |
-| `machine_command` | JSON stdin/stdout wiring and `--schema` flag |
+| `command` | JSON stdin/stdout wiring and `--schema` flag |
 | `machine_schema` | JSON Schema generation from dataclasses |
 | `params` | Dataclass-to-Click parameter extraction |
 | `rendering` | Default human output renderer |

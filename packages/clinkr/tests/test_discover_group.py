@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
+from clinkr.command import ClinkrCommandError
 from clinkr.group import (
     ClinkrGroup,
     ClinkrGroupMeta,
@@ -18,7 +19,6 @@ from clinkr.group import (
     discover_group,
     get_group_meta,
 )
-from clinkr.machine_command import MachineCommandError
 from clinkr.operation import clinkr_operation
 
 # -- fixtures ----------------------------------------------------------------
@@ -38,7 +38,7 @@ class PingResult:
 
 
 @clinkr_operation(name="ping", help="Ping.", aliases=("p",))
-def run_ping(request: PingRequest) -> PingResult | MachineCommandError:
+def run_ping(request: PingRequest) -> PingResult | ClinkrCommandError:
     return PingResult(pong=True)
 
 
@@ -105,11 +105,11 @@ class TestDiscoverGroup:
     def test_basic(self) -> None:
         @clinkr_group(help="Manage users.")
         def users() -> ClinkrGroup:
-            return ClinkrGroup()
+            return ClinkrGroup(operations=[run_ping])
 
         with _fake_package(
             "_test_dg_basic",
-            init_attrs={"users": users, "run_ping": run_ping},
+            init_attrs={"users": users},
         ):
             group = discover_group("_test_dg_basic")
 
@@ -172,11 +172,11 @@ class TestDiscoverGroup:
     def test_alias_works(self) -> None:
         @clinkr_group(help="Aliases.")
         def aliased() -> ClinkrGroup:
-            return ClinkrGroup()
+            return ClinkrGroup(operations=[run_ping])
 
         with _fake_package(
             "_test_dg_alias",
-            init_attrs={"aliased": aliased, "run_ping": run_ping},
+            init_attrs={"aliased": aliased},
         ):
             group = discover_group("_test_dg_alias")
 
