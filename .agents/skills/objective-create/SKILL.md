@@ -60,6 +60,7 @@ Pull the following from the conversation and any lightweight codebase
 exploration:
 
 - target outcome
+- done-when conditions (concrete, verifiable against the codebase)
 - why it matters
 - constraints or non-goals
 - relevant implementation context

@@ -7,6 +7,11 @@
 - [Why the work matters now]
 - [Who or what benefits]
 
+## Done When
+
+- [Concrete, verifiable condition that the LM can evaluate against the codebase]
+- [Another condition]
+
 ## Scope And Constraints
 
 - [Important constraint, invariant, or non-goal]
