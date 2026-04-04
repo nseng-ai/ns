@@ -61,11 +61,26 @@ exploration:
 - completion criteria (concrete, verifiable against the codebase)
 - why it matters
 - constraints or non-goals
+- assumptions, risks, and open questions
 - relevant implementation context
 - optional initial next steps
 
 Only explore the codebase when it improves the issue. Do not do broad research
 just to make the issue look more formal.
+
+### 1b. Discovery (for non-trivial objectives)
+
+For objectives that span multiple sessions, phases, or significant refactors,
+do targeted discovery before drafting the issue:
+
+- Inspect relevant architecture, conventions, and adjacent systems
+- Read likely code paths and identify dependencies
+- Note assumptions that could be wrong and risks that could change the plan
+- Capture open questions that need to be resolved early
+
+Skip this step for small, clear-cut objectives where the path is obvious.
+The goal is to write a better initial plan, not to exhaustively survey the
+codebase.
 
 ### 2. Draft the issue
 
@@ -85,6 +100,10 @@ Body guidance:
 - Include exploration context only if it would help a future implementer.
 - If the user already described phases or milestones, include a brief `## Initial
   Plan` or `## Initial Next Steps` section. Otherwise keep it simpler.
+- Include an `## Assumptions & Risks` section when there are meaningful
+  assumptions, risks, or open questions. Each entry should be labeled as an
+  assumption, risk, or open question. This section is the starting point for
+  future sessions to validate against reality.
 
 If the user explicitly wants to review the draft before issue creation, show the
 draft and wait. Otherwise, create the issue once the objective is clear.
