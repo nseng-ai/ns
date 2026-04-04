@@ -1,6 +1,6 @@
 ---
 name: objective-create
-description: "Create a GitHub issue for a new twerk objective. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough project brief into an issue-backed objective, or create something that should later appear in `twerk objective list`. This version is intentionally simpler than the erk workflow: keep it prompt-driven, use plain markdown, apply the `twerk-objective` label, and create the issue with `gh`."
+description: "Create a GitHub issue for a new twerk objective. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough project brief into an issue-backed objective, or create something that should later appear in `twerk objective list`. Keep it prompt-driven, use plain markdown, apply the `twerk-objective` label, and create the issue with `gh`."
 allowed-tools:
   - "Bash(gh issue *)"
   - "Bash(gh label *)"
@@ -12,15 +12,13 @@ allowed-tools:
 
 Use this skill to create a lightweight, issue-backed objective for `twerk`.
 
-This is inspired by `erk`'s `objective-create` flow, but do not port over the
-heavy machinery. In particular:
+Keep the design simple:
 
 - Do not generate roadmap metadata blocks.
 - Do not split content between the issue body and a first comment.
 - Do not require a formal phase structure unless the user already wants one.
 
-For `twerk`, the first version is simple: a good GitHub issue plus the
-`twerk-objective` label.
+A good GitHub issue plus the `twerk-objective` label is all you need.
 
 ## Goal
 
@@ -60,7 +58,7 @@ Pull the following from the conversation and any lightweight codebase
 exploration:
 
 - target outcome
-- done-when conditions (concrete, verifiable against the codebase)
+- completion criteria (concrete, verifiable against the codebase)
 - why it matters
 - constraints or non-goals
 - relevant implementation context
@@ -133,7 +131,7 @@ If you created the label during this run, mention that explicitly.
 
 ## Anti-Patterns
 
-- Porting erk's metadata blocks or comment-backed storage model
+- Generating metadata blocks or comment-backed storage models
 - Forcing a roadmap or node graph when the user only needs an objective issue
 - Creating the issue without the `twerk-objective` label
 - Asking a long interview sequence before drafting anything

@@ -2,6 +2,11 @@
 
 [One or two short paragraphs describing the target outcome in plain language.]
 
+## Completion Criteria
+
+- [Concrete, verifiable condition that can be evaluated against the codebase]
+- [Another condition]
+
 ## Why This Matters
 
 - [Why the work matters now]
