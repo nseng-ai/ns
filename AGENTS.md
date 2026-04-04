@@ -1,6 +1,11 @@
 # Skills
 A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.
 
+### Package Import Rules
+- Packages in this repo do **not** publicly re-export symbols from `__init__.py`. Package `__init__.py` files should be empty or contain only a docstring.
+- Consumers must import from the canonical source module (e.g., `from clinkr.group import ClinkrGroup`, not `from clinkr import ClinkrGroup`).
+- Do not use `__all__` or `import X as X` re-export patterns in `__init__.py` files.
+
 ### Vendored Skill Code
 - Treat all files under `.agents/skills/` as vendored third-party code.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`, so the same vendored-code rule applies there.

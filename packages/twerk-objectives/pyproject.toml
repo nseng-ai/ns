@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [project.entry-points."twerk.plugins"]
-objectives = "twerk_objectives.cli"
+objectives = "twerk_objectives.cli.objective"
 
 [build-system]
 requires = ["hatchling"]

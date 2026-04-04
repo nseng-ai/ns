@@ -13,6 +13,7 @@ from clinkr.dataclass_json import (
     read_json_stdin,
     serialize_to_json_dict,
 )
+from clinkr.json_schema import build_json_schema_document
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class MachineCommandMeta:
 
 
 @dataclass(frozen=True)
-class MachineCommandError:
+class ClinkrCommandError:
     error_type: str
     message: str
 
@@ -50,7 +51,7 @@ def parse_machine_request(request_type: type, data: dict[str, Any]) -> Any:
     return parse_dataclass_from_json(request_type, data)
 
 
-def emit_machine_error(error: MachineCommandError) -> None:
+def emit_machine_error(error: ClinkrCommandError) -> None:
     emit_json_error(error_type=error.error_type, message=error.message)
 
 
@@ -85,9 +86,7 @@ def _apply_machine_command(
     def wrapped_callback(**kwargs: Any) -> Any:
         schema_mode = kwargs.pop("schema_mode", False)
         if schema_mode:
-            from clinkr.machine_schema import build_machine_schema_document
-
-            schema_doc = build_machine_schema_document(
+            schema_doc = build_json_schema_document(
                 request_type=request_type,
                 output_types=output_types,
             )
@@ -98,7 +97,7 @@ def _apply_machine_command(
             input_data = read_machine_command_input()
         except json.JSONDecodeError as exc:
             emit_machine_error(
-                MachineCommandError(
+                ClinkrCommandError(
                     error_type="invalid_json_input",
                     message=f"Invalid JSON: {exc}",
                 )
@@ -106,7 +105,7 @@ def _apply_machine_command(
             raise SystemExit(1) from None
         except ValueError as exc:
             emit_machine_error(
-                MachineCommandError(
+                ClinkrCommandError(
                     error_type="invalid_json_input",
                     message=str(exc),
                 )
@@ -120,7 +119,7 @@ def _apply_machine_command(
             kwargs["request"] = parse_machine_request(request_type, input_data)
         except ValueError as exc:
             emit_machine_error(
-                MachineCommandError(
+                ClinkrCommandError(
                     error_type="invalid_request",
                     message=str(exc),
                 )
@@ -134,14 +133,14 @@ def _apply_machine_command(
             if error_type is None:
                 raise
             emit_machine_error(
-                MachineCommandError(
+                ClinkrCommandError(
                     error_type=str(error_type),
                     message=exc.format_message(),
                 )
             )
             raise SystemExit(1) from None
 
-        if isinstance(result, MachineCommandError):
+        if isinstance(result, ClinkrCommandError):
             emit_machine_error(result)
             raise SystemExit(1)
 

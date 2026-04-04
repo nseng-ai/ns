@@ -157,8 +157,7 @@ class ObjectiveGraph:
                 return node
         return None
 
-    @property
-    def open_nodes(self) -> tuple[ObjectiveNode, ...]:
+    def get_open_nodes(self) -> tuple[ObjectiveNode, ...]:
         return tuple(node for node in self.nodes if not node.is_terminal)
 
 
@@ -189,8 +188,7 @@ class ObjectiveRoadmapLayout:
         if len(set(keys)) != len(keys):
             raise ValueError("Roadmap section keys must be unique")
 
-    @property
-    def ordered_node_ids(self) -> tuple[str, ...]:
+    def get_ordered_node_ids(self) -> tuple[str, ...]:
         return tuple(node_id for section in self.sections for node_id in section.node_ids)
 
 
@@ -280,7 +278,7 @@ class ObjectiveSnapshot:
             return
 
         known_ids = {node.id for node in self.graph.nodes}
-        ordered_ids = self.roadmap_layout.ordered_node_ids
+        ordered_ids = self.roadmap_layout.get_ordered_node_ids()
         if len(set(ordered_ids)) != len(ordered_ids):
             raise ValueError("Roadmap layout cannot render the same node more than once")
 

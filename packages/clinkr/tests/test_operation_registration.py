@@ -7,8 +7,9 @@ from typing import Annotated
 import click
 from click.testing import CliRunner
 
+from clinkr.command import ClinkrCommandError
 from clinkr.group import ClinkrGroup
-from clinkr.machine_command import MachineCommandError
+from clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
@@ -25,22 +26,14 @@ class GreetResult:
         return {"message": self.message}
 
 
-def _greet(request: GreetRequest) -> GreetResult | MachineCommandError:
+@clinkr_operation(name="greet", help="Greet someone.", aliases=("hi",))
+def _greet(request: GreetRequest) -> GreetResult | ClinkrCommandError:
     punctuation = "!" if request.excited else "."
     return GreetResult(message=f"hello {request.name}{punctuation}")
 
 
 def _make_group() -> ClinkrGroup:
-    group = ClinkrGroup("test", help="Test group.")
-    group.register_operation(
-        "greet",
-        operation=_greet,
-        request_type=GreetRequest,
-        result_types=(GreetResult,),
-        help="Greet someone.",
-        aliases=("hi",),
-    )
-    return group
+    return ClinkrGroup("test", help="Test group.", operations=[_greet])
 
 
 def test_human_command_exists() -> None:
@@ -104,14 +97,12 @@ def test_custom_renderer() -> None:
     def custom_renderer(result: GreetResult) -> None:
         click.echo(f"CUSTOM: {result.message}")
 
-    group = ClinkrGroup("test", help="Test.")
-    group.register_operation(
-        "greet",
-        operation=_greet,
-        request_type=GreetRequest,
-        result_types=(GreetResult,),
-        human_renderer=custom_renderer,
-    )
+    @clinkr_operation(name="greet", help="Greet.", human_renderer=custom_renderer)
+    def greet_custom(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+        punctuation = "!" if request.excited else "."
+        return GreetResult(message=f"hello {request.name}{punctuation}")
+
+    group = ClinkrGroup("test", help="Test.", operations=[greet_custom])
 
     runner = CliRunner()
     result = runner.invoke(group, ["greet", "alice"])
@@ -120,16 +111,11 @@ def test_custom_renderer() -> None:
 
 
 def test_error_handling_human() -> None:
-    def failing_op(request: GreetRequest) -> GreetResult | MachineCommandError:
-        return MachineCommandError(error_type="boom", message="it broke")
+    @clinkr_operation(name="fail", help="Always fails.")
+    def failing_op(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+        return ClinkrCommandError(error_type="boom", message="it broke")
 
-    group = ClinkrGroup("test", help="Test.")
-    group.register_operation(
-        "fail",
-        operation=failing_op,
-        request_type=GreetRequest,
-        result_types=(GreetResult,),
-    )
+    group = ClinkrGroup("test", help="Test.", operations=[failing_op])
 
     runner = CliRunner()
     result = runner.invoke(group, ["fail", "alice"])
@@ -138,16 +124,11 @@ def test_error_handling_human() -> None:
 
 
 def test_error_handling_json() -> None:
-    def failing_op(request: GreetRequest) -> GreetResult | MachineCommandError:
-        return MachineCommandError(error_type="boom", message="it broke")
+    @clinkr_operation(name="fail", help="Always fails.")
+    def failing_op(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+        return ClinkrCommandError(error_type="boom", message="it broke")
 
-    group = ClinkrGroup("test", help="Test.")
-    group.register_operation(
-        "fail",
-        operation=failing_op,
-        request_type=GreetRequest,
-        result_types=(GreetResult,),
-    )
+    group = ClinkrGroup("test", help="Test.", operations=[failing_op])
 
     runner = CliRunner()
     result = runner.invoke(group, ["json", "fail"], input='{"name": "alice"}')
@@ -173,16 +154,11 @@ class EmptyResult:
 def test_empty_request_no_args() -> None:
     """Operations with no-field request types work without CLI arguments."""
 
+    @clinkr_operation(name="list", help="List.")
     def list_op(request: EmptyRequest) -> EmptyResult:
         return EmptyResult(count=0)
 
-    group = ClinkrGroup("test", help="Test.")
-    group.register_operation(
-        "list",
-        operation=list_op,
-        request_type=EmptyRequest,
-        result_types=(EmptyResult,),
-    )
+    group = ClinkrGroup("test", help="Test.", operations=[list_op])
 
     runner = CliRunner()
     result = runner.invoke(group, ["list"])
@@ -198,29 +174,27 @@ def test_json_parity_enforced() -> None:
     assert public_commands <= set(group.json_group.commands)
 
 
+@dataclass(frozen=True)
+class SearchRequest:
+    query: Annotated[str, click.Argument(["query"])]
+    limit: Annotated[int, click.Option(["--limit", "-n"])] = 10
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    results: tuple[str, ...]
+
+    def to_json_dict(self) -> dict[str, list[str]]:
+        return {"results": list(self.results)}
+
+
+@clinkr_operation(name="search", help="Search.")
+def _search_op(request: SearchRequest) -> SearchResult:
+    return SearchResult(results=(f"found: {request.query}",) * request.limit)
+
+
 def test_annotated_params() -> None:
-    @dataclass(frozen=True)
-    class SearchRequest:
-        query: Annotated[str, click.Argument(["query"])]
-        limit: Annotated[int, click.Option(["--limit", "-n"])] = 10
-
-    @dataclass(frozen=True)
-    class SearchResult:
-        results: tuple[str, ...]
-
-        def to_json_dict(self) -> dict[str, list[str]]:
-            return {"results": list(self.results)}
-
-    def search_op(request: SearchRequest) -> SearchResult:
-        return SearchResult(results=(f"found: {request.query}",) * request.limit)
-
-    group = ClinkrGroup("test", help="Test.")
-    group.register_operation(
-        "search",
-        operation=search_op,
-        request_type=SearchRequest,
-        result_types=(SearchResult,),
-    )
+    group = ClinkrGroup("test", help="Test.", operations=[_search_op])
 
     runner = CliRunner()
     result = runner.invoke(group, ["search", "hello", "--limit", "2"])

@@ -5,7 +5,7 @@ from typing import Any
 from clinkr.dataclass_json import ERROR_SCHEMA, output_schema, request_schema
 
 
-def build_machine_schema_document(
+def build_json_schema_document(
     *,
     request_type: type,
     output_types: tuple[type, ...],

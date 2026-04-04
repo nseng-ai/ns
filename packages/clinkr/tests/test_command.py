@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import click
 from click.testing import CliRunner
 
-from clinkr.machine_command import MachineCommandError, machine_command
+from clinkr.command import ClinkrCommandError, machine_command
 
 
 @dataclass(frozen=True)
@@ -60,9 +60,9 @@ def test_machine_command_emits_structured_error_results() -> None:
 
     @machine_command(request_type=EmptyRequest, output_types=(GreetingResult,))
     @click.command("fail")
-    def fail(*, request: EmptyRequest) -> MachineCommandError:
+    def fail(*, request: EmptyRequest) -> ClinkrCommandError:
         del request
-        return MachineCommandError(error_type="boom", message="it broke")
+        return ClinkrCommandError(error_type="boom", message="it broke")
 
     runner = CliRunner()
     result = runner.invoke(fail, [], input="")
