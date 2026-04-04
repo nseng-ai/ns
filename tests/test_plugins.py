@@ -44,7 +44,7 @@ class TestDiscoverPlugins:
 class TestPluginIntegration:
     def test_objective_plugin(self) -> None:
         parent = click.Group("test")
-        ep = FakePluginEntryPoint(name="objectives", value="twerk_objectives.cli")
+        ep = FakePluginEntryPoint(name="objectives", value="twerk_objectives.cli.objective")
 
         discover_plugins(parent, source=_entry_point_source(ep))
 

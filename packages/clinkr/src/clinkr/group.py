@@ -22,7 +22,7 @@ class ClinkrGroup(click.Group):
     command aliases.
 
     All operations must be provided at construction time via the
-    ``operations`` parameter.  The group is immutable after ``__init__``.
+    ``operations`` parameter. The group is immutable after ``__init__``.
     """
 
     def __init__(
@@ -210,7 +210,7 @@ def clinkr_group(
 ) -> Callable[[Callable[..., ClinkrGroup]], Callable[..., ClinkrGroup]]:
     """Marker decorator for group definitions.
 
-    Stores top-level display metadata (help string).  The decorated
+    Stores top-level display metadata (help string). The decorated
     function must return a :class:`ClinkrGroup`.
     """
 
@@ -227,11 +227,12 @@ def get_group_meta(fn: Any) -> ClinkrGroupMeta | None:
 
 
 def discover_group(module_path: str) -> ClinkrGroup:
-    """Import a module, find its ``@clinkr_group``-decorated function,
-    call it, and apply metadata.
+    """Import a module, auto-discover operations, and optionally apply group
+    metadata.
 
-    The group **name** is taken from the decorated function's name.
-    The **help** string comes from the ``@clinkr_group`` decorator.
+    If a ``@clinkr_group``-decorated function is present, its return value and
+    metadata are used. Otherwise, a default :class:`ClinkrGroup` is created
+    from discovered operations and named from the module path.
     """
     module = importlib.import_module(module_path)
 
@@ -251,7 +252,12 @@ def discover_group(module_path: str) -> ClinkrGroup:
             meta = found
 
     if group_fn is None:
-        raise ValueError(f"Module {module_path!r} has no @clinkr_group-decorated function")
+        group = discover_operations(module_path)
+        group.name = module.__name__.rpartition(".")[2]
+        module_help = inspect.getdoc(module)
+        if module_help:
+            group.help = module_help
+        return group
 
     group = group_fn()
     if not isinstance(group, ClinkrGroup):

@@ -3,8 +3,7 @@ from __future__ import annotations
 import pytest
 from click.testing import CliRunner
 
-from clinkr import discover_group
-from clinkr.group import ClinkrGroup
+from clinkr.group import ClinkrGroup, discover_group
 
 
 @pytest.fixture(scope="module")
@@ -30,7 +29,8 @@ def test_objective_help(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["--help"])
     assert result.exit_code == 0
-    assert "Manage objectives" in result.output
+    assert "Usage: objective" in result.output
+    assert "Manage objectives." in result.output
     assert "json" in result.output
     assert "list" in result.output
 

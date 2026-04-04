@@ -136,10 +136,26 @@ class TestDiscoverGroup:
 
         assert group.name == "my_custom_name"
 
-    def test_errors_no_decorator(self) -> None:
-        with _fake_package("_test_dg_none"):
-            with pytest.raises(ValueError, match="has no @clinkr_group-decorated function"):
-                discover_group("_test_dg_none")
+    def test_defaults_without_decorator(self) -> None:
+        with _fake_package(
+            "_test_dg_none",
+            init_attrs={"__doc__": "Manage users.", "run_ping": run_ping},
+        ):
+            group = discover_group("_test_dg_none")
+
+        assert group.name == "_test_dg_none"
+        assert group.help == "Manage users."
+        assert "ping" in group.commands
+
+        runner = CliRunner()
+        result = runner.invoke(group, ["ping"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["pong"] is True
+
+        help_result = runner.invoke(group, ["--help"])
+        assert help_result.exit_code == 0
+        assert "Manage users." in help_result.output
 
     def test_errors_multiple_decorators(self) -> None:
         @clinkr_group(help="One.")

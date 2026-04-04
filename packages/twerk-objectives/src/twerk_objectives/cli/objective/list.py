@@ -40,5 +40,4 @@ class ObjectiveListResult:
 def run_list_objectives(
     request: ObjectiveListRequest,
 ) -> ObjectiveListResult | ClinkrCommandError:
-    del request
     return ObjectiveListResult(objectives=())

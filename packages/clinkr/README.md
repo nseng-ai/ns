@@ -1,4 +1,4 @@
-# clinkr
+# clinkr: CLIs for Clankers
 
 A library for building Click CLI commands that are both human-friendly and machine-readable. Define an operation once, get a standard CLI with options/arguments *and* a JSON-over-stdin/stdout variant automatically.
 
@@ -10,16 +10,17 @@ uv add clinkr
 
 ## Quick Start
 
-Define a group with `@clinkr_group`, put operations in the same package, and use `discover_group` to assemble everything. The subpackage after `cli/` is the group name, and each submodule is a command:
+The default API is:
+
+- Put operations in the same package
+- Set the package docstring to the group help text
+- Use `discover_group` to assemble everything
+
+The subpackage after `cli/` becomes the group name, and each submodule is a command:
 
 ```python
 # myapp/cli/myapp/__init__.py
-from clinkr import ClinkrGroup, clinkr_group
-
-
-@clinkr_group(help="My application.")
-def myapp() -> ClinkrGroup:
-    return ClinkrGroup.discover_subcommands()
+"""My application."""
 ```
 
 ```python
@@ -51,12 +52,12 @@ def greet(request: GreetRequest) -> GreetResult | ClinkrCommandError:
 
 ```python
 # myapp/main.py
-from clinkr import discover_group
+from clinkr.group import discover_group
 
 app = discover_group("myapp.cli.myapp")
 ```
 
-`discover_group` imports the module, finds the `@clinkr_group`-decorated function, calls it to get a `ClinkrGroup`, applies the help text, and auto-discovers all `@clinkr_operation` functions in the package.
+`discover_group` imports the module, auto-discovers all `@clinkr_operation` functions in the package, and builds a `ClinkrGroup` named from the module path. The module docstring becomes the default group help. If the module also defines a `@clinkr_group` function, that return value is used instead and its metadata is applied.
 
 This produces a human CLI and a machine CLI from the same operation:
 
@@ -92,39 +93,37 @@ $ myapp json greet --schema
 
 ## Nested Noun/Verb Structure
 
-For larger CLIs, define each noun group in its own package with a `@clinkr_group`-decorated function, then assemble them under a parent `click.Group` using `discover_group`:
+For larger CLIs, define each noun group in its own package and let the package docstring carry the group help:
 
 ```
 myapp/
   cli/
     users/
-      __init__.py    <- @clinkr_group decorated function
+      __init__.py    <- default group help via module docstring
       list.py        <- @clinkr_operation functions
       create.py
     projects/
-      __init__.py    <- @clinkr_group decorated function
+      __init__.py    <- default group help via module docstring
       list.py
       create.py
 ```
 
 ```python
 # myapp/cli/users/__init__.py
-from clinkr import ClinkrGroup, clinkr_group
-
-@clinkr_group(help="Manage users.")
-def users() -> ClinkrGroup:
-    return ClinkrGroup.discover_subcommands()
+"""Manage users."""
 ```
 
 ```python
 # myapp/main.py
 import click
-from clinkr import discover_group
+from clinkr.group import discover_group
 
 app = click.Group("myapp")
 app.add_command(discover_group("myapp.cli.users"))
 app.add_command(discover_group("myapp.cli.projects"))
 ```
+
+Use `@clinkr_group` only when the defaults are not enough and you need custom help metadata or a custom base `ClinkrGroup`.
 
 ```
 $ myapp users list --help
@@ -171,10 +170,14 @@ def foo(request: FooRequest) -> FooResult | ClinkrCommandError:
 
 The main entry point for assembling a group. Given a module path, it:
 
-1. Imports the module and finds the `@clinkr_group`-decorated function
-2. Calls it to get a `ClinkrGroup`
-3. Sets the group name from the function name and help from the decorator
-4. Auto-discovers `@clinkr_operation` functions in the package
+1. Imports the module and auto-discovers `@clinkr_operation` functions in the package
+2. Builds a default `ClinkrGroup` named from the module path
+3. Uses the module docstring as the default group help
+4. If present, applies a `@clinkr_group` function for custom group configuration and help metadata
+
+### `@clinkr_group`
+
+Optional decorator for packages that need custom help text or a custom base `ClinkrGroup`.
 
 ### `ClinkrGroup`
 
@@ -208,7 +211,7 @@ Pass a `human_renderer` to `@clinkr_operation` to control how results are displa
 | `operation` | `@clinkr_operation` decorator and metadata |
 | `group` | `ClinkrGroup`, `@clinkr_group` decorator, `discover_group` entry point |
 | `command` | JSON stdin/stdout wiring and `--schema` flag |
-| `machine_schema` | JSON Schema generation from dataclasses |
+| `json_schema` | JSON Schema generation from dataclasses |
 | `params` | Dataclass-to-Click parameter extraction |
 | `rendering` | Default human output renderer |
 | `dataclass_json` | JSON serialization, deserialization, and schema helpers |
