@@ -10,10 +10,20 @@ uv add clinkr
 
 ## Quick Start
 
-Define request/result dataclasses, decorate the operation function, and point a `ClinkrGroup` at the module:
+Define a group with `@clinkr_group`, put operations in the same package, and use `discover_group` to assemble everything:
 
 ```python
-# myapp/operations.py
+# myapp/cli/__init__.py
+from clinkr import ClinkrGroup, clinkr_group
+
+
+@clinkr_group(help="My application.")
+def myapp() -> ClinkrGroup:
+    return ClinkrGroup()
+```
+
+```python
+# myapp/cli/greet.py
 from dataclasses import dataclass
 
 from clinkr.machine_command import MachineCommandError
@@ -41,10 +51,12 @@ def greet(request: GreetRequest) -> GreetResult | MachineCommandError:
 
 ```python
 # myapp/main.py
-from clinkr.group import ClinkrGroup
+from clinkr import discover_group
 
-app = ClinkrGroup("myapp", discover="myapp.operations")
+app = discover_group("myapp.cli")
 ```
+
+`discover_group` imports the module, finds the `@clinkr_group`-decorated function, calls it to get a `ClinkrGroup`, applies the help text, and auto-discovers all `@clinkr_operation` functions in the package.
 
 This produces a human CLI and a machine CLI from the same operation:
 
@@ -80,22 +92,38 @@ $ myapp json greet --schema
 
 ## Nested Noun/Verb Structure
 
-For larger CLIs, nest `ClinkrGroup`s inside a parent `click.Group`. By convention, each noun group discovers from a module named after itself:
+For larger CLIs, define each noun group in its own package with a `@clinkr_group`-decorated function, then assemble them under a parent `click.Group` using `discover_group`:
+
+```
+myapp/
+  cli/
+    users/
+      __init__.py    <- @clinkr_group decorated function
+      list.py        <- @clinkr_operation functions
+      create.py
+    projects/
+      __init__.py    <- @clinkr_group decorated function
+      list.py
+      create.py
+```
 
 ```python
-# myapp/operations/
-#   users.py      <- @clinkr_operation functions for user management
-#   projects.py   <- @clinkr_operation functions for project management
+# myapp/cli/users/__init__.py
+from clinkr import ClinkrGroup, clinkr_group
+
+@clinkr_group(help="Manage users.")
+def users() -> ClinkrGroup:
+    return ClinkrGroup()
 ```
 
 ```python
 # myapp/main.py
 import click
-from clinkr.group import ClinkrGroup
+from clinkr import discover_group
 
 app = click.Group("myapp")
-app.add_command(ClinkrGroup("users", help="Manage users.", discover="myapp.operations.users"))
-app.add_command(ClinkrGroup("projects", help="Manage projects.", discover="myapp.operations.projects"))
+app.add_command(discover_group("myapp.cli.users"))
+app.add_command(discover_group("myapp.cli.projects"))
 ```
 
 ```
@@ -139,13 +167,21 @@ def foo(request: FooRequest) -> FooResult | MachineCommandError:
     ...
 ```
 
+### `discover_group`
+
+The main entry point for assembling a group. Given a module path, it:
+
+1. Imports the module and finds the `@clinkr_group`-decorated function
+2. Calls it to get a `ClinkrGroup`
+3. Sets the group name from the function name and help from the decorator
+4. Auto-discovers `@clinkr_operation` functions in the package
+
 ### `ClinkrGroup`
 
 A `click.Group` subclass that:
 
 - Auto-creates a `json` subgroup for machine-readable variants of every registered command
 - Supports command aliases
-- Accepts `discover="some.package"` to auto-discover `@clinkr_operation` functions at construction time
 
 ### Machine Commands
 
@@ -170,7 +206,7 @@ Pass a `human_renderer` to `@clinkr_operation` to control how results are displa
 | Module | Purpose |
 |---|---|
 | `operation` | `@clinkr_operation` decorator and metadata |
-| `group` | `ClinkrGroup` with registration, aliases, autodiscovery |
+| `group` | `ClinkrGroup`, `@clinkr_group` decorator, `discover_group` entry point |
 | `machine_command` | JSON stdin/stdout wiring and `--schema` flag |
 | `machine_schema` | JSON Schema generation from dataclasses |
 | `params` | Dataclass-to-Click parameter extraction |
