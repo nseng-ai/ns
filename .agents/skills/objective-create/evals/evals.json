@@ -1,0 +1,23 @@
+{
+  "skill_name": "objective-create",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create a twerk objective for replacing the current stubbed `twerk objective list` command with GitHub-backed discovery of open issues labeled `twerk-objective`. Keep the issue body plain markdown and capture the minimum structure needed for future work.",
+      "expected_output": "Creates or proposes a labeled GitHub issue with a concrete title, plain-markdown objective body, and enough context to implement GitHub-backed objective listing later.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I want to track a larger effort to add `twerk objective view` after `objective list` lands. The issue should explain that objectives live in GitHub issues, avoid copying erk's metadata-comment model, and leave room for later richer rendering.",
+      "expected_output": "Creates or proposes a `twerk-objective` issue focused on `objective view`, preserves the simplification constraints, and avoids inventing extra schema.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Turn this rough idea into a twerk objective issue: make the objective system independently adoptable, with GitHub as storage, and keep the first version lightweight enough that teams can use it without buying into plans or worktrees.",
+      "expected_output": "Creates or proposes a well-scoped objective issue that translates a rough brief into a readable title and body, includes the `twerk-objective` label, and captures the composability goal.",
+      "files": []
+    }
+  ]
+}

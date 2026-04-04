@@ -26,6 +26,11 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
+    "objective-create": {
+      "source": "/Users/schrockn/code/twerk/skills/objective-create",
+      "sourceType": "local",
+      "computedHash": "789d744647ddce17b41ace644319457fc9ff104377adcdf661372436742ad41f"
+    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
