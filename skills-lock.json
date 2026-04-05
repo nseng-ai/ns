@@ -31,6 +31,11 @@
       "sourceType": "local",
       "computedHash": "704ebdb011feab1762f5a15be8ac68dac31fbda9080cc076025bf2e0d3d52ae6"
     },
+    "objective-progress": {
+      "source": "/Users/schrockn/code/twerk/skills/objective-progress",
+      "sourceType": "local",
+      "computedHash": "e671205bf2b7f8e88e9fffec1aeaf20d4c5ecab939125bbdbb186fe656a5e3a5"
+    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
