@@ -1,6 +1,6 @@
 ---
 name: objective-create
-description: "Create a GitHub issue for a new twerk objective. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough project brief into an issue-backed objective, or create something that should later appear in `twerk objective list`. Keep it prompt-driven, use plain markdown, apply the `twerk-objective` label, and create the issue with `gh`."
+description: "Create a GitHub issue that anchors a twerk objective — a multi-session workstream whose primitive operation is 'make progress' via the objective-progress skill. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough brief into an issue-backed objective, or set up a lightweight control plane for a related series of PRs. The issue body is a curated context anchor with completion criteria, assumptions, risks, and either a roadmap or loose next steps — not a plain task ticket. Apply the `twerk-objective` label, use plain markdown, and create the issue with `gh`."
 allowed-tools:
   - "Bash(gh issue *)"
   - "Bash(gh label *)"
@@ -10,123 +10,141 @@ allowed-tools:
 
 # objective-create
 
-Use this skill to create a lightweight, issue-backed objective for `twerk`.
+Create a GitHub issue that serves as the **context anchor** for a twerk objective.
 
-Keep the design simple:
+## What an objective is
 
-- Do not generate roadmap metadata blocks.
-- Do not split content between the issue body and a first comment.
-- Do not require a formal phase structure unless the user already wants one.
+An objective is a multi-session workstream whose **primitive operation is
+"make progress"**. A sibling skill (`objective-progress`) repeatedly reads the
+issue, assesses the codebase, implements the next piece of work, and writes a
+reconciliation comment back. The issue body is the stable spec + curated
+context; the comments are the running progress log.
 
-A good GitHub issue plus the `twerk-objective` label is all you need.
+Two consequences shape this skill:
+
+1. **Context anchoring.** The issue must give a fresh agent session enough
+   curated context to start working *without re-deriving everything from
+   scratch*. Not a research dump — a deliberately chosen set of pointers,
+   constraints, and decisions. See Martin Fowler's
+   [context anchoring](https://martinfowler.com/articles/reduce-friction-ai/context-anchoring.html).
+
+2. **Structure follows the work.** Some objectives are genuinely exploratory
+   and want loose prose plus a few next steps. Others are a roadmap of
+   related PRs and want an ordered phase list that turns the objective into
+   a lightweight control plane for a series of PRs. Pick the shape that
+   matches what the user described — do not force one onto the other.
+
+An objective is **not** a plain issue. If the work is a single task that fits
+in one session with no need for preserved context across sessions, it should
+be a normal issue, not a twerk objective.
 
 ## Goal
 
 Create one GitHub issue that:
 
-- clearly states the objective
-- preserves useful context for future implementation
-- is labeled `twerk-objective`
-- can later be discovered by `twerk objective list`
+- states the outcome and concrete completion criteria
+- curates the context a future session will need (the anchor)
+- names the assumptions the plan rests on and the risks that could invalidate them
+- lays out roadmap vs. loose next steps at the right level of structure
+- is labeled `twerk-objective` so it shows up in `twerk objective list`
 
-## Core Rules
+## Core rules
 
-- Start from the current conversation. Ask follow-up questions only when the
-  issue would otherwise be ambiguous or misleading.
-- Keep the issue body readable by humans first. Plain markdown is enough.
-- Preserve real constraints, non-goals, and exploration notes when they matter.
-- Prefer a concise issue with clear sections over a giant planning document.
+- Start from the current conversation. Ask follow-ups only when a critical
+  detail is missing.
+- Curate context, don't dump it. Every bullet in the anchor should be there
+  because a future session will actually need it.
+- Match structure to the work. Do not force a roadmap onto a loose objective,
+  and do not leave a multi-PR refactor as freeform prose.
 - Always ensure the `twerk-objective` label exists before creating the issue.
 
-## When To Ask Questions
+## When to ask questions
 
 Ask at most 1-3 short questions only when a critical detail is missing:
 
-- the outcome is not clear enough to title the issue
+- the outcome isn't concrete enough to write completion criteria
+- you can't tell whether this is loose/exploratory or a structured roadmap
 - the scope has multiple plausible interpretations
-- the user has not given any success condition and that omission matters
 - there are important constraints or non-goals that need confirmation
 
-If the conversation already gives you enough context, draft and create the issue
-directly.
+If the conversation already gives you enough, draft and create directly.
 
 ## Workflow
 
-### 1. Capture the objective
+### 1. Decide the shape
 
-Pull the following from the conversation and any lightweight codebase
-exploration:
+Before drafting, classify the objective:
+
+- **Loose / exploratory** — outcome is known but the path isn't. Use prose +
+  `## Initial Next Steps`; skip the roadmap.
+- **Structured / roadmap** — the user described phases, milestones, or a
+  series of related PRs. Use `## Roadmap` with ordered, progressable items.
+- **Hybrid** — a known first phase, then TBD. Use `## Roadmap` for the known
+  part and mark later phases as open.
+
+If the choice is non-obvious, tell the user which shape you picked and why.
+
+### 2. Capture the objective
+
+Pull from the conversation (and targeted codebase reads only when they improve
+the anchor):
 
 - target outcome
-- completion criteria (concrete, verifiable against the codebase)
-- why it matters
-- constraints or non-goals
-- assumptions, risks, and open questions
-- relevant implementation context
-- optional initial next steps
+- completion criteria — concrete, verifiable conditions. `objective-progress`
+  evaluates these each session and uses them to decide when the objective can
+  be closed.
+- the curated context anchor — files, modules, patterns, prior decisions,
+  existing code a fresh session should read first
+- assumptions the plan rests on, and risks that could invalidate them.
+  `objective-progress` reviews these each session and flags invalidated ones.
+- roadmap or initial next steps, depending on the shape
+- scope boundaries and non-goals when they matter
 
-Only explore the codebase when it improves the issue. Do not do broad research
-just to make the issue look more formal.
+Do not do broad codebase research just to make the issue look formal. Do
+targeted reads when a specific pointer would meaningfully help a future
+session; otherwise, rely on the conversation.
 
-### 1b. Discovery (for non-trivial objectives)
+### 3. Draft the issue
 
-For objectives that span multiple sessions, phases, or significant refactors,
-do targeted discovery before drafting the issue:
-
-- Inspect relevant architecture, conventions, and adjacent systems
-- Read likely code paths and identify dependencies
-- Note assumptions that could be wrong and risks that could change the plan
-- Capture open questions that need to be resolved early
-
-Skip this step for small, clear-cut objectives where the path is obvious.
-The goal is to write a better initial plan, not to exhaustively survey the
-codebase.
-
-### 2. Draft the issue
-
-Use `references/body-template.md` as the default shape.
+Use `references/body-template.md` as the default shape. Omit sections that
+are genuinely empty rather than leaving placeholders.
 
 Title guidance:
 
 - Lead with the concrete outcome.
-- Make the title readable as a future list entry.
-- Avoid vague titles like "Investigate objective stuff" unless the objective is
-  explicitly exploratory.
+- Readable as a future list entry.
+- Avoid vague titles like "Investigate objective stuff" unless the objective
+  really is exploratory.
 
 Body guidance:
 
-- Prefer short prose plus bullets.
-- Omit empty sections instead of leaving placeholders.
-- Include exploration context only if it would help a future implementer.
-- If the user already described phases or milestones, include a brief `## Initial
-  Plan` or `## Initial Next Steps` section. Otherwise keep it simpler.
-- Include an `## Assumptions & Risks` section when there are meaningful
-  assumptions, risks, or open questions. Each entry should be labeled as an
-  assumption, risk, or open question. This section is the starting point for
-  future sessions to validate against reality.
+- Keep prose tight. Prefer bullets over paragraphs for the anchor sections.
+- Under **Context Anchor**, write pointers a fresh agent can act on: file
+  paths, module names, specific patterns to follow, prior decisions. Not
+  background essays. Ask yourself: "if a new session read only this, could
+  they start working?"
+- Under **Assumptions & Risks**, be explicit. Mark each item as an assumption
+  or a risk. These are the things `objective-progress` checks each session.
+- Under **Roadmap**, make items progressable: each should be something a
+  single session can meaningfully advance, phrased as an outcome.
 
-If the user explicitly wants to review the draft before issue creation, show the
-draft and wait. Otherwise, create the issue once the objective is clear.
+If the user explicitly wants to review the draft before issue creation, show
+the draft and wait. Otherwise, create the issue once the objective is clear.
 
-### 3. Ensure the label exists
-
-Before creating the issue, verify that the repository has a
-`twerk-objective` label. If it is missing, create it.
-
-Recommended commands:
+### 4. Ensure the label exists
 
 ```bash
 gh label list --limit 200
 gh label create twerk-objective --color 0e8a16 --description "Objective tracked by twerk"
 ```
 
-If you need to confirm the target repository first, inspect the current repo:
+If you need to confirm the target repository:
 
 ```bash
 git remote get-url origin
 ```
 
-### 4. Create the issue
+### 5. Create the issue
 
 Prefer `--body-file` over inline shell quoting.
 
@@ -134,24 +152,34 @@ Prefer `--body-file` over inline shell quoting.
 gh issue create --title "<title>" --body-file <temp-file> --label twerk-objective
 ```
 
-The issue body should be the full objective record for now. Do not create a
-follow-up metadata comment.
+The issue body is the full objective record. Do not create a follow-up
+metadata comment — progress updates are posted later by `objective-progress`.
 
-### 5. Report the result
+### 6. Report the result
 
 Always return:
 
 - issue number and URL
 - final title
+- which shape you used (loose / roadmap / hybrid)
 - confirmation that `twerk-objective` was applied
 - a one-line summary of what the issue captures
 
-If you created the label during this run, mention that explicitly.
+If you created the label during this run, mention it explicitly.
 
-## Anti-Patterns
+## Anti-patterns
 
-- Generating metadata blocks or comment-backed storage models
-- Forcing a roadmap or node graph when the user only needs an objective issue
-- Creating the issue without the `twerk-objective` label
-- Asking a long interview sequence before drafting anything
-- Dumping raw research into the issue without synthesis
+- Treating the issue as a plain task ticket. An objective is a context anchor
+  for repeated progress sessions.
+- Dumping raw research into the body instead of curating pointers. If a
+  bullet wouldn't actually help the next session, cut it.
+- Forcing a roadmap onto a loose objective, or leaving a structured multi-PR
+  workstream as freeform prose.
+- Omitting completion criteria — `objective-progress` can't evaluate closure
+  without them.
+- Omitting assumptions and risks — they are how future sessions detect that
+  the plan has drifted.
+- Generating metadata blocks, YAML frontmatter, or comment-backed storage
+  models. Plain markdown only.
+- Creating the issue without the `twerk-objective` label.
+- Asking a long interview before drafting anything.

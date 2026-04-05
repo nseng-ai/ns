@@ -1,47 +1,77 @@
+<!--
+Template for a twerk objective issue.
+
+Fill in every section that applies, then delete any section that is genuinely
+empty. Delete this HTML comment before creating the issue.
+
+Shape rules:
+  - Pick either `## Roadmap` (structured / multi-PR) OR `## Initial Next Steps`
+    (loose / exploratory). Not both.
+  - `## Completion Criteria`, `## Context Anchor`, and `## Assumptions & Risks`
+    are load-bearing — objective-progress reads and evaluates them each session.
+    Do not omit them unless the objective truly has none.
+-->
+
 # Objective
 
-[One or two short paragraphs describing the target outcome in plain language.]
+[One or two short paragraphs describing the target outcome in plain language.
+State what will be true when this objective is done, not the steps to get
+there.]
 
 ## Completion Criteria
 
-- [Concrete, verifiable condition that can be evaluated against the codebase]
+Concrete, verifiable conditions. `objective-progress` evaluates each of these
+against the codebase and uses them to decide when the objective is done.
+
+- [Condition that can be checked against the codebase, tests, or artifacts]
 - [Another condition]
 
-## Why This Matters
+## Context Anchor
 
-- [Why the work matters now]
-- [Who or what benefits]
+Curated pointers a fresh agent session should load before working on this
+objective. Pointers, not essays. If a bullet wouldn't actually help the next
+session, cut it.
 
-## Scope And Constraints
-
-- [Important constraint, invariant, or non-goal]
-- [Relevant implementation boundary]
+- [Relevant file or module path, and why it matters]
+- [Existing pattern to follow, with a concrete example location]
+- [Prior decision or constraint that shaped the current state]
+- [Related PRs, issues, or commits worth reading first]
 
 ## Assumptions & Risks
 
-- [Key assumption about the codebase, architecture, or approach]
-- [Risk that could change the plan or block progress]
-- [Open question that needs to be resolved]
+What the plan rests on, and what could invalidate it. `objective-progress`
+reviews these each session and flags ones that no longer hold.
 
-Mark each entry as an **assumption**, **risk**, or **open question** so future
-sessions can validate or invalidate them. Strike through entries as they are
-resolved (e.g., `~~assumption: X~~ confirmed in PR #N`).
+- **Assumption:** [Something we believe to be true about the codebase, the
+  environment, or the approach]
+- **Risk:** [Something that could invalidate an assumption or derail the plan]
 
-## Relevant Context
+## Roadmap
 
-- [Existing codepath, architecture note, or prior decision]
-- [Research or exploration result worth preserving]
+Ordered, progressable items. Use this section when the objective is a series
+of related PRs or phased work — it turns the issue into a lightweight control
+plane. Each item should be something a single session can meaningfully
+advance, phrased as an outcome.
+
+Replace this section with `## Initial Next Steps` for loose / exploratory
+objectives, or omit both if there is truly nothing concrete yet.
+
+1. [First phase or PR slice — outcome, not task list]
+2. [Next phase]
+3. [Later phase — "TBD" is acceptable if the path isn't clear yet]
 
 ## Initial Next Steps
 
-- [Concrete next step] → expected artifact: [PR, commit, doc, test plan]
-- [Concrete follow-up] → expected artifact: [PR, commit, doc, test plan]
+Use this section *instead of* `## Roadmap` for loose / exploratory objectives.
 
-## Notes
+- [First concrete step]
+- [Follow-up]
 
-- Omit sections that are genuinely empty.
-- Replace `## Initial Next Steps` with `## Initial Plan` when the user already
-  has a phased approach in mind.
-- When steps have clear expected outputs, annotate them with `→ expected
-  artifact: [type]`. This helps future sessions verify completion.
-- Keep the issue readable as a normal GitHub issue, not a custom schema.
+## Scope & Non-Goals
+
+- [Boundary, invariant, or non-goal worth preserving]
+
+## Why This Matters
+
+[Optional. Omit when the title and objective statement already make it
+obvious.]
