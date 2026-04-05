@@ -21,6 +21,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - gt-stackify-branch: Split a single mixed branch into a clean Graphite stack by planning PR slices, preserving the source branch, rebuilding each slice from trunk, validating the stack, and submitting it when requested. Use when the task is to turn one branch into 2+ stacked PRs. (file: /Users/schrockn/code/twerk/skills/gt-stackify-branch/SKILL.md)
 - objective-create: Create a GitHub issue for a new twerk objective. Use when the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough project brief into an issue-backed objective, or create something that should later appear in `twerk objective list`. (file: /Users/schrockn/code/twerk/skills/objective-create/SKILL.md)
 - skill-creator: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit or optimize an existing skill, or evaluate skill triggering/performance. (file: /Users/schrockn/code/twerk/.claude/skills/skill-creator/SKILL.md)
+- skill-management: Manage twerk skills with `npx skills`. Use whenever you need to add a new skill (local or from GitHub), edit an existing skill, remove one, update GitHub-sourced skills, inspect what's installed, or migrate a legacy copied local skill into the symlink-based single-source-of-truth layout. Documents the canonical `--agent codex claude-code -y` install flag and the manual symlink that replaces the copied `.agents/skills/<name>` directory. (file: /Users/schrockn/code/twerk/skills/skill-management/SKILL.md)
 
 ### How to use skills
 - Discovery: The list above is the skills available in this repo for Codex sessions. Skill bodies live on disk at the listed paths.
@@ -43,17 +44,4 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - Safety and fallback: If a skill can't be applied cleanly, state the issue, pick the next-best approach, and continue.
 
 ### Managing Skills With `npx skills`
-- Prefer `npx skills` over moving skill directories by hand.
-- Inspect installed project skills with `npx skills list --json`. Use `npx skills ls -g --json` for global installs and `npx skills --help` for flag details.
-- Use `skills-lock.json` as the source of truth for mapping a skill name to its GitHub source before reinstalling or migrating it.
-- To migrate a skill that only exists in `.claude/skills` into the shared project layout, reinstall it with both `codex` and `claude-code`: `npx skills add <owner>/<repo> --skill <skill-name> --agent codex claude-code -y`
-- If a repo contains multiple skills, pass all of them after `--skill`: `npx skills add dagster-io/fake-driven-testing --skill fake-driven-testing fdt-refactor-mock-to-fake --agent codex claude-code -y`
-- Do not use `--agent claude-code` by itself for this migration. That recopies files into `.claude/skills` instead of creating `.agents/skills/<name>` plus a `.claude/skills/<name>` symlink.
-- For repo-local skills under development, keep the canonical source in `skills/<name>/SKILL.md` and install it with a local path: `npx skills add ./skills/<name> --agent codex claude-code -y`
-- For repo-local skills under development, do not pass `--copy`. The default install creates a managed copy in `.agents/skills/<name>` and a `.claude/skills/<name>` symlink that points at that managed copy.
-- After editing a repo-local skill in `skills/<name>/`, rerun `npx skills add ./skills/<name> --agent codex claude-code -y` to refresh the installed copy. `skills-lock.json` records the local-path source.
-- Expected result after a successful migration:
-  `.agents/skills/<name>` contains the real skill files.
-  `.claude/skills/<name>` is a symlink to `../../.agents/skills/<name>`.
-  `git status` shows the old tracked `.claude/skills/<name>` files as deleted and the new symlink plus `.agents/` content as untracked until committed.
-- Use project scope by default. Add `-g` only when you explicitly want a user-level install.
+All skill-management procedures — adding, editing, removing, updating, listing, and migrating skills — are documented in the `skill-management` skill at `skills/skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical twerk install flag is `--agent codex claude-code -y`, and repo-local skills must have `.agents/skills/<name>` symlinked to `../../skills/<name>` to avoid duplicating content.
