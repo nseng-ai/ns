@@ -35,6 +35,11 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "b122f4d1e91aa1d83027e050b5b37c3156203ee85458d7b1360bc48167c9e02a"
+    },
+    "skill-management": {
+      "source": "/Users/schrockn/code/twerk/skills/skill-management",
+      "sourceType": "local",
+      "computedHash": "be5a4856e8772b6459fae1b1df0ba01d1b7456103ec69431e91160aa15f94840"
     }
   }
 }
