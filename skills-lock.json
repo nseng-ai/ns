@@ -31,6 +31,11 @@
       "sourceType": "local",
       "computedHash": "704ebdb011feab1762f5a15be8ac68dac31fbda9080cc076025bf2e0d3d52ae6"
     },
+    "nonslop-pytest": {
+      "source": "/Users/schrockn/code/twerk/skills/nonslop-pytest",
+      "sourceType": "local",
+      "computedHash": "c768bd8543c56a98c80cdbfd49f6d8d1d6847bce51dc5cbfeb8bac14bd68df87"
+    },
     "objective-progress": {
       "source": "/Users/schrockn/code/twerk/skills/objective-progress",
       "sourceType": "local",
