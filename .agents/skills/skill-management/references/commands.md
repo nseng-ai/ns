@@ -238,6 +238,21 @@ of the fetched content and is refreshed by `skills update`.
    `skills/<name>` (if it exists as a public symlink). Clean that up
    manually with `git rm skills/<name>`.
 
+6. **`add` and `list` filter skills with `metadata.internal: true` by
+   default.** A skill whose frontmatter contains
+   `metadata: { internal: true }` is excluded from `npx skills add`
+   discovery (both local-path and GitHub sources) unless the caller
+   passes `--skill <name>` explicitly or sets
+   `INSTALL_INTERNAL_SKILLS=1` in the environment. The same filter
+   applies to `npx skills list` / `list --json`, so internal skills are
+   invisible to inspect commands even when they are installed on disk
+   — use `ls -la .agents/skills/` and `grep '"<name>"' skills-lock.json`
+   to verify presence. This is the intended mechanism for separating a
+   repo's maintainer / dev-loop skills (e.g. `gt-stackify-branch`) from
+   its user-facing skills (e.g. `objective-create`) at install time.
+   See `skill-management/SKILL.md` → "Internal skills" for the twerk
+   convention.
+
 ## Reference: twerk's install flag
 
 The canonical twerk install flag is:

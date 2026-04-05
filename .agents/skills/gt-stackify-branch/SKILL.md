@@ -1,6 +1,8 @@
 ---
 name: gt-stackify-branch
 description: Split a single mixed branch into a Graphite stack by preserving the source branch, planning ordered PR slices, rebuilding each slice from trunk, validating the stack, and submitting PRs when requested.
+metadata:
+  internal: true
 allowed-tools:
   - "Bash(gt *)"
   - "Bash(git add *)"
