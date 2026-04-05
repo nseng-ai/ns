@@ -122,3 +122,27 @@ def test_local_sourced_skills_have_canonical_source():
         assert (canonical / "SKILL.md").is_file(), (
             f"local skill {name}: canonical source {canonical} has no SKILL.md"
         )
+
+
+def test_local_skills_agents_entry_is_symlink():
+    """For local skills, .agents/skills/<name> must be a symlink to ../../skills/<name>.
+
+    Without this, a local skill can be copied into .agents/skills/ (e.g. by an
+    accidental `npx skills add` rerun) and silently drift from its canonical
+    source in ./skills/<name>/. See skills/skill-management/SKILL.md Workflow 6.
+    """
+    for name, entry in _lock_skills().items():
+        if entry["sourceType"] != "local":
+            continue
+        agents_entry = AGENTS_SKILLS / name
+        assert agents_entry.is_symlink(), (
+            f".agents/skills/{name} must be a symlink (not a real directory) "
+            f"because {name} is a local skill. Run: "
+            f"git rm -rf .agents/skills/{name} && "
+            f"ln -s ../../skills/{name} .agents/skills/{name}"
+        )
+        target = Path(agents_entry.readlink()).as_posix()
+        expected = f"../../skills/{name}"
+        assert target == expected, (
+            f".agents/skills/{name} points to {target!r}, expected {expected!r}"
+        )
