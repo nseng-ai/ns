@@ -1,0 +1,359 @@
+---
+name: nonslop-pytest
+description: "Pytest-specific style guide for writing and reviewing tests. Use when deciding between fixtures / context managers / plain helper functions, choosing whether to write a test class or a module-level `test_*` function, using `@pytest.mark.parametrize` / `tmp_path` / `monkeypatch` / `capsys`, structuring `unittest.mock.patch` usage (context manager vs decorator, `autospec`, where to patch), or cleaning up `autouse` fixtures and conftest nesting. Prescribes functional-only style (no `class Test*`), a strict setup hierarchy (plain helpers > context managers > fixtures for expensive shared resources only), and mocking best practice (`monkeypatch` first, then `patch` as a context manager with `autospec`, narrow scope, patch at point of use). For architecture-level questions — gateway / fake design, where different kinds of tests belong, when to introduce a fake — use `fake-driven-testing` instead; this skill handles the pytest mechanics layer below it. For refactoring existing `unittest.mock.patch` code into the gateway/fake pattern, use `fdt-refactor-mock-to-fake`."
+---
+
+# nonslop-pytest
+
+Low-level style guide for writing pytest tests in twerk. Covers the mechanics
+— fixtures, classes, markers, mocking, setup patterns — that sit underneath
+the architectural guidance in `fake-driven-testing`.
+
+## Philosophy
+
+Tests are boring, explicit, and locally readable. If you have to trace
+through `conftest.py` files and fixtures to understand what a test does,
+you've gone wrong. A test should read top-to-bottom like a short story
+with no flashbacks: set up the scenario in the test body (or a helper
+called from the test body), do the thing, assert what you expected.
+
+## Relationship to fake-driven-testing
+
+`fake-driven-testing` is the higher-level, more opinionated skill. It
+answers *what* to test, *where* the test belongs in the defense-in-depth
+stack, and *how to structure the seam* between your code and its
+dependencies (ABC gateways, fakes). `nonslop-pytest` answers *how to write
+the test* once you've made those decisions. The two compose: use
+`fake-driven-testing` to design the test, use `nonslop-pytest` to write
+the Python. When the two seem to conflict, `fake-driven-testing` wins on
+architecture and `nonslop-pytest` wins on pytest mechanics.
+
+Some tests inside the fake-driven-testing stack legitimately need
+`unittest.mock.patch` (e.g. the thin boundary tests that exercise a
+gateway's real implementation against the stdlib). The mocking section
+below is written for exactly those cases, not as a general license to
+reach for mocks.
+
+## Style: functional only
+
+All tests are module-scope functions prefixed with `test_`. No
+JUnit-style test classes.
+
+```python
+# BAD
+class TestDiscoverGroup:
+    def test_basic(self) -> None:
+        ...
+    def test_errors_wrong_return_type(self) -> None:
+        ...
+
+# GOOD
+def test_discover_group_basic() -> None:
+    ...
+
+def test_discover_group_errors_wrong_return_type() -> None:
+    ...
+```
+
+The class wrapper adds indentation, a useless `self` parameter, and a
+second naming layer, and it makes test discovery output harder to skim.
+If you find yourself wanting a class to group related tests, use a
+shared prefix in the function names instead (`test_discover_group_*`)
+and put them next to each other in the file. That's all the grouping
+you need.
+
+## The reliable subset
+
+Use these pytest features. Don't reach for anything outside this list
+without a specific reason:
+
+- Plain `assert` and `pytest.raises(...)`
+- `@pytest.mark.parametrize`
+- Built-in fixtures: `tmp_path`, `tmp_path_factory`, `monkeypatch`, `capsys`, `capfd`
+- Markers: `@pytest.mark.skip`, `@pytest.mark.skipif`, `@pytest.mark.xfail`
+- `conftest.py` — sparingly, and never nested more than one level deep
+
+Things deliberately excluded from the reliable subset: `autouse`
+fixtures, `pytest.fixture` used as a data builder, yield fixtures for
+anything other than cleanup of an actually expensive shared resource,
+fixture factories (fixtures that return callables), and `tmpdir` /
+`tmpdir_factory` (use the `pathlib`-based `tmp_path` equivalents).
+
+## Setup hierarchy
+
+Three ways to prepare state for a test. Use them in this order of
+preference, and only move down the list when the level above genuinely
+can't do the job.
+
+### 1. Plain helper functions (the default)
+
+For building test data, constructing objects, and setting up scenarios,
+use a plain module-level function. Prefix it with `_` to mark it as
+test-local. Call it explicitly from each test that needs it. No
+pytest magic, no teardown, no fixture decorator.
+
+```python
+def _definition() -> ObjectiveDefinition:
+    return ObjectiveDefinition(
+        ref=ObjectiveRef(owner="dagster-io", repo="twerk", issue_number=42),
+        ...
+    )
+
+def test_objective_definition_round_trip() -> None:
+    defn = _definition()
+    ...
+```
+
+Real examples in twerk:
+- `tests/test_skills_management.py` — `_load_lock()`, `_lock_skills()`, `_dir_children()`
+- `packages/twerk-objectives/tests/test_models.py` — `_dt()`, `_definition()`, `_event()`
+- `packages/clinkr/tests/test_operation_registration.py` — `_make_group()`
+
+### 2. Context managers
+
+When a test needs per-test setup *with* teardown — patching
+`sys.modules`, writing to a temporary file outside `tmp_path`, swapping
+a process-global — write a `@contextmanager` helper function and use
+it with a `with` statement in each test. The `with` block makes the
+scope visible at the call site, and the `finally` clause makes the
+cleanup traceable without any pytest knowledge.
+
+```python
+@contextmanager
+def _fake_package(
+    package_name: str,
+    *,
+    init_attrs: dict[str, Any] | None = None,
+) -> Iterator[None]:
+    pkg = types.ModuleType(package_name)
+    pkg.__path__ = []
+    for attr_name, attr_value in (init_attrs or {}).items():
+        setattr(pkg, attr_name, attr_value)
+    sys.modules[package_name] = pkg
+    try:
+        yield
+    finally:
+        sys.modules.pop(package_name, None)
+
+def test_discover_group_basic() -> None:
+    with _fake_package("_test_dg_basic", init_attrs={"users": users}):
+        group = discover_group("_test_dg_basic")
+    ...
+```
+
+Real example: `packages/clinkr/tests/test_discover_group.py` uses
+`_fake_package()` for every test that needs a temporary package in
+`sys.modules`. This is the pattern to promote over yield fixtures.
+
+### 3. Fixtures (only for expensive shared resources)
+
+Reach for `@pytest.fixture` only when **both** of these are true:
+
+1. The resource is genuinely expensive to construct (CLI discovery,
+   test database, large file).
+2. The resource is shared across many tests in the same module or session.
+
+When you do use a fixture, give it `scope="module"` or `scope="session"`.
+Never use function-scoped fixtures as a convenience wrapper around a
+helper function — that's anti-pattern (3) in the next section.
+
+Fixtures should not have a `yield` unless they actually need to tear
+down the resource at the end of the scope. If there's nothing to clean
+up, just `return`.
+
+```python
+@pytest.fixture(scope="module")
+def cli_group() -> ClinkrGroup:
+    return discover_group("twerk_objectives.cli.objective")
+
+def test_objective_list(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["list"])
+    assert result.exit_code == 0
+```
+
+Real example: `packages/twerk-objectives/tests/test_objective_cli.py`
+has exactly one fixture (`cli_group`), scoped to the module, shared
+across six tests, wrapping an expensive discovery call, no yield. This
+is the shape every fixture in twerk should have.
+
+## Mocking best practice
+
+Mocking is allowed. Sometimes it is exactly what you need — thin boundary
+tests, stdlib seams, code where the gateway/fake approach from
+`fake-driven-testing` is the wrong tool for the job. When you do reach
+for a mock, follow these rules.
+
+### Prefer `monkeypatch` for simple swaps
+
+For replacing an attribute, an environment variable, or a `sys.path`
+entry, use pytest's built-in `monkeypatch` fixture. It's pytest-native,
+it has automatic teardown, and it makes the swap obvious at the call
+site.
+
+```python
+def test_resolves_config_path_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TWERK_CONFIG", "/tmp/custom.toml")
+    assert resolve_config_path() == Path("/tmp/custom.toml")
+```
+
+### Use `unittest.mock.patch` as a context manager
+
+When you need the richer `Mock` API — call recording, return values,
+side effects, spec checking — use `unittest.mock.patch` as a **context
+manager**, not as a decorator. The context manager form makes the
+patched scope visible in the test body, confines the patch to the lines
+that need it, and composes naturally with other `with` blocks.
+
+```python
+# GOOD
+def test_runs_git_command_once() -> None:
+    with patch("twerk.git.subprocess.run", autospec=True) as mock_run:
+        mock_run.return_value = CompletedProcess(args=[], returncode=0)
+        run_git_status()
+    mock_run.assert_called_once_with(
+        ["git", "status", "--porcelain"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+# BAD: decorator stack hides scope and forces parameter ordering
+@patch("twerk.git.subprocess.run")
+@patch("twerk.git.os.environ")
+def test_runs_git_command_once(mock_env, mock_run) -> None:
+    ...
+```
+
+### Always spec your mocks
+
+Every `Mock` and every `patch` must have a spec. Use `autospec=True` on
+`patch`, or `spec=<class>` on a bare `Mock`. A naked `MagicMock()`
+happily answers any attribute access, which hides signature drift and
+typos. Specced mocks fail loudly the moment the real API changes.
+
+```python
+# GOOD
+with patch("twerk.git.subprocess.run", autospec=True) as mock_run:
+    ...
+
+# BAD
+with patch("twerk.git.subprocess.run") as mock_run:
+    # mock_run.call_this_method_that_doesnt_exist() silently works
+    ...
+```
+
+### Patch at the point of use
+
+If `twerk/git.py` does `from subprocess import run` and then calls
+`run(...)`, patch `twerk.git.run` — the name it was bound to at the
+call site — not `subprocess.run`. Patching the source module doesn't
+affect the already-imported reference in `twerk.git`.
+
+### Keep patches narrow
+
+Patch the smallest thing you can get away with. One attribute on one
+module is better than the whole module. A context manager around three
+lines is better than a context manager around the entire test body.
+Every extra thing inside the patch is a chance for the test to pass
+for the wrong reason.
+
+### Don't mock what you don't own
+
+Mock your own seams — interfaces you control, boundaries you defined.
+Don't mock third-party library internals (`requests.Session._send`,
+`click.Context._depth`). When the library updates, your mock becomes
+fiction. If you need to fake a third-party library, wrap it in your own
+gateway first (see `fake-driven-testing`) and mock the gateway.
+
+### Assert on calls meaningfully
+
+`mock.assert_called()` only tells you the mock was touched. That's
+almost never what you actually care about. Assert on the arguments:
+`assert_called_once_with(...)`, `assert_called_with(...)`, or inspect
+`mock.call_args` directly. If the arguments don't matter, you probably
+don't need a mock at all.
+
+### If you need many mocks, reach for a fake
+
+A test that needs three or more mocks to set up is a signal that the
+code under test has the wrong seam. Stop, close the test file, and go
+read `fake-driven-testing`. Introducing an ABC gateway and a fake
+implementation will almost always produce a cleaner test than stacking
+more `patch` calls.
+
+### `pytest-mock` / `mocker` fixture
+
+The `pytest-mock` plugin provides a `mocker` fixture that is essentially
+`unittest.mock.patch` with automatic teardown. The context-manager form
+of `patch` is already clean and its scope is already visible, so
+`pytest-mock` is not required. If the project already uses it, fine;
+don't introduce it just for convenience.
+
+## Anti-patterns
+
+- **Test classes** (`class TestFoo:`). Flatten to module-level functions
+  with a shared prefix.
+- **`autouse=True` fixtures.** Magic setup that runs without being
+  requested. If every test needs it, make it explicit; if only some
+  tests need it, make it a helper or a context manager.
+- **Deep conftest nesting.** More than one level of `conftest.py` is
+  almost always a mistake. Fixtures should live next to the tests that
+  use them, not in a parent directory that tests have to go looking for.
+- **Fixture factories.** Fixtures that return a callable so tests can
+  parameterize them. Just write a helper function — you're already
+  halfway there.
+- **Fixtures as data builders.** `@pytest.fixture` wrapping a one-line
+  object construction. A plain helper function does this better and
+  reads more clearly.
+- **`yield` fixtures for trivial cleanup.** If the "teardown" is
+  deleting a dict key or popping a value, use a context manager, not
+  a fixture.
+- **Fixtures used out of convenience.** "I didn't want to type the
+  helper call in every test." Type it. The explicitness is the point.
+- **`@patch` as a decorator stack.** Hides scope and forces parameter
+  ordering that reverses the decorator order. Use `with patch(...)`.
+- **`MagicMock()` without `spec=` / `autospec=True`.** Lies silently
+  when the real API drifts.
+- **Patching private methods of your own classes.** Couples the test
+  to the implementation. Refactor the seam instead.
+- **Mocking stdlib or third-party internals directly** (instead of
+  wrapping them in a gateway and mocking the gateway).
+
+## Naming
+
+- Test functions: `test_` prefix, snake_case.
+- Test helpers and private classes: `_` prefix.
+- Either `test_<subject>_<behavior>` (e.g.
+  `test_discover_group_rejects_wrong_return_type`) or
+  `test_<behavior>` (e.g. `test_rejects_wrong_return_type`) is fine.
+  Pick one per file and be consistent within the file.
+
+## File organization
+
+No prescription beyond:
+
+- Test files are named `test_*.py`.
+- They live under `tests/` at the repo root or under a per-package
+  `tests/` directory.
+
+Mirror the `src/` layout if it's useful. Don't if it isn't.
+
+## Approved plugins
+
+- `pytest` — core
+- `pytest-xdist` — parallel execution
+
+Adding a new pytest plugin requires a justification in the PR that
+adds it. Plugins change global test behavior in ways that are hard to
+reason about later; the default answer is no.
+
+## When NOT to use this skill
+
+- Architecture questions — gateway / fake design, where a test belongs
+  in the defense-in-depth stack, whether to introduce a fake →
+  `fake-driven-testing`.
+- Refactoring existing `unittest.mock.patch` code into the
+  gateway/fake pattern → `fdt-refactor-mock-to-fake`.
+- General Python style — type hints, LBYL vs EAFP, pathlib,
+  exceptions → `dignified-python`.
