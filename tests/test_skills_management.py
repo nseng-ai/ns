@@ -149,9 +149,7 @@ def test_public_skills_have_symlink():
         )
         target = Path(entry.readlink()).as_posix()
         expected = f"../.agents/skills/{name}"
-        assert target == expected, (
-            f"skills/{name} points to {target!r}, expected {expected!r}"
-        )
+        assert target == expected, f"skills/{name} points to {target!r}, expected {expected!r}"
         assert name in _lock_skills(), (
             f"skills/{name} exists on disk but is not in skills-lock.json. "
             f"Install with `npx skills add ./skills/{name} --agent codex claude-code -y`."
