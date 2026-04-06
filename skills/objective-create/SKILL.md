@@ -20,7 +20,7 @@ issue, assesses the codebase, implements the next piece of work, and writes a
 reconciliation comment back. The issue body is the stable spec + curated
 context; the comments are the running progress log.
 
-Two consequences shape this skill:
+Three consequences shape this skill:
 
 1. **Context anchoring.** The issue must give a fresh agent session enough
    curated context to start working *without re-deriving everything from
@@ -33,6 +33,14 @@ Two consequences shape this skill:
    related PRs and want an ordered phase list that turns the objective into
    a lightweight control plane for a series of PRs. Pick the shape that
    matches what the user described — do not force one onto the other.
+
+3. **Continuous re-evaluation.** After each unit of progress, the objective
+   body is completely re-evaluated — not just appended to. Claims are
+   verified against the current codebase (which may have shifted while work
+   was in flight). Assumptions are re-checked. External processes or humans
+   may add comments to the issue that should be incorporated into the
+   high-level description. The objective body always reflects current
+   reality, not the state of the world when it was first written.
 
 An objective is **not** a plain issue. If the work is a single task that fits
 in one session with no need for preserved context across sessions, it should
@@ -122,9 +130,14 @@ Body guidance:
 - Under **Context Anchor**, write pointers a fresh agent can act on: file
   paths, module names, specific patterns to follow, prior decisions. Not
   background essays. Ask yourself: "if a new session read only this, could
-  they start working?"
+  they start working?" Make pointers specific enough that a re-evaluation
+  pass can verify they're still accurate.
 - Under **Assumptions & Risks**, be explicit. Mark each item as an assumption
   or a risk. These are the things `objective-progress` checks each session.
+  An assumption that was true at creation time may become false as code
+  shifts, and external comments may surface new risks.
+- Under **Completion Criteria**, phrase each criterion as a verifiable
+  assertion that can be re-checked each session against the codebase.
 - Under **Roadmap**, make items progressable: each should be something a
   single session can meaningfully advance, phrased as an outcome.
 
@@ -182,4 +195,7 @@ If you created the label during this run, mention it explicitly.
 - Generating metadata blocks, YAML frontmatter, or comment-backed storage
   models. Plain markdown only.
 - Creating the issue without the `twerk-objective` label.
+- Treating the objective body as a static document written once at creation.
+  The body is continuously re-evaluated and rewritten by
+  `objective-progress` — author it with that lifecycle in mind.
 - Asking a long interview before drafting anything.
