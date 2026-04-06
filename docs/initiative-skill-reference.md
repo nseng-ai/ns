@@ -4,7 +4,7 @@ description: Plan and manage long-running, multi-session initiatives with a livi
 tags: [initiative, long-term-objectives, roadmap, multi-session]
 ---
 
-> **Note**: This document is a reference only, not an active skill. It captures the design of Lee Byron's "initiative" skill for study and inspiration.
+> **Note**: This document is a reference only, not an active skill. It captures the design of Lee Byron's "initiative" skill for study and inspiration, which was borrowed from erk's original objective implementation!
 
 # Initiative
 
