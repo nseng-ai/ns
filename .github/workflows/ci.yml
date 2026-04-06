@@ -22,10 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
+      - uses: extractions/setup-just@v2
       - name: Ruff lint
-        run: make lint
+        run: just lint
       - name: Ruff format check
-        run: make format-check
+        run: just format-check
 
   ty:
     if: github.event.pull_request.draft != true
@@ -34,8 +35,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
+      - uses: extractions/setup-just@v2
       - name: Run ty
-        run: make ty
+        run: just ty
 
   test:
     if: github.event.pull_request.draft != true
@@ -52,5 +54,6 @@ jobs:
       - uses: ./.github/actions/setup-python-uv
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: extractions/setup-just@v2
       - name: Run tests
-        run: make test
+        run: just test

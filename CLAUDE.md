@@ -29,7 +29,7 @@ twerk/
 │   └── cli/            # Click CLI entry point
 ├── tests/              # Test suite
 ├── pyproject.toml      # UV project config
-└── Makefile            # lint, fix, ty, test, fast-ci
+└── justfile            # lint, fix, ty, test, fast-ci
 ```
 
 ## Development Rules
