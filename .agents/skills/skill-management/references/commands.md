@@ -13,7 +13,7 @@ Install one or more skills. `<source>` can be:
 
 - a GitHub shorthand: `vercel-labs/agent-skills`, `dagster-io/skills`
 - a full GitHub URL: `https://github.com/vercel-labs/agent-skills`
-- a local path: `./skills/objective-create` (the twerk pattern)
+- a local path: `./skills/objective-create` (staging directory for bootstrap)
 - a git URL or GitLab URL
 
 Flags:
@@ -32,7 +32,7 @@ Flags:
 Twerk examples:
 
 ```bash
-# Local skill bootstrap (one-time only per skill)
+# Local skill bootstrap (one-time only per skill, using staging dir)
 npx skills add ./skills/objective-create --agent codex claude-code -y
 
 # Single GitHub skill
@@ -85,12 +85,6 @@ npx skills list -g                    # global installs
 npx skills list -a claude-code        # only skills installed for Claude Code
 ```
 
-**Quirk:** for local skills whose `.agents/skills/<name>` is a manual
-symlink to `../../skills/<name>`, `list` shows reduced agent info
-(often just "OpenClaw"). The runtime still works — this is a cosmetic
-CLI accounting issue. Trust `ls -la .claude/skills/<name>` and
-`readlink` over `list`'s agents column for symlinked local skills.
-
 ### `find [query]`
 
 Interactive search. With a keyword, filters by name and description.
@@ -123,8 +117,8 @@ npx skills update
 
 Scaffold a new skill: creates `<name>/SKILL.md` or `./SKILL.md` with a
 starter template. **Not typically used in twerk** — we prefer to copy
-`skills/objective-create/SKILL.md` as a template to stay consistent
-with repo style.
+`.agents/skills/objective-create/SKILL.md` as a template to stay
+consistent with repo style.
 
 ### `experimental_install`
 
@@ -151,13 +145,13 @@ available to every universal agent for free.
 
 Partial list: **Codex**, Cursor, Amp, Antigravity, Cline, OpenClaw,
 Zed, and others. Any universal agent in the list will read the skills
-at `.agents/skills/<name>/` (or through a symlink there).
+at `.agents/skills/<name>/`.
 
 ### Dedicated-dir agents (get their own skills directory)
 
 These agents each have their own skills path. `npx skills add` creates
 a symlink from the dedicated dir back to `.agents/skills/<name>`. In
-the install summary, they show under `symlink →`.
+the install summary, they show under `symlink ��`.
 
 | Agent | Dedicated dir | Detected via |
 |-------|---------------|--------------|
@@ -172,7 +166,7 @@ the install summary, they show under `symlink →`.
 that path exists on your machine (it does on the author's), then
 `npx skills add` without `-a` will silently create
 `.windsurf/skills/<name>` every time. The twerk convention of
-`--agent codex claude-code -y` avoids this entirely — Windsurf is
+`--agent codex claude-code -y` avoids this entirely ��� Windsurf is
 not in the agent list, so the CLI skips it.
 
 ## `skills-lock.json` schema
@@ -202,10 +196,10 @@ not in the agent list, so the CLI skips it.
 }
 ```
 
-`source` is an absolute path to the authored directory. `computedHash`
-is captured at install time and is **not** refreshed by
+`source` is an absolute path captured at install time. `computedHash`
+is also captured at install time and is **not** refreshed by
 `skills check`/`update`. A stale hash is harmless — the real content
-is whatever is at the source path right now.
+is whatever is at `.agents/skills/<name>/` right now.
 
 **GitHub skill:**
 
@@ -222,39 +216,27 @@ of the fetched content and is refreshed by `skills update`.
 
 ## Known CLI quirks
 
-1. **`list` shows reduced agent info for manually symlinked local
-   skills.** After replacing `.agents/skills/<name>` with a symlink,
-   the CLI's agent-detection walks the `.claude/skills/`/etc.
-   directories and matches symlink targets against its known
-   canonical-dir path. Because the manual symlink's target is
-   `../../skills/<name>` (not `../../.agents/skills/<name>`), the
-   match fails and only one or two agents show up in the `Agents:`
-   line. This is cosmetic — runtime skill loading follows filesystem
-   symlinks transparently.
+1. **`check`/`update` ignore local skills.** These commands only
+   look at `sourceType: "github"` and similar remote types. Local
+   skills are edited in-place and never need refreshing.
 
-2. **`check`/`update` ignore local skills.** These commands only
-   look at `sourceType: "github"` and similar remote types. If you
-   believe a local skill is out of date, verify the symlink chain
-   (`readlink .agents/skills/<name>` and
-   `readlink .claude/skills/<name>`). If both point where they should,
-   there is nothing to refresh — the source is the cache.
-
-3. **`add` auto-detects agents at install time.** If you don't pass
+2. **`add` auto-detects agents at install time.** If you don't pass
    `-a`, the CLI installs to every detected agent, including ones
    you may not want (Windsurf, Roo, Trae, Zencoder depending on your
    machine). Always pass `--agent codex claude-code -y` in twerk.
 
-4. **`add` is destructive on the canonical dir.** The CLI calls
+3. **`add` is destructive on the canonical dir.** The CLI calls
    `cleanAndCreateDirectory(canonicalDir)` followed by
-   `copyDirectory(skill.path, canonicalDir)` unconditionally. This
-   deletes the manual symlink and replaces it with a copied
-   directory. Treat `add` as a one-time bootstrap per local skill.
+   `copyDirectory(skill.path, canonicalDir)` unconditionally. For
+   local skills where `.agents/skills/<name>` IS the canonical content,
+   rerunning `add` would destroy the real content. Treat `add` as a
+   one-time bootstrap per local skill.
 
-5. **`remove` removes symlinks but not source directories.** For a
-   local skill whose `.agents/skills/<name>` is a symlink, `remove`
-   deletes the symlink but leaves `skills/<name>/` untouched. Delete
-   the source with `git rm -r skills/<name>/` if you want full
-   removal.
+4. **`remove` cleans up symlinks but not source content.** Running
+   `npx skills remove` deletes the `.agents/skills/<name>` directory
+   and `.claude/skills/<name>` symlink, but does not touch
+   `skills/<name>` (if it exists as a public symlink). Clean that up
+   manually with `git rm skills/<name>`.
 
 ## Reference: twerk's install flag
 
