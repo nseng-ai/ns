@@ -36,6 +36,11 @@
       "sourceType": "github",
       "computedHash": "fa5256f52c125516a29b7bd562ea8b265646515db8c49ef0dd872c26036b228c"
     },
+    "objective-reconcile": {
+      "source": "/Users/schrockn/code/twerk/skills/objective-reconcile",
+      "sourceType": "local",
+      "computedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
