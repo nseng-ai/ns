@@ -1,6 +1,6 @@
 ---
 name: objective-reconcile
-description: "Reconcile an objective after landing a PR. Reads the merged PR, updates the objective issue body to reflect current state, and posts a reconciliation comment as a log entry. Use after merging a PR that advances an objective — 'reconcile objective #N with PR #M', 'update objective after merge', 'landed PR #M for objective #N'. The body is the state snapshot; the comments are the history."
+description: "Reconcile an objective after landing a PR. Auto-detects the PR from the current branch and the objective from Objective: #N trailers in commit messages — zero arguments needed in the common case. Reads the merged PR, updates the objective issue body to reflect current state, and posts a reconciliation comment as a log entry. Use after merging a PR — 'reconcile', 'reconcile objective', 'reconcile PR #M', 'update objective after merge'. The body is the state snapshot; the comments are the history."
 allowed-tools:
   - "Bash(gh pr view *)"
   - "Bash(gh pr diff *)"
@@ -27,22 +27,32 @@ The body is the state. The comments are the history.
 
 ## Inputs
 
-The user provides:
+Both inputs are auto-detectable — the common case requires zero arguments:
 
-- **Objective issue number** (required)
-- **PR number** (required — or omit to auto-detect from current branch)
+- **PR number** — auto-detected from current branch, or provided explicitly
+- **Objective issue number** — auto-detected from `Objective: #N` trailer in
+  the PR's commit messages, or provided explicitly
 
 ## Workflow
 
 ### 1. Resolve inputs
 
-Get the PR number and objective issue number from the user's message.
-
-If no PR number was provided, try to detect it from the current branch:
+**PR**: If no PR number was provided, detect from the current branch:
 
 ```bash
 gh pr view --json number,state --jq '{number: .number, state: .state}'
 ```
+
+**Objective**: If no objective number was provided, read the PR's commit
+messages and look for an `Objective: #N` trailer:
+
+```bash
+gh pr view <pr> --json commits --jq '.commits[].messageBody'
+```
+
+Parse `Objective: #<number>` from the commit message bodies. If commits
+reference multiple different objective numbers, ask the user to disambiguate.
+If no `Objective:` trailer is found, ask the user for the objective number.
 
 ### 2. Read the merged PR
 

@@ -112,6 +112,17 @@ Do the work on the current branch:
 - Follow the project's development rules and conventions
 - If the scope grows beyond what's reasonable for one session, stop at a
   coherent boundary and note what remains
+- **Every commit must include an `Objective: #<number>` trailer** in the
+  commit message. This links commits to the objective so that
+  `objective-reconcile` can auto-detect the association from a PR's commits
+  without requiring human input. Format:
+
+  ```
+  Add GitHub gateway types and ABC
+
+  Objective: #23
+  Co-Authored-By: ...
+  ```
 
 ### 6. Evaluate completion criteria
 
