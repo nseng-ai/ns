@@ -61,6 +61,14 @@ wheels = [
 ]
 
 [[package]]
+name = "nonslop"
+version = "0.1.0"
+source = { git = "https://github.com/nseng-ai/nonslop?rev=master#e626e8176caab7a60bda228972af1b53c811bb4c" }
+dependencies = [
+    { name = "click" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -147,6 +155,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
+    { name = "nonslop" },
 ]
 
 [package.dev-dependencies]
@@ -161,7 +170,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "nonslop", git = "https://github.com/nseng-ai/nonslop?rev=master" },
+]
 
 [package.metadata.requires-dev]
 dev = [

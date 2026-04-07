@@ -9,6 +9,7 @@ members = [
 clinkr = { workspace = true }
 twerk-core = { workspace = true }
 twerk-objectives = { workspace = true }
+nonslop = { git = "https://github.com/nseng-ai/nonslop", rev = "master" }
 
 [project]
 name = "twerk"
@@ -21,6 +22,7 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1.7",
+    "nonslop",
 ]
 
 [project.scripts]
