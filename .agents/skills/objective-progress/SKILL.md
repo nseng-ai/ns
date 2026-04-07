@@ -4,6 +4,7 @@ description: "Progress an objective by reading its GitHub issue, assessing the c
 allowed-tools:
   - "Bash(gh issue view *)"
   - "Bash(gh issue list *)"
+  - "Bash(gh issue edit *)"
   - "Bash(gh issue comment *)"
   - "Bash(gh issue close *)"
 ---
@@ -172,8 +173,27 @@ step 7 as normal.
 
 ### 7. Reconcile — update the GitHub issue
 
-After completing work, write a structured comment to the objective's GitHub
-issue. This is the durable record that future sessions will read.
+After completing work, update both the issue body and post a reconciliation
+comment. The body is the current-state snapshot; the comments are the history.
+
+#### 7a. Rewrite the issue body
+
+Take the existing issue body and update it in place to reflect current reality:
+
+- **Roadmap**: mark completed items with ~~strikethrough~~ and a ✅, link the PR or branch
+- **Completion Criteria**: annotate met criteria with status and evidence
+- **Assumptions & Risks**: strike invalidated assumptions, add newly discovered risks
+- **Context Anchor**: update if pointers have changed (new files, renamed modules, etc.)
+
+Preserve the overall structure and template shape — don't reorganize, just
+update. The body should always read as an accurate snapshot of where the
+objective stands right now.
+
+```bash
+gh issue edit <number> --body-file <temp-file>
+```
+
+#### 7b. Post reconciliation comment
 
 Use `references/reconciliation-comment-template.md` as the comment shape.
 The comment must include:
