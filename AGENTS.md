@@ -1,12 +1,15 @@
 # Skills
+
 A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.
 
 ### Package Import Rules
+
 - Packages in this repo do **not** publicly re-export symbols from `__init__.py`. Package `__init__.py` files should be empty or contain only a docstring.
 - Consumers must import from the canonical source module (e.g., `from clinkr.group import ClinkrGroup`, not `from clinkr import ClinkrGroup`).
 - Do not use `__all__` or `import X as X` re-export patterns in `__init__.py` files.
 
 ### Vendored Skill Code
+
 - Treat all files under `.agents/skills/` as vendored third-party code.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`, so the same vendored-code rule applies there.
 - For repo-local skills, `.agents/skills/<name>/` is the canonical source — edit files there directly. Public skills additionally have a `skills/<name>` symlink for discoverability via `npx skills add`; editing through the symlink is equivalent.
@@ -14,6 +17,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - When reviewing or editing the repo, exclude `.agents/skills/**/*.py` from normal linting, typechecking, code review, and cleanup expectations; assume those files should remain as-shipped unless the task is specifically about updating vendored skill code.
 
 ### Available skills
+
 - dignified-python: Production Python coding standards with automatic version detection (3.10-3.13). Use when writing, reviewing, or refactoring Python to ensure adherence to modern type syntax, LBYL exception handling, pathlib operations, ABC-based interfaces, and production-tested patterns. (file: /Users/schrockn/code/twerk/.claude/skills/dignified-python/SKILL.md)
 - fake-driven-testing: Use when writing tests, fixing bugs, adding features, or modifying the gateway layer. This skill provides guidance on testing architecture, working with fakes, implementing ABC gateway interfaces, and where different types of tests belong. (file: /Users/schrockn/code/twerk/.claude/skills/fake-driven-testing/SKILL.md)
 - fdt-refactor-mock-to-fake: Refactor tests that use `unittest.mock.patch` or `MagicMock` into the gateway-based fake pattern. Use when test files patch module-level attributes like `subprocess.run`, `shutil.which`, or `os.environ`, or otherwise need source code made injectable before rewriting the tests. (file: /Users/schrockn/code/twerk/.claude/skills/fdt-refactor-mock-to-fake/SKILL.md)
@@ -27,6 +31,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - ns-skill-management: Manage skills in nonslop projects with `npx skills`. Use whenever you need to add a new skill (local or from GitHub), edit an existing skill, remove one, update GitHub-sourced skills, inspect what's installed, or publish skills for external consumption. Covers the convention of `skills/<name>/` as the canonical source for local skills, `.agents/skills/` for vendored code, and the canonical `--agent codex claude-code -y` install flag. (file: /Users/schrockn/code/twerk/.claude/skills/ns-skill-management/SKILL.md)
 
 ### How to use skills
+
 - Discovery: The list above is the skills available in this repo for Codex sessions. Skill bodies live on disk at the listed paths.
 - Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description shown above, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
 - Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.
@@ -47,4 +52,5 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - Safety and fallback: If a skill can't be applied cleanly, state the issue, pick the next-best approach, and continue.
 
 ### Managing Skills With `npx skills`
+
 All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill at `.agents/skills/skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical twerk install flag is `--agent codex claude-code -y`. Local skills live as real directories under `.agents/skills/<name>/`; public skills additionally get a `skills/<name>` symlink for discoverability.

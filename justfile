@@ -2,13 +2,19 @@ import? 'local.just'
 
 default: check
 
-check: lint format-check ty test
+check: lint format-check dprint-check ty test
 
 lint:
     uv run ruff check
 
 format-check:
     uv run ruff format --check
+
+dprint-check:
+    dprint check
+
+dprint-fix:
+    dprint fmt
 
 fix:
     uv run ruff check --fix --unsafe-fixes
