@@ -1,3 +1,5 @@
+import? 'local.just'
+
 default: check
 
 check: lint format-check ty test
