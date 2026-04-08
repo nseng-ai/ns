@@ -26,20 +26,20 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
-    "nonslop-pytest": {
-      "source": "/Users/schrockn/code/twerk/skills/nonslop-pytest",
-      "sourceType": "local",
-      "computedHash": "c768bd8543c56a98c80cdbfd49f6d8d1d6847bce51dc5cbfeb8bac14bd68df87"
+    "ns-pytest": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "a51c592f8a3a9f60230f114a62061ac9c367c412bb91040416497e9ed801c5f5"
+    },
+    "ns-skill-management": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "fa5256f52c125516a29b7bd562ea8b265646515db8c49ef0dd872c26036b228c"
     },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "b122f4d1e91aa1d83027e050b5b37c3156203ee85458d7b1360bc48167c9e02a"
-    },
-    "skill-management": {
-      "source": "/Users/schrockn/code/twerk/skills/skill-management",
-      "sourceType": "local",
-      "computedHash": "be5a4856e8772b6459fae1b1df0ba01d1b7456103ec69431e91160aa15f94840"
     },
     "twerk-objective-create": {
       "source": "/Users/schrockn/code/twerk/skills/twerk-objective-create",

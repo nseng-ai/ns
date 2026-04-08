@@ -1,11 +1,11 @@
 ---
-name: nonslop-pytest
+name: ns-pytest
 description: "Pytest-specific style guide for writing and reviewing tests. Use when deciding between fixtures / context managers / plain helper functions, choosing whether to write a test class or a module-level `test_*` function, using `@pytest.mark.parametrize` / `tmp_path` / `monkeypatch` / `capsys`, structuring `unittest.mock.patch` usage (context manager vs decorator, `autospec`, where to patch), or cleaning up `autouse` fixtures and conftest nesting. Prescribes functional-only style (no `class Test*`), a strict setup hierarchy (plain helpers > context managers > fixtures for expensive shared resources only), and mocking best practice (`monkeypatch` first, then `patch` as a context manager with `autospec`, narrow scope, patch at point of use). For architecture-level questions — gateway / fake design, where different kinds of tests belong, when to introduce a fake — use `fake-driven-testing` instead; this skill handles the pytest mechanics layer below it. For refactoring existing `unittest.mock.patch` code into the gateway/fake pattern, use `fdt-refactor-mock-to-fake`."
 ---
 
-# nonslop-pytest
+# ns-pytest
 
-Low-level style guide for writing pytest tests in twerk. Covers the mechanics
+Low-level style guide for writing pytest tests. Covers the mechanics
 — fixtures, classes, markers, mocking, setup patterns — that sit underneath
 the architectural guidance in `fake-driven-testing`.
 
@@ -20,13 +20,13 @@ called from the test body), do the thing, assert what you expected.
 ## Relationship to fake-driven-testing
 
 `fake-driven-testing` is the higher-level, more opinionated skill. It
-answers *what* to test, *where* the test belongs in the defense-in-depth
-stack, and *how to structure the seam* between your code and its
-dependencies (ABC gateways, fakes). `nonslop-pytest` answers *how to write
-the test* once you've made those decisions. The two compose: use
-`fake-driven-testing` to design the test, use `nonslop-pytest` to write
+answers _what_ to test, _where_ the test belongs in the defense-in-depth
+stack, and _how to structure the seam_ between your code and its
+dependencies (ABC gateways, fakes). `ns-pytest` answers _how to write
+the test_ once you've made those decisions. The two compose: use
+`fake-driven-testing` to design the test, use `ns-pytest` to write
 the Python. When the two seem to conflict, `fake-driven-testing` wins on
-architecture and `nonslop-pytest` wins on pytest mechanics.
+architecture and `ns-pytest` wins on pytest mechanics.
 
 Some tests inside the fake-driven-testing stack legitimately need
 `unittest.mock.patch` (e.g. the thin boundary tests that exercise a
@@ -95,7 +95,7 @@ pytest magic, no teardown, no fixture decorator.
 ```python
 def _definition() -> ObjectiveDefinition:
     return ObjectiveDefinition(
-        ref=ObjectiveRef(owner="dagster-io", repo="twerk", issue_number=42),
+        ref=ObjectiveRef(owner="acme", repo="myapp", issue_number=42),
         ...
     )
 
@@ -104,14 +104,9 @@ def test_objective_definition_round_trip() -> None:
     ...
 ```
 
-Real examples in twerk:
-- `tests/test_skills_management.py` — `_load_lock()`, `_lock_skills()`, `_dir_children()`
-- `packages/twerk-objectives/tests/test_models.py` — `_dt()`, `_definition()`, `_event()`
-- `packages/clinkr/tests/test_operation_registration.py` — `_make_group()`
-
 ### 2. Context managers
 
-When a test needs per-test setup *with* teardown — patching
+When a test needs per-test setup _with_ teardown — patching
 `sys.modules`, writing to a temporary file outside `tmp_path`, swapping
 a process-global — write a `@contextmanager` helper function and use
 it with a `with` statement in each test. The `with` block makes the
@@ -141,9 +136,7 @@ def test_discover_group_basic() -> None:
     ...
 ```
 
-Real example: `packages/clinkr/tests/test_discover_group.py` uses
-`_fake_package()` for every test that needs a temporary package in
-`sys.modules`. This is the pattern to promote over yield fixtures.
+This is the pattern to promote over yield fixtures.
 
 ### 3. Fixtures (only for expensive shared resources)
 
@@ -163,19 +156,18 @@ up, just `return`.
 
 ```python
 @pytest.fixture(scope="module")
-def cli_group() -> ClinkrGroup:
-    return discover_group("twerk_objectives.cli.objective")
+def cli_group() -> CliGroup:
+    return discover_group("myapp.cli.commands")
 
-def test_objective_list(cli_group: ClinkrGroup) -> None:
+def test_command_list(cli_group: CliGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["list"])
     assert result.exit_code == 0
 ```
 
-Real example: `packages/twerk-objectives/tests/test_objective_cli.py`
-has exactly one fixture (`cli_group`), scoped to the module, shared
-across six tests, wrapping an expensive discovery call, no yield. This
-is the shape every fixture in twerk should have.
+This is the shape every fixture should have: one fixture, scoped to the
+module, shared across several tests, wrapping an expensive discovery
+call, no yield.
 
 ## Mocking best practice
 
@@ -193,7 +185,7 @@ site.
 
 ```python
 def test_resolves_config_path_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TWERK_CONFIG", "/tmp/custom.toml")
+    monkeypatch.setenv("MY_CONFIG", "/tmp/custom.toml")
     assert resolve_config_path() == Path("/tmp/custom.toml")
 ```
 
@@ -208,7 +200,7 @@ that need it, and composes naturally with other `with` blocks.
 ```python
 # GOOD
 def test_runs_git_command_once() -> None:
-    with patch("twerk.git.subprocess.run", autospec=True) as mock_run:
+    with patch("myapp.git.subprocess.run", autospec=True) as mock_run:
         mock_run.return_value = CompletedProcess(args=[], returncode=0)
         run_git_status()
     mock_run.assert_called_once_with(
@@ -219,8 +211,8 @@ def test_runs_git_command_once() -> None:
     )
 
 # BAD: decorator stack hides scope and forces parameter ordering
-@patch("twerk.git.subprocess.run")
-@patch("twerk.git.os.environ")
+@patch("myapp.git.subprocess.run")
+@patch("myapp.git.os.environ")
 def test_runs_git_command_once(mock_env, mock_run) -> None:
     ...
 ```
@@ -234,21 +226,21 @@ typos. Specced mocks fail loudly the moment the real API changes.
 
 ```python
 # GOOD
-with patch("twerk.git.subprocess.run", autospec=True) as mock_run:
+with patch("myapp.git.subprocess.run", autospec=True) as mock_run:
     ...
 
 # BAD
-with patch("twerk.git.subprocess.run") as mock_run:
+with patch("myapp.git.subprocess.run") as mock_run:
     # mock_run.call_this_method_that_doesnt_exist() silently works
     ...
 ```
 
 ### Patch at the point of use
 
-If `twerk/git.py` does `from subprocess import run` and then calls
-`run(...)`, patch `twerk.git.run` — the name it was bound to at the
+If `myapp/git.py` does `from subprocess import run` and then calls
+`run(...)`, patch `myapp.git.run` — the name it was bound to at the
 call site — not `subprocess.run`. Patching the source module doesn't
-affect the already-imported reference in `twerk.git`.
+affect the already-imported reference in `myapp.git`.
 
 ### Keep patches narrow
 
@@ -356,4 +348,4 @@ reason about later; the default answer is no.
 - Refactoring existing `unittest.mock.patch` code into the
   gateway/fake pattern → `fdt-refactor-mock-to-fake`.
 - General Python style — type hints, LBYL vs EAFP, pathlib,
-  exceptions → `dignified-python`.
+  exceptions → `ns-dignified-python`.
