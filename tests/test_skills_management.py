@@ -28,6 +28,23 @@ def _lock_skills() -> dict[str, dict]:
     return _load_lock()["skills"]
 
 
+def _locally_excluded_skills() -> set[str]:
+    """Skill names installed via local.just and excluded from git tracking."""
+    exclude_file = REPO_ROOT / ".git" / "info" / "exclude"
+    if not exclude_file.is_file():
+        return set()
+    prefixes = (".agents/skills/", ".claude/skills/")
+    excluded: set[str] = set()
+    for line in exclude_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        for prefix in prefixes:
+            if line.startswith(prefix):
+                excluded.add(line[len(prefix) :])
+    return excluded
+
+
 def _dir_children(path: Path) -> set[str]:
     return {entry.name for entry in path.iterdir()}
 
@@ -57,8 +74,9 @@ def test_lock_entries_have_required_fields():
 
 def test_agents_skills_dirs_match_lock():
     assert AGENTS_SKILLS.is_dir(), f"missing {AGENTS_SKILLS}"
-    lock_names = set(_lock_skills())
-    dir_names = _dir_children(AGENTS_SKILLS)
+    excluded = _locally_excluded_skills()
+    lock_names = set(_lock_skills()) - excluded
+    dir_names = _dir_children(AGENTS_SKILLS) - excluded
     missing = lock_names - dir_names
     extra = dir_names - lock_names
     assert not missing and not extra, (
@@ -71,8 +89,9 @@ def test_agents_skills_dirs_match_lock():
 
 def test_claude_skills_match_lock():
     assert CLAUDE_SKILLS.is_dir(), f"missing {CLAUDE_SKILLS}"
-    lock_names = set(_lock_skills())
-    dir_names = _dir_children(CLAUDE_SKILLS)
+    excluded = _locally_excluded_skills()
+    lock_names = set(_lock_skills()) - excluded
+    dir_names = _dir_children(CLAUDE_SKILLS) - excluded
     missing = lock_names - dir_names
     extra = dir_names - lock_names
     assert not missing and not extra, (
