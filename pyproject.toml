@@ -1,8 +1,8 @@
 [tool.uv.workspace]
 members = [
-    "packages/clinkr",
-    "packages/twerk-core",
-    "packages/twerk-objectives",
+  "packages/clinkr",
+  "packages/twerk-core",
+  "packages/twerk-objectives",
 ]
 
 [tool.uv.sources]
@@ -16,11 +16,11 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "Dagster Labs", email = "hello@dagsterlabs.com" }
+  { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "click>=8.1.7",
+  "click>=8.1.7",
 ]
 
 [project.scripts]
@@ -28,13 +28,13 @@ twerk = "twerk.cli.cli:main"
 
 [dependency-groups]
 dev = [
-    "clinkr",
-    "ruff>=0.5.0",
-    "pytest>=8.0.0",
-    "pytest-xdist>=3.8.0",
-    "twerk-core",
-    "twerk-objectives",
-    "ty>=0.0.1a7",
+  "clinkr",
+  "ruff>=0.5.0",
+  "pytest>=8.0.0",
+  "pytest-xdist>=3.8.0",
+  "twerk-core",
+  "twerk-objectives",
+  "ty>=0.0.1a7",
 ]
 
 [build-system]
@@ -53,11 +53,11 @@ force-exclude = true
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "I",   # isort (import sorting)
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
+  "E", # pycodestyle errors
+  "F", # pyflakes
+  "I", # isort (import sorting)
+  "UP", # pyupgrade
+  "B", # flake8-bugbear
 ]
 
 [tool.ruff.lint.isort]
@@ -74,4 +74,9 @@ python = ".venv"
 [tool.pytest.ini_options]
 addopts = "-q"
 pythonpath = ["."]
-testpaths = ["tests", "packages/clinkr/tests", "packages/twerk-core/tests", "packages/twerk-objectives/tests"]
+testpaths = [
+  "tests",
+  "packages/clinkr/tests",
+  "packages/twerk-core/tests",
+  "packages/twerk-objectives/tests",
+]

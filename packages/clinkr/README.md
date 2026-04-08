@@ -1,6 +1,6 @@
 # clinkr: CLIs for Clankers
 
-A library for building Click CLI commands that are both human-friendly and machine-readable. Define an operation once, get a standard CLI with options/arguments *and* a JSON-over-stdin/stdout variant automatically.
+A library for building Click CLI commands that are both human-friendly and machine-readable. Define an operation once, get a standard CLI with options/arguments _and_ a JSON-over-stdin/stdout variant automatically.
 
 ## Install
 
@@ -206,12 +206,12 @@ Pass a `human_renderer` to `@clinkr_operation` to control how results are displa
 
 ## Modules
 
-| Module | Purpose |
-|---|---|
-| `operation` | `@clinkr_operation` decorator and metadata |
-| `group` | `ClinkrGroup`, `@clinkr_group` decorator, `discover_group` entry point |
-| `command` | JSON stdin/stdout wiring and `--schema` flag |
-| `json_schema` | JSON Schema generation from dataclasses |
-| `params` | Dataclass-to-Click parameter extraction |
-| `rendering` | Default human output renderer |
-| `dataclass_json` | JSON serialization, deserialization, and schema helpers |
+| Module           | Purpose                                                                |
+| ---------------- | ---------------------------------------------------------------------- |
+| `operation`      | `@clinkr_operation` decorator and metadata                             |
+| `group`          | `ClinkrGroup`, `@clinkr_group` decorator, `discover_group` entry point |
+| `command`        | JSON stdin/stdout wiring and `--schema` flag                           |
+| `json_schema`    | JSON Schema generation from dataclasses                                |
+| `params`         | Dataclass-to-Click parameter extraction                                |
+| `rendering`      | Default human output renderer                                          |
+| `dataclass_json` | JSON serialization, deserialization, and schema helpers                |
