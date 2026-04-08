@@ -210,12 +210,14 @@ source = { editable = "packages/twerk-pr-address" }
 dependencies = [
     { name = "click" },
     { name = "clinkr" },
+    { name = "twerk-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
     { name = "clinkr", editable = "packages/clinkr" },
+    { name = "twerk-core", editable = "packages/twerk-core" },
 ]
 
 [[package]]

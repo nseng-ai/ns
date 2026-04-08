@@ -1,4 +1,4 @@
-"""Domain types for PR review address operations."""
+"""Domain types for GitHub gateway operations."""
 
 from __future__ import annotations
 

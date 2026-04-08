@@ -1,8 +1,8 @@
-"""Tests for PR address domain types."""
+"""Tests for GitHub gateway domain types."""
 
 import pytest
 
-from twerk_pr_address.types import (
+from twerk_core.gh.types import (
     IssueComment,
     PRReview,
     PRReviewComment,
