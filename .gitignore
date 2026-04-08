@@ -18,3 +18,4 @@ activate.sh
 .env
 CLAUDE.local.md
 .mcp.json
+local.just
