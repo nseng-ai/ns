@@ -115,7 +115,7 @@ sources. A stale hash for a local skill is normal and harmless.
 ```bash
 # 1. Create the skill in a staging directory
 mkdir -p skills/<name>/references
-# 2. Author skills/<name>/SKILL.md (use .agents/skills/objective-create/SKILL.md as a template)
+# 2. Author skills/<name>/SKILL.md (use .agents/skills/twerk-objective-create/SKILL.md as a template)
 # 3. Bootstrap the install — this creates .agents/skills/<name>/ and .claude/skills/<name>
 npx skills add ./skills/<name> --agent codex claude-code -y
 # 4. Remove the staging directory (content now lives in .agents/skills/<name>/)
@@ -224,7 +224,8 @@ it's just not discoverable when someone installs from this repo.
 
 | Skill | Visibility | `skills/` entry? |
 |-------|-----------|-----------------|
-| `objective-create` | public | yes (symlink) |
+| `twerk-objective-create` | public | yes (symlink) |
+| `twerk-objective-progress` | public | yes (symlink) |
 | `gt-stackify-branch` | internal | no |
 | `skill-management` | internal | no |
 

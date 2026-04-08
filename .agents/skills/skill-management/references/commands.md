@@ -13,7 +13,7 @@ Install one or more skills. `<source>` can be:
 
 - a GitHub shorthand: `vercel-labs/agent-skills`, `dagster-io/skills`
 - a full GitHub URL: `https://github.com/vercel-labs/agent-skills`
-- a local path: `./skills/objective-create` (staging directory for bootstrap)
+- a local path: `./skills/twerk-objective-create` (staging directory for bootstrap)
 - a git URL or GitLab URL
 
 Flags:
@@ -33,7 +33,7 @@ Twerk examples:
 
 ```bash
 # Local skill bootstrap (one-time only per skill, using staging dir)
-npx skills add ./skills/objective-create --agent codex claude-code -y
+npx skills add ./skills/twerk-objective-create --agent codex claude-code -y
 
 # Single GitHub skill
 npx skills add withgraphite/agent-skills --skill graphite --agent codex claude-code -y
@@ -62,10 +62,10 @@ Twerk examples:
 
 ```bash
 # Remove a skill from the project entirely
-npx skills remove objective-create --agent codex claude-code -y
+npx skills remove twerk-objective-create --agent codex claude-code -y
 
 # Clean up a single agent's symlink (e.g. if Windsurf got auto-installed)
-npx skills remove objective-create -a windsurf -y
+npx skills remove twerk-objective-create -a windsurf -y
 ```
 
 ### `list` (alias: `ls`)
@@ -117,7 +117,7 @@ npx skills update
 
 Scaffold a new skill: creates `<name>/SKILL.md` or `./SKILL.md` with a
 starter template. **Not typically used in twerk** — we prefer to copy
-`.agents/skills/objective-create/SKILL.md` as a template to stay
+`.agents/skills/twerk-objective-create/SKILL.md` as a template to stay
 consistent with repo style.
 
 ### `experimental_install`
@@ -189,8 +189,8 @@ not in the agent list, so the CLI skips it.
 **Local skill:**
 
 ```json
-"objective-create": {
-  "source": "/Users/schrockn/code/twerk/skills/objective-create",
+"twerk-objective-create": {
+  "source": "/Users/schrockn/code/twerk/skills/twerk-objective-create",
   "sourceType": "local",
   "computedHash": "..."
 }
