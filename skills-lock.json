@@ -36,11 +36,6 @@
       "sourceType": "github",
       "computedHash": "fa5256f52c125516a29b7bd562ea8b265646515db8c49ef0dd872c26036b228c"
     },
-    "objective-reconcile": {
-      "source": "/Users/schrockn/code/twerk/skills/objective-reconcile",
-      "sourceType": "local",
-      "computedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
@@ -55,6 +50,11 @@
       "source": "/Users/schrockn/code/twerk/skills/twerk-objective-progress",
       "sourceType": "local",
       "computedHash": "0b0cbcab1c632ead9c0109c5827fd06a81c453aa09604783aad4afe49fed9b90"
+    },
+    "twerk-objective-reconcile": {
+      "source": "/Users/schrockn/code/twerk/skills/twerk-objective-reconcile",
+      "sourceType": "local",
+      "computedHash": "98ce3292fbb12cc43c031715bf17421c321c64be3250bc88884e1373b45edf66"
     }
   }
 }

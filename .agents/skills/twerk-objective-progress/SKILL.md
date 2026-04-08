@@ -114,7 +114,7 @@ Do the work on the current branch:
   coherent boundary and note what remains
 - **Every commit must include an `Objective: #<number>` trailer** in the
   commit message. This links commits to the objective so that
-  `objective-reconcile` can auto-detect the association from a PR's commits
+  `twerk-objective-reconcile` can auto-detect the association from a PR's commits
   without requiring human input. Format:
 
   ```

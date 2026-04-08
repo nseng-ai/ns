@@ -1,5 +1,5 @@
 ---
-name: objective-reconcile
+name: twerk-objective-reconcile
 description: "Reconcile an objective after landing a PR. Auto-detects the PR from the current branch and the objective from Objective: #N trailers in commit messages — zero arguments needed in the common case. Reads the merged PR, updates the objective issue body to reflect current state, and posts a reconciliation comment as a log entry. Use after merging a PR — 'reconcile', 'reconcile objective', 'reconcile PR #M', 'update objective after merge'. The body is the state snapshot; the comments are the history."
 allowed-tools:
   - "Bash(gh pr view *)"
@@ -11,7 +11,7 @@ allowed-tools:
   - "Bash(mktemp)"
 ---
 
-# objective-reconcile
+# twerk-objective-reconcile
 
 Update an objective issue after a PR has been merged.
 
@@ -150,7 +150,7 @@ Write a structured comment as the log entry for this PR:
 | [criterion from objective] | met / partially met / not yet |
 
 ---
-*Updated by objective-reconcile*
+*Updated by twerk-objective-reconcile*
 ```
 
 Post via:
@@ -186,7 +186,7 @@ complete and ask if they want to close it. If they confirm:
 - [Omit if none]
 
 ---
-*Closed by objective-reconcile*
+*Closed by twerk-objective-reconcile*
 ```
 
 2. Close the issue:
