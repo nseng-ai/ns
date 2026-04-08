@@ -1,6 +1,6 @@
 ---
-name: objective-create
-description: "Create a GitHub issue that anchors a twerk objective — a multi-session workstream whose primitive operation is 'make progress' via the objective-progress skill. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough brief into an issue-backed objective, or set up a lightweight control plane for a related series of PRs. The issue body is a curated context anchor with completion criteria, assumptions, risks, and either a roadmap or loose next steps — not a plain task ticket. Apply the `twerk-objective` label, use plain markdown, and create the issue with `gh`."
+name: twerk-objective-create
+description: "Create a GitHub issue that anchors a twerk objective — a multi-session workstream whose primitive operation is 'make progress' via the twerk-objective-progress skill. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough brief into an issue-backed objective, or set up a lightweight control plane for a related series of PRs. The issue body is a curated context anchor with completion criteria, assumptions, risks, and either a roadmap or loose next steps — not a plain task ticket. Apply the `twerk-objective` label, use plain markdown, and create the issue with `gh`."
 allowed-tools:
   - "Bash(gh issue *)"
   - "Bash(gh label *)"
@@ -8,14 +8,14 @@ allowed-tools:
   - "Bash(mktemp)"
 ---
 
-# objective-create
+# twerk-objective-create
 
 Create a GitHub issue that serves as the **context anchor** for a twerk objective.
 
 ## What an objective is
 
 An objective is a multi-session workstream whose **primitive operation is
-"make progress"**. A sibling skill (`objective-progress`) repeatedly reads the
+"make progress"**. A sibling skill (`twerk-objective-progress`) repeatedly reads the
 issue, assesses the codebase, implements the next piece of work, and writes a
 reconciliation comment back. The issue body is the stable spec + curated
 context; the comments are the running progress log.
@@ -98,13 +98,13 @@ Pull from the conversation (and targeted codebase reads only when they improve
 the anchor):
 
 - target outcome
-- completion criteria — concrete, verifiable conditions. `objective-progress`
+- completion criteria — concrete, verifiable conditions. `twerk-objective-progress`
   evaluates these each session and uses them to decide when the objective can
   be closed.
 - the curated context anchor — files, modules, patterns, prior decisions,
   existing code a fresh session should read first
 - assumptions the plan rests on, and risks that could invalidate them.
-  `objective-progress` reviews these each session and flags invalidated ones.
+  `twerk-objective-progress` reviews these each session and flags invalidated ones.
 - roadmap or initial next steps, depending on the shape
 - scope boundaries and non-goals when they matter
 
@@ -133,7 +133,7 @@ Body guidance:
   they start working?" Make pointers specific enough that a re-evaluation
   pass can verify they're still accurate.
 - Under **Assumptions & Risks**, be explicit. Mark each item as an assumption
-  or a risk. These are the things `objective-progress` checks each session.
+  or a risk. These are the things `twerk-objective-progress` checks each session.
   An assumption that was true at creation time may become false as code
   shifts, and external comments may surface new risks.
 - Under **Completion Criteria**, phrase each criterion as a verifiable
@@ -166,7 +166,7 @@ gh issue create --title "<title>" --body-file <temp-file> --label twerk-objectiv
 ```
 
 The issue body is the full objective record. Do not create a follow-up
-metadata comment — progress updates are posted later by `objective-progress`.
+metadata comment — progress updates are posted later by `twerk-objective-progress`.
 
 ### 6. Report the result
 
@@ -188,7 +188,7 @@ If you created the label during this run, mention it explicitly.
   bullet wouldn't actually help the next session, cut it.
 - Forcing a roadmap onto a loose objective, or leaving a structured multi-PR
   workstream as freeform prose.
-- Omitting completion criteria — `objective-progress` can't evaluate closure
+- Omitting completion criteria — `twerk-objective-progress` can't evaluate closure
   without them.
 - Omitting assumptions and risks — they are how future sessions detect that
   the plan has drifted.
@@ -197,5 +197,5 @@ If you created the label during this run, mention it explicitly.
 - Creating the issue without the `twerk-objective` label.
 - Treating the objective body as a static document written once at creation.
   The body is continuously re-evaluated and rewritten by
-  `objective-progress` — author it with that lifecycle in mind.
+  `twerk-objective-progress` — author it with that lifecycle in mind.
 - Asking a long interview before drafting anything.

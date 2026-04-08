@@ -1,5 +1,5 @@
 ---
-name: objective-progress
+name: twerk-objective-progress
 description: "Progress an objective by reading its GitHub issue, assessing the codebase, and implementing the next piece of work. Use when the user wants to make progress on an existing twerk objective, pick up where they left off, or continue a multi-session workstream. Trigger on phrases like 'progress the objective', 'work on objective #N', 'continue the objective', or 'pick up objective #N'."
 allowed-tools:
   - "Bash(gh issue view *)"
@@ -8,7 +8,7 @@ allowed-tools:
   - "Bash(gh issue close *)"
 ---
 
-# objective-progress
+# twerk-objective-progress
 
 Read an objective issue, figure out what to do next, do it, and record what
 happened.
@@ -157,7 +157,7 @@ complete and ask if they want to close it. If they confirm:
 - [Omit if none]
 
 ---
-*Closed by objective-progress*
+*Closed by twerk-objective-progress*
 ```
 
 4. Close the issue:
