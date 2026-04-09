@@ -50,7 +50,13 @@ packages = ["src/twerk"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-src = ["src", "packages/clinkr/src", "packages/twerk-core/src", "packages/twerk-objectives/src", "packages/twerk-pr-address/src"]
+src = [
+  "src",
+  "packages/clinkr/src",
+  "packages/twerk-core/src",
+  "packages/twerk-objectives/src",
+  "packages/twerk-pr-address/src",
+]
 exclude = [".claude/", ".agents/skills/"]
 force-exclude = true
 

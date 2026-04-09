@@ -16,6 +16,11 @@
       "sourceType": "github",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
     },
+    "fix-just": {
+      "source": "/Users/schrockn/code/twerk/skills/fix-just",
+      "sourceType": "local",
+      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
+    },
     "graphite": {
       "source": "withgraphite/agent-skills",
       "sourceType": "github",
