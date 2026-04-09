@@ -16,6 +16,11 @@
       "sourceType": "github",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
     },
+    "fix-just": {
+      "source": "/Users/schrockn/code/twerk/skills/fix-just",
+      "sourceType": "local",
+      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
+    },
     "graphite": {
       "source": "withgraphite/agent-skills",
       "sourceType": "github",
@@ -26,15 +31,55 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
+    "ns-changelog-update": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "c237e2963a5d8a9f2ebdcb6df7de0d7328e95d39acfa057d1ab74aead02863d8"
+    },
+    "ns-create-py-dev-cli": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "053d63137bf1c590cf4b8587abcfb9ad90e7788f5640fcd80def1b2813a9ac20"
+    },
+    "ns-create-pypackage-project": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "e7e67a4d292d515dff404225dc33871c3b7f81885fc220f666b5aa12add0168d"
+    },
+    "ns-dignified-python": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "7dbc6e73ed4341eab97b4cd604f095f23762a76eb47656a9b6ef8b3176e8be1a"
+    },
     "ns-pytest": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
       "computedHash": "a51c592f8a3a9f60230f114a62061ac9c367c412bb91040416497e9ed801c5f5"
     },
+    "ns-refac-cli-push-down": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "1d6db447d54714511447d1fd1cad87a1822b1cfe3eb4e80b77dfe5d20ac9562d"
+    },
+    "ns-setup-dprint": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "494adca78016e498ab2560f20a2f9438daeb23f4dbb4ece27fb63c3952476d8a"
+    },
+    "ns-setup-python-ci": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "2e5bcb0bba780afb19a636bc1e154283fbede3816b52b8a9ea82bb472cf704f1"
+    },
     "ns-skill-management": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
       "computedHash": "fa5256f52c125516a29b7bd562ea8b265646515db8c49ef0dd872c26036b228c"
+    },
+    "ns-skillx": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "7a1f0c833ad07ff7600dac8d4763b55e6d4d859685fbaecc61ab608bef3b1cea"
     },
     "skill-creator": {
       "source": "anthropics/skills",
