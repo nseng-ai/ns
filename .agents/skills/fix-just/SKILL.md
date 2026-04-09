@@ -23,7 +23,7 @@ Run `just` (the project's default check suite) and fix every failure.
    - Lint/format: run `just fix` and `just dprint-fix`, then re-run `just` to confirm.
    - Type errors: fix the source code so `ty check` passes.
    - Test failures: **read the failing test AND the code under test**. Fix the production code or the test depending on where the real bug is. Never delete, skip, or weaken a test to make it pass — fix the root cause.
-4. **Re-run `just`** after all fixes. Repeat until green or until you need user input.
+4. **Re-run `just`** after all fixes. Repeat until green, you hit an iteration limit (see below), or you need user input.
 5. If a failure is ambiguous (e.g., a test asserts behavior you're unsure is correct), **ask the user directly** before changing anything.
 
 ## Planning-mode behavior
@@ -42,3 +42,53 @@ If the current harness has a planning or read-only mode and it is active:
 - Always fix the root cause. If a test is failing because production code changed, fix the production code (or update the test if the new behavior is intentionally correct — but ask first if unsure).
 - Never use `# noqa`, `# type: ignore`, `@pytest.mark.skip`, or similar suppressions to silence failures.
 - After all fixes, run `just` one final time and confirm the full suite is green.
+
+## Iteration Limits
+
+- **Maximum iterations**: 10. If `just` has not gone green after 10 fix-then-rerun cycles, stop and report (see Stuck format below).
+- **Stuck detection**: If the *same* error appears in 3 consecutive iterations, stop immediately — you are not making progress on it. Report and ask the user for guidance.
+
+## Progress Tracking
+
+Print a numbered log line to the user after each iteration so they can follow along:
+
+```
+Iteration 1: Running `just` — found 3 lint errors, 2 format issues
+Iteration 2: Ran `just fix` + `just dprint-fix` — lint/format clean, 1 ty error remains
+Iteration 3: Fixed type error in src/twerk/cli/main.py — all checks pass
+```
+
+## Reporting Formats
+
+### Success
+
+```
+## fix-just: SUCCESS
+
+All checks passed after N iteration(s):
+
+- **Lint (ruff check)**: PASSED
+- **Format (ruff format)**: PASSED
+- **Format (dprint)**: PASSED
+- **Type check (ty)**: PASSED
+- **Tests (pytest)**: PASSED
+```
+
+### Stuck
+
+```
+## fix-just: STUCK
+
+Unable to resolve the following after N attempts:
+
+**Check**: [lint / format / ty / test]
+**Error**: [exact error message]
+**File**: [path if applicable]
+
+**Attempted fixes**:
+1. [first attempt]
+2. [second attempt]
+3. [third attempt]
+
+**Suggested next steps**: [what the user should look at]
+```
