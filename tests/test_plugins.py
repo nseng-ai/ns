@@ -4,6 +4,7 @@ import click
 from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
+from twerk_objectives.testing import FakeObjectivesGitHub
 
 
 class FakePluginEntryPoint:
@@ -48,15 +49,16 @@ def test_objective_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
+    obj = {"objectives_gateway": FakeObjectivesGitHub()}
 
-    result = runner.invoke(parent, ["objective", "list"])
+    result = runner.invoke(parent, ["objective", "list"], obj=obj)
     assert result.exit_code == 0
-    assert "[]" in result.output
+    assert "No objectives found." in result.output
 
-    result = runner.invoke(parent, ["objective", "ls"])
+    result = runner.invoke(parent, ["objective", "ls"], obj=obj)
     assert result.exit_code == 0
-    assert "[]" in result.output
+    assert "No objectives found." in result.output
 
-    result = runner.invoke(parent, ["objective", "json", "list"], input="")
+    result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=obj)
     assert result.exit_code == 0
     assert '"success": true' in result.output
