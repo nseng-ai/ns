@@ -9,6 +9,7 @@ AGENTS.md (section "Managing Skills With `npx skills`") for the workflow.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -28,21 +29,37 @@ def _lock_skills() -> dict[str, dict]:
     return _load_lock()["skills"]
 
 
-def _locally_excluded_skills() -> set[str]:
-    """Skill names installed via local.just and excluded from git tracking."""
-    exclude_file = REPO_ROOT / ".git" / "info" / "exclude"
-    if not exclude_file.is_file():
+def _git_tracked_skill_names() -> set[str]:
+    """Skill names whose .agents/skills/<name> directories are tracked by git."""
+    result = subprocess.run(
+        ["git", "ls-files", ".agents/skills"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    return {
+        line.split("/")[2]
+        for line in result.stdout.splitlines()
+        if line.startswith(".agents/skills/") and len(line.split("/")) >= 3
+    }
+
+
+def _untracked_lock_skills() -> set[str]:
+    """Skills in the lock file whose directories are not tracked by git.
+
+    These are skills symlinked via local.just (e.g. from a nonslop checkout)
+    that appear in skills-lock.json but whose files are not committed.
+    Works identically in local dev and CI — no reliance on .git/info/exclude.
+    """
+    return set(_lock_skills()) - _git_tracked_skill_names()
+
+
+def _untracked_dir_skills(path: Path) -> set[str]:
+    """Skill directories on disk that are not tracked by git."""
+    if not path.is_dir():
         return set()
-    prefixes = (".agents/skills/", ".claude/skills/")
-    excluded: set[str] = set()
-    for line in exclude_file.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        for prefix in prefixes:
-            if line.startswith(prefix):
-                excluded.add(line[len(prefix) :])
-    return excluded
+    tracked = _git_tracked_skill_names()
+    return {entry.name for entry in path.iterdir()} - tracked
 
 
 def _dir_children(path: Path) -> set[str]:
@@ -55,6 +72,20 @@ def test_lock_file_is_well_formed():
     assert lock.get("version") == 1, f"expected version 1, got {lock.get('version')!r}"
     assert isinstance(lock.get("skills"), dict), "skills-lock.json must have a 'skills' object"
     assert lock["skills"], "skills-lock.json must contain at least one skill"
+
+
+def test_lock_only_contains_tracked_skills():
+    """Every skill in skills-lock.json must have its files tracked by git.
+
+    If this fails, a locally-installed skill (e.g. from ``just install-nonslop``)
+    leaked into the lock file. Revert the skills-lock.json changes before committing.
+    """
+    untracked = _untracked_lock_skills()
+    assert not untracked, (
+        f"skills-lock.json contains skills not tracked by git: {sorted(untracked)}. "
+        "This usually means `npx skills` ran while local skills were symlinked. "
+        "Revert skills-lock.json to remove these entries before committing."
+    )
 
 
 def test_lock_entries_have_required_fields():
@@ -74,9 +105,8 @@ def test_lock_entries_have_required_fields():
 
 def test_agents_skills_dirs_match_lock():
     assert AGENTS_SKILLS.is_dir(), f"missing {AGENTS_SKILLS}"
-    excluded = _locally_excluded_skills()
-    lock_names = set(_lock_skills()) - excluded
-    dir_names = _dir_children(AGENTS_SKILLS) - excluded
+    lock_names = set(_lock_skills()) - _untracked_lock_skills()
+    dir_names = _dir_children(AGENTS_SKILLS) - _untracked_dir_skills(AGENTS_SKILLS)
     missing = lock_names - dir_names
     extra = dir_names - lock_names
     assert not missing and not extra, (
@@ -89,9 +119,8 @@ def test_agents_skills_dirs_match_lock():
 
 def test_claude_skills_match_lock():
     assert CLAUDE_SKILLS.is_dir(), f"missing {CLAUDE_SKILLS}"
-    excluded = _locally_excluded_skills()
-    lock_names = set(_lock_skills()) - excluded
-    dir_names = _dir_children(CLAUDE_SKILLS) - excluded
+    lock_names = set(_lock_skills()) - _untracked_lock_skills()
+    dir_names = _dir_children(CLAUDE_SKILLS) - _untracked_dir_skills(CLAUDE_SKILLS)
     missing = lock_names - dir_names
     extra = dir_names - lock_names
     assert not missing and not extra, (
@@ -103,7 +132,10 @@ def test_claude_skills_match_lock():
 
 
 def test_claude_skills_are_symlinks_into_agents():
+    excluded = _untracked_lock_skills()
     for name in _lock_skills():
+        if name in excluded:
+            continue
         link = CLAUDE_SKILLS / name
         assert link.is_symlink(), (
             f".claude/skills/{name} must be a symlink (not a directory). "
@@ -118,7 +150,10 @@ def test_claude_skills_are_symlinks_into_agents():
 
 
 def test_every_installed_skill_has_skill_md():
+    excluded = _untracked_lock_skills()
     for name in _lock_skills():
+        if name in excluded:
+            continue
         skill_md = AGENTS_SKILLS / name / "SKILL.md"
         assert skill_md.is_file(), f"missing SKILL.md for installed skill {name} at {skill_md}"
 
