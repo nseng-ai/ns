@@ -8,6 +8,16 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - Consumers must import from the canonical source module (e.g., `from clinkr.group import ClinkrGroup`, not `from clinkr import ClinkrGroup`).
 - Do not use `__all__` or `import X as X` re-export patterns in `__init__.py` files.
 
+### Fixing Lint and Format Failures
+
+When `just` reports a lint or format failure, do not hand-edit files to satisfy the formatter. Run the corresponding autofix recipe instead:
+
+- `ruff check` failures → `just fix` (runs `ruff check --fix --unsafe-fixes` then `ruff format`)
+- `ruff format --check` failures → `just fix`
+- `dprint check` failures (Markdown / TOML) → `just dprint-fix` (runs `dprint fmt`)
+
+After autofixing, re-run `just` to confirm the suite is green. Only edit files by hand when the failure is a real lint/type/test bug that the autofixer cannot resolve.
+
 ### Vendored Skill Code
 
 - Treat all files under `.agents/skills/` as vendored third-party code.

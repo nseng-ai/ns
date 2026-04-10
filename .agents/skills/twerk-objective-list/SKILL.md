@@ -36,9 +36,9 @@ Trigger this skill when the user:
 - wants to confirm whether a given objective is still open before starting
   work
 
-If the user instead wants to *advance* an objective, hand off to
-`twerk-objective-progress`. If they want to *create* one, hand off to
-`twerk-objective-create`. If they want to *close one out* after a merged PR,
+If the user instead wants to _advance_ an objective, hand off to
+`twerk-objective-progress`. If they want to _create_ one, hand off to
+`twerk-objective-create`. If they want to _close one out_ after a merged PR,
 hand off to `twerk-objective-reconcile`.
 
 ## Core rules
@@ -83,10 +83,10 @@ The CLI prints a Rich-formatted table with columns `#`, `Status`, `Title`,
 and `Updated` (relative time, e.g. `2h ago`):
 
 ```
-    #   Status     Title                                                Updated
- ──────────────────────────────────────────────────────────────────────────────
-  #40   ● open     Implement workbranch primitive: branch-embedded c…    2h ago
-  #34   ● open     Explore using pluggy                                   1d ago
+   #   Status     Title                                                Updated
+──────────────────────────────────────────────────────────────────────────────
+ #40   ● open     Implement workbranch primitive: branch-embedded c…    2h ago
+ #34   ● open     Explore using pluggy                                   1d ago
 ```
 
 In a chat reply, reproduce the same shape (number, status, title, relative
