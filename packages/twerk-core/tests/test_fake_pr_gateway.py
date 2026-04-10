@@ -2,7 +2,7 @@
 
 from twerk_core.gh.testing import FakePRGateway
 from twerk_core.gh.types import (
-    IssueComment,
+    GhIssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -59,7 +59,7 @@ def test_get_reviews() -> None:
 
 
 def test_get_discussion_comments() -> None:
-    comment = IssueComment(id=1, body="nice", author="user", url="https://example.com")
+    comment = GhIssueComment(id=1, body="nice", author="user", url="https://example.com")
     fake = FakePRGateway(discussion_comments={1: [comment]})
     assert fake.get_discussion_comments(1) == (comment,)
 

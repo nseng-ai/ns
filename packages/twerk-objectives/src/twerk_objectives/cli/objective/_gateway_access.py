@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import click
 
-from twerk_objectives.gateway import ObjectivesGitHub
+from twerk_core.gh.gh_cli_issue_gateway import GhCliIssueGateway
+from twerk_core.gh.issue_gateway import GhIssueGateway
 
 
-def get_objectives_gateway() -> ObjectivesGitHub:
-    """Retrieve ObjectivesGitHub from the current Click context.
+def get_issue_gateway() -> GhIssueGateway:
+    """Retrieve the GhIssueGateway from the current Click context.
 
-    Falls back to the real gh CLI gateway when none is injected,
-    so the command works out of the box in any git repo.
+    Falls back to a real-CLI-backed gateway when none is injected, so the
+    command works out of the box in any git repo.
     """
     ctx = click.get_current_context()
-    gateway = ctx.obj.get("objectives_gateway") if ctx.obj else None
-    if gateway is None:
-        from twerk_objectives.gh_cli_gateway import GhCliObjectivesGitHub
-
-        return GhCliObjectivesGitHub()
-    return gateway
+    issue_gw = ctx.obj.get("issue_gateway") if ctx.obj else None
+    if issue_gw is None:
+        return GhCliIssueGateway()
+    return issue_gw

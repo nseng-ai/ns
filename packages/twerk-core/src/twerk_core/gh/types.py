@@ -58,7 +58,7 @@ class PRReview:
 
 
 @dataclass(frozen=True)
-class IssueComment:
+class GhIssueComment:
     """A comment on a GitHub issue or PR discussion thread."""
 
     id: int
@@ -75,3 +75,18 @@ class RestructuredFile:
     old_path: str
     new_path: str
     similarity: int  # percentage similarity (0-100)
+
+
+@dataclass(frozen=True)
+class GhIssue:
+    """A GitHub issue summary as returned by `gh issue list`.
+
+    Pure data type with no serialization helpers — callers compose JSON output
+    in their own result types so this stays consistent with the other types in
+    this module (PRReview, PRReviewThread, GhIssueComment, ...).
+    """
+
+    number: int
+    title: str
+    state: str
+    updated_at: str

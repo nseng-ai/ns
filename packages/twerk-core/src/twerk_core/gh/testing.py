@@ -1,9 +1,15 @@
 """Test utilities for the GitHub gateway facade."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+
 from twerk_core.gh.facade import GH
+from twerk_core.gh.issue_gateway import GhIssueGateway
 from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import (
-    IssueComment,
+    GhIssue,
+    GhIssueComment,
     PRReview,
     PRReviewThread,
 )
@@ -21,7 +27,7 @@ class FakePRGateway(PRGateway):
         *,
         review_threads: dict[int, list[PRReviewThread]] | None = None,
         reviews: dict[int, list[PRReview]] | None = None,
-        discussion_comments: dict[int, list[IssueComment]] | None = None,
+        discussion_comments: dict[int, list[GhIssueComment]] | None = None,
         numbers_by_branch: dict[str, int] | None = None,
     ) -> None:
         self._review_threads = review_threads or {}
@@ -50,7 +56,7 @@ class FakePRGateway(PRGateway):
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
         return tuple(self._reviews.get(pr_number, []))
 
-    def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
+    def get_discussion_comments(self, pr_number: int) -> tuple[GhIssueComment, ...]:
         return tuple(self._discussion_comments.get(pr_number, []))
 
     def get_number_for_branch(self, branch: str) -> int | None:
@@ -77,9 +83,27 @@ class FakePRGateway(PRGateway):
         self._reactions.append((comment_id, reaction))
 
 
+class FakeGhIssueGateway(GhIssueGateway):
+    """In-memory fake implementation of GhIssueGateway.
+
+    Constructor-only configuration. The fake accepts a `label` argument for
+    interface compatibility with `GhIssueGateway.list` but does not actually
+    filter on it — tests seed the fake with the issues they expect back.
+    """
+
+    def __init__(self, *, issues: Sequence[GhIssue] = ()) -> None:
+        self._issues = tuple(issues)
+
+    def list(self, *, label: str | None = None, state: str = "open") -> tuple[GhIssue, ...]:
+        if state == "all":
+            return self._issues
+        return tuple(i for i in self._issues if i.state.lower() == state.lower())
+
+
 def make_fake_gh(
     *,
     pr: FakePRGateway | None = None,
+    issue: FakeGhIssueGateway | None = None,
 ) -> GH:
     """Convenience factory for building a GH facade with fake sub-gateways."""
-    return GH(pr=pr or FakePRGateway())
+    return GH(pr=pr or FakePRGateway(), issue=issue or FakeGhIssueGateway())

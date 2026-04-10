@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from twerk_core.gh.types import IssueComment, PRReview, PRReviewThread
+from twerk_core.gh.types import GhIssueComment, PRReview, PRReviewThread
 
 
 class PRAddressGitHub(ABC):
@@ -28,5 +28,5 @@ class PRAddressGitHub(ABC):
         """Fetch PR-level review submissions (approve, request changes, comment)."""
 
     @abstractmethod
-    def get_pr_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
+    def get_pr_discussion_comments(self, pr_number: int) -> tuple[GhIssueComment, ...]:
         """Fetch discussion comments on a PR (not inline review comments)."""

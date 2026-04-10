@@ -7,7 +7,7 @@ from click.testing import CliRunner
 
 from clinkr.group import ClinkrGroup, discover_group
 from twerk_core.gh.types import (
-    IssueComment,
+    GhIssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -140,8 +140,8 @@ def test_get_review_comments_empty_pr(cli_group: ClinkrGroup) -> None:
 
 def test_get_discussion_comments_returns_comments(cli_group: ClinkrGroup) -> None:
     comments = [
-        IssueComment(id=1, body="Nice work", author="alice", url="https://example.com/1"),
-        IssueComment(id=2, body="Fix the typo", author="bob", url="https://example.com/2"),
+        GhIssueComment(id=1, body="Nice work", author="alice", url="https://example.com/1"),
+        GhIssueComment(id=2, body="Fix the typo", author="bob", url="https://example.com/2"),
     ]
     fake = FakePRAddressGitHub(pr_discussion_comments={42: comments})
 
@@ -201,7 +201,7 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
         ),
     ]
     comments = [
-        IssueComment(
+        GhIssueComment(
             id=1,
             author="Graphite Automations",
             body="Stack info",

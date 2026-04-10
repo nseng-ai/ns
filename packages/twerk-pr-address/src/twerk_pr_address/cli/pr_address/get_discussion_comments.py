@@ -6,7 +6,7 @@ from typing import Any
 
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
-from twerk_core.gh.types import IssueComment
+from twerk_core.gh.types import GhIssueComment
 from twerk_pr_address.cli.pr_address._gateway_access import get_pr_address_gateway
 
 
@@ -17,7 +17,7 @@ class GetDiscussionCommentsRequest:
 
 @dataclass(frozen=True)
 class GetDiscussionCommentsResult:
-    comments: tuple[IssueComment, ...]
+    comments: tuple[GhIssueComment, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {

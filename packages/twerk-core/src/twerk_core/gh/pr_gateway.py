@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 
 from twerk_core.gh.types import (
-    IssueComment,
+    GhIssueComment,
     PRReview,
     PRReviewThread,
 )
@@ -15,8 +15,8 @@ class PRGateway(ABC):
     Sub-gateway of the GH facade. Contains PR-flavored operations including
     discussion comments and reactions (which touch issue-like resources under
     the hood) because the user-facing mental model groups them with PR
-    workflows. The underlying implementations can share code with a future
-    IssueGateway.
+    workflows. The underlying implementations can share code with the
+    GhIssueGateway.
 
     Mutation methods raise on failure rather than returning a success bool —
     callers shouldn't have to remember to check.
@@ -41,7 +41,7 @@ class PRGateway(ABC):
         """Fetch PR-level review submissions (approve, request changes, comment)."""
 
     @abstractmethod
-    def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
+    def get_discussion_comments(self, pr_number: int) -> tuple[GhIssueComment, ...]:
         """Fetch discussion comments on a PR (not inline review comments)."""
 
     @abstractmethod

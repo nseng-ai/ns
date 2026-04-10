@@ -1,6 +1,6 @@
 """Test utilities for the pr-address gateway."""
 
-from twerk_core.gh.types import IssueComment, PRReview, PRReviewThread
+from twerk_core.gh.types import GhIssueComment, PRReview, PRReviewThread
 from twerk_pr_address.gateway.abc import PRAddressGitHub
 
 
@@ -15,7 +15,7 @@ class FakePRAddressGitHub(PRAddressGitHub):
         *,
         pr_review_threads: dict[int, list[PRReviewThread]] | None = None,
         pr_reviews: dict[int, list[PRReview]] | None = None,
-        pr_discussion_comments: dict[int, list[IssueComment]] | None = None,
+        pr_discussion_comments: dict[int, list[GhIssueComment]] | None = None,
     ) -> None:
         self._pr_review_threads = pr_review_threads or {}
         self._pr_reviews = pr_reviews or {}
@@ -32,5 +32,5 @@ class FakePRAddressGitHub(PRAddressGitHub):
     def get_pr_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
         return tuple(self._pr_reviews.get(pr_number, []))
 
-    def get_pr_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
+    def get_pr_discussion_comments(self, pr_number: int) -> tuple[GhIssueComment, ...]:
         return tuple(self._pr_discussion_comments.get(pr_number, []))
