@@ -5,6 +5,7 @@ description = "Core utilities for twerk plugins"
 requires-python = ">=3.11"
 dependencies = [
   "click>=8.1.7",
+  "rich>=13.0",
 ]
 
 [build-system]

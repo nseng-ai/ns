@@ -56,8 +56,51 @@ def test_objective_list_with_objectives(cli_group: ClinkrGroup) -> None:
     assert "Explore using pluggy" in result.output
     assert "#24" in result.output
     assert "Port pr-address from erk to twerk" in result.output
+    # styled header from twerk-core's make_table()
+    assert "Status" in result.output
+    assert "Title" in result.output
+    assert "Updated" in result.output
+    # state label appears next to open objectives
+    assert "open" in result.output
     # closed objective should not appear in default (open) listing
     assert "#13" not in result.output
+
+
+def test_objective_list_state_all_renders_state_labels(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["list", "--state", "all"], obj=_make_fake(SAMPLE_OBJECTIVES))
+    assert result.exit_code == 0
+    assert "#34" in result.output
+    assert "#13" in result.output
+    # both state labels should be present in --state all output
+    assert "open" in result.output
+    assert "closed" in result.output
+
+
+def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
+    long_title = "A" * 200
+    objectives = (
+        ObjectiveIssueSummary(
+            number=42,
+            title=long_title,
+            state="open",
+            updated_at="2026-04-08T12:00:00Z",
+        ),
+    )
+    runner = CliRunner()
+    # Force a generous width so Rich ellipsizes the title (not the # / status columns)
+    result = runner.invoke(
+        cli_group,
+        ["list"],
+        obj=_make_fake(objectives),
+        env={"COLUMNS": "200"},
+    )
+    assert result.exit_code == 0
+    assert "#42" in result.output
+    # Rich should ellipsize a 200-char title with the … glyph
+    assert "…" in result.output
+    # row should still terminate with the rendered relative time
+    assert "ago" in result.output
 
 
 def test_objective_list_state_all(cli_group: ClinkrGroup) -> None:
