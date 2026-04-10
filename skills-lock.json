@@ -51,6 +51,11 @@
       "sourceType": "local",
       "computedHash": "75ed30558628f85b911034006f4d64ab879c21c0042f44869d186c255e5fe9d7"
     },
+    "twerk-objective-list": {
+      "source": "/Users/schrockn/code/twerk/skills/twerk-objective-list",
+      "sourceType": "local",
+      "computedHash": "e049b1e50727152a4f1eefa673b1c019624b5660be70819523cf4ab4a1bf84b4"
+    },
     "twerk-objective-progress": {
       "source": "/Users/schrockn/code/twerk/skills/twerk-objective-progress",
       "sourceType": "local",
