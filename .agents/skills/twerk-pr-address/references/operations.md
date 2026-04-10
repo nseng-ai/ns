@@ -11,10 +11,6 @@ makes. This file has two jobs:
    operations backed by `twerk_core.gh.IssueGateway`. See the "Push-down
    targets" table at the bottom.
 
-All GraphQL queries below are verbatim ports from
-`erk/packages/erk-shared/src/erk_shared/gateway/github/graphql_queries.py`
-— keep them in sync when erk's queries change.
-
 ---
 
 ## get-pr-for-branch
@@ -407,9 +403,8 @@ When a row gets pushed down:
 
 1. Implement the real `RealIssueGateway` method (replacing the
    `NotImplementedError` stub).
-2. Add the CLI-fallback regression test pattern from
-   `packages/twerk-objectives/tests/test_objective_cli.py::test_objective_list_falls_back_to_real_gateway`
-   — monkeypatch `subprocess.run` and walk the no-injection fallback.
+2. Add a CLI-fallback regression test: monkeypatch `subprocess.run` and
+   walk the no-injection fallback through the new gateway method.
 3. Wire the corresponding clinkr operation (new or existing) to consume
    the gateway method.
 4. Update this skill: replace the `gh api` invocation section with a

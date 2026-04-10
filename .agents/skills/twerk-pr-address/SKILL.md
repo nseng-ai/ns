@@ -1,6 +1,6 @@
 ---
 name: twerk-pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. Use when the user says 'address PR comments', 'address the review', 'fix review feedback', 'work through PR comments', 'resolve review threads', or asks to respond to a specific PR's review. Fetches unresolved review threads and discussion comments via `gh`, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `gh` / `gh api` / `gh api graphql` directly — no dependency on `twerk pr-address` CLI operations."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/twerk-pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments via `gh`, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `gh` / `gh api` / `gh api graphql` directly — no dependency on `twerk pr-address` CLI operations."
 allowed-tools:
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
@@ -34,23 +34,21 @@ commits.
 
 ## When to use
 
-Trigger this skill when the user says any of:
+This skill runs **only when the user explicitly invokes it** via the
+`/twerk-pr-address` slash command. It is a formal, multi-phase process
+that makes local commits and resolves review threads on GitHub, so it
+should never fire implicitly from natural-language requests like "fix
+review feedback" or "look at the review".
 
-- "address PR comments" / "address the review"
-- "fix review feedback" / "work through review comments"
-- "resolve review threads"
-- "/pr-address" or similar shorthand
-- asks to respond to a specific PR's review (`--pr N`)
-
-If the user just asks to **read** review comments without addressing them,
-don't run the full loop — run Phase 1 only and stop after displaying the
-plan.
+If the user just asks to **read** review comments without addressing
+them, run Phase 1 only and stop after displaying the plan — don't
+continue into edit/commit/resolve.
 
 ## Guarantees and non-goals
 
 **Guarantees:**
 
-- Only touches the current branch's PR (or an explicit `--pr N`).
+- Only touches the current branch's PR.
 - Every batch produces a single `git commit` and resolves every thread it
   claims to address.
 - **Never pushes.** All work stays local after commit; the user pushes
@@ -67,14 +65,12 @@ plan.
 
 - No pushing (`git push`, `gt submit`) — the user does that explicitly
   after reviewing the local commits.
-- No plan-file mode (erk-specific `.erk/impl-context/plan.md` tracking).
-- No cross-machine session upload.
 - No new inline review comments (the skill responds to comments; it doesn't
   post them).
 
 ## Prerequisites
 
-1. You're on a branch that has an open PR (or the user passed `--pr N`).
+1. You're on a branch that has an open PR.
 2. `gh auth status` is healthy. If it isn't, stop and tell the user to fix
    auth before continuing.
 3. The working tree is clean. If there are uncommitted changes, stop and
@@ -92,8 +88,7 @@ needs all three before it can make decisions.
 
 #### 1a. Resolve the PR
 
-If the user passed `--pr N`, use that number. Otherwise resolve the PR for
-the current branch:
+Resolve the PR for the current branch:
 
 ```bash
 gh pr view --json number,title,url,headRefName,baseRefName
@@ -167,8 +162,9 @@ stop. Do not continue to Phase 2.
 ### Phase 2 — Classify and plan
 
 Open `references/feedback-classifier.md` and apply its rules to the Phase 1
-data. This is the heart of the skill: the LLM makes judgment calls that
-used to live in Python in erk's `classify.py`.
+data. This is the heart of the skill: the LLM makes judgment calls about
+free-form review feedback rather than relying on brittle rule-based
+classification.
 
 The classifier produces:
 
@@ -270,13 +266,7 @@ Address PR review comments (batch N/M)
 - <summary of comment 1>
 - <summary of comment 2>
 - ...
-
-Objective: #<objective-number-if-any>
 ```
-
-Include the `Objective: #N` trailer **only if the PR is tied to a twerk
-objective** (check the PR body or commit history for an `Objective: #N`
-trailer already in use).
 
 Stage only the files changed for this batch — not untracked files the user
 may be working on separately:

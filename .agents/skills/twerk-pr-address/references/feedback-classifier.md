@@ -5,9 +5,8 @@ threads, PR-level reviews, and discussion comments, the LLM (you) applies
 the rules below to classify each item and group them into an ordered
 execution plan.
 
-**This used to be hard-coded Python** (`erk/src/erk/cli/commands/exec/scripts/classify_pr_feedback.py`,
-~490 lines). It was deleted in the twerk port because tools change and
-users have patterns of their own — the LLM judges free-form content
+Classification is **LLM-driven, not rule-based**. Tools change and users
+have patterns of their own — the LLM judges free-form review content
 better than brittle string-matching rules keyed off specific bot names.
 If this file ever starts listing more than a handful of specific bot
 accounts or magic strings, that's a smell: the judgment should be stated
