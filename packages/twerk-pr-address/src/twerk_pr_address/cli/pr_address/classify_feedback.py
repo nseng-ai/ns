@@ -1,7 +1,6 @@
 """Classify PR review feedback mechanically before LLM processing."""
 
-from __future__ import annotations
-
+import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,7 +13,7 @@ from twerk_pr_address.cli.pr_address._gateway_access import get_pr_address_gatew
 @dataclass(frozen=True)
 class ClassifyFeedbackRequest:
     pr_number: int
-    base_ref: str = "main"
+    base_ref: str
     include_resolved: bool = False
 
 
@@ -26,7 +25,7 @@ class ClassifyFeedbackResult:
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "pr_number": self.pr_number,
-            **self.classification.to_json_dict(),
+            **dataclasses.asdict(self.classification),
         }
 
 

@@ -1,18 +1,16 @@
 """Pure classification functions for PR review feedback.
 
 Applies deterministic rules to classify PR feedback before LLM processing:
-- Bot detection ([bot] suffix)
+- Bot detection ([bot] suffix or known non-suffix bots)
 - Mechanical classification (APPROVED -> informational, CHANGES_REQUESTED -> actionable)
 - Restructuring detection (renamed/moved files -> pre-existing candidates)
 - Known informational patterns (Graphite, CI bots)
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal, assert_never
 
-from twerk_pr_address.types import (
+from twerk_core.gh.types import (
     IssueComment,
     PRReview,
     PRReviewThread,
@@ -20,6 +18,33 @@ from twerk_pr_address.types import (
 )
 
 _PREVIEW_LENGTH = 200
+
+# Bots that don't follow the GitHub `[bot]` suffix convention.
+_NON_SUFFIX_BOTS: frozenset[str] = frozenset(
+    {
+        "Graphite Automations",
+    }
+)
+
+# Authors whose discussion comments are always informational (Graphite stack info).
+_GRAPHITE_INFORMATIONAL_AUTHORS: frozenset[str] = frozenset(
+    {
+        "Graphite Automations",
+        "graphite-app[bot]",
+    }
+)
+
+_GITHUB_ACTIONS_BOT = "github-actions[bot]"
+
+# Body markers that mean a github-actions[bot] comment is a CI status update.
+_CI_BOT_BODY_MARKERS: frozenset[str] = frozenset(
+    {
+        "CI checks",
+        "workflow",
+        "Test results",
+        "Build status",
+    }
+)
 
 
 # -- Classification output types --
@@ -33,18 +58,8 @@ class ClassifiedReview:
     author: str
     state: str
     body_preview: str
-    classification: Literal["actionable", "informational", "needs_llm"]
+    classification: Literal["actionable", "needs_llm"]
     is_bot: bool
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "author": self.author,
-            "state": self.state,
-            "body_preview": self.body_preview,
-            "classification": self.classification,
-            "is_bot": self.is_bot,
-        }
 
 
 @dataclass(frozen=True)
@@ -60,18 +75,6 @@ class ClassifiedThread:
     is_bot: bool
     pre_existing_candidate: bool
 
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "thread_id": self.thread_id,
-            "path": self.path,
-            "line": self.line,
-            "is_outdated": self.is_outdated,
-            "author": self.author,
-            "comment_preview": self.comment_preview,
-            "is_bot": self.is_bot,
-            "pre_existing_candidate": self.pre_existing_candidate,
-        }
-
 
 @dataclass(frozen=True)
 class ClassifiedDiscussionComment:
@@ -82,15 +85,6 @@ class ClassifiedDiscussionComment:
     body_preview: str
     classification: Literal["informational", "needs_llm"]
     is_bot: bool
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "comment_id": self.comment_id,
-            "author": self.author,
-            "body_preview": self.body_preview,
-            "classification": self.classification,
-            "is_bot": self.is_bot,
-        }
 
 
 @dataclass(frozen=True)
@@ -103,46 +97,27 @@ class ClassificationResult:
     restructured_files: tuple[RestructuredFile, ...]
     mechanical_informational_count: int
 
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "review_submissions": [r.to_json_dict() for r in self.review_submissions],
-            "review_threads": [t.to_json_dict() for t in self.review_threads],
-            "discussion_comments": [c.to_json_dict() for c in self.discussion_comments],
-            "restructured_files": [
-                {
-                    "status": f.status,
-                    "old_path": f.old_path,
-                    "new_path": f.new_path,
-                    "similarity": f.similarity,
-                }
-                for f in self.restructured_files
-            ],
-            "mechanical_informational_count": self.mechanical_informational_count,
-        }
-
 
 # -- Pure helper functions --
 
 
 def is_bot(author: str) -> bool:
-    """Check if author is a bot by [bot] suffix."""
-    return author.endswith("[bot]")
+    """Check if author is a bot (by [bot] suffix or known non-suffix bot name)."""
+    return author.endswith("[bot]") or author in _NON_SUFFIX_BOTS
 
 
 def is_known_informational_discussion(author: str, body: str) -> bool:
     """Check if discussion comment is known informational (CI/Graphite bots).
 
     Patterns:
-    - Graphite stack comments (Graphite Automations, graphite-app)
+    - Graphite stack comments (Graphite Automations, graphite-app[bot])
     - CI status updates (github-actions[bot])
     """
-    if author in ("Graphite Automations", "graphite-app[bot]"):
+    if author in _GRAPHITE_INFORMATIONAL_AUTHORS:
         return True
 
-    if author == "github-actions[bot]":
-        ci_patterns = ["CI checks", "workflow", "Test results", "Build status"]
-        if any(pattern in body for pattern in ci_patterns):
-            return True
+    if author == _GITHUB_ACTIONS_BOT:
+        return any(marker in body for marker in _CI_BOT_BODY_MARKERS)
 
     return False
 
@@ -151,7 +126,7 @@ def parse_name_status_output(output: str) -> tuple[RestructuredFile, ...]:
     """Parse git diff --name-status output into RestructuredFile records.
 
     Only returns R (rename) and C (copy) entries. Splits status codes like
-    "R100" into status="R" and similarity=100.
+    "R100" into status="R" and similarity=100. Malformed lines are skipped.
     """
     if not output.strip():
         return ()
@@ -163,19 +138,19 @@ def parse_name_status_output(output: str) -> tuple[RestructuredFile, ...]:
             continue
 
         status_code = parts[0]
-        if not status_code.startswith("R") and not status_code.startswith("C"):
+        if status_code[:1] not in ("R", "C"):
             continue
 
-        status_letter = status_code[0]
         similarity_str = status_code[1:]
-        similarity = int(similarity_str) if similarity_str.isdigit() else 100
+        if not similarity_str.isdigit():
+            continue
 
         restructured.append(
             RestructuredFile(
-                status=status_letter,
+                status=status_code[0],
                 old_path=parts[1],
                 new_path=parts[2],
-                similarity=similarity,
+                similarity=int(similarity_str),
             )
         )
 
@@ -210,13 +185,11 @@ def classify_impl(
     # Classify PR-level reviews
     for review in reviews:
         bot = is_bot(review.author)
-        body_preview = review.body[:_PREVIEW_LENGTH] if review.body else ""
+        body_preview = review.body[:_PREVIEW_LENGTH]
 
         if review.state == "APPROVED":
             mechanical_informational_count += 1
-            continue
-
-        if review.state == "CHANGES_REQUESTED":
+        elif review.state == "CHANGES_REQUESTED":
             classified_reviews.append(
                 ClassifiedReview(
                     id=review.id,
@@ -227,23 +200,22 @@ def classify_impl(
                     is_bot=bot,
                 )
             )
-            continue
-
-        if review.state == "COMMENTED" and not review.body:
-            mechanical_informational_count += 1
-            continue
-
-        if review.state == "COMMENTED":
-            classified_reviews.append(
-                ClassifiedReview(
-                    id=review.id,
-                    author=review.author,
-                    state=review.state,
-                    body_preview=body_preview,
-                    classification="needs_llm",
-                    is_bot=bot,
+        elif review.state == "COMMENTED":
+            if not review.body:
+                mechanical_informational_count += 1
+            else:
+                classified_reviews.append(
+                    ClassifiedReview(
+                        id=review.id,
+                        author=review.author,
+                        state=review.state,
+                        body_preview=body_preview,
+                        classification="needs_llm",
+                        is_bot=bot,
+                    )
                 )
-            )
+        else:
+            assert_never(review.state)
 
     # Classify review threads
     restructured_paths = {f.new_path for f in restructured_files}
@@ -253,7 +225,6 @@ def classify_impl(
 
         first_comment = thread.comments[0]
         bot = is_bot(first_comment.author)
-        comment_preview = first_comment.body[:_PREVIEW_LENGTH] if first_comment.body else ""
         pre_existing_candidate = bot and thread.path in restructured_paths
 
         classified_threads.append(
@@ -263,7 +234,7 @@ def classify_impl(
                 line=thread.line,
                 is_outdated=thread.is_outdated,
                 author=first_comment.author,
-                comment_preview=comment_preview,
+                comment_preview=first_comment.body[:_PREVIEW_LENGTH],
                 is_bot=bot,
                 pre_existing_candidate=pre_existing_candidate,
             )
@@ -272,7 +243,7 @@ def classify_impl(
     # Classify discussion comments
     for comment in comments:
         bot = is_bot(comment.author)
-        body_preview = comment.body[:_PREVIEW_LENGTH] if comment.body else ""
+        body_preview = comment.body[:_PREVIEW_LENGTH]
 
         if is_known_informational_discussion(comment.author, comment.body):
             mechanical_informational_count += 1

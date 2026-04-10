@@ -1,15 +1,13 @@
 """Fetch unresolved review threads for a PR."""
 
-from __future__ import annotations
-
 import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
+from twerk_core.gh.types import PRReviewThread
 from twerk_pr_address.cli.pr_address._gateway_access import get_pr_address_gateway
-from twerk_pr_address.types import PRReviewThread
 
 
 @dataclass(frozen=True)

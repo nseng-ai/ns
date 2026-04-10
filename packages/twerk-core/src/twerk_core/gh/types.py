@@ -1,11 +1,15 @@
 """Domain types for GitHub gateway operations."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Literal
 
-PRReviewState = Literal["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]
+PRReviewState = Literal["COMMENTED", "APPROVED", "CHANGES_REQUESTED"]
+"""States returned by the PR reviews query.
+
+Mirrors the GraphQL filter `[CHANGES_REQUESTED, APPROVED, COMMENTED]`. PENDING
+and DISMISSED are intentionally excluded — the gateway never surfaces them and
+downstream classifiers do not handle them.
+"""
 
 
 @dataclass(frozen=True)
