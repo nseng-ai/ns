@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from twerk_core.gh.issue_gateway import GhIssueGateway
+from twerk_core.gh.issue_gateway import GHIssueGateway
 from twerk_core.gh.types import (
-    GhIssue,
-    GhIssueComment,
-    GhReaction,
+    GHIssue,
+    GHIssueComment,
+    GHReaction,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -17,8 +17,8 @@ from twerk_core.gh.types import (
 )
 
 
-class FakeGhIssueGateway(GhIssueGateway):
-    """In-memory fake implementation of GhIssueGateway.
+class FakeGHIssueGateway(GHIssueGateway):
+    """In-memory fake implementation of GHIssueGateway.
 
     Constructor-only configuration with mutation tracking for assertions.
     No public setup methods — all state is provided at construction.
@@ -31,10 +31,10 @@ class FakeGhIssueGateway(GhIssueGateway):
     def __init__(
         self,
         *,
-        issues: Sequence[GhIssue] = (),
+        issues: Sequence[GHIssue] = (),
         review_threads: dict[int, list[PRReviewThread]] | None = None,
         reviews: dict[int, list[PRReview]] | None = None,
-        discussion_comments: dict[int, list[GhIssueComment]] | None = None,
+        discussion_comments: dict[int, list[GHIssueComment]] | None = None,
         numbers_by_branch: dict[str, int] | None = None,
     ) -> None:
         self._issues = tuple(issues)
@@ -54,7 +54,7 @@ class FakeGhIssueGateway(GhIssueGateway):
 
     # -- Issue queries --
 
-    def list(self, *, label: str | None = None, state: str = "open") -> tuple[GhIssue, ...]:
+    def list(self, *, label: str | None = None, state: str = "open") -> tuple[GHIssue, ...]:
         if state == "all":
             return self._issues
         return tuple(i for i in self._issues if i.state.lower() == state.lower())
@@ -72,7 +72,7 @@ class FakeGhIssueGateway(GhIssueGateway):
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
         return tuple(self._reviews.get(pr_number, []))
 
-    def get_discussion_comments(self, pr_number: int) -> tuple[GhIssueComment, ...]:
+    def get_discussion_comments(self, pr_number: int) -> tuple[GHIssueComment, ...]:
         return tuple(self._discussion_comments.get(pr_number, []))
 
     def get_number_for_branch(self, branch: str) -> int | None:
@@ -109,19 +109,19 @@ class FakeGhIssueGateway(GhIssueGateway):
             created_at="",
         )
 
-    def add_comment(self, pr_number: int, body: str) -> GhIssueComment:
+    def add_comment(self, pr_number: int, body: str) -> GHIssueComment:
         comment_id = self._next_comment_id
         self._next_comment_id += 1
         self._comments.append((pr_number, body))
-        return GhIssueComment(
+        return GHIssueComment(
             id=comment_id,
             body=body,
             author="fake-user",
             url=f"https://github.com/fake/fake/pull/{pr_number}#issuecomment-{comment_id}",
         )
 
-    def add_reaction(self, comment_id: int, reaction: str) -> GhReaction:
+    def add_reaction(self, comment_id: int, reaction: str) -> GHReaction:
         reaction_id = self._next_reaction_id
         self._next_reaction_id += 1
         self._reactions.append((comment_id, reaction))
-        return GhReaction(id=reaction_id, comment_id=comment_id, content=reaction)
+        return GHReaction(id=reaction_id, comment_id=comment_id, content=reaction)

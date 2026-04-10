@@ -9,7 +9,7 @@ import click
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
 from twerk_core import format_relative_time, get_console, make_table, state_badge
-from twerk_core.gh.types import GhIssue
+from twerk_core.gh.types import GHIssue
 from twerk_objectives.cli.objective._gateway_access import get_gh_issue_gateway
 
 
@@ -22,7 +22,7 @@ class ObjectiveListRequest:
 
 @dataclass(frozen=True)
 class ObjectiveListResult:
-    objectives: tuple[GhIssue, ...]
+    objectives: tuple[GHIssue, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {

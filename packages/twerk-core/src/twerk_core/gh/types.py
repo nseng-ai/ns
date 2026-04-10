@@ -58,7 +58,7 @@ class PRReview:
 
 
 @dataclass(frozen=True)
-class GhIssueComment:
+class GHIssueComment:
     """A comment on a GitHub issue or PR discussion thread."""
 
     id: int
@@ -78,12 +78,12 @@ class RestructuredFile:
 
 
 @dataclass(frozen=True)
-class GhIssue:
+class GHIssue:
     """A GitHub issue summary as returned by `gh issue list`.
 
     Pure data type with no serialization helpers — callers compose JSON output
     in their own result types so this stays consistent with the other types in
-    this module (PRReview, PRReviewThread, GhIssueComment, ...).
+    this module (PRReview, PRReviewThread, GHIssueComment, ...).
     """
 
     number: int
@@ -93,7 +93,7 @@ class GhIssue:
 
 
 @dataclass(frozen=True)
-class GhReaction:
+class GHReaction:
     """A reaction on a GitHub issue/PR comment.
 
     `content` is one of GitHub's reaction tokens: "+1", "-1", "laugh",

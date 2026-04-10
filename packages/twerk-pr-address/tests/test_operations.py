@@ -1,4 +1,4 @@
-"""Tests for clinkr operations via CliRunner with FakeGhIssueGateway."""
+"""Tests for clinkr operations via CliRunner with FakeGHIssueGateway."""
 
 import json
 
@@ -6,9 +6,9 @@ import pytest
 from click.testing import CliRunner
 
 from clinkr.group import ClinkrGroup, discover_group
-from twerk_core.gh.testing import FakeGhIssueGateway
+from twerk_core.gh.testing import FakeGHIssueGateway
 from twerk_core.gh.types import (
-    GhIssueComment,
+    GHIssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -23,7 +23,7 @@ def cli_group() -> ClinkrGroup:
 def _invoke(
     cli_group: ClinkrGroup,
     args: list[str],
-    fake: FakeGhIssueGateway,
+    fake: FakeGHIssueGateway,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     result = runner.invoke(cli_group, args, obj={"gh_issue_gateway": fake})
@@ -69,7 +69,7 @@ def test_get_review_comments_returns_unresolved(cli_group: ClinkrGroup) -> None:
             ),
         ),
     )
-    fake = FakeGhIssueGateway(review_threads={42: [unresolved, resolved]})
+    fake = FakeGHIssueGateway(review_threads={42: [unresolved, resolved]})
 
     exit_code, output = _invoke(cli_group, ["get-review-comments", "42"], fake)
 
@@ -115,7 +115,7 @@ def test_get_review_comments_include_resolved(cli_group: ClinkrGroup) -> None:
             ),
         ),
     ]
-    fake = FakeGhIssueGateway(review_threads={42: threads})
+    fake = FakeGHIssueGateway(review_threads={42: threads})
 
     exit_code, output = _invoke(
         cli_group, ["get-review-comments", "42", "--include-resolved"], fake
@@ -126,7 +126,7 @@ def test_get_review_comments_include_resolved(cli_group: ClinkrGroup) -> None:
 
 
 def test_get_review_comments_empty_pr(cli_group: ClinkrGroup) -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
 
     exit_code, output = _invoke(cli_group, ["get-review-comments", "99"], fake)
 
@@ -140,10 +140,10 @@ def test_get_review_comments_empty_pr(cli_group: ClinkrGroup) -> None:
 
 def test_get_discussion_comments_returns_comments(cli_group: ClinkrGroup) -> None:
     comments = [
-        GhIssueComment(id=1, body="Nice work", author="alice", url="https://example.com/1"),
-        GhIssueComment(id=2, body="Fix the typo", author="bob", url="https://example.com/2"),
+        GHIssueComment(id=1, body="Nice work", author="alice", url="https://example.com/1"),
+        GHIssueComment(id=2, body="Fix the typo", author="bob", url="https://example.com/2"),
     ]
-    fake = FakeGhIssueGateway(discussion_comments={42: comments})
+    fake = FakeGHIssueGateway(discussion_comments={42: comments})
 
     exit_code, output = _invoke(cli_group, ["get-discussion-comments", "42"], fake)
 
@@ -153,7 +153,7 @@ def test_get_discussion_comments_returns_comments(cli_group: ClinkrGroup) -> Non
 
 
 def test_get_discussion_comments_empty_pr(cli_group: ClinkrGroup) -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
 
     exit_code, output = _invoke(cli_group, ["get-discussion-comments", "99"], fake)
 
@@ -201,14 +201,14 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
         ),
     ]
     comments = [
-        GhIssueComment(
+        GHIssueComment(
             id=1,
             author="Graphite Automations",
             body="Stack info",
             url="https://example.com/1",
         ),
     ]
-    fake = FakeGhIssueGateway(
+    fake = FakeGHIssueGateway(
         reviews={42: reviews},
         review_threads={42: threads},
         discussion_comments={42: comments},
@@ -227,7 +227,7 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
     assert output["review_threads"][0]["id"] == "PRRT_1"
     assert output["review_threads"][0]["path"] == "file.py"
     assert len(output["review_threads"][0]["comments"]) == 1
-    # Discussion comments pass through as full GhIssueComment records — including
+    # Discussion comments pass through as full GHIssueComment records — including
     # bot/Graphite comments that used to be pre-classified as informational.
     assert len(output["discussion_comments"]) == 1
     assert output["discussion_comments"][0]["author"] == "Graphite Automations"
@@ -235,7 +235,7 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
 
 
 def test_get_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
 
     exit_code, output = _invoke(cli_group, ["get-feedback", "99"], fake)
 
@@ -247,7 +247,7 @@ def test_get_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
 
 
 def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
     runner = CliRunner()
     result = runner.invoke(
         cli_group,

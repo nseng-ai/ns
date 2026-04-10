@@ -1,8 +1,8 @@
-"""Tests for the PR-side methods of FakeGhIssueGateway."""
+"""Tests for the PR-side methods of FakeGHIssueGateway."""
 
-from twerk_core.gh.testing import FakeGhIssueGateway
+from twerk_core.gh.testing import FakeGHIssueGateway
 from twerk_core.gh.types import (
-    GhIssueComment,
+    GHIssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -31,7 +31,7 @@ def _make_thread(
 def test_get_review_threads_filters_resolved() -> None:
     resolved = _make_thread("PRRT_1", is_resolved=True)
     unresolved = _make_thread("PRRT_2", is_resolved=False)
-    fake = FakeGhIssueGateway(review_threads={1: [resolved, unresolved]})
+    fake = FakeGHIssueGateway(review_threads={1: [resolved, unresolved]})
 
     result = fake.get_review_threads(1)
     assert len(result) == 1
@@ -41,37 +41,37 @@ def test_get_review_threads_filters_resolved() -> None:
 def test_get_review_threads_include_resolved() -> None:
     resolved = _make_thread("PRRT_1", is_resolved=True)
     unresolved = _make_thread("PRRT_2", is_resolved=False)
-    fake = FakeGhIssueGateway(review_threads={1: [resolved, unresolved]})
+    fake = FakeGHIssueGateway(review_threads={1: [resolved, unresolved]})
 
     result = fake.get_review_threads(1, include_resolved=True)
     assert len(result) == 2
 
 
 def test_get_review_threads_missing_pr() -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
     assert fake.get_review_threads(999) == ()
 
 
 def test_get_reviews() -> None:
     review = PRReview(id="PRR_1", author="rev", body="LGTM", state="APPROVED", submitted_at="")
-    fake = FakeGhIssueGateway(reviews={1: [review]})
+    fake = FakeGHIssueGateway(reviews={1: [review]})
     assert fake.get_reviews(1) == (review,)
 
 
 def test_get_discussion_comments() -> None:
-    comment = GhIssueComment(id=1, body="nice", author="user", url="https://example.com")
-    fake = FakeGhIssueGateway(discussion_comments={1: [comment]})
+    comment = GHIssueComment(id=1, body="nice", author="user", url="https://example.com")
+    fake = FakeGHIssueGateway(discussion_comments={1: [comment]})
     assert fake.get_discussion_comments(1) == (comment,)
 
 
 def test_get_number_for_branch() -> None:
-    fake = FakeGhIssueGateway(numbers_by_branch={"feature": 42})
+    fake = FakeGHIssueGateway(numbers_by_branch={"feature": 42})
     assert fake.get_number_for_branch("feature") == 42
     assert fake.get_number_for_branch("nonexistent") is None
 
 
 def test_resolve_thread_returns_result_and_tracks_repeat() -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
 
     first = fake.resolve_review_thread("PRRT_1")
     assert first.thread_id == "PRRT_1"
@@ -84,7 +84,7 @@ def test_resolve_thread_returns_result_and_tracks_repeat() -> None:
 
 
 def test_unresolve_thread_returns_result_and_tracks_repeat() -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
 
     first = fake.unresolve_review_thread("PRRT_1")
     assert first.thread_id == "PRRT_1"
@@ -97,7 +97,7 @@ def test_unresolve_thread_returns_result_and_tracks_repeat() -> None:
 
 
 def test_add_review_thread_reply_returns_comment() -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
     reply = fake.add_review_thread_reply("PRRT_1", "Fixed")
     assert isinstance(reply, PRReviewComment)
     assert reply.body == "Fixed"
@@ -106,9 +106,9 @@ def test_add_review_thread_reply_returns_comment() -> None:
 
 
 def test_add_comment_returns_full_comment() -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
     comment = fake.add_comment(1, "Hello")
-    assert isinstance(comment, GhIssueComment)
+    assert isinstance(comment, GHIssueComment)
     assert comment.id == 1
     assert comment.body == "Hello"
     assert "1#issuecomment-1" in comment.url
@@ -119,7 +119,7 @@ def test_add_comment_returns_full_comment() -> None:
 
 
 def test_add_reaction_returns_reaction() -> None:
-    fake = FakeGhIssueGateway()
+    fake = FakeGHIssueGateway()
     reaction = fake.add_reaction(123, "+1")
     assert reaction.id == 1
     assert reaction.comment_id == 123
