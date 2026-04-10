@@ -2,20 +2,13 @@
 
 from abc import ABC, abstractmethod
 
-from twerk_core.gh.types import (
-    IssueComment,
-    PRReview,
-    PRReviewThread,
-    RestructuredFile,
-)
+from twerk_core.gh.types import IssueComment, PRReview, PRReviewThread
 
 
 class PRAddressGitHub(ABC):
     """Gateway interface for the pr-address feature.
 
-    Combines GitHub PR queries (reviews, threads, discussion comments) with
-    a local git operation (get_restructured_files) so the feature is
-    self-contained.
+    GitHub PR queries: reviews, review threads, and discussion comments.
     """
 
     @abstractmethod
@@ -37,7 +30,3 @@ class PRAddressGitHub(ABC):
     @abstractmethod
     def get_pr_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         """Fetch discussion comments on a PR (not inline review comments)."""
-
-    @abstractmethod
-    def get_restructured_files(self, base_ref: str) -> tuple[RestructuredFile, ...]:
-        """Return files renamed or copied between base_ref and HEAD."""

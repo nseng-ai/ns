@@ -11,7 +11,6 @@ from twerk_core.gh.types import (
     PRReview,
     PRReviewComment,
     PRReviewThread,
-    RestructuredFile,
 )
 from twerk_pr_address.testing import FakePRAddressGitHub
 
@@ -162,10 +161,10 @@ def test_get_discussion_comments_empty_pr(cli_group: ClinkrGroup) -> None:
     assert output["count"] == 0
 
 
-# -- classify-feedback --
+# -- get-feedback --
 
 
-def test_classify_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
+def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
     reviews = [
         PRReview(
             id="PRR_1",
@@ -209,48 +208,51 @@ def test_classify_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
             url="https://example.com/1",
         ),
     ]
-    restructured = (
-        RestructuredFile(status="R", old_path="old.py", new_path="new.py", similarity=100),
-    )
     fake = FakePRAddressGitHub(
         pr_reviews={42: reviews},
         pr_review_threads={42: threads},
         pr_discussion_comments={42: comments},
-        restructured_files=restructured,
     )
 
-    exit_code, output = _invoke(cli_group, ["classify-feedback", "42", "master"], fake)
+    exit_code, output = _invoke(cli_group, ["get-feedback", "42"], fake)
 
     assert exit_code == 0
     assert output["pr_number"] == 42
-    assert len(output["review_submissions"]) == 1
-    assert output["review_submissions"][0]["classification"] == "actionable"
+    # All reviews pass through unfiltered — including APPROVED.
+    assert len(output["reviews"]) == 2
+    assert {r["id"] for r in output["reviews"]} == {"PRR_1", "PRR_2"}
+    assert {r["state"] for r in output["reviews"]} == {"CHANGES_REQUESTED", "APPROVED"}
+    # Threads pass through as full PRReviewThread records with nested comments.
     assert len(output["review_threads"]) == 1
+    assert output["review_threads"][0]["id"] == "PRRT_1"
+    assert output["review_threads"][0]["path"] == "file.py"
+    assert len(output["review_threads"][0]["comments"]) == 1
+    # Discussion comments pass through as full IssueComment records — including
+    # bot/Graphite comments that used to be pre-classified as informational.
     assert len(output["discussion_comments"]) == 1
-    assert output["discussion_comments"][0]["classification"] == "informational"
-    assert output["mechanical_informational_count"] == 2  # APPROVED + Graphite
+    assert output["discussion_comments"][0]["author"] == "Graphite Automations"
+    assert output["discussion_comments"][0]["body"] == "Stack info"
 
 
-def test_classify_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
+def test_get_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
     fake = FakePRAddressGitHub()
 
-    exit_code, output = _invoke(cli_group, ["classify-feedback", "99", "master"], fake)
+    exit_code, output = _invoke(cli_group, ["get-feedback", "99"], fake)
 
     assert exit_code == 0
     assert output["pr_number"] == 99
-    assert output["review_submissions"] == []
+    assert output["reviews"] == []
     assert output["review_threads"] == []
     assert output["discussion_comments"] == []
-    assert output["mechanical_informational_count"] == 0
 
 
-def test_classify_feedback_json_mode(cli_group: ClinkrGroup) -> None:
+def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
     fake = FakePRAddressGitHub()
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["json", "classify-feedback"],
-        input='{"pr_number": 99, "base_ref": "master"}',
+        ["json", "get-feedback"],
+        input='{"pr_number": 99}',
         obj={"pr_address_gateway": fake},
     )
 
