@@ -1,0 +1,40 @@
+"""Fetch discussion comments for a PR."""
+
+from __future__ import annotations
+
+import dataclasses
+from dataclasses import dataclass
+from typing import Any
+
+from clinkr.command import ClinkrCommandError
+from clinkr.operation import clinkr_operation
+from twerk_pr_address.cli.pr_address._gateway_access import get_pr_address_gateway
+from twerk_pr_address.types import IssueComment
+
+
+@dataclass(frozen=True)
+class GetDiscussionCommentsRequest:
+    pr_number: int
+
+
+@dataclass(frozen=True)
+class GetDiscussionCommentsResult:
+    comments: tuple[IssueComment, ...]
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return {
+            "comments": [dataclasses.asdict(c) for c in self.comments],
+            "count": len(self.comments),
+        }
+
+
+@clinkr_operation(
+    name="get-discussion-comments",
+    help="Fetch discussion comments for a PR.",
+)
+def run_get_discussion_comments(
+    request: GetDiscussionCommentsRequest,
+) -> GetDiscussionCommentsResult | ClinkrCommandError:
+    gateway = get_pr_address_gateway()
+    comments = gateway.get_pr_discussion_comments(request.pr_number)
+    return GetDiscussionCommentsResult(comments=comments)
