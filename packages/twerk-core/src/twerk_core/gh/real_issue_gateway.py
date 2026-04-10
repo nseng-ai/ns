@@ -1,18 +1,18 @@
-"""Real GHIssueGateway implementation backed by the gh CLI."""
+"""Real IssueGateway implementation backed by the gh CLI."""
 
 from __future__ import annotations
 
 import json
 import subprocess
 
-from twerk_core.gh.issue_gateway import GHIssueGateway
-from twerk_core.gh.types import GHIssue
+from twerk_core.gh.issue_gateway import IssueGateway
+from twerk_core.gh.types import Issue
 
 
-class GHCliIssueGateway(GHIssueGateway):
-    """GHIssueGateway implemented by shelling out to the `gh` CLI."""
+class RealIssueGateway(IssueGateway):
+    """IssueGateway implemented by shelling out to the `gh` CLI."""
 
-    def list(self, *, label: str | None = None, state: str = "open") -> tuple[GHIssue, ...]:
+    def list(self, *, label: str | None = None, state: str = "open") -> tuple[Issue, ...]:
         cmd = [
             "gh",
             "issue",
@@ -30,7 +30,7 @@ class GHCliIssueGateway(GHIssueGateway):
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         items = json.loads(result.stdout)
         return tuple(
-            GHIssue(
+            Issue(
                 number=item["number"],
                 title=item["title"],
                 state=item["state"],

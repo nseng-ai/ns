@@ -4,8 +4,8 @@ import pytest
 from click.testing import CliRunner
 
 from clinkr.group import ClinkrGroup, discover_group
-from twerk_core.gh.testing import FakeGHIssueGateway
-from twerk_core.gh.types import GHIssue
+from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.types import Issue
 
 
 @pytest.fixture(scope="module")
@@ -13,24 +13,24 @@ def cli_group() -> ClinkrGroup:
     return discover_group("twerk_objectives.cli.objective")
 
 
-def _make_fake(issues: tuple[GHIssue, ...] = ()) -> dict[str, object]:
-    return {"gh_issue_gateway": FakeGHIssueGateway(issues=issues)}
+def _make_fake(issues: tuple[Issue, ...] = ()) -> dict[str, object]:
+    return {"gh_issue_gateway": FakeIssueGateway(issues=issues)}
 
 
 SAMPLE_ISSUES = (
-    GHIssue(
+    Issue(
         number=34,
         title="Explore using pluggy",
         state="open",
         updated_at="2026-04-08T12:00:00Z",
     ),
-    GHIssue(
+    Issue(
         number=24,
         title="Port pr-address from erk to twerk",
         state="open",
         updated_at="2026-04-08T08:00:00Z",
     ),
-    GHIssue(
+    Issue(
         number=13,
         title="Set up dprint for consistent Markdown formatting",
         state="closed",
@@ -78,7 +78,7 @@ def test_objective_list_state_all_renders_state_labels(cli_group: ClinkrGroup) -
 def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
     long_title = "A" * 200
     issues = (
-        GHIssue(
+        Issue(
             number=42,
             title=long_title,
             state="open",

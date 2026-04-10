@@ -3,8 +3,8 @@
 import pytest
 
 from twerk_core.gh.types import (
-    GHIssue,
-    GHIssueComment,
+    Issue,
+    IssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -75,7 +75,7 @@ def test_pr_review_construction():
 
 
 def test_issue_comment_construction():
-    comment = GHIssueComment(
+    comment = IssueComment(
         id=456,
         body="Great work",
         author="commenter",
@@ -97,7 +97,7 @@ def test_restructured_file_construction():
 
 
 def test_issue_construction() -> None:
-    issue = GHIssue(
+    issue = Issue(
         number=42,
         title="Add gh.issue gateway",
         state="open",
@@ -110,6 +110,6 @@ def test_issue_construction() -> None:
 
 
 def test_issue_is_frozen() -> None:
-    issue = GHIssue(number=1, title="t", state="open", updated_at="")
+    issue = Issue(number=1, title="t", state="open", updated_at="")
     with pytest.raises(AttributeError):
         issue.title = "changed"  # type: ignore[misc]

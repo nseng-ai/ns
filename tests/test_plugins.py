@@ -4,7 +4,7 @@ import click
 from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
-from twerk_core.gh.testing import FakeGHIssueGateway
+from twerk_core.gh.testing import FakeIssueGateway
 
 
 class FakePluginEntryPoint:
@@ -49,7 +49,7 @@ def test_objective_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
-    obj = {"gh_issue_gateway": FakeGHIssueGateway()}
+    obj = {"gh_issue_gateway": FakeIssueGateway()}
 
     result = runner.invoke(parent, ["objective", "list"], obj=obj)
     assert result.exit_code == 0

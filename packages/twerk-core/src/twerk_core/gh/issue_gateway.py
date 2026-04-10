@@ -11,18 +11,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from twerk_core.gh.types import (
-    GHIssue,
-    GHIssueComment,
-    GHReaction,
+    Issue,
+    IssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    Reaction,
     ResolveReviewThreadResult,
     UnresolveReviewThreadResult,
 )
 
 
-class GHIssueGateway(ABC):
+class IssueGateway(ABC):
     """Gateway for GitHub issue and PR operations.
 
     Mutation methods return a result object describing what happened (the new
@@ -33,7 +33,7 @@ class GHIssueGateway(ABC):
     # -- Issue queries --
 
     @abstractmethod
-    def list(self, *, label: str | None = None, state: str = "open") -> tuple[GHIssue, ...]:
+    def list(self, *, label: str | None = None, state: str = "open") -> tuple[Issue, ...]:
         """List issues, optionally filtered by label and state.
 
         Args:
@@ -60,7 +60,7 @@ class GHIssueGateway(ABC):
         """Fetch PR-level review submissions (approve, request changes, comment)."""
 
     @abstractmethod
-    def get_discussion_comments(self, pr_number: int) -> tuple[GHIssueComment, ...]:
+    def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         """Fetch discussion comments on a PR (not inline review comments)."""
 
     @abstractmethod
@@ -91,9 +91,9 @@ class GHIssueGateway(ABC):
         """Add a reply to a review thread. Returns the new reply comment."""
 
     @abstractmethod
-    def add_comment(self, pr_number: int, body: str) -> GHIssueComment:
+    def add_comment(self, pr_number: int, body: str) -> IssueComment:
         """Add a discussion comment to a PR. Returns the new comment."""
 
     @abstractmethod
-    def add_reaction(self, comment_id: int, reaction: str) -> GHReaction:
+    def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
         """Add a reaction to a comment. Returns the new reaction."""

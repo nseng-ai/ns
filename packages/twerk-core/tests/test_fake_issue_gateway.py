@@ -1,11 +1,11 @@
-"""Tests for FakeGHIssueGateway."""
+"""Tests for FakeIssueGateway."""
 
-from twerk_core.gh.testing import FakeGHIssueGateway
-from twerk_core.gh.types import GHIssue
+from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.types import Issue
 
 
-def _make_issue(number: int, *, state: str = "open") -> GHIssue:
-    return GHIssue(
+def _make_issue(number: int, *, state: str = "open") -> Issue:
+    return Issue(
         number=number,
         title=f"Issue {number}",
         state=state,
@@ -14,7 +14,7 @@ def _make_issue(number: int, *, state: str = "open") -> GHIssue:
 
 
 def test_fake_issue_gateway_list_default_filters_open_only() -> None:
-    fake = FakeGHIssueGateway(
+    fake = FakeIssueGateway(
         issues=(_make_issue(1, state="open"), _make_issue(2, state="closed")),
     )
     result = fake.list()
@@ -22,7 +22,7 @@ def test_fake_issue_gateway_list_default_filters_open_only() -> None:
 
 
 def test_fake_issue_gateway_list_state_closed_filters_closed_only() -> None:
-    fake = FakeGHIssueGateway(
+    fake = FakeIssueGateway(
         issues=(_make_issue(1, state="open"), _make_issue(2, state="closed")),
     )
     result = fake.list(state="closed")
@@ -31,7 +31,7 @@ def test_fake_issue_gateway_list_state_closed_filters_closed_only() -> None:
 
 def test_fake_issue_gateway_list_state_all_returns_everything() -> None:
     issues = (_make_issue(1, state="open"), _make_issue(2, state="closed"))
-    fake = FakeGHIssueGateway(issues=issues)
+    fake = FakeIssueGateway(issues=issues)
     assert fake.list(state="all") == issues
 
 
@@ -39,12 +39,12 @@ def test_fake_issue_gateway_list_label_argument_is_accepted_but_ignored() -> Non
     """The fake takes label for interface compatibility but does not filter on it.
 
     Tests seed the fake with the issues they want returned. Real callers
-    rely on GHCliIssueGateway to apply label filtering server-side.
+    rely on RealIssueGateway to apply label filtering server-side.
     """
-    fake = FakeGHIssueGateway(issues=(_make_issue(1, state="open"),))
+    fake = FakeIssueGateway(issues=(_make_issue(1, state="open"),))
     assert fake.list(label="twerk-objective") == fake.list()
 
 
 def test_fake_issue_gateway_list_empty_default() -> None:
-    fake = FakeGHIssueGateway()
+    fake = FakeIssueGateway()
     assert fake.list() == ()
