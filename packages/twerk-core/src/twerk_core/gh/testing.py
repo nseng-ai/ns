@@ -1,49 +1,65 @@
-"""Test utilities for the GitHub gateway facade."""
+"""Test utilities for the GitHub gateway."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
-from twerk_core.gh.facade import GH
 from twerk_core.gh.issue_gateway import GhIssueGateway
-from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import (
     GhIssue,
     GhIssueComment,
+    GhReaction,
     PRReview,
+    PRReviewComment,
     PRReviewThread,
+    ResolveReviewThreadResult,
+    UnresolveReviewThreadResult,
 )
 
 
-class FakePRGateway(PRGateway):
-    """In-memory fake implementation of PRGateway.
+class FakeGhIssueGateway(GhIssueGateway):
+    """In-memory fake implementation of GhIssueGateway.
 
     Constructor-only configuration with mutation tracking for assertions.
     No public setup methods — all state is provided at construction.
+
+    The fake accepts a `label` argument on `list()` for interface compatibility
+    but does not actually filter on it — tests seed the fake with the issues
+    they expect back.
     """
 
     def __init__(
         self,
         *,
+        issues: Sequence[GhIssue] = (),
         review_threads: dict[int, list[PRReviewThread]] | None = None,
         reviews: dict[int, list[PRReview]] | None = None,
         discussion_comments: dict[int, list[GhIssueComment]] | None = None,
         numbers_by_branch: dict[str, int] | None = None,
     ) -> None:
+        self._issues = tuple(issues)
         self._review_threads = review_threads or {}
         self._reviews = reviews or {}
         self._discussion_comments = discussion_comments or {}
         self._numbers_by_branch = numbers_by_branch or {}
         self._next_comment_id = 1
+        self._next_reaction_id = 1
 
-        # Mutation tracking
+        # Mutation tracking — public-but-underscored, read in tests for assertions.
         self._resolved_thread_ids: list[str] = []
         self._unresolved_thread_ids: list[str] = []
         self._thread_replies: list[tuple[str, str]] = []
         self._comments: list[tuple[int, str]] = []
         self._reactions: list[tuple[int, str]] = []
 
-    # -- Queries --
+    # -- Issue queries --
+
+    def list(self, *, label: str | None = None, state: str = "open") -> tuple[GhIssue, ...]:
+        if state == "all":
+            return self._issues
+        return tuple(i for i in self._issues if i.state.lower() == state.lower())
+
+    # -- PR queries --
 
     def get_review_threads(
         self, pr_number: int, *, include_resolved: bool = False
@@ -62,48 +78,50 @@ class FakePRGateway(PRGateway):
     def get_number_for_branch(self, branch: str) -> int | None:
         return self._numbers_by_branch.get(branch)
 
-    # -- Mutations --
+    # -- PR mutations --
 
-    def resolve_review_thread(self, thread_id: str) -> None:
+    def resolve_review_thread(self, thread_id: str) -> ResolveReviewThreadResult:
+        was_already_resolved = thread_id in self._resolved_thread_ids
         self._resolved_thread_ids.append(thread_id)
+        return ResolveReviewThreadResult(
+            thread_id=thread_id,
+            was_already_resolved=was_already_resolved,
+        )
 
-    def unresolve_review_thread(self, thread_id: str) -> None:
+    def unresolve_review_thread(self, thread_id: str) -> UnresolveReviewThreadResult:
+        was_already_unresolved = thread_id in self._unresolved_thread_ids
         self._unresolved_thread_ids.append(thread_id)
+        return UnresolveReviewThreadResult(
+            thread_id=thread_id,
+            was_already_unresolved=was_already_unresolved,
+        )
 
-    def add_review_thread_reply(self, thread_id: str, body: str) -> None:
+    def add_review_thread_reply(self, thread_id: str, body: str) -> PRReviewComment:
+        comment_id = self._next_comment_id
+        self._next_comment_id += 1
         self._thread_replies.append((thread_id, body))
+        return PRReviewComment(
+            id=comment_id,
+            body=body,
+            author="fake-user",
+            path="",
+            line=None,
+            created_at="",
+        )
 
-    def add_comment(self, pr_number: int, body: str) -> int:
+    def add_comment(self, pr_number: int, body: str) -> GhIssueComment:
         comment_id = self._next_comment_id
         self._next_comment_id += 1
         self._comments.append((pr_number, body))
-        return comment_id
+        return GhIssueComment(
+            id=comment_id,
+            body=body,
+            author="fake-user",
+            url=f"https://github.com/fake/fake/pull/{pr_number}#issuecomment-{comment_id}",
+        )
 
-    def add_reaction(self, comment_id: int, reaction: str) -> None:
+    def add_reaction(self, comment_id: int, reaction: str) -> GhReaction:
+        reaction_id = self._next_reaction_id
+        self._next_reaction_id += 1
         self._reactions.append((comment_id, reaction))
-
-
-class FakeGhIssueGateway(GhIssueGateway):
-    """In-memory fake implementation of GhIssueGateway.
-
-    Constructor-only configuration. The fake accepts a `label` argument for
-    interface compatibility with `GhIssueGateway.list` but does not actually
-    filter on it — tests seed the fake with the issues they expect back.
-    """
-
-    def __init__(self, *, issues: Sequence[GhIssue] = ()) -> None:
-        self._issues = tuple(issues)
-
-    def list(self, *, label: str | None = None, state: str = "open") -> tuple[GhIssue, ...]:
-        if state == "all":
-            return self._issues
-        return tuple(i for i in self._issues if i.state.lower() == state.lower())
-
-
-def make_fake_gh(
-    *,
-    pr: FakePRGateway | None = None,
-    issue: FakeGhIssueGateway | None = None,
-) -> GH:
-    """Convenience factory for building a GH facade with fake sub-gateways."""
-    return GH(pr=pr or FakePRGateway(), issue=issue or FakeGhIssueGateway())
+        return GhReaction(id=reaction_id, comment_id=comment_id, content=reaction)

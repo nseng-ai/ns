@@ -49,7 +49,7 @@ def test_objective_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
-    obj = {"issue_gateway": FakeGhIssueGateway()}
+    obj = {"gh_issue_gateway": FakeGhIssueGateway()}
 
     result = runner.invoke(parent, ["objective", "list"], obj=obj)
     assert result.exit_code == 0

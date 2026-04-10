@@ -10,7 +10,7 @@ from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
 from twerk_core import format_relative_time, get_console, make_table, state_badge
 from twerk_core.gh.types import GhIssue
-from twerk_objectives.cli.objective._gateway_access import get_issue_gateway
+from twerk_objectives.cli.objective._gateway_access import get_gh_issue_gateway
 
 
 @dataclass(frozen=True)
@@ -71,8 +71,11 @@ def run_list_objectives(
     request: ObjectiveListRequest,
 ) -> ObjectiveListResult | ClinkrCommandError:
     try:
-        issue_gw = get_issue_gateway()
-        issues = issue_gw.list(label="twerk-objective", state=request.state)
+        gateway = get_gh_issue_gateway()
+        issues = gateway.list(label="twerk-objective", state=request.state)
     except subprocess.CalledProcessError as e:
-        return ClinkrCommandError(message=f"Failed to list objectives: {e.stderr or e}")
+        return ClinkrCommandError(
+            error_type="gh_cli_failure",
+            message=f"Failed to list objectives: {e.stderr or e}",
+        )
     return ObjectiveListResult(objectives=issues)

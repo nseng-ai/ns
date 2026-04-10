@@ -14,7 +14,7 @@ def cli_group() -> ClinkrGroup:
 
 
 def _make_fake(issues: tuple[GhIssue, ...] = ()) -> dict[str, object]:
-    return {"issue_gateway": FakeGhIssueGateway(issues=issues)}
+    return {"gh_issue_gateway": FakeGhIssueGateway(issues=issues)}
 
 
 SAMPLE_ISSUES = (

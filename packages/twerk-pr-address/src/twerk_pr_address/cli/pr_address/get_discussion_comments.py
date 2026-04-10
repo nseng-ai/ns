@@ -7,7 +7,7 @@ from typing import Any
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
 from twerk_core.gh.types import GhIssueComment
-from twerk_pr_address.cli.pr_address._gateway_access import get_pr_address_gateway
+from twerk_pr_address.cli.pr_address._gateway_access import get_gh_issue_gateway
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,6 @@ class GetDiscussionCommentsResult:
 def run_get_discussion_comments(
     request: GetDiscussionCommentsRequest,
 ) -> GetDiscussionCommentsResult | ClinkrCommandError:
-    gateway = get_pr_address_gateway()
-    comments = gateway.get_pr_discussion_comments(request.pr_number)
+    gateway = get_gh_issue_gateway()
+    comments = gateway.get_discussion_comments(request.pr_number)
     return GetDiscussionCommentsResult(comments=comments)

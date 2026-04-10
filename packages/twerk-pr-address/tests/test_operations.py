@@ -1,4 +1,4 @@
-"""Tests for clinkr operations via CliRunner with FakePRAddressGitHub."""
+"""Tests for clinkr operations via CliRunner with FakeGhIssueGateway."""
 
 import json
 
@@ -6,13 +6,13 @@ import pytest
 from click.testing import CliRunner
 
 from clinkr.group import ClinkrGroup, discover_group
+from twerk_core.gh.testing import FakeGhIssueGateway
 from twerk_core.gh.types import (
     GhIssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
 )
-from twerk_pr_address.testing import FakePRAddressGitHub
 
 
 @pytest.fixture(scope="module")
@@ -23,10 +23,10 @@ def cli_group() -> ClinkrGroup:
 def _invoke(
     cli_group: ClinkrGroup,
     args: list[str],
-    fake: FakePRAddressGitHub,
+    fake: FakeGhIssueGateway,
 ) -> tuple[int, dict]:
     runner = CliRunner()
-    result = runner.invoke(cli_group, args, obj={"pr_address_gateway": fake})
+    result = runner.invoke(cli_group, args, obj={"gh_issue_gateway": fake})
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
 
@@ -69,7 +69,7 @@ def test_get_review_comments_returns_unresolved(cli_group: ClinkrGroup) -> None:
             ),
         ),
     )
-    fake = FakePRAddressGitHub(pr_review_threads={42: [unresolved, resolved]})
+    fake = FakeGhIssueGateway(review_threads={42: [unresolved, resolved]})
 
     exit_code, output = _invoke(cli_group, ["get-review-comments", "42"], fake)
 
@@ -115,7 +115,7 @@ def test_get_review_comments_include_resolved(cli_group: ClinkrGroup) -> None:
             ),
         ),
     ]
-    fake = FakePRAddressGitHub(pr_review_threads={42: threads})
+    fake = FakeGhIssueGateway(review_threads={42: threads})
 
     exit_code, output = _invoke(
         cli_group, ["get-review-comments", "42", "--include-resolved"], fake
@@ -126,7 +126,7 @@ def test_get_review_comments_include_resolved(cli_group: ClinkrGroup) -> None:
 
 
 def test_get_review_comments_empty_pr(cli_group: ClinkrGroup) -> None:
-    fake = FakePRAddressGitHub()
+    fake = FakeGhIssueGateway()
 
     exit_code, output = _invoke(cli_group, ["get-review-comments", "99"], fake)
 
@@ -143,7 +143,7 @@ def test_get_discussion_comments_returns_comments(cli_group: ClinkrGroup) -> Non
         GhIssueComment(id=1, body="Nice work", author="alice", url="https://example.com/1"),
         GhIssueComment(id=2, body="Fix the typo", author="bob", url="https://example.com/2"),
     ]
-    fake = FakePRAddressGitHub(pr_discussion_comments={42: comments})
+    fake = FakeGhIssueGateway(discussion_comments={42: comments})
 
     exit_code, output = _invoke(cli_group, ["get-discussion-comments", "42"], fake)
 
@@ -153,7 +153,7 @@ def test_get_discussion_comments_returns_comments(cli_group: ClinkrGroup) -> Non
 
 
 def test_get_discussion_comments_empty_pr(cli_group: ClinkrGroup) -> None:
-    fake = FakePRAddressGitHub()
+    fake = FakeGhIssueGateway()
 
     exit_code, output = _invoke(cli_group, ["get-discussion-comments", "99"], fake)
 
@@ -208,10 +208,10 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
             url="https://example.com/1",
         ),
     ]
-    fake = FakePRAddressGitHub(
-        pr_reviews={42: reviews},
-        pr_review_threads={42: threads},
-        pr_discussion_comments={42: comments},
+    fake = FakeGhIssueGateway(
+        reviews={42: reviews},
+        review_threads={42: threads},
+        discussion_comments={42: comments},
     )
 
     exit_code, output = _invoke(cli_group, ["get-feedback", "42"], fake)
@@ -235,7 +235,7 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
 
 
 def test_get_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
-    fake = FakePRAddressGitHub()
+    fake = FakeGhIssueGateway()
 
     exit_code, output = _invoke(cli_group, ["get-feedback", "99"], fake)
 
@@ -247,13 +247,13 @@ def test_get_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
 
 
 def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
-    fake = FakePRAddressGitHub()
+    fake = FakeGhIssueGateway()
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
         ["json", "get-feedback"],
         input='{"pr_number": 99}',
-        obj={"pr_address_gateway": fake},
+        obj={"gh_issue_gateway": fake},
     )
 
     assert result.exit_code == 0

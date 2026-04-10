@@ -7,7 +7,7 @@ from typing import Any
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRReviewThread
-from twerk_pr_address.cli.pr_address._gateway_access import get_pr_address_gateway
+from twerk_pr_address.cli.pr_address._gateway_access import get_gh_issue_gateway
 
 
 @dataclass(frozen=True)
@@ -34,8 +34,8 @@ class GetReviewCommentsResult:
 def run_get_review_comments(
     request: GetReviewCommentsRequest,
 ) -> GetReviewCommentsResult | ClinkrCommandError:
-    gateway = get_pr_address_gateway()
-    threads = gateway.get_pr_review_threads(
+    gateway = get_gh_issue_gateway()
+    threads = gateway.get_review_threads(
         request.pr_number, include_resolved=request.include_resolved
     )
     return GetReviewCommentsResult(threads=threads)
