@@ -4,8 +4,8 @@ import pytest
 from click.testing import CliRunner
 
 from clinkr.group import ClinkrGroup, discover_group
-from twerk_objectives.gateway import ObjectiveIssueSummary
-from twerk_objectives.testing import FakeObjectivesGitHub
+from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.types import Issue
 
 
 @pytest.fixture(scope="module")
@@ -13,26 +13,24 @@ def cli_group() -> ClinkrGroup:
     return discover_group("twerk_objectives.cli.objective")
 
 
-def _make_fake(
-    objectives: tuple[ObjectiveIssueSummary, ...] = (),
-) -> dict[str, FakeObjectivesGitHub]:
-    return {"objectives_gateway": FakeObjectivesGitHub(objectives=objectives)}
+def _make_fake(issues: tuple[Issue, ...] = ()) -> dict[str, object]:
+    return {"gh_issue_gateway": FakeIssueGateway(issues=issues)}
 
 
-SAMPLE_OBJECTIVES = (
-    ObjectiveIssueSummary(
+SAMPLE_ISSUES = (
+    Issue(
         number=34,
         title="Explore using pluggy",
         state="open",
         updated_at="2026-04-08T12:00:00Z",
     ),
-    ObjectiveIssueSummary(
+    Issue(
         number=24,
         title="Port pr-address from erk to twerk",
         state="open",
         updated_at="2026-04-08T08:00:00Z",
     ),
-    ObjectiveIssueSummary(
+    Issue(
         number=13,
         title="Set up dprint for consistent Markdown formatting",
         state="closed",
@@ -50,7 +48,7 @@ def test_objective_list_empty(cli_group: ClinkrGroup) -> None:
 
 def test_objective_list_with_objectives(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["list"], obj=_make_fake(SAMPLE_OBJECTIVES))
+    result = runner.invoke(cli_group, ["list"], obj=_make_fake(SAMPLE_ISSUES))
     assert result.exit_code == 0
     assert "#34" in result.output
     assert "Explore using pluggy" in result.output
@@ -68,7 +66,7 @@ def test_objective_list_with_objectives(cli_group: ClinkrGroup) -> None:
 
 def test_objective_list_state_all_renders_state_labels(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["list", "--state", "all"], obj=_make_fake(SAMPLE_OBJECTIVES))
+    result = runner.invoke(cli_group, ["list", "--state", "all"], obj=_make_fake(SAMPLE_ISSUES))
     assert result.exit_code == 0
     assert "#34" in result.output
     assert "#13" in result.output
@@ -79,8 +77,8 @@ def test_objective_list_state_all_renders_state_labels(cli_group: ClinkrGroup) -
 
 def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
     long_title = "A" * 200
-    objectives = (
-        ObjectiveIssueSummary(
+    issues = (
+        Issue(
             number=42,
             title=long_title,
             state="open",
@@ -92,7 +90,7 @@ def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["list"],
-        obj=_make_fake(objectives),
+        obj=_make_fake(issues),
         env={"COLUMNS": "200"},
     )
     assert result.exit_code == 0
@@ -105,7 +103,7 @@ def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
 
 def test_objective_list_state_all(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["list", "--state", "all"], obj=_make_fake(SAMPLE_OBJECTIVES))
+    result = runner.invoke(cli_group, ["list", "--state", "all"], obj=_make_fake(SAMPLE_ISSUES))
     assert result.exit_code == 0
     assert "#34" in result.output
     assert "#24" in result.output
@@ -117,7 +115,7 @@ def test_objective_list_state_closed(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["list", "--state", "closed"],
-        obj=_make_fake(SAMPLE_OBJECTIVES),
+        obj=_make_fake(SAMPLE_ISSUES),
     )
     assert result.exit_code == 0
     assert "#13" in result.output
@@ -126,7 +124,7 @@ def test_objective_list_state_closed(cli_group: ClinkrGroup) -> None:
 
 def test_objective_ls_alias(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["ls"], obj=_make_fake(SAMPLE_OBJECTIVES))
+    result = runner.invoke(cli_group, ["ls"], obj=_make_fake(SAMPLE_ISSUES))
     assert result.exit_code == 0
     assert "#34" in result.output
 
@@ -147,7 +145,7 @@ def test_objective_json_list(cli_group: ClinkrGroup) -> None:
         cli_group,
         ["json", "list"],
         input="",
-        obj=_make_fake(SAMPLE_OBJECTIVES),
+        obj=_make_fake(SAMPLE_ISSUES),
     )
     assert result.exit_code == 0
     assert '"success": true' in result.output

@@ -3,6 +3,7 @@
 import pytest
 
 from twerk_core.gh.types import (
+    Issue,
     IssueComment,
     PRReview,
     PRReviewComment,
@@ -93,3 +94,22 @@ def test_restructured_file_construction():
     )
     assert rf.status == "R"
     assert rf.similarity == 95
+
+
+def test_issue_construction() -> None:
+    issue = Issue(
+        number=42,
+        title="Add gh.issue gateway",
+        state="open",
+        updated_at="2026-04-08T12:00:00Z",
+    )
+    assert issue.number == 42
+    assert issue.title == "Add gh.issue gateway"
+    assert issue.state == "open"
+    assert issue.updated_at == "2026-04-08T12:00:00Z"
+
+
+def test_issue_is_frozen() -> None:
+    issue = Issue(number=1, title="t", state="open", updated_at="")
+    with pytest.raises(AttributeError):
+        issue.title = "changed"  # type: ignore[misc]

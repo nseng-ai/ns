@@ -75,3 +75,51 @@ class RestructuredFile:
     old_path: str
     new_path: str
     similarity: int  # percentage similarity (0-100)
+
+
+@dataclass(frozen=True)
+class Issue:
+    """A GitHub issue summary as returned by `gh issue list`.
+
+    Pure data type with no serialization helpers — callers compose JSON output
+    in their own result types so this stays consistent with the other types in
+    this module (PRReview, PRReviewThread, IssueComment, ...).
+    """
+
+    number: int
+    title: str
+    state: str
+    updated_at: str
+
+
+@dataclass(frozen=True)
+class Reaction:
+    """A reaction on a GitHub issue/PR comment.
+
+    `content` is one of GitHub's reaction tokens: "+1", "-1", "laugh",
+    "confused", "heart", "hooray", "rocket", "eyes".
+    """
+
+    id: int
+    comment_id: int
+    content: str
+
+
+@dataclass(frozen=True)
+class ResolveReviewThreadResult:
+    """Result of resolving a review thread.
+
+    `was_already_resolved` lets callers in sweep-resolve loops distinguish a
+    no-op from a state change without re-querying.
+    """
+
+    thread_id: str
+    was_already_resolved: bool
+
+
+@dataclass(frozen=True)
+class UnresolveReviewThreadResult:
+    """Result of unresolving a review thread."""
+
+    thread_id: str
+    was_already_unresolved: bool

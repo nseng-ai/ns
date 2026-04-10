@@ -9,7 +9,8 @@ import click
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
 from twerk_core import format_relative_time, get_console, make_table, state_badge
-from twerk_objectives.gateway import ObjectiveIssueSummary
+from twerk_core.gh.types import Issue
+from twerk_objectives.cli.objective._gateway_access import get_gh_issue_gateway
 
 
 @dataclass(frozen=True)
@@ -21,11 +22,19 @@ class ObjectiveListRequest:
 
 @dataclass(frozen=True)
 class ObjectiveListResult:
-    objectives: tuple[ObjectiveIssueSummary, ...]
+    objectives: tuple[Issue, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
-            "objectives": [o.to_json_dict() for o in self.objectives],
+            "objectives": [
+                {
+                    "number": i.number,
+                    "title": i.title,
+                    "state": i.state,
+                    "updated_at": i.updated_at,
+                }
+                for i in self.objectives
+            ],
             "count": len(self.objectives),
         }
 
@@ -61,13 +70,12 @@ def render_objective_list(result: ObjectiveListResult) -> None:
 def run_list_objectives(
     request: ObjectiveListRequest,
 ) -> ObjectiveListResult | ClinkrCommandError:
-    from twerk_objectives.cli.objective._gateway_access import (
-        get_objectives_gateway,
-    )
-
     try:
-        gateway = get_objectives_gateway()
-        summaries = gateway.list_objectives(state=request.state)
+        gateway = get_gh_issue_gateway()
+        issues = gateway.list(label="twerk-objective", state=request.state)
     except subprocess.CalledProcessError as e:
-        return ClinkrCommandError(message=f"Failed to list objectives: {e.stderr or e}")
-    return ObjectiveListResult(objectives=summaries)
+        return ClinkrCommandError(
+            error_type="gh_cli_failure",
+            message=f"Failed to list objectives: {e.stderr or e}",
+        )
+    return ObjectiveListResult(objectives=issues)
