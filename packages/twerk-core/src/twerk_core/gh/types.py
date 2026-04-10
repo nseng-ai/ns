@@ -3,13 +3,11 @@
 from dataclasses import dataclass
 from typing import Literal
 
+# All review states GitHub may return. Queries that filter to actionable states
+# (e.g. the GraphQL `[CHANGES_REQUESTED, APPROVED, COMMENTED]` filter) won't
+# surface PENDING/DISMISSED in practice, but downstream code must still handle
+# the full type.
 PRReviewState = Literal["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]
-"""All review states GitHub may return.
-
-Note: queries that filter to actionable states (e.g. the GraphQL
-`[CHANGES_REQUESTED, APPROVED, COMMENTED]` filter) won't surface PENDING/DISMISSED
-in practice, but downstream code must still handle the full type.
-"""
 
 
 @dataclass(frozen=True)
