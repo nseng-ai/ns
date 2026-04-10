@@ -8,6 +8,7 @@ import click
 
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
+from twerk_core import format_relative_time, get_console, make_table, state_badge
 from twerk_objectives.gateway import ObjectiveIssueSummary
 
 
@@ -33,9 +34,22 @@ def render_objective_list(result: ObjectiveListResult) -> None:
     if not result.objectives:
         click.echo("No objectives found.")
         return
+
+    table = make_table()
+    table.add_column("#", style="bold cyan", no_wrap=True, justify="right", min_width=4)
+    table.add_column("Status", no_wrap=True, min_width=8)
+    table.add_column("Title", no_wrap=True, overflow="ellipsis", ratio=1)
+    table.add_column("Updated", no_wrap=True, style="dim", justify="right", min_width=7)
+
     for obj in result.objectives:
-        date = obj.updated_at[:10]
-        click.echo(f"#{obj.number:<5} {obj.title:<60} {date}")
+        table.add_row(
+            f"#{obj.number}",
+            state_badge(obj.state),
+            obj.title,
+            format_relative_time(obj.updated_at),
+        )
+
+    get_console().print(table)
 
 
 @clinkr_operation(
