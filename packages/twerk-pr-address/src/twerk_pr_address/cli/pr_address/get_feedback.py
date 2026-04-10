@@ -6,7 +6,7 @@ from typing import Any
 
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
-from twerk_core.gh.types import IssueComment, PRReview, PRReviewThread
+from twerk_core.gh.types import GhIssueComment, PRReview, PRReviewThread
 from twerk_pr_address.cli.pr_address._gateway_access import get_pr_address_gateway
 
 
@@ -21,7 +21,7 @@ class GetFeedbackResult:
     pr_number: int
     reviews: tuple[PRReview, ...]
     review_threads: tuple[PRReviewThread, ...]
-    discussion_comments: tuple[IssueComment, ...]
+    discussion_comments: tuple[GhIssueComment, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {

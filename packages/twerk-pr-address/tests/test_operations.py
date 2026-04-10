@@ -227,7 +227,7 @@ def test_get_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
     assert output["review_threads"][0]["id"] == "PRRT_1"
     assert output["review_threads"][0]["path"] == "file.py"
     assert len(output["review_threads"][0]["comments"]) == 1
-    # Discussion comments pass through as full IssueComment records — including
+    # Discussion comments pass through as full GhIssueComment records — including
     # bot/Graphite comments that used to be pre-classified as informational.
     assert len(output["discussion_comments"]) == 1
     assert output["discussion_comments"][0]["author"] == "Graphite Automations"
