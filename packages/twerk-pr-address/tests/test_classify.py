@@ -1,20 +1,20 @@
 """Tests for pure classification functions."""
 
-from __future__ import annotations
+import dataclasses
 
+from twerk_core.gh.types import (
+    IssueComment,
+    PRReview,
+    PRReviewComment,
+    PRReviewThread,
+    RestructuredFile,
+)
 from twerk_pr_address.classify import (
     ClassificationResult,
     classify_impl,
     is_bot,
     is_known_informational_discussion,
     parse_name_status_output,
-)
-from twerk_pr_address.types import (
-    IssueComment,
-    PRReview,
-    PRReviewComment,
-    PRReviewThread,
-    RestructuredFile,
 )
 
 # -- is_bot --
@@ -350,7 +350,7 @@ def test_body_preview_truncation() -> None:
     assert len(result.review_submissions[0].body_preview) == 200
 
 
-def test_classification_result_to_json_dict() -> None:
+def test_classification_result_serializes_via_asdict() -> None:
     result = ClassificationResult(
         review_submissions=(),
         review_threads=(),
@@ -358,6 +358,6 @@ def test_classification_result_to_json_dict() -> None:
         restructured_files=(),
         mechanical_informational_count=0,
     )
-    json_dict = result.to_json_dict()
-    assert json_dict["review_submissions"] == []
+    json_dict = dataclasses.asdict(result)
+    assert json_dict["review_submissions"] == ()
     assert json_dict["mechanical_informational_count"] == 0

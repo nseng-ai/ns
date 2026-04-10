@@ -1,7 +1,5 @@
 """Top-level GitHub facade composing sub-gateways."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from twerk_core.gh.pr_gateway import PRGateway

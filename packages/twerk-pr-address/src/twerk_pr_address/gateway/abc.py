@@ -1,10 +1,8 @@
 """Abstract base class for the PR address GitHub gateway."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 
-from twerk_pr_address.types import (
+from twerk_core.gh.types import (
     IssueComment,
     PRReview,
     PRReviewThread,
@@ -15,9 +13,9 @@ from twerk_pr_address.types import (
 class PRAddressGitHub(ABC):
     """Gateway interface for the pr-address feature.
 
-    Distinct from twerk_core.gh.PRGateway: it uses pr_-prefixed method
-    names and adds a git operation (get_restructured_files) so the feature
-    can stay self-contained.
+    Combines GitHub PR queries (reviews, threads, discussion comments) with
+    a local git operation (get_restructured_files) so the feature is
+    self-contained.
     """
 
     @abstractmethod

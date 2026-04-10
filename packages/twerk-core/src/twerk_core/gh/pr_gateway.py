@@ -1,7 +1,5 @@
 """Abstract base class for GitHub PR operations."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 
 from twerk_core.gh.types import (
@@ -19,6 +17,9 @@ class PRGateway(ABC):
     the hood) because the user-facing mental model groups them with PR
     workflows. The underlying implementations can share code with a future
     IssueGateway.
+
+    Mutation methods raise on failure rather than returning a success bool —
+    callers shouldn't have to remember to check.
     """
 
     # -- Queries --
@@ -50,21 +51,21 @@ class PRGateway(ABC):
     # -- Mutations --
 
     @abstractmethod
-    def resolve_review_thread(self, thread_id: str) -> bool:
-        """Resolve a review thread. Returns True on success."""
+    def resolve_review_thread(self, thread_id: str) -> None:
+        """Resolve a review thread. Raises on failure."""
 
     @abstractmethod
-    def unresolve_review_thread(self, thread_id: str) -> bool:
-        """Unresolve a review thread. Returns True on success."""
+    def unresolve_review_thread(self, thread_id: str) -> None:
+        """Unresolve a review thread. Raises on failure."""
 
     @abstractmethod
-    def add_review_thread_reply(self, thread_id: str, body: str) -> bool:
-        """Add a reply to a review thread. Returns True on success."""
+    def add_review_thread_reply(self, thread_id: str, body: str) -> None:
+        """Add a reply to a review thread. Raises on failure."""
 
     @abstractmethod
     def add_comment(self, pr_number: int, body: str) -> int:
         """Add a discussion comment to a PR. Returns the comment ID."""
 
     @abstractmethod
-    def add_reaction(self, comment_id: int, reaction: str) -> bool:
-        """Add a reaction to a comment. Returns True on success."""
+    def add_reaction(self, comment_id: int, reaction: str) -> None:
+        """Add a reaction to a comment. Raises on failure."""

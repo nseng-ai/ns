@@ -1,7 +1,5 @@
 """Test utilities for the GitHub gateway facade."""
 
-from __future__ import annotations
-
 from twerk_core.gh.facade import GH
 from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import (
@@ -25,17 +23,12 @@ class FakePRGateway(PRGateway):
         reviews: dict[int, list[PRReview]] | None = None,
         discussion_comments: dict[int, list[IssueComment]] | None = None,
         numbers_by_branch: dict[str, int] | None = None,
-        resolve_thread_failures: set[str] | None = None,
-        unresolve_thread_failures: set[str] | None = None,
-        next_comment_id: int = 1000,
     ) -> None:
         self._review_threads = review_threads or {}
         self._reviews = reviews or {}
         self._discussion_comments = discussion_comments or {}
         self._numbers_by_branch = numbers_by_branch or {}
-        self._resolve_thread_failures = resolve_thread_failures or set()
-        self._unresolve_thread_failures = unresolve_thread_failures or set()
-        self._next_comment_id = next_comment_id
+        self._next_comment_id = 1
 
         # Mutation tracking
         self._resolved_thread_ids: list[str] = []
@@ -65,21 +58,14 @@ class FakePRGateway(PRGateway):
 
     # -- Mutations --
 
-    def resolve_review_thread(self, thread_id: str) -> bool:
-        if thread_id in self._resolve_thread_failures:
-            return False
+    def resolve_review_thread(self, thread_id: str) -> None:
         self._resolved_thread_ids.append(thread_id)
-        return True
 
-    def unresolve_review_thread(self, thread_id: str) -> bool:
-        if thread_id in self._unresolve_thread_failures:
-            return False
+    def unresolve_review_thread(self, thread_id: str) -> None:
         self._unresolved_thread_ids.append(thread_id)
-        return True
 
-    def add_review_thread_reply(self, thread_id: str, body: str) -> bool:
+    def add_review_thread_reply(self, thread_id: str, body: str) -> None:
         self._thread_replies.append((thread_id, body))
-        return True
 
     def add_comment(self, pr_number: int, body: str) -> int:
         comment_id = self._next_comment_id
@@ -87,9 +73,8 @@ class FakePRGateway(PRGateway):
         self._comments.append((pr_number, body))
         return comment_id
 
-    def add_reaction(self, comment_id: int, reaction: str) -> bool:
+    def add_reaction(self, comment_id: int, reaction: str) -> None:
         self._reactions.append((comment_id, reaction))
-        return True
 
 
 def make_fake_gh(

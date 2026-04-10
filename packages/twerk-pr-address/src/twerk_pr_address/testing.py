@@ -1,14 +1,12 @@
 """Test utilities for the pr-address gateway."""
 
-from __future__ import annotations
-
-from twerk_pr_address.gateway.abc import PRAddressGitHub
-from twerk_pr_address.types import (
+from twerk_core.gh.types import (
     IssueComment,
     PRReview,
     PRReviewThread,
     RestructuredFile,
 )
+from twerk_pr_address.gateway.abc import PRAddressGitHub
 
 
 class FakePRAddressGitHub(PRAddressGitHub):

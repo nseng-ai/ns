@@ -5,7 +5,7 @@ from twerk_core.gh.testing import FakePRGateway, make_fake_gh
 from twerk_core.gh.types import PRReviewComment, PRReviewThread
 
 
-def test_facade_delegates_to_pr_gateway():
+def test_facade_delegates_to_pr_gateway() -> None:
     thread = PRReviewThread(
         id="PRRT_1",
         path="f.py",
@@ -24,12 +24,12 @@ def test_facade_delegates_to_pr_gateway():
     assert result[0].id == "PRRT_1"
 
 
-def test_make_fake_gh_creates_defaults():
+def test_make_fake_gh_creates_defaults() -> None:
     gh = make_fake_gh()
     assert gh.pr.get_review_threads(1) == ()
 
 
-def test_make_fake_gh_accepts_custom_pr():
+def test_make_fake_gh_accepts_custom_pr() -> None:
     fake_pr = FakePRGateway(numbers_by_branch={"main": 1})
     gh = make_fake_gh(pr=fake_pr)
     assert gh.pr.get_number_for_branch("main") == 1

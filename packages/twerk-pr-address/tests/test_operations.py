@@ -1,21 +1,19 @@
 """Tests for clinkr operations via CliRunner with FakePRAddressGitHub."""
 
-from __future__ import annotations
-
 import json
 
 import pytest
 from click.testing import CliRunner
 
 from clinkr.group import ClinkrGroup, discover_group
-from twerk_pr_address.testing import FakePRAddressGitHub
-from twerk_pr_address.types import (
+from twerk_core.gh.types import (
     IssueComment,
     PRReview,
     PRReviewComment,
     PRReviewThread,
     RestructuredFile,
 )
+from twerk_pr_address.testing import FakePRAddressGitHub
 
 
 @pytest.fixture(scope="module")
@@ -221,7 +219,7 @@ def test_classify_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
         restructured_files=restructured,
     )
 
-    exit_code, output = _invoke(cli_group, ["classify-feedback", "42"], fake)
+    exit_code, output = _invoke(cli_group, ["classify-feedback", "42", "master"], fake)
 
     assert exit_code == 0
     assert output["pr_number"] == 42
@@ -236,7 +234,7 @@ def test_classify_feedback_full_scenario(cli_group: ClinkrGroup) -> None:
 def test_classify_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
     fake = FakePRAddressGitHub()
 
-    exit_code, output = _invoke(cli_group, ["classify-feedback", "99"], fake)
+    exit_code, output = _invoke(cli_group, ["classify-feedback", "99", "master"], fake)
 
     assert exit_code == 0
     assert output["pr_number"] == 99
@@ -252,7 +250,7 @@ def test_classify_feedback_json_mode(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["json", "classify-feedback"],
-        input='{"pr_number": 99}',
+        input='{"pr_number": 99, "base_ref": "master"}',
         obj={"pr_address_gateway": fake},
     )
 
