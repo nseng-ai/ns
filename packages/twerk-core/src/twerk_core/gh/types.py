@@ -3,12 +3,12 @@
 from dataclasses import dataclass
 from typing import Literal
 
-PRReviewState = Literal["COMMENTED", "APPROVED", "CHANGES_REQUESTED"]
-"""States returned by the PR reviews query.
+PRReviewState = Literal["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]
+"""All review states GitHub may return.
 
-Mirrors the GraphQL filter `[CHANGES_REQUESTED, APPROVED, COMMENTED]`. PENDING
-and DISMISSED are intentionally excluded — the gateway never surfaces them and
-downstream classifiers do not handle them.
+Note: queries that filter to actionable states (e.g. the GraphQL
+`[CHANGES_REQUESTED, APPROVED, COMMENTED]` filter) won't surface PENDING/DISMISSED
+in practice, but downstream code must still handle the full type.
 """
 
 

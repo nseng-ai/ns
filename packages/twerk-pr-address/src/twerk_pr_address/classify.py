@@ -8,7 +8,7 @@ Applies deterministic rules to classify PR feedback before LLM processing:
 """
 
 from dataclasses import dataclass
-from typing import Literal, assert_never
+from typing import Literal
 
 from twerk_core.gh.types import (
     IssueComment,
@@ -215,7 +215,12 @@ def classify_impl(
                     )
                 )
         else:
-            assert_never(review.state)
+            # PENDING/DISMISSED are filtered out by the GraphQL query; if they
+            # leak through, fail loud rather than silently dropping them.
+            raise ValueError(
+                f"Unexpected review state {review.state!r} (id={review.id}); "
+                "expected one of APPROVED, CHANGES_REQUESTED, COMMENTED"
+            )
 
     # Classify review threads
     restructured_paths = {f.new_path for f in restructured_files}
