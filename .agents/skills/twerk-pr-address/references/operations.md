@@ -55,7 +55,56 @@ Both are fine.
 **Purpose:** Fetch every inline review thread on the PR with comments,
 resolution state, and outdated state.
 
+**Migrated:** to `twerk pr-address get-review-comments`, backed by
+`RealIssueGateway.get_review_threads` at
+`packages/twerk-core/src/twerk_core/gh/real_issue_gateway.py`.
+
 **Command:**
+
+```bash
+twerk pr-address get-review-comments "$PR_NUMBER"
+# include resolved threads (Phase 0 contested-thread detection):
+twerk pr-address get-review-comments "$PR_NUMBER" --include-resolved
+```
+
+**Filter:** The operation defaults to unresolved-only and already drops
+null-id threads (GraphQL occasionally returns null ids for deleted files).
+Pass `--include-resolved` to return the full set (Phase 0 needs this;
+Phase 1 does not).
+
+**Output shape:**
+
+```json
+{
+  "count": 2,
+  "threads": [
+    {
+      "id": "PRRT_abc",
+      "path": "src/foo.py",
+      "line": 42,
+      "is_resolved": false,
+      "is_outdated": false,
+      "comments": [
+        {
+          "id": 1234567890,
+          "body": "nit: rename",
+          "author": "reviewer",
+          "path": "src/foo.py",
+          "line": 42,
+          "created_at": "2026-04-10T12:00:00Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Deleted reviewer accounts come back as `"author": ""`.
+
+#### Previously (raw GraphQL)
+
+Before the migration the skill shelled out to `gh api graphql` directly.
+Kept here as a worked example for the next push-down:
 
 ```bash
 gh api graphql \
@@ -90,15 +139,13 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }'
 ```
 
-**Filter:** Drop threads where `isResolved == true` unless the user passed
-`--all`. Drop threads with an empty or null `id` (GraphQL occasionally
-returns null for threads on deleted files).
-
-**Phase 0 note:** The same query is used during contested-thread detection,
-but without dropping resolved threads.
-
-**Output shape each thread:** `{id, isResolved, isOutdated, path, line,
-comments: [{databaseId, body, author: {login}, path, line, createdAt}]}`
+Field-name mapping from this raw shape to the `twerk pr-address
+get-review-comments` output: `isResolved` → `is_resolved`, `isOutdated` →
+`is_outdated`, `comments.nodes[i].databaseId` → `comments[i].id`,
+`author.login` → `author` (flat string, `""` for deleted accounts),
+`createdAt` → `created_at`. The clinkr-op output has already dropped the
+`data.repository.pullRequest.reviewThreads.nodes` nesting in favor of a
+flat `{count, threads}` envelope.
 
 ---
 
@@ -110,8 +157,9 @@ be reopened before classification or the next run will miss them.
 
 **Detection algorithm:**
 
-1. Fetch all review threads, including resolved ones, using
-   §`get-review-threads`.
+1. Fetch all review threads, including resolved ones, via
+   `twerk pr-address get-review-comments <pr_number> --include-resolved`.
+   See §`get-review-threads` for the full output shape.
 2. For each resolved thread, scan comments in order.
 3. Find the last comment whose body contains
    `<!-- twerk:pr-address-resolved -->`.
@@ -426,7 +474,7 @@ prescriptive — drive push-down by skill pain.
 | Operation                    | Status on `IssueGateway`                               | Existing clinkr op?              | Push-down notes                                                                                           |
 | ---------------------------- | ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `get-pr-for-branch`          | `get_number_for_branch` (`NotImplementedError` stub)   | no                               | Small — wrap `gh pr view`.                                                                                |
-| `get-review-threads`         | `get_review_threads` (stub)                            | `get-review-comments` (3/7 done) | Operation exists; needs real-gateway backing.                                                             |
+| `get-review-threads`         | `get_review_threads` (**real**)                        | `get-review-comments` (**done**) | **Migrated** — skill uses `twerk pr-address get-review-comments` (with `--include-resolved` in Phase 0). |
 | `get-reviews`                | `get_reviews` (stub)                                   | no                               | Add alongside threads — they're fetched together in classification.                                      |
 | `get-discussion-comments`    | `get_discussion_comments` (stub)                       | `get-discussion-comments` (done) | Operation exists; needs real-gateway backing.                                                             |
 | `get-restructured-files`     | N/A (git, not `gh`)                                    | no                               | Could live on a `GitGateway` or as a pure helper next to the classifier.                                  |

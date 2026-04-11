@@ -3,19 +3,17 @@
 import click
 
 from twerk_core.gh.issue_gateway import IssueGateway
+from twerk_core.gh.real_issue_gateway import RealIssueGateway
 
 
 def get_gh_issue_gateway() -> IssueGateway:
-    """Retrieve IssueGateway from the current Click context.
+    """Retrieve the IssueGateway from the current Click context.
 
-    The gateway must be set in ctx.obj["gh_issue_gateway"] by the caller
-    (twerk CLI or test harness). Missing-gateway is an internal setup bug,
-    not a user-facing condition.
+    Falls back to a real-CLI-backed gateway when none is injected, so the
+    command works out of the box in any git repo.
     """
     ctx = click.get_current_context()
-    gateway = (ctx.obj or {}).get("gh_issue_gateway")
-    assert gateway is not None, (
-        "gh_issue_gateway not in Click context — this is a bug in the "
-        "pr-address CLI plumbing, not a user error"
-    )
+    gateway = ctx.obj.get("gh_issue_gateway") if ctx.obj else None
+    if gateway is None:
+        return RealIssueGateway()
     return gateway

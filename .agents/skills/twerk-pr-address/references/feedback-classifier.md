@@ -16,8 +16,9 @@ as principles, not enumerations.
 
 Three arrays from Phase 1:
 
-- **threads**: inline review threads with `{id, isResolved, isOutdated,
-  path, line, comments: [{author, body, createdAt}]}`
+- **threads**: inline review threads from `twerk pr-address
+  get-review-comments`, shaped as `{id, path, line, is_resolved,
+  is_outdated, comments: [{id, body, author, path, line, created_at}]}`
 - **reviews**: PR-level review submissions with `{id, author, body, state,
   submittedAt}`. State ∈ {`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`}.
 - **discussions**: top-level PR comments with `{id, author, body,
@@ -101,7 +102,7 @@ matches wins.
    suggests a pattern already present nearby, or flags a false positive
    you can verify in-place) → still `actionable`, but you will often
    decide to reply-and-resolve without a code change in Phase 3.
-4. **Outdated thread** (`isOutdated: true`, `line: null`) → `actionable`
+4. **Outdated thread** (`is_outdated: true`, `line: null`) → `actionable`
    with a note in the `action_summary`: `"[outdated] <summary>"`. In
    Phase 3, check whether the issue is already fixed; if so, resolve
    without a new edit.
