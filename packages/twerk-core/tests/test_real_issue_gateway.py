@@ -54,14 +54,17 @@ def _make_thread(
 
 
 def _make_fake_run(
-    threads: list[dict[str, object]],
+    *,
+    threads: list[dict[str, object]] | None = None,
+    reviews: list[dict[str, object]] | None = None,
+    discussion_comment_pages: list[list[dict[str, object]]] | None = None,
 ) -> object:
     """Build a fake `subprocess.run` that dispatches on the command shape.
 
     Returns owner/repo JSON for `gh repo view ...` and a GraphQL payload for
     `gh api graphql ...`. Raises if the test harness sends any other command.
     """
-    graphql_payload = json.dumps(
+    review_threads_payload = json.dumps(
         {
             "data": {
                 "repository": {
@@ -71,6 +74,20 @@ def _make_fake_run(
                 }
             }
         }
+    )
+    reviews_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviews": {"nodes": reviews},
+                    }
+                }
+            }
+        }
+    )
+    discussion_comments_payload = "".join(
+        json.dumps(page) for page in (discussion_comment_pages or [])
     )
 
     def fake_run(
@@ -86,7 +103,16 @@ def _make_fake_run(
             assert "owner=dagster-io" in joined
             assert "repo=twerk" in joined
             assert "number=47" in joined
-            return subprocess.CompletedProcess(cmd, 0, stdout=graphql_payload, stderr="")
+            if "reviewThreads(first: 100)" in joined:
+                return subprocess.CompletedProcess(cmd, 0, stdout=review_threads_payload, stderr="")
+            if "reviews(first: 100, states: [CHANGES_REQUESTED, APPROVED, COMMENTED])" in joined:
+                return subprocess.CompletedProcess(cmd, 0, stdout=reviews_payload, stderr="")
+            raise AssertionError(f"unexpected GraphQL query: {joined}")
+        if cmd[:2] == ["gh", "api"] and cmd[2] == "repos/dagster-io/twerk/issues/47/comments":
+            assert "--paginate" in cmd
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=discussion_comments_payload, stderr=""
+            )
         raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
 
     return fake_run
@@ -99,7 +125,7 @@ def test_get_review_threads_default_filters_out_resolved(
         _make_thread(thread_id="PRRT_open", is_resolved=False),
         _make_thread(thread_id="PRRT_closed", is_resolved=True),
     ]
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads))
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads=threads))
 
     result = RealIssueGateway().get_review_threads(47)
 
@@ -119,7 +145,7 @@ def test_get_review_threads_include_resolved_returns_everything(
         _make_thread(thread_id="PRRT_open", is_resolved=False),
         _make_thread(thread_id="PRRT_closed", is_resolved=True),
     ]
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads))
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads=threads))
 
     result = RealIssueGateway().get_review_threads(47, include_resolved=True)
 
@@ -135,7 +161,7 @@ def test_get_review_threads_drops_null_id_threads(
         _make_thread(thread_id=None, is_resolved=False),
         _make_thread(thread_id="PRRT_valid", is_resolved=False),
     ]
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads))
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads=threads))
 
     result = RealIssueGateway().get_review_threads(47)
 
@@ -162,9 +188,72 @@ def test_get_review_threads_handles_deleted_author(
             ],
         ),
     ]
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads))
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads=threads))
 
     result = RealIssueGateway().get_review_threads(47)
 
     assert len(result) == 1
     assert result[0].comments[0].author == ""
+
+
+def test_get_reviews_returns_full_review_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reviews = [
+        {
+            "id": "PRR_changes",
+            "author": {"login": "reviewer"},
+            "body": "Please fix this",
+            "state": "CHANGES_REQUESTED",
+            "submittedAt": "2026-04-10T12:00:00Z",
+        },
+        {
+            "id": "PRR_approved",
+            "author": None,
+            "body": "looks good",
+            "state": "APPROVED",
+            "submittedAt": "2026-04-10T13:00:00Z",
+        },
+    ]
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(reviews=reviews))
+
+    result = RealIssueGateway().get_reviews(47)
+
+    assert tuple(review.id for review in result) == ("PRR_changes", "PRR_approved")
+    assert tuple(review.state for review in result) == ("CHANGES_REQUESTED", "APPROVED")
+    assert result[0].author == "reviewer"
+    assert result[1].author == ""
+
+
+def test_get_discussion_comments_flattens_paginated_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discussion_comment_pages = [
+        [
+            {
+                "id": 101,
+                "body": "First comment",
+                "user": {"login": "alice"},
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-101",
+            }
+        ],
+        [
+            {
+                "id": 202,
+                "body": "Second comment",
+                "user": None,
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-202",
+            }
+        ],
+    ]
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(discussion_comment_pages=discussion_comment_pages),
+    )
+
+    result = RealIssueGateway().get_discussion_comments(47)
+
+    assert tuple(comment.id for comment in result) == (101, 202)
+    assert result[0].author == "alice"
+    assert result[1].author == ""

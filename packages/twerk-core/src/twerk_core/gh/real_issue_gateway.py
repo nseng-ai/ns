@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from typing import cast
 
 from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.types import (
@@ -53,6 +54,24 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 """
 
+_REVIEWS_QUERY = """
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviews(first: 100, states: [CHANGES_REQUESTED, APPROVED, COMMENTED]) {
+        nodes {
+          id
+          author { login }
+          body
+          state
+          submittedAt
+        }
+      }
+    }
+  }
+}
+"""
+
 
 def _get_owner_repo() -> tuple[str, str]:
     """Resolve `(owner, repo)` for the current working directory via `gh repo view`.
@@ -70,6 +89,26 @@ def _get_owner_repo() -> tuple[str, str]:
     )
     data = json.loads(result.stdout)
     return data["owner"]["login"], data["name"]
+
+
+def _load_paginated_array_output(stdout: str) -> list[dict[str, object]]:
+    """Parse `gh api --paginate` output for endpoints that return arrays.
+
+    The CLI prints each page's JSON array back-to-back, so multi-page output is
+    not valid JSON as a whole. Decode each array and flatten the pages.
+    """
+    decoder = json.JSONDecoder()
+    items: list[dict[str, object]] = []
+    index = 0
+    while index < len(stdout):
+        while index < len(stdout) and stdout[index].isspace():
+            index += 1
+        if index >= len(stdout):
+            break
+        raw_page, index = decoder.raw_decode(stdout, index)
+        page = cast(list[dict[str, object]], raw_page)
+        items.extend(page)
+    return items
 
 
 class RealIssueGateway(IssueGateway):
@@ -159,10 +198,59 @@ class RealIssueGateway(IssueGateway):
     # -- PR queries (not yet implemented) --
 
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="get_reviews"))
+        owner, repo = _get_owner_repo()
+        cmd = [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"owner={owner}",
+            "-F",
+            f"repo={repo}",
+            "-F",
+            f"number={pr_number}",
+            "-f",
+            f"query={_REVIEWS_QUERY}",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        payload = json.loads(result.stdout)
+        raw_reviews = payload["data"]["repository"]["pullRequest"]["reviews"]["nodes"]
+        return tuple(
+            PRReview(
+                id=review["id"],
+                # author can be null when the GitHub account is deleted.
+                author=review["author"]["login"] if review["author"] else "",
+                body=review["body"],
+                state=review["state"],
+                submitted_at=review["submittedAt"],
+            )
+            for review in raw_reviews
+        )
 
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="get_discussion_comments"))
+        owner, repo = _get_owner_repo()
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{owner}/{repo}/issues/{pr_number}/comments",
+                "--paginate",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        raw_comments = _load_paginated_array_output(result.stdout)
+        return tuple(
+            IssueComment(
+                id=comment["id"],
+                body=comment["body"],
+                # user can be null when the GitHub account is deleted.
+                author=comment["user"]["login"] if comment["user"] else "",
+                url=comment["html_url"],
+            )
+            for comment in raw_comments
+        )
 
     def get_number_for_branch(self, branch: str) -> int | None:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="get_number_for_branch"))
