@@ -94,8 +94,40 @@ query($owner: String!, $repo: String!, $number: Int!) {
 `--all`. Drop threads with an empty or null `id` (GraphQL occasionally
 returns null for threads on deleted files).
 
+**Phase 0 note:** The same query is used during contested-thread detection,
+but without dropping resolved threads.
+
 **Output shape each thread:** `{id, isResolved, isOutdated, path, line,
 comments: [{databaseId, body, author: {login}, path, line, createdAt}]}`
+
+---
+
+## reopen-contested-threads
+
+**Purpose:** Detect review threads that `twerk-pr-address` previously
+resolved, but which later received additional reviewer replies. These must
+be reopened before classification or the next run will miss them.
+
+**Detection algorithm:**
+
+1. Fetch all review threads, including resolved ones, using
+   §`get-review-threads`.
+2. For each resolved thread, scan comments in order.
+3. Find the last comment whose body contains
+   `<!-- twerk:pr-address-resolved -->`.
+4. If there is no marker comment, ignore the thread — it was resolved
+   manually or by some other process.
+5. If there is any later comment after the last marker comment, the thread
+   is contested.
+6. Reopen each contested thread with §`unresolve-thread`.
+
+**Report:** If any were reopened, print:
+
+```text
+Reopened <N> contested threads — these will be included in classification below.
+```
+
+Failures reopening individual threads should be warnings, not fatal errors.
 
 ---
 
@@ -207,10 +239,8 @@ batch, but surface the failed thread in the final summary.
 
 ## unresolve-thread
 
-**Purpose:** Reopen a previously-resolved thread. Currently unused by the
-skill, but kept here for push-down parity with `RealIssueGateway`'s
-`unresolve_review_thread` stub and for future "reopen contested threads"
-support.
+**Purpose:** Reopen a previously-resolved thread. Used during Phase 0's
+contested-thread detection.
 
 **Command:**
 
@@ -282,24 +312,30 @@ gh api \
   -f body="$REPLY_BODY"
 ```
 
-**Body format for discussion replies:** Quote the original comment's URL
-and describe the action taken:
+**Body format for discussion replies:** Quote the original comment with
+author attribution, include a substantive action summary, and add the
+timestamp footer:
 
 ```
-> Re: <original comment URL>
+> **@<author>** [commented](<original comment URL>):
+> <original comment body, quoted line-by-line>
+> ...
 
 <summary of action taken>
 
-_Addressed via twerk-pr-address at <ISO timestamp>_
+---
+<sub>Addressed via `twerk-pr-address` at <ISO timestamp></sub>
 ```
+
+If the original comment is very long, quote only the first ~10 lines and end
+with `> ...`.
 
 ---
 
 ## add-reaction
 
-**Purpose:** Acknowledge a comment with a reaction (e.g., 👍 for a bot
-informational comment the user doesn't need to act on). Optional — used
-sparingly.
+**Purpose:** Add a `+1` reaction to the original discussion comment after
+posting a substantive reply.
 
 **Command:**
 
@@ -313,6 +349,9 @@ gh api \
 
 Valid reactions: `+1`, `-1`, `laugh`, `confused`, `heart`, `hooray`,
 `rocket`, `eyes`.
+
+**Failure handling:** A reaction failure is non-fatal if the reply comment
+was posted successfully. Warn and continue.
 
 ---
 
@@ -341,9 +380,9 @@ should render the batched execution plan to the user in Phase 2.
 |---|----------|---------|
 | 5 | multiple files | Update all callers of `foo()` |
 
-### Informational (<count>) — will prompt per item
-- PR review approval from @alice (no action)
-- Bot comment on src/legacy.py: "Consider adding tests" — user decides
+### Informational Review Threads (<count>) — will prompt per item
+- src/foo.py:88 — reviewer asked whether this helper belongs in a gateway
+- src/legacy.py:12 — bot nit looks optional; user decides
 ```
 
 For `auto-proceed` batches, proceed immediately. For `needs approval`
@@ -392,10 +431,10 @@ prescriptive — drive push-down by skill pain.
 | `get-discussion-comments`    | `get_discussion_comments` (stub)                       | `get-discussion-comments` (done) | Operation exists; needs real-gateway backing.                                                             |
 | `get-restructured-files`     | N/A (git, not `gh`)                                    | no                               | Could live on a `GitGateway` or as a pure helper next to the classifier.                                  |
 | `resolve-thread`              | `resolve_review_thread` (stub)                         | no (was `resolve-threads`)       | Batch wrapper `resolve-threads` was planned; consumes a list. Needs real-gateway backing.                 |
-| `unresolve-thread`            | `unresolve_review_thread` (stub)                       | no (was `reopen-contested`)      | Becomes part of a future `reopen-contested` operation driven by the `<!-- twerk:pr-address-resolved -->` marker. |
+| `unresolve-thread`            | `unresolve_review_thread` (stub)                       | no (was `reopen-contested`)      | Used by Phase 0 contested-thread reopening driven by the `<!-- twerk:pr-address-resolved -->` marker.            |
 | `add-review-thread-reply`    | `add_review_thread_reply` (stub)                       | no (was `reply-to-comment`)      | Formatter helpers: `format_resolution_comment`, `has_address_marker`.                                     |
 | `add-issue-comment`          | `add_comment` (stub)                                   | no                               | Used for both discussion-comment replies and PR-review responses.                                         |
-| `add-reaction`               | `add_reaction` (stub)                                  | no                               | Optional; low priority. Useful if we ever want auto-ack of bot comments.                                  |
+| `add-reaction`               | `add_reaction` (stub)                                  | no                               | Required for richer discussion-comment replies.                                                           |
 | `plan-display`               | N/A                                                    | no                               | Stays in the skill — it's rendering, not I/O.                                                             |
 | `git-push`                   | **out of scope**                                       | n/a                              | The skill deliberately never pushes. Not a push-down target.                                              |
 
