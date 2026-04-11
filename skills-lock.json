@@ -65,6 +65,11 @@
       "source": "/Users/schrockn/code/twerk/skills/twerk-objective-reconcile",
       "sourceType": "local",
       "computedHash": "98ce3292fbb12cc43c031715bf17421c321c64be3250bc88884e1373b45edf66"
+    },
+    "twerk-pr-address": {
+      "source": "/Users/schrockn/code/twerk/skills/twerk-pr-address",
+      "sourceType": "local",
+      "computedHash": "0d2187fa43f59d6d34f9ebc4d8dfa3fb229b47e11fad1729a02a14fae9639912"
     }
   }
 }
