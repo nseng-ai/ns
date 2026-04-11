@@ -202,20 +202,25 @@ class ClinkrGroupMeta:
     """Metadata attached by the :func:`clinkr_group` decorator."""
 
     help: str
+    name: str | None = None
 
 
 def clinkr_group(
     *,
     help: str = "",
+    name: str | None = None,
 ) -> Callable[[Callable[..., ClinkrGroup]], Callable[..., ClinkrGroup]]:
     """Marker decorator for group definitions.
 
-    Stores top-level display metadata (help string). The decorated
-    function must return a :class:`ClinkrGroup`.
+    Stores top-level display metadata (help string, optional display name).
+    The decorated function must return a :class:`ClinkrGroup`. When ``name``
+    is provided it overrides the decorated function's ``__name__`` — useful
+    when the desired CLI subgroup name contains characters that aren't
+    valid in Python identifiers (e.g. ``"pr-address"``).
     """
 
     def decorator(fn: Callable[..., ClinkrGroup]) -> Callable[..., ClinkrGroup]:
-        setattr(fn, _GROUP_META_ATTR, ClinkrGroupMeta(help=help))
+        setattr(fn, _GROUP_META_ATTR, ClinkrGroupMeta(help=help, name=name))
         return fn
 
     return decorator
@@ -266,7 +271,7 @@ def discover_group(module_path: str) -> ClinkrGroup:
             f"a ClinkrGroup, got {type(group).__name__}"
         )
 
-    group.name = group_fn.__name__
+    group.name = meta.name or group_fn.__name__
     if meta.help:
         group.help = meta.help
     return group

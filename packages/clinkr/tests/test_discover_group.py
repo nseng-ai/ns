@@ -138,6 +138,28 @@ def test_discover_group_name_from_function_not_module() -> None:
     assert group.name == "my_custom_name"
 
 
+def test_discover_group_name_override_via_decorator() -> None:
+    """`@clinkr_group(name=...)` wins over the function's `__name__`.
+
+    Needed when the desired CLI subgroup name contains characters that
+    aren't valid in Python identifiers (e.g. the hyphenated `pr-address`
+    subgroup exposed by twerk-pr-address).
+    """
+
+    @clinkr_group(name="pr-address", help="Hyphenated subgroup.")
+    def pr_address() -> ClinkrGroup:
+        return ClinkrGroup()
+
+    with _fake_package(
+        "_test_dg_hyphenated",
+        init_attrs={"pr_address": pr_address},
+    ):
+        group = discover_group("_test_dg_hyphenated")
+
+    assert group.name == "pr-address"
+    assert group.help == "Hyphenated subgroup."
+
+
 def test_discover_group_defaults_without_decorator() -> None:
     with _fake_package(
         "_test_dg_none",

@@ -52,53 +52,16 @@ Both are fine.
 
 ## get-review-threads
 
-**Purpose:** Fetch every inline review thread on the PR with comments,
-resolution state, and outdated state.
-
-**Command:**
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.get_review_threads` at
+`packages/twerk-core/src/twerk_core/gh/real_issue_gateway.py`. Output types:
+`PRReviewThread` / `PRReviewComment` at
+`packages/twerk-core/src/twerk_core/gh/types.py`.
 
 ```bash
-gh api graphql \
-  -F owner="$OWNER" \
-  -F repo="$REPO" \
-  -F number="$PR_NUMBER" \
-  -f query='
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100) {
-        nodes {
-          id
-          isResolved
-          isOutdated
-          path
-          line
-          comments(first: 20) {
-            nodes {
-              databaseId
-              body
-              author { login }
-              path
-              line: originalLine
-              createdAt
-            }
-          }
-        }
-      }
-    }
-  }
-}'
+twerk pr-address get-review-comments "$PR_NUMBER"                       # unresolved only
+twerk pr-address get-review-comments "$PR_NUMBER" --include-resolved    # Phase 0
 ```
-
-**Filter:** Drop threads where `isResolved == true` unless the user passed
-`--all`. Drop threads with an empty or null `id` (GraphQL occasionally
-returns null for threads on deleted files).
-
-**Phase 0 note:** The same query is used during contested-thread detection,
-but without dropping resolved threads.
-
-**Output shape each thread:** `{id, isResolved, isOutdated, path, line,
-comments: [{databaseId, body, author: {login}, path, line, createdAt}]}`
 
 ---
 
@@ -110,8 +73,9 @@ be reopened before classification or the next run will miss them.
 
 **Detection algorithm:**
 
-1. Fetch all review threads, including resolved ones, using
-   §`get-review-threads`.
+1. Fetch all review threads, including resolved ones, via
+   `twerk pr-address get-review-comments <pr_number> --include-resolved`.
+   See §`get-review-threads` for the full output shape.
 2. For each resolved thread, scan comments in order.
 3. Find the last comment whose body contains
    `<!-- twerk:pr-address-resolved -->`.
@@ -426,7 +390,7 @@ prescriptive — drive push-down by skill pain.
 | Operation                    | Status on `IssueGateway`                               | Existing clinkr op?              | Push-down notes                                                                                           |
 | ---------------------------- | ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `get-pr-for-branch`          | `get_number_for_branch` (`NotImplementedError` stub)   | no                               | Small — wrap `gh pr view`.                                                                                |
-| `get-review-threads`         | `get_review_threads` (stub)                            | `get-review-comments` (3/7 done) | Operation exists; needs real-gateway backing.                                                             |
+| `get-review-threads`         | `get_review_threads` (**real**)                        | `get-review-comments` (**done**) | **Migrated** — skill uses `twerk pr-address get-review-comments` (with `--include-resolved` in Phase 0). |
 | `get-reviews`                | `get_reviews` (stub)                                   | no                               | Add alongside threads — they're fetched together in classification.                                      |
 | `get-discussion-comments`    | `get_discussion_comments` (stub)                       | `get-discussion-comments` (done) | Operation exists; needs real-gateway backing.                                                             |
 | `get-restructured-files`     | N/A (git, not `gh`)                                    | no                               | Could live on a `GitGateway` or as a pure helper next to the classifier.                                  |
@@ -438,7 +402,14 @@ prescriptive — drive push-down by skill pain.
 | `plan-display`               | N/A                                                    | no                               | Stays in the skill — it's rendering, not I/O.                                                             |
 | `git-push`                   | **out of scope**                                       | n/a                              | The skill deliberately never pushes. Not a push-down target.                                              |
 
-When a row gets pushed down:
+### Push-down conservation rule
+
+**Push-down is a trade: markdown out, Python in.** Every push-down must
+*shrink* the skill's surface area, not just rename things. If a PR adds
+Python and leaves the same number of markdown lines behind, it isn't a
+push-down — it's duplication.
+
+Concretely, when a row gets pushed down:
 
 1. Implement the real `RealIssueGateway` method (replacing the
    `NotImplementedError` stub).
@@ -446,9 +417,26 @@ When a row gets pushed down:
    walk the no-injection fallback through the new gateway method.
 3. Wire the corresponding clinkr operation (new or existing) to consume
    the gateway method.
-4. Update this skill: replace the `gh api` invocation section with a
-   `twerk pr-address <op>` invocation, note the migration in the
-   push-down table, and link the PR that landed it.
+4. Update this skill:
+   - Replace the `gh api` invocation section in SKILL.md with a
+     `twerk pr-address <op>` one-liner. No re-documenting of output shapes,
+     filter rules, or field names — those now live in the Python types and
+     the gateway source.
+   - **Delete** the inline GraphQL / REST query text from this file.
+     Collapse the section to: a one-line "Migrated — see `<python path>`"
+     pointer, plus the command-line invocation. The Python source and the
+     dataclass in `twerk_core.gh.types` are the single source of truth.
+   - **Delete** any field-name / filtering-rule documentation in
+     `feedback-classifier.md` or elsewhere that duplicates what the Python
+     types already express. Field shapes live in Python, not in prose.
+   - Flip the row in the push-down table below: status → `(real)`,
+     clinkr op → `(done)`, notes → `**Migrated**`.
 
-Until a row is pushed down, the skill keeps using the `gh` invocation
-above.
+**Diff check:** the PR that lands a push-down should show net *negative*
+markdown line count in `.agents/skills/twerk-pr-address/` (or at worst
+neutral — e.g., when adding the hyphenated-subgroup hook required a small
+one-time clinkr change). If markdown grew, the push-down isn't done; you
+still have documentation debt that belongs in the deleted rows.
+
+Until a row is pushed down, the skill keeps using the `gh` invocation and
+its inline query text lives in its own section above.

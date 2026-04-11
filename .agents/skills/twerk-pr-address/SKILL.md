@@ -1,7 +1,8 @@
 ---
 name: twerk-pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/twerk-pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments via `gh`, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `gh` / `gh api` / `gh api graphql` directly — no dependency on `twerk pr-address` CLI operations."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/twerk-pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `twerk pr-address get-review-comments` for review-thread fetch and raw `gh` / `gh api` for all other PR operations."
 allowed-tools:
+  - "Bash(twerk pr-address get-review-comments*)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
   - "Bash(gh api *)"
@@ -17,6 +18,7 @@ allowed-tools:
   - "Bash(git remote*)"
   - "Bash(git branch*)"
   - "Bash(just *)"
+  - "Bash(command -v twerk)"
   - "Read"
   - "Edit"
   - "Write"
@@ -75,6 +77,11 @@ continue into edit/commit/resolve.
    auth before continuing.
 3. The working tree is clean. If there are uncommitted changes, stop and
    tell the user — batch commits need a clean base.
+4. The `twerk` binary is on `PATH`. The skill shells out to
+   `twerk pr-address get-review-comments` to fetch review threads. Run
+   `command -v twerk` as a preflight; if it isn't found, stop and tell the
+   user: "`twerk` not on PATH — run this skill from inside a `uv sync`'d
+   twerk workspace."
 
 ## Workflow
 
@@ -105,15 +112,20 @@ rename detection).
 
 #### 0b. Fetch all review threads
 
-Use the GraphQL query from `references/operations.md` §`get-review-threads`,
-but **do not filter out resolved threads** in this phase. Phase 0 needs the
-full thread set so it can inspect already-resolved threads for new replies.
+Phase 0 needs the full thread set so it can inspect already-resolved
+threads for new replies:
+
+```bash
+twerk pr-address get-review-comments <pr_number> --include-resolved
+```
+
+See `references/operations.md` §`get-review-threads`.
 
 #### 0c. Detect contested threads
 
 A thread is **contested** if all three are true:
 
-- `isResolved == true`
+- `is_resolved == true`
 - at least one comment body contains `<!-- twerk:pr-address-resolved -->`
 - there is at least one later comment after the last marker comment
 
@@ -144,21 +156,18 @@ in Phase 2 needs all three before it can make decisions.
 
 #### 1a. Fetch review threads (inline code comments)
 
-Use the GraphQL query from `references/operations.md` §`get-review-threads`.
-Substitute `owner`, `repo`, and `pr_number`:
-
 ```bash
-gh api graphql -F owner=<owner> -F repo=<repo> -F number=<pr_number> -f query='...'
+twerk pr-address get-review-comments <pr_number>
 ```
 
-The query returns every review thread with `id`, `isResolved`, `isOutdated`,
-`path`, `line`, and each comment's `databaseId`, `body`, `author.login`,
-`createdAt`. **Filter out resolved threads unless the user passed `--all`**.
+Add `--include-resolved` if the user passed `--all`. See
+`references/operations.md` §`get-review-threads`.
 
 #### 1b. Fetch PR-level reviews
 
-Same `gh api graphql` invocation, using the `get-reviews` query from
-`references/operations.md`. Returns PR-level review submissions (APPROVED,
+Shell out to `gh api graphql` using the `get-reviews` query from
+`references/operations.md` (this operation is not yet pushed down into the
+clinkr CLI). Returns PR-level review submissions (APPROVED,
 CHANGES_REQUESTED, COMMENTED) with `id`, `author.login`, `body`, `state`,
 `submittedAt`. Excludes PENDING and DISMISSED reviews.
 
@@ -194,11 +203,11 @@ correctness requirement.
 
 #### 1e. Empty-case handling
 
-If the review-thread fetch returns zero unresolved threads AND the
-review-submission fetch returns zero actionable reviews AND the
-discussion-comment fetch returns zero unaddressed comments, report: "No
-unresolved review comments or discussion comments on PR #`<number>`." and
-stop. Do not continue to Phase 2.
+If the review-thread fetch returns `count: 0` AND the review-submission
+fetch returns zero actionable reviews AND the discussion-comment fetch
+returns zero unaddressed comments, report: "No unresolved review comments
+or discussion comments on PR #`<number>`." and stop. Do not continue to
+Phase 2.
 
 ### Phase 2 — Classify and plan
 
@@ -388,10 +397,10 @@ interrupts the skill mid-run.
 
 #### 4a. Re-fetch unresolved threads
 
-Run Phase 1a + 1b + 1c again against the current PR number. If any
-actionable items remain unresolved, list them in the final summary under
-"Still unresolved" — don't error out, since the user may have deferred
-some items intentionally.
+Re-run Phase 1a + 1b + 1c against the current PR number. If any actionable
+items remain unresolved, list them in the final summary under "Still
+unresolved" — don't error out, since the user may have deferred some items
+intentionally.
 
 #### 4b. Final summary
 
