@@ -543,3 +543,138 @@ def test_add_review_thread_reply_falls_back_to_real_gateway(
     assert output["comment"]["author"] == "schrockn"
     assert output["comment"]["line"] == 42
     assert output["comment"]["path"] == "src/foo.py"
+
+
+def _make_reply_payload() -> str:
+    return json.dumps(
+        {
+            "data": {
+                "addPullRequestReviewThreadReply": {
+                    "comment": {
+                        "databaseId": 9001,
+                        "body": "",
+                        "author": {"login": "schrockn"},
+                        "path": "src/foo.py",
+                        "line": 42,
+                        "createdAt": "2026-04-10T12:00:00Z",
+                    }
+                }
+            }
+        }
+    )
+
+
+def test_real_gateway_uses_raw_string_flag_for_body(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The body field must be passed via `-f` (raw string), not `-F` (typed).
+
+    `gh api graphql -F body=...` treats the value as a typed field, which is
+    the wrong semantics for a free-form markdown string. `-f` tells gh to
+    treat it as a literal string. See plan notes for details.
+    """
+    captured_cmds: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        captured_cmds.append(list(cmd))
+        if cmd[:3] == ["gh", "api", "graphql"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=_make_reply_payload(), stderr="")
+        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["add-review-thread-reply", "PRRT_real", "Fixed in commit abc1234."],
+    )
+    assert result.exit_code == 0, result.output
+
+    assert len(captured_cmds) == 1
+    cmd = captured_cmds[0]
+    body_idx = next(
+        i for i, arg in enumerate(cmd) if isinstance(arg, str) and arg.startswith("body=")
+    )
+    assert cmd[body_idx - 1] == "-f", (
+        f"body must be passed with -f (raw string), got {cmd[body_idx - 1]!r}"
+    )
+
+
+def test_real_gateway_preserves_body_newlines_through_subprocess(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression guard: the body string passed to subprocess must contain
+    real newlines, not literal backslash-n sequences.
+
+    This test passes against current master — the mangling bug happens at
+    shell-quoting time outside the Python CLI. Kept as a regression guard
+    against any future change that would introduce escaping.
+    """
+    captured_cmds: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        captured_cmds.append(list(cmd))
+        if cmd[:3] == ["gh", "api", "graphql"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=_make_reply_payload(), stderr="")
+        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    body = (
+        "Fixed in commit abc1234: use LBYL.\n"
+        "\n"
+        "Addressed via _twerk-pr-address_ at 2026-04-10T12:00:00Z\n"
+        "<!-- twerk:pr-address-resolved -->"
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["add-review-thread-reply", "PRRT_real", body],
+    )
+    assert result.exit_code == 0, result.output
+
+    cmd = captured_cmds[0]
+    body_arg = next(arg for arg in cmd if isinstance(arg, str) and arg.startswith("body="))
+    assert body_arg == f"body={body}"
+    # Real newlines, not literal backslash-n.
+    assert "\n" in body_arg
+    assert "\\n" not in body_arg
+
+
+def test_add_review_thread_reply_reads_body_from_stdin_sentinel(
+    cli_group: ClinkrGroup,
+) -> None:
+    """A `-` positional body argument means 'read the body from stdin'.
+
+    This is the mechanism the twerk-pr-address skill uses with a shell
+    heredoc to reliably pass multi-line bodies without escape-sequence
+    quoting issues.
+    """
+    fake = FakeIssueGateway()
+    body = (
+        "Fixed in commit abc1234: use LBYL.\n"
+        "\n"
+        "Addressed via _twerk-pr-address_ at 2026-04-10T12:00:00Z\n"
+        "<!-- twerk:pr-address-resolved -->"
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["add-review-thread-reply", "PRRT_abc", "-"],
+        obj={"gh_issue_gateway": fake},
+        input=body,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fake._thread_replies == [("PRRT_abc", body)]
+    output = json.loads(result.output)
+    assert output["comment"]["body"] == body

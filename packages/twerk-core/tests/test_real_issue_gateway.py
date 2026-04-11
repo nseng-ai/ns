@@ -61,6 +61,8 @@ def _make_fake_run(
     resolve_response: dict[str, object] | None = None,
     unresolve_response: dict[str, object] | None = None,
     reply_response: dict[str, object] | None = None,
+    add_comment_response: dict[str, object] | None = None,
+    add_reaction_response: dict[str, object] | None = None,
     calls: list[list[str]] | None = None,
 ) -> object:
     """Build a fake `subprocess.run` that dispatches on the command shape.
@@ -100,6 +102,8 @@ def _make_fake_run(
     resolve_payload = json.dumps({"data": {"resolveReviewThread": resolve_response or {}}})
     unresolve_payload = json.dumps({"data": {"unresolveReviewThread": unresolve_response or {}}})
     reply_payload = json.dumps({"data": {"addPullRequestReviewThreadReply": reply_response or {}}})
+    add_comment_payload = json.dumps(add_comment_response or {})
+    add_reaction_payload = json.dumps(add_reaction_response or {})
 
     def fake_run(
         cmd: list[str],
@@ -134,6 +138,15 @@ def _make_fake_run(
             return subprocess.CompletedProcess(
                 cmd, 0, stdout=discussion_comments_payload, stderr=""
             )
+        if cmd[:4] == ["gh", "api", "--method", "POST"]:
+            # REST POST dispatch for add_comment / add_reaction. Match on
+            # the path tail, not a substring, so the reactions endpoint
+            # cannot collide with the plain comments endpoint.
+            path = cmd[4]
+            if path.endswith("/reactions"):
+                return subprocess.CompletedProcess(cmd, 0, stdout=add_reaction_payload, stderr="")
+            if path.startswith("repos/") and path.endswith("/comments"):
+                return subprocess.CompletedProcess(cmd, 0, stdout=add_comment_payload, stderr="")
         raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
 
     return fake_run
@@ -414,3 +427,109 @@ def test_get_discussion_comments_flattens_paginated_output(
     assert tuple(comment.id for comment in result) == (101, 202)
     assert result[0].author == "alice"
     assert result[1].author == ""
+
+
+def test_add_comment_posts_body_and_returns_issue_comment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            add_comment_response={
+                "id": 5555,
+                "body": "Addressed",
+                "user": {"login": "schrockn"},
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-5555",
+            },
+            calls=calls,
+        ),
+    )
+
+    comment = RealIssueGateway().add_comment(47, "Addressed")
+
+    assert comment.id == 5555
+    assert comment.body == "Addressed"
+    assert comment.author == "schrockn"
+    assert comment.url == "https://github.com/dagster-io/twerk/pull/47#issuecomment-5555"
+
+    # Walk past the owner/repo preflight call to the POST invocation.
+    post_calls = [c for c in calls if c[:4] == ["gh", "api", "--method", "POST"]]
+    assert len(post_calls) == 1
+    post_cmd = post_calls[0]
+    assert post_cmd[4] == "repos/dagster-io/twerk/issues/47/comments"
+    assert "body=Addressed" in post_cmd
+
+
+def test_add_comment_handles_deleted_author(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`user` is null when the commenting account has been deleted."""
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            add_comment_response={
+                "id": 6666,
+                "body": "ghost comment",
+                "user": None,
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-6666",
+            }
+        ),
+    )
+
+    comment = RealIssueGateway().add_comment(47, "ghost comment")
+
+    assert comment.author == ""
+    assert comment.id == 6666
+
+
+def test_add_reaction_posts_content_and_returns_reaction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            add_reaction_response={"id": 12345, "content": "+1"},
+            calls=calls,
+        ),
+    )
+
+    reaction = RealIssueGateway().add_reaction(5555, "+1")
+
+    assert reaction.id == 12345
+    # `comment_id` is echoed from the argument, not re-derived from the response.
+    assert reaction.comment_id == 5555
+    assert reaction.content == "+1"
+
+    post_calls = [c for c in calls if c[:4] == ["gh", "api", "--method", "POST"]]
+    assert len(post_calls) == 1
+    post_cmd = post_calls[0]
+    # GitHub's reactions preview requires the explicit Accept header.
+    assert "-H" in post_cmd
+    accept_index = post_cmd.index("-H") + 1
+    assert post_cmd[accept_index] == "Accept: application/vnd.github+json"
+    assert "content=+1" in post_cmd
+
+
+def test_add_reaction_targets_comment_id_in_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            add_reaction_response={"id": 99, "content": "heart"},
+            calls=calls,
+        ),
+    )
+
+    RealIssueGateway().add_reaction(99999, "heart")
+
+    post_calls = [c for c in calls if c[:4] == ["gh", "api", "--method", "POST"]]
+    assert len(post_calls) == 1
+    assert post_calls[0][4] == "repos/dagster-io/twerk/issues/comments/99999/reactions"

@@ -343,17 +343,25 @@ git commit -m "..."
 
 #### 3e. Resolve threads in the batch
 
-For each inline review thread in the batch, run `twerk pr-address
-add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"` followed by `twerk
-pr-address resolve-thread "$THREAD_ID"`. The reply body should reference
-the commit and summarize what was done:
+For each inline review thread in the batch, post a reply and then resolve
+the thread. **Always pass the reply body via a quoted heredoc** (`-` as the
+body argument tells the CLI to read from stdin):
 
-```
+```bash
+twerk pr-address add-review-thread-reply "$THREAD_ID" - <<'EOF'
 Fixed in commit <short-sha>: <one-line summary>
 
-_Addressed via twerk-pr-address at <ISO timestamp>_
+Addressed via _twerk-pr-address_ at <ISO timestamp>
 <!-- twerk:pr-address-resolved -->
+EOF
+twerk pr-address resolve-thread "$THREAD_ID"
 ```
+
+The heredoc is **mandatory**: a double-quoted inline body like
+`"Fixed...\n\n_Addressed..._"` does NOT work because bash does not interpret
+`\n` inside double quotes, and the literal `\n` characters end up posted
+verbatim on GitHub. The quoted delimiter (`'EOF'`) also prevents shell
+expansion of `$`, backticks, etc. inside the body.
 
 The `<!-- twerk:pr-address-resolved -->` marker lets the "contested threads"
 detector in Phase 4 tell the difference between a thread the user manually

@@ -205,9 +205,20 @@ twerk pr-address unresolve-thread "$THREAD_ID"
 `RealIssueGateway.add_review_thread_reply`. Used in combination with
 `resolve-thread` — reply first, then resolve.
 
+**Always pass the body via a quoted heredoc** (`-` as the positional body
+argument tells the CLI to read from stdin):
+
 ```bash
-twerk pr-address add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"
+twerk pr-address add-review-thread-reply "$THREAD_ID" - <<'EOF'
+<reply body goes here, with real line breaks>
+EOF
 ```
+
+The body MUST come from a heredoc (or a file piped to stdin), never an
+inline double-quoted string, because bash does not interpret `\n` escapes
+inside double quotes — literal `\n` characters would be posted verbatim on
+GitHub. The quoted delimiter (`'EOF'`) also prevents shell expansion of
+`$`, backticks, etc. inside the body.
 
 **Body format:** The skill still composes the reply body from a template —
 it's skill context, not gateway I/O:
@@ -215,7 +226,7 @@ it's skill context, not gateway I/O:
 ```
 Fixed in commit <short-sha>: <one-line summary>
 
-_Addressed via twerk-pr-address at <ISO timestamp>_
+Addressed via _twerk-pr-address_ at <ISO timestamp>
 <!-- twerk:pr-address-resolved -->
 ```
 
@@ -354,14 +365,14 @@ prescriptive — drive push-down by skill pain.
 | ---------------------------- | ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `get-pr-for-branch`          | `get_number_for_branch` (`NotImplementedError` stub)   | no                               | Small — wrap `gh pr view`.                                                                                |
 | `get-review-threads`         | `get_review_threads` (**real**)                        | `get-review-comments` (**done**) | **Migrated** — skill uses `twerk pr-address get-review-comments` (with `--include-resolved` in Phase 0). |
-| `get-reviews`                | `get_reviews` (stub)                                   | no                               | Add alongside threads — they're fetched together in classification.                                      |
-| `get-discussion-comments`    | `get_discussion_comments` (stub)                       | `get-discussion-comments` (done) | Operation exists; needs real-gateway backing.                                                             |
+| `get-reviews`                | `get_reviews` (**real**)                               | no                               | Backing landed; no clinkr wrapper yet. Fetched alongside threads in classification.                       |
+| `get-discussion-comments`    | `get_discussion_comments` (**real**)                   | `get-discussion-comments` (done) | **Migrated** — clinkr op has real-gateway backing via the paginated-array decoder.                        |
 | `get-restructured-files`     | N/A (git, not `gh`)                                    | no                               | Could live on a `GitGateway` or as a pure helper next to the classifier.                                  |
 | `resolve-thread`             | `resolve_review_thread` (**real**)                     | `resolve-thread` (**done**)      | **Migrated** — skill uses `twerk pr-address resolve-thread "$THREAD_ID"`.                                 |
 | `unresolve-thread`           | `unresolve_review_thread` (**real**)                   | `unresolve-thread` (**done**)    | **Migrated** — skill uses `twerk pr-address unresolve-thread "$THREAD_ID"` in Phase 0.                    |
 | `add-review-thread-reply`    | `add_review_thread_reply` (**real**)                   | `add-review-thread-reply` (**done**) | **Migrated** — skill uses `twerk pr-address add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"`.     |
-| `add-issue-comment`          | `add_comment` (stub)                                   | no                               | Used for both discussion-comment replies and PR-review responses.                                         |
-| `add-reaction`               | `add_reaction` (stub)                                  | no                               | Required for richer discussion-comment replies.                                                           |
+| `add-issue-comment`          | `add_comment` (**real**)                               | no                               | Backing landed; no clinkr wrapper yet. Used for discussion-comment replies and PR-review responses.       |
+| `add-reaction`               | `add_reaction` (**real**)                              | no                               | Backing landed; no clinkr wrapper yet. Required for richer discussion-comment replies.                    |
 | `plan-display`               | N/A                                                    | no                               | Stays in the skill — it's rendering, not I/O.                                                             |
 | `git-push`                   | **out of scope**                                       | n/a                              | The skill deliberately never pushes. Not a push-down target.                                              |
 

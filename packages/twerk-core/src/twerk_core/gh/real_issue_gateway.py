@@ -20,7 +20,8 @@ from twerk_core.gh.types import (
 
 _NOT_IMPLEMENTED_MSG = (
     "RealIssueGateway.{method} is not yet implemented — "
-    "only issue listing and review-thread fetch are currently backed by the gh CLI."
+    "branch-to-PR lookup is the last remaining stub and carries an open "
+    "design question (narrow int|None vs. richer PR-metadata dataclass)."
 )
 
 # GraphQL query for fetching every review thread on a PR. Mirrors the query
@@ -237,8 +238,6 @@ class RealIssueGateway(IssueGateway):
             )
         return tuple(threads)
 
-    # -- PR queries (not yet implemented) --
-
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
         owner, repo = _get_owner_repo()
         cmd = [
@@ -335,7 +334,7 @@ class RealIssueGateway(IssueGateway):
             "graphql",
             "-F",
             f"threadId={thread_id}",
-            "-F",
+            "-f",
             f"body={body}",
             "-f",
             f"query={_ADD_REVIEW_THREAD_REPLY_MUTATION}",
@@ -354,7 +353,48 @@ class RealIssueGateway(IssueGateway):
         )
 
     def add_comment(self, pr_number: int, body: str) -> IssueComment:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="add_comment"))
+        owner, repo = _get_owner_repo()
+        cmd = [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{owner}/{repo}/issues/{pr_number}/comments",
+            "-f",
+            f"body={body}",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        comment = json.loads(result.stdout)
+        return IssueComment(
+            id=comment["id"],
+            body=comment["body"],
+            # user can be null when the GitHub account is deleted.
+            author=comment["user"]["login"] if comment["user"] else "",
+            url=comment["html_url"],
+        )
 
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="add_reaction"))
+        owner, repo = _get_owner_repo()
+        cmd = [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
+            "-H",
+            "Accept: application/vnd.github+json",
+            "-f",
+            f"content={reaction}",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        response = json.loads(result.stdout)
+        # `comment_id` is echoed from the argument — GitHub's reaction payload
+        # carries an `id` (the reaction's own id) and a `content`, but not the
+        # parent comment id on the flat shape. Echoing the caller-supplied
+        # value matches the idempotent-echo pattern used by
+        # `resolve_review_thread` / `unresolve_review_thread`.
+        return Reaction(
+            id=response["id"],
+            comment_id=comment_id,
+            content=response["content"],
+        )
