@@ -78,15 +78,17 @@ continue into edit/commit/resolve.
 
 ## Workflow
 
-The skill has four phases. Phase 1 is read-only. Phases 2–4 make changes.
+The skill has five phases. Phase 0 may mutate GitHub by reopening contested
+threads. Phase 1 is read-only. Phases 2–4 make changes.
 
-### Phase 1 — Fetch feedback
+### Phase 0 — Reopen contested threads
 
-Resolve the target PR, then fetch reviews, review threads, and discussion
-comments. All three fetches can run back-to-back; the classifier in Phase 2
-needs all three before it can make decisions.
+Before normal fetch/classify, reopen any resolved review thread that
+`twerk-pr-address` previously resolved and that has since received additional
+reviewer replies. This prevents the next run from silently missing reviewer
+pushback inside an already-resolved thread.
 
-#### 1a. Resolve the PR
+#### 0a. Resolve the PR
 
 Resolve the PR for the current branch:
 
@@ -101,7 +103,46 @@ first." Do not continue.
 Record `pr_number`, `pr_title`, `pr_url`, and `base_ref` (needed later for
 rename detection).
 
-#### 1b. Fetch review threads (inline code comments)
+#### 0b. Fetch all review threads
+
+Use the GraphQL query from `references/operations.md` §`get-review-threads`,
+but **do not filter out resolved threads** in this phase. Phase 0 needs the
+full thread set so it can inspect already-resolved threads for new replies.
+
+#### 0c. Detect contested threads
+
+A thread is **contested** if all three are true:
+
+- `isResolved == true`
+- at least one comment body contains `<!-- twerk:pr-address-resolved -->`
+- there is at least one later comment after the last marker comment
+
+If a resolved thread has no marker, treat it as manually resolved and leave
+it alone. Only reopen threads that this skill previously resolved.
+
+#### 0d. Reopen contested threads
+
+For each contested thread, use the GraphQL mutation from
+`references/operations.md` §`unresolve-thread`.
+
+If reopening one thread fails, warn and continue. This phase is a quality
+improvement, not a reason to abort the whole run.
+
+#### 0e. Report and continue
+
+If any contested threads were reopened, report:
+"Reopened `<N>` contested threads — these will be included in classification
+below."
+
+Then continue into Phase 1.
+
+### Phase 1 — Fetch feedback
+
+Using the PR resolved in Phase 0, fetch reviews, review threads, and
+discussion comments. All three fetches can run back-to-back; the classifier
+in Phase 2 needs all three before it can make decisions.
+
+#### 1a. Fetch review threads (inline code comments)
 
 Use the GraphQL query from `references/operations.md` §`get-review-threads`.
 Substitute `owner`, `repo`, and `pr_number`:
@@ -114,14 +155,14 @@ The query returns every review thread with `id`, `isResolved`, `isOutdated`,
 `path`, `line`, and each comment's `databaseId`, `body`, `author.login`,
 `createdAt`. **Filter out resolved threads unless the user passed `--all`**.
 
-#### 1c. Fetch PR-level reviews
+#### 1b. Fetch PR-level reviews
 
 Same `gh api graphql` invocation, using the `get-reviews` query from
 `references/operations.md`. Returns PR-level review submissions (APPROVED,
 CHANGES_REQUESTED, COMMENTED) with `id`, `author.login`, `body`, `state`,
 `submittedAt`. Excludes PENDING and DISMISSED reviews.
 
-#### 1d. Fetch discussion comments
+#### 1c. Fetch discussion comments
 
 Use the REST endpoint:
 
@@ -133,7 +174,7 @@ PRs and issues share comment endpoints, so `issues/<n>/comments` returns the
 PR's top-level (non-inline) conversation. Returns each comment's `id`,
 `user.login`, `body`, `html_url`.
 
-#### 1e. Detect restructured files (for pre-existing-issue candidates)
+#### 1d. Detect restructured files (for pre-existing-issue candidates)
 
 Bot comments on files that were renamed or moved in this PR are almost
 always pre-existing issues flagged by a linter that doesn't know the file
@@ -151,7 +192,7 @@ If the git diff fails (detached HEAD, missing origin, etc.), proceed with an
 empty set. Pre-existing detection is a quality optimization, not a
 correctness requirement.
 
-#### 1f. Empty-case handling
+#### 1e. Empty-case handling
 
 If the review-thread fetch returns zero unresolved threads AND the
 review-submission fetch returns zero actionable reviews AND the
@@ -168,16 +209,30 @@ classification.
 
 The classifier produces:
 
-- **actionable_threads**: inline threads that need code changes, with
-  `thread_id`, `path`, `line`, `classification`, `action_summary`,
-  `complexity`, and `pre_existing` flag.
+- **review_threads**: every unresolved inline review thread from Phase 1a,
+  with `thread_id`, `path`, `line`, `classification`, `action_summary`,
+  and `pre_existing` flag. Threads with `classification:
+  "informational"` are still represented explicitly; they are not allowed
+  to disappear into a count bucket.
 - **actionable_reviews**: PR-level reviews that need code changes, with
   `review_id`, `action_summary`, `complexity`.
 - **discussion_actions**: discussion comments that need a reply or an
   action, with `comment_id`, `action_summary`, `complexity`.
-- **informational**: a count (and an opaque list) of items filtered out as
-  informational — approvals, bot noise, acknowledgments.
+- **informational_count**: a count (and optional opaque list) of non-thread
+  items filtered out as informational — approvals, bot noise,
+  acknowledgments.
 - **batches**: ordered execution plan grouped by complexity.
+
+Before displaying the plan, enforce the review-thread completeness
+invariant:
+
+- every unresolved review thread fetched in Phase 1a must appear exactly
+  once in `review_threads`
+- resolved threads included via `--all` are reference-only and do not count
+  toward this invariant
+
+If the classifier cannot account for every unresolved review thread, stop and
+re-classify. Do not proceed with a partial plan.
 
 **Batch ordering** (simplest → most complex):
 
@@ -299,8 +354,10 @@ API. Instead, post a reply comment on the PR discussion (see
 what was addressed. The user can dismiss the review manually if needed.
 
 For discussion comments: use the REST endpoint to post a reply comment on
-the PR. Reference the original comment's URL and describe the action taken.
-Discussion comments don't have a "resolve" concept.
+the PR. Quote the original comment with author attribution, describe the
+action taken, then add a `+1` reaction to the original comment. If the
+reaction fails, warn but do not fail the batch. Discussion comments don't
+have a "resolve" concept.
 
 #### 3f. Report progress
 
@@ -331,7 +388,7 @@ interrupts the skill mid-run.
 
 #### 4a. Re-fetch unresolved threads
 
-Run Phase 1b + 1c + 1d again against the current PR number. If any
+Run Phase 1a + 1b + 1c again against the current PR number. If any
 actionable items remain unresolved, list them in the final summary under
 "Still unresolved" — don't error out, since the user may have deferred
 some items intentionally.
@@ -349,6 +406,7 @@ Commits: <C>
 
 Review threads resolved: <resolved>/<total>
 Discussion comments replied: <replied>/<total>
+Discussion comment reactions: <reacted>/<replied>
 
 Still unresolved (if any):
 - <thread or comment, with reason>
@@ -376,6 +434,9 @@ Do not run `git push`. Do not run `gt submit`. The user pushes.
   resolving — it leaves the thread open. Always use the
   `addPullRequestReviewThreadReply` mutation together with the
   `resolveReviewThread` mutation (see `references/operations.md`).
+- Every unresolved review thread must be represented explicitly during
+  classification. Never count-collapse or silently drop a live review
+  thread.
 - Classification lives in the LLM, not in Python. If you find yourself
   wanting to add a hard-coded rule for a specific bot or reviewer, **update
   `references/feedback-classifier.md` instead**.

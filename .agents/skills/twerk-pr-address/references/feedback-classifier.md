@@ -30,16 +30,35 @@ ref).
 
 A classification record per input item with one of these fields set:
 
-- `classification: "actionable"` → goes into an execution batch
-- `classification: "informational"` → goes into the informational bucket,
-  user decides per-item
-- dropped silently → filtered out; appears only in the "informational
-  count" in the final summary
+- **Review threads:** always emit an explicit record with
+  `classification: "actionable"` or `classification: "informational"`.
+  Review threads are never dropped silently.
+- **Review submissions / discussion comments:** `classification:
+  "actionable"` → goes into an execution batch.
+- **Review submissions / discussion comments:** `classification:
+  "informational"` or dropped silently → may be collapsed into
+  `informational_count` in the final summary.
 
-Plus, for actionable items: `action_summary` (≤120 chars, describes the
-change needed), `complexity` (see below), `pre_existing` flag (true/false),
-and for threads/discussions the original `thread_id` or `comment_id` is
-carried through.
+Plus, for explicit thread records and actionable items: `action_summary`
+(≤120 chars, describes the change needed or the user decision required),
+`complexity` (see below for actionable items), `pre_existing` flag
+(true/false), and the original `thread_id` or `comment_id` is carried
+through.
+
+## Review-thread completeness invariant
+
+Every unresolved review thread from Phase 1 must appear exactly once in the
+classifier output.
+
+- If the user passed `--all`, resolved threads included for reference do not
+  count toward this invariant.
+- Unresolved review threads must never disappear into `informational_count`.
+- Before returning the plan, compare:
+
+  `classified_unresolved_review_thread_count == fetched_unresolved_review_thread_count`
+
+If the counts do not match, stop and re-classify. A partial thread list is a
+bug, not an acceptable approximation.
 
 ## Classification rules
 
@@ -72,7 +91,7 @@ matches wins.
 ### Review threads (inline)
 
 1. **Resolved threads** → already filtered in Phase 1 unless the user
-   passed `--all`. If present, drop silently.
+   passed `--all`. If present because of `--all`, drop silently.
 2. **Thread on a restructured path, first commenter is a bot** →
    `classification: "actionable"`, `complexity: "pre_existing"`,
    `pre_existing: true`. Action summary: `"Bot comment on moved file:
@@ -153,7 +172,7 @@ Batches are always in this order:
 | 2 | Single-File         | yes          | All items with `complexity: "single_file"`                               |
 | 3 | Cross-Cutting       | **no**       | All items with `complexity: "cross_cutting"`                             |
 | 4 | Complex             | **no**       | All items with `complexity: "complex"`                                   |
-| 5 | Informational       | **no**       | All items with `classification: "informational"` (per-item prompt)       |
+| 5 | Informational       | **no**       | All review threads with `classification: "informational"` (per-item prompt) |
 
 Skip any batch that would be empty.
 
@@ -192,7 +211,7 @@ something like:
   "pr_number": 123,
   "pr_title": "...",
   "pr_url": "...",
-  "actionable_threads": [
+  "review_threads": [
     {
       "thread_id": "PRRT_abc",
       "path": "src/foo.py",
@@ -202,6 +221,15 @@ something like:
       "action_summary": "Use LBYL pattern for the dict lookup",
       "complexity": "local",
       "original_comment": "This would be clearer as an `in` check"
+    },
+    {
+      "thread_id": "PRRT_def",
+      "path": "src/foo.py",
+      "line": 57,
+      "classification": "informational",
+      "pre_existing": false,
+      "action_summary": "Reviewer asked whether this helper belongs on the gateway",
+      "original_comment": "Should this move onto the gateway instead?"
     }
   ],
   "actionable_reviews": [
@@ -218,10 +246,7 @@ something like:
       "complexity": "cross_cutting"
     }
   ],
-  "informational": [
-    { "thread_id": "PRRT_def", "reason": "Question-only, no change needed" }
-  ],
-  "dropped_count": 7,
+  "informational_count": 7,
   "batches": [ /* see batch assembly above */ ]
 }
 ```
