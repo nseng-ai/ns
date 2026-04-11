@@ -92,6 +92,30 @@ Before drafting, classify the objective:
 
 If the choice is non-obvious, tell the user which shape you picked and why.
 
+If you picked **structured** or **hybrid**, also pick a **sequence pattern**
+for the roadmap items. These patterns are peers — pick the one that matches
+the work. Each has its own template file in `templates/` with a full
+definition, when-to-use/when-not-to-use guidance, item-1 expectations, and an
+example roadmap.
+
+- **Steelthread / vertical slice** (`templates/steelthread.md`) — item 1 is a
+  minimal vertical slice proving the concept works end-to-end. Fits
+  multi-layer work where proving integration early is valuable.
+- **Incremental refactor** (`templates/incremental-refactor.md`) — items are a
+  sequence of small, risk-free restructures of existing code. Fits broad
+  behavior-preserving refactors.
+- **Layered / foundational** (`templates/layered.md`) — item 1 is a substrate
+  (new abstraction, module, or data model) that nothing uses yet. Fits work
+  where there is no end-to-end path until the substrate lands.
+- **Parallel / fan-out** (`templates/parallel.md`) — items are independent
+  work on different parts of a surface. Fits migrations and cleanup passes
+  across many similar pieces.
+
+Read the matching template file before drafting the roadmap. If the work
+doesn't cleanly match one pattern, pick the closest and note what's different
+in the objective body. When you propose the roadmap to the user, name the
+pattern and give a one-line reason so they can correct it if it doesn't fit.
+
 ### 2. Capture the objective
 
 Pull from the conversation (and targeted codebase reads only when they improve
@@ -139,7 +163,11 @@ Body guidance:
 - Under **Completion Criteria**, phrase each criterion as a verifiable
   assertion that can be re-checked each session against the codebase.
 - Under **Roadmap**, make items progressable: each should be something a
-  single session can meaningfully advance, phrased as an outcome.
+  single session can meaningfully advance, phrased as an outcome. Order items
+  according to the sequence pattern you picked in step 1 — the pattern
+  determines what item 1 should be. Use the matching template file
+  (`templates/<pattern>.md`) for item-1 guidance and an example roadmap in
+  that shape.
 
 If the user explicitly wants to review the draft before issue creation, show
 the draft and wait. Otherwise, create the issue once the objective is clear.
