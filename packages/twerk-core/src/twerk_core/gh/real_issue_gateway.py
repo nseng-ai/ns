@@ -335,7 +335,7 @@ class RealIssueGateway(IssueGateway):
             "graphql",
             "-F",
             f"threadId={thread_id}",
-            "-F",
+            "-f",
             f"body={body}",
             "-f",
             f"query={_ADD_REVIEW_THREAD_REPLY_MUTATION}",

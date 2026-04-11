@@ -205,9 +205,20 @@ twerk pr-address unresolve-thread "$THREAD_ID"
 `RealIssueGateway.add_review_thread_reply`. Used in combination with
 `resolve-thread` — reply first, then resolve.
 
+**Always pass the body via a quoted heredoc** (`-` as the positional body
+argument tells the CLI to read from stdin):
+
 ```bash
-twerk pr-address add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"
+twerk pr-address add-review-thread-reply "$THREAD_ID" - <<'EOF'
+<reply body goes here, with real line breaks>
+EOF
 ```
+
+The body MUST come from a heredoc (or a file piped to stdin), never an
+inline double-quoted string, because bash does not interpret `\n` escapes
+inside double quotes — literal `\n` characters would be posted verbatim on
+GitHub. The quoted delimiter (`'EOF'`) also prevents shell expansion of
+`$`, backticks, etc. inside the body.
 
 **Body format:** The skill still composes the reply body from a template —
 it's skill context, not gateway I/O:
@@ -215,7 +226,7 @@ it's skill context, not gateway I/O:
 ```
 Fixed in commit <short-sha>: <one-line summary>
 
-_Addressed via twerk-pr-address at <ISO timestamp>_
+Addressed via _twerk-pr-address_ at <ISO timestamp>
 <!-- twerk:pr-address-resolved -->
 ```
 
