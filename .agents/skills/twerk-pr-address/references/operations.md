@@ -177,76 +177,40 @@ is optional.
 
 ## resolve-thread
 
-**Purpose:** Mark a review thread as resolved.
-
-**Command:**
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.resolve_review_thread` at
+`packages/twerk-core/src/twerk_core/gh/real_issue_gateway.py`.
 
 ```bash
-gh api graphql \
-  -F threadId="$THREAD_ID" \
-  -f query='
-mutation($threadId: ID!) {
-  resolveReviewThread(input: {threadId: $threadId}) {
-    thread {
-      id
-      isResolved
-    }
-  }
-}'
+twerk pr-address resolve-thread "$THREAD_ID"
 ```
-
-**Check:** Response should contain `data.resolveReviewThread.thread.isResolved:
-true`. If false or missing, log a warning and continue — don't abort the
-batch, but surface the failed thread in the final summary.
 
 ---
 
 ## unresolve-thread
 
-**Purpose:** Reopen a previously-resolved thread. Used during Phase 0's
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.unresolve_review_thread`. Used during Phase 0's
 contested-thread detection.
 
-**Command:**
-
 ```bash
-gh api graphql \
-  -F threadId="$THREAD_ID" \
-  -f query='
-mutation($threadId: ID!) {
-  unresolveReviewThread(input: {threadId: $threadId}) {
-    thread {
-      id
-      isResolved
-    }
-  }
-}'
+twerk pr-address unresolve-thread "$THREAD_ID"
 ```
 
 ---
 
 ## add-review-thread-reply
 
-**Purpose:** Post a reply comment inside a review thread. Used in
-combination with `resolve-thread` — reply first, then resolve.
-
-**Command:**
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.add_review_thread_reply`. Used in combination with
+`resolve-thread` — reply first, then resolve.
 
 ```bash
-gh api graphql \
-  -F threadId="$THREAD_ID" \
-  -F body="$REPLY_BODY" \
-  -f query='
-mutation($threadId: ID!, $body: String!) {
-  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $threadId, body: $body}) {
-    comment {
-      id
-      body
-    }
-  }
-}'
+twerk pr-address add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"
 ```
 
-**Body format:** The skill builds the body from a template:
+**Body format:** The skill still composes the reply body from a template —
+it's skill context, not gateway I/O:
 
 ```
 Fixed in commit <short-sha>: <one-line summary>
@@ -256,8 +220,7 @@ _Addressed via twerk-pr-address at <ISO timestamp>_
 ```
 
 The `<!-- twerk:pr-address-resolved -->` marker is how the skill identifies
-threads it previously resolved (e.g., for a future "reopen contested
-threads" detector).
+threads it previously resolved (Phase 0 contested-thread detector).
 
 ---
 
@@ -394,9 +357,9 @@ prescriptive — drive push-down by skill pain.
 | `get-reviews`                | `get_reviews` (stub)                                   | no                               | Add alongside threads — they're fetched together in classification.                                      |
 | `get-discussion-comments`    | `get_discussion_comments` (stub)                       | `get-discussion-comments` (done) | Operation exists; needs real-gateway backing.                                                             |
 | `get-restructured-files`     | N/A (git, not `gh`)                                    | no                               | Could live on a `GitGateway` or as a pure helper next to the classifier.                                  |
-| `resolve-thread`              | `resolve_review_thread` (stub)                         | no (was `resolve-threads`)       | Batch wrapper `resolve-threads` was planned; consumes a list. Needs real-gateway backing.                 |
-| `unresolve-thread`            | `unresolve_review_thread` (stub)                       | no (was `reopen-contested`)      | Used by Phase 0 contested-thread reopening driven by the `<!-- twerk:pr-address-resolved -->` marker.            |
-| `add-review-thread-reply`    | `add_review_thread_reply` (stub)                       | no (was `reply-to-comment`)      | Formatter helpers: `format_resolution_comment`, `has_address_marker`.                                     |
+| `resolve-thread`             | `resolve_review_thread` (**real**)                     | `resolve-thread` (**done**)      | **Migrated** — skill uses `twerk pr-address resolve-thread "$THREAD_ID"`.                                 |
+| `unresolve-thread`           | `unresolve_review_thread` (**real**)                   | `unresolve-thread` (**done**)    | **Migrated** — skill uses `twerk pr-address unresolve-thread "$THREAD_ID"` in Phase 0.                    |
+| `add-review-thread-reply`    | `add_review_thread_reply` (**real**)                   | `add-review-thread-reply` (**done**) | **Migrated** — skill uses `twerk pr-address add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"`.     |
 | `add-issue-comment`          | `add_comment` (stub)                                   | no                               | Used for both discussion-comment replies and PR-review responses.                                         |
 | `add-reaction`               | `add_reaction` (stub)                                  | no                               | Required for richer discussion-comment replies.                                                           |
 | `plan-display`               | N/A                                                    | no                               | Stays in the skill — it's rendering, not I/O.                                                             |

@@ -111,6 +111,14 @@ class ResolveReviewThreadResult:
 
     `was_already_resolved` lets callers in sweep-resolve loops distinguish a
     no-op from a state change without re-querying.
+
+    **Fake vs real semantics:** the fake (`FakeIssueGateway`) preserves
+    instance-level call tracking and reports `True` on repeated calls for the
+    same `thread_id`. The real gateway always reports `False`, because
+    GitHub's `resolveReviewThread` mutation is idempotent and exposes no
+    pre-state signal — the docstring promise of "without re-querying" rules
+    out a pre-mutation lookup. Callers that genuinely need before/after state
+    should diff `get_review_threads` around the sweep.
     """
 
     thread_id: str
@@ -119,7 +127,13 @@ class ResolveReviewThreadResult:
 
 @dataclass(frozen=True)
 class UnresolveReviewThreadResult:
-    """Result of unresolving a review thread."""
+    """Result of unresolving a review thread.
+
+    See `ResolveReviewThreadResult` for the fake-vs-real semantic split:
+    the fake tracks per-instance call history; the real gateway always
+    reports `was_already_unresolved=False` because GitHub's mutation is
+    idempotent with no pre-state signal.
+    """
 
     thread_id: str
     was_already_unresolved: bool
