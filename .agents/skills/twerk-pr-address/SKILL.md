@@ -1,8 +1,11 @@
 ---
 name: twerk-pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/twerk-pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `twerk pr-address get-review-comments` for review-thread fetch and raw `gh` / `gh api` for all other PR operations."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/twerk-pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `twerk pr-address get-review-comments` / `resolve-thread` / `unresolve-thread` / `add-review-thread-reply` for typed PR operations, and raw `gh` / `gh api` for the remainder."
 allowed-tools:
   - "Bash(twerk pr-address get-review-comments*)"
+  - "Bash(twerk pr-address resolve-thread*)"
+  - "Bash(twerk pr-address unresolve-thread*)"
+  - "Bash(twerk pr-address add-review-thread-reply*)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
   - "Bash(gh api *)"
@@ -134,8 +137,8 @@ it alone. Only reopen threads that this skill previously resolved.
 
 #### 0d. Reopen contested threads
 
-For each contested thread, use the GraphQL mutation from
-`references/operations.md` §`unresolve-thread`.
+For each contested thread, run `twerk pr-address unresolve-thread
+"$THREAD_ID"`. See `references/operations.md` §`unresolve-thread`.
 
 If reopening one thread fails, warn and continue. This phase is a quality
 improvement, not a reason to abort the whole run.
@@ -269,9 +272,10 @@ For each batch in order:
 #### 3a. Pre-existing batch (special case)
 
 If the batch's complexity is `pre_existing`, skip code changes entirely —
-just resolve each thread with the standard pre-existing comment. See
-`references/operations.md` §`resolve-thread` for the mutation invocation.
-Resolution comment:
+just resolve each thread with the standard pre-existing comment via
+`twerk pr-address add-review-thread-reply` followed by
+`twerk pr-address resolve-thread`. See `references/operations.md` for the
+command shapes. Resolution comment:
 
 > Pre-existing issue — this code was moved/restructured, not newly
 > introduced.
@@ -342,9 +346,10 @@ git commit -m "..."
 
 #### 3e. Resolve threads in the batch
 
-For each inline review thread in the batch, use the GraphQL mutations in
-`references/operations.md` §`add-review-thread-reply` + §`resolve-thread`.
-The reply body should reference the commit and summarize what was done:
+For each inline review thread in the batch, run `twerk pr-address
+add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"` followed by `twerk
+pr-address resolve-thread "$THREAD_ID"`. The reply body should reference
+the commit and summarize what was done:
 
 ```
 Fixed in commit <short-sha>: <one-line summary>
@@ -440,9 +445,9 @@ Do not run `git push`. Do not run `gt submit`. The user pushes.
   Not `git push`, not `gt submit`, not anything that sends commits
   upstream. This is enforced by the allowed-tools list (no `git push*`).
 - Never use raw `gh api .../comments/{id}/replies` to "reply" without
-  resolving — it leaves the thread open. Always use the
-  `addPullRequestReviewThreadReply` mutation together with the
-  `resolveReviewThread` mutation (see `references/operations.md`).
+  resolving — it leaves the thread open. Always use `twerk pr-address
+  add-review-thread-reply` together with `twerk pr-address resolve-thread`
+  (see `references/operations.md`).
 - Every unresolved review thread must be represented explicitly during
   classification. Never count-collapse or silently drop a live review
   thread.

@@ -72,6 +72,48 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 """
 
+_RESOLVE_REVIEW_THREAD_MUTATION = """
+mutation($threadId: ID!) {
+  resolveReviewThread(input: {threadId: $threadId}) {
+    thread {
+      id
+      isResolved
+    }
+  }
+}
+"""
+
+_UNRESOLVE_REVIEW_THREAD_MUTATION = """
+mutation($threadId: ID!) {
+  unresolveReviewThread(input: {threadId: $threadId}) {
+    thread {
+      id
+      isResolved
+    }
+  }
+}
+"""
+
+# The comment projection mirrors `_REVIEW_THREADS_QUERY` — in particular the
+# `line: originalLine` alias — so the reply comment produced by this mutation
+# lines up with the shape consumers already handle from `get_review_threads`.
+_ADD_REVIEW_THREAD_REPLY_MUTATION = """
+mutation($threadId: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(
+    input: {pullRequestReviewThreadId: $threadId, body: $body}
+  ) {
+    comment {
+      databaseId
+      body
+      author { login }
+      path
+      line: originalLine
+      createdAt
+    }
+  }
+}
+"""
+
 
 def _get_owner_repo() -> tuple[str, str]:
     """Resolve `(owner, repo)` for the current working directory via `gh repo view`.
@@ -255,16 +297,61 @@ class RealIssueGateway(IssueGateway):
     def get_number_for_branch(self, branch: str) -> int | None:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="get_number_for_branch"))
 
-    # -- PR mutations (not yet implemented) --
+    # -- PR mutations --
 
     def resolve_review_thread(self, thread_id: str) -> ResolveReviewThreadResult:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="resolve_review_thread"))
+        cmd = [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"threadId={thread_id}",
+            "-f",
+            f"query={_RESOLVE_REVIEW_THREAD_MUTATION}",
+        ]
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # GitHub's `resolveReviewThread` mutation is idempotent and exposes no
+        # pre-state signal — see `ResolveReviewThreadResult` docstring.
+        return ResolveReviewThreadResult(thread_id=thread_id, was_already_resolved=False)
 
     def unresolve_review_thread(self, thread_id: str) -> UnresolveReviewThreadResult:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="unresolve_review_thread"))
+        cmd = [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"threadId={thread_id}",
+            "-f",
+            f"query={_UNRESOLVE_REVIEW_THREAD_MUTATION}",
+        ]
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # See `UnresolveReviewThreadResult` docstring for why this is always False.
+        return UnresolveReviewThreadResult(thread_id=thread_id, was_already_unresolved=False)
 
     def add_review_thread_reply(self, thread_id: str, body: str) -> PRReviewComment:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="add_review_thread_reply"))
+        cmd = [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"threadId={thread_id}",
+            "-F",
+            f"body={body}",
+            "-f",
+            f"query={_ADD_REVIEW_THREAD_REPLY_MUTATION}",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        payload = json.loads(result.stdout)
+        comment = payload["data"]["addPullRequestReviewThreadReply"]["comment"]
+        return PRReviewComment(
+            id=comment["databaseId"],
+            body=comment["body"],
+            # author can be null when the GitHub account is deleted.
+            author=comment["author"]["login"] if comment["author"] else "",
+            path=comment["path"],
+            line=comment.get("line"),
+            created_at=comment["createdAt"],
+        )
 
     def add_comment(self, pr_number: int, body: str) -> IssueComment:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="add_comment"))

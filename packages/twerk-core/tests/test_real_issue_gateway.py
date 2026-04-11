@@ -58,11 +58,19 @@ def _make_fake_run(
     threads: list[dict[str, object]] | None = None,
     reviews: list[dict[str, object]] | None = None,
     discussion_comment_pages: list[list[dict[str, object]]] | None = None,
+    resolve_response: dict[str, object] | None = None,
+    unresolve_response: dict[str, object] | None = None,
+    reply_response: dict[str, object] | None = None,
+    calls: list[list[str]] | None = None,
 ) -> object:
     """Build a fake `subprocess.run` that dispatches on the command shape.
 
     Returns owner/repo JSON for `gh repo view ...` and a GraphQL payload for
     `gh api graphql ...`. Raises if the test harness sends any other command.
+
+    Mutation dispatch order matters: the `unresolveReviewThread` query
+    contains `resolveReviewThread` as a substring, so `unresolve` must be
+    checked first.
     """
     review_threads_payload = json.dumps(
         {
@@ -89,17 +97,30 @@ def _make_fake_run(
     discussion_comments_payload = "".join(
         json.dumps(page) for page in (discussion_comment_pages or [])
     )
+    resolve_payload = json.dumps({"data": {"resolveReviewThread": resolve_response or {}}})
+    unresolve_payload = json.dumps({"data": {"unresolveReviewThread": unresolve_response or {}}})
+    reply_payload = json.dumps({"data": {"addPullRequestReviewThreadReply": reply_response or {}}})
 
     def fake_run(
         cmd: list[str],
         **kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
+        if calls is not None:
+            calls.append(list(cmd))
         if cmd[:3] == ["gh", "repo", "view"]:
             return subprocess.CompletedProcess(cmd, 0, stdout=_OWNER_REPO_OUTPUT, stderr="")
         if cmd[:3] == ["gh", "api", "graphql"]:
-            # Sanity-check that the owner/repo/number variables are present.
             assert "-F" in cmd
             joined = " ".join(cmd)
+            # Mutations are checked first because they don't carry
+            # owner/repo/number; queries do.
+            if "unresolveReviewThread" in joined:
+                return subprocess.CompletedProcess(cmd, 0, stdout=unresolve_payload, stderr="")
+            if "resolveReviewThread" in joined:
+                return subprocess.CompletedProcess(cmd, 0, stdout=resolve_payload, stderr="")
+            if "addPullRequestReviewThreadReply" in joined:
+                return subprocess.CompletedProcess(cmd, 0, stdout=reply_payload, stderr="")
+            # Queries: sanity-check that owner/repo/number are present.
             assert "owner=dagster-io" in joined
             assert "repo=twerk" in joined
             assert "number=47" in joined
@@ -223,6 +244,142 @@ def test_get_reviews_returns_full_review_records(
     assert tuple(review.state for review in result) == ("CHANGES_REQUESTED", "APPROVED")
     assert result[0].author == "reviewer"
     assert result[1].author == ""
+
+
+def test_resolve_review_thread_sends_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            resolve_response={"thread": {"id": "PRRT_abc", "isResolved": True}},
+        ),
+    )
+
+    result = RealIssueGateway().resolve_review_thread("PRRT_abc")
+
+    assert result.thread_id == "PRRT_abc"
+    # The real gateway cannot distinguish idempotent mutation calls — always False.
+    assert result.was_already_resolved is False
+
+
+def test_resolve_review_thread_passes_thread_id_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            resolve_response={"thread": {"id": "PRRT_xyz", "isResolved": True}},
+            calls=calls,
+        ),
+    )
+
+    RealIssueGateway().resolve_review_thread("PRRT_xyz")
+
+    # Exactly one subprocess call — no owner/repo preflight.
+    assert len(calls) == 1
+    joined = " ".join(calls[0])
+    assert "threadId=PRRT_xyz" in joined
+    assert "resolveReviewThread" in joined
+
+
+def test_unresolve_review_thread_sends_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            unresolve_response={"thread": {"id": "PRRT_abc", "isResolved": False}},
+        ),
+    )
+
+    result = RealIssueGateway().unresolve_review_thread("PRRT_abc")
+
+    assert result.thread_id == "PRRT_abc"
+    assert result.was_already_unresolved is False
+
+
+def test_unresolve_review_thread_passes_thread_id_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            unresolve_response={"thread": {"id": "PRRT_xyz", "isResolved": False}},
+            calls=calls,
+        ),
+    )
+
+    RealIssueGateway().unresolve_review_thread("PRRT_xyz")
+
+    assert len(calls) == 1
+    joined = " ".join(calls[0])
+    assert "threadId=PRRT_xyz" in joined
+    assert "unresolveReviewThread" in joined
+
+
+def test_add_review_thread_reply_returns_full_comment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            reply_response={
+                "comment": {
+                    "databaseId": 7777,
+                    "body": "Fixed in commit abc1234.",
+                    "author": {"login": "schrockn"},
+                    "path": "src/foo.py",
+                    # Server returns the aliased field — the gateway must map it.
+                    "line": 42,
+                    "createdAt": "2026-04-10T15:00:00Z",
+                }
+            }
+        ),
+    )
+
+    comment = RealIssueGateway().add_review_thread_reply("PRRT_abc", "Fixed in commit abc1234.")
+
+    assert comment.id == 7777
+    assert comment.body == "Fixed in commit abc1234."
+    assert comment.author == "schrockn"
+    assert comment.path == "src/foo.py"
+    assert comment.line == 42
+    assert comment.created_at == "2026-04-10T15:00:00Z"
+
+
+def test_add_review_thread_reply_handles_deleted_author(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`author` is null when the replying account has been deleted."""
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            reply_response={
+                "comment": {
+                    "databaseId": 8888,
+                    "body": "ghost reply",
+                    "author": None,
+                    "path": "src/foo.py",
+                    "line": None,
+                    "createdAt": "2026-04-10T15:00:00Z",
+                }
+            }
+        ),
+    )
+
+    comment = RealIssueGateway().add_review_thread_reply("PRRT_abc", "ghost reply")
+
+    assert comment.author == ""
+    assert comment.line is None
 
 
 def test_get_discussion_comments_flattens_paginated_output(
