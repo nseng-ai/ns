@@ -112,17 +112,14 @@ rename detection).
 
 #### 0b. Fetch all review threads
 
-Phase 0 needs the full thread set (including resolved threads) so it can
-inspect already-resolved threads for new replies. Invoke:
+Phase 0 needs the full thread set so it can inspect already-resolved
+threads for new replies:
 
 ```bash
 twerk pr-address get-review-comments <pr_number> --include-resolved
 ```
 
-Stdout is JSON: `{"count": N, "threads": [{"id", "path", "line",
-"is_resolved", "is_outdated", "comments": [{"id", "body", "author", "path",
-"line", "created_at"}]}]}`. See `references/operations.md`
-§`get-review-threads` for the full output-shape contract.
+See `references/operations.md` §`get-review-threads`.
 
 #### 0c. Detect contested threads
 
@@ -159,18 +156,12 @@ in Phase 2 needs all three before it can make decisions.
 
 #### 1a. Fetch review threads (inline code comments)
 
-Invoke:
-
 ```bash
 twerk pr-address get-review-comments <pr_number>
 ```
 
-Stdout is JSON: `{"count": N, "threads": [{"id", "path", "line",
-"is_resolved", "is_outdated", "comments": [{"id", "body", "author", "path",
-"line", "created_at"}]}]}`. The operation defaults to unresolved-only and
-already drops null-id threads (GraphQL noise for deleted files) — no manual
-filtering needed. If the user passed `--all`, add `--include-resolved` to
-also return resolved threads.
+Add `--include-resolved` if the user passed `--all`. See
+`references/operations.md` §`get-review-threads`.
 
 #### 1b. Fetch PR-level reviews
 
@@ -406,16 +397,10 @@ interrupts the skill mid-run.
 
 #### 4a. Re-fetch unresolved threads
 
-Re-run Phase 1a + 1b + 1c against the current PR number:
-
-- Phase 1a uses `twerk pr-address get-review-comments <pr_number>` (same as
-  the initial fetch).
-- Phase 1b and Phase 1c still shell out to raw `gh api` / `gh api graphql`
-  (those operations are not yet pushed down into the clinkr CLI).
-
-If any actionable items remain unresolved, list them in the final summary
-under "Still unresolved" — don't error out, since the user may have
-deferred some items intentionally.
+Re-run Phase 1a + 1b + 1c against the current PR number. If any actionable
+items remain unresolved, list them in the final summary under "Still
+unresolved" — don't error out, since the user may have deferred some items
+intentionally.
 
 #### 4b. Final summary
 

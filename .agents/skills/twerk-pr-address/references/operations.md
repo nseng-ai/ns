@@ -52,100 +52,16 @@ Both are fine.
 
 ## get-review-threads
 
-**Purpose:** Fetch every inline review thread on the PR with comments,
-resolution state, and outdated state.
-
-**Migrated:** to `twerk pr-address get-review-comments`, backed by
+**Migrated** — pushed down into Python. Source of truth:
 `RealIssueGateway.get_review_threads` at
-`packages/twerk-core/src/twerk_core/gh/real_issue_gateway.py`.
-
-**Command:**
-
-```bash
-twerk pr-address get-review-comments "$PR_NUMBER"
-# include resolved threads (Phase 0 contested-thread detection):
-twerk pr-address get-review-comments "$PR_NUMBER" --include-resolved
-```
-
-**Filter:** The operation defaults to unresolved-only and already drops
-null-id threads (GraphQL occasionally returns null ids for deleted files).
-Pass `--include-resolved` to return the full set (Phase 0 needs this;
-Phase 1 does not).
-
-**Output shape:**
-
-```json
-{
-  "count": 2,
-  "threads": [
-    {
-      "id": "PRRT_abc",
-      "path": "src/foo.py",
-      "line": 42,
-      "is_resolved": false,
-      "is_outdated": false,
-      "comments": [
-        {
-          "id": 1234567890,
-          "body": "nit: rename",
-          "author": "reviewer",
-          "path": "src/foo.py",
-          "line": 42,
-          "created_at": "2026-04-10T12:00:00Z"
-        }
-      ]
-    }
-  ]
-}
-```
-
-Deleted reviewer accounts come back as `"author": ""`.
-
-#### Previously (raw GraphQL)
-
-Before the migration the skill shelled out to `gh api graphql` directly.
-Kept here as a worked example for the next push-down:
+`packages/twerk-core/src/twerk_core/gh/real_issue_gateway.py`. Output types:
+`PRReviewThread` / `PRReviewComment` at
+`packages/twerk-core/src/twerk_core/gh/types.py`.
 
 ```bash
-gh api graphql \
-  -F owner="$OWNER" \
-  -F repo="$REPO" \
-  -F number="$PR_NUMBER" \
-  -f query='
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100) {
-        nodes {
-          id
-          isResolved
-          isOutdated
-          path
-          line
-          comments(first: 20) {
-            nodes {
-              databaseId
-              body
-              author { login }
-              path
-              line: originalLine
-              createdAt
-            }
-          }
-        }
-      }
-    }
-  }
-}'
+twerk pr-address get-review-comments "$PR_NUMBER"                       # unresolved only
+twerk pr-address get-review-comments "$PR_NUMBER" --include-resolved    # Phase 0
 ```
-
-Field-name mapping from this raw shape to the `twerk pr-address
-get-review-comments` output: `isResolved` → `is_resolved`, `isOutdated` →
-`is_outdated`, `comments.nodes[i].databaseId` → `comments[i].id`,
-`author.login` → `author` (flat string, `""` for deleted accounts),
-`createdAt` → `created_at`. The clinkr-op output has already dropped the
-`data.repository.pullRequest.reviewThreads.nodes` nesting in favor of a
-flat `{count, threads}` envelope.
 
 ---
 
@@ -486,7 +402,14 @@ prescriptive — drive push-down by skill pain.
 | `plan-display`               | N/A                                                    | no                               | Stays in the skill — it's rendering, not I/O.                                                             |
 | `git-push`                   | **out of scope**                                       | n/a                              | The skill deliberately never pushes. Not a push-down target.                                              |
 
-When a row gets pushed down:
+### Push-down conservation rule
+
+**Push-down is a trade: markdown out, Python in.** Every push-down must
+*shrink* the skill's surface area, not just rename things. If a PR adds
+Python and leaves the same number of markdown lines behind, it isn't a
+push-down — it's duplication.
+
+Concretely, when a row gets pushed down:
 
 1. Implement the real `RealIssueGateway` method (replacing the
    `NotImplementedError` stub).
@@ -494,9 +417,26 @@ When a row gets pushed down:
    walk the no-injection fallback through the new gateway method.
 3. Wire the corresponding clinkr operation (new or existing) to consume
    the gateway method.
-4. Update this skill: replace the `gh api` invocation section with a
-   `twerk pr-address <op>` invocation, note the migration in the
-   push-down table, and link the PR that landed it.
+4. Update this skill:
+   - Replace the `gh api` invocation section in SKILL.md with a
+     `twerk pr-address <op>` one-liner. No re-documenting of output shapes,
+     filter rules, or field names — those now live in the Python types and
+     the gateway source.
+   - **Delete** the inline GraphQL / REST query text from this file.
+     Collapse the section to: a one-line "Migrated — see `<python path>`"
+     pointer, plus the command-line invocation. The Python source and the
+     dataclass in `twerk_core.gh.types` are the single source of truth.
+   - **Delete** any field-name / filtering-rule documentation in
+     `feedback-classifier.md` or elsewhere that duplicates what the Python
+     types already express. Field shapes live in Python, not in prose.
+   - Flip the row in the push-down table below: status → `(real)`,
+     clinkr op → `(done)`, notes → `**Migrated**`.
 
-Until a row is pushed down, the skill keeps using the `gh` invocation
-above.
+**Diff check:** the PR that lands a push-down should show net *negative*
+markdown line count in `.agents/skills/twerk-pr-address/` (or at worst
+neutral — e.g., when adding the hyphenated-subgroup hook required a small
+one-time clinkr change). If markdown grew, the push-down isn't done; you
+still have documentation debt that belongs in the deleted rows.
+
+Until a row is pushed down, the skill keeps using the `gh` invocation and
+its inline query text lives in its own section above.
