@@ -2,10 +2,7 @@
 name: twerk-pr-address
 description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/twerk-pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `twerk pr-address get-review-comments` / `resolve-thread` / `unresolve-thread` / `add-review-thread-reply` for typed PR operations, and raw `gh` / `gh api` for the remainder."
 allowed-tools:
-  - "Bash(twerk pr-address get-review-comments*)"
-  - "Bash(twerk pr-address resolve-thread*)"
-  - "Bash(twerk pr-address unresolve-thread*)"
-  - "Bash(twerk pr-address add-review-thread-reply*)"
+  - "Bash(twerk *)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
   - "Bash(gh api *)"
