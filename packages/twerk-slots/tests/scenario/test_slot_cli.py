@@ -275,8 +275,8 @@ def test_slot_assign_pool_full_no_force(cli_group: ClinkrGroup, tmp_path: Path) 
     )
     # Seed git with the two worktrees holding the recorded branches.
     fakes.git._worktrees = [
-        WorktreeInfo(path=slot_01, branch="feat/a"),
-        WorktreeInfo(path=slot_02, branch="feat/b"),
+        WorktreeInfo(path=slot_01, branch="feat/a", is_bare=False),
+        WorktreeInfo(path=slot_02, branch="feat/b", is_bare=False),
     ]
     fakes.git._current_branch_by_path = {slot_01: "feat/a", slot_02: "feat/b"}
 
@@ -317,8 +317,8 @@ def test_slot_assign_pool_full_with_force_evicts_oldest(
         ),
     )
     fakes.git._worktrees = [
-        WorktreeInfo(path=slot_01, branch="feat/a"),
-        WorktreeInfo(path=slot_02, branch="feat/b"),
+        WorktreeInfo(path=slot_01, branch="feat/a", is_bare=False),
+        WorktreeInfo(path=slot_02, branch="feat/b", is_bare=False),
     ]
     fakes.git._current_branch_by_path = {slot_01: "feat/a", slot_02: "feat/b"}
 

@@ -31,7 +31,7 @@ def test_fake_branch_queries() -> None:
 
 
 def test_fake_worktree_listing_and_current_branch() -> None:
-    worktree = WorktreeInfo(path=Path("/wt/slot-01"), branch="feat/x")
+    worktree = WorktreeInfo(path=Path("/wt/slot-01"), branch="feat/x", is_bare=False)
     gateway = FakeGitGateway(
         repo_root=Path("/r"),
         worktrees=(worktree,),
@@ -61,7 +61,7 @@ def test_fake_add_worktree_records_mutation_and_exposes_new_worktree() -> None:
 def test_fake_checkout_updates_worktree_and_mutation_log() -> None:
     gateway = FakeGitGateway(
         repo_root=Path("/r"),
-        worktrees=(WorktreeInfo(path=Path("/wt/slot-01"), branch="feat/x"),),
+        worktrees=(WorktreeInfo(path=Path("/wt/slot-01"), branch="feat/x", is_bare=False),),
         current_branch_by_path={Path("/wt/slot-01"): "feat/x"},
     )
 

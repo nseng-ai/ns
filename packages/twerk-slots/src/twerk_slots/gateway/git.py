@@ -19,7 +19,7 @@ class WorktreeInfo:
 
     path: Path
     branch: str | None
-    is_bare: bool = False
+    is_bare: bool
 
 
 class FileStatus(NamedTuple):

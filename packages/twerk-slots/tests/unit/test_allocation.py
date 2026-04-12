@@ -117,7 +117,7 @@ def test_find_inactive_slot_reuses_clean_worktree() -> None:
     slot_path = repo.worktrees_dir / "slot-01"
     git = FakeGitGateway(
         repo_root=repo.root,
-        worktrees=(WorktreeInfo(path=slot_path, branch="__slot-01-br-stub__"),),
+        worktrees=(WorktreeInfo(path=slot_path, branch="__slot-01-br-stub__", is_bare=False),),
     )
     state = PoolState(pool_size=4, assignments=())
 
@@ -131,7 +131,7 @@ def test_find_inactive_slot_skips_dirty_worktree() -> None:
     slot_path = repo.worktrees_dir / "slot-01"
     git = FakeGitGateway(
         repo_root=repo.root,
-        worktrees=(WorktreeInfo(path=slot_path, branch="feat/x"),),
+        worktrees=(WorktreeInfo(path=slot_path, branch="feat/x", is_bare=False),),
         file_status_by_path={slot_path: FileStatus(False, True, False)},
     )
     state = PoolState(pool_size=4, assignments=())
@@ -144,7 +144,7 @@ def test_find_inactive_slot_skips_assigned_worktree() -> None:
     slot_path = repo.worktrees_dir / "slot-01"
     git = FakeGitGateway(
         repo_root=repo.root,
-        worktrees=(WorktreeInfo(path=slot_path, branch="feat/x"),),
+        worktrees=(WorktreeInfo(path=slot_path, branch="feat/x", is_bare=False),),
     )
     state = PoolState(
         pool_size=4,
@@ -250,7 +250,7 @@ def test_allocate_picks_next_slot_when_partially_full() -> None:
     git = FakeGitGateway(
         repo_root=repo.root,
         branches={"feat/a", "feat/b"},
-        worktrees=(WorktreeInfo(path=existing_path, branch="feat/a"),),
+        worktrees=(WorktreeInfo(path=existing_path, branch="feat/a", is_bare=False),),
         current_branch_by_path={existing_path: "feat/a"},
     )
     storage = _seeded_storage(existing_paths={existing_path})
@@ -274,7 +274,7 @@ def test_allocate_returns_already_assigned_when_branch_matches() -> None:
     git = FakeGitGateway(
         repo_root=repo.root,
         branches={"feat/x"},
-        worktrees=(WorktreeInfo(path=existing_path, branch="feat/x"),),
+        worktrees=(WorktreeInfo(path=existing_path, branch="feat/x", is_bare=False),),
         current_branch_by_path={existing_path: "feat/x"},
     )
     storage = _seeded_storage(existing_paths={existing_path})
@@ -316,7 +316,7 @@ def test_allocate_reuses_inactive_slot_via_checkout() -> None:
     git = FakeGitGateway(
         repo_root=repo.root,
         branches={"feat/x"},
-        worktrees=(WorktreeInfo(path=inactive_path, branch="__slot-01-br-stub__"),),
+        worktrees=(WorktreeInfo(path=inactive_path, branch="__slot-01-br-stub__", is_bare=False),),
     )
     storage = _seeded_storage(existing_paths={inactive_path})
     pool_state_gw = FakePoolStateGateway()
@@ -337,7 +337,7 @@ def test_allocate_skips_dirty_inactive_slot_and_creates_new() -> None:
     git = FakeGitGateway(
         repo_root=repo.root,
         branches={"feat/x"},
-        worktrees=(WorktreeInfo(path=dirty_path, branch="__slot-01-br-stub__"),),
+        worktrees=(WorktreeInfo(path=dirty_path, branch="__slot-01-br-stub__", is_bare=False),),
         file_status_by_path={dirty_path: FileStatus(False, True, False)},
     )
     storage = _seeded_storage(existing_paths={dirty_path})
@@ -367,8 +367,8 @@ def test_allocate_pool_full_without_force_returns_error() -> None:
         repo_root=repo.root,
         branches={"feat/a", "feat/b", "feat/c"},
         worktrees=(
-            WorktreeInfo(path=slot_01_path, branch="feat/a"),
-            WorktreeInfo(path=slot_02_path, branch="feat/b"),
+            WorktreeInfo(path=slot_01_path, branch="feat/a", is_bare=False),
+            WorktreeInfo(path=slot_02_path, branch="feat/b", is_bare=False),
         ),
         current_branch_by_path={slot_01_path: "feat/a", slot_02_path: "feat/b"},
     )
@@ -398,8 +398,8 @@ def test_allocate_pool_full_with_force_evicts_oldest() -> None:
         repo_root=repo.root,
         branches={"feat/a", "feat/b", "feat/c"},
         worktrees=(
-            WorktreeInfo(path=slot_01_path, branch="feat/a"),
-            WorktreeInfo(path=slot_02_path, branch="feat/b"),
+            WorktreeInfo(path=slot_01_path, branch="feat/a", is_bare=False),
+            WorktreeInfo(path=slot_02_path, branch="feat/b", is_bare=False),
         ),
         current_branch_by_path={slot_01_path: "feat/a", slot_02_path: "feat/b"},
     )
@@ -434,7 +434,7 @@ def test_allocate_syncs_before_deciding() -> None:
     git = FakeGitGateway(
         repo_root=repo.root,
         branches={"feat/x", "feat/y"},
-        worktrees=(WorktreeInfo(path=slot_path, branch="feat/y"),),
+        worktrees=(WorktreeInfo(path=slot_path, branch="feat/y", is_bare=False),),
         current_branch_by_path={slot_path: "feat/y"},
     )
     storage = _seeded_storage(existing_paths={slot_path})

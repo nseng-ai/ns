@@ -7,9 +7,13 @@ from pathlib import Path
 import pytest
 
 from twerk_slots.gateway import real_git
-from twerk_slots.gateway.git import FileStatus
+from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
-from twerk_slots.gateway.real_git import RealGitGateway, parse_porcelain_status
+from twerk_slots.gateway.real_git import (
+    RealGitGateway,
+    parse_porcelain_status,
+    parse_worktree_list_output,
+)
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
 from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
 
@@ -127,6 +131,66 @@ def test_get_current_branch_returns_none_when_detached(
 )
 def test_parse_porcelain_status(stdout: str, expected: FileStatus) -> None:
     assert parse_porcelain_status(stdout) == expected
+
+
+@pytest.mark.parametrize(
+    ("stdout", "expected"),
+    [
+        (
+            "",
+            (),
+        ),
+        (
+            "worktree /home/alice/repo\nHEAD abc123\nbranch refs/heads/main\n\n",
+            (WorktreeInfo(path=Path("/home/alice/repo"), branch="main", is_bare=False),),
+        ),
+        (
+            "worktree /home/alice/detached\nHEAD abc123\ndetached\n\n",
+            (WorktreeInfo(path=Path("/home/alice/detached"), branch=None, is_bare=False),),
+        ),
+        (
+            "worktree /tmp/bare.git\nbare\n\n",
+            (WorktreeInfo(path=Path("/tmp/bare.git"), branch=None, is_bare=True),),
+        ),
+        (
+            (
+                "worktree /home/alice/repo\nHEAD abc\nbranch refs/heads/main\n\n"
+                "worktree /home/alice/wt\nHEAD def\nbranch refs/heads/feat/x\n\n"
+            ),
+            (
+                WorktreeInfo(path=Path("/home/alice/repo"), branch="main", is_bare=False),
+                WorktreeInfo(path=Path("/home/alice/wt"), branch="feat/x", is_bare=False),
+            ),
+        ),
+        (
+            "worktree /home/alice/repo\nHEAD abc\nbranch refs/heads/main\n",
+            (WorktreeInfo(path=Path("/home/alice/repo"), branch="main", is_bare=False),),
+        ),
+        (
+            (
+                "worktree /home/alice/repo\nHEAD abc\nbranch refs/heads/main\n"
+                "sparse-checkout\nlocked\n\n"
+            ),
+            (WorktreeInfo(path=Path("/home/alice/repo"), branch="main", is_bare=False),),
+        ),
+        (
+            "branch refs/heads/orphan\n\n",
+            (),
+        ),
+    ],
+    ids=[
+        "empty",
+        "single_with_branch",
+        "detached_head",
+        "bare",
+        "multiple_worktrees",
+        "no_trailing_blank_line",
+        "unknown_porcelain_keys_ignored",
+        "branch_line_before_worktree_line_ignored",
+    ],
+)
+def test_parse_worktree_list_output(stdout: str, expected: tuple[WorktreeInfo, ...]) -> None:
+    assert parse_worktree_list_output(stdout) == expected
 
 
 def test_get_file_status_delegates_to_parser(monkeypatch: pytest.MonkeyPatch) -> None:

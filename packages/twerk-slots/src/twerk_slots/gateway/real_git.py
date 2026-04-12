@@ -43,6 +43,48 @@ def parse_porcelain_status(stdout: str) -> FileStatus:
     return FileStatus(staged=staged, modified=modified, untracked=untracked)
 
 
+def parse_worktree_list_output(stdout: str) -> tuple[WorktreeInfo, ...]:
+    """Parse ``git worktree list --porcelain`` output into :class:`WorktreeInfo` tuples.
+
+    Porcelain format: each worktree is a block of key/value lines
+    (``worktree <path>``, ``HEAD <sha>``, ``branch <ref>``, or ``bare``)
+    terminated by a blank line. Detached-HEAD worktrees omit the ``branch``
+    line; bare repositories carry a standalone ``bare`` line.
+    """
+    worktrees: list[WorktreeInfo] = []
+    current_path: Path | None = None
+    current_branch: str | None = None
+    current_bare: bool = False
+
+    for raw_line in stdout.splitlines():
+        line = raw_line.strip()
+        if line.startswith("worktree "):
+            current_path = Path(line.split(maxsplit=1)[1])
+            current_branch = None
+            current_bare = False
+        elif line.startswith("branch "):
+            if current_path is None:
+                continue
+            branch_ref = line.split(maxsplit=1)[1]
+            current_branch = branch_ref.replace("refs/heads/", "")
+        elif line == "bare":
+            current_bare = True
+        elif line == "" and current_path is not None:
+            worktrees.append(
+                WorktreeInfo(path=current_path, branch=current_branch, is_bare=current_bare)
+            )
+            current_path = None
+            current_branch = None
+            current_bare = False
+
+    if current_path is not None:
+        worktrees.append(
+            WorktreeInfo(path=current_path, branch=current_branch, is_bare=current_bare)
+        )
+
+    return tuple(worktrees)
+
+
 class RealGitGateway(GitGateway):
     """GitGateway that shells out to ``git``."""
 
@@ -96,45 +138,8 @@ class RealGitGateway(GitGateway):
     # -- Worktree operations --
 
     def list_worktrees(self, repo_root: Path) -> tuple[WorktreeInfo, ...]:
-        """Parse ``git worktree list --porcelain``.
-
-        The parser is ported verbatim from erk to avoid regressions around
-        detached-HEAD and bare-worktree handling.
-        """
         result = _run(["git", "worktree", "list", "--porcelain"], cwd=repo_root)
-
-        worktrees: list[WorktreeInfo] = []
-        current_path: Path | None = None
-        current_branch: str | None = None
-        current_bare: bool = False
-
-        for raw_line in result.stdout.splitlines():
-            line = raw_line.strip()
-            if line.startswith("worktree "):
-                current_path = Path(line.split(maxsplit=1)[1])
-                current_branch = None
-                current_bare = False
-            elif line.startswith("branch "):
-                if current_path is None:
-                    continue
-                branch_ref = line.split(maxsplit=1)[1]
-                current_branch = branch_ref.replace("refs/heads/", "")
-            elif line == "bare":
-                current_bare = True
-            elif line == "" and current_path is not None:
-                worktrees.append(
-                    WorktreeInfo(path=current_path, branch=current_branch, is_bare=current_bare)
-                )
-                current_path = None
-                current_branch = None
-                current_bare = False
-
-        if current_path is not None:
-            worktrees.append(
-                WorktreeInfo(path=current_path, branch=current_branch, is_bare=current_bare)
-            )
-
-        return tuple(worktrees)
+        return parse_worktree_list_output(result.stdout)
 
     def add_worktree(
         self,
