@@ -12,16 +12,17 @@ from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.repo_context import SLOTS_ROOT
 
 
-def get_git_gateway() -> GitGateway:
+def get_git_gateway(repo_root: Path) -> GitGateway:
     """Retrieve the GitGateway from the current Click context.
 
-    Falls back to the subprocess-backed gateway so the CLI works out of the
-    box in any git repo.
+    Falls back to a :class:`RealGitGateway` bound to ``repo_root`` so the CLI
+    works out of the box in any git repo. Tests inject a pre-bound fake via
+    the Click object.
     """
     ctx = click.get_current_context()
     gateway = ctx.obj.get("git_gateway") if ctx.obj else None
     if gateway is None:
-        return RealGitGateway()
+        return RealGitGateway(repo_root=repo_root)
     return gateway
 
 
@@ -43,10 +44,13 @@ def get_storage_gateway() -> SlotsStorageGateway:
     return gateway
 
 
-def get_pool_state_gateway() -> PoolStateGateway:
-    """Retrieve the PoolStateGateway from the Click context, or a real one."""
+def get_pool_state_gateway(pool_json_path: Path) -> PoolStateGateway:
+    """Retrieve the PoolStateGateway from the Click context, or a real one
+    bound to ``pool_json_path``. Tests inject a pre-bound fake via the
+    Click object.
+    """
     ctx = click.get_current_context()
     gateway = ctx.obj.get("pool_state_gateway") if ctx.obj else None
     if gateway is None:
-        return RealPoolStateGateway()
+        return RealPoolStateGateway(pool_json_path=pool_json_path)
     return gateway

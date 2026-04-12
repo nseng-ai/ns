@@ -19,8 +19,8 @@ from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
 
 
 def test_real_gateway_instantiates() -> None:
-    # Regression: the ABC must be fully implemented so bare construction works.
-    assert isinstance(RealGitGateway(), RealGitGateway)
+    # Regression: the ABC must be fully implemented so construction works.
+    assert isinstance(RealGitGateway(repo_root=Path("/r")), RealGitGateway)
 
 
 def test_list_worktrees_parses_porcelain(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,7 +45,7 @@ def test_list_worktrees_parses_porcelain(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    worktrees = RealGitGateway().list_worktrees(Path("/home/alice/repo"))
+    worktrees = RealGitGateway(repo_root=Path("/home/alice/repo")).list_worktrees()
 
     assert len(worktrees) == 3
     assert worktrees[0].path == Path("/home/alice/repo")
@@ -63,7 +63,7 @@ def test_list_worktrees_handles_bare(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    worktrees = RealGitGateway().list_worktrees(Path("/tmp/bare.git"))
+    worktrees = RealGitGateway(repo_root=Path("/tmp/bare.git")).list_worktrees()
     assert worktrees[0].is_bare is True
 
 
@@ -76,7 +76,7 @@ def test_branch_exists_uses_show_ref(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    assert RealGitGateway().branch_exists(Path("/r"), "feat/x") is True
+    assert RealGitGateway(repo_root=Path("/r")).branch_exists("feat/x") is True
     assert captured == [
         ["git", "show-ref", "--verify", "--quiet", "refs/heads/feat/x"],
     ]
@@ -88,7 +88,7 @@ def test_branch_exists_returns_false_on_nonzero(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    assert RealGitGateway().branch_exists(Path("/r"), "nope") is False
+    assert RealGitGateway(repo_root=Path("/r")).branch_exists("nope") is False
 
 
 def test_get_current_branch_returns_none_when_detached(
@@ -99,7 +99,7 @@ def test_get_current_branch_returns_none_when_detached(
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    assert RealGitGateway().get_current_branch(Path("/r")) is None
+    assert RealGitGateway(repo_root=Path("/r")).get_current_branch(Path("/r")) is None
 
 
 @pytest.mark.parametrize(
@@ -201,7 +201,9 @@ def test_get_file_status_delegates_to_parser(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    assert RealGitGateway().get_file_status(Path("/r")) == FileStatus(True, True, True)
+    assert RealGitGateway(repo_root=Path("/r")).get_file_status(Path("/r")) == FileStatus(
+        True, True, True
+    )
 
 
 def test_list_local_branches_parses_for_each_ref(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -210,7 +212,7 @@ def test_list_local_branches_parses_for_each_ref(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    assert RealGitGateway().list_local_branches(Path("/r")) == ("main", "feat/x")
+    assert RealGitGateway(repo_root=Path("/r")).list_local_branches() == ("main", "feat/x")
 
 
 def test_get_git_common_dir_resolves_relative(
@@ -224,7 +226,7 @@ def test_get_git_common_dir_resolves_relative(
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    result = RealGitGateway().get_git_common_dir(repo)
+    result = RealGitGateway(repo_root=repo).get_git_common_dir(repo)
     assert result == (repo / ".git").resolve()
 
 
@@ -234,7 +236,7 @@ def test_get_git_common_dir_returns_none_outside_repo(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    assert RealGitGateway().get_git_common_dir(Path("/tmp")) is None
+    assert RealGitGateway(repo_root=Path("/tmp")).get_git_common_dir(Path("/tmp")) is None
 
 
 # -- RealSlotsStorageGateway ------------------------------------------------
@@ -273,33 +275,33 @@ def test_real_storage_ensure_dir_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_real_pool_state_load_missing_returns_none(tmp_path: Path) -> None:
-    gateway = RealPoolStateGateway()
-    assert gateway.load(tmp_path / "missing.json") is None
+    gateway = RealPoolStateGateway(pool_json_path=tmp_path / "missing.json")
+    assert gateway.load() is None
 
 
 def test_real_pool_state_save_creates_parent_directories(tmp_path: Path) -> None:
-    gateway = RealPoolStateGateway()
     pool_json = tmp_path / "nested" / "deep" / "pool.json"
+    gateway = RealPoolStateGateway(pool_json_path=pool_json)
 
-    gateway.save(pool_json, PoolState(pool_size=16, assignments=()))
+    gateway.save(PoolState(pool_size=16, assignments=()))
 
     assert pool_json.exists()
     assert json.loads(pool_json.read_text()) == {"pool_size": 16, "assignments": []}
 
 
 def test_real_pool_state_round_trip_empty(tmp_path: Path) -> None:
-    gateway = RealPoolStateGateway()
     pool_json = tmp_path / "pool.json"
+    gateway = RealPoolStateGateway(pool_json_path=pool_json)
     state = PoolState(pool_size=16, assignments=())
 
-    gateway.save(pool_json, state)
+    gateway.save(state)
 
-    assert gateway.load(pool_json) == state
+    assert gateway.load() == state
 
 
 def test_real_pool_state_round_trip_preserves_assignments(tmp_path: Path) -> None:
-    gateway = RealPoolStateGateway()
     pool_json = tmp_path / "pool.json"
+    gateway = RealPoolStateGateway(pool_json_path=pool_json)
     worktree = tmp_path / "worktrees" / "slot-01"
     state = PoolState(
         pool_size=8,
@@ -313,8 +315,8 @@ def test_real_pool_state_round_trip_preserves_assignments(tmp_path: Path) -> Non
         ),
     )
 
-    gateway.save(pool_json, state)
-    loaded = gateway.load(pool_json)
+    gateway.save(state)
+    loaded = gateway.load()
 
     assert loaded == state
     assert loaded is not None
@@ -322,11 +324,11 @@ def test_real_pool_state_round_trip_preserves_assignments(tmp_path: Path) -> Non
 
 
 def test_real_pool_state_load_missing_pool_size_falls_back_to_default(tmp_path: Path) -> None:
-    gateway = RealPoolStateGateway()
     pool_json = tmp_path / "pool.json"
     pool_json.write_text(json.dumps({"assignments": []}))
+    gateway = RealPoolStateGateway(pool_json_path=pool_json)
 
-    loaded = gateway.load(pool_json)
+    loaded = gateway.load()
 
     assert loaded is not None
     assert loaded.pool_size == DEFAULT_POOL_SIZE

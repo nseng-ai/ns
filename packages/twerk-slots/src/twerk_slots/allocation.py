@@ -63,7 +63,6 @@ def find_next_available_slot(
 def find_inactive_slot(
     state: PoolState,
     git: GitGateway,
-    repo_root: Path,
 ) -> tuple[str, Path] | None:
     """Find an unassigned pool worktree that can be reused.
 
@@ -74,7 +73,7 @@ def find_inactive_slot(
     assigned_slots = {a.slot_name for a in state.assignments}
 
     managed_worktrees: dict[str, Path] = {}
-    for wt in git.list_worktrees(repo_root):
+    for wt in git.list_worktrees():
         slot_name = wt.path.name
         if extract_slot_number(slot_name) is not None:
             managed_worktrees[slot_name] = wt.path
@@ -113,7 +112,6 @@ def sync_pool_assignments(
     git: GitGateway,
     storage: SlotsStorageGateway,
     pool_state_gw: PoolStateGateway,
-    pool_json_path: Path,
 ) -> PoolState:
     """Reconcile pool.json with the actual branches checked out in each slot.
 
@@ -151,7 +149,7 @@ def sync_pool_assignments(
         return state
 
     new_state = PoolState(pool_size=state.pool_size, assignments=tuple(updated))
-    pool_state_gw.save(pool_json_path, new_state)
+    pool_state_gw.save(new_state)
     return new_state
 
 
@@ -175,12 +173,8 @@ def allocate_slot_for_branch(
     on-demand slot creation. If the pool is full, ``--force`` evicts the
     oldest assignment and reuses its slot.
     """
-    state = ctx.pool_state.load(ctx.repo.pool_json_path) or PoolState(
-        pool_size=DEFAULT_POOL_SIZE, assignments=()
-    )
-    state = sync_pool_assignments(
-        state, ctx.git, ctx.storage, ctx.pool_state, ctx.repo.pool_json_path
-    )
+    state = ctx.pool_state.load() or PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
 
     existing = find_branch_assignment(state, branch_name)
     if existing is not None:
@@ -199,13 +193,13 @@ def allocate_slot_for_branch(
             pool_size=state.pool_size,
             assignments=tuple(a for a in state.assignments if a.slot_name != existing.slot_name),
         )
-        ctx.pool_state.save(ctx.repo.pool_json_path, state)
+        ctx.pool_state.save(state)
 
     evicted_slot: str | None = None
     slot_name: str
     worktree_path: Path
 
-    inactive = find_inactive_slot(state, ctx.git, ctx.repo.root)
+    inactive = find_inactive_slot(state, ctx.git)
     if inactive is not None:
         slot_name, worktree_path = inactive
         ctx.git.checkout_branch(worktree_path, branch_name)
@@ -231,24 +225,22 @@ def allocate_slot_for_branch(
                 ctx.git.checkout_branch(worktree_path, branch_name)
             else:
                 ctx.storage.ensure_dir(worktree_path.parent)
-                ctx.git.add_worktree(ctx.repo.root, worktree_path, branch_name, create_branch=False)
+                ctx.git.add_worktree(worktree_path, branch_name, create_branch=False)
         else:
             slot_name = generate_slot_name(slot_num)
             worktree_path = ctx.repo.worktrees_dir / slot_name
             ctx.storage.ensure_dir(worktree_path.parent)
-            ctx.git.add_worktree(ctx.repo.root, worktree_path, branch_name, create_branch=False)
+            ctx.git.add_worktree(worktree_path, branch_name, create_branch=False)
 
-    new_assignment = SlotAssignment(
-        slot_name=slot_name,
-        branch_name=branch_name,
-        assigned_at=now,
-        worktree_path=worktree_path,
+    new_state = state.with_assignment_added(
+        SlotAssignment(
+            slot_name=slot_name,
+            branch_name=branch_name,
+            assigned_at=now,
+            worktree_path=worktree_path,
+        )
     )
-    new_state = PoolState(
-        pool_size=state.pool_size,
-        assignments=(*state.assignments, new_assignment),
-    )
-    ctx.pool_state.save(ctx.repo.pool_json_path, new_state)
+    ctx.pool_state.save(new_state)
 
     return SlotAllocationResult(
         slot_name=slot_name,

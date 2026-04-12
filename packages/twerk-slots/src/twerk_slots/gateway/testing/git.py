@@ -83,26 +83,25 @@ class FakeGitGateway(GitGateway):
     def get_current_branch(self, cwd: Path) -> str | None:
         return self._current_branch_by_path.get(cwd)
 
-    def branch_exists(self, repo_root: Path, branch: str) -> bool:
+    def branch_exists(self, branch: str) -> bool:
         return branch in self._branches
 
-    def list_local_branches(self, repo_root: Path) -> tuple[str, ...]:
+    def list_local_branches(self) -> tuple[str, ...]:
         return tuple(sorted(self._branches))
 
     # -- Worktree operations --
 
-    def list_worktrees(self, repo_root: Path) -> tuple[WorktreeInfo, ...]:
+    def list_worktrees(self) -> tuple[WorktreeInfo, ...]:
         return tuple(self._worktrees)
 
     def add_worktree(
         self,
-        repo_root: Path,
         path: Path,
         branch: str,
         *,
         create_branch: bool,
     ) -> WorktreeInfo:
-        self._add_worktree_calls.append((repo_root, path, branch, create_branch))
+        self._add_worktree_calls.append((self._repo_root, path, branch, create_branch))
         info = WorktreeInfo(path=path, branch=branch, is_bare=False)
         self._worktrees.append(info)
         self._existing_paths.add(path)

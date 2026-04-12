@@ -52,6 +52,7 @@ def _fake_for_repo(
 ) -> _SlotFakes:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
+    pool_json_path = tmp_path / "slots" / "repos" / "repo" / "pool.json"
     storage = FakeSlotsStorageGateway(
         existing_paths={repo_root, Path.cwd(), *extra_existing},
     )
@@ -68,7 +69,7 @@ def _fake_for_repo(
     return _SlotFakes(
         git=git,
         storage=storage,
-        pool_state=FakePoolStateGateway(),
+        pool_state=FakePoolStateGateway(pool_json_path),
         repo_root=repo_root,
     )
 
@@ -264,7 +265,6 @@ def test_slot_assign_pool_full_no_force(cli_group: ClinkrGroup, tmp_path: Path) 
         extra_existing=(slot_01, slot_02),
     )
     fakes.pool_state.save(
-        repo_dir / "pool.json",
         PoolState(
             pool_size=2,
             assignments=(
@@ -307,7 +307,6 @@ def test_slot_assign_pool_full_with_force_evicts_oldest(
         extra_existing=(slot_01, slot_02),
     )
     fakes.pool_state.save(
-        repo_dir / "pool.json",
         PoolState(
             pool_size=2,
             assignments=(

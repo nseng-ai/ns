@@ -25,9 +25,9 @@ def test_fake_branch_queries() -> None:
         branches={"main", "feat/x"},
     )
 
-    assert gateway.branch_exists(Path("/r"), "main")
-    assert not gateway.branch_exists(Path("/r"), "nope")
-    assert gateway.list_local_branches(Path("/r")) == ("feat/x", "main")
+    assert gateway.branch_exists("main")
+    assert not gateway.branch_exists("nope")
+    assert gateway.list_local_branches() == ("feat/x", "main")
 
 
 def test_fake_worktree_listing_and_current_branch() -> None:
@@ -38,7 +38,7 @@ def test_fake_worktree_listing_and_current_branch() -> None:
         current_branch_by_path={Path("/wt/slot-01"): "feat/x"},
     )
 
-    assert gateway.list_worktrees(Path("/r")) == (worktree,)
+    assert gateway.list_worktrees() == (worktree,)
     assert gateway.get_current_branch(Path("/wt/slot-01")) == "feat/x"
 
 
@@ -47,12 +47,12 @@ def test_fake_add_worktree_records_mutation_and_exposes_new_worktree() -> None:
     gateway = FakeGitGateway(repo_root=repo_root)
     target = Path("/wt/slot-01")
 
-    info = gateway.add_worktree(repo_root, target, "feat/x", create_branch=False)
+    info = gateway.add_worktree(target, "feat/x", create_branch=False)
 
     assert info == WorktreeInfo(path=target, branch="feat/x", is_bare=False)
     assert gateway._add_worktree_calls == [(repo_root, target, "feat/x", False)]
     assert gateway.path_exists(target)
-    worktrees = gateway.list_worktrees(repo_root)
+    worktrees = gateway.list_worktrees()
     assert worktrees[0].path == target
     assert worktrees[0].branch == "feat/x"
     assert gateway.get_current_branch(target) == "feat/x"
@@ -69,7 +69,7 @@ def test_fake_checkout_updates_worktree_and_mutation_log() -> None:
 
     assert gateway._checkout_calls == [(Path("/wt/slot-01"), "feat/y")]
     assert gateway.get_current_branch(Path("/wt/slot-01")) == "feat/y"
-    assert gateway.list_worktrees(Path("/r"))[0].branch == "feat/y"
+    assert gateway.list_worktrees()[0].branch == "feat/y"
 
 
 def test_fake_file_status_defaults_clean() -> None:
@@ -124,8 +124,8 @@ def test_fake_storage_ensure_dir_idempotent() -> None:
 
 
 def test_fake_pool_state_load_returns_none_when_absent() -> None:
-    gateway = FakePoolStateGateway()
-    assert gateway.load(Path("/nowhere/pool.json")) is None
+    gateway = FakePoolStateGateway(Path("/nowhere/pool.json"))
+    assert gateway.load() is None
 
 
 def test_fake_pool_state_load_returns_seeded_state() -> None:
@@ -134,20 +134,20 @@ def test_fake_pool_state_load_returns_seeded_state() -> None:
         pool_size=4,
         assignments=(SlotAssignment("slot-01", "feat/x", "t", Path("/wt/slot-01")),),
     )
-    gateway = FakePoolStateGateway(states={path: state})
+    gateway = FakePoolStateGateway(path, initial_state=state)
 
-    assert gateway.load(path) == state
+    assert gateway.load() == state
 
 
 def test_fake_pool_state_save_records_and_round_trips() -> None:
-    gateway = FakePoolStateGateway()
     path = Path("/slots/repos/r/pool.json")
+    gateway = FakePoolStateGateway(path)
     state = PoolState(pool_size=8, assignments=())
 
-    gateway.save(path, state)
+    gateway.save(state)
 
-    assert gateway._save_calls == [(path, state)]
-    assert gateway.load(path) == state
+    assert gateway._save_calls == [state]
+    assert gateway.load() == state
 
 
 def test_fake_pool_state_save_overwrites_prior_state() -> None:
@@ -157,9 +157,9 @@ def test_fake_pool_state_save_overwrites_prior_state() -> None:
         pool_size=4,
         assignments=(SlotAssignment("slot-01", "feat/x", "t", Path("/wt/slot-01")),),
     )
-    gateway = FakePoolStateGateway(states={path: first})
+    gateway = FakePoolStateGateway(path, initial_state=first)
 
-    gateway.save(path, second)
+    gateway.save(second)
 
-    assert gateway.load(path) == second
-    assert gateway._save_calls == [(path, second)]
+    assert gateway.load() == second
+    assert gateway._save_calls == [second]

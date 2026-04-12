@@ -20,11 +20,15 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
     Returns a :class:`NoRepoSentinel` when ``cwd`` is outside a git repo so
     callers can surface a ClinkrCommandError without another branch.
     """
-    git = get_git_gateway()
+    cwd = Path.cwd()
     storage = get_storage_gateway()
-    pool_state = get_pool_state_gateway()
     slots_root = get_slots_root()
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
+    # Discovery only exercises cwd-based GitGateway methods, so binding the
+    # bootstrap gateway to cwd is safe even when cwd is a subdirectory.
+    discovery_git = get_git_gateway(repo_root=cwd)
+    repo = discover_repo_or_sentinel(cwd, slots_root=slots_root, git=discovery_git)
     if isinstance(repo, NoRepoSentinel):
         return repo
+    git = get_git_gateway(repo_root=repo.root)
+    pool_state = get_pool_state_gateway(pool_json_path=repo.pool_json_path)
     return SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state)

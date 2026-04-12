@@ -121,7 +121,7 @@ def test_find_inactive_slot_reuses_clean_worktree() -> None:
     )
     state = PoolState(pool_size=4, assignments=())
 
-    result = find_inactive_slot(state, git, repo.root)
+    result = find_inactive_slot(state, git)
 
     assert result == ("slot-01", slot_path)
 
@@ -136,7 +136,7 @@ def test_find_inactive_slot_skips_dirty_worktree() -> None:
     )
     state = PoolState(pool_size=4, assignments=())
 
-    assert find_inactive_slot(state, git, repo.root) is None
+    assert find_inactive_slot(state, git) is None
 
 
 def test_find_inactive_slot_skips_assigned_worktree() -> None:
@@ -151,7 +151,7 @@ def test_find_inactive_slot_skips_assigned_worktree() -> None:
         assignments=(SlotAssignment("slot-01", "feat/x", NOW, slot_path),),
     )
 
-    assert find_inactive_slot(state, git, repo.root) is None
+    assert find_inactive_slot(state, git) is None
 
 
 # -- sync_pool_assignments ---------------------------------------------------
@@ -169,9 +169,9 @@ def test_sync_returns_same_state_when_all_match() -> None:
         current_branch_by_path={slot_path: "feat/x"},
     )
     storage = _seeded_storage(existing_paths={slot_path})
-    pool_state_gw = FakePoolStateGateway()
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
-    result = sync_pool_assignments(state, git, storage, pool_state_gw, repo.pool_json_path)
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
 
     assert result == state
     assert pool_state_gw._save_calls == []  # no write when nothing changed
@@ -189,13 +189,13 @@ def test_sync_updates_and_persists_when_branch_differs() -> None:
         current_branch_by_path={slot_path: "feat/new"},
     )
     storage = _seeded_storage(existing_paths={slot_path})
-    pool_state_gw = FakePoolStateGateway()
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
-    result = sync_pool_assignments(state, git, storage, pool_state_gw, repo.pool_json_path)
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
 
     assert result.assignments[0].branch_name == "feat/new"
     assert result.assignments[0].assigned_at == EARLIER  # preserved
-    assert pool_state_gw.load(repo.pool_json_path) == result
+    assert pool_state_gw.load() == result
 
 
 def test_sync_ignores_placeholder_branches() -> None:
@@ -210,9 +210,9 @@ def test_sync_ignores_placeholder_branches() -> None:
         current_branch_by_path={slot_path: "__slot-01-br-stub__"},
     )
     storage = _seeded_storage(existing_paths={slot_path})
-    pool_state_gw = FakePoolStateGateway()
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
-    result = sync_pool_assignments(state, git, storage, pool_state_gw, repo.pool_json_path)
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
 
     assert result.assignments[0].branch_name == "feat/x"
 
@@ -224,7 +224,7 @@ def test_allocate_empty_pool_creates_slot_01() -> None:
     repo = _make_repo()
     git = FakeGitGateway(repo_root=repo.root, branches={"feat/x"})
     storage = _seeded_storage()
-    pool_state_gw = FakePoolStateGateway()
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -235,7 +235,7 @@ def test_allocate_empty_pool_creates_slot_01() -> None:
     assert result.already_assigned is False
     assert result.evicted_slot is None
     assert git._add_worktree_calls == [(repo.root, repo.worktrees_dir / "slot-01", "feat/x", False)]
-    saved = pool_state_gw.load(repo.pool_json_path)
+    saved = pool_state_gw.load()
     assert saved is not None
     assert saved.assignments[0].branch_name == "feat/x"
 
@@ -254,7 +254,7 @@ def test_allocate_picks_next_slot_when_partially_full() -> None:
         current_branch_by_path={existing_path: "feat/a"},
     )
     storage = _seeded_storage(existing_paths={existing_path})
-    pool_state_gw = FakePoolStateGateway(states={repo.pool_json_path: seeded})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/b", now=NOW, force=False)
@@ -278,7 +278,7 @@ def test_allocate_returns_already_assigned_when_branch_matches() -> None:
         current_branch_by_path={existing_path: "feat/x"},
     )
     storage = _seeded_storage(existing_paths={existing_path})
-    pool_state_gw = FakePoolStateGateway(states={repo.pool_json_path: seeded})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -299,7 +299,7 @@ def test_allocate_reallocates_when_recorded_worktree_missing() -> None:
     )
     git = FakeGitGateway(repo_root=repo.root, branches={"feat/x"})
     storage = _seeded_storage()  # ghost_path not seeded
-    pool_state_gw = FakePoolStateGateway(states={repo.pool_json_path: seeded})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -319,7 +319,7 @@ def test_allocate_reuses_inactive_slot_via_checkout() -> None:
         worktrees=(WorktreeInfo(path=inactive_path, branch="__slot-01-br-stub__", is_bare=False),),
     )
     storage = _seeded_storage(existing_paths={inactive_path})
-    pool_state_gw = FakePoolStateGateway()
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -341,7 +341,7 @@ def test_allocate_skips_dirty_inactive_slot_and_creates_new() -> None:
         file_status_by_path={dirty_path: FileStatus(False, True, False)},
     )
     storage = _seeded_storage(existing_paths={dirty_path})
-    pool_state_gw = FakePoolStateGateway()
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -373,7 +373,7 @@ def test_allocate_pool_full_without_force_returns_error() -> None:
         current_branch_by_path={slot_01_path: "feat/a", slot_02_path: "feat/b"},
     )
     storage = _seeded_storage(existing_paths={slot_01_path, slot_02_path})
-    pool_state_gw = FakePoolStateGateway(states={repo.pool_json_path: seeded})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=False)
@@ -404,7 +404,7 @@ def test_allocate_pool_full_with_force_evicts_oldest() -> None:
         current_branch_by_path={slot_01_path: "feat/a", slot_02_path: "feat/b"},
     )
     storage = _seeded_storage(existing_paths={slot_01_path, slot_02_path})
-    pool_state_gw = FakePoolStateGateway(states={repo.pool_json_path: seeded})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=True)
@@ -416,7 +416,7 @@ def test_allocate_pool_full_with_force_evicts_oldest() -> None:
     # Existing worktree directory is preserved — we checkout, not add.
     assert git._checkout_calls == [(slot_01_path, "feat/c")]
     assert git._add_worktree_calls == []
-    saved = pool_state_gw.load(repo.pool_json_path)
+    saved = pool_state_gw.load()
     assert saved is not None
     assert {a.branch_name for a in saved.assignments} == {"feat/b", "feat/c"}
 
@@ -438,13 +438,13 @@ def test_allocate_syncs_before_deciding() -> None:
         current_branch_by_path={slot_path: "feat/y"},
     )
     storage = _seeded_storage(existing_paths={slot_path})
-    pool_state_gw = FakePoolStateGateway(states={repo.pool_json_path: seeded})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
     ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
 
     assert isinstance(result, SlotAllocationResult)
-    saved = pool_state_gw.load(repo.pool_json_path)
+    saved = pool_state_gw.load()
     assert saved is not None
     branches = {a.branch_name for a in saved.assignments}
     # After sync, slot-01 holds feat/y; new slot for feat/x is allocated.

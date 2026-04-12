@@ -24,8 +24,9 @@ def test_assign_then_list_reflects_state(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir()
     slots_root = tmp_path / "slots"
+    pool_json = slots_root / "repos" / "repo" / "pool.json"
     storage = RealSlotsStorageGateway()
-    pool_state_gw = RealPoolStateGateway()
+    pool_state_gw = RealPoolStateGateway(pool_json_path=pool_json)
 
     git = FakeGitGateway(
         repo_root=repo_root,
@@ -48,9 +49,8 @@ def test_assign_then_list_reflects_state(tmp_path: Path) -> None:
     assert assign.exit_code == 0, assign.output
 
     # pool.json persisted with the new assignment.
-    pool_json = slots_root / "repos" / "repo" / "pool.json"
     assert pool_json.exists()
-    state = pool_state_gw.load(pool_json)
+    state = pool_state_gw.load()
     assert state is not None
     assert len(state.assignments) == 1
     assert state.assignments[0].branch_name == "feat/one"
@@ -84,8 +84,9 @@ def test_assign_twice_reuses_existing(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir()
     slots_root = tmp_path / "slots"
+    pool_json = slots_root / "repos" / "repo" / "pool.json"
     storage = RealSlotsStorageGateway()
-    pool_state_gw = RealPoolStateGateway()
+    pool_state_gw = RealPoolStateGateway(pool_json_path=pool_json)
     git = FakeGitGateway(
         repo_root=repo_root,
         git_common_dir=repo_root / ".git",

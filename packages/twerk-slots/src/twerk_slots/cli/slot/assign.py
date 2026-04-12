@@ -71,7 +71,7 @@ def run_assign_slot(request: SlotAssignRequest) -> SlotAssignResult | ClinkrComm
     if isinstance(ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
 
-    if not ctx.git.branch_exists(ctx.repo.root, request.branch_name):
+    if not ctx.git.branch_exists(request.branch_name):
         return ClinkrCommandError(
             error_type="branch_missing",
             message=f"Branch '{request.branch_name}' does not exist. Create it first.",

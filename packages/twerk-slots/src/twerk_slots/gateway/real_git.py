@@ -86,7 +86,10 @@ def parse_worktree_list_output(stdout: str) -> tuple[WorktreeInfo, ...]:
 
 
 class RealGitGateway(GitGateway):
-    """GitGateway that shells out to ``git``."""
+    """GitGateway that shells out to ``git`` against a specific repo root."""
+
+    def __init__(self, repo_root: Path) -> None:
+        self._repo_root = repo_root
 
     # -- Filesystem helpers --
 
@@ -120,30 +123,29 @@ class RealGitGateway(GitGateway):
         branch = result.stdout.strip()
         return branch or None
 
-    def branch_exists(self, repo_root: Path, branch: str) -> bool:
+    def branch_exists(self, branch: str) -> bool:
         result = _run(
             ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
-            cwd=repo_root,
+            cwd=self._repo_root,
             check=False,
         )
         return result.returncode == 0
 
-    def list_local_branches(self, repo_root: Path) -> tuple[str, ...]:
+    def list_local_branches(self) -> tuple[str, ...]:
         result = _run(
             ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
-            cwd=repo_root,
+            cwd=self._repo_root,
         )
         return tuple(line for line in result.stdout.splitlines() if line)
 
     # -- Worktree operations --
 
-    def list_worktrees(self, repo_root: Path) -> tuple[WorktreeInfo, ...]:
-        result = _run(["git", "worktree", "list", "--porcelain"], cwd=repo_root)
+    def list_worktrees(self) -> tuple[WorktreeInfo, ...]:
+        result = _run(["git", "worktree", "list", "--porcelain"], cwd=self._repo_root)
         return parse_worktree_list_output(result.stdout)
 
     def add_worktree(
         self,
-        repo_root: Path,
         path: Path,
         branch: str,
         *,
@@ -153,7 +155,7 @@ class RealGitGateway(GitGateway):
             cmd = ["git", "worktree", "add", "-b", branch, str(path), "HEAD"]
         else:
             cmd = ["git", "worktree", "add", str(path), branch]
-        _run(cmd, cwd=repo_root)
+        _run(cmd, cwd=self._repo_root)
         return WorktreeInfo(path=path, branch=branch, is_bare=False)
 
     def checkout_branch(self, cwd: Path, branch: str) -> None:

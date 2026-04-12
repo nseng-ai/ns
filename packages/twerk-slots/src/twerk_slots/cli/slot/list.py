@@ -113,13 +113,11 @@ def run_list_slots(request: SlotListRequest) -> SlotListResult | ClinkrCommandEr
     if isinstance(ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
 
-    state = ctx.pool_state.load(ctx.repo.pool_json_path)
+    state = ctx.pool_state.load()
     if state is None:
         state = PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
     else:
-        state = sync_pool_assignments(
-            state, ctx.git, ctx.storage, ctx.pool_state, ctx.repo.pool_json_path
-        )
+        state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
 
     return SlotListResult(
         pool_size=state.pool_size,

@@ -31,7 +31,12 @@ class FileStatus(NamedTuple):
 
 
 class GitGateway(ABC):
-    """Gateway for git operations used by the slots package."""
+    """Gateway for git operations used by the slots package.
+
+    Concrete implementations bind to a specific repository root at construction
+    time, so methods operating on the main repo no longer require a
+    ``repo_root`` argument.
+    """
 
     # -- Filesystem helpers --
 
@@ -56,23 +61,22 @@ class GitGateway(ABC):
         """Return the currently checked-out branch name, or None when detached."""
 
     @abstractmethod
-    def branch_exists(self, repo_root: Path, branch: str) -> bool:
-        """Return True when ``branch`` exists as a local branch in ``repo_root``."""
+    def branch_exists(self, branch: str) -> bool:
+        """Return True when ``branch`` exists as a local branch in the bound repo."""
 
     @abstractmethod
-    def list_local_branches(self, repo_root: Path) -> tuple[str, ...]:
-        """Return the list of local branch names in ``repo_root``."""
+    def list_local_branches(self) -> tuple[str, ...]:
+        """Return the list of local branch names in the bound repo."""
 
     # -- Worktree operations --
 
     @abstractmethod
-    def list_worktrees(self, repo_root: Path) -> tuple[WorktreeInfo, ...]:
-        """List worktrees registered with ``repo_root``."""
+    def list_worktrees(self) -> tuple[WorktreeInfo, ...]:
+        """List worktrees registered with the bound repo."""
 
     @abstractmethod
     def add_worktree(
         self,
-        repo_root: Path,
         path: Path,
         branch: str,
         *,

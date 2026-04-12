@@ -9,15 +9,20 @@ from twerk_slots.pool_state import PoolState
 
 
 class FakePoolStateGateway(PoolStateGateway):
-    """PoolStateGateway backed by a path-keyed dict."""
+    """PoolStateGateway bound to a single ``pool.json`` path."""
 
-    def __init__(self, *, states: dict[Path, PoolState] | None = None) -> None:
-        self._states: dict[Path, PoolState] = dict(states or {})
-        self._save_calls: list[tuple[Path, PoolState]] = []
+    def __init__(self, pool_json_path: Path, *, initial_state: PoolState | None = None) -> None:
+        self._pool_json_path = pool_json_path
+        self._state: PoolState | None = initial_state
+        self._save_calls: list[PoolState] = []
 
-    def load(self, pool_json_path: Path) -> PoolState | None:
-        return self._states.get(pool_json_path)
+    @property
+    def pool_json_path(self) -> Path:
+        return self._pool_json_path
 
-    def save(self, pool_json_path: Path, state: PoolState) -> None:
-        self._save_calls.append((pool_json_path, state))
-        self._states[pool_json_path] = state
+    def load(self) -> PoolState | None:
+        return self._state
+
+    def save(self, state: PoolState) -> None:
+        self._save_calls.append(state)
+        self._state = state

@@ -1,7 +1,9 @@
 """Gateway for ``pool.json`` load/save.
 
 Keeps the JSON-serialization concern outside :mod:`twerk_slots.pool_state`
-so tests can observe pool state via an in-memory fake.
+so tests can observe pool state via an in-memory fake. Concrete gateways
+bind to a specific ``pool_json_path`` at construction time so callers
+don't have to thread the path through every load/save.
 """
 
 from __future__ import annotations
@@ -14,25 +16,28 @@ from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
 
 
 class PoolStateGateway(ABC):
-    """Abstract read/write for pool.json."""
+    """Abstract read/write for a specific ``pool.json``."""
 
     @abstractmethod
-    def load(self, pool_json_path: Path) -> PoolState | None:
-        """Return the pool state at ``pool_json_path`` or ``None`` when absent."""
+    def load(self) -> PoolState | None:
+        """Return the pool state at the bound path or ``None`` when absent."""
 
     @abstractmethod
-    def save(self, pool_json_path: Path, state: PoolState) -> None:
-        """Persist ``state`` at ``pool_json_path``."""
+    def save(self, state: PoolState) -> None:
+        """Persist ``state`` at the bound path."""
 
 
 class RealPoolStateGateway(PoolStateGateway):
     """PoolStateGateway that reads and writes JSON on the real filesystem."""
 
-    def load(self, pool_json_path: Path) -> PoolState | None:
-        if not pool_json_path.exists():
+    def __init__(self, pool_json_path: Path) -> None:
+        self._pool_json_path = pool_json_path
+
+    def load(self) -> PoolState | None:
+        if not self._pool_json_path.exists():
             return None
 
-        data = json.loads(pool_json_path.read_text(encoding="utf-8"))
+        data = json.loads(self._pool_json_path.read_text(encoding="utf-8"))
 
         assignments = tuple(
             SlotAssignment(
@@ -49,11 +54,11 @@ class RealPoolStateGateway(PoolStateGateway):
             assignments=assignments,
         )
 
-    def save(self, pool_json_path: Path, state: PoolState) -> None:
+    def save(self, state: PoolState) -> None:
         # Parent dir may not exist yet on first write; create it here so
         # callers don't have to thread a SlotsStorageGateway in solely
         # to pre-create ``~/.slots/repos/{repo}/``.
-        pool_json_path.parent.mkdir(parents=True, exist_ok=True)
+        self._pool_json_path.parent.mkdir(parents=True, exist_ok=True)
 
         data = {
             "pool_size": state.pool_size,
@@ -68,4 +73,4 @@ class RealPoolStateGateway(PoolStateGateway):
             ],
         }
 
-        pool_json_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        self._pool_json_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
