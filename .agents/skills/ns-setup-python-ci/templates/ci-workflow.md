@@ -1,0 +1,81 @@
+# CI Workflow
+
+**Target path:** `.github/workflows/ci.yml`
+
+## Placeholder
+
+- `<PYTHON_VERSIONS>` -- Replace with quoted, comma-separated version list
+  from Step 1. Example: `"3.11", "3.12", "3.13", "3.14"`
+
+## Template
+
+```yaml
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-uv
+      - uses: extractions/setup-just@v2
+      - name: Ruff lint
+        run: just lint
+
+  format-check:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-uv
+      - uses: extractions/setup-just@v2
+      - name: Ruff format check
+        run: just format-check
+
+  ty:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-uv
+      - uses: extractions/setup-just@v2
+      - name: Run ty
+        run: just ty
+
+  test:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: [<PYTHON_VERSIONS>]
+      fail-fast: false
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: extractions/setup-just@v2
+      - name: Run tests
+        run: just test
+```

@@ -1,6 +1,6 @@
 ---
 name: ns-skill-management
-description: "Manage skills in nonslop projects with `npx skills`. Use whenever you need to add a new skill (local or from GitHub), edit an existing skill, remove one, update GitHub-sourced skills, inspect what's installed, or publish skills for external consumption. Covers the convention of `skills/<name>/` as the canonical source for local skills, `.agents/skills/` for vendored code, and the canonical `--agent codex claude-code -y` install flag. Also covers the hard-won gotchas: never omit `-a` (installs unwanted artifacts sometimes), and never use `--copy`."
+description: "Manage skills in nonslop projects with `npx skills`. Use whenever you need to add a new skill (local or from GitHub), edit an existing skill, remove one, rename one, update GitHub-sourced skills, inspect what's installed, or publish skills for external consumption. Covers the convention of `skills/<name>/` as the canonical source for local skills, `.agents/skills/` for vendored code, and the canonical `--agent codex claude-code -y` install flag. Also covers the hard-won gotchas: never omit `-a` (installs unwanted artifacts sometimes), and never use `--copy`."
 allowed-tools:
   - "Bash(npx skills *)"
   - "Bash(ln *)"
@@ -101,6 +101,9 @@ For **GitHub-sourced** skills (`dignified-python`, `graphite`, etc.):
 
 GitHub-sourced skills do NOT get a `skills/<name>` entry.
 
+For **peer repo** skills (from another repo on your machine, linked
+via `local.just`), see `references/peer-repo-skills.md`.
+
 ### `skills-lock.json`
 
 Records one entry per installed skill:
@@ -184,7 +187,53 @@ rm -rf skills/<name>
 git add -u skills/ .agents/skills/ .claude/skills/ skills-lock.json AGENTS.md
 ```
 
-### 6. Inspect and troubleshoot
+### 6. Rename a local skill
+
+`npx skills` has no rename command. Perform the rename manually:
+
+```bash
+# 1. Move the canonical source (preserves git history)
+git mv skills/<old> skills/<new>
+
+# 2. Update skills/<new>/SKILL.md frontmatter and heading
+#    - name: <old>  →  name: <new>
+#    - # <old>      →  # <new>
+
+# 3. Fix symlinks
+rm .agents/skills/<old>
+ln -s ../../skills/<new> .agents/skills/<new>
+rm .claude/skills/<old>
+ln -s ../../.agents/skills/<new> .claude/skills/<new>
+
+# 4. Update skills-lock.json
+#    - Rename the key from "<old>" to "<new>"
+#    - Update "source" from "skills/<old>" to "skills/<new>"
+
+# 5. Update the AGENTS.md "Available skills" entry (name, description, file path)
+
+# 6. Update cross-references -- any other skill that mentions the old name
+grep -r "<old>" .agents/skills/ skills-lock.json AGENTS.md
+#    Fix hits in other skills' SKILL.md or reference files.
+
+# 7. Check .claude/settings.local.json for skill-specific permission entries
+#    e.g. Skill(<old>) → Skill(<new>)
+
+# 8. Verify
+ls -la .agents/skills/<new>     # expect: l... -> ../../skills/<new>
+ls -la .claude/skills/<new>     # expect: l... -> ../../.agents/skills/<new>
+test ! -e .agents/skills/<old>  # old symlink gone
+test ! -e .claude/skills/<old>  # old symlink gone
+
+# 9. Stage and commit
+git add skills/<new>/ .agents/skills/<new> .claude/skills/<new> \
+  skills-lock.json AGENTS.md
+git add -u skills/<old> .agents/skills/<old> .claude/skills/<old>
+```
+
+GitHub-sourced skills cannot be renamed -- remove and re-add instead
+(workflow sections 2 and 5).
+
+### 7. Inspect and troubleshoot
 
 ```bash
 npx skills list                  # project skills, one block per skill
@@ -263,3 +312,9 @@ INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --skill <name> --agent c
 - Deleting `skills/<name>/` without also running `npx skills remove`
   and updating AGENTS.md -- leaves dangling lockfile entries and broken
   symlinks.
+- Renaming a local skill by only moving `skills/<old>` without fixing
+  the `.agents/skills/` and `.claude/skills/` symlinks, `skills-lock.json`,
+  and AGENTS.md -- leaves dangling symlinks and stale registry entries.
+- Running `npx skills add/update` while peer repo skills are symlinked
+  via `local.just` -- can pollute `skills-lock.json` with untracked
+  entries that break CI. See `references/peer-repo-skills.md`.
