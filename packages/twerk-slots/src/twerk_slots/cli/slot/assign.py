@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 import click
 
@@ -20,7 +20,7 @@ from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
 @dataclass(frozen=True)
 class SlotAssignRequest:
     branch_name: str
-    force: bool = False
+    force: Annotated[bool, click.Option(["--force"], is_flag=True, default=False)]
 
 
 @dataclass(frozen=True)

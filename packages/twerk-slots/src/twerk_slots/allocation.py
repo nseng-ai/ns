@@ -26,7 +26,7 @@ class SlotAllocationResult:
     branch_name: str
     worktree_path: Path
     already_assigned: bool
-    evicted_slot: str | None = None
+    evicted_slot: str | None
 
 
 @dataclass(frozen=True)
@@ -192,6 +192,7 @@ def allocate_slot_for_branch(
                     branch_name=branch_name,
                     worktree_path=existing.worktree_path,
                     already_assigned=True,
+                    evicted_slot=None,
                 )
         # Stale assignment — drop and reallocate below.
         state = PoolState(
