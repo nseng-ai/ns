@@ -31,20 +31,80 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
+    "ns-changelog-update": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "c237e2963a5d8a9f2ebdcb6df7de0d7328e95d39acfa057d1ab74aead02863d8"
+    },
+    "ns-create-py-dev-cli": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "053d63137bf1c590cf4b8587abcfb9ad90e7788f5640fcd80def1b2813a9ac20"
+    },
+    "ns-create-pypackage-project": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "e7e67a4d292d515dff404225dc33871c3b7f81885fc220f666b5aa12add0168d"
+    },
+    "ns-dignified-python": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "7dbc6e73ed4341eab97b4cd604f095f23762a76eb47656a9b6ef8b3176e8be1a"
+    },
+    "ns-fake-driven-test-layout": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "2643968fd53c1d06e6c30b3f96d5c21766bee5305f318fe23c99f919cb024d0c"
+    },
+    "ns-py-fake-driven-testing": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "b0220339282a0011b7351c0479d26c914569f45b6fc3c72a4071962b97a2a0f5"
+    },
     "ns-pytest": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "a51c592f8a3a9f60230f114a62061ac9c367c412bb91040416497e9ed801c5f5"
+      "computedHash": "94ad5d8e2bc653b63f89949bd37ee1e64f79e82fe48f6174add41c073c61960c"
+    },
+    "ns-refac-cli-push-down": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "1d6db447d54714511447d1fd1cad87a1822b1cfe3eb4e80b77dfe5d20ac9562d"
+    },
+    "ns-refactor-swarm": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
+    },
+    "ns-resolve-merge-conflicts": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "a28f61d711bc2afb84ac3c0bc7d30d4122475185b5efb1847f1550de90fb76b2"
+    },
+    "ns-setup-dprint": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "494adca78016e498ab2560f20a2f9438daeb23f4dbb4ece27fb63c3952476d8a"
+    },
+    "ns-setup-python-ci": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "2e5bcb0bba780afb19a636bc1e154283fbede3816b52b8a9ea82bb472cf704f1"
     },
     "ns-skill-management": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "fa5256f52c125516a29b7bd562ea8b265646515db8c49ef0dd872c26036b228c"
+      "computedHash": "4b52252da9747876f9d84b610cf372ac1cd15fb186210c6873c76fdf9454983c"
     },
-    "skill-creator": {
-      "source": "anthropics/skills",
+    "ns-skillx": {
+      "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "b122f4d1e91aa1d83027e050b5b37c3156203ee85458d7b1360bc48167c9e02a"
+      "computedHash": "4b388880ec01241671339e658829129bce1d5a4f96bc48fa905dc1cfbe93aeef"
+    },
+    "nsx": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "5b0813c9c5557d4dd419a8eb1b4076152f115dda46a4ba9ab164039ff0404401"
     },
     "objective-create": {
       "source": "/Users/schrockn/code/twerk/skills/objective-create",
@@ -70,6 +130,11 @@
       "source": "/Users/schrockn/code/twerk/skills/pr-address",
       "sourceType": "local",
       "computedHash": "0d2187fa43f59d6d34f9ebc4d8dfa3fb229b47e11fad1729a02a14fae9639912"
+    },
+    "skill-creator": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "b122f4d1e91aa1d83027e050b5b37c3156203ee85458d7b1360bc48167c9e02a"
     }
   }
 }
