@@ -11,7 +11,7 @@ allowed-tools:
   - "Bash(mktemp)"
 ---
 
-# twerk-objective-reconcile
+# objective-reconcile
 
 Update an objective issue after a PR has been merged.
 
@@ -150,7 +150,7 @@ Write a structured comment as the log entry for this PR:
 | [criterion from objective] | met / partially met / not yet |
 
 ---
-*Updated by twerk-objective-reconcile*
+*Updated by objective-reconcile*
 ```
 
 Post via:
@@ -186,7 +186,7 @@ complete and ask if they want to close it. If they confirm:
 - [Omit if none]
 
 ---
-*Closed by twerk-objective-reconcile*
+*Closed by objective-reconcile*
 ```
 
 2. Close the issue:

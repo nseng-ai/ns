@@ -12,7 +12,7 @@ allowed-tools:
   - "Bash(gh issue close *)"
 ---
 
-# twerk-objective-progress
+# objective-progress
 
 Read an objective issue, figure out what to do next, do it, and record what
 happened.
@@ -163,7 +163,7 @@ Do the work on the current branch:
   coherent boundary and note what remains
 - **Every commit must include an `Objective: #<number>` trailer** in the
   commit message. This links commits to the objective so that
-  `twerk-objective-reconcile` can auto-detect the association from a PR's commits
+  `objective-reconcile` can auto-detect the association from a PR's commits
   without requiring human input. Format:
 
   ```
@@ -218,7 +218,7 @@ complete and ask if they want to close it. If they confirm:
 - [Omit if none]
 
 ---
-*Closed by twerk-objective-progress*
+*Closed by objective-progress*
 ```
 
 4. Close the issue:

@@ -8,7 +8,7 @@ Shape rules:
   - Pick either `## Roadmap` (structured / multi-PR) OR `## Initial Next Steps`
     (loose / exploratory). Not both.
   - `## Completion Criteria`, `## Context Anchor`, and `## Assumptions & Risks`
-    are load-bearing — twerk-objective-progress reads and evaluates them each session.
+    are load-bearing — objective-progress reads and evaluates them each session.
     Do not omit them unless the objective truly has none.
 -->
 
@@ -20,7 +20,7 @@ there.]
 
 ## Completion Criteria
 
-Concrete, verifiable conditions. `twerk-objective-progress` evaluates each of these
+Concrete, verifiable conditions. `objective-progress` evaluates each of these
 against the codebase and uses them to decide when the objective is done.
 
 - [Condition that can be checked against the codebase, tests, or artifacts]
@@ -39,7 +39,7 @@ session, cut it.
 
 ## Assumptions & Risks
 
-What the plan rests on, and what could invalidate it. `twerk-objective-progress`
+What the plan rests on, and what could invalidate it. `objective-progress`
 reviews these each session and flags ones that no longer hold.
 
 - **Assumption:** [Something we believe to be true about the codebase, the

@@ -1,6 +1,6 @@
 ---
 name: pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/twerk-pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `twerk pr-address get-review-comments` / `resolve-thread` / `unresolve-thread` / `add-review-thread-reply` for typed PR operations, and raw `gh` / `gh api` for the remainder."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `twerk pr-address get-review-comments` / `resolve-thread` / `unresolve-thread` / `add-review-thread-reply` for typed PR operations, and raw `gh` / `gh api` for the remainder."
 allowed-tools:
   - "Bash(twerk *)"
   - "Bash(gh pr view *)"
@@ -26,7 +26,7 @@ allowed-tools:
   - "Glob"
 ---
 
-# twerk-pr-address
+# pr-address
 
 Address review comments on the current branch's PR, end-to-end, using `gh`
 directly. Fetch unresolved feedback, classify it with LLM judgment, plan
@@ -37,7 +37,7 @@ commits.
 ## When to use
 
 This skill runs **only when the user explicitly invokes it** via the
-`/twerk-pr-address` slash command. It is a formal, multi-phase process
+`/pr-address` slash command. It is a formal, multi-phase process
 that makes local commits and resolves review threads on GitHub, so it
 should never fire implicitly from natural-language requests like "fix
 review feedback" or "look at the review".
@@ -91,7 +91,7 @@ threads. Phase 1 is read-only. Phases 2–4 make changes.
 ### Phase 0 — Reopen contested threads
 
 Before normal fetch/classify, reopen any resolved review thread that
-`twerk-pr-address` previously resolved and that has since received additional
+`pr-address` previously resolved and that has since received additional
 reviewer replies. This prevents the next run from silently missing reviewer
 pushback inside an already-resolved thread.
 
@@ -126,7 +126,7 @@ See `references/operations.md` §`get-review-threads`.
 A thread is **contested** if all three are true:
 
 - `is_resolved == true`
-- at least one comment body contains `<!-- twerk:pr-address-resolved -->`
+- at least one comment body contains `<!-- pr-address:resolved -->`
 - there is at least one later comment after the last marker comment
 
 If a resolved thread has no marker, treat it as manually resolved and leave
@@ -351,8 +351,8 @@ body argument tells the CLI to read from stdin):
 twerk pr-address add-review-thread-reply "$THREAD_ID" - <<'EOF'
 Fixed in commit <short-sha>: <one-line summary>
 
-Addressed via _twerk-pr-address_ at <ISO timestamp>
-<!-- twerk:pr-address-resolved -->
+Addressed via _pr-address_ at <ISO timestamp>
+<!-- pr-address:resolved -->
 EOF
 twerk pr-address resolve-thread "$THREAD_ID"
 ```
@@ -363,8 +363,8 @@ The heredoc is **mandatory**: a double-quoted inline body like
 verbatim on GitHub. The quoted delimiter (`'EOF'`) also prevents shell
 expansion of `$`, backticks, etc. inside the body.
 
-The `<!-- twerk:pr-address-resolved -->` marker lets the "contested threads"
-detector in Phase 4 tell the difference between a thread the user manually
+The `<!-- pr-address:resolved -->` marker lets the "contested threads"
+detector in Phase 0 tell the difference between a thread the user manually
 reopened and one they never touched.
 
 For PR-level reviews: there's no way to "resolve" a review submission via
