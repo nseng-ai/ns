@@ -10,18 +10,14 @@ from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRLookupError,
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    PRSummary,
     Reaction,
     ResolveReviewThreadResult,
     UnresolveReviewThreadResult,
-)
-
-_NOT_IMPLEMENTED_MSG = (
-    "RealIssueGateway.{method} is not yet implemented — "
-    "branch-to-PR lookup is the last remaining stub and carries an open "
-    "design question (narrow int|None vs. richer PR-metadata dataclass)."
 )
 
 # GraphQL query for fetching every review thread on a PR. Mirrors the query
@@ -293,8 +289,32 @@ class RealIssueGateway(IssueGateway):
             for comment in raw_comments
         )
 
-    def get_number_for_branch(self, branch: str) -> int | None:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG.format(method="get_number_for_branch"))
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "view",
+                branch,
+                "--json",
+                "number,title,url,headRefName,baseRefName",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return PRLookupError(
+                stderr=result.stderr.strip(),
+                returncode=result.returncode,
+            )
+        data = json.loads(result.stdout)
+        return PRSummary(
+            number=data["number"],
+            title=data["title"],
+            url=data["url"],
+            head_ref_name=data["headRefName"],
+            base_ref_name=data["baseRefName"],
+        )
 
     # -- PR mutations --
 

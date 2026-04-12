@@ -17,6 +17,7 @@ import pytest
 
 from twerk_core.gh import real_issue_gateway
 from twerk_core.gh.real_issue_gateway import RealIssueGateway
+from twerk_core.gh.types import PRLookupError
 
 _OWNER_REPO_OUTPUT = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
 
@@ -63,6 +64,8 @@ def _make_fake_run(
     reply_response: dict[str, object] | None = None,
     add_comment_response: dict[str, object] | None = None,
     add_reaction_response: dict[str, object] | None = None,
+    pr_view_response: dict[str, object] | None = None,
+    pr_view_returncode: int = 0,
     calls: list[list[str]] | None = None,
 ) -> object:
     """Build a fake `subprocess.run` that dispatches on the command shape.
@@ -104,6 +107,7 @@ def _make_fake_run(
     reply_payload = json.dumps({"data": {"addPullRequestReviewThreadReply": reply_response or {}}})
     add_comment_payload = json.dumps(add_comment_response or {})
     add_reaction_payload = json.dumps(add_reaction_response or {})
+    pr_view_payload = json.dumps(pr_view_response) if pr_view_response else ""
 
     def fake_run(
         cmd: list[str],
@@ -137,6 +141,10 @@ def _make_fake_run(
             assert "--paginate" in cmd
             return subprocess.CompletedProcess(
                 cmd, 0, stdout=discussion_comments_payload, stderr=""
+            )
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                cmd, pr_view_returncode, stdout=pr_view_payload, stderr=""
             )
         if cmd[:4] == ["gh", "api", "--method", "POST"]:
             # REST POST dispatch for add_comment / add_reaction. Match on
@@ -533,3 +541,48 @@ def test_add_reaction_targets_comment_id_in_path(
     post_calls = [c for c in calls if c[:4] == ["gh", "api", "--method", "POST"]]
     assert len(post_calls) == 1
     assert post_calls[0][4] == "repos/dagster-io/twerk/issues/comments/99999/reactions"
+
+
+# -- get_pr_for_branch --
+
+
+def test_get_pr_for_branch_returns_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            pr_view_response={
+                "number": 47,
+                "title": "Port pr-address skill",
+                "url": "https://github.com/dagster-io/twerk/pull/47",
+                "headRefName": "twerk-pr-address-skill",
+                "baseRefName": "master",
+            },
+        ),
+    )
+
+    result = RealIssueGateway().get_pr_for_branch("twerk-pr-address-skill")
+
+    assert result is not None
+    assert result.number == 47
+    assert result.title == "Port pr-address skill"
+    assert result.url == "https://github.com/dagster-io/twerk/pull/47"
+    assert result.head_ref_name == "twerk-pr-address-skill"
+    assert result.base_ref_name == "master"
+
+
+def test_get_pr_for_branch_returns_error_when_no_pr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(pr_view_returncode=1),
+    )
+
+    result = RealIssueGateway().get_pr_for_branch("no-pr-branch")
+
+    assert isinstance(result, PRLookupError)
+    assert result.returncode == 1

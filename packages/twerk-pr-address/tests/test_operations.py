@@ -14,6 +14,7 @@ from twerk_core.gh.types import (
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    PRSummary,
 )
 
 
@@ -678,3 +679,74 @@ def test_add_review_thread_reply_reads_body_from_stdin_sentinel(
     assert fake._thread_replies == [("PRRT_abc", body)]
     output = json.loads(result.output)
     assert output["comment"]["body"] == body
+
+
+# -- get-pr-for-branch --
+
+
+def test_get_pr_for_branch_returns_summary(cli_group: ClinkrGroup) -> None:
+    pr = PRSummary(
+        number=42,
+        title="Add feature",
+        url="https://github.com/dagster-io/twerk/pull/42",
+        head_ref_name="feature",
+        base_ref_name="master",
+    )
+    fake = FakeIssueGateway(prs_by_branch={"feature": pr})
+
+    exit_code, output = _invoke(cli_group, ["exec", "get-pr-for-branch", "feature"], fake)
+
+    assert exit_code == 0
+    assert output["found"] is True
+    assert output["number"] == 42
+    assert output["title"] == "Add feature"
+    assert output["url"] == "https://github.com/dagster-io/twerk/pull/42"
+    assert output["head_ref_name"] == "feature"
+    assert output["base_ref_name"] == "master"
+
+
+def test_get_pr_for_branch_no_pr_returns_not_found(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke(cli_group, ["exec", "get-pr-for-branch", "no-pr"], fake)
+
+    assert exit_code == 0
+    assert output["found"] is False
+    assert output["error"] == "no PR found"
+    assert output["returncode"] == 1
+
+
+def test_get_pr_for_branch_falls_back_to_real_gateway(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Walks the DI fallback to RealIssueGateway with subprocess stubbed."""
+    pr_view_output = json.dumps(
+        {
+            "number": 47,
+            "title": "Port pr-address skill",
+            "url": "https://github.com/dagster-io/twerk/pull/47",
+            "headRefName": "twerk-pr-address-skill",
+            "baseRefName": "master",
+        }
+    )
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=pr_view_output, stderr="")
+        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["exec", "get-pr-for-branch", "twerk-pr-address-skill"])
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.output)
+    assert output["found"] is True
+    assert output["number"] == 47
+    assert output["title"] == "Port pr-address skill"
+    assert output["base_ref_name"] == "master"
