@@ -38,9 +38,7 @@ When adding or editing any code that interacts with the GitHub backend — wheth
 
 Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) built by `build_cli()` in `<package>.cli.main`, and a twerk plugin subgroup discovered via `twerk.plugins` entry points. Test them separately:
 
-**Scenario tests** (`tests/scenario/test_operations.py`): Exercise the **standalone CLI** via `build_cli()`. This is the user-facing entry point and the right level to test. The fixture should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file.
-
-**Exhaustiveness guard**: Each operations test file declares a `TESTED_OPERATIONS` frozenset listing every operation name that has scenario coverage. A test at the bottom of the file introspects the exec subgroup's `.commands` dict and asserts set equality. When adding a new operation, add its name to `TESTED_OPERATIONS` and write at least one scenario test.
+**Scenario tests** live in their home package (e.g., `packages/twerk-pr-address/tests/scenario/`) and should exhaustively cover every user-facing scenario for that package's standalone CLI via `build_cli()`. This is the user-facing entry point and the right level to test. The fixture should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file.
 
 **Plugin smoke tests** (`tests/scenario/test_plugins.py` in the top-level twerk package): Verify that each plugin's entry point wires up correctly through `discover_plugins`. One test per plugin that mounts the subgroup and invokes a representative command. These live at the twerk scope because they test the plugin discovery contract.
 

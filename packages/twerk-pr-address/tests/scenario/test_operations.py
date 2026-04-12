@@ -25,7 +25,7 @@ from twerk_core.gh.types import (
 )
 from twerk_pr_address.cli.main import build_cli
 
-# Every exec operation that has scenario coverage in this file. When you add
+# Every exec operation that has scenario tests in this file. When you add
 # a new operation, add its name here *and* write at least one scenario test.
 TESTED_OPERATIONS: frozenset[str] = frozenset(
     {
