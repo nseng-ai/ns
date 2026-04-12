@@ -206,6 +206,34 @@ def test_get_file_status_delegates_to_parser(monkeypatch: pytest.MonkeyPatch) ->
     )
 
 
+def test_create_branch_without_force(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    RealGitGateway(repo_root=Path("/r")).create_branch("feat/x", "main", force=False)
+
+    assert captured == [["git", "branch", "feat/x", "main"]]
+
+
+def test_create_branch_with_force(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    RealGitGateway(repo_root=Path("/r")).create_branch("feat/x", "main", force=True)
+
+    assert captured == [["git", "branch", "-f", "feat/x", "main"]]
+
+
 def test_list_local_branches_parses_for_each_ref(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout="main\nfeat/x\n", stderr="")

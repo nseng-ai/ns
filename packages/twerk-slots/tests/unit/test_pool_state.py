@@ -73,3 +73,31 @@ def test_with_assignment_added_allows_filling_to_exact_capacity() -> None:
     new_state = state.with_assignment_added(second)
 
     assert len(new_state.assignments) == 2
+
+
+def test_with_assignment_removed_drops_slot() -> None:
+    first = _assignment("slot-01", "feat/a")
+    second = _assignment("slot-02", "feat/b")
+    state = PoolState(pool_size=4, assignments=(first, second))
+
+    new_state = state.with_assignment_removed("slot-01")
+
+    assert new_state.pool_size == 4
+    assert new_state.assignments == (second,)
+    assert state.assignments == (first, second)  # original untouched
+
+
+def test_with_assignment_removed_empty_result() -> None:
+    first = _assignment("slot-01", "feat/a")
+    state = PoolState(pool_size=4, assignments=(first,))
+
+    new_state = state.with_assignment_removed("slot-01")
+
+    assert new_state.assignments == ()
+
+
+def test_with_assignment_removed_missing_asserts() -> None:
+    state = PoolState(pool_size=4, assignments=(_assignment("slot-01", "feat/a"),))
+
+    with pytest.raises(AssertionError, match="slot 'slot-02' is not currently assigned"):
+        state.with_assignment_removed("slot-02")

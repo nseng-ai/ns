@@ -90,6 +90,7 @@ def test_slot_help(cli_group: ClinkrGroup) -> None:
     assert "--version" in result.output
     assert "list" in result.output
     assert "assign" in result.output
+    assert "free" in result.output
     assert "json" in result.output
 
 

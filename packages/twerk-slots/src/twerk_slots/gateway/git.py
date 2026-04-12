@@ -88,6 +88,15 @@ class GitGateway(ABC):
     def checkout_branch(self, cwd: Path, branch: str) -> None:
         """Check out ``branch`` in the worktree rooted at ``cwd``."""
 
+    @abstractmethod
+    def create_branch(self, branch: str, start_point: str, *, force: bool) -> None:
+        """Create ``branch`` at ``start_point`` in the bound repo.
+
+        ``force=True`` moves the ref if it already exists
+        (``git branch -f``). Callers should pre-check existence via
+        :meth:`list_local_branches` so the distinction stays explicit.
+        """
+
     # -- Status --
 
     @abstractmethod
