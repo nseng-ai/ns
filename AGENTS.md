@@ -26,6 +26,10 @@ After autofixing, re-run `just` to confirm the suite is green. Only edit files b
 - Do not apply first-party Python standards or refactoring skills such as `dignified-python`, `fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files under these directories unless the user explicitly asks to modify the vendored dependency itself.
 - When reviewing or editing the repo, exclude `.agents/skills/**/*.py` from normal linting, typechecking, code review, and cleanup expectations; assume those files should remain as-shipped unless the task is specifically about updating vendored skill code.
 
+### GitHub Backend Interactions
+
+When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `gh` skill (`.claude/skills/gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `twerk-core`.
+
 ### Available skills
 
 - dignified-python: Production Python coding standards with automatic version detection (3.10-3.13). Use when writing, reviewing, or refactoring Python to ensure adherence to modern type syntax, LBYL exception handling, pathlib operations, ABC-based interfaces, and production-tested patterns. (file: /Users/schrockn/code/twerk/.claude/skills/dignified-python/SKILL.md)

@@ -51,23 +51,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 """
 
-_REVIEWS_QUERY = """
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
-      reviews(first: 100, states: [CHANGES_REQUESTED, APPROVED, COMMENTED]) {
-        nodes {
-          id
-          author { login }
-          body
-          state
-          submittedAt
-        }
-      }
-    }
-  }
-}
-"""
+_REVIEW_STATES_TO_INCLUDE = frozenset({"CHANGES_REQUESTED", "APPROVED", "COMMENTED"})
 
 _RESOLVE_REVIEW_THREAD_MUTATION = """
 mutation($threadId: ID!) {
@@ -236,32 +220,29 @@ class RealIssueGateway(IssueGateway):
 
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
         owner, repo = _get_owner_repo()
-        cmd = [
-            "gh",
-            "api",
-            "graphql",
-            "-F",
-            f"owner={owner}",
-            "-F",
-            f"repo={repo}",
-            "-F",
-            f"number={pr_number}",
-            "-f",
-            f"query={_REVIEWS_QUERY}",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        payload = json.loads(result.stdout)
-        raw_reviews = payload["data"]["repository"]["pullRequest"]["reviews"]["nodes"]
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
+                "--paginate",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        raw_reviews = _load_paginated_array_output(result.stdout)
         return tuple(
             PRReview(
-                id=review["id"],
-                # author can be null when the GitHub account is deleted.
-                author=review["author"]["login"] if review["author"] else "",
+                id=review["node_id"],
+                # user can be null when the GitHub account is deleted.
+                author=review["user"]["login"] if review["user"] else "",
                 body=review["body"],
                 state=review["state"],
-                submitted_at=review["submittedAt"],
+                submitted_at=review["submitted_at"],
             )
             for review in raw_reviews
+            if review["state"] in _REVIEW_STATES_TO_INCLUDE
         )
 
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
