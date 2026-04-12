@@ -16,6 +16,11 @@
       "sourceType": "github",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
     },
+    "gh": {
+      "source": "/Users/schrockn/code/twerk/skills/gh",
+      "sourceType": "local",
+      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
+    },
     "fix-just": {
       "source": "/Users/schrockn/code/twerk/skills/fix-just",
       "sourceType": "local",
