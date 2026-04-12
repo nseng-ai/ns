@@ -18,6 +18,10 @@ When `just` reports a lint or format failure, do not hand-edit files to satisfy 
 
 After autofixing, re-run `just` to confirm the suite is green. Only edit files by hand when the failure is a real lint/type/test bug that the autofixer cannot resolve.
 
+### Public Skill Authoring — No Internal References
+
+Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference twerk-internal module paths, class names, or implementation details (e.g., `twerk_core.gh.IssueGateway`, `RealIssueGateway.get_reviews`) in their `SKILL.md` files or frontmatter descriptions. Describe _what_ CLI operations to call (e.g., `pr-address exec get-reviews`), not _how_ they are implemented. Implementation details belong in Python source and reference files like `references/operations.md`. Internal skills (no `skills/` symlink) may reference internals freely.
+
 ### Vendored Skill Code
 
 - Treat all files under `.agents/skills/` as vendored third-party code.

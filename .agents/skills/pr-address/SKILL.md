@@ -1,6 +1,6 @@
 ---
 name: pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. All GitHub I/O goes through typed `pr-address exec` clinkr operations backed by `twerk_core.gh.IssueGateway`."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits."
 allowed-tools:
   - "Bash(pr-address *)"
   - "Bash(gh pr view *)"
@@ -26,14 +26,14 @@ allowed-tools:
   - "Glob"
 ---
 
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+
 # pr-address
 
 Address review comments on the current branch's PR, end-to-end. Fetch
 unresolved feedback, classify it with LLM judgment, plan batched execution,
-implement changes, commit, and resolve threads. All GitHub I/O goes through
-typed `pr-address exec` clinkr operations backed by
-`twerk_core.gh.IssueGateway`. The skill never pushes — the user pushes
-manually after reviewing the local commits.
+implement changes, commit, and resolve threads. The skill never pushes —
+the user pushes manually after reviewing the local commits.
 
 ## When to use
 
@@ -105,10 +105,6 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 pr-address exec get-pr-for-branch "$BRANCH"
 ```
 
-Migrated — see `twerk_core.gh.types.PRSummary` for the typed shape and
-`twerk_core.gh.real_issue_gateway.RealIssueGateway.get_pr_for_branch` for
-the implementation.
-
 If the result has `"found": false`, stop and report: "No PR found for the
 current branch. Create one with `gh pr create` first." Do not continue.
 
@@ -174,9 +170,7 @@ Add `--include-resolved` if the user passed `--all`. See
 pr-address exec get-reviews <pr_number>
 ```
 
-Migrated — see `twerk_core.gh.types.PRReview` for the typed shape and
-`twerk_core.gh.real_issue_gateway.RealIssueGateway.get_reviews` for the
-implementation. Returns PR-level review submissions (APPROVED,
+Returns PR-level review submissions (APPROVED,
 CHANGES_REQUESTED, COMMENTED) with `id`, `author`, `body`, `state`,
 `submitted_at`. Excludes PENDING and DISMISSED reviews.
 
@@ -186,10 +180,7 @@ CHANGES_REQUESTED, COMMENTED) with `id`, `author`, `body`, `state`,
 pr-address exec get-discussion-comments <pr_number>
 ```
 
-Migrated — see `twerk_core.gh.types.IssueComment` for the typed shape and
-`twerk_core.gh.real_issue_gateway.RealIssueGateway.get_discussion_comments`
-for the implementation. Returns each comment's `id`, `body`, `author`,
-`url`.
+Returns each comment's `id`, `body`, `author`, `url`.
 
 #### 1d. Detect restructured files (for pre-existing-issue candidates)
 
@@ -516,9 +507,9 @@ Do not run `git push`. Do not run `gt submit`. The user pushes.
 
 ## References
 
-- `references/operations.md` — every `pr-address exec` clinkr operation the
-  skill issues, with the backing `IssueGateway` method for each. Also
-  contains the raw `gh` / GraphQL query text for reference.
+- `references/operations.md` — every `pr-address exec` operation the
+  skill issues. Also contains the raw `gh` / GraphQL query text for
+  reference.
 - `references/feedback-classifier.md` — LLM-facing classification rules:
   bot detection, informational filtering, pre-existing-issue heuristics,
   review-state handling, false positives. Update this when the LLM

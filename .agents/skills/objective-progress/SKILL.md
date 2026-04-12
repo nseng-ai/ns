@@ -12,6 +12,8 @@ allowed-tools:
   - "Bash(gh issue close *)"
 ---
 
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+
 # objective-progress
 
 Read an objective issue, figure out what to do next, do it, and record what
