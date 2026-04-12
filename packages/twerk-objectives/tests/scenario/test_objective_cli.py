@@ -6,15 +6,16 @@ import subprocess
 import pytest
 from click.testing import CliRunner
 
-from clinkr.group import ClinkrGroup, discover_group
+from clinkr.group import ClinkrGroup
 from twerk_core.gh import real_issue_gateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import Issue
+from twerk_objectives.cli.main import build_cli
 
 
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
-    return discover_group("twerk_objectives.cli.objective")
+    return build_cli()
 
 
 def _make_fake(issues: tuple[Issue, ...] = ()) -> dict[str, object]:
@@ -43,92 +44,116 @@ SAMPLE_ISSUES = (
 )
 
 
-def test_objective_list_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """End-to-end: `twerk objective list` with no gateway injected.
+def _json_output(result_output: str) -> dict[str, object]:
+    return json.loads(result_output)
 
-    When a real user runs `twerk objective list`, nothing populates
-    `ctx.obj["gh_issue_gateway"]`, so `_gateway_access.get_gh_issue_gateway()`
-    falls back to `RealIssueGateway()`. Every other test in this file
-    short-circuits that fallback by injecting a `FakeIssueGateway` via
-    `obj=...`, which is why the regression where `RealIssueGateway` was
-    missing 8 abstract methods slipped past CI and only surfaced when a
-    user ran the command:
 
-        TypeError: Can't instantiate abstract class RealIssueGateway
-        without an implementation for abstract methods ...
-
-    This test walks the real fallback path with `gh` stubbed out — so we
-    instantiate `RealIssueGateway`, call `.list()`, and render the result
-    the same way the user does, without touching the network.
-    """
-    fake_gh_output = json.dumps(
-        [
-            {
-                "number": 7,
-                "title": "Stubbed objective",
-                "state": "open",
-                "updatedAt": "2026-04-08T12:00:00Z",
-            }
-        ]
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        assert cmd[:3] == ["gh", "issue", "list"]
-        assert "--label" in cmd
-        assert cmd[cmd.index("--label") + 1] == "twerk-objective"
-        return subprocess.CompletedProcess(cmd, 0, stdout=fake_gh_output, stderr="")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
+def test_objective_help(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    # Deliberately no obj= — force the production fallback to RealIssueGateway.
-    result = runner.invoke(cli_group, ["list"])
+    result = runner.invoke(cli_group, ["-h"])
 
-    assert result.exit_code == 0, result.output
-    assert "#7" in result.output
-    assert "Stubbed objective" in result.output
+    assert result.exit_code == 0
+    assert "Usage: objective" in result.output
+    assert "Manage objectives." in result.output
+    assert "--version" in result.output
+    assert "list" in result.output
+    assert "json" in result.output
+
+
+def test_objective_version_option(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["--version"])
+
+    assert result.exit_code == 0
+    assert "version" in result.output
+
+
+def test_objective_list_help(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["list", "-h"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective list" in result.output
+    assert "List objectives." in result.output
+    assert "--state" in result.output
+
+
+def test_objective_json_help(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["json", "-h"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective json" in result.output
+    assert "Machine-readable command variants." in result.output
+    assert "list" in result.output
+
+
+def test_objective_json_list_help(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["json", "list", "-h"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective json list" in result.output
+    assert "List objectives. (JSON)" in result.output
+    assert "--schema" in result.output
 
 
 def test_objective_list_empty(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["list"], obj=_make_fake())
+
     assert result.exit_code == 0
     assert "No objectives found." in result.output
 
 
-def test_objective_list_with_objectives(cli_group: ClinkrGroup) -> None:
+def test_objective_list_default_shows_open_objectives_only(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["list"], obj=_make_fake(SAMPLE_ISSUES))
+
     assert result.exit_code == 0
     assert "#34" in result.output
     assert "Explore using pluggy" in result.output
     assert "#24" in result.output
     assert "Port pr-address from erk to twerk" in result.output
-    # styled header from twerk-core's make_table()
     assert "Status" in result.output
     assert "Title" in result.output
     assert "Updated" in result.output
-    # state label appears next to open objectives
     assert "open" in result.output
-    # closed objective should not appear in default (open) listing
     assert "#13" not in result.output
+    assert "closed" not in result.output
 
 
-def test_objective_list_state_all_renders_state_labels(cli_group: ClinkrGroup) -> None:
+def test_objective_list_state_closed(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["list", "--state", "closed"], obj=_make_fake(SAMPLE_ISSUES))
+
+    assert result.exit_code == 0
+    assert "#13" in result.output
+    assert "closed" in result.output
+    assert "#34" not in result.output
+    assert "#24" not in result.output
+
+
+def test_objective_list_state_all(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["list", "--state", "all"], obj=_make_fake(SAMPLE_ISSUES))
+
     assert result.exit_code == 0
     assert "#34" in result.output
+    assert "#24" in result.output
     assert "#13" in result.output
-    # both state labels should be present in --state all output
     assert "open" in result.output
     assert "closed" in result.output
+
+
+def test_objective_ls_alias_matches_list(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    list_result = runner.invoke(cli_group, ["list"], obj=_make_fake(SAMPLE_ISSUES))
+    alias_result = runner.invoke(cli_group, ["ls"], obj=_make_fake(SAMPLE_ISSUES))
+
+    assert list_result.exit_code == 0
+    assert alias_result.exit_code == 0
+    assert alias_result.output == list_result.output
 
 
 def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
@@ -142,116 +167,160 @@ def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
         ),
     )
     runner = CliRunner()
-    # Force a generous width so Rich ellipsizes the title (not the # / status columns)
     result = runner.invoke(
         cli_group,
         ["list"],
         obj=_make_fake(issues),
         env={"COLUMNS": "200"},
     )
+
     assert result.exit_code == 0
     assert "#42" in result.output
-    # Rich should ellipsize a 200-char title with the … glyph
     assert "…" in result.output
-    # row should still terminate with the rendered relative time
     assert "ago" in result.output
 
 
-def test_objective_list_state_all(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["list", "--state", "all"], obj=_make_fake(SAMPLE_ISSUES))
-    assert result.exit_code == 0
-    assert "#34" in result.output
-    assert "#24" in result.output
-    assert "#13" in result.output
-
-
-def test_objective_list_state_closed(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["list", "--state", "closed"],
-        obj=_make_fake(SAMPLE_ISSUES),
+def test_objective_list_falls_back_to_real_gateway(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_gh_output = json.dumps(
+        [
+            {
+                "number": 7,
+                "title": "Stubbed objective",
+                "state": "open",
+                "updatedAt": "2026-04-08T12:00:00Z",
+            }
+        ]
     )
-    assert result.exit_code == 0
-    assert "#13" in result.output
-    assert "#34" not in result.output
 
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert cmd[:3] == ["gh", "issue", "list"]
+        assert "--label" in cmd
+        assert cmd[cmd.index("--label") + 1] == "twerk-objective"
+        return subprocess.CompletedProcess(cmd, 0, stdout=fake_gh_output, stderr="")
 
-def test_objective_ls_alias(cli_group: ClinkrGroup) -> None:
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["ls"], obj=_make_fake(SAMPLE_ISSUES))
-    assert result.exit_code == 0
-    assert "#34" in result.output
+    result = runner.invoke(cli_group, ["list"])
+
+    assert result.exit_code == 0, result.output
+    assert "#7" in result.output
+    assert "Stubbed objective" in result.output
 
 
-def test_objective_help(cli_group: ClinkrGroup) -> None:
+def test_objective_list_reports_gh_failure(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(1, cmd, stderr="boom stderr")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["--help"])
-    assert result.exit_code == 0
-    assert "Usage: objective" in result.output
-    assert "Manage objectives." in result.output
-    assert "json" in result.output
-    assert "list" in result.output
+    result = runner.invoke(cli_group, ["list"])
+
+    assert result.exit_code == 1
+    assert "Failed to list objectives: boom stderr" in result.output
 
 
-def test_objective_json_list(cli_group: ClinkrGroup) -> None:
+def test_objective_list_invalid_state_reports_error(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stderr = 'invalid argument "bogus" for "-s, --state" flag: valid values are {open|closed|all}'
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert cmd[:3] == ["gh", "issue", "list"]
+        assert "--state" in cmd
+        assert cmd[cmd.index("--state") + 1] == "bogus"
+        raise subprocess.CalledProcessError(1, cmd, stderr=stderr)
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
     runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["json", "list"],
-        input="",
-        obj=_make_fake(SAMPLE_ISSUES),
-    )
+    result = runner.invoke(cli_group, ["list", "--state", "bogus"])
+
+    assert result.exit_code == 1
+    assert stderr in result.output
+
+
+def test_objective_json_list_empty(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["json", "list"], input="", obj=_make_fake())
+    payload = _json_output(result.output)
+
     assert result.exit_code == 0
-    assert '"success": true' in result.output
-    assert '"count": 2' in result.output
-    assert '"number": 34' in result.output
+    assert payload == {"objectives": [], "count": 0, "success": True}
+
+
+def test_objective_json_list_default_shows_open_objectives_only(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["json", "list"], input="", obj=_make_fake(SAMPLE_ISSUES))
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0
+    assert payload["success"] is True
+    assert payload["count"] == 2
+    assert payload["objectives"] == [
+        {
+            "number": 34,
+            "title": "Explore using pluggy",
+            "state": "open",
+            "updated_at": "2026-04-08T12:00:00Z",
+        },
+        {
+            "number": 24,
+            "title": "Port pr-address from erk to twerk",
+            "state": "open",
+            "updated_at": "2026-04-08T08:00:00Z",
+        },
+    ]
+
+
+def test_objective_json_list_rejects_state_option(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["json", "list", "--state", "all"], input="")
+
+    assert result.exit_code == 2
+    assert "No such option: --state" in result.output
+
+
+def test_objective_json_list_reports_gh_failure(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(1, cmd, stderr="boom stderr")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["json", "list"])
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 1
+    assert payload == {
+        "success": False,
+        "error_type": "gh_cli_failure",
+        "message": "Failed to list objectives: boom stderr",
+    }
 
 
 def test_objective_json_list_schema(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["json", "list", "--schema"])
+    payload = _json_output(result.output)
+
     assert result.exit_code == 0
-    assert '"input_schema"' in result.output
-    assert '"output_schema"' in result.output
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
 
 
-def test_objective_public_commands_have_json_counterparts(
-    cli_group: ClinkrGroup,
-) -> None:
+def test_objective_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:
     json_group = cli_group.commands["json"]
     public_commands = {name for name in cli_group.commands if name != "json"}
 
     assert public_commands <= set(json_group.commands)
-
-
-# -- standalone CLI tests --
-
-
-class TestStandaloneCli:
-    @pytest.fixture()
-    def standalone_group(self) -> ClinkrGroup:
-        from twerk_objectives.cli.main import build_cli
-
-        return build_cli()
-
-    def test_version_option(self, standalone_group: ClinkrGroup) -> None:
-        runner = CliRunner()
-        result = runner.invoke(standalone_group, ["--version"])
-        assert result.exit_code == 0
-        assert "version" in result.output
-
-    def test_help_short_flag(self, standalone_group: ClinkrGroup) -> None:
-        runner = CliRunner()
-        result = runner.invoke(standalone_group, ["-h"])
-        assert result.exit_code == 0
-        assert "Manage objectives." in result.output
-        assert "--version" in result.output
-
-    def test_subcommands_present(self, standalone_group: ClinkrGroup) -> None:
-        runner = CliRunner()
-        result = runner.invoke(standalone_group, ["-h"])
-        assert result.exit_code == 0
-        assert "list" in result.output
-        assert "json" in result.output

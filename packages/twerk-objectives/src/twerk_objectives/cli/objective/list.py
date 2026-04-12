@@ -70,6 +70,9 @@ def render_objective_list(result: ObjectiveListResult) -> None:
 def run_list_objectives(
     request: ObjectiveListRequest,
 ) -> ObjectiveListResult | ClinkrCommandError:
+    # TODO: Validate request.state at the Click/clinkr boundary so invalid values
+    # fail before invoking `gh issue list`. Today the user-facing error comes from
+    # the gh CLI, which we intentionally preserve for now.
     try:
         gateway = get_gh_issue_gateway()
         issues = gateway.list(label="twerk-objective", state=request.state)
