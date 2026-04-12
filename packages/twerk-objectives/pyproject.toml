@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Objective management plugin for twerk"
 requires-python = ">=3.11"
 dependencies = [
-  "clinkr",
   "click>=8.1.7",
   "twerk-core",
 ]

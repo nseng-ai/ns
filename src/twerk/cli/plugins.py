@@ -7,7 +7,7 @@ from typing import Protocol
 
 import click
 
-from clinkr import discover_group
+from twerk_core.clinkr import discover_group
 
 logger = logging.getLogger(__name__)
 

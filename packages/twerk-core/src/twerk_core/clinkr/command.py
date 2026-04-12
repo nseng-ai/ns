@@ -6,14 +6,14 @@ from typing import Any
 
 import click
 
-from clinkr.dataclass_json import (
+from twerk_core.clinkr.dataclass_json import (
     emit_json_error,
     emit_json_success,
     parse_dataclass_from_json,
     read_json_stdin,
     serialize_to_json_dict,
 )
-from clinkr.json_schema import build_json_schema_document
+from twerk_core.clinkr.json_schema import build_json_schema_document
 
 
 @dataclass(frozen=True)

@@ -27,8 +27,8 @@ The subpackage after `cli/` becomes the group name, and each submodule is a comm
 # myapp/cli/myapp/greet.py
 from dataclasses import dataclass
 
-from clinkr.command import ClinkrCommandError
-from clinkr.operation import clinkr_operation
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,7 @@ def greet(request: GreetRequest) -> GreetResult | ClinkrCommandError:
 
 ```python
 # myapp/main.py
-from clinkr.group import discover_group
+from twerk_core.clinkr.group import discover_group
 
 app = discover_group("myapp.cli.myapp")
 ```
@@ -116,7 +116,7 @@ myapp/
 ```python
 # myapp/main.py
 import click
-from clinkr.group import discover_group
+from twerk_core.clinkr.group import discover_group
 
 app = click.Group("myapp")
 app.add_command(discover_group("myapp.cli.users"))

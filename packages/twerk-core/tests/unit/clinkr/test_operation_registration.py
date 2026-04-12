@@ -7,9 +7,9 @@ from typing import Annotated
 import click
 from click.testing import CliRunner
 
-from clinkr.command import ClinkrCommandError
-from clinkr.group import ClinkrGroup
-from clinkr.operation import clinkr_operation
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.group import ClinkrGroup
+from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)

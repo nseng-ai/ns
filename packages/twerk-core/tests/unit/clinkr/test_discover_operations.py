@@ -10,9 +10,9 @@ from typing import Any
 
 from click.testing import CliRunner
 
-from clinkr.command import ClinkrCommandError
-from clinkr.group import discover_operations
-from clinkr.operation import clinkr_operation
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.group import discover_operations
+from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
 """PR review address operations."""
 
-from clinkr.group import ClinkrGroup, clinkr_group
+from twerk_core.clinkr.group import ClinkrGroup, clinkr_group
 
 
 @clinkr_group(name="pr-address", help="PR review address operations.")

@@ -1,6 +1,5 @@
 [tool.uv.workspace]
 members = [
-  "packages/clinkr",
   "packages/twerk-core",
   "packages/twerk-objectives",
   "packages/twerk-pr-address",
@@ -8,7 +7,6 @@ members = [
 ]
 
 [tool.uv.sources]
-clinkr = { workspace = true }
 twerk-core = { workspace = true }
 twerk-objectives = { workspace = true }
 twerk-pr-address = { workspace = true }
@@ -32,7 +30,6 @@ twerk = "twerk.cli.cli:main"
 
 [dependency-groups]
 dev = [
-  "clinkr",
   "ruff>=0.5.0",
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
@@ -55,7 +52,6 @@ target-version = "py311"
 line-length = 100
 src = [
   "src",
-  "packages/clinkr/src",
   "packages/twerk-core/src",
   "packages/twerk-objectives/src",
   "packages/twerk-pr-address/src",
@@ -89,7 +85,6 @@ addopts = "-q"
 pythonpath = ["."]
 testpaths = [
   "tests",
-  "packages/clinkr/tests",
   "packages/twerk-core/tests",
   "packages/twerk-objectives/tests",
   "packages/twerk-pr-address/tests",

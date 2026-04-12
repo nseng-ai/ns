@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import click
 from click.testing import CliRunner
 
-from clinkr.command import ClinkrCommandError, machine_command
+from twerk_core.clinkr.command import ClinkrCommandError, machine_command
 
 
 @dataclass(frozen=True)

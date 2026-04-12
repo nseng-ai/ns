@@ -10,7 +10,7 @@ import subprocess
 import pytest
 from click.testing import CliRunner
 
-from clinkr.group import ClinkrGroup
+from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh import real_issue_gateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import (

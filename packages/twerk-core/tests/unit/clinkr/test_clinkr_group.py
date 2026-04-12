@@ -4,7 +4,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from clinkr.group import ClinkrGroup
+from twerk_core.clinkr.group import ClinkrGroup
 
 
 def _make_group() -> ClinkrGroup:

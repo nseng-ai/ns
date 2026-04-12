@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Any
 
-from clinkr.command import ClinkrCommandError
-from clinkr.operation import clinkr_operation
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRLookupError
 from twerk_pr_address.cli.pr_address._gateway_access import get_gh_issue_gateway
 
