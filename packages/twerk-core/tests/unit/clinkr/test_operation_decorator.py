@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from clinkr.command import ClinkrCommandError
-from clinkr.operation import clinkr_operation, get_operation_meta
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.operation import clinkr_operation, get_operation_meta
 
 
 @dataclass(frozen=True)

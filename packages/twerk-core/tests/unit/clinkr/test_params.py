@@ -5,7 +5,7 @@ from typing import Annotated
 
 import click
 
-from clinkr.params import build_request_from_click_params, extract_click_params
+from twerk_core.clinkr.params import build_request_from_click_params, extract_click_params
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from clinkr.dataclass_json import ERROR_SCHEMA, output_schema, request_schema
+from twerk_core.clinkr.dataclass_json import ERROR_SCHEMA, output_schema, request_schema
 
 
 def build_json_schema_document(

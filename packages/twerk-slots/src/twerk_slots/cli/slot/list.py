@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from clinkr.command import ClinkrCommandError
-from clinkr.operation import clinkr_operation
 from twerk_core import get_console, make_table
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.format import format_relative_time
 from twerk_slots.allocation import sync_pool_assignments
 from twerk_slots.cli.slot._context import build_slots_context

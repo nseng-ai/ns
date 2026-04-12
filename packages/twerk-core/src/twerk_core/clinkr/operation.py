@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
-from clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.command import ClinkrCommandError
 
 _META_ATTR = "_clinkr_operation_meta"
 

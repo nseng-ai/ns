@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from clinkr.group import ClinkrGroup, discover_group
+from twerk_core.clinkr.group import ClinkrGroup, discover_group
 
 
 def build_cli() -> ClinkrGroup:

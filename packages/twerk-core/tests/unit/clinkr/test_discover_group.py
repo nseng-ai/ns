@@ -11,15 +11,15 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from clinkr.command import ClinkrCommandError
-from clinkr.group import (
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.group import (
     ClinkrGroup,
     ClinkrGroupMeta,
     clinkr_group,
     discover_group,
     get_group_meta,
 )
-from clinkr.operation import clinkr_operation
+from twerk_core.clinkr.operation import clinkr_operation
 
 # -- fixtures ----------------------------------------------------------------
 

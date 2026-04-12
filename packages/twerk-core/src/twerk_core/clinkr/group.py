@@ -9,10 +9,10 @@ from typing import Any
 
 import click
 
-from clinkr.command import ClinkrCommandError, _apply_machine_command
-from clinkr.operation import ClinkrOperationMeta, get_operation_meta
-from clinkr.params import build_request_from_click_params, extract_click_params
-from clinkr.rendering import default_human_renderer
+from twerk_core.clinkr.command import ClinkrCommandError, _apply_machine_command
+from twerk_core.clinkr.operation import ClinkrOperationMeta, get_operation_meta
+from twerk_core.clinkr.params import build_request_from_click_params, extract_click_params
+from twerk_core.clinkr.rendering import default_human_renderer
 
 _RESERVED_JSON_NAME = "json"
 

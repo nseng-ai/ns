@@ -4,7 +4,6 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
-    "clinkr",
     "twerk",
     "twerk-core",
     "twerk-objectives",
@@ -23,17 +22,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/3d/fa/656b739db8587d7b5
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/78/01c019cdb5d6498122777c1a43056ebb3ebfeef2076d9d026bfe15583b2b/click-8.3.1-py3-none-any.whl", hash = "sha256:981153a64e25f12d547d3426c367a4857371575ee7ad18df2a6183ab0545b2a6", size = 108274, upload-time = "2025-11-15T20:45:41.139Z" },
 ]
-
-[[package]]
-name = "clinkr"
-version = "0.1.0"
-source = { editable = "packages/clinkr" }
-dependencies = [
-    { name = "click" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
 
 [[package]]
 name = "colorama"
@@ -187,7 +175,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "clinkr" },
     { name = "pytest" },
     { name = "pytest-xdist" },
     { name = "ruff" },
@@ -203,7 +190,6 @@ requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "clinkr", editable = "packages/clinkr" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.5.0" },
@@ -235,14 +221,12 @@ version = "0.1.0"
 source = { editable = "packages/twerk-objectives" }
 dependencies = [
     { name = "click" },
-    { name = "clinkr" },
     { name = "twerk-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
-    { name = "clinkr", editable = "packages/clinkr" },
     { name = "twerk-core", editable = "packages/twerk-core" },
 ]
 
@@ -252,14 +236,12 @@ version = "0.1.0"
 source = { editable = "packages/twerk-pr-address" }
 dependencies = [
     { name = "click" },
-    { name = "clinkr" },
     { name = "twerk-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
-    { name = "clinkr", editable = "packages/clinkr" },
     { name = "twerk-core", editable = "packages/twerk-core" },
 ]
 
@@ -269,14 +251,12 @@ version = "0.1.0"
 source = { editable = "packages/twerk-slots" }
 dependencies = [
     { name = "click" },
-    { name = "clinkr" },
     { name = "twerk-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
-    { name = "clinkr", editable = "packages/clinkr" },
     { name = "twerk-core", editable = "packages/twerk-core" },
 ]
 

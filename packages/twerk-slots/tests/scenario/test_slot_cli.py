@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from clinkr.group import ClinkrGroup
+from twerk_core.clinkr.group import ClinkrGroup
 from twerk_slots.cli.main import build_cli
 from twerk_slots.gateway import real_git
 from twerk_slots.gateway.git import WorktreeInfo

@@ -6,9 +6,9 @@ from typing import Annotated, Any
 
 import click
 
-from clinkr.command import ClinkrCommandError
-from clinkr.operation import clinkr_operation
 from twerk_core import get_console
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import (
     PoolFullError,
     allocate_slot_for_branch,
