@@ -7,9 +7,19 @@ from clinkr.group import ClinkrGroup, clinkr_group
 def pr_address() -> ClinkrGroup:
     """Return the `twerk pr-address` subgroup.
 
-    The explicit `name="pr-address"` override is necessary because the
-    Python module is `twerk_pr_address.cli.pr_address` (underscored), but
-    the desired CLI subgroup name is hyphenated to match the established
-    naming convention in the skill, docs, and push-down inventory.
+    All operations are nested under an ``exec`` subgroup to signal that
+    they are internal commands used by the pr-address skill, not
+    user-facing entry points.
+
+    The explicit ``name="pr-address"`` override is necessary because the
+    Python module is ``twerk_pr_address.cli.pr_address`` (underscored),
+    but the desired CLI subgroup name is hyphenated.
     """
-    return ClinkrGroup.discover_subcommands()
+    exec_group = ClinkrGroup.discover_subcommands()
+    exec_group.name = "exec"
+    exec_group.help = "Commands for use by the pr-address skill."
+
+    outer = ClinkrGroup()
+    outer._json_group.hidden = True
+    outer.add_command(exec_group)
+    return outer
