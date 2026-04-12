@@ -134,7 +134,7 @@ def test_slot_list_empty_pool(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "slot-01" in result.output
     assert "slot-16" in result.output
-    assert "available" in result.output
+    assert "unallocated" in result.output
 
 
 def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -158,6 +158,43 @@ def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> No
     assert result.exit_code == 0, result.output
     assert "feat/x" in result.output
     assert "assigned" in result.output
+
+
+def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
+    slots_root = tmp_path / "slots"
+
+    assign_res = CliRunner().invoke(
+        cli_group,
+        ["assign", "feat/x"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    assert assign_res.exit_code == 0, assign_res.output
+
+    free_res = CliRunner().invoke(
+        cli_group,
+        ["free", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    assert free_res.exit_code == 0, free_res.output
+
+    json_res = CliRunner().invoke(
+        cli_group,
+        ["json", "list"],
+        input="",
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = _json_output(json_res.output)
+
+    assert json_res.exit_code == 0
+    slot_01 = next(r for r in payload["rows"] if r["slot_name"] == "slot-01")
+    assert slot_01["status"] == "available"
+    assert slot_01["branch"] is None
+    assert slot_01["worktree_path"] is not None
+    assert "slot-01" in slot_01["worktree_path"]
+    # Other slots remain unallocated (no worktree on disk).
+    unallocated = [r for r in payload["rows"] if r["status"] == "unallocated"]
+    assert len(unallocated) == 15
 
 
 def test_slot_ls_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -210,6 +247,8 @@ def test_slot_json_list_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> 
     assigned_rows = [r for r in payload["rows"] if r["status"] == "assigned"]
     assert len(assigned_rows) == 1
     assert assigned_rows[0]["branch"] == "feat/x"
+    unallocated_rows = [r for r in payload["rows"] if r["status"] == "unallocated"]
+    assert len(unallocated_rows) == 15
 
 
 def test_slot_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:

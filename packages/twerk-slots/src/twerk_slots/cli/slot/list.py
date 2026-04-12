@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from twerk_core import get_console, make_table
@@ -9,11 +10,12 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.format import format_relative_time
 from twerk_slots.allocation import sync_pool_assignments
 from twerk_slots.cli.slot._context import build_slots_context
+from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import generate_slot_name
 from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState
 from twerk_slots.repo_context import NoRepoSentinel
 
-SlotStatus = Literal["available", "assigned"]
+SlotStatus = Literal["unallocated", "available", "assigned"]
 
 
 @dataclass(frozen=True)
@@ -73,23 +75,17 @@ def render_slot_list(result: SlotListResult) -> None:
     get_console().print(table)
 
 
-def _compose_rows(state: PoolState) -> tuple[SlotRow, ...]:
+def _compose_rows(
+    state: PoolState,
+    storage: SlotsStorageGateway,
+    worktrees_dir: Path,
+) -> tuple[SlotRow, ...]:
     by_slot = {a.slot_name: a for a in state.assignments}
     rows: list[SlotRow] = []
     for slot_num in range(1, state.pool_size + 1):
         slot_name = generate_slot_name(slot_num)
         assignment = by_slot.get(slot_name)
-        if assignment is None:
-            rows.append(
-                SlotRow(
-                    slot_name=slot_name,
-                    branch=None,
-                    assigned_at=None,
-                    worktree_path=None,
-                    status="available",
-                )
-            )
-        else:
+        if assignment is not None:
             rows.append(
                 SlotRow(
                     slot_name=slot_name,
@@ -97,6 +93,28 @@ def _compose_rows(state: PoolState) -> tuple[SlotRow, ...]:
                     assigned_at=assignment.assigned_at,
                     worktree_path=str(assignment.worktree_path),
                     status="assigned",
+                )
+            )
+            continue
+        worktree_path = worktrees_dir / slot_name
+        if storage.path_exists(worktree_path):
+            rows.append(
+                SlotRow(
+                    slot_name=slot_name,
+                    branch=None,
+                    assigned_at=None,
+                    worktree_path=str(worktree_path),
+                    status="available",
+                )
+            )
+        else:
+            rows.append(
+                SlotRow(
+                    slot_name=slot_name,
+                    branch=None,
+                    assigned_at=None,
+                    worktree_path=None,
+                    status="unallocated",
                 )
             )
     return tuple(rows)
@@ -121,6 +139,6 @@ def run_list_slots(request: SlotListRequest) -> SlotListResult | ClinkrCommandEr
 
     return SlotListResult(
         pool_size=state.pool_size,
-        rows=_compose_rows(state),
+        rows=_compose_rows(state, ctx.storage, ctx.repo.worktrees_dir),
         repo_name=ctx.repo.repo_name,
     )
