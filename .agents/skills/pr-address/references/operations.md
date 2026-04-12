@@ -1,6 +1,6 @@
-# twerk-pr-address operations reference
+# pr-address operations reference
 
-Every `gh`, `git`, and GraphQL invocation that the `twerk-pr-address` skill
+Every `gh`, `git`, and GraphQL invocation that the `pr-address` skill
 makes. This file has two jobs:
 
 1. Give the skill copy-pasteable commands and queries (progressive
@@ -67,7 +67,7 @@ twerk pr-address get-review-comments "$PR_NUMBER" --include-resolved    # Phase 
 
 ## reopen-contested-threads
 
-**Purpose:** Detect review threads that `twerk-pr-address` previously
+**Purpose:** Detect review threads that `pr-address` previously
 resolved, but which later received additional reviewer replies. These must
 be reopened before classification or the next run will miss them.
 
@@ -226,7 +226,7 @@ it's skill context, not gateway I/O:
 ```
 Fixed in commit <short-sha>: <one-line summary>
 
-Addressed via _twerk-pr-address_ at <ISO timestamp>
+Addressed via _pr-address_ at <ISO timestamp>
 <!-- twerk:pr-address-resolved -->
 ```
 
@@ -262,7 +262,7 @@ timestamp footer:
 <summary of action taken>
 
 ---
-<sub>Addressed via `twerk-pr-address` at <ISO timestamp></sub>
+<sub>Addressed via `pr-address` at <ISO timestamp></sub>
 ```
 
 If the original comment is very long, quote only the first ~10 lines and end
@@ -351,7 +351,7 @@ This rule is intentional:
   tooling that shouldn't be shadowed.
 
 If a future user or operator wants an "auto-push" variant, it belongs in a
-separate skill that wraps `twerk-pr-address`, not inside this one.
+separate skill that wraps `pr-address`, not inside this one.
 
 ---
 
@@ -407,7 +407,7 @@ Concretely, when a row gets pushed down:
      clinkr op → `(done)`, notes → `**Migrated**`.
 
 **Diff check:** the PR that lands a push-down should show net *negative*
-markdown line count in `.agents/skills/twerk-pr-address/` (or at worst
+markdown line count in `.agents/skills/pr-address/` (or at worst
 neutral — e.g., when adding the hyphenated-subgroup hook required a small
 one-time clinkr change). If markdown grew, the push-down isn't done; you
 still have documentation debt that belongs in the deleted rows.

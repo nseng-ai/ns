@@ -1,6 +1,6 @@
 ---
-name: twerk-objective-list
-description: "Display the user's twerk objectives — GitHub issues labeled `twerk-objective` that anchor multi-session workstreams. Use whenever the user asks 'what are my objectives?', 'show my open objectives', 'list twerk objectives', wants to pick the next workstream to progress, or asks for details on a specific objective by number. Lists via `twerk objective list` (alias `ls`, default state `open`, supports `--state {open|closed|all}`); on follow-up, drills into a specific issue with `gh issue view <num>` and summarizes outcome / roadmap / assumptions / risks. Suggests `twerk-objective-progress`, `twerk-objective-reconcile`, and `twerk-objective-create` as follow-on actions. Read-only — never mutates state."
+name: objective-list
+description: "Display the user's twerk objectives — GitHub issues labeled `twerk-objective` that anchor multi-session workstreams. Use whenever the user asks 'what are my objectives?', 'show my open objectives', 'list twerk objectives', wants to pick the next workstream to progress, or asks for details on a specific objective by number. Lists via `twerk objective list` (alias `ls`, default state `open`, supports `--state {open|closed|all}`); on follow-up, drills into a specific issue with `gh issue view <num>` and summarizes outcome / roadmap / assumptions / risks. Suggests `objective-progress`, `objective-reconcile`, and `objective-create` as follow-on actions. Read-only — never mutates state."
 allowed-tools:
   - "Bash(twerk objective list*)"
   - "Bash(twerk objective ls*)"
@@ -9,11 +9,11 @@ allowed-tools:
   - "Bash(gh auth status)"
 ---
 
-# twerk-objective-list
+# objective-list
 
 Display the user's current twerk objectives inside a coding-agent session.
-This is the read-only sibling of `twerk-objective-create`,
-`twerk-objective-progress`, and `twerk-objective-reconcile` — the "what's on my
+This is the read-only sibling of `objective-create`,
+`objective-progress`, and `objective-reconcile` — the "what's on my
 plate?" entry point.
 
 ## What an objective is
@@ -21,7 +21,7 @@ plate?" entry point.
 A twerk objective is a GitHub issue labeled `twerk-objective` that anchors a
 multi-session workstream. The body is a curated context anchor (outcome,
 completion criteria, assumptions, risks, roadmap or next steps), and the
-comments are the running progress log. See `twerk-objective-create` for the
+comments are the running progress log. See `objective-create` for the
 full definition. Plain issues are not objectives — only issues with the
 `twerk-objective` label are.
 
@@ -37,9 +37,9 @@ Trigger this skill when the user:
   work
 
 If the user instead wants to _advance_ an objective, hand off to
-`twerk-objective-progress`. If they want to _create_ one, hand off to
-`twerk-objective-create`. If they want to _close one out_ after a merged PR,
-hand off to `twerk-objective-reconcile`.
+`objective-progress`. If they want to _create_ one, hand off to
+`objective-create`. If they want to _close one out_ after a merged PR,
+hand off to `objective-reconcile`.
 
 ## Core rules
 
@@ -56,8 +56,8 @@ hand off to `twerk-objective-reconcile`.
   next step, key risks). Do not dump the full markdown back at the user.
 - Read-only. Never run `gh issue edit`, `gh issue close`, `gh issue comment`,
   or any mutating `twerk objective` subcommand. All mutations belong to
-  `twerk-objective-progress`, `twerk-objective-reconcile`, or
-  `twerk-objective-create`.
+  `objective-progress`, `objective-reconcile`, or
+  `objective-create`.
 
 ## Workflow
 
@@ -93,7 +93,7 @@ In a chat reply, reproduce the same shape (number, status, title, relative
 updated time) — either as a compact markdown table or as a tight bulleted
 list. Do not strip the status badge; it's how the user tells open from
 closed when they asked for `--state all`. If the list is empty, say so
-plainly and suggest `twerk-objective-create` if the user wants to start
+plainly and suggest `objective-create` if the user wants to start
 one. If there are more than ~10 entries, group them (e.g. by recency) or
 trim to the most recent and tell the user how to widen.
 
@@ -121,9 +121,9 @@ about history — the body is the current snapshot.
 After listing or drilling in, offer the relevant next skill in one short
 line:
 
-- to advance an objective → `twerk-objective-progress`
-- to wrap one up after a merged PR → `twerk-objective-reconcile`
-- to start a new one → `twerk-objective-create`
+- to advance an objective → `objective-progress`
+- to wrap one up after a merged PR → `objective-reconcile`
+- to start a new one → `objective-create`
 
 Pick at most the one or two that fit the user's apparent intent. Don't
 recite all three every turn.

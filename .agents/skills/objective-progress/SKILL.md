@@ -1,5 +1,5 @@
 ---
-name: twerk-objective-progress
+name: objective-progress
 description: "Progress an objective by reading its GitHub issue, assessing the codebase, and implementing the next piece of work. Use when the user wants to make progress on an existing twerk objective, pick up where they left off, or continue a multi-session workstream. When the user says only 'progress the objective', first infer the objective from `Objective: #N` trailers on commits reachable from `HEAD` but not from trunk/default branch; this handles the common case of a Graphite stack. Ask the user only if those in-flight commits do not identify a single objective. Trigger on phrases like 'progress the objective', 'work on objective #N', 'continue the objective', or 'pick up objective #N'."
 allowed-tools:
   - "Bash(git symbolic-ref *)"
@@ -12,7 +12,7 @@ allowed-tools:
   - "Bash(gh issue close *)"
 ---
 
-# twerk-objective-progress
+# objective-progress
 
 Read an objective issue, figure out what to do next, do it, and record what
 happened.
@@ -163,7 +163,7 @@ Do the work on the current branch:
   coherent boundary and note what remains
 - **Every commit must include an `Objective: #<number>` trailer** in the
   commit message. This links commits to the objective so that
-  `twerk-objective-reconcile` can auto-detect the association from a PR's commits
+  `objective-reconcile` can auto-detect the association from a PR's commits
   without requiring human input. Format:
 
   ```
@@ -218,7 +218,7 @@ complete and ask if they want to close it. If they confirm:
 - [Omit if none]
 
 ---
-*Closed by twerk-objective-progress*
+*Closed by objective-progress*
 ```
 
 4. Close the issue:

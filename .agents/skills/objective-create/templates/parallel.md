@@ -35,8 +35,8 @@ surfaces problems, adjust the plan before touching the other items.
 Objective: "Migrate all twelve skill files from the old `allowed-tools` YAML
 list format to the new string-array format."
 
-1. (pathfinder) Migrate `skills/twerk-objective-create/SKILL.md`. Validate
+1. (pathfinder) Migrate `skills/objective-create/SKILL.md`. Validate
    the migration works end-to-end, adjust approach if needed.
-2. Migrate `skills/twerk-objective-progress/SKILL.md`.
-3. Migrate `skills/twerk-objective-reconcile/SKILL.md`.
+2. Migrate `skills/objective-progress/SKILL.md`.
+3. Migrate `skills/objective-reconcile/SKILL.md`.
 4. ...remaining nine skills, one per item.

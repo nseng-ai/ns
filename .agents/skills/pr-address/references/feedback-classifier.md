@@ -1,6 +1,6 @@
 # Feedback classifier — LLM guidance
 
-This file is the heart of `twerk-pr-address`. After Phase 1 fetches review
+This file is the heart of `pr-address`. After Phase 1 fetches review
 threads, PR-level reviews, and discussion comments, the LLM (you) applies
 the rules below to classify each item and group them into an ordered
 execution plan.
@@ -16,7 +16,7 @@ as principles, not enumerations.
 
 Three arrays from Phase 1:
 
-- **threads**: inline review threads from `twerk pr-address
+- **threads**: inline review threads from `pr-address
   get-review-comments`. Shape is `PRReviewThread` in
   `twerk_core.gh.types` (pushed down — read the dataclass, not prose).
 - **reviews**: PR-level review submissions with `{id, author, body, state,

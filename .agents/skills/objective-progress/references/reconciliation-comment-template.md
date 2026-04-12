@@ -30,4 +30,4 @@
 | [criterion from objective] | met / partially met / not yet |
 
 ---
-*Updated by twerk-objective-progress*
+*Updated by objective-progress*
