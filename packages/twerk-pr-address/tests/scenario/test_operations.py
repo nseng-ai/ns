@@ -1,4 +1,11 @@
-"""Tests for clinkr operations via CliRunner with FakeIssueGateway."""
+"""Scenario tests for the standalone ``pr-address`` CLI.
+
+Every exec operation is exercised through ``build_cli()`` — the top-level
+standalone CLI entry point that users and skills invoke directly. The
+``TESTED_OPERATIONS`` set at the top is cross-referenced at the bottom by
+an exhaustiveness guard that fails when a new operation is added without
+corresponding scenario coverage.
+"""
 
 import json
 import subprocess
@@ -6,7 +13,7 @@ import subprocess
 import pytest
 from click.testing import CliRunner
 
-from clinkr.group import ClinkrGroup, discover_group
+from clinkr.group import ClinkrGroup
 from twerk_core.gh import real_issue_gateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import (
@@ -16,11 +23,29 @@ from twerk_core.gh.types import (
     PRReviewThread,
     PRSummary,
 )
+from twerk_pr_address.cli.main import build_cli
+
+# Every exec operation that has scenario coverage in this file. When you add
+# a new operation, add its name here *and* write at least one scenario test.
+TESTED_OPERATIONS: frozenset[str] = frozenset(
+    {
+        "add-issue-comment",
+        "add-reaction",
+        "add-review-thread-reply",
+        "get-discussion-comments",
+        "get-feedback",
+        "get-pr-for-branch",
+        "get-review-comments",
+        "get-reviews",
+        "resolve-thread",
+        "unresolve-thread",
+    }
+)
 
 
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
-    return discover_group("twerk_pr_address.cli.pr_address")
+    return build_cli()
 
 
 def _invoke(
@@ -32,6 +57,31 @@ def _invoke(
     result = runner.invoke(cli_group, args, obj={"gh_issue_gateway": fake})
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
+
+
+# -- standalone CLI smoke tests --
+
+
+def test_version_option(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["--version"])
+    assert result.exit_code == 0
+    assert "version" in result.output
+
+
+def test_help_short_flag(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["-h"])
+    assert result.exit_code == 0
+    assert "PR review address operations." in result.output
+    assert "--version" in result.output
+
+
+def test_subcommands_present(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["-h"])
+    assert result.exit_code == 0
+    assert "exec" in result.output
 
 
 # -- get-review-comments --
@@ -969,3 +1019,23 @@ def test_add_reaction_falls_back_to_real_gateway(
     assert output["id"] == 5001
     assert output["comment_id"] == 9001
     assert output["content"] == "+1"
+
+
+# -- exhaustiveness guard --
+
+
+def test_every_exec_operation_has_scenario_coverage(cli_group: ClinkrGroup) -> None:
+    """Fail when a new exec operation is added without scenario coverage.
+
+    Discovers all commands on the ``exec`` subgroup and asserts that
+    ``TESTED_OPERATIONS`` covers them exactly. When you add a new
+    operation, add its name to ``TESTED_OPERATIONS`` and write at least
+    one scenario test for it.
+    """
+    exec_group = cli_group.commands["exec"]
+    registered = {name for name in exec_group.commands if name != "json"}
+    assert registered == TESTED_OPERATIONS, (
+        f"Mismatch between registered exec operations and TESTED_OPERATIONS.\n"
+        f"  Missing from TESTED_OPERATIONS: {registered - TESTED_OPERATIONS}\n"
+        f"  Extra in TESTED_OPERATIONS: {TESTED_OPERATIONS - registered}"
+    )

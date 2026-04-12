@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import click
 from click.testing import CliRunner
 
@@ -62,3 +64,24 @@ def test_objective_plugin_integration() -> None:
     result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=obj)
     assert result.exit_code == 0
     assert '"success": true' in result.output
+
+
+def test_pr_address_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(name="pr_address", value="twerk_pr_address.cli.pr_address")
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    runner = CliRunner()
+    obj = {"gh_issue_gateway": FakeIssueGateway()}
+
+    # Plugin mounts at expected subgroup name with exec subcommand.
+    result = runner.invoke(parent, ["pr-address", "--help"])
+    assert result.exit_code == 0
+    assert "exec" in result.output
+
+    # A representative operation routes correctly through the plugin path.
+    result = runner.invoke(parent, ["pr-address", "exec", "get-review-comments", "99"], obj=obj)
+    assert result.exit_code == 0
+    output = json.loads(result.output)
+    assert output["count"] == 0
