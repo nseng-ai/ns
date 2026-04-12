@@ -33,5 +33,4 @@ def test_subcommands_present(standalone_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(standalone_group, ["-h"])
     assert result.exit_code == 0
-    assert "get-feedback" in result.output
-    assert "json" in result.output
+    assert "exec" in result.output

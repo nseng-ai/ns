@@ -1,8 +1,8 @@
 ---
 name: pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `twerk pr-address get-review-comments` / `resolve-thread` / `unresolve-thread` / `add-review-thread-reply` for typed PR operations, and raw `gh` / `gh api` for the remainder."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `pr-address exec get-review-comments` / `resolve-thread` / `unresolve-thread` / `add-review-thread-reply` for typed PR operations, and raw `gh` / `gh api` for the remainder."
 allowed-tools:
-  - "Bash(twerk *)"
+  - "Bash(pr-address *)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
   - "Bash(gh api *)"
@@ -18,7 +18,7 @@ allowed-tools:
   - "Bash(git remote*)"
   - "Bash(git branch*)"
   - "Bash(just *)"
-  - "Bash(command -v twerk)"
+  - "Bash(command -v pr-address)"
   - "Read"
   - "Edit"
   - "Write"
@@ -77,11 +77,11 @@ continue into edit/commit/resolve.
    auth before continuing.
 3. The working tree is clean. If there are uncommitted changes, stop and
    tell the user — batch commits need a clean base.
-4. The `twerk` binary is on `PATH`. The skill shells out to
-   `twerk pr-address get-review-comments` to fetch review threads. Run
-   `command -v twerk` as a preflight; if it isn't found, stop and tell the
-   user: "`twerk` not on PATH — run this skill from inside a `uv sync`'d
-   twerk workspace."
+4. The `pr-address` binary is on `PATH`. The skill shells out to
+   `pr-address exec get-review-comments` to fetch review threads. Run
+   `command -v pr-address` as a preflight; if it isn't found, stop and
+   tell the user: "`pr-address` not on PATH — run this skill from inside
+   a `uv sync`'d twerk workspace."
 
 ## Workflow
 
@@ -116,7 +116,7 @@ Phase 0 needs the full thread set so it can inspect already-resolved
 threads for new replies:
 
 ```bash
-twerk pr-address get-review-comments <pr_number> --include-resolved
+pr-address exec get-review-comments <pr_number> --include-resolved
 ```
 
 See `references/operations.md` §`get-review-threads`.
@@ -134,7 +134,7 @@ it alone. Only reopen threads that this skill previously resolved.
 
 #### 0d. Reopen contested threads
 
-For each contested thread, run `twerk pr-address unresolve-thread
+For each contested thread, run `pr-address exec unresolve-thread
 "$THREAD_ID"`. See `references/operations.md` §`unresolve-thread`.
 
 If reopening one thread fails, warn and continue. This phase is a quality
@@ -157,7 +157,7 @@ in Phase 2 needs all three before it can make decisions.
 #### 1a. Fetch review threads (inline code comments)
 
 ```bash
-twerk pr-address get-review-comments <pr_number>
+pr-address exec get-review-comments <pr_number>
 ```
 
 Add `--include-resolved` if the user passed `--all`. See
@@ -270,8 +270,8 @@ For each batch in order:
 
 If the batch's complexity is `pre_existing`, skip code changes entirely —
 just resolve each thread with the standard pre-existing comment via
-`twerk pr-address add-review-thread-reply` followed by
-`twerk pr-address resolve-thread`. See `references/operations.md` for the
+`pr-address exec add-review-thread-reply` followed by
+`pr-address exec resolve-thread`. See `references/operations.md` for the
 command shapes. Resolution comment:
 
 > Pre-existing issue — this code was moved/restructured, not newly
@@ -348,13 +348,13 @@ the thread. **Always pass the reply body via a quoted heredoc** (`-` as the
 body argument tells the CLI to read from stdin):
 
 ```bash
-twerk pr-address add-review-thread-reply "$THREAD_ID" - <<'EOF'
+pr-address exec add-review-thread-reply "$THREAD_ID" - <<'EOF'
 Fixed in commit <short-sha>: <one-line summary>
 
 Addressed via _pr-address_ at <ISO timestamp>
 <!-- pr-address:resolved -->
 EOF
-twerk pr-address resolve-thread "$THREAD_ID"
+pr-address exec resolve-thread "$THREAD_ID"
 ```
 
 The heredoc is **mandatory**: a double-quoted inline body like
@@ -450,8 +450,8 @@ Do not run `git push`. Do not run `gt submit`. The user pushes.
   Not `git push`, not `gt submit`, not anything that sends commits
   upstream. This is enforced by the allowed-tools list (no `git push*`).
 - Never use raw `gh api .../comments/{id}/replies` to "reply" without
-  resolving — it leaves the thread open. Always use `twerk pr-address
-  add-review-thread-reply` together with `twerk pr-address resolve-thread`
+  resolving — it leaves the thread open. Always use `pr-address exec
+  add-review-thread-reply` together with `pr-address exec resolve-thread`
   (see `references/operations.md`).
 - Every unresolved review thread must be represented explicitly during
   classification. Never count-collapse or silently drop a live review
