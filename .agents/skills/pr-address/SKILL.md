@@ -97,18 +97,22 @@ pushback inside an already-resolved thread.
 
 #### 0a. Resolve the PR
 
-Resolve the PR for the current branch:
+Resolve the current branch name and look up its PR:
 
 ```bash
-gh pr view --json number,title,url,headRefName,baseRefName
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+pr-address exec get-pr-for-branch "$BRANCH"
 ```
 
-If `gh pr view` fails with "no pull requests found" or similar, stop and
-report: "No PR found for the current branch. Create one with `gh pr create`
-first." Do not continue.
+Migrated — see `twerk_core.gh.types.PRSummary` for the typed shape and
+`twerk_core.gh.real_issue_gateway.RealIssueGateway.get_pr_for_branch` for
+the implementation.
 
-Record `pr_number`, `pr_title`, `pr_url`, and `base_ref` (needed later for
-rename detection).
+If the result has `"found": false`, stop and report: "No PR found for the
+current branch. Create one with `gh pr create` first." Do not continue.
+
+Record `pr_number`, `pr_title`, `pr_url`, and `base_ref_name` (needed later
+for rename detection).
 
 #### 0b. Fetch all review threads
 

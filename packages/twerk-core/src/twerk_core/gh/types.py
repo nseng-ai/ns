@@ -106,6 +106,21 @@ class Reaction:
 
 
 @dataclass(frozen=True)
+class PRSummary:
+    """Summary metadata for an open PR associated with a branch.
+
+    Returned by `get_pr_for_branch` — carries the fields the pr-address skill
+    needs for its Phase 0 preflight (number, title, URL, head/base refs).
+    """
+
+    number: int
+    title: str
+    url: str
+    head_ref_name: str
+    base_ref_name: str
+
+
+@dataclass(frozen=True)
 class ResolveReviewThreadResult:
     """Result of resolving a review thread.
 

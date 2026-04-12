@@ -16,6 +16,7 @@ from twerk_core.gh.types import (
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    PRSummary,
     Reaction,
     ResolveReviewThreadResult,
     UnresolveReviewThreadResult,
@@ -64,8 +65,8 @@ class IssueGateway(ABC):
         """Fetch discussion comments on a PR (not inline review comments)."""
 
     @abstractmethod
-    def get_number_for_branch(self, branch: str) -> int | None:
-        """Look up the open PR number for a branch. Returns None if no PR exists."""
+    def get_pr_for_branch(self, branch: str) -> PRSummary | None:
+        """Look up the open PR for a branch. Returns None if no PR exists."""
 
     # -- PR mutations --
 

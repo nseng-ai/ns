@@ -15,22 +15,11 @@ makes. This file has two jobs:
 
 ## get-pr-for-branch
 
-**Purpose:** Resolve the current branch's PR number, title, URL, and base
-ref.
-
-**Command:**
+**Migrated** — see `twerk_core.gh.real_issue_gateway.RealIssueGateway.get_pr_for_branch`.
 
 ```bash
-gh pr view --json number,title,url,headRefName,baseRefName
+pr-address exec get-pr-for-branch "$BRANCH"
 ```
-
-**Notes:**
-
-- Add `<pr-number>` as the first positional arg if the user passed
-  `--pr N`.
-- Fails with non-zero exit if there is no PR for the branch. Catch the
-  error and stop the skill with a clear message — do not fall back to
-  GraphQL.
 
 ---
 
@@ -363,7 +352,7 @@ prescriptive — drive push-down by skill pain.
 
 | Operation                    | Status on `IssueGateway`                               | Existing clinkr op?              | Push-down notes                                                                                           |
 | ---------------------------- | ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `get-pr-for-branch`          | `get_number_for_branch` (`NotImplementedError` stub)   | no                               | Small — wrap `gh pr view`.                                                                                |
+| `get-pr-for-branch`          | `get_pr_for_branch` (**real**)                         | `get-pr-for-branch` (**done**)   | **Migrated** — skill uses `pr-address exec get-pr-for-branch "$BRANCH"`. Returns `PRSummary`.            |
 | `get-review-threads`         | `get_review_threads` (**real**)                        | `get-review-comments` (**done**) | **Migrated** — skill uses `twerk pr-address get-review-comments` (with `--include-resolved` in Phase 0). |
 | `get-reviews`                | `get_reviews` (**real**)                               | no                               | Backing landed; no clinkr wrapper yet. Fetched alongside threads in classification.                       |
 | `get-discussion-comments`    | `get_discussion_comments` (**real**)                   | `get-discussion-comments` (done) | **Migrated** — clinkr op has real-gateway backing via the paginated-array decoder.                        |

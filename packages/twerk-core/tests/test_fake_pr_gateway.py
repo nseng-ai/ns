@@ -6,6 +6,7 @@ from twerk_core.gh.types import (
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    PRSummary,
 )
 
 
@@ -64,10 +65,17 @@ def test_get_discussion_comments() -> None:
     assert fake.get_discussion_comments(1) == (comment,)
 
 
-def test_get_number_for_branch() -> None:
-    fake = FakeIssueGateway(numbers_by_branch={"feature": 42})
-    assert fake.get_number_for_branch("feature") == 42
-    assert fake.get_number_for_branch("nonexistent") is None
+def test_get_pr_for_branch() -> None:
+    pr = PRSummary(
+        number=42,
+        title="Add feature",
+        url="https://github.com/dagster-io/twerk/pull/42",
+        head_ref_name="feature",
+        base_ref_name="master",
+    )
+    fake = FakeIssueGateway(prs_by_branch={"feature": pr})
+    assert fake.get_pr_for_branch("feature") == pr
+    assert fake.get_pr_for_branch("nonexistent") is None
 
 
 def test_resolve_thread_returns_result_and_tracks_repeat() -> None:
