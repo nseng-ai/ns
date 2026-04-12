@@ -11,6 +11,8 @@ allowed-tools:
   - "Write"
 ---
 
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+
 # fix-just
 
 Run `just` (the project's default check suite) and fix every failure.

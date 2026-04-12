@@ -8,6 +8,8 @@ allowed-tools:
   - "Bash(mktemp)"
 ---
 
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+
 # objective-create
 
 Create a GitHub issue that serves as the **context anchor** for a twerk objective.

@@ -9,6 +9,8 @@ allowed-tools:
   - "Bash(gh auth status)"
 ---
 
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+
 # objective-list
 
 Display the user's current twerk objectives inside a coding-agent session.

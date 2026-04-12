@@ -11,6 +11,8 @@ allowed-tools:
   - "Bash(mktemp)"
 ---
 
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+
 # objective-reconcile
 
 Update an objective issue after a PR has been merged.

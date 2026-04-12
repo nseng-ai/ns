@@ -346,22 +346,23 @@ separate skill that wraps `pr-address`, not inside this one.
 
 ## Push-down targets
 
-Each row below is a candidate for replacement by a typed `twerk pr-address`
-clinkr operation backed by `twerk_core.gh.IssueGateway`. Order is not
-prescriptive — drive push-down by skill pain.
+Every GitHub I/O operation the skill performs is now backed by a typed
+`pr-address exec` clinkr operation on `twerk_core.gh.IssueGateway`. The
+remaining non-migrated rows (`get-restructured-files`, `plan-display`,
+`git-push`) are either git-local, rendering-only, or explicitly out of scope.
 
 | Operation                    | Status on `IssueGateway`                               | Existing clinkr op?              | Push-down notes                                                                                           |
 | ---------------------------- | ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `get-pr-for-branch`          | `get_pr_for_branch` (**real**)                         | `get-pr-for-branch` (**done**)   | **Migrated** — skill uses `pr-address exec get-pr-for-branch "$BRANCH"`. Returns `PRSummary`.            |
 | `get-review-threads`         | `get_review_threads` (**real**)                        | `get-review-comments` (**done**) | **Migrated** — skill uses `twerk pr-address get-review-comments` (with `--include-resolved` in Phase 0). |
-| `get-reviews`                | `get_reviews` (**real**)                               | no                               | Backing landed; no clinkr wrapper yet. Fetched alongside threads in classification.                       |
+| `get-reviews`                | `get_reviews` (**real**)                               | `get-reviews` (**done**)         | **Migrated** — skill uses `pr-address exec get-reviews <pr_number>`. Returns `PRReview` tuples.           |
 | `get-discussion-comments`    | `get_discussion_comments` (**real**)                   | `get-discussion-comments` (done) | **Migrated** — clinkr op has real-gateway backing via the paginated-array decoder.                        |
 | `get-restructured-files`     | N/A (git, not `gh`)                                    | no                               | Could live on a `GitGateway` or as a pure helper next to the classifier.                                  |
 | `resolve-thread`             | `resolve_review_thread` (**real**)                     | `resolve-thread` (**done**)      | **Migrated** — skill uses `twerk pr-address resolve-thread "$THREAD_ID"`.                                 |
 | `unresolve-thread`           | `unresolve_review_thread` (**real**)                   | `unresolve-thread` (**done**)    | **Migrated** — skill uses `twerk pr-address unresolve-thread "$THREAD_ID"` in Phase 0.                    |
 | `add-review-thread-reply`    | `add_review_thread_reply` (**real**)                   | `add-review-thread-reply` (**done**) | **Migrated** — skill uses `twerk pr-address add-review-thread-reply "$THREAD_ID" "$REPLY_BODY"`.     |
-| `add-issue-comment`          | `add_comment` (**real**)                               | no                               | Backing landed; no clinkr wrapper yet. Used for discussion-comment replies and PR-review responses.       |
-| `add-reaction`               | `add_reaction` (**real**)                              | no                               | Backing landed; no clinkr wrapper yet. Required for richer discussion-comment replies.                    |
+| `add-issue-comment`          | `add_comment` (**real**)                               | `add-issue-comment` (**done**)   | **Migrated** — skill uses `pr-address exec add-issue-comment <pr_number> <body>`. Returns `IssueComment`. |
+| `add-reaction`               | `add_reaction` (**real**)                              | `add-reaction` (**done**)        | **Migrated** — skill uses `pr-address exec add-reaction <comment_id> <reaction>`. Returns `Reaction`.     |
 | `plan-display`               | N/A                                                    | no                               | Stays in the skill — it's rendering, not I/O.                                                             |
 | `git-push`                   | **out of scope**                                       | n/a                              | The skill deliberately never pushes. Not a push-down target.                                              |
 
