@@ -1,0 +1,1 @@
+"""Manage worktree pool slots."""

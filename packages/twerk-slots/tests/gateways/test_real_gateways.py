@@ -1,0 +1,268 @@
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from twerk_slots.gateway import real_git
+from twerk_slots.gateway.git import FileStatus
+from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
+from twerk_slots.gateway.real_git import RealGitGateway, parse_porcelain_status
+from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
+from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
+
+
+def test_real_gateway_instantiates() -> None:
+    # Regression: the ABC must be fully implemented so bare construction works.
+    assert isinstance(RealGitGateway(), RealGitGateway)
+
+
+def test_list_worktrees_parses_porcelain(monkeypatch: pytest.MonkeyPatch) -> None:
+    porcelain = (
+        "worktree /home/alice/repo\n"
+        "HEAD abc123\n"
+        "branch refs/heads/main\n"
+        "\n"
+        "worktree /home/alice/.slots/repos/repo/worktrees/slot-01\n"
+        "HEAD def456\n"
+        "branch refs/heads/feat/x\n"
+        "\n"
+        "worktree /home/alice/detached\n"
+        "HEAD 111aaa\n"
+        "detached\n"
+        "\n"
+    )
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert cmd == ["git", "worktree", "list", "--porcelain"]
+        return subprocess.CompletedProcess(cmd, 0, stdout=porcelain, stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    worktrees = RealGitGateway().list_worktrees(Path("/home/alice/repo"))
+
+    assert len(worktrees) == 3
+    assert worktrees[0].path == Path("/home/alice/repo")
+    assert worktrees[0].branch == "main"
+    assert worktrees[1].path == Path("/home/alice/.slots/repos/repo/worktrees/slot-01")
+    assert worktrees[1].branch == "feat/x"
+    assert worktrees[2].branch is None  # detached HEAD
+
+
+def test_list_worktrees_handles_bare(monkeypatch: pytest.MonkeyPatch) -> None:
+    porcelain = "worktree /tmp/bare.git\nbare\n\n"
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=porcelain, stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    worktrees = RealGitGateway().list_worktrees(Path("/tmp/bare.git"))
+    assert worktrees[0].is_bare is True
+
+
+def test_branch_exists_uses_show_ref(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway().branch_exists(Path("/r"), "feat/x") is True
+    assert captured == [
+        ["git", "show-ref", "--verify", "--quiet", "refs/heads/feat/x"],
+    ]
+
+
+def test_branch_exists_returns_false_on_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway().branch_exists(Path("/r"), "nope") is False
+
+
+def test_get_current_branch_returns_none_when_detached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="fatal: ref HEAD")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway().get_current_branch(Path("/r")) is None
+
+
+@pytest.mark.parametrize(
+    ("stdout", "expected"),
+    [
+        ("", FileStatus(False, False, False)),
+        ("?? untracked.py\n", FileStatus(False, False, True)),
+        (" M modified.py\n", FileStatus(False, True, False)),
+        ("A  staged.py\n", FileStatus(True, False, False)),
+        (" M modified.py\nA  staged.py\n?? untracked.py\n", FileStatus(True, True, True)),
+        ("MM conflicted.py\n", FileStatus(True, True, False)),
+        ("R  old.py -> new.py\n", FileStatus(True, False, False)),
+        ("D  gone.py\n", FileStatus(True, False, False)),
+        ("T  typechange.py\n", FileStatus(True, False, False)),
+        ("?\n", FileStatus(False, False, False)),
+    ],
+    ids=[
+        "empty",
+        "untracked_only",
+        "modified_only",
+        "staged_only",
+        "all_three",
+        "staged_and_modified_same_file",
+        "rename_staged",
+        "deleted_staged",
+        "typechange_staged",
+        "short_line_ignored",
+    ],
+)
+def test_parse_porcelain_status(stdout: str, expected: FileStatus) -> None:
+    assert parse_porcelain_status(stdout) == expected
+
+
+def test_get_file_status_delegates_to_parser(monkeypatch: pytest.MonkeyPatch) -> None:
+    output = " M modified.py\nA  staged.py\n?? untracked.py\n"
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=output, stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway().get_file_status(Path("/r")) == FileStatus(True, True, True)
+
+
+def test_list_local_branches_parses_for_each_ref(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout="main\nfeat/x\n", stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway().list_local_branches(Path("/r")) == ("main", "feat/x")
+
+
+def test_get_git_common_dir_resolves_relative(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=".git\n", stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    result = RealGitGateway().get_git_common_dir(repo)
+    assert result == (repo / ".git").resolve()
+
+
+def test_get_git_common_dir_returns_none_outside_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway().get_git_common_dir(Path("/tmp")) is None
+
+
+# -- RealSlotsStorageGateway ------------------------------------------------
+
+
+def test_real_storage_path_exists_reports_actual_filesystem(tmp_path: Path) -> None:
+    gateway = RealSlotsStorageGateway()
+    existing = tmp_path / "dir"
+    existing.mkdir()
+
+    assert gateway.path_exists(existing)
+    assert not gateway.path_exists(tmp_path / "missing")
+
+
+def test_real_storage_ensure_dir_creates_nested_directories(tmp_path: Path) -> None:
+    gateway = RealSlotsStorageGateway()
+    nested = tmp_path / "a" / "b" / "c"
+
+    gateway.ensure_dir(nested)
+
+    assert nested.is_dir()
+
+
+def test_real_storage_ensure_dir_is_idempotent(tmp_path: Path) -> None:
+    gateway = RealSlotsStorageGateway()
+    target = tmp_path / "d"
+    target.mkdir()
+
+    gateway.ensure_dir(target)
+    gateway.ensure_dir(target)
+
+    assert target.is_dir()
+
+
+# -- RealPoolStateGateway ---------------------------------------------------
+
+
+def test_real_pool_state_load_missing_returns_none(tmp_path: Path) -> None:
+    gateway = RealPoolStateGateway()
+    assert gateway.load(tmp_path / "missing.json") is None
+
+
+def test_real_pool_state_save_creates_parent_directories(tmp_path: Path) -> None:
+    gateway = RealPoolStateGateway()
+    pool_json = tmp_path / "nested" / "deep" / "pool.json"
+
+    gateway.save(pool_json, PoolState(pool_size=16, assignments=()))
+
+    assert pool_json.exists()
+    assert json.loads(pool_json.read_text()) == {"pool_size": 16, "assignments": []}
+
+
+def test_real_pool_state_round_trip_empty(tmp_path: Path) -> None:
+    gateway = RealPoolStateGateway()
+    pool_json = tmp_path / "pool.json"
+    state = PoolState(pool_size=16, assignments=())
+
+    gateway.save(pool_json, state)
+
+    assert gateway.load(pool_json) == state
+
+
+def test_real_pool_state_round_trip_preserves_assignments(tmp_path: Path) -> None:
+    gateway = RealPoolStateGateway()
+    pool_json = tmp_path / "pool.json"
+    worktree = tmp_path / "worktrees" / "slot-01"
+    state = PoolState(
+        pool_size=8,
+        assignments=(
+            SlotAssignment(
+                slot_name="slot-01",
+                branch_name="feat/x",
+                assigned_at="2026-04-12T00:00:00+00:00",
+                worktree_path=worktree,
+            ),
+        ),
+    )
+
+    gateway.save(pool_json, state)
+    loaded = gateway.load(pool_json)
+
+    assert loaded == state
+    assert loaded is not None
+    assert loaded.assignments[0].worktree_path == worktree
+
+
+def test_real_pool_state_load_missing_pool_size_falls_back_to_default(tmp_path: Path) -> None:
+    gateway = RealPoolStateGateway()
+    pool_json = tmp_path / "pool.json"
+    pool_json.write_text(json.dumps({"assignments": []}))
+
+    loaded = gateway.load(pool_json)
+
+    assert loaded is not None
+    assert loaded.pool_size == DEFAULT_POOL_SIZE
