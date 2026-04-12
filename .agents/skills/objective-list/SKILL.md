@@ -1,5 +1,5 @@
 ---
-name: twerk-objective-list
+name: objective-list
 description: "Display the user's twerk objectives — GitHub issues labeled `twerk-objective` that anchor multi-session workstreams. Use whenever the user asks 'what are my objectives?', 'show my open objectives', 'list twerk objectives', wants to pick the next workstream to progress, or asks for details on a specific objective by number. Lists via `twerk objective list` (alias `ls`, default state `open`, supports `--state {open|closed|all}`); on follow-up, drills into a specific issue with `gh issue view <num>` and summarizes outcome / roadmap / assumptions / risks. Suggests `twerk-objective-progress`, `twerk-objective-reconcile`, and `twerk-objective-create` as follow-on actions. Read-only — never mutates state."
 allowed-tools:
   - "Bash(twerk objective list*)"

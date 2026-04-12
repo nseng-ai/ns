@@ -1,5 +1,5 @@
 ---
-name: twerk-objective-create
+name: objective-create
 description: "Create a GitHub issue that anchors a twerk objective — a multi-session workstream whose primitive operation is 'make progress' via the twerk-objective-progress skill. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough brief into an issue-backed objective, or set up a lightweight control plane for a related series of PRs. The issue body is a curated context anchor with completion criteria, assumptions, risks, and either a roadmap or loose next steps — not a plain task ticket. Apply the `twerk-objective` label, use plain markdown, and create the issue with `gh`."
 allowed-tools:
   - "Bash(gh issue *)"

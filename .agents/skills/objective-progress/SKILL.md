@@ -1,5 +1,5 @@
 ---
-name: twerk-objective-progress
+name: objective-progress
 description: "Progress an objective by reading its GitHub issue, assessing the codebase, and implementing the next piece of work. Use when the user wants to make progress on an existing twerk objective, pick up where they left off, or continue a multi-session workstream. When the user says only 'progress the objective', first infer the objective from `Objective: #N` trailers on commits reachable from `HEAD` but not from trunk/default branch; this handles the common case of a Graphite stack. Ask the user only if those in-flight commits do not identify a single objective. Trigger on phrases like 'progress the objective', 'work on objective #N', 'continue the objective', or 'pick up objective #N'."
 allowed-tools:
   - "Bash(git symbolic-ref *)"
