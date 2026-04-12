@@ -3,6 +3,7 @@
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import (
     IssueComment,
+    PRLookupError,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -75,7 +76,9 @@ def test_get_pr_for_branch() -> None:
     )
     fake = FakeIssueGateway(prs_by_branch={"feature": pr})
     assert fake.get_pr_for_branch("feature") == pr
-    assert fake.get_pr_for_branch("nonexistent") is None
+    result = fake.get_pr_for_branch("nonexistent")
+    assert isinstance(result, PRLookupError)
+    assert result.returncode == 1
 
 
 def test_resolve_thread_returns_result_and_tracks_repeat() -> None:

@@ -712,6 +712,8 @@ def test_get_pr_for_branch_no_pr_returns_not_found(cli_group: ClinkrGroup) -> No
 
     assert exit_code == 0
     assert output["found"] is False
+    assert output["error"] == "no PR found"
+    assert output["returncode"] == 1
 
 
 def test_get_pr_for_branch_falls_back_to_real_gateway(

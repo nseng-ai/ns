@@ -121,6 +121,18 @@ class PRSummary:
 
 
 @dataclass(frozen=True)
+class PRLookupError:
+    """Error from looking up a PR for a branch.
+
+    Returned when `gh pr view` fails — carries stderr and returncode so
+    callers can distinguish "no PR found" from "gh CLI broken".
+    """
+
+    stderr: str
+    returncode: int
+
+
+@dataclass(frozen=True)
 class ResolveReviewThreadResult:
     """Result of resolving a review thread.
 

@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRLookupError,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -65,8 +66,12 @@ class IssueGateway(ABC):
         """Fetch discussion comments on a PR (not inline review comments)."""
 
     @abstractmethod
-    def get_pr_for_branch(self, branch: str) -> PRSummary | None:
-        """Look up the open PR for a branch. Returns None if no PR exists."""
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+        """Look up the open PR for a branch.
+
+        Returns ``PRSummary`` on success or ``PRLookupError`` when the
+        underlying ``gh pr view`` call fails (no PR, auth error, etc.).
+        """
 
     # -- PR mutations --
 

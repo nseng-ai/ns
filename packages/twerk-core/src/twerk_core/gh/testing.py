@@ -8,6 +8,7 @@ from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRLookupError,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -76,8 +77,11 @@ class FakeIssueGateway(IssueGateway):
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         return tuple(self._discussion_comments.get(pr_number, []))
 
-    def get_pr_for_branch(self, branch: str) -> PRSummary | None:
-        return self._prs_by_branch.get(branch)
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+        pr = self._prs_by_branch.get(branch)
+        if pr is None:
+            return PRLookupError(stderr="no PR found", returncode=1)
+        return pr
 
     # -- PR mutations --
 

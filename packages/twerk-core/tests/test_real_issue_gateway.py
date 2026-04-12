@@ -17,6 +17,7 @@ import pytest
 
 from twerk_core.gh import real_issue_gateway
 from twerk_core.gh.real_issue_gateway import RealIssueGateway
+from twerk_core.gh.types import PRLookupError
 
 _OWNER_REPO_OUTPUT = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
 
@@ -572,7 +573,7 @@ def test_get_pr_for_branch_returns_summary(
     assert result.base_ref_name == "master"
 
 
-def test_get_pr_for_branch_returns_none_when_no_pr(
+def test_get_pr_for_branch_returns_error_when_no_pr(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -583,4 +584,5 @@ def test_get_pr_for_branch_returns_none_when_no_pr(
 
     result = RealIssueGateway().get_pr_for_branch("no-pr-branch")
 
-    assert result is None
+    assert isinstance(result, PRLookupError)
+    assert result.returncode == 1

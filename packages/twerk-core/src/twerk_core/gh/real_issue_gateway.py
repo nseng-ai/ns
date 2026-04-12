@@ -10,6 +10,7 @@ from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRLookupError,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -288,7 +289,7 @@ class RealIssueGateway(IssueGateway):
             for comment in raw_comments
         )
 
-    def get_pr_for_branch(self, branch: str) -> PRSummary | None:
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
         result = subprocess.run(
             [
                 "gh",
@@ -302,7 +303,10 @@ class RealIssueGateway(IssueGateway):
             text=True,
         )
         if result.returncode != 0:
-            return None
+            return PRLookupError(
+                stderr=result.stderr.strip(),
+                returncode=result.returncode,
+            )
         data = json.loads(result.stdout)
         return PRSummary(
             number=data["number"],

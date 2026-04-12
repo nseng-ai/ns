@@ -5,6 +5,7 @@ from typing import Any
 
 from clinkr.command import ClinkrCommandError
 from clinkr.operation import clinkr_operation
+from twerk_core.gh.types import PRLookupError
 from twerk_pr_address.cli.pr_address._gateway_access import get_gh_issue_gateway
 
 
@@ -21,10 +22,17 @@ class GetPRForBranchResult:
     url: str | None = None
     head_ref_name: str | None = None
     base_ref_name: str | None = None
+    error: str | None = None
+    returncode: int | None = None
 
     def to_json_dict(self) -> dict[str, Any]:
         if not self.found:
-            return {"found": False}
+            d: dict[str, Any] = {"found": False}
+            if self.error is not None:
+                d["error"] = self.error
+            if self.returncode is not None:
+                d["returncode"] = self.returncode
+            return d
         return {
             "found": True,
             "number": self.number,
@@ -43,14 +51,18 @@ def run_get_pr_for_branch(
     request: GetPRForBranchRequest,
 ) -> GetPRForBranchResult | ClinkrCommandError:
     gateway = get_gh_issue_gateway()
-    pr = gateway.get_pr_for_branch(request.branch)
-    if pr is None:
-        return GetPRForBranchResult(found=False)
+    result = gateway.get_pr_for_branch(request.branch)
+    if isinstance(result, PRLookupError):
+        return GetPRForBranchResult(
+            found=False,
+            error=result.stderr,
+            returncode=result.returncode,
+        )
     return GetPRForBranchResult(
         found=True,
-        number=pr.number,
-        title=pr.title,
-        url=pr.url,
-        head_ref_name=pr.head_ref_name,
-        base_ref_name=pr.base_ref_name,
+        number=result.number,
+        title=result.title,
+        url=result.url,
+        head_ref_name=result.head_ref_name,
+        base_ref_name=result.base_ref_name,
     )
