@@ -9,6 +9,9 @@ dependencies = [
   "twerk-core",
 ]
 
+[project.scripts]
+pr-address = "twerk_pr_address.cli.main:main"
+
 [project.entry-points."twerk.plugins"]
 pr_address = "twerk_pr_address.cli.pr_address"
 

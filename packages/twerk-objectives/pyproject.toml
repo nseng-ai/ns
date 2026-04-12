@@ -9,6 +9,9 @@ dependencies = [
   "twerk-core",
 ]
 
+[project.scripts]
+objective = "twerk_objectives.cli.main:main"
+
 [project.entry-points."twerk.plugins"]
 objectives = "twerk_objectives.cli.objective"
 
