@@ -4,6 +4,7 @@ members = [
   "packages/twerk-core",
   "packages/twerk-objectives",
   "packages/twerk-pr-address",
+  "packages/twerk-slots",
 ]
 
 [tool.uv.sources]
@@ -11,6 +12,7 @@ clinkr = { workspace = true }
 twerk-core = { workspace = true }
 twerk-objectives = { workspace = true }
 twerk-pr-address = { workspace = true }
+twerk-slots = { workspace = true }
 
 [project]
 name = "twerk"
@@ -37,6 +39,7 @@ dev = [
   "twerk-core",
   "twerk-objectives",
   "twerk-pr-address",
+  "twerk-slots",
   "ty>=0.0.1a7",
 ]
 
@@ -56,6 +59,7 @@ src = [
   "packages/twerk-core/src",
   "packages/twerk-objectives/src",
   "packages/twerk-pr-address/src",
+  "packages/twerk-slots/src",
 ]
 exclude = [".claude/", ".agents/skills/"]
 force-exclude = true
@@ -70,7 +74,7 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["twerk", "twerk_core", "twerk_objectives", "twerk_pr_address"]
+known-first-party = ["twerk", "twerk_core", "twerk_objectives", "twerk_pr_address", "twerk_slots"]
 
 [tool.ty.src]
 include = ["src"]
@@ -89,4 +93,5 @@ testpaths = [
   "packages/twerk-core/tests",
   "packages/twerk-objectives/tests",
   "packages/twerk-pr-address/tests",
+  "packages/twerk-slots/tests",
 ]

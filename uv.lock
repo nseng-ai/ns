@@ -9,6 +9,7 @@ members = [
     "twerk-core",
     "twerk-objectives",
     "twerk-pr-address",
+    "twerk-slots",
 ]
 
 [[package]]
@@ -193,6 +194,7 @@ dev = [
     { name = "twerk-core" },
     { name = "twerk-objectives" },
     { name = "twerk-pr-address" },
+    { name = "twerk-slots" },
     { name = "ty" },
 ]
 
@@ -208,6 +210,7 @@ dev = [
     { name = "twerk-core", editable = "packages/twerk-core" },
     { name = "twerk-objectives", editable = "packages/twerk-objectives" },
     { name = "twerk-pr-address", editable = "packages/twerk-pr-address" },
+    { name = "twerk-slots", editable = "packages/twerk-slots" },
     { name = "ty", specifier = ">=0.0.1a7" },
 ]
 
@@ -247,6 +250,23 @@ requires-dist = [
 name = "twerk-pr-address"
 version = "0.1.0"
 source = { editable = "packages/twerk-pr-address" }
+dependencies = [
+    { name = "click" },
+    { name = "clinkr" },
+    { name = "twerk-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "clinkr", editable = "packages/clinkr" },
+    { name = "twerk-core", editable = "packages/twerk-core" },
+]
+
+[[package]]
+name = "twerk-slots"
+version = "0.1.0"
+source = { editable = "packages/twerk-slots" }
 dependencies = [
     { name = "click" },
     { name = "clinkr" },
