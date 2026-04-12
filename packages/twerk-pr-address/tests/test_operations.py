@@ -750,3 +750,222 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
     assert output["number"] == 47
     assert output["title"] == "Port pr-address skill"
     assert output["base_ref_name"] == "master"
+
+
+# -- get-reviews --
+
+
+def test_get_reviews_returns_reviews(cli_group: ClinkrGroup) -> None:
+    reviews = [
+        PRReview(
+            id="PRR_1",
+            author="reviewer",
+            body="Fix this",
+            state="CHANGES_REQUESTED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_2",
+            author="approver",
+            body="LGTM",
+            state="APPROVED",
+            submitted_at="2025-01-02T00:00:00Z",
+        ),
+    ]
+    fake = FakeIssueGateway(reviews={42: reviews})
+
+    exit_code, output = _invoke(cli_group, ["exec", "get-reviews", "42"], fake)
+
+    assert exit_code == 0
+    assert output["count"] == 2
+    assert output["reviews"][0]["id"] == "PRR_1"
+    assert output["reviews"][0]["state"] == "CHANGES_REQUESTED"
+    assert output["reviews"][1]["id"] == "PRR_2"
+    assert output["reviews"][1]["author"] == "approver"
+
+
+def test_get_reviews_empty_pr(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke(cli_group, ["exec", "get-reviews", "99"], fake)
+
+    assert exit_code == 0
+    assert output["count"] == 0
+    assert output["reviews"] == []
+
+
+def test_get_reviews_falls_back_to_real_gateway(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Walks the DI fallback to RealIssueGateway with subprocess stubbed.
+
+    get_reviews uses the REST API (repos/{owner}/{repo}/pulls/{number}/reviews),
+    so we stub both the owner/repo lookup and the reviews endpoint.
+    """
+    owner_repo_output = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
+    reviews_payload = json.dumps(
+        [
+            {
+                "node_id": "PRR_real",
+                "user": {"login": "reviewer"},
+                "body": "Please fix",
+                "state": "CHANGES_REQUESTED",
+                "submitted_at": "2026-04-10T12:00:00Z",
+            }
+        ]
+    )
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        if cmd[:3] == ["gh", "repo", "view"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=owner_repo_output, stderr="")
+        if cmd[:2] == ["gh", "api"] and "reviews" in cmd[2]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=reviews_payload, stderr="")
+        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["exec", "get-reviews", "47"])
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.output)
+    assert output["count"] == 1
+    assert output["reviews"][0]["id"] == "PRR_real"
+    assert output["reviews"][0]["author"] == "reviewer"
+
+
+# -- add-issue-comment --
+
+
+def test_add_issue_comment_calls_gateway(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke(
+        cli_group,
+        ["exec", "add-issue-comment", "42", "Addressed in latest commit."],
+        fake,
+    )
+
+    assert exit_code == 0
+    assert fake._comments == [(42, "Addressed in latest commit.")]
+    assert output["comment"]["body"] == "Addressed in latest commit."
+    assert output["comment"]["author"] == "fake-user"
+    assert output["comment"]["id"] == 1
+
+
+def test_add_issue_comment_reads_body_from_stdin_sentinel(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway()
+    body = "Addressed all review feedback.\n\n_Addressed via pr-address at 2026-04-12T12:00:00Z_"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "add-issue-comment", "42", "-"],
+        obj={"gh_issue_gateway": fake},
+        input=body,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fake._comments == [(42, body)]
+    output = json.loads(result.output)
+    assert output["comment"]["body"] == body
+
+
+def test_add_issue_comment_falls_back_to_real_gateway(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner_repo_output = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
+    comment_payload = json.dumps(
+        {
+            "id": 9001,
+            "body": "Addressed in latest commit.",
+            "user": {"login": "schrockn"},
+            "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-9001",
+        }
+    )
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        if cmd[:3] == ["gh", "repo", "view"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=owner_repo_output, stderr="")
+        if cmd[:2] == ["gh", "api"] and "--method" in cmd and "POST" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout=comment_payload, stderr="")
+        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "add-issue-comment", "47", "Addressed in latest commit."],
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.output)
+    assert output["comment"]["id"] == 9001
+    assert output["comment"]["author"] == "schrockn"
+
+
+# -- add-reaction --
+
+
+def test_add_reaction_calls_gateway(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke(
+        cli_group,
+        ["exec", "add-reaction", "9001", "+1"],
+        fake,
+    )
+
+    assert exit_code == 0
+    assert fake._reactions == [(9001, "+1")]
+    assert output["comment_id"] == 9001
+    assert output["content"] == "+1"
+    assert output["id"] == 1
+
+
+def test_add_reaction_falls_back_to_real_gateway(
+    cli_group: ClinkrGroup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner_repo_output = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
+    reaction_payload = json.dumps(
+        {
+            "id": 5001,
+            "content": "+1",
+        }
+    )
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        if cmd[:3] == ["gh", "repo", "view"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=owner_repo_output, stderr="")
+        if cmd[:2] == ["gh", "api"] and "--method" in cmd and "POST" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout=reaction_payload, stderr="")
+        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "add-reaction", "9001", "+1"],
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.output)
+    assert output["id"] == 5001
+    assert output["comment_id"] == 9001
+    assert output["content"] == "+1"

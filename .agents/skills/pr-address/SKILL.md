@@ -1,6 +1,6 @@
 ---
 name: pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. Uses `pr-address exec get-review-comments` / `resolve-thread` / `unresolve-thread` / `add-review-thread-reply` for typed PR operations, and raw `gh` / `gh api` for the remainder."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits. All GitHub I/O goes through typed `pr-address exec` clinkr operations backed by `twerk_core.gh.IssueGateway`."
 allowed-tools:
   - "Bash(pr-address *)"
   - "Bash(gh pr view *)"
@@ -28,11 +28,12 @@ allowed-tools:
 
 # pr-address
 
-Address review comments on the current branch's PR, end-to-end, using `gh`
-directly. Fetch unresolved feedback, classify it with LLM judgment, plan
-batched execution, implement changes, commit, and resolve threads. The
-skill never pushes — the user pushes manually after reviewing the local
-commits.
+Address review comments on the current branch's PR, end-to-end. Fetch
+unresolved feedback, classify it with LLM judgment, plan batched execution,
+implement changes, commit, and resolve threads. All GitHub I/O goes through
+typed `pr-address exec` clinkr operations backed by
+`twerk_core.gh.IssueGateway`. The skill never pushes — the user pushes
+manually after reviewing the local commits.
 
 ## When to use
 
@@ -56,9 +57,9 @@ continue into edit/commit/resolve.
 - **Never pushes.** All work stays local after commit; the user pushes
   explicitly when they're ready. The skill does not include `git push` in
   its allowed-tools.
-- All `gh` invocations and GraphQL queries the skill issues are enumerated
-  in `references/operations.md` — the push-down inventory for future CLI
-  migration.
+- All GitHub I/O is routed through `pr-address exec` clinkr operations.
+  `references/operations.md` enumerates every operation and its backing
+  gateway method.
 - Classification (bot detection, informational filtering, pre-existing-issue
   identification, review-state handling) lives in the LLM prompt at
   `references/feedback-classifier.md`, not in hard-coded rules.
@@ -169,23 +170,26 @@ Add `--include-resolved` if the user passed `--all`. See
 
 #### 1b. Fetch PR-level reviews
 
-Shell out to `gh api graphql` using the `get-reviews` query from
-`references/operations.md` (this operation is not yet pushed down into the
-clinkr CLI). Returns PR-level review submissions (APPROVED,
-CHANGES_REQUESTED, COMMENTED) with `id`, `author.login`, `body`, `state`,
-`submittedAt`. Excludes PENDING and DISMISSED reviews.
+```bash
+pr-address exec get-reviews <pr_number>
+```
+
+Migrated — see `twerk_core.gh.types.PRReview` for the typed shape and
+`twerk_core.gh.real_issue_gateway.RealIssueGateway.get_reviews` for the
+implementation. Returns PR-level review submissions (APPROVED,
+CHANGES_REQUESTED, COMMENTED) with `id`, `author`, `body`, `state`,
+`submitted_at`. Excludes PENDING and DISMISSED reviews.
 
 #### 1c. Fetch discussion comments
 
-Use the REST endpoint:
-
 ```bash
-gh api repos/<owner>/<repo>/issues/<pr_number>/comments --paginate
+pr-address exec get-discussion-comments <pr_number>
 ```
 
-PRs and issues share comment endpoints, so `issues/<n>/comments` returns the
-PR's top-level (non-inline) conversation. Returns each comment's `id`,
-`user.login`, `body`, `html_url`.
+Migrated — see `twerk_core.gh.types.IssueComment` for the typed shape and
+`twerk_core.gh.real_issue_gateway.RealIssueGateway.get_discussion_comments`
+for the implementation. Returns each comment's `id`, `body`, `author`,
+`url`.
 
 #### 1d. Detect restructured files (for pre-existing-issue candidates)
 
@@ -372,15 +376,41 @@ detector in Phase 0 tell the difference between a thread the user manually
 reopened and one they never touched.
 
 For PR-level reviews: there's no way to "resolve" a review submission via
-API. Instead, post a reply comment on the PR discussion (see
-§`add-issue-comment`) that quotes the review's action items and describes
-what was addressed. The user can dismiss the review manually if needed.
+API. Instead, post a reply comment on the PR discussion using
+`pr-address exec add-issue-comment` that quotes the review's action items
+and describes what was addressed. **Pass the body via a quoted heredoc**
+(`-` as the body argument reads from stdin), same as
+`add-review-thread-reply`:
 
-For discussion comments: use the REST endpoint to post a reply comment on
-the PR. Quote the original comment with author attribution, describe the
-action taken, then add a `+1` reaction to the original comment. If the
-reaction fails, warn but do not fail the batch. Discussion comments don't
-have a "resolve" concept.
+```bash
+pr-address exec add-issue-comment <pr_number> - <<'EOF'
+Addressed review feedback from @<reviewer>:
+- <summary of changes>
+
+_Addressed via pr-address at <ISO timestamp>_
+EOF
+```
+
+The user can dismiss the review manually if needed.
+
+For discussion comments: post a reply with `pr-address exec add-issue-comment`,
+then add a `+1` reaction to the original comment with
+`pr-address exec add-reaction`:
+
+```bash
+pr-address exec add-issue-comment <pr_number> - <<'EOF'
+> @<author> wrote:
+> <quoted original comment>
+
+<description of action taken>
+
+_Addressed via pr-address at <ISO timestamp>_
+EOF
+pr-address exec add-reaction <comment_id> "+1"
+```
+
+If the reaction fails, warn but do not fail the batch. Discussion comments
+don't have a "resolve" concept.
 
 #### 3f. Report progress
 
@@ -486,9 +516,9 @@ Do not run `git push`. Do not run `gt submit`. The user pushes.
 
 ## References
 
-- `references/operations.md` — every `gh` invocation and GraphQL query the
-  skill issues, with inline query text ready to paste into `gh api graphql`.
-  This is the push-down inventory.
+- `references/operations.md` — every `pr-address exec` clinkr operation the
+  skill issues, with the backing `IssueGateway` method for each. Also
+  contains the raw `gh` / GraphQL query text for reference.
 - `references/feedback-classifier.md` — LLM-facing classification rules:
   bot detection, informational filtering, pre-existing-issue heuristics,
   review-state handling, false positives. Update this when the LLM
