@@ -45,8 +45,11 @@ before asking the user.
 If the user provided an issue number or URL, fetch it:
 
 ```bash
-gh issue view <number> --json title,body,state,labels,comments
+gh issue view <number> --json title,body,state,labels
 ```
+
+Do not request `comments` here. The body is the curated current-state
+snapshot; the comment log is only fetched on demand (see step 2).
 
 #### 1b. If no objective was provided, infer it from commits on the current branch that are not on trunk
 
@@ -99,7 +102,13 @@ gh issue list --label twerk-objective --state open --json number,title
 
 ### 2. Read and understand
 
-Read the full objective body and comments. Understand:
+**Read the issue body — and only the body.** The body is the curated
+current-state snapshot of the objective. Every prior session reconciles its
+work back into the body (see step 7a), so it already reflects what's been
+done, what remains, the constraints and design decisions in force, and the
+current set of assumptions and risks.
+
+From the body, understand:
 
 - What is the goal?
 - What work has already been done?
@@ -107,8 +116,20 @@ Read the full objective body and comments. Understand:
 - What constraints or design decisions apply?
 - What assumptions or risks have been identified?
 
-Comments may contain progress logs, lessons learned, or direction changes from
-prior sessions. Read them — they are the running record of this objective.
+**Do not load the comment thread by default.** Comments are the historical
+log of prior reconciliations. They are largely superseded by the body and
+pulling them in wastes context on stale information.
+
+**When to reach for the log:** only if the body is ambiguous, internally
+inconsistent, or appears stale relative to in-flight commits on the current
+branch. In that case fetch comments on demand:
+
+```bash
+gh issue view <number> --json comments
+```
+
+Focus on the most recent reconciliation comment first, and stop as soon as
+you have what you need.
 
 ### 3. Assess the codebase
 
@@ -124,13 +145,17 @@ Don't do a broad survey. Be targeted.
 
 ### 3b. Review assumptions and risks
 
-If the objective has an "Assumptions & Risks" section (in the body or in prior
-reconciliation comments), review each entry against what you observe in the
+If the objective has an "Assumptions & Risks" section in the body (step 7a
+keeps this current), review each entry against what you observe in the
 codebase:
 
 - Confirm assumptions that are still valid
 - Flag assumptions that are now invalid — these may change the plan
 - Note new risks or open questions discovered during assessment
+
+If the body's assumptions section looks incomplete or stale, you may fall
+back to the most recent reconciliation comment for additional context —
+but the body is the default source.
 
 Carry this forward into the reconciliation comment (step 7).
 
