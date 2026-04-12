@@ -88,17 +88,7 @@ def _make_fake_run(
             }
         }
     )
-    reviews_payload = json.dumps(
-        {
-            "data": {
-                "repository": {
-                    "pullRequest": {
-                        "reviews": {"nodes": reviews},
-                    }
-                }
-            }
-        }
-    )
+    reviews_payload = json.dumps(reviews or [])
     discussion_comments_payload = "".join(
         json.dumps(page) for page in (discussion_comment_pages or [])
     )
@@ -134,9 +124,10 @@ def _make_fake_run(
             assert "number=47" in joined
             if "reviewThreads(first: 100)" in joined:
                 return subprocess.CompletedProcess(cmd, 0, stdout=review_threads_payload, stderr="")
-            if "reviews(first: 100, states: [CHANGES_REQUESTED, APPROVED, COMMENTED])" in joined:
-                return subprocess.CompletedProcess(cmd, 0, stdout=reviews_payload, stderr="")
             raise AssertionError(f"unexpected GraphQL query: {joined}")
+        if cmd[:2] == ["gh", "api"] and cmd[2].endswith("/reviews"):
+            assert "--paginate" in cmd
+            return subprocess.CompletedProcess(cmd, 0, stdout=reviews_payload, stderr="")
         if cmd[:2] == ["gh", "api"] and cmd[2] == "repos/dagster-io/twerk/issues/47/comments":
             assert "--paginate" in cmd
             return subprocess.CompletedProcess(
@@ -243,18 +234,18 @@ def test_get_reviews_returns_full_review_records(
 ) -> None:
     reviews = [
         {
-            "id": "PRR_changes",
-            "author": {"login": "reviewer"},
+            "node_id": "PRR_changes",
+            "user": {"login": "reviewer"},
             "body": "Please fix this",
             "state": "CHANGES_REQUESTED",
-            "submittedAt": "2026-04-10T12:00:00Z",
+            "submitted_at": "2026-04-10T12:00:00Z",
         },
         {
-            "id": "PRR_approved",
-            "author": None,
+            "node_id": "PRR_approved",
+            "user": None,
             "body": "looks good",
             "state": "APPROVED",
-            "submittedAt": "2026-04-10T13:00:00Z",
+            "submitted_at": "2026-04-10T13:00:00Z",
         },
     ]
     monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(reviews=reviews))
@@ -265,6 +256,40 @@ def test_get_reviews_returns_full_review_records(
     assert tuple(review.state for review in result) == ("CHANGES_REQUESTED", "APPROVED")
     assert result[0].author == "reviewer"
     assert result[1].author == ""
+
+
+def test_get_reviews_filters_out_pending_and_dismissed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reviews = [
+        {
+            "node_id": "PRR_pending",
+            "user": {"login": "reviewer"},
+            "body": "",
+            "state": "PENDING",
+            "submitted_at": "2026-04-10T11:00:00Z",
+        },
+        {
+            "node_id": "PRR_approved",
+            "user": {"login": "reviewer"},
+            "body": "lgtm",
+            "state": "APPROVED",
+            "submitted_at": "2026-04-10T12:00:00Z",
+        },
+        {
+            "node_id": "PRR_dismissed",
+            "user": {"login": "reviewer"},
+            "body": "dismissed",
+            "state": "DISMISSED",
+            "submitted_at": "2026-04-10T13:00:00Z",
+        },
+    ]
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(reviews=reviews))
+
+    result = RealIssueGateway().get_reviews(47)
+
+    assert tuple(review.id for review in result) == ("PRR_approved",)
+    assert result[0].state == "APPROVED"
 
 
 def test_resolve_review_thread_sends_mutation(
