@@ -141,7 +141,7 @@ def test_slot_free_by_slot_name(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "slot-01"],
+        ["free", "--wt", "slot-01"],
         obj=_make_obj(fakes, slots_root),
     )
 
@@ -164,33 +164,13 @@ def test_slot_free_by_slot_number(cli_group: ClinkrGroup, tmp_path: Path) -> Non
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "3"],
+        ["free", "--num", "3"],
         obj=_make_obj(fakes, slots_root),
     )
 
     assert result.exit_code == 0, result.output
     assert "slot-03" in result.output
     assert "feat/three" in result.output
-
-
-def test_slot_free_from_cwd_autodetects(
-    cli_group: ClinkrGroup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    slots_root = tmp_path / "slots"
-    fakes = _fake_for_repo(tmp_path)
-    worktree_path = _seed_assigned(fakes, slots_root)
-    worktree_path.mkdir(parents=True)
-    monkeypatch.chdir(worktree_path)
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["free"],
-        obj=_make_obj(fakes, slots_root),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert "slot-01" in result.output
-    assert "feat/x" in result.output
 
 
 # -- JSON mode --------------------------------------------------------------
@@ -204,7 +184,7 @@ def test_slot_free_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) 
     result = CliRunner().invoke(
         cli_group,
         ["json", "free"],
-        input=json.dumps({"slot": "slot-01"}),
+        input=json.dumps({"wt": "slot-01"}),
         obj=_make_obj(fakes, slots_root),
     )
 
@@ -235,7 +215,7 @@ def test_slot_free_unknown_slot_errors(cli_group: ClinkrGroup, tmp_path: Path) -
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "slot-02"],
+        ["free", "--wt", "slot-02"],
         obj=_make_obj(fakes, slots_root),
     )
 
@@ -243,19 +223,64 @@ def test_slot_free_unknown_slot_errors(cli_group: ClinkrGroup, tmp_path: Path) -
     assert "not currently assigned" in result.output
 
 
-def test_slot_free_invalid_slot_arg_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_invalid_slot_num_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "99"],
+        ["free", "--num", "99"],
         obj=_make_obj(fakes, slots_root),
     )
 
     assert result.exit_code == 1
-    assert "not a valid slot number" in result.output
+    assert "must be in 1..4" in result.output
+
+
+def test_slot_free_invalid_slot_wt_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "bogus"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "not a valid slot name" in result.output
+
+
+def test_slot_free_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "--num or --wt" in result.output
+
+
+def test_slot_free_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--num", "1", "--wt", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "not both" in result.output
 
 
 def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -269,7 +294,7 @@ def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path)
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "slot-01"],
+        ["free", "--wt", "slot-01"],
         obj=_make_obj(fakes, slots_root),
     )
 
@@ -281,22 +306,6 @@ def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path)
     assert len(saved.assignments) == 1
 
 
-def test_slot_free_cwd_not_in_slot_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    slots_root = tmp_path / "slots"
-    fakes = _fake_for_repo(tmp_path)
-    # Pool exists but cwd (the test's cwd) is not inside any slot worktree.
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["free"],
-        obj=_make_obj(fakes, slots_root),
-    )
-
-    assert result.exit_code == 1
-    assert "Not inside a pool slot" in result.output
-
-
 def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
@@ -304,7 +313,7 @@ def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> 
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "slot-01"],
+        ["free", "--wt", "slot-01"],
         obj=_make_obj(fakes, slots_root),
     )
 
@@ -322,7 +331,7 @@ def test_slot_free_not_in_repo_errors(
 
     monkeypatch.setattr(real_git.subprocess, "run", fake_run)
 
-    result = CliRunner().invoke(cli_group, ["free", "slot-01"])
+    result = CliRunner().invoke(cli_group, ["free", "--wt", "slot-01"])
 
     assert result.exit_code == 1
     assert "Not inside a git repository" in result.output

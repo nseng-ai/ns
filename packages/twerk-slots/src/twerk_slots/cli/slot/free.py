@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated, Any
 
 import click
@@ -16,13 +15,13 @@ from twerk_slots.allocation import (
 )
 from twerk_slots.cli.slot._context import build_slots_context
 from twerk_slots.naming import extract_slot_number, generate_slot_name
-from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import NoRepoSentinel
 
 
 @dataclass(frozen=True)
 class SlotFreeRequest:
-    slot: Annotated[str | None, click.Argument(["slot"], required=False)] = None
+    num: Annotated[int | None, click.Option(["--num"], type=click.INT, default=None)] = None
+    wt: Annotated[str | None, click.Option(["--wt"], type=click.STRING, default=None)] = None
 
 
 @dataclass(frozen=True)
@@ -53,41 +52,6 @@ def render_slot_free(result: SlotFreeResult) -> None:
     )
 
 
-def _resolve_slot_arg(arg: str, *, pool_size: int) -> str | None:
-    """Return the canonical slot name for ``arg`` (a number or full name).
-
-    Returns None when ``arg`` is neither a valid slot number in range nor a
-    canonically-formatted slot name.
-    """
-    if arg.isdigit():
-        slot_num = int(arg)
-        if 1 <= slot_num <= pool_size:
-            return generate_slot_name(slot_num)
-        return None
-    if extract_slot_number(arg) is not None:
-        return arg
-    return None
-
-
-def _find_assignment_by_cwd(state: PoolState, cwd: Path) -> SlotAssignment | None:
-    """Find an assignment whose worktree contains ``cwd``.
-
-    Uses filesystem resolution directly (no gateway) because cwd detection
-    is a pure path comparison against the (already-persisted) assignment
-    paths — it does not probe git state.
-    """
-    if not cwd.exists():
-        return None
-    resolved_cwd = cwd.resolve()
-    for assignment in state.assignments:
-        if not assignment.worktree_path.exists():
-            continue
-        wt_path = assignment.worktree_path.resolve()
-        if resolved_cwd == wt_path or wt_path in resolved_cwd.parents:
-            return assignment
-    return None
-
-
 @clinkr_operation(
     name="free",
     help="Release a slot assignment; keep the worktree directory for reuse.",
@@ -105,28 +69,30 @@ def run_free_slot(request: SlotFreeRequest) -> SlotFreeResult | ClinkrCommandErr
             message="No pool configured. Run `slot assign` first.",
         )
 
-    if request.slot is not None:
-        resolved = _resolve_slot_arg(request.slot, pool_size=state.pool_size)
-        if resolved is None:
+    if request.num is not None and request.wt is not None:
+        return ClinkrCommandError(
+            error_type="conflicting_slot_args",
+            message="Pass exactly one of --num or --wt, not both.",
+        )
+    if request.num is not None:
+        if not (1 <= request.num <= state.pool_size):
             return ClinkrCommandError(
-                error_type="invalid_slot_arg",
-                message=(
-                    f"'{request.slot}' is not a valid slot number (1..{state.pool_size}) "
-                    f"or slot name (e.g. 'slot-01')."
-                ),
+                error_type="invalid_slot_num",
+                message=f"--num must be in 1..{state.pool_size} (got {request.num}).",
             )
-        slot_name = resolved
+        slot_name = generate_slot_name(request.num)
+    elif request.wt is not None:
+        if extract_slot_number(request.wt) is None:
+            return ClinkrCommandError(
+                error_type="invalid_slot_wt",
+                message=f"--wt '{request.wt}' is not a valid slot name (e.g. 'slot-01').",
+            )
+        slot_name = request.wt
     else:
-        assignment = _find_assignment_by_cwd(state, Path.cwd())
-        if assignment is None:
-            return ClinkrCommandError(
-                error_type="cwd_not_in_slot",
-                message=(
-                    "Not inside a pool slot. Pass a slot number or name, "
-                    "or cd into a slot worktree."
-                ),
-            )
-        slot_name = assignment.slot_name
+        return ClinkrCommandError(
+            error_type="missing_slot_arg",
+            message="Pass one of --num or --wt to identify the slot.",
+        )
 
     outcome = free_slot_assignment(ctx, slot_name=slot_name)
     if isinstance(outcome, SlotNotAssignedError):
