@@ -12,7 +12,7 @@ import json
 import subprocess
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 LOCK_PATH = REPO_ROOT / "skills-lock.json"
 AGENTS_SKILLS = REPO_ROOT / ".agents" / "skills"
 CLAUDE_SKILLS = REPO_ROOT / ".claude" / "skills"
