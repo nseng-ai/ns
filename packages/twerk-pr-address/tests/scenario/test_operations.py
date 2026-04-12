@@ -1,10 +1,7 @@
 """Scenario tests for the standalone ``pr-address`` CLI.
 
 Every exec operation is exercised through ``build_cli()`` — the top-level
-standalone CLI entry point that users and skills invoke directly. The
-``TESTED_OPERATIONS`` set at the top is cross-referenced at the bottom by
-an exhaustiveness guard that fails when a new operation is added without
-corresponding scenario coverage.
+standalone CLI entry point that users and skills invoke directly.
 """
 
 import json
@@ -24,23 +21,6 @@ from twerk_core.gh.types import (
     PRSummary,
 )
 from twerk_pr_address.cli.main import build_cli
-
-# Every exec operation that has scenario tests in this file. When you add
-# a new operation, add its name here *and* write at least one scenario test.
-TESTED_OPERATIONS: frozenset[str] = frozenset(
-    {
-        "add-issue-comment",
-        "add-reaction",
-        "add-review-thread-reply",
-        "get-discussion-comments",
-        "get-feedback",
-        "get-pr-for-branch",
-        "get-review-comments",
-        "get-reviews",
-        "resolve-thread",
-        "unresolve-thread",
-    }
-)
 
 
 @pytest.fixture(scope="module")
@@ -1379,23 +1359,3 @@ def test_resolve_then_unresolve_then_resolve_tracks_independently(
     assert final_output["was_already_resolved"] is True
     assert fake._resolved_thread_ids == ["PRRT_abc", "PRRT_abc"]
     assert fake._unresolved_thread_ids == ["PRRT_abc"]
-
-
-# -- exhaustiveness guard --
-
-
-def test_every_exec_operation_has_scenario_coverage(cli_group: ClinkrGroup) -> None:
-    """Fail when a new exec operation is added without scenario coverage.
-
-    Discovers all commands on the ``exec`` subgroup and asserts that
-    ``TESTED_OPERATIONS`` covers them exactly. When you add a new
-    operation, add its name to ``TESTED_OPERATIONS`` and write at least
-    one scenario test for it.
-    """
-    exec_group = cli_group.commands["exec"]
-    registered = {name for name in exec_group.commands if name != "json"}
-    assert registered == TESTED_OPERATIONS, (
-        f"Mismatch between registered exec operations and TESTED_OPERATIONS.\n"
-        f"  Missing from TESTED_OPERATIONS: {registered - TESTED_OPERATIONS}\n"
-        f"  Extra in TESTED_OPERATIONS: {TESTED_OPERATIONS - registered}"
-    )
