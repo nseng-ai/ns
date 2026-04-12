@@ -14,7 +14,12 @@ from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.git import GitGateway
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
-from twerk_slots.naming import extract_slot_number, generate_slot_name, is_placeholder_branch
+from twerk_slots.naming import (
+    extract_slot_number,
+    generate_slot_name,
+    get_placeholder_branch_name,
+    is_placeholder_branch,
+)
 from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
 
 
@@ -35,6 +40,31 @@ class PoolFullError:
 
     oldest_slot: str
     oldest_branch: str
+
+
+@dataclass(frozen=True)
+class SlotFreeOutcome:
+    """Outcome of a successful :func:`free_slot_assignment` call."""
+
+    slot_name: str
+    branch_name: str
+    worktree_path: Path
+    placeholder_branch: str
+
+
+@dataclass(frozen=True)
+class SlotNotAssignedError:
+    """Signals that the requested slot has no current assignment."""
+
+    slot_name: str
+
+
+@dataclass(frozen=True)
+class DirtyWorktreeError:
+    """Signals that the slot's worktree has uncommitted changes."""
+
+    slot_name: str
+    worktree_path: Path
 
 
 def find_next_available_slot(
@@ -248,4 +278,65 @@ def allocate_slot_for_branch(
         worktree_path=worktree_path,
         already_assigned=False,
         evicted_slot=evicted_slot,
+    )
+
+
+def find_assignment_by_slot(state: PoolState, slot_name: str) -> SlotAssignment | None:
+    """Return the assignment for ``slot_name`` or None when the slot is free."""
+    for assignment in state.assignments:
+        if assignment.slot_name == slot_name:
+            return assignment
+    return None
+
+
+def free_slot_assignment(
+    ctx: SlotsCliContext,
+    *,
+    slot_name: str,
+) -> SlotFreeOutcome | SlotNotAssignedError | DirtyWorktreeError:
+    """Release ``slot_name``'s assignment while keeping its worktree.
+
+    The worktree directory is preserved — only the branch assignment is
+    removed from ``pool.json``. The worktree is switched to the slot's
+    placeholder branch so the real branch is free for other operations
+    (deletion, checkout elsewhere).
+
+    Returns a :class:`SlotFreeOutcome` on success, or a
+    :class:`SlotNotAssignedError` / :class:`DirtyWorktreeError` sentinel
+    when the slot cannot be freed.
+    """
+    state = ctx.pool_state.load() or PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
+
+    assignment = find_assignment_by_slot(state, slot_name)
+    if assignment is None:
+        return SlotNotAssignedError(slot_name=slot_name)
+
+    if ctx.git.has_uncommitted_changes(assignment.worktree_path):
+        return DirtyWorktreeError(
+            slot_name=slot_name,
+            worktree_path=assignment.worktree_path,
+        )
+
+    placeholder = get_placeholder_branch_name(slot_name)
+    # slot_name came from state.assignments so it already validated via
+    # the naming rules when the assignment was created.
+    assert placeholder is not None
+
+    local_branches = ctx.git.list_local_branches()
+    ctx.git.create_branch(
+        placeholder,
+        assignment.branch_name,
+        force=placeholder in local_branches,
+    )
+    ctx.git.checkout_branch(assignment.worktree_path, placeholder)
+
+    new_state = state.with_assignment_removed(slot_name)
+    ctx.pool_state.save(new_state)
+
+    return SlotFreeOutcome(
+        slot_name=assignment.slot_name,
+        branch_name=assignment.branch_name,
+        worktree_path=assignment.worktree_path,
+        placeholder_branch=placeholder,
     )

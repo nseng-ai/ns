@@ -67,6 +67,8 @@ def test_assign_then_list_reflects_state(tmp_path: Path) -> None:
     assert len(assigned) == 1
     assert assigned[0]["branch"] == "feat/one"
     assert assigned[0]["slot_name"] == "slot-01"
+    unallocated = [r for r in payload["rows"] if r["status"] == "unallocated"]
+    assert len(unallocated) == 15
 
     # Human table also shows the branch.
     human_list = runner.invoke(

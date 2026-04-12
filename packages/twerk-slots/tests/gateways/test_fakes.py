@@ -58,6 +58,38 @@ def test_fake_add_worktree_records_mutation_and_exposes_new_worktree() -> None:
     assert gateway.get_current_branch(target) == "feat/x"
 
 
+def test_fake_git_create_branch_records_call() -> None:
+    gateway = FakeGitGateway(repo_root=Path("/r"), branches={"main"})
+
+    gateway.create_branch("feat/x", "main", force=False)
+
+    assert gateway._create_branch_calls == [("feat/x", "main", False)]
+    assert "feat/x" in gateway.list_local_branches()
+
+
+def test_fake_git_create_branch_conflict_without_force_asserts() -> None:
+    gateway = FakeGitGateway(repo_root=Path("/r"), branches={"feat/x"})
+
+    try:
+        gateway.create_branch("feat/x", "main", force=False)
+    except AssertionError as exc:
+        assert "already exists" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected AssertionError")
+
+    # No mutation recorded on refusal.
+    assert gateway._create_branch_calls == []
+
+
+def test_fake_git_create_branch_force_overwrites() -> None:
+    gateway = FakeGitGateway(repo_root=Path("/r"), branches={"feat/x"})
+
+    gateway.create_branch("feat/x", "main", force=True)
+
+    assert gateway._create_branch_calls == [("feat/x", "main", True)]
+    assert "feat/x" in gateway.list_local_branches()
+
+
 def test_fake_checkout_updates_worktree_and_mutation_log() -> None:
     gateway = FakeGitGateway(
         repo_root=Path("/r"),

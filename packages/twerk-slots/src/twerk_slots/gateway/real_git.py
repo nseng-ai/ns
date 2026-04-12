@@ -161,6 +161,13 @@ class RealGitGateway(GitGateway):
     def checkout_branch(self, cwd: Path, branch: str) -> None:
         _run(["git", "checkout", branch], cwd=cwd)
 
+    def create_branch(self, branch: str, start_point: str, *, force: bool) -> None:
+        cmd = ["git", "branch"]
+        if force:
+            cmd.append("-f")
+        cmd.extend([branch, start_point])
+        _run(cmd, cwd=self._repo_root)
+
     # -- Status --
 
     def has_uncommitted_changes(self, cwd: Path) -> bool:

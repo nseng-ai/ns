@@ -59,3 +59,17 @@ class PoolState:
             pool_size=self.pool_size,
             assignments=(*self.assignments, assignment),
         )
+
+    def with_assignment_removed(self, slot_name: str) -> PoolState:
+        """Return a new :class:`PoolState` with ``slot_name``'s assignment dropped.
+
+        Raises :class:`AssertionError` when ``slot_name`` is not currently
+        assigned — callers must check the state first.
+        """
+        existing_slots = {a.slot_name for a in self.assignments}
+        if slot_name not in existing_slots:
+            raise AssertionError(f"slot {slot_name!r} is not currently assigned; nothing to remove")
+        return PoolState(
+            pool_size=self.pool_size,
+            assignments=tuple(a for a in self.assignments if a.slot_name != slot_name),
+        )

@@ -57,6 +57,7 @@ class FakeGitGateway(GitGateway):
         # Mutation log — read by tests for assertions.
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
         self._checkout_calls: list[tuple[Path, str]] = []
+        self._create_branch_calls: list[tuple[str, str, bool]] = []
 
     # -- Filesystem helpers --
 
@@ -117,6 +118,12 @@ class FakeGitGateway(GitGateway):
             WorktreeInfo(path=wt.path, branch=branch, is_bare=wt.is_bare) if wt.path == cwd else wt
             for wt in self._worktrees
         ]
+
+    def create_branch(self, branch: str, start_point: str, *, force: bool) -> None:
+        if branch in self._branches and not force:
+            raise AssertionError(f"branch {branch!r} already exists; pass force=True to move it")
+        self._create_branch_calls.append((branch, start_point, force))
+        self._branches.add(branch)
 
     # -- Status --
 
