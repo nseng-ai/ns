@@ -224,3 +224,34 @@ def test_objective_public_commands_have_json_counterparts(
     public_commands = {name for name in cli_group.commands if name != "json"}
 
     assert public_commands <= set(json_group.commands)
+
+
+# -- standalone CLI tests --
+
+
+class TestStandaloneCli:
+    @pytest.fixture()
+    def standalone_group(self) -> ClinkrGroup:
+        from twerk_objectives.cli.main import build_cli
+
+        return build_cli()
+
+    def test_version_option(self, standalone_group: ClinkrGroup) -> None:
+        runner = CliRunner()
+        result = runner.invoke(standalone_group, ["--version"])
+        assert result.exit_code == 0
+        assert "version" in result.output
+
+    def test_help_short_flag(self, standalone_group: ClinkrGroup) -> None:
+        runner = CliRunner()
+        result = runner.invoke(standalone_group, ["-h"])
+        assert result.exit_code == 0
+        assert "Manage objectives." in result.output
+        assert "--version" in result.output
+
+    def test_subcommands_present(self, standalone_group: ClinkrGroup) -> None:
+        runner = CliRunner()
+        result = runner.invoke(standalone_group, ["-h"])
+        assert result.exit_code == 0
+        assert "list" in result.output
+        assert "json" in result.output
