@@ -167,6 +167,7 @@ def test_slot_assign_help(cli_group: ClinkrGroup) -> None:
     assert "BRANCH_NAME" in result.output
     assert "--force" in result.output
     assert "--current" in result.output
+    assert "--new" in result.output
 
 
 def test_slot_version(cli_group: ClinkrGroup) -> None:
@@ -465,6 +466,100 @@ def test_slot_assign_already_assigned_reuses(cli_group: ClinkrGroup, tmp_path: P
     assert fakes.git.list_worktrees() == worktrees_before
 
 
+# -- assign -n/--new --------------------------------------------------------
+
+
+def test_slot_assign_new_creates_branch_and_assigns(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path)  # no branches seeded
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "-n", "feat/x"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-01" in result.output
+    assert "feat/x" in result.output
+    assert ("feat/x", "HEAD", False) in fakes.git._create_branch_calls
+    _assert_assigned_slot_state(
+        fakes,
+        slots_root=slots_root,
+        slot_name="slot-01",
+        branch_name="feat/x",
+    )
+
+
+def test_slot_assign_new_long_form(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path)
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--new", "feat/y"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ("feat/y", "HEAD", False) in fakes.git._create_branch_calls
+    _assert_assigned_slot_state(
+        fakes,
+        slots_root=slots_root,
+        slot_name="slot-01",
+        branch_name="feat/y",
+    )
+
+
+def test_slot_assign_new_branch_already_exists(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "-n", "feat/x"],
+        obj=_make_obj(fakes, tmp_path / "slots"),
+    )
+
+    assert result.exit_code == 1
+    assert "already exists" in result.output
+    assert fakes.git._create_branch_calls == []
+    assert _saved_assignments(fakes) == ()
+
+
+def test_slot_assign_new_mutually_exclusive_with_positional(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "feat/x", "-n", "feat/y"],
+        obj=_make_obj(fakes, tmp_path / "slots"),
+    )
+
+    assert result.exit_code == 1
+    assert "exactly one" in result.output
+    assert fakes.git._create_branch_calls == []
+    assert _saved_assignments(fakes) == ()
+
+
+def test_slot_assign_new_mutually_exclusive_with_current(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(tmp_path)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current", "-n", "feat/y"],
+        obj=_make_obj(fakes, tmp_path / "slots"),
+    )
+
+    assert result.exit_code == 1
+    assert "exactly one" in result.output
+    assert fakes.git._create_branch_calls == []
+    assert _saved_assignments(fakes) == ()
+
+
 # -- assign --current -------------------------------------------------------
 
 
@@ -757,7 +852,7 @@ def test_slot_assign_rejects_both_branch_and_current(
     )
 
     assert result.exit_code == 1
-    assert "not both" in result.output
+    assert "exactly one" in result.output
 
 
 def test_slot_assign_rejects_neither_branch_nor_current(
