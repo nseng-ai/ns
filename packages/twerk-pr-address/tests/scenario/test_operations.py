@@ -175,7 +175,7 @@ def test_get_review_comments_falls_back_to_real_gateway(
     """End-to-end: `twerk pr-address get-review-comments` with no gateway injected.
 
     When a real user runs the command, nothing populates
-    `ctx.obj["gh_issue_gateway"]`, so `_gateway_access.get_gh_issue_gateway()`
+    `ctx.obj["gh_issue_gateway"]`, so `gateway_access.get_gh_issue_gateway()`
     falls back to `RealIssueGateway()`. Every other test in this file
     short-circuits that fallback by injecting a `FakeIssueGateway` via
     `obj=...`, so the fallback path would otherwise be uncovered. This test

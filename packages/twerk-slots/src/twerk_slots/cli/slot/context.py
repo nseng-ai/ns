@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from twerk_slots.cli.slot._gateway_access import (
+from twerk_slots.cli.slot.gateway_access import (
     get_git_gateway,
     get_pool_state_gateway,
     get_slots_root,

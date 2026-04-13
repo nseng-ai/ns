@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from twerk_core.clinkr.command import ClinkrCommandError
-from twerk_slots.cli.slot._slot_target import resolve_slot_target
+from twerk_slots.cli.slot.slot_target import resolve_slot_target
 
 
 def test_resolve_num_in_range_returns_slot_name() -> None:
