@@ -254,7 +254,7 @@ something like:
 
 Use this as a scratchpad during Phase 2; you don't have to print it to
 the user verbatim. The user sees the plan-display output in the format
-from `operations.md` §`plan-display`.
+shown in `SKILL.md` Phase 2.
 
 ## When this file is wrong
 

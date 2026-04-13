@@ -56,8 +56,6 @@ continue into edit/commit/resolve.
   explicitly when they're ready. The skill does not include `git push` in
   its allowed-tools.
 - All GitHub I/O is routed through `pr-address exec` clinkr operations.
-  `references/operations.md` enumerates every operation and its backing
-  gateway method.
 - Classification (bot detection, informational filtering, pre-existing-issue
   identification, review-state handling) lives in the LLM prompt at
   `references/feedback-classifier.md`, not in hard-coded rules.
@@ -118,8 +116,6 @@ threads for new replies:
 pr-address exec get-review-comments <pr_number> --include-resolved
 ```
 
-See `references/operations.md` §`get-review-threads`.
-
 #### 0c. Detect contested threads
 
 A thread is **contested** if all three are true:
@@ -134,7 +130,7 @@ it alone. Only reopen threads that this skill previously resolved.
 #### 0d. Reopen contested threads
 
 For each contested thread, run `pr-address exec unresolve-thread
-"$THREAD_ID"`. See `references/operations.md` §`unresolve-thread`.
+"$THREAD_ID"`.
 
 If reopening one thread fails, warn and continue. This phase is a quality
 improvement, not a reason to abort the whole run.
@@ -159,8 +155,7 @@ in Phase 2 needs all three before it can make decisions.
 pr-address exec get-review-comments <pr_number>
 ```
 
-Add `--include-resolved` if the user passed `--all`. See
-`references/operations.md` §`get-review-threads`.
+Add `--include-resolved` if the user passed `--all`.
 
 #### 1b. Fetch PR-level reviews
 
@@ -251,10 +246,36 @@ re-classify. Do not proceed with a partial plan.
 | 4 | complex       | **no**       | Related comments that inform a unified change   |
 | 5 | informational | **no**       | User decides: act, dismiss, or skip             |
 
-Display the plan to the user as a compact markdown table per batch (see
-`references/operations.md` §`plan-display` for the exact format). For
-batches with `auto_proceed: true`, proceed without confirmation. For
+Display the plan to the user as a compact markdown table per batch, using
+this format:
+
+```text
+## Execution plan — PR #<N> <title>
+
+### Batch 0: Pre-Existing Auto-Resolve (<count> threads) — auto-proceed
+| # | Location | Summary |
+|---|----------|---------|
+| 1 | src/old.py → src/new.py:42 | Bot: add type annotation (file moved) |
+
+### Batch 1: Local Fixes (<count> items) — auto-proceed
+| # | Location | Summary |
+|---|----------|---------|
+| 2 | src/foo.py:42 | Use LBYL pattern |
+
+### Batch 3: Cross-Cutting (<count> items) — needs approval
+| # | Location | Summary |
+|---|----------|---------|
+| 5 | multiple files | Update all callers of `foo()` |
+
+### Informational Review Threads (<count>) — will prompt per item
+- src/foo.py:88 — reviewer asked whether this helper belongs in a gateway
+- src/legacy.py:12 — bot nit looks optional; user decides
+```
+
+For `auto_proceed: true` batches, proceed without confirmation. For
 `auto_proceed: false` batches, **wait for user approval** before executing.
+For the Informational section, prompt the user per-item with act / dismiss
+/ skip choices.
 
 If plan mode is active, display the plan and call `ExitPlanMode`. Do not
 execute Phases 3–4 while plan mode is on.
@@ -268,8 +289,7 @@ For each batch in order:
 If the batch's complexity is `pre_existing`, skip code changes entirely —
 just resolve each thread with the standard pre-existing comment via
 `pr-address exec add-review-thread-reply` followed by
-`pr-address exec resolve-thread`. See `references/operations.md` for the
-command shapes. Resolution comment:
+`pr-address exec resolve-thread`. Resolution comment:
 
 > Pre-existing issue — this code was moved/restructured, not newly
 > introduced.
@@ -474,17 +494,13 @@ Do not run `git push`. Do not run `gt submit`. The user pushes.
   upstream. This is enforced by the allowed-tools list (no `git push*`).
 - Never use raw `gh api .../comments/{id}/replies` to "reply" without
   resolving — it leaves the thread open. Always use `pr-address exec
-  add-review-thread-reply` together with `pr-address exec resolve-thread`
-  (see `references/operations.md`).
+  add-review-thread-reply` together with `pr-address exec resolve-thread`.
 - Every unresolved review thread must be represented explicitly during
   classification. Never count-collapse or silently drop a live review
   thread.
 - Classification lives in the LLM, not in Python. If you find yourself
   wanting to add a hard-coded rule for a specific bot or reviewer, **update
   `references/feedback-classifier.md` instead**.
-- Every mechanical `gh` invocation the skill makes is a push-down
-  candidate. Keep `references/operations.md` in sync when the set changes
-  — that file is the contract with the future CLI push-down work.
 - If a batch's tests fail, fix them before committing. Never commit a
   broken batch to get past a failure.
 - If the user explicitly skips a comment, record it in the final summary's
@@ -505,9 +521,6 @@ Do not run `git push`. Do not run `gt submit`. The user pushes.
 
 ## References
 
-- `references/operations.md` — every `pr-address exec` operation the
-  skill issues. Also contains the raw `gh` / GraphQL query text for
-  reference.
 - `references/feedback-classifier.md` — LLM-facing classification rules:
   bot detection, informational filtering, pre-existing-issue heuristics,
   review-state handling, false positives. Update this when the LLM
