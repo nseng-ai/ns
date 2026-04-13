@@ -3,6 +3,8 @@ import { Container, Text } from "@mariozechner/pi-tui";
 
 const PR_PROMPT_PATTERN = /^\s*You are given one or more GitHub PR URLs:\s*(\S+)/im;
 const ISSUE_PROMPT_PATTERN = /^\s*Analyze GitHub issue\(s\):\s*(\S+)/im;
+const PR_URL_PATTERN = /https:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/i;
+const ISSUE_URL_PATTERN = /https:\/\/github\.com\/[^\s/]+\/[^\s/]+\/issues\/\d+/i;
 
 type PromptMatch = {
 	kind: "pr" | "issue";
@@ -29,6 +31,33 @@ function extractPromptMatch(prompt: string): PromptMatch | undefined {
 	}
 
 	return undefined;
+}
+
+function extractUrlMatch(text: string): PromptMatch | undefined {
+	const prUrl = text.match(PR_URL_PATTERN)?.[0]?.trim();
+	if (prUrl) {
+		return { kind: "pr", url: prUrl };
+	}
+
+	const issueUrl = text.match(ISSUE_URL_PATTERN)?.[0]?.trim();
+	if (issueUrl) {
+		return { kind: "issue", url: issueUrl };
+	}
+
+	return undefined;
+}
+
+async function inferCurrentBranchPrMatch(pi: ExtensionAPI): Promise<PromptMatch | undefined> {
+	try {
+		const result = await pi.exec("gh", ["pr", "view", "--json", "url"]);
+		if (result.code !== 0 || !result.stdout) return undefined;
+		const payload = JSON.parse(result.stdout) as { url?: string };
+		const url = payload.url?.trim();
+		if (!url) return undefined;
+		return { kind: "pr", url };
+	} catch {
+		return undefined;
+	}
 }
 
 async function fetchGhMetadata(
@@ -91,6 +120,44 @@ export default function promptUrlWidgetExtension(pi: ExtensionAPI) {
 		}
 	};
 
+	const applyMatch = (ctx: ExtensionContext, match: PromptMatch) => {
+		if (ctx.hasUI) {
+			setWidget(ctx, match);
+		}
+		applySessionName(ctx, match);
+		void fetchGhMetadata(pi, match.kind, match.url).then((meta) => {
+			const title = meta?.title?.trim();
+			const authorText = formatAuthor(meta?.author);
+			if (ctx.hasUI) {
+				setWidget(ctx, match, title, authorText);
+			}
+			applySessionName(ctx, match, title);
+		});
+	};
+
+	pi.registerCommand("set-gh-url", {
+		description: "Set GitHub PR/issue URL for the widget. No argument uses current branch PR.",
+		handler: async (args, ctx) => {
+			const trimmedArgs = args.trim();
+			const match = trimmedArgs ? extractUrlMatch(trimmedArgs) : await inferCurrentBranchPrMatch(pi);
+			if (!match) {
+				if (!ctx.hasUI) return;
+				const message =
+					trimmedArgs.length > 0
+						? "No GitHub PR or issue URL found in command arguments."
+						: "No PR associated with the current branch. Pass a GitHub PR/issue URL.";
+				ctx.ui.notify(message, "warning");
+				return;
+			}
+
+			applyMatch(ctx, match);
+			if (ctx.hasUI) {
+				const kindLabel = match.kind === "pr" ? "PR" : "issue";
+				ctx.ui.notify(`Tracking ${kindLabel}: ${match.url}`, "info");
+			}
+		},
+	});
+
 	pi.on("before_agent_start", async (event, ctx) => {
 		if (!ctx.hasUI) return;
 		const match = extractPromptMatch(event.prompt);
@@ -98,14 +165,7 @@ export default function promptUrlWidgetExtension(pi: ExtensionAPI) {
 			return;
 		}
 
-		setWidget(ctx, match);
-		applySessionName(ctx, match);
-		void fetchGhMetadata(pi, match.kind, match.url).then((meta) => {
-			const title = meta?.title?.trim();
-			const authorText = formatAuthor(meta?.author);
-			setWidget(ctx, match, title, authorText);
-			applySessionName(ctx, match, title);
-		});
+		applyMatch(ctx, match);
 	});
 
 	pi.on("session_switch", async (_event, ctx) => {
@@ -142,14 +202,7 @@ export default function promptUrlWidgetExtension(pi: ExtensionAPI) {
 			return;
 		}
 
-		setWidget(ctx, match);
-		applySessionName(ctx, match);
-		void fetchGhMetadata(pi, match.kind, match.url).then((meta) => {
-			const title = meta?.title?.trim();
-			const authorText = formatAuthor(meta?.author);
-			setWidget(ctx, match, title, authorText);
-			applySessionName(ctx, match, title);
-		});
+		applyMatch(ctx, match);
 	};
 
 	pi.on("session_start", async (_event, ctx) => {
