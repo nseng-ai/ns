@@ -28,6 +28,10 @@ class SlotAssignRequest:
         click.Argument(["branch_name"], required=False, default=None),
     ] = None
     current: Annotated[bool, click.Option(["--current"], is_flag=True, default=False)] = False
+    new_branch: Annotated[
+        str | None,
+        click.Option(["-n", "--new"], "new_branch", default=None, metavar="BRANCH_NAME"),
+    ] = None
     force: Annotated[bool, click.Option(["--force"], is_flag=True, default=False)] = False
 
 
@@ -104,15 +108,22 @@ def _pool_full_error(outcome: PoolFullError) -> ClinkrCommandError:
     human_renderer=render_slot_assign,
 )
 def run_assign_slot(request: SlotAssignRequest) -> SlotAssignResult | ClinkrCommandError:
-    if request.current and request.branch_name is not None:
+    inputs_provided = sum(
+        (
+            request.branch_name is not None,
+            request.current,
+            request.new_branch is not None,
+        )
+    )
+    if inputs_provided > 1:
         return ClinkrCommandError(
             error_type="mutually_exclusive_args",
-            message="Pass BRANCH_NAME or --current, not both.",
+            message="Pass exactly one of BRANCH_NAME, --current, or -n/--new BRANCH_NAME.",
         )
-    if not request.current and request.branch_name is None:
+    if inputs_provided == 0:
         return ClinkrCommandError(
             error_type="missing_arg",
-            message="Pass BRANCH_NAME or --current to identify the branch.",
+            message="Pass BRANCH_NAME, --current, or -n/--new BRANCH_NAME to identify the branch.",
         )
 
     ctx = build_slots_context()
@@ -148,16 +159,29 @@ def run_assign_slot(request: SlotAssignRequest) -> SlotAssignResult | ClinkrComm
             current_outcome.allocation, current_wt_note=current_outcome.current_wt_note
         )
 
-    assert request.branch_name is not None  # mutual-exclusion validated above
-    if not ctx.git.branch_exists(request.branch_name):
-        return ClinkrCommandError(
-            error_type="branch_missing",
-            message=f"Branch '{request.branch_name}' does not exist. Create it first.",
-        )
+    if request.new_branch is not None:
+        if ctx.git.branch_exists(request.new_branch):
+            return ClinkrCommandError(
+                error_type="branch_exists",
+                message=(
+                    f"Branch '{request.new_branch}' already exists. "
+                    f"Use `slot assign {request.new_branch}` to assign the existing branch."
+                ),
+            )
+        ctx.git.create_branch(request.new_branch, "HEAD", force=False)
+        branch_name = request.new_branch
+    else:
+        assert request.branch_name is not None  # mutual-exclusion validated above
+        if not ctx.git.branch_exists(request.branch_name):
+            return ClinkrCommandError(
+                error_type="branch_missing",
+                message=f"Branch '{request.branch_name}' does not exist. Create it first.",
+            )
+        branch_name = request.branch_name
 
     outcome = allocate_slot_for_branch(
         ctx,
-        branch_name=request.branch_name,
+        branch_name=branch_name,
         now=now,
         force=request.force,
     )
