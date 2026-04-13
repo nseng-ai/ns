@@ -67,6 +67,20 @@ class DirtyWorktreeError:
     worktree_path: Path
 
 
+@dataclass(frozen=True)
+class DetachedHeadError:
+    """Signals that the current worktree is on a detached HEAD."""
+
+    cwd: Path
+
+
+@dataclass(frozen=True)
+class DirtyCurrentWorktreeError:
+    """Signals that the current worktree has uncommitted changes."""
+
+    cwd: Path
+
+
 def find_next_available_slot(
     state: PoolState,
     storage: SlotsStorageGateway,
@@ -279,6 +293,102 @@ def allocate_slot_for_branch(
         already_assigned=False,
         evicted_slot=evicted_slot,
     )
+
+
+@dataclass(frozen=True)
+class CurrentBranchAllocationResult:
+    """Outcome of ``allocate_slot_for_current_branch``: the allocation plus a
+    description of what happened to the original worktree's HEAD."""
+
+    allocation: SlotAllocationResult
+    current_wt_note: str | None
+
+
+def _resolve_current_wt_redirect(
+    ctx: SlotsCliContext,
+    *,
+    cwd: Path,
+    moving_branch: str,
+) -> str | None:
+    """Redirect the current wt off ``moving_branch``; return a human-readable note.
+
+    Strategy:
+    1. Reflog previous branch if valid (exists, not self, not checked out elsewhere).
+    2. If cwd looks like a slot worktree: slot-specific stub branch (mirrors ``slot free``).
+    3. Otherwise (main repo wt): trunk branch; if busy, detach HEAD at moving_branch.
+
+    Returns None when no redirect was needed/performed (shouldn't happen in practice).
+    """
+    previous = ctx.git.get_previous_branch(cwd)
+    if previous and previous != moving_branch and ctx.git.branch_exists(previous):
+        conflict = next(
+            (wt for wt in ctx.git.list_worktrees() if wt.branch == previous and wt.path != cwd),
+            None,
+        )
+        if conflict is None:
+            ctx.git.checkout_branch(cwd, previous)
+            return None
+
+    # Previous branch unusable. Branch on cwd kind.
+    if extract_slot_number(cwd.name) is not None:
+        stub = get_placeholder_branch_name(cwd.name)
+        assert stub is not None  # extract_slot_number already validated the shape
+        local_branches = ctx.git.list_local_branches()
+        ctx.git.create_branch(stub, moving_branch, force=stub in local_branches)
+        ctx.git.checkout_branch(cwd, stub)
+        return None
+
+    # Main repo wt: trunk fallback.
+    trunk = ctx.git.get_trunk_branch()
+    if trunk is not None:
+        busy_wt = next(
+            (wt for wt in ctx.git.list_worktrees() if wt.branch == trunk and wt.path != cwd),
+            None,
+        )
+        if busy_wt is None:
+            ctx.git.checkout_branch(cwd, trunk)
+            return None
+        ctx.git.detach_head(cwd, moving_branch)
+        return (
+            f"Trunk branch '{trunk}' is checked out in {busy_wt.path}; "
+            f"left {cwd} on a detached HEAD at {moving_branch}."
+        )
+
+    ctx.git.detach_head(cwd, moving_branch)
+    return f"No trunk branch could be resolved; left {cwd} on a detached HEAD at {moving_branch}."
+
+
+def allocate_slot_for_current_branch(
+    ctx: SlotsCliContext,
+    *,
+    cwd: Path,
+    now: str,
+    force: bool,
+) -> CurrentBranchAllocationResult | PoolFullError | DetachedHeadError | DirtyCurrentWorktreeError:
+    """Assign the branch currently checked out at ``cwd`` to a slot.
+
+    Redirects the current wt to a safe HEAD (previous branch / trunk / stub /
+    detached) before delegating to :func:`allocate_slot_for_branch`. Refuses
+    when HEAD is detached or the current wt has uncommitted changes.
+    """
+    current_branch = ctx.git.get_current_branch(cwd)
+    if current_branch is None:
+        return DetachedHeadError(cwd=cwd)
+
+    state = ctx.pool_state.load() or PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
+    already_in_slot = find_branch_assignment(state, current_branch) is not None
+
+    note: str | None = None
+    if not already_in_slot:
+        if ctx.git.has_uncommitted_changes(cwd):
+            return DirtyCurrentWorktreeError(cwd=cwd)
+        note = _resolve_current_wt_redirect(ctx, cwd=cwd, moving_branch=current_branch)
+
+    outcome = allocate_slot_for_branch(ctx, branch_name=current_branch, now=now, force=force)
+    if isinstance(outcome, PoolFullError):
+        return outcome
+    return CurrentBranchAllocationResult(allocation=outcome, current_wt_note=note)
 
 
 def find_assignment_by_slot(state: PoolState, slot_name: str) -> SlotAssignment | None:

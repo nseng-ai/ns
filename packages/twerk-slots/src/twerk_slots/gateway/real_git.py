@@ -123,6 +123,36 @@ class RealGitGateway(GitGateway):
         branch = result.stdout.strip()
         return branch or None
 
+    def get_previous_branch(self, cwd: Path) -> str | None:
+        result = _run(
+            ["git", "rev-parse", "--abbrev-ref", "@{-1}"],
+            cwd=cwd,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        branch = result.stdout.strip()
+        if not branch or branch == "@{-1}":
+            return None
+        return branch
+
+    def get_trunk_branch(self) -> str | None:
+        result = _run(
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+            cwd=self._repo_root,
+            check=False,
+        )
+        if result.returncode == 0:
+            full = result.stdout.strip()
+            if full.startswith("origin/"):
+                candidate = full[len("origin/") :]
+                if candidate and self.branch_exists(candidate):
+                    return candidate
+        for candidate in ("main", "master"):
+            if self.branch_exists(candidate):
+                return candidate
+        return None
+
     def branch_exists(self, branch: str) -> bool:
         result = _run(
             ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
@@ -160,6 +190,9 @@ class RealGitGateway(GitGateway):
 
     def checkout_branch(self, cwd: Path, branch: str) -> None:
         _run(["git", "checkout", branch], cwd=cwd)
+
+    def detach_head(self, cwd: Path, ref: str) -> None:
+        _run(["git", "checkout", "--detach", ref], cwd=cwd)
 
     def create_branch(self, branch: str, start_point: str, *, force: bool) -> None:
         cmd = ["git", "branch"]

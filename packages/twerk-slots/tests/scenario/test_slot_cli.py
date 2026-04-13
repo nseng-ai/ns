@@ -12,7 +12,7 @@ from click.testing import CliRunner
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_slots.cli.main import build_cli
 from twerk_slots.gateway import real_git
-from twerk_slots.gateway.git import WorktreeInfo
+from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeGitGateway,
     FakePoolStateGateway,
@@ -48,7 +48,11 @@ def _fake_for_repo(
     branches: tuple[str, ...] = (),
     worktrees: tuple[WorktreeInfo, ...] = (),
     current_branch_by_path: dict[Path, str | None] | None = None,
+    previous_branch_by_path: dict[Path, str | None] | None = None,
+    trunk_branch: str | None = None,
+    file_status_by_path: dict[Path, FileStatus] | None = None,
     extra_existing: Iterable[Path] = (),
+    repository_root_by_cwd: dict[Path, Path] | None = None,
 ) -> _SlotFakes:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
@@ -56,14 +60,22 @@ def _fake_for_repo(
     storage = FakeSlotsStorageGateway(
         existing_paths={repo_root, Path.cwd(), *extra_existing},
     )
+    root_map = (
+        dict(repository_root_by_cwd)
+        if repository_root_by_cwd is not None
+        else {Path.cwd().resolve(): repo_root}
+    )
     git = FakeGitGateway(
         repo_root=repo_root,
         git_common_dir=repo_root / ".git",
         branches=branches,
         worktrees=worktrees,
         current_branch_by_path=current_branch_by_path,
-        existing_paths={repo_root, Path.cwd()},
-        repository_root_by_cwd={Path.cwd().resolve(): repo_root},
+        previous_branch_by_path=previous_branch_by_path,
+        trunk_branch=trunk_branch,
+        file_status_by_path=file_status_by_path,
+        existing_paths={repo_root, Path.cwd(), *extra_existing},
+        repository_root_by_cwd=root_map,
         storage=storage,
     )
     return _SlotFakes(
@@ -109,6 +121,7 @@ def test_slot_assign_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: slot assign" in result.output
     assert "BRANCH_NAME" in result.output
     assert "--force" in result.output
+    assert "--current" in result.output
 
 
 def test_slot_version(cli_group: ClinkrGroup) -> None:
@@ -395,6 +408,286 @@ def test_slot_assign_already_assigned_reuses(cli_group: ClinkrGroup, tmp_path: P
     assert "already assigned" in second.output
     # Only one add_worktree call across both invocations.
     assert len(fakes.git._add_worktree_calls) == 1
+
+
+# -- assign --current -------------------------------------------------------
+
+
+def test_slot_assign_current_uses_previous_branch(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x", "some-other-feat"),
+        current_branch_by_path={(tmp_path / "repo").resolve(): "feat/x"},
+        previous_branch_by_path={(tmp_path / "repo").resolve(): "some-other-feat"},
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-01" in result.output
+    assert "feat/x" in result.output
+    assert fakes.git._checkout_calls[0] == (fakes.repo_root, "some-other-feat")
+    assert len(fakes.git._add_worktree_calls) == 1
+    _, wt_path, branch, _create = fakes.git._add_worktree_calls[0]
+    assert branch == "feat/x"
+    assert wt_path.name == "slot-01"
+
+
+def test_slot_assign_current_falls_back_to_trunk_when_no_previous(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x", "main"),
+        current_branch_by_path={(tmp_path / "repo").resolve(): "feat/x"},
+        trunk_branch="main",
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fakes.git._checkout_calls[0] == (fakes.repo_root, "main")
+    assert fakes.git._detach_head_calls == []
+    assert len(fakes.git._add_worktree_calls) == 1
+
+
+def test_slot_assign_current_falls_back_to_trunk_when_previous_missing(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x", "main"),
+        current_branch_by_path={(tmp_path / "repo").resolve(): "feat/x"},
+        previous_branch_by_path={(tmp_path / "repo").resolve(): "deleted-branch"},
+        trunk_branch="main",
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fakes.git._checkout_calls[0] == (fakes.repo_root, "main")
+
+
+def test_slot_assign_current_detaches_when_trunk_checked_out_elsewhere(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    sibling_wt = tmp_path / "sibling"
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x", "main"),
+        worktrees=(WorktreeInfo(path=sibling_wt, branch="main", is_bare=False),),
+        current_branch_by_path={(tmp_path / "repo").resolve(): "feat/x"},
+        trunk_branch="main",
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fakes.git._detach_head_calls == [(fakes.repo_root, "feat/x")]
+    assert "checked out" in result.output
+    assert "detached HEAD" in result.output
+    assert len(fakes.git._add_worktree_calls) == 1
+
+
+def test_slot_assign_current_detaches_when_no_trunk_resolvable(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x",),
+        current_branch_by_path={(tmp_path / "repo").resolve(): "feat/x"},
+        trunk_branch=None,
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fakes.git._detach_head_calls == [(fakes.repo_root, "feat/x")]
+    assert "No trunk branch" in result.output
+
+
+def test_slot_assign_current_from_slot_wt_uses_slot_stub(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    slot_01_path = slots_root / "repos" / "repo" / "worktrees" / "slot-01"
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/child",),
+        worktrees=(WorktreeInfo(path=slot_01_path, branch="feat/child", is_bare=False),),
+        current_branch_by_path={slot_01_path: "feat/child"},
+        extra_existing=(slot_01_path,),
+        repository_root_by_cwd={Path.cwd().resolve(): slot_01_path},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ("__slot-01-br-stub__", "feat/child", False) in fakes.git._create_branch_calls
+    assert fakes.git._checkout_calls[0] == (slot_01_path, "__slot-01-br-stub__")
+    assert fakes.git._detach_head_calls == []
+
+
+def test_slot_assign_current_from_slot_wt_stub_force_when_exists(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    slot_01_path = slots_root / "repos" / "repo" / "worktrees" / "slot-01"
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/child", "__slot-01-br-stub__"),
+        worktrees=(WorktreeInfo(path=slot_01_path, branch="feat/child", is_bare=False),),
+        current_branch_by_path={slot_01_path: "feat/child"},
+        extra_existing=(slot_01_path,),
+        repository_root_by_cwd={Path.cwd().resolve(): slot_01_path},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ("__slot-01-br-stub__", "feat/child", True) in fakes.git._create_branch_calls
+
+
+def test_slot_assign_current_rejects_detached_head(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("main",),
+        current_branch_by_path={(tmp_path / "repo").resolve(): None},
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "detached" in result.output.lower()
+    assert fakes.git._add_worktree_calls == []
+
+
+def test_slot_assign_current_rejects_dirty_worktree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    repo_root = (tmp_path / "repo").resolve()
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x", "main"),
+        current_branch_by_path={repo_root: "feat/x"},
+        trunk_branch="main",
+        file_status_by_path={
+            repo_root: FileStatus(staged=False, modified=True, untracked=False),
+        },
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "uncommitted" in result.output
+    assert fakes.git._add_worktree_calls == []
+    assert fakes.git._checkout_calls == []
+    assert fakes.git._detach_head_calls == []
+
+
+def test_slot_assign_current_branch_already_in_slot_is_reuse(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x",),
+        current_branch_by_path={(tmp_path / "repo").resolve(): "feat/x"},
+    )
+    slots_root = tmp_path / "slots"
+
+    first = CliRunner().invoke(
+        cli_group,
+        ["assign", "feat/x"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    assert first.exit_code == 0, first.output
+    checkouts_before = list(fakes.git._checkout_calls)
+    add_worktrees_before = list(fakes.git._add_worktree_calls)
+
+    second = CliRunner().invoke(
+        cli_group,
+        ["assign", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert second.exit_code == 0, second.output
+    assert "already assigned" in second.output
+    assert fakes.git._checkout_calls == checkouts_before
+    assert fakes.git._add_worktree_calls == add_worktrees_before
+    assert fakes.git._detach_head_calls == []
+
+
+def test_slot_assign_rejects_both_branch_and_current(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign", "feat/x", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "not both" in result.output
+
+
+def test_slot_assign_rejects_neither_branch_nor_current(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(tmp_path)
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["assign"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "BRANCH_NAME" in result.output or "--current" in result.output
 
 
 # -- real-gateway fallback --------------------------------------------------
