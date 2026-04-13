@@ -20,9 +20,6 @@ from twerk_core.gh.types import (
     UnresolveReviewThreadResult,
 )
 
-# GraphQL query for fetching every review thread on a PR. Mirrors the query
-# inlined in `.agents/skills/twerk-pr-address/references/operations.md` so
-# there's a single canonical shape to update if GitHub changes the schema.
 _REVIEW_THREADS_QUERY = """
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
