@@ -19,6 +19,7 @@ from twerk_slots.allocation import (
 )
 from twerk_slots.cli.slot.context import build_slots_context
 from twerk_slots.context import SlotsCliContext
+from twerk_slots.gateway.clipboard import ClipboardCopySuccess
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
 
 
@@ -51,6 +52,8 @@ class SlotCheckoutResult:
     current_wt_note: str | None
     clipboard_copied: bool
     clipboard_skipped: bool
+    clipboard_failure_reason: str | None
+    clipboard_failure_detail: str | None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -64,6 +67,8 @@ class SlotCheckoutResult:
             "current_wt_note": self.current_wt_note,
             "clipboard_copied": self.clipboard_copied,
             "clipboard_skipped": self.clipboard_skipped,
+            "clipboard_failure_reason": self.clipboard_failure_reason,
+            "clipboard_failure_detail": self.clipboard_failure_detail,
         }
 
 
@@ -91,7 +96,8 @@ def render_slot_checkout(result: SlotCheckoutResult) -> None:
     if result.clipboard_copied:
         console.print("[dim]Copied cd command to clipboard.[/dim]")
     else:
-        console.print("[dim]Clipboard unavailable (pbcopy failed).[/dim]")
+        detail = result.clipboard_failure_detail or "pbcopy failed"
+        console.print(f"[dim]Clipboard unavailable ({detail})[/dim]")
 
 
 def _pool_full_error(outcome: PoolFullError) -> ClinkrCommandError:
@@ -115,8 +121,15 @@ def _build_result(
     worktree_path = str(allocation.worktree_path)
     cd_command = f"cd {worktree_path}"
     clipboard_copied = False
+    clipboard_failure_reason: str | None = None
+    clipboard_failure_detail: str | None = None
     if not no_clipboard:
-        clipboard_copied = ctx.clipboard.copy(cd_command)
+        outcome = ctx.clipboard.copy(cd_command)
+        if isinstance(outcome, ClipboardCopySuccess):
+            clipboard_copied = True
+        else:
+            clipboard_failure_reason = outcome.reason
+            clipboard_failure_detail = outcome.detail
     return SlotCheckoutResult(
         slot_name=allocation.slot_name,
         branch_name=allocation.branch_name,
@@ -128,6 +141,8 @@ def _build_result(
         current_wt_note=current_wt_note,
         clipboard_copied=clipboard_copied,
         clipboard_skipped=no_clipboard,
+        clipboard_failure_reason=clipboard_failure_reason,
+        clipboard_failure_detail=clipboard_failure_detail,
     )
 
 
