@@ -75,7 +75,7 @@ def run_list_objectives(
     # the gh CLI, which we intentionally preserve for now.
     try:
         gateway = get_gh_issue_gateway()
-        issues = gateway.list(label="twerk-objective", state=request.state)
+        issues = gateway.list(label="objective", state=request.state)
     except subprocess.CalledProcessError as e:
         return ClinkrCommandError(
             error_type="gh_cli_failure",
