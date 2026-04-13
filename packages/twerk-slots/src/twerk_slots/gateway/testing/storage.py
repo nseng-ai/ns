@@ -25,3 +25,12 @@ class FakeSlotsStorageGateway(SlotsStorageGateway):
     def ensure_dir(self, path: Path) -> None:
         self._ensured_dirs.append(path)
         self._existing_paths.add(path)
+
+    def list_subdirs(self, path: Path) -> tuple[str, ...]:
+        if path not in self._existing_paths:
+            return ()
+        return tuple(
+            sorted(
+                {entry.name for entry in self._existing_paths if entry.parent == path},
+            )
+        )

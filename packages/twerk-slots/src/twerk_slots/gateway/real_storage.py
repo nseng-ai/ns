@@ -15,3 +15,8 @@ class RealSlotsStorageGateway(SlotsStorageGateway):
 
     def ensure_dir(self, path: Path) -> None:
         path.mkdir(parents=True, exist_ok=True)
+
+    def list_subdirs(self, path: Path) -> tuple[str, ...]:
+        if not path.exists():
+            return ()
+        return tuple(entry.name for entry in path.iterdir() if entry.is_dir())

@@ -152,6 +152,34 @@ def test_fake_storage_ensure_dir_idempotent() -> None:
     assert storage.path_exists(target)
 
 
+def test_fake_storage_list_subdirs_missing_path_returns_empty() -> None:
+    storage = FakeSlotsStorageGateway()
+
+    assert storage.list_subdirs(Path("/nope")) == ()
+
+
+def test_fake_storage_list_subdirs_returns_immediate_children_sorted() -> None:
+    worktrees = Path("/slots/repos/r/worktrees")
+    storage = FakeSlotsStorageGateway(
+        existing_paths={
+            worktrees,
+            worktrees / "slot-02",
+            worktrees / "slot-01",
+            worktrees / "slot-03" / "nested",  # deeper entries excluded
+        },
+    )
+
+    assert storage.list_subdirs(worktrees) == ("slot-01", "slot-02")
+
+
+def test_fake_storage_list_subdirs_includes_dirs_added_via_ensure_dir() -> None:
+    worktrees = Path("/slots/repos/r/worktrees")
+    storage = FakeSlotsStorageGateway(existing_paths={worktrees})
+    storage.ensure_dir(worktrees / "slot-01")
+
+    assert storage.list_subdirs(worktrees) == ("slot-01",)
+
+
 # -- FakePoolStateGateway ---------------------------------------------------
 
 

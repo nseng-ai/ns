@@ -20,3 +20,12 @@ class SlotsStorageGateway(ABC):
     @abstractmethod
     def ensure_dir(self, path: Path) -> None:
         """Create ``path`` (with parents) if it does not already exist."""
+
+    @abstractmethod
+    def list_subdirs(self, path: Path) -> tuple[str, ...]:
+        """Return names (not paths) of the immediate subdirectories of ``path``.
+
+        Returns an empty tuple when ``path`` does not exist. Order is not
+        guaranteed beyond what the implementation happens to provide; callers
+        that need deterministic order should sort.
+        """

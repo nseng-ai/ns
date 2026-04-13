@@ -299,6 +299,22 @@ def test_real_storage_ensure_dir_is_idempotent(tmp_path: Path) -> None:
     assert target.is_dir()
 
 
+def test_real_storage_list_subdirs_returns_immediate_directories(tmp_path: Path) -> None:
+    gateway = RealSlotsStorageGateway()
+    (tmp_path / "slot-01").mkdir()
+    (tmp_path / "slot-02").mkdir()
+    (tmp_path / "file.txt").write_text("ignored")
+
+    names = gateway.list_subdirs(tmp_path)
+
+    assert sorted(names) == ["slot-01", "slot-02"]
+
+
+def test_real_storage_list_subdirs_missing_path_returns_empty(tmp_path: Path) -> None:
+    gateway = RealSlotsStorageGateway()
+    assert gateway.list_subdirs(tmp_path / "missing") == ()
+
+
 # -- RealPoolStateGateway ---------------------------------------------------
 
 
