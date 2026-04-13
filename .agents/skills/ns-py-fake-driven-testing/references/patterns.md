@@ -168,12 +168,14 @@ def test_mutation_tracking() -> None:
 
 **Benefits**:
 
-- **Verification**: Tests can verify operations were called
-- **Ordering**: Lists preserve call order for sequential assertions
+- **Verification**: Fake-check tests and narrower logic tests can verify operations were attempted
+- **Ordering**: Lists preserve chronology when sequence genuinely matters or helps debugging
 - **Arguments**: Track arguments passed to operations
 - **Debugging**: Easy to see what operations were performed
 
 **Rule**: For every write operation, track the mutation in a read-only property.
+
+These properties make fakes observable; they do **not** make interaction assertions the default scenario-test shape. In scenario tests, prefer exit code, user-visible output, and final fake state. Use public mutation tracking only when no stable after-state exists. Never assert on private `_foo_calls` fields.
 
 ### When to Track on Error
 

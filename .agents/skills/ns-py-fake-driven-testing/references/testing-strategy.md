@@ -82,7 +82,7 @@ Organize tests **by operation** (one test class per ABC method), not by category
 
 ### Example Tests
 
-- `tests/gateways/test_fakes.py` - Tests of every Fake* in `tests/gateways/fakes/`
+- `tests/gateways/test_fakes.py` - Tests of every Fake* class defined in `src/<package>/gateways/*/fake.py`
   (one test class per fake; see `ns-fake-driven-test-layout` for layout)
 
 ## Layer 2 "real-sanity": Integration Sanity Tests (with Mocking)
@@ -227,16 +227,14 @@ Pure unit tests are the **fastest tests possible**. They run in microseconds to 
 
 **Why**: Fast, reliable, easy to debug. Tests run in milliseconds, not seconds. This is where most testing happens.
 
-### Pattern: Configure Fakes, Execute Logic, Assert Behavior
+### Pattern: Configure Fakes, Execute Logic, Assert Outcomes
 
 ```python
 def test_user_service_creates_user() -> None:
     """Verify user service creates users correctly."""
     # Arrange: Configure fake with desired state
-    fake_db = FakeDatabaseAdapter()
-    fake_email = FakeEmailClient(
-        should_fail_for=["invalid@example.com"]
-    )
+    fake_db = FakeDatabaseAdapter(tables={"users": []})
+    fake_email = FakeEmailClient()
 
     service = UserService(database=fake_db, email_client=fake_email)
 
@@ -251,12 +249,14 @@ def test_user_service_creates_user() -> None:
     assert user.name == "Alice"
     assert user.email == "alice@example.com"
 
-    # Assert: Check side effects via fake's tracking
-    assert len(fake_db.executed_queries) == 1
-    assert "INSERT INTO users" in fake_db.executed_queries[0]
+    # Assert: Check resulting fake state
+    assert len(fake_db.tables["users"]) == 1
+    assert fake_db.tables["users"][0]["email"] == "alice@example.com"
     assert len(fake_email.sent_emails) == 1
     assert fake_email.sent_emails[0]["to"] == "alice@example.com"
 ```
+
+For end-to-end scenario tests, assert exit code, user-visible output, and final fake state before you reach for public mutation-tracking properties. Private `_foo_calls` fields are never a scenario-test assertion surface.
 
 ### Key Tools
 
@@ -272,7 +272,7 @@ def test_user_service_creates_user() -> None:
 - **Error handling**: How does code handle error conditions?
 - **Edge cases**: Unusual inputs, empty states, boundary conditions
 - **Business rules**: Validation, calculations, state transitions
-- **Side effects**: Did operations modify state correctly? (Check fake's tracking properties)
+- **Side effects**: Did operations modify state correctly? Prefer final fake state; use public tracking only when no stable after-state exists
 
 ### Performance
 
@@ -280,7 +280,7 @@ Tests over fakes run in **milliseconds**. A typical test suite of 100+ tests run
 
 ### The Fast Scenario Pattern
 
-The dominant shape of Layer 4 "logic" tests for CLIs and top-level workflows is the **fast scenario test**: configure state in fakes, invoke an end-to-end entry point exactly once, and assert on the resulting fake state. It is not a separate layer — it is the canonical Layer 4 shape for any feature that crosses multiple gateways.
+The dominant shape of Layer 4 "logic" tests for CLIs and top-level workflows is the **fast scenario test**: configure state in fakes, invoke an end-to-end entry point exactly once, and assert on exit code, output, and the resulting fake state. It is not a separate layer — it is the canonical Layer 4 shape for any feature that crosses multiple gateways.
 
 See `fast-scenario-testing.md` for the full pattern, infrastructure recipe (in-memory env, smart context builder, CLI assertion helpers), and worked single- and multi-gateway examples.
 

@@ -53,7 +53,7 @@ Before creating anything new, check if a gateway already exists:
 grep -r "class.*ABC" src/myapp/gateways/
 
 # Search for existing fakes
-grep -r "class Fake" tests/gateways/fakes/
+grep -r "class Fake" src/myapp/gateways/*/fake.py
 ```
 
 **Priority when multiple gateways match:**
@@ -69,7 +69,7 @@ If an existing gateway covers the mocked behavior, skip to Step 4.
 Follow the standard three-file pattern (see `gateway-architecture.md`):
 
 ```python
-# src/myapp/gateways/user_api.py
+# src/myapp/gateways/user_api/gateway.py
 
 from abc import ABC, abstractmethod
 
@@ -77,6 +77,14 @@ class UserApiClient(ABC):
     @abstractmethod
     def get_users(self) -> list[dict]:
         """Fetch users from API."""
+```
+
+```python
+# src/myapp/gateways/user_api/real.py
+
+import requests
+
+from myapp.gateways.user_api.gateway import UserApiClient
 
 class RealUserApiClient(UserApiClient):
     def __init__(self, base_url: str, api_key: str) -> None:
@@ -84,7 +92,6 @@ class RealUserApiClient(UserApiClient):
         self._api_key = api_key
 
     def get_users(self) -> list[dict]:
-        import requests
         response = requests.get(
             f"{self._base_url}/users",
             headers={"Authorization": f"Bearer {self._api_key}"}
@@ -94,7 +101,9 @@ class RealUserApiClient(UserApiClient):
 ```
 
 ```python
-# tests/gateways/fakes/user_api.py
+# src/myapp/gateways/user_api/fake.py
+
+from myapp.gateways.user_api.gateway import UserApiClient
 
 class FakeUserApiClient(UserApiClient):
     def __init__(self, *, users: list[dict] | None = None) -> None:

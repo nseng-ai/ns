@@ -40,7 +40,7 @@ This skill provides a **defense-in-depth testing strategy** with five layers for
 
 ## End-to-End Scenario Testing
 
-An **end-to-end scenario test** is a three-phase Arrange/Act/Assert test that configures initial state in in-memory fakes, invokes a top-level feature exactly once at its real entry point, and then asserts on the resulting state of those fakes plus any captured output. The pattern matters because in most systems — CLIs, HTTP services, batch jobs, message-queue consumers — the top-level workflows that constitute the actual product are not pure computations; they are **high-level operations accomplished by orchestrating gateways** (databases, filesystems, external APIs, notification systems). That orchestration is exactly where bugs live and exactly what unit tests over isolated helpers cannot reach. Scenario tests close that gap: because every external system is replaced by an in-memory fake, the test runs in milliseconds while still exercising the _whole_ production code path — argument parsing, dispatch, business logic, and every gateway call all execute for real. The result is a test shape that is fully deterministic across machines and CI runs and that can verify multi-gateway invariants ("publishing this post writes the row, invalidates the cache, _and_ sends the notification") in a single assertion block, something no narrower test shape can express. CLIs are the showcase case: invoked in-process via `click.testing.CliRunner`, a scenario test runs ~100× faster than the subprocess equivalent while still calling the same `click.command` that ships to users — fast enough to run on every save, honest enough to catch real integration mistakes. If you are writing a test that exercises a top-level workflow end-to-end or that coordinates more than one gateway, this is almost certainly the shape you want; see `fast-scenario-testing.md` for the full pattern, scenario infrastructure, and worked examples.
+An **end-to-end scenario test** is a three-phase Arrange/Act/Assert test that configures initial state in in-memory fakes, invokes a top-level feature exactly once at its real entry point, and then asserts on the resulting state of those fakes plus any captured output. The pattern matters because in most systems — CLIs, HTTP services, batch jobs, message-queue consumers — the top-level workflows that constitute the actual product are not pure computations; they are **high-level operations accomplished by orchestrating gateways** (databases, filesystems, external APIs, notification systems). That orchestration is exactly where bugs live and exactly what unit tests over isolated helpers cannot reach. Scenario tests close that gap: because every external system is replaced by an in-memory fake, the test runs in milliseconds while still exercising the _whole_ production code path — argument parsing, dispatch, business logic, and every gateway call all execute for real. The result is a test shape that is fully deterministic across machines and CI runs and that can verify multi-gateway invariants ("publishing this post writes the row, invalidates the cache, _and_ sends the notification") in a single assertion block, something no narrower test shape can express. CLIs are the showcase case: invoked in-process via `click.testing.CliRunner`, a scenario test runs ~100× faster than the subprocess equivalent while still calling the same `click.command` that ships to users — fast enough to run on every save, honest enough to catch real integration mistakes. Scenario assertions should prioritize exit code, user-visible output, and stable post-state in the fakes; public mutation-tracking properties are a fallback when no durable after-state exists, and private `_foo_calls` fields are never a scenario-test assertion surface. If you are writing a test that exercises a top-level workflow end-to-end or that coordinates more than one gateway, this is almost certainly the shape you want; see `fast-scenario-testing.md` for the full pattern, scenario infrastructure, and worked examples.
 
 ## Quick Decision: What Should I Read?
 
@@ -222,7 +222,7 @@ An **end-to-end scenario test** is a three-phase Arrange/Act/Assert test that co
 - Testing a top-level workflow that coordinates multiple gateways
 - Looking for the canonical Layer 4 "logic" test shape
 - Designing scenario test infrastructure (env factories, context builders, CLI assertion helpers)
-- Deciding whether to assert on terminal state or intermediate calls
+- Deciding whether to assert on final state or use public mutation tracking as a fallback
 
 **Contents**:
 
@@ -230,7 +230,7 @@ An **end-to-end scenario test** is a three-phase Arrange/Act/Assert test that co
 - Why this pattern is uniquely effective for CLIs
 - Building reusable scenario infrastructure (in-memory env, smart context builder, CLI assertion helpers)
 - Coordinating multiple fakes in a single scenario
-- The four assertion surfaces (exit code, stdout/stderr, mutation tracking, final fake state)
+- Assertion priority: exit code, stdout/stderr, final fake state, then public mutation tracking as a fallback
 - Worked single-gateway and multi-gateway examples
 - When NOT to use scenario tests
 - Anti-patterns specific to scenario testing

@@ -33,6 +33,18 @@ test:
 
 fast-ci: check
 
+update-nonslop-skills:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    skills=$(jq -r '.skills | to_entries | map(select(.value.source == "nseng-ai/nonslop")) | .[].key' skills-lock.json)
+    if [ -z "$skills" ]; then
+        echo "No nonslop skills found in skills-lock.json"
+        exit 1
+    fi
+    echo "Updating nonslop skills:"
+    echo "$skills" | sed 's/^/  - /'
+    npx skills add nseng-ai/nonslop --skill $skills --agent codex claude-code -y
+
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
     find . -type d -name "__pycache__" -exec rm -rf {} + || true

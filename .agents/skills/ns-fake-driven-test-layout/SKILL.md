@@ -13,22 +13,48 @@ lives at the root of `tests/`; every file is classified.
 ## The convention
 
 ```
-<package>/tests/
-├── unit/                       # fast, isolated, deterministic
-├── integration/                # real systems, slow, sparingly used
-├── scenario/                   # end-to-end Arrange/Act/Assert over fakes
-└── gateways/                   # everything gateway-shaped
-    ├── fakes/
-    │   ├── <gateway_a>.py      # fake implementations live here
-    │   └── <gateway_b>.py
-    ├── test_fakes.py           # tests of the fakes themselves
-    └── test_real_gateways.py   # mock-based sanity tests of real impls
+<package>/
+├── src/<package>/gateways/
+│   └── <domain>/                   # one subpackage per gateway domain
+│       ├── gateway.py              # ABC + shared types
+│       ├── real.py                 # real impl
+│       └── fake.py                 # in-memory fake
+└── tests/
+    ├── unit/                       # fast, isolated, deterministic
+    ├── integration/                # real systems, slow, sparingly used
+    ├── scenario/                   # end-to-end Arrange/Act/Assert over fakes
+    └── gateways/                   # gateway *tests* only
+        ├── test_fakes.py
+        └── test_real_gateways.py
 ```
 
 For monorepos with multiple packages, every package gets its own copy of this
 tree (e.g. `packages/foo/tests/unit/`, `packages/bar/tests/unit/`, …). For
 single-package projects, the package's `tests/` lives at the repo root and the
 same four subdirectories apply.
+
+## Where gateway code lives
+
+Every gateway domain (`gh`, `git`, `storage`, `queue`, …) gets its own
+subpackage under `src/<package>/gateways/<domain>/` containing exactly three
+files: `gateway.py` (ABC + shared types), `real.py` (real impl), `fake.py`
+(in-memory fake). An optional `__init__.py` may re-export the three classes
+so callers can write either `from <package>.gateways.gh import FakeGhGateway`
+or `from <package>.gateways.gh.fake import FakeGhGateway` — both forms are
+fine.
+
+**Rationale.** Fakes are imported across every test directory (`unit/`,
+`scenario/`, `gateways/`). Putting them in `tests/` forces a `sys.path` hack
+in `conftest.py` so each subdirectory can find them; putting them in `src/`
+makes them importable via normal package distribution with no tricks.
+Grouping gateway/real/fake into one domain folder also keeps the three
+implementations in lockstep — when a method is added to the ABC or a
+signature changes, the real and fake are sitting right next to it.
+
+**Forbidden.** `conftest.py` path manipulation, fakes anywhere under
+`tests/`, and splitting ABC/real/fake across unrelated folders (e.g.
+`gateway/<name>.py` + `gateway/real_<name>.py`). If you find yourself
+wanting any of those, move into a domain subpackage instead.
 
 ## What goes where
 
@@ -65,27 +91,26 @@ pattern, the in-memory env factory, and worked examples.
 
 ### `tests/gateways/`
 
-Everything gateway-shaped lives in one folder: the fake implementations, the
-tests that prove the fakes behave correctly, and the mock-based sanity tests
-of the real gateway implementations. Co-locating the three keeps gateway
-evolution self-contained — when you add a method to a gateway ABC, you update
-the real impl, the fake, and both gateway test files in one folder.
+Gateway _tests_ live in this folder — just two files. The fake
+implementations themselves live under `src/<package>/gateways/<domain>/fake.py`
+(see "Where gateway code lives" above); this directory only holds the tests
+that exercise them.
 
-- **`tests/gateways/fakes/<gateway_name>.py`** — the fake implementations
-  themselves. These are not tests (the filenames don't match `test_*.py` so
-  pytest won't collect them). Other test files import from here:
-  `from tests.gateways.fakes.gh_cli import FakeGhCli`.
 - **`tests/gateways/test_fakes.py`** — tests that exercise the fakes
-  themselves. They prove that, e.g., `FakeGhCli.list_repo_dir()` returns what
-  was configured in the constructor and that mutation tracking works. Catches
-  drift between the fake and the gateway ABC.
+  themselves, imported via
+  `from <package>.gateways.<domain>.fake import FakeX`. They prove that,
+  e.g., `FakeGhGateway.list_repo_dir()` returns what was configured in the
+  constructor and that mutation tracking works. Catches drift between the
+  fake and the gateway ABC.
 - **`tests/gateways/test_real_gateways.py`** — mock-based sanity tests of
-  the real gateway implementations. These use `unittest.mock.patch` (or
-  similar) to stub out the actual external call (`subprocess.run`, the HTTP
-  library, etc.) and verify the real gateway parses the response correctly.
-  Fast, mock-heavy, narrowly scoped. They are _not_ a substitute for real
-  integration tests in `tests/integration/` — they only catch syntax errors
-  and basic shape bugs in the real implementation.
+  the real gateway implementations, imported via
+  `from <package>.gateways.<domain>.real import RealX`. These use
+  `unittest.mock.patch` (or similar) to stub out the actual external call
+  (`subprocess.run`, the HTTP library, etc.) and verify the real gateway
+  parses the response correctly. Fast, mock-heavy, narrowly scoped. They
+  are _not_ a substitute for real integration tests in `tests/integration/`
+  — they only catch syntax errors and basic shape bugs in the real
+  implementation.
 
 ## Mapping to `ns-py-fake-driven-testing` layers
 
@@ -113,8 +138,11 @@ concern — pytest doesn't care.
 
 A few file-naming details that matter:
 
-- `tests/gateways/fakes/<name>.py` files do **not** start with `test_`, so
-  pytest does not collect them. They are imported by tests, not run as tests.
+- Inside `src/<package>/gateways/<domain>/`, the three files are always
+  named `gateway.py`, `real.py`, `fake.py` — no prefixes, no repetition of
+  the domain name (not `gh_gateway.py`, not `real_gh.py`). The class names
+  inside keep the domain prefix (`GhGateway`, `RealGhGateway`,
+  `FakeGhGateway`); only the filenames shed it.
 - `tests/gateways/test_fakes.py` and `tests/gateways/test_real_gateways.py`
   follow the standard `test_*.py` pattern and are collected normally.
 - Inside `unit/`, `integration/`, and `scenario/`, file names should mirror
@@ -146,18 +174,26 @@ directory at the repo root. The four subdirectories live under each package:
 packages/
 ├── foo/
 │   ├── src/foo/
+│   │   └── gateways/
+│   │       └── <domain>/{gateway,real,fake}.py
 │   └── tests/
 │       ├── unit/
 │       ├── integration/
 │       ├── scenario/
 │       └── gateways/
+│           ├── test_fakes.py
+│           └── test_real_gateways.py
 └── bar/
     ├── src/bar/
+    │   └── gateways/
+    │       └── <domain>/{gateway,real,fake}.py
     └── tests/
         ├── unit/
         ├── integration/
         ├── scenario/
         └── gateways/
+            ├── test_fakes.py
+            └── test_real_gateways.py
 ```
 
 `pyproject.toml` lists each package's `tests/` in `testpaths`:
@@ -167,10 +203,11 @@ packages/
 testpaths = ["packages/foo/tests", "packages/bar/tests"]
 ```
 
-Fakes are not shared across packages by default — each package's fakes live
-under its own `tests/gateways/fakes/`. If two packages legitimately need to
-share a fake, promote the gateway and its fake into a third package that both
-depend on; do not reach across `tests/` directories.
+Fakes are not shared across packages by default — each package owns its own
+`src/<pkg>/gateways/<domain>/` tree, including the fake. If two packages
+legitimately need to share a gateway and fake, promote the whole domain
+subpackage into a third package that both depend on; do not reach across
+`src/` or `tests/` directories.
 
 ## Cross-references
 

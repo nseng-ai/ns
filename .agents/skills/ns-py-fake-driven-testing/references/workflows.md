@@ -297,7 +297,7 @@ def test_bug_123_negative_balance_not_allowed(tmp_path: Path) -> None:
 
 ### Example: Adding `DatabaseAdapter.bulk_insert()`
 
-#### 1. Interface (`src/myapp/integration classes/database.py`)
+#### 1. Interface (`src/myapp/gateways/database/gateway.py`)
 
 ```python
 from abc import ABC, abstractmethod
@@ -309,7 +309,7 @@ class DatabaseAdapter(ABC):
         """Bulk insert records into table. Returns count of inserted records."""
 ```
 
-#### 2. Real Implementation (`src/myapp/integration classes/database.py`)
+#### 2. Real Implementation (`src/myapp/gateways/database/real.py`)
 
 ```python
 import psycopg2
@@ -346,7 +346,7 @@ class RealDatabaseAdapter(DatabaseAdapter):
             conn.close()
 ```
 
-#### 3. Fake Implementation (`tests/gateways/fakes/database.py`)
+#### 3. Fake Implementation (`src/myapp/gateways/database/fake.py`)
 
 ```python
 class FakeDatabaseAdapter(DatabaseAdapter):
@@ -382,7 +382,7 @@ class FakeDatabaseAdapter(DatabaseAdapter):
         return self._bulk_inserted.copy()
 ```
 
-#### 4. Dry-Run Wrapper (`src/myapp/integration classes/database.py`)
+#### 4. Dry-Run Wrapper (`src/myapp/gateways/database/dryrun.py`)
 
 ```python
 class DryRunDatabaseAdapter(DatabaseAdapter):
@@ -588,15 +588,18 @@ class DataMigrationService:
 def test_migrate_data_dry_run(capsys) -> None:
     """Verify --dry-run doesn't modify data."""
     fake_db = FakeDatabaseAdapter(
-        old_table=[{"id": 1, "data": "test"}]
+        tables={
+            "old_table": [{"id": 1, "data": "test"}],
+            "new_table": [],
+        }
     )
 
     service = DataMigrationService(database=fake_db)
     service.migrate_data(dry_run=True)
 
-    # Verify operation was NOT executed
-    assert len(fake_db.executed_queries) == 1  # Only the SELECT
-    assert "DROP TABLE" not in str(fake_db.executed_queries)
+    # Verify durable state was not modified
+    assert fake_db.tables["old_table"] == [{"id": 1, "data": "test"}]
+    assert fake_db.tables["new_table"] == []
 
     # Verify dry-run message was printed
     captured = capsys.readouterr()

@@ -87,16 +87,14 @@ tests/
 │   ├── test_user_service.py
 │   ├── test_order_service.py
 │   └── test_payment_service.py
-└── gateways/                  ← Everything gateway-shaped
-    ├── fakes/                 ← Fake implementations (NOT collected by pytest)
-    │   ├── __init__.py
-    │   ├── database.py        ← FakeDatabaseAdapter
-    │   ├── api_client.py      ← FakeApiClient
-    │   ├── filesystem.py      ← FakeFileSystem
-    │   └── message_queue.py   ← FakeMessageQueue
+└── gateways/                  ← Gateway *tests* only
     ├── test_fakes.py          ← Layer 1 "fake-check" (tests OF the fakes)
     └── test_real_gateways.py  ← Layer 2 "real-sanity" (mock-based)
 ```
+
+Fakes themselves live inside the importable package at
+`src/<package>/gateways/<domain>/fake.py` — see `ns-fake-driven-test-layout`
+for the full layout.
 
 Test data builders and helper utilities live next to the tests that use them
 (per `ns-pytest`); avoid a top-level `tests/helpers/` shed.
@@ -156,14 +154,11 @@ def test_parse_git_status() -> None:
 ### Business Logic Test Over Fakes (Layer 4 "logic")
 
 ```python
-import pytest
-from pathlib import Path
-
 def test_user_service_create_user() -> None:
     # Arrange
-    fake_db = FakeDatabaseAdapter()
-    fake_api = FakeApiClient()
-    service = UserService(database=fake_db, api_client=fake_api)
+    fake_db = FakeDatabaseAdapter(tables={"users": []})
+    fake_email = FakeEmailClient()
+    service = UserService(database=fake_db, email_client=fake_email)
 
     # Act
     user = service.create_user("Alice", "alice@example.com")
@@ -173,9 +168,11 @@ def test_user_service_create_user() -> None:
     assert user.name == "Alice"
     assert user.email == "alice@example.com"
 
-    # Verify operations were called
-    assert len(fake_db.executed_queries) == 1
-    assert "INSERT INTO users" in fake_db.executed_queries[0]
+    # Verify resulting fake state
+    assert len(fake_db.tables["users"]) == 1
+    assert fake_db.tables["users"][0]["email"] == "alice@example.com"
+    assert len(fake_email.sent_emails) == 1
+    assert fake_email.sent_emails[0]["to"] == "alice@example.com"
 ```
 
 ### CLI Test with Click
@@ -183,19 +180,28 @@ def test_user_service_create_user() -> None:
 ```python
 from click.testing import CliRunner
 
-def test_cli_command(tmp_path: Path) -> None:
-    """Test CLI command with CliRunner."""
+def test_create_user_command() -> None:
+    """Test CLI command end-to-end over fakes."""
     # Arrange
     runner = CliRunner()
+    fake_db = FakeDatabaseAdapter(tables={"users": []})
+    ctx = AppContext(database=fake_db)
 
     # Act
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        result = runner.invoke(init_command, ["my_project"])
+    result = runner.invoke(
+        cli,
+        ["user", "create", "alice@example.com", "--name", "Alice"],
+        obj=ctx,
+        catch_exceptions=False,
+    )
 
     # Assert
     assert result.exit_code == 0
-    assert "Project created" in result.output
+    assert "Created user Alice" in result.stdout
+    assert fake_db.tables["users"][0]["email"] == "alice@example.com"
 ```
+
+For CLI scenarios, prefer exit code, stdout/stderr, and final fake state in that order. Public mutation-tracking properties are a fallback when the command has no durable after-state to inspect.
 
 ### Test with Builder Pattern
 
@@ -326,9 +332,9 @@ from typing import Any
 from collections.abc import Generator
 
 # Your fakes
-from tests.gateways.fakes.database import FakeDatabaseAdapter
-from tests.gateways.fakes.api_client import FakeApiClient
-from tests.gateways.fakes.filesystem import FakeFileSystem
+from myapp.gateways.database.fake import FakeDatabaseAdapter
+from myapp.gateways.api_client.fake import FakeApiClient
+from myapp.gateways.filesystem.fake import FakeFileSystem
 
 # Your services and models
 from myapp.services.user_service import UserService
@@ -408,7 +414,7 @@ When adding a method to an integration class interface:
 
 - [ ] Add `@abstractmethod` to ABC (e.g., `DatabaseAdapter`)
 - [ ] Implement in real class (e.g., `RealDatabaseAdapter`)
-- [ ] Implement in fake class in `tests/gateways/fakes/database.py`
+- [ ] Implement in fake class in `src/myapp/gateways/database/fake.py`
 - [ ] Add operation tracking to fake (if write operation)
 - [ ] Test fake in `tests/gateways/test_fakes.py` (TestFakeDatabase class)
 - [ ] Test real with mocking in `tests/gateways/test_real_gateways.py` (TestRealDatabase class)
