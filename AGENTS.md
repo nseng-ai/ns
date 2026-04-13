@@ -7,6 +7,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - Packages in this repo do **not** publicly re-export symbols from `__init__.py`. Package `__init__.py` files should be empty or contain only a docstring.
 - Consumers must import from the canonical source module (e.g., `from twerk_core.clinkr.group import ClinkrGroup`, not `from twerk_core.clinkr import ClinkrGroup`).
 - Do not use `__all__` or `import X as X` re-export patterns in `__init__.py` files.
+- Do not prefix module filenames with a leading underscore (e.g., `_gateway_access.py`). Because `__init__.py` files are empty, every module's canonical path is already its public path — there is nothing to mark "package-private." `__init__.py` itself is exempt; the rule is about regular `.py` modules.
 
 ### Fixing Lint and Format Failures
 

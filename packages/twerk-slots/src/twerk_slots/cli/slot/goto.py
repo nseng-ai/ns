@@ -9,8 +9,8 @@ from twerk_core import get_console
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import find_assignment_by_slot
-from twerk_slots.cli.slot._context import build_slots_context
-from twerk_slots.cli.slot._slot_target import resolve_slot_target
+from twerk_slots.cli.slot.context import build_slots_context
+from twerk_slots.cli.slot.slot_target import resolve_slot_target
 from twerk_slots.repo_context import NoRepoSentinel
 
 

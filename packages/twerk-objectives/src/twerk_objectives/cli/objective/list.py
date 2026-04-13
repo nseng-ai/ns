@@ -10,7 +10,7 @@ from twerk_core import format_relative_time, get_console, make_table, state_badg
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import Issue
-from twerk_objectives.cli.objective._gateway_access import get_gh_issue_gateway
+from twerk_objectives.cli.objective.gateway_access import get_gh_issue_gateway
 
 
 @dataclass(frozen=True)

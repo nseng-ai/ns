@@ -17,7 +17,7 @@ from twerk_slots.allocation import (
     allocate_slot_for_branch,
     allocate_slot_for_current_branch,
 )
-from twerk_slots.cli.slot._context import build_slots_context
+from twerk_slots.cli.slot.context import build_slots_context
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
 
 
