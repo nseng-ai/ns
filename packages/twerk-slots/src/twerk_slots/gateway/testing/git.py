@@ -32,6 +32,8 @@ class FakeGitGateway(GitGateway):
         branches: Iterable[str] = (),
         worktrees: tuple[WorktreeInfo, ...] = (),
         current_branch_by_path: dict[Path, str | None] | None = None,
+        previous_branch_by_path: dict[Path, str | None] | None = None,
+        trunk_branch: str | None = None,
         file_status_by_path: dict[Path, FileStatus] | None = None,
         existing_paths: Iterable[Path] = (),
         repository_root_by_cwd: dict[Path, Path] | None = None,
@@ -45,6 +47,8 @@ class FakeGitGateway(GitGateway):
         self._branches: set[str] = set(branches)
         self._worktrees: list[WorktreeInfo] = list(worktrees)
         self._current_branch_by_path: dict[Path, str | None] = dict(current_branch_by_path or {})
+        self._previous_branch_by_path: dict[Path, str | None] = dict(previous_branch_by_path or {})
+        self._trunk_branch: str | None = trunk_branch
         self._file_status_by_path: dict[Path, FileStatus] = dict(file_status_by_path or {})
         self._existing_paths: set[Path] = set(existing_paths)
         self._repository_root_by_cwd: dict[Path, Path] = dict(repository_root_by_cwd or {})
@@ -58,6 +62,7 @@ class FakeGitGateway(GitGateway):
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
         self._checkout_calls: list[tuple[Path, str]] = []
         self._create_branch_calls: list[tuple[str, str, bool]] = []
+        self._detach_head_calls: list[tuple[Path, str]] = []
 
     # -- Filesystem helpers --
 
@@ -83,6 +88,12 @@ class FakeGitGateway(GitGateway):
 
     def get_current_branch(self, cwd: Path) -> str | None:
         return self._current_branch_by_path.get(cwd)
+
+    def get_previous_branch(self, cwd: Path) -> str | None:
+        return self._previous_branch_by_path.get(cwd)
+
+    def get_trunk_branch(self) -> str | None:
+        return self._trunk_branch
 
     def branch_exists(self, branch: str) -> bool:
         return branch in self._branches
@@ -116,6 +127,14 @@ class FakeGitGateway(GitGateway):
         self._current_branch_by_path[cwd] = branch
         self._worktrees = [
             WorktreeInfo(path=wt.path, branch=branch, is_bare=wt.is_bare) if wt.path == cwd else wt
+            for wt in self._worktrees
+        ]
+
+    def detach_head(self, cwd: Path, ref: str) -> None:
+        self._detach_head_calls.append((cwd, ref))
+        self._current_branch_by_path[cwd] = None
+        self._worktrees = [
+            WorktreeInfo(path=wt.path, branch=None, is_bare=wt.is_bare) if wt.path == cwd else wt
             for wt in self._worktrees
         ]
 

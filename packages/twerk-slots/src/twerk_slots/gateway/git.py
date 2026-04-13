@@ -61,6 +61,14 @@ class GitGateway(ABC):
         """Return the currently checked-out branch name, or None when detached."""
 
     @abstractmethod
+    def get_previous_branch(self, cwd: Path) -> str | None:
+        """Return the previous branch (``git rev-parse --abbrev-ref '@{-1}'``) or None."""
+
+    @abstractmethod
+    def get_trunk_branch(self) -> str | None:
+        """Return the repo's trunk branch name (main/master/etc.), or None when unresolvable."""
+
+    @abstractmethod
     def branch_exists(self, branch: str) -> bool:
         """Return True when ``branch`` exists as a local branch in the bound repo."""
 
@@ -87,6 +95,10 @@ class GitGateway(ABC):
     @abstractmethod
     def checkout_branch(self, cwd: Path, branch: str) -> None:
         """Check out ``branch`` in the worktree rooted at ``cwd``."""
+
+    @abstractmethod
+    def detach_head(self, cwd: Path, ref: str) -> None:
+        """Detach HEAD at ``ref`` in the worktree rooted at ``cwd`` (``git checkout --detach``)."""
 
     @abstractmethod
     def create_branch(self, branch: str, start_point: str, *, force: bool) -> None:

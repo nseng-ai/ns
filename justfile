@@ -2,6 +2,11 @@ import? 'local.just'
 
 default: check
 
+pbcopy-source-activate:
+    uv sync
+    @printf 'source %s/.venv/bin/activate' "{{justfile_directory()}}" | pbcopy
+    @echo "Copied to clipboard — paste and press enter to activate."
+
 check: lint format-check dprint-check ty test
 
 lint:
