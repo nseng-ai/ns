@@ -5,8 +5,6 @@ allowed-tools:
   - "Bash(pr-address *)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
-  - "Bash(gh api *)"
-  - "Bash(gh api graphql *)"
   - "Bash(gh auth status)"
   - "Bash(gh repo view *)"
   - "Bash(git status*)"

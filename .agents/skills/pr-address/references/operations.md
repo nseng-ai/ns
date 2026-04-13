@@ -23,22 +23,6 @@ pr-address exec get-pr-for-branch "$BRANCH"
 
 ---
 
-## get-owner-repo
-
-**Purpose:** The GraphQL queries need `owner` and `repo` as separate
-variables. Derive them once and reuse.
-
-**Command:**
-
-```bash
-gh repo view --json owner,name --jq '{owner: .owner.login, name: .name}'
-```
-
-Or, if already inside a checkout, parse from `git remote get-url origin`.
-Both are fine.
-
----
-
 ## get-review-threads
 
 **Migrated** — pushed down into Python. Source of truth:
@@ -86,60 +70,31 @@ Failures reopening individual threads should be warnings, not fatal errors.
 
 ## get-reviews
 
-**Purpose:** Fetch PR-level review submissions (the "Changes requested",
-"Approved", "Commented" items, not inline threads).
-
-**Command:**
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.get_reviews` at
+`packages/twerk-core/src/twerk_core/gh/real_issue_gateway.py`. Output type:
+`PRReview` at `packages/twerk-core/src/twerk_core/gh/types.py`. State
+filtering (drop PENDING / DISMISSED; the classifier further ignores APPROVED
+and empty COMMENTED reviews) lives in the typed implementation.
 
 ```bash
-gh api graphql \
-  -F owner="$OWNER" \
-  -F repo="$REPO" \
-  -F number="$PR_NUMBER" \
-  -f query='
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
-      reviews(first: 100, states: [CHANGES_REQUESTED, APPROVED, COMMENTED]) {
-        nodes {
-          id
-          author { login }
-          body
-          state
-          submittedAt
-        }
-      }
-    }
-  }
-}'
+pr-address exec get-reviews <pr_number>
 ```
-
-**Filter:** The `states` argument excludes PENDING (draft) and DISMISSED
-(superseded). The classifier will further drop APPROVED reviews and
-COMMENTED reviews with empty bodies.
 
 ---
 
 ## get-discussion-comments
 
-**Purpose:** Fetch PR top-level conversation comments (not inline review
-threads).
-
-**Command:**
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.get_discussion_comments` at
+`packages/twerk-core/src/twerk_core/gh/real_issue_gateway.py`. Output type:
+`IssueComment` at `packages/twerk-core/src/twerk_core/gh/types.py`.
+Pagination and the paginated-array-decoder handling live in the typed
+implementation.
 
 ```bash
-gh api "repos/$OWNER/$REPO/issues/$PR_NUMBER/comments" --paginate
+pr-address exec get-discussion-comments <pr_number>
 ```
-
-**Notes:**
-
-- Uses the `issues` endpoint because GitHub treats PR discussion comments
-  as issue comments at the REST level. This is why the unified
-  `IssueGateway` in `twerk_core.gh` can serve both.
-- `--paginate` follows `Link` headers automatically.
-
-**Output shape each comment:** `{id, user: {login}, body, html_url,
-created_at, updated_at}`
 
 ---
 
@@ -226,18 +181,24 @@ threads it previously resolved (Phase 0 contested-thread detector).
 
 ## add-issue-comment
 
-**Purpose:** Post a top-level comment on the PR's discussion. Used to reply
-to discussion comments and to respond to PR-level reviews (which have no
-"resolve" mutation).
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.add_comment`. Used to reply to discussion comments and to
+respond to PR-level reviews (which have no "resolve" mutation).
 
-**Command:**
+**Always pass the body via a quoted heredoc** (`-` as the positional body
+argument tells the CLI to read from stdin):
 
 ```bash
-gh api \
-  --method POST \
-  "repos/$OWNER/$REPO/issues/$PR_NUMBER/comments" \
-  -f body="$REPLY_BODY"
+pr-address exec add-issue-comment <pr_number> - <<'EOF'
+<reply body goes here, with real line breaks>
+EOF
 ```
+
+The body MUST come from a heredoc (or a file piped to stdin), never an
+inline double-quoted string — bash does not interpret `\n` escapes inside
+double quotes, so literal `\n` characters would be posted verbatim on
+GitHub. The quoted delimiter (`'EOF'`) also prevents shell expansion of
+`$`, backticks, etc. inside the body.
 
 **Body format for discussion replies:** Quote the original comment with
 author attribution, include a substantive action summary, and add the
@@ -261,17 +222,12 @@ with `> ...`.
 
 ## add-reaction
 
-**Purpose:** Add a `+1` reaction to the original discussion comment after
-posting a substantive reply.
-
-**Command:**
+**Migrated** — pushed down into Python. Source of truth:
+`RealIssueGateway.add_reaction`. Used to add a `+1` to the original
+discussion comment after posting a substantive reply.
 
 ```bash
-gh api \
-  --method POST \
-  "repos/$OWNER/$REPO/issues/comments/$COMMENT_ID/reactions" \
-  -H "Accept: application/vnd.github+json" \
-  -f content="+1"
+pr-address exec add-reaction <comment_id> "+1"
 ```
 
 Valid reactions: `+1`, `-1`, `laugh`, `confused`, `heart`, `hooray`,
