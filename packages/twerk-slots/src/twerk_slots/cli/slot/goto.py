@@ -8,56 +8,47 @@ import click
 from twerk_core import get_console
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_slots.allocation import (
-    DirtyWorktreeError,
-    SlotNotAssignedError,
-    free_slot_assignment,
-)
+from twerk_slots.allocation import find_assignment_by_slot
 from twerk_slots.cli.slot._context import build_slots_context
 from twerk_slots.cli.slot._slot_target import resolve_slot_target
 from twerk_slots.repo_context import NoRepoSentinel
 
 
 @dataclass(frozen=True)
-class SlotFreeRequest:
+class SlotGotoRequest:
     num: Annotated[int | None, click.Option(["--num"], type=click.INT, default=None)] = None
     wt: Annotated[str | None, click.Option(["--wt"], type=click.STRING, default=None)] = None
 
 
 @dataclass(frozen=True)
-class SlotFreeResult:
+class SlotGotoResult:
     slot_name: str
     branch_name: str
     worktree_path: str
-    placeholder_branch: str
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "slot_name": self.slot_name,
             "branch_name": self.branch_name,
             "worktree_path": self.worktree_path,
-            "placeholder_branch": self.placeholder_branch,
         }
 
 
-def render_slot_free(result: SlotFreeResult) -> None:
+def render_slot_goto(result: SlotGotoResult) -> None:
     console = get_console()
     console.print(
-        f"[green]✓[/green] Freed [bold cyan]{result.slot_name}[/bold cyan] "
-        f"([yellow]{result.branch_name}[/yellow])"
+        f"[bold cyan]{result.slot_name}[/bold cyan] -> [green]{result.branch_name}[/green]"
     )
-    console.print(
-        f"  Worktree kept at [dim]{result.worktree_path}[/dim]; "
-        f"checked out placeholder [dim]{result.placeholder_branch}[/dim]"
-    )
+    # Pipeable worktree path on its own line (last).
+    click.echo(result.worktree_path)
 
 
 @clinkr_operation(
-    name="free",
-    help="Release a slot assignment; keep the worktree directory for reuse.",
-    human_renderer=render_slot_free,
+    name="goto",
+    help="Print the worktree path for an assigned slot.",
+    human_renderer=render_slot_goto,
 )
-def run_free_slot(request: SlotFreeRequest) -> SlotFreeResult | ClinkrCommandError:
+def run_goto_slot(request: SlotGotoRequest) -> SlotGotoResult | ClinkrCommandError:
     ctx = build_slots_context()
     if isinstance(ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
@@ -76,24 +67,24 @@ def run_free_slot(request: SlotFreeRequest) -> SlotFreeResult | ClinkrCommandErr
         return slot_name_or_error
     slot_name = slot_name_or_error
 
-    outcome = free_slot_assignment(ctx, slot_name=slot_name)
-    if isinstance(outcome, SlotNotAssignedError):
+    assignment = find_assignment_by_slot(state, slot_name)
+    if assignment is None:
         return ClinkrCommandError(
             error_type="slot_not_assigned",
             message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
         )
-    if isinstance(outcome, DirtyWorktreeError):
+
+    if not ctx.storage.path_exists(assignment.worktree_path):
         return ClinkrCommandError(
-            error_type="dirty_worktree",
+            error_type="worktree_missing",
             message=(
-                f"{slot_name} has uncommitted changes at {outcome.worktree_path}. "
-                f"Commit or stash before freeing."
+                f"Worktree for {slot_name} is missing at {assignment.worktree_path}. "
+                f"Run `slot free --wt {slot_name}` to clear the stale assignment."
             ),
         )
 
-    return SlotFreeResult(
-        slot_name=outcome.slot_name,
-        branch_name=outcome.branch_name,
-        worktree_path=str(outcome.worktree_path),
-        placeholder_branch=outcome.placeholder_branch,
+    return SlotGotoResult(
+        slot_name=slot_name,
+        branch_name=assignment.branch_name,
+        worktree_path=str(assignment.worktree_path),
     )
