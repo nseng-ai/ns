@@ -13,7 +13,7 @@ from twerk_slots.allocation import (
     SlotNotAssignedError,
     free_slot_assignment,
 )
-from twerk_slots.cli.slot.context import build_slots_context
+from twerk_slots.cli.slot.gateway_access import get_slots_cli_context
 from twerk_slots.cli.slot.slot_target import resolve_slot_target
 from twerk_slots.repo_context import NoRepoSentinel
 
@@ -58,7 +58,7 @@ def render_slot_free(result: SlotFreeResult) -> None:
     human_renderer=render_slot_free,
 )
 def run_free_slot(request: SlotFreeRequest) -> SlotFreeResult | ClinkrCommandError:
-    ctx = build_slots_context()
+    ctx = get_slots_cli_context()
     if isinstance(ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
 

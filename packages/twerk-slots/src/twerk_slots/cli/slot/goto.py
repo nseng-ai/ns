@@ -9,7 +9,7 @@ from twerk_core import get_console
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import find_assignment_by_slot
-from twerk_slots.cli.slot.context import build_slots_context
+from twerk_slots.cli.slot.gateway_access import get_slots_cli_context
 from twerk_slots.cli.slot.slot_target import resolve_slot_target
 from twerk_slots.repo_context import NoRepoSentinel
 
@@ -49,7 +49,7 @@ def render_slot_goto(result: SlotGotoResult) -> None:
     human_renderer=render_slot_goto,
 )
 def run_goto_slot(request: SlotGotoRequest) -> SlotGotoResult | ClinkrCommandError:
-    ctx = build_slots_context()
+    ctx = get_slots_cli_context()
     if isinstance(ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
 

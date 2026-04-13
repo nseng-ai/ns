@@ -9,7 +9,7 @@ from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.format import format_relative_time
 from twerk_slots.allocation import sync_pool_assignments
-from twerk_slots.cli.slot.context import build_slots_context
+from twerk_slots.cli.slot.gateway_access import get_slots_cli_context
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import generate_slot_name
 from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState
@@ -127,7 +127,7 @@ def _compose_rows(
     human_renderer=render_slot_list,
 )
 def run_list_slots(request: SlotListRequest) -> SlotListResult | ClinkrCommandError:
-    ctx = build_slots_context()
+    ctx = get_slots_cli_context()
     if isinstance(ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
 

@@ -1,67 +1,24 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import click
 
-from twerk_slots.gateway.clipboard import ClipboardGateway
-from twerk_slots.gateway.git import GitGateway
-from twerk_slots.gateway.pool_state_gateway import PoolStateGateway, RealPoolStateGateway
-from twerk_slots.gateway.real_clipboard import RealClipboardGateway
-from twerk_slots.gateway.real_git import RealGitGateway
-from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
-from twerk_slots.gateway.storage import SlotsStorageGateway
-from twerk_slots.repo_context import SLOTS_ROOT
+from twerk_slots.context import SlotsCliContext
+from twerk_slots.repo_context import NoRepoSentinel
 
 
-def get_git_gateway(repo_root: Path) -> GitGateway:
-    """Retrieve the GitGateway from the current Click context.
+def get_slots_cli_context() -> SlotsCliContext | NoRepoSentinel:
+    """Return the typed slots CLI context stashed on the active Click context.
 
-    Falls back to a :class:`RealGitGateway` bound to ``repo_root`` so the CLI
-    works out of the box in any git repo. Tests inject a pre-bound fake via
-    the Click object.
+    The root group callback constructs a :class:`SlotsCliContext` (or a
+    :class:`NoRepoSentinel` when cwd is outside a git repo) and assigns it to
+    ``ctx.obj``. Tests bypass the callback by passing a pre-built context as
+    ``obj=`` to ``CliRunner().invoke(...)``.
     """
     ctx = click.get_current_context()
-    gateway = ctx.obj.get("git_gateway") if ctx.obj else None
-    if gateway is None:
-        return RealGitGateway(repo_root=repo_root)
-    return gateway
-
-
-def get_slots_root() -> Path:
-    """Retrieve the slots root directory from the Click context, or ~/.slots."""
-    ctx = click.get_current_context()
-    slots_root = ctx.obj.get("slots_root") if ctx.obj else None
-    if slots_root is None:
-        return SLOTS_ROOT
-    return slots_root
-
-
-def get_storage_gateway() -> SlotsStorageGateway:
-    """Retrieve the SlotsStorageGateway from the Click context, or a real one."""
-    ctx = click.get_current_context()
-    gateway = ctx.obj.get("storage_gateway") if ctx.obj else None
-    if gateway is None:
-        return RealSlotsStorageGateway()
-    return gateway
-
-
-def get_pool_state_gateway(pool_json_path: Path) -> PoolStateGateway:
-    """Retrieve the PoolStateGateway from the Click context, or a real one
-    bound to ``pool_json_path``. Tests inject a pre-bound fake via the
-    Click object.
-    """
-    ctx = click.get_current_context()
-    gateway = ctx.obj.get("pool_state_gateway") if ctx.obj else None
-    if gateway is None:
-        return RealPoolStateGateway(pool_json_path=pool_json_path)
-    return gateway
-
-
-def get_clipboard_gateway() -> ClipboardGateway:
-    """Retrieve the ClipboardGateway from the Click context, or a real one."""
-    ctx = click.get_current_context()
-    gateway = ctx.obj.get("clipboard_gateway") if ctx.obj else None
-    if gateway is None:
-        return RealClipboardGateway()
-    return gateway
+    obj = ctx.obj
+    if not isinstance(obj, (SlotsCliContext, NoRepoSentinel)):
+        raise RuntimeError(
+            "SlotsCliContext missing from click context; "
+            "ensure the slot group callback ran or obj= was passed in tests."
+        )
+    return obj
