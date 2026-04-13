@@ -85,3 +85,17 @@ def test_pr_address_plugin_integration() -> None:
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["count"] == 0
+
+
+def test_oneshot_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(name="oneshot", value="twerk_oneshot.cli.oneshot")
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    runner = CliRunner()
+    result = runner.invoke(parent, ["oneshot", "--help"])
+
+    assert result.exit_code == 0
+    assert "Queue one-shot remote work." in result.output
+    assert "json" not in result.output

@@ -2,6 +2,7 @@
 members = [
   "packages/twerk-core",
   "packages/twerk-objectives",
+  "packages/twerk-oneshot",
   "packages/twerk-pr-address",
   "packages/twerk-slots",
 ]
@@ -9,6 +10,7 @@ members = [
 [tool.uv.sources]
 twerk-core = { workspace = true }
 twerk-objectives = { workspace = true }
+twerk-oneshot = { workspace = true }
 twerk-pr-address = { workspace = true }
 twerk-slots = { workspace = true }
 
@@ -35,6 +37,7 @@ dev = [
   "pytest-xdist>=3.8.0",
   "twerk-core",
   "twerk-objectives",
+  "twerk-oneshot",
   "twerk-pr-address",
   "twerk-slots",
   "ty>=0.0.1a7",
@@ -54,6 +57,7 @@ src = [
   "src",
   "packages/twerk-core/src",
   "packages/twerk-objectives/src",
+  "packages/twerk-oneshot/src",
   "packages/twerk-pr-address/src",
   "packages/twerk-slots/src",
 ]
@@ -70,7 +74,14 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["twerk", "twerk_core", "twerk_objectives", "twerk_pr_address", "twerk_slots"]
+known-first-party = [
+  "twerk",
+  "twerk_core",
+  "twerk_objectives",
+  "twerk_oneshot",
+  "twerk_pr_address",
+  "twerk_slots",
+]
 
 [tool.ty.src]
 include = ["src"]
@@ -87,6 +98,7 @@ testpaths = [
   "tests",
   "packages/twerk-core/tests",
   "packages/twerk-objectives/tests",
+  "packages/twerk-oneshot/tests",
   "packages/twerk-pr-address/tests",
   "packages/twerk-slots/tests",
 ]
