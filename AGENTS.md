@@ -27,7 +27,7 @@ Public skills (those with a `skills/<name>` symlink for external discoverability
 - Treat all files under `.agents/skills/` as vendored third-party code.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`, so the same vendored-code rule applies there.
 - For repo-local skills, `.agents/skills/<name>/` is the canonical source — edit files there directly. Public skills additionally have a `skills/<name>` symlink for discoverability via `npx skills add`; editing through the symlink is equivalent.
-- Do not apply first-party Python standards or refactoring skills such as `dignified-python`, `fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files under these directories unless the user explicitly asks to modify the vendored dependency itself.
+- Do not apply first-party Python standards or refactoring skills such as `ns-dignified-python`, `ns-py-fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files under these directories unless the user explicitly asks to modify the vendored dependency itself.
 - When reviewing or editing the repo, exclude `.agents/skills/**/*.py` from normal linting, typechecking, code review, and cleanup expectations; assume those files should remain as-shipped unless the task is specifically about updating vendored skill code.
 
 ### GitHub Backend Interactions
@@ -44,8 +44,6 @@ Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) bui
 
 ### Available skills
 
-- dignified-python: Production Python coding standards with automatic version detection (3.10-3.13). Use when writing, reviewing, or refactoring Python to ensure adherence to modern type syntax, LBYL exception handling, pathlib operations, ABC-based interfaces, and production-tested patterns. (file: /Users/schrockn/code/twerk/.claude/skills/dignified-python/SKILL.md)
-- fake-driven-testing: Use when writing tests, fixing bugs, adding features, or modifying the gateway layer. This skill provides guidance on testing architecture, working with fakes, implementing ABC gateway interfaces, and where different types of tests belong. (file: /Users/schrockn/code/twerk/.claude/skills/fake-driven-testing/SKILL.md)
 - fdt-refactor-mock-to-fake: Refactor tests that use `unittest.mock.patch` or `MagicMock` into the gateway-based fake pattern. Use when test files patch module-level attributes like `subprocess.run`, `shutil.which`, or `os.environ`, or otherwise need source code made injectable before rewriting the tests. (file: /Users/schrockn/code/twerk/.claude/skills/fdt-refactor-mock-to-fake/SKILL.md)
 - fix-just: Run `just` and fix all failures (lint, format, type errors, test failures) by fixing the underlying code — not by deleting or weakening tests. If user input is needed, ask the user. If the current harness is in a planning or read-only mode, present a plan to fix the failures instead of applying changes. (file: /Users/schrockn/code/twerk/.claude/skills/fix-just/SKILL.md)
 - graphite: Work with Graphite (`gt`) for stacked PRs, including creating, navigating, and managing PR stacks. Use when the task involves Graphite workflows or stacked-PR operations. (file: /Users/schrockn/code/twerk/.claude/skills/graphite/SKILL.md)
