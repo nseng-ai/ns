@@ -173,7 +173,7 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
 
     free_res = CliRunner().invoke(
         cli_group,
-        ["free", "slot-01"],
+        ["free", "--wt", "slot-01"],
         obj=_make_obj(fakes, slots_root),
     )
     assert free_res.exit_code == 0, free_res.output
