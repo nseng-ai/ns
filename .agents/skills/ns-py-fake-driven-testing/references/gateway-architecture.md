@@ -28,7 +28,7 @@ Every gateway interface has **three core implementations** (ABC, Real, Fake). A 
 
 Defines the contract all implementations must follow.
 
-**Example**: `DatabaseGateway` (`src/myapp/gateways/database.py`)
+**Example**: `DatabaseGateway` (`src/myapp/gateways/database/gateway.py`)
 
 ```python
 from abc import ABC, abstractmethod
@@ -64,7 +64,7 @@ class DatabaseGateway(ABC):
 
 Calls actual external systems (database, filesystem, API).
 
-**Example**: `RealDatabaseGateway` (`src/myapp/gateways/database.py`)
+**Example**: `RealDatabaseGateway` (`src/myapp/gateways/database/real.py`)
 
 ```python
 import psycopg2
@@ -128,7 +128,7 @@ class RealDatabaseGateway(DatabaseGateway):
 
 In-memory simulation for fast testing.
 
-**Example**: `FakeDatabaseGateway` (`tests/gateways/fakes/database.py`)
+**Example**: `FakeDatabaseGateway` (`src/myapp/gateways/database/fake.py`)
 
 ```python
 from typing import Any

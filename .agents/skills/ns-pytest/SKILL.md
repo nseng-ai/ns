@@ -1,13 +1,13 @@
 ---
 name: ns-pytest
-description: "Pytest-specific style guide for writing and reviewing tests. Use when deciding between fixtures, context managers, and plain helpers; choosing module-level `test_*` functions instead of test classes; using `@pytest.mark.parametrize`, `tmp_path`, `monkeypatch`, and `capsys`; structuring `unittest.mock.patch`; or cleaning up `autouse` fixtures and `conftest.py` sprawl. Prescribes functional-only tests, a strict setup hierarchy, and pragmatic mocking defaults. For architecture-level questions about gateway/fake design or where tests belong in the stack, use `fake-driven-testing` instead."
+description: "Pytest-specific style guide for writing and reviewing tests. Use when deciding between fixtures, context managers, and plain helpers; choosing module-level `test_*` functions instead of test classes; using `@pytest.mark.parametrize`, `tmp_path`, `monkeypatch`, and `capsys`; structuring `unittest.mock.patch`; or cleaning up `autouse` fixtures and `conftest.py` sprawl. Prescribes functional-only tests, a strict setup hierarchy, and pragmatic mocking defaults. For architecture-level questions about gateway/fake design or where tests belong in the stack, use `ns-py-fake-driven-testing` instead."
 ---
 
 # ns-pytest
 
 Low-level style guide for writing pytest tests. Covers the mechanics
 — fixtures, classes, markers, mocking, setup patterns — that sit underneath
-the architectural guidance in `fake-driven-testing`.
+the architectural guidance in `ns-py-fake-driven-testing`.
 
 ## Philosophy
 
@@ -17,18 +17,18 @@ you've gone wrong. A test should read top-to-bottom like a short story
 with no flashbacks: set up the scenario in the test body (or a helper
 called from the test body), do the thing, assert what you expected.
 
-## Relationship to fake-driven-testing
+## Relationship to ns-py-fake-driven-testing
 
-`fake-driven-testing` is the higher-level, more opinionated skill. It
+`ns-py-fake-driven-testing` is the higher-level, more opinionated skill. It
 answers _what_ to test, _where_ the test belongs in the defense-in-depth
 stack, and _how to structure the seam_ between your code and its
 dependencies (ABC gateways, fakes). `ns-pytest` answers _how to write
 the test_ once you've made those decisions. The two compose: use
-`fake-driven-testing` to design the test, use `ns-pytest` to write
-the Python. When the two seem to conflict, `fake-driven-testing` wins on
+`ns-py-fake-driven-testing` to design the test, use `ns-pytest` to write
+the Python. When the two seem to conflict, `ns-py-fake-driven-testing` wins on
 architecture and `ns-pytest` wins on pytest mechanics.
 
-Some tests inside the fake-driven-testing stack legitimately need
+Some tests inside the ns-py-fake-driven-testing stack legitimately need
 `unittest.mock.patch` (e.g. the thin boundary tests that exercise a
 gateway's real implementation against the stdlib). The mocking section
 below is written for exactly those cases, not as a general license to
@@ -173,7 +173,7 @@ call, no yield.
 
 Mocking is allowed. Sometimes it is exactly what you need — thin boundary
 tests, stdlib seams, code where the gateway/fake approach from
-`fake-driven-testing` is the wrong tool for the job. When you do reach
+`ns-py-fake-driven-testing` is the wrong tool for the job. When you do reach
 for a mock, follow these rules.
 
 ### Prefer `monkeypatch` for simple swaps
@@ -256,7 +256,7 @@ Mock your own seams — interfaces you control, boundaries you defined.
 Don't mock third-party library internals (`requests.Session._send`,
 `click.Context._depth`). When the library updates, your mock becomes
 fiction. If you need to fake a third-party library, wrap it in your own
-gateway first (see `fake-driven-testing`) and mock the gateway.
+gateway first (see `ns-py-fake-driven-testing`) and mock the gateway.
 
 ### Assert on calls meaningfully
 
@@ -270,7 +270,7 @@ don't need a mock at all.
 
 A test that needs three or more mocks to set up is a signal that the
 code under test has the wrong seam. Stop, close the test file, and go
-read `fake-driven-testing`. Introducing an ABC gateway and a fake
+read `ns-py-fake-driven-testing`. Introducing an ABC gateway and a fake
 implementation will almost always produce a cleaner test than stacking
 more `patch` calls.
 
@@ -344,8 +344,9 @@ reason about later; the default answer is no.
 
 - Architecture questions — gateway / fake design, where a test belongs
   in the defense-in-depth stack, whether to introduce a fake →
-  `fake-driven-testing`.
+  `ns-py-fake-driven-testing`.
 - Refactoring existing `unittest.mock.patch` code into the
-  gateway/fake pattern → `fdt-refactor-mock-to-fake`.
+  gateway/fake pattern → `ns-py-fake-driven-testing`
+  (see `references/mock-to-fake-conversion.md`).
 - General Python style — type hints, LBYL vs EAFP, pathlib,
   exceptions → `ns-dignified-python`.

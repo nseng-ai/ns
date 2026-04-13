@@ -6,15 +6,15 @@
       "sourceType": "github",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
     },
-    "gh": {
-      "source": "/Users/schrockn/code/twerk/skills/gh",
-      "sourceType": "local",
-      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
-    },
     "fix-just": {
       "source": "/Users/schrockn/code/twerk/skills/fix-just",
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
+    },
+    "gh": {
+      "source": "/Users/schrockn/code/twerk/skills/gh",
+      "sourceType": "local",
+      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
     "graphite": {
       "source": "withgraphite/agent-skills",
@@ -49,17 +49,17 @@
     "ns-fake-driven-test-layout": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "2643968fd53c1d06e6c30b3f96d5c21766bee5305f318fe23c99f919cb024d0c"
+      "computedHash": "6c9f4a3782bce29ad7a4a04086b29fa26e8a1db7501c778938dfb26c94dbe093"
     },
     "ns-py-fake-driven-testing": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "b0220339282a0011b7351c0479d26c914569f45b6fc3c72a4071962b97a2a0f5"
+      "computedHash": "5e3978c5d408c0250b0a96147412a3889292658e8d3503458e2f79617383626d"
     },
     "ns-pytest": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "94ad5d8e2bc653b63f89949bd37ee1e64f79e82fe48f6174add41c073c61960c"
+      "computedHash": "df7fb417263781f6c6dbb66a2d9b60a92bfdb63e33c017c0462e6d7eab94aad8"
     },
     "ns-refac-cli-push-down": {
       "source": "nseng-ai/nonslop",

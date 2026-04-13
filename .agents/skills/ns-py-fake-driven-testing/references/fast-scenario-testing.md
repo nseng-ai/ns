@@ -30,6 +30,8 @@ Use a fast scenario test when:
 
 Reach for it as the _default_ shape for any test that would otherwise be tempted to subprocess-out, mock framework internals, or assert on the order of internal calls.
 
+Scenario assertion priority is explicit: assert exit code and user-visible output first, then assert on stable post-state in the fakes. Reach for public mutation-tracking properties only when no durable after-state exists. Never assert on private fake fields such as `_checkout_calls` or `_sent_emails` in a scenario test.
+
 ## The Three-Phase Structure
 
 ```python
@@ -38,7 +40,7 @@ def test_create_user_command_persists_user() -> None:
     runner = CliRunner()
 
     # 1. ARRANGE: configure initial state in fakes
-    fake_db = FakeDatabaseAdapter()
+    fake_db = FakeDatabaseAdapter(tables={"users": []})
     fake_email = FakeEmailClient()
     ctx = AppContext(database=fake_db, email_client=fake_email)
 
@@ -54,8 +56,9 @@ def test_create_user_command_persists_user() -> None:
     assert result.exit_code == 0
     assert "Created user Alice" in result.stdout
 
-    assert len(fake_db.executed_queries) == 1
-    assert "INSERT INTO users" in fake_db.executed_queries[0]
+    assert len(fake_db.tables["users"]) == 1
+    assert fake_db.tables["users"][0]["name"] == "Alice"
+    assert fake_db.tables["users"][0]["email"] == "alice@example.com"
 
     assert len(fake_email.sent_emails) == 1
     assert fake_email.sent_emails[0]["to"] == "alice@example.com"
@@ -212,13 +215,12 @@ def test_publish_post_command() -> None:
         assert_cli_success(result, "Published post 1")
 
         # Database row was updated
-        assert fake_db.executed_queries[-1].startswith("UPDATE posts")
         assert fake_db.tables["posts"][0]["status"] == "published"
 
         # Cache was invalidated
-        assert "posts:list" in fake_cache.deleted_keys
+        assert "posts:list" not in fake_cache.entries
 
-        # Notification was sent
+        # Notification outbox now contains the published event
         assert len(fake_notification.sent) == 1
         assert fake_notification.sent[0].topic == "post.published"
 ```
@@ -227,16 +229,23 @@ Each fake is constructed with its own initial state via constructor injection (s
 
 ## Asserting on Output State
 
-Scenario tests have four assertion surfaces. Use whichever fits the outcome you care about — and prefer asserting on the _result_, not on intermediate calls.
+Scenario tests have four assertion surfaces. Use them in priority order:
 
-| Surface               | What it checks                               | Example                                                |
-| --------------------- | -------------------------------------------- | ------------------------------------------------------ |
-| **Exit code**         | Did the command succeed or fail?             | `assert result.exit_code == 0`                         |
-| **stdout / stderr**   | What did the user see?                       | `assert "Created" in result.stdout`                    |
-| **Mutation tracking** | Which write operations did the fake observe? | `assert "INSERT" in fake_db.executed_queries[0]`       |
-| **Final fake state**  | What does the world look like now?           | `assert fake_db.tables["users"][0]["name"] == "Alice"` |
+1. Exit code
+2. stdout / stderr
+3. Final fake state
+4. Public mutation tracking only when no durable after-state exists
 
-The last two surfaces deserve emphasis: a scenario test is most valuable when it asserts on **terminal state** ("the user row exists with these values") rather than on call traces ("`insert_user` was called once with these arguments"). Terminal-state assertions are more robust to refactoring and more honest about what the user actually gets.
+| Surface                                 | When to use it                                              | Example                                                |
+| --------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| **Exit code**                           | Did the command succeed or fail?                            | `assert result.exit_code == 0`                         |
+| **stdout / stderr**                     | What did the user see?                                      | `assert "Created" in result.stdout`                    |
+| **Final fake state**                    | What does the world look like after the command?            | `assert fake_db.tables["users"][0]["name"] == "Alice"` |
+| **Public mutation tracking (fallback)** | No stable after-state exists, but the attempt still matters | `assert fake_clock.sleep_calls == [1.0, 2.0]`          |
+
+Hard rule: never assert on private fake fields such as `_checkout_calls`, `_add_worktree_calls`, or `_sent_emails` in a scenario test. If a scenario needs a private field to be observable, expose a public outcome surface on the fake or move the assertion to a fake-check test of the fake itself or a narrower logic test where the interaction is the behavior.
+
+A fake may record mutations without making interaction assertions the default scenario shape. Public collections such as an outbox or `sent_emails` can count as final fake state when they model the resulting world after the command. Call-history properties such as `executed_queries` are fallback-only surfaces in scenarios, not the default thing to assert.
 
 For the mutation-tracking property pattern itself, see `patterns.md#mutation-tracking-properties`.
 
@@ -326,6 +335,31 @@ Scenario tests are the right tool for end-to-end outcomes, but they are the _wro
 Scenario tests shine when the question is "did the user get the outcome they asked for?" They are the wrong shape when the question is "does this one function compute the right number?"
 
 ## Anti-Patterns
+
+**❌ Asserting on private fake call logs in a CLI scenario.**
+
+```python
+# Wrong: private fields turn the fake into a spy
+assert fake_git._add_worktree_calls == [
+    (repo_path, worktree_path, "feature/alice"),
+]
+assert fake_git._checkout_calls == [
+    (worktree_path, "feature/alice"),
+]
+assert fake_git._detach_head_calls == [worktree_path]
+```
+
+**✅ Assert on user-visible output and post-state.**
+
+```python
+# Right: describe the outcome the user cares about
+assert_cli_success(result, "Attached worktree for feature/alice")
+assert fake_git.get_current_branch(worktree_path) == "feature/alice"
+assert worktree_path in fake_git.list_worktrees()
+assert fake_pool.load()["feature/alice"].path == worktree_path
+```
+
+---
 
 **❌ Asserting on every intermediate call.**
 
