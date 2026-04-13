@@ -17,7 +17,7 @@ from twerk_slots.allocation import (
     allocate_slot_for_branch,
     allocate_slot_for_current_branch,
 )
-from twerk_slots.cli.slot.context import build_slots_context
+from twerk_slots.cli.slot.gateway_access import get_slots_cli_context
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopySuccess
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
@@ -169,7 +169,7 @@ def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | Clin
             message="-b/--new cannot be combined with --current.",
         )
 
-    ctx = build_slots_context()
+    ctx = get_slots_cli_context()
     if isinstance(ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
 

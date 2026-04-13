@@ -8,6 +8,7 @@ clipboard gateways) so callers pass a single ``ctx``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from twerk_slots.gateway.clipboard import ClipboardGateway
 from twerk_slots.gateway.git import GitGateway
@@ -23,3 +24,4 @@ class SlotsCliContext:
     storage: SlotsStorageGateway
     pool_state: PoolStateGateway
     clipboard: ClipboardGateway
+    slots_root: Path
