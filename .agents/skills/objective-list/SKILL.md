@@ -1,6 +1,6 @@
 ---
 name: objective-list
-description: "Display the user's twerk objectives — GitHub issues labeled `twerk-objective` that anchor multi-session workstreams. Use whenever the user asks 'what are my objectives?', 'show my open objectives', 'list twerk objectives', wants to pick the next workstream to progress, or asks for details on a specific objective by number. Lists via `twerk objective list` (alias `ls`, default state `open`, supports `--state {open|closed|all}`); on follow-up, drills into a specific issue with `gh issue view <num>` and summarizes outcome / roadmap / assumptions / risks. Suggests `objective-progress`, `objective-reconcile`, and `objective-create` as follow-on actions. Read-only — never mutates state."
+description: "Display the user's twerk objectives — GitHub issues labeled `objective` that anchor multi-session workstreams. Use whenever the user asks 'what are my objectives?', 'show my open objectives', 'list twerk objectives', wants to pick the next workstream to progress, or asks for details on a specific objective by number. Lists via `twerk objective list` (alias `ls`, default state `open`, supports `--state {open|closed|all}`); on follow-up, drills into a specific issue with `gh issue view <num>` and summarizes outcome / roadmap / assumptions / risks. Suggests `objective-progress`, `objective-reconcile`, and `objective-create` as follow-on actions. Read-only — never mutates state."
 allowed-tools:
   - "Bash(twerk objective list*)"
   - "Bash(twerk objective ls*)"
@@ -20,12 +20,12 @@ plate?" entry point.
 
 ## What an objective is
 
-A twerk objective is a GitHub issue labeled `twerk-objective` that anchors a
+A twerk objective is a GitHub issue labeled `objective` that anchors a
 multi-session workstream. The body is a curated context anchor (outcome,
 completion criteria, assumptions, risks, roadmap or next steps), and the
 comments are the running progress log. See `objective-create` for the
 full definition. Plain issues are not objectives — only issues with the
-`twerk-objective` label are.
+`objective` label are.
 
 ## When to use
 
@@ -47,7 +47,7 @@ hand off to `objective-reconcile`.
 
 - Default to `--state open`. Only widen to `closed` or `all` when the user
   explicitly asks for closed, done, or historical objectives.
-- Use `twerk objective list` — not raw `gh issue list --label twerk-objective`.
+- Use `twerk objective list` — not raw `gh issue list --label objective`.
   The CLI is the supported interface and may evolve.
 - Render results compactly in chat. For each objective show: number, title,
   last-updated date. Do not paste raw shell output verbatim if the list is
@@ -133,7 +133,7 @@ recite all three every turn.
 ## Anti-patterns
 
 - Pasting raw `gh issue view` output verbatim instead of summarizing.
-- Calling `gh issue list --label twerk-objective` instead of using
+- Calling `gh issue list --label objective` instead of using
   `twerk objective list`.
 - Auto-drilling into every objective on the list (context bloat).
 - Mutating state — closing, editing, commenting. Read-only skill only.

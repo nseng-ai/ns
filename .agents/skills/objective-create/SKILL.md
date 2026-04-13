@@ -1,6 +1,6 @@
 ---
 name: objective-create
-description: "Create a GitHub issue that anchors a twerk objective — a multi-session workstream whose primitive operation is 'make progress' via the objective-progress skill. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough brief into an issue-backed objective, or set up a lightweight control plane for a related series of PRs. The issue body is a curated context anchor with completion criteria, assumptions, risks, and either a roadmap or loose next steps — not a plain task ticket. Apply the `twerk-objective` label, use plain markdown, and create the issue with `gh`."
+description: "Create a GitHub issue that anchors a twerk objective — a multi-session workstream whose primitive operation is 'make progress' via the objective-progress skill. Use whenever the user wants to start an objective, capture a multi-session workstream in GitHub, turn a rough brief into an issue-backed objective, or set up a lightweight control plane for a related series of PRs. The issue body is a curated context anchor with completion criteria, assumptions, risks, and either a roadmap or loose next steps — not a plain task ticket. Apply the `objective` label, use plain markdown, and create the issue with `gh`."
 allowed-tools:
   - "Bash(gh issue *)"
   - "Bash(gh label *)"
@@ -56,7 +56,7 @@ Create one GitHub issue that:
 - curates the context a future session will need (the anchor)
 - names the assumptions the plan rests on and the risks that could invalidate them
 - lays out roadmap vs. loose next steps at the right level of structure
-- is labeled `twerk-objective` so it shows up in `twerk objective list`
+- is labeled `objective` so it shows up in `twerk objective list`
 
 ## Core rules
 
@@ -66,7 +66,7 @@ Create one GitHub issue that:
   because a future session will actually need it.
 - Match structure to the work. Do not force a roadmap onto a loose objective,
   and do not leave a multi-PR refactor as freeform prose.
-- Always ensure the `twerk-objective` label exists before creating the issue.
+- Always ensure the `objective` label exists before creating the issue.
 
 ## When to ask questions
 
@@ -178,7 +178,7 @@ the draft and wait. Otherwise, create the issue once the objective is clear.
 
 ```bash
 gh label list --limit 200
-gh label create twerk-objective --color 0e8a16 --description "Objective tracked by twerk"
+gh label create objective --color 0e8a16 --description "Objective tracked by twerk"
 ```
 
 If you need to confirm the target repository:
@@ -192,7 +192,7 @@ git remote get-url origin
 Prefer `--body-file` over inline shell quoting.
 
 ```bash
-gh issue create --title "<title>" --body-file <temp-file> --label twerk-objective
+gh issue create --title "<title>" --body-file <temp-file> --label objective
 ```
 
 The issue body is the full objective record. Do not create a follow-up
@@ -205,7 +205,7 @@ Always return:
 - issue number and URL
 - final title
 - which shape you used (loose / roadmap / hybrid)
-- confirmation that `twerk-objective` was applied
+- confirmation that `objective` was applied
 - a one-line summary of what the issue captures
 
 If you created the label during this run, mention it explicitly.
@@ -224,7 +224,7 @@ If you created the label during this run, mention it explicitly.
   the plan has drifted.
 - Generating metadata blocks, YAML frontmatter, or comment-backed storage
   models. Plain markdown only.
-- Creating the issue without the `twerk-objective` label.
+- Creating the issue without the `objective` label.
 - Treating the objective body as a static document written once at creation.
   The body is continuously re-evaluated and rewritten by
   `objective-progress` — author it with that lifecycle in mind.

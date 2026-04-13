@@ -42,7 +42,7 @@ def test_fake_issue_gateway_list_label_argument_is_accepted_but_ignored() -> Non
     rely on RealIssueGateway to apply label filtering server-side.
     """
     fake = FakeIssueGateway(issues=(_make_issue(1, state="open"),))
-    assert fake.list(label="twerk-objective") == fake.list()
+    assert fake.list(label="objective") == fake.list()
 
 
 def test_fake_issue_gateway_list_empty_default() -> None:

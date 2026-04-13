@@ -198,7 +198,7 @@ def test_objective_list_falls_back_to_real_gateway(
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         assert cmd[:3] == ["gh", "issue", "list"]
         assert "--label" in cmd
-        assert cmd[cmd.index("--label") + 1] == "twerk-objective"
+        assert cmd[cmd.index("--label") + 1] == "objective"
         return subprocess.CompletedProcess(cmd, 0, stdout=fake_gh_output, stderr="")
 
     monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)

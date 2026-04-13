@@ -95,7 +95,7 @@ If in-flight branch commits did not identify a single objective, list open
 objectives:
 
 ```bash
-gh issue list --label twerk-objective --state open --json number,title
+gh issue list --label objective --state open --json number,title
 ```
 
 - If there's exactly one open objective, use it.
