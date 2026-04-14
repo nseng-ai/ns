@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import click
 from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 from twerk_core.gh.testing import FakeIssueGateway
+from twerk_oneshot.gateways.execution.fake import FakeExecutionBackend
+from twerk_oneshot.gateways.github_queue.fake import FakeGitHubQueueGateway
 
 
 class FakePluginEntryPoint:
@@ -94,8 +97,20 @@ def test_oneshot_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
-    result = runner.invoke(parent, ["oneshot", "--help"])
+    result = runner.invoke(
+        parent,
+        ["oneshot", "-p", "Queue plugin smoke test"],
+        obj={
+            "oneshot_queue_gateway": FakeGitHubQueueGateway(),
+            "oneshot_execution_backend": FakeExecutionBackend(),
+            "oneshot_now": _fixed_now,
+        },
+    )
 
     assert result.exit_code == 0
-    assert "Queue one-shot remote work." in result.output
-    assert "json" not in result.output
+    assert "Queued oneshot." in result.output
+    assert "https://github.com/dagster-io/twerk/pull/42" in result.output
+
+
+def _fixed_now() -> datetime:
+    return datetime(2026, 4, 13, 21, 0, tzinfo=UTC)

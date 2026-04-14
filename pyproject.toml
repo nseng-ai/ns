@@ -92,7 +92,7 @@ python-version = "3.11"
 python = ".venv"
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q --import-mode=importlib"
 pythonpath = ["."]
 testpaths = [
   "tests",

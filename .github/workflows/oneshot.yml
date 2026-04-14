@@ -1,0 +1,58 @@
+name: oneshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: "Branch containing queued branch memory for oneshot."
+        required: true
+        type: string
+      pr_number:
+        description: "Draft PR number created before dispatch."
+        required: true
+        type: string
+      submitted_by:
+        description: "GitHub username that queued the oneshot request."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: oneshot-${{ inputs.branch_name }}
+  cancel-in-progress: true
+
+jobs:
+  queued:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_name }}
+          fetch-depth: 0
+
+      - name: Validate branch-memory contract
+        run: |
+          test -f .twerk/branch-memory/manifest.json
+          test -f .twerk/branch-memory/oneshot/prompt.md
+          test -f .twerk/branch-memory/oneshot/request.json
+
+      - name: Read queued oneshot request
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path(".twerk/branch-memory/manifest.json").read_text(encoding="utf-8"))
+          request = json.loads(Path(".twerk/branch-memory/oneshot/request.json").read_text(encoding="utf-8"))
+          prompt = Path(".twerk/branch-memory/oneshot/prompt.md").read_text(encoding="utf-8").strip()
+
+          assert request["branch_name"] == "${{ inputs.branch_name }}"
+          print(f"Loaded oneshot request for PR #${{ inputs.pr_number }}")
+          print(f"Manifest entries: {len(manifest['entries'])}")
+          print(f"Prompt characters: {len(prompt)}")
+          print(f"Queued by: ${{ inputs.submitted_by }}")
+          PY
