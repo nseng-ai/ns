@@ -1,4 +1,4 @@
-"""End-to-end round trip: `slot assign <br>` then `slot list` against a
+"""End-to-end round trip: `slot checkout <br>` then `slot list` against a
 FakeGitGateway with a tmp_path slots_root. Exercises the real CLI wiring
 (discover_repo_or_sentinel, allocation, persistence, rendering) against the
 real ``RealSlotsStorageGateway`` and real ``RealPoolStateGateway``.
@@ -17,10 +17,10 @@ from click.testing import CliRunner
 from twerk_slots.cli.main import build_cli
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
-from twerk_slots.gateway.testing import FakeGitGateway
+from twerk_slots.gateway.testing import FakeClipboardGateway, FakeGitGateway
 
 
-def test_assign_then_list_reflects_state(tmp_path: Path) -> None:
+def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir()
     slots_root = tmp_path / "slots"
@@ -40,13 +40,14 @@ def test_assign_then_list_reflects_state(tmp_path: Path) -> None:
         "git_gateway": git,
         "storage_gateway": storage,
         "pool_state_gateway": pool_state_gw,
+        "clipboard_gateway": FakeClipboardGateway(),
         "slots_root": slots_root,
     }
     cli = build_cli()
     runner = CliRunner()
 
-    assign = runner.invoke(cli, ["assign", "feat/one"], obj=obj)
-    assert assign.exit_code == 0, assign.output
+    checkout = runner.invoke(cli, ["checkout", "feat/one"], obj=obj)
+    assert checkout.exit_code == 0, checkout.output
 
     # pool.json persisted with the new assignment.
     assert pool_json.exists()
@@ -82,7 +83,7 @@ def test_assign_then_list_reflects_state(tmp_path: Path) -> None:
     assert "slot-01" in human_list.output
 
 
-def test_assign_twice_reuses_existing(tmp_path: Path) -> None:
+def test_checkout_twice_reuses_existing(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir()
     slots_root = tmp_path / "slots"
@@ -101,13 +102,14 @@ def test_assign_twice_reuses_existing(tmp_path: Path) -> None:
         "git_gateway": git,
         "storage_gateway": storage,
         "pool_state_gateway": pool_state_gw,
+        "clipboard_gateway": FakeClipboardGateway(),
         "slots_root": slots_root,
     }
     cli = build_cli()
     runner = CliRunner()
 
-    first = runner.invoke(cli, ["assign", "feat/one"], obj=obj)
-    second = runner.invoke(cli, ["assign", "feat/one"], obj=obj)
+    first = runner.invoke(cli, ["checkout", "feat/one"], obj=obj)
+    second = runner.invoke(cli, ["checkout", "feat/one"], obj=obj)
 
     assert first.exit_code == 0
     assert second.exit_code == 0

@@ -57,7 +57,7 @@ def run_goto_slot(request: SlotGotoRequest) -> SlotGotoResult | ClinkrCommandErr
     if state is None:
         return ClinkrCommandError(
             error_type="pool_empty",
-            message="No pool configured. Run `slot assign` first.",
+            message="No pool configured. Run `slot checkout` first.",
         )
 
     slot_name_or_error = resolve_slot_target(

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from twerk_slots.cli.slot.gateway_access import (
+    get_clipboard_gateway,
     get_git_gateway,
     get_pool_state_gateway,
     get_slots_root,
@@ -31,4 +32,11 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
         return repo
     git = get_git_gateway(repo_root=repo.root)
     pool_state = get_pool_state_gateway(pool_json_path=repo.pool_json_path)
-    return SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state)
+    clipboard = get_clipboard_gateway()
+    return SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=pool_state,
+        clipboard=clipboard,
+    )

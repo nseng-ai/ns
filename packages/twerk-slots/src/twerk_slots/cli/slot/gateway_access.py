@@ -4,8 +4,10 @@ from pathlib import Path
 
 import click
 
+from twerk_slots.gateway.clipboard import ClipboardGateway
 from twerk_slots.gateway.git import GitGateway
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway, RealPoolStateGateway
+from twerk_slots.gateway.real_clipboard import RealClipboardGateway
 from twerk_slots.gateway.real_git import RealGitGateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
@@ -53,4 +55,13 @@ def get_pool_state_gateway(pool_json_path: Path) -> PoolStateGateway:
     gateway = ctx.obj.get("pool_state_gateway") if ctx.obj else None
     if gateway is None:
         return RealPoolStateGateway(pool_json_path=pool_json_path)
+    return gateway
+
+
+def get_clipboard_gateway() -> ClipboardGateway:
+    """Retrieve the ClipboardGateway from the Click context, or a real one."""
+    ctx = click.get_current_context()
+    gateway = ctx.obj.get("clipboard_gateway") if ctx.obj else None
+    if gateway is None:
+        return RealClipboardGateway()
     return gateway

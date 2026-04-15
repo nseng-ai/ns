@@ -1,14 +1,15 @@
-"""Shared request context bundling the slots repo with its three gateways.
+"""Shared request context bundling the slots repo with its gateways.
 
 :class:`SlotsCliContext` carries everything a slot operation needs (the
-resolved :class:`RepoContext` plus the git, storage, and pool-state
-gateways) so callers pass a single ``ctx`` instead of four arguments.
+resolved :class:`RepoContext` plus the git, storage, pool-state, and
+clipboard gateways) so callers pass a single ``ctx``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from twerk_slots.gateway.clipboard import ClipboardGateway
 from twerk_slots.gateway.git import GitGateway
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
@@ -21,3 +22,4 @@ class SlotsCliContext:
     git: GitGateway
     storage: SlotsStorageGateway
     pool_state: PoolStateGateway
+    clipboard: ClipboardGateway

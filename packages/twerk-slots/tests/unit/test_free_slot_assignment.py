@@ -12,6 +12,7 @@ from twerk_slots.allocation import (
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
+    FakeClipboardGateway,
     FakeGitGateway,
     FakePoolStateGateway,
     FakeSlotsStorageGateway,
@@ -98,7 +99,13 @@ def test_free_slot_happy_path() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
+    ctx = SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=pool_state_gw,
+        clipboard=FakeClipboardGateway(),
+    )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
     assert isinstance(outcome, SlotFreeOutcome)
@@ -128,7 +135,13 @@ def test_free_slot_forces_existing_placeholder() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
+    ctx = SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=pool_state_gw,
+        clipboard=FakeClipboardGateway(),
+    )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
     assert isinstance(outcome, SlotFreeOutcome)
@@ -148,7 +161,13 @@ def test_free_slot_unknown_slot_returns_not_assigned_error() -> None:
         initial_state=PoolState(pool_size=4, assignments=()),
     )
 
-    ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
+    ctx = SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=pool_state_gw,
+        clipboard=FakeClipboardGateway(),
+    )
     outcome = free_slot_assignment(ctx, slot_name="slot-07")
 
     assert isinstance(outcome, SlotNotAssignedError)
@@ -173,7 +192,13 @@ def test_free_slot_dirty_worktree_returns_dirty_error() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
+    ctx = SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=pool_state_gw,
+        clipboard=FakeClipboardGateway(),
+    )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
     assert isinstance(outcome, DirtyWorktreeError)
@@ -203,7 +228,13 @@ def test_free_slot_syncs_before_freeing() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(repo=repo, git=git, storage=storage, pool_state=pool_state_gw)
+    ctx = SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=pool_state_gw,
+        clipboard=FakeClipboardGateway(),
+    )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
     assert isinstance(outcome, SlotFreeOutcome)
