@@ -142,7 +142,7 @@ class RealIssueGateway(IssueGateway):
             "--state",
             state,
             "--json",
-            "number,title,state,updatedAt",
+            "number,title,state,updatedAt,url",
             "--limit",
             "100",
         ]
@@ -157,6 +157,7 @@ class RealIssueGateway(IssueGateway):
                 title=item["title"],
                 state=item["state"],
                 updated_at=item["updatedAt"],
+                url=item["url"],
             )
             for item in items
         )

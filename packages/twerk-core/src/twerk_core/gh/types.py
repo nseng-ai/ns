@@ -90,6 +90,7 @@ class Issue:
     title: str
     state: str
     updated_at: str
+    url: str
 
 
 @dataclass(frozen=True)

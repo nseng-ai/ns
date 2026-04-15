@@ -10,6 +10,7 @@ def _make_issue(number: int, *, state: str = "open") -> Issue:
         title=f"Issue {number}",
         state=state,
         updated_at="2026-04-08T12:00:00Z",
+        url=f"https://github.com/org/repo/issues/{number}",
     )
 
 

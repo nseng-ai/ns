@@ -102,14 +102,16 @@ def test_issue_construction() -> None:
         title="Add gh.issue gateway",
         state="open",
         updated_at="2026-04-08T12:00:00Z",
+        url="https://github.com/org/repo/issues/42",
     )
     assert issue.number == 42
     assert issue.title == "Add gh.issue gateway"
     assert issue.state == "open"
     assert issue.updated_at == "2026-04-08T12:00:00Z"
+    assert issue.url == "https://github.com/org/repo/issues/42"
 
 
 def test_issue_is_frozen() -> None:
-    issue = Issue(number=1, title="t", state="open", updated_at="")
+    issue = Issue(number=1, title="t", state="open", updated_at="", url="")
     with pytest.raises(AttributeError):
         issue.title = "changed"  # type: ignore[misc]
