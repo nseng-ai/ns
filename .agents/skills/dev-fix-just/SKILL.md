@@ -1,5 +1,5 @@
 ---
-name: fix-just
+name: dev-fix-just
 description: "Run `just` and fix all failures (lint, format, type errors, test failures) by fixing the underlying code — not by deleting or weakening tests. If user input is needed, ask the user. If the current harness is in a planning or read-only mode, present a plan to fix the failures instead of applying changes."
 allowed-tools:
   - "Bash(just *)"
@@ -9,11 +9,13 @@ allowed-tools:
   - "Glob"
   - "Grep"
   - "Write"
+metadata:
+  internal: true
 ---
 
 <!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
 
-# fix-just
+# dev-fix-just
 
 Run `just` (the project's default check suite) and fix every failure.
 
@@ -65,7 +67,7 @@ Iteration 3: Fixed type error in src/twerk/cli/main.py — all checks pass
 ### Success
 
 ```
-## fix-just: SUCCESS
+## dev-fix-just: SUCCESS
 
 All checks passed after N iteration(s):
 
@@ -79,7 +81,7 @@ All checks passed after N iteration(s):
 ### Stuck
 
 ```
-## fix-just: STUCK
+## dev-fix-just: STUCK
 
 Unable to resolve the following after N attempts:
 

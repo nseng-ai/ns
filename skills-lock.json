@@ -1,20 +1,25 @@
 {
   "version": 1,
   "skills": {
+    "dev-fix-just": {
+      "source": "/Users/schrockn/code/twerk/skills/dev-fix-just",
+      "sourceType": "local",
+      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
+    },
+    "dev-gh": {
+      "source": "/Users/schrockn/code/twerk/skills/dev-gh",
+      "sourceType": "local",
+      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
+    },
+    "dev-plan-to-branch": {
+      "source": "/Users/schrockn/code/twerk/skills/dev-plan-to-branch",
+      "sourceType": "local",
+      "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
+    },
     "fdt-refactor-mock-to-fake": {
       "source": "dagster-io/fake-driven-testing",
       "sourceType": "github",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
-    },
-    "fix-just": {
-      "source": "/Users/schrockn/code/twerk/skills/fix-just",
-      "sourceType": "local",
-      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
-    },
-    "gh": {
-      "source": "/Users/schrockn/code/twerk/skills/gh",
-      "sourceType": "local",
-      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
     "graphite": {
       "source": "withgraphite/agent-skills",
@@ -120,11 +125,6 @@
       "source": "/Users/schrockn/code/twerk/skills/objective-reconcile",
       "sourceType": "local",
       "computedHash": "98ce3292fbb12cc43c031715bf17421c321c64be3250bc88884e1373b45edf66"
-    },
-    "plan-to-branch": {
-      "source": "/Users/schrockn/code/twerk/skills/plan-to-branch",
-      "sourceType": "local",
-      "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
     },
     "pr-address": {
       "source": "/Users/schrockn/code/twerk/skills/pr-address",
