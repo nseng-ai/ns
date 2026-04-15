@@ -47,3 +47,7 @@ twerk/
 2. **GitHub as storage** — objectives, plans, and metadata live in GitHub issues and PRs, not local state. This makes the system distributed and transparent.
 3. **Small, testable units** — pure functions and data transformations over complex class hierarchies. Gateway interfaces for external I/O.
 4. **Port, don't copy** — when bringing code from erk, rethink the design. Simplify interfaces, remove unnecessary abstractions, and cut dependencies.
+
+## See also
+
+@AGENTS.md — repo-wide agent instructions, including the available skills registry.
