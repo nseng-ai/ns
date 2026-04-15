@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from twerk_core.gh.pr_gateway import PRGateway
 from twerk_slots.gateway.clipboard import ClipboardGateway
 from twerk_slots.gateway.git import GitGateway
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
@@ -24,4 +25,5 @@ class SlotsCliContext:
     storage: SlotsStorageGateway
     pool_state: PoolStateGateway
     clipboard: ClipboardGateway
+    pr: PRGateway
     slots_root: Path

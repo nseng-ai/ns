@@ -20,7 +20,7 @@ from twerk_slots.naming import (
     get_placeholder_branch_name,
     is_placeholder_branch,
 )
-from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
+from twerk_slots.pool_state import PoolState, SlotAssignment
 
 
 @dataclass(frozen=True)
@@ -217,7 +217,7 @@ def allocate_slot_for_branch(
     on-demand slot creation. If the pool is full, ``--force`` evicts the
     oldest assignment and reuses its slot.
     """
-    state = ctx.pool_state.load() or PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
 
     existing = find_branch_assignment(state, branch_name)
@@ -375,7 +375,7 @@ def allocate_slot_for_current_branch(
     if current_branch is None:
         return DetachedHeadError(cwd=cwd)
 
-    state = ctx.pool_state.load() or PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
     already_in_slot = find_branch_assignment(state, current_branch) is not None
 
@@ -415,7 +415,7 @@ def free_slot_assignment(
     :class:`SlotNotAssignedError` / :class:`DirtyWorktreeError` sentinel
     when the slot cannot be freed.
     """
-    state = ctx.pool_state.load() or PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
 
     assignment = find_assignment_by_slot(state, slot_name)

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
+from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
@@ -37,6 +38,7 @@ def _build_ctx(
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=slots_root,
     )
 

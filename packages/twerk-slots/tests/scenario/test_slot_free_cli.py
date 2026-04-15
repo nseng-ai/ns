@@ -10,6 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
+from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway import real_git
@@ -47,6 +48,7 @@ def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
         storage=fakes.storage,
         pool_state=fakes.pool_state,
         clipboard=fakes.clipboard,
+        pr=FakePRGateway(),
         slots_root=slots_root,
     )
 
@@ -318,7 +320,7 @@ def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path)
 def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    # No prior `save` — pool_state.load() returns None.
+    # No prior `save` — pool_state.exists() is False.
 
     result = CliRunner().invoke(
         cli_group,

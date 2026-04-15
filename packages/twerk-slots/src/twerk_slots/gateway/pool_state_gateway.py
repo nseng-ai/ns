@@ -19,8 +19,18 @@ class PoolStateGateway(ABC):
     """Abstract read/write for a specific ``pool.json``."""
 
     @abstractmethod
-    def load(self) -> PoolState | None:
-        """Return the pool state at the bound path or ``None`` when absent."""
+    def load(self) -> PoolState:
+        """Return the pool state at the bound path.
+
+        Returns a default ``PoolState`` (``pool_size=DEFAULT_POOL_SIZE``,
+        no assignments) when no state has been persisted yet — callers
+        that need to distinguish "never initialized" from "empty pool"
+        should check :meth:`exists` first.
+        """
+
+    @abstractmethod
+    def exists(self) -> bool:
+        """Return whether persisted pool state is present at the bound path."""
 
     @abstractmethod
     def save(self, state: PoolState) -> None:
@@ -33,9 +43,9 @@ class RealPoolStateGateway(PoolStateGateway):
     def __init__(self, pool_json_path: Path) -> None:
         self._pool_json_path = pool_json_path
 
-    def load(self) -> PoolState | None:
+    def load(self) -> PoolState:
         if not self._pool_json_path.exists():
-            return None
+            return PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
 
         data = json.loads(self._pool_json_path.read_text(encoding="utf-8"))
 
@@ -53,6 +63,9 @@ class RealPoolStateGateway(PoolStateGateway):
             pool_size=data.get("pool_size", DEFAULT_POOL_SIZE),
             assignments=assignments,
         )
+
+    def exists(self) -> bool:
+        return self._pool_json_path.exists()
 
     def save(self, state: PoolState) -> None:
         # Parent dir may not exist yet on first write; create it here so

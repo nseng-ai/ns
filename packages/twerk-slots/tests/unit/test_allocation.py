@@ -12,10 +12,9 @@ from twerk_slots.allocation import (
     find_oldest_assignment,
     sync_pool_assignments,
 )
-from twerk_slots.context import SlotsCliContext
+from twerk_slots.context_testing import build_test_slots_context
 from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
-    FakeClipboardGateway,
     FakeGitGateway,
     FakePoolStateGateway,
     FakeSlotsStorageGateway,
@@ -227,13 +226,12 @@ def test_allocate_empty_pool_creates_slot_01() -> None:
     storage = _seeded_storage()
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
 
@@ -264,13 +262,12 @@ def test_allocate_picks_next_slot_when_partially_full() -> None:
     storage = _seeded_storage(existing_paths={existing_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/b", now=NOW, force=False)
 
@@ -295,13 +292,12 @@ def test_allocate_returns_already_assigned_when_branch_matches() -> None:
     storage = _seeded_storage(existing_paths={existing_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
 
@@ -323,13 +319,12 @@ def test_allocate_reallocates_when_recorded_worktree_missing() -> None:
     storage = _seeded_storage()  # ghost_path not seeded
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
 
@@ -350,13 +345,12 @@ def test_allocate_reuses_inactive_slot_via_checkout() -> None:
     storage = _seeded_storage(existing_paths={inactive_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
 
@@ -379,13 +373,12 @@ def test_allocate_skips_dirty_inactive_slot_and_creates_new() -> None:
     storage = _seeded_storage(existing_paths={dirty_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
 
@@ -418,13 +411,12 @@ def test_allocate_pool_full_without_force_returns_error() -> None:
     storage = _seeded_storage(existing_paths={slot_01_path, slot_02_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=False)
 
@@ -456,13 +448,12 @@ def test_allocate_pool_full_with_force_evicts_oldest() -> None:
     storage = _seeded_storage(existing_paths={slot_01_path, slot_02_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=True)
 
@@ -497,13 +488,12 @@ def test_allocate_syncs_before_deciding() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
+        slots_root=ROOT / "slots",
         git=git,
         storage=storage,
         pool_state=pool_state_gw,
-        clipboard=FakeClipboardGateway(),
-        slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
 
