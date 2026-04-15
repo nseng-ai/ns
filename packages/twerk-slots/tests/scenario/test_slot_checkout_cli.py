@@ -57,7 +57,7 @@ def _fake_for_repo(
     worktrees: tuple[WorktreeInfo, ...] = (),
     current_branch_by_path: dict[Path, str | None] | None = None,
     previous_branch_by_path: dict[Path, str | None] | None = None,
-    trunk_branch: str | None = None,
+    trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
     extra_existing: Iterable[Path] = (),
     repository_root_by_cwd: dict[Path, Path] | None = None,
@@ -458,28 +458,6 @@ def test_slot_checkout_current_detaches_when_trunk_checked_out_elsewhere(
     )
 
 
-def test_slot_checkout_current_detaches_when_no_trunk_resolvable(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
-    fakes = _fake_for_repo(
-        tmp_path,
-        branches=("feat/x",),
-        current_branch_by_path={(tmp_path / "repo").resolve(): "feat/x"},
-        trunk_branch=None,
-    )
-    slots_root = tmp_path / "slots"
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["checkout", "--current"],
-        obj=_make_obj(fakes, slots_root),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert fakes.git.get_current_branch(fakes.repo_root) is None
-    assert "No trunk branch" in result.output
-
-
 def test_slot_checkout_current_from_slot_wt_uses_slot_stub(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
@@ -487,9 +465,10 @@ def test_slot_checkout_current_from_slot_wt_uses_slot_stub(
     slot_01_path = slots_root / "repos" / "repo" / "worktrees" / "slot-01"
     fakes = _fake_for_repo(
         tmp_path,
-        branches=("feat/child",),
+        branches=("feat/child", "main"),
         worktrees=(WorktreeInfo(path=slot_01_path, branch="feat/child", is_bare=False),),
         current_branch_by_path={slot_01_path: "feat/child"},
+        trunk_branch="main",
         extra_existing=(slot_01_path,),
         repository_root_by_cwd={Path.cwd().resolve(): slot_01_path},
     )
@@ -517,9 +496,10 @@ def test_slot_checkout_current_from_slot_wt_succeeds_when_stub_exists(
     slot_01_path = slots_root / "repos" / "repo" / "worktrees" / "slot-01"
     fakes = _fake_for_repo(
         tmp_path,
-        branches=("feat/child", "__slot-01-br-stub__"),
+        branches=("feat/child", "__slot-01-br-stub__", "main"),
         worktrees=(WorktreeInfo(path=slot_01_path, branch="feat/child", is_bare=False),),
         current_branch_by_path={slot_01_path: "feat/child"},
+        trunk_branch="main",
         extra_existing=(slot_01_path,),
         repository_root_by_cwd={Path.cwd().resolve(): slot_01_path},
     )

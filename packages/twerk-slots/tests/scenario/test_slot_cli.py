@@ -36,7 +36,7 @@ def _fake_for_repo(
     worktrees: tuple[WorktreeInfo, ...] = (),
     current_branch_by_path: dict[Path, str | None] | None = None,
     previous_branch_by_path: dict[Path, str | None] | None = None,
-    trunk_branch: str | None = None,
+    trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
     extra_existing: Iterable[Path] = (),
     repository_root_by_cwd: dict[Path, Path] | None = None,

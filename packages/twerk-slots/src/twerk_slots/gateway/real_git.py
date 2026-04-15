@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from twerk_slots.allocation import SlotAllocationError
 from twerk_slots.gateway.git import FileStatus, GitGateway, WorktreeInfo
 
 
@@ -85,11 +86,59 @@ def parse_worktree_list_output(stdout: str) -> tuple[WorktreeInfo, ...]:
     return tuple(worktrees)
 
 
+def _branch_exists(repo_root: Path, branch: str) -> bool:
+    result = _run(
+        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+        cwd=repo_root,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _resolve_trunk_branch(repo_root: Path) -> str | None:
+    """Resolve the trunk branch name for ``repo_root``; None if unresolvable."""
+    result = _run(
+        ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+        cwd=repo_root,
+        check=False,
+    )
+    if result.returncode == 0:
+        full = result.stdout.strip()
+        if full.startswith("origin/"):
+            candidate = full[len("origin/") :]
+            if candidate and _branch_exists(repo_root, candidate):
+                return candidate
+    for candidate in ("main", "master"):
+        if _branch_exists(repo_root, candidate):
+            return candidate
+    return None
+
+
+def build_real_git_gateway(repo_root: Path) -> RealGitGateway:
+    """Construct a :class:`RealGitGateway`, validating git and resolving trunk.
+
+    Probes git availability and resolves the trunk branch as the single
+    construction-time check. After this returns, callers may trust that
+    ``git`` is on ``PATH`` and that ``get_trunk_branch()`` has a value.
+    """
+    try:
+        trunk = _resolve_trunk_branch(repo_root)
+    except FileNotFoundError as exc:
+        raise SlotAllocationError("`git` binary not found on PATH; slots requires git.") from exc
+    if trunk is None:
+        raise SlotAllocationError(
+            "Cannot resolve trunk branch (main/master); slots requires a "
+            "git repository with a resolvable trunk."
+        )
+    return RealGitGateway(repo_root=repo_root, trunk_branch=trunk)
+
+
 class RealGitGateway(GitGateway):
     """GitGateway that shells out to ``git`` against a specific repo root."""
 
-    def __init__(self, repo_root: Path) -> None:
+    def __init__(self, repo_root: Path, trunk_branch: str) -> None:
         self._repo_root = repo_root
+        self._trunk_branch = trunk_branch
 
     # -- Filesystem helpers --
 
@@ -136,22 +185,8 @@ class RealGitGateway(GitGateway):
             return None
         return branch
 
-    def get_trunk_branch(self) -> str | None:
-        result = _run(
-            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-            cwd=self._repo_root,
-            check=False,
-        )
-        if result.returncode == 0:
-            full = result.stdout.strip()
-            if full.startswith("origin/"):
-                candidate = full[len("origin/") :]
-                if candidate and self.branch_exists(candidate):
-                    return candidate
-        for candidate in ("main", "master"):
-            if self.branch_exists(candidate):
-                return candidate
-        return None
+    def get_trunk_branch(self) -> str:
+        return self._trunk_branch
 
     def branch_exists(self, branch: str) -> bool:
         result = _run(

@@ -96,6 +96,7 @@ def test_free_slot_happy_path() -> None:
         branches={"feat/x"},
         worktrees=(WorktreeInfo(path=slot_path, branch="feat/x", is_bare=False),),
         current_branch_by_path={slot_path: "feat/x"},
+        trunk_branch="main",
     )
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
@@ -116,8 +117,8 @@ def test_free_slot_happy_path() -> None:
     assert outcome.branch_name == "feat/x"
     assert outcome.worktree_path == slot_path
     assert outcome.placeholder_branch == "__slot-01-br-stub__"
-    # Placeholder created (new branch, so force=False) and checked out.
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "feat/x", False)]
+    # Placeholder created at trunk (new branch, so force=False) and checked out.
+    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", False)]
     assert git._checkout_calls == [(slot_path, "__slot-01-br-stub__")]
     # Assignment removed from persisted state.
     saved = pool_state_gw.load()
@@ -134,6 +135,7 @@ def test_free_slot_forces_existing_placeholder() -> None:
         branches={"feat/x", "__slot-01-br-stub__"},
         worktrees=(WorktreeInfo(path=slot_path, branch="feat/x", is_bare=False),),
         current_branch_by_path={slot_path: "feat/x"},
+        trunk_branch="main",
     )
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
@@ -151,7 +153,7 @@ def test_free_slot_forces_existing_placeholder() -> None:
 
     assert isinstance(outcome, SlotFreeOutcome)
     # Placeholder already existed, so create_branch was called with force=True.
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "feat/x", True)]
+    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", True)]
 
 
 # -- failure modes -----------------------------------------------------------
@@ -195,6 +197,7 @@ def test_free_slot_dirty_worktree_returns_dirty_error() -> None:
         worktrees=(WorktreeInfo(path=slot_path, branch="feat/x", is_bare=False),),
         current_branch_by_path={slot_path: "feat/x"},
         file_status_by_path={slot_path: FileStatus(False, True, False)},
+        trunk_branch="main",
     )
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
@@ -224,7 +227,7 @@ def test_free_slot_dirty_worktree_returns_dirty_error() -> None:
 
 def test_free_slot_syncs_before_freeing() -> None:
     """pool.json says slot-01 is feat/x, but git shows feat/y. sync updates the
-    recorded branch; free should act on the freshly-synced branch name."""
+    recorded branch; the freed assignment reports the synced branch name."""
     repo = _make_repo()
     slot_path = repo.worktrees_dir / "slot-01"
     seeded = _assigned_state("slot-01", "feat/x", slot_path, assigned_at=EARLIER)
@@ -233,6 +236,7 @@ def test_free_slot_syncs_before_freeing() -> None:
         branches={"feat/x", "feat/y"},
         worktrees=(WorktreeInfo(path=slot_path, branch="feat/y", is_bare=False),),
         current_branch_by_path={slot_path: "feat/y"},
+        trunk_branch="main",
     )
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
@@ -249,6 +253,7 @@ def test_free_slot_syncs_before_freeing() -> None:
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
     assert isinstance(outcome, SlotFreeOutcome)
-    # Placeholder start_point is the synced branch, not the stale pool.json value.
+    # Outcome reports the synced branch, not the stale pool.json value.
     assert outcome.branch_name == "feat/y"
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "feat/y", False)]
+    # Stub is reset to trunk regardless of the freed branch.
+    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", False)]

@@ -81,6 +81,10 @@ class DirtyCurrentWorktreeError:
     cwd: Path
 
 
+class SlotAllocationError(Exception):
+    """Raised when allocation cannot proceed due to a broken repo invariant."""
+
+
 def find_next_available_slot(
     state: PoolState,
     storage: SlotsStorageGateway,
@@ -330,32 +334,28 @@ def _resolve_current_wt_redirect(
             return None
 
     # Previous branch unusable. Branch on cwd kind.
+    trunk = ctx.git.get_trunk_branch()
     if extract_slot_number(cwd.name) is not None:
         stub = get_placeholder_branch_name(cwd.name)
         assert stub is not None  # extract_slot_number already validated the shape
         local_branches = ctx.git.list_local_branches()
-        ctx.git.create_branch(stub, moving_branch, force=stub in local_branches)
+        ctx.git.create_branch(stub, trunk, force=stub in local_branches)
         ctx.git.checkout_branch(cwd, stub)
         return None
 
     # Main repo wt: trunk fallback.
-    trunk = ctx.git.get_trunk_branch()
-    if trunk is not None:
-        busy_wt = next(
-            (wt for wt in ctx.git.list_worktrees() if wt.branch == trunk and wt.path != cwd),
-            None,
-        )
-        if busy_wt is None:
-            ctx.git.checkout_branch(cwd, trunk)
-            return None
-        ctx.git.detach_head(cwd, moving_branch)
-        return (
-            f"Trunk branch '{trunk}' is checked out in {busy_wt.path}; "
-            f"left {cwd} on a detached HEAD at {moving_branch}."
-        )
-
+    busy_wt = next(
+        (wt for wt in ctx.git.list_worktrees() if wt.branch == trunk and wt.path != cwd),
+        None,
+    )
+    if busy_wt is None:
+        ctx.git.checkout_branch(cwd, trunk)
+        return None
     ctx.git.detach_head(cwd, moving_branch)
-    return f"No trunk branch could be resolved; left {cwd} on a detached HEAD at {moving_branch}."
+    return (
+        f"Trunk branch '{trunk}' is checked out in {busy_wt.path}; "
+        f"left {cwd} on a detached HEAD at {moving_branch}."
+    )
 
 
 def allocate_slot_for_current_branch(
@@ -433,10 +433,11 @@ def free_slot_assignment(
     # the naming rules when the assignment was created.
     assert placeholder is not None
 
+    trunk = ctx.git.get_trunk_branch()
     local_branches = ctx.git.list_local_branches()
     ctx.git.create_branch(
         placeholder,
-        assignment.branch_name,
+        trunk,
         force=placeholder in local_branches,
     )
     ctx.git.checkout_branch(assignment.worktree_path, placeholder)
