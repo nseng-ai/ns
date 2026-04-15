@@ -34,6 +34,7 @@ class FakeGitGateway(GitGateway):
         current_branch_by_path: dict[Path, str | None] | None = None,
         previous_branch_by_path: dict[Path, str | None] | None = None,
         trunk_branch: str | None = None,
+        branch_head_by_name: dict[str, str] | None = None,
         file_status_by_path: dict[Path, FileStatus] | None = None,
         existing_paths: Iterable[Path] = (),
         repository_root_by_cwd: dict[Path, Path] | None = None,
@@ -49,6 +50,7 @@ class FakeGitGateway(GitGateway):
         self._current_branch_by_path: dict[Path, str | None] = dict(current_branch_by_path or {})
         self._previous_branch_by_path: dict[Path, str | None] = dict(previous_branch_by_path or {})
         self._trunk_branch: str | None = trunk_branch
+        self._branch_head_by_name: dict[str, str] = dict(branch_head_by_name or {})
         self._file_status_by_path: dict[Path, FileStatus] = dict(file_status_by_path or {})
         self._existing_paths: set[Path] = set(existing_paths)
         self._repository_root_by_cwd: dict[Path, Path] = dict(repository_root_by_cwd or {})
@@ -97,6 +99,9 @@ class FakeGitGateway(GitGateway):
 
     def branch_exists(self, branch: str) -> bool:
         return branch in self._branches
+
+    def get_branch_head_sha(self, branch: str) -> str | None:
+        return self._branch_head_by_name.get(branch)
 
     def list_local_branches(self) -> tuple[str, ...]:
         return tuple(sorted(self._branches))

@@ -9,7 +9,7 @@ from twerk_slots.allocation import (
     find_assignment_by_slot,
     free_slot_assignment,
 )
-from twerk_slots.context import SlotsCliContext
+from twerk_slots.context_testing import build_test_slots_context
 from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,
@@ -99,7 +99,7 @@ def test_free_slot_happy_path() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
         git=git,
         storage=storage,
@@ -136,7 +136,7 @@ def test_free_slot_forces_existing_placeholder() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
         git=git,
         storage=storage,
@@ -163,7 +163,7 @@ def test_free_slot_unknown_slot_returns_not_assigned_error() -> None:
         initial_state=PoolState(pool_size=4, assignments=()),
     )
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
         git=git,
         storage=storage,
@@ -195,7 +195,7 @@ def test_free_slot_dirty_worktree_returns_dirty_error() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
         git=git,
         storage=storage,
@@ -232,7 +232,7 @@ def test_free_slot_syncs_before_freeing() -> None:
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
 
-    ctx = SlotsCliContext(
+    ctx = build_test_slots_context(
         repo=repo,
         git=git,
         storage=storage,

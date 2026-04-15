@@ -583,7 +583,10 @@ def test_get_pr_for_branch_returns_summary(
                 "title": "Port pr-address skill",
                 "url": "https://github.com/dagster-io/twerk/pull/47",
                 "headRefName": "twerk-pr-address-skill",
+                "headRefOid": "abc123",
                 "baseRefName": "master",
+                "state": "OPEN",
+                "updatedAt": "2026-04-10T12:00:00Z",
             },
         ),
     )
@@ -595,7 +598,9 @@ def test_get_pr_for_branch_returns_summary(
     assert result.title == "Port pr-address skill"
     assert result.url == "https://github.com/dagster-io/twerk/pull/47"
     assert result.head_ref_name == "twerk-pr-address-skill"
+    assert result.head_ref_oid == "abc123"
     assert result.base_ref_name == "master"
+    assert result.state == "OPEN"
 
 
 def test_get_pr_for_branch_returns_error_when_no_pr(

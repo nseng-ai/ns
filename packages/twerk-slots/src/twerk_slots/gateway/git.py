@@ -73,6 +73,10 @@ class GitGateway(ABC):
         """Return True when ``branch`` exists as a local branch in the bound repo."""
 
     @abstractmethod
+    def get_branch_head_sha(self, branch: str) -> str | None:
+        """Return the current local HEAD SHA for ``branch``, or None when missing."""
+
+    @abstractmethod
     def list_local_branches(self) -> tuple[str, ...]:
         """Return the list of local branch names in the bound repo."""
 

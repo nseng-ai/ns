@@ -72,7 +72,9 @@ def test_get_pr_for_branch() -> None:
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
+        head_ref_oid="abc123",
         base_ref_name="master",
+        state="OPEN",
     )
     fake = FakeIssueGateway(prs_by_branch={"feature": pr})
     assert fake.get_pr_for_branch("feature") == pr

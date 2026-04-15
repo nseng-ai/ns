@@ -11,6 +11,7 @@ from click.testing import CliRunner
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
+from twerk_slots.context_testing import build_test_slots_context
 from twerk_slots.gateway import real_git
 from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
@@ -67,7 +68,7 @@ def _fake_for_repo(
     )
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=resolved_slots_root, git=git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
-    return SlotsCliContext(
+    return build_test_slots_context(
         repo=repo,
         git=git,
         storage=storage,

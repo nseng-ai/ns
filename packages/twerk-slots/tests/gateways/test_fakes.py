@@ -23,10 +23,13 @@ def test_fake_branch_queries() -> None:
     gateway = FakeGitGateway(
         repo_root=Path("/r"),
         branches={"main", "feat/x"},
+        branch_head_by_name={"feat/x": "abc123"},
     )
 
     assert gateway.branch_exists("main")
     assert not gateway.branch_exists("nope")
+    assert gateway.get_branch_head_sha("feat/x") == "abc123"
+    assert gateway.get_branch_head_sha("nope") is None
     assert gateway.list_local_branches() == ("feat/x", "main")
 
 

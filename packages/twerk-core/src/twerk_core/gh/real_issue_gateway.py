@@ -14,6 +14,7 @@ from twerk_core.gh.types import (
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    PRState,
     PRSummary,
     Reaction,
     ResolveReviewThreadResult,
@@ -276,7 +277,7 @@ class RealIssueGateway(IssueGateway):
                 "view",
                 branch,
                 "--json",
-                "number,title,url,headRefName,baseRefName",
+                "number,title,url,headRefName,headRefOid,baseRefName,state,updatedAt",
             ],
             capture_output=True,
             text=True,
@@ -292,7 +293,10 @@ class RealIssueGateway(IssueGateway):
             title=data["title"],
             url=data["url"],
             head_ref_name=data["headRefName"],
+            head_ref_oid=data["headRefOid"],
             base_ref_name=data["baseRefName"],
+            state=cast(PRState, data["state"]),
+            updated_at=data["updatedAt"],
         )
 
     # -- PR mutations --

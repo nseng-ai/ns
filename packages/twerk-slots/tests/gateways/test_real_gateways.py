@@ -91,6 +91,30 @@ def test_branch_exists_returns_false_on_nonzero(monkeypatch: pytest.MonkeyPatch)
     assert RealGitGateway(repo_root=Path("/r")).branch_exists("nope") is False
 
 
+def test_get_branch_head_sha_uses_rev_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="abc123\n", stderr="")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway(repo_root=Path("/r")).get_branch_head_sha("feat/x") == "abc123"
+    assert captured == [["git", "rev-parse", "feat/x"]]
+
+
+def test_get_branch_head_sha_returns_none_on_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal")
+
+    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+
+    assert RealGitGateway(repo_root=Path("/r")).get_branch_head_sha("missing") is None
+
+
 def test_get_current_branch_returns_none_when_detached(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

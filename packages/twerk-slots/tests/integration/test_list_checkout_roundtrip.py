@@ -16,6 +16,7 @@ from click.testing import CliRunner
 
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
+from twerk_slots.context_testing import build_test_slots_context
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
 from twerk_slots.gateway.testing import FakeClipboardGateway, FakeGitGateway
@@ -31,7 +32,7 @@ def _build_ctx(
 ) -> SlotsCliContext:
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
     assert isinstance(repo, RepoContext)
-    return SlotsCliContext(
+    return build_test_slots_context(
         repo=repo,
         git=git,
         storage=storage,

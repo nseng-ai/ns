@@ -8,6 +8,7 @@ from typing import Literal
 # surface PENDING/DISMISSED in practice, but downstream code must still handle
 # the full type.
 PRReviewState = Literal["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]
+PRState = Literal["OPEN", "CLOSED", "MERGED"]
 
 
 @dataclass(frozen=True)
@@ -108,17 +109,21 @@ class Reaction:
 
 @dataclass(frozen=True)
 class PRSummary:
-    """Summary metadata for an open PR associated with a branch.
+    """Summary metadata for a PR associated with a branch.
 
     Returned by `get_pr_for_branch` — carries the fields the pr-address skill
-    needs for its Phase 0 preflight (number, title, URL, head/base refs).
+    needs for its Phase 0 preflight plus enough metadata for SHA-based
+    matching in consumers like `slot gc`.
     """
 
     number: int
     title: str
     url: str
     head_ref_name: str
+    head_ref_oid: str
     base_ref_name: str
+    state: PRState
+    updated_at: str | None = None
 
 
 @dataclass(frozen=True)

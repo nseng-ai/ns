@@ -161,6 +161,17 @@ class RealGitGateway(GitGateway):
         )
         return result.returncode == 0
 
+    def get_branch_head_sha(self, branch: str) -> str | None:
+        result = _run(
+            ["git", "rev-parse", branch],
+            cwd=self._repo_root,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        sha = result.stdout.strip()
+        return sha or None
+
     def list_local_branches(self) -> tuple[str, ...]:
         result = _run(
             ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from twerk_core.gh.real_pr_gateway import RealPRGateway
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_clipboard import RealClipboardGateway
@@ -32,6 +33,7 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
     return SlotsCliContext(
         repo=repo,
         git=RealGitGateway(repo_root=repo.root),
+        pr=RealPRGateway(),
         storage=storage,
         pool_state=RealPoolStateGateway(pool_json_path=repo.pool_json_path),
         clipboard=RealClipboardGateway(),
