@@ -12,13 +12,20 @@ from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRState
 from twerk_slots.cli.slot.context import load_slots_context
-from twerk_slots.gc import SlotGcAction, run_gc
+from twerk_slots.gc import (
+    SlotGcAction,
+    SlotGcOutcome,
+    execute_gc_plan,
+    outcome_from_plan,
+    plan_gc,
+)
 from twerk_slots.repo_context import NoRepoSentinel
 
 
 @dataclass(frozen=True)
 class SlotGcRequest:
     dry_run: Annotated[bool, click.Option(["--dry-run"], is_flag=True, default=False)] = False
+    force: Annotated[bool, click.Option(["-f", "--force"], is_flag=True, default=False)] = False
 
 
 @dataclass(frozen=True)
@@ -41,10 +48,12 @@ class SlotGcResult:
     skipped_count: int
     error_count: int
     dry_run: bool
+    cancelled: bool = False
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "dry_run": self.dry_run,
+            "cancelled": self.cancelled,
             "freed_count": self.freed_count,
             "kept_count": self.kept_count,
             "skipped_count": self.skipped_count,
@@ -77,6 +86,9 @@ _ACTION_LABELS: dict[SlotGcAction, tuple[str, str]] = {
 
 def render_slot_gc(result: SlotGcResult) -> None:
     console = get_console()
+    if result.cancelled:
+        console.print("[yellow]Cancelled — no slots freed.[/yellow]")
+        return
     if not result.entries:
         console.print("[dim]No assignments to sweep.[/dim]")
         return
@@ -102,23 +114,7 @@ def render_slot_gc(result: SlotGcResult) -> None:
     )
 
 
-@clinkr_operation(
-    name="gc",
-    help="Free slots whose branch has a merged or closed PR.",
-    human_renderer=render_slot_gc,
-)
-def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> SlotGcResult | ClinkrCommandError:
-    slots_ctx = load_slots_context(ctx)
-    if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
-
-    if not slots_ctx.pool_state.exists():
-        return ClinkrCommandError(
-            error_type="pool_empty",
-            message="No pool configured. Run `slot checkout` first.",
-        )
-
-    outcome = run_gc(slots_ctx, dry_run=request.dry_run)
+def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> SlotGcResult:
     return SlotGcResult(
         entries=tuple(
             SlotGcResultEntry(
@@ -138,4 +134,49 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> SlotGcResult | Cl
         skipped_count=outcome.skipped_count,
         error_count=outcome.error_count,
         dry_run=outcome.dry_run,
+        cancelled=cancelled,
     )
+
+
+@clinkr_operation(
+    name="gc",
+    help="Free slots whose branch has a merged or closed PR.",
+    human_renderer=render_slot_gc,
+)
+def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> SlotGcResult | ClinkrCommandError:
+    slots_ctx = load_slots_context(ctx)
+    if isinstance(slots_ctx, NoRepoSentinel):
+        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
+
+    if not slots_ctx.pool_state.exists():
+        return ClinkrCommandError(
+            error_type="pool_empty",
+            message="No pool configured. Run `slot checkout` first.",
+        )
+
+    if request.dry_run and request.force:
+        return ClinkrCommandError(
+            error_type="conflicting_flags",
+            message="--dry-run and --force are mutually exclusive.",
+        )
+
+    plan = plan_gc(slots_ctx)
+
+    if request.dry_run:
+        return _result_from_outcome(outcome_from_plan(plan, dry_run=True))
+
+    if plan.would_free_count == 0:
+        return _result_from_outcome(outcome_from_plan(plan, dry_run=False))
+
+    if request.force:
+        return _result_from_outcome(execute_gc_plan(slots_ctx, plan))
+
+    preview = _result_from_outcome(outcome_from_plan(plan, dry_run=True))
+    render_slot_gc(preview)
+    proceed = click.confirm(
+        f"Free {plan.would_free_count} slot(s)?",
+        default=False,
+    )
+    if proceed:
+        return _result_from_outcome(execute_gc_plan(slots_ctx, plan))
+    return _result_from_outcome(outcome_from_plan(plan, dry_run=False), cancelled=True)

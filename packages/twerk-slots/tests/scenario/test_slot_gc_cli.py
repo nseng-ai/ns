@@ -172,7 +172,7 @@ def test_slot_gc_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> No
 # -- happy paths ------------------------------------------------------------
 
 
-def test_slot_gc_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     ctx = _build_ctx_for_repo(tmp_path)
     worktree_path = _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
     ctx = dataclasses.replace(
@@ -180,17 +180,87 @@ def test_slot_gc_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path: Path)
         pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
     )
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=ctx)
+    result = CliRunner().invoke(cli_group, ["gc", "-f"], obj=ctx)
 
     assert result.exit_code == 0, result.output
     assert "freed" in result.output.lower()
     assert "slot-01" in result.output
     assert "feat/done" in result.output
+    # No prompt was shown.
+    assert "Free 1 slot" not in result.output
     # Pool state drained.
     git, _, pool_state = _fakes(ctx)
     assert pool_state.load().assignments == ()
     # Placeholder checkout happened.
     assert git._checkout_calls == [(worktree_path, "__slot-01-br-stub__")]
+
+
+def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _build_ctx_for_repo(tmp_path)
+    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
+    ctx = dataclasses.replace(
+        ctx,
+        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
+    )
+
+    result = CliRunner().invoke(cli_group, ["gc"], obj=ctx, input="y\n")
+
+    assert result.exit_code == 0, result.output
+    # Preview shown before prompt.
+    assert "would free" in result.output.lower()
+    # Final state rendered after execution.
+    assert "freed" in result.output.lower()
+    assert "Free 1 slot" in result.output
+    # Pool actually drained.
+    _, _, pool_state = _fakes(ctx)
+    assert pool_state.load().assignments == ()
+
+
+def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _build_ctx_for_repo(tmp_path)
+    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
+    ctx = dataclasses.replace(
+        ctx,
+        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
+    )
+
+    result = CliRunner().invoke(cli_group, ["gc"], obj=ctx, input="n\n")
+
+    assert result.exit_code == 0, result.output
+    assert "would free" in result.output.lower()
+    assert "Cancelled" in result.output
+    # Pool unchanged.
+    git, _, pool_state = _fakes(ctx)
+    assert len(pool_state.load().assignments) == 1
+    assert git._checkout_calls == []
+
+
+def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _build_ctx_for_repo(tmp_path)
+    _seed_assigned(ctx, slot_name="slot-01", branch="feat/wip")
+    ctx = dataclasses.replace(
+        ctx,
+        pr=FakePRGateway(prs_by_branch={"feat/wip": _make_pr(9, "OPEN", "feat/wip")}),
+    )
+
+    result = CliRunner().invoke(cli_group, ["gc"], obj=ctx)
+
+    assert result.exit_code == 0, result.output
+    assert "Free 1 slot" not in result.output
+    assert "Cancelled" not in result.output
+    # Open-PR slot remains.
+    _, _, pool_state = _fakes(ctx)
+    assert len(pool_state.load().assignments) == 1
+
+
+def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _build_ctx_for_repo(tmp_path)
+    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
+
+    result = CliRunner().invoke(cli_group, ["gc", "--dry-run", "-f"], obj=ctx)
+
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output.lower()
 
 
 def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -231,7 +301,7 @@ def test_slot_gc_json_mode_payload(cli_group: ClinkrGroup, tmp_path: Path) -> No
     result = CliRunner().invoke(
         cli_group,
         ["json", "gc"],
-        input=json.dumps({"dry_run": False}),
+        input=json.dumps({"dry_run": False, "force": True}),
         obj=ctx,
     )
 
@@ -243,8 +313,32 @@ def test_slot_gc_json_mode_payload(cli_group: ClinkrGroup, tmp_path: Path) -> No
     assert payload["skipped_count"] == 0
     assert payload["error_count"] == 0
     assert payload["dry_run"] is False
+    assert payload["cancelled"] is False
     actions_by_slot = {e["slot_name"]: e["action"] for e in payload["entries"]}
     assert actions_by_slot == {"slot-01": "freed", "slot-02": "kept_open_pr"}
+
+
+def test_slot_gc_json_mode_without_force_aborts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _build_ctx_for_repo(tmp_path)
+    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
+    ctx = dataclasses.replace(
+        ctx,
+        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
+    )
+
+    # No `force: true` → click.confirm hits EOF on stdin (already drained by
+    # JSON request parsing) and aborts.
+    result = CliRunner().invoke(
+        cli_group,
+        ["json", "gc"],
+        input=json.dumps({"dry_run": False}),
+        obj=ctx,
+    )
+
+    assert result.exit_code != 0
+    # Pool unchanged.
+    _, _, pool_state = _fakes(ctx)
+    assert len(pool_state.load().assignments) == 1
 
 
 def test_slot_gc_json_schema(cli_group: ClinkrGroup) -> None:
