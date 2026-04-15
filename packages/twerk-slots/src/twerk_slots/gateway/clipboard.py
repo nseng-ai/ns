@@ -8,11 +8,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass(frozen=True)
 class ClipboardCopySuccess:
     """The clipboard write succeeded."""
+
+
+ClipboardFailureReason = Literal["backend_missing", "subprocess_error"]
 
 
 @dataclass(frozen=True)
@@ -24,7 +28,7 @@ class ClipboardCopyFailure:
     human-readable description suitable for surfacing in the UI or logs.
     """
 
-    reason: str
+    reason: ClipboardFailureReason
     detail: str
 
 
