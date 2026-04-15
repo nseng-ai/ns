@@ -121,6 +121,11 @@
       "sourceType": "local",
       "computedHash": "98ce3292fbb12cc43c031715bf17421c321c64be3250bc88884e1373b45edf66"
     },
+    "plan-to-branch": {
+      "source": "/Users/schrockn/code/twerk/skills/plan-to-branch",
+      "sourceType": "local",
+      "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
+    },
     "pr-address": {
       "source": "/Users/schrockn/code/twerk/skills/pr-address",
       "sourceType": "local",
