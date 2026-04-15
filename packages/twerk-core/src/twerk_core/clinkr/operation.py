@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 
 _META_ATTR = "_clinkr_operation_meta"
@@ -32,6 +34,9 @@ def clinkr_operation(
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator that marks a function as a clinkr operation.
 
+    The decorated function must accept exactly two parameters:
+    ``(ctx: click.Context, request: <RequestType>)``. Clinkr threads the
+    active Click context in; operations must never fetch it from globals.
     ``request_type`` and ``result_types`` are inferred from the function's
     type annotations.
     """
@@ -65,21 +70,33 @@ def _extract_types_from_hints(
 ) -> tuple[type, tuple[type, ...]]:
     """Infer ``(request_type, result_types)`` from a function's type annotations.
 
-    The function must have exactly one parameter (the request) and a return
-    annotation.  If the return type is a Union containing
-    ``ClinkrCommandError``, the error type is filtered out and the remaining
-    types become ``result_types``.
+    The function must accept exactly two parameters — ``ctx: click.Context``
+    followed by the request dataclass — and have a return annotation.  If the
+    return type is a Union containing ``ClinkrCommandError``, the error type
+    is filtered out and the remaining types become ``result_types``.
     """
     hints = get_type_hints(fn)
     params = list(inspect.signature(fn).parameters.values())
 
-    if len(params) != 1:
+    if len(params) != 2:
         raise TypeError(
             f"clinkr_operation function {fn.__qualname__} must accept "
-            f"exactly one parameter (the request), got {len(params)}"
+            f"exactly two parameters (click.Context, request), got {len(params)}"
         )
 
-    request_param = params[0]
+    ctx_param, request_param = params
+    if ctx_param.name not in hints:
+        raise TypeError(
+            f"clinkr_operation function {fn.__qualname__}: "
+            f"parameter '{ctx_param.name}' must have a type annotation"
+        )
+    if hints[ctx_param.name] is not click.Context:
+        raise TypeError(
+            f"clinkr_operation function {fn.__qualname__}: first parameter "
+            f"'{ctx_param.name}' must be annotated as click.Context, "
+            f"got {hints[ctx_param.name]!r}"
+        )
+
     if request_param.name not in hints:
         raise TypeError(
             f"clinkr_operation function {fn.__qualname__}: "

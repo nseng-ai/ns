@@ -17,7 +17,7 @@ from twerk_slots.allocation import (
     allocate_slot_for_branch,
     allocate_slot_for_current_branch,
 )
-from twerk_slots.cli.slot.context import build_slots_context
+from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopySuccess
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
@@ -151,7 +151,9 @@ def _build_result(
     help="Check out a branch into a pool slot worktree (like `git checkout [-b]`).",
     human_renderer=render_slot_checkout,
 )
-def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | ClinkrCommandError:
+def run_checkout_slot(
+    ctx: click.Context, request: SlotCheckoutRequest
+) -> SlotCheckoutResult | ClinkrCommandError:
     inputs_provided = sum((request.branch_name is not None, request.current))
     if inputs_provided > 1:
         return ClinkrCommandError(
@@ -169,16 +171,16 @@ def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | Clin
             message="-b/--new cannot be combined with --current.",
         )
 
-    ctx = build_slots_context()
-    if isinstance(ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
+    slots_ctx = load_slots_context(ctx)
+    if isinstance(slots_ctx, NoRepoSentinel):
+        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
 
-    ensure_slots_metadata_dir(ctx.repo, ctx.storage)
+    ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
     now = datetime.now(UTC).isoformat()
 
     if request.current:
         current_outcome = allocate_slot_for_current_branch(
-            ctx, cwd=ctx.repo.root, now=now, force=False
+            slots_ctx, cwd=slots_ctx.repo.root, now=now, force=False
         )
         if isinstance(current_outcome, DetachedHeadError):
             return ClinkrCommandError(
@@ -199,7 +201,7 @@ def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | Clin
         if isinstance(current_outcome, PoolFullError):
             return _pool_full_error(current_outcome)
         return _build_result(
-            ctx,
+            slots_ctx,
             current_outcome.allocation,
             created_branch=False,
             current_wt_note=current_outcome.current_wt_note,
@@ -208,7 +210,7 @@ def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | Clin
 
     assert request.branch_name is not None  # validated above
     branch_name = request.branch_name
-    branch_exists = ctx.git.branch_exists(branch_name)
+    branch_exists = slots_ctx.git.branch_exists(branch_name)
     created_branch = False
 
     if request.new_branch:
@@ -220,7 +222,7 @@ def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | Clin
                     f"Drop -b to check out the existing branch."
                 ),
             )
-        ctx.git.create_branch(branch_name, "HEAD", force=False)
+        slots_ctx.git.create_branch(branch_name, "HEAD", force=False)
         created_branch = True
     elif not branch_exists:
         return ClinkrCommandError(
@@ -231,7 +233,7 @@ def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | Clin
         )
 
     outcome = allocate_slot_for_branch(
-        ctx,
+        slots_ctx,
         branch_name=branch_name,
         now=now,
         force=False,
@@ -239,7 +241,7 @@ def run_checkout_slot(request: SlotCheckoutRequest) -> SlotCheckoutResult | Clin
     if isinstance(outcome, PoolFullError):
         return _pool_full_error(outcome)
     return _build_result(
-        ctx,
+        slots_ctx,
         outcome,
         created_branch=created_branch,
         current_wt_note=None,

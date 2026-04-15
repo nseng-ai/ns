@@ -4,6 +4,8 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment
@@ -31,8 +33,9 @@ class GetDiscussionCommentsResult:
     help="Fetch discussion comments for a PR.",
 )
 def run_get_discussion_comments(
+    ctx: click.Context,
     request: GetDiscussionCommentsRequest,
 ) -> GetDiscussionCommentsResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     comments = gateway.get_discussion_comments(request.pr_number)
     return GetDiscussionCommentsResult(comments=comments)

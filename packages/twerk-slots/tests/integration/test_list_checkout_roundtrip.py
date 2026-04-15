@@ -15,9 +15,30 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from twerk_slots.cli.main import build_cli
+from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
 from twerk_slots.gateway.testing import FakeClipboardGateway, FakeGitGateway
+from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
+
+
+def _build_ctx(
+    *,
+    git: FakeGitGateway,
+    storage: RealSlotsStorageGateway,
+    pool_state_gw: RealPoolStateGateway,
+    slots_root: Path,
+) -> SlotsCliContext:
+    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
+    assert isinstance(repo, RepoContext)
+    return SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=pool_state_gw,
+        clipboard=FakeClipboardGateway(),
+        slots_root=slots_root,
+    )
 
 
 def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
@@ -36,13 +57,12 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         storage=storage,
     )
-    obj = {
-        "git_gateway": git,
-        "storage_gateway": storage,
-        "pool_state_gateway": pool_state_gw,
-        "clipboard_gateway": FakeClipboardGateway(),
-        "slots_root": slots_root,
-    }
+    obj = _build_ctx(
+        git=git,
+        storage=storage,
+        pool_state_gw=pool_state_gw,
+        slots_root=slots_root,
+    )
     cli = build_cli()
     runner = CliRunner()
 
@@ -98,13 +118,12 @@ def test_checkout_twice_reuses_existing(tmp_path: Path) -> None:
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         storage=storage,
     )
-    obj = {
-        "git_gateway": git,
-        "storage_gateway": storage,
-        "pool_state_gateway": pool_state_gw,
-        "clipboard_gateway": FakeClipboardGateway(),
-        "slots_root": slots_root,
-    }
+    obj = _build_ctx(
+        git=git,
+        storage=storage,
+        pool_state_gw=pool_state_gw,
+        slots_root=slots_root,
+    )
     cli = build_cli()
     runner = CliRunner()
 

@@ -4,6 +4,8 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRReview
@@ -31,8 +33,9 @@ class GetReviewsResult:
     help="Fetch PR-level review submissions (approve, request changes, comment).",
 )
 def run_get_reviews(
+    ctx: click.Context,
     request: GetReviewsRequest,
 ) -> GetReviewsResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     reviews = gateway.get_reviews(request.pr_number)
     return GetReviewsResult(reviews=reviews)

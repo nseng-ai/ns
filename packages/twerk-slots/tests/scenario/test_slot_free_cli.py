@@ -11,14 +11,17 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_slots.cli.main import build_cli
+from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway import real_git
 from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
+    FakeClipboardGateway,
     FakeGitGateway,
     FakePoolStateGateway,
     FakeSlotsStorageGateway,
 )
 from twerk_slots.pool_state import PoolState, SlotAssignment
+from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
 
 
 @pytest.fixture(scope="module")
@@ -31,16 +34,21 @@ class _SlotFakes:
     git: FakeGitGateway
     storage: FakeSlotsStorageGateway
     pool_state: FakePoolStateGateway
+    clipboard: FakeClipboardGateway
     repo_root: Path
 
 
-def _make_obj(fakes: _SlotFakes, slots_root: Path) -> dict[str, object]:
-    return {
-        "git_gateway": fakes.git,
-        "storage_gateway": fakes.storage,
-        "pool_state_gateway": fakes.pool_state,
-        "slots_root": slots_root,
-    }
+def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
+    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
+    assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
+    return SlotsCliContext(
+        repo=repo,
+        git=fakes.git,
+        storage=fakes.storage,
+        pool_state=fakes.pool_state,
+        clipboard=fakes.clipboard,
+        slots_root=slots_root,
+    )
 
 
 def _fake_for_repo(
@@ -73,6 +81,7 @@ def _fake_for_repo(
         git=git,
         storage=storage,
         pool_state=FakePoolStateGateway(pool_json_path),
+        clipboard=FakeClipboardGateway(),
         repo_root=repo_root,
     )
 

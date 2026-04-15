@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -38,7 +39,7 @@ class PingResult:
 
 
 @clinkr_operation(name="ping", help="Ping.", aliases=("p",))
-def run_ping(request: PingRequest) -> PingResult | ClinkrCommandError:
+def run_ping(ctx: click.Context, request: PingRequest) -> PingResult | ClinkrCommandError:
     return PingResult(pong=True)
 
 

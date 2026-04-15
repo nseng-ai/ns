@@ -105,6 +105,7 @@ def test_free_slot_happy_path() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        slots_root=ROOT / "slots",
     )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
@@ -141,6 +142,7 @@ def test_free_slot_forces_existing_placeholder() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        slots_root=ROOT / "slots",
     )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
@@ -167,6 +169,7 @@ def test_free_slot_unknown_slot_returns_not_assigned_error() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        slots_root=ROOT / "slots",
     )
     outcome = free_slot_assignment(ctx, slot_name="slot-07")
 
@@ -198,6 +201,7 @@ def test_free_slot_dirty_worktree_returns_dirty_error() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        slots_root=ROOT / "slots",
     )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
@@ -234,6 +238,7 @@ def test_free_slot_syncs_before_freeing() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        slots_root=ROOT / "slots",
     )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 

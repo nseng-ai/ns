@@ -43,8 +43,9 @@ class AddReviewThreadReplyResult:
     help="Post a reply comment on a PR review thread.",
 )
 def run_add_review_thread_reply(
+    ctx: click.Context,
     request: AddReviewThreadReplyRequest,
 ) -> AddReviewThreadReplyResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     comment = gateway.add_review_thread_reply(request.thread_id, request.body)
     return AddReviewThreadReplyResult(comment=comment)

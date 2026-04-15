@@ -9,7 +9,7 @@ from twerk_core import get_console
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import find_assignment_by_slot
-from twerk_slots.cli.slot.context import build_slots_context
+from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.cli.slot.slot_target import resolve_slot_target
 from twerk_slots.repo_context import NoRepoSentinel
 
@@ -48,12 +48,14 @@ def render_slot_goto(result: SlotGotoResult) -> None:
     help="Print the worktree path for an assigned slot.",
     human_renderer=render_slot_goto,
 )
-def run_goto_slot(request: SlotGotoRequest) -> SlotGotoResult | ClinkrCommandError:
-    ctx = build_slots_context()
-    if isinstance(ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
+def run_goto_slot(
+    ctx: click.Context, request: SlotGotoRequest
+) -> SlotGotoResult | ClinkrCommandError:
+    slots_ctx = load_slots_context(ctx)
+    if isinstance(slots_ctx, NoRepoSentinel):
+        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
 
-    state = ctx.pool_state.load()
+    state = slots_ctx.pool_state.load()
     if state is None:
         return ClinkrCommandError(
             error_type="pool_empty",
@@ -74,7 +76,7 @@ def run_goto_slot(request: SlotGotoRequest) -> SlotGotoResult | ClinkrCommandErr
             message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
         )
 
-    if not ctx.storage.path_exists(assignment.worktree_path):
+    if not slots_ctx.storage.path_exists(assignment.worktree_path):
         return ClinkrCommandError(
             error_type="worktree_missing",
             message=(
