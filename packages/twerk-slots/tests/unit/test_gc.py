@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.gh.types import PRSummary
+from twerk_core.gh.types import PRState, PRSummary
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
@@ -36,14 +36,14 @@ def _make_repo() -> RepoContext:
     )
 
 
-def _make_pr(number: int, state: str, branch: str) -> PRSummary:
+def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
     return PRSummary(
         number=number,
         title=f"PR {number}",
         url=f"https://github.com/dagster-io/twerk/pull/{number}",
         head_ref_name=branch,
         base_ref_name="master",
-        state=state,  # type: ignore[arg-type]
+        state=state,
     )
 
 

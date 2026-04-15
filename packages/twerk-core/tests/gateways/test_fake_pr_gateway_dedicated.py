@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.gh.types import PRLookupError, PRSummary
+from twerk_core.gh.types import PRLookupError, PRState, PRSummary
 
 
-def _make_pr(state: str) -> PRSummary:
+def _make_pr(state: PRState) -> PRSummary:
     return PRSummary(
         number=42,
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
         base_ref_name="master",
-        state=state,  # type: ignore[arg-type]
+        state=state,
     )
 
 
