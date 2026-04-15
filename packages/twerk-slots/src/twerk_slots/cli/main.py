@@ -19,11 +19,12 @@ def _populate_ctx_obj(ctx: click.Context) -> None:
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``slot`` CLI group."""
-    group = discover_group("twerk_slots.cli.slot")
-    group.context_settings = {"help_option_names": ["-h", "--help"]}
-    group.callback = _populate_ctx_obj
-    click.version_option(package_name="twerk-slots")(group)
-    return group
+    return discover_group(
+        "twerk_slots.cli.slot",
+        context_settings={"help_option_names": ["-h", "--help"]},
+        callback=_populate_ctx_obj,
+        version_package_name="twerk-slots",
+    )
 
 
 def main() -> None:

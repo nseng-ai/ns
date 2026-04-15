@@ -8,7 +8,7 @@ import click
 from click.testing import CliRunner
 
 from twerk_core.clinkr.command import ClinkrCommandError
-from twerk_core.clinkr.group import ClinkrGroup
+from twerk_core.clinkr.group import ClinkrGroup, ClinkrGroupSpec, compile_group
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -33,7 +33,7 @@ def _greet(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCom
 
 
 def _make_group() -> ClinkrGroup:
-    return ClinkrGroup("test", help="Test group.", operations=[_greet])
+    return compile_group(ClinkrGroupSpec(name="test", help="Test group.", operations=(_greet,)))
 
 
 def test_human_command_exists() -> None:
@@ -102,7 +102,7 @@ def test_custom_renderer() -> None:
         punctuation = "!" if request.excited else "."
         return GreetResult(message=f"hello {request.name}{punctuation}")
 
-    group = ClinkrGroup("test", help="Test.", operations=[greet_custom])
+    group = compile_group(ClinkrGroupSpec(name="test", help="Test.", operations=(greet_custom,)))
 
     runner = CliRunner()
     result = runner.invoke(group, ["greet", "alice"])
@@ -115,7 +115,7 @@ def test_error_handling_human() -> None:
     def failing_op(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
         return ClinkrCommandError(error_type="boom", message="it broke")
 
-    group = ClinkrGroup("test", help="Test.", operations=[failing_op])
+    group = compile_group(ClinkrGroupSpec(name="test", help="Test.", operations=(failing_op,)))
 
     runner = CliRunner()
     result = runner.invoke(group, ["fail", "alice"])
@@ -128,7 +128,7 @@ def test_error_handling_json() -> None:
     def failing_op(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
         return ClinkrCommandError(error_type="boom", message="it broke")
 
-    group = ClinkrGroup("test", help="Test.", operations=[failing_op])
+    group = compile_group(ClinkrGroupSpec(name="test", help="Test.", operations=(failing_op,)))
 
     runner = CliRunner()
     result = runner.invoke(group, ["json", "fail"], input='{"name": "alice"}')
@@ -158,7 +158,7 @@ def test_empty_request_no_args() -> None:
     def list_op(ctx: click.Context, request: EmptyRequest) -> EmptyResult:
         return EmptyResult(count=0)
 
-    group = ClinkrGroup("test", help="Test.", operations=[list_op])
+    group = compile_group(ClinkrGroupSpec(name="test", help="Test.", operations=(list_op,)))
 
     runner = CliRunner()
     result = runner.invoke(group, ["list"])
@@ -194,7 +194,7 @@ def _search_op(ctx: click.Context, request: SearchRequest) -> SearchResult:
 
 
 def test_annotated_params() -> None:
-    group = ClinkrGroup("test", help="Test.", operations=[_search_op])
+    group = compile_group(ClinkrGroupSpec(name="test", help="Test.", operations=(_search_op,)))
 
     runner = CliRunner()
     result = runner.invoke(group, ["search", "hello", "--limit", "2"])

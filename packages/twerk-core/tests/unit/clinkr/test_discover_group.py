@@ -14,8 +14,8 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.group import (
-    ClinkrGroup,
     ClinkrGroupMeta,
+    ClinkrGroupSpec,
     clinkr_group,
     discover_group,
     get_group_meta,
@@ -79,8 +79,8 @@ def _fake_package(
 
 def test_clinkr_group_decorator_stamps_metadata() -> None:
     @clinkr_group(help="Test help.")
-    def my_group() -> ClinkrGroup:
-        return ClinkrGroup()
+    def my_group() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec()
 
     meta = get_group_meta(my_group)
     assert meta is not None
@@ -88,25 +88,25 @@ def test_clinkr_group_decorator_stamps_metadata() -> None:
 
 
 def test_clinkr_group_decorator_no_metadata_on_plain_function() -> None:
-    def plain() -> ClinkrGroup:
-        return ClinkrGroup()
+    def plain() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec()
 
     assert get_group_meta(plain) is None
 
 
 def test_clinkr_group_decorator_function_still_callable() -> None:
     @clinkr_group(help="Test.")
-    def my_group() -> ClinkrGroup:
-        return ClinkrGroup()
+    def my_group() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec()
 
     result = my_group()
-    assert isinstance(result, ClinkrGroup)
+    assert isinstance(result, ClinkrGroupSpec)
 
 
 def test_discover_group_basic() -> None:
     @clinkr_group(help="Manage users.")
-    def users() -> ClinkrGroup:
-        return ClinkrGroup(operations=[run_ping])
+    def users() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec(operations=(run_ping,))
 
     with _fake_package(
         "_test_dg_basic",
@@ -127,8 +127,8 @@ def test_discover_group_basic() -> None:
 
 def test_discover_group_name_from_function_not_module() -> None:
     @clinkr_group(help="Help.")
-    def my_custom_name() -> ClinkrGroup:
-        return ClinkrGroup()
+    def my_custom_name() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec()
 
     with _fake_package(
         "_test_dg_name",
@@ -148,8 +148,8 @@ def test_discover_group_name_override_via_decorator() -> None:
     """
 
     @clinkr_group(name="pr-address", help="Hyphenated subgroup.")
-    def pr_address() -> ClinkrGroup:
-        return ClinkrGroup()
+    def pr_address() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec()
 
     with _fake_package(
         "_test_dg_hyphenated",
@@ -185,12 +185,12 @@ def test_discover_group_defaults_without_decorator() -> None:
 
 def test_discover_group_errors_multiple_decorators() -> None:
     @clinkr_group(help="One.")
-    def group_a() -> ClinkrGroup:
-        return ClinkrGroup()
+    def group_a() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec()
 
     @clinkr_group(help="Two.")
-    def group_b() -> ClinkrGroup:
-        return ClinkrGroup()
+    def group_b() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec()
 
     with _fake_package(
         "_test_dg_multi",
@@ -202,21 +202,21 @@ def test_discover_group_errors_multiple_decorators() -> None:
 
 def test_discover_group_errors_wrong_return_type() -> None:
     @clinkr_group(help="Bad.")
-    def bad_group() -> ClinkrGroup:
+    def bad_group() -> ClinkrGroupSpec:
         return "not a group"  # type: ignore[return-value]
 
     with _fake_package(
         "_test_dg_bad_type",
         init_attrs={"bad_group": bad_group},
     ):
-        with pytest.raises(TypeError, match="must return a ClinkrGroup"):
+        with pytest.raises(TypeError, match="must return a ClinkrGroupSpec"):
             discover_group("_test_dg_bad_type")
 
 
 def test_discover_group_alias_works() -> None:
     @clinkr_group(help="Aliases.")
-    def aliased() -> ClinkrGroup:
-        return ClinkrGroup(operations=[run_ping])
+    def aliased() -> ClinkrGroupSpec:
+        return ClinkrGroupSpec(operations=(run_ping,))
 
     with _fake_package(
         "_test_dg_alias",

@@ -1,10 +1,10 @@
 """PR review address operations."""
 
-from twerk_core.clinkr.group import ClinkrGroup, clinkr_group
+from twerk_core.clinkr.group import ClinkrGroupSpec, clinkr_group, discover_operations
 
 
 @clinkr_group(name="pr-address", help="PR review address operations.")
-def pr_address() -> ClinkrGroup:
+def pr_address() -> ClinkrGroupSpec:
     """Return the `twerk pr-address` subgroup.
 
     All operations are nested under an ``exec`` subgroup to signal that
@@ -15,11 +15,13 @@ def pr_address() -> ClinkrGroup:
     Python module is ``twerk_pr_address.cli.pr_address`` (underscored),
     but the desired CLI subgroup name is hyphenated.
     """
-    exec_group = ClinkrGroup.discover_subcommands()
-    exec_group.name = "exec"
-    exec_group.help = "Commands for use by the pr-address skill."
-
-    outer = ClinkrGroup()
-    outer._json_group.hidden = True
-    outer.add_command(exec_group)
-    return outer
+    return ClinkrGroupSpec(
+        subgroups=(
+            discover_operations(
+                "twerk_pr_address.cli.pr_address",
+                name="exec",
+                help="Commands for use by the pr-address skill.",
+            ),
+        ),
+        json_group_hidden=True,
+    )

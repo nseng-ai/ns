@@ -12,7 +12,7 @@ import click
 from click.testing import CliRunner
 
 from twerk_core.clinkr.command import ClinkrCommandError
-from twerk_core.clinkr.group import discover_operations
+from twerk_core.clinkr.group import compile_group, discover_operations
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -65,7 +65,7 @@ def test_discover_finds_decorated_operations() -> None:
         # and our fake package has an empty __path__, we put the
         # decorated function directly on the root package module.
         pkg.run_ping = run_ping  # type: ignore[attr-defined]
-        group = discover_operations(pkg_name)
+        group = compile_group(discover_operations(pkg_name, name="ops"))
 
         assert "ping" in group.commands
         assert "ping" in group.json_group.commands
@@ -82,7 +82,7 @@ def test_discover_alias_works() -> None:
     mod_name = f"{pkg_name}.ops"
     with _fake_package(pkg_name, mod_name, run_ping) as pkg:
         pkg.run_ping = run_ping  # type: ignore[attr-defined]
-        group = discover_operations(pkg_name)
+        group = compile_group(discover_operations(pkg_name, name="ops"))
 
         runner = CliRunner()
         result = runner.invoke(group, ["p"])
@@ -95,7 +95,7 @@ def test_discover_empty_package() -> None:
     pkg_name = "_test_discover_empty_pkg"
     mod_name = f"{pkg_name}.ops"
     with _fake_package(pkg_name, mod_name):
-        group = discover_operations(pkg_name)
+        group = compile_group(discover_operations(pkg_name, name="ops"))
         # Only the reserved 'json' subgroup should exist.
         public_commands = {n for n in group.commands if n != "json"}
         assert public_commands == set()
