@@ -33,7 +33,7 @@ class FakeGitGateway(GitGateway):
         worktrees: tuple[WorktreeInfo, ...] = (),
         current_branch_by_path: dict[Path, str | None] | None = None,
         previous_branch_by_path: dict[Path, str | None] | None = None,
-        trunk_branch: str | None = None,
+        trunk_branch: str = "main",
         file_status_by_path: dict[Path, FileStatus] | None = None,
         existing_paths: Iterable[Path] = (),
         repository_root_by_cwd: dict[Path, Path] | None = None,
@@ -48,7 +48,7 @@ class FakeGitGateway(GitGateway):
         self._worktrees: list[WorktreeInfo] = list(worktrees)
         self._current_branch_by_path: dict[Path, str | None] = dict(current_branch_by_path or {})
         self._previous_branch_by_path: dict[Path, str | None] = dict(previous_branch_by_path or {})
-        self._trunk_branch: str | None = trunk_branch
+        self._trunk_branch: str = trunk_branch
         self._file_status_by_path: dict[Path, FileStatus] = dict(file_status_by_path or {})
         self._existing_paths: set[Path] = set(existing_paths)
         self._repository_root_by_cwd: dict[Path, Path] = dict(repository_root_by_cwd or {})
@@ -92,7 +92,7 @@ class FakeGitGateway(GitGateway):
     def get_previous_branch(self, cwd: Path) -> str | None:
         return self._previous_branch_by_path.get(cwd)
 
-    def get_trunk_branch(self) -> str | None:
+    def get_trunk_branch(self) -> str:
         return self._trunk_branch
 
     def branch_exists(self, branch: str) -> bool:

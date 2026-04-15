@@ -61,6 +61,7 @@ def _fake_for_repo(
     current_branch_by_path: dict[Path, str | None] | None = None,
     file_status_by_path: dict[Path, FileStatus] | None = None,
     extra_existing: Iterable[Path] = (),
+    trunk_branch: str = "main",
 ) -> _SlotFakes:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
@@ -78,6 +79,7 @@ def _fake_for_repo(
         existing_paths={repo_root, Path.cwd(), *extra_existing},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         storage=storage,
+        trunk_branch=trunk_branch,
     )
     return _SlotFakes(
         git=git,

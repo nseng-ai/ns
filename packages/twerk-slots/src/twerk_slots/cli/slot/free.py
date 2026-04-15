@@ -10,6 +10,7 @@ from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import (
     DirtyWorktreeError,
+    SlotAllocationError,
     SlotNotAssignedError,
     free_slot_assignment,
 )
@@ -78,7 +79,10 @@ def run_free_slot(
         return slot_name_or_error
     slot_name = slot_name_or_error
 
-    outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
+    try:
+        outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
+    except SlotAllocationError as exc:
+        return ClinkrCommandError(error_type="slot_allocation_error", message=str(exc))
     if isinstance(outcome, SlotNotAssignedError):
         return ClinkrCommandError(
             error_type="slot_not_assigned",

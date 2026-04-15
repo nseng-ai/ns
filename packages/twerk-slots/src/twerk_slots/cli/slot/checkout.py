@@ -13,6 +13,7 @@ from twerk_slots.allocation import (
     DetachedHeadError,
     DirtyCurrentWorktreeError,
     PoolFullError,
+    SlotAllocationError,
     SlotAllocationResult,
     allocate_slot_for_branch,
     allocate_slot_for_current_branch,
@@ -179,9 +180,12 @@ def run_checkout_slot(
     now = datetime.now(UTC).isoformat()
 
     if request.current:
-        current_outcome = allocate_slot_for_current_branch(
-            slots_ctx, cwd=slots_ctx.repo.root, now=now, force=False
-        )
+        try:
+            current_outcome = allocate_slot_for_current_branch(
+                slots_ctx, cwd=slots_ctx.repo.root, now=now, force=False
+            )
+        except SlotAllocationError as exc:
+            return ClinkrCommandError(error_type="slot_allocation_error", message=str(exc))
         if isinstance(current_outcome, DetachedHeadError):
             return ClinkrCommandError(
                 error_type="detached_head",

@@ -65,8 +65,12 @@ class GitGateway(ABC):
         """Return the previous branch (``git rev-parse --abbrev-ref '@{-1}'``) or None."""
 
     @abstractmethod
-    def get_trunk_branch(self) -> str | None:
-        """Return the repo's trunk branch name (main/master/etc.), or None when unresolvable."""
+    def get_trunk_branch(self) -> str:
+        """Return the repo's trunk branch name (main/master/etc.).
+
+        Implementations guarantee that trunk is resolved and valid by the time
+        the gateway is constructed — callers never see an unresolvable trunk.
+        """
 
     @abstractmethod
     def branch_exists(self, branch: str) -> bool:
