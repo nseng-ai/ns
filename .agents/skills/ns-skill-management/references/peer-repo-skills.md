@@ -29,6 +29,9 @@ Key differences from local and GitHub-sourced skills:
   `.git/info/exclude` (local-only, not `.gitignore`)
 - **Not in `skills-lock.json`** -- these are transient development
   links, not permanent dependencies
+- **Never normalized into local skill entries** -- if one of these
+  paths leaks into `skills-lock.json`, remove the leaked entry instead
+  of rewriting it to `skills/<name>`
 
 ## The `local.just` pattern
 
@@ -200,4 +203,6 @@ git checkout -- skills-lock.json   # revert to the committed version
 
 Or manually remove the leaked entries (skills whose `sourceType` is
 `"github"` but whose `.agents/skills/<name>` directory is a symlink
-pointing outside the repo).
+pointing outside the repo). Do not rewrite peer-repo absolute paths to
+`skills/<name>`; those skills are local-only and should not be in the
+lock file at all.

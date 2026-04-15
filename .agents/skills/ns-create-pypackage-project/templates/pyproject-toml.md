@@ -71,7 +71,9 @@ python-version = "<MIN_PYTHON>"
 python = ".venv"
 
 [tool.pytest.ini_options]
-addopts = "-q"
+# importlib is pytest's recommended import mode for new projects:
+# https://docs.pytest.org/en/stable/explanation/goodpractices.html
+addopts = "-q --import-mode=importlib"
 testpaths = ["tests"]
 xfail_strict = true
 ```

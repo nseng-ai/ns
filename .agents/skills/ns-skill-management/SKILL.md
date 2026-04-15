@@ -54,6 +54,10 @@ For every skill-management operation, produce an end state that has:
 - **Canonical source for local skills is `skills/<name>/`.**
   Edit files there directly. The `.agents/skills/<name>` symlink and
   `.claude/skills/<name>` symlink chain resolve to the same place.
+- **Committed local `skills-lock.json` entries must use**
+  `"source": "skills/<name>"`. If `npx skills add` captures an
+  absolute local path, rewrite it to the repo-relative form before
+  committing.
 - **Always install with `--agent codex claude-code -y`.** Never
   `--agent claude-code` alone (it only creates the `.claude/skills/`
   symlink without populating `.agents/skills/`). Never omit `-a` entirely --
@@ -111,7 +115,7 @@ Records one entry per installed skill:
 ```json
 {
   "<name>": {
-    "source": "<path-or-repo>",
+    "source": "skills/<name>",
     "sourceType": "local",
     "computedHash": "<sha256>"
   }
@@ -119,9 +123,11 @@ Records one entry per installed skill:
 ```
 
 `sourceType` is `"local"` for local skills and `"github"` for
-`<owner>/<repo>` sources. `computedHash` is captured at install time and
-is **not** auto-refreshed -- `npx skills check` only checks remote
-sources. A stale hash for a local skill is normal and harmless.
+`<owner>/<repo>` sources. In nonslop, committed local entries always use
+the repo-relative `skills/<name>` form even if `npx skills add` wrote an
+absolute path during bootstrap. `computedHash` is captured at install
+time and is **not** auto-refreshed -- `npx skills check` only checks
+remote sources. A stale hash for a local skill is normal and harmless.
 
 ## Workflow
 
@@ -136,13 +142,15 @@ npx skills add ./skills/<name> --agent codex claude-code -y
 # 4. Replace the CLI's copy with a symlink back to the canonical source
 rm -rf .agents/skills/<name>
 ln -s ../../skills/<name> .agents/skills/<name>
-# 5. Verify
+# 5. Normalize the committed lockfile entry if the CLI captured an absolute path
+#    "source": "/abs/path/to/skills/<name>"  ->  "source": "skills/<name>"
+# 6. Verify
 ls -la .agents/skills/<name>     # expect: l... -> ../../skills/<name>
 ls -la .claude/skills/<name>     # expect: l... -> ../../.agents/skills/<name>
 cat .claude/skills/<name>/SKILL.md  # expect: content visible through chain
 npx skills list                  # expect: agents include Claude Code, Codex, Cursor
-# 6. Register in AGENTS.md (Available skills list, alphabetical)
-# 7. Stage and commit
+# 7. Register in AGENTS.md (Available skills list, alphabetical)
+# 8. Stage and commit
 git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.json AGENTS.md
 ```
 
@@ -264,6 +272,11 @@ rm -rf .agents/skills/<name>
 ln -s ../../skills/<name> .agents/skills/<name>
 ```
 
+**Known CLI quirk:** `npx skills add` may also record an absolute local
+path in `skills-lock.json` for a local skill. In nonslop that value must
+be normalized back to `skills/<name>` before commit; `nonslop check`
+enforces the repo-relative form.
+
 ## Skill visibility
 
 All local skills live in `skills/` and are discoverable by external
@@ -307,6 +320,9 @@ INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --skill <name> --agent c
   "Available skills" list -- it becomes invisible to Codex sessions.
 - Leaving `.agents/skills/<name>` as a real directory for a local skill
   after bootstrap -- replace it with a symlink to `../../skills/<name>`.
+- Committing an absolute machine-specific local path in
+  `skills-lock.json` for a local skill -- normalize it to
+  `skills/<name>`.
 - Assuming `npx skills check` will catch stale local-skill state --
   it only checks remote sources.
 - Deleting `skills/<name>/` without also running `npx skills remove`

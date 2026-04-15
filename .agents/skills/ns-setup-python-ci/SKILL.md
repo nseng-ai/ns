@@ -7,6 +7,9 @@ references:
 allowed-tools:
   - "Bash(mkdir *)"
   - "Bash(ls *)"
+  - "Bash(command -v *)"
+  - "Bash(gh auth status*)"
+  - "Bash(gh api *)"
 ---
 
 # setup-gh-ci
@@ -41,15 +44,57 @@ If either is missing, stop and tell the user what's needed.
 5. Present the derived version list to the user and ask for confirmation
    before proceeding
 
-### Step 2: Create the composite action
+### Step 2: Resolve the `astral-sh/setup-uv` pin
+
+The composite action SHA-pins `astral-sh/setup-uv` so that a moved tag
+cannot silently change CI behavior. Resolve the current latest stable
+release at skill-run time so the generated file starts fresh instead of
+baking a stale SHA into the template.
+
+1. Check that `gh` is available and authenticated:
+
+   ```bash
+   command -v gh >/dev/null && gh auth status >/dev/null 2>&1
+   ```
+
+2. If available, resolve the latest release tag and its commit SHA:
+
+   ```bash
+   TAG=$(gh api repos/astral-sh/setup-uv/releases/latest --jq .tag_name)
+   SHA=$(gh api "repos/astral-sh/setup-uv/commits/$TAG" --jq .sha)
+   ```
+
+   The `/commits/{ref}` endpoint accepts a tag name and returns the
+   commit SHA directly, so it handles both lightweight and annotated
+   tags without a second dereference call.
+
+3. Set the ref string that will be substituted into the template:
+
+   - **Success:** `SETUP_UV_REF="$SHA # $TAG"`
+     (e.g., `cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0`)
+   - **Fallback** (gh missing, unauthenticated, or API call fails):
+     `SETUP_UV_REF="v8"`. Warn the user that the pin is tag-only and
+     that they should re-run the skill (or manually SHA-pin) once `gh`
+     is authenticated.
+
+4. Show the resolved ref to the user before writing the file.
+
+### Step 3: Create the composite action
 
 Create the directory first: `mkdir -p .github/actions/setup-python-uv`
 
 Create `.github/actions/setup-python-uv/action.yml` using the template from
-`templates/composite-action.md`. Replace `<MIN_PYTHON>` with the minimum
-supported Python version from Step 1.
+`templates/composite-action.md`. Replace:
 
-### Step 3: Create the CI workflow
+- `<MIN_PYTHON>` with the minimum supported Python version from Step 1.
+- `<SETUP_UV_REF>` with the value resolved in Step 2.
+
+If Step 2 hit the fallback path (`<SETUP_UV_REF>` = `v8`), also remove
+the "SHA-pinned" comment block above the `- uses: astral-sh/setup-uv@...`
+line, since it no longer applies. Leave the cache-related comments in
+place.
+
+### Step 4: Create the CI workflow
 
 Create the directory first: `mkdir -p .github/workflows`
 
@@ -57,7 +102,7 @@ Create `.github/workflows/python-ci.yml` using the template from
 `templates/ci-workflow.md`. Replace `<PYTHON_VERSIONS>` with the quoted,
 comma-separated version list from Step 1 (e.g., `"3.11", "3.12", "3.13", "3.14"`).
 
-### Step 4: Verify
+### Step 5: Verify
 
 Confirm both files were created:
 

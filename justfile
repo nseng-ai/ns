@@ -1,5 +1,8 @@
 import? 'local.just'
 
+# Skills sourced from nseng-ai/nonslop. Keep in sync with skills-lock.json.
+nonslop_skills := "ns-changelog-update ns-create-py-dev-cli ns-create-pypackage-project ns-dignified-python ns-fake-driven-test-layout ns-py-fake-driven-testing ns-pytest ns-refac-cli-push-down ns-refactor-swarm ns-resolve-merge-conflicts ns-setup-dprint ns-setup-python-ci ns-skill-management ns-skillx nsx"
+
 default: check
 
 pbcopy-source-activate:
@@ -33,17 +36,9 @@ test:
 
 fast-ci: check
 
-update-nonslop-skills:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    skills=$(jq -r '.skills | to_entries | map(select(.value.source == "nseng-ai/nonslop")) | .[].key' skills-lock.json)
-    if [ -z "$skills" ]; then
-        echo "No nonslop skills found in skills-lock.json"
-        exit 1
-    fi
-    echo "Updating nonslop skills:"
-    echo "$skills" | sed 's/^/  - /'
-    npx skills add nseng-ai/nonslop --skill $skills --agent codex claude-code -y
+refresh-nonslop:
+    uv sync --upgrade-package nonslop
+    npx skills add nseng-ai/nonslop --skill {{nonslop_skills}} --agent codex claude-code -y
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
