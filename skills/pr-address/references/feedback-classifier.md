@@ -16,9 +16,9 @@ as principles, not enumerations.
 
 Three arrays from Phase 1:
 
-- **threads**: inline review threads from `pr-address
-  get-review-comments`. Shape is `PRReviewThread` in
-  `twerk_core.gh.types` (pushed down — read the dataclass, not prose).
+- **threads**: inline review threads from the `review_threads` field of
+  `pr-address exec get-feedback` (normalized in SKILL.md Phase 1 so the
+  unresolved/`--all` behavior is already decided before classification).
 - **reviews**: PR-level review submissions with `{id, author, body, state,
   submittedAt}`. State ∈ {`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`}.
 - **discussions**: top-level PR comments with `{id, author, body,

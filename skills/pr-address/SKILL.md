@@ -107,14 +107,17 @@ current branch. Create one with `gh pr create` first." Do not continue.
 Record `pr_number`, `pr_title`, `pr_url`, and `base_ref_name` (needed later
 for rename detection).
 
-#### 0b. Fetch all review threads
+#### 0b. Fetch one batched feedback snapshot
 
-Phase 0 needs the full thread set so it can inspect already-resolved
-threads for new replies:
+Phase 0 needs resolved + unresolved threads for contested-thread detection,
+and later phases need reviews + discussion comments. Fetch everything once:
 
 ```bash
-pr-address exec get-review-comments <pr_number> --include-resolved
+pr-address exec get-feedback <pr_number> --include-resolved
 ```
+
+Store this as `feedback_snapshot` and reuse it in Phase 1. Do **not** call
+`get-review-comments` separately.
 
 #### 0c. Detect contested threads
 
@@ -132,6 +135,8 @@ it alone. Only reopen threads that this skill previously resolved.
 For each contested thread, run `pr-address exec unresolve-thread
 "$THREAD_ID"`.
 
+Track successful reopen operations in `reopened_thread_ids`.
+
 If reopening one thread fails, warn and continue. This phase is a quality
 improvement, not a reason to abort the whole run.
 
@@ -141,30 +146,33 @@ If any contested threads were reopened, report:
 "Reopened `<N>` contested threads — these will be included in classification
 below."
 
-Then continue into Phase 1.
+Then continue into Phase 1 using the cached `feedback_snapshot`.
 
-### Phase 1 — Fetch feedback
+### Phase 1 — Normalize the batched feedback snapshot
 
-Using the PR resolved in Phase 0, fetch reviews, review threads, and
-discussion comments in a single call. The classifier in Phase 2 needs all
-three before it can make decisions.
+Phase 0 already fetched reviews, review threads, and discussion comments in a
+single `get-feedback --include-resolved` call. Build the Phase 1 payload from
+that snapshot rather than issuing a second fetch.
 
-#### 1a. Fetch reviews, review threads, and discussion comments
+#### 1a. Build reviews, review threads, and discussion comments for classification
 
-```bash
-pr-address exec get-feedback <pr_number>
-```
+Start from `feedback_snapshot` from Phase 0b:
 
-Add `--include-resolved` if the user passed `--all`.
+- `reviews` — use as-is.
+- `discussion_comments` — use as-is.
+- `review_threads`:
+  - if the user passed `--all`, keep all threads from the snapshot.
+  - otherwise, keep only unresolved threads **after Phase 0 reopen results**:
+    include a thread when `is_resolved == false` **or** its ID is in
+    `reopened_thread_ids`; exclude threads that remain resolved.
 
-Returns a single JSON object with three fields:
+This yields the same three-field payload shape used by Phase 2:
 
 - `reviews` — PR-level review submissions (APPROVED, CHANGES_REQUESTED,
   COMMENTED) with `id`, `author`, `body`, `state`, `submitted_at`.
   Excludes PENDING and DISMISSED.
 - `review_threads` — unresolved inline review threads (or all threads if
-  `--include-resolved`), each with `thread_id`, `path`, `line`, and
-  comments.
+  `--all`), each with `thread_id`, `path`, `line`, and comments.
 - `discussion_comments` — PR discussion comments with `id`, `body`,
   `author`, `url`.
 
@@ -189,9 +197,9 @@ correctness requirement.
 #### 1c. Empty-case handling
 
 If all three fields (`reviews`, `review_threads`, `discussion_comments`)
-of the `get-feedback` response are empty, report: "No unresolved review
-comments or discussion comments on PR #`<number>`." and stop. Do not
-continue to Phase 2.
+of the Phase 1 payload are empty, report: "No unresolved review comments
+or discussion comments on PR #`<number>`." and stop. Do not continue to
+Phase 2.
 
 ### Phase 2 — Classify and plan
 
@@ -219,7 +227,7 @@ The classifier produces:
 Before displaying the plan, enforce the review-thread completeness
 invariant:
 
-- every unresolved review thread returned by `get-feedback` must appear
+- every unresolved review thread in the Phase 1 payload must appear
   exactly once in `review_threads`
 - resolved threads included via `--all` are reference-only and do not count
   toward this invariant
