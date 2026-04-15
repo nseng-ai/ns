@@ -186,6 +186,107 @@ def test_slot_free_by_slot_number(cli_group: ClinkrGroup, tmp_path: Path) -> Non
     assert "feat/three" in result.output
 
 
+def test_slot_free_current_happy_path(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root)
+    fakes.git._repository_root_by_cwd[Path.cwd().resolve()] = worktree_path
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Freed" in result.output
+    assert "slot-01" in result.output
+    assert fakes.git._checkout_calls == [(worktree_path, "__slot-01-br-stub__")]
+    saved = fakes.pool_state.load()
+    assert saved is not None
+    assert saved.assignments == ()
+
+
+def test_slot_free_current_short_flag(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root)
+    fakes.git._repository_root_by_cwd[Path.cwd().resolve()] = worktree_path
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "-c"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-01" in result.output
+
+
+def test_slot_free_current_outside_slot_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "not a slot directory" in result.output
+
+
+def test_slot_free_current_unassigned_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, slot_name="slot-01", branch="feat/x")
+    slot_02_path = slots_root / "repos" / "repo" / "worktrees" / "slot-02"
+    fakes.storage._existing_paths.add(slot_02_path)
+    fakes.git._existing_paths.add(slot_02_path)
+    fakes.git._repository_root_by_cwd[Path.cwd().resolve()] = slot_02_path
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "not currently assigned" in result.output
+
+
+def test_slot_free_current_conflicts_with_num(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--current", "--num", "1"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "exactly one of --num, --wt, or --current" in result.output
+
+
+def test_slot_free_current_conflicts_with_wt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--current", "--wt", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "exactly one of --num, --wt, or --current" in result.output
+
+
 # -- JSON mode --------------------------------------------------------------
 
 
@@ -278,7 +379,7 @@ def test_slot_free_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -
     )
 
     assert result.exit_code == 1
-    assert "--num or --wt" in result.output
+    assert "--num, --wt, or --current" in result.output
 
 
 def test_slot_free_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -293,7 +394,7 @@ def test_slot_free_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Pa
     )
 
     assert result.exit_code == 1
-    assert "not both" in result.output
+    assert "exactly one of --num, --wt, or --current" in result.output
 
 
 def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:

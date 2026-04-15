@@ -160,7 +160,7 @@ def test_run_gc_merged_pr_is_freed() -> None:
     assert outcome.entries[0].pr_state == "MERGED"
     assert outcome.freed_count == 1
     # Placeholder created + checked out.
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "feat/done", False)]
+    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", False)]
     assert git._checkout_calls == [(assignment.worktree_path, "__slot-01-br-stub__")]
     # Pool state drained.
     saved = pool_state_gw.load()
