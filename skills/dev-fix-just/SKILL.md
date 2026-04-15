@@ -50,7 +50,7 @@ If the current harness has a planning or read-only mode and it is active:
 ## Iteration Limits
 
 - **Maximum iterations**: 10. If `just` has not gone green after 10 fix-then-rerun cycles, stop and report (see Stuck format below).
-- **Stuck detection**: If the *same* error appears in 3 consecutive iterations, stop immediately — you are not making progress on it. Report and ask the user for guidance.
+- **Stuck detection**: If the _same_ error appears in 3 consecutive iterations, stop immediately — you are not making progress on it. Report and ask the user for guidance.
 
 ## Progress Tracking
 

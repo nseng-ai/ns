@@ -147,12 +147,13 @@ Write a structured comment as the log entry for this PR:
 
 ### Completion Criteria Status
 
-| Criterion | Status |
-|-----------|--------|
+| Criterion                  | Status                        |
+| -------------------------- | ----------------------------- |
 | [criterion from objective] | met / partially met / not yet |
 
 ---
-*Updated by objective-reconcile*
+
+_Updated by objective-reconcile_
 ```
 
 Post via:
@@ -172,23 +173,28 @@ complete and ask if they want to close it. If they confirm:
 ## Objective Closed
 
 ### Delivered
+
 - [What was accomplished, with artifact links]
 
 ### Completion Criteria
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
+
+| Criterion   | Status         | Evidence              |
+| ----------- | -------------- | --------------------- |
 | [criterion] | met / deferred | [link or explanation] |
 
 ### Deferred Items
+
 - [Items explicitly deferred, with rationale]
 - [Omit if none]
 
 ### Follow-Up
+
 - [New objectives or issues created for remaining work]
 - [Omit if none]
 
 ---
-*Closed by objective-reconcile*
+
+_Closed by objective-reconcile_
 ```
 
 2. Close the issue:

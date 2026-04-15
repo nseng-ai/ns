@@ -69,7 +69,7 @@ intent:
 - lowercase ASCII, hyphen-separated, ≤50 characters
 - leads with a verb when natural (`add-`, `refactor-`, `migrate-`, `rename-`)
 - no `-plan` suffix — the `plan-` filename prefix already signals that
-- describes the *change*, not the document (e.g. `add-plan-to-branch-skill`,
+- describes the _change_, not the document (e.g. `add-plan-to-branch-skill`,
   not `plan-for-branch-stamping`)
 
 The slug doubles as both the branch name and the suffix in `plan-<slug>.md`.
@@ -117,6 +117,7 @@ commit.
 4. `gt create <slug> -m "Add plan-<slug>.md: <one-line summary>"`
 
 Commit message:
+
 - First line `Add plan-<slug>.md: <one-line summary>`, ≤72 characters.
 - Body only if the plan's title adds genuinely useful information.
 

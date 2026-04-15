@@ -25,8 +25,8 @@ context; the comments are the running progress log.
 Three consequences shape this skill:
 
 1. **Context anchoring.** The issue must give a fresh agent session enough
-   curated context to start working *without re-deriving everything from
-   scratch*. Not a research dump — a deliberately chosen set of pointers,
+   curated context to start working _without re-deriving everything from
+   scratch_. Not a research dump — a deliberately chosen set of pointers,
    constraints, and decisions. See Martin Fowler's
    [context anchoring](https://martinfowler.com/articles/reduce-friction-ai/context-anchoring.html).
 

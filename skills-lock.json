@@ -2,17 +2,22 @@
   "version": 1,
   "skills": {
     "dev-fix-just": {
-      "source": "/Users/schrockn/code/twerk/skills/dev-fix-just",
+      "source": "skills/dev-fix-just",
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
     "dev-gh": {
-      "source": "/Users/schrockn/code/twerk/skills/dev-gh",
+      "source": "skills/dev-gh",
       "sourceType": "local",
       "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
+    "dev-gt-stackify-branch": {
+      "source": "skills/dev-gt-stackify-branch",
+      "sourceType": "local",
+      "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
+    },
     "dev-plan-to-branch": {
-      "source": "/Users/schrockn/code/twerk/skills/dev-plan-to-branch",
+      "source": "skills/dev-plan-to-branch",
       "sourceType": "local",
       "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
     },
@@ -25,11 +30,6 @@
       "source": "withgraphite/agent-skills",
       "sourceType": "github",
       "computedHash": "9315b842df6de2a23216a2e72033fa99337398a8d62c11d6c320e55a6b810339"
-    },
-    "gt-stackify-branch": {
-      "source": "/Users/schrockn/code/twerk/skills/gt-stackify-branch",
-      "sourceType": "local",
-      "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
     "ns-changelog-update": {
       "source": "nseng-ai/nonslop",
@@ -107,27 +107,27 @@
       "computedHash": "5b0813c9c5557d4dd419a8eb1b4076152f115dda46a4ba9ab164039ff0404401"
     },
     "objective-create": {
-      "source": "/Users/schrockn/code/twerk/skills/objective-create",
+      "source": "skills/objective-create",
       "sourceType": "local",
       "computedHash": "75ed30558628f85b911034006f4d64ab879c21c0042f44869d186c255e5fe9d7"
     },
     "objective-list": {
-      "source": "/Users/schrockn/code/twerk/skills/objective-list",
+      "source": "skills/objective-list",
       "sourceType": "local",
       "computedHash": "e049b1e50727152a4f1eefa673b1c019624b5660be70819523cf4ab4a1bf84b4"
     },
     "objective-progress": {
-      "source": "/Users/schrockn/code/twerk/skills/objective-progress",
+      "source": "skills/objective-progress",
       "sourceType": "local",
       "computedHash": "0b0cbcab1c632ead9c0109c5827fd06a81c453aa09604783aad4afe49fed9b90"
     },
     "objective-reconcile": {
-      "source": "/Users/schrockn/code/twerk/skills/objective-reconcile",
+      "source": "skills/objective-reconcile",
       "sourceType": "local",
       "computedHash": "98ce3292fbb12cc43c031715bf17421c321c64be3250bc88884e1373b45edf66"
     },
     "pr-address": {
-      "source": "/Users/schrockn/code/twerk/skills/pr-address",
+      "source": "skills/pr-address",
       "sourceType": "local",
       "computedHash": "0d2187fa43f59d6d34f9ebc4d8dfa3fb229b47e11fad1729a02a14fae9639912"
     },

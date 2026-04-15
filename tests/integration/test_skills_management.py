@@ -158,53 +158,59 @@ def test_every_installed_skill_has_skill_md():
         assert skill_md.is_file(), f"missing SKILL.md for installed skill {name} at {skill_md}"
 
 
-def test_local_skills_are_real_directories():
-    """For local skills, .agents/skills/<name> must be a real directory (not a symlink).
+def test_local_skills_are_symlinks_in_agents_dir():
+    """For local skills, .agents/skills/<name> must be a symlink into skills/<name>.
 
-    The canonical source for local skills lives directly in .agents/skills/<name>/.
-    This ensures `npx skills list` correctly detects all agents. Public skills
-    additionally get a skills/<name> symlink (see test_public_skills_have_symlink).
+    The canonical source for local skills lives at skills/<name>/ (a real directory).
+    The .agents/skills/<name> entry is a symlink back to that canonical source, so
+    `npx skills list` still sees the skill while first-party code stays under
+    skills/<name>/ where normal lint/review applies.
     """
     for name, entry in _lock_skills().items():
         if entry["sourceType"] != "local":
             continue
         agents_entry = AGENTS_SKILLS / name
-        assert agents_entry.is_dir(), (
-            f".agents/skills/{name} must exist as a directory for local skill {name}"
+        assert agents_entry.is_symlink(), (
+            f".agents/skills/{name} must be a symlink back to skills/{name} for "
+            f"local skill {name}. The canonical source lives at skills/{name}/; "
+            f"run: rm -rf .agents/skills/{name} && "
+            f"ln -s ../../skills/{name} .agents/skills/{name}"
         )
-        assert not agents_entry.is_symlink(), (
-            f".agents/skills/{name} must be a real directory (not a symlink) "
-            f"so that `npx skills list` correctly detects all agents. "
-            f"Move the real content here and optionally create a skills/{name} "
-            f"symlink if the skill is public."
+        target = Path(agents_entry.readlink()).as_posix()
+        expected = f"../../skills/{name}"
+        assert target == expected, (
+            f".agents/skills/{name} points to {target!r}, expected {expected!r}"
         )
         assert (agents_entry / "SKILL.md").is_file(), (
-            f"local skill {name}: missing SKILL.md at .agents/skills/{name}/SKILL.md"
+            f"local skill {name}: missing SKILL.md at .agents/skills/{name}/SKILL.md "
+            f"(resolved through symlink to skills/{name}/SKILL.md)"
         )
 
 
-def test_public_skills_have_symlink():
-    """Public local skills get a skills/<name> symlink for publishing via `npx skills add`.
+def test_local_skills_have_real_dir_in_skills():
+    """Every local skill must have a real directory at skills/<name> with SKILL.md.
 
-    The skills/ directory is the public interface: when someone runs
-    `npx skills add <owner>/<repo>`, the CLI discovers SKILL.md files at the
-    repo root level. A skills/<name> symlink pointing to ../.agents/skills/<name>
-    makes the skill discoverable without duplicating content.
+    skills/<name>/ is the canonical first-party source for local skills. It must
+    be a real directory (not a symlink) containing SKILL.md. This also enforces
+    that every local skill in the lock file has a corresponding skills/<name>
+    entry — no skill can hide under .agents/skills/ alone.
     """
-    if not LOCAL_SKILLS_DIR.is_dir():
-        return
-    for entry in LOCAL_SKILLS_DIR.iterdir():
-        name = entry.name
-        assert entry.is_symlink(), (
-            f"skills/{name} must be a symlink (not a real directory). "
-            f"The canonical source lives at .agents/skills/{name}/. Run: "
-            f"rm -rf skills/{name} && "
-            f"ln -s ../.agents/skills/{name} skills/{name}"
-        )
-        target = Path(entry.readlink()).as_posix()
-        expected = f"../.agents/skills/{name}"
-        assert target == expected, f"skills/{name} points to {target!r}, expected {expected!r}"
-        assert name in _lock_skills(), (
-            f"skills/{name} exists on disk but is not in skills-lock.json. "
+    for name, entry in _lock_skills().items():
+        if entry["sourceType"] != "local":
+            continue
+        skills_entry = LOCAL_SKILLS_DIR / name
+        assert skills_entry.exists(), (
+            f"skills/{name} must exist as the canonical source for local skill {name}. "
             f"Install with `npx skills add ./skills/{name} --agent codex claude-code -y`."
+        )
+        assert not skills_entry.is_symlink(), (
+            f"skills/{name} must be a real directory (not a symlink). "
+            f"The canonical source for local skills lives at skills/{name}/; "
+            f".agents/skills/{name} should symlink back here."
+        )
+        assert skills_entry.is_dir(), (
+            f"skills/{name} must be a directory containing SKILL.md for local skill {name}"
+        )
+        assert (skills_entry / "SKILL.md").is_file(), (
+            f"local skill {name}: missing SKILL.md at skills/{name}/SKILL.md"
         )

@@ -237,14 +237,14 @@ re-classify. Do not proceed with a partial plan.
 
 **Batch ordering** (simplest → most complex):
 
-| # | Complexity    | Auto-proceed | Description                                     |
-| - | ------------- | ------------ | ----------------------------------------------- |
-| 0 | pre_existing  | yes          | Bot comments on moved/restructured code         |
-| 1 | local         | yes          | One file, one location per comment              |
-| 2 | single_file   | yes          | One file, multiple locations                    |
-| 3 | cross_cutting | **no**       | Multiple files affected                         |
-| 4 | complex       | **no**       | Related comments that inform a unified change   |
-| 5 | informational | **no**       | User decides: act, dismiss, or skip             |
+| # | Complexity    | Auto-proceed | Description                                   |
+| - | ------------- | ------------ | --------------------------------------------- |
+| 0 | pre_existing  | yes          | Bot comments on moved/restructured code       |
+| 1 | local         | yes          | One file, one location per comment            |
+| 2 | single_file   | yes          | One file, multiple locations                  |
+| 3 | cross_cutting | **no**       | Multiple files affected                       |
+| 4 | complex       | **no**       | Related comments that inform a unified change |
+| 5 | informational | **no**       | User decides: act, dismiss, or skip           |
 
 Display the plan to the user as a compact markdown table per batch, using
 this format:
