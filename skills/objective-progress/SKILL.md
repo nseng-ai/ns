@@ -229,23 +229,28 @@ complete and ask if they want to close it. If they confirm:
 ## Objective Closed
 
 ### Delivered
+
 - [What was accomplished, with artifact links]
 
 ### Completion Criteria
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
+
+| Criterion   | Status         | Evidence              |
+| ----------- | -------------- | --------------------- |
 | [criterion] | met / deferred | [link or explanation] |
 
 ### Deferred Items
+
 - [Items explicitly deferred, with rationale]
 - [Omit if none]
 
 ### Follow-Up
+
 - [New objectives or issues created for remaining work]
 - [Omit if none]
 
 ---
-*Closed by objective-progress*
+
+_Closed by objective-progress_
 ```
 
 4. Close the issue:

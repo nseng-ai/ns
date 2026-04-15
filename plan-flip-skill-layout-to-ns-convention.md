@@ -18,17 +18,17 @@ Intended outcome: twerk skill layout matches `ns-skill-management`'s documented 
 
 **9 local skills** (per `skills-lock.json` `sourceType: "local"`) move from real-dir-in-`.agents/skills/` to real-dir-in-`skills/`:
 
-| Current real dir | New real dir | Existing `skills/` symlink? |
-|---|---|---|
-| `.agents/skills/dev-fix-just/` | `skills/dev-fix-just/` | yes (replace) |
-| `.agents/skills/dev-gh/` | `skills/dev-gh/` | yes (replace) |
-| `.agents/skills/dev-plan-to-branch/` | `skills/dev-plan-to-branch/` | yes (replace) |
-| `.agents/skills/objective-create/` | `skills/objective-create/` | yes (replace) |
-| `.agents/skills/objective-list/` | `skills/objective-list/` | yes (replace) |
-| `.agents/skills/objective-progress/` | `skills/objective-progress/` | yes (replace) |
-| `.agents/skills/objective-reconcile/` | `skills/objective-reconcile/` | yes (replace) |
-| `.agents/skills/pr-address/` | `skills/pr-address/` | yes (replace) |
-| `.agents/skills/gt-stackify-branch/` | `skills/dev-gt-stackify-branch/` | **no** (adds one; also renames to dev- prefix) |
+| Current real dir                      | New real dir                     | Existing `skills/` symlink?                    |
+| ------------------------------------- | -------------------------------- | ---------------------------------------------- |
+| `.agents/skills/dev-fix-just/`        | `skills/dev-fix-just/`           | yes (replace)                                  |
+| `.agents/skills/dev-gh/`              | `skills/dev-gh/`                 | yes (replace)                                  |
+| `.agents/skills/dev-plan-to-branch/`  | `skills/dev-plan-to-branch/`     | yes (replace)                                  |
+| `.agents/skills/objective-create/`    | `skills/objective-create/`       | yes (replace)                                  |
+| `.agents/skills/objective-list/`      | `skills/objective-list/`         | yes (replace)                                  |
+| `.agents/skills/objective-progress/`  | `skills/objective-progress/`     | yes (replace)                                  |
+| `.agents/skills/objective-reconcile/` | `skills/objective-reconcile/`    | yes (replace)                                  |
+| `.agents/skills/pr-address/`          | `skills/pr-address/`             | yes (replace)                                  |
+| `.agents/skills/gt-stackify-branch/`  | `skills/dev-gt-stackify-branch/` | **no** (adds one; also renames to dev- prefix) |
 
 **GitHub-sourced skills unchanged** (stay as real dirs under `.agents/skills/`): `fdt-refactor-mock-to-fake`, `graphite`, `ns-*` (×13), `nsx`, `skill-creator`.
 

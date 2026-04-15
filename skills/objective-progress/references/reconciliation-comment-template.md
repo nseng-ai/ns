@@ -25,9 +25,10 @@
 
 ### Completion Criteria Status
 
-| Criterion | Status |
-|-----------|--------|
+| Criterion                  | Status                        |
+| -------------------------- | ----------------------------- |
 | [criterion from objective] | met / partially met / not yet |
 
 ---
-*Updated by objective-progress*
+
+_Updated by objective-progress_

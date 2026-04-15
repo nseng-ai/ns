@@ -62,7 +62,7 @@ objectives, or omit both if there is truly nothing concrete yet.
 
 ## Initial Next Steps
 
-Use this section *instead of* `## Roadmap` for loose / exploratory objectives.
+Use this section _instead of_ `## Roadmap` for loose / exploratory objectives.
 
 - [First concrete step]
 - [Follow-up]

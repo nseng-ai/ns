@@ -166,14 +166,14 @@ ask for approval than to auto-execute something surprising.
 
 Batches are always in this order:
 
-| # | Name                | auto_proceed | Contents                                                                 |
-| - | ------------------- | ------------ | ------------------------------------------------------------------------ |
-| 0 | Pre-Existing        | yes          | All items with `complexity: "pre_existing"`                              |
-| 1 | Local Fixes         | yes          | All items with `complexity: "local"`                                     |
-| 2 | Single-File         | yes          | All items with `complexity: "single_file"`                               |
-| 3 | Cross-Cutting       | **no**       | All items with `complexity: "cross_cutting"`                             |
-| 4 | Complex             | **no**       | All items with `complexity: "complex"`                                   |
-| 5 | Informational       | **no**       | All review threads with `classification: "informational"` (per-item prompt) |
+| # | Name          | auto_proceed | Contents                                                                    |
+| - | ------------- | ------------ | --------------------------------------------------------------------------- |
+| 0 | Pre-Existing  | yes          | All items with `complexity: "pre_existing"`                                 |
+| 1 | Local Fixes   | yes          | All items with `complexity: "local"`                                        |
+| 2 | Single-File   | yes          | All items with `complexity: "single_file"`                                  |
+| 3 | Cross-Cutting | **no**       | All items with `complexity: "cross_cutting"`                                |
+| 4 | Complex       | **no**       | All items with `complexity: "complex"`                                      |
+| 5 | Informational | **no**       | All review threads with `classification: "informational"` (per-item prompt) |
 
 Skip any batch that would be empty.
 
