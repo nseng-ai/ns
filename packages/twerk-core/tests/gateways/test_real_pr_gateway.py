@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from twerk_core.gh import pr_gateway
+from twerk_core.gh import real_gateway_helpers
 from twerk_core.gh.pr_gateway import RealPRGateway
 from twerk_core.gh.types import PRLookupError
 
@@ -36,7 +36,7 @@ def test_real_pr_gateway_returns_summary(
     state: str,
 ) -> None:
     monkeypatch.setattr(
-        pr_gateway.subprocess,
+        real_gateway_helpers.subprocess,
         "run",
         _make_fake_run(
             response={
@@ -59,7 +59,7 @@ def test_real_pr_gateway_returns_summary(
 
 def test_real_pr_gateway_returns_error_when_no_pr(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        pr_gateway.subprocess,
+        real_gateway_helpers.subprocess,
         "run",
         _make_fake_run(returncode=1, stderr="no pull requests found for branch 'feature'\n"),
     )

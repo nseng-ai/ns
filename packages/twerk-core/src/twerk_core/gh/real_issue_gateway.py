@@ -7,7 +7,7 @@ import subprocess
 from typing import cast
 
 from twerk_core.gh.issue_gateway import IssueGateway
-from twerk_core.gh.pr_gateway import fetch_pr_summary_for_branch
+from twerk_core.gh.real_gateway_helpers import fetch_pr_summary_for_branch
 from twerk_core.gh.types import (
     Issue,
     IssueComment,

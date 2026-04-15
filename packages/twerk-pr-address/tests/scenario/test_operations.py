@@ -753,7 +753,7 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Walks the DI fallback to RealIssueGateway with subprocess stubbed."""
-    from twerk_core.gh import pr_gateway
+    from twerk_core.gh import real_gateway_helpers
 
     pr_view_output = json.dumps(
         {
@@ -774,7 +774,7 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
             return subprocess.CompletedProcess(cmd, 0, stdout=pr_view_output, stderr="")
         raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
 
-    monkeypatch.setattr(pr_gateway.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_gateway_helpers.subprocess, "run", fake_run)
 
     runner = CliRunner()
     result = runner.invoke(cli_group, ["exec", "get-pr-for-branch", "twerk-pr-address-skill"])
