@@ -25,6 +25,7 @@ for callers that only want one slice.
 ## Scope
 
 **In scope:**
+
 - Edit `skills/pr-address/SKILL.md` to replace Phase 1a/1b/1c with a
   single `get-feedback` call.
 - Update Phase 1e empty-case wording to inspect the three fields of the
@@ -32,8 +33,9 @@ for callers that only want one slice.
 - Update Phase 4a to re-run `get-feedback` instead of "Phase 1a + 1b + 1c".
 
 **Out of scope:**
+
 - Phase 0b continues to call `get-review-comments --include-resolved`.
-  Phase 0 runs *before* reopening contested threads; its data would be
+  Phase 0 runs _before_ reopening contested threads; its data would be
   stale for Phase 1 anyway, and it doesn't need reviews/discussion
   comments. Keeping it single-purpose avoids wasted API traffic.
 - No changes to the Python CLI package — `get-feedback` already exists
@@ -51,12 +53,13 @@ for callers that only want one slice.
 
 Replace the three numbered subsections with a single section:
 
-```markdown
+````markdown
 #### 1a. Fetch reviews, review threads, and discussion comments
 
 ```bash
 pr-address exec get-feedback <pr_number>
 ```
+````
 
 Add `--include-resolved` if the user passed `--all`.
 
@@ -70,8 +73,8 @@ Returns a single JSON object with three fields:
   comments.
 - `discussion_comments` — PR discussion comments with `id`, `body`,
   `author`, `url`.
-```
 
+```
 Renumber the current 1d (restructured-files detection) to `1b` and the
 current 1e (empty-case handling) to `1c`. Update 1c to read:
 
@@ -116,3 +119,4 @@ by Phase 1 anyway.
 3. Confirm the empty-case path still triggers on a PR with no feedback
    (`get-feedback` returns empty `reviews`, `review_threads`,
    `discussion_comments`).
+```
