@@ -34,6 +34,9 @@ ty:
 test:
     uv run pytest -n auto
 
+nonslop-check:
+    uv run nonslop check
+
 fast-ci: check
 
 refresh-nonslop:
