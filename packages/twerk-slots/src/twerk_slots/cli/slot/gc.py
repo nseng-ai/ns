@@ -112,8 +112,7 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> SlotGcResult | Cl
     if isinstance(slots_ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
 
-    state = slots_ctx.pool_state.load()
-    if state is None:
+    if not slots_ctx.pool_state.exists():
         return ClinkrCommandError(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",

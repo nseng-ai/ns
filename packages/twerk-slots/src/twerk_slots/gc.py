@@ -21,7 +21,6 @@ from twerk_slots.allocation import (
     sync_pool_assignments,
 )
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState
 
 SlotGcAction = Literal[
     "freed",
@@ -69,7 +68,7 @@ def run_gc(ctx: SlotsCliContext, *, dry_run: bool) -> SlotGcOutcome:
       * ``gh`` broken (other non-zero returncodes) → ``error``; sweep continues.
       * Dirty worktree intercepts a free and becomes ``skipped_dirty``.
     """
-    state = ctx.pool_state.load() or PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
 
     entries: list[SlotGcEntry] = []

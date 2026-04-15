@@ -101,8 +101,7 @@ def _slot_path(slots_root: Path, slot_name: str = "slot-01") -> Path:
 
 
 def _saved_assignments(fakes: _SlotFakes) -> tuple[SlotAssignment, ...]:
-    state = fakes.pool_state.load()
-    return () if state is None else state.assignments
+    return fakes.pool_state.load().assignments
 
 
 def _assignment_for_slot(fakes: _SlotFakes, slot_name: str) -> SlotAssignment:
@@ -559,7 +558,7 @@ def test_slot_checkout_current_rejects_detached_head(
 
     assert result.exit_code == 1
     assert "detached" in result.output.lower()
-    assert fakes.pool_state.load() is None
+    assert fakes.pool_state.exists() is False
     assert fakes.git.list_worktrees() == ()
     assert not fakes.storage.path_exists(_slot_path(slots_root))
 
@@ -587,7 +586,7 @@ def test_slot_checkout_current_rejects_dirty_worktree(
 
     assert result.exit_code == 1
     assert "uncommitted" in result.output
-    assert fakes.pool_state.load() is None
+    assert fakes.pool_state.exists() is False
     assert fakes.git.get_current_branch(repo_root) == "feat/x"
     assert fakes.git.list_worktrees() == ()
     assert not fakes.storage.path_exists(_slot_path(slots_root))

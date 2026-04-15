@@ -320,7 +320,7 @@ def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path)
 def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    # No prior `save` — pool_state.load() returns None.
+    # No prior `save` — pool_state.exists() is False.
 
     result = CliRunner().invoke(
         cli_group,

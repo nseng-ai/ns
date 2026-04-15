@@ -155,9 +155,19 @@ def test_fake_storage_ensure_dir_idempotent() -> None:
 # -- FakePoolStateGateway ---------------------------------------------------
 
 
-def test_fake_pool_state_load_returns_none_when_absent() -> None:
+def test_fake_pool_state_load_returns_default_when_absent() -> None:
     gateway = FakePoolStateGateway(Path("/nowhere/pool.json"))
-    assert gateway.load() is None
+
+    assert gateway.load() == PoolState(pool_size=16, assignments=())
+    assert gateway.exists() is False
+
+
+def test_fake_pool_state_exists_true_when_seeded() -> None:
+    path = Path("/slots/repos/r/pool.json")
+    state = PoolState(pool_size=4, assignments=())
+    gateway = FakePoolStateGateway(path, initial_state=state)
+
+    assert gateway.exists() is True
 
 
 def test_fake_pool_state_load_returns_seeded_state() -> None:

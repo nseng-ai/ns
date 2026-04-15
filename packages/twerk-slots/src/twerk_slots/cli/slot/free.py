@@ -64,12 +64,12 @@ def run_free_slot(
     if isinstance(slots_ctx, NoRepoSentinel):
         return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
 
-    state = slots_ctx.pool_state.load()
-    if state is None:
+    if not slots_ctx.pool_state.exists():
         return ClinkrCommandError(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",
         )
+    state = slots_ctx.pool_state.load()
 
     slot_name_or_error = resolve_slot_target(
         num=request.num, wt=request.wt, pool_size=state.pool_size

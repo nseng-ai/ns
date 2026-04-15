@@ -302,9 +302,19 @@ def test_real_storage_ensure_dir_is_idempotent(tmp_path: Path) -> None:
 # -- RealPoolStateGateway ---------------------------------------------------
 
 
-def test_real_pool_state_load_missing_returns_none(tmp_path: Path) -> None:
+def test_real_pool_state_load_missing_returns_default(tmp_path: Path) -> None:
     gateway = RealPoolStateGateway(pool_json_path=tmp_path / "missing.json")
-    assert gateway.load() is None
+
+    assert gateway.load() == PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
+    assert gateway.exists() is False
+
+
+def test_real_pool_state_exists_after_save(tmp_path: Path) -> None:
+    gateway = RealPoolStateGateway(pool_json_path=tmp_path / "pool.json")
+
+    assert gateway.exists() is False
+    gateway.save(PoolState(pool_size=8, assignments=()))
+    assert gateway.exists() is True
 
 
 def test_real_pool_state_save_creates_parent_directories(tmp_path: Path) -> None:
@@ -347,7 +357,6 @@ def test_real_pool_state_round_trip_preserves_assignments(tmp_path: Path) -> Non
     loaded = gateway.load()
 
     assert loaded == state
-    assert loaded is not None
     assert loaded.assignments[0].worktree_path == worktree
 
 
@@ -358,5 +367,4 @@ def test_real_pool_state_load_missing_pool_size_falls_back_to_default(tmp_path: 
 
     loaded = gateway.load()
 
-    assert loaded is not None
     assert loaded.pool_size == DEFAULT_POOL_SIZE

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
-from twerk_slots.pool_state import PoolState
+from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState
 
 
 class FakePoolStateGateway(PoolStateGateway):
@@ -20,8 +20,13 @@ class FakePoolStateGateway(PoolStateGateway):
     def pool_json_path(self) -> Path:
         return self._pool_json_path
 
-    def load(self) -> PoolState | None:
+    def load(self) -> PoolState:
+        if self._state is None:
+            return PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
         return self._state
+
+    def exists(self) -> bool:
+        return self._state is not None
 
     def save(self, state: PoolState) -> None:
         self._save_calls.append(state)

@@ -14,7 +14,7 @@ from twerk_slots.allocation import sync_pool_assignments
 from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import generate_slot_name
-from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState
+from twerk_slots.pool_state import PoolState
 from twerk_slots.repo_context import NoRepoSentinel
 
 SlotStatus = Literal["unallocated", "available", "assigned"]
@@ -136,9 +136,7 @@ def run_list_slots(
         return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
 
     state = slots_ctx.pool_state.load()
-    if state is None:
-        state = PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
-    else:
+    if slots_ctx.pool_state.exists():
         state = sync_pool_assignments(state, slots_ctx.git, slots_ctx.storage, slots_ctx.pool_state)
 
     return SlotListResult(
