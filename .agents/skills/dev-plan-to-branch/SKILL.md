@@ -1,5 +1,5 @@
 ---
-name: plan-to-branch
+name: dev-plan-to-branch
 description: "Stamp an existing plan file onto a new Graphite branch. Resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent file in `~/.claude/plans/`), generates a kebab-case slug that summarizes the plan, creates a new branch with `gt create`, writes the plan to `plan-<slug>.md` at the repo root, and commits it as the first commit on that branch. Use when the user wants to 'branch this plan', 'stamp the plan', 'turn this plan into a branch', or right after exiting plan mode to commit the plan as the branch's spec."
 allowed-tools:
   - "Bash(gt *)"
@@ -11,11 +11,13 @@ allowed-tools:
   - "Bash(ls *)"
   - "Read"
   - "Write"
+metadata:
+  internal: true
 ---
 
 <!-- PUBLIC SKILL: Project-agnostic. Do not reference twerk-internal module paths or class names. Describe shell operations only. -->
 
-# plan-to-branch
+# dev-plan-to-branch
 
 Stamp an existing plan file onto a new Graphite branch as that branch's first
 commit. The committed plan becomes the durable, code-tracked spec the rest of
