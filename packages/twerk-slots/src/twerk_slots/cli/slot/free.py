@@ -16,6 +16,7 @@ from twerk_slots.allocation import (
 )
 from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.cli.slot.slot_target import resolve_slot_target
+from twerk_slots.naming import extract_slot_number
 from twerk_slots.repo_context import NoRepoSentinel
 
 
@@ -23,6 +24,7 @@ from twerk_slots.repo_context import NoRepoSentinel
 class SlotFreeRequest:
     num: Annotated[int | None, click.Option(["--num"], type=click.INT, default=None)] = None
     wt: Annotated[str | None, click.Option(["--wt"], type=click.STRING, default=None)] = None
+    current: Annotated[bool, click.Option(["-c", "--current"], is_flag=True, default=False)] = False
 
 
 @dataclass(frozen=True)
@@ -72,12 +74,36 @@ def run_free_slot(
         )
     state = slots_ctx.pool_state.load()
 
-    slot_name_or_error = resolve_slot_target(
-        num=request.num, wt=request.wt, pool_size=state.pool_size
-    )
-    if isinstance(slot_name_or_error, ClinkrCommandError):
-        return slot_name_or_error
-    slot_name = slot_name_or_error
+    inputs_provided = sum((request.num is not None, request.wt is not None, request.current))
+    if inputs_provided > 1:
+        return ClinkrCommandError(
+            error_type="conflicting_slot_args",
+            message="Pass exactly one of --num, --wt, or --current.",
+        )
+    if inputs_provided == 0:
+        return ClinkrCommandError(
+            error_type="missing_slot_arg",
+            message="Pass one of --num, --wt, or --current to identify the slot.",
+        )
+
+    if request.current:
+        cwd = slots_ctx.repo.root
+        if extract_slot_number(cwd.name) is None:
+            return ClinkrCommandError(
+                error_type="not_in_slot_wt",
+                message=(
+                    f"--current requires running from a slot worktree; "
+                    f"cwd '{cwd}' is not a slot directory (e.g. 'slot-01')."
+                ),
+            )
+        slot_name = cwd.name
+    else:
+        slot_name_or_error = resolve_slot_target(
+            num=request.num, wt=request.wt, pool_size=state.pool_size
+        )
+        if isinstance(slot_name_or_error, ClinkrCommandError):
+            return slot_name_or_error
+        slot_name = slot_name_or_error
 
     try:
         outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
