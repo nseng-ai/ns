@@ -331,6 +331,58 @@ No prescription beyond:
 
 Mirror the `src/` layout if it's useful. Don't if it isn't.
 
+## Import mode
+
+Use `--import-mode=importlib`. Set it in `pyproject.toml`:
+
+    [tool.pytest.ini_options]
+    addopts = "-q --import-mode=importlib"
+
+This is pytest's recommended mode for new projects (see [Good
+Integration Practices][gip] and [Import modes][imports]). The legacy
+`prepend` default mutates `sys.path` and requires every test file
+basename to be unique across the whole collection — which breaks in
+monorepos where multiple packages each have, e.g., a
+`tests/gateways/test_fakes.py`.
+
+[gip]: https://docs.pytest.org/en/stable/explanation/goodpractices.html
+[imports]: https://docs.pytest.org/en/stable/explanation/pythonpath.html
+
+### No `__init__.py` under `tests/`
+
+Do not create `__init__.py` in `tests/` or any subdirectory of it.
+Pytest's older `prepend` docs recommend it as a way to disambiguate
+duplicate test-file basenames; under `importlib` it is both
+unnecessary and harmful. Turning `tests/` into a package re-enables
+the cross-test-import pattern we're avoiding and makes it tempting to
+drop a `tests/helpers.py` instead of putting shared utilities where
+they belong (in `src/`).
+
+### No `sys.path` manipulation
+
+`conftest.py` must not append, insert, or otherwise mutate
+`sys.path`. Nor should `pyproject.toml` set `pythonpath = [...]` —
+that is the same thing in configuration form. Both are symptoms of
+shared code living in the wrong place. Move the code to `src/` and
+import it normally.
+
+### Shared test utilities live with source, not with tests
+
+A consequence of `importlib` mode: **test modules cannot import each
+other.** There is no implicit `tests` package; `tests/helpers.py`
+cannot be imported from `tests/unit/test_foo.py`. Pytest's own
+[Import modes][imports] guidance is explicit: "testing utility
+modules in test directories are not importable; the recommendation is
+to place testing utility modules with the application/library code."
+
+Put any cross-test utility — fakes, builders, canned fixtures, helper
+classes — in the library's `src/` tree and import it as normal
+application code.
+
+For the gateway/fake layout that puts fakes under
+`src/<package>/gateways/<name>/fake.py`, see
+`ns-fake-driven-test-layout`.
+
 ## Approved plugins
 
 - `pytest` — core

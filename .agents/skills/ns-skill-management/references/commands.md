@@ -16,6 +16,10 @@ Install one or more skills. `<source>` can be:
 - a local path: `./skills/ns-skill-management` (permanent directory for local skills)
 - a git URL or GitLab URL
 
+For nonslop local skills, the install source may be `./skills/<name>`
+during bootstrap, but the committed `skills-lock.json` entry is
+normalized to `source: "skills/<name>"`.
+
 Flags:
 
 | Flag                     | Description                                                                                                                           |
@@ -201,8 +205,11 @@ not in the agent list, so the CLI skips it.
 
 `source` is a path captured at install time. `computedHash`
 is also captured at install time and is **not** refreshed by
-`skills check`/`update`. A stale hash is harmless -- the real content
-is whatever is at `skills/<name>/` right now.
+`skills check`/`update`. In nonslop, committed local entries are
+normalized to the repo-relative `skills/<name>` form even if
+`npx skills add` originally captured an absolute path. A stale hash is
+harmless -- the real content is whatever is at `skills/<name>/` right
+now.
 
 **GitHub skill:**
 
