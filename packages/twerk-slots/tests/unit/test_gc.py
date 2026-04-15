@@ -14,7 +14,7 @@ from twerk_slots.gateway.testing import (
     FakePoolStateGateway,
     FakeSlotsStorageGateway,
 )
-from twerk_slots.gc import run_gc
+from twerk_slots.gc import execute_gc_plan, plan_gc, run_gc
 from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import RepoContext
 
@@ -339,3 +339,141 @@ def test_run_gc_mixed_pool_classifies_per_slot() -> None:
     assert saved is not None
     remaining_slots = {a.slot_name for a in saved.assignments}
     assert remaining_slots == {"slot-02", "slot-03", "slot-04"}
+
+
+# -- plan_gc / execute_gc_plan split -----------------------------------------
+
+
+def test_plan_gc_classifies_without_mutating_state() -> None:
+    repo = _make_repo()
+    merged = SlotAssignment("slot-01", "feat/done", NOW, repo.worktrees_dir / "slot-01")
+    open_pr = SlotAssignment("slot-02", "feat/wip", NOW, repo.worktrees_dir / "slot-02")
+    no_pr = SlotAssignment("slot-03", "local", NOW, repo.worktrees_dir / "slot-03")
+
+    ctx, pool_state_gw, git = _build_ctx(
+        assignments=(merged, open_pr, no_pr),
+        worktrees=(
+            WorktreeInfo(path=merged.worktree_path, branch=merged.branch_name, is_bare=False),
+            WorktreeInfo(path=open_pr.worktree_path, branch=open_pr.branch_name, is_bare=False),
+            WorktreeInfo(path=no_pr.worktree_path, branch=no_pr.branch_name, is_bare=False),
+        ),
+        current_branch_by_path={
+            merged.worktree_path: merged.branch_name,
+            open_pr.worktree_path: open_pr.branch_name,
+            no_pr.worktree_path: no_pr.branch_name,
+        },
+        prs_by_branch={
+            merged.branch_name: _make_pr(1, "MERGED", merged.branch_name),
+            open_pr.branch_name: _make_pr(2, "OPEN", open_pr.branch_name),
+        },
+    )
+
+    plan = plan_gc(ctx)
+
+    actions_by_slot = {e.slot_name: e.action for e in plan.entries}
+    assert actions_by_slot == {
+        "slot-01": "would_free",
+        "slot-02": "kept_open_pr",
+        "slot-03": "kept_no_pr",
+    }
+    assert plan.would_free_count == 1
+    # No mutations: no free_slot_assignment was called, so no placeholder
+    # branch creation or checkout happened.
+    assert git._checkout_calls == []
+    assert git._create_branch_calls == []
+    saved = pool_state_gw.load()
+    assert saved is not None
+    assert {a.slot_name for a in saved.assignments} == {"slot-01", "slot-02", "slot-03"}
+
+
+def test_plan_gc_dirty_worktree_still_classified_as_would_free() -> None:
+    # Dirtiness is only detected during free; plan_gc doesn't peek at worktree
+    # status. Caller can inspect via execute_gc_plan if they proceed.
+    assignment = _assignment("slot-01", "feat/dirty")
+    ctx, _pool_state_gw, _git = _build_ctx(
+        assignments=(assignment,),
+        worktrees=(
+            WorktreeInfo(path=assignment.worktree_path, branch="feat/dirty", is_bare=False),
+        ),
+        current_branch_by_path={assignment.worktree_path: "feat/dirty"},
+        file_status_by_path={
+            assignment.worktree_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+    )
+
+    plan = plan_gc(ctx)
+
+    assert [e.action for e in plan.entries] == ["would_free"]
+    assert plan.would_free_count == 1
+
+
+def test_execute_gc_plan_frees_would_free_entries() -> None:
+    assignment = _assignment("slot-01", "feat/done")
+    ctx, pool_state_gw, git = _build_ctx(
+        assignments=(assignment,),
+        worktrees=(WorktreeInfo(path=assignment.worktree_path, branch="feat/done", is_bare=False),),
+        current_branch_by_path={assignment.worktree_path: "feat/done"},
+        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+    )
+
+    plan = plan_gc(ctx)
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [e.action for e in outcome.entries] == ["freed"]
+    assert outcome.freed_count == 1
+    assert outcome.dry_run is False
+    saved = pool_state_gw.load()
+    assert saved is not None
+    assert saved.assignments == ()
+    assert git._checkout_calls == [(assignment.worktree_path, "__slot-01-br-stub__")]
+
+
+def test_execute_gc_plan_passthrough_non_would_free() -> None:
+    open_pr = _assignment("slot-02", "feat/wip")
+    ctx, pool_state_gw, git = _build_ctx(
+        assignments=(open_pr,),
+        worktrees=(WorktreeInfo(path=open_pr.worktree_path, branch="feat/wip", is_bare=False),),
+        current_branch_by_path={open_pr.worktree_path: "feat/wip"},
+        prs_by_branch={"feat/wip": _make_pr(2, "OPEN", "feat/wip")},
+    )
+
+    plan = plan_gc(ctx)
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [e.action for e in outcome.entries] == ["kept_open_pr"]
+    assert outcome.kept_count == 1
+    assert outcome.freed_count == 0
+    # No mutation on passthrough.
+    assert git._checkout_calls == []
+    saved = pool_state_gw.load()
+    assert saved is not None
+    assert saved.assignments == (open_pr,)
+
+
+def test_execute_gc_plan_translates_dirty_to_skipped() -> None:
+    assignment = _assignment("slot-01", "feat/dirty")
+    ctx, pool_state_gw, _git = _build_ctx(
+        assignments=(assignment,),
+        worktrees=(
+            WorktreeInfo(path=assignment.worktree_path, branch="feat/dirty", is_bare=False),
+        ),
+        current_branch_by_path={assignment.worktree_path: "feat/dirty"},
+        file_status_by_path={
+            assignment.worktree_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+    )
+
+    plan = plan_gc(ctx)
+    # Plan optimistically says would_free.
+    assert [e.action for e in plan.entries] == ["would_free"]
+
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [e.action for e in outcome.entries] == ["skipped_dirty"]
+    assert outcome.skipped_count == 1
+    # Pool unchanged because free_slot_assignment refused.
+    saved = pool_state_gw.load()
+    assert saved is not None
+    assert saved.assignments == (assignment,)
