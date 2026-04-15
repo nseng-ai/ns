@@ -43,8 +43,9 @@ class AddIssueCommentResult:
     help="Add a discussion comment to a PR.",
 )
 def run_add_issue_comment(
+    ctx: click.Context,
     request: AddIssueCommentRequest,
 ) -> AddIssueCommentResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     comment = gateway.add_comment(request.pr_number, request.body)
     return AddIssueCommentResult(comment=comment)

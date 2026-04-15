@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+import click
 from click.testing import CliRunner
 
 from twerk_core.clinkr.command import ClinkrCommandError
@@ -29,7 +30,7 @@ class PingResult:
 
 
 @clinkr_operation(name="ping", help="Ping.", aliases=("p",))
-def run_ping(request: PingRequest) -> PingResult | ClinkrCommandError:
+def run_ping(ctx: click.Context, request: PingRequest) -> PingResult | ClinkrCommandError:
     return PingResult(pong=True)
 
 

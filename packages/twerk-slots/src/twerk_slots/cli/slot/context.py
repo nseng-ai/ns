@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import click
+
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_clipboard import RealClipboardGateway
@@ -35,3 +37,20 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
         clipboard=RealClipboardGateway(),
         slots_root=slots_root,
     )
+
+
+def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoRepoSentinel:
+    """Unpack the typed slots context from the given Click context.
+
+    The root group callback constructs a :class:`SlotsCliContext` (or a
+    :class:`NoRepoSentinel` when cwd is outside a git repo) and assigns it to
+    ``ctx.obj``. Tests bypass the callback by passing a pre-built context as
+    ``obj=`` to ``CliRunner().invoke(...)``.
+    """
+    obj = ctx.obj
+    if not isinstance(obj, SlotsCliContext | NoRepoSentinel):
+        raise RuntimeError(
+            "SlotsCliContext missing from click context; "
+            "ensure the slot group callback ran or obj= was passed in tests."
+        )
+    return obj

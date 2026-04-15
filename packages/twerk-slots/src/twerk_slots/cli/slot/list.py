@@ -4,12 +4,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import click
+
 from twerk_core import get_console, make_table
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.format import format_relative_time
 from twerk_slots.allocation import sync_pool_assignments
-from twerk_slots.cli.slot.gateway_access import get_slots_cli_context
+from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import generate_slot_name
 from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState
@@ -126,19 +128,21 @@ def _compose_rows(
     aliases=("ls",),
     human_renderer=render_slot_list,
 )
-def run_list_slots(request: SlotListRequest) -> SlotListResult | ClinkrCommandError:
-    ctx = get_slots_cli_context()
-    if isinstance(ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
+def run_list_slots(
+    ctx: click.Context, request: SlotListRequest
+) -> SlotListResult | ClinkrCommandError:
+    slots_ctx = load_slots_context(ctx)
+    if isinstance(slots_ctx, NoRepoSentinel):
+        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
 
-    state = ctx.pool_state.load()
+    state = slots_ctx.pool_state.load()
     if state is None:
         state = PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
     else:
-        state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
+        state = sync_pool_assignments(state, slots_ctx.git, slots_ctx.storage, slots_ctx.pool_state)
 
     return SlotListResult(
         pool_size=state.pool_size,
-        rows=_compose_rows(state, ctx.storage, ctx.repo.worktrees_dir),
-        repo_name=ctx.repo.repo_name,
+        rows=_compose_rows(state, slots_ctx.storage, slots_ctx.repo.worktrees_dir),
+        repo_name=slots_ctx.repo.repo_name,
     )

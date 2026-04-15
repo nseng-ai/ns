@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import subprocess
 from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -28,31 +27,10 @@ def cli_group() -> ClinkrGroup:
     return build_cli()
 
 
-@dataclass
-class _SlotFakes:
-    git: FakeGitGateway
-    storage: FakeSlotsStorageGateway
-    pool_state: FakePoolStateGateway
-    clipboard: FakeClipboardGateway
-    repo_root: Path
-
-
-def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
-    assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
-    return SlotsCliContext(
-        repo=repo,
-        git=fakes.git,
-        storage=fakes.storage,
-        pool_state=fakes.pool_state,
-        clipboard=fakes.clipboard,
-        slots_root=slots_root,
-    )
-
-
 def _fake_for_repo(
     tmp_path: Path,
     *,
+    slots_root: Path | None = None,
     branches: tuple[str, ...] = (),
     worktrees: tuple[WorktreeInfo, ...] = (),
     current_branch_by_path: dict[Path, str | None] | None = None,
@@ -61,10 +39,11 @@ def _fake_for_repo(
     file_status_by_path: dict[Path, FileStatus] | None = None,
     extra_existing: Iterable[Path] = (),
     repository_root_by_cwd: dict[Path, Path] | None = None,
-) -> _SlotFakes:
+) -> SlotsCliContext:
+    resolved_slots_root = slots_root if slots_root is not None else (tmp_path / "slots")
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
-    pool_json_path = tmp_path / "slots" / "repos" / "repo" / "pool.json"
+    pool_json_path = resolved_slots_root / "repos" / "repo" / "pool.json"
     storage = FakeSlotsStorageGateway(
         existing_paths={repo_root, Path.cwd(), *extra_existing},
     )
@@ -86,12 +65,15 @@ def _fake_for_repo(
         repository_root_by_cwd=root_map,
         storage=storage,
     )
-    return _SlotFakes(
+    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=resolved_slots_root, git=git)
+    assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
+    return SlotsCliContext(
+        repo=repo,
         git=git,
         storage=storage,
         pool_state=FakePoolStateGateway(pool_json_path),
         clipboard=FakeClipboardGateway(),
-        repo_root=repo_root,
+        slots_root=resolved_slots_root,
     )
 
 
@@ -134,12 +116,12 @@ def test_slot_version(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_list_empty_pool(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    fakes = _fake_for_repo(tmp_path)
+    ctx = _fake_for_repo(tmp_path)
 
     result = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=_make_obj(fakes, tmp_path / "slots"),
+        obj=ctx,
         env={"COLUMNS": "200"},
     )
 
@@ -150,20 +132,19 @@ def test_slot_list_empty_pool(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
 
 def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
-    slots_root = tmp_path / "slots"
+    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
 
     # First checkout to seed pool state, then list.
     CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x"],
-        obj=_make_obj(fakes, slots_root),
+        obj=ctx,
     )
 
     result = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=_make_obj(fakes, slots_root),
+        obj=ctx,
         env={"COLUMNS": "200"},
     )
 
@@ -173,20 +154,19 @@ def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> No
 
 
 def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
-    slots_root = tmp_path / "slots"
+    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
 
     checkout_res = CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x"],
-        obj=_make_obj(fakes, slots_root),
+        obj=ctx,
     )
     assert checkout_res.exit_code == 0, checkout_res.output
 
     free_res = CliRunner().invoke(
         cli_group,
         ["free", "--wt", "slot-01"],
-        obj=_make_obj(fakes, slots_root),
+        obj=ctx,
     )
     assert free_res.exit_code == 0, free_res.output
 
@@ -194,7 +174,7 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
         cli_group,
         ["json", "list"],
         input="",
-        obj=_make_obj(fakes, slots_root),
+        obj=ctx,
     )
     payload = _json_output(json_res.output)
 
@@ -210,18 +190,18 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
 
 
 def test_slot_ls_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    fakes = _fake_for_repo(tmp_path)
+    ctx = _fake_for_repo(tmp_path)
 
     list_res = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=_make_obj(fakes, tmp_path / "slots"),
+        obj=ctx,
         env={"COLUMNS": "200"},
     )
     alias_res = CliRunner().invoke(
         cli_group,
         ["ls"],
-        obj=_make_obj(fakes, tmp_path / "slots"),
+        obj=ctx,
         env={"COLUMNS": "200"},
     )
 
@@ -239,16 +219,15 @@ def test_slot_json_list_schema(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_json_list_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
-    slots_root = tmp_path / "slots"
+    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
 
-    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=_make_obj(fakes, slots_root))
+    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=ctx)
 
     result = CliRunner().invoke(
         cli_group,
         ["json", "list"],
         input="",
-        obj=_make_obj(fakes, slots_root),
+        obj=ctx,
     )
     payload = _json_output(result.output)
 

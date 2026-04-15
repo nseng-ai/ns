@@ -13,7 +13,7 @@ from twerk_slots.allocation import (
     SlotNotAssignedError,
     free_slot_assignment,
 )
-from twerk_slots.cli.slot.gateway_access import get_slots_cli_context
+from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.cli.slot.slot_target import resolve_slot_target
 from twerk_slots.repo_context import NoRepoSentinel
 
@@ -57,12 +57,14 @@ def render_slot_free(result: SlotFreeResult) -> None:
     help="Release a slot assignment; keep the worktree directory for reuse.",
     human_renderer=render_slot_free,
 )
-def run_free_slot(request: SlotFreeRequest) -> SlotFreeResult | ClinkrCommandError:
-    ctx = get_slots_cli_context()
-    if isinstance(ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=ctx.message)
+def run_free_slot(
+    ctx: click.Context, request: SlotFreeRequest
+) -> SlotFreeResult | ClinkrCommandError:
+    slots_ctx = load_slots_context(ctx)
+    if isinstance(slots_ctx, NoRepoSentinel):
+        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
 
-    state = ctx.pool_state.load()
+    state = slots_ctx.pool_state.load()
     if state is None:
         return ClinkrCommandError(
             error_type="pool_empty",
@@ -76,7 +78,7 @@ def run_free_slot(request: SlotFreeRequest) -> SlotFreeResult | ClinkrCommandErr
         return slot_name_or_error
     slot_name = slot_name_or_error
 
-    outcome = free_slot_assignment(ctx, slot_name=slot_name)
+    outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
     if isinstance(outcome, SlotNotAssignedError):
         return ClinkrCommandError(
             error_type="slot_not_assigned",
