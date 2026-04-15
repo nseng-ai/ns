@@ -9,6 +9,10 @@ from typing import Literal
 # the full type.
 PRReviewState = Literal["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]
 
+# Lifecycle state a PR is currently in. `gh pr view --json state` returns
+# exactly one of these tokens.
+PRState = Literal["OPEN", "CLOSED", "MERGED"]
+
 
 @dataclass(frozen=True)
 class PRReviewComment:
@@ -108,10 +112,12 @@ class Reaction:
 
 @dataclass(frozen=True)
 class PRSummary:
-    """Summary metadata for an open PR associated with a branch.
+    """Summary metadata for a PR associated with a branch.
 
     Returned by `get_pr_for_branch` — carries the fields the pr-address skill
-    needs for its Phase 0 preflight (number, title, URL, head/base refs).
+    needs for its Phase 0 preflight (number, title, URL, head/base refs) plus
+    the lifecycle `state` used by `slot gc` to decide whether to reclaim the
+    slot.
     """
 
     number: int
@@ -119,6 +125,7 @@ class PRSummary:
     url: str
     head_ref_name: str
     base_ref_name: str
+    state: PRState
 
 
 @dataclass(frozen=True)

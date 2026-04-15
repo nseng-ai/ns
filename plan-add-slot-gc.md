@@ -214,6 +214,7 @@ def run_gc(ctx: SlotsCliContext, *, dry_run: bool) -> SlotGcOutcome: ...
 ```
 
 Algorithm:
+
 1. Load pool state; run `sync_pool_assignments` (same prelude as `free_slot_assignment`).
 2. For each assignment, call `ctx.pr.get_pr_for_branch(assignment.branch_name)`.
 3. Classify per rules in Design Decisions §1.
@@ -269,7 +270,9 @@ Auto-registration: `discover_group("twerk_slots.cli.slot")` at `cli/main.py:22` 
 ## Tests
 
 ### Unit — create `packages/twerk-slots/tests/unit/test_gc.py`
+
 Drive `run_gc` directly with fakes:
+
 - Empty pool → empty entries, all zero counts.
 - One slot, OPEN PR → `kept_open_pr`, pool unchanged.
 - One slot, MERGED PR → `freed`; `pool_state.load().assignments == ()`; placeholder checkout happened.
@@ -281,7 +284,9 @@ Drive `run_gc` directly with fakes:
 - Mixed pool (merged + open + no-pr + dirty) → per-slot actions correct, counts correct.
 
 ### Scenario — create `packages/twerk-slots/tests/scenario/test_slot_gc_cli.py`
+
 Mirror `test_slot_free_cli.py` shape. Extend `_make_obj` to accept a `FakePRGateway`:
+
 - `gc -h` help renders.
 - `gc` appears in group help.
 - `gc` outside a repo → `not_in_repo` error.
@@ -292,6 +297,7 @@ Mirror `test_slot_free_cli.py` shape. Extend `_make_obj` to accept a `FakePRGate
 - `slot json gc --schema` returns all three schemas (request/result/error).
 
 ### Gateway — update existing + add new
+
 - `test_real_issue_gateway.py`: parametrize the `get_pr_for_branch` happy-path fixture over `OPEN|MERGED|CLOSED`; assert `result.state`.
 - `test_fake_pr_gateway.py` (existing `FakeIssueGateway` tests): assert `state` round-trips.
 - New `test_real_pr_gateway.py`: smoke-test `RealPRGateway.get_pr_for_branch` by mocking subprocess (same pattern as `test_real_issue_gateway.py`); assert both happy path and the `PRLookupError` returncode-1 branch.

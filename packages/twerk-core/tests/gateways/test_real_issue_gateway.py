@@ -571,11 +571,15 @@ def test_add_reaction_targets_comment_id_in_path(
 # -- get_pr_for_branch --
 
 
+@pytest.mark.parametrize("state", ["OPEN", "MERGED", "CLOSED"])
 def test_get_pr_for_branch_returns_summary(
     monkeypatch: pytest.MonkeyPatch,
+    state: str,
 ) -> None:
+    from twerk_core.gh import pr_gateway
+
     monkeypatch.setattr(
-        real_issue_gateway.subprocess,
+        pr_gateway.subprocess,
         "run",
         _make_fake_run(
             pr_view_response={
@@ -584,6 +588,7 @@ def test_get_pr_for_branch_returns_summary(
                 "url": "https://github.com/dagster-io/twerk/pull/47",
                 "headRefName": "twerk-pr-address-skill",
                 "baseRefName": "master",
+                "state": state,
             },
         ),
     )
@@ -591,18 +596,22 @@ def test_get_pr_for_branch_returns_summary(
     result = RealIssueGateway().get_pr_for_branch("twerk-pr-address-skill")
 
     assert result is not None
+    assert not isinstance(result, PRLookupError)
     assert result.number == 47
     assert result.title == "Port pr-address skill"
     assert result.url == "https://github.com/dagster-io/twerk/pull/47"
     assert result.head_ref_name == "twerk-pr-address-skill"
     assert result.base_ref_name == "master"
+    assert result.state == state
 
 
 def test_get_pr_for_branch_returns_error_when_no_pr(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from twerk_core.gh import pr_gateway
+
     monkeypatch.setattr(
-        real_issue_gateway.subprocess,
+        pr_gateway.subprocess,
         "run",
         _make_fake_run(pr_view_returncode=1),
     )

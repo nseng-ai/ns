@@ -8,6 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
+from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.git import FileStatus, WorktreeInfo
@@ -44,6 +45,7 @@ def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
         storage=fakes.storage,
         pool_state=fakes.pool_state,
         clipboard=fakes.clipboard,
+        pr=FakePRGateway(),
         slots_root=slots_root,
     )
 

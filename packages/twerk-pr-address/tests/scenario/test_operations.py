@@ -721,6 +721,7 @@ def test_get_pr_for_branch_returns_summary(cli_group: ClinkrGroup) -> None:
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
         base_ref_name="master",
+        state="OPEN",
     )
     fake = FakeIssueGateway(prs_by_branch={"feature": pr})
 
@@ -733,6 +734,7 @@ def test_get_pr_for_branch_returns_summary(cli_group: ClinkrGroup) -> None:
     assert output["url"] == "https://github.com/dagster-io/twerk/pull/42"
     assert output["head_ref_name"] == "feature"
     assert output["base_ref_name"] == "master"
+    assert output["state"] == "OPEN"
 
 
 def test_get_pr_for_branch_no_pr_returns_not_found(cli_group: ClinkrGroup) -> None:
@@ -751,6 +753,8 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Walks the DI fallback to RealIssueGateway with subprocess stubbed."""
+    from twerk_core.gh import pr_gateway
+
     pr_view_output = json.dumps(
         {
             "number": 47,
@@ -758,6 +762,7 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
             "url": "https://github.com/dagster-io/twerk/pull/47",
             "headRefName": "twerk-pr-address-skill",
             "baseRefName": "master",
+            "state": "OPEN",
         }
     )
 
@@ -769,7 +774,7 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
             return subprocess.CompletedProcess(cmd, 0, stdout=pr_view_output, stderr="")
         raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
 
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+    monkeypatch.setattr(pr_gateway.subprocess, "run", fake_run)
 
     runner = CliRunner()
     result = runner.invoke(cli_group, ["exec", "get-pr-for-branch", "twerk-pr-address-skill"])
@@ -780,6 +785,7 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
     assert output["number"] == 47
     assert output["title"] == "Port pr-address skill"
     assert output["base_ref_name"] == "master"
+    assert output["state"] == "OPEN"
 
 
 # -- get-reviews --
@@ -1061,6 +1067,7 @@ def test_get_pr_for_branch_json_mode(cli_group: ClinkrGroup) -> None:
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
         base_ref_name="master",
+        state="OPEN",
     )
     fake = FakeIssueGateway(prs_by_branch={"feature": pr})
 
@@ -1070,6 +1077,7 @@ def test_get_pr_for_branch_json_mode(cli_group: ClinkrGroup) -> None:
     assert output["success"] is True
     assert output["found"] is True
     assert output["number"] == 42
+    assert output["state"] == "OPEN"
 
 
 def test_resolve_thread_json_mode(cli_group: ClinkrGroup) -> None:

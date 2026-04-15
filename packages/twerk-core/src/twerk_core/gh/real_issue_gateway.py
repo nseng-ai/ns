@@ -7,6 +7,7 @@ import subprocess
 from typing import cast
 
 from twerk_core.gh.issue_gateway import IssueGateway
+from twerk_core.gh.pr_gateway import fetch_pr_summary_for_branch
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
@@ -269,31 +270,7 @@ class RealIssueGateway(IssueGateway):
         )
 
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
-        result = subprocess.run(
-            [
-                "gh",
-                "pr",
-                "view",
-                branch,
-                "--json",
-                "number,title,url,headRefName,baseRefName",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            return PRLookupError(
-                stderr=result.stderr.strip(),
-                returncode=result.returncode,
-            )
-        data = json.loads(result.stdout)
-        return PRSummary(
-            number=data["number"],
-            title=data["title"],
-            url=data["url"],
-            head_ref_name=data["headRefName"],
-            base_ref_name=data["baseRefName"],
-        )
+        return fetch_pr_summary_for_branch(branch)
 
     # -- PR mutations --
 

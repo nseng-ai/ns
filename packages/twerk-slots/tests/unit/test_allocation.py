@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_slots.allocation import (
     PoolFullError,
     SlotAllocationResult,
@@ -233,6 +234,7 @@ def test_allocate_empty_pool_creates_slot_01() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -270,6 +272,7 @@ def test_allocate_picks_next_slot_when_partially_full() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/b", now=NOW, force=False)
@@ -301,6 +304,7 @@ def test_allocate_returns_already_assigned_when_branch_matches() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -329,6 +333,7 @@ def test_allocate_reallocates_when_recorded_worktree_missing() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -356,6 +361,7 @@ def test_allocate_reuses_inactive_slot_via_checkout() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -385,6 +391,7 @@ def test_allocate_skips_dirty_inactive_slot_and_creates_new() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
@@ -424,6 +431,7 @@ def test_allocate_pool_full_without_force_returns_error() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=False)
@@ -462,6 +470,7 @@ def test_allocate_pool_full_with_force_evicts_oldest() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=True)
@@ -503,6 +512,7 @@ def test_allocate_syncs_before_deciding() -> None:
         storage=storage,
         pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
         slots_root=ROOT / "slots",
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
