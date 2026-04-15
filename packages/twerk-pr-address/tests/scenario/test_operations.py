@@ -720,7 +720,9 @@ def test_get_pr_for_branch_returns_summary(cli_group: ClinkrGroup) -> None:
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
+        head_ref_oid="abc123",
         base_ref_name="master",
+        state="OPEN",
     )
     fake = FakeIssueGateway(prs_by_branch={"feature": pr})
 
@@ -757,7 +759,10 @@ def test_get_pr_for_branch_falls_back_to_real_gateway(
             "title": "Port pr-address skill",
             "url": "https://github.com/dagster-io/twerk/pull/47",
             "headRefName": "twerk-pr-address-skill",
+            "headRefOid": "abc123",
             "baseRefName": "master",
+            "state": "OPEN",
+            "updatedAt": "2026-04-10T12:00:00Z",
         }
     )
 
@@ -1060,7 +1065,9 @@ def test_get_pr_for_branch_json_mode(cli_group: ClinkrGroup) -> None:
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
+        head_ref_oid="abc123",
         base_ref_name="master",
+        state="OPEN",
     )
     fake = FakeIssueGateway(prs_by_branch={"feature": pr})
 

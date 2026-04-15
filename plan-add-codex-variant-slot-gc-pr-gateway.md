@@ -234,7 +234,7 @@ Algorithm:
     - `head_ref_oid == local_head`
 11. classify:
     - 0 matches -> `kept_no_pr`
-    - >1 matches -> `error` with an ambiguity message
+    - 1 matches -> `error` with an ambiguity message
     - 1 match with `OPEN` -> `kept_open_pr`
     - 1 match with `MERGED` or `CLOSED`:
       - dry run -> `would_free`
