@@ -75,7 +75,7 @@ continue into edit/commit/resolve.
 3. The working tree is clean. If there are uncommitted changes, stop and
    tell the user — batch commits need a clean base.
 4. The `pr-address` binary is on `PATH`. The skill shells out to
-   `pr-address exec get-review-comments` to fetch review threads. Run
+   `pr-address exec get-feedback` to fetch PR feedback. Run
    `command -v pr-address` as a preflight; if it isn't found, stop and
    tell the user: "`pr-address` not on PATH — run this skill from inside
    a `uv sync`'d twerk workspace."
@@ -146,36 +146,29 @@ Then continue into Phase 1.
 ### Phase 1 — Fetch feedback
 
 Using the PR resolved in Phase 0, fetch reviews, review threads, and
-discussion comments. All three fetches can run back-to-back; the classifier
-in Phase 2 needs all three before it can make decisions.
+discussion comments in a single call. The classifier in Phase 2 needs all
+three before it can make decisions.
 
-#### 1a. Fetch review threads (inline code comments)
+#### 1a. Fetch reviews, review threads, and discussion comments
 
 ```bash
-pr-address exec get-review-comments <pr_number>
+pr-address exec get-feedback <pr_number>
 ```
 
 Add `--include-resolved` if the user passed `--all`.
 
-#### 1b. Fetch PR-level reviews
+Returns a single JSON object with three fields:
 
-```bash
-pr-address exec get-reviews <pr_number>
-```
+- `reviews` — PR-level review submissions (APPROVED, CHANGES_REQUESTED,
+  COMMENTED) with `id`, `author`, `body`, `state`, `submitted_at`.
+  Excludes PENDING and DISMISSED.
+- `review_threads` — unresolved inline review threads (or all threads if
+  `--include-resolved`), each with `thread_id`, `path`, `line`, and
+  comments.
+- `discussion_comments` — PR discussion comments with `id`, `body`,
+  `author`, `url`.
 
-Returns PR-level review submissions (APPROVED,
-CHANGES_REQUESTED, COMMENTED) with `id`, `author`, `body`, `state`,
-`submitted_at`. Excludes PENDING and DISMISSED reviews.
-
-#### 1c. Fetch discussion comments
-
-```bash
-pr-address exec get-discussion-comments <pr_number>
-```
-
-Returns each comment's `id`, `body`, `author`, `url`.
-
-#### 1d. Detect restructured files (for pre-existing-issue candidates)
+#### 1b. Detect restructured files (for pre-existing-issue candidates)
 
 Bot comments on files that were renamed or moved in this PR are almost
 always pre-existing issues flagged by a linter that doesn't know the file
@@ -193,13 +186,12 @@ If the git diff fails (detached HEAD, missing origin, etc.), proceed with an
 empty set. Pre-existing detection is a quality optimization, not a
 correctness requirement.
 
-#### 1e. Empty-case handling
+#### 1c. Empty-case handling
 
-If the review-thread fetch returns `count: 0` AND the review-submission
-fetch returns zero actionable reviews AND the discussion-comment fetch
-returns zero unaddressed comments, report: "No unresolved review comments
-or discussion comments on PR #`<number>`." and stop. Do not continue to
-Phase 2.
+If all three fields (`reviews`, `review_threads`, `discussion_comments`)
+of the `get-feedback` response are empty, report: "No unresolved review
+comments or discussion comments on PR #`<number>`." and stop. Do not
+continue to Phase 2.
 
 ### Phase 2 — Classify and plan
 
@@ -227,8 +219,8 @@ The classifier produces:
 Before displaying the plan, enforce the review-thread completeness
 invariant:
 
-- every unresolved review thread fetched in Phase 1a must appear exactly
-  once in `review_threads`
+- every unresolved review thread returned by `get-feedback` must appear
+  exactly once in `review_threads`
 - resolved threads included via `--all` are reference-only and do not count
   toward this invariant
 
@@ -450,10 +442,10 @@ interrupts the skill mid-run.
 
 #### 4a. Re-fetch unresolved threads
 
-Re-run Phase 1a + 1b + 1c against the current PR number. If any actionable
-items remain unresolved, list them in the final summary under "Still
-unresolved" — don't error out, since the user may have deferred some items
-intentionally.
+Re-run `pr-address exec get-feedback <pr_number>` against the current PR.
+If any actionable items remain unresolved, list them in the final summary
+under "Still unresolved" — don't error out, since the user may have
+deferred some items intentionally.
 
 #### 4b. Final summary
 
