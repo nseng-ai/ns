@@ -57,3 +57,14 @@ jobs:
       - uses: extractions/setup-just@v2
       - name: Run tests
         run: just test
+
+  nonslop-check:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-uv
+      - uses: extractions/setup-just@v2
+      - name: Run nonslop check
+        run: just nonslop-check
