@@ -5,10 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from twerk_oneshot.branch_memory.contract import (
-    OneshotBranchMemoryRequest,
-    build_oneshot_branch_memory,
-)
+from twerk_oneshot.branch_memory.contract import build_oneshot_branch_memory
 from twerk_oneshot.gateways.execution.gateway import (
     ExecutionBackend,
     WorkflowDispatchRequest,
@@ -19,7 +16,6 @@ from twerk_oneshot.gateways.github_queue.gateway import (
     GitHubQueueGateway,
 )
 
-BACKEND_NAME = "github-actions"
 WORKFLOW_FILENAME = "oneshot.yml"
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 
@@ -54,24 +50,13 @@ def queue_oneshot(
     context = queue_gateway.get_repository_context()
     branch_name = generate_branch_name(prompt, timestamp=timestamp)
     pr_title = build_pr_title(prompt)
-    branch_memory = build_oneshot_branch_memory(
-        prompt=prompt,
-        request=OneshotBranchMemoryRequest(
-            backend_name=BACKEND_NAME,
-            workflow_filename=WORKFLOW_FILENAME,
-            branch_name=branch_name,
-            base_branch=context.default_branch,
-            pr_title=pr_title,
-            submitted_at=_format_timestamp(timestamp),
-            submitted_by=context.authenticated_user,
-        ),
-    )
+    files = build_oneshot_branch_memory(prompt)
     commit_result = queue_gateway.create_branch_commit_and_push(
         BranchCommitRequest(
             branch_name=branch_name,
             base_branch=context.default_branch,
             commit_message="Queue oneshot request",
-            files=branch_memory.files,
+            files=files,
         )
     )
     pull_request = queue_gateway.create_draft_pull_request(
@@ -104,11 +89,7 @@ def queue_oneshot(
 
 
 def build_pr_body() -> str:
-    return (
-        "Queued via `oneshot`.\n\n"
-        "- Branch memory: `.twerk/branch-memory/manifest.json`\n"
-        "- Backend: `github-actions`\n"
-    )
+    return "Queued via `oneshot`.\n"
 
 
 def build_pr_title(prompt: str) -> str:
@@ -125,7 +106,3 @@ def generate_branch_name(prompt: str, *, timestamp: datetime) -> str:
         slug = "request"
     slug = slug[:32].rstrip("-")
     return f"oneshot-{slug}-{timestamp.strftime('%m%d-%H%M')}"
-
-
-def _format_timestamp(timestamp: datetime) -> str:
-    return timestamp.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")

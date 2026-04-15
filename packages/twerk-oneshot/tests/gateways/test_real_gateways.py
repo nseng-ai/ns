@@ -80,7 +80,6 @@ def test_real_github_queue_gateway_create_branch_commit_and_push(
             base_branch="master",
             commit_message="Queue oneshot request",
             files={
-                ".twerk/branch-memory/manifest.json": "{}\n",
                 ".twerk/branch-memory/oneshot/prompt.md": "hello\n",
             },
         )

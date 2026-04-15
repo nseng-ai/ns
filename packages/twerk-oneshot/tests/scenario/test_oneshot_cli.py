@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 
 import pytest
@@ -59,15 +58,9 @@ def test_oneshot_queues_prompt_with_fake_gateways(cli_group: ClinkrGroup) -> Non
 
     branch_request = queue_gateway.branch_commit_requests[0]
     assert branch_request.branch_name == "oneshot-add-branch-memory-queueing-0413-2100"
-    manifest = json.loads(branch_request.files[".twerk/branch-memory/manifest.json"])
-    request = json.loads(branch_request.files[".twerk/branch-memory/oneshot/request.json"])
-    assert manifest["entries"][0]["path"] == ".twerk/branch-memory/oneshot/prompt.md"
-    assert request["backend_name"] == "github-actions"
-    assert request["branch_name"] == branch_request.branch_name
-    assert request["submitted_by"] == "schrockn"
-    assert branch_request.files[".twerk/branch-memory/oneshot/prompt.md"] == (
-        "Add branch memory queueing\n"
-    )
+    assert branch_request.files == {
+        ".twerk/branch-memory/oneshot/prompt.md": "Add branch memory queueing\n",
+    }
 
     dispatch_request = execution_backend.dispatch_requests[0]
     assert dispatch_request.workflow_filename == "oneshot.yml"

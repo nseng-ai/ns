@@ -35,24 +35,9 @@ jobs:
           fetch-depth: 0
 
       - name: Validate branch-memory contract
+        run: test -f .twerk/branch-memory/oneshot/prompt.md
+
+      - name: Log queued prompt
         run: |
-          test -f .twerk/branch-memory/manifest.json
-          test -f .twerk/branch-memory/oneshot/prompt.md
-          test -f .twerk/branch-memory/oneshot/request.json
-
-      - name: Read queued oneshot request
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          manifest = json.loads(Path(".twerk/branch-memory/manifest.json").read_text(encoding="utf-8"))
-          request = json.loads(Path(".twerk/branch-memory/oneshot/request.json").read_text(encoding="utf-8"))
-          prompt = Path(".twerk/branch-memory/oneshot/prompt.md").read_text(encoding="utf-8").strip()
-
-          assert request["branch_name"] == "${{ inputs.branch_name }}"
-          print(f"Loaded oneshot request for PR #${{ inputs.pr_number }}")
-          print(f"Manifest entries: {len(manifest['entries'])}")
-          print(f"Prompt characters: {len(prompt)}")
-          print(f"Queued by: ${{ inputs.submitted_by }}")
-          PY
+          echo "PR #${{ inputs.pr_number }} queued by ${{ inputs.submitted_by }}"
+          wc -c .twerk/branch-memory/oneshot/prompt.md
