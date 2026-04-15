@@ -28,18 +28,21 @@ SAMPLE_ISSUES = (
         title="Explore using pluggy",
         state="open",
         updated_at="2026-04-08T12:00:00Z",
+        url="https://github.com/org/repo/issues/34",
     ),
     Issue(
         number=24,
         title="Port pr-address from erk to twerk",
         state="open",
         updated_at="2026-04-08T08:00:00Z",
+        url="https://github.com/org/repo/issues/24",
     ),
     Issue(
         number=13,
         title="Set up dprint for consistent Markdown formatting",
         state="closed",
         updated_at="2026-04-04T10:00:00Z",
+        url="https://github.com/org/repo/issues/13",
     ),
 )
 
@@ -164,6 +167,7 @@ def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
             title=long_title,
             state="open",
             updated_at="2026-04-08T12:00:00Z",
+            url="https://github.com/org/repo/issues/42",
         ),
     )
     runner = CliRunner()
@@ -191,6 +195,7 @@ def test_objective_list_falls_back_to_real_gateway(
                 "title": "Stubbed objective",
                 "state": "open",
                 "updatedAt": "2026-04-08T12:00:00Z",
+                "url": "https://github.com/org/repo/issues/7",
             }
         ]
     )
@@ -271,12 +276,14 @@ def test_objective_json_list_default_shows_open_objectives_only(cli_group: Clink
             "title": "Explore using pluggy",
             "state": "open",
             "updated_at": "2026-04-08T12:00:00Z",
+            "url": "https://github.com/org/repo/issues/34",
         },
         {
             "number": 24,
             "title": "Port pr-address from erk to twerk",
             "state": "open",
             "updated_at": "2026-04-08T08:00:00Z",
+            "url": "https://github.com/org/repo/issues/24",
         },
     ]
 

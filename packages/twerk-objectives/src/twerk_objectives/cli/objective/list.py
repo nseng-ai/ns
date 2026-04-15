@@ -32,6 +32,7 @@ class ObjectiveListResult:
                     "title": i.title,
                     "state": i.state,
                     "updated_at": i.updated_at,
+                    "url": i.url,
                 }
                 for i in self.objectives
             ],
@@ -52,7 +53,7 @@ def render_objective_list(result: ObjectiveListResult) -> None:
 
     for obj in result.objectives:
         table.add_row(
-            f"#{obj.number}",
+            f"[link={obj.url}]#{obj.number}[/link]",
             state_badge(obj.state),
             obj.title,
             format_relative_time(obj.updated_at),
