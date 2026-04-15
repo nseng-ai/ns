@@ -15,7 +15,7 @@ import subprocess
 
 import pytest
 
-from twerk_core.gh import real_issue_gateway
+from twerk_core.gh import pr_gateway, real_issue_gateway
 from twerk_core.gh.real_issue_gateway import RealIssueGateway
 from twerk_core.gh.types import PRLookupError
 
@@ -576,8 +576,6 @@ def test_get_pr_for_branch_returns_summary(
     monkeypatch: pytest.MonkeyPatch,
     state: str,
 ) -> None:
-    from twerk_core.gh import pr_gateway
-
     monkeypatch.setattr(
         pr_gateway.subprocess,
         "run",
