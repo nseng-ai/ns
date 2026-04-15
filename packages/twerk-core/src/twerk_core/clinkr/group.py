@@ -129,9 +129,10 @@ def _register_operation(
     # -- build human command --
     params = extract_click_params(request_type)
 
-    def human_callback(**kwargs: Any) -> None:
+    @click.pass_context
+    def human_callback(ctx: click.Context, **kwargs: Any) -> None:
         request = build_request_from_click_params(request_type, kwargs)
-        result = operation(request)
+        result = operation(ctx, request)
         if isinstance(result, ClinkrCommandError):
             raise click.ClickException(result.message)
         renderer(result)
@@ -144,8 +145,13 @@ def _register_operation(
     )
 
     # -- build machine command --
+    # Note: ``_apply_machine_command`` re-wraps this callback; decorating it
+    # with ``click.pass_context`` would not help because Click only dispatches
+    # through the outer wrapper. ``click.get_current_context()`` works here
+    # because it runs inside Click's dispatch stack.
     def machine_callback(*, request: Any) -> Any:
-        return operation(request)
+        ctx = click.get_current_context()
+        return operation(ctx, request)
 
     machine_cmd = click.Command(
         name=meta.name,

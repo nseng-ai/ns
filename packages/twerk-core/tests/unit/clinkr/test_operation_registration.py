@@ -27,7 +27,7 @@ class GreetResult:
 
 
 @clinkr_operation(name="greet", help="Greet someone.", aliases=("hi",))
-def _greet(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+def _greet(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
     punctuation = "!" if request.excited else "."
     return GreetResult(message=f"hello {request.name}{punctuation}")
 
@@ -98,7 +98,7 @@ def test_custom_renderer() -> None:
         click.echo(f"CUSTOM: {result.message}")
 
     @clinkr_operation(name="greet", help="Greet.", human_renderer=custom_renderer)
-    def greet_custom(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+    def greet_custom(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
         punctuation = "!" if request.excited else "."
         return GreetResult(message=f"hello {request.name}{punctuation}")
 
@@ -112,7 +112,7 @@ def test_custom_renderer() -> None:
 
 def test_error_handling_human() -> None:
     @clinkr_operation(name="fail", help="Always fails.")
-    def failing_op(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+    def failing_op(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
         return ClinkrCommandError(error_type="boom", message="it broke")
 
     group = ClinkrGroup("test", help="Test.", operations=[failing_op])
@@ -125,7 +125,7 @@ def test_error_handling_human() -> None:
 
 def test_error_handling_json() -> None:
     @clinkr_operation(name="fail", help="Always fails.")
-    def failing_op(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+    def failing_op(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
         return ClinkrCommandError(error_type="boom", message="it broke")
 
     group = ClinkrGroup("test", help="Test.", operations=[failing_op])
@@ -155,7 +155,7 @@ def test_empty_request_no_args() -> None:
     """Operations with no-field request types work without CLI arguments."""
 
     @clinkr_operation(name="list", help="List.")
-    def list_op(request: EmptyRequest) -> EmptyResult:
+    def list_op(ctx: click.Context, request: EmptyRequest) -> EmptyResult:
         return EmptyResult(count=0)
 
     group = ClinkrGroup("test", help="Test.", operations=[list_op])
@@ -189,7 +189,7 @@ class SearchResult:
 
 
 @clinkr_operation(name="search", help="Search.")
-def _search_op(request: SearchRequest) -> SearchResult:
+def _search_op(ctx: click.Context, request: SearchRequest) -> SearchResult:
     return SearchResult(results=(f"found: {request.query}",) * request.limit)
 
 

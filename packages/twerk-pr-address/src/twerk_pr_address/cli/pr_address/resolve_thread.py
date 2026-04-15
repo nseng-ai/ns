@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -30,9 +32,10 @@ class ResolveThreadResult:
     help="Resolve a PR review thread by its GraphQL node ID.",
 )
 def run_resolve_thread(
+    ctx: click.Context,
     request: ResolveThreadRequest,
 ) -> ResolveThreadResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     result = gateway.resolve_review_thread(request.thread_id)
     return ResolveThreadResult(
         thread_id=result.thread_id,

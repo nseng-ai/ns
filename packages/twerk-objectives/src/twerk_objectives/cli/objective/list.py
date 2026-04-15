@@ -68,13 +68,14 @@ def render_objective_list(result: ObjectiveListResult) -> None:
     human_renderer=render_objective_list,
 )
 def run_list_objectives(
+    ctx: click.Context,
     request: ObjectiveListRequest,
 ) -> ObjectiveListResult | ClinkrCommandError:
     # TODO: Validate request.state at the Click/clinkr boundary so invalid values
     # fail before invoking `gh issue list`. Today the user-facing error comes from
     # the gh CLI, which we intentionally preserve for now.
     try:
-        gateway = get_gh_issue_gateway()
+        gateway = get_gh_issue_gateway(ctx)
         issues = gateway.list(label="objective", state=request.state)
     except subprocess.CalledProcessError as e:
         return ClinkrCommandError(

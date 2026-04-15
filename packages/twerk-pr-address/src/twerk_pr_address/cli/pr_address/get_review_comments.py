@@ -4,6 +4,8 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRReviewThread
@@ -32,9 +34,10 @@ class GetReviewCommentsResult:
     help="Fetch review threads for a PR.",
 )
 def run_get_review_comments(
+    ctx: click.Context,
     request: GetReviewCommentsRequest,
 ) -> GetReviewCommentsResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     threads = gateway.get_review_threads(
         request.pr_number, include_resolved=request.include_resolved
     )

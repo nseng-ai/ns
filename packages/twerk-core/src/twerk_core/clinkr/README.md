@@ -27,6 +27,8 @@ The subpackage after `cli/` becomes the group name, and each submodule is a comm
 # myapp/cli/myapp/greet.py
 from dataclasses import dataclass
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -43,7 +45,7 @@ class GreetResult:
 
 
 @clinkr_operation(name="greet", help="Greet someone by name.")
-def greet(request: GreetRequest) -> GreetResult | ClinkrCommandError:
+def greet(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
     greeting = f"Hello, {request.name}!"
     if request.loud:
         greeting = greeting.upper()
@@ -158,11 +160,11 @@ Each `ClinkrGroup` gets its own `json` subgroup, so the machine-readable path is
 
 ### `@clinkr_operation`
 
-Decorator that marks a function as a clinkr operation. The function must accept exactly one parameter (the request dataclass) and return a result dataclass or `ClinkrCommandError`. Request type and result types are inferred from type annotations.
+Decorator that marks a function as a clinkr operation. The function must accept exactly two parameters — `ctx: click.Context` followed by the request dataclass — and return a result dataclass or `ClinkrCommandError`. Clinkr threads the active Click context in so operations never have to fetch it from globals. Request type and result types are inferred from type annotations.
 
 ```python
 @clinkr_operation(name="foo", help="Do foo.", aliases=("f",))
-def foo(request: FooRequest) -> FooResult | ClinkrCommandError:
+def foo(ctx: click.Context, request: FooRequest) -> FooResult | ClinkrCommandError:
     ...
 ```
 

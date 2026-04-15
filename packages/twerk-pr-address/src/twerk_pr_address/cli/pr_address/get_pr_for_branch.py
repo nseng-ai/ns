@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRLookupError
@@ -48,9 +50,10 @@ class GetPRForBranchResult:
     help="Look up the open PR for a branch.",
 )
 def run_get_pr_for_branch(
+    ctx: click.Context,
     request: GetPRForBranchRequest,
 ) -> GetPRForBranchResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     result = gateway.get_pr_for_branch(request.branch)
     if isinstance(result, PRLookupError):
         return GetPRForBranchResult(

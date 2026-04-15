@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any
 
+import click
+
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -33,9 +35,10 @@ class AddReactionResult:
     help="Add a reaction to a comment.",
 )
 def run_add_reaction(
+    ctx: click.Context,
     request: AddReactionRequest,
 ) -> AddReactionResult | ClinkrCommandError:
-    gateway = get_gh_issue_gateway()
+    gateway = get_gh_issue_gateway(ctx)
     result = gateway.add_reaction(request.comment_id, request.reaction)
     return AddReactionResult(
         id=result.id,
