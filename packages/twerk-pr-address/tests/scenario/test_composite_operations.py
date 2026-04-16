@@ -450,7 +450,11 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
 ) -> None:
     class FailingReactionGateway(FakeIssueGateway):
         def add_reaction(self, comment_id: int, reaction: str):  # type: ignore[override]
-            raise RuntimeError("reaction endpoint unavailable")
+            raise subprocess.CalledProcessError(
+                returncode=1,
+                cmd=["gh", "api", "-X", "POST"],
+                stderr="rate limited",
+            )
 
     fake = FailingReactionGateway()
 
@@ -470,9 +474,7 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
     assert exit_code == 0
     assert output["success"] is True
     assert output["reaction_added"] is False
-    assert output["warning"] == (
-        "Failed to add reaction to comment 9001: reaction endpoint unavailable"
-    )
+    assert output["warning"].startswith("Failed to add reaction to comment 9001: ")
 
 
 def test_reply_to_review_rejects_empty_summary(cli_group: ClinkrGroup) -> None:

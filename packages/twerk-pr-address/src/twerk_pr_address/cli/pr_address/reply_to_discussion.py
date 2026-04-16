@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import subprocess
 from dataclasses import dataclass
 from typing import Any
 
@@ -75,7 +76,7 @@ def run_reply_to_discussion(
     try:
         reaction = gateway.add_reaction(request.comment_id, "+1")
         reaction_added = True
-    except Exception as exc:
+    except subprocess.CalledProcessError as exc:
         warning = f"Failed to add reaction to comment {request.comment_id}: {exc}"
 
     return ReplyToDiscussionResult(
