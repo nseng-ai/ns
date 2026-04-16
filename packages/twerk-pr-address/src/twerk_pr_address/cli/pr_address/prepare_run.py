@@ -165,9 +165,8 @@ def run_prepare_run(
             returncode=pr.returncode,
         )
 
-    reviews = gateway.get_reviews(pr.number)
-    if not request.include_empty_reviews:
-        reviews = filter_empty_reviews(reviews)
+    raw_reviews = gateway.get_reviews(pr.number)
+    reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
     snapshot_threads = gateway.get_review_threads(pr.number, include_resolved=True)
     discussion_comments = gateway.get_discussion_comments(pr.number)
 

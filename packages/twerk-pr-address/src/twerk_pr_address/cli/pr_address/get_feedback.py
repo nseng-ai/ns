@@ -45,9 +45,8 @@ def run_get_feedback(
     request: GetFeedbackRequest,
 ) -> GetFeedbackResult | ClinkrCommandError:
     gateway = get_gh_issue_gateway(ctx)
-    reviews = gateway.get_reviews(request.pr_number)
-    if not request.include_empty_reviews:
-        reviews = filter_empty_reviews(reviews)
+    raw_reviews = gateway.get_reviews(request.pr_number)
+    reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
     return GetFeedbackResult(
         pr_number=request.pr_number,
         reviews=reviews,
