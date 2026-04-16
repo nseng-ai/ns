@@ -17,7 +17,7 @@ class GitCommandFailure:
     """Failure result from a git subprocess invocation."""
 
     message: str
-    returncode: int | None = None
+    returncode: int | None
 
 
 @dataclass(frozen=True)

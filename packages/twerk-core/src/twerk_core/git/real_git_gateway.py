@@ -18,8 +18,8 @@ from twerk_core.git.types import (
 def _run(
     cmd: list[str],
     *,
-    cwd: Path | None = None,
-    check: bool = False,
+    cwd: Path | None,
+    check: bool,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=check)
 
@@ -85,6 +85,7 @@ def _branch_exists(repo_root: Path, branch: str) -> bool:
     result = _run(
         ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
         cwd=repo_root,
+        check=False,
     )
     return result.returncode == 0
 
@@ -95,6 +96,7 @@ def resolve_trunk_branch(repo_root: Path) -> str | None:
     result = _run(
         ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
         cwd=repo_root,
+        check=False,
     )
     if result.returncode == 0:
         full = result.stdout.strip()
@@ -174,7 +176,7 @@ class RealGitGateway(GitGateway):
         return Path(result.stdout.strip())
 
     def get_git_common_dir(self, cwd: Path) -> Path | None:
-        result = _run(["git", "rev-parse", "--git-common-dir"], cwd=cwd)
+        result = _run(["git", "rev-parse", "--git-common-dir"], cwd=cwd, check=False)
         if result.returncode != 0:
             return None
         raw = result.stdout.strip()
@@ -186,7 +188,7 @@ class RealGitGateway(GitGateway):
         return path
 
     def get_current_branch(self, cwd: Path) -> str | DetachedHead | GitCommandFailure:
-        result = _run(["git", "symbolic-ref", "--short", "HEAD"], cwd=cwd)
+        result = _run(["git", "symbolic-ref", "--short", "HEAD"], cwd=cwd, check=False)
         if result.returncode == 0:
             branch = result.stdout.strip()
             if branch:
@@ -203,7 +205,7 @@ class RealGitGateway(GitGateway):
         )
 
     def get_previous_branch(self, cwd: Path) -> str | None:
-        result = _run(["git", "rev-parse", "--abbrev-ref", "@{-1}"], cwd=cwd)
+        result = _run(["git", "rev-parse", "--abbrev-ref", "@{-1}"], cwd=cwd, check=False)
         if result.returncode != 0:
             return None
         branch = result.stdout.strip()
@@ -233,6 +235,7 @@ class RealGitGateway(GitGateway):
         result = _run(
             ["git", "diff", "--name-status", "-M", "-C", f"origin/{base_ref_name}...HEAD"],
             cwd=cwd,
+            check=False,
         )
         if result.returncode != 0:
             stderr = result.stderr.strip()
