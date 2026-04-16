@@ -20,7 +20,7 @@ from twerk_core.gh.types import (
 )
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 from twerk_pr_address.cli.pr_address.local_git import (
-    LocalGitError,
+    LocalGitFailure,
     get_current_branch,
     get_restructured_files,
 )
@@ -136,16 +136,19 @@ def run_prepare_run(
     ctx: click.Context,
     request: PrepareRunRequest,
 ) -> PrepareRunResult | ClinkrCommandError:
-    try:
-        current_branch = get_current_branch()
-    except LocalGitError as exc:
-        return ClinkrCommandError(error_type="git_error", message=str(exc))
-
-    if current_branch is None:
-        return ClinkrCommandError(
-            error_type="detached_head",
-            message="Detached HEAD: prepare-run requires a checked-out branch.",
-        )
+    match get_current_branch():
+        case LocalGitFailure() as failure:
+            return ClinkrCommandError(
+                error_type=failure.error_type,
+                message=failure.message,
+            )
+        case None:
+            return ClinkrCommandError(
+                error_type="detached_head",
+                message="Detached HEAD: prepare-run requires a checked-out branch.",
+            )
+        case str() as current_branch:
+            pass
 
     gateway = get_gh_issue_gateway(ctx)
     pr = gateway.get_pr_for_branch(current_branch)
@@ -177,11 +180,13 @@ def run_prepare_run(
         reopened_thread_ids=tuple(reopened_thread_ids),
     )
 
-    try:
-        restructured_files = get_restructured_files(pr.base_ref_name)
-    except LocalGitError as exc:
-        warnings.append(str(exc))
-        restructured_files = ()
+    restructured_files: tuple[RestructuredFile, ...]
+    match get_restructured_files(pr.base_ref_name):
+        case LocalGitFailure() as failure:
+            warnings.append(failure.message)
+            restructured_files = ()
+        case tuple() as files:
+            restructured_files = files
 
     return PrepareRunResult(
         found=True,

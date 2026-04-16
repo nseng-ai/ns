@@ -3,16 +3,36 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import dataclass
+from typing import Literal
 
 from twerk_core.gh.types import RestructuredFile
 
 
-class LocalGitError(RuntimeError):
-    """Raised when a local git helper cannot complete."""
+@dataclass(frozen=True)
+class LocalGitFailure:
+    """Failure result returned by local git helpers.
+
+    `error_type` is a literal tag so callers can `match` on the failure kind
+    and translate it into a `ClinkrCommandError` (or other domain result)
+    without string-matching on stderr. `message` carries the human-readable
+    context (typically stderr from the underlying git invocation). `returncode`
+    is the exit code from the git process, when available.
+    """
+
+    error_type: Literal["not_a_repo", "git_failed"]
+    message: str
+    returncode: int | None = None
 
 
-def get_current_branch() -> str | None:
-    """Return the current branch name, or ``None`` when HEAD is detached."""
+def get_current_branch() -> str | None | LocalGitFailure:
+    """Return the current branch name, ``None`` for detached HEAD, or a failure.
+
+    - Non-empty stdout on success → branch name.
+    - "not a symbolic ref" on stderr → ``None`` (detached HEAD is a domain
+      state, not a failure).
+    - Any other non-zero exit → ``LocalGitFailure`` with the stderr surfaced.
+    """
     result = subprocess.run(
         ["git", "symbolic-ref", "--short", "HEAD"],
         capture_output=True,
@@ -23,15 +43,18 @@ def get_current_branch() -> str | None:
         return branch or None
 
     stderr = result.stderr.strip()
-    lowered = stderr.lower()
-    if "not a git repository" in lowered:
-        raise LocalGitError("Not inside a git repository.")
-    if "not a symbolic ref" in lowered:
+    if "not a symbolic ref" in stderr.lower():
         return None
-    raise LocalGitError(f"Failed to resolve the current branch: {stderr or 'git failed'}")
+    return LocalGitFailure(
+        error_type="git_failed",
+        message=stderr or "git failed",
+        returncode=result.returncode,
+    )
 
 
-def get_restructured_files(base_ref_name: str) -> tuple[RestructuredFile, ...]:
+def get_restructured_files(
+    base_ref_name: str,
+) -> tuple[RestructuredFile, ...] | LocalGitFailure:
     """Return renamed/copied files against ``origin/<base_ref_name>...HEAD``."""
     result = subprocess.run(
         ["git", "diff", "--name-status", "-M", "-C", f"origin/{base_ref_name}...HEAD"],
@@ -40,9 +63,13 @@ def get_restructured_files(base_ref_name: str) -> tuple[RestructuredFile, ...]:
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
-        raise LocalGitError(
-            "Failed to detect restructured files against "
-            f"origin/{base_ref_name}: {stderr or 'git diff failed'}"
+        return LocalGitFailure(
+            error_type="git_failed",
+            message=(
+                f"Failed to detect restructured files against origin/{base_ref_name}: "
+                f"{stderr or 'git diff failed'}"
+            ),
+            returncode=result.returncode,
         )
     return parse_name_status_output(result.stdout)
 
