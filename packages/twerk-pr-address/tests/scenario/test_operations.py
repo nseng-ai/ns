@@ -512,8 +512,8 @@ def test_add_review_thread_reply_preserves_multiline_body(
     body = (
         "Fixed in commit abc1234: use LBYL.\n"
         "\n"
-        "_Addressed via twerk-pr-address at 2026-04-10T12:00:00Z_\n"
-        "<!-- twerk:pr-address-resolved -->"
+        "_Addressed via pr-address at 2026-04-10T12:00:00Z_\n"
+        "<!-- pr-address:resolved -->"
     )
 
     exit_code, output = _invoke(
@@ -662,8 +662,8 @@ def test_real_gateway_preserves_body_newlines_through_subprocess(
     body = (
         "Fixed in commit abc1234: use LBYL.\n"
         "\n"
-        "Addressed via _twerk-pr-address_ at 2026-04-10T12:00:00Z\n"
-        "<!-- twerk:pr-address-resolved -->"
+        "Addressed via _pr-address_ at 2026-04-10T12:00:00Z\n"
+        "<!-- pr-address:resolved -->"
     )
     runner = CliRunner()
     result = runner.invoke(
@@ -693,8 +693,8 @@ def test_add_review_thread_reply_reads_body_from_stdin_sentinel(
     body = (
         "Fixed in commit abc1234: use LBYL.\n"
         "\n"
-        "Addressed via _twerk-pr-address_ at 2026-04-10T12:00:00Z\n"
-        "<!-- twerk:pr-address-resolved -->"
+        "Addressed via _pr-address_ at 2026-04-10T12:00:00Z\n"
+        "<!-- pr-address:resolved -->"
     )
 
     runner = CliRunner()
