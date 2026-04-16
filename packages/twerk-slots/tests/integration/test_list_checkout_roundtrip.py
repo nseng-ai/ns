@@ -57,7 +57,7 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
         branches={"feat/one", "feat/two"},
         existing_paths={repo_root, Path.cwd()},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
-        storage=storage,
+        on_add_worktree=storage.ensure_dir,
     )
     obj = _build_ctx(
         git=git,
@@ -118,7 +118,7 @@ def test_checkout_twice_reuses_existing(tmp_path: Path) -> None:
         branches={"feat/one"},
         existing_paths={repo_root, Path.cwd()},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
-        storage=storage,
+        on_add_worktree=storage.ensure_dir,
     )
     obj = _build_ctx(
         git=git,

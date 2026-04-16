@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from twerk_core.gh.pr_testing import FakePRGateway
+from twerk_core.git.types import FileStatus, WorktreeInfo
 from twerk_slots.allocation import (
     DirtyWorktreeError,
     SlotFreeOutcome,
@@ -11,7 +12,6 @@ from twerk_slots.allocation import (
     free_slot_assignment,
 )
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,
     FakeGitGateway,

@@ -1,17 +1,19 @@
-"""In-memory FakeGitGateway used by slots tests.
-
-Constructor-only configuration with mutation tracking for assertions, mirroring
-the :class:`FakeIssueGateway` shape from twerk_core.
-"""
+"""Test utilities for the shared git gateway."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Final
 
-from twerk_slots.gateway.git import FileStatus, GitGateway, WorktreeInfo
-from twerk_slots.gateway.storage import SlotsStorageGateway
+from twerk_core.git.git_gateway import GitGateway
+from twerk_core.git.types import (
+    DetachedHead,
+    FileStatus,
+    GitCommandFailure,
+    RestructuredFile,
+    WorktreeInfo,
+)
 
 
 class _Unset:
@@ -22,59 +24,51 @@ _UNSET: Final = _Unset()
 
 
 class FakeGitGateway(GitGateway):
-    """Fake GitGateway that returns pre-seeded responses and records mutations."""
+    """In-memory fake for the shared git gateway."""
 
     def __init__(
         self,
         *,
-        repo_root: Path,
+        repo_root: Path | None = None,
         git_common_dir: Path | None | _Unset = _UNSET,
         branches: Iterable[str] = (),
         worktrees: tuple[WorktreeInfo, ...] = (),
-        current_branch_by_path: dict[Path, str | None] | None = None,
+        current_branch_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None,
         previous_branch_by_path: dict[Path, str | None] | None = None,
         trunk_branch: str = "main",
         file_status_by_path: dict[Path, FileStatus] | None = None,
         existing_paths: Iterable[Path] = (),
         repository_root_by_cwd: dict[Path, Path] | None = None,
-        storage: SlotsStorageGateway | None = None,
+        restructured_files_by_key: (
+            dict[tuple[Path, str], tuple[RestructuredFile, ...] | GitCommandFailure] | None
+        ) = None,
+        on_add_worktree: Callable[[Path], None] | None = None,
     ) -> None:
-        self._repo_root = repo_root
+        self._repo_root = repo_root if repo_root is not None else Path("/repo")
         if isinstance(git_common_dir, _Unset):
-            self._git_common_dir: Path | None = repo_root / ".git"
+            self._git_common_dir: Path | None = self._repo_root / ".git"
         else:
             self._git_common_dir = git_common_dir
-        self._branches: set[str] = set(branches)
-        self._worktrees: list[WorktreeInfo] = list(worktrees)
-        self._current_branch_by_path: dict[Path, str | None] = dict(current_branch_by_path or {})
-        self._previous_branch_by_path: dict[Path, str | None] = dict(previous_branch_by_path or {})
-        self._trunk_branch: str = trunk_branch
-        self._file_status_by_path: dict[Path, FileStatus] = dict(file_status_by_path or {})
-        self._existing_paths: set[Path] = set(existing_paths)
-        self._repository_root_by_cwd: dict[Path, Path] = dict(repository_root_by_cwd or {})
-        # Mirrors the real gateway's filesystem side effect: when provided,
-        # ``add_worktree`` reports the new path to the storage gateway so
-        # downstream ``storage.path_exists()`` checks succeed just like they
-        # do against a real ``git worktree add``.
-        self._storage: SlotsStorageGateway | None = storage
+        self._branches = set(branches)
+        self._worktrees = list(worktrees)
+        self._current_branch_by_path = dict(current_branch_by_path or {})
+        self._previous_branch_by_path = dict(previous_branch_by_path or {})
+        self._trunk_branch = trunk_branch
+        self._file_status_by_path = dict(file_status_by_path or {})
+        self._existing_paths = set(existing_paths)
+        self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
+        self._restructured_files_by_key = dict(restructured_files_by_key or {})
+        self._on_add_worktree = on_add_worktree
 
-        # Mutation log — read by tests for assertions.
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
         self._checkout_calls: list[tuple[Path, str]] = []
         self._create_branch_calls: list[tuple[str, str, bool]] = []
         self._detach_head_calls: list[tuple[Path, str]] = []
 
-    # -- Filesystem helpers --
-
     def path_exists(self, path: Path) -> bool:
         if path in self._existing_paths:
             return True
-        for wt in self._worktrees:
-            if wt.path == path:
-                return True
-        return False
-
-    # -- Repo discovery --
+        return any(wt.path == path for wt in self._worktrees)
 
     def get_repository_root(self, cwd: Path) -> Path:
         if cwd in self._repository_root_by_cwd:
@@ -84,10 +78,11 @@ class FakeGitGateway(GitGateway):
     def get_git_common_dir(self, cwd: Path) -> Path | None:
         return self._git_common_dir
 
-    # -- Branch queries --
-
-    def get_current_branch(self, cwd: Path) -> str | None:
-        return self._current_branch_by_path.get(cwd)
+    def get_current_branch(self, cwd: Path) -> str | DetachedHead | GitCommandFailure:
+        result = self._current_branch_by_path.get(cwd)
+        if result is None:
+            return DetachedHead()
+        return result
 
     def get_previous_branch(self, cwd: Path) -> str | None:
         return self._previous_branch_by_path.get(cwd)
@@ -101,7 +96,15 @@ class FakeGitGateway(GitGateway):
     def list_local_branches(self) -> tuple[str, ...]:
         return tuple(sorted(self._branches))
 
-    # -- Worktree operations --
+    def get_restructured_files(
+        self,
+        cwd: Path,
+        base_ref_name: str,
+    ) -> tuple[RestructuredFile, ...] | GitCommandFailure:
+        result = self._restructured_files_by_key.get((cwd, base_ref_name))
+        if result is None:
+            return ()
+        return result
 
     def list_worktrees(self) -> tuple[WorktreeInfo, ...]:
         return tuple(self._worktrees)
@@ -118,8 +121,8 @@ class FakeGitGateway(GitGateway):
         self._worktrees.append(info)
         self._existing_paths.add(path)
         self._current_branch_by_path[path] = branch
-        if self._storage is not None:
-            self._storage.ensure_dir(path)
+        if self._on_add_worktree is not None:
+            self._on_add_worktree(path)
         return info
 
     def checkout_branch(self, cwd: Path, branch: str) -> None:
@@ -132,7 +135,7 @@ class FakeGitGateway(GitGateway):
 
     def detach_head(self, cwd: Path, ref: str) -> None:
         self._detach_head_calls.append((cwd, ref))
-        self._current_branch_by_path[cwd] = None
+        self._current_branch_by_path[cwd] = DetachedHead()
         self._worktrees = [
             WorktreeInfo(path=wt.path, branch=None, is_bare=wt.is_bare) if wt.path == cwd else wt
             for wt in self._worktrees
@@ -143,8 +146,6 @@ class FakeGitGateway(GitGateway):
             raise AssertionError(f"branch {branch!r} already exists; pass force=True to move it")
         self._create_branch_calls.append((branch, start_point, force))
         self._branches.add(branch)
-
-    # -- Status --
 
     def has_uncommitted_changes(self, cwd: Path) -> bool:
         status = self.get_file_status(cwd)

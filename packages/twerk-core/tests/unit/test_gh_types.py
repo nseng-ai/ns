@@ -8,7 +8,6 @@ from twerk_core.gh.types import (
     PRReview,
     PRReviewComment,
     PRReviewThread,
-    RestructuredFile,
 )
 
 
@@ -125,17 +124,6 @@ def test_issue_comment_construction():
     )
     assert comment.id == 456
     assert comment.url.startswith("https://")
-
-
-def test_restructured_file_construction():
-    rf = RestructuredFile(
-        status="R",
-        old_path="src/old.py",
-        new_path="src/new.py",
-        similarity=95,
-    )
-    assert rf.status == "R"
-    assert rf.similarity == 95
 
 
 def test_issue_construction() -> None:

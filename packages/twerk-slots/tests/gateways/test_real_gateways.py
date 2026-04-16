@@ -6,15 +6,16 @@ from pathlib import Path
 
 import pytest
 
-from twerk_slots.gateway import real_git
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
-from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
-from twerk_slots.gateway.real_git import (
+from twerk_core.git import real_git_gateway
+from twerk_core.git.real_git_gateway import (
     RealGitGateway,
-    build_real_git_gateway,
     parse_porcelain_status,
     parse_worktree_list_output,
 )
+from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
+from twerk_slots.gateway import real_git
+from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
+from twerk_slots.gateway.real_git import build_real_slots_git_gateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
 from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
 
@@ -26,7 +27,7 @@ def test_real_gateway_instantiates() -> None:
     assert gateway.get_trunk_branch() == "main"
 
 
-def test_build_real_git_gateway_resolves_trunk(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_real_slots_git_gateway_resolves_trunk(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = {"count": 0}
 
     def fake_resolve(_repo_root: Path) -> str:
@@ -35,13 +36,13 @@ def test_build_real_git_gateway_resolves_trunk(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(real_git, "_resolve_trunk_branch", fake_resolve)
 
-    gateway = build_real_git_gateway(repo_root=Path("/r"))
+    gateway = build_real_slots_git_gateway(repo_root=Path("/r"))
 
     assert gateway.get_trunk_branch() == "master"
     assert calls["count"] == 1
 
 
-def test_build_real_git_gateway_raises_when_trunk_unresolvable(
+def test_build_real_slots_git_gateway_raises_when_trunk_unresolvable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from twerk_slots.allocation import SlotAllocationError
@@ -49,10 +50,10 @@ def test_build_real_git_gateway_raises_when_trunk_unresolvable(
     monkeypatch.setattr(real_git, "_resolve_trunk_branch", lambda _repo_root: None)
 
     with pytest.raises(SlotAllocationError, match="trunk"):
-        build_real_git_gateway(repo_root=Path("/r"))
+        build_real_slots_git_gateway(repo_root=Path("/r"))
 
 
-def test_build_real_git_gateway_raises_on_missing_git(
+def test_build_real_slots_git_gateway_raises_on_missing_git(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from twerk_slots.allocation import SlotAllocationError
@@ -63,7 +64,7 @@ def test_build_real_git_gateway_raises_on_missing_git(
     monkeypatch.setattr(real_git, "_resolve_trunk_branch", raise_missing)
 
     with pytest.raises(SlotAllocationError, match="git"):
-        build_real_git_gateway(repo_root=Path("/r"))
+        build_real_slots_git_gateway(repo_root=Path("/r"))
 
 
 def test_list_worktrees_parses_porcelain(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -86,7 +87,7 @@ def test_list_worktrees_parses_porcelain(monkeypatch: pytest.MonkeyPatch) -> Non
         assert cmd == ["git", "worktree", "list", "--porcelain"]
         return subprocess.CompletedProcess(cmd, 0, stdout=porcelain, stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     worktrees = RealGitGateway(
         repo_root=Path("/home/alice/repo"), trunk_branch="main"
@@ -106,7 +107,7 @@ def test_list_worktrees_handles_bare(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout=porcelain, stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     worktrees = RealGitGateway(
         repo_root=Path("/tmp/bare.git"), trunk_branch="main"
@@ -121,7 +122,7 @@ def test_branch_exists_uses_show_ref(monkeypatch: pytest.MonkeyPatch) -> None:
         captured.append(cmd)
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     assert RealGitGateway(repo_root=Path("/r"), trunk_branch="main").branch_exists("feat/x") is True
     assert captured == [
@@ -133,22 +134,27 @@ def test_branch_exists_returns_false_on_nonzero(monkeypatch: pytest.MonkeyPatch)
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     assert RealGitGateway(repo_root=Path("/r"), trunk_branch="main").branch_exists("nope") is False
 
 
-def test_get_current_branch_returns_none_when_detached(
+def test_get_current_branch_returns_detached_head_when_detached(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="fatal: ref HEAD")
+        return subprocess.CompletedProcess(
+            cmd,
+            128,
+            stdout="",
+            stderr="fatal: ref HEAD is not a symbolic ref",
+        )
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     assert (
         RealGitGateway(repo_root=Path("/r"), trunk_branch="main").get_current_branch(Path("/r"))
-        is None
+        == DetachedHead()
     )
 
 
@@ -249,7 +255,7 @@ def test_get_file_status_delegates_to_parser(monkeypatch: pytest.MonkeyPatch) ->
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout=output, stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     assert RealGitGateway(repo_root=Path("/r"), trunk_branch="main").get_file_status(
         Path("/r")
@@ -263,7 +269,7 @@ def test_create_branch_without_force(monkeypatch: pytest.MonkeyPatch) -> None:
         captured.append(cmd)
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     RealGitGateway(repo_root=Path("/r"), trunk_branch="main").create_branch(
         "feat/x", "main", force=False
@@ -279,7 +285,7 @@ def test_create_branch_with_force(monkeypatch: pytest.MonkeyPatch) -> None:
         captured.append(cmd)
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     RealGitGateway(repo_root=Path("/r"), trunk_branch="main").create_branch(
         "feat/x", "main", force=True
@@ -292,7 +298,7 @@ def test_list_local_branches_parses_for_each_ref(monkeypatch: pytest.MonkeyPatch
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout="main\nfeat/x\n", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     assert RealGitGateway(repo_root=Path("/r"), trunk_branch="main").list_local_branches() == (
         "main",
@@ -309,7 +315,7 @@ def test_get_git_common_dir_resolves_relative(
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout=".git\n", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     result = RealGitGateway(repo_root=repo, trunk_branch="main").get_git_common_dir(repo)
     assert result == (repo / ".git").resolve()
@@ -319,7 +325,7 @@ def test_get_git_common_dir_returns_none_outside_repo(monkeypatch: pytest.Monkey
     def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     assert (
         RealGitGateway(repo_root=Path("/tmp"), trunk_branch="main").get_git_common_dir(Path("/tmp"))

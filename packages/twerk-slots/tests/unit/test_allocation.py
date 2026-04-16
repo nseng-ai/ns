@@ -2,8 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from twerk_core.git.types import (
+    DetachedHead,
+    FileStatus,
+    GitCommandFailure,
+    WorktreeInfo,
+)
 from twerk_slots.allocation import (
     PoolFullError,
+    SlotAllocationError,
     SlotAllocationResult,
     allocate_slot_for_branch,
     find_branch_assignment,
@@ -13,7 +22,6 @@ from twerk_slots.allocation import (
     sync_pool_assignments,
 )
 from twerk_slots.context_testing import build_test_slots_context
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeGitGateway,
     FakePoolStateGateway,
@@ -215,6 +223,45 @@ def test_sync_ignores_placeholder_branches() -> None:
     result = sync_pool_assignments(state, git, storage, pool_state_gw)
 
     assert result.assignments[0].branch_name == "feat/x"
+
+
+def test_sync_preserves_assignment_when_detached_head() -> None:
+    repo = _make_repo()
+    slot_path = repo.worktrees_dir / "slot-01"
+    state = PoolState(
+        pool_size=4,
+        assignments=(SlotAssignment("slot-01", "feat/x", NOW, slot_path),),
+    )
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        current_branch_by_path={slot_path: DetachedHead()},
+    )
+    storage = _seeded_storage(existing_paths={slot_path})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
+
+    assert result == state
+
+
+def test_sync_raises_when_current_branch_lookup_fails() -> None:
+    repo = _make_repo()
+    slot_path = repo.worktrees_dir / "slot-01"
+    state = PoolState(
+        pool_size=4,
+        assignments=(SlotAssignment("slot-01", "feat/x", NOW, slot_path),),
+    )
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        current_branch_by_path={
+            slot_path: GitCommandFailure(message="fatal: not a git repository", returncode=128)
+        },
+    )
+    storage = _seeded_storage(existing_paths={slot_path})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    with pytest.raises(SlotAllocationError, match="Failed to determine current branch"):
+        sync_pool_assignments(state, git, storage, pool_state_gw)
 
 
 # -- allocate_slot_for_branch ------------------------------------------------

@@ -1,0 +1,92 @@
+"""Abstract gateway for shared git read operations."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+from twerk_core.git.types import (
+    DetachedHead,
+    FileStatus,
+    GitCommandFailure,
+    RestructuredFile,
+    WorktreeInfo,
+)
+
+
+class GitGateway(ABC):
+    """Shared gateway for git repository and worktree operations."""
+
+    @abstractmethod
+    def path_exists(self, path: Path) -> bool:
+        """Return True when ``path`` exists on the filesystem."""
+
+    @abstractmethod
+    def get_repository_root(self, cwd: Path) -> Path:
+        """Return the working tree root for ``cwd``."""
+
+    @abstractmethod
+    def get_git_common_dir(self, cwd: Path) -> Path | None:
+        """Return the main repo's ``.git`` directory, or None when not in a repo."""
+
+    @abstractmethod
+    def get_current_branch(self, cwd: Path) -> str | DetachedHead | GitCommandFailure:
+        """Return the checked-out branch, detached sentinel, or command failure."""
+
+    @abstractmethod
+    def get_previous_branch(self, cwd: Path) -> str | None:
+        """Return the previous branch or None when unavailable."""
+
+    @abstractmethod
+    def get_trunk_branch(self) -> str:
+        """Return the bound repo's trunk branch name."""
+
+    @abstractmethod
+    def branch_exists(self, branch: str) -> bool:
+        """Return True when ``branch`` exists as a local branch in the bound repo."""
+
+    @abstractmethod
+    def list_local_branches(self) -> tuple[str, ...]:
+        """Return the local branch names in the bound repo."""
+
+    @abstractmethod
+    def get_restructured_files(
+        self,
+        cwd: Path,
+        base_ref_name: str,
+    ) -> tuple[RestructuredFile, ...] | GitCommandFailure:
+        """Return renamed/copied files against ``origin/<base_ref_name>...HEAD``."""
+
+    @abstractmethod
+    def list_worktrees(self) -> tuple[WorktreeInfo, ...]:
+        """List worktrees registered with the bound repo."""
+
+    @abstractmethod
+    def add_worktree(
+        self,
+        path: Path,
+        branch: str,
+        *,
+        create_branch: bool,
+    ) -> WorktreeInfo:
+        """Add a worktree for ``branch`` at ``path`` and return its info."""
+
+    @abstractmethod
+    def checkout_branch(self, cwd: Path, branch: str) -> None:
+        """Check out ``branch`` in the worktree rooted at ``cwd``."""
+
+    @abstractmethod
+    def detach_head(self, cwd: Path, ref: str) -> None:
+        """Detach HEAD at ``ref`` in the worktree rooted at ``cwd``."""
+
+    @abstractmethod
+    def create_branch(self, branch: str, start_point: str, *, force: bool) -> None:
+        """Create ``branch`` at ``start_point`` in the bound repo."""
+
+    @abstractmethod
+    def has_uncommitted_changes(self, cwd: Path) -> bool:
+        """Return True when the worktree has staged, modified, or untracked files."""
+
+    @abstractmethod
+    def get_file_status(self, cwd: Path) -> FileStatus:
+        """Return a ``FileStatus`` describing the worktree's dirty state."""

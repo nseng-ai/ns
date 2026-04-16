@@ -9,9 +9,14 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
+from twerk_core.git.types import (
+    DetachedHead,
+    FileStatus,
+    GitCommandFailure,
+    WorktreeInfo,
+)
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,
     FakeGitGateway,
@@ -55,7 +60,7 @@ def _fake_for_repo(
     *,
     branches: tuple[str, ...] = (),
     worktrees: tuple[WorktreeInfo, ...] = (),
-    current_branch_by_path: dict[Path, str | None] | None = None,
+    current_branch_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None,
     previous_branch_by_path: dict[Path, str | None] | None = None,
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
@@ -85,7 +90,7 @@ def _fake_for_repo(
         file_status_by_path=file_status_by_path,
         existing_paths={repo_root, Path.cwd(), *extra_existing},
         repository_root_by_cwd=root_map,
-        storage=storage,
+        on_add_worktree=storage.ensure_dir,
     )
     return _SlotFakes(
         git=git,
@@ -447,7 +452,7 @@ def test_slot_checkout_current_detaches_when_trunk_checked_out_elsewhere(
     )
 
     assert result.exit_code == 0, result.output
-    assert fakes.git.get_current_branch(fakes.repo_root) is None
+    assert fakes.git.get_current_branch(fakes.repo_root) == DetachedHead()
     assert "checked out" in result.output
     assert "detached HEAD" in result.output
     _assert_assigned_slot_state(
@@ -526,7 +531,7 @@ def test_slot_checkout_current_rejects_detached_head(
     fakes = _fake_for_repo(
         tmp_path,
         branches=("main",),
-        current_branch_by_path={(tmp_path / "repo").resolve(): None},
+        current_branch_by_path={(tmp_path / "repo").resolve(): DetachedHead()},
     )
     slots_root = tmp_path / "slots"
 
@@ -541,6 +546,32 @@ def test_slot_checkout_current_rejects_detached_head(
     assert fakes.pool_state.exists() is False
     assert fakes.git.list_worktrees() == ()
     assert not fakes.storage.path_exists(_slot_path(slots_root))
+
+
+def test_slot_checkout_current_surfaces_git_failure_as_slot_allocation_error(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("main",),
+        current_branch_by_path={
+            (tmp_path / "repo").resolve(): GitCommandFailure(
+                message="fatal: not a git repository",
+                returncode=128,
+            )
+        },
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "Failed to determine current branch" in result.output
+    assert "not a git repository" in result.output
 
 
 def test_slot_checkout_current_rejects_dirty_worktree(

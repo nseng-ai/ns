@@ -11,14 +11,14 @@ from pathlib import Path
 
 from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.pr_testing import FakePRGateway
+from twerk_core.git.git_gateway import GitGateway
+from twerk_core.git.testing import FakeGitGateway
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardGateway
-from twerk_slots.gateway.git import GitGateway
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,
-    FakeGitGateway,
     FakePoolStateGateway,
     FakeSlotsStorageGateway,
 )
@@ -41,14 +41,23 @@ def build_test_slots_context(
     back to fresh defaults (empty clipboard, empty PR map, storage seeded
     with the repo's own dirs, and so on).
     """
-    return SlotsCliContext(
-        repo=repo,
-        git=git if git is not None else FakeGitGateway(repo_root=repo.root),
-        storage=storage
+    resolved_storage = (
+        storage
         if storage is not None
         else FakeSlotsStorageGateway(
             existing_paths={repo.root, repo.repo_dir, repo.worktrees_dir},
+        )
+    )
+    return SlotsCliContext(
+        repo=repo,
+        git=git
+        if git is not None
+        else FakeGitGateway(
+            repo_root=repo.root,
+            existing_paths={repo.root, repo.repo_dir, repo.worktrees_dir},
+            on_add_worktree=resolved_storage.ensure_dir,
         ),
+        storage=resolved_storage,
         pool_state=pool_state
         if pool_state is not None
         else FakePoolStateGateway(repo.pool_json_path),

@@ -14,11 +14,11 @@ from click.testing import CliRunner
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRState, PRSummary
+from twerk_core.git import real_git_gateway
+from twerk_core.git.types import FileStatus, WorktreeInfo
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.context_testing import build_test_slots_context
-from twerk_slots.gateway import real_git
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeGitGateway,
     FakePoolStateGateway,
@@ -51,7 +51,7 @@ def _build_ctx_for_repo(
         git_common_dir=repo_root / ".git",
         existing_paths={repo_root, Path.cwd(), *extra_existing},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
-        storage=storage,
+        on_add_worktree=storage.ensure_dir,
     )
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
@@ -151,7 +151,7 @@ def test_slot_gc_not_in_repo_errors(
             return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     result = CliRunner().invoke(cli_group, ["gc"])
 

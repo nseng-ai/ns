@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -11,8 +12,10 @@ from click.testing import CliRunner
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import IssueComment, PRReview, PRReviewComment, PRReviewThread, PRSummary
+from twerk_core.git import real_git_gateway
+from twerk_core.git.testing import FakeGitGateway
+from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
 from twerk_pr_address.cli.main import build_cli
-from twerk_pr_address.cli.pr_address import local_git
 from twerk_pr_address.cli.pr_address.reply_formatting import PRE_EXISTING_REPLY, RESOLUTION_MARKER
 
 
@@ -26,13 +29,18 @@ def _invoke_json(
     op: str,
     payload: dict,
     fake: FakeIssueGateway,
+    *,
+    git_gateway: FakeGitGateway | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
         ["exec", "json", op],
         input=json.dumps(payload),
-        obj={"gh_issue_gateway": fake},
+        obj={
+            "gh_issue_gateway": fake,
+            "git_gateway": git_gateway if git_gateway is not None else FakeGitGateway(),
+        },
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
@@ -40,7 +48,6 @@ def _invoke_json(
 
 def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
     cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake = FakeIssueGateway(
         prs_by_branch={
@@ -141,24 +148,21 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
         },
     )
 
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="feature\n", stderr="")
-        if cmd == ["git", "diff", "--name-status", "-M", "-C", "origin/master...HEAD"]:
-            return subprocess.CompletedProcess(
-                cmd,
-                0,
-                stdout="R100\tsrc/old.py\tsrc/new.py\nM\tsrc/ignored.py\n",
-                stderr="",
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={Path.cwd(): "feature"},
+        restructured_files_by_key={
+            (Path.cwd(), "master"): (
+                RestructuredFile(
+                    status="R",
+                    old_path="src/old.py",
+                    new_path="src/new.py",
+                    similarity=100,
+                ),
             )
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
+        },
+    )
 
-    monkeypatch.setattr(local_git.subprocess, "run", fake_run)
-
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake)
+    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
     assert exit_code == 0
     assert output["success"] is True
@@ -190,7 +194,6 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
 
 def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
     cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake = FakeIssueGateway(
         prs_by_branch={
@@ -225,23 +228,14 @@ def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
         },
     )
 
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="feature\n", stderr="")
-        if cmd == ["git", "diff", "--name-status", "-M", "-C", "origin/master...HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(local_git.subprocess, "run", fake_run)
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
 
     exit_code, output = _invoke_json(
         cli_group,
         "prepare-run",
         {"include_all_threads": True},
         fake,
+        git_gateway=git_gateway,
     )
 
     assert exit_code == 0
@@ -252,21 +246,11 @@ def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
 
 def test_prepare_run_returns_found_false_when_branch_has_no_pr(
     cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake = FakeIssueGateway()
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
 
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="feature\n", stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(local_git.subprocess, "run", fake_run)
-
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake)
+    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
     assert exit_code == 0
     assert output["success"] is True
@@ -277,26 +261,11 @@ def test_prepare_run_returns_found_false_when_branch_has_no_pr(
 
 def test_prepare_run_detached_head_returns_command_error(
     cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake = FakeIssueGateway()
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): DetachedHead()})
 
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
-            return subprocess.CompletedProcess(
-                cmd,
-                128,
-                stdout="",
-                stderr="fatal: ref HEAD is not a symbolic ref",
-            )
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(local_git.subprocess, "run", fake_run)
-
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake)
+    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
     assert exit_code == 1
     assert output["success"] is False
@@ -305,6 +274,62 @@ def test_prepare_run_detached_head_returns_command_error(
 
 
 def test_prepare_run_warns_when_restructured_file_detection_fails(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway(
+        prs_by_branch={
+            "feature": PRSummary(
+                number=42,
+                title="Update helper surface",
+                url="https://example.com/pr/42",
+                head_ref_name="feature",
+                base_ref_name="master",
+                state="OPEN",
+            )
+        }
+    )
+
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={Path.cwd(): "feature"},
+        restructured_files_by_key={
+            (Path.cwd(), "master"): GitCommandFailure(
+                message="Failed to detect restructured files against origin/master: "
+                "fatal: bad revision 'origin/master...HEAD'",
+                returncode=128,
+            )
+        },
+    )
+
+    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
+
+    assert exit_code == 0
+    assert output["success"] is True
+    assert output["restructured_files"] == []
+    assert output["warnings"] == [
+        "Failed to detect restructured files against origin/master: "
+        "fatal: bad revision 'origin/master...HEAD'"
+    ]
+
+
+def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway()
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={
+            Path.cwd(): GitCommandFailure(message="fatal: not a git repository", returncode=128)
+        }
+    )
+
+    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
+
+    assert exit_code == 1
+    assert output["success"] is False
+    assert output["error_type"] == "git_failed"
+    assert "not a git repository" in output["message"]
+
+
+def test_prepare_run_falls_back_to_real_git_gateway(
     cli_group: ClinkrGroup,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -328,25 +353,24 @@ def test_prepare_run_warns_when_restructured_file_detection_fails(
         if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="feature\n", stderr="")
         if cmd == ["git", "diff", "--name-status", "-M", "-C", "origin/master...HEAD"]:
-            return subprocess.CompletedProcess(
-                cmd,
-                128,
-                stdout="",
-                stderr="fatal: bad revision 'origin/master...HEAD'",
-            )
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
 
-    monkeypatch.setattr(local_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "json", "prepare-run"],
+        input=json.dumps({}),
+        obj={"gh_issue_gateway": fake},
+    )
+    output = json.loads(result.output) if result.output.strip() else {}
 
-    assert exit_code == 0
+    assert result.exit_code == 0
     assert output["success"] is True
-    assert output["restructured_files"] == []
-    assert output["warnings"] == [
-        "Failed to detect restructured files against origin/master: "
-        "fatal: bad revision 'origin/master...HEAD'"
-    ]
+    assert output["found"] is True
+    assert output["current_branch"] == "feature"
 
 
 def test_resolve_thread_with_reply_fixed_uses_canonical_format(
