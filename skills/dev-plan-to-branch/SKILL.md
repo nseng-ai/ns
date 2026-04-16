@@ -109,10 +109,10 @@ Try in order; stop at the first that succeeds:
    reminder or equivalent session metadata. If exactly one such path
    appears recently, use it. If multiple distinct paths appear, pick the
    most recent reference and call out that choice in the report.
-3. **Filesystem fallback.** If recent context identified a concrete plan
-   directory, list its markdown files newest-first and take the first
-   one (for example, `ls -t ~/.claude/plans/*.md | head -1` in Claude
-   Code).
+3. **Filesystem fallback.** If recent context identified a concrete
+   harness-exposed plan directory, list its markdown files newest-first
+   and take the first one. Do not guess agent-specific default plan
+   directories.
 
 If all three fail, abort with a clear error explaining what was tried.
 
