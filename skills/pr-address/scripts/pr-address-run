@@ -3,9 +3,22 @@
 # ephemeral install from GitHub (`uvx`). See packages/twerk-pr-address/README.md.
 set -euo pipefail
 
+# Bump TWERK_PIN to roll out new pr-address code to skill consumers.
+# Procedure: see packages/twerk-pr-address/README.md → "Updating the pinned commit".
+# TODO: replace with the merge SHA once this PR lands on master.
+TWERK_PIN="0000000000000000000000000000000000000000"
+TWERK_REPO="git+https://github.com/dagster-io/twerk"
+
+prod_uvx() {
+  exec uvx \
+    --from "${TWERK_REPO}@${TWERK_PIN}#subdirectory=packages/twerk-pr-address" \
+    --with "twerk-core @ ${TWERK_REPO}@${TWERK_PIN}#subdirectory=packages/twerk-core" \
+    pr-address "$@"
+}
+
 case "${TWERK_PR_ADDRESS_MODE:-}" in
   local) exec uv run pr-address "$@" ;;
-  prod)  exec uvx --from "git+https://github.com/dagster-io/twerk" pr-address "$@" ;;
+  prod)  prod_uvx "$@" ;;
   "") ;;
   *)
     echo "pr-address-run: unknown TWERK_PR_ADDRESS_MODE='${TWERK_PR_ADDRESS_MODE}' (expected 'local' or 'prod')" >&2
@@ -18,4 +31,4 @@ if [[ -n "$repo_root" && -f "$repo_root/packages/twerk-pr-address/pyproject.toml
   exec uv run --project "$repo_root" pr-address "$@"
 fi
 
-exec uvx --from "git+https://github.com/dagster-io/twerk" pr-address "$@"
+prod_uvx "$@"

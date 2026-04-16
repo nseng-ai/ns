@@ -37,11 +37,29 @@ The installed skill ships a wrapper at
 
 - inside a twerk checkout (auto-detected via
   `packages/twerk-pr-address/pyproject.toml`) → `uv run --project <repo> pr-address`
-- otherwise → `uvx --from git+https://github.com/dagster-io/twerk pr-address`
+- otherwise → `uvx` builds `twerk-pr-address` from a pinned commit on
+  GitHub, with `twerk-core` injected via `--with` from the same SHA. See
+  the wrapper source for the exact invocation.
+
+The pinned SHA is a 40-char commit hash, which uv treats as immutable and
+caches aggressively — first call builds, subsequent calls are near-instant.
 
 Override with `TWERK_PR_ADDRESS_MODE=local` or `TWERK_PR_ADDRESS_MODE=prod`
-when you want to force a specific path. See the wrapper source for the
-exact dispatch logic.
+when you want to force a specific path.
+
+## Updating the pinned commit
+
+To roll out new `twerk-pr-address` code to skill consumers, bump
+`TWERK_PIN` in the wrapper to the desired commit on `master` and commit
+the change. From a twerk checkout:
+
+```bash
+sha="$(git rev-parse origin/master)"
+sed -i '' "s/^TWERK_PIN=.*/TWERK_PIN=\"$sha\"/" skills/pr-address/scripts/pr-address-run
+```
+
+Then commit and push. Skill consumers pick up the new pin on their next
+`/pr-address` invocation.
 
 ## Local development
 
