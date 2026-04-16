@@ -1,6 +1,6 @@
 ---
 name: pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command - it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements changes, commits in batches, and resolves threads. Never pushes - the user pushes manually after reviewing local commits."
+description: "Address PR review comments end-to-end on the current branch's PR. Use only when the user explicitly invokes `pr-address` by name in their current harness; do not trigger from generic natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements changes, commits in batches, and resolves threads. Never pushes - the user pushes manually after reviewing local commits."
 allowed-tools:
   - "Bash(*pr-address-run *)"
   - "Bash(*pr-address-run)"
@@ -36,8 +36,9 @@ matching GitHub feedback. It never pushes.
 
 ## When to use
 
-Run this skill only when the user explicitly invokes `/pr-address`. Do not
-trigger it from natural-language requests like "fix review feedback".
+Run this skill only when the user explicitly invokes `pr-address` by name in
+their current harness. Do not trigger it from natural-language requests like
+"fix review feedback".
 
 If the user wants a read-only pass, stop after the execution plan. Do not
 edit code, commit, or mutate GitHub.
@@ -60,13 +61,21 @@ This skill bundles a wrapper at
 `uvx --from git+https://github.com/dagster-io/twerk pr-address`
 (otherwise), so the skill works without a local clone.
 
-Always invoke the wrapper at the absolute path
-`"$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run"`.
-Wherever this skill or `references/cli-reference.md` shows
-`pr-address ...`, substitute that wrapper path. For example:
+Resolve the wrapper from this skill's own directory, not from a
+harness-specific path. For the rest of this document,
+`<pr-address-runner>` means the executable at `<skill-dir>/scripts/pr-address-run`,
+where `<skill-dir>` is the directory containing this `SKILL.md`.
+
+Common locations are:
+
+- `skills/pr-address/scripts/pr-address-run` in a twerk checkout
+- `.agents/skills/pr-address/scripts/pr-address-run` in an installed skill mirror
+
+Wherever this skill or `references/cli-reference.md` shows `pr-address ...`,
+substitute `<pr-address-runner>`. For example:
 
 ```bash
-echo '{}' | "$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run" exec json prepare-run
+echo '{}' | <pr-address-runner> exec json prepare-run
 ```
 
 `TWERK_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
@@ -74,7 +83,7 @@ echo '{}' | "$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-ru
 ## Prerequisites
 
 1. `git status --porcelain` is empty.
-2. `test -x "$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run"` succeeds.
+2. `test -x <pr-address-runner>` succeeds.
 3. `gh auth status` is healthy.
 4. The current branch has an open PR.
 
@@ -94,7 +103,7 @@ commands.
 
 Use the composite helper:
 
-- `"$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run" exec json prepare-run`
+- `<pr-address-runner> exec json prepare-run`
 
 Pass `{"include_all_threads": true}` only when the user explicitly wants
 resolved threads included for reference. Otherwise let it default to `false`.
@@ -290,7 +299,7 @@ and standard formatting.
 
 After the last batch, re-fetch current feedback with:
 
-- `"$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run" exec get-feedback <pr_number>`
+- `<pr-address-runner> exec get-feedback <pr_number>`
 
 Summarize:
 

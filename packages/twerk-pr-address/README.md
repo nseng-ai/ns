@@ -1,7 +1,7 @@
 # twerk-pr-address
 
-CLI operations that back the `pr-address` Claude Code skill — fetches PR
-feedback from GitHub and executes resolution mutations.
+CLI operations that back the `pr-address` skill in any supported harness -
+fetch PR feedback from GitHub and execute resolution mutations.
 
 ## Get started
 
@@ -20,20 +20,16 @@ Requires:
   ```
 - `gh` authenticated (`gh auth status`).
 
-Then, in Claude Code, on a branch with an open PR, run:
-
-```
-/pr-address
-```
-
-That's it — the skill dispatches to `uvx` under the hood, so no local
-twerk clone is required.
+Then, in your harness of choice, explicitly invoke the `pr-address` skill on a
+branch with an open PR. The invocation surface is harness-specific, but the
+skill dispatches to `uvx` under the hood, so no local twerk clone is required.
 
 ## How it works
 
-The installed skill ships a wrapper at
-`.claude/skills/pr-address/scripts/pr-address-run` that selects how
-`pr-address` runs:
+The installed skill ships a wrapper at `<skill-dir>/scripts/pr-address-run`
+that selects how `pr-address` runs. `<skill-dir>` is the directory containing
+the installed `SKILL.md`; common locations are `skills/pr-address/` in a repo
+checkout and `.agents/skills/pr-address/` in an installed skill mirror.
 
 - inside a twerk checkout (auto-detected via
   `packages/twerk-pr-address/pyproject.toml`) → `uv run --project <repo> pr-address`
@@ -58,8 +54,8 @@ sha="$(git rev-parse origin/master)"
 sed -i '' "s/^TWERK_PIN=.*/TWERK_PIN=\"$sha\"/" skills/pr-address/scripts/pr-address-run
 ```
 
-Then commit and push. Skill consumers pick up the new pin on their next
-`/pr-address` invocation.
+Then commit and push. Skill consumers pick up the new pin the next time they
+invoke the `pr-address` skill.
 
 ## Local development
 
@@ -101,7 +97,7 @@ The current operation set, by category:
 
 ## Relationship to the `pr-address` skill
 
-- The skill (`.claude/skills/pr-address/SKILL.md`) provides the
+- The skill (`skills/pr-address/SKILL.md`) provides the
   LLM-driven classification, batching, and code-change orchestration.
 - This package provides the deterministic, testable operations the
   skill invokes.
@@ -109,6 +105,6 @@ The current operation set, by category:
 
 ## See also
 
-- Skill source: `.claude/skills/pr-address/SKILL.md`
+- Skill source: `skills/pr-address/SKILL.md`
 - clinkr (the dual-mode CLI framework used by every operation):
   `packages/twerk-core/src/twerk_core/clinkr/README.md`
