@@ -7,6 +7,8 @@ from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.workbranch.testing import FakeWorkbranchGitGateway
+from twerk_core.working_memory.testing import FakeWorkingMemoryGateway
 
 
 class FakePluginEntryPoint:
@@ -85,3 +87,28 @@ def test_pr_address_plugin_integration() -> None:
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["count"] == 0
+
+
+def test_workbranch_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(name="workbranch", value="twerk_core.workbranch")
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    runner = CliRunner()
+    obj = {
+        "working_memory_gateway": FakeWorkingMemoryGateway(
+            initial_files={"feat/x": {"plan.md": "# Plan\n"}}
+        ),
+        "workbranch_git_gateway": FakeWorkbranchGitGateway(current_branch="feat/x"),
+    }
+
+    result = runner.invoke(parent, ["workbranch", "read"], obj=obj)
+    assert result.exit_code == 0
+    assert result.output == "# Plan\n"
+
+    result = runner.invoke(parent, ["workbranch", "json", "read"], input="", obj=obj)
+    assert result.exit_code == 0
+    output = json.loads(result.output)
+    assert output["branch"] == "feat/x"
+    assert output["content"] == "# Plan\n"

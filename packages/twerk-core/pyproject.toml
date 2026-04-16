@@ -8,6 +8,12 @@ dependencies = [
   "rich>=13.0",
 ]
 
+[project.scripts]
+workbranch = "twerk_core.workbranch.main:main"
+
+[project.entry-points."twerk.plugins"]
+workbranch = "twerk_core.workbranch"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
