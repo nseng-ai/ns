@@ -8,6 +8,7 @@ state on disk.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from twerk_core.git.git_gateway import GitGateway
@@ -164,8 +165,18 @@ def sync_pool_assignments(
 ) -> PoolState:
     """Reconcile pool.json with the actual branches checked out in each slot.
 
-    Persists the updated state when any assignment changes. Placeholder
-    branches are ignored so stub-branch mismatches don't churn the file.
+    Has two phases:
+
+    1. Update existing assignments whose recorded branch no longer matches
+       the worktree's actual branch. Placeholder branches are ignored so
+       stub-branch mismatches don't churn the file.
+    2. Recover orphaned worktrees: managed slots (``slot-XX``) that have
+       a real branch checked out but no assignment in pool.json. These
+       arise from pool.json write races where one concurrent operation
+       clobbers another's assignment. Without recovery, ``find_inactive_slot``
+       would treat the orphan as reusable and could silently overwrite work.
+
+    Persists the updated state when any assignment changes.
     """
     updated: list[SlotAssignment] = []
     changed = False
@@ -195,6 +206,32 @@ def sync_pool_assignments(
                 branch_name=actual,
                 assigned_at=assignment.assigned_at,
                 worktree_path=assignment.worktree_path,
+            )
+        )
+        changed = True
+
+    # Phase 2: recover orphaned worktrees (managed slots on real branches
+    # with no pool assignment).
+    assigned_slots = {a.slot_name for a in updated}
+    for wt in git.list_worktrees():
+        slot_name = wt.path.name
+        if extract_slot_number(slot_name) is None:
+            continue  # not a managed slot worktree
+        if slot_name in assigned_slots:
+            continue  # already tracked
+
+        actual = git.get_current_branch(wt.path)
+        if isinstance(actual, (GitCommandFailure, DetachedHead)):
+            continue  # can't determine branch; skip silently
+        if is_placeholder_branch(actual):
+            continue  # genuinely free slot on stub branch
+
+        updated.append(
+            SlotAssignment(
+                slot_name=slot_name,
+                branch_name=actual,
+                assigned_at=datetime.now(UTC).isoformat(),
+                worktree_path=wt.path,
             )
         )
         changed = True
