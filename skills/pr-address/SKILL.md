@@ -2,7 +2,8 @@
 name: pr-address
 description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command - it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements changes, commits in batches, and resolves threads. Never pushes - the user pushes manually after reviewing local commits."
 allowed-tools:
-  - "Bash(pr-address *)"
+  - "Bash(*pr-address-run *)"
+  - "Bash(*pr-address-run)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
   - "Bash(gh auth status)"
@@ -16,7 +17,7 @@ allowed-tools:
   - "Bash(git remote*)"
   - "Bash(git branch*)"
   - "Bash(just *)"
-  - "Bash(command -v pr-address)"
+  - "Bash(test -x*)"
   - "Read"
   - "Edit"
   - "Write"
@@ -51,10 +52,29 @@ edit code, commit, or mutate GitHub.
 - GitHub mutations go through `pr-address exec` operations, not raw `gh api`
   calls.
 
+## How `pr-address` is invoked
+
+This skill bundles a wrapper at
+`scripts/pr-address-run` that dispatches to either `uv run pr-address`
+(when the current working directory is inside a twerk checkout) or
+`uvx --from git+https://github.com/dagster-io/twerk pr-address`
+(otherwise), so the skill works without a local clone.
+
+Always invoke the wrapper at the absolute path
+`"$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run"`.
+Wherever this skill or `references/cli-reference.md` shows
+`pr-address ...`, substitute that wrapper path. For example:
+
+```bash
+echo '{}' | "$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run" exec json prepare-run
+```
+
+`TWERK_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
+
 ## Prerequisites
 
 1. `git status --porcelain` is empty.
-2. `command -v pr-address` succeeds.
+2. `test -x "$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run"` succeeds.
 3. `gh auth status` is healthy.
 4. The current branch has an open PR.
 
@@ -74,7 +94,7 @@ commands.
 
 Use the composite helper:
 
-- `pr-address exec json prepare-run`
+- `"$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run" exec json prepare-run`
 
 Pass `{"include_all_threads": true}` only when the user explicitly wants
 resolved threads included for reference. Otherwise let it default to `false`.
@@ -223,6 +243,8 @@ For each approved batch, do the real engineering work:
 
 All `pr-address exec json` helpers accept input as JSON on stdin. See
 `references/cli-reference.md` for required fields and invocation examples.
+Substitute the wrapper path documented above for every literal
+`pr-address` shown in that reference.
 
 Commit format:
 
@@ -268,7 +290,7 @@ and standard formatting.
 
 After the last batch, re-fetch current feedback with:
 
-- `pr-address exec get-feedback <pr_number>`
+- `"$CLAUDE_PROJECT_DIR/.claude/skills/pr-address/scripts/pr-address-run" exec get-feedback <pr_number>`
 
 Summarize:
 

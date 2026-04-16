@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Dispatch `pr-address` to either a local twerk checkout (`uv run`) or an
+# ephemeral install from GitHub (`uvx`). See packages/twerk-pr-address/README.md.
+set -euo pipefail
+
+case "${TWERK_PR_ADDRESS_MODE:-}" in
+  local) exec uv run pr-address "$@" ;;
+  prod)  exec uvx --from "git+https://github.com/dagster-io/twerk" pr-address "$@" ;;
+  "") ;;
+  *)
+    echo "pr-address-run: unknown TWERK_PR_ADDRESS_MODE='${TWERK_PR_ADDRESS_MODE}' (expected 'local' or 'prod')" >&2
+    exit 2
+    ;;
+esac
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "$repo_root" && -f "$repo_root/packages/twerk-pr-address/pyproject.toml" ]]; then
+  exec uv run --project "$repo_root" pr-address "$@"
+fi
+
+exec uvx --from "git+https://github.com/dagster-io/twerk" pr-address "$@"

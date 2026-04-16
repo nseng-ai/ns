@@ -1,0 +1,96 @@
+# twerk-pr-address
+
+CLI operations that back the `pr-address` Claude Code skill — fetches PR
+feedback from GitHub and executes resolution mutations.
+
+## Get started
+
+Install the skill into your project:
+
+```bash
+npx skills add dagster-io/twerk@pr-address --agent codex claude-code -y
+```
+
+Requires:
+
+- `uv` on `PATH` (see [uv install](https://docs.astral.sh/uv/getting-started/installation/));
+  the canonical one-liner is:
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+- `gh` authenticated (`gh auth status`).
+
+Then, in Claude Code, on a branch with an open PR, run:
+
+```
+/pr-address
+```
+
+That's it — the skill dispatches to `uvx` under the hood, so no local
+twerk clone is required.
+
+## How it works
+
+The installed skill ships a wrapper at
+`.claude/skills/pr-address/scripts/pr-address-run` that selects how
+`pr-address` runs:
+
+- inside a twerk checkout (auto-detected via
+  `packages/twerk-pr-address/pyproject.toml`) → `uv run --project <repo> pr-address`
+- otherwise → `uvx --from git+https://github.com/dagster-io/twerk pr-address`
+
+Override with `TWERK_PR_ADDRESS_MODE=local` or `TWERK_PR_ADDRESS_MODE=prod`
+when you want to force a specific path. See the wrapper source for the
+exact dispatch logic.
+
+## Local development
+
+For working on this package itself:
+
+```bash
+git clone https://github.com/dagster-io/twerk
+cd twerk
+uv sync
+```
+
+The wrapper auto-detects the checkout, so editing
+`packages/twerk-pr-address/` and re-invoking the skill picks up changes
+immediately. To run tests for just this package:
+
+```bash
+uv run pytest packages/twerk-pr-address
+```
+
+Or run the full suite from the repo root with `just`.
+
+## What it provides
+
+- Standalone CLI: `pr-address` console script (declared in `pyproject.toml`).
+- Twerk plugin: `twerk pr-address …` (via the `twerk.plugins` entry point).
+- All operations live under the `exec` subgroup. Run
+  `pr-address exec --help` for the full list. Each operation also has a
+  JSON-over-stdin variant under `pr-address exec json …`.
+
+The current operation set, by category:
+
+- **Feedback fetch / composite**: `get-feedback`, `prepare-run`,
+  `get-pr-for-branch`, `get-reviews`, `get-review-comments`,
+  `get-discussion-comments`
+- **Thread mutations**: `resolve-thread`, `resolve-thread-with-reply`,
+  `unresolve-thread`, `add-review-thread-reply`
+- **Replies / comments / reactions**: `reply-to-review`,
+  `reply-to-discussion`, `add-issue-comment`, `add-reaction`
+
+## Relationship to the `pr-address` skill
+
+- The skill (`.claude/skills/pr-address/SKILL.md`) provides the
+  LLM-driven classification, batching, and code-change orchestration.
+- This package provides the deterministic, testable operations the
+  skill invokes.
+- The skill never pushes; this package never pushes.
+
+## See also
+
+- Skill source: `.claude/skills/pr-address/SKILL.md`
+- clinkr (the dual-mode CLI framework used by every operation):
+  `packages/twerk-core/src/twerk_core/clinkr/README.md`
