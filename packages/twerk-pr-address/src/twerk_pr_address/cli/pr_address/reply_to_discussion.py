@@ -53,14 +53,18 @@ def run_reply_to_discussion(
     ctx: click.Context,
     request: ReplyToDiscussionRequest,
 ) -> ReplyToDiscussionResult | ClinkrCommandError:
-    try:
-        body = format_discussion_reply(
-            comment_author=request.comment_author,
-            original_body=request.original_body,
-            response=request.response,
+    normalized_response = request.response.strip()
+    if not normalized_response:
+        return ClinkrCommandError(
+            error_type="invalid_request",
+            message="response must not be empty",
         )
-    except ValueError as exc:
-        return ClinkrCommandError(error_type="invalid_request", message=str(exc))
+
+    body = format_discussion_reply(
+        comment_author=request.comment_author,
+        original_body=request.original_body,
+        response=normalized_response,
+    )
 
     gateway = get_gh_issue_gateway(ctx)
     comment = gateway.add_comment(request.pr_number, body)

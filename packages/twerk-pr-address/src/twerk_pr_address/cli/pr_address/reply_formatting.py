@@ -16,10 +16,19 @@ PRE_EXISTING_REPLY: Final[str] = (
 def format_resolution_reply(
     *,
     mode: ResolutionReplyMode,
-    message: str | None = None,
-    commit_sha: str | None = None,
+    message: str | None,
+    commit_sha: str | None,
 ) -> str:
-    """Format the reply body for an inline review thread resolution."""
+    """Format the reply body for an inline review thread resolution.
+
+    Callers must validate inputs before invoking this helper:
+
+    - mode="fixed" requires non-empty ``message`` and ``commit_sha``.
+    - mode="explained" requires non-empty ``message``.
+    - mode="pre_existing" ignores ``message`` and ``commit_sha``.
+
+    Values are used verbatim; no trimming or validation is performed here.
+    """
     summary = _resolution_summary(mode=mode, message=message, commit_sha=commit_sha)
     return "\n".join(
         [
@@ -32,12 +41,14 @@ def format_resolution_reply(
 
 
 def format_review_reply(*, review_author: str, summary_markdown: str) -> str:
-    """Format a PR-level review response comment."""
-    summary = _require_text(summary_markdown, field_name="summary_markdown")
+    """Format a PR-level review response comment.
+
+    Callers must pass a non-empty, already-trimmed ``summary_markdown``.
+    """
     return "\n".join(
         [
             f"Addressed review feedback from @{review_author}:",
-            summary,
+            summary_markdown,
             "",
             f"_Addressed via pr-address at {_utc_timestamp()}_",
         ]
@@ -50,15 +61,17 @@ def format_discussion_reply(
     original_body: str,
     response: str,
 ) -> str:
-    """Format a reply to a PR discussion comment."""
-    normalized_response = _require_text(response, field_name="response")
+    """Format a reply to a PR discussion comment.
+
+    Callers must pass a non-empty, already-trimmed ``response``.
+    """
     quote_block = "\n".join(_quote_lines(original_body))
     return "\n".join(
         [
             f"> @{comment_author} wrote:",
             quote_block,
             "",
-            normalized_response,
+            response,
             "",
             f"_Addressed via pr-address at {_utc_timestamp()}_",
         ]
@@ -74,21 +87,10 @@ def _resolution_summary(
     if mode == "pre_existing":
         return PRE_EXISTING_REPLY
     if mode == "fixed":
-        normalized_message = _require_text(message, field_name="message")
-        normalized_sha = _require_text(commit_sha, field_name="commit_sha")
-        return f"Fixed in commit {normalized_sha}: {normalized_message}"
+        return f"Fixed in commit {commit_sha}: {message}"
     if mode == "explained":
-        return _require_text(message, field_name="message")
+        return f"{message}"
     raise ValueError(f"Unsupported resolution mode: {mode}")
-
-
-def _require_text(value: str | None, *, field_name: str) -> str:
-    if value is None:
-        raise ValueError(f"{field_name} is required")
-    normalized = value.strip()
-    if not normalized:
-        raise ValueError(f"{field_name} must not be empty")
-    return normalized
 
 
 def _quote_lines(text: str) -> tuple[str, ...]:

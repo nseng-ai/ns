@@ -42,13 +42,17 @@ def run_reply_to_review(
     ctx: click.Context,
     request: ReplyToReviewRequest,
 ) -> ReplyToReviewResult | ClinkrCommandError:
-    try:
-        body = format_review_reply(
-            review_author=request.review_author,
-            summary_markdown=request.summary_markdown,
+    normalized_summary = request.summary_markdown.strip()
+    if not normalized_summary:
+        return ClinkrCommandError(
+            error_type="invalid_request",
+            message="summary_markdown must not be empty",
         )
-    except ValueError as exc:
-        return ClinkrCommandError(error_type="invalid_request", message=str(exc))
+
+    body = format_review_reply(
+        review_author=request.review_author,
+        summary_markdown=normalized_summary,
+    )
 
     gateway = get_gh_issue_gateway(ctx)
     comment = gateway.add_comment(request.pr_number, body)

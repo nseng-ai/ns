@@ -473,3 +473,113 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
     assert output["warning"] == (
         "Failed to add reaction to comment 9001: reaction endpoint unavailable"
     )
+
+
+def test_reply_to_review_rejects_empty_summary(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        "reply-to-review",
+        {
+            "pr_number": 42,
+            "review_author": "reviewer",
+            "summary_markdown": "   \n  ",
+        },
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["success"] is False
+    assert output["error_type"] == "invalid_request"
+    assert "summary_markdown" in output["message"]
+    assert fake._comments == []
+
+
+def test_reply_to_discussion_rejects_empty_response(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        "reply-to-discussion",
+        {
+            "pr_number": 42,
+            "comment_id": 9001,
+            "comment_author": "reviewer",
+            "original_body": "Can you update this?",
+            "response": "",
+        },
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["success"] is False
+    assert output["error_type"] == "invalid_request"
+    assert "response" in output["message"]
+    assert fake._comments == []
+
+
+def test_resolve_thread_with_reply_fixed_requires_message(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        "resolve-thread-with-reply",
+        {
+            "thread_id": "PRRT_abc",
+            "mode": "fixed",
+            "message": None,
+            "commit_sha": "abc1234",
+        },
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["success"] is False
+    assert output["error_type"] == "invalid_request"
+    assert "message" in output["message"]
+    assert fake._resolved_thread_ids == []
+
+
+def test_resolve_thread_with_reply_fixed_requires_commit_sha(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        "resolve-thread-with-reply",
+        {
+            "thread_id": "PRRT_abc",
+            "mode": "fixed",
+            "message": "Use the LBYL guard.",
+            "commit_sha": "   ",
+        },
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["success"] is False
+    assert output["error_type"] == "invalid_request"
+    assert "commit_sha" in output["message"]
+    assert fake._resolved_thread_ids == []
+
+
+def test_resolve_thread_with_reply_explained_requires_message(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        "resolve-thread-with-reply",
+        {
+            "thread_id": "PRRT_abc",
+            "mode": "explained",
+            "message": "",
+            "commit_sha": None,
+        },
+        fake,
+    )
+
+    assert exit_code == 1
+    assert output["success"] is False
+    assert output["error_type"] == "invalid_request"
+    assert "message" in output["message"]
+    assert fake._resolved_thread_ids == []
