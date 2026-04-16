@@ -167,7 +167,8 @@ def _build_dataclass_request(request_type: type, data: dict[str, Any]) -> Any:
 
     for key in data:
         if key not in valid_fields:
-            raise ValueError(f"Unknown field: {key}")
+            valid_names = ", ".join(sorted(valid_fields))
+            raise ValueError(f"Unknown field: {key}. Valid fields: {valid_names}")
 
     kwargs: dict[str, Any] = {}
     for name, field in valid_fields.items():
@@ -183,7 +184,14 @@ def _build_dataclass_request(request_type: type, data: dict[str, Any]) -> Any:
             kwargs[name] = field.default_factory()
             continue
 
-        raise ValueError(f"Missing required field: {name}")
+        required_names = ", ".join(
+            sorted(
+                fname
+                for fname, f in valid_fields.items()
+                if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
+            )
+        )
+        raise ValueError(f"Missing required field: {name}. Required fields: {required_names}")
 
     return request_type(**kwargs)
 
