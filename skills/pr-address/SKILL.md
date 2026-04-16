@@ -1,8 +1,9 @@
 ---
 name: pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command - it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements changes, commits in batches, and resolves threads. Never pushes - the user pushes manually after reviewing local commits."
+description: "Address PR review comments end-to-end on the current branch's PR. Use only when the user explicitly invokes `pr-address` by name in their current harness; do not trigger from generic natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements changes, commits in batches, and resolves threads. Never pushes - the user pushes manually after reviewing local commits."
 allowed-tools:
-  - "Bash(pr-address *)"
+  - "Bash(*pr-address-run *)"
+  - "Bash(*pr-address-run)"
   - "Bash(gh pr view *)"
   - "Bash(gh pr list *)"
   - "Bash(gh auth status)"
@@ -16,7 +17,7 @@ allowed-tools:
   - "Bash(git remote*)"
   - "Bash(git branch*)"
   - "Bash(just *)"
-  - "Bash(command -v pr-address)"
+  - "Bash(test -x*)"
   - "Read"
   - "Edit"
   - "Write"
@@ -35,8 +36,9 @@ matching GitHub feedback. It never pushes.
 
 ## When to use
 
-Run this skill only when the user explicitly invokes `/pr-address`. Do not
-trigger it from natural-language requests like "fix review feedback".
+Run this skill only when the user explicitly invokes `pr-address` by name in
+their current harness. Do not trigger it from natural-language requests like
+"fix review feedback".
 
 If the user wants a read-only pass, stop after the execution plan. Do not
 edit code, commit, or mutate GitHub.
@@ -51,10 +53,37 @@ edit code, commit, or mutate GitHub.
 - GitHub mutations go through `pr-address exec` operations, not raw `gh api`
   calls.
 
+## How `pr-address` is invoked
+
+This skill bundles a wrapper at
+`scripts/pr-address-run` that dispatches to either `uv run pr-address`
+(when the current working directory is inside a twerk checkout) or
+`uvx --from twerk-pr-address pr-address`
+(otherwise), so the skill works without a local clone.
+
+Resolve the wrapper from this skill's own directory, not from a
+harness-specific path. For the rest of this document,
+`<pr-address-runner>` means the executable at `<skill-dir>/scripts/pr-address-run`,
+where `<skill-dir>` is the directory containing this `SKILL.md`.
+
+Common locations are:
+
+- `skills/pr-address/scripts/pr-address-run` in a twerk checkout
+- `.agents/skills/pr-address/scripts/pr-address-run` in an installed skill mirror
+
+Wherever this skill or `references/cli-reference.md` shows `pr-address ...`,
+substitute `<pr-address-runner>`. For example:
+
+```bash
+echo '{}' | <pr-address-runner> exec json prepare-run
+```
+
+`TWERK_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
+
 ## Prerequisites
 
 1. `git status --porcelain` is empty.
-2. `command -v pr-address` succeeds.
+2. `test -x <pr-address-runner>` succeeds.
 3. `gh auth status` is healthy.
 4. The current branch has an open PR.
 
@@ -74,7 +103,7 @@ commands.
 
 Use the composite helper:
 
-- `pr-address exec json prepare-run`
+- `<pr-address-runner> exec json prepare-run`
 
 Pass `{"include_all_threads": true}` only when the user explicitly wants
 resolved threads included for reference. Otherwise let it default to `false`.
@@ -223,6 +252,8 @@ For each approved batch, do the real engineering work:
 
 All `pr-address exec json` helpers accept input as JSON on stdin. See
 `references/cli-reference.md` for required fields and invocation examples.
+Substitute the wrapper path documented above for every literal
+`pr-address` shown in that reference.
 
 Commit format:
 
@@ -268,7 +299,7 @@ and standard formatting.
 
 After the last batch, re-fetch current feedback with:
 
-- `pr-address exec get-feedback <pr_number>`
+- `<pr-address-runner> exec get-feedback <pr_number>`
 
 Summarize:
 

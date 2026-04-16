@@ -3,6 +3,9 @@
 Command reference for `pr-address exec json` helpers, with invocation
 examples from real sessions.
 
+When this reference is used from the skill, replace literal `pr-address` with
+the bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
+
 ## Invocation convention
 
 All `pr-address exec json <command>` helpers:
