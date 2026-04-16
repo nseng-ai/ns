@@ -58,7 +58,7 @@ edit code, commit, or mutate GitHub.
 This skill bundles a wrapper at
 `scripts/pr-address-run` that dispatches to either `uv run pr-address`
 (when the current working directory is inside a twerk checkout) or
-`uvx --from git+https://github.com/dagster-io/twerk pr-address`
+`uvx --from twerk-pr-address pr-address`
 (otherwise), so the skill works without a local clone.
 
 Resolve the wrapper from this skill's own directory, not from a

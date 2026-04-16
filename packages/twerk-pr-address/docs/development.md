@@ -12,28 +12,28 @@ checkout and `.agents/skills/pr-address/` in an installed skill mirror.
 - inside a twerk checkout (auto-detected via
   `packages/twerk-pr-address/pyproject.toml`) →
   `uv run --project <repo> pr-address`
-- otherwise → `uvx` builds `twerk-pr-address` from a pinned commit on GitHub,
-  with `twerk-core` injected via `--with` from the same SHA
+- otherwise → `uvx` installs a pinned `twerk-pr-address` release from PyPI,
+  with `twerk-core` resolved automatically as a declared dependency
 
-The pinned SHA is a 40-char commit hash, which uv treats as immutable and
-caches aggressively — first call builds, subsequent calls are near-instant.
+uv caches the resolved PyPI wheel, so the first call downloads and subsequent
+calls are near-instant.
 
 Override with `TWERK_PR_ADDRESS_MODE=local` or `TWERK_PR_ADDRESS_MODE=prod`
 when you want to force a specific path.
 
-## Updating the pinned commit
+## Updating the pinned version
 
-To roll out new `twerk-pr-address` code to skill consumers, bump `TWERK_PIN`
-in the wrapper to the desired commit on `master` and commit the change. From a
-twerk checkout:
+To roll out new `twerk-pr-address` code to skill consumers, first publish the
+new release to PyPI (outside the scope of this skill), then bump
+`TWERK_VERSION` in the wrapper and commit the change. From a twerk checkout:
 
 ```bash
-sha="$(git rev-parse origin/master)"
-sed -i '' "s/^TWERK_PIN=.*/TWERK_PIN=\"$sha\"/" skills/pr-address/scripts/pr-address-run
+sed -i '' 's/^TWERK_VERSION=.*/TWERK_VERSION="0.2.0"/' \
+  skills/pr-address/scripts/pr-address-run
 ```
 
-Then commit and push. Skill consumers pick up the new pin the next time they
-invoke the `pr-address` skill.
+Then commit and push. Skill consumers pick up the new version the next time
+they invoke the `pr-address` skill.
 
 ## Local development
 
