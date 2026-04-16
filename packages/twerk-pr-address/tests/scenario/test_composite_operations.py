@@ -380,6 +380,8 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
         {
             "thread_id": "PRRT_old",
             "mode": "pre_existing",
+            "message": None,
+            "commit_sha": None,
         },
         fake,
     )

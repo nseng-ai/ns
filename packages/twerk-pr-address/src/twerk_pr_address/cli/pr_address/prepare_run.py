@@ -29,11 +29,56 @@ from twerk_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
 
 @dataclass(frozen=True)
 class PrepareRunRequest:
+    """Inputs to `prepare-run`.
+
+    Attributes:
+        include_all_threads: When True, include resolved reference threads in
+            the normalized output. Default False returns only threads that
+            still need classification (unresolved or reopened by this run).
+    """
+
     include_all_threads: bool = False
 
 
 @dataclass(frozen=True)
 class PrepareRunResult:
+    """Normalized PR feedback snapshot for a single `pr-address` run.
+
+    When `found` is False the current branch has no associated PR; all other
+    fields except `current_branch`, `error`, and `returncode` are left at
+    their defaults.
+
+    Attributes:
+        found: Whether a PR was resolved for the current branch.
+        current_branch: The branch the helper was invoked on (None means
+            detached HEAD, surfaced as a `ClinkrCommandError` before this
+            result is constructed).
+        number: PR number on the host repository.
+        title: PR title at the time of the snapshot.
+        url: Web URL of the PR.
+        head_ref_name: The PR's head branch — always equals `current_branch`
+            for this flow.
+        base_ref_name: The PR's base branch (e.g. "master"). Used by
+            `get_restructured_files` to build the merge-base diff.
+        state: PR lifecycle state (OPEN / CLOSED / MERGED).
+        reviews: PR-level review submissions (the "Review changes" flow).
+        review_threads: Normalized inline review threads. Contested threads
+            previously resolved by `pr-address` are reopened and included
+            here; resolved reference threads are included only when the
+            request set `include_all_threads=True`.
+        discussion_comments: Top-level PR discussion comments (not inline).
+        reopened_thread_ids: Threads this run unresolved because a new
+            comment landed after the pr-address resolution marker.
+        restructured_files: Files renamed or copied between
+            `origin/<base_ref_name>` and HEAD, detected via
+            `git diff --name-status -M -C`. Used by the classifier to mark
+            bot comments on moved code as `pre_existing`.
+        warnings: Non-fatal issues encountered while preparing the run
+            (e.g. `git diff` failed; failed to reopen a contested thread).
+        error: stderr from `gh pr view` when `found` is False.
+        returncode: exit code from `gh pr view` when `found` is False.
+    """
+
     found: bool
     current_branch: str | None = None
     number: int | None = None

@@ -19,8 +19,8 @@ from twerk_pr_address.cli.pr_address.reply_formatting import format_resolution_r
 class ResolveThreadWithReplyRequest:
     thread_id: str
     mode: Literal["fixed", "pre_existing", "explained"]
-    message: str | None = None
-    commit_sha: str | None = None
+    message: str | None
+    commit_sha: str | None
 
 
 @dataclass(frozen=True)
