@@ -19,12 +19,6 @@ For Claude Code:
 npx skills add dagster-io/twerk@pr-address --agent claude-code -y
 ```
 
-For Pi (OpenClaw):
-
-```bash
-npx skills add dagster-io/twerk@pr-address --agent openclaw -y
-```
-
 Requires:
 
 - `uv` on `PATH` (see [uv install](https://docs.astral.sh/uv/getting-started/installation/));
