@@ -264,6 +264,119 @@ def test_sync_raises_when_current_branch_lookup_fails() -> None:
         sync_pool_assignments(state, git, storage, pool_state_gw)
 
 
+# -- sync orphan recovery ----------------------------------------------------
+
+
+def test_sync_recovers_orphaned_worktree() -> None:
+    """A managed slot worktree on a real branch with no assignment is recovered."""
+    repo = _make_repo()
+    slot_01 = repo.worktrees_dir / "slot-01"
+    slot_07 = repo.worktrees_dir / "slot-07"
+    state = PoolState(
+        pool_size=16,
+        assignments=(SlotAssignment("slot-01", "feat/x", NOW, slot_01),),
+    )
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        worktrees=(
+            WorktreeInfo(path=slot_01, branch="feat/x", is_bare=False),
+            WorktreeInfo(path=slot_07, branch="feat/z", is_bare=False),
+        ),
+        current_branch_by_path={slot_01: "feat/x", slot_07: "feat/z"},
+    )
+    storage = _seeded_storage(existing_paths={slot_01, slot_07})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
+
+    slot_names = {a.slot_name for a in result.assignments}
+    assert slot_names == {"slot-01", "slot-07"}
+    recovered = next(a for a in result.assignments if a.slot_name == "slot-07")
+    assert recovered.branch_name == "feat/z"
+    assert recovered.worktree_path == slot_07
+    assert recovered.assigned_at  # timestamp set to now
+    # Persisted.
+    assert pool_state_gw.load() == result
+
+
+def test_sync_skips_orphaned_stub_worktree() -> None:
+    """A managed slot on its placeholder branch is genuinely free — not recovered."""
+    repo = _make_repo()
+    slot_07 = repo.worktrees_dir / "slot-07"
+    state = PoolState(pool_size=16, assignments=())
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        worktrees=(WorktreeInfo(path=slot_07, branch="__slot-07-br-stub__", is_bare=False),),
+        current_branch_by_path={slot_07: "__slot-07-br-stub__"},
+    )
+    storage = _seeded_storage(existing_paths={slot_07})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
+
+    assert result.assignments == ()
+    assert pool_state_gw._save_calls == []
+
+
+def test_sync_skips_orphaned_detached_head() -> None:
+    """A managed slot on detached HEAD with no assignment is not recovered."""
+    repo = _make_repo()
+    slot_07 = repo.worktrees_dir / "slot-07"
+    state = PoolState(pool_size=16, assignments=())
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        worktrees=(WorktreeInfo(path=slot_07, branch=None, is_bare=False),),
+        current_branch_by_path={slot_07: DetachedHead()},
+    )
+    storage = _seeded_storage(existing_paths={slot_07})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
+
+    assert result.assignments == ()
+    assert pool_state_gw._save_calls == []
+
+
+def test_sync_skips_orphaned_git_failure() -> None:
+    """Git command failure during orphan recovery is swallowed, not raised."""
+    repo = _make_repo()
+    slot_07 = repo.worktrees_dir / "slot-07"
+    state = PoolState(pool_size=16, assignments=())
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        worktrees=(WorktreeInfo(path=slot_07, branch="feat/z", is_bare=False),),
+        current_branch_by_path={
+            slot_07: GitCommandFailure(message="fatal: broken", returncode=128)
+        },
+    )
+    storage = _seeded_storage(existing_paths={slot_07})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    # Unlike Phase 1 (existing assignments), Phase 2 should NOT raise.
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
+
+    assert result.assignments == ()
+
+
+def test_sync_skips_non_slot_worktrees() -> None:
+    """Worktrees whose path name doesn't match slot-XX are ignored (e.g. main repo)."""
+    repo = _make_repo()
+    main_wt = repo.root
+    state = PoolState(pool_size=16, assignments=())
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        worktrees=(WorktreeInfo(path=main_wt, branch="master", is_bare=False),),
+        current_branch_by_path={main_wt: "master"},
+    )
+    storage = _seeded_storage(existing_paths={main_wt})
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    result = sync_pool_assignments(state, git, storage, pool_state_gw)
+
+    assert result.assignments == ()
+    assert pool_state_gw._save_calls == []
+
+
 # -- allocate_slot_for_branch ------------------------------------------------
 
 

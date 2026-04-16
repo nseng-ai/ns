@@ -463,9 +463,14 @@ def test_slot_checkout_current_detaches_when_trunk_checked_out_elsewhere(
     )
 
 
-def test_slot_checkout_current_from_slot_wt_uses_slot_stub(
+def test_slot_checkout_current_recovers_orphaned_slot_wt(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
+    """An orphaned slot worktree (branch checked out but no pool assignment)
+    is recovered by sync at the start of checkout, so checkout --current
+    becomes a no-op — the slot is already properly assigned. No stub branch
+    is created; the stub will be created later when the slot is freed.
+    """
     slots_root = tmp_path / "slots"
     slot_01_path = slots_root / "repos" / "repo" / "worktrees" / "slot-01"
     fakes = _fake_for_repo(
@@ -485,7 +490,6 @@ def test_slot_checkout_current_from_slot_wt_uses_slot_stub(
     )
 
     assert result.exit_code == 0, result.output
-    assert "__slot-01-br-stub__" in fakes.git.list_local_branches()
     _assert_assigned_slot_state(
         fakes,
         slots_root=slots_root,
