@@ -10,8 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from twerk_core.git.git_gateway import GitGateway
+from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.git import GitGateway
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import (
@@ -175,7 +176,12 @@ def sync_pool_assignments(
             continue
 
         actual = git.get_current_branch(assignment.worktree_path)
-        if actual is None or actual == assignment.branch_name:
+        if isinstance(actual, GitCommandFailure):
+            raise SlotAllocationError(
+                f"Failed to determine current branch at {assignment.worktree_path}: "
+                f"{actual.message}"
+            )
+        if isinstance(actual, DetachedHead) or actual == assignment.branch_name:
             updated.append(assignment)
             continue
 
@@ -228,6 +234,11 @@ def allocate_slot_for_branch(
     if existing is not None:
         if ctx.storage.path_exists(existing.worktree_path):
             actual = ctx.git.get_current_branch(existing.worktree_path)
+            if isinstance(actual, GitCommandFailure):
+                raise SlotAllocationError(
+                    f"Failed to determine current branch at {existing.worktree_path}: "
+                    f"{actual.message}"
+                )
             if actual == branch_name:
                 return SlotAllocationResult(
                     slot_name=existing.slot_name,
@@ -372,7 +383,11 @@ def allocate_slot_for_current_branch(
     when HEAD is detached or the current wt has uncommitted changes.
     """
     current_branch = ctx.git.get_current_branch(cwd)
-    if current_branch is None:
+    if isinstance(current_branch, GitCommandFailure):
+        raise SlotAllocationError(
+            f"Failed to determine current branch at {cwd}: {current_branch.message}"
+        )
+    if isinstance(current_branch, DetachedHead):
         return DetachedHeadError(cwd=cwd)
 
     state = ctx.pool_state.load()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 import click
@@ -17,15 +18,11 @@ from twerk_core.gh.types import (
     PRReviewThread,
     PRState,
 )
-from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
-from twerk_pr_address.cli.pr_address.local_git import (
-    DetachedHead,
-    LocalGitFailure,
-    RestructuredFiles,
-    get_current_branch,
-    get_restructured_files,
-)
+from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
+from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway, get_git_gateway
 from twerk_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
+
+RestructuredFiles = tuple[RestructuredFile, ...]
 
 
 @dataclass(frozen=True)
@@ -137,10 +134,11 @@ def run_prepare_run(
     ctx: click.Context,
     request: PrepareRunRequest,
 ) -> PrepareRunResult | ClinkrCommandError:
-    match get_current_branch():
-        case LocalGitFailure() as failure:
+    git_gateway = get_git_gateway(ctx)
+    match git_gateway.get_current_branch(Path.cwd()):
+        case GitCommandFailure() as failure:
             return ClinkrCommandError(
-                error_type=failure.error_type,
+                error_type="git_failed",
                 message=failure.message,
             )
         case DetachedHead():
@@ -182,8 +180,8 @@ def run_prepare_run(
     )
 
     restructured_files: RestructuredFiles
-    match get_restructured_files(pr.base_ref_name):
-        case LocalGitFailure() as failure:
+    match git_gateway.get_restructured_files(Path.cwd(), pr.base_ref_name):
+        case GitCommandFailure() as failure:
             warnings.append(failure.message)
             restructured_files = ()
         case tuple() as files:

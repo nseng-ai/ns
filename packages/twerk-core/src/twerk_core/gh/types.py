@@ -96,37 +96,6 @@ class IssueComment:
 
 
 @dataclass(frozen=True)
-class RestructuredFile:
-    """A file pair surfaced by git's rename/copy detection.
-
-    Produced by parsing `git diff --name-status -M -C <base>...HEAD`. Each
-    record represents one old_path → new_path pairing; unrelated additions,
-    modifications, and deletions are filtered out by the parser.
-
-    The primary consumer is the pr-address classifier: a review thread whose
-    `path` matches a `new_path` in this collection and whose first commenter
-    is a bot is treated as `pre_existing` — the comment is about moved code,
-    not newly introduced code on this PR.
-
-    Attributes:
-        status: Single-character git name-status tag. `"R"` for rename (file
-            moved and content preserved) or `"C"` for copy (new file derived
-            from an existing one). Other statuses are not represented here.
-        old_path: The file's path before the rename/copy.
-        new_path: The file's path after the rename/copy — the surface review
-            comments address when they comment on the post-change code.
-        similarity: Content similarity percentage git reports for the
-            rename/copy (0-100). Defaults to 100 when git emits a bare `R`
-            or `C` with no digits.
-    """
-
-    status: str
-    old_path: str
-    new_path: str
-    similarity: int
-
-
-@dataclass(frozen=True)
 class Issue:
     """A GitHub issue summary as returned by `gh issue list`.
 

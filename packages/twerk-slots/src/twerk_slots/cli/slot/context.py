@@ -11,7 +11,7 @@ from twerk_slots.allocation import SlotAllocationError
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_clipboard import RealClipboardGateway
-from twerk_slots.gateway.real_git import build_real_git_gateway
+from twerk_slots.gateway.real_git import build_real_slots_git_gateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
 from twerk_slots.repo_context import SLOTS_ROOT, NoRepoSentinel, discover_repo_or_sentinel
 
@@ -27,7 +27,7 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
     slots_root = SLOTS_ROOT
     storage = RealSlotsStorageGateway()
     try:
-        discovery_git = build_real_git_gateway(repo_root=cwd)
+        discovery_git = build_real_slots_git_gateway(repo_root=cwd)
     except SlotAllocationError as exc:
         return NoRepoSentinel(message=str(exc))
     repo = discover_repo_or_sentinel(cwd, slots_root=slots_root, git=discovery_git)
@@ -35,7 +35,7 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
         return repo
     return SlotsCliContext(
         repo=repo,
-        git=build_real_git_gateway(repo_root=repo.root),
+        git=build_real_slots_git_gateway(repo_root=repo.root),
         storage=storage,
         pool_state=RealPoolStateGateway(pool_json_path=repo.pool_json_path),
         clipboard=RealClipboardGateway(),

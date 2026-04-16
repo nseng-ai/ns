@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from twerk_slots.gateway.git import GitGateway
+from twerk_core.git.git_gateway import GitGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
 
 SLOTS_ROOT = Path.home() / ".slots"

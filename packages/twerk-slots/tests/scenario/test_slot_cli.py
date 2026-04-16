@@ -10,10 +10,15 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
+from twerk_core.git import real_git_gateway
+from twerk_core.git.types import (
+    DetachedHead,
+    FileStatus,
+    GitCommandFailure,
+    WorktreeInfo,
+)
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway import real_git
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,
     FakeGitGateway,
@@ -34,7 +39,7 @@ def _fake_for_repo(
     slots_root: Path | None = None,
     branches: tuple[str, ...] = (),
     worktrees: tuple[WorktreeInfo, ...] = (),
-    current_branch_by_path: dict[Path, str | None] | None = None,
+    current_branch_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None,
     previous_branch_by_path: dict[Path, str | None] | None = None,
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
@@ -64,7 +69,7 @@ def _fake_for_repo(
         file_status_by_path=file_status_by_path,
         existing_paths={repo_root, Path.cwd(), *extra_existing},
         repository_root_by_cwd=root_map,
-        storage=storage,
+        on_add_worktree=storage.ensure_dir,
     )
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=resolved_slots_root, git=git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
@@ -267,7 +272,7 @@ def test_slot_list_falls_back_to_real_gateway(
             return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(real_git.subprocess, "run", fake_run)
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
 
     result = CliRunner().invoke(cli_group, ["list"])
 

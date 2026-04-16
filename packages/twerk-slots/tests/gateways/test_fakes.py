@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
+from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeGitGateway,
     FakePoolStateGateway,
@@ -108,6 +108,12 @@ def test_fake_file_status_defaults_clean() -> None:
     gateway = FakeGitGateway(repo_root=Path("/r"))
     assert gateway.get_file_status(Path("/anywhere")) == FileStatus(False, False, False)
     assert not gateway.has_uncommitted_changes(Path("/anywhere"))
+
+
+def test_fake_current_branch_defaults_to_detached_head() -> None:
+    gateway = FakeGitGateway(repo_root=Path("/r"))
+
+    assert gateway.get_current_branch(Path("/anywhere")) == DetachedHead()
 
 
 def test_fake_file_status_respects_seeding() -> None:

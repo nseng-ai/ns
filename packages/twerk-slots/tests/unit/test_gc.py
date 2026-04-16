@@ -6,8 +6,13 @@ from pathlib import Path
 
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRState, PRSummary
+from twerk_core.git.types import (
+    DetachedHead,
+    FileStatus,
+    GitCommandFailure,
+    WorktreeInfo,
+)
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.git import FileStatus, WorktreeInfo
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,
     FakeGitGateway,
@@ -60,7 +65,7 @@ def _build_ctx(
     assignments: tuple[SlotAssignment, ...] = (),
     branches: set[str] | None = None,
     worktrees: tuple[WorktreeInfo, ...] = (),
-    current_branch_by_path: dict[Path, str | None] | None = None,
+    current_branch_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None,
     file_status_by_path: dict[Path, FileStatus] | None = None,
     prs_by_branch: dict[str, PRSummary] | None = None,
     pr_gateway: FakePRGateway | None = None,

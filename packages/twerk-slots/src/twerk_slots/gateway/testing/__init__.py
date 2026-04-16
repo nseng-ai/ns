@@ -7,8 +7,8 @@ package so tests can import them by their dotted path without any
 
 from __future__ import annotations
 
+from twerk_core.git.testing import FakeGitGateway
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.git import FakeGitGateway
 from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 
