@@ -50,3 +50,7 @@ clean:
     find . -type d -name ".ruff_cache" -exec rm -rf {} + || true
     find . -type d -name "*.egg-info" -exec rm -rf {} + || true
     find . -type f -name "*.pyc" -delete || true
+
+publish: clean check
+    uv build --package twerk --package twerk-core --package twerk-objectives --package twerk-pr-address --package twerk-slots
+    uv publish
