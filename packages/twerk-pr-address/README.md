@@ -7,8 +7,16 @@ fetch PR feedback from GitHub and execute resolution mutations.
 
 Install the skill into your project:
 
+For Codex:
+
 ```bash
-npx skills add dagster-io/twerk@pr-address --agent codex claude-code -y
+npx skills add dagster-io/twerk@pr-address --agent codex -y
+```
+
+For Claude Code:
+
+```bash
+npx skills add dagster-io/twerk@pr-address --agent claude-code -y
 ```
 
 Requires:
@@ -18,7 +26,8 @@ Requires:
   ```bash
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ```
-- `gh` authenticated (`gh auth status`).
+- `gh` on `PATH` (see [gh install](https://cli.github.com/manual/installation)).
+- `gh` authenticated (`gh auth status`, then `gh auth login` if needed).
 
 Then, in your harness of choice, explicitly invoke the `pr-address` skill on a
 branch with an open PR. The invocation surface is harness-specific, but the
