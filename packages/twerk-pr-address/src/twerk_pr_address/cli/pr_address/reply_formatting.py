@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Final, Literal
+from typing import Final, Literal, get_args
 
 ResolutionReplyMode = Literal["fixed", "pre_existing", "explained"]
+_VALID_RESOLUTION_MODES: Final[tuple[str, ...]] = get_args(ResolutionReplyMode)
 
 RESOLUTION_MARKER: Final[str] = "<!-- pr-address:resolved -->"
 PRE_EXISTING_REPLY: Final[str] = (
@@ -90,7 +91,8 @@ def _resolution_summary(
         return f"Fixed in commit {commit_sha}: {message}"
     if mode == "explained":
         return f"{message}"
-    raise ValueError(f"Unsupported resolution mode: {mode}")
+    valid = ", ".join(_VALID_RESOLUTION_MODES)
+    raise ValueError(f"Unsupported resolution mode: {mode}. Valid modes: {valid}")
 
 
 def _quote_lines(text: str) -> tuple[str, ...]:

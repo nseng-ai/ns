@@ -258,8 +258,16 @@ For each approved batch, do the real engineering work:
 - stage only the files changed for that batch
 - create exactly one commit for the batch
 
-All `pr-address exec json` helpers accept input as JSON on stdin. See
-`references/cli-reference.md` for required fields and invocation examples.
+All `pr-address exec json` helpers accept input as JSON on stdin.
+
+**Before calling any `pr-address exec json <helper>`, open
+`references/cli-reference.md` and read that helper's input field table and
+enum values.** Do not guess field names, omit required fields, or invent
+enum values (for example, `mode`). The reference is authoritative — if it
+disagrees with memory, the reference wins. If unsure about a field's exact
+shape, also run `pr-address exec json <helper> --schema` to print the
+JSON schema.
+
 Substitute the wrapper path documented above for every literal
 `pr-address` shown in that reference.
 
@@ -293,12 +301,19 @@ If the bot is wrong:
 - resolve the thread with an explanatory reply
 - keep the explanation factual and brief
 
-Use the composite helpers for GitHub mutations (see
-`references/cli-reference.md` for required fields and invocation shape):
+Use the composite helpers for GitHub mutations. Read each helper's entry in
+`references/cli-reference.md` before calling it — do not guess the JSON
+shape:
 
 - `resolve-thread-with-reply` — reply to and resolve a thread
 - `reply-to-review` — post a formatted reply to a PR-level review
 - `reply-to-discussion` — reply to a discussion comment with reaction
+
+Common footguns (the reference is still the source of truth):
+
+- `resolve-thread-with-reply` takes `message` (not `reply_body` /
+  `comment` / `reply`), and `mode` must be one of `pre_existing`,
+  `fixed`, or `explained`. Anything else is rejected.
 
 Do not hand-roll reply bodies. The helper commands own the marker, timestamp,
 and standard formatting.

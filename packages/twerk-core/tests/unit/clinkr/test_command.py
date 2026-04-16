@@ -51,6 +51,22 @@ def test_machine_command_rejects_unknown_fields() -> None:
     assert data["success"] is False
     assert data["error_type"] == "invalid_request"
     assert "Unknown field: bogus" in data["message"]
+    assert "Valid fields:" in data["message"]
+    assert "name" in data["message"]
+    assert "excited" in data["message"]
+
+
+def test_machine_command_reports_missing_required_fields() -> None:
+    runner = CliRunner()
+    result = runner.invoke(_make_greeting_command(), [], input="{}")
+
+    assert result.exit_code == 1
+    data = json.loads(result.output)
+    assert data["success"] is False
+    assert data["error_type"] == "invalid_request"
+    assert "Missing required field: name" in data["message"]
+    assert "Required fields:" in data["message"]
+    assert "name" in data["message"]
 
 
 def test_machine_command_emits_structured_error_results() -> None:
