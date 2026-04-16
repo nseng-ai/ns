@@ -221,6 +221,9 @@ For each approved batch, do the real engineering work:
 - stage only the files changed for that batch
 - create exactly one commit for the batch
 
+All `pr-address exec json` helpers accept input as JSON on stdin. See
+`references/cli-reference.md` for required fields and invocation examples.
+
 Commit format:
 
 ```text
@@ -251,17 +254,12 @@ If the bot is wrong:
 - resolve the thread with an explanatory reply
 - keep the explanation factual and brief
 
-Use the composite helpers for GitHub mutations:
+Use the composite helpers for GitHub mutations (see
+`references/cli-reference.md` for required fields and invocation shape):
 
-- `pr-address exec json resolve-thread-with-reply`
-  - mode `pre_existing` for moved/restructured bot comments
-  - mode `fixed` for code changes resolved by the current batch commit
-  - mode `explained` for already-fixed cases or false positives
-- `pr-address exec json reply-to-review`
-  - for PR-level review submissions that need a reply comment
-- `pr-address exec json reply-to-discussion`
-  - for discussion comments that need a reply
-  - reaction failure is a warning, not a batch failure
+- `resolve-thread-with-reply` — reply to and resolve a thread
+- `reply-to-review` — post a formatted reply to a PR-level review
+- `reply-to-discussion` — reply to a discussion comment with reaction
 
 Do not hand-roll reply bodies. The helper commands own the marker, timestamp,
 and standard formatting.
