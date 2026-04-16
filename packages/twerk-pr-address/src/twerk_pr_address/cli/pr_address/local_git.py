@@ -4,9 +4,16 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from twerk_core.gh.types import RestructuredFile
+
+RestructuredFiles: TypeAlias = tuple[RestructuredFile, ...]
+
+
+@dataclass(frozen=True)
+class DetachedHead:
+    """Sentinel returned when HEAD is not on a branch."""
 
 
 @dataclass(frozen=True)
@@ -25,12 +32,12 @@ class LocalGitFailure:
     returncode: int | None = None
 
 
-def get_current_branch() -> str | None | LocalGitFailure:
-    """Return the current branch name, ``None`` for detached HEAD, or a failure.
+def get_current_branch() -> str | DetachedHead | LocalGitFailure:
+    """Return the current branch name, ``DetachedHead`` for detached HEAD, or a failure.
 
     - Non-empty stdout on success → branch name.
-    - "not a symbolic ref" on stderr → ``None`` (detached HEAD is a domain
-      state, not a failure).
+    - "not a symbolic ref" on stderr → ``DetachedHead()`` (detached HEAD is a
+      domain state, not a failure).
     - Any other non-zero exit → ``LocalGitFailure`` with the stderr surfaced.
     """
     result = subprocess.run(
@@ -40,11 +47,11 @@ def get_current_branch() -> str | None | LocalGitFailure:
     )
     if result.returncode == 0:
         branch = result.stdout.strip()
-        return branch or None
+        return branch or DetachedHead()
 
     stderr = result.stderr.strip()
     if "not a symbolic ref" in stderr.lower():
-        return None
+        return DetachedHead()
     return LocalGitFailure(
         error_type="git_failed",
         message=stderr or "git failed",
@@ -54,7 +61,7 @@ def get_current_branch() -> str | None | LocalGitFailure:
 
 def get_restructured_files(
     base_ref_name: str,
-) -> tuple[RestructuredFile, ...] | LocalGitFailure:
+) -> RestructuredFiles | LocalGitFailure:
     """Return renamed/copied files against ``origin/<base_ref_name>...HEAD``."""
     result = subprocess.run(
         ["git", "diff", "--name-status", "-M", "-C", f"origin/{base_ref_name}...HEAD"],
@@ -74,7 +81,7 @@ def get_restructured_files(
     return parse_name_status_output(result.stdout)
 
 
-def parse_name_status_output(stdout: str) -> tuple[RestructuredFile, ...]:
+def parse_name_status_output(stdout: str) -> RestructuredFiles:
     """Parse ``git diff --name-status -M -C`` output into structured records."""
     files: list[RestructuredFile] = []
     for raw_line in stdout.splitlines():

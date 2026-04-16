@@ -10,6 +10,7 @@ from twerk_core.gh.types import RestructuredFile
 from twerk_pr_address.cli.pr_address import local_git
 from twerk_pr_address.cli.pr_address.local_git import (
     LocalGitFailure,
+    RestructuredFiles,
     get_restructured_files,
     parse_name_status_output,
 )
@@ -141,7 +142,7 @@ from twerk_pr_address.cli.pr_address.local_git import (
 )
 def test_parse_name_status_output(
     stdout: str,
-    expected: tuple[RestructuredFile, ...],
+    expected: RestructuredFiles,
 ) -> None:
     assert parse_name_status_output(stdout) == expected
 
