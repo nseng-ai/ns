@@ -1,6 +1,6 @@
 ---
 name: dev-plan-to-branch
-description: "Stamp an existing plan file onto a new Graphite branch. Resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent markdown plan file discoverable from the active harness context), generates a kebab-case slug that summarizes the plan, creates a new branch with `gt create`, writes the plan to `plan-<slug>.md` at the repo root, and commits it as the first commit on that branch. Use when the user wants to 'branch this plan', 'stamp the plan', 'turn this plan into a branch', or right after exiting plan mode to commit the plan as the branch's spec."
+description: "Stamp an existing plan onto a new Graphite branch. Resolves source plan content from an explicit path, the latest `<proposed_plan>` block in conversation context, a plan path referenced in context, or (last resort) a markdown plan file from the active harness context; then generates a kebab-case slug, creates a branch with `gt create`, writes `plan-<slug>.md` at repo root, and commits it as the branch's first commit. Use when users say 'branch this plan', 'stamp the plan', or 'turn this plan into a branch' after planning."
 allowed-tools:
   - "Bash(gt *)"
   - "Bash(git status *)"
@@ -20,13 +20,13 @@ metadata:
 
 # dev-plan-to-branch
 
-Stamp an existing plan file onto a new Graphite branch as that branch's first
-commit. The committed plan becomes the durable, code-tracked spec the rest of
-the branch's commits work against.
+Stamp an existing plan onto a new Graphite branch as that branch's first commit.
+The committed plan becomes the durable, code-tracked spec the rest of the
+branch's commits work against.
 
 ## Goal
 
-Given a plan file (from conversation context or an explicit path), produce:
+Given source plan content (from a path or conversation context), produce:
 
 1. a new Graphite branch whose name is a kebab-case slug summarizing the plan
 2. a `plan-<slug>.md` file at the repo root containing the plan verbatim
@@ -47,8 +47,8 @@ Responsibility ends at the local commit. No push, no `gt submit`.
   commit must touch only `plan-<slug>.md`.
 - **Never push.** Never `gt submit`. The skill ends at the local commit.
 - **Exit plan mode before writing.** If the current harness exposes a
-  plan mode on entry, the skill's first action is to resolve the plan
-  file, generate the slug, write a short session-plan to the
+  plan mode on entry, the skill's first action is to resolve source plan
+  content, generate the slug, write a short session-plan to the
   harness-owned session plan path, and call `ExitPlanMode`. All steps
   that touch the working tree (`Write` of `plan-<slug>.md`, `git add`,
   `gt create`) require plan mode to be off.
@@ -69,13 +69,17 @@ steps until plan mode has been exited.
 
 Do, in order:
 
-1. Run step 2 below to resolve the source plan file the skill is about
-   to stamp (call its path `<source-plan>`).
+1. Run step 2 below to resolve source plan content and capture source
+   origin metadata.
 2. Generate the slug per step 3 below.
 3. Use the `Write` tool to write a short session-plan to the
-   harness-provided session-plan path (this is the session's plan file,
-   not the source plan). The session-plan should describe exactly what
-   the skill is about to do, e.g.:
+   harness-provided session-plan path (this is the session's plan file).
+   The session-plan should describe exactly what the skill is about to
+   do. Mention source origin as a path if file-backed, or as
+   "the most recent `<proposed_plan>` block in conversation context" if
+   context-backed.
+
+   Example (file-backed):
 
    ```
    # Stamp <source-plan> onto a new Graphite branch
@@ -89,32 +93,53 @@ Do, in order:
    No push, no `gt submit`.
    ```
 
+   Example (context-backed):
+
+   ```
+   # Stamp in-context plan onto a new Graphite branch
+
+   Run `dev-plan-to-branch` to:
+   - Create a new branch `<slug>` via `gt create`.
+   - Write `plan-<slug>.md` at the repo root containing the most recent
+     `<proposed_plan>` block from conversation context, verbatim plus the
+     standardized Self-destruct footer.
+   - Commit it as the branch's first commit.
+
+   No push, no `gt submit`.
+   ```
+
 4. Call `ExitPlanMode`. It reads the session-plan file you just wrote
    and requests user approval.
 5. After approval, continue with step 4 (pre-flight checks). Steps 2
-   and 3 have already run inside this step and do not need to be
-   re-run.
+   and 3 have already run inside this step and do not need to be re-run.
+   If source content came from conversation context, carry that exact
+   content forward after exit; do not attempt to rediscover it from disk.
 
 If plan mode is **not** active, skip this step entirely and start at
 step 2.
 
-### 2. Resolve the plan file (context-first)
+### 2. Resolve source plan content (context-first)
 
 Try in order; stop at the first that succeeds:
 
 1. **Explicit argument.** If the user passed a path, use it. Error if the
    file doesn't exist or isn't readable.
-2. **Conversation context.** Scan recent context for a plan file path.
-   Harnesses that support plan mode often surface one in a system
-   reminder or equivalent session metadata. If exactly one such path
-   appears recently, use it. If multiple distinct paths appear, pick the
-   most recent reference and call out that choice in the report.
-3. **Filesystem fallback.** If recent context identified a concrete plan
+2. **Conversation context: `<proposed_plan>`.** Scan recent context for
+   complete `<proposed_plan>...</proposed_plan>` blocks. If one or more
+   complete blocks appear, use the most recent complete block and stamp
+   only its inner Markdown content (not the XML-like tags). If multiple
+   blocks exist, call out that the most recent block was selected.
+3. **Conversation context: plan path.** If no `<proposed_plan>` block is
+   usable, scan for a plan file path in recent context. If multiple
+   distinct paths appear, pick the most recent and call out that choice.
+4. **Filesystem fallback.** If recent context identified a concrete plan
    directory, list its markdown files newest-first and take the first
    one (for example, `ls -t ~/.claude/plans/*.md | head -1` in Claude
    Code).
 
-If all three fail, abort with a clear error explaining what was tried.
+If all four fail, abort with a clear error explaining what was tried.
+Report source origin as one of: explicit path, context block, context
+path, or filesystem fallback.
 
 ### 3. Generate the slug
 
@@ -195,7 +220,7 @@ Print a short summary to the user:
 
 - branch name created
 - commit SHA (`git rev-parse HEAD`)
-- source plan file path (so the user can spot a wrong context-resolution)
+- source plan origin (path or "most recent `<proposed_plan>` block")
 - next-step hint: "Now implement against `plan-<slug>.md`. Use `gt create`
   for stacked slices and `gt submit --no-interactive` when ready."
 
@@ -213,6 +238,8 @@ surprised.
   Mention it in the report.
 - **Plan file very small (<20 lines)** → warn but proceed.
 - **`plan-<slug>.md` already exists** → confirm before overwriting.
+- **Multiple `<proposed_plan>` blocks in context** → pick the most recent
+  complete block and name that choice in the report.
 - **Multiple plan paths in context** → pick the most recent reference,
   name the choice in the report so the user can re-run with an explicit
   path if wrong.
@@ -221,6 +248,8 @@ surprised.
 
 - Regenerating, summarizing, or rewriting the plan instead of copying
   verbatim (the Self-destruct footer is the only allowed addition).
+- Including literal `<proposed_plan>` tags in `plan-<slug>.md` instead of
+  stamping only the inner Markdown.
 - Creating a slug utility anywhere — the model produces the slug.
 - Skipping the dirty-tree check, producing a mixed plan + work commit.
 - Auto-pushing or `gt submit`ing — the skill ends at the local commit.
