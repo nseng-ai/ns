@@ -38,9 +38,10 @@ Resolve PR context, reopen contested threads, and normalize feedback.
 
 **Input fields:**
 
-| Field                 | Required | Description                                            |
-| --------------------- | -------- | ------------------------------------------------------ |
-| `include_all_threads` | no       | Include resolved threads for reference (default false) |
+| Field                   | Required | Description                                                                             |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------- |
+| `include_all_threads`   | no       | Include resolved threads for reference (default false)                                  |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise) |
 
 **Output fields:**
 
@@ -232,15 +233,15 @@ Lower-level helpers available via `pr-address exec json`. The composite
 helpers above call these internally — use them directly only when the
 workflow requires it. Run `<command> --schema` for full schemas.
 
-| Command                   | Description                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| `get-feedback`            | Fetch all PR feedback (reviews, threads, discussion comments) in a single batch |
-| `get-pr-for-branch`       | Look up the open PR for a branch                                                |
-| `get-reviews`             | Fetch PR-level review submissions (approve, request changes, comment)           |
-| `get-review-comments`     | Fetch review threads for a PR                                                   |
-| `get-discussion-comments` | Fetch discussion comments for a PR                                              |
-| `add-issue-comment`       | Add a discussion comment to a PR                                                |
-| `add-reaction`            | Add a reaction to a comment                                                     |
-| `add-review-thread-reply` | Post a reply comment on a PR review thread                                      |
-| `resolve-thread`          | Resolve a PR review thread by its GraphQL node ID                               |
-| `unresolve-thread`        | Unresolve (reopen) a PR review thread by its GraphQL node ID                    |
+| Command                   | Description                                                                                                                                                                                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get-feedback`            | Fetch all PR feedback (reviews, threads, discussion comments) in a single batch. Empty-body `COMMENTED` / `APPROVED` reviews are filtered out by default; pass `--include-empty-reviews` (CLI) or `"include_empty_reviews": true` (JSON) to see them. |
+| `get-pr-for-branch`       | Look up the open PR for a branch                                                                                                                                                                                                                      |
+| `get-reviews`             | Fetch PR-level review submissions (approve, request changes, comment)                                                                                                                                                                                 |
+| `get-review-comments`     | Fetch review threads for a PR                                                                                                                                                                                                                         |
+| `get-discussion-comments` | Fetch discussion comments for a PR                                                                                                                                                                                                                    |
+| `add-issue-comment`       | Add a discussion comment to a PR                                                                                                                                                                                                                      |
+| `add-reaction`            | Add a reaction to a comment                                                                                                                                                                                                                           |
+| `add-review-thread-reply` | Post a reply comment on a PR review thread                                                                                                                                                                                                            |
+| `resolve-thread`          | Resolve a PR review thread by its GraphQL node ID                                                                                                                                                                                                     |
+| `unresolve-thread`        | Unresolve (reopen) a PR review thread by its GraphQL node ID                                                                                                                                                                                          |

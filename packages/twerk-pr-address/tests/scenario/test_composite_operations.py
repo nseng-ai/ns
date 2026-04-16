@@ -244,6 +244,65 @@ def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
     assert output["review_threads"][1]["is_resolved"] is True
 
 
+def test_prepare_run_filters_empty_reviews_by_default(
+    cli_group: ClinkrGroup,
+) -> None:
+    reviews = [
+        PRReview(
+            id="PRR_noise_commented",
+            author="reviewer",
+            body="",
+            state="COMMENTED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_noise_approved",
+            author="reviewer",
+            body="   ",
+            state="APPROVED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_signal",
+            author="reviewer",
+            body="",
+            state="CHANGES_REQUESTED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    pr = PRSummary(
+        number=42,
+        title="t",
+        url="u",
+        head_ref_name="feature",
+        base_ref_name="master",
+        state="OPEN",
+    )
+
+    fake_default = FakeIssueGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+    exit_default, out_default = _invoke_json(
+        cli_group, "prepare-run", {}, fake_default, git_gateway=git_gateway
+    )
+    assert exit_default == 0
+    assert [r["id"] for r in out_default["reviews"]] == ["PRR_signal"]
+
+    fake_all = FakeIssueGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
+    exit_all, out_all = _invoke_json(
+        cli_group,
+        "prepare-run",
+        {"include_empty_reviews": True},
+        fake_all,
+        git_gateway=git_gateway,
+    )
+    assert exit_all == 0
+    assert [r["id"] for r in out_all["reviews"]] == [
+        "PRR_noise_commented",
+        "PRR_noise_approved",
+        "PRR_signal",
+    ]
+
+
 def test_prepare_run_returns_found_false_when_branch_has_no_pr(
     cli_group: ClinkrGroup,
 ) -> None:

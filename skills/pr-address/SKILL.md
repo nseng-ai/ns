@@ -108,11 +108,17 @@ Use the composite helper:
 Pass `{"include_all_threads": true}` only when the user explicitly wants
 resolved threads included for reference. Otherwise let it default to `false`.
 
+Pass `{"include_empty_reviews": true}` only when the user explicitly wants
+to see raw empty-body `COMMENTED` / `APPROVED` reviews (they are filtered
+out as noise by default).
+
 `prepare-run` is the source of truth for the mechanical setup. It:
 
 - resolves the current branch and its PR
 - fetches one feedback snapshot with resolved threads included
 - reopens contested threads previously resolved by `pr-address`
+- drops empty-body `COMMENTED` / `APPROVED` reviews unless
+  `include_empty_reviews=true`
 - returns normalized `reviews`, `review_threads`, and `discussion_comments`
 - returns `restructured_files` for moved/copied paths
 - returns any warnings that should be shown to the user before continuing
@@ -168,7 +174,9 @@ re-classify. A partial thread list is a bug.
 
 Evaluate classification rules in order. First match wins.
 
-PR-level reviews:
+PR-level reviews (empty-body `COMMENTED` / `APPROVED` are pre-filtered by
+`prepare-run` unless `include_empty_reviews=true`, so most rules below only
+trigger when the user opts in to raw reviews):
 
 1. `APPROVED` -> drop silently.
 2. `CHANGES_REQUESTED` with a body -> actionable. Usually `cross_cutting` or
