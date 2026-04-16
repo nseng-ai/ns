@@ -10,12 +10,14 @@ from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment, PRReview, PRReviewThread
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from twerk_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 
 
 @dataclass(frozen=True)
 class GetFeedbackRequest:
     pr_number: int
     include_resolved: bool = False
+    include_empty_reviews: bool = False
 
 
 @dataclass(frozen=True)
@@ -43,9 +45,12 @@ def run_get_feedback(
     request: GetFeedbackRequest,
 ) -> GetFeedbackResult | ClinkrCommandError:
     gateway = get_gh_issue_gateway(ctx)
+    reviews = gateway.get_reviews(request.pr_number)
+    if not request.include_empty_reviews:
+        reviews = filter_empty_reviews(reviews)
     return GetFeedbackResult(
         pr_number=request.pr_number,
-        reviews=gateway.get_reviews(request.pr_number),
+        reviews=reviews,
         review_threads=gateway.get_review_threads(
             request.pr_number, include_resolved=request.include_resolved
         ),

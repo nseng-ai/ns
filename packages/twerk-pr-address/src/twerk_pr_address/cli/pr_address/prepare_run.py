@@ -21,6 +21,7 @@ from twerk_core.gh.types import (
 from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway, get_git_gateway
 from twerk_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
+from twerk_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 
 RestructuredFiles = tuple[RestructuredFile, ...]
 
@@ -33,9 +34,14 @@ class PrepareRunRequest:
         include_all_threads: When True, include resolved reference threads in
             the normalized output. Default False returns only threads that
             still need classification (unresolved or reopened by this run).
+        include_empty_reviews: When True, include PR-level reviews whose body
+            is empty and whose state carries no request (`COMMENTED` /
+            `APPROVED`). Default False drops them as noise; set True only when
+            the caller wants to inspect the raw review stream.
     """
 
     include_all_threads: bool = False
+    include_empty_reviews: bool = False
 
 
 @dataclass(frozen=True)
@@ -160,6 +166,8 @@ def run_prepare_run(
         )
 
     reviews = gateway.get_reviews(pr.number)
+    if not request.include_empty_reviews:
+        reviews = filter_empty_reviews(reviews)
     snapshot_threads = gateway.get_review_threads(pr.number, include_resolved=True)
     discussion_comments = gateway.get_discussion_comments(pr.number)
 

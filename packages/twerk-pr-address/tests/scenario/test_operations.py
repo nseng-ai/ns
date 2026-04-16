@@ -1281,6 +1281,58 @@ def test_get_feedback_include_resolved(cli_group: ClinkrGroup) -> None:
     assert {t["id"] for t in output_all["review_threads"]} == {"PRRT_1", "PRRT_2"}
 
 
+def test_get_feedback_filters_empty_reviews_by_default(cli_group: ClinkrGroup) -> None:
+    reviews = [
+        PRReview(
+            id="PRR_noise_commented",
+            author="reviewer",
+            body="",
+            state="COMMENTED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_noise_approved",
+            author="reviewer",
+            body="   \n",
+            state="APPROVED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_signal_commented",
+            author="reviewer",
+            body="Please take a look at X.",
+            state="COMMENTED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+        PRReview(
+            id="PRR_signal_state",
+            author="reviewer",
+            body="",
+            state="CHANGES_REQUESTED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    fake_default = FakeIssueGateway(reviews={42: reviews})
+    exit_default, output_default = _invoke(cli_group, ["exec", "get-feedback", "42"], fake_default)
+    assert exit_default == 0
+    assert [r["id"] for r in output_default["reviews"]] == [
+        "PRR_signal_commented",
+        "PRR_signal_state",
+    ]
+
+    fake_all = FakeIssueGateway(reviews={42: reviews})
+    exit_all, output_all = _invoke(
+        cli_group, ["exec", "get-feedback", "42", "--include-empty-reviews"], fake_all
+    )
+    assert exit_all == 0
+    assert [r["id"] for r in output_all["reviews"]] == [
+        "PRR_noise_commented",
+        "PRR_noise_approved",
+        "PRR_signal_commented",
+        "PRR_signal_state",
+    ]
+
+
 # -- Extras --
 
 
