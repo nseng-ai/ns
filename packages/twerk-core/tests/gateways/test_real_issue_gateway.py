@@ -29,6 +29,7 @@ def _make_thread(
     is_outdated: bool = False,
     path: str = "src/foo.py",
     line: int | None = 42,
+    start_line: int | None = None,
     comments: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
@@ -37,6 +38,7 @@ def _make_thread(
         "isOutdated": is_outdated,
         "path": path,
         "line": line,
+        "startLine": start_line,
         "comments": {
             "nodes": comments
             if comments is not None
@@ -47,6 +49,7 @@ def _make_thread(
                     "author": {"login": "reviewer"},
                     "path": path,
                     "line": line,
+                    "startLine": start_line,
                     "createdAt": "2026-04-10T12:00:00Z",
                 }
             ]
@@ -166,9 +169,35 @@ def test_get_review_threads_default_filters_out_resolved(
     assert result[0].is_resolved is False
     assert result[0].path == "src/foo.py"
     assert result[0].line == 42
+    # Single-line threads report start_line as None.
+    assert result[0].start_line is None
     assert len(result[0].comments) == 1
     assert result[0].comments[0].id == 1001
     assert result[0].comments[0].author == "reviewer"
+    assert result[0].comments[0].start_line is None
+
+
+def test_get_review_threads_propagates_multi_line_start_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Multi-line threads surface both the start and end of the range."""
+    threads = [
+        _make_thread(
+            thread_id="PRRT_multi",
+            is_resolved=False,
+            line=32,
+            start_line=27,
+        ),
+    ]
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", _make_fake_run(threads=threads))
+
+    result = RealIssueGateway().get_review_threads(47)
+
+    assert len(result) == 1
+    assert result[0].line == 32
+    assert result[0].start_line == 27
+    assert result[0].comments[0].line == 32
+    assert result[0].comments[0].start_line == 27
 
 
 def test_get_review_threads_include_resolved_returns_everything(
@@ -383,8 +412,9 @@ def test_add_review_thread_reply_returns_full_comment(
                     "body": "Fixed in commit abc1234.",
                     "author": {"login": "schrockn"},
                     "path": "src/foo.py",
-                    # Server returns the aliased field — the gateway must map it.
+                    # Server returns the aliased fields — the gateway must map them.
                     "line": 42,
+                    "startLine": 38,
                     "createdAt": "2026-04-10T15:00:00Z",
                 }
             }
@@ -398,6 +428,7 @@ def test_add_review_thread_reply_returns_full_comment(
     assert comment.author == "schrockn"
     assert comment.path == "src/foo.py"
     assert comment.line == 42
+    assert comment.start_line == 38
     assert comment.created_at == "2026-04-10T15:00:00Z"
 
 

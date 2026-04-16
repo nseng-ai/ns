@@ -1,6 +1,6 @@
 ---
 name: pr-address
-description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command — it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements code changes, commits in batches, and resolves threads. Never pushes — the user pushes manually after reviewing local commits."
+description: "Address PR review comments end-to-end on the current branch's PR. This skill runs only when the user explicitly invokes it via the `/pr-address` slash command - it is not triggered by natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements changes, commits in batches, and resolves threads. Never pushes - the user pushes manually after reviewing local commits."
 allowed-tools:
   - "Bash(pr-address *)"
   - "Bash(gh pr view *)"
@@ -24,504 +24,276 @@ allowed-tools:
   - "Glob"
 ---
 
-<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md section "Public Skill Authoring". -->
 
 # pr-address
 
-Address review comments on the current branch's PR, end-to-end. Fetch
-unresolved feedback, classify it with LLM judgment, plan batched execution,
-implement changes, commit, and resolve threads. The skill never pushes —
-the user pushes manually after reviewing the local commits.
+Address review comments on the current branch's PR, end-to-end. The skill
+prepares one normalized feedback snapshot, classifies it with LLM judgment,
+executes approved batches, commits locally, and resolves or replies to the
+matching GitHub feedback. It never pushes.
 
 ## When to use
 
-This skill runs **only when the user explicitly invokes it** via the
-`/pr-address` slash command. It is a formal, multi-phase process
-that makes local commits and resolves review threads on GitHub, so it
-should never fire implicitly from natural-language requests like "fix
-review feedback" or "look at the review".
+Run this skill only when the user explicitly invokes `/pr-address`. Do not
+trigger it from natural-language requests like "fix review feedback".
 
-If the user just asks to **read** review comments without addressing
-them, run Phase 1 only and stop after displaying the plan — don't
-continue into edit/commit/resolve.
+If the user wants a read-only pass, stop after the execution plan. Do not
+edit code, commit, or mutate GitHub.
 
-## Guarantees and non-goals
+## Guarantees
 
-**Guarantees:**
-
-- Only touches the current branch's PR.
-- Every batch produces a single `git commit` and resolves every thread it
-  claims to address.
-- **Never pushes.** All work stays local after commit; the user pushes
-  explicitly when they're ready. The skill does not include `git push` in
-  its allowed-tools.
-- All GitHub I/O is routed through `pr-address exec` clinkr operations.
-- Classification (bot detection, informational filtering, pre-existing-issue
-  identification, review-state handling) lives in the LLM prompt at
-  `references/feedback-classifier.md`, not in hard-coded rules.
-
-**Non-goals:**
-
-- No pushing (`git push`, `gt submit`) — the user does that explicitly
-  after reviewing the local commits.
-- No new inline review comments (the skill responds to comments; it doesn't
-  post them).
+- Works only on the current branch's PR.
+- Never pushes. The user pushes manually after reviewing local commits.
+- Every unresolved inline review thread must be classified explicitly.
+- `cross_cutting`, `complex`, and informational items require user input
+  before execution.
+- GitHub mutations go through `pr-address exec` operations, not raw `gh api`
+  calls.
 
 ## Prerequisites
 
-1. You're on a branch that has an open PR.
-2. `gh auth status` is healthy. If it isn't, stop and tell the user to fix
-   auth before continuing.
-3. The working tree is clean. If there are uncommitted changes, stop and
-   tell the user — batch commits need a clean base.
-4. The `pr-address` binary is on `PATH`. The skill shells out to
-   `pr-address exec get-feedback` to fetch PR feedback. Run
-   `command -v pr-address` as a preflight; if it isn't found, stop and
-   tell the user: "`pr-address` not on PATH — run this skill from inside
-   a `uv sync`'d twerk workspace."
+1. `git status --porcelain` is empty.
+2. `command -v pr-address` succeeds.
+3. `gh auth status` is healthy.
+4. The current branch has an open PR.
+
+Stop on the first failed prerequisite and report the problem clearly.
 
 ## Workflow
 
-The skill has five phases. Phase 0 may mutate GitHub by reopening contested
-threads. Phase 1 is read-only. Phases 2–4 make changes.
+### 1. Preflight
 
-### Phase 0 — Reopen contested threads
+Run the prerequisite checks above before fetching any feedback.
 
-Before normal fetch/classify, reopen any resolved review thread that
-`pr-address` previously resolved and that has since received additional
-reviewer replies. This prevents the next run from silently missing reviewer
-pushback inside an already-resolved thread.
+If the surrounding harness is in a planning-only mode, stop after printing
+the execution plan. Do not edit files, commit, or call GitHub mutation
+commands.
 
-#### 0a. Resolve the PR
+### 2. Prepare the run
 
-Resolve the current branch name and look up its PR:
+Use the composite helper:
 
-```bash
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-pr-address exec get-pr-for-branch "$BRANCH"
-```
+- `pr-address exec json prepare-run`
 
-If the result has `"found": false`, stop and report: "No PR found for the
-current branch. Create one with `gh pr create` first." Do not continue.
+Pass `{"include_all_threads": true}` only when the user explicitly wants
+resolved threads included for reference. Otherwise let it default to `false`.
 
-Record `pr_number`, `pr_title`, `pr_url`, and `base_ref_name` (needed later
-for rename detection).
+`prepare-run` is the source of truth for the mechanical setup. It:
 
-#### 0b. Fetch one batched feedback snapshot
+- resolves the current branch and its PR
+- fetches one feedback snapshot with resolved threads included
+- reopens contested threads previously resolved by `pr-address`
+- returns normalized `reviews`, `review_threads`, and `discussion_comments`
+- returns `restructured_files` for moved/copied paths
+- returns any warnings that should be shown to the user before continuing
 
-Phase 0 needs resolved + unresolved threads for contested-thread detection,
-and later phases need reviews + discussion comments. Fetch everything once:
+If the result has `found: false`, stop and report that there is no PR for the
+current branch.
 
-```bash
-pr-address exec get-feedback <pr_number> --include-resolved
-```
+If `reviews`, `review_threads`, and `discussion_comments` are all empty,
+report that there is no outstanding feedback and stop.
 
-Store this as `feedback_snapshot` and reuse it in Phase 1. Do **not** call
-`get-review-comments` separately.
+### 3. Classify and plan
 
-#### 0c. Detect contested threads
+Classify the normalized payload from `prepare-run`.
 
-A thread is **contested** if all three are true:
+This is judgment work. Keep it in the model. Do not turn these rules into a
+Python classifier.
 
-- `is_resolved == true`
-- at least one comment body contains `<!-- pr-address:resolved -->`
-- there is at least one later comment after the last marker comment
+`prepare-run` provides four inputs:
 
-If a resolved thread has no marker, treat it as manually resolved and leave
-it alone. Only reopen threads that this skill previously resolved.
+- `reviews` - PR-level review submissions
+- `review_threads` - normalized inline review threads
+- `discussion_comments` - top-level PR discussion comments
+- `restructured_files` - moved/copied paths detected from git diff
 
-#### 0d. Reopen contested threads
+`review_threads` is already normalized:
 
-For each contested thread, run `pr-address exec unresolve-thread
-"$THREAD_ID"`.
+- contested threads previously resolved by `pr-address` may already be
+  reopened and marked unresolved
+- if the user asked for all threads, resolved reference threads may still be
+  present
 
-Track successful reopen operations in `reopened_thread_ids`.
+Required classifier outputs:
 
-If reopening one thread fails, warn and continue. This phase is a quality
-improvement, not a reason to abort the whole run.
+- one explicit record for every unresolved inline review thread
+- `actionable_reviews` for PR-level reviews that need action
+- `discussion_actions` for discussion comments that need action or a reply
+- `informational_count` for non-thread items dropped as noise or acknowledgments
+- each explicit actionable record includes:
+  - id (`thread_id`, `review_id`, or `comment_id`)
+  - `action_summary`
+  - `complexity`
+  - `pre_existing` when relevant
 
-#### 0e. Report and continue
+Before showing the plan, verify the completeness invariant:
 
-If any contested threads were reopened, report:
-"Reopened `<N>` contested threads — these will be included in classification
-below."
+- every unresolved thread from `prepare-run.review_threads` appears exactly once
+- resolved threads present only because of `include_all_threads=true` are
+  reference-only and may be omitted
+- unresolved review threads must never disappear into `informational_count`
 
-Then continue into Phase 1 using the cached `feedback_snapshot`.
+If you cannot account for every unresolved review thread, stop and
+re-classify. A partial thread list is a bug.
 
-### Phase 1 — Normalize the batched feedback snapshot
+Evaluate classification rules in order. First match wins.
 
-Phase 0 already fetched reviews, review threads, and discussion comments in a
-single `get-feedback --include-resolved` call. Build the Phase 1 payload from
-that snapshot rather than issuing a second fetch.
+PR-level reviews:
 
-#### 1a. Build reviews, review threads, and discussion comments for classification
+1. `APPROVED` -> drop silently.
+2. `CHANGES_REQUESTED` with a body -> actionable. Usually `cross_cutting` or
+   `complex`.
+3. `CHANGES_REQUESTED` with no body -> actionable with summary "Reviewer
+   requested changes; inspect inline threads for specifics".
+4. `COMMENTED` with no body -> drop silently.
+5. `COMMENTED` with a body:
+   - actionable if it asks for a change or answer
+   - drop if it is praise, acknowledgment, or a non-actionable observation
 
-Start from `feedback_snapshot` from Phase 0b:
+Inline review threads:
 
-- `reviews` — use as-is.
-- `discussion_comments` — use as-is.
-- `review_threads`:
-  - if the user passed `--all`, keep all threads from the snapshot.
-  - otherwise, keep only unresolved threads **after Phase 0 reopen results**:
-    include a thread when `is_resolved == false` **or** its ID is in
-    `reopened_thread_ids`; exclude threads that remain resolved.
+1. Resolved reference-only threads -> ignore unless the user explicitly wants
+   to act on them.
+2. Thread on a moved/copied `new_path` where the first commenter is a bot ->
+   actionable, `pre_existing=true`, `complexity=pre_existing`.
+3. Outdated thread (`line: null` or `is_outdated=true`) -> actionable. Mark
+   the summary so execution knows to verify whether the issue is already fixed.
+4. Bot nit or likely false positive -> actionable, but execution must verify
+   the code before changing anything.
+5. Normal request or suggestion -> actionable.
+6. Question-only or approval-only thread -> informational.
 
-This yields the same three-field payload shape used by Phase 2:
+Discussion comments:
 
-- `reviews` — PR-level review submissions (APPROVED, CHANGES_REQUESTED,
-  COMMENTED) with `id`, `author`, `body`, `state`, `submitted_at`.
-  Excludes PENDING and DISMISSED.
-- `review_threads` — unresolved inline review threads (or all threads if
-  `--all`), each with `thread_id`, `path`, `line`, and comments.
-- `discussion_comments` — PR discussion comments with `id`, `body`,
-  `author`, `url`.
+1. Obvious CI/status/stack automation with no request -> drop silently.
+2. Request for change, clarification, or reply -> actionable.
+3. Human acknowledgment, thanks, or FYI -> informational.
+4. Comment that only summarizes prior work -> drop silently.
 
-#### 1b. Detect restructured files (for pre-existing-issue candidates)
+Treat a comment as bot-generated when the evidence is strong:
 
-Bot comments on files that were renamed or moved in this PR are almost
-always pre-existing issues flagged by a linter that doesn't know the file
-moved. Detect renames/copies against the PR's base branch:
+- author login ends with `[bot]`
+- body is obviously auto-generated boilerplate
+- the same style appears across many comments like a linter pass
 
-```bash
-git diff --name-status -M -C origin/<base_ref>...HEAD
-```
+When in doubt, treat the author as human. False negatives are safer than
+silently dropping real review feedback.
 
-Collect the `new_path` of every `R*` and `C*` entry — these are the
-"restructured paths". The classifier in Phase 2 uses this set to flag
-pre-existing candidates.
+Assign `complexity` only to actionable items:
 
-If the git diff fails (detached HEAD, missing origin, etc.), proceed with an
-empty set. Pre-existing detection is a quality optimization, not a
-correctness requirement.
+- `pre_existing` - moved/restructured bot comment; no code change expected
+- `local` - one file, one location, a small edit
+- `single_file` - one file, multiple locations
+- `cross_cutting` - multiple files affected
+- `complex` - architectural or multi-comment coordinated change
 
-#### 1c. Empty-case handling
+If uncertain, choose the higher complexity. It is better to pause for user
+approval than to auto-execute something surprising.
 
-If all three fields (`reviews`, `review_threads`, `discussion_comments`)
-of the Phase 1 payload are empty, report: "No unresolved review comments
-or discussion comments on PR #`<number>`." and stop. Do not continue to
-Phase 2.
+Use this batch order:
 
-### Phase 2 — Classify and plan
+1. `pre_existing`
+2. `local`
+3. `single_file`
+4. `cross_cutting`
+5. `complex`
+6. informational review threads
 
-Open `references/feedback-classifier.md` and apply its rules to the Phase 1
-data. This is the heart of the skill: the LLM makes judgment calls about
-free-form review feedback rather than relying on brittle rule-based
-classification.
+Execution rules:
 
-The classifier produces:
+- auto-proceed: `pre_existing`, `local`, `single_file`
+- ask first: `cross_cutting`, `complex`
+- prompt per item: informational review threads (`act`, `dismiss`, or `skip`)
 
-- **review_threads**: every unresolved inline review thread from Phase 1a,
-  with `thread_id`, `path`, `line`, `classification`, `action_summary`,
-  and `pre_existing` flag. Threads with `classification:
-  "informational"` are still represented explicitly; they are not allowed
-  to disappear into a count bucket.
-- **actionable_reviews**: PR-level reviews that need code changes, with
-  `review_id`, `action_summary`, `complexity`.
-- **discussion_actions**: discussion comments that need a reply or an
-  action, with `comment_id`, `action_summary`, `complexity`.
-- **informational_count**: a count (and optional opaque list) of non-thread
-  items filtered out as informational — approvals, bot noise,
-  acknowledgments.
-- **batches**: ordered execution plan grouped by complexity.
+Display a compact plan grouped by batch with item location and a one-line
+summary.
 
-Before displaying the plan, enforce the review-thread completeness
-invariant:
+### 4. Execute approved batches
 
-- every unresolved review thread in the Phase 1 payload must appear
-  exactly once in `review_threads`
-- resolved threads included via `--all` are reference-only and do not count
-  toward this invariant
+For each approved batch, do the real engineering work:
 
-If the classifier cannot account for every unresolved review thread, stop and
-re-classify. Do not proceed with a partial plan.
+- inspect the referenced code
+- decide whether the feedback needs a code change, a reply, or both
+- make the edit
+- run appropriate tests for the affected project
+- fix any failures before committing
+- stage only the files changed for that batch
+- create exactly one commit for the batch
 
-**Batch ordering** (simplest → most complex):
+All `pr-address exec json` helpers accept input as JSON on stdin. See
+`references/cli-reference.md` for required fields and invocation examples.
 
-| # | Complexity    | Auto-proceed | Description                                   |
-| - | ------------- | ------------ | --------------------------------------------- |
-| 0 | pre_existing  | yes          | Bot comments on moved/restructured code       |
-| 1 | local         | yes          | One file, one location per comment            |
-| 2 | single_file   | yes          | One file, multiple locations                  |
-| 3 | cross_cutting | **no**       | Multiple files affected                       |
-| 4 | complex       | **no**       | Related comments that inform a unified change |
-| 5 | informational | **no**       | User decides: act, dismiss, or skip           |
-
-Display the plan to the user as a compact markdown table per batch, using
-this format:
+Commit format:
 
 ```text
-## Execution plan — PR #<N> <title>
-
-### Batch 0: Pre-Existing Auto-Resolve (<count> threads) — auto-proceed
-| # | Location | Summary |
-|---|----------|---------|
-| 1 | src/old.py → src/new.py:42 | Bot: add type annotation (file moved) |
-
-### Batch 1: Local Fixes (<count> items) — auto-proceed
-| # | Location | Summary |
-|---|----------|---------|
-| 2 | src/foo.py:42 | Use LBYL pattern |
-
-### Batch 3: Cross-Cutting (<count> items) — needs approval
-| # | Location | Summary |
-|---|----------|---------|
-| 5 | multiple files | Update all callers of `foo()` |
-
-### Informational Review Threads (<count>) — will prompt per item
-- src/foo.py:88 — reviewer asked whether this helper belongs in a gateway
-- src/legacy.py:12 — bot nit looks optional; user decides
-```
-
-For `auto_proceed: true` batches, proceed without confirmation. For
-`auto_proceed: false` batches, **wait for user approval** before executing.
-For the Informational section, prompt the user per-item with act / dismiss
-/ skip choices.
-
-If plan mode is active, display the plan and call `ExitPlanMode`. Do not
-execute Phases 3–4 while plan mode is on.
-
-### Phase 3 — Execute by batch
-
-For each batch in order:
-
-#### 3a. Pre-existing batch (special case)
-
-If the batch's complexity is `pre_existing`, skip code changes entirely —
-just resolve each thread with the standard pre-existing comment via
-`pr-address exec add-review-thread-reply` followed by
-`pr-address exec resolve-thread`. Resolution comment:
-
-> Pre-existing issue — this code was moved/restructured, not newly
-> introduced.
-
-Then move to the next batch. No commit for this batch.
-
-#### 3b. Address each item in the batch
-
-For each actionable item:
-
-**Inline review threads with `line` set:** Read the file around that line,
-understand context, make the fix.
-
-**Inline review threads with `line: null` (outdated):** The code has changed
-since the comment was made. Read the file without a line anchor, search for
-the relevant code referenced in the comment, check if the issue is already
-fixed. If fixed, skip the edit and go straight to resolution in 3e. If not
-fixed, apply the fix.
-
-**PR-level reviews:** Treat the review body as a spec for changes across the
-PR. The review might reference multiple files; investigate each reference
-before editing.
-
-**Discussion comments:** Determine whether it's a request (take action), a
-question (answer + possibly edit), architectural feedback (investigate +
-possibly edit), or acknowledgment (reply and mark resolved). Before replying
-to architectural feedback, investigate the codebase so the reply is
-substantive, not generic.
-
-**Informational items the user chose to act on:** Same as actionable.
-
-**False positives from automated reviewers:** If a bot flagged something
-that is not actually wrong (e.g., the suggested pattern already exists
-nearby), do NOT change the code. Reply to the thread explaining why it's a
-false positive, reference the specific line where the correct pattern
-exists, and resolve the thread. See `references/feedback-classifier.md`
-§`false-positives` for detail.
-
-#### 3c. Run tests
-
-After making all edits in the batch, run the project's test command. For
-twerk that's `just` (which runs lint, format, typecheck, tests). If `just`
-fails, **stop and fix the failures before committing**. Do NOT commit a
-broken batch.
-
-If a fix reveals that the reviewer's suggestion was wrong or would break
-something, stop and ask the user — don't silently skip the comment.
-
-#### 3d. Commit
-
-Create one commit for the batch. The commit message format:
-
-```
 Address PR review comments (batch N/M)
 
-- <summary of comment 1>
-- <summary of comment 2>
-- ...
+- <summary 1>
+- <summary 2>
 ```
 
-Stage only the files changed for this batch — not untracked files the user
-may be working on separately:
+Treat these cases specially:
 
-```bash
-git add <specific files>
-git commit -m "..."
-```
+- outdated inline threads: verify whether the issue is already fixed before
+  making a new edit
+- automated false positives: explain why they are false positives and resolve
+  them without a code change
+- informational items the user chose to act on: treat them like actionable
+  items for that batch
 
-#### 3e. Resolve threads in the batch
+Before execution changes code for a bot comment, verify the local context:
 
-For each inline review thread in the batch, post a reply and then resolve
-the thread. **Always pass the reply body via a quoted heredoc** (`-` as the
-body argument tells the CLI to read from stdin):
+1. read the nearby code, not just the flagged line
+2. check whether the requested pattern already exists
+3. check whether the bot rule is wrong for this context
 
-```bash
-pr-address exec add-review-thread-reply "$THREAD_ID" - <<'EOF'
-Fixed in commit <short-sha>: <one-line summary>
+If the bot is wrong:
 
-Addressed via _pr-address_ at <ISO timestamp>
-<!-- pr-address:resolved -->
-EOF
-pr-address exec resolve-thread "$THREAD_ID"
-```
+- do not change the code
+- resolve the thread with an explanatory reply
+- keep the explanation factual and brief
 
-The heredoc is **mandatory**: a double-quoted inline body like
-`"Fixed...\n\n_Addressed..._"` does NOT work because bash does not interpret
-`\n` inside double quotes, and the literal `\n` characters end up posted
-verbatim on GitHub. The quoted delimiter (`'EOF'`) also prevents shell
-expansion of `$`, backticks, etc. inside the body.
+Use the composite helpers for GitHub mutations (see
+`references/cli-reference.md` for required fields and invocation shape):
 
-The `<!-- pr-address:resolved -->` marker lets the "contested threads"
-detector in Phase 0 tell the difference between a thread the user manually
-reopened and one they never touched.
+- `resolve-thread-with-reply` — reply to and resolve a thread
+- `reply-to-review` — post a formatted reply to a PR-level review
+- `reply-to-discussion` — reply to a discussion comment with reaction
 
-For PR-level reviews: there's no way to "resolve" a review submission via
-API. Instead, post a reply comment on the PR discussion using
-`pr-address exec add-issue-comment` that quotes the review's action items
-and describes what was addressed. **Pass the body via a quoted heredoc**
-(`-` as the body argument reads from stdin), same as
-`add-review-thread-reply`:
+Do not hand-roll reply bodies. The helper commands own the marker, timestamp,
+and standard formatting.
 
-```bash
-pr-address exec add-issue-comment <pr_number> - <<'EOF'
-Addressed review feedback from @<reviewer>:
-- <summary of changes>
+### 5. Verify and hand off
 
-_Addressed via pr-address at <ISO timestamp>_
-EOF
-```
+After the last batch, re-fetch current feedback with:
 
-The user can dismiss the review manually if needed.
+- `pr-address exec get-feedback <pr_number>`
 
-For discussion comments: post a reply with `pr-address exec add-issue-comment`,
-then add a `+1` reaction to the original comment with
-`pr-address exec add-reaction`:
+Summarize:
 
-```bash
-pr-address exec add-issue-comment <pr_number> - <<'EOF'
-> @<author> wrote:
-> <quoted original comment>
+- total actionable items addressed
+- commits created
+- threads resolved
+- discussion comments replied to
+- anything still unresolved
+- anything explicitly skipped by the user
 
-<description of action taken>
+Finish with manual next steps:
 
-_Addressed via pr-address at <ISO timestamp>_
-EOF
-pr-address exec add-reaction <comment_id> "+1"
-```
+1. review the local commits
+2. push when ready
+3. wait for CI
+4. re-request review if needed
 
-If the reaction fails, warn but do not fail the batch. Discussion comments
-don't have a "resolve" concept.
-
-#### 3f. Report progress
-
-After each batch, print a one-block summary:
-
-```
-## Batch N/M complete
-
-Addressed:
-- foo.py:42 — used LBYL
-- bar.py:15 — added type annotation
-
-Committed: <short-sha> "Address PR review comments (batch N/M)"
-
-Resolved threads: 2
-Remaining batches: M-N
-```
-
-Then continue to the next batch.
-
-### Phase 4 — Verify and hand off
-
-**The skill never pushes.** It commits locally, resolves threads via
-GraphQL, then hands the branch back to the user to push explicitly. This
-is deliberate: automatic pushes are hard to undo, can race with work from
-another machine, and can publish half-addressed batches if the user
-interrupts the skill mid-run.
-
-#### 4a. Re-fetch unresolved threads
-
-Re-run `pr-address exec get-feedback <pr_number>` against the current PR.
-If any actionable items remain unresolved, list them in the final summary
-under "Still unresolved" — don't error out, since the user may have
-deferred some items intentionally.
-
-#### 4b. Final summary
-
-```
-## PR comments addressed (locally)
-
-PR: #<number> <title>
-Total actionable items: <N>
-Pre-existing auto-resolved: <P>
-Batches: <M>
-Commits: <C>
-
-Review threads resolved: <resolved>/<total>
-Discussion comments replied: <replied>/<total>
-Discussion comment reactions: <reacted>/<replied>
-
-Still unresolved (if any):
-- <thread or comment, with reason>
-
-Skipped by user (if any):
-- <item, with reason>
-
-Next steps (run manually):
-1. Review the local commits with `git log origin/<base>..HEAD`
-2. Push with `git push` when ready
-3. Wait for CI
-4. Re-request review if the PR was CHANGES_REQUESTED
-```
-
-Do not run `git push`. Do not run `gt submit`. The user pushes.
+Do not run `git push`. Do not run `gt submit`.
 
 ## Rules
 
-- Work on the current branch. Never create a branch or a new PR inside this
-  skill.
-- **Never push.** Commits stay local. The user pushes when they're ready.
-  Not `git push`, not `gt submit`, not anything that sends commits
-  upstream. This is enforced by the allowed-tools list (no `git push*`).
-- Never use raw `gh api .../comments/{id}/replies` to "reply" without
-  resolving — it leaves the thread open. Always use `pr-address exec
-  add-review-thread-reply` together with `pr-address exec resolve-thread`.
-- Every unresolved review thread must be represented explicitly during
-  classification. Never count-collapse or silently drop a live review
-  thread.
-- Classification lives in the LLM, not in Python. If you find yourself
-  wanting to add a hard-coded rule for a specific bot or reviewer, **update
-  `references/feedback-classifier.md` instead**.
-- If a batch's tests fail, fix them before committing. Never commit a
-  broken batch to get past a failure.
-- If the user explicitly skips a comment, record it in the final summary's
-  "Skipped" section — don't silently drop it.
-
-## Anti-patterns
-
-- Running the classifier as a Python script. It's an LLM prompt. See
-  `references/feedback-classifier.md`.
-- Using `gh pr comment` or `gh api .../reviews/{id}/comments/{id}/replies`
-  as a shortcut — neither resolves the thread.
-- Skipping Phase 4a because "the batches all succeeded". Re-fetching is
-  cheap and catches bugs in the classifier's batch assignment.
-- Committing unrelated files with a batch. Stage only what the batch
-  changed.
-- Treating outdated threads (`line: null`) as "already done, skip" — they
-  still need to be resolved, even if no code change is required.
-
-## References
-
-- `references/feedback-classifier.md` — LLM-facing classification rules:
-  bot detection, informational filtering, pre-existing-issue heuristics,
-  review-state handling, false positives. Update this when the LLM
-  mis-classifies something.
+- Work on the current branch. Do not create a branch or a new PR.
+- Never push. Commits stay local for the user to review first.
+- Do not use raw GitHub review-thread reply endpoints. Use the helper
+  commands above.
+- Do not drop unresolved review threads during classification.
+- Do not commit a broken batch.
+- Record skipped items in the final summary.

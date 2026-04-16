@@ -1,0 +1,98 @@
+"""Reply to and resolve a PR review thread using canonical pr-address formatting."""
+
+from __future__ import annotations
+
+import dataclasses
+from dataclasses import dataclass
+from typing import Any, Literal
+
+import click
+
+from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.gh.types import PRReviewComment
+from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from twerk_pr_address.cli.pr_address.reply_formatting import format_resolution_reply
+
+
+@dataclass(frozen=True)
+class ResolveThreadWithReplyRequest:
+    thread_id: str
+    mode: Literal["fixed", "pre_existing", "explained"]
+    message: str | None
+    commit_sha: str | None
+
+
+@dataclass(frozen=True)
+class ResolveThreadWithReplyResult:
+    thread_id: str
+    body: str
+    comment: PRReviewComment
+    was_already_resolved: bool
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return {
+            "thread_id": self.thread_id,
+            "body": self.body,
+            "comment": dataclasses.asdict(self.comment),
+            "was_already_resolved": self.was_already_resolved,
+        }
+
+
+@clinkr_operation(
+    name="resolve-thread-with-reply",
+    help="Reply to and resolve a PR review thread with canonical pr-address formatting.",
+)
+def run_resolve_thread_with_reply(
+    ctx: click.Context,
+    request: ResolveThreadWithReplyRequest,
+) -> ResolveThreadWithReplyResult | ClinkrCommandError:
+    validation_error = _validate_resolution_inputs(request)
+    if validation_error is not None:
+        return validation_error
+
+    normalized_message = request.message.strip() if request.message is not None else None
+    normalized_sha = request.commit_sha.strip() if request.commit_sha is not None else None
+
+    body = format_resolution_reply(
+        mode=request.mode,
+        message=normalized_message,
+        commit_sha=normalized_sha,
+    )
+
+    gateway = get_gh_issue_gateway(ctx)
+    comment = gateway.add_review_thread_reply(request.thread_id, body)
+    resolve_result = gateway.resolve_review_thread(request.thread_id)
+    return ResolveThreadWithReplyResult(
+        thread_id=request.thread_id,
+        body=body,
+        comment=comment,
+        was_already_resolved=resolve_result.was_already_resolved,
+    )
+
+
+def _validate_resolution_inputs(
+    request: ResolveThreadWithReplyRequest,
+) -> ClinkrCommandError | None:
+    """Return an invalid_request error if the request violates mode preconditions."""
+    if request.mode == "fixed":
+        if request.message is None or not request.message.strip():
+            return ClinkrCommandError(
+                error_type="invalid_request",
+                message="mode='fixed' requires a non-empty message",
+            )
+        if request.commit_sha is None or not request.commit_sha.strip():
+            return ClinkrCommandError(
+                error_type="invalid_request",
+                message="mode='fixed' requires a non-empty commit_sha",
+            )
+        return None
+    if request.mode == "explained":
+        if request.message is None or not request.message.strip():
+            return ClinkrCommandError(
+                error_type="invalid_request",
+                message="mode='explained' requires a non-empty message",
+            )
+        return None
+    # mode == "pre_existing": message and commit_sha are ignored.
+    return None

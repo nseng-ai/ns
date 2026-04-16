@@ -31,6 +31,26 @@ def test_pr_review_comment_none_line():
     assert comment.line is None
 
 
+def test_pr_review_comment_start_line_defaults_to_none():
+    """`start_line` is optional; single-line threads omit it."""
+    comment = PRReviewComment(id=1, body="", author="a", path="f.py", line=10, created_at="")
+    assert comment.start_line is None
+
+
+def test_pr_review_comment_multi_line_range():
+    comment = PRReviewComment(
+        id=1,
+        body="",
+        author="a",
+        path="f.py",
+        line=32,
+        created_at="",
+        start_line=27,
+    )
+    assert comment.start_line == 27
+    assert comment.line == 32
+
+
 def test_pr_review_comment_is_frozen():
     comment = PRReviewComment(id=1, body="x", author="a", path="f.py", line=1, created_at="")
     with pytest.raises(AttributeError):
@@ -60,6 +80,28 @@ def test_pr_review_thread_is_frozen():
     )
     with pytest.raises(AttributeError):
         thread.is_resolved = True  # type: ignore[misc]
+
+
+def test_pr_review_thread_start_line_defaults_to_none():
+    """`start_line` is optional; single-line threads omit it."""
+    thread = PRReviewThread(
+        id="PRRT_1", path="f.py", line=10, is_resolved=False, is_outdated=False, comments=()
+    )
+    assert thread.start_line is None
+
+
+def test_pr_review_thread_multi_line_range():
+    thread = PRReviewThread(
+        id="PRRT_1",
+        path="f.py",
+        line=32,
+        is_resolved=False,
+        is_outdated=False,
+        comments=(),
+        start_line=27,
+    )
+    assert thread.start_line == 27
+    assert thread.line == 32
 
 
 def test_pr_review_construction():

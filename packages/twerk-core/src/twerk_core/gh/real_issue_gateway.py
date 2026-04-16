@@ -32,6 +32,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
           isOutdated
           path
           line
+          startLine
           comments(first: 20) {
             nodes {
               databaseId
@@ -39,6 +40,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
               author { login }
               path
               line: originalLine
+              startLine: originalStartLine
               createdAt
             }
           }
@@ -87,6 +89,7 @@ mutation($threadId: ID!, $body: String!) {
       author { login }
       path
       line: originalLine
+      startLine: originalStartLine
       createdAt
     }
   }
@@ -201,6 +204,7 @@ class RealIssueGateway(IssueGateway):
                     author=c["author"]["login"] if c["author"] else "",
                     path=c["path"],
                     line=c.get("line"),
+                    start_line=c.get("startLine"),
                     created_at=c["createdAt"],
                 )
                 for c in raw["comments"]["nodes"]
@@ -210,6 +214,7 @@ class RealIssueGateway(IssueGateway):
                     id=raw["id"],
                     path=raw["path"],
                     line=raw.get("line"),
+                    start_line=raw.get("startLine"),
                     is_resolved=raw["isResolved"],
                     is_outdated=raw["isOutdated"],
                     comments=comments,
@@ -325,6 +330,7 @@ class RealIssueGateway(IssueGateway):
             author=comment["author"]["login"] if comment["author"] else "",
             path=comment["path"],
             line=comment.get("line"),
+            start_line=comment.get("startLine"),
             created_at=comment["createdAt"],
         )
 
