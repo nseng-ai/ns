@@ -70,6 +70,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
                     id="PRRT_live",
                     path="src/live.py",
                     line=10,
+                    start_line=7,
                     is_resolved=False,
                     is_outdated=False,
                     comments=(
@@ -79,6 +80,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
                             author="reviewer",
                             path="src/live.py",
                             line=10,
+                            start_line=7,
                             created_at="2026-04-15T12:00:00Z",
                         ),
                     ),
@@ -167,6 +169,12 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
     assert fake._unresolved_thread_ids == ["PRRT_contested"]
     assert [thread["id"] for thread in output["review_threads"]] == ["PRRT_live", "PRRT_contested"]
     assert output["review_threads"][1]["is_resolved"] is False
+    # Multi-line threads preserve start_line through to the JSON output;
+    # single-line threads report null.
+    assert output["review_threads"][0]["line"] == 10
+    assert output["review_threads"][0]["start_line"] == 7
+    assert output["review_threads"][0]["comments"][0]["start_line"] == 7
+    assert output["review_threads"][1]["start_line"] is None
     assert len(output["reviews"]) == 1
     assert len(output["discussion_comments"]) == 1
     assert output["restructured_files"] == [

@@ -16,7 +16,23 @@ PRState = Literal["OPEN", "CLOSED", "MERGED"]
 
 @dataclass(frozen=True)
 class PRReviewComment:
-    """A single comment within a PR review thread."""
+    """A single comment within a PR review thread.
+
+    Attributes:
+        id: Numeric database ID of the comment.
+        body: Markdown body of the comment.
+        author: Author's GitHub login, or empty string if the account was
+            deleted.
+        path: File path the comment is on.
+        line: Line number (None for file-level or outdated comments). When
+            the parent thread covers a multi-line range, this is the *end*
+            of that range; `start_line` is the start. Equals `start_line`
+            for single-line threads (in which case `start_line` is None).
+        start_line: Start of the multi-line range the comment covers, or
+            None for single-line comments. GitHub renders multi-line
+            threads as "lines +<start_line> to +<line>".
+        created_at: ISO-8601 timestamp of the comment's creation.
+    """
 
     id: int
     body: str
@@ -24,6 +40,7 @@ class PRReviewComment:
     path: str
     line: int | None
     created_at: str
+    start_line: int | None = None
 
 
 @dataclass(frozen=True)
@@ -33,7 +50,13 @@ class PRReviewThread:
     Attributes:
         id: GraphQL node ID (needed for resolution mutations)
         path: File path the thread is on
-        line: Line number (None for file-level or outdated comments)
+        line: Line number (None for file-level or outdated comments). When
+            the thread covers a multi-line range, this is the *end* of that
+            range; `start_line` is the start. Equals the thread's sole line
+            for single-line threads (in which case `start_line` is None).
+        start_line: Start of the multi-line range this thread covers, or
+            None for single-line threads. GitHub renders multi-line threads
+            as "lines +<start_line> to +<line>".
         is_resolved: Whether the thread has been resolved
         is_outdated: Whether the thread is outdated (code changed since comment)
         comments: Comments in this thread, ordered chronologically
@@ -45,6 +68,7 @@ class PRReviewThread:
     is_resolved: bool
     is_outdated: bool
     comments: tuple[PRReviewComment, ...]
+    start_line: int | None = None
 
 
 @dataclass(frozen=True)
