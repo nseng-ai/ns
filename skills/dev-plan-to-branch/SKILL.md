@@ -34,6 +34,18 @@ Given source plan content (from a path or conversation context), produce:
 
 Responsibility ends at the local commit. No push, no `gt submit`.
 
+## Harness-specific notes
+
+Some harnesses impose constraints (plan modes, session-plan paths,
+plan-directory conventions) that the base workflow needs to work
+around. Per-harness procedures live in reference files alongside this
+SKILL.md. Read the file matching your harness before running:
+
+- **Claude Code**: `references/claude-only.md` (plan-mode exit ritual,
+  `~/.claude/plans/` filesystem-fallback command).
+- **Codex / Cursor / Gemini CLI / others**: no extra notes — follow
+  this SKILL.md as-is.
+
 ## Core rules
 
 - **Copy the plan verbatim, plus a self-destruct footer.** Do not
@@ -46,12 +58,12 @@ Responsibility ends at the local commit. No push, no `gt submit`.
 - **Hermetic commit.** The working tree must be clean before stamping; the
   commit must touch only `plan-<slug>.md`.
 - **Never push.** Never `gt submit`. The skill ends at the local commit.
-- **Exit plan mode before writing.** If the current harness exposes a
-  plan mode on entry, the skill's first action is to resolve source plan
-  content, generate the slug, write a short session-plan to the
-  harness-owned session plan path, and call `ExitPlanMode`. All steps
-  that touch the working tree (`Write` of `plan-<slug>.md`, `git add`,
-  `gt create`) require plan mode to be off.
+- **Exit harness plan mode before writing.** If the current harness has
+  a plan-mode concept that blocks `Write` / `Bash`, exit it before any
+  step that touches the working tree (`Write` of `plan-<slug>.md`,
+  `git add`, `gt create`). The exit procedure is harness-specific — see
+  the matching reference file under `references/` (e.g.,
+  `references/claude-only.md` for Claude Code).
 - **Every stamped plan self-destructs.** The `plan-<slug>.md` file the
   skill writes always ends with a standardized Self-destruct section
   instructing the implementing agent to delete the file in the branch's
@@ -60,63 +72,15 @@ Responsibility ends at the local commit. No push, no `gt submit`.
 
 ## Workflow
 
-### 1. Exit plan mode (if active)
+### 1. Exit harness plan mode (if active)
 
-If the current session is in a harness-managed plan mode — meaning the
-system context exposes both that plan mode is active and a writable
-session-plan path — the skill cannot run its `Write` / `gt` / `git`
-steps until plan mode has been exited.
+If the current harness has a plan-mode concept that blocks `Write` and
+`Bash`, exit it before continuing. The procedure is harness-specific:
 
-Do, in order:
-
-1. Run step 2 below to resolve source plan content and capture source
-   origin metadata.
-2. Generate the slug per step 3 below.
-3. Use the `Write` tool to write a short session-plan to the
-   harness-provided session-plan path (this is the session's plan file).
-   The session-plan should describe exactly what the skill is about to
-   do. Mention source origin as a path if file-backed, or as
-   "the most recent `<proposed_plan>` block in conversation context" if
-   context-backed.
-
-   Example (file-backed):
-
-   ```
-   # Stamp <source-plan> onto a new Graphite branch
-
-   Run `dev-plan-to-branch` to:
-   - Create a new branch `<slug>` via `gt create`.
-   - Write `plan-<slug>.md` at the repo root containing `<source-plan>`
-     verbatim plus the standardized Self-destruct footer.
-   - Commit it as the branch's first commit.
-
-   No push, no `gt submit`.
-   ```
-
-   Example (context-backed):
-
-   ```
-   # Stamp in-context plan onto a new Graphite branch
-
-   Run `dev-plan-to-branch` to:
-   - Create a new branch `<slug>` via `gt create`.
-   - Write `plan-<slug>.md` at the repo root containing the most recent
-     `<proposed_plan>` block from conversation context, verbatim plus the
-     standardized Self-destruct footer.
-   - Commit it as the branch's first commit.
-
-   No push, no `gt submit`.
-   ```
-
-4. Call `ExitPlanMode`. It reads the session-plan file you just wrote
-   and requests user approval.
-5. After approval, continue with step 4 (pre-flight checks). Steps 2
-   and 3 have already run inside this step and do not need to be re-run.
-   If source content came from conversation context, carry that exact
-   content forward after exit; do not attempt to rediscover it from disk.
-
-If plan mode is **not** active, skip this step entirely and start at
-step 2.
+- **Claude Code**: follow `references/claude-only.md`, then return here
+  at step 4 (pre-flight). Steps 2 and 3 will already have run inside
+  that procedure.
+- **Other harnesses**: skip this step and start at step 2.
 
 ### 2. Resolve source plan content (context-first)
 
@@ -134,8 +98,9 @@ Try in order; stop at the first that succeeds:
    distinct paths appear, pick the most recent and call out that choice.
 4. **Filesystem fallback.** If recent context identified a concrete plan
    directory, list its markdown files newest-first and take the first
-   one (for example, `ls -t ~/.claude/plans/*.md | head -1` in Claude
-   Code).
+   one. The conventional directory varies by harness — see the matching
+   reference file under `references/` for the concrete command (e.g.,
+   `references/claude-only.md` for Claude Code).
 
 If all four fail, abort with a clear error explaining what was tried.
 Report source origin as one of: explicit path, context block, context
@@ -256,9 +221,10 @@ surprised.
 - Prefixing the branch with `plan/` — flat branches keep the skill
   project-neutral.
 - Including more than `plan-<slug>.md` in the commit.
-- Claiming "plan mode exited" in chat without actually calling
-  `ExitPlanMode`, then attempting to run `Write` / `gt` / `git` — they
-  will be blocked.
+- Claiming the harness's plan mode is exited in chat without actually
+  invoking the harness-specific exit (e.g., `ExitPlanMode` under Claude
+  Code), then attempting to run `Write` / `gt` / `git` — they will be
+  blocked. Per-harness exit procedures live in the `references/` files.
 - Writing `plan-<slug>.md` without the Self-destruct footer. Every
   stamped plan carries the footer so the implementing agent knows to
   delete the file in the branch's final commit.
