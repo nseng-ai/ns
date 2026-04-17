@@ -8,12 +8,47 @@ from typing import Any, Literal
 Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
 
+ReviewerFailureKind = Literal[
+    "invalid_review_definition",
+    "model_not_provided",
+    "executor_command_missing",
+    "executor_command_invalid",
+    "review_execution_invocation_failed",
+    "review_execution_failed",
+    "review_execution_invalid_response",
+    "review_execution_invalid_json",
+    "review_definition_not_found",
+    "review_definition_not_a_file",
+    "review_definition_read_failed",
+    "repo_root_unavailable",
+    "base_ref_unavailable",
+    "git_diff_failed",
+]
+_REVIEWER_FAILURE_KINDS: frozenset[str] = frozenset(
+    {
+        "invalid_review_definition",
+        "model_not_provided",
+        "executor_command_missing",
+        "executor_command_invalid",
+        "review_execution_invocation_failed",
+        "review_execution_failed",
+        "review_execution_invalid_response",
+        "review_execution_invalid_json",
+        "review_definition_not_found",
+        "review_definition_not_a_file",
+        "review_definition_read_failed",
+        "repo_root_unavailable",
+        "base_ref_unavailable",
+        "git_diff_failed",
+    }
+)
+
 
 @dataclass(frozen=True)
 class ReviewerFailure:
     """A typed failure surfaced by reviewer gateways or workflow code."""
 
-    error_type: str
+    error_type: ReviewerFailureKind
     message: str
 
 

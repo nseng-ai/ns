@@ -5,15 +5,19 @@ from __future__ import annotations
 import json
 import shlex
 import subprocess
-from typing import Any
+from typing import Any, cast
 
 from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
 from twerk_reviewer.models import (
+    _REVIEWER_FAILURE_KINDS,
     ReviewerFailure,
+    ReviewerFailureKind,
     ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFinding,
 )
+
+_UNKNOWN_EXECUTOR_ERROR_KIND: ReviewerFailureKind = "review_execution_failed"
 
 
 class RealReviewExecutionGateway(ReviewExecutionGateway):
@@ -87,9 +91,15 @@ def _parse_execution_response(
         )
 
     if payload.get("success") is False:
-        error_type = payload.get("error_type", "review_execution_failed")
+        raw_error_type = payload.get("error_type", "review_execution_failed")
         message = payload.get("message", "The review executor reported a failure.")
-        return ReviewerFailure(error_type=str(error_type), message=str(message))
+        if isinstance(raw_error_type, str) and raw_error_type in _REVIEWER_FAILURE_KINDS:
+            error_kind: ReviewerFailureKind = cast(ReviewerFailureKind, raw_error_type)
+            return ReviewerFailure(error_type=error_kind, message=str(message))
+        return ReviewerFailure(
+            error_type=_UNKNOWN_EXECUTOR_ERROR_KIND,
+            message=f"Review executor reported error_type={raw_error_type!r}: {message}",
+        )
 
     findings_payload = payload.get("findings")
     if not isinstance(findings_payload, list):
