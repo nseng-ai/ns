@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from functools import cache
 from importlib.resources import files
 
 from twerk_reviewer.models import LocalDiff, ReviewDefinition
 
-_REVIEW_PROMPT_TEMPLATE = (
-    files("twerk_reviewer.prompts").joinpath("review_prompt.md").read_text(encoding="utf-8")
-)
+
+@cache
+def _review_prompt_template() -> str:
+    return files("twerk_reviewer.prompts").joinpath("review_prompt.md").read_text(encoding="utf-8")
 
 
 def build_review_prompt(
@@ -17,7 +19,7 @@ def build_review_prompt(
     local_diff: LocalDiff,
 ) -> str:
     """Build the prompt sent to the review executor."""
-    return _REVIEW_PROMPT_TEMPLATE.format(
+    return _review_prompt_template().format(
         review_name=review_definition.name,
         review_description=review_definition.description,
         review_instructions=review_definition.instructions,
