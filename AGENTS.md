@@ -41,14 +41,14 @@ When adding or editing any code that interacts with the GitHub backend — wheth
 
 ### Branch Creation and PR Submission (Graphite)
 
-This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Prefer `gt` over raw `git` for these operations:
+This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Whenever you create branches, amend commits, submit or update PRs, or navigate and reshape stacks, always consult the `graphite` skill (`.claude/skills/graphite/SKILL.md`) first. When splitting a single mixed branch into a stack, consult the `dev-gt-stackify-branch` skill (`.claude/skills/dev-gt-stackify-branch/SKILL.md`) first. Prefer `gt` over raw `git` for these operations:
 
 - Creating branches: use `gt create <name> -m "<msg>"` instead of `git checkout -b` + `git commit`.
 - Amending the current branch: use `gt modify -m "<msg>"` instead of `git commit --amend`.
 - Submitting / updating PRs: use `gt submit --no-interactive` instead of `git push` / `gh pr create`.
 - Navigating and reshaping stacks: `gt up` / `gt down` / `gt ls` / `gt restack` / `gt move`.
 
-Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the `graphite` skill's "Surgical Rebasing" section). See `.claude/skills/graphite/SKILL.md` for the full workflow and `.claude/skills/dev-gt-stackify-branch/SKILL.md` for splitting a mixed branch into a stack.
+Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the `graphite` skill's "Surgical Rebasing" section).
 
 ### CLI Scenario Testing Convention
 
