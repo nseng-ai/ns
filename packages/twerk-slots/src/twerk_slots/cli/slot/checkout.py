@@ -150,6 +150,7 @@ def _build_result(
 @clinkr_operation(
     name="checkout",
     help="Check out a branch into a pool slot worktree (like `git checkout [-b]`).",
+    aliases=("co",),
     human_renderer=render_slot_checkout,
 )
 def run_checkout_slot(

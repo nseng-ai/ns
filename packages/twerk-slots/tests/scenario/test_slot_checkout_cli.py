@@ -711,3 +711,25 @@ def test_slot_checkout_clipboard_failure_warns_but_succeeds(
     assert "Clipboard unavailable" in result.output
     assert fakes.clipboard.copy_calls == 1
     assert fakes.clipboard.last_copied is None
+
+
+def test_slot_co_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["co", "feat/x"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Checked out" in result.output
+    assert "slot-01" in result.output
+    assert "feat/x" in result.output
+    _assert_assigned_slot_state(
+        fakes,
+        slots_root=slots_root,
+        slot_name="slot-01",
+        branch_name="feat/x",
+    )
