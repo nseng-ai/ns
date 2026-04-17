@@ -2,7 +2,7 @@
 name: nsx
 description: "Run any skill from nseng-ai/nonslop without installing it. Shorthand for skillx against the nonslop repo. Pass a skill name to run it, or no arguments to list available skills."
 allowed-tools:
-  - "Bash(uvx --from *nonslop* nonslop exec nsx *)"
+  - "Bash(uvx nonslop exec nsx *)"
 ---
 
 # nsx
@@ -27,10 +27,10 @@ use `ns-skillx` for that.
 
 ## CLI prefix
 
-All commands use this prefix (always runs latest from master):
+All commands use this prefix (always runs latest from PyPI):
 
 ```
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec nsx
+uvx nonslop exec nsx
 ```
 
 ## Step 1: Parse the request
@@ -49,7 +49,7 @@ skill (the rest of their message beyond the nsx invocation).
 **If no skill name was provided**, list available skills and stop:
 
 ```bash
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec nsx list
+uvx nonslop exec nsx list
 ```
 
 Returns JSON: `{"success": true, "repo": "nseng-ai/nonslop", "skills": [...]}`.
@@ -60,7 +60,7 @@ Report the list to the user and stop.
 ## Step 3: Fetch the skill
 
 ```bash
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec nsx fetch --skill <skill-name>
+uvx nonslop exec nsx fetch --skill <skill-name>
 ```
 
 Returns JSON with `tmp_dir`, `skill_dir`, `skill_md`, and `files`.
@@ -88,7 +88,7 @@ automatically granted. The user will see normal permission prompts.
 After the skill's work is complete (or if any step fails):
 
 ```bash
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec nsx cleanup --dir <tmp_dir>
+uvx nonslop exec nsx cleanup --dir <tmp_dir>
 ```
 
 ## What nsx does NOT do
