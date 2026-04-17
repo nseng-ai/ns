@@ -167,8 +167,8 @@ def test_slot_free_by_slot_name(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert "Freed" in result.output
     assert "slot-01" in result.output
     assert "feat/x" in result.output
-    # Placeholder checkout happened.
-    assert fakes.git._checkout_calls == [(worktree_path, "__slot-01-br-stub__")]
+    # Worktree detached at trunk.
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
     # pool.json now has the slot removed.
     saved = fakes.pool_state.load()
     assert saved is not None
@@ -206,7 +206,7 @@ def test_slot_free_current_happy_path(cli_group: ClinkrGroup, tmp_path: Path) ->
     assert result.exit_code == 0, result.output
     assert "Freed" in result.output
     assert "slot-01" in result.output
-    assert fakes.git._checkout_calls == [(worktree_path, "__slot-01-br-stub__")]
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
     saved = fakes.pool_state.load()
     assert saved is not None
     assert saved.assignments == ()
@@ -312,7 +312,7 @@ def test_slot_free_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) 
     assert payload["success"] is True
     assert payload["slot_name"] == "slot-01"
     assert payload["branch_name"] == "feat/x"
-    assert payload["placeholder_branch"] == "__slot-01-br-stub__"
+    assert "placeholder_branch" not in payload
 
 
 def test_slot_free_json_schema(cli_group: ClinkrGroup) -> None:

@@ -116,23 +116,25 @@ def test_free_slot_happy_path() -> None:
     assert outcome.slot_name == "slot-01"
     assert outcome.branch_name == "feat/x"
     assert outcome.worktree_path == slot_path
-    assert outcome.placeholder_branch == "__slot-01-br-stub__"
-    # Placeholder created at trunk (new branch, so force=False) and checked out.
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", False)]
-    assert git._checkout_calls == [(slot_path, "__slot-01-br-stub__")]
+    # Worktree detached at trunk; no branch created, no checkout.
+    assert git._detach_head_calls == [(slot_path, "main")]
+    assert git._create_branch_calls == []
+    assert git._checkout_calls == []
     # Assignment removed from persisted state.
     saved = pool_state_gw.load()
     assert saved is not None
     assert saved.assignments == ()
 
 
-def test_free_slot_forces_existing_placeholder() -> None:
+def test_free_slot_is_idempotent_when_repeated() -> None:
+    """Freeing a slot is safe to repeat: a second free after a reassignment
+    just re-detaches the worktree at trunk without touching branch state."""
     repo = _make_repo()
     slot_path = repo.worktrees_dir / "slot-01"
     seeded = _assigned_state("slot-01", "feat/x", slot_path)
     git = FakeGitGateway(
         repo_root=repo.root,
-        branches={"feat/x", "__slot-01-br-stub__"},
+        branches={"feat/x"},
         worktrees=(WorktreeInfo(path=slot_path, branch="feat/x", is_bare=False),),
         current_branch_by_path={slot_path: "feat/x"},
         trunk_branch="main",
@@ -152,8 +154,8 @@ def test_free_slot_forces_existing_placeholder() -> None:
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
     assert isinstance(outcome, SlotFreeOutcome)
-    # Placeholder already existed, so create_branch was called with force=True.
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", True)]
+    assert git._detach_head_calls == [(slot_path, "main")]
+    assert git._create_branch_calls == []
 
 
 # -- failure modes -----------------------------------------------------------
@@ -255,5 +257,6 @@ def test_free_slot_syncs_before_freeing() -> None:
     assert isinstance(outcome, SlotFreeOutcome)
     # Outcome reports the synced branch, not the stale pool.json value.
     assert outcome.branch_name == "feat/y"
-    # Stub is reset to trunk regardless of the freed branch.
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", False)]
+    # Worktree detached at trunk regardless of the freed branch.
+    assert git._detach_head_calls == [(slot_path, "main")]
+    assert git._create_branch_calls == []

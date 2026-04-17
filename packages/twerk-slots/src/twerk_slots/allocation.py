@@ -19,8 +19,6 @@ from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import (
     extract_slot_number,
     generate_slot_name,
-    get_placeholder_branch_name,
-    is_placeholder_branch,
 )
 from twerk_slots.pool_state import PoolState, SlotAssignment
 
@@ -51,7 +49,6 @@ class SlotFreeOutcome:
     slot_name: str
     branch_name: str
     worktree_path: Path
-    placeholder_branch: str
 
 
 @dataclass(frozen=True)
@@ -168,8 +165,8 @@ def sync_pool_assignments(
     Has two phases:
 
     1. Update existing assignments whose recorded branch no longer matches
-       the worktree's actual branch. Placeholder branches are ignored so
-       stub-branch mismatches don't churn the file.
+       the worktree's actual branch. Detached HEAD is ignored (that's the
+       free-slot signal) so freed slots don't churn the file.
     2. Recover orphaned worktrees: managed slots (``slot-XX``) that have
        a real branch checked out but no assignment in pool.json. These
        arise from pool.json write races where one concurrent operation
@@ -196,10 +193,6 @@ def sync_pool_assignments(
             updated.append(assignment)
             continue
 
-        if is_placeholder_branch(actual):
-            updated.append(assignment)
-            continue
-
         updated.append(
             SlotAssignment(
                 slot_name=assignment.slot_name,
@@ -222,9 +215,7 @@ def sync_pool_assignments(
 
         actual = git.get_current_branch(wt.path)
         if isinstance(actual, (GitCommandFailure, DetachedHead)):
-            continue  # can't determine branch; skip silently
-        if is_placeholder_branch(actual):
-            continue  # genuinely free slot on stub branch
+            continue  # can't determine branch; skip silently (detached = free slot)
 
         updated.append(
             SlotAssignment(
@@ -366,7 +357,7 @@ def _resolve_current_wt_redirect(
 
     Strategy:
     1. Reflog previous branch if valid (exists, not self, not checked out elsewhere).
-    2. If cwd looks like a slot worktree: slot-specific stub branch (mirrors ``slot free``).
+    2. If cwd looks like a slot worktree: detach HEAD at trunk (mirrors ``slot free``).
     3. Otherwise (main repo wt): trunk branch; if busy, detach HEAD at moving_branch.
 
     Returns None when no redirect was needed/performed (shouldn't happen in practice).
@@ -384,11 +375,7 @@ def _resolve_current_wt_redirect(
     # Previous branch unusable. Branch on cwd kind.
     trunk = ctx.git.get_trunk_branch()
     if extract_slot_number(cwd.name) is not None:
-        stub = get_placeholder_branch_name(cwd.name)
-        assert stub is not None  # extract_slot_number already validated the shape
-        local_branches = ctx.git.list_local_branches()
-        ctx.git.create_branch(stub, trunk, force=stub in local_branches)
-        ctx.git.checkout_branch(cwd, stub)
+        ctx.git.detach_head(cwd, trunk)
         return None
 
     # Main repo wt: trunk fallback.
@@ -415,7 +402,7 @@ def allocate_slot_for_current_branch(
 ) -> CurrentBranchAllocationResult | PoolFullError | DetachedHeadError | DirtyCurrentWorktreeError:
     """Assign the branch currently checked out at ``cwd`` to a slot.
 
-    Redirects the current wt to a safe HEAD (previous branch / trunk / stub /
+    Redirects the current wt to a safe HEAD (previous branch / trunk /
     detached) before delegating to :func:`allocate_slot_for_branch`. Refuses
     when HEAD is detached or the current wt has uncommitted changes.
     """
@@ -459,9 +446,9 @@ def free_slot_assignment(
     """Release ``slot_name``'s assignment while keeping its worktree.
 
     The worktree directory is preserved — only the branch assignment is
-    removed from ``pool.json``. The worktree is switched to the slot's
-    placeholder branch so the real branch is free for other operations
-    (deletion, checkout elsewhere).
+    removed from ``pool.json``. The worktree is detached at the trunk
+    commit so the real branch is free for other operations (deletion,
+    checkout elsewhere).
 
     Returns a :class:`SlotFreeOutcome` on success, or a
     :class:`SlotNotAssignedError` / :class:`DirtyWorktreeError` sentinel
@@ -480,19 +467,8 @@ def free_slot_assignment(
             worktree_path=assignment.worktree_path,
         )
 
-    placeholder = get_placeholder_branch_name(slot_name)
-    # slot_name came from state.assignments so it already validated via
-    # the naming rules when the assignment was created.
-    assert placeholder is not None
-
     trunk = ctx.git.get_trunk_branch()
-    local_branches = ctx.git.list_local_branches()
-    ctx.git.create_branch(
-        placeholder,
-        trunk,
-        force=placeholder in local_branches,
-    )
-    ctx.git.checkout_branch(assignment.worktree_path, placeholder)
+    ctx.git.detach_head(assignment.worktree_path, trunk)
 
     new_state = state.with_assignment_removed(slot_name)
     ctx.pool_state.save(new_state)
@@ -501,5 +477,4 @@ def free_slot_assignment(
         slot_name=assignment.slot_name,
         branch_name=assignment.branch_name,
         worktree_path=assignment.worktree_path,
-        placeholder_branch=placeholder,
     )

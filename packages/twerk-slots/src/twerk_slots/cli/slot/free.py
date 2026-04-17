@@ -32,14 +32,12 @@ class SlotFreeResult:
     slot_name: str
     branch_name: str
     worktree_path: str
-    placeholder_branch: str
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "slot_name": self.slot_name,
             "branch_name": self.branch_name,
             "worktree_path": self.worktree_path,
-            "placeholder_branch": self.placeholder_branch,
         }
 
 
@@ -49,10 +47,7 @@ def render_slot_free(result: SlotFreeResult) -> None:
         f"[green]✓[/green] Freed [bold cyan]{result.slot_name}[/bold cyan] "
         f"([yellow]{result.branch_name}[/yellow])"
     )
-    console.print(
-        f"  Worktree kept at [dim]{result.worktree_path}[/dim]; "
-        f"checked out placeholder [dim]{result.placeholder_branch}[/dim]"
-    )
+    console.print(f"  Worktree kept at [dim]{result.worktree_path}[/dim]; detached HEAD at trunk")
 
 
 @clinkr_operation(
@@ -127,5 +122,4 @@ def run_free_slot(
         slot_name=outcome.slot_name,
         branch_name=outcome.branch_name,
         worktree_path=str(outcome.worktree_path),
-        placeholder_branch=outcome.placeholder_branch,
     )

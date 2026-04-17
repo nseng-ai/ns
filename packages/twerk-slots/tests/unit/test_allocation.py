@@ -125,7 +125,7 @@ def test_find_inactive_slot_reuses_clean_worktree() -> None:
     slot_path = repo.worktrees_dir / "slot-01"
     git = FakeGitGateway(
         repo_root=repo.root,
-        worktrees=(WorktreeInfo(path=slot_path, branch="__slot-01-br-stub__", is_bare=False),),
+        worktrees=(WorktreeInfo(path=slot_path, branch=None, is_bare=False),),
     )
     state = PoolState(pool_size=4, assignments=())
 
@@ -206,7 +206,7 @@ def test_sync_updates_and_persists_when_branch_differs() -> None:
     assert pool_state_gw.load() == result
 
 
-def test_sync_ignores_placeholder_branches() -> None:
+def test_sync_ignores_detached_head_on_assigned_slot() -> None:
     repo = _make_repo()
     slot_path = repo.worktrees_dir / "slot-01"
     state = PoolState(
@@ -215,7 +215,7 @@ def test_sync_ignores_placeholder_branches() -> None:
     )
     git = FakeGitGateway(
         repo_root=repo.root,
-        current_branch_by_path={slot_path: "__slot-01-br-stub__"},
+        current_branch_by_path={slot_path: DetachedHead()},
     )
     storage = _seeded_storage(existing_paths={slot_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
@@ -297,25 +297,6 @@ def test_sync_recovers_orphaned_worktree() -> None:
     assert recovered.assigned_at  # timestamp set to now
     # Persisted.
     assert pool_state_gw.load() == result
-
-
-def test_sync_skips_orphaned_stub_worktree() -> None:
-    """A managed slot on its placeholder branch is genuinely free — not recovered."""
-    repo = _make_repo()
-    slot_07 = repo.worktrees_dir / "slot-07"
-    state = PoolState(pool_size=16, assignments=())
-    git = FakeGitGateway(
-        repo_root=repo.root,
-        worktrees=(WorktreeInfo(path=slot_07, branch="__slot-07-br-stub__", is_bare=False),),
-        current_branch_by_path={slot_07: "__slot-07-br-stub__"},
-    )
-    storage = _seeded_storage(existing_paths={slot_07})
-    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
-
-    result = sync_pool_assignments(state, git, storage, pool_state_gw)
-
-    assert result.assignments == ()
-    assert pool_state_gw._save_calls == []
 
 
 def test_sync_skips_orphaned_detached_head() -> None:
@@ -500,7 +481,7 @@ def test_allocate_reuses_inactive_slot_via_checkout() -> None:
     git = FakeGitGateway(
         repo_root=repo.root,
         branches={"feat/x"},
-        worktrees=(WorktreeInfo(path=inactive_path, branch="__slot-01-br-stub__", is_bare=False),),
+        worktrees=(WorktreeInfo(path=inactive_path, branch=None, is_bare=False),),
     )
     storage = _seeded_storage(existing_paths={inactive_path})
     pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
@@ -527,7 +508,7 @@ def test_allocate_skips_dirty_inactive_slot_and_creates_new() -> None:
     git = FakeGitGateway(
         repo_root=repo.root,
         branches={"feat/x"},
-        worktrees=(WorktreeInfo(path=dirty_path, branch="__slot-01-br-stub__", is_bare=False),),
+        worktrees=(WorktreeInfo(path=dirty_path, branch=None, is_bare=False),),
         file_status_by_path={dirty_path: FileStatus(False, True, False)},
     )
     storage = _seeded_storage(existing_paths={dirty_path})
