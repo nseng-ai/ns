@@ -10,6 +10,7 @@ def test_build_review_prompt_includes_contract_and_diff() -> None:
             name="Dignified Python",
             description="Review Python diffs for style violations.",
             instructions="Flag concrete issues in the diff.",
+            default_model=None,
         ),
         local_diff=LocalDiff(
             base_ref="master",

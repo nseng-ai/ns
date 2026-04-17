@@ -24,7 +24,7 @@ class ReviewDefinition:
     name: str
     description: str
     instructions: str
-    default_model: str | None = None
+    default_model: str | None
 
 
 @dataclass(frozen=True)
