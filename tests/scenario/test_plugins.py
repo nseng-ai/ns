@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import click
+import pytest
 from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 from twerk_core.gh.testing import FakeIssueGateway
+from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.context import ReviewerCliContext
+from twerk_reviewer.gateways.harness_config.fake import FakeHarnessConfigGateway
+from twerk_reviewer.gateways.harness_config.gateway import ReviewerConfig
+from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
@@ -93,22 +99,36 @@ def test_pr_address_plugin_integration() -> None:
     assert output["count"] == 0
 
 
-def test_reviewer_plugin_integration() -> None:
+def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(name="reviewer", value="twerk_reviewer.cli.reviewer")
 
     discover_plugins(parent, source=_entry_point_source(ep))
 
+    repo_root = Path("/repo")
+
+    def fake_git_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if cmd[:3] == ["git", "rev-parse", "--show-toplevel"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"{repo_root}\n", stderr="")
+        raise AssertionError(f"unexpected git command: {cmd!r}")
+
+    monkeypatch.setattr(git_toplevel_module.subprocess, "run", fake_git_run)
+
     runner = CliRunner()
+    harness_config = FakeHarnessConfigGateway()
+    harness_config.save(repo_root, ReviewerConfig(harness_name="claude-code"))
+
     obj = ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(
             sources_by_path={
-                Path("standards/dignified-python.md"): (
+                repo_root / "reviews" / "dignified-python.md": (
                     "# Dignified Python\n\n"
                     "## Description\n\n"
                     "Review Python diffs for style violations.\n\n"
                     "## Instructions\n\n"
-                    "Flag concrete issues in the diff.\n"
+                    "Flag concrete issues in the diff.\n\n"
+                    "## Default Model\n\n"
+                    "sonnet\n"
                 )
             }
         ),
@@ -131,37 +151,28 @@ def test_reviewer_plugin_integration() -> None:
                 )
             )
         ),
+        harness_detection=FakeHarnessDetectionGateway(
+            paths_by_binary={"claude": "/usr/local/bin/claude"}
+        ),
+        harness_config=harness_config,
+        cwd=Path("/anywhere"),
     )
 
     result = runner.invoke(
         parent,
-        [
-            "reviewer",
-            "review-local",
-            "standards/dignified-python.md",
-            "--model",
-            "gpt-5-mini",
-            "--executor-command",
-            "fake-reviewer",
-        ],
+        ["reviewer", "review", "run", "dignified-python"],
         obj=obj,
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "Dignified Python" in result.output
 
     result = runner.invoke(
         parent,
-        ["reviewer", "json", "review-local"],
-        input=json.dumps(
-            {
-                "review_path": "standards/dignified-python.md",
-                "executor_command": "fake-reviewer",
-                "model": "gpt-5-mini",
-            }
-        ),
+        ["reviewer", "review", "json", "run"],
+        input=json.dumps({"key": "dignified-python"}),
         obj=obj,
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     output = json.loads(result.output)
     assert output["count"] == 1
     assert output["findings"][0]["path"] == "app.py"

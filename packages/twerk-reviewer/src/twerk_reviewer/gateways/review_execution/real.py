@@ -1,116 +1,77 @@
-"""Real review-execution gateway backed by subprocess execution."""
+"""Real review-execution gateway that dispatches through harness adapters."""
 
 from __future__ import annotations
 
-import json
-import shlex
 import subprocess
-from typing import Any
+from collections.abc import Mapping
 
 from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
-from twerk_reviewer.models import (
-    ReviewerFailure,
-    ReviewExecutionRequest,
-    ReviewExecutionResponse,
-    ReviewFinding,
-)
+from twerk_reviewer.harness_adapter import HarnessAdapter
+from twerk_reviewer.harness_registry import HARNESS_ADAPTERS
+from twerk_reviewer.models import ReviewerFailure, ReviewExecutionRequest, ReviewExecutionResponse
 
 
 class RealReviewExecutionGateway(ReviewExecutionGateway):
-    """Invoke a local review executor command and parse its JSON output."""
+    """Run a review by invoking the selected harness adapter via subprocess."""
+
+    def __init__(
+        self,
+        *,
+        adapters: Mapping[str, HarnessAdapter] = HARNESS_ADAPTERS,
+    ) -> None:
+        self._adapters = adapters
 
     def run_review(
         self,
         request: ReviewExecutionRequest,
     ) -> ReviewExecutionResponse | ReviewerFailure:
-        try:
-            command = shlex.split(request.executor_command)
-        except ValueError as exc:
+        adapter = self._adapters.get(request.adapter_name)
+        if adapter is None:
+            known = ", ".join(sorted(self._adapters))
             return ReviewerFailure(
-                error_type="executor_command_invalid",
-                message=f"Unable to parse executor command: {exc}",
+                error_type="harness_unknown",
+                message=(f"Unknown harness '{request.adapter_name}'. Known harnesses: {known}."),
             )
 
-        if not command:
+        if not adapter.supports_model(request.model):
             return ReviewerFailure(
-                error_type="executor_command_missing",
-                message="No executor command was provided for review execution.",
+                error_type="model_not_supported_by_harness",
+                message=(f"Model {request.model!r} is not supported by harness {adapter.name!r}."),
             )
+
+        argv = adapter.build_argv(request.model, request.prompt)
 
         try:
             result = subprocess.run(
-                command,
-                input=json.dumps(request.to_json_dict()),
+                argv,
                 capture_output=True,
                 text=True,
                 check=False,
             )
+        except FileNotFoundError:
+            return ReviewerFailure(
+                error_type="harness_binary_missing",
+                message=(
+                    f"Harness binary {adapter.binary!r} is not on PATH. "
+                    "Install it and re-run `reviewer harness init`."
+                ),
+            )
         except OSError as exc:
             return ReviewerFailure(
-                error_type="review_execution_invocation_failed",
-                message=f"Unable to run the review executor: {exc}",
+                error_type="harness_invocation_failed",
+                message=f"Unable to invoke {adapter.binary!r}: {exc}",
             )
 
         if result.returncode != 0:
             stderr = result.stderr.strip()
             stdout = result.stdout.strip()
             return ReviewerFailure(
-                error_type="review_execution_failed",
-                message=stderr or stdout or "The review executor exited with a non-zero status.",
+                error_type="harness_execution_failed",
+                message=(
+                    stderr
+                    or stdout
+                    or f"Harness {adapter.name!r} exited with status {result.returncode}."
+                ),
             )
 
-        stdout = result.stdout.strip()
-        if not stdout:
-            return ReviewerFailure(
-                error_type="review_execution_invalid_response",
-                message="The review executor returned no JSON output.",
-            )
-
-        try:
-            payload = json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            return ReviewerFailure(
-                error_type="review_execution_invalid_json",
-                message=f"Unable to parse review executor output: {exc}",
-            )
-
-        return _parse_execution_response(payload)
-
-
-def _parse_execution_response(
-    payload: Any,
-) -> ReviewExecutionResponse | ReviewerFailure:
-    if not isinstance(payload, dict):
-        return ReviewerFailure(
-            error_type="review_execution_invalid_response",
-            message="Review executor output must be a JSON object.",
-        )
-
-    if payload.get("success") is False:
-        error_type = payload.get("error_type", "review_execution_failed")
-        message = payload.get("message", "The review executor reported a failure.")
-        return ReviewerFailure(error_type=str(error_type), message=str(message))
-
-    findings_payload = payload.get("findings")
-    if not isinstance(findings_payload, list):
-        return ReviewerFailure(
-            error_type="review_execution_invalid_response",
-            message="Review executor output must include a `findings` array.",
-        )
-
-    findings: list[ReviewFinding] = []
-    for finding_payload in findings_payload:
-        if not isinstance(finding_payload, dict):
-            return ReviewerFailure(
-                error_type="review_execution_invalid_response",
-                message="Each review finding must be a JSON object.",
-            )
-        try:
-            findings.append(ReviewFinding.from_json_dict(finding_payload))
-        except ValueError as exc:
-            return ReviewerFailure(
-                error_type="review_execution_invalid_response",
-                message=str(exc),
-            )
-
-    return ReviewExecutionResponse(findings=tuple(findings))
+        return adapter.parse_stdout(result.stdout)

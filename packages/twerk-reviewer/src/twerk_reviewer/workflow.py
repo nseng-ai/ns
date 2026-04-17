@@ -1,13 +1,19 @@
-"""Business logic for local markdown-defined reviews."""
+"""Business logic for running markdown-defined local reviews."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
+from twerk_reviewer.gateways.harness_config.gateway import HarnessConfigGateway
 from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from twerk_reviewer.gateways.review_definition.gateway import ReviewDefinitionGateway
+from twerk_reviewer.gateways.review_definition.gateway import (
+    REVIEWS_DIRNAME,
+    ReviewDefinitionGateway,
+)
 from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
+from twerk_reviewer.git_toplevel import git_toplevel
+from twerk_reviewer.harness_registry import HARNESS_ADAPTERS
 from twerk_reviewer.models import (
     LocalReviewResult,
     ReviewDefinition,
@@ -17,19 +23,33 @@ from twerk_reviewer.models import (
 from twerk_reviewer.prompting import build_review_prompt
 from twerk_reviewer.review_definition import parse_review_definition
 
+ENV_HARNESS = "TWERK_REVIEWER_HARNESS"
 
-def run_local_review(
+
+def run_review_by_key(
     *,
-    review_path: str,
+    key: str,
     requested_model: str | None,
     requested_base_ref: str | None,
-    requested_executor_command: str | None,
+    requested_harness: str | None,
+    cwd: Path,
     review_definition_gateway: ReviewDefinitionGateway,
     local_diff_gateway: LocalDiffGateway,
     review_execution_gateway: ReviewExecutionGateway,
+    harness_config_gateway: HarnessConfigGateway,
 ) -> LocalReviewResult | ReviewerFailure:
-    """Run a markdown-defined reviewer against the local branch diff."""
-    source = review_definition_gateway.load_source(Path(review_path))
+    """Run a markdown-defined reviewer identified by ``key``."""
+    repo_root = git_toplevel(cwd=cwd)
+    if isinstance(repo_root, ReviewerFailure):
+        return repo_root
+
+    reviews_dir = repo_root / REVIEWS_DIRNAME
+
+    review_path = review_definition_gateway.resolve_key(reviews_dir, key)
+    if isinstance(review_path, ReviewerFailure):
+        return review_path
+
+    source = review_definition_gateway.load_source(review_path)
     if isinstance(source, ReviewerFailure):
         return source
 
@@ -48,9 +68,13 @@ def run_local_review(
     if isinstance(resolved_model, ReviewerFailure):
         return resolved_model
 
-    resolved_executor_command = _resolve_executor_command(requested_executor_command)
-    if isinstance(resolved_executor_command, ReviewerFailure):
-        return resolved_executor_command
+    resolved_harness = _resolve_harness(
+        requested_harness=requested_harness,
+        repo_root=repo_root,
+        harness_config_gateway=harness_config_gateway,
+    )
+    if isinstance(resolved_harness, ReviewerFailure):
+        return resolved_harness
 
     local_diff = local_diff_gateway.load_diff(base_ref=requested_base_ref)
     if isinstance(local_diff, ReviewerFailure):
@@ -61,7 +85,7 @@ def run_local_review(
         local_diff=local_diff,
     )
     execution_request = ReviewExecutionRequest(
-        executor_command=resolved_executor_command,
+        adapter_name=resolved_harness,
         model=resolved_model,
         prompt=prompt,
         review_name=review_definition.name,
@@ -76,7 +100,7 @@ def run_local_review(
 
     return LocalReviewResult(
         review_name=review_definition.name,
-        review_path=review_path,
+        review_path=str(review_path),
         model=resolved_model,
         base_ref=local_diff.base_ref,
         findings=execution_response.findings,
@@ -102,19 +126,40 @@ def _resolve_model(
     )
 
 
-def _resolve_executor_command(requested_executor_command: str | None) -> str | ReviewerFailure:
-    explicit_command = (requested_executor_command or "").strip()
-    if explicit_command:
-        return explicit_command
+def _resolve_harness(
+    *,
+    requested_harness: str | None,
+    repo_root: Path,
+    harness_config_gateway: HarnessConfigGateway,
+) -> str | ReviewerFailure:
+    explicit = (requested_harness or "").strip()
+    if explicit:
+        return _validate_harness(explicit)
 
-    env_command = os.environ.get("TWERK_REVIEWER_EXECUTOR_COMMAND", "").strip()
-    if env_command:
-        return env_command
+    env_value = os.environ.get(ENV_HARNESS, "").strip()
+    if env_value:
+        return _validate_harness(env_value)
 
-    return ReviewerFailure(
-        error_type="executor_command_missing",
-        message=(
-            "No review executor command was provided. Pass --executor-command "
-            "or set TWERK_REVIEWER_EXECUTOR_COMMAND."
-        ),
-    )
+    config = harness_config_gateway.load(repo_root)
+    if isinstance(config, ReviewerFailure):
+        if config.error_type == "harness_config_missing":
+            return ReviewerFailure(
+                error_type="harness_not_configured",
+                message=(
+                    "No harness configured. Run `reviewer harness init` or pass "
+                    "--harness, or set TWERK_REVIEWER_HARNESS."
+                ),
+            )
+        return config
+
+    return _validate_harness(config.harness_name)
+
+
+def _validate_harness(name: str) -> str | ReviewerFailure:
+    if name not in HARNESS_ADAPTERS:
+        known = ", ".join(sorted(HARNESS_ADAPTERS))
+        return ReviewerFailure(
+            error_type="harness_unknown",
+            message=f"Unknown harness {name!r}. Known harnesses: {known}.",
+        )
+    return name

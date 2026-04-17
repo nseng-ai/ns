@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from twerk_core.clinkr.group import ClinkrGroup, clinkr_group
+from twerk_core.clinkr.group import ClinkrGroup, clinkr_group, discover_group
 from twerk_reviewer.cli.reviewer.context import build_reviewer_context
 
 
@@ -17,7 +17,12 @@ def _populate_ctx_obj(ctx: click.Context) -> None:
 
 @clinkr_group(help="Markdown-driven reviewer operations.")
 def reviewer() -> ClinkrGroup:
-    """Return the ``reviewer`` CLI group with a typed gateway context."""
-    group = ClinkrGroup.discover_subcommands()
-    group.callback = _populate_ctx_obj
-    return group
+    """Return the outer ``reviewer`` CLI group with ``review`` and ``harness`` subgroups."""
+    review_group = discover_group("twerk_reviewer.cli.reviewer.review")
+    harness_group = discover_group("twerk_reviewer.cli.reviewer.harness")
+
+    outer = ClinkrGroup()
+    outer.callback = _populate_ctx_obj
+    outer.add_command(review_group)
+    outer.add_command(harness_group)
+    return outer

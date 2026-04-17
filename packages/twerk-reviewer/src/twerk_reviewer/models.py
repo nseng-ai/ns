@@ -97,9 +97,9 @@ class ReviewFinding:
 
 @dataclass(frozen=True)
 class ReviewExecutionRequest:
-    """Request sent to the local review executor command."""
+    """Request dispatched to a harness adapter for execution."""
 
-    executor_command: str
+    adapter_name: str
     model: str
     prompt: str
     review_name: str
@@ -109,11 +109,12 @@ class ReviewExecutionRequest:
     diff_text: str
 
     def to_json_dict(self) -> dict[str, Any]:
-        """Serialize the executor request as JSON."""
+        """Serialize the request for JSON output (e.g. structured logs)."""
         return {
             "review_name": self.review_name,
             "review_description": self.review_description,
             "review_instructions": self.review_instructions,
+            "adapter_name": self.adapter_name,
             "model": self.model,
             "base_ref": self.base_ref,
             "diff_text": self.diff_text,

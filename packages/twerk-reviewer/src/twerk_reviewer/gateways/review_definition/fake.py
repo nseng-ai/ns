@@ -16,9 +16,13 @@ class FakeReviewDefinitionGateway(ReviewDefinitionGateway):
         *,
         sources_by_path: dict[Path, str] | None = None,
         failures_by_path: dict[Path, ReviewerFailure] | None = None,
+        keys_by_reviews_dir: dict[Path, tuple[str, ...]] | None = None,
+        list_failures: dict[Path, ReviewerFailure] | None = None,
     ) -> None:
         self._sources_by_path = dict(sources_by_path or {})
         self._failures_by_path = dict(failures_by_path or {})
+        self._keys_by_reviews_dir = dict(keys_by_reviews_dir or {})
+        self._list_failures = dict(list_failures or {})
         self._requested_paths: list[Path] = []
 
     def load_source(self, path: Path) -> str | ReviewerFailure:
@@ -30,6 +34,37 @@ class FakeReviewDefinitionGateway(ReviewDefinitionGateway):
         return ReviewerFailure(
             error_type="review_definition_not_found",
             message=f"No fake review definition configured for {path}",
+        )
+
+    def list_reviews(self, reviews_dir: Path) -> tuple[str, ...] | ReviewerFailure:
+        if reviews_dir in self._list_failures:
+            return self._list_failures[reviews_dir]
+        if reviews_dir in self._keys_by_reviews_dir:
+            return self._keys_by_reviews_dir[reviews_dir]
+        inferred: list[str] = []
+        for path in self._sources_by_path:
+            try:
+                relative = path.relative_to(reviews_dir)
+            except ValueError:
+                continue
+            if relative.suffix != ".md":
+                continue
+            inferred.append(relative.with_suffix("").as_posix())
+        return tuple(sorted(inferred))
+
+    def resolve_key(self, reviews_dir: Path, key: str) -> Path | ReviewerFailure:
+        normalized = key.strip()
+        if not normalized:
+            return ReviewerFailure(
+                error_type="review_key_invalid",
+                message="Review key must not be empty.",
+            )
+        path = reviews_dir / f"{normalized}.md"
+        if path in self._sources_by_path:
+            return path
+        return ReviewerFailure(
+            error_type="review_definition_not_found",
+            message=f"No review found for key {key!r} at {path}.",
         )
 
     @property
