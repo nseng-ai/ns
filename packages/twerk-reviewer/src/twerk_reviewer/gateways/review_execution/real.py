@@ -3,23 +3,37 @@
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
 from twerk_reviewer.harness_adapter import HarnessAdapter
 from twerk_reviewer.harness_registry import HARNESS_ADAPTERS
 from twerk_reviewer.models import ReviewerFailure, ReviewExecutionRequest, ReviewExecutionResponse
 
+ProgressWriter = Callable[[str], None]
+
+
+def _silent_progress(_msg: str) -> None:
+    return None
+
 
 class RealReviewExecutionGateway(ReviewExecutionGateway):
-    """Run a review by invoking the selected harness adapter via subprocess."""
+    """Run a review by invoking the selected harness adapter via subprocess.
+
+    Stdout is streamed line-by-line so the adapter's ``describe_event`` hook can
+    turn each streamed event into a human-readable progress string, which this
+    gateway forwards to ``progress_writer``. The full stdout is still captured
+    and handed to ``adapter.parse_stdout`` once the process exits.
+    """
 
     def __init__(
         self,
         *,
         adapters: Mapping[str, HarnessAdapter] = HARNESS_ADAPTERS,
+        progress_writer: ProgressWriter = _silent_progress,
     ) -> None:
         self._adapters = adapters
+        self._progress_writer = progress_writer
 
     def run_review(
         self,
@@ -42,11 +56,12 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
         argv = adapter.build_argv(request.model, request.prompt)
 
         try:
-            result = subprocess.run(
+            process = subprocess.Popen(
                 argv,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                check=False,
+                bufsize=1,
             )
         except FileNotFoundError:
             return ReviewerFailure(
@@ -62,16 +77,29 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
                 message=f"Unable to invoke {adapter.binary!r}: {exc}",
             )
 
-        if result.returncode != 0:
-            stderr = result.stderr.strip()
-            stdout = result.stdout.strip()
+        stdout_lines: list[str] = []
+        assert process.stdout is not None  # PIPE guarantees this
+        for line in process.stdout:
+            stdout_lines.append(line)
+            description = adapter.describe_event(line)
+            if description is not None:
+                self._progress_writer(description)
+
+        process.wait()
+        stderr_text = ""
+        if process.stderr is not None:
+            stderr_text = process.stderr.read()
+
+        if process.returncode != 0:
+            stderr = stderr_text.strip()
+            last_line = stdout_lines[-1].strip() if stdout_lines else ""
             return ReviewerFailure(
                 error_type="harness_execution_failed",
                 message=(
                     stderr
-                    or stdout
-                    or f"Harness {adapter.name!r} exited with status {result.returncode}."
+                    or last_line
+                    or f"Harness {adapter.name!r} exited with status {process.returncode}."
                 ),
             )
 
-        return adapter.parse_stdout(result.stdout)
+        return adapter.parse_stdout("".join(stdout_lines))
