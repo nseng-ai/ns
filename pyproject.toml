@@ -74,7 +74,7 @@ select = [
 known-first-party = ["twerk", "twerk_core", "twerk_objectives", "twerk_pr_address", "twerk_slots"]
 
 [tool.ty.src]
-include = ["src"]
+include = ["src", "packages/*/src"]
 exclude = [".agents/skills/", ".claude/skills/"]
 
 [tool.ty.environment]
