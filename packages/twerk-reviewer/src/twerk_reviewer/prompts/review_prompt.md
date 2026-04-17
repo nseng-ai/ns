@@ -8,15 +8,15 @@ Instructions:
 
 Review only the supplied diff. Return JSON with this shape:
 {{
-"findings": [
-{{
-"path": "relative/path.py",
-"line": 12,
-"severity": "warning",
-"summary": "Short summary",
-"details": "Actionable explanation tied to the diff"
-}}
-]
+  "findings": [
+    {{
+      "path": "relative/path.py",
+      "line": 12,
+      "severity": "warning",
+      "summary": "Short summary",
+      "details": "Actionable explanation tied to the diff"
+    }}
+  ]
 }}
 
 Use null for `line` when a finding does not point at a single line. If
