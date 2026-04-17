@@ -277,6 +277,7 @@ def discover_group(module_path: str) -> ClinkrGroup:
             f"a ClinkrGroup, got {type(group).__name__}"
         )
 
+    assert meta is not None
     group.name = meta.name or group_fn.__name__
     if meta.help:
         group.help = meta.help

@@ -75,39 +75,38 @@ def _extract_types_from_hints(
     return type is a Union containing ``ClinkrCommandError``, the error type
     is filtered out and the remaining types become ``result_types``.
     """
+    fn_name = getattr(fn, "__qualname__", repr(fn))
     hints = get_type_hints(fn)
     params = list(inspect.signature(fn).parameters.values())
 
     if len(params) != 2:
         raise TypeError(
-            f"clinkr_operation function {fn.__qualname__} must accept "
+            f"clinkr_operation function {fn_name} must accept "
             f"exactly two parameters (click.Context, request), got {len(params)}"
         )
 
     ctx_param, request_param = params
     if ctx_param.name not in hints:
         raise TypeError(
-            f"clinkr_operation function {fn.__qualname__}: "
+            f"clinkr_operation function {fn_name}: "
             f"parameter '{ctx_param.name}' must have a type annotation"
         )
     if hints[ctx_param.name] is not click.Context:
         raise TypeError(
-            f"clinkr_operation function {fn.__qualname__}: first parameter "
+            f"clinkr_operation function {fn_name}: first parameter "
             f"'{ctx_param.name}' must be annotated as click.Context, "
             f"got {hints[ctx_param.name]!r}"
         )
 
     if request_param.name not in hints:
         raise TypeError(
-            f"clinkr_operation function {fn.__qualname__}: "
+            f"clinkr_operation function {fn_name}: "
             f"parameter '{request_param.name}' must have a type annotation"
         )
     request_type = hints[request_param.name]
 
     if "return" not in hints:
-        raise TypeError(
-            f"clinkr_operation function {fn.__qualname__} must have a return type annotation"
-        )
+        raise TypeError(f"clinkr_operation function {fn_name} must have a return type annotation")
 
     return_hint = hints["return"]
     origin = get_origin(return_hint)
@@ -117,14 +116,14 @@ def _extract_types_from_hints(
         result_types = tuple(a for a in args if a is not ClinkrCommandError)
         if not result_types:
             raise TypeError(
-                f"clinkr_operation function {fn.__qualname__}: "
+                f"clinkr_operation function {fn_name}: "
                 "return type union contains only ClinkrCommandError"
             )
     elif isinstance(return_hint, type) and return_hint is not ClinkrCommandError:
         result_types = (return_hint,)
     else:
         raise TypeError(
-            f"clinkr_operation function {fn.__qualname__}: "
+            f"clinkr_operation function {fn_name}: "
             f"cannot infer result_types from return annotation {return_hint}"
         )
 

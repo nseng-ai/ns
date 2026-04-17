@@ -17,12 +17,6 @@ from twerk_core.clinkr.json_schema import build_json_schema_document
 
 
 @dataclass(frozen=True)
-class MachineCommandMeta:
-    request_type: type
-    output_types: tuple[type, ...]
-
-
-@dataclass(frozen=True)
 class ClinkrCommandError:
     error_type: str
     message: str
@@ -65,11 +59,6 @@ def _apply_machine_command(
     request_type: type,
     output_types: tuple[type, ...],
 ) -> click.Command:
-    cmd._machine_command_meta = MachineCommandMeta(  # type: ignore[attr-defined]
-        request_type=request_type,
-        output_types=output_types,
-    )
-
     cmd.params.append(
         click.Option(
             ["--schema", "schema_mode"],
