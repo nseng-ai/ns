@@ -7,6 +7,8 @@ Instructions:
 {review_instructions}
 
 Review only the supplied diff. Return JSON with this shape:
+
+```json
 {{
   "findings": [
     {{
@@ -18,10 +20,10 @@ Review only the supplied diff. Return JSON with this shape:
     }}
   ]
 }}
+```
 
 Use null for `line` when a finding does not point at a single line. If
-there are no findings, return:
-{{"findings": []}}
+there are no findings, return `{{"findings": []}}`.
 
 Base ref: {base_ref}
 
