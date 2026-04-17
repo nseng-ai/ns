@@ -7,22 +7,49 @@ import pytest
 from twerk_reviewer.harness_registry import (
     CLAUDE_CODE_ADAPTER,
     CLAUDE_CODE_NAME,
+    FINDINGS_JSON_SCHEMA,
     HARNESS_ADAPTERS,
     resolve_adapter,
 )
-from twerk_reviewer.models import ReviewerFailure, ReviewExecutionResponse
+from twerk_reviewer.models import (
+    FindingsReview,
+    ProseReview,
+    ReviewerFailure,
+    ReviewExecutionRequest,
+    ReviewExecutionResponse,
+    ReviewFormat,
+)
+
+
+def _request(
+    *,
+    model: str = "sonnet",
+    prompt: str = "review this diff",
+    system_prompt: str = "You are a code reviewer.",
+    review_format: ReviewFormat = "findings",
+) -> ReviewExecutionRequest:
+    return ReviewExecutionRequest(
+        adapter_name=CLAUDE_CODE_NAME,
+        model=model,
+        prompt=prompt,
+        system_prompt=system_prompt,
+        review_format=review_format,
+        review_name="Dignified Python",
+        review_description="Review Python diffs.",
+        review_instructions="Flag concrete issues in the diff.",
+        base_ref="master",
+        diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+    )
 
 
 def _stream_lines(
     *,
     model: str = "sonnet",
-    inner_findings: dict[str, object] | None = None,
-    result_override: str | None = None,
+    structured_output: object | None = None,
+    result_text: str = "Findings produced.",
     include_result: bool = True,
+    include_structured_output: bool = True,
 ) -> str:
-    if inner_findings is None:
-        inner_findings = {"findings": []}
-    result_text = result_override if result_override is not None else json.dumps(inner_findings)
     events: list[dict[str, object]] = [
         {"type": "system", "subtype": "init", "model": model},
         {
@@ -31,9 +58,17 @@ def _stream_lines(
         },
     ]
     if include_result:
-        events.append(
-            {"type": "result", "result": result_text, "num_turns": 1, "duration_ms": 1234}
-        )
+        result_event: dict[str, object] = {
+            "type": "result",
+            "result": result_text,
+            "num_turns": 1,
+            "duration_ms": 1234,
+        }
+        if include_structured_output:
+            if structured_output is None:
+                structured_output = {"findings": []}
+            result_event["structured_output"] = structured_output
+        events.append(result_event)
     return "\n".join(json.dumps(event) for event in events) + "\n"
 
 
@@ -58,8 +93,10 @@ def test_harness_registry_is_read_only() -> None:
         HARNESS_ADAPTERS["new"] = CLAUDE_CODE_ADAPTER  # type: ignore[index]
 
 
-def test_claude_code_build_argv_shape() -> None:
-    argv = CLAUDE_CODE_ADAPTER.build_argv("sonnet", "review this diff")
+def test_claude_code_build_argv_findings_mode() -> None:
+    argv = CLAUDE_CODE_ADAPTER.build_argv(
+        _request(system_prompt="SYSTEM PROMPT CONTENTS", review_format="findings")
+    )
 
     assert argv[0] == "claude"
     assert "-p" in argv
@@ -67,6 +104,26 @@ def test_claude_code_build_argv_shape() -> None:
     assert "--verbose" in argv
     assert "--bare" in argv
     assert argv[argv.index("--model") + 1] == "sonnet"
+    assert argv[argv.index("--system-prompt") + 1] == "SYSTEM PROMPT CONTENTS"
+    assert "--append-system-prompt" not in argv
+    tools_value = argv[argv.index("--tools") + 1]
+    assert tools_value == "Bash,Read"
+    assert "Edit" not in tools_value
+    assert "Write" not in tools_value
+    schema_text = argv[argv.index("--json-schema") + 1]
+    assert json.loads(schema_text) == FINDINGS_JSON_SCHEMA
+    assert argv[-1] == "review this diff"
+
+
+def test_claude_code_build_argv_text_mode_omits_json_schema() -> None:
+    argv = CLAUDE_CODE_ADAPTER.build_argv(_request(review_format="text"))
+
+    assert "--json-schema" not in argv
+    assert "--system-prompt" in argv
+    tools_value = argv[argv.index("--tools") + 1]
+    assert "Bash" in tools_value
+    assert "Read" in tools_value
+    assert "Edit" not in tools_value
     assert argv[-1] == "review this diff"
 
 
@@ -83,8 +140,8 @@ def test_claude_code_rejects_foreign_models(model: str) -> None:
     assert CLAUDE_CODE_ADAPTER.supports_model(model) is False
 
 
-def test_claude_code_parse_stdout_parses_findings() -> None:
-    inner = {
+def test_claude_code_parse_stdout_parses_structured_findings() -> None:
+    structured = {
         "findings": [
             {
                 "path": "app.py",
@@ -96,47 +153,80 @@ def test_claude_code_parse_stdout_parses_findings() -> None:
         ]
     }
 
-    result = CLAUDE_CODE_ADAPTER.parse_stdout(_stream_lines(inner_findings=inner))
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(), _stream_lines(structured_output=structured)
+    )
 
     assert isinstance(result, ReviewExecutionResponse)
-    assert len(result.findings) == 1
-    assert result.findings[0].path == "app.py"
-    assert result.findings[0].summary == "Avoid print in library code"
+    assert isinstance(result.payload, FindingsReview)
+    assert len(result.payload.findings) == 1
+    assert result.payload.findings[0].path == "app.py"
+    assert result.payload.findings[0].summary == "Avoid print in library code"
 
 
 def test_claude_code_parse_stdout_handles_empty_findings() -> None:
-    result = CLAUDE_CODE_ADAPTER.parse_stdout(_stream_lines(inner_findings={"findings": []}))
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(), _stream_lines(structured_output={"findings": []})
+    )
 
     assert isinstance(result, ReviewExecutionResponse)
-    assert result.findings == ()
+    assert isinstance(result.payload, FindingsReview)
+    assert result.payload.findings == ()
+
+
+def test_claude_code_parse_stdout_returns_prose_for_text_format() -> None:
+    prose = "### Findings\n\n- app.py line 1: prefer click.echo over print."
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(review_format="text"),
+        _stream_lines(result_text=prose, include_structured_output=False),
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, ProseReview)
+    assert result.payload.prose == prose
+
+
+def test_claude_code_parse_stdout_text_format_ignores_structured_output() -> None:
+    """Text mode should take the plain `result` string, not any structured_output."""
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(review_format="text"),
+        _stream_lines(
+            result_text="plain markdown body",
+            structured_output={"findings": []},
+        ),
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, ProseReview)
+    assert result.payload.prose == "plain markdown body"
 
 
 def test_claude_code_parse_stdout_fails_on_empty_output() -> None:
-    result = CLAUDE_CODE_ADAPTER.parse_stdout("   ")
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), "   ")
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_empty_output"
 
 
 def test_claude_code_parse_stdout_fails_on_non_json_line() -> None:
-    result = CLAUDE_CODE_ADAPTER.parse_stdout("not json at all\n")
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), "not json at all\n")
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_invalid_json"
 
 
 def test_claude_code_parse_stdout_fails_on_missing_result_event() -> None:
-    result = CLAUDE_CODE_ADAPTER.parse_stdout(_stream_lines(include_result=False))
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), _stream_lines(include_result=False))
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_missing_result_event"
 
 
-def test_claude_code_parse_stdout_fails_when_result_is_not_json() -> None:
+def test_claude_code_parse_stdout_fails_when_structured_output_missing_in_findings_mode() -> None:
     prose = "I thought about it and here is a prose answer."
-    stdout = _stream_lines(result_override=prose)
+    stdout = _stream_lines(result_text=prose, include_structured_output=False)
 
-    result = CLAUDE_CODE_ADAPTER.parse_stdout(stdout)
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_non_json_result"
@@ -144,37 +234,45 @@ def test_claude_code_parse_stdout_fails_when_result_is_not_json() -> None:
     assert "I thought about it and here is a prose answer." in result.message
 
 
-def test_claude_code_parse_stdout_truncates_long_prose() -> None:
+def test_claude_code_parse_stdout_truncates_long_prose_in_error() -> None:
     prose = "ALPHA-" + "x" * 2000
-    stdout = _stream_lines(result_override=prose)
+    stdout = _stream_lines(result_text=prose, include_structured_output=False)
 
-    result = CLAUDE_CODE_ADAPTER.parse_stdout(stdout)
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_non_json_result"
     assert "ALPHA-" in result.message
     assert "…" in result.message
-    # The full 2006-char prose should not appear verbatim.
     assert prose not in result.message
 
 
 def test_claude_code_parse_stdout_fails_on_missing_findings_key() -> None:
-    stdout = _stream_lines(inner_findings={"something_else": []})
+    stdout = _stream_lines(structured_output={"something_else": []})
 
-    result = CLAUDE_CODE_ADAPTER.parse_stdout(stdout)
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_invalid_findings"
 
 
 def test_claude_code_parse_stdout_fails_on_malformed_finding() -> None:
-    inner = {"findings": [{"path": "app.py"}]}
-    stdout = _stream_lines(inner_findings=inner)
+    stdout = _stream_lines(structured_output={"findings": [{"path": "app.py"}]})
 
-    result = CLAUDE_CODE_ADAPTER.parse_stdout(stdout)
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_invalid_findings"
+
+
+def test_findings_schema_matches_review_finding_contract() -> None:
+    """Guardrail: the JSON schema must mirror the ReviewFinding dataclass."""
+    required = FINDINGS_JSON_SCHEMA["properties"]["findings"]["items"]["required"]
+    assert set(required) == {"path", "line", "severity", "summary", "details"}
+    severity_enum = FINDINGS_JSON_SCHEMA["properties"]["findings"]["items"]["properties"][
+        "severity"
+    ]["enum"]
+    assert set(severity_enum) == {"info", "warning", "error"}
 
 
 def test_describe_event_system_init_includes_model() -> None:

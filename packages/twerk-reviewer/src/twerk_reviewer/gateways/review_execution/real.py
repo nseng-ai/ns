@@ -53,11 +53,12 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
                 message=(f"Model {request.model!r} is not supported by harness {adapter.name!r}."),
             )
 
-        argv = adapter.build_argv(request.model, request.prompt)
+        argv = adapter.build_argv(request)
 
         try:
             process = subprocess.Popen(
                 argv,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -102,4 +103,4 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
                 ),
             )
 
-        return adapter.parse_stdout("".join(stdout_lines))
+        return adapter.parse_stdout(request, "".join(stdout_lines))

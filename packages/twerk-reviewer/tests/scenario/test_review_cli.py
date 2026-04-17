@@ -17,7 +17,14 @@ from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionG
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
-from twerk_reviewer.models import LocalDiff, ReviewExecutionResponse, ReviewFinding
+from twerk_reviewer.models import (
+    FindingsReview,
+    LocalDiff,
+    ProseReview,
+    ReviewExecutionResponse,
+    ReviewFinding,
+    ReviewPayload,
+)
 
 REPO_ROOT = Path("/repo")
 REVIEWS_DIR = REPO_ROOT / "reviews"
@@ -41,13 +48,16 @@ def _sample_source(*, include_default_model: bool = True) -> str:
 
 def _context(
     *,
-    findings: tuple[ReviewFinding, ...] = (),
+    payload: ReviewPayload | None = None,
     configured_harness: str | None = "claude-code",
     keys: dict[Path, tuple[str, ...]] | None = None,
 ) -> ReviewerCliContext:
     harness_config = FakeHarnessConfigGateway()
     if configured_harness is not None:
         harness_config.save(REPO_ROOT, ReviewerConfig(harness_name=configured_harness))
+
+    if payload is None:
+        payload = FindingsReview(findings=())
 
     return ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(
@@ -61,7 +71,7 @@ def _context(
             )
         ),
         review_execution=FakeReviewExecutionGateway(
-            default_response=ReviewExecutionResponse(findings=findings),
+            default_response=ReviewExecutionResponse(payload=payload),
         ),
         harness_detection=FakeHarnessDetectionGateway(
             paths_by_binary={"claude": "/usr/local/bin/claude"}
@@ -118,7 +128,7 @@ def test_review_run_human_output(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["review", "run", REVIEW_KEY, "--model", "sonnet"],
-        obj=_context(findings=(finding,)),
+        obj=_context(payload=FindingsReview(findings=(finding,))),
     )
 
     assert result.exit_code == 0, result.output
@@ -126,6 +136,35 @@ def test_review_run_human_output(cli_group: ClinkrGroup) -> None:
     assert "Model: sonnet" in result.output
     assert "Base ref: master" in result.output
     assert "[warning] app.py:1 Avoid print in library code" in result.output
+
+
+def test_review_run_text_format_renders_prose(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        obj=_context(payload=ProseReview(prose="### Review\n\n- app.py:1 — prefer click.echo")),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Reviewer: Dignified Python" in result.output
+    assert "### Review" in result.output
+    assert "- app.py:1 — prefer click.echo" in result.output
+
+
+def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    ctx = _context(payload=ProseReview(prose="markdown"))
+
+    result = runner.invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        obj=ctx,
+    )
+
+    assert result.exit_code == 0, result.output
+    executed = ctx.review_execution.executed_requests[0]  # type: ignore[attr-defined]
+    assert executed.review_format == "text"
 
 
 def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -> None:
@@ -164,14 +203,32 @@ def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
         cli_group,
         ["review", "json", "run"],
         input=json.dumps({"key": REVIEW_KEY, "model": "sonnet"}),
-        obj=_context(findings=(finding,)),
+        obj=_context(payload=FindingsReview(findings=(finding,))),
     )
 
     assert result.exit_code == 0, result.output
     output = json.loads(result.output)
     assert output["success"] is True
+    assert output["format"] == "findings"
     assert output["count"] == 1
     assert output["findings"][0]["summary"] == "Avoid print in library code"
+
+
+def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["review", "json", "run"],
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "text"}),
+        obj=_context(payload=ProseReview(prose="**ok**")),
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.output)
+    assert output["success"] is True
+    assert output["format"] == "text"
+    assert output["prose"] == "**ok**"
+    assert "findings" not in output
 
 
 def test_review_list_human_output(cli_group: ClinkrGroup) -> None:

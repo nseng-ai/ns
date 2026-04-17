@@ -18,7 +18,12 @@ from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionG
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
-from twerk_reviewer.models import LocalDiff, ReviewExecutionResponse, ReviewFinding
+from twerk_reviewer.models import (
+    FindingsReview,
+    LocalDiff,
+    ReviewExecutionResponse,
+    ReviewFinding,
+)
 
 
 class FakePluginEntryPoint:
@@ -140,14 +145,16 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
         ),
         review_execution=FakeReviewExecutionGateway(
             default_response=ReviewExecutionResponse(
-                findings=(
-                    ReviewFinding(
-                        path="app.py",
-                        line=1,
-                        severity="warning",
-                        summary="Avoid print in library code",
-                        details="Use click.echo() or structured logging instead.",
-                    ),
+                payload=FindingsReview(
+                    findings=(
+                        ReviewFinding(
+                            path="app.py",
+                            line=1,
+                            severity="warning",
+                            summary="Avoid print in library code",
+                            details="Use click.echo() or structured logging instead.",
+                        ),
+                    )
                 )
             )
         ),

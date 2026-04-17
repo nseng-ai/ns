@@ -8,6 +8,8 @@ from typing import Any, Literal
 Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
 
+ReviewFormat = Literal["findings", "text"]
+
 
 @dataclass(frozen=True)
 class ReviewerFailure:
@@ -96,12 +98,44 @@ class ReviewFinding:
 
 
 @dataclass(frozen=True)
+class FindingsReview:
+    """A review payload carrying structured findings."""
+
+    findings: tuple[ReviewFinding, ...]
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return {
+            "format": "findings",
+            "findings": [finding.to_json_dict() for finding in self.findings],
+            "count": len(self.findings),
+        }
+
+
+@dataclass(frozen=True)
+class ProseReview:
+    """A review payload carrying a human-readable markdown review."""
+
+    prose: str
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return {
+            "format": "text",
+            "prose": self.prose,
+        }
+
+
+ReviewPayload = FindingsReview | ProseReview
+
+
+@dataclass(frozen=True)
 class ReviewExecutionRequest:
     """Request dispatched to a harness adapter for execution."""
 
     adapter_name: str
     model: str
     prompt: str
+    system_prompt: str
+    review_format: ReviewFormat
     review_name: str
     review_description: str
     review_instructions: str
@@ -116,17 +150,19 @@ class ReviewExecutionRequest:
             "review_instructions": self.review_instructions,
             "adapter_name": self.adapter_name,
             "model": self.model,
+            "review_format": self.review_format,
             "base_ref": self.base_ref,
             "diff_text": self.diff_text,
             "prompt": self.prompt,
+            "system_prompt": self.system_prompt,
         }
 
 
 @dataclass(frozen=True)
 class ReviewExecutionResponse:
-    """Structured findings returned by the review executor."""
+    """Structured review payload returned by the review executor."""
 
-    findings: tuple[ReviewFinding, ...]
+    payload: ReviewPayload
 
 
 @dataclass(frozen=True)
@@ -137,7 +173,7 @@ class LocalReviewResult:
     review_path: str
     model: str
     base_ref: str
-    findings: tuple[ReviewFinding, ...]
+    payload: ReviewPayload
 
     def to_json_dict(self) -> dict[str, Any]:
         """Serialize the local-review result for JSON output."""
@@ -146,6 +182,5 @@ class LocalReviewResult:
             "review_path": self.review_path,
             "model": self.model,
             "base_ref": self.base_ref,
-            "findings": [finding.to_json_dict() for finding in self.findings],
-            "count": len(self.findings),
+            **self.payload.to_json_dict(),
         }

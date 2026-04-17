@@ -6,6 +6,7 @@ from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
 from twerk_reviewer.models import (
+    FindingsReview,
     LocalDiff,
     ReviewExecutionRequest,
     ReviewExecutionResponse,
@@ -49,7 +50,9 @@ def test_review_execution_fake_returns_configured_response() -> None:
         details="Use click.echo() instead.",
     )
     gateway = FakeReviewExecutionGateway(
-        responses_by_review_name={"Dignified Python": ReviewExecutionResponse(findings=(finding,))}
+        responses_by_review_name={
+            "Dignified Python": ReviewExecutionResponse(payload=FindingsReview(findings=(finding,)))
+        }
     )
 
     result = gateway.run_review(
@@ -57,6 +60,8 @@ def test_review_execution_fake_returns_configured_response() -> None:
             adapter_name="claude-code",
             model="sonnet",
             prompt="review this diff",
+            system_prompt="You are a code reviewer.",
+            review_format="findings",
             review_name="Dignified Python",
             review_description="Review Python diffs for style violations.",
             review_instructions="Flag concrete issues in the diff.",
@@ -66,5 +71,6 @@ def test_review_execution_fake_returns_configured_response() -> None:
     )
 
     assert isinstance(result, ReviewExecutionResponse)
-    assert result.findings == (finding,)
+    assert isinstance(result.payload, FindingsReview)
+    assert result.payload.findings == (finding,)
     assert gateway.executed_requests[0].review_name == "Dignified Python"
