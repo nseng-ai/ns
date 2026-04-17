@@ -23,10 +23,18 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
   "click>=8.1.7",
+  "twerk-core",
 ]
 
 [project.scripts]
 twerk = "twerk.cli.cli:main"
+
+[project.optional-dependencies]
+plugins = [
+  "twerk-objectives",
+  "twerk-pr-address",
+  "twerk-slots",
+]
 
 [dependency-groups]
 dev = [
