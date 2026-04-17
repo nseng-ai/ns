@@ -91,8 +91,6 @@ def test_review_local_human_output(cli_group: ClinkrGroup) -> None:
             str(_review_path()),
             "--model",
             "gpt-5-mini",
-            "--executor-command",
-            "fake-reviewer",
         ],
         obj=_context(findings=(finding,)),
     )
@@ -119,7 +117,6 @@ def test_review_local_json_output(cli_group: ClinkrGroup) -> None:
         input=json.dumps(
             {
                 "review_path": str(_review_path()),
-                "executor_command": "fake-reviewer",
                 "model": "gpt-5-mini",
             }
         ),
@@ -141,8 +138,6 @@ def test_review_local_uses_default_model_from_definition(cli_group: ClinkrGroup)
         [
             "review-local",
             str(_review_path()),
-            "--executor-command",
-            "fake-reviewer",
         ],
         obj=ReviewerCliContext(
             review_definition=FakeReviewDefinitionGateway(
@@ -167,8 +162,6 @@ def test_review_local_requires_typed_context(cli_group: ClinkrGroup) -> None:
             str(_review_path()),
             "--model",
             "gpt-5-mini",
-            "--executor-command",
-            "fake-reviewer",
         ],
         obj={"wrong": "shape"},
     )
@@ -195,7 +188,7 @@ def test_review_local_falls_back_to_real_gateways(
                 stdout="diff --git a/app.py b/app.py\n+print('hello')\n",
                 stderr="",
             )
-        if cmd == ["fake-reviewer"]:
+        if cmd == ["claude", "-p"]:
             payload = json.loads(str(kwargs["input"]))
             assert payload["model"] == "gpt-5-mini"
             return subprocess.CompletedProcess(
@@ -230,8 +223,6 @@ def test_review_local_falls_back_to_real_gateways(
             "master",
             "--model",
             "gpt-5-mini",
-            "--executor-command",
-            "fake-reviewer",
         ],
     )
 

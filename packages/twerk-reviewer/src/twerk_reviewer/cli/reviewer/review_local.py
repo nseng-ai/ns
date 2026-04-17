@@ -29,16 +29,6 @@ class ReviewLocalRequest:
             help="Base branch to diff against. Defaults to the repo trunk branch.",
         ),
     ] = None
-    executor_command: Annotated[
-        str | None,
-        click.Option(
-            ["--executor-command"],
-            help=(
-                "Local command used to run the review. "
-                "Falls back to TWERK_REVIEWER_EXECUTOR_COMMAND."
-            ),
-        ),
-    ] = None
 
 
 def render_review_local(result: LocalReviewResult) -> None:
@@ -74,7 +64,6 @@ def run_review_local_command(
         review_path=request.review_path,
         requested_model=request.model,
         requested_base_ref=request.base_ref,
-        requested_executor_command=request.executor_command,
         review_definition_gateway=reviewer_context.review_definition,
         local_diff_gateway=reviewer_context.local_diff,
         review_execution_gateway=reviewer_context.review_execution,

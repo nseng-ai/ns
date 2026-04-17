@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
@@ -17,13 +16,14 @@ from twerk_reviewer.models import (
 from twerk_reviewer.prompting import build_review_prompt
 from twerk_reviewer.review_definition import parse_review_definition
 
+_EXECUTOR_COMMAND = "claude -p"
+
 
 def run_local_review(
     *,
     review_path: str,
     requested_model: str | None,
     requested_base_ref: str | None,
-    requested_executor_command: str | None,
     review_definition_gateway: ReviewDefinitionGateway,
     local_diff_gateway: LocalDiffGateway,
     review_execution_gateway: ReviewExecutionGateway,
@@ -48,10 +48,6 @@ def run_local_review(
     if isinstance(resolved_model, ReviewerFailure):
         return resolved_model
 
-    resolved_executor_command = _resolve_executor_command(requested_executor_command)
-    if isinstance(resolved_executor_command, ReviewerFailure):
-        return resolved_executor_command
-
     local_diff = local_diff_gateway.load_diff(base_ref=requested_base_ref)
     if isinstance(local_diff, ReviewerFailure):
         return local_diff
@@ -61,7 +57,7 @@ def run_local_review(
         local_diff=local_diff,
     )
     execution_request = ReviewExecutionRequest(
-        executor_command=resolved_executor_command,
+        executor_command=_EXECUTOR_COMMAND,
         model=resolved_model,
         prompt=prompt,
         review_name=review_definition.name,
@@ -98,23 +94,5 @@ def _resolve_model(
         message=(
             "No model was provided. Pass --model explicitly or add a "
             "`## Default Model` section to the review definition."
-        ),
-    )
-
-
-def _resolve_executor_command(requested_executor_command: str | None) -> str | ReviewerFailure:
-    explicit_command = (requested_executor_command or "").strip()
-    if explicit_command:
-        return explicit_command
-
-    env_command = os.environ.get("TWERK_REVIEWER_EXECUTOR_COMMAND", "").strip()
-    if env_command:
-        return env_command
-
-    return ReviewerFailure(
-        error_type="executor_command_missing",
-        message=(
-            "No review executor command was provided. Pass --executor-command "
-            "or set TWERK_REVIEWER_EXECUTOR_COMMAND."
         ),
     )

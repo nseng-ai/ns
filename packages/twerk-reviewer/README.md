@@ -35,6 +35,9 @@ reviewer review-local path/to/reviewer.md \
   --model gpt-5-mini
 ```
 
+The review executor is hardcoded to `claude -p` for this slice; a pluggable
+executor will return later in the stack.
+
 The JSON path is:
 
 ```bash
