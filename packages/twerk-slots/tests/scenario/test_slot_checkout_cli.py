@@ -468,8 +468,8 @@ def test_slot_checkout_current_recovers_orphaned_slot_wt(
 ) -> None:
     """An orphaned slot worktree (branch checked out but no pool assignment)
     is recovered by sync at the start of checkout, so checkout --current
-    becomes a no-op — the slot is already properly assigned. No stub branch
-    is created; the stub will be created later when the slot is freed.
+    becomes a no-op — the slot is already properly assigned. No detach
+    happens; detach will happen later when the slot is freed.
     """
     slots_root = tmp_path / "slots"
     slot_01_path = slots_root / "repos" / "repo" / "worktrees" / "slot-01"
@@ -490,37 +490,6 @@ def test_slot_checkout_current_recovers_orphaned_slot_wt(
     )
 
     assert result.exit_code == 0, result.output
-    _assert_assigned_slot_state(
-        fakes,
-        slots_root=slots_root,
-        slot_name="slot-01",
-        branch_name="feat/child",
-    )
-
-
-def test_slot_checkout_current_from_slot_wt_succeeds_when_stub_exists(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
-    slots_root = tmp_path / "slots"
-    slot_01_path = slots_root / "repos" / "repo" / "worktrees" / "slot-01"
-    fakes = _fake_for_repo(
-        tmp_path,
-        branches=("feat/child", "__slot-01-br-stub__", "main"),
-        worktrees=(WorktreeInfo(path=slot_01_path, branch="feat/child", is_bare=False),),
-        current_branch_by_path={slot_01_path: "feat/child"},
-        trunk_branch="main",
-        extra_existing=(slot_01_path,),
-        repository_root_by_cwd={Path.cwd().resolve(): slot_01_path},
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["checkout", "--current"],
-        obj=_make_obj(fakes, slots_root),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert "__slot-01-br-stub__" in fakes.git.list_local_branches()
     _assert_assigned_slot_state(
         fakes,
         slots_root=slots_root,

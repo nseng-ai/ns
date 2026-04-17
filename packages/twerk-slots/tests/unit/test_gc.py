@@ -164,9 +164,10 @@ def test_run_gc_merged_pr_is_freed() -> None:
     assert [e.action for e in outcome.entries] == ["freed"]
     assert outcome.entries[0].pr_state == "MERGED"
     assert outcome.freed_count == 1
-    # Placeholder created + checked out.
-    assert git._create_branch_calls == [("__slot-01-br-stub__", "main", False)]
-    assert git._checkout_calls == [(assignment.worktree_path, "__slot-01-br-stub__")]
+    # Worktree detached at trunk; no branch created, no checkout.
+    assert git._detach_head_calls == [(assignment.worktree_path, "main")]
+    assert git._create_branch_calls == []
+    assert git._checkout_calls == []
     # Pool state drained.
     saved = pool_state_gw.load()
     assert saved is not None
@@ -285,6 +286,7 @@ def test_run_gc_dry_run_reports_without_mutating() -> None:
     # No side-effects.
     assert git._checkout_calls == []
     assert git._create_branch_calls == []
+    assert git._detach_head_calls == []
     saved = pool_state_gw.load()
     assert saved is not None
     assert saved.assignments == (assignment,)
@@ -380,10 +382,10 @@ def test_plan_gc_classifies_without_mutating_state() -> None:
         "slot-03": "kept_no_pr",
     }
     assert plan.would_free_count == 1
-    # No mutations: no free_slot_assignment was called, so no placeholder
-    # branch creation or checkout happened.
+    # No mutations: no free_slot_assignment was called, so no detach occurred.
     assert git._checkout_calls == []
     assert git._create_branch_calls == []
+    assert git._detach_head_calls == []
     saved = pool_state_gw.load()
     assert saved is not None
     assert {a.slot_name for a in saved.assignments} == {"slot-01", "slot-02", "slot-03"}
@@ -429,7 +431,7 @@ def test_execute_gc_plan_frees_would_free_entries() -> None:
     saved = pool_state_gw.load()
     assert saved is not None
     assert saved.assignments == ()
-    assert git._checkout_calls == [(assignment.worktree_path, "__slot-01-br-stub__")]
+    assert git._detach_head_calls == [(assignment.worktree_path, "main")]
 
 
 def test_execute_gc_plan_passthrough_non_would_free() -> None:

@@ -191,8 +191,8 @@ def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path:
     # Pool state drained.
     git, _, pool_state = _fakes(ctx)
     assert pool_state.load().assignments == ()
-    # Placeholder checkout happened.
-    assert git._checkout_calls == [(worktree_path, "__slot-01-br-stub__")]
+    # Worktree detached at trunk.
+    assert git._detach_head_calls == [(worktree_path, "main")]
 
 
 def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:

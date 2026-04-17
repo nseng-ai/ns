@@ -5,10 +5,7 @@ All functions are pure (no I/O) and rely only on the standard library.
 
 from __future__ import annotations
 
-import re
-
 SLOT_NAME_PREFIX = "slot"
-_PLACEHOLDER_RE = re.compile(r"^__slot-\d+-br-stub__$")
 
 
 def generate_slot_name(slot_number: int) -> str:
@@ -24,16 +21,3 @@ def extract_slot_number(slot_name: str) -> str | None:
     if len(suffix) != 2 or not suffix.isdigit():
         return None
     return suffix
-
-
-def get_placeholder_branch_name(slot_name: str) -> str | None:
-    """Return the placeholder branch name for a slot, if the name is valid."""
-    slot_number = extract_slot_number(slot_name)
-    if slot_number is None:
-        return None
-    return f"__slot-{slot_number}-br-stub__"
-
-
-def is_placeholder_branch(branch_name: str) -> bool:
-    """Return True when the branch looks like a slot placeholder branch."""
-    return bool(_PLACEHOLDER_RE.match(branch_name))

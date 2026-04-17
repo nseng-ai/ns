@@ -2,8 +2,8 @@
 
 ``run_gc`` sweeps every assignment in the pool, classifies it via
 ``ctx.pr.get_pr_for_branch``, and for MERGED/CLOSED PRs delegates to
-``free_slot_assignment`` so the slot returns to the placeholder state
-(no assignment, worktree retained).
+``free_slot_assignment`` so the slot returns to the free state
+(no assignment, worktree retained on a detached HEAD at trunk).
 
 The sweep is split into two phases:
 
