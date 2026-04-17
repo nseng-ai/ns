@@ -8,7 +8,13 @@ import click
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.cli.reviewer.context import load_reviewer_context
-from twerk_reviewer.models import LocalReviewResult, ReviewerFailure
+from twerk_reviewer.models import (
+    GitDiffFailedError,
+    LocalReviewResult,
+    RepoRootUnavailableError,
+    ReviewDefinitionReadError,
+    ReviewExecutorInvocationError,
+)
 from twerk_reviewer.workflow import run_local_review
 
 
@@ -60,14 +66,24 @@ def run_review_local_command(
     request: ReviewLocalRequest,
 ) -> LocalReviewResult | ClinkrCommandError:
     reviewer_context = load_reviewer_context(ctx)
-    result = run_local_review(
-        review_path=request.review_path,
-        requested_model=request.model,
-        requested_base_ref=request.base_ref,
-        review_definition_gateway=reviewer_context.review_definition,
-        local_diff_gateway=reviewer_context.local_diff,
-        review_execution_gateway=reviewer_context.review_execution,
-    )
-    if isinstance(result, ReviewerFailure):
-        return ClinkrCommandError(error_type=result.error_type, message=result.message)
-    return result
+    try:
+        result = run_local_review(
+            review_path=request.review_path,
+            requested_model=request.model,
+            requested_base_ref=request.base_ref,
+            review_definition_gateway=reviewer_context.review_definition,
+            local_diff_gateway=reviewer_context.local_diff,
+            review_execution_gateway=reviewer_context.review_execution,
+        )
+    except ReviewDefinitionReadError as exc:
+        return ClinkrCommandError(error_type="review_definition_read_failed", message=str(exc))
+    except ReviewExecutorInvocationError as exc:
+        return ClinkrCommandError(error_type="review_execution_invocation_failed", message=str(exc))
+    except RepoRootUnavailableError as exc:
+        return ClinkrCommandError(error_type="repo_root_unavailable", message=str(exc))
+    except GitDiffFailedError as exc:
+        return ClinkrCommandError(error_type="git_diff_failed", message=str(exc))
+
+    if isinstance(result, LocalReviewResult):
+        return result
+    return ClinkrCommandError(error_type=type(result).ERROR_TYPE, message=result.message)

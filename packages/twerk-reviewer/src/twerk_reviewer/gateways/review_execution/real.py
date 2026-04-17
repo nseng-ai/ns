@@ -5,19 +5,34 @@ from __future__ import annotations
 import json
 import shlex
 import subprocess
-from typing import Any, cast
+from typing import Any
 
-from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
+from twerk_reviewer.gateways.review_execution.gateway import (
+    ReviewExecutionFailure,
+    ReviewExecutionGateway,
+)
 from twerk_reviewer.models import (
-    _REVIEWER_FAILURE_KINDS,
-    ReviewerFailure,
-    ReviewerFailureKind,
+    ExecutorCommandInvalid,
+    ExecutorCommandMissing,
+    ReviewExecutionFailed,
+    ReviewExecutionInvalidJson,
+    ReviewExecutionInvalidResponse,
     ReviewExecutionRequest,
     ReviewExecutionResponse,
+    ReviewExecutorInvocationError,
     ReviewFinding,
 )
 
-_UNKNOWN_EXECUTOR_ERROR_KIND: ReviewerFailureKind = "review_execution_failed"
+_EXECUTOR_ERROR_CLASSES: tuple[type[ReviewExecutionFailure], ...] = (
+    ExecutorCommandInvalid,
+    ExecutorCommandMissing,
+    ReviewExecutionFailed,
+    ReviewExecutionInvalidJson,
+    ReviewExecutionInvalidResponse,
+)
+_EXECUTOR_ERROR_BY_TYPE: dict[str, type[ReviewExecutionFailure]] = {
+    cls.ERROR_TYPE: cls for cls in _EXECUTOR_ERROR_CLASSES
+}
 
 
 class RealReviewExecutionGateway(ReviewExecutionGateway):
@@ -26,18 +41,16 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
     def run_review(
         self,
         request: ReviewExecutionRequest,
-    ) -> ReviewExecutionResponse | ReviewerFailure:
+    ) -> ReviewExecutionResponse | ReviewExecutionFailure:
         try:
             command = shlex.split(request.executor_command)
         except ValueError as exc:
-            return ReviewerFailure(
-                error_type="executor_command_invalid",
+            return ExecutorCommandInvalid(
                 message=f"Unable to parse executor command: {exc}",
             )
 
         if not command:
-            return ReviewerFailure(
-                error_type="executor_command_missing",
+            return ExecutorCommandMissing(
                 message="No executor command was provided for review execution.",
             )
 
@@ -50,31 +63,27 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
                 check=False,
             )
         except OSError as exc:
-            return ReviewerFailure(
-                error_type="review_execution_invocation_failed",
-                message=f"Unable to run the review executor: {exc}",
-            )
+            raise ReviewExecutorInvocationError(
+                f"Unable to run the review executor: {exc}"
+            ) from exc
 
         if result.returncode != 0:
             stderr = result.stderr.strip()
             stdout = result.stdout.strip()
-            return ReviewerFailure(
-                error_type="review_execution_failed",
+            return ReviewExecutionFailed(
                 message=stderr or stdout or "The review executor exited with a non-zero status.",
             )
 
         stdout = result.stdout.strip()
         if not stdout:
-            return ReviewerFailure(
-                error_type="review_execution_invalid_response",
+            return ReviewExecutionInvalidResponse(
                 message="The review executor returned no JSON output.",
             )
 
         try:
             payload = json.loads(stdout)
         except json.JSONDecodeError as exc:
-            return ReviewerFailure(
-                error_type="review_execution_invalid_json",
+            return ReviewExecutionInvalidJson(
                 message=f"Unable to parse review executor output: {exc}",
             )
 
@@ -83,43 +92,38 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
 
 def _parse_execution_response(
     payload: Any,
-) -> ReviewExecutionResponse | ReviewerFailure:
+) -> ReviewExecutionResponse | ReviewExecutionFailure:
     if not isinstance(payload, dict):
-        return ReviewerFailure(
-            error_type="review_execution_invalid_response",
+        return ReviewExecutionInvalidResponse(
             message="Review executor output must be a JSON object.",
         )
 
     if payload.get("success") is False:
         raw_error_type = payload.get("error_type", "review_execution_failed")
         message = payload.get("message", "The review executor reported a failure.")
-        if isinstance(raw_error_type, str) and raw_error_type in _REVIEWER_FAILURE_KINDS:
-            error_kind: ReviewerFailureKind = cast(ReviewerFailureKind, raw_error_type)
-            return ReviewerFailure(error_type=error_kind, message=str(message))
-        return ReviewerFailure(
-            error_type=_UNKNOWN_EXECUTOR_ERROR_KIND,
+        if isinstance(raw_error_type, str) and raw_error_type in _EXECUTOR_ERROR_BY_TYPE:
+            failure_cls = _EXECUTOR_ERROR_BY_TYPE[raw_error_type]
+            return failure_cls(message=str(message))
+        return ReviewExecutionFailed(
             message=f"Review executor reported error_type={raw_error_type!r}: {message}",
         )
 
     findings_payload = payload.get("findings")
     if not isinstance(findings_payload, list):
-        return ReviewerFailure(
-            error_type="review_execution_invalid_response",
+        return ReviewExecutionInvalidResponse(
             message="Review executor output must include a `findings` array.",
         )
 
     findings: list[ReviewFinding] = []
     for finding_payload in findings_payload:
         if not isinstance(finding_payload, dict):
-            return ReviewerFailure(
-                error_type="review_execution_invalid_response",
+            return ReviewExecutionInvalidResponse(
                 message="Each review finding must be a JSON object.",
             )
         try:
             findings.append(ReviewFinding.from_json_dict(finding_payload))
         except ValueError as exc:
-            return ReviewerFailure(
-                error_type="review_execution_invalid_response",
+            return ReviewExecutionInvalidResponse(
                 message=str(exc),
             )
 

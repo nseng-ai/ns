@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from twerk_reviewer.gateways.review_definition.gateway import ReviewDefinitionGateway
-from twerk_reviewer.models import ReviewerFailure
+from twerk_reviewer.models import ReviewDefinitionNotAFile, ReviewDefinitionNotFound
+
+FakeReviewDefinitionFailure = ReviewDefinitionNotFound | ReviewDefinitionNotAFile
 
 
 class FakeReviewDefinitionGateway(ReviewDefinitionGateway):
@@ -15,20 +17,23 @@ class FakeReviewDefinitionGateway(ReviewDefinitionGateway):
         self,
         *,
         sources_by_path: dict[Path, str] | None = None,
-        failures_by_path: dict[Path, ReviewerFailure] | None = None,
+        failures_by_path: dict[Path, FakeReviewDefinitionFailure] | None = None,
     ) -> None:
         self._sources_by_path = dict(sources_by_path or {})
         self._failures_by_path = dict(failures_by_path or {})
         self._requested_paths: list[Path] = []
 
-    def load_source(self, path: Path) -> str | ReviewerFailure:
+    def load_source(
+        self,
+        path: Path,
+    ) -> str | ReviewDefinitionNotFound | ReviewDefinitionNotAFile:
         self._requested_paths.append(path)
         if path in self._failures_by_path:
             return self._failures_by_path[path]
         if path in self._sources_by_path:
             return self._sources_by_path[path]
-        return ReviewerFailure(
-            error_type="review_definition_not_found",
+        return ReviewDefinitionNotFound(
+            path=path,
             message=f"No fake review definition configured for {path}",
         )
 

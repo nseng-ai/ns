@@ -11,7 +11,11 @@ from twerk_reviewer.gateways.local_diff.real import RealLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.real import RealReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution import real as review_execution_real
 from twerk_reviewer.gateways.review_execution.real import RealReviewExecutionGateway
-from twerk_reviewer.models import ReviewerFailure, ReviewExecutionRequest, ReviewExecutionResponse
+from twerk_reviewer.models import (
+    ReviewExecutionInvalidJson,
+    ReviewExecutionRequest,
+    ReviewExecutionResponse,
+)
 
 
 def test_real_review_definition_gateway_reads_file(tmp_path: Path) -> None:
@@ -114,5 +118,5 @@ def test_real_review_execution_gateway_reports_invalid_json(
         )
     )
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_execution_invalid_json"
+    assert isinstance(result, ReviewExecutionInvalidJson)
+    assert result.ERROR_TYPE == "review_execution_invalid_json"

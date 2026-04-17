@@ -7,7 +7,12 @@ from pathlib import Path
 
 from twerk_core.git.real_git_gateway import resolve_trunk_branch
 from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from twerk_reviewer.models import LocalDiff, ReviewerFailure
+from twerk_reviewer.models import (
+    BaseRefUnavailable,
+    GitDiffFailedError,
+    LocalDiff,
+    RepoRootUnavailableError,
+)
 
 
 class RealLocalDiffGateway(LocalDiffGateway):
@@ -16,7 +21,7 @@ class RealLocalDiffGateway(LocalDiffGateway):
     def __init__(self, *, cwd: Path) -> None:
         self._cwd = cwd
 
-    def load_diff(self, *, base_ref: str | None) -> LocalDiff | ReviewerFailure:
+    def load_diff(self, *, base_ref: str | None) -> LocalDiff | BaseRefUnavailable:
         repo_root_result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
             cwd=self._cwd,
@@ -26,9 +31,8 @@ class RealLocalDiffGateway(LocalDiffGateway):
         )
         if repo_root_result.returncode != 0:
             stderr = repo_root_result.stderr.strip()
-            return ReviewerFailure(
-                error_type="repo_root_unavailable",
-                message=stderr or "Unable to resolve the current git repository root.",
+            raise RepoRootUnavailableError(
+                stderr or "Unable to resolve the current git repository root."
             )
 
         repo_root = Path(repo_root_result.stdout.strip())
@@ -36,8 +40,7 @@ class RealLocalDiffGateway(LocalDiffGateway):
         if not resolved_base_ref:
             resolved_base_ref = resolve_trunk_branch(repo_root) or ""
         if not resolved_base_ref:
-            return ReviewerFailure(
-                error_type="base_ref_unavailable",
+            return BaseRefUnavailable(
                 message="Unable to resolve a base branch. Pass --base-ref explicitly.",
             )
 
@@ -50,11 +53,8 @@ class RealLocalDiffGateway(LocalDiffGateway):
         )
         if diff_result.returncode != 0:
             stderr = diff_result.stderr.strip()
-            return ReviewerFailure(
-                error_type="git_diff_failed",
-                message=(
-                    stderr or f"Unable to load the local diff against origin/{resolved_base_ref}."
-                ),
+            raise GitDiffFailedError(
+                stderr or f"Unable to load the local diff against origin/{resolved_base_ref}."
             )
 
         return LocalDiff(

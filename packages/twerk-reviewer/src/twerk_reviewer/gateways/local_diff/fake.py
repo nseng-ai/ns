@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from twerk_reviewer.models import LocalDiff, ReviewerFailure
+from twerk_reviewer.models import BaseRefUnavailable, LocalDiff
 
 
 class FakeLocalDiffGateway(LocalDiffGateway):
@@ -12,14 +12,14 @@ class FakeLocalDiffGateway(LocalDiffGateway):
     def __init__(
         self,
         *,
-        results_by_base_ref: dict[str | None, LocalDiff | ReviewerFailure] | None = None,
-        default_result: LocalDiff | ReviewerFailure | None = None,
+        results_by_base_ref: dict[str | None, LocalDiff | BaseRefUnavailable] | None = None,
+        default_result: LocalDiff | BaseRefUnavailable | None = None,
     ) -> None:
         self._results_by_base_ref = dict(results_by_base_ref or {})
         self._default_result = default_result or LocalDiff(base_ref="main", diff_text="")
         self._requested_base_refs: list[str | None] = []
 
-    def load_diff(self, *, base_ref: str | None) -> LocalDiff | ReviewerFailure:
+    def load_diff(self, *, base_ref: str | None) -> LocalDiff | BaseRefUnavailable:
         self._requested_base_refs.append(base_ref)
         if base_ref in self._results_by_base_ref:
             return self._results_by_base_ref[base_ref]

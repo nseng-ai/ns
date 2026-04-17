@@ -3,53 +3,127 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from pathlib import Path
+from typing import Any, ClassVar, Literal, TypeAlias
 
 Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
 
-ReviewerFailureKind = Literal[
-    "invalid_review_definition",
-    "model_not_provided",
-    "executor_command_missing",
-    "executor_command_invalid",
-    "review_execution_invocation_failed",
-    "review_execution_failed",
-    "review_execution_invalid_response",
-    "review_execution_invalid_json",
-    "review_definition_not_found",
-    "review_definition_not_a_file",
-    "review_definition_read_failed",
-    "repo_root_unavailable",
-    "base_ref_unavailable",
-    "git_diff_failed",
-]
-_REVIEWER_FAILURE_KINDS: frozenset[str] = frozenset(
-    {
-        "invalid_review_definition",
-        "model_not_provided",
-        "executor_command_missing",
-        "executor_command_invalid",
-        "review_execution_invocation_failed",
-        "review_execution_failed",
-        "review_execution_invalid_response",
-        "review_execution_invalid_json",
-        "review_definition_not_found",
-        "review_definition_not_a_file",
-        "review_definition_read_failed",
-        "repo_root_unavailable",
-        "base_ref_unavailable",
-        "git_diff_failed",
-    }
-)
+
+@dataclass(frozen=True)
+class InvalidReviewDefinition:
+    """The markdown review definition failed validation."""
+
+    ERROR_TYPE: ClassVar[str] = "invalid_review_definition"
+    message: str
 
 
 @dataclass(frozen=True)
-class ReviewerFailure:
-    """A typed failure surfaced by reviewer gateways or workflow code."""
+class ModelNotProvided:
+    """No executor model was provided and the definition has no default."""
 
-    error_type: ReviewerFailureKind
+    ERROR_TYPE: ClassVar[str] = "model_not_provided"
     message: str
+
+
+@dataclass(frozen=True)
+class ExecutorCommandMissing:
+    """The executor command was empty after shell-parsing."""
+
+    ERROR_TYPE: ClassVar[str] = "executor_command_missing"
+    message: str
+
+
+@dataclass(frozen=True)
+class ExecutorCommandInvalid:
+    """The executor command could not be shell-parsed."""
+
+    ERROR_TYPE: ClassVar[str] = "executor_command_invalid"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewExecutionFailed:
+    """The executor ran but exited with a non-zero status."""
+
+    ERROR_TYPE: ClassVar[str] = "review_execution_failed"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewExecutionInvalidResponse:
+    """The executor output was structurally invalid."""
+
+    ERROR_TYPE: ClassVar[str] = "review_execution_invalid_response"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewExecutionInvalidJson:
+    """The executor output was not valid JSON."""
+
+    ERROR_TYPE: ClassVar[str] = "review_execution_invalid_json"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewDefinitionNotFound:
+    """The review-definition path does not exist on disk."""
+
+    ERROR_TYPE: ClassVar[str] = "review_definition_not_found"
+    path: Path
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewDefinitionNotAFile:
+    """The review-definition path exists but is not a regular file."""
+
+    ERROR_TYPE: ClassVar[str] = "review_definition_not_a_file"
+    path: Path
+    message: str
+
+
+@dataclass(frozen=True)
+class BaseRefUnavailable:
+    """A base git ref was not provided and could not be resolved."""
+
+    ERROR_TYPE: ClassVar[str] = "base_ref_unavailable"
+    message: str
+
+
+ReviewerFailure: TypeAlias = (
+    InvalidReviewDefinition
+    | ModelNotProvided
+    | ExecutorCommandMissing
+    | ExecutorCommandInvalid
+    | ReviewExecutionFailed
+    | ReviewExecutionInvalidResponse
+    | ReviewExecutionInvalidJson
+    | ReviewDefinitionNotFound
+    | ReviewDefinitionNotAFile
+    | BaseRefUnavailable
+)
+
+
+class ReviewerError(Exception):
+    """Base class for halt-worthy reviewer failures surfaced as exceptions."""
+
+
+class ReviewExecutorInvocationError(ReviewerError):
+    """The review executor subprocess could not be invoked at all."""
+
+
+class ReviewDefinitionReadError(ReviewerError):
+    """The review-definition file exists but could not be read."""
+
+
+class RepoRootUnavailableError(ReviewerError):
+    """The current git repository root could not be resolved."""
+
+
+class GitDiffFailedError(ReviewerError):
+    """`git diff` exited non-zero while building the local diff."""
 
 
 @dataclass(frozen=True)

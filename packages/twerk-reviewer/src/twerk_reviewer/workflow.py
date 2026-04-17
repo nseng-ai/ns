@@ -8,10 +8,14 @@ from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
 from twerk_reviewer.gateways.review_definition.gateway import ReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
 from twerk_reviewer.models import (
+    BaseRefUnavailable,
+    InvalidReviewDefinition,
     LocalReviewResult,
+    ModelNotProvided,
     ReviewDefinition,
     ReviewerFailure,
     ReviewExecutionRequest,
+    ReviewExecutionResponse,
 )
 from twerk_reviewer.prompting import build_review_prompt
 from twerk_reviewer.review_definition import parse_review_definition
@@ -31,26 +35,23 @@ def run_local_review(
     """Run a markdown-defined reviewer against the local branch diff."""
     review_path_obj = Path(review_path)
     source = review_definition_gateway.load_source(review_path_obj)
-    if isinstance(source, ReviewerFailure):
+    if not isinstance(source, str):
         return source
 
     try:
         review_definition = parse_review_definition(source, name=review_path_obj.stem)
     except ValueError as exc:
-        return ReviewerFailure(
-            error_type="invalid_review_definition",
-            message=str(exc),
-        )
+        return InvalidReviewDefinition(message=str(exc))
 
     resolved_model = _resolve_model(
         review_definition=review_definition,
         requested_model=requested_model,
     )
-    if isinstance(resolved_model, ReviewerFailure):
+    if isinstance(resolved_model, ModelNotProvided):
         return resolved_model
 
     local_diff = local_diff_gateway.load_diff(base_ref=requested_base_ref)
-    if isinstance(local_diff, ReviewerFailure):
+    if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
 
     prompt = build_review_prompt(
@@ -68,7 +69,7 @@ def run_local_review(
         diff_text=local_diff.diff_text,
     )
     execution_response = review_execution_gateway.run_review(execution_request)
-    if isinstance(execution_response, ReviewerFailure):
+    if not isinstance(execution_response, ReviewExecutionResponse):
         return execution_response
 
     return LocalReviewResult(
@@ -84,14 +85,13 @@ def _resolve_model(
     *,
     review_definition: ReviewDefinition,
     requested_model: str | None,
-) -> str | ReviewerFailure:
+) -> str | ModelNotProvided:
     explicit_model = (requested_model or "").strip()
     if explicit_model:
         return explicit_model
     if review_definition.default_model is not None and review_definition.default_model.strip():
         return review_definition.default_model.strip()
-    return ReviewerFailure(
-        error_type="model_not_provided",
+    return ModelNotProvided(
         message=(
             "No model was provided. Pass --model explicitly or add a "
             "`## Default Model` section to the review definition."
