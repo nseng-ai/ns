@@ -10,10 +10,8 @@ from click.testing import CliRunner
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
-from twerk_reviewer.gateways.local_diff import real as local_diff_real
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
-from twerk_reviewer.gateways.review_execution import real as review_execution_real
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
 from twerk_reviewer.models import LocalDiff, ReviewExecutionResponse, ReviewFinding
 
@@ -187,7 +185,7 @@ def test_review_local_falls_back_to_real_gateways(
     review_path = tmp_path / "dignified-python.md"
     review_path.write_text(_review_source(), encoding="utf-8")
 
-    def fake_git_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         if cmd[:3] == ["git", "rev-parse", "--show-toplevel"]:
             return subprocess.CompletedProcess(cmd, 0, stdout=str(tmp_path), stderr="")
         if cmd[:3] == ["git", "diff", "--no-ext-diff"]:
@@ -197,33 +195,30 @@ def test_review_local_falls_back_to_real_gateways(
                 stdout="diff --git a/app.py b/app.py\n+print('hello')\n",
                 stderr="",
             )
-        raise AssertionError(f"unexpected git command: {cmd!r}")
+        if cmd == ["fake-reviewer"]:
+            payload = json.loads(str(kwargs["input"]))
+            assert payload["model"] == "gpt-5-mini"
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout=json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "path": "app.py",
+                                "line": 1,
+                                "severity": "warning",
+                                "summary": "Avoid print in library code",
+                                "details": "Use click.echo() instead.",
+                            }
+                        ]
+                    }
+                ),
+                stderr="",
+            )
+        raise AssertionError(f"unexpected command: {cmd!r}")
 
-    def fake_executor_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        assert cmd == ["fake-reviewer"]
-        payload = json.loads(str(kwargs["input"]))
-        assert payload["model"] == "gpt-5-mini"
-        return subprocess.CompletedProcess(
-            cmd,
-            0,
-            stdout=json.dumps(
-                {
-                    "findings": [
-                        {
-                            "path": "app.py",
-                            "line": 1,
-                            "severity": "warning",
-                            "summary": "Avoid print in library code",
-                            "details": "Use click.echo() instead.",
-                        }
-                    ]
-                }
-            ),
-            stderr="",
-        )
-
-    monkeypatch.setattr(local_diff_real, "_run_git", fake_git_run)
-    monkeypatch.setattr(review_execution_real.subprocess, "run", fake_executor_run)
+    monkeypatch.setattr(subprocess, "run", fake_run)
 
     runner = CliRunner()
     result = runner.invoke(

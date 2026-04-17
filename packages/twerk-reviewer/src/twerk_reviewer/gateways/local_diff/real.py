@@ -10,27 +10,6 @@ from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
 from twerk_reviewer.models import LocalDiff, ReviewerFailure
 
 
-def _run_git(
-    cmd: list[str],
-    *,
-    cwd: Path,
-) -> subprocess.CompletedProcess[str] | ReviewerFailure:
-    try:
-        return subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as exc:
-        command_text = " ".join(cmd)
-        return ReviewerFailure(
-            error_type="git_invocation_failed",
-            message=f"Failed to run `{command_text}`: {exc}",
-        )
-
-
 class RealLocalDiffGateway(LocalDiffGateway):
     """Load the current branch diff from the local git repository."""
 
@@ -38,12 +17,13 @@ class RealLocalDiffGateway(LocalDiffGateway):
         self._cwd = cwd
 
     def load_diff(self, *, base_ref: str | None) -> LocalDiff | ReviewerFailure:
-        repo_root_result = _run_git(
+        repo_root_result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
             cwd=self._cwd,
+            capture_output=True,
+            text=True,
+            check=False,
         )
-        if isinstance(repo_root_result, ReviewerFailure):
-            return repo_root_result
         if repo_root_result.returncode != 0:
             stderr = repo_root_result.stderr.strip()
             return ReviewerFailure(
@@ -61,17 +41,13 @@ class RealLocalDiffGateway(LocalDiffGateway):
                 message="Unable to resolve a base branch. Pass --base-ref explicitly.",
             )
 
-        diff_result = _run_git(
-            [
-                "git",
-                "diff",
-                "--no-ext-diff",
-                f"origin/{resolved_base_ref}...HEAD",
-            ],
+        diff_result = subprocess.run(
+            ["git", "diff", "--no-ext-diff", f"origin/{resolved_base_ref}...HEAD"],
             cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
         )
-        if isinstance(diff_result, ReviewerFailure):
-            return diff_result
         if diff_result.returncode != 0:
             stderr = diff_result.stderr.strip()
             return ReviewerFailure(
