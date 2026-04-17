@@ -71,10 +71,15 @@ def _infer_param(field: dataclasses.Field[Any], hint: Any) -> click.Parameter:
     click_type = _PYTHON_TO_CLICK_TYPE.get(inner_type, click.STRING)
 
     has_default = field.default is not dataclasses.MISSING
-    has_factory = field.default_factory is not dataclasses.MISSING  # type: ignore[misc]
+    factory = field.default_factory
+    has_factory = factory is not dataclasses.MISSING
 
     if has_default or has_factory:
-        default = field.default if has_default else field.default_factory()  # type: ignore[misc]
+        if has_default:
+            default = field.default
+        else:
+            assert factory is not dataclasses.MISSING
+            default = factory()
         if inner_type is bool and default is False:
             return click.Option(
                 [f"--{field.name.replace('_', '-')}"],

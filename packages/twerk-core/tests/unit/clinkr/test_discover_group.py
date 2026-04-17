@@ -52,7 +52,7 @@ def _fake_package(
 ) -> Iterator[None]:
     """Create a fake package in sys.modules."""
     pkg = types.ModuleType(package_name)
-    pkg.__path__ = []  # type: ignore[attr-defined]
+    pkg.__dict__["__path__"] = []
     for attr_name, attr_value in (init_attrs or {}).items():
         setattr(pkg, attr_name, attr_value)
     sys.modules[package_name] = pkg
@@ -203,6 +203,7 @@ def test_discover_group_errors_multiple_decorators() -> None:
 def test_discover_group_errors_wrong_return_type() -> None:
     @clinkr_group(help="Bad.")
     def bad_group() -> ClinkrGroup:
+        # Test subject: wrong return type — discover_group must raise TypeError.
         return "not a group"  # type: ignore[return-value]
 
     with _fake_package(

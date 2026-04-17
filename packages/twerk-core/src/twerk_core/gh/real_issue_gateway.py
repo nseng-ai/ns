@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import cast
+from typing import Any, cast
 
 from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.real_gateway_helpers import fetch_pr_summary_for_branch
@@ -115,14 +115,14 @@ def _get_owner_repo() -> tuple[str, str]:
     return data["owner"]["login"], data["name"]
 
 
-def _load_paginated_array_output(stdout: str) -> list[dict[str, object]]:
+def _load_paginated_array_output(stdout: str) -> list[dict[str, Any]]:
     """Parse `gh api --paginate` output for endpoints that return arrays.
 
     The CLI prints each page's JSON array back-to-back, so multi-page output is
     not valid JSON as a whole. Decode each array and flatten the pages.
     """
     decoder = json.JSONDecoder()
-    items: list[dict[str, object]] = []
+    items: list[dict[str, Any]] = []
     index = 0
     while index < len(stdout):
         while index < len(stdout) and stdout[index].isspace():
@@ -130,7 +130,7 @@ def _load_paginated_array_output(stdout: str) -> list[dict[str, object]]:
         if index >= len(stdout):
             break
         raw_page, index = decoder.raw_decode(stdout, index)
-        page = cast(list[dict[str, object]], raw_page)
+        page = cast(list[dict[str, Any]], raw_page)
         items.extend(page)
     return items
 

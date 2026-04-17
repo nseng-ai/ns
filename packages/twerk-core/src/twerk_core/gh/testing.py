@@ -34,9 +34,9 @@ class FakeIssueGateway(IssueGateway):
         self,
         *,
         issues: Sequence[Issue] = (),
-        review_threads: dict[int, list[PRReviewThread]] | None = None,
-        reviews: dict[int, list[PRReview]] | None = None,
-        discussion_comments: dict[int, list[IssueComment]] | None = None,
+        review_threads: dict[int, Sequence[PRReviewThread]] | None = None,
+        reviews: dict[int, Sequence[PRReview]] | None = None,
+        discussion_comments: dict[int, Sequence[IssueComment]] | None = None,
         prs_by_branch: dict[str, PRSummary] | None = None,
     ) -> None:
         self._issues = tuple(issues)

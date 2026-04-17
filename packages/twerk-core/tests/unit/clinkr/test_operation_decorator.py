@@ -49,7 +49,8 @@ def test_decorated_function_still_callable() -> None:
     def op(ctx: click.Context, request: FakeRequest) -> FakeResult:
         return FakeResult(message=f"hi {request.name}")
 
-    result = op(None, FakeRequest(name="alice"))  # type: ignore[arg-type]
+    ctx = click.Context(click.Command("dummy"))
+    result = op(ctx, FakeRequest(name="alice"))
     assert result.message == "hi alice"
 
 
@@ -96,6 +97,7 @@ def test_error_first_param_missing_annotation() -> None:
     with pytest.raises(TypeError, match="parameter 'ctx' must have a type annotation"):
 
         @clinkr_operation(name="op")
+        # Test subject: missing `ctx` annotation — @clinkr_operation must reject.
         def op(ctx, request: FakeRequest) -> FakeResult:  # type: ignore[no-untyped-def]
             return FakeResult(message="ok")
 
@@ -104,6 +106,7 @@ def test_error_second_param_missing_annotation() -> None:
     with pytest.raises(TypeError, match="parameter 'request' must have a type annotation"):
 
         @clinkr_operation(name="op")
+        # Test subject: missing `request` annotation — @clinkr_operation must reject.
         def op(ctx: click.Context, request) -> FakeResult:  # type: ignore[no-untyped-def]
             return FakeResult(message="ok")
 
@@ -112,6 +115,7 @@ def test_error_no_return_annotation() -> None:
     with pytest.raises(TypeError, match="return type annotation"):
 
         @clinkr_operation(name="op")
+        # Test subject: missing return annotation — @clinkr_operation must reject.
         def op(ctx: click.Context, request: FakeRequest):  # type: ignore[no-untyped-def]
             return FakeResult(message="ok")
 
