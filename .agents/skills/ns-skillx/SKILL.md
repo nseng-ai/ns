@@ -2,7 +2,7 @@
 name: ns-skillx
 description: "Run any skill from a GitHub repo without installing it. Like npx for skills -- fetches into a temp dir, reads the SKILL.md, follows its instructions, then discards. No project pollution. Accepts: owner/repo@skill, GitHub URLs, --skill syntax, or natural language."
 allowed-tools:
-  - "Bash(uvx --from *nonslop* nonslop exec skillx *)"
+  - "Bash(uvx nonslop exec skillx *)"
 ---
 
 # skillx
@@ -25,10 +25,10 @@ use `ns-skill-management` for that.
 
 ## CLI prefix
 
-All commands use this prefix (always runs latest from master):
+All commands use this prefix (always runs latest from PyPI):
 
 ```
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec skillx
+uvx nonslop exec skillx
 ```
 
 ## Step 1: Parse the request
@@ -36,7 +36,7 @@ uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec skillx
 Run the parse command with the user's raw input:
 
 ```bash
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec skillx parse "<user-input>"
+uvx nonslop exec skillx parse "<user-input>"
 ```
 
 Returns JSON: `{"success": true, "repo": "owner/repo", "skill": "name-or-null", "format": "..."}`.
@@ -53,7 +53,7 @@ skill (the rest of their message beyond the skillx invocation).
 **If no skill name**, list available skills and stop:
 
 ```bash
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec skillx list --repo <owner/repo>
+uvx nonslop exec skillx list --repo <owner/repo>
 ```
 
 Returns JSON: `{"success": true, "repo": "...", "skills": [...]}`.
@@ -64,7 +64,7 @@ Report the list to the user and stop.
 ## Step 3: Fetch the skill
 
 ```bash
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec skillx fetch --repo <owner/repo> --skill <skill-name>
+uvx nonslop exec skillx fetch --repo <owner/repo> --skill <skill-name>
 ```
 
 Returns JSON with `tmp_dir`, `skill_dir`, `skill_md`, and `files`.
@@ -93,7 +93,7 @@ automatically granted. The user will see normal permission prompts.
 After the skill's work is complete (or if any step fails):
 
 ```bash
-uvx --from "git+https://github.com/nseng-ai/nonslop" nonslop exec skillx cleanup --dir <tmp_dir>
+uvx nonslop exec skillx cleanup --dir <tmp_dir>
 ```
 
 ## What skillx does NOT do
