@@ -3,6 +3,7 @@ members = [
   "packages/twerk-core",
   "packages/twerk-objectives",
   "packages/twerk-pr-address",
+  "packages/twerk-reviewer",
   "packages/twerk-slots",
 ]
 
@@ -10,6 +11,7 @@ members = [
 twerk-core = { workspace = true }
 twerk-objectives = { workspace = true }
 twerk-pr-address = { workspace = true }
+twerk-reviewer = { workspace = true }
 twerk-slots = { workspace = true }
 
 [project]
@@ -45,6 +47,7 @@ dev = [
   "twerk-core",
   "twerk-objectives",
   "twerk-pr-address",
+  "twerk-reviewer",
   "twerk-slots",
   "ty>=0.0.1a7",
 ]
@@ -64,6 +67,7 @@ src = [
   "packages/twerk-core/src",
   "packages/twerk-objectives/src",
   "packages/twerk-pr-address/src",
+  "packages/twerk-reviewer/src",
   "packages/twerk-slots/src",
 ]
 exclude = [".claude/", ".agents/skills/"]
@@ -79,7 +83,14 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["twerk", "twerk_core", "twerk_objectives", "twerk_pr_address", "twerk_slots"]
+known-first-party = [
+  "twerk",
+  "twerk_core",
+  "twerk_objectives",
+  "twerk_pr_address",
+  "twerk_reviewer",
+  "twerk_slots",
+]
 
 [tool.ty.src]
 include = ["src", "packages/*/src"]
@@ -90,12 +101,12 @@ python-version = "3.11"
 python = ".venv"
 
 [tool.pytest.ini_options]
-addopts = "-q"
-pythonpath = ["."]
+addopts = "-q --import-mode=importlib"
 testpaths = [
   "tests",
   "packages/twerk-core/tests",
   "packages/twerk-objectives/tests",
   "packages/twerk-pr-address/tests",
+  "packages/twerk-reviewer/tests",
   "packages/twerk-slots/tests",
 ]

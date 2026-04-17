@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import click
 from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 from twerk_core.gh.testing import FakeIssueGateway
+from twerk_reviewer.context import ReviewerCliContext
+from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
+from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
+from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
+from twerk_reviewer.models import LocalDiff, ReviewExecutionResponse, ReviewFinding
 
 
 class FakePluginEntryPoint:
@@ -85,3 +91,77 @@ def test_pr_address_plugin_integration() -> None:
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["count"] == 0
+
+
+def test_reviewer_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(name="reviewer", value="twerk_reviewer.cli.reviewer")
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    runner = CliRunner()
+    obj = ReviewerCliContext(
+        review_definition=FakeReviewDefinitionGateway(
+            sources_by_path={
+                Path("standards/dignified-python.md"): (
+                    "# Dignified Python\n\n"
+                    "## Description\n\n"
+                    "Review Python diffs for style violations.\n\n"
+                    "## Instructions\n\n"
+                    "Flag concrete issues in the diff.\n"
+                )
+            }
+        ),
+        local_diff=FakeLocalDiffGateway(
+            default_result=LocalDiff(
+                base_ref="master",
+                diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+            )
+        ),
+        review_execution=FakeReviewExecutionGateway(
+            default_response=ReviewExecutionResponse(
+                findings=(
+                    ReviewFinding(
+                        path="app.py",
+                        line=1,
+                        severity="warning",
+                        summary="Avoid print in library code",
+                        details="Use click.echo() or structured logging instead.",
+                    ),
+                )
+            )
+        ),
+    )
+
+    result = runner.invoke(
+        parent,
+        [
+            "reviewer",
+            "review-local",
+            "standards/dignified-python.md",
+            "--model",
+            "gpt-5-mini",
+            "--executor-command",
+            "fake-reviewer",
+        ],
+        obj=obj,
+    )
+    assert result.exit_code == 0
+    assert "Dignified Python" in result.output
+
+    result = runner.invoke(
+        parent,
+        ["reviewer", "json", "review-local"],
+        input=json.dumps(
+            {
+                "review_path": "standards/dignified-python.md",
+                "executor_command": "fake-reviewer",
+                "model": "gpt-5-mini",
+            }
+        ),
+        obj=obj,
+    )
+    assert result.exit_code == 0
+    output = json.loads(result.output)
+    assert output["count"] == 1
+    assert output["findings"][0]["path"] == "app.py"
