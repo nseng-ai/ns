@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+import click
+
 from twerk_core.clinkr.group import ClinkrGroup, clinkr_group
+from twerk_reviewer.cli.reviewer.context import build_reviewer_context
+
+
+@click.pass_context
+def _populate_ctx_obj(ctx: click.Context) -> None:
+    """Populate ``ctx.obj`` with a :class:`ReviewerCliContext` for real invocations."""
+    if ctx.obj is None:
+        ctx.obj = build_reviewer_context()
 
 
 @clinkr_group(help="Markdown-driven reviewer operations.")
 def reviewer() -> ClinkrGroup:
-    """Return the ``reviewer`` CLI group (no subcommands yet)."""
-    return ClinkrGroup.discover_subcommands()
+    """Return the ``reviewer`` CLI group with a typed gateway context."""
+    group = ClinkrGroup.discover_subcommands()
+    group.callback = _populate_ctx_obj
+    return group

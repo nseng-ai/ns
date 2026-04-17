@@ -107,5 +107,6 @@ testpaths = [
   "packages/twerk-core/tests",
   "packages/twerk-objectives/tests",
   "packages/twerk-pr-address/tests",
+  "packages/twerk-reviewer/tests",
   "packages/twerk-slots/tests",
 ]
