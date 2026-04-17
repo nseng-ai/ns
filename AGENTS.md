@@ -41,7 +41,7 @@ When adding or editing any code that interacts with the GitHub backend — wheth
 
 ### Branch Creation and PR Submission (Graphite)
 
-This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Whenever you create branches, amend commits, submit or update PRs, or navigate and reshape stacks, always consult the `graphite` skill (`.claude/skills/graphite/SKILL.md`) first. When splitting a single mixed branch into a stack, consult the `dev-gt-stackify-branch` skill (`.claude/skills/dev-gt-stackify-branch/SKILL.md`) first. Prefer `gt` over raw `git` for these operations:
+This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Whenever you create branches, amend commits, submit or update PRs, or navigate and reshape stacks, always consult the `graphite` skill (`.claude/skills/graphite/SKILL.md`) first. Prefer `gt` over raw `git` for these operations:
 
 - Creating branches: use `gt create <name> -m "<msg>"` instead of `git checkout -b` + `git commit`.
 - Amending the current branch: use `gt modify -m "<msg>"` instead of `git commit --amend`.
