@@ -54,8 +54,8 @@ def test_review_execution_fake_returns_configured_response() -> None:
 
     result = gateway.run_review(
         ReviewExecutionRequest(
-            executor_command="fake-reviewer",
-            model="gpt-5-mini",
+            adapter_name="claude-code",
+            model="sonnet",
             prompt="review this diff",
             review_name="Dignified Python",
             review_description="Review Python diffs for style violations.",
