@@ -112,7 +112,6 @@ def test_claude_code_build_argv_findings_mode() -> None:
     assert "Write" not in tools_value
     schema_text = argv[argv.index("--json-schema") + 1]
     assert json.loads(schema_text) == FINDINGS_JSON_SCHEMA
-    assert argv[-1] == "review this diff"
 
 
 def test_claude_code_build_argv_text_mode_omits_json_schema() -> None:
@@ -124,7 +123,42 @@ def test_claude_code_build_argv_text_mode_omits_json_schema() -> None:
     assert "Bash" in tools_value
     assert "Read" in tools_value
     assert "Edit" not in tools_value
-    assert argv[-1] == "review this diff"
+
+
+@pytest.mark.parametrize("review_format", ["findings", "text"])
+def test_claude_code_build_argv_terminates_options_before_prompt(
+    review_format: ReviewFormat,
+) -> None:
+    """Regression: `--tools` is variadic. Without a `--` separator the
+    variadic consumes the prompt positional and claude exits with
+    'Input must be provided either through stdin or as a prompt argument'.
+    """
+    argv = CLAUDE_CODE_ADAPTER.build_argv(
+        _request(prompt="PROMPT_BODY", review_format=review_format)
+    )
+
+    assert argv[-2] == "--"
+    assert argv[-1] == "PROMPT_BODY"
+
+
+@pytest.mark.parametrize("review_format", ["findings", "text"])
+def test_claude_code_build_argv_no_positional_follows_tools_flag(
+    review_format: ReviewFormat,
+) -> None:
+    """Regression: the token right after `--tools <value>` must be another
+    flag (starts with `-`), or the variadic parser will keep consuming.
+    """
+    argv = CLAUDE_CODE_ADAPTER.build_argv(
+        _request(prompt="PROMPT_BODY", review_format=review_format)
+    )
+
+    tools_index = argv.index("--tools")
+    # tools_index + 1 is the value; tools_index + 2 must be a flag or `--`.
+    next_token = argv[tools_index + 2]
+    assert next_token.startswith("-"), (
+        f"Token after --tools <value> must start with `-` to terminate the "
+        f"variadic. Got {next_token!r}."
+    )
 
 
 @pytest.mark.parametrize(

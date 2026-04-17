@@ -78,7 +78,9 @@ def _claude_code_build_argv(request: ReviewExecutionRequest) -> list[str]:
     ]
     if request.review_format == "findings":
         argv += ["--json-schema", json.dumps(FINDINGS_JSON_SCHEMA)]
-    argv.append(request.prompt)
+    # `--tools` is variadic; terminate option parsing with `--` so the prompt
+    # positional is never interpreted as another tool name.
+    argv += ["--", request.prompt]
     return argv
 
 
