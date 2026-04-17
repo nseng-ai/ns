@@ -19,10 +19,14 @@ def build_review_prompt(
     local_diff: LocalDiff,
 ) -> str:
     """Build the prompt sent to the review executor."""
-    return _review_prompt_template().format(
-        review_name=review_definition.name,
-        review_description=review_definition.description,
-        review_instructions=review_definition.instructions,
-        base_ref=local_diff.base_ref,
-        diff_text=local_diff.diff_text,
-    ).strip()
+    return (
+        _review_prompt_template()
+        .format(
+            review_name=review_definition.name,
+            review_description=review_definition.description,
+            review_instructions=review_definition.instructions,
+            base_ref=local_diff.base_ref,
+            diff_text=local_diff.diff_text,
+        )
+        .strip()
+    )
