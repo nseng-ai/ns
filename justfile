@@ -52,5 +52,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package twerk --package twerk-core --package twerk-objectives --package twerk-pr-address --package twerk-slots
+    uv build --package twerk --package twerk-core --package twerk-objectives --package twerk-pr-address --package twerk-reviewer --package twerk-slots
     uv publish
