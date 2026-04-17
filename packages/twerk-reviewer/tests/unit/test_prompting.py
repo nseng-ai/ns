@@ -32,6 +32,7 @@ def test_build_review_prompt_no_longer_carries_output_contract() -> None:
             name="X",
             description="Y",
             instructions="Z",
+            default_model=None,
         ),
         local_diff=LocalDiff(base_ref="master", diff_text=""),
     )

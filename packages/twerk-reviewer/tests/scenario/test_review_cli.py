@@ -136,7 +136,7 @@ def test_review_run_text_format_renders_prose(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "Reviewer: Dignified Python" in result.output
+    assert "Reviewer: dignified-python" in result.output
     assert "### Review" in result.output
     assert "- app.py:1 — prefer click.echo" in result.output
 
