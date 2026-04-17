@@ -8,6 +8,7 @@ from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFi
 def test_detached_head_is_frozen() -> None:
     value = DetachedHead()
     with pytest.raises(AttributeError):
+        # Test subject: unknown-attr assignment on a frozen dataclass.
         value.foo = "bar"  # type: ignore[attr-defined]
 
 

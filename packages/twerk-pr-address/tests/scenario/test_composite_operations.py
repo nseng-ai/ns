@@ -11,7 +11,14 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.gh.types import IssueComment, PRReview, PRReviewComment, PRReviewThread, PRSummary
+from twerk_core.gh.types import (
+    IssueComment,
+    PRReview,
+    PRReviewComment,
+    PRReviewThread,
+    PRSummary,
+    Reaction,
+)
 from twerk_core.git import real_git_gateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
@@ -540,7 +547,7 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
     cli_group: ClinkrGroup,
 ) -> None:
     class FailingReactionGateway(FakeIssueGateway):
-        def add_reaction(self, comment_id: int, reaction: str):  # type: ignore[override]
+        def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
             raise subprocess.CalledProcessError(
                 returncode=1,
                 cmd=["gh", "api", "-X", "POST"],

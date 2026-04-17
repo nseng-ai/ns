@@ -42,7 +42,7 @@ def _fake_package(
 ) -> Iterator[types.ModuleType]:
     """Create a fake package in sys.modules with the given decorated functions."""
     pkg = types.ModuleType(package_name)
-    pkg.__path__ = []  # type: ignore[attr-defined]
+    pkg.__dict__["__path__"] = []
     sys.modules[package_name] = pkg
 
     mod = types.ModuleType(operations_module_name)
@@ -64,7 +64,7 @@ def test_discover_finds_decorated_operations() -> None:
         # Since walk_packages needs __path__ to find submodules,
         # and our fake package has an empty __path__, we put the
         # decorated function directly on the root package module.
-        pkg.run_ping = run_ping  # type: ignore[attr-defined]
+        pkg.__dict__["run_ping"] = run_ping
         group = discover_operations(pkg_name)
 
         assert "ping" in group.commands
@@ -81,7 +81,7 @@ def test_discover_alias_works() -> None:
     pkg_name = "_test_discover_alias_pkg"
     mod_name = f"{pkg_name}.ops"
     with _fake_package(pkg_name, mod_name, run_ping) as pkg:
-        pkg.run_ping = run_ping  # type: ignore[attr-defined]
+        pkg.__dict__["run_ping"] = run_ping
         group = discover_operations(pkg_name)
 
         runner = CliRunner()

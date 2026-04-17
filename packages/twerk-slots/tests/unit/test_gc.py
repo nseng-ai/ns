@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.gh.types import PRState, PRSummary
+from twerk_core.gh.types import PRLookupError, PRState, PRSummary
 from twerk_core.git.types import (
     DetachedHead,
     FileStatus,
@@ -217,9 +217,7 @@ def test_run_gc_no_pr_is_kept() -> None:
 class _BrokenPRGateway(FakePRGateway):
     """PR gateway that returns a non-1 error — simulates gh CLI broken."""
 
-    def get_pr_for_branch(self, branch: str):  # type: ignore[override]
-        from twerk_core.gh.types import PRLookupError
-
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
         return PRLookupError(stderr="gh: command not found", returncode=4)
 
 

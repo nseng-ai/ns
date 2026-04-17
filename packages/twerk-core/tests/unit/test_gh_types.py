@@ -53,6 +53,7 @@ def test_pr_review_comment_multi_line_range():
 def test_pr_review_comment_is_frozen():
     comment = PRReviewComment(id=1, body="x", author="a", path="f.py", line=1, created_at="")
     with pytest.raises(AttributeError):
+        # Test subject: mutating a frozen field.
         comment.body = "changed"  # type: ignore[misc]
 
 
@@ -78,6 +79,7 @@ def test_pr_review_thread_is_frozen():
         id="PRRT_1", path="f.py", line=1, is_resolved=False, is_outdated=False, comments=()
     )
     with pytest.raises(AttributeError):
+        # Test subject: mutating a frozen field.
         thread.is_resolved = True  # type: ignore[misc]
 
 
@@ -144,4 +146,5 @@ def test_issue_construction() -> None:
 def test_issue_is_frozen() -> None:
     issue = Issue(number=1, title="t", state="open", updated_at="", url="")
     with pytest.raises(AttributeError):
+        # Test subject: mutating a frozen field.
         issue.title = "changed"  # type: ignore[misc]
