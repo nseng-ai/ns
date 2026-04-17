@@ -39,6 +39,17 @@ Skills prefixed with `dev-` are developer-only tooling — either pure contribut
 
 When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `dev-gh` skill (`.claude/skills/dev-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `twerk-core`.
 
+### Branch Creation and PR Submission (Graphite)
+
+This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Prefer `gt` over raw `git` for these operations:
+
+- Creating branches: use `gt create <name> -m "<msg>"` instead of `git checkout -b` + `git commit`.
+- Amending the current branch: use `gt modify -m "<msg>"` instead of `git commit --amend`.
+- Submitting / updating PRs: use `gt submit --no-interactive` instead of `git push` / `gh pr create`.
+- Navigating and reshaping stacks: `gt up` / `gt down` / `gt ls` / `gt restack` / `gt move`.
+
+Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the `graphite` skill's "Surgical Rebasing" section). See `.claude/skills/graphite/SKILL.md` for the full workflow and `.claude/skills/dev-gt-stackify-branch/SKILL.md` for splitting a mixed branch into a stack.
+
 ### CLI Scenario Testing Convention
 
 Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) built by `build_cli()` in `<package>.cli.main`, and a twerk plugin subgroup discovered via `twerk.plugins` entry points. Test them separately:
