@@ -26,16 +26,16 @@ def _review_path() -> Path:
 
 
 def _review_source(*, include_default_model: bool = True) -> str:
-    default_model_section = ""
+    default_model_line = ""
     if include_default_model:
-        default_model_section = "\n## Default Model\n\ngpt-5-mini\n"
+        default_model_line = "default_model: gpt-5-mini\n"
     return (
-        "# Dignified Python\n\n"
-        "## Description\n\n"
-        "Review Python diffs for violations of the team style guide.\n\n"
-        "## Instructions\n\n"
+        "---\n"
+        "description: Review Python diffs for violations of the team style guide.\n"
+        f"{default_model_line}"
+        "---\n"
+        "\n"
         "Flag concrete issues in the supplied diff.\n"
-        f"{default_model_section}"
     )
 
 
@@ -96,7 +96,7 @@ def test_review_local_human_output(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0
-    assert "Reviewer: Dignified Python" in result.output
+    assert "Reviewer: dignified-python" in result.output
     assert "Model: gpt-5-mini" in result.output
     assert "Base ref: master" in result.output
     assert "[warning] app.py:1 Avoid print in library code" in result.output

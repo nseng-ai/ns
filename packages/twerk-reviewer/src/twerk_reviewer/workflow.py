@@ -29,12 +29,13 @@ def run_local_review(
     review_execution_gateway: ReviewExecutionGateway,
 ) -> LocalReviewResult | ReviewerFailure:
     """Run a markdown-defined reviewer against the local branch diff."""
-    source = review_definition_gateway.load_source(Path(review_path))
+    review_path_obj = Path(review_path)
+    source = review_definition_gateway.load_source(review_path_obj)
     if isinstance(source, ReviewerFailure):
         return source
 
     try:
-        review_definition = parse_review_definition(source)
+        review_definition = parse_review_definition(source, name=review_path_obj.stem)
     except ValueError as exc:
         return ReviewerFailure(
             error_type="invalid_review_definition",

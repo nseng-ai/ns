@@ -104,10 +104,10 @@ def test_reviewer_plugin_integration() -> None:
         review_definition=FakeReviewDefinitionGateway(
             sources_by_path={
                 Path("standards/dignified-python.md"): (
-                    "# Dignified Python\n\n"
-                    "## Description\n\n"
-                    "Review Python diffs for style violations.\n\n"
-                    "## Instructions\n\n"
+                    "---\n"
+                    "description: Review Python diffs for style violations.\n"
+                    "---\n"
+                    "\n"
                     "Flag concrete issues in the diff.\n"
                 )
             }
@@ -141,13 +141,11 @@ def test_reviewer_plugin_integration() -> None:
             "standards/dignified-python.md",
             "--model",
             "gpt-5-mini",
-            "--executor-command",
-            "fake-reviewer",
         ],
         obj=obj,
     )
     assert result.exit_code == 0
-    assert "Dignified Python" in result.output
+    assert "dignified-python" in result.output
 
     result = runner.invoke(
         parent,
@@ -155,7 +153,6 @@ def test_reviewer_plugin_integration() -> None:
         input=json.dumps(
             {
                 "review_path": "standards/dignified-python.md",
-                "executor_command": "fake-reviewer",
                 "model": "gpt-5-mini",
             }
         ),

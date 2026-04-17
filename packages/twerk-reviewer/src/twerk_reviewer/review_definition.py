@@ -2,77 +2,84 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import yaml
+
 from twerk_reviewer.models import ReviewDefinition
 
+_FRONTMATTER_FENCE = "---"
 
-def parse_review_definition(source: str) -> ReviewDefinition:
-    """Parse a markdown reviewer definition into a structured model."""
+
+def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
+    """Parse a review definition written as YAML frontmatter + markdown body.
+
+    The reviewer `name` is supplied by the caller (typically the filename
+    without its extension) rather than declared in the frontmatter.
+    """
+    if not name.strip():
+        raise ValueError("Review definition `name` must be a non-empty string.")
+
+    frontmatter_text, body = _split_frontmatter(source)
+
+    try:
+        parsed_frontmatter = yaml.safe_load(frontmatter_text)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Review definition frontmatter is not valid YAML: {exc}") from exc
+
+    if parsed_frontmatter is None:
+        raise ValueError("Review definition frontmatter is empty.")
+    if not isinstance(parsed_frontmatter, dict):
+        raise ValueError("Review definition frontmatter must be a YAML mapping.")
+
+    description = _require_string(parsed_frontmatter, "description")
+
+    default_model_value = parsed_frontmatter.get("default_model")
+    if default_model_value is None:
+        default_model: str | None = None
+    elif isinstance(default_model_value, str) and default_model_value.strip():
+        default_model = default_model_value.strip()
+    else:
+        raise ValueError("Review definition field `default_model` must be a non-empty string.")
+
+    instructions = body.strip()
+    if not instructions:
+        raise ValueError("Review definition body (instructions) must not be empty.")
+
+    return ReviewDefinition(
+        name=name.strip(),
+        description=description,
+        instructions=instructions,
+        default_model=default_model,
+    )
+
+
+def _split_frontmatter(source: str) -> tuple[str, str]:
     lines = source.splitlines()
     first_content_index = next((index for index, line in enumerate(lines) if line.strip()), None)
     if first_content_index is None:
         raise ValueError("Review definition is empty.")
 
-    title_line = lines[first_content_index].strip()
-    if not title_line.startswith("# "):
-        raise ValueError("Review definition must start with a level-1 heading.")
+    if lines[first_content_index].strip() != _FRONTMATTER_FENCE:
+        raise ValueError("Review definition must begin with a `---` frontmatter fence.")
 
-    review_name = title_line[2:].strip()
-    if not review_name:
-        raise ValueError("Review definition heading must include a reviewer name.")
+    closing_index: int | None = None
+    for index in range(first_content_index + 1, len(lines)):
+        if lines[index].strip() == _FRONTMATTER_FENCE:
+            closing_index = index
+            break
+    if closing_index is None:
+        raise ValueError("Review definition frontmatter is missing a closing `---` fence.")
 
-    sections = _parse_sections(lines[first_content_index + 1 :])
-    description = sections.get("Description", "")
-    instructions = sections.get("Instructions", "")
-    default_model = sections.get("Default Model", "")
-
-    missing_sections: list[str] = []
-    if not description:
-        missing_sections.append("Description")
-    if not instructions:
-        missing_sections.append("Instructions")
-    if missing_sections:
-        section_list = ", ".join(missing_sections)
-        raise ValueError(f"Review definition is missing required sections: {section_list}")
-
-    return ReviewDefinition(
-        name=review_name,
-        description=description,
-        instructions=instructions,
-        default_model=default_model or None,
-    )
+    frontmatter_text = "\n".join(lines[first_content_index + 1 : closing_index])
+    body = "\n".join(lines[closing_index + 1 :])
+    return frontmatter_text, body
 
 
-def _parse_sections(lines: list[str]) -> dict[str, str]:
-    sections: dict[str, str] = {}
-    current_section: str | None = None
-    current_lines: list[str] = []
-
-    for raw_line in lines:
-        stripped = raw_line.strip()
-        if stripped.startswith("# "):
-            raise ValueError("Review definition may only contain one level-1 heading.")
-        if stripped.startswith("## "):
-            if current_section is not None:
-                sections[current_section] = _normalize_section_body(current_lines)
-            current_section = stripped[3:].strip()
-            current_lines = []
-            continue
-
-        if current_section is None:
-            if stripped:
-                raise ValueError(
-                    "Content before the first level-2 heading is not supported. "
-                    "Add sections like `## Description` and `## Instructions`."
-                )
-            continue
-
-        current_lines.append(raw_line)
-
-    if current_section is not None:
-        sections[current_section] = _normalize_section_body(current_lines)
-
-    return sections
-
-
-def _normalize_section_body(lines: list[str]) -> str:
-    return "\n".join(lines).strip()
+def _require_string(frontmatter: dict[str, Any], field: str) -> str:
+    if field not in frontmatter:
+        raise ValueError(f"Review definition frontmatter is missing required field `{field}`.")
+    value = frontmatter[field]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Review definition field `{field}` must be a non-empty string.")
+    return value.strip()
