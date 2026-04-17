@@ -11,6 +11,7 @@ from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
 from twerk_reviewer.models import (
+    FindingsReview,
     LocalDiff,
     LocalReviewResult,
     ReviewerFailure,
@@ -61,7 +62,7 @@ def local_diff() -> FakeLocalDiffGateway:
 @pytest.fixture
 def review_execution() -> FakeReviewExecutionGateway:
     return FakeReviewExecutionGateway(
-        default_response=ReviewExecutionResponse(findings=()),
+        default_response=ReviewExecutionResponse(payload=FindingsReview(findings=())),
     )
 
 
@@ -73,6 +74,7 @@ def _run(
         "requested_model": None,
         "requested_base_ref": None,
         "requested_harness": None,
+        "requested_format": "findings",
         "cwd": Path("/anywhere"),
     }
     defaults.update(overrides)
@@ -201,3 +203,23 @@ def test_model_flag_overrides_default_model(
     )
 
     assert review_execution.executed_requests[0].model == "opus"
+
+
+def test_format_is_threaded_onto_execution_request(
+    harness_config: FakeHarnessConfigGateway,
+    review_definition: FakeReviewDefinitionGateway,
+    local_diff: FakeLocalDiffGateway,
+    review_execution: FakeReviewExecutionGateway,
+) -> None:
+    _run(
+        requested_format="text",
+        review_definition_gateway=review_definition,
+        local_diff_gateway=local_diff,
+        review_execution_gateway=review_execution,
+        harness_config_gateway=harness_config,
+    )
+
+    executed = review_execution.executed_requests[0]
+    assert executed.review_format == "text"
+    assert "markdown review" in executed.system_prompt.lower()
+    assert "JSON" not in executed.prompt

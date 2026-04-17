@@ -25,8 +25,9 @@ from twerk_reviewer.models import (
     ReviewerFailure,
     ReviewExecutionRequest,
     ReviewExecutionResponse,
+    ReviewFormat,
 )
-from twerk_reviewer.prompting import build_review_prompt
+from twerk_reviewer.prompting import build_review_prompt, build_review_system_prompt
 from twerk_reviewer.review_definition import parse_review_definition
 
 ENV_HARNESS = "TWERK_REVIEWER_HARNESS"
@@ -38,6 +39,7 @@ def run_review_by_key(
     requested_model: str | None,
     requested_base_ref: str | None,
     requested_harness: str | None,
+    requested_format: ReviewFormat,
     cwd: Path,
     review_definition_gateway: ReviewDefinitionGateway,
     local_diff_gateway: LocalDiffGateway,
@@ -84,10 +86,13 @@ def run_review_by_key(
         review_definition=review_definition,
         local_diff=local_diff,
     )
+    system_prompt = build_review_system_prompt(requested_format)
     execution_request = ReviewExecutionRequest(
         adapter_name=resolved_harness,
         model=resolved_model,
         prompt=prompt,
+        system_prompt=system_prompt,
+        review_format=requested_format,
         review_name=review_definition.name,
         review_description=review_definition.description,
         review_instructions=review_definition.instructions,
@@ -103,7 +108,7 @@ def run_review_by_key(
         review_path=str(review_path),
         model=resolved_model,
         base_ref=local_diff.base_ref,
-        findings=execution_response.findings,
+        payload=execution_response.payload,
     )
 
 

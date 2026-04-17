@@ -5,6 +5,7 @@ import subprocess
 from collections.abc import Iterable
 from io import StringIO
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -14,18 +15,29 @@ from twerk_reviewer.gateways.review_definition.real import RealReviewDefinitionG
 from twerk_reviewer.gateways.review_execution import real as review_execution_real
 from twerk_reviewer.gateways.review_execution.real import RealReviewExecutionGateway
 from twerk_reviewer.harness_adapter import HarnessAdapter
-from twerk_reviewer.models import ReviewerFailure, ReviewExecutionRequest, ReviewExecutionResponse
+from twerk_reviewer.models import (
+    FindingsReview,
+    ProseReview,
+    ReviewerFailure,
+    ReviewExecutionRequest,
+    ReviewExecutionResponse,
+    ReviewFormat,
+)
 
 
 def _sample_request(
     *,
     model: str = "sonnet",
     adapter_name: str = "claude-code",
+    review_format: ReviewFormat = "findings",
+    system_prompt: str = "SYSTEM PROMPT",
 ) -> ReviewExecutionRequest:
     return ReviewExecutionRequest(
         adapter_name=adapter_name,
         model=model,
         prompt="review this diff",
+        system_prompt=system_prompt,
+        review_format=review_format,
         review_name="Dignified Python",
         review_description="Review Python diffs for style violations.",
         review_instructions="Flag concrete issues in the diff.",
@@ -53,19 +65,27 @@ class _FakePopen:
 def _stream_json_lines(
     *,
     model: str = "sonnet",
-    inner_findings: dict[str, object] | None = None,
-    result_override: str | None = None,
+    structured_output: object | None = None,
+    result_text: str = "Findings produced.",
+    include_structured_output: bool = True,
 ) -> list[str]:
-    if inner_findings is None:
-        inner_findings = {"findings": []}
-    result_text = result_override if result_override is not None else json.dumps(inner_findings)
+    result_event: dict[str, object] = {
+        "type": "result",
+        "result": result_text,
+        "num_turns": 1,
+        "duration_ms": 1234,
+    }
+    if include_structured_output:
+        if structured_output is None:
+            structured_output = {"findings": []}
+        result_event["structured_output"] = structured_output
     events = [
         {"type": "system", "subtype": "init", "model": model},
         {
             "type": "assistant",
             "message": {"role": "assistant", "content": [{"type": "text", "text": result_text}]},
         },
-        {"type": "result", "result": result_text, "num_turns": 1, "duration_ms": 1234},
+        result_event,
     ]
     return [json.dumps(event) + "\n" for event in events]
 
@@ -101,10 +121,10 @@ def test_real_local_diff_gateway_runs_git_diff(monkeypatch: pytest.MonkeyPatch) 
     assert "diff --git a/app.py b/app.py" in result.diff_text
 
 
-def test_real_review_execution_gateway_runs_claude_code(
+def test_real_review_execution_gateway_runs_claude_code_findings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    inner = {
+    structured = {
         "findings": [
             {
                 "path": "app.py",
@@ -115,10 +135,13 @@ def test_real_review_execution_gateway_runs_claude_code(
             }
         ]
     }
-    stdout_lines = _stream_json_lines(inner_findings=inner)
+    stdout_lines = _stream_json_lines(structured_output=structured)
     progress_messages: list[str] = []
+    captured: dict[str, Any] = {}
 
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
         assert cmd[0] == "claude"
         assert "--model" in cmd
         assert cmd[-1] == "review this diff"
@@ -127,12 +150,42 @@ def test_real_review_execution_gateway_runs_claude_code(
     monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
 
     gateway = RealReviewExecutionGateway(progress_writer=progress_messages.append)
-    result = gateway.run_review(_sample_request())
+    result = gateway.run_review(_sample_request(system_prompt="OUR SYSTEM PROMPT"))
 
     assert isinstance(result, ReviewExecutionResponse)
-    assert result.findings[0].path == "app.py"
+    assert isinstance(result.payload, FindingsReview)
+    assert result.payload.findings[0].path == "app.py"
     assert any("session started" in msg for msg in progress_messages)
     assert any("result received" in msg for msg in progress_messages)
+
+    cmd = captured["cmd"]
+    assert "--system-prompt" in cmd
+    assert cmd[cmd.index("--system-prompt") + 1] == "OUR SYSTEM PROMPT"
+    assert "--append-system-prompt" not in cmd
+    assert "--json-schema" in cmd
+    assert captured["kwargs"]["stdin"] is subprocess.DEVNULL
+
+
+def test_real_review_execution_gateway_text_format_returns_prose(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prose = "### Review\n\n- app.py:1 — prefer click.echo"
+    stdout_lines = _stream_json_lines(result_text=prose, include_structured_output=False)
+    captured: dict[str, Any] = {}
+
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
+        captured["cmd"] = cmd
+        return _FakePopen(stdout_lines=stdout_lines)
+
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+
+    gateway = RealReviewExecutionGateway()
+    result = gateway.run_review(_sample_request(review_format="text"))
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, ProseReview)
+    assert result.payload.prose == prose
+    assert "--json-schema" not in captured["cmd"]
 
 
 def test_real_review_execution_gateway_rejects_unknown_harness() -> None:
@@ -202,14 +255,16 @@ def test_real_review_execution_gateway_surfaces_missing_result_event(
 def test_real_review_execution_gateway_uses_injected_registry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured_args: list[tuple[str, str]] = []
+    captured_requests: list[ReviewExecutionRequest] = []
 
-    def fake_build_argv(model: str, prompt: str) -> list[str]:
-        captured_args.append((model, prompt))
+    def fake_build_argv(request: ReviewExecutionRequest) -> list[str]:
+        captured_requests.append(request)
         return ["echo", "ok"]
 
-    def fake_parse(stdout: str) -> ReviewExecutionResponse | ReviewerFailure:
-        return ReviewExecutionResponse(findings=())
+    def fake_parse(
+        request: ReviewExecutionRequest, stdout: str
+    ) -> ReviewExecutionResponse | ReviewerFailure:
+        return ReviewExecutionResponse(payload=FindingsReview(findings=()))
 
     adapter = HarnessAdapter(
         name="noop",
@@ -228,4 +283,6 @@ def test_real_review_execution_gateway_uses_injected_registry(
     result = gateway.run_review(_sample_request(adapter_name="noop", model="anything"))
 
     assert isinstance(result, ReviewExecutionResponse)
-    assert captured_args == [("anything", "review this diff")]
+    assert len(captured_requests) == 1
+    assert captured_requests[0].model == "anything"
+    assert captured_requests[0].prompt == "review this diff"

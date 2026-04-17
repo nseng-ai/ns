@@ -13,7 +13,10 @@ from twerk_reviewer.models import (
     ClaudeCodeInvalidResponse,
     ClaudeCodeMissingResultEvent,
     ClaudeCodeNonJsonResult,
+    FindingsReview,
+    ProseReview,
     ReviewerFailure,
+    ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFinding,
 )
@@ -26,6 +29,31 @@ _CLAUDE_CODE_MODEL_PREFIXES = ("claude-",)
 
 _PROSE_SNIPPET_MAX_CHARS = 500
 
+_READ_ONLY_TOOLS = "Bash,Read"
+
+FINDINGS_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["findings"],
+    "properties": {
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["path", "line", "severity", "summary", "details"],
+                "properties": {
+                    "path": {"type": "string", "minLength": 1},
+                    "line": {"type": ["integer", "null"]},
+                    "severity": {"type": "string", "enum": ["info", "warning", "error"]},
+                    "summary": {"type": "string", "minLength": 1},
+                    "details": {"type": "string", "minLength": 1},
+                },
+            },
+        },
+    },
+}
+
 
 def _claude_code_supports_model(model: str) -> bool:
     if model in _CLAUDE_CODE_MODEL_ALIASES:
@@ -33,8 +61,8 @@ def _claude_code_supports_model(model: str) -> bool:
     return any(model.startswith(prefix) for prefix in _CLAUDE_CODE_MODEL_PREFIXES)
 
 
-def _claude_code_build_argv(model: str, prompt: str) -> list[str]:
-    return [
+def _claude_code_build_argv(request: ReviewExecutionRequest) -> list[str]:
+    argv = [
         CLAUDE_CODE_BINARY,
         "-p",
         "--output-format",
@@ -42,9 +70,21 @@ def _claude_code_build_argv(model: str, prompt: str) -> list[str]:
         "--verbose",
         "--bare",
         "--model",
-        model,
-        prompt,
+        request.model,
+        "--system-prompt",
+        request.system_prompt,
+        # Read-only exploration only. Edit/Write stay out so a review run
+        # cannot mutate the repo. In findings mode --json-schema also injects
+        # the StructuredOutput tool, which the model uses to return findings.
+        "--tools",
+        _READ_ONLY_TOOLS,
     ]
+    if request.review_format == "findings":
+        argv += ["--json-schema", json.dumps(FINDINGS_JSON_SCHEMA)]
+    # `--tools` is variadic; terminate option parsing with `--` so the prompt
+    # positional is never interpreted as another tool name.
+    argv += ["--", request.prompt]
+    return argv
 
 
 def _parse_findings_payload(payload: Any) -> ReviewExecutionResponse | ReviewerFailure:
@@ -72,7 +112,7 @@ def _parse_findings_payload(payload: Any) -> ReviewExecutionResponse | ReviewerF
                 message=str(exc),
             )
 
-    return ReviewExecutionResponse(findings=tuple(findings))
+    return ReviewExecutionResponse(payload=FindingsReview(findings=tuple(findings)))
 
 
 def _iter_json_lines(stdout: str) -> list[dict[str, Any]] | ReviewerFailure:
@@ -101,7 +141,7 @@ def _truncate_prose(text: str, limit: int = _PROSE_SNIPPET_MAX_CHARS) -> str:
     return text[:limit].rstrip() + "…"
 
 
-def _claude_code_parse_stdout(stdout: str) -> ReviewExecutionResponse | ReviewerFailure:
+def _extract_result_event(stdout: str) -> dict[str, Any] | ReviewerFailure:
     if not stdout.strip():
         return ClaudeCodeEmptyOutput(
             message="Claude Code returned no output.",
@@ -111,44 +151,53 @@ def _claude_code_parse_stdout(stdout: str) -> ReviewExecutionResponse | Reviewer
     if isinstance(events, ReviewerFailure):
         return events
 
-    result_event: dict[str, Any] | None = None
     for event in events:
         if event.get("type") == "result":
-            result_event = event
-            break
+            return event
 
-    if result_event is None:
-        return ClaudeCodeMissingResultEvent(
-            message=(
-                "Claude Code stream-json output did not include a terminal "
-                "`result` event. The harness may have been killed before finishing."
-            ),
-        )
+    return ClaudeCodeMissingResultEvent(
+        message=(
+            "Claude Code stream-json output did not include a terminal "
+            "`result` event. The harness may have been killed before finishing."
+        ),
+    )
 
-    if "result" not in result_event:
-        return ClaudeCodeInvalidResponse(
-            message="Claude Code `result` event did not include a `result` field.",
-        )
 
-    result_text = result_event["result"]
-    if not isinstance(result_text, str):
-        return ClaudeCodeInvalidResponse(
-            message="Claude Code `result` must be a string.",
-        )
+def _claude_code_parse_stdout(
+    request: ReviewExecutionRequest,
+    stdout: str,
+) -> ReviewExecutionResponse | ReviewerFailure:
+    result_event = _extract_result_event(stdout)
+    if isinstance(result_event, ReviewerFailure):
+        return result_event
 
-    try:
-        inner = json.loads(result_text)
-    except json.JSONDecodeError as exc:
+    if request.review_format == "text":
+        result_text = result_event.get("result")
+        if not isinstance(result_text, str):
+            return ClaudeCodeInvalidResponse(
+                message="Claude Code `result` must be a string.",
+            )
+        return ReviewExecutionResponse(payload=ProseReview(prose=result_text))
+
+    structured = result_event.get("structured_output")
+    if structured is not None:
+        return _parse_findings_payload(structured)
+
+    result_text = result_event.get("result")
+    if isinstance(result_text, str):
         prose = _truncate_prose(result_text.strip())
         return ClaudeCodeNonJsonResult(
             message=(
-                "Claude Code returned prose instead of JSON findings.\n\n"
+                "Claude Code did not return a structured_output payload.\n\n"
                 f"Model response:\n{prose}\n\n"
-                f"Parse error: {exc}"
+                "Confirm --json-schema is being honored by the installed claude binary."
             ),
         )
-
-    return _parse_findings_payload(inner)
+    return ClaudeCodeInvalidResponse(
+        message=(
+            "Claude Code `result` event did not include a `structured_output` or `result` field."
+        ),
+    )
 
 
 def _first_message_text(message: Any) -> str:

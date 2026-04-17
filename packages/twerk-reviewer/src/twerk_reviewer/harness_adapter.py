@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from twerk_reviewer.models import ReviewerFailure, ReviewExecutionResponse
+from twerk_reviewer.models import ReviewerFailure, ReviewExecutionRequest, ReviewExecutionResponse
 
 
 def _no_event_description(_line: str) -> str | None:
@@ -16,17 +16,18 @@ def _no_event_description(_line: str) -> str | None:
 class HarnessAdapter:
     """Description of how to drive one harness (e.g. Claude Code) for reviews.
 
-    Adapters are pure data + pure callables. They know how to turn a
-    ``(model, prompt)`` pair into argv and how to parse the harness's stdout
-    back into structured findings. ``describe_event`` optionally turns a single
-    streamed stdout line into a short human-readable progress string, which the
-    execution gateway forwards to its progress writer. All I/O lives in the
-    execution gateway.
+    Adapters are pure data + pure callables. ``build_argv`` receives the full
+    ``ReviewExecutionRequest`` so it can decide which harness-specific flags
+    (system prompt, JSON schema, output format, etc.) to set per run.
+    ``parse_stdout`` turns the harness's captured stdout back into a
+    structured payload (findings or prose). ``describe_event`` optionally
+    maps a single streamed stdout line to a short human-readable progress
+    string. All I/O lives in the execution gateway.
     """
 
     name: str
     binary: str
-    build_argv: Callable[[str, str], list[str]]
-    parse_stdout: Callable[[str], ReviewExecutionResponse | ReviewerFailure]
+    build_argv: Callable[[ReviewExecutionRequest], list[str]]
+    parse_stdout: Callable[[ReviewExecutionRequest, str], ReviewExecutionResponse | ReviewerFailure]
     supports_model: Callable[[str], bool]
     describe_event: Callable[[str], str | None] = field(default=_no_event_description)
