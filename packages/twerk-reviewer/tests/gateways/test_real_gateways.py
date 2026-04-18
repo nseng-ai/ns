@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Iterable
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -30,6 +32,42 @@ def _sample_request(
         base_ref="master",
         diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
     )
+
+
+class _FakePopen:
+    def __init__(
+        self,
+        *,
+        stdout_lines: Iterable[str],
+        stderr_text: str = "",
+        returncode: int = 0,
+    ) -> None:
+        self.stdout = iter(list(stdout_lines))
+        self.stderr = StringIO(stderr_text)
+        self.returncode = returncode
+
+    def wait(self) -> int:
+        return self.returncode
+
+
+def _stream_json_lines(
+    *,
+    model: str = "sonnet",
+    inner_findings: dict[str, object] | None = None,
+    result_override: str | None = None,
+) -> list[str]:
+    if inner_findings is None:
+        inner_findings = {"findings": []}
+    result_text = result_override if result_override is not None else json.dumps(inner_findings)
+    events = [
+        {"type": "system", "subtype": "init", "model": model},
+        {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": result_text}]},
+        },
+        {"type": "result", "result": result_text, "num_turns": 1, "duration_ms": 1234},
+    ]
+    return [json.dumps(event) + "\n" for event in events]
 
 
 def test_real_review_definition_gateway_reads_file(tmp_path: Path) -> None:
@@ -77,20 +115,24 @@ def test_real_review_execution_gateway_runs_claude_code(
             }
         ]
     }
-    outer = json.dumps({"result": json.dumps(inner)})
+    stdout_lines = _stream_json_lines(inner_findings=inner)
+    progress_messages: list[str] = []
 
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         assert cmd[0] == "claude"
         assert "--model" in cmd
         assert cmd[-1] == "review this diff"
-        return subprocess.CompletedProcess(cmd, 0, stdout=outer, stderr="")
+        return _FakePopen(stdout_lines=stdout_lines)
 
-    monkeypatch.setattr(review_execution_real.subprocess, "run", fake_run)
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
 
-    result = RealReviewExecutionGateway().run_review(_sample_request())
+    gateway = RealReviewExecutionGateway(progress_writer=progress_messages.append)
+    result = gateway.run_review(_sample_request())
 
     assert isinstance(result, ReviewExecutionResponse)
     assert result.findings[0].path == "app.py"
+    assert any("session started" in msg for msg in progress_messages)
+    assert any("result received" in msg for msg in progress_messages)
 
 
 def test_real_review_execution_gateway_rejects_unknown_harness() -> None:
@@ -112,10 +154,10 @@ def test_real_review_execution_gateway_rejects_unsupported_model() -> None:
 def test_real_review_execution_gateway_reports_missing_binary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         raise FileNotFoundError("claude: no such file")
 
-    monkeypatch.setattr(review_execution_real.subprocess, "run", fake_run)
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
 
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
@@ -126,16 +168,35 @@ def test_real_review_execution_gateway_reports_missing_binary(
 def test_real_review_execution_gateway_reports_non_zero_exit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="model unavailable")
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
+        return _FakePopen(stdout_lines=[], stderr_text="model unavailable\n", returncode=1)
 
-    monkeypatch.setattr(review_execution_real.subprocess, "run", fake_run)
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
 
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "harness_execution_failed"
     assert "model unavailable" in result.message
+
+
+def test_real_review_execution_gateway_surfaces_missing_result_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    truncated_stream = [
+        json.dumps({"type": "system", "subtype": "init", "model": "sonnet"}) + "\n",
+        json.dumps({"type": "assistant", "message": {"content": [{"text": "hi"}]}}) + "\n",
+    ]
+
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
+        return _FakePopen(stdout_lines=truncated_stream)
+
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+
+    result = RealReviewExecutionGateway().run_review(_sample_request())
+
+    assert isinstance(result, ReviewerFailure)
+    assert result.error_type == "claude_code_missing_result_event"
 
 
 def test_real_review_execution_gateway_uses_injected_registry(
@@ -158,10 +219,10 @@ def test_real_review_execution_gateway_uses_injected_registry(
         supports_model=lambda _: True,
     )
 
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
+        return _FakePopen(stdout_lines=[])
 
-    monkeypatch.setattr(review_execution_real.subprocess, "run", fake_run)
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
 
     gateway = RealReviewExecutionGateway(adapters={"noop": adapter})
     result = gateway.run_review(_sample_request(adapter_name="noop", model="anything"))

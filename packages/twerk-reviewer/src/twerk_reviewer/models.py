@@ -175,6 +175,14 @@ class ClaudeCodeInvalidResponse(_HasErrorType):
 
 
 @dataclass(frozen=True)
+class ClaudeCodeMissingResultEvent(_HasErrorType):
+    """Claude Code stream-json output did not include a terminal ``result`` event."""
+
+    ERROR_TYPE: ClassVar[str] = "claude_code_missing_result_event"
+    message: str
+
+
+@dataclass(frozen=True)
 class ClaudeCodeNonJsonResult(_HasErrorType):
     """Claude Code's ``result`` field was prose rather than JSON."""
 
@@ -242,6 +250,7 @@ ReviewerFailure: TypeAlias = (
     | ClaudeCodeEmptyOutput
     | ClaudeCodeInvalidJson
     | ClaudeCodeInvalidResponse
+    | ClaudeCodeMissingResultEvent
     | ClaudeCodeNonJsonResult
     | ClaudeCodeInvalidFindings
     | ReviewsDirMissing

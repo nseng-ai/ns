@@ -74,6 +74,7 @@ def run_review_command(
     request: ReviewRunRequest,
 ) -> LocalReviewResult | ClinkrCommandError:
     reviewer_context = load_reviewer_context(ctx)
+    click.echo(f"▶ Running review '{request.key}'", err=True)
     try:
         result = run_review_by_key(
             key=request.key,

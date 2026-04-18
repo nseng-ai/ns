@@ -158,7 +158,7 @@ def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
+    output = json.loads(result.stdout)
     assert output["success"] is True
     assert output["count"] == 1
     assert output["findings"][0]["summary"] == "Avoid print in library code"

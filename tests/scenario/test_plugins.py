@@ -167,6 +167,6 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
         obj=obj,
     )
     assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
+    output = json.loads(result.stdout)
     assert output["count"] == 1
     assert output["findings"][0]["path"] == "app.py"
