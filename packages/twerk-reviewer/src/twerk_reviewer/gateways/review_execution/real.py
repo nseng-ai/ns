@@ -59,7 +59,7 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
             return HarnessBinaryMissing(
                 message=(
                     f"Harness binary {adapter.binary!r} is not on PATH. "
-                    "Install it and re-run `reviewer harness init`."
+                    "Install the harness or pick a different one."
                 ),
             )
         except OSError as exc:

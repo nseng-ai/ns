@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from twerk_reviewer.gateways.harness_config.gateway import HarnessConfigGateway, ReviewerConfig
+from twerk_reviewer.gateways.harness_detection.gateway import HarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
 from twerk_reviewer.gateways.review_definition.gateway import (
     REVIEWS_DIRNAME,
@@ -16,7 +16,6 @@ from twerk_reviewer.git_toplevel import git_toplevel
 from twerk_reviewer.harness_registry import HARNESS_ADAPTERS
 from twerk_reviewer.models import (
     BaseRefUnavailable,
-    HarnessConfigMissing,
     HarnessNotConfigured,
     HarnessUnknown,
     InvalidReviewDefinition,
@@ -43,7 +42,7 @@ def run_review_by_key(
     review_definition_gateway: ReviewDefinitionGateway,
     local_diff_gateway: LocalDiffGateway,
     review_execution_gateway: ReviewExecutionGateway,
-    harness_config_gateway: HarnessConfigGateway,
+    harness_detection_gateway: HarnessDetectionGateway,
 ) -> LocalReviewResult | ReviewerFailure:
     """Run a markdown-defined reviewer identified by ``key``."""
     repo_root = git_toplevel(cwd=cwd)
@@ -72,10 +71,9 @@ def run_review_by_key(
     if isinstance(resolved_model, ModelNotProvided):
         return resolved_model
 
-    resolved_harness = _resolve_harness(
+    resolved_harness = resolve_harness(
         requested_harness=requested_harness,
-        repo_root=repo_root,
-        harness_config_gateway=harness_config_gateway,
+        harness_detection_gateway=harness_detection_gateway,
     )
     if not isinstance(resolved_harness, str):
         return resolved_harness
@@ -129,12 +127,17 @@ def _resolve_model(
     )
 
 
-def _resolve_harness(
+def resolve_harness(
     *,
     requested_harness: str | None,
-    repo_root: Path,
-    harness_config_gateway: HarnessConfigGateway,
+    harness_detection_gateway: HarnessDetectionGateway,
 ) -> str | ReviewerFailure:
+    """Resolve which harness to dispatch through.
+
+    Order: explicit ``--harness`` flag → ``TWERK_REVIEWER_HARNESS`` env var →
+    the single detected harness on PATH. Errors if zero or 2+ harnesses are
+    detected and no explicit choice was made.
+    """
     explicit = (requested_harness or "").strip()
     if explicit:
         return _validate_harness(explicit)
@@ -143,18 +146,33 @@ def _resolve_harness(
     if env_value:
         return _validate_harness(env_value)
 
-    config = harness_config_gateway.load(repo_root)
-    if isinstance(config, HarnessConfigMissing):
+    available_names: list[str] = []
+    for adapter in HARNESS_ADAPTERS.values():
+        detection = harness_detection_gateway.detect(
+            name=adapter.name,
+            binary=adapter.binary,
+        )
+        if detection.available:
+            available_names.append(adapter.name)
+
+    if len(available_names) == 1:
+        return available_names[0]
+
+    if not available_names:
+        known = ", ".join(sorted(HARNESS_ADAPTERS))
         return HarnessNotConfigured(
             message=(
-                "No harness configured. Run `reviewer harness init` or pass "
-                "--harness, or set TWERK_REVIEWER_HARNESS."
+                f"No harness detected on PATH. Install a supported harness ({known}) "
+                f"or pass --harness / set {ENV_HARNESS}."
             ),
         )
-    if not isinstance(config, ReviewerConfig):
-        return config
 
-    return _validate_harness(config.harness_name)
+    return HarnessNotConfigured(
+        message=(
+            f"Multiple harnesses detected on PATH ({', '.join(available_names)}). "
+            f"Pass --harness or set {ENV_HARNESS} to pick one."
+        ),
+    )
 
 
 def _validate_harness(name: str) -> str | ReviewerFailure:

@@ -11,8 +11,6 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
-from twerk_reviewer.gateways.harness_config.fake import FakeHarnessConfigGateway
-from twerk_reviewer.gateways.harness_config.gateway import ReviewerConfig
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
@@ -24,14 +22,12 @@ REPO_ROOT = Path("/repo")
 def _context(
     *,
     detection: FakeHarnessDetectionGateway | None = None,
-    config: FakeHarnessConfigGateway | None = None,
 ) -> ReviewerCliContext:
     return ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(),
         local_diff=FakeLocalDiffGateway(),
         review_execution=FakeReviewExecutionGateway(),
         harness_detection=detection or FakeHarnessDetectionGateway(),
-        harness_config=config or FakeHarnessConfigGateway(),
         cwd=Path("/anywhere"),
     )
 
@@ -99,90 +95,20 @@ def test_harness_list_json_output(cli_group: ClinkrGroup) -> None:
     assert output["harnesses"][0]["available"] is True
 
 
-def test_harness_show_reports_persisted_choice(cli_group: ClinkrGroup) -> None:
-    config = FakeHarnessConfigGateway()
-    config.save(REPO_ROOT, ReviewerConfig(harness_name="claude-code"))
+def test_harness_show_reports_single_detected_harness(cli_group: ClinkrGroup) -> None:
+    detection = FakeHarnessDetectionGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
     runner = CliRunner()
 
-    result = runner.invoke(cli_group, ["harness", "show"], obj=_context(config=config))
+    result = runner.invoke(cli_group, ["harness", "show"], obj=_context(detection=detection))
 
     assert result.exit_code == 0, result.output
     assert "Harness: claude-code" in result.output
 
 
-def test_harness_show_surfaces_missing_config(cli_group: ClinkrGroup) -> None:
+def test_harness_show_surfaces_no_harness_detected(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
 
     result = runner.invoke(cli_group, ["harness", "show"], obj=_context())
 
     assert result.exit_code != 0
-    assert "harness init" in result.output
-
-
-def test_harness_init_persists_selection_with_flag(cli_group: ClinkrGroup) -> None:
-    detection = FakeHarnessDetectionGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
-    config = FakeHarnessConfigGateway()
-    runner = CliRunner()
-
-    result = runner.invoke(
-        cli_group,
-        ["harness", "init", "--harness", "claude-code"],
-        obj=_context(detection=detection, config=config),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert config.save_calls[-1] == (REPO_ROOT, ReviewerConfig(harness_name="claude-code"))
-    assert "Persisted harness 'claude-code'" in result.output
-
-
-def test_harness_init_auto_selects_single_available(cli_group: ClinkrGroup) -> None:
-    detection = FakeHarnessDetectionGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
-    config = FakeHarnessConfigGateway()
-    runner = CliRunner()
-
-    result = runner.invoke(
-        cli_group,
-        ["harness", "init"],
-        obj=_context(detection=detection, config=config),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert config.save_calls[-1][1].harness_name == "claude-code"
-    assert "Selecting the only available harness" in result.output
-
-
-def test_harness_init_fails_when_no_harness_detected(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    config = FakeHarnessConfigGateway()
-
-    result = runner.invoke(
-        cli_group,
-        ["harness", "init"],
-        obj=_context(config=config),
-    )
-
-    assert result.exit_code != 0
-    assert "No harnesses detected" in result.output
-    assert config.save_calls == ()
-
-
-def test_harness_init_rejects_unknown_harness(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    config = FakeHarnessConfigGateway()
-
-    result = runner.invoke(
-        cli_group,
-        ["harness", "init", "--harness", "banana"],
-        obj=_context(config=config),
-    )
-
-    assert result.exit_code != 0
-    assert "Unknown harness" in result.output
-    assert config.save_calls == ()
-
-
-def test_harness_init_not_auto_mounted_as_json_operation(cli_group: ClinkrGroup) -> None:
-    """init is a plain click.command, so the json subgroup should not expose it."""
-    harness_group = cli_group.commands["harness"]
-    assert isinstance(harness_group, ClinkrGroup)
-    assert "init" not in harness_group.json_group.commands
+    assert "No harness detected" in result.output

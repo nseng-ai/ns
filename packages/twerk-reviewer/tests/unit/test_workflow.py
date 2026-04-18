@@ -6,8 +6,7 @@ from pathlib import Path
 import pytest
 
 from twerk_reviewer import git_toplevel as git_toplevel_module
-from twerk_reviewer.gateways.harness_config.fake import FakeHarnessConfigGateway
-from twerk_reviewer.gateways.harness_config.gateway import ReviewerConfig
+from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
@@ -38,10 +37,8 @@ def _fake_git_toplevel(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def harness_config() -> FakeHarnessConfigGateway:
-    gateway = FakeHarnessConfigGateway()
-    gateway.save(REPO_ROOT, ReviewerConfig(harness_name="claude-code"))
-    return gateway
+def harness_detection() -> FakeHarnessDetectionGateway:
+    return FakeHarnessDetectionGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
 
 
 @pytest.fixture
@@ -82,8 +79,8 @@ def _run(
     return run_review_by_key(**defaults)  # type: ignore[arg-type]
 
 
-def test_runs_end_to_end_using_config_harness(
-    harness_config: FakeHarnessConfigGateway,
+def test_runs_end_to_end_auto_selecting_single_detected_harness(
+    harness_detection: FakeHarnessDetectionGateway,
     review_definition: FakeReviewDefinitionGateway,
     local_diff: FakeLocalDiffGateway,
     review_execution: FakeReviewExecutionGateway,
@@ -92,7 +89,7 @@ def test_runs_end_to_end_using_config_harness(
         review_definition_gateway=review_definition,
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=harness_config,
+        harness_detection_gateway=harness_detection,
     )
 
     assert isinstance(result, LocalReviewResult)
@@ -102,8 +99,8 @@ def test_runs_end_to_end_using_config_harness(
     assert review_execution.executed_requests[0].adapter_name == "claude-code"
 
 
-def test_explicit_harness_flag_wins_over_config(
-    harness_config: FakeHarnessConfigGateway,
+def test_explicit_harness_flag_wins(
+    harness_detection: FakeHarnessDetectionGateway,
     review_definition: FakeReviewDefinitionGateway,
     local_diff: FakeLocalDiffGateway,
     review_execution: FakeReviewExecutionGateway,
@@ -113,14 +110,13 @@ def test_explicit_harness_flag_wins_over_config(
         review_definition_gateway=review_definition,
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=harness_config,
+        harness_detection_gateway=harness_detection,
     )
 
     assert review_execution.executed_requests[0].adapter_name == "claude-code"
 
 
-def test_env_var_overrides_config(
-    harness_config: FakeHarnessConfigGateway,
+def test_env_var_overrides_auto_detection(
     review_definition: FakeReviewDefinitionGateway,
     local_diff: FakeLocalDiffGateway,
     review_execution: FakeReviewExecutionGateway,
@@ -132,7 +128,7 @@ def test_env_var_overrides_config(
         review_definition_gateway=review_definition,
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=FakeHarnessConfigGateway(),  # no persisted config
+        harness_detection_gateway=FakeHarnessDetectionGateway(),  # no harness detected
     )
 
     assert review_execution.executed_requests[0].adapter_name == "claude-code"
@@ -148,14 +144,14 @@ def test_unknown_harness_is_rejected(
         review_definition_gateway=review_definition,
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=FakeHarnessConfigGateway(),
+        harness_detection_gateway=FakeHarnessDetectionGateway(),
     )
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "harness_unknown"
 
 
-def test_missing_config_surfaces_init_hint(
+def test_no_harness_detected_surfaces_install_hint(
     review_definition: FakeReviewDefinitionGateway,
     local_diff: FakeLocalDiffGateway,
     review_execution: FakeReviewExecutionGateway,
@@ -164,16 +160,16 @@ def test_missing_config_surfaces_init_hint(
         review_definition_gateway=review_definition,
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=FakeHarnessConfigGateway(),
+        harness_detection_gateway=FakeHarnessDetectionGateway(),
     )
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "harness_not_configured"
-    assert "reviewer harness init" in result.message
+    assert "No harness detected" in result.message
 
 
 def test_unknown_key_returns_failure_before_execution(
-    harness_config: FakeHarnessConfigGateway,
+    harness_detection: FakeHarnessDetectionGateway,
     local_diff: FakeLocalDiffGateway,
     review_execution: FakeReviewExecutionGateway,
 ) -> None:
@@ -182,7 +178,7 @@ def test_unknown_key_returns_failure_before_execution(
         review_definition_gateway=FakeReviewDefinitionGateway(),
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=harness_config,
+        harness_detection_gateway=harness_detection,
     )
 
     assert isinstance(result, ReviewerFailure)
@@ -191,7 +187,7 @@ def test_unknown_key_returns_failure_before_execution(
 
 
 def test_model_flag_overrides_default_model(
-    harness_config: FakeHarnessConfigGateway,
+    harness_detection: FakeHarnessDetectionGateway,
     review_definition: FakeReviewDefinitionGateway,
     local_diff: FakeLocalDiffGateway,
     review_execution: FakeReviewExecutionGateway,
@@ -201,7 +197,7 @@ def test_model_flag_overrides_default_model(
         review_definition_gateway=review_definition,
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=harness_config,
+        harness_detection_gateway=harness_detection,
     )
 
     assert review_execution.executed_requests[0].model == "opus"

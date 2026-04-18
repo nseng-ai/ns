@@ -1,1 +1,0 @@
-"""Harness config gateway."""

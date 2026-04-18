@@ -7,9 +7,6 @@ a markdown file under `reviews/`.
 ## Quick start
 
 ```bash
-# One-time: detect available harnesses, pick one, persist the choice.
-reviewer harness init
-
 # Write a reviewer.
 cat > reviews/demo.md <<'EOF'
 ---
@@ -19,7 +16,8 @@ description: Short description.
 Flag issues.
 EOF
 
-# Run it against the current branch diff.
+# Run it against the current branch diff. If exactly one supported harness
+# is on PATH, it's selected automatically.
 reviewer review run demo
 ```
 
@@ -27,8 +25,7 @@ reviewer review run demo
 
 ```
 reviewer harness list        # detect known harnesses on PATH
-reviewer harness init        # interactive: pick a harness, persist to .twerk/reviewer.toml
-reviewer harness show        # print the persisted harness
+reviewer harness show        # print which harness would be used
 
 reviewer review list         # enumerate reviews/**/*.md as keys
 reviewer review run <key>    # resolve reviews/<key>.md, run it, print findings
@@ -52,8 +49,9 @@ Resolution order for which harness a review uses:
 
 1. `--harness <name>` on the `review run` command.
 2. `TWERK_REVIEWER_HARNESS` environment variable.
-3. The persisted `.twerk/reviewer.toml` (written by `reviewer harness init`).
-4. Failure pointing at `reviewer harness init`.
+3. The single harness detected on `PATH`, if exactly one is available.
+4. Failure — either no harness is on `PATH`, or more than one is and the
+   choice is ambiguous.
 
 The Claude Code adapter shells out to:
 
@@ -95,18 +93,6 @@ Optional frontmatter fields:
 
 The markdown body (after the closing fence) is required and becomes the
 reviewer's `instructions`.
-
-## Config file
-
-`.twerk/reviewer.toml` lives at the repo root (each git worktree gets its
-own copy). Written by `reviewer harness init`, read by `review run`:
-
-```toml
-schema_version = 1
-
-[harness]
-name = "claude-code"
-```
 
 ## Finding schema
 

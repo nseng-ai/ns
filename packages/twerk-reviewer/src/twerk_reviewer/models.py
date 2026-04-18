@@ -120,7 +120,7 @@ class RepoRootUnavailable(_HasErrorType):
 
 @dataclass(frozen=True)
 class HarnessNotConfigured(_HasErrorType):
-    """No harness was selected via flag, env var, or persisted config."""
+    """No harness could be resolved via flag, env var, or auto-detection on PATH."""
 
     ERROR_TYPE: ClassVar[str] = "harness_not_configured"
     message: str
@@ -238,54 +238,6 @@ class ReviewKeyResolutionFailed(_HasErrorType):
     message: str
 
 
-@dataclass(frozen=True)
-class HarnessConfigMissing(_HasErrorType):
-    """No persisted harness config exists under the repo root."""
-
-    ERROR_TYPE: ClassVar[str] = "harness_config_missing"
-    message: str
-
-
-@dataclass(frozen=True)
-class HarnessConfigReadFailed(_HasErrorType):
-    """The persisted harness config could not be read from disk."""
-
-    ERROR_TYPE: ClassVar[str] = "harness_config_read_failed"
-    message: str
-
-
-@dataclass(frozen=True)
-class HarnessConfigInvalidToml(_HasErrorType):
-    """The persisted harness config is not valid TOML."""
-
-    ERROR_TYPE: ClassVar[str] = "harness_config_invalid_toml"
-    message: str
-
-
-@dataclass(frozen=True)
-class HarnessConfigUnsupportedSchema(_HasErrorType):
-    """The harness config declares an unsupported ``schema_version``."""
-
-    ERROR_TYPE: ClassVar[str] = "harness_config_unsupported_schema"
-    message: str
-
-
-@dataclass(frozen=True)
-class HarnessConfigInvalid(_HasErrorType):
-    """The harness config is missing required sections or fields."""
-
-    ERROR_TYPE: ClassVar[str] = "harness_config_invalid"
-    message: str
-
-
-@dataclass(frozen=True)
-class HarnessConfigWriteFailed(_HasErrorType):
-    """The harness config could not be written to disk."""
-
-    ERROR_TYPE: ClassVar[str] = "harness_config_write_failed"
-    message: str
-
-
 ReviewerFailure: TypeAlias = (
     InvalidReviewDefinition
     | ModelNotProvided
@@ -314,12 +266,6 @@ ReviewerFailure: TypeAlias = (
     | ReviewsDirNotADirectory
     | ReviewKeyInvalid
     | ReviewKeyResolutionFailed
-    | HarnessConfigMissing
-    | HarnessConfigReadFailed
-    | HarnessConfigInvalidToml
-    | HarnessConfigUnsupportedSchema
-    | HarnessConfigInvalid
-    | HarnessConfigWriteFailed
 )
 
 

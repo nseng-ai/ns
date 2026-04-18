@@ -11,8 +11,6 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
-from twerk_reviewer.gateways.harness_config.fake import FakeHarnessConfigGateway
-from twerk_reviewer.gateways.harness_config.gateway import ReviewerConfig
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
@@ -40,13 +38,10 @@ def _sample_source(*, include_default_model: bool = True) -> str:
 def _context(
     *,
     findings: tuple[ReviewFinding, ...] = (),
-    configured_harness: str | None = "claude-code",
+    harness_detected: bool = True,
     keys: dict[Path, tuple[str, ...]] | None = None,
 ) -> ReviewerCliContext:
-    harness_config = FakeHarnessConfigGateway()
-    if configured_harness is not None:
-        harness_config.save(REPO_ROOT, ReviewerConfig(harness_name=configured_harness))
-
+    paths_by_binary = {"claude": "/usr/local/bin/claude"} if harness_detected else {}
     return ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(
             sources_by_path={REVIEW_PATH: _sample_source()},
@@ -61,10 +56,7 @@ def _context(
         review_execution=FakeReviewExecutionGateway(
             default_response=ReviewExecutionResponse(findings=findings),
         ),
-        harness_detection=FakeHarnessDetectionGateway(
-            paths_by_binary={"claude": "/usr/local/bin/claude"}
-        ),
-        harness_config=harness_config,
+        harness_detection=FakeHarnessDetectionGateway(paths_by_binary=paths_by_binary),
         cwd=Path("/anywhere"),
     )
 
@@ -137,16 +129,16 @@ def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -
     assert ctx.review_execution.executed_requests[0].model == "sonnet"  # type: ignore[attr-defined]
 
 
-def test_review_run_surfaces_missing_harness_config(cli_group: ClinkrGroup) -> None:
+def test_review_run_surfaces_no_harness_detected(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
         ["review", "run", REVIEW_KEY, "--model", "sonnet"],
-        obj=_context(configured_harness=None),
+        obj=_context(harness_detected=False),
     )
 
     assert result.exit_code != 0
-    assert "reviewer harness init" in result.output
+    assert "No harness detected" in result.output
 
 
 def test_review_run_json_output(cli_group: ClinkrGroup) -> None:

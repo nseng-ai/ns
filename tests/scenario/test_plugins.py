@@ -12,8 +12,6 @@ from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.context import ReviewerCliContext
-from twerk_reviewer.gateways.harness_config.fake import FakeHarnessConfigGateway
-from twerk_reviewer.gateways.harness_config.gateway import ReviewerConfig
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
@@ -115,8 +113,6 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(git_toplevel_module.subprocess, "run", fake_git_run)
 
     runner = CliRunner()
-    harness_config = FakeHarnessConfigGateway()
-    harness_config.save(repo_root, ReviewerConfig(harness_name="claude-code"))
 
     obj = ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(
@@ -153,7 +149,6 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
         harness_detection=FakeHarnessDetectionGateway(
             paths_by_binary={"claude": "/usr/local/bin/claude"}
         ),
-        harness_config=harness_config,
         cwd=Path("/anywhere"),
     )
 

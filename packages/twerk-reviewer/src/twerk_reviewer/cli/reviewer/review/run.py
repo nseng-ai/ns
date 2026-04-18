@@ -83,7 +83,7 @@ def run_review_command(
             review_definition_gateway=reviewer_context.review_definition,
             local_diff_gateway=reviewer_context.local_diff,
             review_execution_gateway=reviewer_context.review_execution,
-            harness_config_gateway=reviewer_context.harness_config,
+            harness_detection_gateway=reviewer_context.harness_detection,
         )
     except ReviewDefinitionReadError as exc:
         return ClinkrCommandError(error_type="review_definition_read_failed", message=str(exc))
