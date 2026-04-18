@@ -57,3 +57,44 @@ def test_real_brmem_rejects_branch_names_containing_encoding_separator(tmp_path:
 
     with pytest.raises(InvalidBranchNameError):
         gateway.put("feat---x", "notes.md", "hello\n")
+
+
+def test_real_brmem_list_round_trip_sorted(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("feat/x", "docs/b.md", "b\n")
+    gateway.put("feat/x", "docs/a.md", "a\n")
+
+    assert gateway.list("feat/x") == ["docs/a.md", "docs/b.md"]
+
+    git_output = _run_git(repo, "ls-tree", "-r", "--name-only", "refs/brmem/brs/feat---x").stdout
+    assert sorted(line for line in git_output.splitlines() if line) == [
+        "docs/a.md",
+        "docs/b.md",
+    ]
+
+
+def test_real_brmem_list_empty_for_unknown_branch(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    assert gateway.list("no-such-branch") == []
+
+
+def test_real_brmem_list_at_historical_sha(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    first_commit = gateway.put("feat/x", "a.md", "one\n")
+    gateway.put("feat/x", "b.md", "two\n")
+
+    assert gateway.list("feat/x", at=first_commit) == ["a.md"]
+
+
+def test_real_brmem_list_rejects_malformed_branch_name(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    with pytest.raises(InvalidBranchNameError):
+        gateway.list("feat---x")
