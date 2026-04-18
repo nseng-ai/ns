@@ -4,6 +4,7 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
+    "sklish",
     "twerk",
     "twerk-core",
     "twerk-objectives",
@@ -234,6 +235,21 @@ wheels = [
 ]
 
 [[package]]
+name = "sklish"
+version = "0.1.0"
+source = { editable = "packages/sklish" }
+dependencies = [
+    { name = "click" },
+    { name = "rich" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "rich", specifier = ">=13.0" },
+]
+
+[[package]]
 name = "twerk"
 version = "0.1.0"
 source = { editable = "." }
@@ -255,6 +271,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-xdist" },
     { name = "ruff" },
+    { name = "sklish" },
     { name = "twerk-core" },
     { name = "twerk-objectives" },
     { name = "twerk-pr-address" },
@@ -279,6 +296,7 @@ dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.5.0" },
+    { name = "sklish", editable = "packages/sklish" },
     { name = "twerk-core", editable = "packages/twerk-core" },
     { name = "twerk-objectives", editable = "packages/twerk-objectives" },
     { name = "twerk-pr-address", editable = "packages/twerk-pr-address" },

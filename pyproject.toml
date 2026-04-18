@@ -1,5 +1,6 @@
 [tool.uv.workspace]
 members = [
+  "packages/sklish",
   "packages/twerk-core",
   "packages/twerk-objectives",
   "packages/twerk-pr-address",
@@ -8,6 +9,7 @@ members = [
 ]
 
 [tool.uv.sources]
+sklish = { workspace = true }
 twerk-core = { workspace = true }
 twerk-objectives = { workspace = true }
 twerk-pr-address = { workspace = true }
@@ -44,6 +46,7 @@ dev = [
   "ruff>=0.5.0",
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
+  "sklish",
   "twerk-core",
   "twerk-objectives",
   "twerk-pr-address",
@@ -64,6 +67,7 @@ target-version = "py311"
 line-length = 100
 src = [
   "src",
+  "packages/sklish/src",
   "packages/twerk-core/src",
   "packages/twerk-objectives/src",
   "packages/twerk-pr-address/src",
@@ -84,6 +88,7 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = [
+  "sklish",
   "twerk",
   "twerk_core",
   "twerk_objectives",
@@ -104,6 +109,7 @@ python = ".venv"
 addopts = "-q --import-mode=importlib"
 testpaths = [
   "tests",
+  "packages/sklish/tests",
   "packages/twerk-core/tests",
   "packages/twerk-objectives/tests",
   "packages/twerk-pr-address/tests",
