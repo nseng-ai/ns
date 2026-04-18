@@ -18,14 +18,7 @@ This is the read-only sibling of `objective-create`,
 `objective-progress`, and `objective-reconcile` — the "what's on my
 plate?" entry point.
 
-## What an objective is
-
-A twerk objective is a GitHub issue labeled `objective` that anchors a
-multi-session workstream. The body is a curated context anchor (outcome,
-completion criteria, assumptions, risks, roadmap or next steps), and the
-comments are the running progress log. See `objective-create` for the
-full definition. Plain issues are not objectives — only issues with the
-`objective` label are.
+See the `objective` skill for what an objective is and the broader lifecycle.
 
 ## When to use
 

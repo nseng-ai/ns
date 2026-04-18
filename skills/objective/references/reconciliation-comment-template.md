@@ -1,7 +1,7 @@
 ## Progress Update
 
-**Phase/Step**: [What was worked on]
-**Branch**: [branch name]
+**Phase/Step**: [roadmap item or work unit]
+**Source**: [branch name for in-session progress, or PR link for post-merge reconcile]
 
 ### What Changed
 
@@ -31,4 +31,4 @@
 
 ---
 
-_Updated by objective-progress_
+_Updated by <caller>_

@@ -118,43 +118,13 @@ gh issue edit <objective> --body-file <temp-file>
 
 ### 7. Post reconciliation comment
 
-Write a structured comment as the log entry for this PR:
+Use `../objective/references/reconciliation-comment-template.md` as the
+comment shape. For this caller:
 
-```markdown
-## Progress Update
-
-**Phase/Step**: [roadmap item addressed]
-**PR**: [link to merged PR]
-
-### What Changed
-
-- [derived from PR title/body/diff]
-- [another change]
-
-### Artifacts
-
-- [PR URL]
-
-### New Findings
-
-- [assumptions confirmed or invalidated]
-- [risks discovered]
-
-### Next Steps
-
-- [next roadmap item, or what remains]
-- [blockers or decisions needed]
-
-### Completion Criteria Status
-
-| Criterion                  | Status                        |
-| -------------------------- | ----------------------------- |
-| [criterion from objective] | met / partially met / not yet |
-
----
-
-_Updated by objective-reconcile_
-```
+- Fill **Source** with the merged PR link.
+- Fill **Phase/Step** with the roadmap item the PR addressed.
+- Fill **Artifacts** with the PR URL (and any additional outputs).
+- Replace `<caller>` in the footer with `objective-reconcile`.
 
 Post via:
 
@@ -167,35 +137,9 @@ gh issue comment <objective> --body-file <temp-file>
 When every completion criterion is met, tell the user the objective appears
 complete and ask if they want to close it. If they confirm:
 
-1. Write a closure comment:
-
-```markdown
-## Objective Closed
-
-### Delivered
-
-- [What was accomplished, with artifact links]
-
-### Completion Criteria
-
-| Criterion   | Status         | Evidence              |
-| ----------- | -------------- | --------------------- |
-| [criterion] | met / deferred | [link or explanation] |
-
-### Deferred Items
-
-- [Items explicitly deferred, with rationale]
-- [Omit if none]
-
-### Follow-Up
-
-- [New objectives or issues created for remaining work]
-- [Omit if none]
-
----
-
-_Closed by objective-reconcile_
-```
+1. Write a closure comment using
+   `../objective/references/closure-comment-template.md`. Replace `<caller>`
+   in the footer with `objective-reconcile`.
 
 2. Close the issue:
 
