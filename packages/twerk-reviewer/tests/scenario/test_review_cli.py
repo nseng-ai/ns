@@ -213,7 +213,7 @@ def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
+    output = json.loads(result.stdout)
     assert output["success"] is True
     assert output["format"] == "text"
     assert output["prose"] == "**ok**"
