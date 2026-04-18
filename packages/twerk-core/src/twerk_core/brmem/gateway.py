@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import PurePosixPath
+from typing import TypeAlias
+
+_PathList: TypeAlias = list[str]
 
 BRMEM_REF_PREFIX = "refs/brmem"
 BRMEM_BRANCH_REF_PREFIX = f"{BRMEM_REF_PREFIX}/brs"
@@ -38,6 +41,10 @@ class BranchMemoryGateway(ABC):
     @abstractmethod
     def get(self, branch: str, path: str, *, at: str | None = None) -> str | None:
         """Read ``path`` for ``branch`` at ``at`` or the branch head when omitted."""
+
+    @abstractmethod
+    def list(self, branch: str, *, at: str | None = None) -> _PathList:
+        """Return paths stored for ``branch`` at ``at`` or the branch head when omitted."""
 
 
 def ref_name_for_branch(branch: str) -> str:

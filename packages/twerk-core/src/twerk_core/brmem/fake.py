@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from twerk_core.brmem.gateway import (
     BranchMemoryGateway,
+    _PathList,
     validate_branch_name,
     validate_memory_path,
 )
@@ -55,6 +56,14 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         if snapshot is None:
             return None
         return snapshot.get(path)
+
+    def list(self, branch: str, *, at: str | None = None) -> _PathList:
+        validate_branch_name(branch)
+        if at is None:
+            snapshot = self._snapshot_for_branch(branch)
+        else:
+            snapshot = self._snapshots_by_sha.get(at, {})
+        return sorted(snapshot.keys())
 
     def _record_snapshot(self, snapshot: dict[str, str]) -> str:
         commit_sha = f"fake-{self._next_commit_number:04d}"

@@ -56,3 +56,43 @@ def test_fake_brmem_tracks_put_calls() -> None:
         ("feat/x", "notes.md", "one\n"),
         ("feat/x", "docs/plan.txt", "two\n"),
     ]
+
+
+def test_fake_brmem_list_empty_for_unknown_branch() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    assert gateway.list("feat/x") == []
+
+
+def test_fake_brmem_list_returns_sorted_paths() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    gateway.put("feat/x", "z.md", "z\n")
+    gateway.put("feat/x", "a.md", "a\n")
+    gateway.put("feat/x", "m.md", "m\n")
+
+    assert gateway.list("feat/x") == ["a.md", "m.md", "z.md"]
+
+
+def test_fake_brmem_list_at_historical_sha() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    first_commit = gateway.put("feat/x", "a.md", "one\n")
+    gateway.put("feat/x", "b.md", "two\n")
+
+    assert gateway.list("feat/x") == ["a.md", "b.md"]
+    assert gateway.list("feat/x", at=first_commit) == ["a.md"]
+
+
+def test_fake_brmem_list_at_unknown_sha_returns_empty() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("feat/x", "a.md", "one\n")
+
+    assert gateway.list("feat/x", at="does-not-exist") == []
+
+
+def test_fake_brmem_list_rejects_empty_branch_name() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    with pytest.raises(InvalidBranchNameError):
+        gateway.list("")
