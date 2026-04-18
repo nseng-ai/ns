@@ -7,7 +7,7 @@ import click
 
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_reviewer.cli.reviewer.context import is_json_mode, load_reviewer_context
+from twerk_reviewer.cli.reviewer.context import load_reviewer_context
 from twerk_reviewer.models import (
     GitDiffFailedError,
     GitInvocationFailedError,
@@ -74,8 +74,7 @@ def run_review_command(
     request: ReviewRunRequest,
 ) -> LocalReviewResult | ClinkrCommandError:
     reviewer_context = load_reviewer_context(ctx)
-    if not is_json_mode(ctx):
-        click.echo(f"▶ Running review '{request.key}'", err=True)
+    click.echo(f"▶ Running review '{request.key}'", err=True)
     try:
         result = run_review_by_key(
             key=request.key,

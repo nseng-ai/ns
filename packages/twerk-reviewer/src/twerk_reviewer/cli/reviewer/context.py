@@ -13,20 +13,7 @@ from twerk_reviewer.gateways.review_definition.real import RealReviewDefinitionG
 from twerk_reviewer.gateways.review_execution.real import RealReviewExecutionGateway
 
 
-def is_json_mode(ctx: click.Context) -> bool:
-    """Return True when the current click context runs under the ``json`` subgroup."""
-    current: click.Context | None = ctx
-    while current is not None:
-        if current.info_name == "json":
-            return True
-        current = current.parent
-    return False
-
-
 def _stderr_progress(msg: str) -> None:
-    ctx = click.get_current_context(silent=True)
-    if ctx is None or is_json_mode(ctx):
-        return
     click.echo(f"  · {msg}", err=True)
 
 
