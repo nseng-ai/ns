@@ -62,7 +62,6 @@ _SYSTEM_PROMPT_TEXT = dedent(
 ).strip()
 
 
-
 @cache
 def _review_prompt_template() -> str:
     return files("twerk_reviewer.prompts").joinpath("review_prompt.md").read_text(encoding="utf-8")

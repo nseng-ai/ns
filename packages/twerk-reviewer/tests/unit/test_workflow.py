@@ -206,7 +206,7 @@ def test_model_flag_overrides_default_model(
 
 
 def test_format_is_threaded_onto_execution_request(
-    harness_config: FakeHarnessConfigGateway,
+    harness_detection: FakeHarnessDetectionGateway,
     review_definition: FakeReviewDefinitionGateway,
     local_diff: FakeLocalDiffGateway,
     review_execution: FakeReviewExecutionGateway,
@@ -216,7 +216,7 @@ def test_format_is_threaded_onto_execution_request(
         review_definition_gateway=review_definition,
         local_diff_gateway=local_diff,
         review_execution_gateway=review_execution,
-        harness_config_gateway=harness_config,
+        harness_detection_gateway=harness_detection,
     )
 
     executed = review_execution.executed_requests[0]
