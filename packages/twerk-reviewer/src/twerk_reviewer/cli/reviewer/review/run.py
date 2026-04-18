@@ -10,6 +10,7 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.cli.reviewer.context import load_reviewer_context
 from twerk_reviewer.models import (
     GitDiffFailedError,
+    GitInvocationFailedError,
     LocalReviewResult,
     RepoRootUnavailableError,
     ReviewDefinitionReadError,
@@ -91,6 +92,8 @@ def run_review_command(
         return ClinkrCommandError(error_type="review_execution_invocation_failed", message=str(exc))
     except RepoRootUnavailableError as exc:
         return ClinkrCommandError(error_type="repo_root_unavailable", message=str(exc))
+    except GitInvocationFailedError as exc:
+        return ClinkrCommandError(error_type="git_invocation_failed", message=str(exc))
     except GitDiffFailedError as exc:
         return ClinkrCommandError(error_type="git_diff_failed", message=str(exc))
 

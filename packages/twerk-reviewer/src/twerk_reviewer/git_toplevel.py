@@ -5,10 +5,10 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from twerk_reviewer.models import GitInvocationFailed, RepoRootUnavailable, ReviewerFailure
+from twerk_reviewer.models import GitInvocationFailedError, RepoRootUnavailableError
 
 
-def run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str] | ReviewerFailure:
+def run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     """Run a ``git`` command in ``cwd`` and return its completed process."""
     try:
         return subprocess.run(
@@ -20,19 +20,15 @@ def run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str] | 
         )
     except OSError as exc:
         command_text = " ".join(cmd)
-        return GitInvocationFailed(
-            message=f"Failed to run `{command_text}`: {exc}",
-        )
+        raise GitInvocationFailedError(f"Failed to run `{command_text}`: {exc}") from exc
 
 
-def git_toplevel(*, cwd: Path) -> Path | ReviewerFailure:
+def git_toplevel(*, cwd: Path) -> Path:
     """Resolve the git repository root (worktree-aware) for ``cwd``."""
     result = run_git(["git", "rev-parse", "--show-toplevel"], cwd=cwd)
-    if isinstance(result, ReviewerFailure):
-        return result
     if result.returncode != 0:
         stderr = result.stderr.strip()
-        return RepoRootUnavailable(
-            message=stderr or "Unable to resolve the current git repository root.",
+        raise RepoRootUnavailableError(
+            stderr or "Unable to resolve the current git repository root.",
         )
     return Path(result.stdout.strip())

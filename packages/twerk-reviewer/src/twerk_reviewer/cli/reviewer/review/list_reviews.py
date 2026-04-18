@@ -10,7 +10,11 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.cli.reviewer.context import load_reviewer_context
 from twerk_reviewer.gateways.review_definition.gateway import REVIEWS_DIRNAME
 from twerk_reviewer.git_toplevel import git_toplevel
-from twerk_reviewer.models import ReviewerFailure
+from twerk_reviewer.models import (
+    GitInvocationFailedError,
+    RepoRootUnavailableError,
+    ReviewerFailure,
+)
 
 
 @dataclass(frozen=True)
@@ -53,9 +57,12 @@ def run_review_list_command(
 ) -> ReviewListResult | ClinkrCommandError:
     reviewer_context = load_reviewer_context(ctx)
 
-    repo_root = git_toplevel(cwd=reviewer_context.cwd)
-    if isinstance(repo_root, ReviewerFailure):
-        return ClinkrCommandError(error_type=repo_root.error_type, message=repo_root.message)
+    try:
+        repo_root = git_toplevel(cwd=reviewer_context.cwd)
+    except RepoRootUnavailableError as exc:
+        return ClinkrCommandError(error_type="repo_root_unavailable", message=str(exc))
+    except GitInvocationFailedError as exc:
+        return ClinkrCommandError(error_type="git_invocation_failed", message=str(exc))
 
     reviews_dir = repo_root / REVIEWS_DIRNAME
 

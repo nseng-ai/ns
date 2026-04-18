@@ -46,8 +46,6 @@ def run_review_by_key(
 ) -> LocalReviewResult | ReviewerFailure:
     """Run a markdown-defined reviewer identified by ``key``."""
     repo_root = git_toplevel(cwd=cwd)
-    if not isinstance(repo_root, Path):
-        return repo_root
 
     reviews_dir = repo_root / REVIEWS_DIRNAME
 

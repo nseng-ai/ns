@@ -103,22 +103,6 @@ class BaseRefUnavailable(_HasErrorType):
 
 
 @dataclass(frozen=True)
-class GitInvocationFailed(_HasErrorType):
-    """A ``git`` subprocess could not be invoked (e.g. binary missing)."""
-
-    ERROR_TYPE: ClassVar[str] = "git_invocation_failed"
-    message: str
-
-
-@dataclass(frozen=True)
-class RepoRootUnavailable(_HasErrorType):
-    """``git rev-parse --show-toplevel`` failed to locate the repo root."""
-
-    ERROR_TYPE: ClassVar[str] = "repo_root_unavailable"
-    message: str
-
-
-@dataclass(frozen=True)
 class HarnessNotConfigured(_HasErrorType):
     """No harness could be resolved via flag, env var, or auto-detection on PATH."""
 
@@ -249,8 +233,6 @@ ReviewerFailure: TypeAlias = (
     | ReviewDefinitionNotFound
     | ReviewDefinitionNotAFile
     | BaseRefUnavailable
-    | GitInvocationFailed
-    | RepoRootUnavailable
     | HarnessNotConfigured
     | HarnessUnknown
     | HarnessBinaryMissing
@@ -283,6 +265,10 @@ class ReviewDefinitionReadError(ReviewerError):
 
 class RepoRootUnavailableError(ReviewerError):
     """The current git repository root could not be resolved."""
+
+
+class GitInvocationFailedError(ReviewerError):
+    """A ``git`` subprocess could not be invoked (e.g. binary missing)."""
 
 
 class GitDiffFailedError(ReviewerError):
