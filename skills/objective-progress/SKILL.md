@@ -104,11 +104,8 @@ gh issue list --label objective --state open --json number,title
 
 ### 2. Read and understand
 
-**Read the issue body — and only the body.** The body is the curated
-current-state snapshot of the objective. Every prior session reconciles its
-work back into the body (see step 7a), so it already reflects what's been
-done, what remains, the constraints and design decisions in force, and the
-current set of assumptions and risks.
+**Read the issue body — and only the body.** See the `objective` skill's
+"Body / comments contract" for the rationale.
 
 From the body, understand:
 
@@ -118,19 +115,14 @@ From the body, understand:
 - What constraints or design decisions apply?
 - What assumptions or risks have been identified?
 
-**Do not load the comment thread by default.** Comments are the historical
-log of prior reconciliations. They are largely superseded by the body and
-pulling them in wastes context on stale information.
-
-**When to reach for the log:** only if the body is ambiguous, internally
-inconsistent, or appears stale relative to in-flight commits on the current
-branch. In that case fetch comments on demand:
+**Fetch comments on demand** only if the body is ambiguous, inconsistent, or
+stale relative to in-flight commits:
 
 ```bash
 gh issue view <number> --json comments
 ```
 
-Focus on the most recent reconciliation comment first, and stop as soon as
+Focus on the most recent reconciliation comment first and stop as soon as
 you have what you need.
 
 ### 3. Assess the codebase
@@ -188,10 +180,8 @@ Do the work on the current branch:
 - Follow the project's development rules and conventions
 - If the scope grows beyond what's reasonable for one session, stop at a
   coherent boundary and note what remains
-- **Every commit must include an `Objective: #<number>` trailer** in the
-  commit message. This links commits to the objective so that
-  `objective-reconcile` can auto-detect the association from a PR's commits
-  without requiring human input. Format:
+- **Every commit must include an `Objective: #<number>` trailer.** See the
+  `objective` skill for the convention and rationale. Format:
 
   ```
   Add GitHub gateway types and ABC
@@ -223,35 +213,9 @@ complete and ask if they want to close it. If they confirm:
    Each must be either:
    - **Deferred**: explicitly noted as out of scope
    - **Moved**: captured in a new objective or issue
-3. Write a closure comment to the issue:
-
-```markdown
-## Objective Closed
-
-### Delivered
-
-- [What was accomplished, with artifact links]
-
-### Completion Criteria
-
-| Criterion   | Status         | Evidence              |
-| ----------- | -------------- | --------------------- |
-| [criterion] | met / deferred | [link or explanation] |
-
-### Deferred Items
-
-- [Items explicitly deferred, with rationale]
-- [Omit if none]
-
-### Follow-Up
-
-- [New objectives or issues created for remaining work]
-- [Omit if none]
-
----
-
-_Closed by objective-progress_
-```
+3. Write a closure comment to the issue using
+   `../objective/references/closure-comment-template.md`. Replace `<caller>`
+   in the footer with `objective-progress`.
 
 4. Close the issue:
 
@@ -287,7 +251,8 @@ gh issue edit <number> --body-file <temp-file>
 
 #### 7b. Post reconciliation comment
 
-Use `references/reconciliation-comment-template.md` as the comment shape.
+Use `../objective/references/reconciliation-comment-template.md` as the
+comment shape (replace `<caller>` in the footer with `objective-progress`).
 The comment must include:
 
 - **What was worked on**: phase/step reference and branch name

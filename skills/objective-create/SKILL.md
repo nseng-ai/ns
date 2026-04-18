@@ -14,39 +14,9 @@ allowed-tools:
 
 Create a GitHub issue that serves as the **context anchor** for a twerk objective.
 
-## What an objective is
-
-An objective is a multi-session workstream whose **primitive operation is
-"make progress"**. A sibling skill (`objective-progress`) repeatedly reads the
-issue, assesses the codebase, implements the next piece of work, and writes a
-reconciliation comment back. The issue body is the stable spec + curated
-context; the comments are the running progress log.
-
-Three consequences shape this skill:
-
-1. **Context anchoring.** The issue must give a fresh agent session enough
-   curated context to start working _without re-deriving everything from
-   scratch_. Not a research dump — a deliberately chosen set of pointers,
-   constraints, and decisions. See Martin Fowler's
-   [context anchoring](https://martinfowler.com/articles/reduce-friction-ai/context-anchoring.html).
-
-2. **Structure follows the work.** Some objectives are genuinely exploratory
-   and want loose prose plus a few next steps. Others are a roadmap of
-   related PRs and want an ordered phase list that turns the objective into
-   a lightweight control plane for a series of PRs. Pick the shape that
-   matches what the user described — do not force one onto the other.
-
-3. **Continuous re-evaluation.** After each unit of progress, the objective
-   body is completely re-evaluated — not just appended to. Claims are
-   verified against the current codebase (which may have shifted while work
-   was in flight). Assumptions are re-checked. External processes or humans
-   may add comments to the issue that should be incorporated into the
-   high-level description. The objective body always reflects current
-   reality, not the state of the world when it was first written.
-
-An objective is **not** a plain issue. If the work is a single task that fits
-in one session with no need for preserved context across sessions, it should
-be a normal issue, not a twerk objective.
+See the `objective` skill for the shared definition (what an objective is,
+body/comments contract, lifecycle, anatomy of an objective body, trailer
+convention). This skill owns the _create_ step of that lifecycle.
 
 ## Goal
 
@@ -95,23 +65,10 @@ Before drafting, classify the objective:
 If the choice is non-obvious, tell the user which shape you picked and why.
 
 If you picked **structured** or **hybrid**, also pick a **sequence pattern**
-for the roadmap items. These patterns are peers — pick the one that matches
-the work. Each has its own template file in `templates/` with a full
-definition, when-to-use/when-not-to-use guidance, item-1 expectations, and an
-example roadmap.
-
-- **Steelthread / vertical slice** (`templates/steelthread.md`) — item 1 is a
-  minimal vertical slice proving the concept works end-to-end. Fits
-  multi-layer work where proving integration early is valuable.
-- **Incremental refactor** (`templates/incremental-refactor.md`) — items are a
-  sequence of small, risk-free restructures of existing code. Fits broad
-  behavior-preserving refactors.
-- **Layered / foundational** (`templates/layered.md`) — item 1 is a substrate
-  (new abstraction, module, or data model) that nothing uses yet. Fits work
-  where there is no end-to-end path until the substrate lands.
-- **Parallel / fan-out** (`templates/parallel.md`) — items are independent
-  work on different parts of a surface. Fits migrations and cleanup passes
-  across many similar pieces.
+for the roadmap items. The four patterns — steelthread, incremental-refactor,
+layered, parallel — are documented in the `objective` skill's "Sequence
+patterns" section, with a full definition and example for each in
+`../objective/templates/<pattern>.md`.
 
 Read the matching template file before drafting the roadmap. If the work
 doesn't cleanly match one pattern, pick the closest and note what's different
@@ -140,8 +97,8 @@ session; otherwise, rely on the conversation.
 
 ### 3. Draft the issue
 
-Use `references/body-template.md` as the default shape. Omit sections that
-are genuinely empty rather than leaving placeholders.
+Use `../objective/references/body-template.md` as the default shape. Omit
+sections that are genuinely empty rather than leaving placeholders.
 
 Title guidance:
 
@@ -168,8 +125,8 @@ Body guidance:
   single session can meaningfully advance, phrased as an outcome. Order items
   according to the sequence pattern you picked in step 1 — the pattern
   determines what item 1 should be. Use the matching template file
-  (`templates/<pattern>.md`) for item-1 guidance and an example roadmap in
-  that shape.
+  (`../objective/templates/<pattern>.md`) for item-1 guidance and an example
+  roadmap in that shape.
 
 If the user explicitly wants to review the draft before issue creation, show
 the draft and wait. Otherwise, create the issue once the objective is clear.
@@ -212,20 +169,11 @@ If you created the label during this run, mention it explicitly.
 
 ## Anti-patterns
 
-- Treating the issue as a plain task ticket. An objective is a context anchor
-  for repeated progress sessions.
-- Dumping raw research into the body instead of curating pointers. If a
-  bullet wouldn't actually help the next session, cut it.
+Shared anti-patterns are in the `objective` skill. Create-specific ones:
+
 - Forcing a roadmap onto a loose objective, or leaving a structured multi-PR
   workstream as freeform prose.
-- Omitting completion criteria — `objective-progress` can't evaluate closure
-  without them.
-- Omitting assumptions and risks — they are how future sessions detect that
-  the plan has drifted.
 - Generating metadata blocks, YAML frontmatter, or comment-backed storage
   models. Plain markdown only.
 - Creating the issue without the `objective` label.
-- Treating the objective body as a static document written once at creation.
-  The body is continuously re-evaluated and rewritten by
-  `objective-progress` — author it with that lifecycle in mind.
 - Asking a long interview before drafting anything.
