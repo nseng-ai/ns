@@ -116,7 +116,7 @@ def test_review_run_human_output(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["review", "run", REVIEW_KEY, "--model", "sonnet"],
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "findings"],
         obj=_context(payload=FindingsReview(findings=(finding,))),
     )
 
@@ -191,7 +191,7 @@ def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet"}),
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "findings"}),
         obj=_context(payload=FindingsReview(findings=(finding,))),
     )
 

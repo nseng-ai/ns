@@ -50,14 +50,14 @@ class ReviewRunRequest:
         click.Option(
             ["--format"],
             type=click.Choice(["findings", "text"]),
-            default="findings",
+            default="text",
             show_default=True,
             help=(
-                "Output format. 'findings' returns structured JSON findings. "
-                "'text' returns a human-readable markdown review."
+                "Output format. 'text' returns a human-readable markdown review. "
+                "'findings' returns structured JSON findings."
             ),
         ),
-    ] = "findings"
+    ] = "text"
 
 
 def render_review_run(result: LocalReviewResult) -> None:
