@@ -66,24 +66,21 @@ def render_review_run(result: LocalReviewResult) -> None:
     click.echo(f"Model: {result.model}")
     click.echo(f"Base ref: {result.base_ref}")
 
-    payload = result.payload
-    if isinstance(payload, ProseReview):
-        click.echo("")
-        click.echo(payload.prose)
-        return
-
-    assert isinstance(payload, FindingsReview)
-    if not payload.findings:
-        click.echo("No findings.")
-        return
-
-    click.echo(f"Findings: {len(payload.findings)}")
-    for finding in payload.findings:
-        location = finding.path
-        if finding.line is not None:
-            location = f"{location}:{finding.line}"
-        click.echo(f"- [{finding.severity}] {location} {finding.summary}")
-        click.echo(f"  {finding.details}")
+    match result.payload:
+        case ProseReview(prose=prose):
+            click.echo("")
+            click.echo(prose)
+        case FindingsReview(findings=findings):
+            if not findings:
+                click.echo("No findings.")
+                return
+            click.echo(f"Findings: {len(findings)}")
+            for finding in findings:
+                location = finding.path
+                if finding.line is not None:
+                    location = f"{location}:{finding.line}"
+                click.echo(f"- [{finding.severity}] {location} {finding.summary}")
+                click.echo(f"  {finding.details}")
 
 
 @clinkr_operation(
