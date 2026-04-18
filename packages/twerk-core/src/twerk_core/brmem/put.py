@@ -1,11 +1,11 @@
-"""Write a file into branch memory."""
+"""Write content to a path in branch memory."""
 
 from __future__ import annotations
 
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import Annotated, Any
 
 import click
@@ -22,15 +22,15 @@ from twerk_core.clinkr.operation import clinkr_operation
 
 @dataclass(frozen=True)
 class PutBranchMemoryRequest:
-    file: Annotated[
+    path: Annotated[
         str,
         click.Argument(
-            ["file"],
+            ["path"],
             type=click.STRING,
         ),
     ]
     stdin: bool = False
-    path: Annotated[str | None, click.Option(["--path"], default=None)] = None
+    file: str | None = None
     branch: str | None = None
 
 
@@ -68,7 +68,7 @@ def render_put_branch_memory(result: PutBranchMemoryResult) -> None:
 
 @clinkr_operation(
     name="put",
-    help="Write a file into branch memory.",
+    help="Write content to a path in branch memory.",
     human_renderer=render_put_branch_memory,
 )
 def run_put_branch_memory(
@@ -84,29 +84,30 @@ def run_put_branch_memory(
             ),
         )
 
+    if request.stdin and request.file is not None:
+        return ClinkrCommandError(
+            error_type="stdin_and_file_conflict",
+            message="--stdin and --file are mutually exclusive.",
+        )
+
     if request.stdin:
         content = sys.stdin.read()
         source_file = "<stdin>"
-        memory_path = (
-            request.path if request.path is not None else PurePath(request.file).as_posix()
-        )
     else:
+        source_path = request.file if request.file is not None else request.path
         try:
-            content = Path(request.file).read_text(encoding="utf-8")
+            content = Path(source_path).read_text(encoding="utf-8")
         except FileNotFoundError:
             return ClinkrCommandError(
                 error_type="source_file_missing",
-                message=f"Source file not found: {request.file}",
+                message=f"Source file not found: {source_path}",
             )
         except OSError as exc:
             return ClinkrCommandError(
                 error_type="source_file_unreadable",
-                message=f"Failed to read source file {request.file}: {exc}",
+                message=f"Failed to read source file {source_path}: {exc}",
             )
-        source_file = request.file
-        memory_path = (
-            request.path if request.path is not None else PurePath(request.file).as_posix()
-        )
+        source_file = source_path
 
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
@@ -115,7 +116,7 @@ def run_put_branch_memory(
     gateway = get_branch_memory_gateway(ctx)
 
     try:
-        commit = gateway.put(branch, memory_path, content)
+        commit = gateway.put(branch, request.path, content)
     except InvalidBranchNameError as exc:
         return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
     except InvalidMemoryPathError as exc:
@@ -129,7 +130,7 @@ def run_put_branch_memory(
 
     return PutBranchMemoryResult(
         branch=branch,
-        path=memory_path,
+        path=request.path,
         ref_name=ref_name_for_branch(branch),
         commit=commit,
         source_file=source_file,

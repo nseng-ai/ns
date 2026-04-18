@@ -169,14 +169,15 @@ git branch <slug> HEAD
 ### 6. Stash the plan via brmem
 
 ```
-brmem put <source-plan-path> --branch <slug> --path plan.md
+brmem put plan.md --branch <slug> --file <source-plan-path>
 ```
 
-- `<source-plan-path>` is the plan file resolved in step 2.
+- The positional `plan.md` is the in-memory path inside branch
+  memory — a predictable key so the companion `dev-workbr-impl`
+  skill can fetch it with `brmem get plan.md`.
 - `--branch <slug>` targets the branch created in step 5.
-- `--path plan.md` fixes the in-memory filename to a predictable key
-  so the companion `dev-workbr-impl` skill can fetch it with
-  `brmem get plan.md`.
+- `--file <source-plan-path>` points at the plan file resolved in
+  step 2 as the source of bytes.
 - Contents are written **verbatim** — no footer, no rewriting.
 - Capture the ref path (`refs/brmem/brs/<encoded-slug>`) and commit
   SHA returned by `brmem put` for the report.

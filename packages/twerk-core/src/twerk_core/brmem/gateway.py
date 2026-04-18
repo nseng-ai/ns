@@ -83,7 +83,7 @@ def validate_memory_path(path: str) -> None:
 
     normalized_text = normalized.as_posix()
     if normalized_text in {".", ""}:
-        raise InvalidMemoryPathError(path, "path must reference a file")
+        raise InvalidMemoryPathError(path, "path must reference a location inside branch memory")
 
     if any(part == ".." for part in normalized.parts):
         raise InvalidMemoryPathError(path, "path must not contain '..'")
