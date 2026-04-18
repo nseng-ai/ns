@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from twerk_reviewer.context import ReviewerCliContext
+from twerk_reviewer.gateways.harness_detection.real import RealHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.real import RealLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.real import RealReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.real import RealReviewExecutionGateway
@@ -14,10 +15,13 @@ from twerk_reviewer.gateways.review_execution.real import RealReviewExecutionGat
 
 def build_reviewer_context() -> ReviewerCliContext:
     """Assemble a :class:`ReviewerCliContext` from real gateways and the cwd."""
+    cwd = Path.cwd()
     return ReviewerCliContext(
         review_definition=RealReviewDefinitionGateway(),
-        local_diff=RealLocalDiffGateway(cwd=Path.cwd()),
+        local_diff=RealLocalDiffGateway(cwd=cwd),
         review_execution=RealReviewExecutionGateway(),
+        harness_detection=RealHarnessDetectionGateway(),
+        cwd=cwd,
     )
 
 

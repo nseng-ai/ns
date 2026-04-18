@@ -10,8 +10,18 @@ Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
 
 
+class _HasErrorType:
+    """Mixin exposing the class-level ``ERROR_TYPE`` as an ``error_type`` property."""
+
+    ERROR_TYPE: ClassVar[str]
+
+    @property
+    def error_type(self) -> str:
+        return type(self).ERROR_TYPE
+
+
 @dataclass(frozen=True)
-class InvalidReviewDefinition:
+class InvalidReviewDefinition(_HasErrorType):
     """The markdown review definition failed validation."""
 
     ERROR_TYPE: ClassVar[str] = "invalid_review_definition"
@@ -19,7 +29,7 @@ class InvalidReviewDefinition:
 
 
 @dataclass(frozen=True)
-class ModelNotProvided:
+class ModelNotProvided(_HasErrorType):
     """No executor model was provided and the definition has no default."""
 
     ERROR_TYPE: ClassVar[str] = "model_not_provided"
@@ -27,7 +37,7 @@ class ModelNotProvided:
 
 
 @dataclass(frozen=True)
-class ExecutorCommandMissing:
+class ExecutorCommandMissing(_HasErrorType):
     """The executor command was empty after shell-parsing."""
 
     ERROR_TYPE: ClassVar[str] = "executor_command_missing"
@@ -35,7 +45,7 @@ class ExecutorCommandMissing:
 
 
 @dataclass(frozen=True)
-class ExecutorCommandInvalid:
+class ExecutorCommandInvalid(_HasErrorType):
     """The executor command could not be shell-parsed."""
 
     ERROR_TYPE: ClassVar[str] = "executor_command_invalid"
@@ -43,7 +53,7 @@ class ExecutorCommandInvalid:
 
 
 @dataclass(frozen=True)
-class ReviewExecutionFailed:
+class ReviewExecutionFailed(_HasErrorType):
     """The executor ran but exited with a non-zero status."""
 
     ERROR_TYPE: ClassVar[str] = "review_execution_failed"
@@ -51,7 +61,7 @@ class ReviewExecutionFailed:
 
 
 @dataclass(frozen=True)
-class ReviewExecutionInvalidResponse:
+class ReviewExecutionInvalidResponse(_HasErrorType):
     """The executor output was structurally invalid."""
 
     ERROR_TYPE: ClassVar[str] = "review_execution_invalid_response"
@@ -59,7 +69,7 @@ class ReviewExecutionInvalidResponse:
 
 
 @dataclass(frozen=True)
-class ReviewExecutionInvalidJson:
+class ReviewExecutionInvalidJson(_HasErrorType):
     """The executor output was not valid JSON."""
 
     ERROR_TYPE: ClassVar[str] = "review_execution_invalid_json"
@@ -67,7 +77,7 @@ class ReviewExecutionInvalidJson:
 
 
 @dataclass(frozen=True)
-class ReviewDefinitionNotFound:
+class ReviewDefinitionNotFound(_HasErrorType):
     """The review-definition path does not exist on disk."""
 
     ERROR_TYPE: ClassVar[str] = "review_definition_not_found"
@@ -76,7 +86,7 @@ class ReviewDefinitionNotFound:
 
 
 @dataclass(frozen=True)
-class ReviewDefinitionNotAFile:
+class ReviewDefinitionNotAFile(_HasErrorType):
     """The review-definition path exists but is not a regular file."""
 
     ERROR_TYPE: ClassVar[str] = "review_definition_not_a_file"
@@ -85,10 +95,130 @@ class ReviewDefinitionNotAFile:
 
 
 @dataclass(frozen=True)
-class BaseRefUnavailable:
+class BaseRefUnavailable(_HasErrorType):
     """A base git ref was not provided and could not be resolved."""
 
     ERROR_TYPE: ClassVar[str] = "base_ref_unavailable"
+    message: str
+
+
+@dataclass(frozen=True)
+class HarnessNotConfigured(_HasErrorType):
+    """No harness could be resolved via flag, env var, or auto-detection on PATH."""
+
+    ERROR_TYPE: ClassVar[str] = "harness_not_configured"
+    message: str
+
+
+@dataclass(frozen=True)
+class HarnessUnknown(_HasErrorType):
+    """The requested harness name is not registered."""
+
+    ERROR_TYPE: ClassVar[str] = "harness_unknown"
+    message: str
+
+
+@dataclass(frozen=True)
+class HarnessBinaryMissing(_HasErrorType):
+    """The harness binary is not on ``PATH``."""
+
+    ERROR_TYPE: ClassVar[str] = "harness_binary_missing"
+    message: str
+
+
+@dataclass(frozen=True)
+class HarnessInvocationFailed(_HasErrorType):
+    """Invoking the harness subprocess failed with an OS error."""
+
+    ERROR_TYPE: ClassVar[str] = "harness_invocation_failed"
+    message: str
+
+
+@dataclass(frozen=True)
+class HarnessExecutionFailed(_HasErrorType):
+    """The harness subprocess ran but exited non-zero."""
+
+    ERROR_TYPE: ClassVar[str] = "harness_execution_failed"
+    message: str
+
+
+@dataclass(frozen=True)
+class ModelNotSupportedByHarness(_HasErrorType):
+    """The requested model is not supported by the selected harness."""
+
+    ERROR_TYPE: ClassVar[str] = "model_not_supported_by_harness"
+    message: str
+
+
+@dataclass(frozen=True)
+class ClaudeCodeEmptyOutput(_HasErrorType):
+    """Claude Code returned no stdout."""
+
+    ERROR_TYPE: ClassVar[str] = "claude_code_empty_output"
+    message: str
+
+
+@dataclass(frozen=True)
+class ClaudeCodeInvalidJson(_HasErrorType):
+    """Claude Code stdout was not valid JSON."""
+
+    ERROR_TYPE: ClassVar[str] = "claude_code_invalid_json"
+    message: str
+
+
+@dataclass(frozen=True)
+class ClaudeCodeInvalidResponse(_HasErrorType):
+    """Claude Code JSON response was missing required fields."""
+
+    ERROR_TYPE: ClassVar[str] = "claude_code_invalid_response"
+    message: str
+
+
+@dataclass(frozen=True)
+class ClaudeCodeNonJsonResult(_HasErrorType):
+    """Claude Code's ``result`` field was prose rather than JSON."""
+
+    ERROR_TYPE: ClassVar[str] = "claude_code_non_json_result"
+    message: str
+
+
+@dataclass(frozen=True)
+class ClaudeCodeInvalidFindings(_HasErrorType):
+    """Claude Code's parsed findings payload was malformed."""
+
+    ERROR_TYPE: ClassVar[str] = "claude_code_invalid_findings"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewsDirMissing(_HasErrorType):
+    """The ``reviews/`` directory does not exist at the repo root."""
+
+    ERROR_TYPE: ClassVar[str] = "reviews_dir_missing"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewsDirNotADirectory(_HasErrorType):
+    """The ``reviews`` path exists but is not a directory."""
+
+    ERROR_TYPE: ClassVar[str] = "reviews_dir_not_a_directory"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewKeyInvalid(_HasErrorType):
+    """The review key is empty, absolute, or contains traversal segments."""
+
+    ERROR_TYPE: ClassVar[str] = "review_key_invalid"
+    message: str
+
+
+@dataclass(frozen=True)
+class ReviewKeyResolutionFailed(_HasErrorType):
+    """Resolving the review key to an absolute path failed with an OS error."""
+
+    ERROR_TYPE: ClassVar[str] = "review_key_resolution_failed"
     message: str
 
 
@@ -103,6 +233,21 @@ ReviewerFailure: TypeAlias = (
     | ReviewDefinitionNotFound
     | ReviewDefinitionNotAFile
     | BaseRefUnavailable
+    | HarnessNotConfigured
+    | HarnessUnknown
+    | HarnessBinaryMissing
+    | HarnessInvocationFailed
+    | HarnessExecutionFailed
+    | ModelNotSupportedByHarness
+    | ClaudeCodeEmptyOutput
+    | ClaudeCodeInvalidJson
+    | ClaudeCodeInvalidResponse
+    | ClaudeCodeNonJsonResult
+    | ClaudeCodeInvalidFindings
+    | ReviewsDirMissing
+    | ReviewsDirNotADirectory
+    | ReviewKeyInvalid
+    | ReviewKeyResolutionFailed
 )
 
 
@@ -120,6 +265,10 @@ class ReviewDefinitionReadError(ReviewerError):
 
 class RepoRootUnavailableError(ReviewerError):
     """The current git repository root could not be resolved."""
+
+
+class GitInvocationFailedError(ReviewerError):
+    """A ``git`` subprocess could not be invoked (e.g. binary missing)."""
 
 
 class GitDiffFailedError(ReviewerError):
@@ -206,9 +355,9 @@ class ReviewFinding:
 
 @dataclass(frozen=True)
 class ReviewExecutionRequest:
-    """Request sent to the local review executor command."""
+    """Request dispatched to a harness adapter for execution."""
 
-    executor_command: str
+    adapter_name: str
     model: str
     prompt: str
     review_name: str
@@ -218,11 +367,12 @@ class ReviewExecutionRequest:
     diff_text: str
 
     def to_json_dict(self) -> dict[str, Any]:
-        """Serialize the executor request as JSON."""
+        """Serialize the request for JSON output (e.g. structured logs)."""
         return {
             "review_name": self.review_name,
             "review_description": self.review_description,
             "review_instructions": self.review_instructions,
+            "adapter_name": self.adapter_name,
             "model": self.model,
             "base_ref": self.base_ref,
             "diff_text": self.diff_text,

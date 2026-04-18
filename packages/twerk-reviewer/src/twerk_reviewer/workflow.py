@@ -1,14 +1,23 @@
-"""Business logic for local markdown-defined reviews."""
+"""Business logic for running markdown-defined local reviews."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+from twerk_reviewer.gateways.harness_detection.gateway import HarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from twerk_reviewer.gateways.review_definition.gateway import ReviewDefinitionGateway
+from twerk_reviewer.gateways.review_definition.gateway import (
+    REVIEWS_DIRNAME,
+    ReviewDefinitionGateway,
+)
 from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
+from twerk_reviewer.git_toplevel import git_toplevel
+from twerk_reviewer.harness_registry import HARNESS_ADAPTERS
 from twerk_reviewer.models import (
     BaseRefUnavailable,
+    HarnessNotConfigured,
+    HarnessUnknown,
     InvalidReviewDefinition,
     LocalReviewResult,
     ModelNotProvided,
@@ -20,26 +29,36 @@ from twerk_reviewer.models import (
 from twerk_reviewer.prompting import build_review_prompt
 from twerk_reviewer.review_definition import parse_review_definition
 
-_EXECUTOR_COMMAND = "claude -p"
+ENV_HARNESS = "TWERK_REVIEWER_HARNESS"
 
 
-def run_local_review(
+def run_review_by_key(
     *,
-    review_path: str,
+    key: str,
     requested_model: str | None,
     requested_base_ref: str | None,
+    requested_harness: str | None,
+    cwd: Path,
     review_definition_gateway: ReviewDefinitionGateway,
     local_diff_gateway: LocalDiffGateway,
     review_execution_gateway: ReviewExecutionGateway,
+    harness_detection_gateway: HarnessDetectionGateway,
 ) -> LocalReviewResult | ReviewerFailure:
-    """Run a markdown-defined reviewer against the local branch diff."""
-    review_path_obj = Path(review_path)
-    source = review_definition_gateway.load_source(review_path_obj)
+    """Run a markdown-defined reviewer identified by ``key``."""
+    repo_root = git_toplevel(cwd=cwd)
+
+    reviews_dir = repo_root / REVIEWS_DIRNAME
+
+    review_path = review_definition_gateway.resolve_key(reviews_dir, key)
+    if not isinstance(review_path, Path):
+        return review_path
+
+    source = review_definition_gateway.load_source(review_path)
     if not isinstance(source, str):
         return source
 
     try:
-        review_definition = parse_review_definition(source, name=review_path_obj.stem)
+        review_definition = parse_review_definition(source, name=review_path.stem)
     except ValueError as exc:
         return InvalidReviewDefinition(message=str(exc))
 
@@ -50,6 +69,13 @@ def run_local_review(
     if isinstance(resolved_model, ModelNotProvided):
         return resolved_model
 
+    resolved_harness = resolve_harness(
+        requested_harness=requested_harness,
+        harness_detection_gateway=harness_detection_gateway,
+    )
+    if not isinstance(resolved_harness, str):
+        return resolved_harness
+
     local_diff = local_diff_gateway.load_diff(base_ref=requested_base_ref)
     if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
@@ -59,7 +85,7 @@ def run_local_review(
         local_diff=local_diff,
     )
     execution_request = ReviewExecutionRequest(
-        executor_command=_EXECUTOR_COMMAND,
+        adapter_name=resolved_harness,
         model=resolved_model,
         prompt=prompt,
         review_name=review_definition.name,
@@ -74,7 +100,7 @@ def run_local_review(
 
     return LocalReviewResult(
         review_name=review_definition.name,
-        review_path=review_path,
+        review_path=str(review_path),
         model=resolved_model,
         base_ref=local_diff.base_ref,
         findings=execution_response.findings,
@@ -94,6 +120,63 @@ def _resolve_model(
     return ModelNotProvided(
         message=(
             "No model was provided. Pass --model explicitly or add a "
-            "`## Default Model` section to the review definition."
+            "`default_model` field to the review definition frontmatter."
         ),
     )
+
+
+def resolve_harness(
+    *,
+    requested_harness: str | None,
+    harness_detection_gateway: HarnessDetectionGateway,
+) -> str | ReviewerFailure:
+    """Resolve which harness to dispatch through.
+
+    Order: explicit ``--harness`` flag → ``TWERK_REVIEWER_HARNESS`` env var →
+    the single detected harness on PATH. Errors if zero or 2+ harnesses are
+    detected and no explicit choice was made.
+    """
+    explicit = (requested_harness or "").strip()
+    if explicit:
+        return _validate_harness(explicit)
+
+    env_value = os.environ.get(ENV_HARNESS, "").strip()
+    if env_value:
+        return _validate_harness(env_value)
+
+    available_names: list[str] = []
+    for adapter in HARNESS_ADAPTERS.values():
+        detection = harness_detection_gateway.detect(
+            name=adapter.name,
+            binary=adapter.binary,
+        )
+        if detection.available:
+            available_names.append(adapter.name)
+
+    if len(available_names) == 1:
+        return available_names[0]
+
+    if not available_names:
+        known = ", ".join(sorted(HARNESS_ADAPTERS))
+        return HarnessNotConfigured(
+            message=(
+                f"No harness detected on PATH. Install a supported harness ({known}) "
+                f"or pass --harness / set {ENV_HARNESS}."
+            ),
+        )
+
+    return HarnessNotConfigured(
+        message=(
+            f"Multiple harnesses detected on PATH ({', '.join(available_names)}). "
+            f"Pass --harness or set {ENV_HARNESS} to pick one."
+        ),
+    )
+
+
+def _validate_harness(name: str) -> str | ReviewerFailure:
+    if name not in HARNESS_ADAPTERS:
+        known = ", ".join(sorted(HARNESS_ADAPTERS))
+        return HarnessUnknown(
+            message=f"Unknown harness {name!r}. Known harnesses: {known}.",
+        )
+    return name

@@ -1,0 +1,1 @@
+"""Harness detection gateway."""

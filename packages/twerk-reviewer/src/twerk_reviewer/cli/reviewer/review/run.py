@@ -10,22 +10,30 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.cli.reviewer.context import load_reviewer_context
 from twerk_reviewer.models import (
     GitDiffFailedError,
+    GitInvocationFailedError,
     LocalReviewResult,
     RepoRootUnavailableError,
     ReviewDefinitionReadError,
     ReviewExecutorInvocationError,
 )
-from twerk_reviewer.workflow import run_local_review
+from twerk_reviewer.workflow import run_review_by_key
 
 
 @dataclass(frozen=True)
-class ReviewLocalRequest:
-    review_path: str
+class ReviewRunRequest:
+    key: str
+    harness: Annotated[
+        str | None,
+        click.Option(
+            ["--harness"],
+            help="Harness name to dispatch the review through. Falls back to config.",
+        ),
+    ] = None
     model: Annotated[
         str | None,
         click.Option(
             ["--model"],
-            help="Model name to pass to the review executor.",
+            help="Model name to pass to the harness.",
         ),
     ] = None
     base_ref: Annotated[
@@ -37,8 +45,8 @@ class ReviewLocalRequest:
     ] = None
 
 
-def render_review_local(result: LocalReviewResult) -> None:
-    """Render local-review findings for the human CLI."""
+def render_review_run(result: LocalReviewResult) -> None:
+    """Render review findings for the human CLI."""
     click.echo(f"Reviewer: {result.review_name}")
     click.echo(f"Model: {result.model}")
     click.echo(f"Base ref: {result.base_ref}")
@@ -57,23 +65,26 @@ def render_review_local(result: LocalReviewResult) -> None:
 
 
 @clinkr_operation(
-    name="review-local",
-    help="Run a markdown-defined reviewer against the current branch diff.",
-    human_renderer=render_review_local,
+    name="run",
+    help="Run a reviewer by key (looks up reviews/<key>.md).",
+    human_renderer=render_review_run,
 )
-def run_review_local_command(
+def run_review_command(
     ctx: click.Context,
-    request: ReviewLocalRequest,
+    request: ReviewRunRequest,
 ) -> LocalReviewResult | ClinkrCommandError:
     reviewer_context = load_reviewer_context(ctx)
     try:
-        result = run_local_review(
-            review_path=request.review_path,
+        result = run_review_by_key(
+            key=request.key,
             requested_model=request.model,
             requested_base_ref=request.base_ref,
+            requested_harness=request.harness,
+            cwd=reviewer_context.cwd,
             review_definition_gateway=reviewer_context.review_definition,
             local_diff_gateway=reviewer_context.local_diff,
             review_execution_gateway=reviewer_context.review_execution,
+            harness_detection_gateway=reviewer_context.harness_detection,
         )
     except ReviewDefinitionReadError as exc:
         return ClinkrCommandError(error_type="review_definition_read_failed", message=str(exc))
@@ -81,9 +92,11 @@ def run_review_local_command(
         return ClinkrCommandError(error_type="review_execution_invocation_failed", message=str(exc))
     except RepoRootUnavailableError as exc:
         return ClinkrCommandError(error_type="repo_root_unavailable", message=str(exc))
+    except GitInvocationFailedError as exc:
+        return ClinkrCommandError(error_type="git_invocation_failed", message=str(exc))
     except GitDiffFailedError as exc:
         return ClinkrCommandError(error_type="git_diff_failed", message=str(exc))
 
     if isinstance(result, LocalReviewResult):
         return result
-    return ClinkrCommandError(error_type=type(result).ERROR_TYPE, message=result.message)
+    return ClinkrCommandError(error_type=result.error_type, message=result.message)

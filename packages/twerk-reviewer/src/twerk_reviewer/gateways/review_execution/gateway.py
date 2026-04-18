@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from twerk_reviewer.models import (
     ExecutorCommandInvalid,
     ExecutorCommandMissing,
+    ReviewerFailure,
     ReviewExecutionFailed,
     ReviewExecutionInvalidJson,
     ReviewExecutionInvalidResponse,
@@ -30,10 +31,5 @@ class ReviewExecutionGateway(ABC):
     def run_review(
         self,
         request: ReviewExecutionRequest,
-    ) -> ReviewExecutionResponse | ReviewExecutionFailure:
-        """Return structured review findings or a typed failure.
-
-        Raises:
-            ReviewExecutorInvocationError: If the executor subprocess cannot
-                be invoked at all (e.g. missing binary, permission denied).
-        """
+    ) -> ReviewExecutionResponse | ReviewerFailure:
+        """Return structured review findings or a typed failure."""
