@@ -109,6 +109,7 @@ def run_review_by_key(
         model=resolved_model,
         base_ref=local_diff.base_ref,
         payload=execution_response.payload,
+        usage=execution_response.usage,
     )
 
 

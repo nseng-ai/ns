@@ -22,6 +22,7 @@ from twerk_reviewer.models import (
     ReviewExecutionResponse,
     ReviewFinding,
     ReviewPayload,
+    ReviewUsage,
 )
 
 REPO_ROOT = Path("/repo")
@@ -47,6 +48,7 @@ def _context(
     payload: ReviewPayload | None = None,
     harness_detected: bool = True,
     keys: dict[Path, tuple[str, ...]] | None = None,
+    usage: ReviewUsage | None = None,
 ) -> ReviewerCliContext:
     paths_by_binary = {"claude": "/usr/local/bin/claude"} if harness_detected else {}
     if payload is None:
@@ -63,7 +65,7 @@ def _context(
             )
         ),
         review_execution=FakeReviewExecutionGateway(
-            default_response=ReviewExecutionResponse(payload=payload),
+            default_response=ReviewExecutionResponse(payload=payload, usage=usage),
         ),
         harness_detection=FakeHarnessDetectionGateway(paths_by_binary=paths_by_binary),
         cwd=Path("/anywhere"),
@@ -241,6 +243,88 @@ def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
+
+
+def test_review_run_prints_usage_block_when_present(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    usage = ReviewUsage(
+        input_tokens=1000,
+        output_tokens=500,
+        cache_creation_input_tokens=200,
+        cache_read_input_tokens=300,
+        total_cost_usd=0.1234,
+        duration_ms=4321,
+        num_turns=3,
+    )
+    result = runner.invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        obj=_context(payload=ProseReview(prose="body"), usage=usage),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Tokens: 1,500 in / 500 out (cache read: 300, cache create: 200)" in result.output
+    assert "Cost: $0.1234 USD" in result.output
+    assert "Duration: 4.3s (3 turns)" in result.output
+
+
+def test_review_run_omits_usage_block_when_absent(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        obj=_context(payload=ProseReview(prose="body")),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Tokens:" not in result.output
+    assert "Cost:" not in result.output
+
+
+def test_review_run_json_output_includes_usage(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    usage = ReviewUsage(
+        input_tokens=1000,
+        output_tokens=500,
+        cache_creation_input_tokens=200,
+        cache_read_input_tokens=300,
+        total_cost_usd=0.1234,
+        duration_ms=4321,
+        num_turns=3,
+    )
+    result = runner.invoke(
+        cli_group,
+        ["review", "json", "run"],
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "text"}),
+        obj=_context(payload=ProseReview(prose="**ok**"), usage=usage),
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.stdout)
+    assert output["success"] is True
+    assert output["usage"] == {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_creation_input_tokens": 200,
+        "cache_read_input_tokens": 300,
+        "total_cost_usd": 0.1234,
+        "duration_ms": 4321,
+        "num_turns": 3,
+    }
+
+
+def test_review_run_json_output_usage_is_null_when_absent(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["review", "json", "run"],
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "text"}),
+        obj=_context(payload=ProseReview(prose="**ok**")),
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.stdout)
+    assert output["usage"] is None
 
 
 def test_review_run_requires_typed_context(cli_group: ClinkrGroup) -> None:

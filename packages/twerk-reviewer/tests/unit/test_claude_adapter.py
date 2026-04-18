@@ -16,6 +16,7 @@ from twerk_reviewer.models import (
     ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFormat,
+    ReviewUsage,
 )
 
 
@@ -40,6 +41,14 @@ def _request(
     )
 
 
+_DEFAULT_USAGE_PAYLOAD: dict[str, object] = {
+    "input_tokens": 100,
+    "output_tokens": 50,
+    "cache_creation_input_tokens": 10,
+    "cache_read_input_tokens": 5,
+}
+
+
 def _stream_lines(
     *,
     model: str = "sonnet",
@@ -47,6 +56,8 @@ def _stream_lines(
     result_text: str = "Findings produced.",
     include_result: bool = True,
     include_structured_output: bool = True,
+    include_usage: bool = True,
+    include_total_cost: bool = True,
 ) -> str:
     events: list[dict[str, object]] = [
         {"type": "system", "subtype": "init", "model": model},
@@ -62,6 +73,10 @@ def _stream_lines(
             "num_turns": 1,
             "duration_ms": 1234,
         }
+        if include_total_cost:
+            result_event["total_cost_usd"] = 0.0123
+        if include_usage:
+            result_event["usage"] = dict(_DEFAULT_USAGE_PAYLOAD)
         if include_structured_output:
             if structured_output is None:
                 structured_output = {"findings": []}
@@ -274,6 +289,58 @@ def test_claude_code_parse_stdout_fails_on_malformed_finding() -> None:
 
     assert isinstance(result, ReviewerFailure)
     assert result.error_type == "claude_code_invalid_findings"
+
+
+def test_claude_code_parse_stdout_extracts_usage_in_findings_mode() -> None:
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(), _stream_lines(structured_output={"findings": []})
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.usage, ReviewUsage)
+    assert result.usage.input_tokens == 100
+    assert result.usage.output_tokens == 50
+    assert result.usage.cache_creation_input_tokens == 10
+    assert result.usage.cache_read_input_tokens == 5
+    assert result.usage.total_cost_usd == pytest.approx(0.0123)
+    assert result.usage.duration_ms == 1234
+    assert result.usage.num_turns == 1
+    assert result.usage.total_input_tokens == 115
+
+
+def test_claude_code_parse_stdout_extracts_usage_in_text_mode() -> None:
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(review_format="text"),
+        _stream_lines(result_text="prose body", include_structured_output=False),
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.usage, ReviewUsage)
+    assert result.usage.output_tokens == 50
+
+
+def test_claude_code_parse_stdout_usage_is_none_when_missing() -> None:
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(),
+        _stream_lines(
+            structured_output={"findings": []},
+            include_usage=False,
+            include_total_cost=False,
+        ),
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert result.usage is None
+
+
+def test_claude_code_parse_stdout_usage_is_none_when_total_cost_missing() -> None:
+    result = CLAUDE_CODE_ADAPTER.parse_stdout(
+        _request(),
+        _stream_lines(structured_output={"findings": []}, include_total_cost=False),
+    )
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert result.usage is None
 
 
 def test_findings_schema_matches_review_finding_contract() -> None:
