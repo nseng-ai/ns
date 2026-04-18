@@ -1,4 +1,4 @@
-"""Read a file from branch memory."""
+"""Read content from a path in branch memory."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def render_get_branch_memory(result: GetBranchMemoryResult) -> None:
 
 @clinkr_operation(
     name="get",
-    help="Read a file from branch memory.",
+    help="Read content from a path in branch memory.",
     human_renderer=render_get_branch_memory,
 )
 def run_get_branch_memory(
