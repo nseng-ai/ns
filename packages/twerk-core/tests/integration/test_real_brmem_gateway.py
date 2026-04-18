@@ -31,7 +31,7 @@ def _init_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def test_real_brmem_round_trip_uses_flat_ref_names_and_preserves_history(tmp_path: Path) -> None:
+def test_real_brmem_round_trip_uses_namespaced_refs_and_preserves_history(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
     head_before = _run_git(repo, "rev-parse", "HEAD").stdout.strip()
@@ -40,7 +40,7 @@ def test_real_brmem_round_trip_uses_flat_ref_names_and_preserves_history(tmp_pat
     first_commit = gateway.put("feat/x", "docs/notes.md", "one\n")
     second_commit = gateway.put("feat/x", "docs/notes.md", "two\n")
 
-    encoded_ref = "refs/brmem/feat---x"
+    encoded_ref = "refs/brmem/brs/feat---x"
     assert _run_git(repo, "rev-parse", encoded_ref).stdout.strip() == second_commit
     assert gateway.get("feat/x", "docs/notes.md") == "two\n"
     assert gateway.get("feat/x", "docs/notes.md", at=first_commit) == "one\n"

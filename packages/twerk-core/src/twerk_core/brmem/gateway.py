@@ -6,11 +6,12 @@ from abc import ABC, abstractmethod
 from pathlib import PurePosixPath
 
 BRMEM_REF_PREFIX = "refs/brmem"
+BRMEM_BRANCH_REF_PREFIX = f"{BRMEM_REF_PREFIX}/brs"
 _BRANCH_SEPARATOR = "---"
 
 
 class InvalidBranchNameError(ValueError):
-    """Raised when a branch name cannot be encoded safely into ``refs/brmem``."""
+    """Raised when a branch name cannot be encoded safely into ``refs/brmem/brs``."""
 
     def __init__(self, branch: str, reason: str) -> None:
         self.branch = branch
@@ -42,7 +43,7 @@ class BranchMemoryGateway(ABC):
 def ref_name_for_branch(branch: str) -> str:
     """Return the git ref used to store memory for ``branch``."""
     validate_branch_name(branch)
-    return f"{BRMEM_REF_PREFIX}/{encode_branch_name(branch)}"
+    return f"{BRMEM_BRANCH_REF_PREFIX}/{encode_branch_name(branch)}"
 
 
 def encode_branch_name(branch: str) -> str:
@@ -58,7 +59,7 @@ def validate_branch_name(branch: str) -> None:
     if _BRANCH_SEPARATOR in branch:
         raise InvalidBranchNameError(
             branch,
-            "branch names containing '---' cannot be encoded into refs/brmem",
+            "branch names containing '---' cannot be encoded into refs/brmem/brs",
         )
 
 

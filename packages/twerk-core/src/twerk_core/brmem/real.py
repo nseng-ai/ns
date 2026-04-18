@@ -35,7 +35,7 @@ def _run(
 
 
 class RealBranchMemoryGateway(BranchMemoryGateway):
-    """Store branch memory in ``refs/brmem/<encoded-branch>`` refs."""
+    """Store branch memory in ``refs/brmem/brs/<encoded-branch>`` refs."""
 
     def __init__(self, cwd: Path) -> None:
         self._cwd = cwd
