@@ -1,8 +1,23 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from twerk_reviewer.review_definition import parse_review_definition
+
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"
+
+
+def test_parse_real_dignified_python_review() -> None:
+    source = _DIGNIFIED_PYTHON_REVIEW.read_text(encoding="utf-8")
+    definition = parse_review_definition(source, name="dignified-python")
+
+    assert definition.name == "dignified-python"
+    assert definition.description.strip()
+    assert definition.default_model == "sonnet"
+    assert definition.instructions.strip()
 
 
 def test_parse_review_definition_success() -> None:
