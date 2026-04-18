@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Literal
 
 import click
 
@@ -9,9 +9,11 @@ from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.cli.reviewer.context import load_reviewer_context
 from twerk_reviewer.models import (
+    FindingsReview,
     GitDiffFailedError,
     GitInvocationFailedError,
     LocalReviewResult,
+    ProseReview,
     RepoRootUnavailableError,
     ReviewDefinitionReadError,
     ReviewExecutorInvocationError,
@@ -43,25 +45,42 @@ class ReviewRunRequest:
             help="Base branch to diff against. Defaults to the repo trunk branch.",
         ),
     ] = None
+    format: Annotated[
+        Literal["findings", "text"],
+        click.Option(
+            ["--format"],
+            type=click.Choice(["findings", "text"]),
+            default="text",
+            show_default=True,
+            help=(
+                "Output format. 'text' returns a human-readable markdown review. "
+                "'findings' returns structured JSON findings."
+            ),
+        ),
+    ] = "text"
 
 
 def render_review_run(result: LocalReviewResult) -> None:
-    """Render review findings for the human CLI."""
+    """Render review output for the human CLI."""
     click.echo(f"Reviewer: {result.review_name}")
     click.echo(f"Model: {result.model}")
     click.echo(f"Base ref: {result.base_ref}")
 
-    if not result.findings:
-        click.echo("No findings.")
-        return
-
-    click.echo(f"Findings: {len(result.findings)}")
-    for finding in result.findings:
-        location = finding.path
-        if finding.line is not None:
-            location = f"{location}:{finding.line}"
-        click.echo(f"- [{finding.severity}] {location} {finding.summary}")
-        click.echo(f"  {finding.details}")
+    match result.payload:
+        case ProseReview(prose=prose):
+            click.echo("")
+            click.echo(prose)
+        case FindingsReview(findings=findings):
+            if not findings:
+                click.echo("No findings.")
+                return
+            click.echo(f"Findings: {len(findings)}")
+            for finding in findings:
+                location = finding.path
+                if finding.line is not None:
+                    location = f"{location}:{finding.line}"
+                click.echo(f"- [{finding.severity}] {location} {finding.summary}")
+                click.echo(f"  {finding.details}")
 
 
 @clinkr_operation(
@@ -81,6 +100,7 @@ def run_review_command(
             requested_model=request.model,
             requested_base_ref=request.base_ref,
             requested_harness=request.harness,
+            requested_format=request.format,
             cwd=reviewer_context.cwd,
             review_definition_gateway=reviewer_context.review_definition,
             local_diff_gateway=reviewer_context.local_diff,

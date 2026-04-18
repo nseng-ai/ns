@@ -6,7 +6,11 @@ from twerk_reviewer.gateways.review_execution.gateway import (
     ReviewExecutionFailure,
     ReviewExecutionGateway,
 )
-from twerk_reviewer.models import ReviewExecutionRequest, ReviewExecutionResponse
+from twerk_reviewer.models import (
+    FindingsReview,
+    ReviewExecutionRequest,
+    ReviewExecutionResponse,
+)
 
 
 class FakeReviewExecutionGateway(ReviewExecutionGateway):
@@ -21,7 +25,9 @@ class FakeReviewExecutionGateway(ReviewExecutionGateway):
         default_response: ReviewExecutionResponse | ReviewExecutionFailure | None = None,
     ) -> None:
         self._responses_by_review_name = dict(responses_by_review_name or {})
-        self._default_response = default_response or ReviewExecutionResponse(findings=())
+        self._default_response = default_response or ReviewExecutionResponse(
+            payload=FindingsReview(findings=())
+        )
         self._executed_requests: list[ReviewExecutionRequest] = []
 
     def run_review(
