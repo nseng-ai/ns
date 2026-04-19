@@ -47,7 +47,7 @@ class CopyBranchMemoryResult:
     source_target: str
     ref_name: str
     commit: str
-    at: str | None = None
+    at: str | None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
