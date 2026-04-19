@@ -3,6 +3,7 @@
 from twerk_core.brmem.branch.group import build_branch_group
 from twerk_core.brmem.check import run_check_branch_memory
 from twerk_core.brmem.check_registration import add_check_operation
+from twerk_core.brmem.copy import run_copy_branch_memory
 from twerk_core.brmem.get import run_get_branch_memory
 from twerk_core.brmem.list import run_list_branch_memory
 from twerk_core.brmem.put import run_put_branch_memory
@@ -16,6 +17,7 @@ def build_brmem_group() -> ClinkrGroup:
         operations=[
             run_put_branch_memory,
             run_get_branch_memory,
+            run_copy_branch_memory,
             run_list_branch_memory,
         ],
     )

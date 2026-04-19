@@ -32,6 +32,7 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
     assert "--version" in result.output
     assert "put" in result.output
     assert "get" in result.output
+    assert "copy" in result.output
     assert "list" in result.output
     assert "check" in result.output
     assert "branch" in result.output
@@ -448,6 +449,191 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
         "at": None,
         "success": True,
     }
+
+
+# ---------------------------------------------------------------------------
+# brmem copy
+# ---------------------------------------------------------------------------
+
+
+def test_brmem_copy_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["copy", "-h"])
+
+    assert result.exit_code == 0
+    assert "Usage: brmem copy" in result.output
+    assert "--from-branch" in result.output
+    assert "--to-branch" in result.output
+    assert "--at" in result.output
+
+
+def test_brmem_copy_defaults_destination_to_current_branch(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("feat/source", "docs/notes.md", "hello\n")
+    obj = {
+        "brmem_gateway": gateway,
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/dest"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["copy", "docs/notes.md", "--from-branch", "feat/source"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Copied docs/notes.md from branch feat/source to branch feat/dest." in result.output
+    assert "Source: refs/brmem/brs/feat---source" in result.output
+    assert "Ref: refs/brmem/brs/feat---dest" in result.output
+    assert "Inspect: git show refs/brmem/brs/feat---dest:docs/notes.md" in result.output
+    assert gateway.get("feat/dest", "docs/notes.md") == "hello\n"
+
+
+def test_brmem_copy_with_explicit_destination_branch(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("feat/source", "docs/notes.md", "hello\n")
+    obj = {
+        "brmem_gateway": gateway,
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/current"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "docs/notes.md",
+            "--from-branch",
+            "feat/source",
+            "--to-branch",
+            "feat/explicit",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "to branch feat/explicit." in result.output
+    assert gateway.get("feat/explicit", "docs/notes.md") == "hello\n"
+    assert gateway.get("feat/current", "docs/notes.md") is None
+
+
+def test_brmem_copy_at_reads_historical_source(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    first_commit = gateway.put("feat/source", "docs/notes.md", "one\n")
+    gateway.put("feat/source", "docs/notes.md", "two\n")
+    obj = {
+        "brmem_gateway": gateway,
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/dest"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "docs/notes.md",
+            "--from-branch",
+            "feat/source",
+            "--at",
+            first_commit,
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Source: {first_commit}" in result.output
+    assert gateway.get("feat/dest", "docs/notes.md") == "one\n"
+
+
+def test_brmem_copy_missing_source_errors_without_writing(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    obj = {
+        "brmem_gateway": gateway,
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/dest"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["copy", "docs/missing.md", "--from-branch", "feat/source"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 1
+    assert "refs/brmem/brs/feat---source" in result.output
+    assert "git ls-tree -r refs/brmem/brs/feat---source" in result.output
+    assert gateway.get("feat/dest", "docs/missing.md") is None
+    assert gateway.list("feat/dest") == []
+
+
+def test_brmem_copy_json_mode_returns_expected_payload(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("feat/source", "docs/notes.md", "hello\n")
+    obj = {
+        "brmem_gateway": gateway,
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/dest"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["json", "copy"],
+        input=json.dumps(
+            {
+                "path": "docs/notes.md",
+                "from_branch": "feat/source",
+            }
+        ),
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload == {
+        "path": "docs/notes.md",
+        "from_branch": "feat/source",
+        "to_branch": "feat/dest",
+        "source_target": "refs/brmem/brs/feat---source",
+        "ref_name": "refs/brmem/brs/feat---dest",
+        "commit": "fake-0002",
+        "at": None,
+        "success": True,
+    }
+
+
+def test_brmem_copy_invalid_source_branch_surfaces_clean_error(cli_group: ClinkrGroup) -> None:
+    obj = {
+        "brmem_gateway": FakeBranchMemoryGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/dest"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["copy", "docs/notes.md", "--from-branch", "feat---bad"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid branch name 'feat---bad'" in result.output
+
+
+def test_brmem_copy_invalid_destination_branch_surfaces_clean_error(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("feat/source", "docs/notes.md", "hello\n")
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "docs/notes.md",
+            "--from-branch",
+            "feat/source",
+            "--to-branch",
+            "feat---bad",
+        ],
+        obj={"brmem_gateway": gateway},
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid branch name 'feat---bad'" in result.output
+    assert gateway.list("feat/source") == ["docs/notes.md"]
 
 
 def test_brmem_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:

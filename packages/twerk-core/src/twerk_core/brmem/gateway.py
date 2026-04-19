@@ -87,31 +87,59 @@ def encode_branch_name(branch: str) -> str:
     return branch.replace("/", _BRANCH_SEPARATOR)
 
 
+def check_branch_name(branch: str) -> str | None:
+    """Return a formatted error message for ``branch`` without raising, or ``None``."""
+    reason = _branch_name_reason(branch)
+    if reason is None:
+        return None
+    return f"Invalid branch name {branch!r}: {reason}"
+
+
+def check_memory_path(path: str) -> str | None:
+    """Return a formatted error message for ``path`` without raising, or ``None``."""
+    reason = _memory_path_reason(path)
+    if reason is None:
+        return None
+    return f"Invalid branch-memory path {path!r}: {reason}"
+
+
 def validate_branch_name(branch: str) -> None:
     """Reject branch names that collide with the flat ``/ -> ---`` encoding."""
-    if not branch:
-        raise InvalidBranchNameError(branch, "branch name must not be empty")
-    if _BRANCH_SEPARATOR in branch:
-        raise InvalidBranchNameError(
-            branch,
-            "branch names containing '---' cannot be encoded into refs/brmem/brs",
-        )
+    reason = _branch_name_reason(branch)
+    if reason is not None:
+        raise InvalidBranchNameError(branch, reason)
 
 
 def validate_memory_path(path: str) -> None:
     """Reject absolute or parent-traversing paths."""
+    reason = _memory_path_reason(path)
+    if reason is not None:
+        raise InvalidMemoryPathError(path, reason)
+
+
+def _branch_name_reason(branch: str) -> str | None:
+    if not branch:
+        return "branch name must not be empty"
+    if _BRANCH_SEPARATOR in branch:
+        return "branch names containing '---' cannot be encoded into refs/brmem/brs"
+    return None
+
+
+def _memory_path_reason(path: str) -> str | None:
     if not path:
-        raise InvalidMemoryPathError(path, "path must not be empty")
+        return "path must not be empty"
     if ":" in path:
-        raise InvalidMemoryPathError(path, "':' is not supported in branch-memory paths")
+        return "':' is not supported in branch-memory paths"
 
     normalized = PurePosixPath(path)
     if normalized.is_absolute():
-        raise InvalidMemoryPathError(path, "path must be relative")
+        return "path must be relative"
 
     normalized_text = normalized.as_posix()
     if normalized_text in {".", ""}:
-        raise InvalidMemoryPathError(path, "path must reference a location inside branch memory")
+        return "path must reference a location inside branch memory"
 
     if any(part == ".." for part in normalized.parts):
-        raise InvalidMemoryPathError(path, "path must not contain '..'")
+        return "path must not contain '..'"
+
+    return None
