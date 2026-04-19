@@ -69,6 +69,8 @@ def add_format_operation(
     for alias in meta.aliases:
         group.add_alias(meta.name, alias)
 
+    # Temporary migration bridge added on 2026-04-19. Remove this legacy JSON
+    # alias path once downstream callers have switched to --format json.
     if add_legacy_json_alias:
         _add_legacy_json_alias(
             group,
