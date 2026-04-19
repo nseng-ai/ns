@@ -10,6 +10,7 @@ from pathlib import Path
 from twerk_core.brmem.gateway import (
     BranchMemoryGateway,
     InvalidBranchNameError,
+    _PathList,
     ref_name_for_branch,
     validate_memory_path,
 )
@@ -88,6 +89,18 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         if result.returncode != 0:
             return None
         return result.stdout
+
+    def list(self, branch: str, *, at: str | None = None) -> _PathList:
+        self._validated_ref_name(branch)
+        target = at if at is not None else ref_name_for_branch(branch)
+        result = _run(
+            ["git", "ls-tree", "-r", "--name-only", target],
+            cwd=self._cwd,
+            check=False,
+        )
+        if result.returncode != 0:
+            return []
+        return sorted(line for line in result.stdout.splitlines() if line)
 
     def _validated_ref_name(self, branch: str) -> str:
         ref_name = ref_name_for_branch(branch)
