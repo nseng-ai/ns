@@ -97,12 +97,12 @@ tree working until the parent group itself is migrated in a later PR.
 
 ### PR 3 — `twerk-objectives` `objective`
 
-- [ ] Create
+- [x] Create
       `packages/twerk-objectives/src/twerk_objectives/cli/objective/group.py`
-- [ ] Reduce
+- [x] Reduce
       `packages/twerk-objectives/src/twerk_objectives/cli/objective/__init__.py`
       to a docstring or empty file
-- [ ] Update `packages/twerk-objectives/src/twerk_objectives/cli/main.py` to
+- [x] Update `packages/twerk-objectives/src/twerk_objectives/cli/main.py` to
       import `build_objective_group`
 
 ### PR 4 — `twerk-slots` `slot`
