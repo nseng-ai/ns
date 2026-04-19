@@ -105,7 +105,13 @@ tree working until the parent group itself is migrated in a later PR.
 - [x] Update `packages/twerk-objectives/src/twerk_objectives/cli/main.py` to
       import `build_objective_group`
 
-### PR 4 — `twerk-slots` `slot`
+### PR 4 — `twerk-slots` `slot` and `twerk-reviewer` `review`, `harness`, `reviewer`
+
+These four packages are small enough that they land as a single PR. Within
+the PR, `build_review_group` and `build_harness_group` must be defined
+before the top-level `reviewer` group imports them.
+
+`twerk-slots` `slot`:
 
 - [ ] Create `packages/twerk-slots/src/twerk_slots/cli/slot/group.py`
 - [ ] Reduce `packages/twerk-slots/src/twerk_slots/cli/slot/__init__.py` to a
@@ -113,7 +119,7 @@ tree working until the parent group itself is migrated in a later PR.
 - [ ] Update `packages/twerk-slots/src/twerk_slots/cli/main.py` to import
       `build_slot_group`
 
-### PR 5 — `twerk-reviewer` `review`
+`twerk-reviewer` `review`:
 
 - [ ] Create
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/review/group.py`
@@ -121,11 +127,8 @@ tree working until the parent group itself is migrated in a later PR.
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/review/__init__.py`
       to a docstring or empty file
 - [ ] Register `review` operations explicitly in `review/group.py`
-- [ ] Update current
-      `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/__init__.py`
-      to import `build_review_group` directly
 
-### PR 6 — `twerk-reviewer` `harness`
+`twerk-reviewer` `harness`:
 
 - [ ] Create
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/harness/group.py`
@@ -133,11 +136,20 @@ tree working until the parent group itself is migrated in a later PR.
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/harness/__init__.py`
       to a docstring or empty file
 - [ ] Register `harness` operations explicitly in `harness/group.py`
-- [ ] Update current
-      `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/__init__.py`
-      to import `build_harness_group` directly
 
-### PR 7 — `twerk-pr-address` `pr-address`
+`twerk-reviewer` `reviewer` (top-level):
+
+- [ ] Create
+      `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/group.py`
+      that imports `build_review_group` and `build_harness_group` directly
+      and preserves the existing `_populate_ctx_obj` callback
+- [ ] Reduce
+      `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/__init__.py`
+      to a docstring or empty file
+- [ ] Update `packages/twerk-reviewer/src/twerk_reviewer/cli/main.py` to
+      import `build_reviewer_group`
+
+### PR 5 — `twerk-pr-address` `pr-address`
 
 - [ ] Create
       `packages/twerk-pr-address/src/twerk_pr_address/cli/pr_address/group.py`
@@ -149,19 +161,7 @@ tree working until the parent group itself is migrated in a later PR.
 - [ ] Update `packages/twerk-pr-address/src/twerk_pr_address/cli/main.py` to
       import `build_pr_address_group`
 
-### PR 8 — `twerk-reviewer` `reviewer`
-
-- [ ] Create
-      `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/group.py`
-- [ ] Reduce
-      `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/__init__.py`
-      to a docstring or empty file
-- [ ] Update reviewer top-level wiring to import `build_review_group` and
-      `build_harness_group` directly
-- [ ] Update `packages/twerk-reviewer/src/twerk_reviewer/cli/main.py` to
-      import `build_reviewer_group`
-
-### PR 9 — Framework and Shared Cleanup
+### PR 6 — Framework and Shared Cleanup
 
 - [ ] Rewrite `packages/twerk-core/src/twerk_core/clinkr/README.md` for the
       `group.py` model
