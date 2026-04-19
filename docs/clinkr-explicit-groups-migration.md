@@ -81,10 +81,10 @@ tree working until the parent group itself is migrated in a later PR.
 
 ### PR 1 — `twerk-core` `brmem branch`
 
-- [ ] Create `packages/twerk-core/src/twerk_core/brmem/branch/group.py`
-- [ ] Reduce `packages/twerk-core/src/twerk_core/brmem/branch/__init__.py` to
+- [x] Create `packages/twerk-core/src/twerk_core/brmem/branch/group.py`
+- [x] Reduce `packages/twerk-core/src/twerk_core/brmem/branch/__init__.py` to
       a docstring or empty file
-- [ ] Update current `packages/twerk-core/src/twerk_core/brmem/__init__.py`
+- [x] Update current `packages/twerk-core/src/twerk_core/brmem/__init__.py`
       to import `build_branch_group` from `twerk_core.brmem.branch.group`
 
 ### PR 2 — `twerk-core` `brmem`
