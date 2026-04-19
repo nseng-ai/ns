@@ -1,5 +1,6 @@
 """Manage branch-scoped memory stored in git refs."""
 
+from twerk_core.brmem.branch.group import build_branch_group
 from twerk_core.brmem.check import run_check_branch_memory
 from twerk_core.brmem.check_registration import add_check_operation
 from twerk_core.brmem.get import run_get_branch_memory
@@ -10,8 +11,6 @@ from twerk_core.clinkr.group import ClinkrGroup, clinkr_group
 
 @clinkr_group(name="brmem", help="Manage branch-scoped memory stored in git refs.")
 def brmem() -> ClinkrGroup:
-    from twerk_core.brmem.branch import branch as build_branch_group
-
     group = ClinkrGroup(
         operations=[
             run_put_branch_memory,
