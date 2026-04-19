@@ -23,7 +23,6 @@ class ClinkrOperationMeta:
     result_types: tuple[type, ...]
     aliases: tuple[str, ...]
     human_renderer: Callable[..., None] | None
-    exit_false_field: str | None = None
 
 
 def clinkr_operation(
@@ -32,7 +31,6 @@ def clinkr_operation(
     help: str = "",
     aliases: tuple[str, ...] = (),
     human_renderer: Callable[..., None] | None = None,
-    exit_false_field: str | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator that marks a function as a clinkr operation.
 
@@ -41,12 +39,6 @@ def clinkr_operation(
     active Click context in; operations must never fetch it from globals.
     ``request_type`` and ``result_types`` are inferred from the function's
     type annotations.
-
-    When ``exit_false_field`` is provided, the human-mode dispatcher gives
-    the operation grep/diff/test exit semantics: exit 0 when the named
-    boolean field on the result is ``True``, exit 1 (silent stdout, stderr
-    line drawn from ``result.absent_message``) when it is ``False``, and
-    exit 2 on :class:`ClinkrCommandError`. JSON mode is unchanged.
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -61,7 +53,6 @@ def clinkr_operation(
                 result_types=result_types,
                 aliases=aliases,
                 human_renderer=human_renderer,
-                exit_false_field=exit_false_field,
             ),
         )
         return fn

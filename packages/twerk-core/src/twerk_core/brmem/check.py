@@ -70,7 +70,6 @@ def render_check_branch_memory(result: CheckBranchMemoryResult) -> None:
     name="check",
     help="Check whether a path is present in branch memory.",
     human_renderer=render_check_branch_memory,
-    exit_false_field="exists",
 )
 def run_check_branch_memory(
     ctx: click.Context,
