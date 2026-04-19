@@ -1,7 +1,7 @@
 """Branch-level brmem operations."""
 
 from twerk_core.brmem.branch.check import run_check_branch
-from twerk_core.clinkr.format_command import add_format_operation
+from twerk_core.clinkr.format_flag import add_format_operation
 from twerk_core.clinkr.group import ClinkrGroup, clinkr_group
 
 

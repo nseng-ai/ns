@@ -8,7 +8,7 @@ import click
 from click.testing import CliRunner
 
 from twerk_core.clinkr.exit import ClinkrExit
-from twerk_core.clinkr.format_command import add_format_operation
+from twerk_core.clinkr.format_flag import add_format_operation
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.clinkr.operation import clinkr_operation
 
