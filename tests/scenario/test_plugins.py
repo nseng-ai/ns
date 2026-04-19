@@ -83,7 +83,10 @@ def test_objective_plugin_integration() -> None:
 
 def test_pr_address_plugin_integration() -> None:
     parent = click.Group("test")
-    ep = FakePluginEntryPoint(name="pr_address", value="twerk_pr_address.cli.pr_address")
+    ep = FakePluginEntryPoint(
+        name="pr_address",
+        value="twerk_pr_address.cli.pr_address.group:build_pr_address_group",
+    )
 
     discover_plugins(parent, source=_entry_point_source(ep))
 
