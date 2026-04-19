@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from twerk_reviewer.harness.findings_schema import FINDINGS_JSON_SCHEMA
 from twerk_reviewer.harness_adapter import HarnessAdapter
 from twerk_reviewer.models import (
     ClaudeCodeEmptyOutput,
@@ -31,29 +32,6 @@ _CLAUDE_CODE_MODEL_PREFIXES = ("claude-",)
 _PROSE_SNIPPET_MAX_CHARS = 500
 
 _READ_ONLY_TOOLS = "Bash,Read"
-
-FINDINGS_JSON_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["findings"],
-    "properties": {
-        "findings": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["path", "line", "severity", "summary", "details"],
-                "properties": {
-                    "path": {"type": "string", "minLength": 1},
-                    "line": {"type": ["integer", "null"]},
-                    "severity": {"type": "string", "enum": ["info", "warning", "error"]},
-                    "summary": {"type": "string", "minLength": 1},
-                    "details": {"type": "string", "minLength": 1},
-                },
-            },
-        },
-    },
-}
 
 
 def _claude_code_supports_model(model: str) -> bool:

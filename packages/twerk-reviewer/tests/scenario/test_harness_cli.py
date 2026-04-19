@@ -90,9 +90,22 @@ def test_harness_list_json_output(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     output = json.loads(result.output)
     assert output["success"] is True
-    assert output["count"] == 1
+    assert output["count"] == 2
     assert output["harnesses"][0]["name"] == "claude-code"
     assert output["harnesses"][0]["available"] is True
+    assert output["harnesses"][1]["name"] == "codex"
+    assert output["harnesses"][1]["available"] is False
+
+
+def test_harness_list_reports_codex_when_detected(cli_group: ClinkrGroup) -> None:
+    detection = FakeHarnessDetectionGateway(paths_by_binary={"codex": "/usr/local/bin/codex"})
+    runner = CliRunner()
+
+    result = runner.invoke(cli_group, ["harness", "list"], obj=_context(detection=detection))
+
+    assert result.exit_code == 0, result.output
+    assert "codex" in result.output
+    assert "/usr/local/bin/codex" in result.output
 
 
 def test_harness_show_reports_single_detected_harness(cli_group: ClinkrGroup) -> None:

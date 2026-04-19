@@ -42,8 +42,8 @@ reviewer harness json list
 
 `twerk-reviewer` does not know how to call an LLM directly. Each harness
 (Claude Code, Codex, Pi, …) is driven through a small adapter that knows its
-argv shape and stdout contract. The first-class adapter today is
-**Claude Code**; adding others is a future slice.
+argv shape and stdout contract. The first-class adapters today are
+**Claude Code** and **Codex**.
 
 Resolution order for which harness a review uses:
 
@@ -63,6 +63,11 @@ claude -p --output-format json --bare --model <model> "<prompt>"
 fast and deterministic. `-p --output-format json` returns the model's
 response as JSON; the adapter then parses the model's text as
 `{"findings": [...]}`.
+
+The Codex adapter shells out to `codex exec --json --sandbox read-only`,
+passes the reviewer system prompt as `developer_instructions`, and in
+findings mode uses `--output-schema` so the final agent message conforms to
+the findings schema.
 
 ## Review definition format
 

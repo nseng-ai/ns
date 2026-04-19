@@ -188,6 +188,61 @@ def test_real_review_execution_gateway_text_format_returns_prose(
     assert "--json-schema" not in captured["cmd"]
 
 
+def test_real_review_execution_gateway_runs_codex_findings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    final_text = json.dumps(
+        {
+            "findings": [
+                {
+                    "path": "app.py",
+                    "line": 1,
+                    "severity": "warning",
+                    "summary": "Avoid print in library code",
+                    "details": "Use click.echo() instead.",
+                }
+            ]
+        }
+    )
+    stdout_lines = [
+        json.dumps({"type": "thread.started", "thread_id": "thread_123"}) + "\n",
+        json.dumps({"type": "turn.started"}) + "\n",
+        json.dumps(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "item_1",
+                    "type": "agent_message",
+                    "text": final_text,
+                },
+            }
+        )
+        + "\n",
+        json.dumps({"type": "turn.completed"}) + "\n",
+    ]
+    progress_messages: list[str] = []
+    captured: dict[str, Any] = {}
+
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
+        captured["cmd"] = cmd
+        assert cmd[:2] == ["codex", "exec"]
+        assert "--json" in cmd
+        assert "--sandbox" in cmd
+        return _FakePopen(stdout_lines=stdout_lines)
+
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+
+    gateway = RealReviewExecutionGateway(progress_writer=progress_messages.append)
+    result = gateway.run_review(_sample_request(adapter_name="codex", model="gpt-5-mini"))
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert isinstance(result.payload, FindingsReview)
+    assert result.payload.findings[0].path == "app.py"
+    assert any("session started" in msg for msg in progress_messages)
+    assert any("result received" in msg for msg in progress_messages)
+    assert captured["cmd"][captured["cmd"].index("--model") + 1] == "gpt-5-mini"
+
+
 def test_real_review_execution_gateway_rejects_unknown_harness() -> None:
     gateway = RealReviewExecutionGateway()
 

@@ -10,6 +10,7 @@ from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionG
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
+from twerk_reviewer.harness.codex.adapter import CODEX_NAME
 from twerk_reviewer.models import (
     FindingsReview,
     LocalDiff,
@@ -116,6 +117,25 @@ def test_explicit_harness_flag_wins(
     )
 
     assert review_execution.executed_requests[0].adapter_name == "claude-code"
+
+
+def test_runs_end_to_end_auto_selecting_single_detected_codex_harness(
+    review_definition: FakeReviewDefinitionGateway,
+    local_diff: FakeLocalDiffGateway,
+    review_execution: FakeReviewExecutionGateway,
+) -> None:
+    result = _run(
+        requested_model="gpt-5-mini",
+        review_definition_gateway=review_definition,
+        local_diff_gateway=local_diff,
+        review_execution_gateway=review_execution,
+        harness_detection_gateway=FakeHarnessDetectionGateway(
+            paths_by_binary={"codex": "/usr/local/bin/codex"}
+        ),
+    )
+
+    assert isinstance(result, LocalReviewResult)
+    assert review_execution.executed_requests[0].adapter_name == CODEX_NAME
 
 
 def test_env_var_overrides_auto_detection(
