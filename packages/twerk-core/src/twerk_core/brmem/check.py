@@ -14,6 +14,7 @@ from twerk_core.brmem.gateway import (
 )
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -74,15 +75,23 @@ def render_check_branch_memory(result: CheckBranchMemoryResult) -> None:
 def run_check_branch_memory(
     ctx: click.Context,
     request: CheckBranchMemoryRequest,
-) -> CheckBranchMemoryResult | ClinkrCommandError:
+) -> ClinkrExit[CheckBranchMemoryResult]:
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
-        return branch
+        return ClinkrExit.fail(
+            error_type=branch.error_type,
+            message=branch.message,
+            exit_code=2,
+        )
 
     try:
         ref_name = ref_name_for_branch(branch)
     except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
+        return ClinkrExit.fail(
+            error_type="invalid_branch_name",
+            message=str(exc),
+            exit_code=2,
+        )
 
     target = request.at if request.at is not None else ref_name
 
@@ -90,30 +99,43 @@ def run_check_branch_memory(
     try:
         diagnostic = gateway.check_path(branch, request.path, at=request.at)
     except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
+        return ClinkrExit.fail(
+            error_type="invalid_branch_name",
+            message=str(exc),
+            exit_code=2,
+        )
     except InvalidMemoryPathError as exc:
-        return ClinkrCommandError(error_type="invalid_memory_path", message=str(exc))
+        return ClinkrExit.fail(
+            error_type="invalid_memory_path",
+            message=str(exc),
+            exit_code=2,
+        )
 
     if diagnostic is None:
-        return CheckBranchMemoryResult(
+        return ClinkrExit.negative(
+            CheckBranchMemoryResult(
+                branch=branch,
+                path=request.path,
+                ref_name=ref_name,
+                target=target,
+                exists=False,
+                at=request.at,
+                absent_message=(f"not found: {request.path} in branch {branch} at {target}"),
+            ),
+            exit_code=1,
+        )
+
+    return ClinkrExit.ok(
+        CheckBranchMemoryResult(
             branch=branch,
             path=request.path,
             ref_name=ref_name,
             target=target,
-            exists=False,
+            exists=True,
             at=request.at,
-            absent_message=(f"not found: {request.path} in branch {branch} at {target}"),
+            blob_sha=diagnostic.blob_sha,
+            size_bytes=diagnostic.size_bytes,
+            last_commit_sha=diagnostic.last_commit_sha,
+            last_commit_date=diagnostic.last_commit_date,
         )
-
-    return CheckBranchMemoryResult(
-        branch=branch,
-        path=request.path,
-        ref_name=ref_name,
-        target=target,
-        exists=True,
-        at=request.at,
-        blob_sha=diagnostic.blob_sha,
-        size_bytes=diagnostic.size_bytes,
-        last_commit_sha=diagnostic.last_commit_sha,
-        last_commit_date=diagnostic.last_commit_date,
     )

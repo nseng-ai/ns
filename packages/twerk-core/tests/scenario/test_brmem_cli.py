@@ -647,6 +647,83 @@ def test_brmem_json_check_missing_returns_success_false_exists(cli_group: Clinkr
     assert payload["size_bytes"] is None
 
 
+def test_brmem_check_format_json_present(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("feat/x", "docs/notes.md", "hello\n")
+    obj = {
+        "brmem_gateway": gateway,
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = _check_runner().invoke(
+        cli_group,
+        ["check", "docs/notes.md", "--format", "json"],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload == {
+        "branch": "feat/x",
+        "path": "docs/notes.md",
+        "ref_name": "refs/brmem/brs/feat---x",
+        "target": "refs/brmem/brs/feat---x",
+        "exists": True,
+        "at": None,
+        "blob_sha": "blob-fake-0001-docs/notes.md",
+        "size_bytes": 6,
+        "last_commit_sha": "fake-0001",
+        "last_commit_date": "2026-01-01T00:00:01+00:00",
+    }
+
+
+def test_brmem_check_format_json_missing_exits_one(cli_group: ClinkrGroup) -> None:
+    obj = {
+        "brmem_gateway": FakeBranchMemoryGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = _check_runner().invoke(
+        cli_group,
+        ["check", "docs/missing.md", "--format", "json"],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 1, result.output
+    assert payload == {
+        "branch": "feat/x",
+        "path": "docs/missing.md",
+        "ref_name": "refs/brmem/brs/feat---x",
+        "target": "refs/brmem/brs/feat---x",
+        "exists": False,
+        "at": None,
+        "blob_sha": None,
+        "size_bytes": None,
+        "last_commit_sha": None,
+        "last_commit_date": None,
+    }
+
+
+def test_brmem_check_format_json_invalid_branch_exits_two(cli_group: ClinkrGroup) -> None:
+    result = _check_runner().invoke(
+        cli_group,
+        ["check", "docs/notes.md", "--branch", "feat---x", "--format", "json"],
+        obj={"brmem_gateway": FakeBranchMemoryGateway()},
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload == {
+        "success": False,
+        "error_type": "invalid_branch_name",
+        "message": (
+            "Invalid branch name 'feat---x': branch names containing '---' "
+            "cannot be encoded into refs/brmem/brs"
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # brmem branch check
 # ---------------------------------------------------------------------------
