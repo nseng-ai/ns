@@ -66,6 +66,16 @@ def render_review_run(result: LocalReviewResult) -> None:
     click.echo(f"Model: {result.model}")
     click.echo(f"Base ref: {result.base_ref}")
 
+    if result.usage is not None:
+        usage = result.usage
+        click.echo(
+            f"Tokens: {usage.total_input_tokens:,} in / {usage.output_tokens:,} out "
+            f"(cache read: {usage.cache_read_input_tokens:,}, "
+            f"cache create: {usage.cache_creation_input_tokens:,})"
+        )
+        click.echo(f"Cost: ${usage.total_cost_usd:.4f} USD")
+        click.echo(f"Duration: {usage.duration_ms / 1000:.1f}s ({usage.num_turns} turns)")
+
     match result.payload:
         case ProseReview(prose=prose):
             click.echo("")

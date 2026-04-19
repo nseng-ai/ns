@@ -426,10 +426,39 @@ class ReviewExecutionRequest:
 
 
 @dataclass(frozen=True)
+class ReviewUsage:
+    """Cost and token usage statistics from a harness run."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_creation_input_tokens: int
+    cache_read_input_tokens: int
+    total_cost_usd: float
+    duration_ms: int
+    num_turns: int
+
+    @property
+    def total_input_tokens(self) -> int:
+        return self.input_tokens + self.cache_creation_input_tokens + self.cache_read_input_tokens
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return {
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cache_creation_input_tokens": self.cache_creation_input_tokens,
+            "cache_read_input_tokens": self.cache_read_input_tokens,
+            "total_cost_usd": self.total_cost_usd,
+            "duration_ms": self.duration_ms,
+            "num_turns": self.num_turns,
+        }
+
+
+@dataclass(frozen=True)
 class ReviewExecutionResponse:
     """Structured review payload returned by the review executor."""
 
     payload: ReviewPayload
+    usage: ReviewUsage | None = None
 
 
 @dataclass(frozen=True)
@@ -441,6 +470,7 @@ class LocalReviewResult:
     model: str
     base_ref: str
     payload: ReviewPayload
+    usage: ReviewUsage | None = None
 
     def to_json_dict(self) -> dict[str, Any]:
         """Serialize the local-review result for JSON output."""
@@ -449,5 +479,6 @@ class LocalReviewResult:
             "review_path": self.review_path,
             "model": self.model,
             "base_ref": self.base_ref,
+            "usage": self.usage.to_json_dict() if self.usage else None,
             **self.payload.to_json_dict(),
         }

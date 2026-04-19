@@ -19,6 +19,7 @@ from twerk_reviewer.models import (
     ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFinding,
+    ReviewUsage,
 )
 
 CLAUDE_CODE_BINARY = "claude"
@@ -87,7 +88,10 @@ def _claude_code_build_argv(request: ReviewExecutionRequest) -> list[str]:
     return argv
 
 
-def _parse_findings_payload(payload: Any) -> ReviewExecutionResponse | ReviewerFailure:
+def _parse_findings_payload(
+    payload: Any,
+    usage: ReviewUsage | None,
+) -> ReviewExecutionResponse | ReviewerFailure:
     if not isinstance(payload, dict):
         return ClaudeCodeInvalidFindings(
             message="Claude Code review output must be a JSON object with a `findings` array.",
@@ -112,7 +116,50 @@ def _parse_findings_payload(payload: Any) -> ReviewExecutionResponse | ReviewerF
                 message=str(exc),
             )
 
-    return ReviewExecutionResponse(payload=FindingsReview(findings=tuple(findings)))
+    return ReviewExecutionResponse(
+        payload=FindingsReview(findings=tuple(findings)),
+        usage=usage,
+    )
+
+
+def _extract_usage(result_event: dict[str, Any]) -> ReviewUsage | None:
+    total_cost_usd = result_event.get("total_cost_usd")
+    duration_ms = result_event.get("duration_ms")
+    num_turns = result_event.get("num_turns")
+    usage_payload = result_event.get("usage")
+
+    if not isinstance(usage_payload, dict):
+        return None
+    if not isinstance(total_cost_usd, (int, float)):
+        return None
+    if not isinstance(duration_ms, int):
+        return None
+    if not isinstance(num_turns, int):
+        return None
+
+    input_tokens = usage_payload.get("input_tokens")
+    output_tokens = usage_payload.get("output_tokens")
+    cache_creation_input_tokens = usage_payload.get("cache_creation_input_tokens")
+    cache_read_input_tokens = usage_payload.get("cache_read_input_tokens")
+
+    if not isinstance(input_tokens, int):
+        return None
+    if not isinstance(output_tokens, int):
+        return None
+    if not isinstance(cache_creation_input_tokens, int):
+        return None
+    if not isinstance(cache_read_input_tokens, int):
+        return None
+
+    return ReviewUsage(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cache_creation_input_tokens=cache_creation_input_tokens,
+        cache_read_input_tokens=cache_read_input_tokens,
+        total_cost_usd=float(total_cost_usd),
+        duration_ms=duration_ms,
+        num_turns=num_turns,
+    )
 
 
 def _iter_json_lines(stdout: str) -> list[dict[str, Any]] | ReviewerFailure:
@@ -171,17 +218,19 @@ def _claude_code_parse_stdout(
     if isinstance(result_event, ReviewerFailure):
         return result_event
 
+    usage = _extract_usage(result_event)
+
     if request.review_format == "text":
         result_text = result_event.get("result")
         if not isinstance(result_text, str):
             return ClaudeCodeInvalidResponse(
                 message="Claude Code `result` must be a string.",
             )
-        return ReviewExecutionResponse(payload=ProseReview(prose=result_text))
+        return ReviewExecutionResponse(payload=ProseReview(prose=result_text), usage=usage)
 
     structured = result_event.get("structured_output")
     if structured is not None:
-        return _parse_findings_payload(structured)
+        return _parse_findings_payload(structured, usage)
 
     result_text = result_event.get("result")
     if isinstance(result_text, str):
