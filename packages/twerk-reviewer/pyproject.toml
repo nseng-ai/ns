@@ -13,7 +13,7 @@ dependencies = [
 reviewer = "twerk_reviewer.cli.main:main"
 
 [project.entry-points."twerk.plugins"]
-reviewer = "twerk_reviewer.cli.reviewer"
+reviewer = "twerk_reviewer.cli.reviewer.group:build_reviewer_group"
 
 [build-system]
 requires = ["hatchling"]

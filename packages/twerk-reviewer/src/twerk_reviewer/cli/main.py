@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import click
 
-from twerk_core.clinkr.group import ClinkrGroup, discover_group
+from twerk_core.clinkr.group import ClinkrGroup
+from twerk_reviewer.cli.reviewer.group import build_reviewer_group
 
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``reviewer`` CLI group."""
-    group = discover_group("twerk_reviewer.cli.reviewer")
+    group = build_reviewer_group()
     group.context_settings = {"help_option_names": ["-h", "--help"]}
     click.version_option(package_name="twerk-reviewer")(group)
     return group

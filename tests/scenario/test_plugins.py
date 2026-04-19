@@ -104,7 +104,10 @@ def test_pr_address_plugin_integration() -> None:
 
 def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     parent = click.Group("test")
-    ep = FakePluginEntryPoint(name="reviewer", value="twerk_reviewer.cli.reviewer")
+    ep = FakePluginEntryPoint(
+        name="reviewer",
+        value="twerk_reviewer.cli.reviewer.group:build_reviewer_group",
+    )
 
     discover_plugins(parent, source=_entry_point_source(ep))
 

@@ -111,42 +111,49 @@ These four packages are small enough that they land as a single PR. Within
 the PR, `build_review_group` and `build_harness_group` must be defined
 before the top-level `reviewer` group imports them.
 
+Plugin entry-point note: PR 4 bumps the `twerk.plugins` entry-point format
+for `slots` and `reviewer` to `module:function` (pointing directly at the
+builder). `src/twerk/cli/plugins.py` now accepts both the new
+`module:function` form and the legacy bare module-path form, so
+`objectives` and `pr_address` keep working unchanged and PR 5 will bump
+`pr_address` the same way.
+
 `twerk-slots` `slot`:
 
-- [ ] Create `packages/twerk-slots/src/twerk_slots/cli/slot/group.py`
-- [ ] Reduce `packages/twerk-slots/src/twerk_slots/cli/slot/__init__.py` to a
+- [x] Create `packages/twerk-slots/src/twerk_slots/cli/slot/group.py`
+- [x] Reduce `packages/twerk-slots/src/twerk_slots/cli/slot/__init__.py` to a
       docstring or empty file
-- [ ] Update `packages/twerk-slots/src/twerk_slots/cli/main.py` to import
+- [x] Update `packages/twerk-slots/src/twerk_slots/cli/main.py` to import
       `build_slot_group`
 
 `twerk-reviewer` `review`:
 
-- [ ] Create
+- [x] Create
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/review/group.py`
-- [ ] Reduce
+- [x] Reduce
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/review/__init__.py`
       to a docstring or empty file
-- [ ] Register `review` operations explicitly in `review/group.py`
+- [x] Register `review` operations explicitly in `review/group.py`
 
 `twerk-reviewer` `harness`:
 
-- [ ] Create
+- [x] Create
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/harness/group.py`
-- [ ] Reduce
+- [x] Reduce
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/harness/__init__.py`
       to a docstring or empty file
-- [ ] Register `harness` operations explicitly in `harness/group.py`
+- [x] Register `harness` operations explicitly in `harness/group.py`
 
 `twerk-reviewer` `reviewer` (top-level):
 
-- [ ] Create
+- [x] Create
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/group.py`
       that imports `build_review_group` and `build_harness_group` directly
       and preserves the existing `_populate_ctx_obj` callback
-- [ ] Reduce
+- [x] Reduce
       `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/__init__.py`
       to a docstring or empty file
-- [ ] Update `packages/twerk-reviewer/src/twerk_reviewer/cli/main.py` to
+- [x] Update `packages/twerk-reviewer/src/twerk_reviewer/cli/main.py` to
       import `build_reviewer_group`
 
 ### PR 5 — `twerk-pr-address` `pr-address`
