@@ -133,16 +133,8 @@ def _register_operation(
     def human_callback(ctx: click.Context, **kwargs: Any) -> None:
         request = build_request_from_click_params(request_type, kwargs)
         result = operation(ctx, request)
-        exit_false_field = meta.exit_false_field
         if isinstance(result, ClinkrCommandError):
-            if exit_false_field is not None:
-                click.echo(f"error: {result.message}", err=True)
-                ctx.exit(2)
             raise click.ClickException(result.message)
-        if exit_false_field is not None and not getattr(result, exit_false_field):
-            absent_message = getattr(result, "absent_message", None) or ""
-            click.echo(absent_message, err=True)
-            ctx.exit(1)
         renderer(result)
 
     human_cmd = click.Command(
@@ -180,27 +172,13 @@ def _register_operation(
 
 
 def _scan_operations(package: str) -> tuple[Callable[..., Any], ...]:
-    """Scan *package* for ``@clinkr_operation``-decorated functions.
-
-    Subpackages that themselves declare a ``@clinkr_group`` function are
-    skipped — they own their own scanning and are mounted as nested
-    subgroups by the enclosing group function. The skip applies only to
-    *subpackages* of the scan root; the root's own ``@clinkr_group`` is
-    deliberately ignored here so the root scan still finds operations
-    declared as siblings of the group declaration.
-    """
+    """Scan *package* for ``@clinkr_operation``-decorated functions."""
     root = importlib.import_module(package)
     modules = [root]
 
     if hasattr(root, "__path__"):
-        for _importer, modname, ispkg in pkgutil.iter_modules(root.__path__, root.__name__ + "."):
-            mod = importlib.import_module(modname)
-            if ispkg and _module_declares_group(mod):
-                continue
-            modules.append(mod)
-            if ispkg and hasattr(mod, "__path__"):
-                for _i2, sub, _p2 in pkgutil.walk_packages(mod.__path__, modname + "."):
-                    modules.append(importlib.import_module(sub))
+        for _importer, modname, _ispkg in pkgutil.walk_packages(root.__path__, root.__name__ + "."):
+            modules.append(importlib.import_module(modname))
 
     found: list[Callable[..., Any]] = []
     for module in modules:
@@ -212,15 +190,6 @@ def _scan_operations(package: str) -> tuple[Callable[..., Any], ...]:
                 found.append(obj)
 
     return tuple(found)
-
-
-def _module_declares_group(module: Any) -> bool:
-    """Return True iff *module* contains a ``@clinkr_group``-decorated callable."""
-    for attr_name in dir(module):
-        obj = getattr(module, attr_name)
-        if callable(obj) and get_group_meta(obj) is not None:
-            return True
-    return False
 
 
 def discover_operations(package: str) -> ClinkrGroup:

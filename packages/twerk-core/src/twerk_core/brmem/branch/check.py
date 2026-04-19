@@ -63,7 +63,6 @@ def render_check_branch(result: CheckBranchResult) -> None:
     name="check",
     help="Check whether a branch has a brmem ref.",
     human_renderer=render_check_branch,
-    exit_false_field="exists",
 )
 def run_check_branch(
     ctx: click.Context,
