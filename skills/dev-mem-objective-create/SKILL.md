@@ -47,11 +47,16 @@ Given a rough objective brief from the user, produce:
   the draft close to that shape:
   - title
   - `Status:` line
-  - short context paragraph(s)
-  - `## Completion Criteria`
-  - `## Status Checklist`
+  - short intro paragraph(s) that explain where the objective comes from, what
+    related work is already landed, what remains in scope now, what is out of
+    scope, and why the remaining work matters
+  - `## Completion Criteria` describing the target end state in re-checkable
+    terms
+  - `## Status Checklist`, organized by PR-sized slices when the work is
+    expected to land incrementally
   - `## How to Make Progress`
-  - optional `## Notes`
+  - `## Notes` (expected for architectural / migration objectives; optional for
+    simpler objectives)
 - **The branch snapshot path must carry the slug.** Do not use bare
   `objective.md`; the branch path is `objectives/<slug>.md`.
 - **Attach the exact drafted text.** Write the global-store file first, then use
@@ -99,16 +104,24 @@ Decision rules:
 
 ### 3. Capture the objective from the conversation
 
-Start from the current conversation. Ask only brief follow-ups when a critical
-piece is missing. You need enough to draft:
+Start from the current conversation. If the user references a PR, issue, design
+spec, or local markdown document, read it before drafting. Ask only brief
+follow-ups when a critical piece is missing.
+
+You need enough to draft:
 
 - a concrete title
-- a short context paragraph explaining the objective and why it exists
-- concrete completion criteria
-- a grouped status checklist
+- intro paragraph(s) that explain the source proposal / trigger for the
+  objective, adjacent work already landed, the remaining scope now, any clearly
+  out-of-scope adjacent work, and why the remaining work matters
+- completion criteria that describe the intended end state rather than just a
+  pile of tasks
+- a status checklist organized by PR-sized slices when the work is expected to
+  land incrementally
 - a `How to Make Progress` section that makes future progress sessions fairly
   mechanical
-- optional notes / constraints / file pointers
+- notes / constraints / collisions / file pointers that future sessions are
+  likely to need
 
 Bias toward the **migration-notice level of simplicity**. This is not the full
 GitHub objective template.
@@ -157,12 +170,25 @@ Read `references/objective-template.md` and fill it in.
 
 Drafting guidance:
 
-- Keep the context prose short and specific.
-- Make completion criteria re-checkable.
-- Use the checklist as the main roadmap / progress surface.
-- Put the durable work recipe in `## How to Make Progress`.
-- Add `## Notes` only when it helps preserve context the next session will
-  actually need.
+- Keep the intro short, but make it load-bearing: it should say what proposal
+  or change triggered the objective, what related work is already landed, what
+  remains in scope now, and why the remaining work matters.
+- Make completion criteria re-checkable and end-state oriented. For migrations
+  and redesigns, prefer criteria that describe the final contract / public
+  surface / cleanup state, not just intermediate implementation steps.
+- Use the checklist as the main roadmap / progress surface. When the work will
+  land over multiple PRs, organize it by PR-sized slices.
+- For architectural redesigns and migrations, prefer **steelthreaded** early
+  slices: combine the smallest necessary core plumbing with one real migrated
+  command or package so the design is exercised end-to-end as early as
+  possible.
+- Put the durable work recipe in `## How to Make Progress`. For multi-PR work,
+  this should usually tell future sessions how to choose the next slice,
+  what current behavior to inspect first, and what to update after landing a
+  slice.
+- For architectural / migration objectives, keep `## Notes` by default and use
+  it to preserve durable findings, constraints, collisions, hidden couplings,
+  and open questions discovered during implementation.
 
 ### 7. Write the canonical scratch-store file
 
@@ -228,3 +254,5 @@ objective forward when no local snapshot exists yet.
 - Treating the scratch-store file as something that should be rewritten during
   ordinary progress sessions. In v0, progress rewrites the **branch snapshot**,
   not the global seed.
+- Opening an architectural redesign with framework-only or abstraction-only
+  early slices when a steelthreaded end-to-end slice is possible.
