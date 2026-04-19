@@ -9,11 +9,9 @@ from typing import Annotated, Any
 import click
 
 from twerk_core.brmem.gateway import (
-    InvalidBranchNameError,
-    InvalidMemoryPathError,
+    check_branch_name,
+    check_memory_path,
     ref_name_for_branch,
-    validate_branch_name,
-    validate_memory_path,
 )
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.clinkr.command import ClinkrCommandError
@@ -93,14 +91,20 @@ def run_copy_branch_memory(
     if isinstance(to_branch, ClinkrCommandError):
         return to_branch
 
-    try:
-        validate_branch_name(request.from_branch)
-        validate_branch_name(to_branch)
-        validate_memory_path(request.path)
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
-    except InvalidMemoryPathError as exc:
-        return ClinkrCommandError(error_type="invalid_memory_path", message=str(exc))
+    errors = [
+        reason
+        for reason in (
+            check_branch_name(request.from_branch),
+            check_branch_name(to_branch),
+            check_memory_path(request.path),
+        )
+        if reason is not None
+    ]
+    if errors:
+        return ClinkrCommandError(
+            error_type="invalid_arguments",
+            message="\n".join(errors),
+        )
 
     gateway = get_branch_memory_gateway(ctx)
 
