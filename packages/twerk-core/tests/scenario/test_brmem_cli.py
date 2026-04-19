@@ -53,7 +53,7 @@ def test_brmem_put_and_get_round_trip(cli_group: ClinkrGroup, tmp_path: Path) ->
 
     put_result = CliRunner().invoke(
         cli_group,
-        ["put", str(source_file), "--path", "docs/notes.md"],
+        ["put", "docs/notes.md", "--file", str(source_file)],
         obj=obj,
     )
     get_result = CliRunner().invoke(
@@ -177,7 +177,7 @@ def test_brmem_json_put_from_stdin_is_rejected(cli_group: ClinkrGroup) -> None:
         ["json", "put"],
         input=json.dumps(
             {
-                "file": "file.md",
+                "path": "file.md",
                 "stdin": True,
             }
         ),
@@ -202,7 +202,7 @@ def test_brmem_invalid_branch_surfaces_clean_error(cli_group: ClinkrGroup, tmp_p
 
     result = CliRunner().invoke(
         cli_group,
-        ["put", str(source_file), "--path", "docs/notes.md", "--branch", "feat---x"],
+        ["put", "docs/notes.md", "--file", str(source_file), "--branch", "feat---x"],
         obj={"brmem_gateway": FakeBranchMemoryGateway()},
     )
 
@@ -222,7 +222,7 @@ def test_brmem_explicit_branch_overrides_current_branch(
 
     put_result = CliRunner().invoke(
         cli_group,
-        ["put", str(source_file), "--path", "docs/notes.md", "--branch", "feat/other"],
+        ["put", "docs/notes.md", "--file", str(source_file), "--branch", "feat/other"],
         obj=obj,
     )
     get_result = CliRunner().invoke(
@@ -244,7 +244,7 @@ def test_brmem_put_rejects_detached_head_when_branch_omitted(
 
     result = CliRunner().invoke(
         cli_group,
-        ["put", str(source_file), "--path", "docs/notes.md"],
+        ["put", "docs/notes.md", "--file", str(source_file)],
         obj={
             "brmem_gateway": FakeBranchMemoryGateway(),
             "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): DetachedHead()}),
@@ -286,9 +286,7 @@ def test_brmem_put_defaults_memory_path_from_file(
     assert get_result.output == "hello\n"
 
 
-def test_brmem_put_absolute_source_file_with_explicit_path(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
+def test_brmem_put_with_explicit_source_file(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     source_file = tmp_path / "sdfsdfs.md"
     source_file.write_text("hello\n", encoding="utf-8")
     obj = {
@@ -298,7 +296,7 @@ def test_brmem_put_absolute_source_file_with_explicit_path(
 
     put_result = CliRunner().invoke(
         cli_group,
-        ["put", str(source_file), "--path", "file.md"],
+        ["put", "file.md", "--file", str(source_file)],
         obj=obj,
     )
     get_result = CliRunner().invoke(
@@ -311,6 +309,25 @@ def test_brmem_put_absolute_source_file_with_explicit_path(
     assert f"Stored file.md from {source_file} for branch feat/x." in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "hello\n"
+
+
+def test_brmem_put_rejects_stdin_and_file_together(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("hello\n", encoding="utf-8")
+    obj = {
+        "brmem_gateway": FakeBranchMemoryGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "file.md", "--stdin", "--file", str(source_file)],
+        input="contents\n",
+        obj=obj,
+    )
+
+    assert result.exit_code == 1
+    assert "--stdin and --file are mutually exclusive." in result.output
 
 
 def test_brmem_get_surfaces_git_failure_when_branch_omitted(cli_group: ClinkrGroup) -> None:
