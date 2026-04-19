@@ -214,6 +214,85 @@ def test_discover_group_errors_wrong_return_type() -> None:
             discover_group("_test_dg_bad_type")
 
 
+def test_discover_group_finds_factory_in_group_submodule() -> None:
+    """Factory in ``pkg/group.py`` is the new convention.
+
+    When ``pkg/__init__.py`` has no factory, ``discover_group`` should look
+    inside ``pkg.group`` and use the factory there. Caller contract
+    (``discover_group("pkg")``) is unchanged.
+    """
+
+    @clinkr_group(help="Manage users.")
+    def users() -> ClinkrGroup:
+        return ClinkrGroup(operations=[run_ping])
+
+    with _fake_package(
+        "_test_dg_submodule",
+        submodules={"group": {"users": users}},
+    ):
+        group = discover_group("_test_dg_submodule")
+
+    assert group.name == "users"
+    assert group.help == "Manage users."
+    assert "ping" in group.commands
+
+
+def test_discover_group_init_wins_over_submodule() -> None:
+    """If both ``__init__.py`` and ``group.py`` define a factory, the package
+    namespace wins — the submodule lookup is a fallback, not an override."""
+
+    @clinkr_group(help="From init.")
+    def init_factory() -> ClinkrGroup:
+        return ClinkrGroup()
+
+    @clinkr_group(help="From submodule.")
+    def submodule_factory() -> ClinkrGroup:
+        return ClinkrGroup()
+
+    with _fake_package(
+        "_test_dg_init_wins",
+        init_attrs={"init_factory": init_factory},
+        submodules={"group": {"submodule_factory": submodule_factory}},
+    ):
+        group = discover_group("_test_dg_init_wins")
+
+    assert group.name == "init_factory"
+    assert group.help == "From init."
+
+
+def test_discover_group_falls_back_when_no_factory_anywhere() -> None:
+    """With no factory in ``__init__.py`` and no ``group`` submodule,
+    ``discover_group`` falls back to operation auto-discovery."""
+
+    with _fake_package(
+        "_test_dg_fallback_no_sub",
+        init_attrs={"__doc__": "Manage users.", "run_ping": run_ping},
+    ):
+        group = discover_group("_test_dg_fallback_no_sub")
+
+    assert group.name == "_test_dg_fallback_no_sub"
+    assert group.help == "Manage users."
+    assert "ping" in group.commands
+
+
+def test_discover_group_custom_group_module_name() -> None:
+    """``group_module`` parameter lets callers override the default submodule
+    name. Useful for packages that want a different convention."""
+
+    @clinkr_group(help="Manage users.")
+    def users() -> ClinkrGroup:
+        return ClinkrGroup(operations=[run_ping])
+
+    with _fake_package(
+        "_test_dg_custom_submodule",
+        submodules={"groupdef": {"users": users}},
+    ):
+        group = discover_group("_test_dg_custom_submodule", group_module="groupdef")
+
+    assert group.name == "users"
+    assert group.help == "Manage users."
+
+
 def test_discover_group_alias_works() -> None:
     @clinkr_group(help="Aliases.")
     def aliased() -> ClinkrGroup:

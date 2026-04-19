@@ -31,6 +31,15 @@ A command is considered migrated when **all** of the following hold:
 `<group> json <cmd>` subtree working during migration. Per the redesign spec it
 will be removed once every command is migrated.
 
+## Conventions
+
+New or freshly migrated groups place their `@clinkr_group` factory in a
+module named `group.py` inside the package. `__init__.py` stays empty
+(docstring only), per the repo-wide rule in `AGENTS.md`.
+`discover_group("twerk_core.<pkg>")` still resolves the factory for you —
+it looks inside `{pkg}.group` automatically. See
+`docs/clinkr-redesign-spec.md` for the discovery rules.
+
 ## Status checklist
 
 ### `twerk-core` — `brmem` group
@@ -129,7 +138,7 @@ stays at 2 and there is no exit code 1.
 - Leave `to_json_dict` alone unless you're also changing the serialized shape
   (you probably aren't — migration is not a schema change).
 
-### 4. Plan the `__init__.py` edit
+### 4. Plan the `group.py` edit
 
 The group registration changes from:
 
@@ -147,6 +156,11 @@ add_format_operation(group, run_foo, add_legacy_json_alias=True)
 Import `add_format_operation` from `twerk_core.clinkr.format_flag`. Keep
 `add_legacy_json_alias=True` for now so the `<group> json <cmd>` path keeps
 working.
+
+The factory itself lives in `group.py` alongside the command modules, not
+in `__init__.py` — see the Conventions note at the top of this document.
+If the package hasn't adopted the convention yet, move the factory into
+`group.py` and empty out `__init__.py` as part of the same migration PR.
 
 ### 5. Plan the test additions
 
@@ -182,7 +196,7 @@ A migration PR should contain, in order:
 
 1. The operation source file: return type changed to `ClinkrExit[T]`, every
    return path rewritten per the classification in step 2.
-2. The group `__init__.py`: `add_format_operation(..., add_legacy_json_alias=True)`.
+2. The group `group.py`: `add_format_operation(..., add_legacy_json_alias=True)`.
 3. New scenario tests for `--format json` covering every `ClinkrExit` variant.
 4. No changes to result-dataclass JSON shape, no changes to `text`-format
    output, no changes to the legacy `json <cmd>` output. The migration is

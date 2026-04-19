@@ -237,18 +237,16 @@ def get_group_meta(fn: Any) -> ClinkrGroupMeta | None:
     return getattr(fn, _GROUP_META_ATTR, None)
 
 
-def discover_group(module_path: str) -> ClinkrGroup:
-    """Import a module, auto-discover operations, and optionally apply group
-    metadata.
+def _find_group_factory(
+    module: Any,
+) -> tuple[Any, ClinkrGroupMeta] | tuple[None, None]:
+    """Scan *module*'s namespace for a single ``@clinkr_group`` factory.
 
-    If a ``@clinkr_group``-decorated function is present, its return value and
-    metadata are used. Otherwise, a default :class:`ClinkrGroup` is created
-    from discovered operations and named from the module path.
+    Returns ``(fn, meta)`` when exactly one factory is present, or
+    ``(None, None)`` when none is. Raises :class:`ValueError` on multiple.
     """
-    module = importlib.import_module(module_path)
-
-    group_fn = None
-    meta = None
+    group_fn: Any = None
+    meta: ClinkrGroupMeta | None = None
     for attr_name in dir(module):
         obj = getattr(module, attr_name)
         if not callable(obj):
@@ -257,10 +255,43 @@ def discover_group(module_path: str) -> ClinkrGroup:
         if found is not None:
             if group_fn is not None:
                 raise ValueError(
-                    f"Module {module_path!r} contains multiple @clinkr_group-decorated functions"
+                    f"Module {module.__name__!r} contains multiple "
+                    "@clinkr_group-decorated functions"
                 )
             group_fn = obj
             meta = found
+    if group_fn is None:
+        return None, None
+    assert meta is not None
+    return group_fn, meta
+
+
+def discover_group(module_path: str, *, group_module: str = "group") -> ClinkrGroup:
+    """Import a module, auto-discover operations, and optionally apply group
+    metadata.
+
+    Resolution order:
+
+    1. If the package namespace (``module_path``) defines a
+       ``@clinkr_group``-decorated factory, use it.
+    2. Otherwise, if ``{module_path}.{group_module}`` imports successfully and
+       defines a factory, use that. ``group_module`` defaults to ``"group"``
+       — the convention being that each clinkr-enabled package places its
+       factory in a sibling module named ``group.py``.
+    3. Otherwise, build a default :class:`ClinkrGroup` from operations
+       discovered under ``module_path`` via :func:`discover_operations`.
+    """
+    module = importlib.import_module(module_path)
+
+    group_fn, meta = _find_group_factory(module)
+
+    if group_fn is None:
+        try:
+            submodule = importlib.import_module(f"{module_path}.{group_module}")
+        except ImportError:
+            submodule = None
+        if submodule is not None:
+            group_fn, meta = _find_group_factory(submodule)
 
     if group_fn is None:
         group = discover_operations(module_path)

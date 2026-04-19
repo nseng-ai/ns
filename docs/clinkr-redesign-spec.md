@@ -359,13 +359,15 @@ Example:
 
 ```text
 brmem/
-  __init__.py
+  __init__.py        # empty, docstring only
+  group.py           # @clinkr_group factory
   get.py
   put.py
   check.py
   list.py
   branch/
-    __init__.py
+    __init__.py      # empty, docstring only
+    group.py         # @clinkr_group factory
     check.py
 ```
 
@@ -391,6 +393,17 @@ For a subgroup package:
 
 - recurse into the package
 - use its package docstring for help text by default
+
+The `@clinkr_group`-decorated factory for a package lives in a module named
+`group.py` inside that package. `__init__.py` stays empty (or docstring
+only), per the repo-wide convention in `AGENTS.md`. Callers still invoke
+`discover_group` with the **package** path
+(`discover_group("twerk_core.brmem")`); `discover_group` locates the
+factory inside `{pkg}.group` automatically. The submodule name is
+parameterizable via `discover_group(..., group_module="group")` for callers
+that want a different convention, but `group` is the default. This leaves
+the auto-discovery fallback (via `pkgutil.walk_packages`) rooted at the
+package, so groups without an explicit factory continue to work unchanged.
 
 ### Naming
 
