@@ -61,7 +61,7 @@ git rev-parse --abbrev-ref HEAD
 Call the result `<branch>`. If the output is `HEAD` (detached),
 abort with a clear error — brmem keys are branch names, and a
 detached worktree doesn't have one. Tell the user to check out the
-workbr branch first (typically via `slot checkout <slug>`).
+workbr branch first.
 
 ### 2. Fetch the plan
 
@@ -130,8 +130,8 @@ Treat this step like any other plan-driven implementation session:
   feature.
 - Running this skill in the original stashing worktree (current
   branch ≠ stashed branch). `brmem get` would return a different
-  branch's plan or error out. Always run from the worktree created
-  on the workbr branch (typically via `slot checkout <slug>`).
+  branch's plan or error out. Always run from a checkout of the
+  workbr branch — however that checkout was created.
 - Retrying `brmem get` with guessed alternate paths on a missing
   entry.
 - Treating the plan as a suggestion. Unless the user amends it in

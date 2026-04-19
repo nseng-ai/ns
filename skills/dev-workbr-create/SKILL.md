@@ -30,8 +30,9 @@ Given a plan file (from conversation context or an explicit path), produce:
    pointing at the current `HEAD`
 2. a brmem entry at `refs/brmem/brs/<slug>:plan.md` containing the plan
    verbatim
-3. a report telling the user how to open a worktree on the new branch
-   and run `dev-workbr-impl` to begin work
+3. a report giving the user the branch name and telling them to
+   continue work on that branch (running `dev-workbr-impl` once
+   they've checked it out)
 
 Responsibility ends at the brmem commit. The working tree is never
 modified. No push, no `gt submit`.
@@ -193,14 +194,13 @@ Print a short summary to the user:
 - brmem ref path and commit SHA (from step 6)
 - source plan file path (so the user can spot a wrong
   context-resolution)
-- next-step hint:
+- next-step hint, phrased tool-agnostically:
 
   ```
-  Open a worktree on this branch:
-    slot checkout <slug>
-  Then from the new worktree, run:
-    /dev-workbr-impl
-  to pull the plan from brmem and begin implementing.
+  Branch: <slug>
+  Continue work on that branch (check it out however you prefer —
+  fresh worktree, `git checkout`, `gt checkout`, etc.) and run
+  `/dev-workbr-impl` from there to load the plan from brmem.
   ```
 
 ## Edge cases
