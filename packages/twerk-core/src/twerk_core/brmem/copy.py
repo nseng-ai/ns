@@ -12,6 +12,8 @@ from twerk_core.brmem.gateway import (
     InvalidBranchNameError,
     InvalidMemoryPathError,
     ref_name_for_branch,
+    validate_branch_name,
+    validate_memory_path,
 )
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.clinkr.command import ClinkrCommandError
@@ -91,14 +93,18 @@ def run_copy_branch_memory(
     if isinstance(to_branch, ClinkrCommandError):
         return to_branch
 
-    gateway = get_branch_memory_gateway(ctx)
-
     try:
-        content = gateway.get(request.from_branch, request.path, at=request.at)
+        validate_branch_name(request.from_branch)
+        validate_branch_name(to_branch)
+        validate_memory_path(request.path)
     except InvalidBranchNameError as exc:
         return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
     except InvalidMemoryPathError as exc:
         return ClinkrCommandError(error_type="invalid_memory_path", message=str(exc))
+
+    gateway = get_branch_memory_gateway(ctx)
+
+    content = gateway.get(request.from_branch, request.path, at=request.at)
 
     from_ref = ref_name_for_branch(request.from_branch)
     source_target = request.at if request.at is not None else from_ref
@@ -115,10 +121,6 @@ def run_copy_branch_memory(
 
     try:
         commit = gateway.put(to_branch, request.path, content)
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
-    except InvalidMemoryPathError as exc:
-        return ClinkrCommandError(error_type="invalid_memory_path", message=str(exc))
     except subprocess.CalledProcessError as exc:
         details = exc.stderr.strip() if exc.stderr else str(exc)
         return ClinkrCommandError(
