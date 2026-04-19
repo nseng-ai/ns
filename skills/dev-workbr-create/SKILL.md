@@ -145,9 +145,12 @@ Run these and abort on the first failure:
 - `git rev-parse --verify refs/heads/<slug>` — must **fail**
   (exit-code non-zero). If the ref exists, abort and ask the user to
   pick a different slug or delete the stale branch.
-- `git rev-parse --verify refs/brmem/brs/<slug>` — must **fail**. If
-  the brmem ref exists (rare — typically indicates a half-created
-  workbr from a prior run), abort.
+- `brmem branch check <slug>` — must exit non-zero (negative, meaning
+  no brmem ref for that branch). Exit 0 indicates a prior brmem entry
+  exists for this slug — typically a half-created workbr from a prior
+  run — so abort. A fail (exit 2) means the slug would be rejected by
+  brmem's encoding rules; treat as abort and ask the user to pick a
+  different slug.
 - `git rev-parse HEAD` → capture the start-point SHA for the report.
   Abort on detached HEAD.
 - **No clean-tree check.** The working tree is explicitly allowed to
