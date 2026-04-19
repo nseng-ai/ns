@@ -37,7 +37,7 @@ will be removed once every command is migrated.
 
 - [x] `brmem check` — #150
 - [x] `brmem branch check` — #149
-- [x] `brmem put`
+- [x] `brmem put` — #151
 - [ ] `brmem get`
 - [ ] `brmem list`
 
