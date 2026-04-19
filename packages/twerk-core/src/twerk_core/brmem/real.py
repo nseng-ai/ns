@@ -8,8 +8,10 @@ import tempfile
 from pathlib import Path
 
 from twerk_core.brmem.gateway import (
+    BranchDiagnostic,
     BranchMemoryGateway,
     InvalidBranchNameError,
+    PathDiagnostic,
     _PathList,
     ref_name_for_branch,
     validate_memory_path,
@@ -101,6 +103,68 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         if result.returncode != 0:
             return []
         return sorted(line for line in result.stdout.splitlines() if line)
+
+    def check_path(self, branch: str, path: str, *, at: str | None = None) -> PathDiagnostic | None:
+        self._validated_ref_name(branch)
+        validate_memory_path(path)
+
+        target = at if at is not None else ref_name_for_branch(branch)
+        existence = _run(
+            ["git", "cat-file", "-e", f"{target}:{path}"],
+            cwd=self._cwd,
+            check=False,
+        )
+        if existence.returncode != 0:
+            return None
+
+        blob_sha = _run(
+            ["git", "rev-parse", f"{target}:{path}"],
+            cwd=self._cwd,
+        ).stdout.strip()
+        size_bytes = int(
+            _run(
+                ["git", "cat-file", "-s", f"{target}:{path}"],
+                cwd=self._cwd,
+            ).stdout.strip()
+        )
+        log = _run(
+            ["git", "log", "-1", "--format=%H%x09%cI", target, "--", path],
+            cwd=self._cwd,
+            check=False,
+        )
+        last_sha, _, last_date = log.stdout.strip().partition("\t")
+        return PathDiagnostic(
+            blob_sha=blob_sha,
+            size_bytes=size_bytes,
+            last_commit_sha=last_sha,
+            last_commit_date=last_date,
+        )
+
+    def check_branch(self, branch: str) -> BranchDiagnostic | None:
+        ref_name = self._validated_ref_name(branch)
+        existence = _run(
+            ["git", "show-ref", "--verify", "--quiet", ref_name],
+            cwd=self._cwd,
+            check=False,
+        )
+        if existence.returncode != 0:
+            return None
+
+        log = _run(
+            ["git", "log", "-1", "--format=%H%x09%cI", ref_name],
+            cwd=self._cwd,
+        )
+        head_sha, _, head_date = log.stdout.strip().partition("\t")
+        tree = _run(
+            ["git", "ls-tree", "-r", "--name-only", ref_name],
+            cwd=self._cwd,
+        )
+        path_count = sum(1 for line in tree.stdout.splitlines() if line)
+        return BranchDiagnostic(
+            head_sha=head_sha,
+            head_date=head_date,
+            path_count=path_count,
+        )
 
     def _validated_ref_name(self, branch: str) -> str:
         ref_name = ref_name_for_branch(branch)
