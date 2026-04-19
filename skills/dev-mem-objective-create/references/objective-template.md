@@ -1,8 +1,15 @@
 <!--
 Simple local-first objective template for the objective-mem prototype.
 
-Keep it much lighter than the GitHub objective template. The goal is a durable,
-mechanical control plane that makes future progress sessions easy to resume.
+Keep it lighter than the GitHub objective template, but make each section
+load-bearing enough that a later progress session can resume work mechanically.
+
+For architectural redesigns and migrations:
+- use the intro to set scope clearly
+- use `## Completion Criteria` to describe the end state
+- use `## Status Checklist` to organize PR-sized slices
+- prefer steelthreaded early slices over framework-only setup
+- keep `## Notes` and let it accumulate durable discoveries over time
 
 Delete this HTML comment before use.
 -->
@@ -12,36 +19,40 @@ Delete this HTML comment before use.
 Status: in progress
 
 <One or two short paragraphs about the objective and why it exists. Keep this
-concrete and specific. Mention the relevant surface area, constraints, and the
-reason the work matters.>
+concrete and specific. Say what proposal / change triggered the objective,
+what related work is already landed, what remains in scope now, what is out of
+scope, and why the remaining work matters.>
 
 ## Completion Criteria
 
-- [ ] <Concrete, re-checkable criterion>
-- [ ] <Concrete, re-checkable criterion>
+- [ ] <Concrete, re-checkable end-state criterion>
+- [ ] <Concrete, re-checkable end-state criterion>
 
 ## Status Checklist
 
-### <Phase, area, or package>
+### PR 1 — <Steelthreaded core change + first real migrated surface>
 
-- <Work item>
-- <Work item>
+- <Smallest end-to-end slice that exercises the new design>
+- <Tests / help / behavior updates needed for that slice>
 
-### <Another phase, area, or package>
+### PR 2 — <Next core change + next migrated surface>
 
-- <Work item>
+- <Next landable slice>
+- <Follow-up needed to keep the migration moving>
 
 ## How to Make Progress
 
-1. <How to pick the next unit of work>
-2. <What to inspect or verify before editing>
-3. <What to update after completing a unit of work>
+1. <How to pick the next PR-sized slice or smallest landable unit of work>
+2. <What current behavior / tests / help output to inspect before editing>
+3. <What to update after landing a slice>
 
 ## Notes
 
-- [ ] <Useful finding, constraint, or pointer>
-- <Another note>
+- [ ] <Durable finding, constraint, collision, or pointer discovered so far>
+- <Another durable note worth preserving for future sessions>
 
 <!--
-`## Notes` is optional. Remove it if it is genuinely empty.
+`## Notes` is optional for very small objectives. For architectural redesigns,
+migrations, or multi-PR workstreams, keep it and let it accumulate discoveries
+conservatively over time.
 -->
