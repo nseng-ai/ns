@@ -89,10 +89,10 @@ tree working until the parent group itself is migrated in a later PR.
 
 ### PR 2 — `twerk-core` `brmem`
 
-- [ ] Create `packages/twerk-core/src/twerk_core/brmem/group.py`
-- [ ] Reduce `packages/twerk-core/src/twerk_core/brmem/__init__.py` to a
+- [x] Create `packages/twerk-core/src/twerk_core/brmem/group.py`
+- [x] Reduce `packages/twerk-core/src/twerk_core/brmem/__init__.py` to a
       docstring or empty file
-- [ ] Update `packages/twerk-core/src/twerk_core/brmem/main.py` to import
+- [x] Update `packages/twerk-core/src/twerk_core/brmem/main.py` to import
       `build_brmem_group`
 
 ### PR 3 — `twerk-objectives` `objective`
