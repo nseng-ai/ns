@@ -14,6 +14,7 @@ from twerk_core.brmem.gateway import (
 )
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -67,38 +68,55 @@ def render_check_branch(result: CheckBranchResult) -> None:
 def run_check_branch(
     ctx: click.Context,
     request: CheckBranchRequest,
-) -> CheckBranchResult | ClinkrCommandError:
+) -> ClinkrExit[CheckBranchResult]:
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
-        return branch
+        return ClinkrExit.fail(
+            error_type=branch.error_type,
+            message=branch.message,
+            exit_code=2,
+        )
 
     try:
         encoded = encode_branch_name(branch)
         ref_name = ref_name_for_branch(branch)
     except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
+        return ClinkrExit.fail(
+            error_type="invalid_branch_name",
+            message=str(exc),
+            exit_code=2,
+        )
 
     gateway = get_branch_memory_gateway(ctx)
     try:
         diagnostic = gateway.check_branch(branch)
     except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
+        return ClinkrExit.fail(
+            error_type="invalid_branch_name",
+            message=str(exc),
+            exit_code=2,
+        )
 
     if diagnostic is None:
-        return CheckBranchResult(
+        return ClinkrExit.negative(
+            CheckBranchResult(
+                branch=branch,
+                encoded=encoded,
+                ref_name=ref_name,
+                exists=False,
+                absent_message=f"not found: no brmem ref for branch {branch}",
+            ),
+            exit_code=1,
+        )
+
+    return ClinkrExit.ok(
+        CheckBranchResult(
             branch=branch,
             encoded=encoded,
             ref_name=ref_name,
-            exists=False,
-            absent_message=f"not found: no brmem ref for branch {branch}",
+            exists=True,
+            head_sha=diagnostic.head_sha,
+            head_date=diagnostic.head_date,
+            path_count=diagnostic.path_count,
         )
-
-    return CheckBranchResult(
-        branch=branch,
-        encoded=encoded,
-        ref_name=ref_name,
-        exists=True,
-        head_sha=diagnostic.head_sha,
-        head_date=diagnostic.head_date,
-        path_count=diagnostic.path_count,
     )

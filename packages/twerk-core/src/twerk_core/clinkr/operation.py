@@ -9,6 +9,7 @@ from typing import Any, Union, get_args, get_origin, get_type_hints
 import click
 
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 
 _META_ATTR = "_clinkr_operation_meta"
 
@@ -111,7 +112,14 @@ def _extract_types_from_hints(
     return_hint = hints["return"]
     origin = get_origin(return_hint)
 
-    if origin is Union or origin is types.UnionType:
+    if origin is ClinkrExit:
+        result_types = get_args(return_hint)
+        if len(result_types) != 1:
+            raise TypeError(
+                f"clinkr_operation function {fn_name}: "
+                f"cannot infer result_types from return annotation {return_hint}"
+            )
+    elif origin is Union or origin is types.UnionType:
         args = get_args(return_hint)
         result_types = tuple(a for a in args if a is not ClinkrCommandError)
         if not result_types:

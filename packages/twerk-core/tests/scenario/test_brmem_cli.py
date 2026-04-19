@@ -772,3 +772,66 @@ def test_brmem_json_branch_check_missing(cli_group: ClinkrGroup) -> None:
     assert payload["exists"] is False
     assert payload["head_sha"] is None
     assert payload["path_count"] is None
+
+
+def test_brmem_branch_check_json_present(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("feat/x", "a.md", "a\n")
+    obj = {
+        "brmem_gateway": gateway,
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = _check_runner().invoke(cli_group, ["branch", "check", "--format", "json"], obj=obj)
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload == {
+        "branch": "feat/x",
+        "encoded": "feat---x",
+        "ref_name": "refs/brmem/brs/feat---x",
+        "exists": True,
+        "head_sha": "fake-0001",
+        "head_date": "2026-01-01T00:00:01+00:00",
+        "path_count": 1,
+    }
+
+
+def test_brmem_branch_check_json_missing_exits_one(cli_group: ClinkrGroup) -> None:
+    obj = {
+        "brmem_gateway": FakeBranchMemoryGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = _check_runner().invoke(cli_group, ["branch", "check", "--format", "json"], obj=obj)
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 1, result.output
+    assert payload == {
+        "branch": "feat/x",
+        "encoded": "feat---x",
+        "ref_name": "refs/brmem/brs/feat---x",
+        "exists": False,
+        "head_sha": None,
+        "head_date": None,
+        "path_count": None,
+    }
+
+
+def test_brmem_branch_check_json_invalid_branch_exits_two(cli_group: ClinkrGroup) -> None:
+    result = _check_runner().invoke(
+        cli_group,
+        ["branch", "check", "feat---x", "--format", "json"],
+        obj={"brmem_gateway": FakeBranchMemoryGateway()},
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload == {
+        "success": False,
+        "error_type": "invalid_branch_name",
+        "message": (
+            "Invalid branch name 'feat---x': branch names containing '---' "
+            "cannot be encoded into refs/brmem/brs"
+        ),
+    }
