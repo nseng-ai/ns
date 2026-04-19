@@ -6,7 +6,7 @@ import pytest
 
 from twerk_reviewer.review_definition import parse_review_definition
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_REPO_ROOT = Path(__file__).parents[4]
 _DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"
 
 
