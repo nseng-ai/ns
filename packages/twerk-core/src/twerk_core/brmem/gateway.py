@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import TypeAlias
 
@@ -11,6 +12,25 @@ _PathList: TypeAlias = list[str]
 BRMEM_REF_PREFIX = "refs/brmem"
 BRMEM_BRANCH_REF_PREFIX = f"{BRMEM_REF_PREFIX}/brs"
 _BRANCH_SEPARATOR = "---"
+
+
+@dataclass(frozen=True)
+class PathDiagnostic:
+    """Probe data about a single path inside a branch-memory ref."""
+
+    blob_sha: str
+    size_bytes: int
+    last_commit_sha: str
+    last_commit_date: str
+
+
+@dataclass(frozen=True)
+class BranchDiagnostic:
+    """Probe data about a branch-memory ref as a whole."""
+
+    head_sha: str
+    head_date: str
+    path_count: int
 
 
 class InvalidBranchNameError(ValueError):
@@ -45,6 +65,14 @@ class BranchMemoryGateway(ABC):
     @abstractmethod
     def list(self, branch: str, *, at: str | None = None) -> _PathList:
         """Return paths stored for ``branch`` at ``at`` or the branch head when omitted."""
+
+    @abstractmethod
+    def check_path(self, branch: str, path: str, *, at: str | None = None) -> PathDiagnostic | None:
+        """Return diagnostics for ``path`` in ``branch`` at ``at`` (or head), else ``None``."""
+
+    @abstractmethod
+    def check_branch(self, branch: str) -> BranchDiagnostic | None:
+        """Return diagnostics for ``branch``'s memory ref, else ``None``."""
 
 
 def ref_name_for_branch(branch: str) -> str:
