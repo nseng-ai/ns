@@ -16,6 +16,16 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
+    "dev-mem-objective-create": {
+      "source": "skills/dev-mem-objective-create",
+      "sourceType": "local",
+      "computedHash": "70398264bddf900ec54adf1d8533ebae380659ab764a43d359f1edc5803dc4fc"
+    },
+    "dev-mem-objective-progress": {
+      "source": "skills/dev-mem-objective-progress",
+      "sourceType": "local",
+      "computedHash": "1bd6ca30f3b8b3efb642d4290e5253ef0159b1012bab374a20c2bfb0625aee19"
+    },
     "dev-plan-to-branch": {
       "source": "skills/dev-plan-to-branch",
       "sourceType": "local",
