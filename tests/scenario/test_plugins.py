@@ -61,7 +61,10 @@ def test_discover_plugins_no_plugins() -> None:
 
 def test_objective_plugin_integration() -> None:
     parent = click.Group("test")
-    ep = FakePluginEntryPoint(name="objectives", value="twerk_objectives.cli.objective")
+    ep = FakePluginEntryPoint(
+        name="objectives",
+        value="twerk_objectives.cli.objective.group:build_objective_group",
+    )
 
     discover_plugins(parent, source=_entry_point_source(ep))
 

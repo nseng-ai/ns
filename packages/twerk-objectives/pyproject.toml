@@ -12,7 +12,7 @@ dependencies = [
 objective = "twerk_objectives.cli.main:main"
 
 [project.entry-points."twerk.plugins"]
-objectives = "twerk_objectives.cli.objective"
+objectives = "twerk_objectives.cli.objective.group:build_objective_group"
 
 [build-system]
 requires = ["hatchling"]
