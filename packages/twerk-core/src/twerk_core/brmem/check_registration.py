@@ -21,6 +21,12 @@ def add_check_operation(group: ClinkrGroup, operation: Callable[..., Any]) -> No
     missing targets from command failures. JSON mode keeps standard clinkr
     success/error envelopes.
     """
+    # This intentionally re-implements part of clinkr's command registration.
+    # `brmem check` needs nonstandard human exit semantics while keeping the
+    # standard machine JSON contract. Rather than teaching clinkr about this
+    # one-off policy, we localize the divergence here. If more commands need
+    # this shape, it likely means clinkr's registration/dispatch abstractions
+    # should be factored more explicitly.
     meta = get_operation_meta(operation)
     if meta is None:
         raise TypeError(f"{operation!r} is not decorated with @clinkr_operation")
