@@ -14,11 +14,11 @@ def brmem() -> ClinkrGroup:
 
     group = ClinkrGroup(
         operations=[
-            run_put_branch_memory,
             run_get_branch_memory,
             run_list_branch_memory,
         ]
     )
     add_format_operation(group, run_check_branch_memory, add_legacy_json_alias=True)
+    add_format_operation(group, run_put_branch_memory, add_legacy_json_alias=True)
     group.add_command(build_branch_group())
     return group

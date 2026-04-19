@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import click
@@ -208,7 +209,7 @@ def test_brmem_invalid_branch_surfaces_clean_error(cli_group: ClinkrGroup, tmp_p
         obj={"brmem_gateway": FakeBranchMemoryGateway()},
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Invalid branch name 'feat---x'" in result.output
 
 
@@ -253,7 +254,7 @@ def test_brmem_put_rejects_detached_head_when_branch_omitted(
         },
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "detached head" in result.output.lower()
 
 
@@ -328,8 +329,146 @@ def test_brmem_put_rejects_stdin_and_file_together(cli_group: ClinkrGroup, tmp_p
         obj=obj,
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "--stdin and --file are mutually exclusive." in result.output
+
+
+def test_brmem_put_format_json_ok(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("hello\n", encoding="utf-8")
+    obj = {
+        "brmem_gateway": FakeBranchMemoryGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "docs/notes.md", "--file", str(source_file), "--format", "json"],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload == {
+        "branch": "feat/x",
+        "path": "docs/notes.md",
+        "ref_name": "refs/brmem/brs/feat---x",
+        "commit": "fake-0001",
+        "source_file": str(source_file),
+    }
+
+
+def test_brmem_put_format_json_source_file_missing_exits_two(cli_group: ClinkrGroup) -> None:
+    obj = {
+        "brmem_gateway": FakeBranchMemoryGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "docs/notes.md", "--file", "/does/not/exist", "--format", "json"],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload == {
+        "success": False,
+        "error_type": "source_file_missing",
+        "message": "Source file not found: /does/not/exist",
+    }
+
+
+def test_brmem_put_format_json_stdin_and_file_conflict_exits_two(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("hello\n", encoding="utf-8")
+    obj = {
+        "brmem_gateway": FakeBranchMemoryGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "docs/notes.md", "--stdin", "--file", str(source_file), "--format", "json"],
+        input="contents\n",
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload == {
+        "success": False,
+        "error_type": "stdin_and_file_conflict",
+        "message": "--stdin and --file are mutually exclusive.",
+    }
+
+
+def test_brmem_put_format_json_invalid_branch_exits_two(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("hello\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "put",
+            "docs/notes.md",
+            "--file",
+            str(source_file),
+            "--branch",
+            "feat---x",
+            "--format",
+            "json",
+        ],
+        obj={"brmem_gateway": FakeBranchMemoryGateway()},
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload == {
+        "success": False,
+        "error_type": "invalid_branch_name",
+        "message": (
+            "Invalid branch name 'feat---x': branch names containing '---' "
+            "cannot be encoded into refs/brmem/brs"
+        ),
+    }
+
+
+def test_brmem_put_format_json_git_failure_exits_two(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    class _GitFailurePutGateway(FakeBranchMemoryGateway):
+        def put(self, branch: str, path: str, content: str) -> str:
+            raise subprocess.CalledProcessError(
+                returncode=128,
+                cmd=["git", "update-ref"],
+                stderr="fatal: cannot update ref\n",
+            )
+
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("hello\n", encoding="utf-8")
+    obj = {
+        "brmem_gateway": _GitFailurePutGateway(),
+        "git_gateway": FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "docs/notes.md", "--file", str(source_file), "--format", "json"],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload == {
+        "success": False,
+        "error_type": "git_failure",
+        "message": "Failed to write branch memory: fatal: cannot update ref",
+    }
 
 
 def test_brmem_get_surfaces_git_failure_when_branch_omitted(cli_group: ClinkrGroup) -> None:

@@ -37,7 +37,7 @@ will be removed once every command is migrated.
 
 - [x] `brmem check` — #150
 - [x] `brmem branch check` — #149
-- [ ] `brmem put`
+- [x] `brmem put`
 - [ ] `brmem get`
 - [ ] `brmem list`
 
@@ -108,11 +108,11 @@ Read the operation top-to-bottom and label every `return` with one of:
 Decide the exit codes up front and write them into the plan. The convention
 established by the two migrated commands is:
 
-| Outcome     | Exit code |
-| ----------- | --------- |
-| ok          | 0         |
-| negative    | 1         |
-| fail        | 2         |
+| Outcome  | Exit code |
+| -------- | --------- |
+| ok       | 0         |
+| negative | 1         |
+| fail     | 2         |
 
 For commands with no negative case (e.g. most `pr-address` actions), fail
 stays at 2 and there is no exit code 1.
