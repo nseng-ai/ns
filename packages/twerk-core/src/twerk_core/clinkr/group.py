@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import importlib
-import inspect
-import pkgutil
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 from typing import Any
 
 import click
@@ -45,17 +41,6 @@ class ClinkrGroup(click.Group):
             if meta is None:
                 raise TypeError(f"{op_fn!r} is not decorated with @clinkr_operation")
             _register_operation(self, op_fn, meta)
-
-    @classmethod
-    def discover_subcommands(cls) -> ClinkrGroup:
-        """Auto-discover ``@clinkr_operation`` functions in the caller's package
-        and return a fully constructed :class:`ClinkrGroup`."""
-        frame = inspect.currentframe()
-        caller = frame.f_back if frame is not None else None
-        if caller is None:
-            raise RuntimeError("Cannot determine calling module")
-        package = caller.f_globals["__name__"]
-        return cls(operations=_scan_operations(package))
 
     @property
     def json_group(self) -> click.Group:
@@ -169,116 +154,3 @@ def _register_operation(
     group._json_group.add_command(machine_cmd, meta.name)
     for alias in meta.aliases:
         group._aliases[alias] = meta.name
-
-
-def _scan_operations(package: str) -> tuple[Callable[..., Any], ...]:
-    """Scan *package* for ``@clinkr_operation``-decorated functions."""
-    root = importlib.import_module(package)
-    modules = [root]
-
-    if hasattr(root, "__path__"):
-        for _importer, modname, _ispkg in pkgutil.walk_packages(root.__path__, root.__name__ + "."):
-            modules.append(importlib.import_module(modname))
-
-    found: list[Callable[..., Any]] = []
-    for module in modules:
-        for attr_name in dir(module):
-            obj = getattr(module, attr_name)
-            if not callable(obj):
-                continue
-            if get_operation_meta(obj) is not None:
-                found.append(obj)
-
-    return tuple(found)
-
-
-def discover_operations(package: str) -> ClinkrGroup:
-    """Scan *package* for ``@clinkr_operation``-decorated functions
-    and return a fully constructed :class:`ClinkrGroup`."""
-    return ClinkrGroup(operations=_scan_operations(package))
-
-
-# -- group decorator and discovery --------------------------------------------
-
-_GROUP_META_ATTR = "_clinkr_group_meta"
-
-
-@dataclass(frozen=True)
-class ClinkrGroupMeta:
-    """Metadata attached by the :func:`clinkr_group` decorator."""
-
-    help: str
-    name: str | None = None
-
-
-def clinkr_group(
-    *,
-    help: str = "",
-    name: str | None = None,
-) -> Callable[[Callable[..., ClinkrGroup]], Callable[..., ClinkrGroup]]:
-    """Marker decorator for group definitions.
-
-    Stores top-level display metadata (help string, optional display name).
-    The decorated function must return a :class:`ClinkrGroup`. When ``name``
-    is provided it overrides the decorated function's ``__name__`` — useful
-    when the desired CLI subgroup name contains characters that aren't
-    valid in Python identifiers (e.g. ``"pr-address"``).
-    """
-
-    def decorator(fn: Callable[..., ClinkrGroup]) -> Callable[..., ClinkrGroup]:
-        setattr(fn, _GROUP_META_ATTR, ClinkrGroupMeta(help=help, name=name))
-        return fn
-
-    return decorator
-
-
-def get_group_meta(fn: Any) -> ClinkrGroupMeta | None:
-    """Retrieve clinkr group metadata from a function, if present."""
-    return getattr(fn, _GROUP_META_ATTR, None)
-
-
-def discover_group(module_path: str) -> ClinkrGroup:
-    """Import a module, auto-discover operations, and optionally apply group
-    metadata.
-
-    If a ``@clinkr_group``-decorated function is present, its return value and
-    metadata are used. Otherwise, a default :class:`ClinkrGroup` is created
-    from discovered operations and named from the module path.
-    """
-    module = importlib.import_module(module_path)
-
-    group_fn = None
-    meta = None
-    for attr_name in dir(module):
-        obj = getattr(module, attr_name)
-        if not callable(obj):
-            continue
-        found = get_group_meta(obj)
-        if found is not None:
-            if group_fn is not None:
-                raise ValueError(
-                    f"Module {module_path!r} contains multiple @clinkr_group-decorated functions"
-                )
-            group_fn = obj
-            meta = found
-
-    if group_fn is None:
-        group = discover_operations(module_path)
-        group.name = module.__name__.rpartition(".")[2]
-        module_help = inspect.getdoc(module)
-        if module_help:
-            group.help = module_help
-        return group
-
-    group = group_fn()
-    if not isinstance(group, ClinkrGroup):
-        raise TypeError(
-            f"@clinkr_group function {group_fn.__qualname__!r} must return "
-            f"a ClinkrGroup, got {type(group).__name__}"
-        )
-
-    assert meta is not None
-    group.name = meta.name or group_fn.__name__
-    if meta.help:
-        group.help = meta.help
-    return group

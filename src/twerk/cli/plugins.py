@@ -8,7 +8,6 @@ from typing import Protocol
 
 import click
 
-from twerk_core.clinkr import discover_group
 from twerk_core.clinkr.group import ClinkrGroup
 
 logger = logging.getLogger(__name__)
@@ -33,12 +32,15 @@ class InstalledPluginEntryPointSource(PluginEntryPointSource):
 
 
 def _load_plugin_group(value: str) -> ClinkrGroup:
-    if ":" in value:
-        module_path, attr = value.split(":", 1)
-        module = importlib.import_module(module_path)
-        builder = getattr(module, attr)
-        return builder()
-    return discover_group(value)
+    if ":" not in value:
+        raise ValueError(
+            f"Plugin entry point {value!r} must be in 'module:function' form; "
+            "bare module paths are no longer supported."
+        )
+    module_path, attr = value.split(":", 1)
+    module = importlib.import_module(module_path)
+    builder = getattr(module, attr)
+    return builder()
 
 
 def discover_plugins(cli: click.Group, *, source: PluginEntryPointSource) -> None:

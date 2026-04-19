@@ -10,18 +10,12 @@ uv add clinkr
 
 ## Quick Start
 
-The default API is:
+A clinkr CLI has two pieces:
 
-- Put operations in the same package
-- Set the package docstring to the group help text
-- Use `discover_group` to assemble everything
+- One file per operation, each exporting a function decorated with `@clinkr_operation`.
+- A `group.py` module with an explicit `build_<name>_group()` function that imports each operation and constructs a `ClinkrGroup`.
 
-The subpackage after `cli/` becomes the group name, and each submodule is a command:
-
-```python
-# myapp/cli/myapp/__init__.py
-"""My application."""
-```
+The import list in `group.py` is the visible command inventory for the group. There is no autodiscovery.
 
 ```python
 # myapp/cli/myapp/greet.py
@@ -45,7 +39,7 @@ class GreetResult:
 
 
 @clinkr_operation(name="greet", help="Greet someone by name.")
-def greet(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
+def run_greet(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
     greeting = f"Hello, {request.name}!"
     if request.loud:
         greeting = greeting.upper()
@@ -53,13 +47,27 @@ def greet(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrComm
 ```
 
 ```python
-# myapp/main.py
-from twerk_core.clinkr.group import discover_group
+# myapp/cli/myapp/group.py
+"""Explicit builder for the `myapp` CLI group."""
 
-app = discover_group("myapp.cli.myapp")
+from twerk_core.clinkr.group import ClinkrGroup
+from myapp.cli.myapp.greet import run_greet
+
+
+def build_myapp_group() -> ClinkrGroup:
+    return ClinkrGroup(
+        name="myapp",
+        help="My application.",
+        operations=[run_greet],
+    )
 ```
 
-`discover_group` imports the module, auto-discovers all `@clinkr_operation` functions in the package, and builds a `ClinkrGroup` named from the module path. The module docstring becomes the default group help. If the module also defines a `@clinkr_group` function, that return value is used instead and its metadata is applied.
+```python
+# myapp/main.py
+from myapp.cli.myapp.group import build_myapp_group
+
+app = build_myapp_group()
+```
 
 This produces a human CLI and a machine CLI from the same operation:
 
@@ -95,63 +103,52 @@ $ myapp json greet --schema
 
 ## Nested Noun/Verb Structure
 
-For larger CLIs, define each noun group in its own package and let the package docstring carry the group help:
+For larger CLIs, give each noun its own package with a `group.py` builder, and compose them explicitly in the parent builder:
 
 ```
 myapp/
   cli/
-    users/
-      __init__.py    <- default group help via module docstring
-      list.py        <- @clinkr_operation functions
-      create.py
-    projects/
-      __init__.py    <- default group help via module docstring
-      list.py
-      create.py
+    myapp/
+      group.py         <- build_myapp_group (top-level)
+      users/
+        group.py       <- build_users_group
+        list.py        <- @clinkr_operation functions
+        create.py
+      projects/
+        group.py       <- build_projects_group
+        list.py
+        create.py
 ```
 
 ```python
-# myapp/cli/users/__init__.py
-"""Manage users."""
+# myapp/cli/myapp/users/group.py
+from twerk_core.clinkr.group import ClinkrGroup
+from myapp.cli.myapp.users.list import run_list_users
+from myapp.cli.myapp.users.create import run_create_user
+
+
+def build_users_group() -> ClinkrGroup:
+    return ClinkrGroup(
+        name="users",
+        help="Manage users.",
+        operations=[run_list_users, run_create_user],
+    )
 ```
 
 ```python
-# myapp/main.py
+# myapp/cli/myapp/group.py
 import click
-from twerk_core.clinkr.group import discover_group
 
-app = click.Group("myapp")
-app.add_command(discover_group("myapp.cli.users"))
-app.add_command(discover_group("myapp.cli.projects"))
-```
+from twerk_core.clinkr.group import ClinkrGroup
+from myapp.cli.myapp.users.group import build_users_group
+from myapp.cli.myapp.projects.group import build_projects_group
 
-Use `@clinkr_group` only when the defaults are not enough and you need custom help metadata or a custom base `ClinkrGroup`.
 
-```
-$ myapp users list --help
-Usage: myapp users list [OPTIONS]
-
-  List all users matching a filter.
-
-Options:
-  --team TEXT
-  --active / --no-active
-
-$ myapp users list --team backend --active
-alice  backend  active
-bob    backend  active
-
-$ echo '{"team": "backend", "active": true}' | myapp users json list
-{"users": [...], "success": true}
-
-$ myapp projects create --help
-Usage: myapp projects create [OPTIONS] NAME
-
-  Create a new project.
-
-Options:
-  --description TEXT
-  --private
+def build_myapp_group() -> ClinkrGroup:
+    group = ClinkrGroup(name="myapp", help="My application.")
+    group.add_command(build_users_group())
+    group.add_command(build_projects_group())
+    return group
 ```
 
 Each `ClinkrGroup` gets its own `json` subgroup, so the machine-readable path is always `<noun> json <verb>`.
@@ -164,22 +161,9 @@ Decorator that marks a function as a clinkr operation. The function must accept 
 
 ```python
 @clinkr_operation(name="foo", help="Do foo.", aliases=("f",))
-def foo(ctx: click.Context, request: FooRequest) -> FooResult | ClinkrCommandError:
+def run_foo(ctx: click.Context, request: FooRequest) -> FooResult | ClinkrCommandError:
     ...
 ```
-
-### `discover_group`
-
-The main entry point for assembling a group. Given a module path, it:
-
-1. Imports the module and auto-discovers `@clinkr_operation` functions in the package
-2. Builds a default `ClinkrGroup` named from the module path
-3. Uses the module docstring as the default group help
-4. If present, applies a `@clinkr_group` function for custom group configuration and help metadata
-
-### `@clinkr_group`
-
-Optional decorator for packages that need custom help text or a custom base `ClinkrGroup`.
 
 ### `ClinkrGroup`
 
@@ -187,6 +171,11 @@ A `click.Group` subclass that:
 
 - Auto-creates a `json` subgroup for machine-readable variants of every registered command
 - Supports command aliases
+- Takes all operations at construction time via the `operations` parameter
+
+### `build_<name>_group()`
+
+By convention, every group package exposes an explicit builder function in `group.py` that constructs and returns a fully wired `ClinkrGroup`. Consumers import the builder directly; there is no runtime discovery step.
 
 ### Machine Commands
 
@@ -208,12 +197,12 @@ Pass a `human_renderer` to `@clinkr_operation` to control how results are displa
 
 ## Modules
 
-| Module           | Purpose                                                                |
-| ---------------- | ---------------------------------------------------------------------- |
-| `operation`      | `@clinkr_operation` decorator and metadata                             |
-| `group`          | `ClinkrGroup`, `@clinkr_group` decorator, `discover_group` entry point |
-| `command`        | JSON stdin/stdout wiring and `--schema` flag                           |
-| `json_schema`    | JSON Schema generation from dataclasses                                |
-| `params`         | Dataclass-to-Click parameter extraction                                |
-| `rendering`      | Default human output renderer                                          |
-| `dataclass_json` | JSON serialization, deserialization, and schema helpers                |
+| Module           | Purpose                                                 |
+| ---------------- | ------------------------------------------------------- |
+| `operation`      | `@clinkr_operation` decorator and metadata              |
+| `group`          | `ClinkrGroup`                                           |
+| `command`        | JSON stdin/stdout wiring and `--schema` flag            |
+| `json_schema`    | JSON Schema generation from dataclasses                 |
+| `params`         | Dataclass-to-Click parameter extraction                 |
+| `rendering`      | Default human output renderer                           |
+| `dataclass_json` | JSON serialization, deserialization, and schema helpers |
