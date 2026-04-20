@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from twerk_core.clinkr.group import ClinkrGroup
+from twerk_reviewer.cli.reviewer.context import build_reviewer_context
 from twerk_reviewer.cli.reviewer.group import build_reviewer_group
 
 
@@ -16,4 +17,4 @@ def build_cli() -> ClinkrGroup:
 
 def main() -> None:
     """Entry point for the standalone ``reviewer`` CLI."""
-    build_cli()()
+    build_cli()(obj=build_reviewer_context)

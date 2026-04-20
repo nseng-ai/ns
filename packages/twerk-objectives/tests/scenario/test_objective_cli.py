@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable
 
 import pytest
 from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.gh import real_issue_gateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import Issue
 from twerk_objectives.cli.main import build_cli
+from twerk_objectives.cli.objective.context import ObjectivesCliContext
 
 
 @pytest.fixture(scope="module")
@@ -18,8 +19,15 @@ def cli_group() -> ClinkrGroup:
     return build_cli()
 
 
-def _make_fake(issues: tuple[Issue, ...] = ()) -> dict[str, object]:
-    return {"gh_issue_gateway": FakeIssueGateway(issues=issues)}
+def _make_fake(
+    issues: tuple[Issue, ...] = (),
+    *,
+    raise_on: dict[str, BaseException] | None = None,
+) -> Callable[[], ObjectivesCliContext]:
+    ctx = ObjectivesCliContext(
+        gh_issue_gateway=FakeIssueGateway(issues=issues, raise_on=raise_on),
+    )
+    return lambda: ctx
 
 
 SAMPLE_ISSUES = (
@@ -184,73 +192,17 @@ def test_objective_list_long_title_ellipsizes(cli_group: ClinkrGroup) -> None:
     assert "ago" in result.output
 
 
-def test_objective_list_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake_gh_output = json.dumps(
-        [
-            {
-                "number": 7,
-                "title": "Stubbed objective",
-                "state": "open",
-                "updatedAt": "2026-04-08T12:00:00Z",
-                "url": "https://github.com/org/repo/issues/7",
-            }
-        ]
+def test_objective_list_reports_gh_failure(cli_group: ClinkrGroup) -> None:
+    failure = subprocess.CalledProcessError(1, "gh issue list", stderr="boom stderr")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["list"],
+        obj=_make_fake(raise_on={"list": failure}),
     )
-
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        assert cmd[:3] == ["gh", "issue", "list"]
-        assert "--label" in cmd
-        assert cmd[cmd.index("--label") + 1] == "objective"
-        return subprocess.CompletedProcess(cmd, 0, stdout=fake_gh_output, stderr="")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["list"])
-
-    assert result.exit_code == 0, result.output
-    assert "#7" in result.output
-    assert "Stubbed objective" in result.output
-
-
-def test_objective_list_reports_gh_failure(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise subprocess.CalledProcessError(1, cmd, stderr="boom stderr")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["list"])
 
     assert result.exit_code == 1
     assert "Failed to list objectives: boom stderr" in result.output
-
-
-def test_objective_list_invalid_state_reports_error(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    stderr = 'invalid argument "bogus" for "-s, --state" flag: valid values are {open|closed|all}'
-
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        assert cmd[:3] == ["gh", "issue", "list"]
-        assert "--state" in cmd
-        assert cmd[cmd.index("--state") + 1] == "bogus"
-        raise subprocess.CalledProcessError(1, cmd, stderr=stderr)
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["list", "--state", "bogus"])
-
-    assert result.exit_code == 1
-    assert stderr in result.output
 
 
 def test_objective_json_list_empty(cli_group: ClinkrGroup) -> None:
@@ -296,17 +248,14 @@ def test_objective_json_list_rejects_state_option(cli_group: ClinkrGroup) -> Non
     assert "No such option: --state" in result.output
 
 
-def test_objective_json_list_reports_gh_failure(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise subprocess.CalledProcessError(1, cmd, stderr="boom stderr")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
+def test_objective_json_list_reports_gh_failure(cli_group: ClinkrGroup) -> None:
+    failure = subprocess.CalledProcessError(1, "gh issue list", stderr="boom stderr")
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["json", "list"])
+    result = runner.invoke(
+        cli_group,
+        ["json", "list"],
+        obj=_make_fake(raise_on={"list": failure}),
+    )
     payload = _json_output(result.output)
 
     assert result.exit_code == 1

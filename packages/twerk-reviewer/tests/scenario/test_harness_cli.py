@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -22,14 +23,15 @@ REPO_ROOT = Path("/repo")
 def _context(
     *,
     detection: FakeHarnessDetectionGateway | None = None,
-) -> ReviewerCliContext:
-    return ReviewerCliContext(
+) -> Callable[[], ReviewerCliContext]:
+    ctx = ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(),
         local_diff=FakeLocalDiffGateway(),
         review_execution=FakeReviewExecutionGateway(),
         harness_detection=detection or FakeHarnessDetectionGateway(),
         cwd=Path("/anywhere"),
     )
+    return lambda: ctx
 
 
 @pytest.fixture(scope="module")

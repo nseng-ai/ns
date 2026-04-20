@@ -19,10 +19,10 @@ from twerk_core.gh.types import (
     PRSummary,
     Reaction,
 )
-from twerk_core.git import real_git_gateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
 from twerk_pr_address.cli.main import build_cli
+from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
 from twerk_pr_address.cli.pr_address.reply_formatting import PRE_EXISTING_REPLY, RESOLUTION_MARKER
 
 
@@ -40,14 +40,15 @@ def _invoke_json(
     git_gateway: FakeGitGateway | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
+    ctx = PrAddressCliContext(
+        gh_issue_gateway=fake,
+        git_gateway=git_gateway if git_gateway is not None else FakeGitGateway(),
+    )
     result = runner.invoke(
         cli_group,
         ["exec", "json", op],
         input=json.dumps(payload),
-        obj={
-            "gh_issue_gateway": fake,
-            "git_gateway": git_gateway if git_gateway is not None else FakeGitGateway(),
-        },
+        obj=lambda: ctx,
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
@@ -393,50 +394,6 @@ def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
     assert output["success"] is False
     assert output["error_type"] == "git_failed"
     assert "not a git repository" in output["message"]
-
-
-def test_prepare_run_falls_back_to_real_git_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake = FakeIssueGateway(
-        prs_by_branch={
-            "feature": PRSummary(
-                number=42,
-                title="Update helper surface",
-                url="https://example.com/pr/42",
-                head_ref_name="feature",
-                base_ref_name="master",
-                state="OPEN",
-            )
-        }
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="feature\n", stderr="")
-        if cmd == ["git", "diff", "--name-status", "-M", "-C", "origin/master...HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "json", "prepare-run"],
-        input=json.dumps({}),
-        obj={"gh_issue_gateway": fake},
-    )
-    output = json.loads(result.output) if result.output.strip() else {}
-
-    assert result.exit_code == 0
-    assert output["success"] is True
-    assert output["found"] is True
-    assert output["current_branch"] == "feature"
 
 
 def test_resolve_thread_with_reply_fixed_uses_canonical_format(

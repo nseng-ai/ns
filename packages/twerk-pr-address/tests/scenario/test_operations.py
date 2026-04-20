@@ -5,13 +5,11 @@ standalone CLI entry point that users and skills invoke directly.
 """
 
 import json
-import subprocess
 
 import pytest
 from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.gh import real_issue_gateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import (
     IssueComment,
@@ -20,12 +18,18 @@ from twerk_core.gh.types import (
     PRReviewThread,
     PRSummary,
 )
+from twerk_core.git.testing import FakeGitGateway
 from twerk_pr_address.cli.main import build_cli
+from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
 
 
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
     return build_cli()
+
+
+def _ctx(fake: FakeIssueGateway) -> PrAddressCliContext:
+    return PrAddressCliContext(gh_issue_gateway=fake, git_gateway=FakeGitGateway())
 
 
 def _invoke(
@@ -34,7 +38,8 @@ def _invoke(
     fake: FakeIssueGateway,
 ) -> tuple[int, dict]:
     runner = CliRunner()
-    result = runner.invoke(cli_group, args, obj={"gh_issue_gateway": fake})
+    ctx = _ctx(fake)
+    result = runner.invoke(cli_group, args, obj=lambda: ctx)
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
 
@@ -168,77 +173,6 @@ def test_get_review_comments_empty_pr(cli_group: ClinkrGroup) -> None:
     assert output["threads"] == []
 
 
-def test_get_review_comments_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """End-to-end: `twerk pr-address get-review-comments` with no gateway injected.
-
-    When a real user runs the command, nothing populates
-    `ctx.obj["gh_issue_gateway"]`, so `gateway_access.get_gh_issue_gateway(ctx)`
-    falls back to `RealIssueGateway()`. Every other test in this file
-    short-circuits that fallback by injecting a `FakeIssueGateway` via
-    `obj=...`, so the fallback path would otherwise be uncovered. This test
-    walks it with `gh` stubbed out.
-    """
-    owner_repo_output = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
-    graphql_payload = json.dumps(
-        {
-            "data": {
-                "repository": {
-                    "pullRequest": {
-                        "reviewThreads": {
-                            "nodes": [
-                                {
-                                    "id": "PRRT_real",
-                                    "isResolved": False,
-                                    "isOutdated": False,
-                                    "path": "src/foo.py",
-                                    "line": 42,
-                                    "comments": {
-                                        "nodes": [
-                                            {
-                                                "databaseId": 9001,
-                                                "body": "nit: rename",
-                                                "author": {"login": "reviewer"},
-                                                "path": "src/foo.py",
-                                                "line": 42,
-                                                "createdAt": "2026-04-10T12:00:00Z",
-                                            }
-                                        ]
-                                    },
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        }
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "repo", "view"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=owner_repo_output, stderr="")
-        if cmd[:3] == ["gh", "api", "graphql"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=graphql_payload, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    # Deliberately no obj= — force the production fallback to RealIssueGateway.
-    result = runner.invoke(cli_group, ["exec", "get-review-comments", "47"])
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["count"] == 1
-    assert output["threads"][0]["id"] == "PRRT_real"
-    assert output["threads"][0]["comments"][0]["author"] == "reviewer"
-
-
 # -- get-discussion-comments --
 
 
@@ -352,12 +286,13 @@ def test_get_feedback_empty_pr(cli_group: ClinkrGroup) -> None:
 
 def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
     fake = FakeIssueGateway()
+    ctx = _ctx(fake)
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
         ["exec", "json", "get-feedback"],
         input='{"pr_number": 99}',
-        obj={"gh_issue_gateway": fake},
+        obj=lambda: ctx,
     )
 
     assert result.exit_code == 0
@@ -396,37 +331,6 @@ def test_resolve_thread_second_call_reports_already_resolved(
     assert fake._resolved_thread_ids == ["PRRT_abc", "PRRT_abc"]
 
 
-def test_resolve_thread_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Walks the DI fallback to RealIssueGateway with subprocess stubbed."""
-    resolve_payload = json.dumps(
-        {"data": {"resolveReviewThread": {"thread": {"id": "PRRT_real", "isResolved": True}}}}
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "api", "graphql"]:
-            joined = " ".join(cmd)
-            assert "threadId=PRRT_real" in joined
-            assert "resolveReviewThread" in joined
-            return subprocess.CompletedProcess(cmd, 0, stdout=resolve_payload, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["exec", "resolve-thread", "PRRT_real"])
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["thread_id"] == "PRRT_real"
-    assert output["was_already_resolved"] is False
-
-
 # -- unresolve-thread --
 
 
@@ -454,36 +358,6 @@ def test_unresolve_thread_second_call_reports_already_unresolved(
     assert second_exit == 0
     assert second_output["was_already_unresolved"] is True
     assert fake._unresolved_thread_ids == ["PRRT_abc", "PRRT_abc"]
-
-
-def test_unresolve_thread_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    unresolve_payload = json.dumps(
-        {"data": {"unresolveReviewThread": {"thread": {"id": "PRRT_real", "isResolved": False}}}}
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "api", "graphql"]:
-            joined = " ".join(cmd)
-            assert "threadId=PRRT_real" in joined
-            assert "unresolveReviewThread" in joined
-            return subprocess.CompletedProcess(cmd, 0, stdout=unresolve_payload, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["exec", "unresolve-thread", "PRRT_real"])
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["thread_id"] == "PRRT_real"
-    assert output["was_already_unresolved"] is False
 
 
 # -- add-review-thread-reply --
@@ -528,158 +402,6 @@ def test_add_review_thread_reply_preserves_multiline_body(
     assert output["comment"]["body"] == body
 
 
-def test_add_review_thread_reply_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    reply_payload = json.dumps(
-        {
-            "data": {
-                "addPullRequestReviewThreadReply": {
-                    "comment": {
-                        "databaseId": 9001,
-                        "body": "Fixed in commit abc1234.",
-                        "author": {"login": "schrockn"},
-                        "path": "src/foo.py",
-                        "line": 42,
-                        "createdAt": "2026-04-10T12:00:00Z",
-                    }
-                }
-            }
-        }
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "api", "graphql"]:
-            joined = " ".join(cmd)
-            assert "threadId=PRRT_real" in joined
-            assert "addPullRequestReviewThreadReply" in joined
-            return subprocess.CompletedProcess(cmd, 0, stdout=reply_payload, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "add-review-thread-reply", "PRRT_real", "Fixed in commit abc1234."],
-    )
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["comment"]["id"] == 9001
-    assert output["comment"]["author"] == "schrockn"
-    assert output["comment"]["line"] == 42
-    assert output["comment"]["path"] == "src/foo.py"
-
-
-def _make_reply_payload() -> str:
-    return json.dumps(
-        {
-            "data": {
-                "addPullRequestReviewThreadReply": {
-                    "comment": {
-                        "databaseId": 9001,
-                        "body": "",
-                        "author": {"login": "schrockn"},
-                        "path": "src/foo.py",
-                        "line": 42,
-                        "createdAt": "2026-04-10T12:00:00Z",
-                    }
-                }
-            }
-        }
-    )
-
-
-def test_real_gateway_uses_raw_string_flag_for_body(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The body field must be passed via `-f` (raw string), not `-F` (typed).
-
-    `gh api graphql -F body=...` treats the value as a typed field, which is
-    the wrong semantics for a free-form markdown string. `-f` tells gh to
-    treat it as a literal string. See plan notes for details.
-    """
-    captured_cmds: list[list[str]] = []
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        captured_cmds.append(list(cmd))
-        if cmd[:3] == ["gh", "api", "graphql"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=_make_reply_payload(), stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "add-review-thread-reply", "PRRT_real", "Fixed in commit abc1234."],
-    )
-    assert result.exit_code == 0, result.output
-
-    assert len(captured_cmds) == 1
-    cmd = captured_cmds[0]
-    body_idx = next(
-        i for i, arg in enumerate(cmd) if isinstance(arg, str) and arg.startswith("body=")
-    )
-    assert cmd[body_idx - 1] == "-f", (
-        f"body must be passed with -f (raw string), got {cmd[body_idx - 1]!r}"
-    )
-
-
-def test_real_gateway_preserves_body_newlines_through_subprocess(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Regression guard: the body string passed to subprocess must contain
-    real newlines, not literal backslash-n sequences.
-
-    This test passes against current master — the mangling bug happens at
-    shell-quoting time outside the Python CLI. Kept as a regression guard
-    against any future change that would introduce escaping.
-    """
-    captured_cmds: list[list[str]] = []
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        captured_cmds.append(list(cmd))
-        if cmd[:3] == ["gh", "api", "graphql"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=_make_reply_payload(), stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    body = (
-        "Fixed in commit abc1234: use LBYL.\n"
-        "\n"
-        "Addressed via _pr-address_ at 2026-04-10T12:00:00Z\n"
-        "<!-- pr-address:resolved -->"
-    )
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "add-review-thread-reply", "PRRT_real", body],
-    )
-    assert result.exit_code == 0, result.output
-
-    cmd = captured_cmds[0]
-    body_arg = next(arg for arg in cmd if isinstance(arg, str) and arg.startswith("body="))
-    assert body_arg == f"body={body}"
-    # Real newlines, not literal backslash-n.
-    assert "\n" in body_arg
-    assert "\\n" not in body_arg
-
-
 def test_add_review_thread_reply_reads_body_from_stdin_sentinel(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -690,6 +412,7 @@ def test_add_review_thread_reply_reads_body_from_stdin_sentinel(
     quoting issues.
     """
     fake = FakeIssueGateway()
+    ctx = _ctx(fake)
     body = (
         "Fixed in commit abc1234: use LBYL.\n"
         "\n"
@@ -701,7 +424,7 @@ def test_add_review_thread_reply_reads_body_from_stdin_sentinel(
     result = runner.invoke(
         cli_group,
         ["exec", "add-review-thread-reply", "PRRT_abc", "-"],
-        obj={"gh_issue_gateway": fake},
+        obj=lambda: ctx,
         input=body,
     )
 
@@ -748,46 +471,6 @@ def test_get_pr_for_branch_no_pr_returns_not_found(cli_group: ClinkrGroup) -> No
     assert output["returncode"] == 1
 
 
-def test_get_pr_for_branch_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Walks the DI fallback to RealIssueGateway with subprocess stubbed."""
-    from twerk_core.gh import real_gateway_helpers
-
-    pr_view_output = json.dumps(
-        {
-            "number": 47,
-            "title": "Port pr-address skill",
-            "url": "https://github.com/dagster-io/twerk/pull/47",
-            "headRefName": "twerk-pr-address-skill",
-            "baseRefName": "master",
-            "state": "OPEN",
-        }
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "pr", "view"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=pr_view_output, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_gateway_helpers.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["exec", "get-pr-for-branch", "twerk-pr-address-skill"])
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["found"] is True
-    assert output["number"] == 47
-    assert output["title"] == "Port pr-address skill"
-    assert output["base_ref_name"] == "master"
-    assert output["state"] == "OPEN"
-
-
 # -- get-reviews --
 
 
@@ -830,50 +513,6 @@ def test_get_reviews_empty_pr(cli_group: ClinkrGroup) -> None:
     assert output["reviews"] == []
 
 
-def test_get_reviews_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Walks the DI fallback to RealIssueGateway with subprocess stubbed.
-
-    get_reviews uses the REST API (repos/{owner}/{repo}/pulls/{number}/reviews),
-    so we stub both the owner/repo lookup and the reviews endpoint.
-    """
-    owner_repo_output = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
-    reviews_payload = json.dumps(
-        [
-            {
-                "node_id": "PRR_real",
-                "user": {"login": "reviewer"},
-                "body": "Please fix",
-                "state": "CHANGES_REQUESTED",
-                "submitted_at": "2026-04-10T12:00:00Z",
-            }
-        ]
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "repo", "view"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=owner_repo_output, stderr="")
-        if cmd[:2] == ["gh", "api"] and "reviews" in cmd[2]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=reviews_payload, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["exec", "get-reviews", "47"])
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["count"] == 1
-    assert output["reviews"][0]["id"] == "PRR_real"
-    assert output["reviews"][0]["author"] == "reviewer"
-
-
 # -- add-issue-comment --
 
 
@@ -897,13 +536,14 @@ def test_add_issue_comment_reads_body_from_stdin_sentinel(
     cli_group: ClinkrGroup,
 ) -> None:
     fake = FakeIssueGateway()
+    ctx = _ctx(fake)
     body = "Addressed all review feedback.\n\n_Addressed via pr-address at 2026-04-12T12:00:00Z_"
 
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
         ["exec", "add-issue-comment", "42", "-"],
-        obj={"gh_issue_gateway": fake},
+        obj=lambda: ctx,
         input=body,
     )
 
@@ -911,44 +551,6 @@ def test_add_issue_comment_reads_body_from_stdin_sentinel(
     assert fake._comments == [(42, body)]
     output = json.loads(result.output)
     assert output["comment"]["body"] == body
-
-
-def test_add_issue_comment_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    owner_repo_output = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
-    comment_payload = json.dumps(
-        {
-            "id": 9001,
-            "body": "Addressed in latest commit.",
-            "user": {"login": "schrockn"},
-            "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-9001",
-        }
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "repo", "view"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=owner_repo_output, stderr="")
-        if cmd[:2] == ["gh", "api"] and "--method" in cmd and "POST" in cmd:
-            return subprocess.CompletedProcess(cmd, 0, stdout=comment_payload, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "add-issue-comment", "47", "Addressed in latest commit."],
-    )
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["comment"]["id"] == 9001
-    assert output["comment"]["author"] == "schrockn"
 
 
 # -- add-reaction --
@@ -970,43 +572,6 @@ def test_add_reaction_calls_gateway(cli_group: ClinkrGroup) -> None:
     assert output["id"] == 1
 
 
-def test_add_reaction_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    owner_repo_output = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
-    reaction_payload = json.dumps(
-        {
-            "id": 5001,
-            "content": "+1",
-        }
-    )
-
-    def fake_run(
-        cmd: list[str],
-        **kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "repo", "view"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=owner_repo_output, stderr="")
-        if cmd[:2] == ["gh", "api"] and "--method" in cmd and "POST" in cmd:
-            return subprocess.CompletedProcess(cmd, 0, stdout=reaction_payload, stderr="")
-        raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
-
-    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "add-reaction", "9001", "+1"],
-    )
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["id"] == 5001
-    assert output["comment_id"] == 9001
-    assert output["content"] == "+1"
-
-
 # -- JSON-wrapper mode parity --
 
 
@@ -1017,11 +582,12 @@ def _invoke_json(
     fake: FakeIssueGateway,
 ) -> tuple[int, dict]:
     runner = CliRunner()
+    ctx = _ctx(fake)
     result = runner.invoke(
         cli_group,
         ["exec", "json", op],
         input=json.dumps(payload),
-        obj={"gh_issue_gateway": fake},
+        obj=lambda: ctx,
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output

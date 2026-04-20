@@ -10,6 +10,9 @@ from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.git.testing import FakeGitGateway
+from twerk_objectives.cli.objective.context import ObjectivesCliContext
+from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
@@ -69,17 +72,17 @@ def test_objective_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
-    obj = {"gh_issue_gateway": FakeIssueGateway()}
+    ctx = ObjectivesCliContext(gh_issue_gateway=FakeIssueGateway())
 
-    result = runner.invoke(parent, ["objective", "list"], obj=obj)
+    result = runner.invoke(parent, ["objective", "list"], obj=lambda: ctx)
     assert result.exit_code == 0
     assert "No objectives found." in result.output
 
-    result = runner.invoke(parent, ["objective", "ls"], obj=obj)
+    result = runner.invoke(parent, ["objective", "ls"], obj=lambda: ctx)
     assert result.exit_code == 0
     assert "No objectives found." in result.output
 
-    result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=obj)
+    result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=lambda: ctx)
     assert result.exit_code == 0
     assert '"success": true' in result.output
 
@@ -94,7 +97,10 @@ def test_pr_address_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
-    obj = {"gh_issue_gateway": FakeIssueGateway()}
+    ctx = PrAddressCliContext(
+        gh_issue_gateway=FakeIssueGateway(),
+        git_gateway=FakeGitGateway(),
+    )
 
     # Plugin mounts at expected subgroup name with exec subcommand.
     result = runner.invoke(parent, ["pr-address", "--help"])
@@ -102,7 +108,9 @@ def test_pr_address_plugin_integration() -> None:
     assert "exec" in result.output
 
     # A representative operation routes correctly through the plugin path.
-    result = runner.invoke(parent, ["pr-address", "exec", "get-review-comments", "99"], obj=obj)
+    result = runner.invoke(
+        parent, ["pr-address", "exec", "get-review-comments", "99"], obj=lambda: ctx
+    )
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["count"] == 0
@@ -171,7 +179,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(
         parent,
         ["reviewer", "review", "run", "dignified-python"],
-        obj=obj,
+        obj=lambda: obj,
     )
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
@@ -180,7 +188,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
         parent,
         ["reviewer", "review", "json", "run"],
         input=json.dumps({"key": "dignified-python"}),
-        obj=obj,
+        obj=lambda: obj,
     )
     assert result.exit_code == 0, result.output
     output = json.loads(result.stdout)

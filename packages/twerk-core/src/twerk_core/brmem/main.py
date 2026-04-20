@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import click
 
+from twerk_core.brmem.context import build_brmem_context
 from twerk_core.brmem.group import build_brmem_group
 from twerk_core.clinkr.group import ClinkrGroup
 
@@ -18,4 +19,4 @@ def build_cli() -> ClinkrGroup:
 
 def main() -> None:
     """Entry point for the standalone ``brmem`` CLI."""
-    build_cli()()
+    build_cli()(obj=build_brmem_context)

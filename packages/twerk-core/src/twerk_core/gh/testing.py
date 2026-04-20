@@ -38,12 +38,14 @@ class FakeIssueGateway(IssueGateway):
         reviews: dict[int, Sequence[PRReview]] | None = None,
         discussion_comments: dict[int, Sequence[IssueComment]] | None = None,
         prs_by_branch: dict[str, PRSummary] | None = None,
+        raise_on: dict[str, BaseException] | None = None,
     ) -> None:
         self._issues = tuple(issues)
         self._review_threads = review_threads or {}
         self._reviews = reviews or {}
         self._discussion_comments = discussion_comments or {}
         self._prs_by_branch = prs_by_branch or {}
+        self._raise_on = dict(raise_on or {})
         self._next_comment_id = 1
         self._next_reaction_id = 1
 
@@ -57,6 +59,8 @@ class FakeIssueGateway(IssueGateway):
     # -- Issue queries --
 
     def list(self, *, label: str | None = None, state: str = "open") -> tuple[Issue, ...]:
+        if exc := self._raise_on.get("list"):
+            raise exc
         if state == "all":
             return self._issues
         return tuple(i for i in self._issues if i.state.lower() == state.lower())

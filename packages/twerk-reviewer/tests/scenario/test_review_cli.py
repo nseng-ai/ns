@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -43,7 +44,7 @@ def _sample_source(*, include_default_model: bool = True) -> str:
     )
 
 
-def _context(
+def _build_context(
     *,
     payload: ReviewPayload | None = None,
     harness_detected: bool = True,
@@ -70,6 +71,22 @@ def _context(
         harness_detection=FakeHarnessDetectionGateway(paths_by_binary=paths_by_binary),
         cwd=Path("/anywhere"),
     )
+
+
+def _context(
+    *,
+    payload: ReviewPayload | None = None,
+    harness_detected: bool = True,
+    keys: dict[Path, tuple[str, ...]] | None = None,
+    usage: ReviewUsage | None = None,
+) -> Callable[[], ReviewerCliContext]:
+    ctx = _build_context(
+        payload=payload,
+        harness_detected=harness_detected,
+        keys=keys,
+        usage=usage,
+    )
+    return lambda: ctx
 
 
 @pytest.fixture(scope="module")
@@ -145,12 +162,12 @@ def test_review_run_text_format_renders_prose(cli_group: ClinkrGroup) -> None:
 
 def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    ctx = _context(payload=ProseReview(prose="markdown"))
+    ctx = _build_context(payload=ProseReview(prose="markdown"))
 
     result = runner.invoke(
         cli_group,
         ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
-        obj=ctx,
+        obj=lambda: ctx,
     )
 
     assert result.exit_code == 0, result.output
@@ -160,9 +177,9 @@ def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
 
 def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    ctx = _context()
+    ctx = _build_context()
 
-    result = runner.invoke(cli_group, ["review", "run", REVIEW_KEY], obj=ctx)
+    result = runner.invoke(cli_group, ["review", "run", REVIEW_KEY], obj=lambda: ctx)
 
     assert result.exit_code == 0, result.output
     assert "Model: sonnet" in result.output
@@ -224,11 +241,11 @@ def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
 
 def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    ctx = _context(
+    ctx = _build_context(
         keys={REVIEWS_DIR: ("dignified-python", "python/typing")},
     )
 
-    result = runner.invoke(cli_group, ["review", "list"], obj=ctx)
+    result = runner.invoke(cli_group, ["review", "list"], obj=lambda: ctx)
 
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
@@ -237,9 +254,9 @@ def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
 
 def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    ctx = _context(keys={REVIEWS_DIR: ("dignified-python",)})
+    ctx = _build_context(keys={REVIEWS_DIR: ("dignified-python",)})
 
-    result = runner.invoke(cli_group, ["review", "ls"], obj=ctx)
+    result = runner.invoke(cli_group, ["review", "ls"], obj=lambda: ctx)
 
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
@@ -336,4 +353,4 @@ def test_review_run_requires_typed_context(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code != 0
-    assert "ReviewerCliContext missing from click context" in str(result.exception)
+    assert "ctx.obj must be a Callable" in str(result.exception)
