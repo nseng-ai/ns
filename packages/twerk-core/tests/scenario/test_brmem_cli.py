@@ -159,8 +159,8 @@ def test_brmem_put_sibling_keys_are_independent(cli_group: ClinkrGroup, tmp_path
     assert b_get.output == "b1\n"
     assert list_result.exit_code == 0
     assert list_result.output.splitlines() == [
-        "refs/brmem/workbr/feat---x/plan/a.md",
-        "refs/brmem/workbr/feat---x/plan/b.md",
+        "workbr/plan/a.md",
+        "workbr/plan/b.md",
     ]
 
 
@@ -562,70 +562,118 @@ def _seed_for_list_filters() -> FakeBranchMemoryGateway:
 
 
 @pytest.mark.parametrize(
-    ("args", "expected_refs"),
+    ("args", "expected_lines"),
     [
         (
             [],
             [
-                "refs/brmem/objectives/feat---x/obj-1",
-                "refs/brmem/workbr/feat---x/notes",
-                "refs/brmem/workbr/feat---x/plan",
-                "refs/brmem/workbr/feat---y/plan",
+                "objectives/obj-1",
+                "workbr/notes",
+                "workbr/plan",
             ],
         ),
         (
             ["--namespace", "workbr"],
             [
-                "refs/brmem/workbr/feat---x/notes",
-                "refs/brmem/workbr/feat---x/plan",
-                "refs/brmem/workbr/feat---y/plan",
+                "workbr/notes",
+                "workbr/plan",
             ],
         ),
         (
             ["--key", "plan"],
-            [
-                "refs/brmem/workbr/feat---x/plan",
-                "refs/brmem/workbr/feat---y/plan",
-            ],
+            ["workbr/plan"],
         ),
         (
             ["--branch", "feat/x"],
             [
-                "refs/brmem/objectives/feat---x/obj-1",
-                "refs/brmem/workbr/feat---x/notes",
-                "refs/brmem/workbr/feat---x/plan",
+                "objectives/obj-1",
+                "workbr/notes",
+                "workbr/plan",
             ],
         ),
         (
             ["--namespace", "workbr", "--key", "plan"],
-            [
-                "refs/brmem/workbr/feat---x/plan",
-                "refs/brmem/workbr/feat---y/plan",
-            ],
+            ["workbr/plan"],
         ),
         (
             ["--namespace", "workbr", "--branch", "feat/y"],
-            ["refs/brmem/workbr/feat---y/plan"],
+            ["workbr/plan"],
         ),
         (
             ["--key", "plan", "--branch", "feat/x"],
-            ["refs/brmem/workbr/feat---x/plan"],
+            ["workbr/plan"],
         ),
         (
             ["--namespace", "workbr", "--key", "plan", "--branch", "feat/x"],
-            ["refs/brmem/workbr/feat---x/plan"],
+            ["workbr/plan"],
         ),
     ],
 )
 def test_brmem_list_filter_combinations(
-    cli_group: ClinkrGroup, args: list[str], expected_refs: list[str]
+    cli_group: ClinkrGroup, args: list[str], expected_lines: list[str]
 ) -> None:
     obj = _make_obj(gateway=_seed_for_list_filters())
 
     result = CliRunner().invoke(cli_group, ["list", *args], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == expected_refs
+    assert result.output.splitlines() == expected_lines
+
+
+def test_brmem_list_defaults_to_current_branch(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed_for_list_filters(), branch="feat/y")
+
+    result = CliRunner().invoke(cli_group, ["list"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["workbr/plan"]
+
+
+def test_brmem_list_rejects_detached_head_when_branch_omitted(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list"],
+        obj=_make_obj(branch=DetachedHead()),
+    )
+
+    assert result.exit_code == 1
+    assert "detached head" in result.output.lower()
+
+
+def test_brmem_list_surfaces_git_failure_when_branch_omitted(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list"],
+        obj=_make_obj(
+            branch=GitCommandFailure(
+                message="fatal: not a git repository",
+                returncode=128,
+            )
+        ),
+    )
+
+    assert result.exit_code == 1
+    assert "not a git repository" in result.output
+
+
+def test_brmem_list_explicit_branch_bypasses_current_branch(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("workbr", "plan", "feat/other", "a\n")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--branch", "feat/other"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead()),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["workbr/plan"]
 
 
 def test_brmem_list_empty_returns_nothing(cli_group: ClinkrGroup) -> None:
@@ -649,10 +697,7 @@ def test_brmem_list_filters_by_key_with_slash(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == [
-        "refs/brmem/workbr/feat---x/plan/a.md",
-        "refs/brmem/workbr/feat---y/plan/a.md",
-    ]
+    assert result.output.splitlines() == ["workbr/plan/a.md"]
 
 
 def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
@@ -672,7 +717,7 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
     assert payload == {
         "namespace": "workbr",
         "key": None,
-        "branch": None,
+        "branch": "feat/x",
         "entries": [
             {
                 "namespace": "workbr",

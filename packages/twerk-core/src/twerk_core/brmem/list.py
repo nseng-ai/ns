@@ -8,7 +8,7 @@ from typing import Any
 import click
 
 from twerk_core.brmem.gateway import EntryRef
-from twerk_core.brmem.gateway_access import get_branch_memory_gateway
+from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.brmem.validation import validate_entry_filters
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
@@ -47,14 +47,14 @@ class ListEntriesResult:
 
 def render_list_entries(result: ListEntriesResult) -> None:
     for entry in result.entries:
-        click.echo(entry.ref_name)
+        click.echo(f"{entry.namespace}/{entry.key}")
 
 
 @clinkr_operation(
     name="list",
     help=(
-        "List branch-memory entries. --namespace, --key, and --branch are "
-        "optional filters; no defaults are applied."
+        "List branch-memory entries. Defaults to the current branch; "
+        "pass --branch to override. --namespace and --key further filter."
     ),
     human_renderer=render_list_entries,
 )
@@ -70,16 +70,20 @@ def run_list_entries(
     if validation_error is not None:
         return validation_error
 
+    branch = resolve_branch_name(ctx, request.branch)
+    if isinstance(branch, ClinkrCommandError):
+        return branch
+
     gateway = get_branch_memory_gateway(ctx)
     entries = gateway.list_entries(
         namespace=request.namespace,
         key=request.key,
-        branch=request.branch,
+        branch=branch,
     )
 
     return ListEntriesResult(
         namespace=request.namespace,
         key=request.key,
-        branch=request.branch,
+        branch=branch,
         entries=entries,
     )
