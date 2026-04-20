@@ -11,6 +11,11 @@
       "sourceType": "local",
       "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
+    "dev-gh-ci-debug": {
+      "source": "skills/dev-gh-ci-debug",
+      "sourceType": "local",
+      "computedHash": "50dc6dda73bf72580e22e3bb7d6c8d664bdff562a1cb833733c51062ed7559c9"
+    },
     "dev-gt-stackify-branch": {
       "source": "skills/dev-gt-stackify-branch",
       "sourceType": "local",
