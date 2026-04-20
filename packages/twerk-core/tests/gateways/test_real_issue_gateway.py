@@ -459,6 +459,82 @@ def test_add_review_thread_reply_handles_deleted_author(
     assert comment.line is None
 
 
+def test_add_review_thread_reply_uses_raw_string_flag_for_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # `gh api graphql -F body=...` treats the value as a typed field, which is
+    # the wrong semantics for a free-form markdown string. The body must be
+    # passed with `-f` (raw string).
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            reply_response={
+                "comment": {
+                    "databaseId": 9001,
+                    "body": "Fixed in commit abc1234.",
+                    "author": {"login": "schrockn"},
+                    "path": "src/foo.py",
+                    "line": 42,
+                    "createdAt": "2026-04-10T15:00:00Z",
+                }
+            },
+            calls=calls,
+        ),
+    )
+
+    RealIssueGateway().add_review_thread_reply("PRRT_abc", "Fixed in commit abc1234.")
+
+    graphql_calls = [c for c in calls if c[:3] == ["gh", "api", "graphql"]]
+    assert len(graphql_calls) == 1
+    cmd = graphql_calls[0]
+    body_idx = next(i for i, arg in enumerate(cmd) if arg.startswith("body="))
+    assert cmd[body_idx - 1] == "-f", (
+        f"body must be passed with -f (raw string), got {cmd[body_idx - 1]!r}"
+    )
+
+
+def test_add_review_thread_reply_preserves_body_newlines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression guard: the body passed to subprocess.run must contain real
+    # newlines, not literal backslash-n sequences.
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            reply_response={
+                "comment": {
+                    "databaseId": 9002,
+                    "body": "multi\nline",
+                    "author": {"login": "schrockn"},
+                    "path": "src/foo.py",
+                    "line": 42,
+                    "createdAt": "2026-04-10T15:00:00Z",
+                }
+            },
+            calls=calls,
+        ),
+    )
+
+    body = (
+        "Fixed in commit abc1234: use LBYL.\n"
+        "\n"
+        "Addressed via _pr-address_ at 2026-04-10T12:00:00Z\n"
+        "<!-- pr-address:resolved -->"
+    )
+    RealIssueGateway().add_review_thread_reply("PRRT_abc", body)
+
+    graphql_calls = [c for c in calls if c[:3] == ["gh", "api", "graphql"]]
+    assert len(graphql_calls) == 1
+    body_arg = next(arg for arg in graphql_calls[0] if arg.startswith("body="))
+    assert body_arg == f"body={body}"
+    assert "\n" in body_arg
+    assert "\\n" not in body_arg
+
+
 def test_get_discussion_comments_flattens_paginated_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
