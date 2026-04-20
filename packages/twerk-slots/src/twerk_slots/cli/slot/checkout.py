@@ -21,6 +21,7 @@ from twerk_slots.allocation import (
 from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopySuccess
+from twerk_slots.naming import extract_slot_number
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
 
 
@@ -82,10 +83,16 @@ def render_slot_checkout(result: SlotCheckoutResult) -> None:
     if result.current_wt_note is not None:
         console.print(f"[yellow]{result.current_wt_note}[/yellow]")
     if result.already_assigned:
-        console.print(
-            f"[dim]{result.branch_name}[/dim] is already assigned to "
-            f"[bold cyan]{result.slot_name}[/bold cyan]"
-        )
+        if extract_slot_number(result.slot_name) is None:
+            console.print(
+                f"[dim]{result.branch_name}[/dim] is already checked out in the "
+                f"main worktree at [bold cyan]{result.worktree_path}[/bold cyan]"
+            )
+        else:
+            console.print(
+                f"[dim]{result.branch_name}[/dim] is already assigned to "
+                f"[bold cyan]{result.slot_name}[/bold cyan]"
+            )
     else:
         console.print(
             f"Checked out [bold cyan]{result.slot_name}[/bold cyan] -> "

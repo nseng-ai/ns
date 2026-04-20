@@ -610,6 +610,41 @@ def test_allocate_pool_full_with_force_evicts_oldest() -> None:
     assert {a.branch_name for a in saved.assignments} == {"feat/b", "feat/c"}
 
 
+def test_allocate_branch_in_main_worktree_returns_already_assigned() -> None:
+    """When the branch is checked out in the main worktree, return an
+    ``already_assigned`` result pointing at it so the CLI renders a cd redirect
+    instead of letting ``git checkout`` refuse the double-checkout."""
+    repo = _make_repo()
+    git = FakeGitGateway(
+        repo_root=repo.root,
+        branches={"master"},
+        worktrees=(WorktreeInfo(path=repo.root, branch="master", is_bare=False),),
+        current_branch_by_path={repo.root: "master"},
+    )
+    storage = _seeded_storage()
+    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
+
+    ctx = build_test_slots_context(
+        repo=repo,
+        slots_root=ROOT / "slots",
+        git=git,
+        storage=storage,
+        pool_state=pool_state_gw,
+    )
+    result = allocate_slot_for_branch(ctx, branch_name="master", now=NOW, force=False)
+
+    assert isinstance(result, SlotAllocationResult)
+    assert result.already_assigned is True
+    assert result.slot_name == ""  # sentinel: not a slot, points at main worktree
+    assert result.worktree_path == repo.root
+    assert result.branch_name == "master"
+    assert result.evicted_slot is None
+    # No checkout, no worktree add, no pool mutation.
+    assert git._checkout_calls == []
+    assert git._add_worktree_calls == []
+    assert pool_state_gw._save_calls == []
+
+
 def test_allocate_syncs_before_deciding() -> None:
     """pool.json says slot-01 is branch-x, but git shows branch-y. Sync should
     update the recorded state, and the subsequent allocation of branch-x should
