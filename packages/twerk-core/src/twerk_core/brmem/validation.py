@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from twerk_core.brmem.gateway import (
     EntryRef,
-    check_artifact_path,
     check_branch_name,
     check_key,
     check_namespace,
@@ -19,30 +18,6 @@ def validate_entry_ref(namespace: str, key: str, branch: str) -> EntryRef | Clin
         ("invalid_namespace", check_namespace(namespace)),
         ("invalid_key", check_key(key)),
         ("invalid_branch_name", check_branch_name(branch)),
-    )
-    if error is not None:
-        return error
-
-    return EntryRef(
-        namespace=namespace,
-        key=key,
-        branch=branch,
-        ref_name=ref_name_for_entry(namespace, key, branch),
-    )
-
-
-def validate_entry_artifact_request(
-    namespace: str,
-    key: str,
-    branch: str,
-    path: str,
-) -> EntryRef | ClinkrCommandError:
-    """Return a validated entry ref for an artifact command or a command error."""
-    error = _command_error_for_checks(
-        ("invalid_namespace", check_namespace(namespace)),
-        ("invalid_key", check_key(key)),
-        ("invalid_branch_name", check_branch_name(branch)),
-        ("invalid_artifact_path", check_artifact_path(path)),
     )
     if error is not None:
         return error

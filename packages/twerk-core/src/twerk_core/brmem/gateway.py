@@ -1,19 +1,18 @@
 """Abstract interface and shared validation for branch memory.
 
-The ref layout is ``refs/brmem/<namespace>/<key>/<encoded-branch>``. Each
-entry ref holds a tree of artifacts. An entry exists iff its ref exists —
-``put_artifact`` is the only creation path, so empty-tree entries are not
-representable.
+The ref layout is ``refs/brmem/<namespace>/<encoded-key>/<encoded-branch>``.
+Each entry ref holds a commit whose tree has a single ``content`` blob. An
+entry exists iff its ref exists — ``put`` is the only creation path.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import PurePosixPath
 
 BRMEM_REF_PREFIX = "refs/brmem"
-_BRANCH_SEPARATOR = "---"
+BRMEM_CONTENT_PATH = "content"
+_FLAT_SEPARATOR = "---"
 _BANNED_NAMESPACES = frozenset({"brs"})
 
 
@@ -29,21 +28,12 @@ class EntryRef:
 
 @dataclass(frozen=True)
 class EntryDiagnostic:
-    """Probe data about an entry ref as a whole."""
+    """Probe data for a single entry ref."""
 
     head_sha: str
     head_date: str
-    artifact_count: int
-
-
-@dataclass(frozen=True)
-class ArtifactDiagnostic:
-    """Probe data about a single artifact path inside an entry ref."""
-
     blob_sha: str
     size_bytes: int
-    last_commit_sha: str
-    last_commit_date: str
 
 
 class InvalidBranchNameError(ValueError):
@@ -73,23 +63,13 @@ class InvalidKeyError(ValueError):
         super().__init__(f"Invalid key {key!r}: {reason}")
 
 
-class InvalidArtifactPathError(ValueError):
-    """Raised when an artifact path is not a safe relative POSIX path."""
-
-    def __init__(self, path: str, reason: str) -> None:
-        self.path = path
-        self.reason = reason
-        super().__init__(f"Invalid artifact path {path!r}: {reason}")
-
-
 class BranchMemoryGateway(ABC):
-    """Store small per-branch files outside the working tree.
+    """Store small per-branch blobs outside the working tree.
 
     Entries are keyed by ``(namespace, key, branch)``. An entry exists iff
-    its ref ``refs/brmem/<namespace>/<key>/<encoded-branch>`` exists.
+    its ref ``refs/brmem/<namespace>/<encoded-key>/<encoded-branch>`` exists.
+    Each ref stores exactly one blob.
     """
-
-    # entry-level -----------------------------------------------------------
 
     @abstractmethod
     def list_entries(
@@ -102,61 +82,36 @@ class BranchMemoryGateway(ABC):
         """Return entries, optionally filtered by namespace/key/branch."""
 
     @abstractmethod
-    def check_entry(
+    def put(
         self,
         namespace: str,
         key: str,
         branch: str,
-    ) -> EntryDiagnostic | None:
-        """Return diagnostics for the entry ref, or ``None`` if it does not exist."""
-
-    # artifact-level --------------------------------------------------------
-
-    @abstractmethod
-    def put_artifact(
-        self,
-        namespace: str,
-        key: str,
-        branch: str,
-        path: str,
         content: str,
     ) -> str:
-        """Write ``content`` to ``path`` in the entry and return the new commit SHA."""
+        """Write ``content`` as the single blob of the entry and return the new commit SHA."""
 
     @abstractmethod
-    def get_artifact(
+    def get(
         self,
         namespace: str,
         key: str,
         branch: str,
-        path: str,
         *,
         at: str | None = None,
     ) -> str | None:
-        """Read ``path`` at ``at`` or the entry head when omitted."""
+        """Read the entry blob at ``at`` or the entry head when omitted."""
 
     @abstractmethod
-    def list_artifacts(
+    def check(
         self,
         namespace: str,
         key: str,
         branch: str,
         *,
         at: str | None = None,
-    ) -> list[str]:
-        """Return artifact paths at ``at`` or the entry head when omitted."""
-
-    @abstractmethod
-    def check_artifact(
-        self,
-        namespace: str,
-        key: str,
-        branch: str,
-        path: str,
-        *,
-        at: str | None = None,
-    ) -> ArtifactDiagnostic | None:
-        """Return diagnostics for ``path`` at ``at`` (or head), else ``None``."""
+    ) -> EntryDiagnostic | None:
+        """Return diagnostics for the entry at ``at`` (or head), or ``None``."""
 
 
 # -- ref helpers --------------------------------------------------------------
@@ -167,7 +122,7 @@ def ref_name_for_entry(namespace: str, key: str, branch: str) -> str:
     validate_namespace(namespace)
     validate_key(key)
     validate_branch_name(branch)
-    return f"{BRMEM_REF_PREFIX}/{namespace}/{key}/{encode_branch_name(branch)}"
+    return f"{BRMEM_REF_PREFIX}/{namespace}/{encode_flat_name(key)}/{encode_flat_name(branch)}"
 
 
 def parse_entry_ref(ref_name: str) -> EntryRef | None:
@@ -178,12 +133,13 @@ def parse_entry_ref(ref_name: str) -> EntryRef | None:
     parts = remainder.split("/")
     if len(parts) != 3:
         return None
-    namespace, key, encoded_branch = parts
-    if not namespace or not key or not encoded_branch:
+    namespace, encoded_key, encoded_branch = parts
+    if not namespace or not encoded_key or not encoded_branch:
         return None
     if namespace in _BANNED_NAMESPACES:
         return None
-    branch = encoded_branch.replace(_BRANCH_SEPARATOR, "/")
+    key = decode_flat_name(encoded_key)
+    branch = decode_flat_name(encoded_branch)
     return EntryRef(
         namespace=namespace,
         key=key,
@@ -192,13 +148,20 @@ def parse_entry_ref(ref_name: str) -> EntryRef | None:
     )
 
 
+# -- flat encoding (shared by key and branch) ---------------------------------
+
+
+def encode_flat_name(name: str) -> str:
+    """Encode ``name`` into a flat ref segment by replacing ``/`` with ``---``."""
+    return name.replace("/", _FLAT_SEPARATOR)
+
+
+def decode_flat_name(encoded: str) -> str:
+    """Reverse of :func:`encode_flat_name`."""
+    return encoded.replace(_FLAT_SEPARATOR, "/")
+
+
 # -- branch name --------------------------------------------------------------
-
-
-def encode_branch_name(branch: str) -> str:
-    """Encode a branch name into a flat ref-friendly key."""
-    validate_branch_name(branch)
-    return branch.replace("/", _BRANCH_SEPARATOR)
 
 
 def check_branch_name(branch: str) -> str | None:
@@ -219,7 +182,7 @@ def validate_branch_name(branch: str) -> None:
 def _branch_name_reason(branch: str) -> str | None:
     if not branch:
         return "branch name must not be empty"
-    if _BRANCH_SEPARATOR in branch:
+    if _FLAT_SEPARATOR in branch:
         return "branch names containing '---' cannot be encoded into refs/brmem"
     return None
 
@@ -266,44 +229,6 @@ def _namespace_reason(namespace: str) -> str | None:
 def _key_reason(key: str) -> str | None:
     if not key:
         return "key must not be empty"
-    if "/" in key:
-        return "key must not contain '/'"
-    return None
-
-
-# -- artifact path ------------------------------------------------------------
-
-
-def validate_artifact_path(path: str) -> None:
-    """Reject absolute or parent-traversing artifact paths."""
-    reason = _artifact_path_reason(path)
-    if reason is not None:
-        raise InvalidArtifactPathError(path, reason)
-
-
-def check_artifact_path(path: str) -> str | None:
-    """Return a formatted error message for ``path`` without raising, or ``None``."""
-    reason = _artifact_path_reason(path)
-    if reason is None:
-        return None
-    return f"Invalid artifact path {path!r}: {reason}"
-
-
-def _artifact_path_reason(path: str) -> str | None:
-    if not path:
-        return "path must not be empty"
-    if ":" in path:
-        return "':' is not supported in artifact paths"
-
-    normalized = PurePosixPath(path)
-    if normalized.is_absolute():
-        return "path must be relative"
-
-    normalized_text = normalized.as_posix()
-    if normalized_text in {".", ""}:
-        return "path must reference a location inside the entry"
-
-    if any(part == ".." for part in normalized.parts):
-        return "path must not contain '..'"
-
+    if _FLAT_SEPARATOR in key:
+        return "keys containing '---' cannot be encoded into refs/brmem"
     return None
