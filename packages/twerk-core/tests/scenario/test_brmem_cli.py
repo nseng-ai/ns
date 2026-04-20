@@ -113,6 +113,58 @@ def test_brmem_put_and_get_round_trip(cli_group: ClinkrGroup, tmp_path: Path) ->
     assert get_result.output == "hello\n"
 
 
+def test_brmem_put_updates_one_artifact_without_disturbing_siblings(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    a_v1 = tmp_path / "a-v1.txt"
+    a_v1.write_text("a1\n", encoding="utf-8")
+    a_v2 = tmp_path / "a-v2.txt"
+    a_v2.write_text("a2\n", encoding="utf-8")
+    b_v1 = tmp_path / "b-v1.txt"
+    b_v1.write_text("b1\n", encoding="utf-8")
+    obj = _make_obj()
+
+    runner = CliRunner()
+    runner.invoke(
+        cli_group,
+        ["put", "a.md", "--namespace", "workbr", "--key", "plan", "--file", str(a_v1)],
+        obj=obj,
+    )
+    runner.invoke(
+        cli_group,
+        ["put", "b.md", "--namespace", "workbr", "--key", "plan", "--file", str(b_v1)],
+        obj=obj,
+    )
+    runner.invoke(
+        cli_group,
+        ["put", "a.md", "--namespace", "workbr", "--key", "plan", "--file", str(a_v2)],
+        obj=obj,
+    )
+
+    a_get = runner.invoke(
+        cli_group,
+        ["get", "a.md", "--namespace", "workbr", "--key", "plan"],
+        obj=obj,
+    )
+    b_get = runner.invoke(
+        cli_group,
+        ["get", "b.md", "--namespace", "workbr", "--key", "plan"],
+        obj=obj,
+    )
+    list_result = runner.invoke(
+        cli_group,
+        ["list-artifacts", "--namespace", "workbr", "--key", "plan"],
+        obj=obj,
+    )
+
+    assert a_get.exit_code == 0
+    assert a_get.output == "a2\n"
+    assert b_get.exit_code == 0
+    assert b_get.output == "b1\n"
+    assert list_result.exit_code == 0
+    assert list_result.output.splitlines() == ["a.md", "b.md"]
+
+
 def test_brmem_get_at_reads_older_snapshot(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     first_commit = gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "one\n")
