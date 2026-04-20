@@ -1,6 +1,6 @@
 ---
 name: dev-workbr-create
-description: "Stash a plan into branch memory (brmem) on a new branch without checking it out. From the current worktree, resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent markdown plan file discoverable from the active harness context), generates a kebab-case slug that summarizes the plan, creates a new branch with `git branch <slug> HEAD`, and stashes the plan verbatim into `refs/brmem/workbr/plan---plan.md/<slug>` via `brmem put`. The working tree is never touched. Use when the user wants to 'stash this plan on a new branch', 'prep a workbr', 'park this plan for a fresh worktree', or any time the plan should be attached to a branch as metadata without polluting the tree."
+description: "Stash a plan into branch memory (brmem) on a new branch without checking it out. From the current worktree, resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent markdown plan file discoverable from the active harness context), generates a kebab-case slug that summarizes the plan, creates a new branch with `git branch <slug> HEAD`, and stashes the plan verbatim into `refs/brmem/workbr/<slug>/plan/plan.md` via `brmem put`. The working tree is never touched. Use when the user wants to 'stash this plan on a new branch', 'prep a workbr', 'park this plan for a fresh worktree', or any time the plan should be attached to a branch as metadata without polluting the tree."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git rev-parse *)"
@@ -28,7 +28,7 @@ Given a plan file (from conversation context or an explicit path), produce:
 
 1. a new branch whose name is a kebab-case slug summarizing the plan,
    pointing at the current `HEAD`
-2. a brmem entry at `refs/brmem/workbr/plan---plan.md/<slug>`
+2. a brmem entry at `refs/brmem/workbr/<slug>/plan/plan.md`
    (namespace `workbr`, key `plan/plan.md`) containing the plan verbatim
 3. a report giving the user the branch name and telling them to
    continue work on that branch (running `dev-workbr-impl` once
@@ -91,7 +91,7 @@ Do, in order:
    - Create a new branch `<slug>` pointing at the current HEAD via
      `git branch <slug> HEAD` (no checkout).
    - Stash `<source-plan>` verbatim into
-     `refs/brmem/workbr/plan---plan.md/<slug>` (namespace `workbr`,
+     `refs/brmem/workbr/<slug>/plan/plan.md` (namespace `workbr`,
      key `plan/plan.md`) via `brmem put`.
 
    The current worktree is not modified. No push, no `gt submit`.
@@ -192,7 +192,7 @@ brmem put plan/plan.md --namespace workbr --branch <slug> --file <source-plan-pa
   step 2 as the source of bytes.
 - Contents are written **verbatim** — no footer, no rewriting.
 - Capture the ref path
-  (`refs/brmem/workbr/plan---plan.md/<encoded-slug>`) and commit SHA
+  (`refs/brmem/workbr/<encoded-slug>/plan/plan.md`) and commit SHA
   returned by `brmem put` for the report.
 
 ### 7. Report
