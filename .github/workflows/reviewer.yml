@@ -1,0 +1,77 @@
+name: reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: reviewer-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    if: >-
+      github.event.pull_request.draft != true
+      && (github.event_name != 'pull_request'
+          || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      reviews: ${{ steps.list.outputs.reviews }}
+      count: ${{ steps.list.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-uv
+      - id: list
+        run: |
+          output=$(jq -n '{}' | uv run reviewer review json list)
+          reviews=$(printf '%s' "$output" | jq -c '.keys')
+          count=$(printf '%s' "$output" | jq '.count')
+          {
+            echo "reviews=$reviews"
+            echo "count=$count"
+          } >> "$GITHUB_OUTPUT"
+
+  review:
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        review: ${{ fromJson(needs.discover.outputs.reviews) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-uv
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install claude-code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run reviewer and post summary comment
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REVIEW_KEY: ${{ matrix.review }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          jq -n \
+            --arg key "$REVIEW_KEY" \
+            --arg base_ref "$BASE_REF" \
+            '{key: $key, base_ref: $base_ref, format: "findings"}' \
+            | uv run reviewer review json run \
+            | uv run reviewer exec format-findings-comment \
+            | gh pr comment "$PR_NUMBER" --body-file -
