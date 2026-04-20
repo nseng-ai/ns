@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from twerk_core.clinkr.group import ClinkrGroup
+from twerk_pr_address.cli.pr_address.context import build_pr_address_context
 from twerk_pr_address.cli.pr_address.group import build_pr_address_group
 
 
@@ -16,4 +17,4 @@ def build_cli() -> ClinkrGroup:
 
 def main() -> None:
     """Entry point for the standalone ``pr-address`` CLI."""
-    build_cli()()
+    build_cli()(obj=build_pr_address_context)
