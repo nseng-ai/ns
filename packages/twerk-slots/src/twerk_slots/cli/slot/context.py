@@ -47,22 +47,23 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
 def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoRepoSentinel:
     """Unpack the typed slots context from the given Click context.
 
-    Built lazily on first access: if ``ctx.obj`` is ``None``, this call
-    constructs a :class:`SlotsCliContext` (or a :class:`NoRepoSentinel` when
-    cwd is outside a git repo) via :func:`build_slots_context` and caches it on
-    ``ctx.obj``. Tests can pre-populate ``ctx.obj`` by passing ``obj=`` to
-    ``CliRunner().invoke(...)``, which skips the build.
+    ``ctx.obj`` must be a zero-argument callable returning a
+    :class:`SlotsCliContext` or a :class:`NoRepoSentinel`. The CLI entry point
+    (:func:`twerk_slots.cli.main.main`) installs :func:`build_slots_context`;
+    tests install a ``lambda: ctx`` that returns a pre-built fake context.
 
-    Keeping the build lazy means ``slot -h``, ``slot <cmd> -h``, and
-    ``slot json <cmd> --schema`` do not shell out to git.
+    Help paths (``slot -h``, ``slot <cmd> -h``, ``slot json <cmd> --schema``)
+    never reach this function, so the factory is not invoked for them.
     """
-    obj = ctx.obj
-    if obj is None:
-        obj = build_slots_context()
-        ctx.obj = obj
-    if not isinstance(obj, SlotsCliContext | NoRepoSentinel):
+    ctx_fn = ctx.obj
+    if not callable(ctx_fn):
         raise RuntimeError(
-            "SlotsCliContext missing from click context; "
-            "ensure load_slots_context was called or obj= was passed in tests."
+            "ctx.obj must be a Callable[[], SlotsCliContext | NoRepoSentinel]; "
+            "the CLI entry point and tests are responsible for installing it."
         )
-    return obj
+    result = ctx_fn()
+    if not isinstance(result, SlotsCliContext | NoRepoSentinel):
+        raise RuntimeError(
+            f"ctx_fn returned {type(result).__name__}, expected SlotsCliContext or NoRepoSentinel."
+        )
+    return result

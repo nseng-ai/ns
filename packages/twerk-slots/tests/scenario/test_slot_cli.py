@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -10,7 +9,6 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.git import real_git_gateway
 from twerk_core.git.types import (
     DetachedHead,
     FileStatus,
@@ -25,7 +23,7 @@ from twerk_slots.gateway.testing import (
     FakePoolStateGateway,
     FakeSlotsStorageGateway,
 )
-from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
 
 
 @pytest.fixture(scope="module")
@@ -128,7 +126,7 @@ def test_slot_list_empty_pool(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     result = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=ctx,
+        obj=lambda: ctx,
         env={"COLUMNS": "200"},
     )
 
@@ -145,13 +143,13 @@ def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> No
     CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x"],
-        obj=ctx,
+        obj=lambda: ctx,
     )
 
     result = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=ctx,
+        obj=lambda: ctx,
         env={"COLUMNS": "200"},
     )
 
@@ -166,14 +164,14 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
     checkout_res = CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x"],
-        obj=ctx,
+        obj=lambda: ctx,
     )
     assert checkout_res.exit_code == 0, checkout_res.output
 
     free_res = CliRunner().invoke(
         cli_group,
         ["free", "--wt", "slot-01"],
-        obj=ctx,
+        obj=lambda: ctx,
     )
     assert free_res.exit_code == 0, free_res.output
 
@@ -181,7 +179,7 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
         cli_group,
         ["json", "list"],
         input="",
-        obj=ctx,
+        obj=lambda: ctx,
     )
     payload = _json_output(json_res.output)
 
@@ -202,13 +200,13 @@ def test_slot_ls_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     list_res = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=ctx,
+        obj=lambda: ctx,
         env={"COLUMNS": "200"},
     )
     alias_res = CliRunner().invoke(
         cli_group,
         ["ls"],
-        obj=ctx,
+        obj=lambda: ctx,
         env={"COLUMNS": "200"},
     )
 
@@ -228,13 +226,13 @@ def test_slot_json_list_schema(cli_group: ClinkrGroup) -> None:
 def test_slot_json_list_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
 
-    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=ctx)
+    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=lambda: ctx)
 
     result = CliRunner().invoke(
         cli_group,
         ["json", "list"],
         input="",
-        obj=ctx,
+        obj=lambda: ctx,
     )
     payload = _json_output(result.output)
 
@@ -256,25 +254,13 @@ def test_slot_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> 
     assert public_commands <= set(json_group.commands)
 
 
-# -- real-gateway fallback --------------------------------------------------
+# -- not-in-repo error surface ----------------------------------------------
 
 
-def test_slot_list_falls_back_to_real_gateway(
-    cli_group: ClinkrGroup,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    # Simulate a CWD that git says is not a repo — we expect a not_in_repo
-    # error, which confirms the real gateway is actually invoked when no
-    # fake is injected.
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["git", "rev-parse"]:
-            return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal")
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+def test_slot_list_surfaces_no_repo_sentinel(cli_group: ClinkrGroup) -> None:
+    sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
 
-    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
-
-    result = CliRunner().invoke(cli_group, ["list"])
+    result = CliRunner().invoke(cli_group, ["list"], obj=lambda: sentinel)
 
     assert result.exit_code == 1
     assert "Not inside a git repository" in result.output

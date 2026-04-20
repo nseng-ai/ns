@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,10 +41,10 @@ class _SlotFakes:
     repo_root: Path
 
 
-def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
+def _make_obj(fakes: _SlotFakes, slots_root: Path) -> Callable[[], SlotsCliContext]:
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
-    return SlotsCliContext(
+    ctx = SlotsCliContext(
         repo=repo,
         git=fakes.git,
         storage=fakes.storage,
@@ -53,6 +53,7 @@ def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
         pr=FakePRGateway(),
         slots_root=slots_root,
     )
+    return lambda: ctx
 
 
 def _fake_for_repo(

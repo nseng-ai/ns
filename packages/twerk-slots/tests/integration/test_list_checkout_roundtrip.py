@@ -59,7 +59,7 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
     )
-    obj = _build_ctx(
+    ctx = _build_ctx(
         git=git,
         storage=storage,
         pool_state_gw=pool_state_gw,
@@ -68,7 +68,7 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     cli = build_cli()
     runner = CliRunner()
 
-    checkout = runner.invoke(cli, ["checkout", "feat/one"], obj=obj)
+    checkout = runner.invoke(cli, ["checkout", "feat/one"], obj=lambda: ctx)
     assert checkout.exit_code == 0, checkout.output
 
     # pool.json persisted with the new assignment.
@@ -83,7 +83,7 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     assert (slots_root / "repos" / "repo" / "worktrees" / "slot-01").is_dir()
 
     # `list` reflects the assignment in its JSON output.
-    json_list = runner.invoke(cli, ["json", "list"], input="", obj=obj)
+    json_list = runner.invoke(cli, ["json", "list"], input="", obj=lambda: ctx)
     assert json_list.exit_code == 0, json_list.output
     payload = json.loads(json_list.output)
     assigned = [r for r in payload["rows"] if r["status"] == "assigned"]
@@ -97,7 +97,7 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     human_list = runner.invoke(
         cli,
         ["list"],
-        obj=obj,
+        obj=lambda: ctx,
         env={"COLUMNS": "300"},
     )
     assert human_list.exit_code == 0, human_list.output
@@ -120,7 +120,7 @@ def test_checkout_twice_reuses_existing(tmp_path: Path) -> None:
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
     )
-    obj = _build_ctx(
+    ctx = _build_ctx(
         git=git,
         storage=storage,
         pool_state_gw=pool_state_gw,
@@ -129,8 +129,8 @@ def test_checkout_twice_reuses_existing(tmp_path: Path) -> None:
     cli = build_cli()
     runner = CliRunner()
 
-    first = runner.invoke(cli, ["checkout", "feat/one"], obj=obj)
-    second = runner.invoke(cli, ["checkout", "feat/one"], obj=obj)
+    first = runner.invoke(cli, ["checkout", "feat/one"], obj=lambda: ctx)
+    second = runner.invoke(cli, ["checkout", "feat/one"], obj=lambda: ctx)
 
     assert first.exit_code == 0
     assert second.exit_code == 0
