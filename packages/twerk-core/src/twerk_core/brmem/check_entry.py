@@ -1,4 +1,4 @@
-"""Read content from an artifact path inside a branch-memory entry."""
+"""Probe whether a branch-memory entry ref exists right now."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from typing import Annotated, Any
 import click
 
 from twerk_core.brmem.gateway import (
-    InvalidArtifactPathError,
     InvalidBranchNameError,
     InvalidKeyError,
     InvalidNamespaceError,
@@ -20,11 +19,7 @@ from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
-class GetArtifactRequest:
-    path: Annotated[
-        str,
-        click.Argument(["path"], type=click.STRING),
-    ]
+class CheckEntryRequest:
     namespace: Annotated[
         str,
         click.Option(["--namespace"], required=True, type=click.STRING),
@@ -34,51 +29,57 @@ class GetArtifactRequest:
         click.Option(["--key"], required=True, type=click.STRING),
     ]
     branch: str | None = None
-    at: str | None = None
 
 
 @dataclass(frozen=True)
-class GetArtifactResult:
+class CheckEntryResult:
     namespace: str
     key: str
     branch: str
-    path: str
-    content: str
     ref_name: str
-    target: str
-    at: str | None = None
+    exists: bool
+    head_sha: str | None = None
+    head_date: str | None = None
+    artifact_count: int | None = None
+    absent_message: str | None = None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "namespace": self.namespace,
             "key": self.key,
             "branch": self.branch,
-            "path": self.path,
-            "content": self.content,
             "ref_name": self.ref_name,
-            "target": self.target,
-            "at": self.at,
+            "exists": self.exists,
+            "head_sha": self.head_sha,
+            "head_date": self.head_date,
+            "artifact_count": self.artifact_count,
         }
 
 
-def render_get_artifact(result: GetArtifactResult) -> None:
-    click.echo(result.content, nl=not result.content.endswith("\n"))
+def render_check_entry(result: CheckEntryResult) -> None:
+    lines = [
+        f"namespace: {result.namespace}",
+        f"key: {result.key}",
+        f"branch: {result.branch}",
+        f"ref: {result.ref_name}",
+        f"head: {result.head_sha} ({result.head_date})",
+        f"artifact_count: {result.artifact_count}",
+    ]
+    click.echo("\n".join(lines))
 
 
 @clinkr_operation(
-    name="get",
-    help="Read content from an artifact path inside a branch-memory entry.",
-    human_renderer=render_get_artifact,
+    name="check-entry",
+    help="Check whether a branch-memory entry ref exists.",
+    human_renderer=render_check_entry,
 )
-def run_get_artifact(
+def run_check_entry(
     ctx: click.Context,
-    request: GetArtifactRequest,
-) -> GetArtifactResult | ClinkrCommandError:
+    request: CheckEntryRequest,
+) -> CheckEntryResult | ClinkrCommandError:
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
         return branch
-
-    gateway = get_branch_memory_gateway(ctx)
 
     try:
         ref_name = ref_name_for_entry(request.namespace, request.key, branch)
@@ -89,38 +90,36 @@ def run_get_artifact(
     except InvalidBranchNameError as exc:
         return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
 
-    target = request.at if request.at is not None else ref_name
-
+    gateway = get_branch_memory_gateway(ctx)
     try:
-        content = gateway.get_artifact(
-            request.namespace, request.key, branch, request.path, at=request.at
-        )
+        diagnostic = gateway.check_entry(request.namespace, request.key, branch)
     except InvalidNamespaceError as exc:
         return ClinkrCommandError(error_type="invalid_namespace", message=str(exc))
     except InvalidKeyError as exc:
         return ClinkrCommandError(error_type="invalid_key", message=str(exc))
     except InvalidBranchNameError as exc:
         return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
-    except InvalidArtifactPathError as exc:
-        return ClinkrCommandError(error_type="invalid_artifact_path", message=str(exc))
 
-    if content is None:
-        return ClinkrCommandError(
-            error_type="branch_memory_missing",
-            message=(
-                f"No content at path {request.path} for "
-                f"{request.namespace}/{request.key} on branch {branch} at {target}. "
-                f"Inspect with: git ls-tree -r {target}"
+    if diagnostic is None:
+        return CheckEntryResult(
+            namespace=request.namespace,
+            key=request.key,
+            branch=branch,
+            ref_name=ref_name,
+            exists=False,
+            absent_message=(
+                f"no entry: namespace={request.namespace} key={request.key} "
+                f"branch={branch} ref={ref_name}"
             ),
         )
 
-    return GetArtifactResult(
+    return CheckEntryResult(
         namespace=request.namespace,
         key=request.key,
         branch=branch,
-        path=request.path,
-        content=content,
         ref_name=ref_name,
-        target=target,
-        at=request.at,
+        exists=True,
+        head_sha=diagnostic.head_sha,
+        head_date=diagnostic.head_date,
+        artifact_count=diagnostic.artifact_count,
     )
