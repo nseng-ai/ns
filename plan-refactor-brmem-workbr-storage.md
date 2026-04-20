@@ -262,6 +262,29 @@ its state through the new `brmem` substrate.
 refs/brmem/workbr/plan/<encoded-branch>:plan.md
 ```
 
+### Progress after PR2
+
+Status: implemented as PR #169 on `new-brmem-part-2` (stacked on PR1).
+
+Notable details that affect downstream PRs:
+
+- `skills/dev-workbr-create/SKILL.md` now uses:
+  - `brmem put plan.md --namespace workbr --key plan --branch <slug> --file <source-plan-path>`
+    as the storage write.
+  - `brmem check-entry --namespace workbr --key plan --branch <slug>` as
+    the entry-existence preflight, branching on the landed `0/1/2` exit
+    contract.
+- The old `brmem branch check` preflight is fully retired from this skill.
+- Plan-mode exit, slug generation, branch-creation preflight, and the
+  verbatim-copy contract are unchanged from the PR2 design.
+- Inspection/debug hints reference the new ref shape
+  `refs/brmem/workbr/plan/<encoded-branch>` directly — no residual
+  `refs/brmem/brs/*` mentions in the skill.
+- `AGENTS.md`'s registry line for `dev-workbr-create` was resynced to
+  the new frontmatter description in the same PR. The sibling
+  `dev-workbr-impl` registry line was intentionally left alone; PR3
+  (or PR4's sweep) owns that.
+
 ### Detailed work
 
 1. Update `skills/dev-workbr-create/SKILL.md` to stop referring to
@@ -341,6 +364,44 @@ workflow to read from the new entry model.
 
 `dev-workbr-impl` fetches `plan.md` from `namespace=workbr`, `key=plan`,
 current branch.
+
+### Progress after PR3
+
+Status: implemented as PR #170 on `new-brmem-part-3` (stacked on PR2).
+
+Notable details that affect PR4:
+
+- `skills/dev-workbr-impl/SKILL.md` now:
+  - fetches with `brmem get plan.md --namespace workbr --key plan`
+  - **probes first** with `brmem check-entry --namespace workbr --key plan`
+    and branches on the landed `0/1/2` exit contract — a probe-then-fetch
+    shape, not "fetch and interpret the error"
+  - has `Bash(brmem check-entry *)` added to `allowed-tools`
+  - points inspection/debug hints at
+    `brmem list --namespace workbr --key plan`,
+    `brmem list-artifacts --namespace workbr --key plan`, and
+    `git show refs/brmem/workbr/plan/<encoded-branch>:plan.md`
+- The skill has zero remaining `refs/brmem/brs/*` mentions.
+- `AGENTS.md`'s registry line for `dev-workbr-impl` was **not** resynced in
+  this PR; the registry line still shows the pre-PR3 description. Treat
+  that resync as PR4 cleanup.
+
+Remaining `refs/brmem/brs/*` callsites in the repo after PR3:
+
+- `plan-refactor-brmem-workbr-storage.md` — this plan document itself
+  (historical narrative of the cutover; intentional).
+- `packages/twerk-core/tests/integration/test_real_brmem_gateway.py` —
+  the single intentional regression test that seeds a legacy ref and
+  asserts `list_entries()` ignores it. Keep per PR1's explicit
+  direction.
+
+PR4's sweep scope therefore narrows to:
+
+- stale prose inside `packages/twerk-core/src/twerk_core/brmem/*` (help
+  text, JSON payload names, renderer wording) and tests;
+- `AGENTS.md` registry sync for `dev-workbr-impl`;
+- decide the fate of `brmem copy`;
+- any lingering "branch memory path" or "branch check" wording.
 
 ### Detailed work
 
