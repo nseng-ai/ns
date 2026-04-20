@@ -136,10 +136,32 @@ the new foundation cleanly.
 - Artifact operations are explicit.
 - The real gateway and fake gateway both speak the new model.
 
+### Progress after PR1
+
+Status: landed on `new-brmem-part-1`.
+
+Notable details that affect downstream PRs:
+
+- The command surface is now stable as:
+
+```bash
+brmem put <path> --namespace <ns> --key <key> [--branch <branch>]
+brmem get <path> --namespace <ns> --key <key> [--branch <branch>] [--at <sha>]
+brmem list [--namespace <ns>] [--key <key>] [--branch <branch>]
+brmem list-artifacts --namespace <ns> --key <key> [--branch <branch>] [--at <sha>]
+brmem check-entry --namespace <ns> --key <key> [--branch <branch>]
+brmem check-artifact <path> --namespace <ns> --key <key> [--branch <branch>] [--at <sha>]
+```
+
+- `brmem copy` is removed from the product surface, and the old `brmem branch ...` subgroup is gone.
+- The gateway/ref contract settled on `EntryRef`, `EntryDiagnostic`, `ArtifactDiagnostic`, `ref_name_for_entry(...)`, and `parse_entry_ref(...)`.
+- CLI-side validation now does LBYL and aggregates multiple bad user inputs into one `invalid_request`; a single bad field still returns the specific `invalid_*` error. Downstream skills should treat validation failures as CLI/user errors, not depend on gateway exceptions.
+- `check-entry` and `check-artifact` have grep-style human exit semantics: `0` present, `1` absent, `2` invalid input / command failure. PR2 and PR3 should use those for preflight/probing instead of parsing human output or peeking at raw refs.
+- `brs` is now a reserved namespace, and `list_entries()` ignores legacy `refs/brmem/brs/*` refs. There is still one intentional integration regression test that seeds a legacy ref to prove it is ignored; keep that distinction in mind when doing PR4 cleanup.
+
 ### CLI target
 
-The exact names can be adjusted during implementation, but PR1 should
-land near this shape:
+This is the landed PR1 shape:
 
 ```bash
 brmem put <path> --namespace <ns> --key <key> [--branch <branch>]
@@ -159,8 +181,8 @@ Split the gateway into entry-level and artifact-level operations.
 
 Entry-level operations:
 
-- `ref_name_for(namespace, key, branch)`
-- `parse_ref_name(ref)`
+- `ref_name_for_entry(namespace, key, branch)`
+- `parse_entry_ref(ref)`
 - `list_entries(namespace=None, key=None, branch=None)`
 - `check_entry(namespace, key, branch)`
 
@@ -200,7 +222,10 @@ Artifact-level operations:
 - `packages/twerk-core/src/twerk_core/brmem/put.py`
 - `packages/twerk-core/src/twerk_core/brmem/get.py`
 - `packages/twerk-core/src/twerk_core/brmem/list.py`
-- `packages/twerk-core/src/twerk_core/brmem/check.py`
+- `packages/twerk-core/src/twerk_core/brmem/check_entry.py`
+- `packages/twerk-core/src/twerk_core/brmem/check_artifact.py`
+- `packages/twerk-core/src/twerk_core/brmem/check_registration.py`
+- `packages/twerk-core/src/twerk_core/brmem/validation.py`
 - `packages/twerk-core/src/twerk_core/brmem/group.py`
 - `packages/twerk-core/src/twerk_core/brmem/main.py`
 - tests under `packages/twerk-core/tests/{unit,integration,scenario}`
@@ -213,7 +238,8 @@ Artifact-level operations:
   - updating one artifact preserves siblings
   - `list_entries` filters correctly by namespace, key, and branch
   - `list_artifacts` reports tree paths for a single entry
-- No test references `refs/brmem/brs/`.
+- No intended product surface references `refs/brmem/brs/`.
+- Keep the intentional regression test that seeds a legacy `refs/brmem/brs/*` ref and asserts it is ignored.
 
 ### Non-goals
 
@@ -249,11 +275,37 @@ brmem put plan.md --namespace workbr --key plan --branch <slug> --file <source-p
 3. Change preflight checks so they validate the new model:
    - branch does not already exist
    - workbr entry does not already exist for `(namespace=workbr, key=plan, branch=<slug>)`
+   - prefer `brmem check-entry --namespace workbr --key plan --branch <slug>` for the existence probe so the skill can use the landed `0/1/2` human exit contract instead of parsing output
 4. Update all report text and inspection hints to reference the new ref
    path.
 5. Remove any wording that implies `plan.md` is "the branch memory path";
    it is now the artifact path inside one workbr entry.
 6. Update AGENTS/skill registry text if it mentions the old ref layout.
+
+### Implementation checklist
+
+- Keep the storage write itself as a single `brmem put ... --branch <slug>` call.
+  Do not fall back to raw `git update-ref` or direct writes into `refs/brmem/...`.
+- For the entry-exists probe, use `brmem check-entry --namespace workbr --key plan --branch <slug>`
+  and branch on exit code:
+  - `0` => fail because the workbr entry already exists
+  - `1` => continue; no entry exists yet
+  - `2` => fail because the input is invalid or the command failed
+- Do not use `brmem list` for the existence probe; after PR1 it is an entry-listing command,
+  not a yes/no check.
+- Keep the artifact path literal as `plan.md` everywhere in the skill text and examples.
+  The mutable part is the entry identity `(workbr, plan, <slug>)`, not the artifact path.
+- Inspection/debug hints should prefer the landed commands and ref shape, e.g.:
+
+```bash
+brmem check-entry --namespace workbr --key plan --branch <slug>
+git show refs/brmem/workbr/plan/<encoded-branch>:plan.md
+```
+
+- If the skill surfaces CLI failures to the user, preserve the distinction between:
+  - branch creation failures
+  - brmem validation failures
+  - "entry already exists" as a normal preflight collision
 
 ### Files likely touched
 
@@ -267,8 +319,11 @@ Manual smoke test:
 1. Create a source plan file.
 2. Run the skill flow manually.
 3. Confirm the branch exists and the current worktree did not move.
-4. Confirm `git show refs/brmem/workbr/plan/<encoded-branch>:plan.md`
+4. Confirm `brmem check-entry --namespace workbr --key plan --branch <slug>` exits `0`.
+5. Confirm `git show refs/brmem/workbr/plan/<encoded-branch>:plan.md`
    prints the source plan verbatim.
+6. Confirm `brmem get plan.md --namespace workbr --key plan --branch <slug>`
+   prints the same content.
 
 ### Non-goals
 
@@ -296,12 +351,35 @@ brmem get plan.md --namespace workbr --key plan
 ```
 
 2. Update missing-entry diagnostics so they point at the new ref path or
-   the new `brmem list` / `brmem list-artifacts` commands rather than the
-   retired `refs/brmem/brs/*` layout.
+   the new `brmem list` / `brmem list-artifacts` / `brmem check-entry`
+   commands rather than the retired `refs/brmem/brs/*` layout.
 3. Update any wording that treats "branch memory" as the direct storage
    key; the direct key is now `(workbr, plan, branch)`.
 4. Update AGENTS/skill registry text if it embeds the old fetch
    semantics.
+
+### Implementation checklist
+
+- Use `brmem get plan.md --namespace workbr --key plan` as the content fetch.
+  In the normal worktree flow, omit `--branch` and let `brmem` resolve the current
+  checked-out branch.
+- When the skill needs to distinguish "missing plan" from invalid input or detached HEAD,
+  probe first with `brmem check-entry --namespace workbr --key plan` and branch on exit code:
+  - `0` => plan entry exists; proceed to `brmem get`
+  - `1` => fail with a clear "no stashed workbr plan on this branch" message
+  - `2` => fail because the environment or invocation is invalid
+- Do not treat `brmem get` as the existence probe. After PR1, `check-entry` is the command
+  with the explicit grep-style status contract.
+- Diagnostics should reflect the new command roles:
+  - `brmem list` => lists entry refs
+  - `brmem list-artifacts` => lists artifact paths within one entry
+  - `brmem check-entry` => existence/probe command
+  - `brmem get` => fetch content
+- If the skill includes inspect/debug suggestions, prefer commands the user can paste directly,
+  e.g. `brmem list --namespace workbr --key plan`, `brmem check-entry --namespace workbr --key plan`,
+  and `brmem list-artifacts --namespace workbr --key plan`.
+- Do not reintroduce wording that suggests a branch owns a single monolithic branch-memory tree.
+  The plan lives at artifact path `plan.md` inside the `(workbr, plan, branch)` entry.
 
 ### Files likely touched
 
@@ -314,9 +392,12 @@ Manual smoke test:
 
 1. Prepare a branch using the PR2 flow.
 2. Open a worktree on that branch.
-3. Run the skill flow manually.
-4. Confirm the skill fetches the correct plan content without writing a
+3. Confirm `brmem check-entry --namespace workbr --key plan` exits `0`.
+4. Run the skill flow manually.
+5. Confirm the skill fetches the correct plan content without writing a
    local `plan.md` file.
+6. Confirm the failure path is sensible from detached HEAD and from a branch
+   with no workbr entry.
 
 ### Non-goals
 
