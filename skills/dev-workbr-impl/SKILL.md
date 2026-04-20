@@ -1,8 +1,9 @@
 ---
 name: dev-workbr-impl
-description: "Pick up a plan stashed in branch memory (brmem) and begin implementing it. Detects the current branch, fetches `plan.md` from `refs/brmem/brs/<branch>` via `brmem get`, surfaces the plan as the active session spec, and begins implementation using normal tooling. Companion to `dev-workbr-create`, which stashes the plan in the first place. Use when the user opens a fresh worktree on a workbr (a branch prepared ahead of time with a plan in brmem) and wants to start work — phrases like 'load the workbr plan', 'pick up the stashed plan', 'implement the workbr', or simply running this in a worktree whose branch was set up by `dev-workbr-create`."
+description: "Pick up a plan stashed in branch memory (brmem) and begin implementing it. Detects the current branch, fetches `plan.md` from the `(workbr, plan, <branch>)` brmem entry via `brmem get plan.md --namespace workbr --key plan`, surfaces the plan as the active session spec, and begins implementation using normal tooling. Companion to `dev-workbr-create`, which stashes the plan in the first place. Use when the user opens a fresh worktree on a workbr (a branch prepared ahead of time with a plan in brmem) and wants to start work — phrases like 'load the workbr plan', 'pick up the stashed plan', 'implement the workbr', or simply running this in a worktree whose branch was set up by `dev-workbr-create`."
 allowed-tools:
   - "Bash(brmem get *)"
+  - "Bash(brmem check-entry *)"
   - "Bash(git rev-parse *)"
   - "Bash(git branch *)"
   - "Read"
@@ -24,8 +25,9 @@ off to normal implementation.
 
 In the current worktree:
 
-1. Identify the current branch (the brmem key).
-2. Read `plan.md` from `refs/brmem/brs/<branch>` via `brmem get`.
+1. Identify the current branch (the `branch` field of the entry).
+2. Read `plan.md` from the `(workbr, plan, <branch>)` entry via
+   `brmem get plan.md --namespace workbr --key plan`.
 3. Surface the plan to the session as the active spec.
 4. Begin implementing against the plan using normal tooling.
 
@@ -35,14 +37,18 @@ implement the plan programmatically.
 
 ## Core rules
 
-- **The plan lives in brmem.** Do not write `plan.md` to the working
-  tree. The plan stays attached to the branch as metadata; the tree
-  and the PR diff remain clean. If the user later wants a local copy
-  they can run `brmem get plan.md > plan.md` themselves.
-- **Use `brmem get` with the current branch implicitly.** Do not
-  guess branch names or pass `--branch` unless debugging — `brmem
-  get` uses the current branch by default and that's exactly what we
-  want.
+- **The plan lives in brmem.** The plan is the `plan.md` artifact
+  inside the `(workbr, plan, <branch>)` entry — not a monolithic
+  branch-memory tree. Do not write `plan.md` to the working tree.
+  The plan stays attached to the branch as metadata; the tree and
+  the PR diff remain clean. If the user later wants a local copy
+  they can run
+  `brmem get plan.md --namespace workbr --key plan > plan.md`
+  themselves.
+- **`--namespace workbr --key plan` are required.** Every brmem
+  call in this skill passes those flags. `--branch` is omitted so
+  `brmem` resolves the current branch implicitly — that's exactly
+  what we want.
 - **Do not delete the brmem entry after implementing.** Brmem
   preserves history and leaving the plan attached to the branch is a
   feature: anyone inspecting the branch later can read the original
@@ -59,34 +65,54 @@ git rev-parse --abbrev-ref HEAD
 ```
 
 Call the result `<branch>`. If the output is `HEAD` (detached),
-abort with a clear error — brmem keys are branch names, and a
-detached worktree doesn't have one. Tell the user to check out the
-workbr branch first.
+abort with a clear error — workbr entries are keyed in part by
+branch name, and a detached worktree doesn't have one. Tell the
+user to check out the workbr branch first.
 
-### 2. Fetch the plan
+### 2. Probe for the workbr entry
 
 ```
-brmem get plan.md
+brmem check-entry --namespace workbr --key plan
 ```
 
-This uses the current branch implicitly, so no `--branch` flag is
-needed.
+`--branch` is omitted so the current branch is resolved implicitly.
+Branch on the grep-style exit code:
 
-On a missing brmem entry, `brmem get` emits a `branch_memory_missing`
-error that already points the user at
-`git ls-tree -r refs/brmem/brs/<branch>` for inspection. Surface
-that error verbatim and stop. **Do not guess alternate paths** (no
-retrying `plan-<slug>.md`, `PLAN.md`, etc.) — if the key isn't
-`plan.md`, the branch wasn't set up by `dev-workbr-create` and the
-user needs to fix their state, not have the skill paper over it.
+- `0` → entry exists; continue to step 3 and fetch.
+- `1` → no workbr entry on this branch. Abort with a clear error:
+  "no stashed workbr plan on this branch; was this worktree opened
+  on a branch prepared by `dev-workbr-create`?". Do not fall back
+  to `brmem get`.
+- `2` → invalid invocation or command failure (e.g., detached HEAD
+  slipped past step 1, or `brmem` rejected something). Abort and
+  surface the command's stderr so the user can diagnose.
 
-### 3. Surface the plan
+### 3. Fetch the plan
+
+```
+brmem get plan.md --namespace workbr --key plan
+```
+
+`--branch` is omitted on purpose so the current branch is resolved
+implicitly.
+
+After a successful step 2 this call should always succeed; a
+`branch_memory_missing` error here means the entry tree exists but
+`plan.md` is not inside it. Surface the error verbatim and stop.
+**Do not guess alternate paths** (no retrying `plan-<slug>.md`,
+`PLAN.md`, etc.) — if the artifact isn't `plan.md`, the branch
+wasn't set up by `dev-workbr-create` and the user needs to fix
+their state, not have the skill paper over it. Point them at
+`brmem list-artifacts --namespace workbr --key plan` to see what is
+actually in the entry tree.
+
+### 4. Surface the plan
 
 Print the plan contents to the session and acknowledge it as the
 active spec for the remainder of the session. Do not write a copy to
 the working tree.
 
-### 4. Begin implementing
+### 5. Begin implementing
 
 Hand off to normal implementation tooling (Edit, Write, Bash, etc.)
 and start executing the plan. This skill does not over-scope its own
@@ -104,21 +130,33 @@ Treat this step like any other plan-driven implementation session:
 
 ## Edge cases
 
-- **Detached HEAD** → abort per step 1.
+- **Detached HEAD** → abort per step 1. `brmem check-entry` will
+  also exit `2` in this state, so step 2 catches it as a backstop.
 - **Wrong worktree** — running on a branch that was not prepared by
-  `dev-workbr-create`. `brmem get` will return
-  `branch_memory_missing`; surface the error and stop.
-- **Brmem entry exists under a different path** (e.g., the user
-  stashed `spec.md` manually instead of using the skill). The
-  `branch_memory_missing` error already suggests `git ls-tree -r
-  refs/brmem/brs/<branch>`; if the user's tree inspection shows a
-  different filename, they can either rename via a one-shot `brmem
-  put` + direct ref munging, or invoke this skill only after fixing
-  the entry. Do not silently fetch alternate filenames.
+  `dev-workbr-create`. `brmem check-entry --namespace workbr --key
+  plan` will exit `1` in step 2; surface the "no stashed workbr
+  plan" abort message and stop. For manual inspection, point the
+  user at:
+
+  ```
+  brmem list --namespace workbr --key plan
+  brmem list-artifacts --namespace workbr --key plan
+  git show refs/brmem/workbr/plan/<encoded-branch>:plan.md
+  ```
+
+- **Entry exists but the artifact is named something else** (e.g.,
+  the user stashed `spec.md` manually instead of using the skill).
+  Step 2 exits `0` and step 3's `brmem get plan.md …` returns
+  `branch_memory_missing`. Surface the error and point the user at
+  `brmem list-artifacts --namespace workbr --key plan` to discover
+  the actual artifact path. Do not silently fetch alternate
+  filenames.
 - **Plan content changed since stashing** — that's normal. The brmem
-  ref's history preserves prior versions; `brmem get plan.md` always
-  returns the latest. If the user wants a prior version, they use
-  `brmem get plan.md --at <sha>` explicitly.
+  ref's history preserves prior versions;
+  `brmem get plan.md --namespace workbr --key plan` always returns
+  the latest. If the user wants a prior version, they use
+  `brmem get plan.md --namespace workbr --key plan --at <sha>`
+  explicitly.
 
 ## Anti-patterns
 
@@ -129,10 +167,13 @@ Treat this step like any other plan-driven implementation session:
   history-preserving; leaving the plan attached to the branch is a
   feature.
 - Running this skill in the original stashing worktree (current
-  branch ≠ stashed branch). `brmem get` would return a different
-  branch's plan or error out. Always run from a checkout of the
-  workbr branch — however that checkout was created.
-- Retrying `brmem get` with guessed alternate paths on a missing
-  entry.
+  branch ≠ stashed branch). Step 2 would either exit `1` (clean
+  miss) or, worse, exit `0` if the original branch coincidentally
+  has a workbr entry and then step 3 would return a different
+  branch's plan. Always run from a checkout of the workbr branch —
+  however that checkout was created.
+- Retrying `brmem get` with guessed alternate artifact paths on a
+  missing entry, or retrying `brmem check-entry` with guessed
+  namespace/key values.
 - Treating the plan as a suggestion. Unless the user amends it in
   the session, it's the spec.
