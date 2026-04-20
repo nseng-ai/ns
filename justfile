@@ -34,7 +34,7 @@ ty:
     uv run ty check
 
 test:
-    uv run pytest -n auto --ignore-glob='*/integration/*' --ignore-glob='*/scenario/*'
+    uv run pytest -n auto --ignore-glob='*/integration/*'
 
 test-all:
     uv run pytest -n auto
