@@ -10,14 +10,8 @@ from typing import Annotated, Any
 
 import click
 
-from twerk_core.brmem.gateway import (
-    InvalidArtifactPathError,
-    InvalidBranchNameError,
-    InvalidKeyError,
-    InvalidNamespaceError,
-    ref_name_for_entry,
-)
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
+from twerk_core.brmem.validation import validate_entry_artifact_request
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -140,18 +134,25 @@ def run_put_artifact(
     if isinstance(branch, ClinkrCommandError):
         return branch
 
+    entry_ref = validate_entry_artifact_request(
+        request.namespace,
+        request.key,
+        branch,
+        request.path,
+    )
+    if isinstance(entry_ref, ClinkrCommandError):
+        return entry_ref
+
     gateway = get_branch_memory_gateway(ctx)
 
     try:
-        commit = gateway.put_artifact(request.namespace, request.key, branch, request.path, content)
-    except InvalidNamespaceError as exc:
-        return ClinkrCommandError(error_type="invalid_namespace", message=str(exc))
-    except InvalidKeyError as exc:
-        return ClinkrCommandError(error_type="invalid_key", message=str(exc))
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
-    except InvalidArtifactPathError as exc:
-        return ClinkrCommandError(error_type="invalid_artifact_path", message=str(exc))
+        commit = gateway.put_artifact(
+            entry_ref.namespace,
+            entry_ref.key,
+            entry_ref.branch,
+            request.path,
+            content,
+        )
     except subprocess.CalledProcessError as exc:
         details = exc.stderr.strip() or str(exc)
         return ClinkrCommandError(
@@ -160,11 +161,11 @@ def run_put_artifact(
         )
 
     return PutArtifactResult(
-        namespace=request.namespace,
-        key=request.key,
-        branch=branch,
+        namespace=entry_ref.namespace,
+        key=entry_ref.key,
+        branch=entry_ref.branch,
         path=request.path,
-        ref_name=ref_name_for_entry(request.namespace, request.key, branch),
+        ref_name=entry_ref.ref_name,
         commit=commit,
         source_file=source_file,
     )

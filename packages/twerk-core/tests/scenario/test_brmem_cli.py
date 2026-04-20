@@ -500,6 +500,30 @@ def test_brmem_missing_content_error_mentions_ref_target(cli_group: ClinkrGroup)
     assert "git ls-tree -r refs/brmem/workbr/plan/feat---x" in result.output
 
 
+def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "get",
+            "../notes.md",
+            "--namespace",
+            "brs",
+            "--key",
+            "a/b",
+            "--branch",
+            "feat---x",
+        ],
+        obj={"brmem_gateway": FakeBranchMemoryGateway()},
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid brmem request:" in result.output
+    assert "Invalid namespace 'brs'" in result.output
+    assert "Invalid key 'a/b'" in result.output
+    assert "Invalid branch name 'feat---x'" in result.output
+    assert "Invalid artifact path '../notes.md'" in result.output
+
+
 # ---------------------------------------------------------------------------
 # brmem list
 # ---------------------------------------------------------------------------
@@ -666,6 +690,26 @@ def test_brmem_list_artifacts_json(cli_group: ClinkrGroup) -> None:
         "at": None,
         "success": True,
     }
+
+
+def test_brmem_json_list_artifacts_collects_multiple_validation_errors(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["json", "list-artifacts"],
+        input=json.dumps({"namespace": "brs", "key": "a/b", "branch": "feat---x"}),
+        obj=_make_obj(),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 1, result.output
+    assert payload["success"] is False
+    assert payload["error_type"] == "invalid_request"
+    assert "Invalid brmem request:" in payload["message"]
+    assert "Invalid namespace 'brs'" in payload["message"]
+    assert "Invalid key 'a/b'" in payload["message"]
+    assert "Invalid branch name 'feat---x'" in payload["message"]
 
 
 # ---------------------------------------------------------------------------

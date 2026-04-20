@@ -7,13 +7,8 @@ from typing import Annotated, Any
 
 import click
 
-from twerk_core.brmem.gateway import (
-    InvalidBranchNameError,
-    InvalidKeyError,
-    InvalidNamespaceError,
-    ref_name_for_entry,
-)
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
+from twerk_core.brmem.validation import validate_entry_ref
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -81,43 +76,31 @@ def run_check_entry(
     if isinstance(branch, ClinkrCommandError):
         return branch
 
-    try:
-        ref_name = ref_name_for_entry(request.namespace, request.key, branch)
-    except InvalidNamespaceError as exc:
-        return ClinkrCommandError(error_type="invalid_namespace", message=str(exc))
-    except InvalidKeyError as exc:
-        return ClinkrCommandError(error_type="invalid_key", message=str(exc))
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
+    entry_ref = validate_entry_ref(request.namespace, request.key, branch)
+    if isinstance(entry_ref, ClinkrCommandError):
+        return entry_ref
 
     gateway = get_branch_memory_gateway(ctx)
-    try:
-        diagnostic = gateway.check_entry(request.namespace, request.key, branch)
-    except InvalidNamespaceError as exc:
-        return ClinkrCommandError(error_type="invalid_namespace", message=str(exc))
-    except InvalidKeyError as exc:
-        return ClinkrCommandError(error_type="invalid_key", message=str(exc))
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
+    diagnostic = gateway.check_entry(entry_ref.namespace, entry_ref.key, entry_ref.branch)
 
     if diagnostic is None:
         return CheckEntryResult(
-            namespace=request.namespace,
-            key=request.key,
-            branch=branch,
-            ref_name=ref_name,
+            namespace=entry_ref.namespace,
+            key=entry_ref.key,
+            branch=entry_ref.branch,
+            ref_name=entry_ref.ref_name,
             exists=False,
             absent_message=(
-                f"no entry: namespace={request.namespace} key={request.key} "
-                f"branch={branch} ref={ref_name}"
+                f"no entry: namespace={entry_ref.namespace} key={entry_ref.key} "
+                f"branch={entry_ref.branch} ref={entry_ref.ref_name}"
             ),
         )
 
     return CheckEntryResult(
-        namespace=request.namespace,
-        key=request.key,
-        branch=branch,
-        ref_name=ref_name,
+        namespace=entry_ref.namespace,
+        key=entry_ref.key,
+        branch=entry_ref.branch,
+        ref_name=entry_ref.ref_name,
         exists=True,
         head_sha=diagnostic.head_sha,
         head_date=diagnostic.head_date,

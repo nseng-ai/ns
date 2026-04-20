@@ -7,13 +7,9 @@ from typing import Any
 
 import click
 
-from twerk_core.brmem.gateway import (
-    EntryRef,
-    InvalidBranchNameError,
-    InvalidKeyError,
-    InvalidNamespaceError,
-)
+from twerk_core.brmem.gateway import EntryRef
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway
+from twerk_core.brmem.validation import validate_entry_filters
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -66,20 +62,20 @@ def run_list_entries(
     ctx: click.Context,
     request: ListEntriesRequest,
 ) -> ListEntriesResult | ClinkrCommandError:
-    gateway = get_branch_memory_gateway(ctx)
+    validation_error = validate_entry_filters(
+        namespace=request.namespace,
+        key=request.key,
+        branch=request.branch,
+    )
+    if validation_error is not None:
+        return validation_error
 
-    try:
-        entries = gateway.list_entries(
-            namespace=request.namespace,
-            key=request.key,
-            branch=request.branch,
-        )
-    except InvalidNamespaceError as exc:
-        return ClinkrCommandError(error_type="invalid_namespace", message=str(exc))
-    except InvalidKeyError as exc:
-        return ClinkrCommandError(error_type="invalid_key", message=str(exc))
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
+    gateway = get_branch_memory_gateway(ctx)
+    entries = gateway.list_entries(
+        namespace=request.namespace,
+        key=request.key,
+        branch=request.branch,
+    )
 
     return ListEntriesResult(
         namespace=request.namespace,
