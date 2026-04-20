@@ -32,7 +32,7 @@ class PutRequest:
             ["--namespace"],
             required=True,
             type=click.STRING,
-            help="Entry namespace (e.g. 'workbr', 'objectives').",
+            help="Entry namespace (e.g. 'workbr', 'memjectives').",
         ),
     ]
     stdin: bool = False

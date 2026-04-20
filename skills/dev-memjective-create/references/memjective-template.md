@@ -1,5 +1,5 @@
 <!--
-Simple local-first objective template for the objective-mem prototype.
+Simple local-first memjective template for the memjective prototype.
 
 Keep it lighter than the GitHub objective template, but make each section
 load-bearing enough that a later progress session can resume work mechanically.
@@ -14,12 +14,12 @@ For architectural redesigns and migrations:
 Delete this HTML comment before use.
 -->
 
-# <Objective Title>
+# <Memjective Title>
 
 Status: in progress
 
-<One or two short paragraphs about the objective and why it exists. Keep this
-concrete and specific. Say what proposal / change triggered the objective,
+<One or two short paragraphs about the memjective and why it exists. Keep this
+concrete and specific. Say what proposal / change triggered the memjective,
 what related work is already landed, what remains in scope now, what is out of
 scope, and why the remaining work matters.>
 
@@ -52,7 +52,7 @@ scope, and why the remaining work matters.>
 - <Another durable note worth preserving for future sessions>
 
 <!--
-`## Notes` is optional for very small objectives. For architectural redesigns,
+`## Notes` is optional for very small memjectives. For architectural redesigns,
 migrations, or multi-PR workstreams, keep it and let it accumulate discoveries
 conservatively over time.
 -->
