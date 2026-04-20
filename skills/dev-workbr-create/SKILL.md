@@ -1,6 +1,6 @@
 ---
 name: dev-workbr-create
-description: "Stash a plan into branch memory (brmem) on a new branch without checking it out. From the current worktree, resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent markdown plan file discoverable from the active harness context), generates a kebab-case slug that summarizes the plan, creates a new branch with `git branch <slug> HEAD`, and stashes the plan verbatim into `refs/brmem/brs/<slug>:plan.md` via `brmem put`. The working tree is never touched. Use when the user wants to 'stash this plan on a new branch', 'prep a workbr', 'park this plan for a fresh worktree', or any time the plan should be attached to a branch as metadata without polluting the tree."
+description: "Stash a plan into branch memory (brmem) on a new branch without checking it out. From the current worktree, resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent markdown plan file discoverable from the active harness context), generates a kebab-case slug that summarizes the plan, creates a new branch with `git branch <slug> HEAD`, and stashes the plan verbatim into `refs/brmem/workbr/plan/<slug>:plan.md` via `brmem put`. The working tree is never touched. Use when the user wants to 'stash this plan on a new branch', 'prep a workbr', 'park this plan for a fresh worktree', or any time the plan should be attached to a branch as metadata without polluting the tree."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git rev-parse *)"
@@ -28,8 +28,9 @@ Given a plan file (from conversation context or an explicit path), produce:
 
 1. a new branch whose name is a kebab-case slug summarizing the plan,
    pointing at the current `HEAD`
-2. a brmem entry at `refs/brmem/brs/<slug>:plan.md` containing the plan
-   verbatim
+2. a brmem entry at `refs/brmem/workbr/plan/<slug>:plan.md`
+   (namespace `workbr`, key `plan`, artifact path `plan.md`) containing
+   the plan verbatim
 3. a report giving the user the branch name and telling them to
    continue work on that branch (running `dev-workbr-impl` once
    they've checked it out)
@@ -91,7 +92,8 @@ Do, in order:
    - Create a new branch `<slug>` pointing at the current HEAD via
      `git branch <slug> HEAD` (no checkout).
    - Stash `<source-plan>` verbatim into
-     `refs/brmem/brs/<slug>:plan.md` via `brmem put`.
+     `refs/brmem/workbr/plan/<slug>:plan.md` (namespace `workbr`,
+     key `plan`) via `brmem put`.
 
    The current worktree is not modified. No push, no `gt submit`.
    ```
@@ -146,12 +148,16 @@ Run these and abort on the first failure:
 - `git rev-parse --verify refs/heads/<slug>` — must **fail**
   (exit-code non-zero). If the ref exists, abort and ask the user to
   pick a different slug or delete the stale branch.
-- `brmem branch check <slug>` — must exit non-zero (negative, meaning
-  no brmem ref for that branch). Exit 0 indicates a prior brmem entry
-  exists for this slug — typically a half-created workbr from a prior
-  run — so abort. A fail (exit 2) means the slug would be rejected by
-  brmem's encoding rules; treat as abort and ask the user to pick a
-  different slug.
+- `brmem check-entry --namespace workbr --key plan --branch <slug>` —
+  probe for a prior workbr entry using the landed grep-style exit
+  contract. Branch on exit code:
+  - `0` → abort; a workbr entry already exists for this slug
+    (typically a half-created workbr from an earlier run). Ask the
+    user to pick a different slug or delete the stale entry.
+  - `1` → continue; no entry yet.
+  - `2` → abort; the slug (or namespace / key) was rejected by
+    brmem's validation, or the command failed. Ask the user to pick
+    a different slug.
 - `git rev-parse HEAD` → capture the start-point SHA for the report.
   Abort on detached HEAD.
 - **No clean-tree check.** The working tree is explicitly allowed to
@@ -173,18 +179,21 @@ git branch <slug> HEAD
 ### 6. Stash the plan via brmem
 
 ```
-brmem put plan.md --branch <slug> --file <source-plan-path>
+brmem put plan.md --namespace workbr --key plan --branch <slug> --file <source-plan-path>
 ```
 
-- The positional `plan.md` is the in-memory path inside branch
-  memory — a predictable key so the companion `dev-workbr-impl`
-  skill can fetch it with `brmem get plan.md`.
+- The positional `plan.md` is the artifact path **inside the
+  `(workbr, plan, <slug>)` entry tree** — a predictable key so the
+  companion `dev-workbr-impl` skill can fetch it with
+  `brmem get plan.md --namespace workbr --key plan`.
+- `--namespace workbr --key plan` fixes the entry identity. Only
+  `--branch` varies per workbr.
 - `--branch <slug>` targets the branch created in step 5.
 - `--file <source-plan-path>` points at the plan file resolved in
   step 2 as the source of bytes.
 - Contents are written **verbatim** — no footer, no rewriting.
-- Capture the ref path (`refs/brmem/brs/<encoded-slug>`) and commit
-  SHA returned by `brmem put` for the report.
+- Capture the ref path (`refs/brmem/workbr/plan/<encoded-slug>`) and
+  commit SHA returned by `brmem put` for the report.
 
 ### 7. Report
 
@@ -210,7 +219,8 @@ Print a short summary to the user:
   names, so we need one.
 - **Branch `<slug>` already exists** → abort; do not clobber. Ask the
   user to pick a different slug or delete the stale branch first.
-- **brmem ref for `<slug>` already exists** → abort; same rationale.
+- **workbr entry for `<slug>` already exists** (namespace `workbr`,
+  key `plan`) → abort; same rationale.
 - **Plan file very small (<20 lines)** → warn but proceed.
 - **Multiple plan paths in context** → pick the most recent
   reference, name the choice in the report so the user can re-run
