@@ -8,10 +8,15 @@ for the authoritative list of what git will accept as a ref component.
 
 from __future__ import annotations
 
+import functools
 import re
 
 _KEY_FORBIDDEN_CHARS = frozenset(" ~^?*[\\")
-_KEY_SEGMENT_PATTERN = re.compile(r"[^\x00-\x1f\x7f :?*\[\\~^]+")
+
+
+@functools.cache
+def _get_key_segment_pattern() -> re.Pattern[str]:
+    return re.compile(r"[^\x00-\x1f\x7f :?*\[\\~^]+")
 
 
 class InvalidKeyError(ValueError):
@@ -84,6 +89,6 @@ def _key_reason(key: str) -> str | None:
     # checks today, but documents the intended allowed set in one place and
     # guards against drift if a specific deny rule is ever removed.
     for seg in segments:
-        if not _KEY_SEGMENT_PATTERN.fullmatch(seg):
+        if not _get_key_segment_pattern().fullmatch(seg):
             return f"key segment {seg!r} is not in the allowed character set"
     return None
