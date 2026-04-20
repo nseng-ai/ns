@@ -16,6 +16,16 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
+    "dev-memjective-create": {
+      "source": "skills/dev-memjective-create",
+      "sourceType": "local",
+      "computedHash": "7484f5bce4ceac75e59e446e7993879ac46a058b85243d6a3fb7f739643cf233"
+    },
+    "dev-memjective-progress": {
+      "source": "skills/dev-memjective-progress",
+      "sourceType": "local",
+      "computedHash": "e3991a21b71936d9987a220d6dc5ee238efbf73d625558c25e88c322d450b334"
+    },
     "dev-plan-to-branch": {
       "source": "skills/dev-plan-to-branch",
       "sourceType": "local",
@@ -40,16 +50,6 @@
       "source": "withgraphite/agent-skills",
       "sourceType": "github",
       "computedHash": "9315b842df6de2a23216a2e72033fa99337398a8d62c11d6c320e55a6b810339"
-    },
-    "memjective-create": {
-      "source": "skills/memjective-create",
-      "sourceType": "local",
-      "computedHash": "7484f5bce4ceac75e59e446e7993879ac46a058b85243d6a3fb7f739643cf233"
-    },
-    "memjective-progress": {
-      "source": "skills/memjective-progress",
-      "sourceType": "local",
-      "computedHash": "e3991a21b71936d9987a220d6dc5ee238efbf73d625558c25e88c322d450b334"
     },
     "ns-changelog-update": {
       "source": "nseng-ai/nonslop",

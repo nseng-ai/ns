@@ -1,5 +1,5 @@
 ---
-name: memjective-create
+name: dev-memjective-create
 description: "Create a local-first memjective record for the memjective prototype. Draft a simple migration-notice-style memjective, store the seed on the `master` branch via `brmem` under namespace `memjectives`, key `<slug>.md`, and attach the same text to the current branch. Use when the user wants to start a new local memjective, prototype memjective, attach a memjective to the current branch, or create a branch-scoped memjective snapshot without using GitHub."
 allowed-tools:
   - "Bash(git rev-parse *)"
@@ -12,7 +12,7 @@ metadata:
 
 <!-- INTERNAL SKILL: twerk-only. Local-first memjective prototype on top of brmem. -->
 
-# memjective-create
+# dev-memjective-create
 
 Create a new **local-first memjective** for the memjective prototype.
 
@@ -99,7 +99,7 @@ Decision rules:
 
 - **0 matches** → continue
 - **1 match** → abort and tell the user this branch already has a memjective;
-  they likely want `memjective-progress` instead
+  they likely want `dev-memjective-progress` instead
 - **2+ matches** → abort and tell the user the branch is in an invalid v0 state
   because this prototype allows only one memjective snapshot per branch
 
@@ -226,7 +226,7 @@ Return a short summary including:
 - next-step hint:
 
 ```text
-Run /memjective-progress on this branch to continue from the
+Run /dev-memjective-progress on this branch to continue from the
 branch-local snapshot. On child branches, the same progress skill can carry the
 memjective forward when no local snapshot exists yet.
 ```

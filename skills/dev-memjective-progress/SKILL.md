@@ -1,5 +1,5 @@
 ---
-name: memjective-progress
+name: dev-memjective-progress
 description: "Progress a local-first memjective on the current branch. Resume the branch's `<slug>.md` entry in the `memjectives` brmem namespace, or if none exists, carry it forward from another branch or seed it from the `memjectives` entry on the `master` branch. Then implement the next unit of work and rewrite only the branch snapshot conservatively. Use when the user wants to continue a local memjective, carry a memjective onto a new stacked branch, or update the branch-local memjective snapshot without touching GitHub."
 allowed-tools:
   - "Bash(git rev-parse *)"
@@ -12,7 +12,7 @@ metadata:
 
 <!-- INTERNAL SKILL: twerk-only. Local-first memjective prototype on top of brmem. -->
 
-# memjective-progress
+# dev-memjective-progress
 
 Progress a **local-first memjective** from its branch-local brmem snapshot.
 
@@ -26,7 +26,7 @@ forward** from another branch or **seed it** from the master-branch brmem seed:
 
 - namespace `memjectives`, key `<slug>.md` on the `master` branch
 
-Carry-forward happens here, inside `memjective-progress`, as a preflight
+Carry-forward happens here, inside `dev-memjective-progress`, as a preflight
 step. It does **not** happen automatically at branch-creation time.
 
 ## Goal
@@ -195,7 +195,7 @@ Interpret the memjective shape as:
 - `## Notes` = durable findings, constraints, and pointers
 
 If the file shape is badly malformed, read
-`../memjective-create/references/memjective-template.md` to understand the
+`../dev-memjective-create/references/memjective-template.md` to understand the
 intended structure, but preserve the existing document rather than regenerating
 it from scratch.
 
