@@ -78,10 +78,7 @@ def test_validate_entry_ref_rejects_colon_in_key() -> None:
 
     assert isinstance(result, ClinkrCommandError)
     assert result.error_type == "invalid_key"
-    assert result.message == (
-        "Invalid key 'a:b': key segments must not contain control characters, "
-        "space, or any of ':?*[\\~^'"
-    )
+    assert result.message == "Invalid key 'a:b': ':' is not supported in keys"
 
 
 def test_validate_entry_ref_collects_multiple_failures() -> None:
