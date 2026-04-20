@@ -12,6 +12,8 @@ pbcopy-source-activate:
 
 check: lint format-check dprint-check ty test
 
+ci: lint format-check dprint-check ty test-all
+
 lint:
     uv run ruff check
 
@@ -32,12 +34,13 @@ ty:
     uv run ty check
 
 test:
+    uv run pytest -n auto --ignore-glob='*/integration/*' --ignore-glob='*/scenario/*'
+
+test-all:
     uv run pytest -n auto
 
 nonslop-check:
     uv run nonslop check
-
-fast-ci: check
 
 refresh-nonslop:
     uv sync --upgrade-package nonslop
