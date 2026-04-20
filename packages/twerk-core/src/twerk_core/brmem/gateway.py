@@ -9,6 +9,7 @@ iff its ref exists — ``put`` is the only creation path.
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -227,7 +228,7 @@ def _namespace_reason(namespace: str) -> str | None:
     return None
 
 
-_KEY_FORBIDDEN_CHARS = frozenset(" ~^?*[\\")
+_KEY_SEGMENT_PATTERN = re.compile(r"[^\x00-\x1f\x7f :?*\[\\~^]+")
 
 
 def _key_reason(key: str) -> str | None:
@@ -239,17 +240,11 @@ def _key_reason(key: str) -> str | None:
         return "key must not end with '/'"
     if "//" in key:
         return "key must not contain '//'"
-    if ":" in key:
-        return "':' is not supported in keys"
-    for ch in key:
-        if ch in _KEY_FORBIDDEN_CHARS:
-            return f"key contains forbidden character {ch!r}"
-        code = ord(ch)
-        if code < 0x20 or code == 0x7F:
-            return "key contains a control character"
-    segments = key.split("/")
-    if any(seg == ".." for seg in segments):
-        return "key must not contain '..' segment"
-    if any(seg.endswith(".lock") for seg in segments):
-        return "key segment must not end with '.lock'"
+    for segment in key.split("/"):
+        if segment == "..":
+            return "key must not contain '..' segment"
+        if segment.endswith(".lock"):
+            return "key segment must not end with '.lock'"
+        if not _KEY_SEGMENT_PATTERN.fullmatch(segment):
+            return "key segments must not contain control characters, space, or any of ':?*[\\~^'"
     return None
