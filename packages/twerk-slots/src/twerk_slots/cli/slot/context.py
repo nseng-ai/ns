@@ -47,15 +47,22 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
 def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoRepoSentinel:
     """Unpack the typed slots context from the given Click context.
 
-    The root group callback constructs a :class:`SlotsCliContext` (or a
-    :class:`NoRepoSentinel` when cwd is outside a git repo) and assigns it to
-    ``ctx.obj``. Tests bypass the callback by passing a pre-built context as
-    ``obj=`` to ``CliRunner().invoke(...)``.
+    Built lazily on first access: if ``ctx.obj`` is ``None``, this call
+    constructs a :class:`SlotsCliContext` (or a :class:`NoRepoSentinel` when
+    cwd is outside a git repo) via :func:`build_slots_context` and caches it on
+    ``ctx.obj``. Tests can pre-populate ``ctx.obj`` by passing ``obj=`` to
+    ``CliRunner().invoke(...)``, which skips the build.
+
+    Keeping the build lazy means ``slot -h``, ``slot <cmd> -h``, and
+    ``slot json <cmd> --schema`` do not shell out to git.
     """
     obj = ctx.obj
+    if obj is None:
+        obj = build_slots_context()
+        ctx.obj = obj
     if not isinstance(obj, SlotsCliContext | NoRepoSentinel):
         raise RuntimeError(
             "SlotsCliContext missing from click context; "
-            "ensure the slot group callback ran or obj= was passed in tests."
+            "ensure load_slots_context was called or obj= was passed in tests."
         )
     return obj
