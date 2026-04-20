@@ -35,12 +35,12 @@ class CheckResult:
     ref_name: str
     target: str
     exists: bool
-    at: str | None = None
-    head_sha: str | None = None
-    head_date: str | None = None
-    blob_sha: str | None = None
-    size_bytes: int | None = None
-    absent_message: str | None = None
+    at: str | None
+    head_sha: str | None
+    head_date: str | None
+    blob_sha: str | None
+    size_bytes: int | None
+    absent_message: str | None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -108,6 +108,10 @@ def run_check(
             target=target,
             exists=False,
             at=request.at,
+            head_sha=None,
+            head_date=None,
+            blob_sha=None,
+            size_bytes=None,
             absent_message=(
                 f"not found: key={entry_ref.key} namespace={entry_ref.namespace} "
                 f"branch={entry_ref.branch} at {target}"
@@ -126,4 +130,5 @@ def run_check(
         head_date=diagnostic.head_date,
         blob_sha=diagnostic.blob_sha,
         size_bytes=diagnostic.size_bytes,
+        absent_message=None,
     )
