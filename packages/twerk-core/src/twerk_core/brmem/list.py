@@ -1,4 +1,4 @@
-"""List paths stored in branch memory."""
+"""List branch-memory entries."""
 
 from __future__ import annotations
 
@@ -7,67 +7,79 @@ from typing import Any
 
 import click
 
-from twerk_core.brmem.gateway import InvalidBranchNameError, ref_name_for_branch
-from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
+from twerk_core.brmem.gateway import EntryRef
+from twerk_core.brmem.gateway_access import get_branch_memory_gateway
+from twerk_core.brmem.validation import validate_entry_filters
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
-class ListBranchMemoryRequest:
+class ListEntriesRequest:
+    namespace: str | None = None
+    key: str | None = None
     branch: str | None = None
-    at: str | None = None
 
 
 @dataclass(frozen=True)
-class ListBranchMemoryResult:
-    branch: str
-    ref_name: str
-    target: str
-    paths: list[str]
-    at: str | None = None
+class ListEntriesResult:
+    namespace: str | None
+    key: str | None
+    branch: str | None
+    entries: list[EntryRef]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
+            "namespace": self.namespace,
+            "key": self.key,
             "branch": self.branch,
-            "ref_name": self.ref_name,
-            "target": self.target,
-            "paths": list(self.paths),
-            "at": self.at,
+            "entries": [
+                {
+                    "namespace": entry.namespace,
+                    "key": entry.key,
+                    "branch": entry.branch,
+                    "ref_name": entry.ref_name,
+                }
+                for entry in self.entries
+            ],
         }
 
 
-def render_list_branch_memory(result: ListBranchMemoryResult) -> None:
-    for path in result.paths:
-        click.echo(path)
+def render_list_entries(result: ListEntriesResult) -> None:
+    for entry in result.entries:
+        click.echo(entry.ref_name)
 
 
 @clinkr_operation(
     name="list",
-    help="List paths stored in branch memory.",
-    human_renderer=render_list_branch_memory,
+    help=(
+        "List branch-memory entries. --namespace, --key, and --branch are "
+        "optional filters; no defaults are applied."
+    ),
+    human_renderer=render_list_entries,
 )
-def run_list_branch_memory(
+def run_list_entries(
     ctx: click.Context,
-    request: ListBranchMemoryRequest,
-) -> ListBranchMemoryResult | ClinkrCommandError:
-    branch = resolve_branch_name(ctx, request.branch)
-    if isinstance(branch, ClinkrCommandError):
-        return branch
+    request: ListEntriesRequest,
+) -> ListEntriesResult | ClinkrCommandError:
+    validation_error = validate_entry_filters(
+        namespace=request.namespace,
+        key=request.key,
+        branch=request.branch,
+    )
+    if validation_error is not None:
+        return validation_error
 
     gateway = get_branch_memory_gateway(ctx)
-    ref_name = ref_name_for_branch(branch)
-    target = request.at if request.at is not None else ref_name
+    entries = gateway.list_entries(
+        namespace=request.namespace,
+        key=request.key,
+        branch=request.branch,
+    )
 
-    try:
-        paths = gateway.list(branch, at=request.at)
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
-
-    return ListBranchMemoryResult(
-        branch=branch,
-        ref_name=ref_name,
-        target=target,
-        paths=paths,
-        at=request.at,
+    return ListEntriesResult(
+        namespace=request.namespace,
+        key=request.key,
+        branch=request.branch,
+        entries=entries,
     )

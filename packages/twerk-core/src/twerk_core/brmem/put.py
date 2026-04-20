@@ -1,4 +1,4 @@
-"""Write content to a path in branch memory."""
+"""Write content to an artifact path inside a branch-memory entry."""
 
 from __future__ import annotations
 
@@ -10,23 +10,37 @@ from typing import Annotated, Any
 
 import click
 
-from twerk_core.brmem.gateway import (
-    InvalidBranchNameError,
-    InvalidMemoryPathError,
-    ref_name_for_branch,
-)
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
+from twerk_core.brmem.validation import validate_entry_artifact_request
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
-class PutBranchMemoryRequest:
+class PutArtifactRequest:
     path: Annotated[
         str,
         click.Argument(
             ["path"],
             type=click.STRING,
+        ),
+    ]
+    namespace: Annotated[
+        str,
+        click.Option(
+            ["--namespace"],
+            required=True,
+            type=click.STRING,
+            help="Entry namespace (e.g. 'workbr', 'objectives').",
+        ),
+    ]
+    key: Annotated[
+        str,
+        click.Option(
+            ["--key"],
+            required=True,
+            type=click.STRING,
+            help="Entry key inside the namespace.",
         ),
     ]
     stdin: bool = False
@@ -35,7 +49,9 @@ class PutBranchMemoryRequest:
 
 
 @dataclass(frozen=True)
-class PutBranchMemoryResult:
+class PutArtifactResult:
+    namespace: str
+    key: str
     branch: str
     path: str
     ref_name: str
@@ -44,6 +60,8 @@ class PutBranchMemoryResult:
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
+            "namespace": self.namespace,
+            "key": self.key,
             "branch": self.branch,
             "path": self.path,
             "ref_name": self.ref_name,
@@ -52,12 +70,15 @@ class PutBranchMemoryResult:
         }
 
 
-def render_put_branch_memory(result: PutBranchMemoryResult) -> None:
+def render_put_artifact(result: PutArtifactResult) -> None:
     source = "stdin" if result.source_file == "<stdin>" else result.source_file
     click.echo(
         "\n".join(
             [
-                f"Stored {result.path} from {source} for branch {result.branch}.",
+                (
+                    f"Stored {result.path} from {source} for "
+                    f"{result.namespace}/{result.key} on branch {result.branch}."
+                ),
                 f"Ref: {result.ref_name}",
                 f"Commit: {result.commit}",
                 f"Inspect: git show {result.ref_name}:{result.path}",
@@ -68,13 +89,13 @@ def render_put_branch_memory(result: PutBranchMemoryResult) -> None:
 
 @clinkr_operation(
     name="put",
-    help="Write content to a path in branch memory.",
-    human_renderer=render_put_branch_memory,
+    help="Write content to an artifact path inside a branch-memory entry.",
+    human_renderer=render_put_artifact,
 )
-def run_put_branch_memory(
+def run_put_artifact(
     ctx: click.Context,
-    request: PutBranchMemoryRequest,
-) -> PutBranchMemoryResult | ClinkrCommandError:
+    request: PutArtifactRequest,
+) -> PutArtifactResult | ClinkrCommandError:
     if request.stdin and ctx.parent is not None and ctx.parent.info_name == "json":
         return ClinkrCommandError(
             error_type="stdin_unsupported_in_json_mode",
@@ -113,14 +134,25 @@ def run_put_branch_memory(
     if isinstance(branch, ClinkrCommandError):
         return branch
 
+    entry_ref = validate_entry_artifact_request(
+        request.namespace,
+        request.key,
+        branch,
+        request.path,
+    )
+    if isinstance(entry_ref, ClinkrCommandError):
+        return entry_ref
+
     gateway = get_branch_memory_gateway(ctx)
 
     try:
-        commit = gateway.put(branch, request.path, content)
-    except InvalidBranchNameError as exc:
-        return ClinkrCommandError(error_type="invalid_branch_name", message=str(exc))
-    except InvalidMemoryPathError as exc:
-        return ClinkrCommandError(error_type="invalid_memory_path", message=str(exc))
+        commit = gateway.put_artifact(
+            entry_ref.namespace,
+            entry_ref.key,
+            entry_ref.branch,
+            request.path,
+            content,
+        )
     except subprocess.CalledProcessError as exc:
         details = exc.stderr.strip() or str(exc)
         return ClinkrCommandError(
@@ -128,10 +160,12 @@ def run_put_branch_memory(
             message=f"Failed to write branch memory: {details}",
         )
 
-    return PutBranchMemoryResult(
-        branch=branch,
+    return PutArtifactResult(
+        namespace=entry_ref.namespace,
+        key=entry_ref.key,
+        branch=entry_ref.branch,
         path=request.path,
-        ref_name=ref_name_for_branch(branch),
+        ref_name=entry_ref.ref_name,
         commit=commit,
         source_file=source_file,
     )
