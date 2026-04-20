@@ -6,8 +6,9 @@ from typing import Annotated, Literal
 import click
 
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_reviewer.cli.reviewer.context import load_reviewer_context
+from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.models import (
     FindingsReview,
     GitDiffFailedError,
@@ -102,7 +103,7 @@ def run_review_command(
     ctx: click.Context,
     request: ReviewRunRequest,
 ) -> LocalReviewResult | ClinkrCommandError:
-    reviewer_context = load_reviewer_context(ctx)
+    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
     click.echo(f"▶ Running review '{request.key}'", err=True)
     try:
         result = run_review_by_key(
