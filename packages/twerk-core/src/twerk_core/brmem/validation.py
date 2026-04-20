@@ -5,10 +5,10 @@ from __future__ import annotations
 from twerk_core.brmem.gateway import (
     EntryRef,
     check_branch_name,
-    check_key,
     check_namespace,
     ref_name_for_entry,
 )
+from twerk_core.brmem.key_validation import check_key
 from twerk_core.clinkr.command import ClinkrCommandError
 
 

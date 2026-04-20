@@ -5,9 +5,9 @@ import pytest
 from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.brmem.gateway import (
     InvalidBranchNameError,
-    InvalidKeyError,
     InvalidNamespaceError,
 )
+from twerk_core.brmem.key_validation import InvalidKeyError
 
 
 def test_fake_brmem_put_then_get_returns_content() -> None:
