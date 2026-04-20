@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import json
-import subprocess
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,7 +10,6 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.git import real_git_gateway
 from twerk_core.git.types import (
     DetachedHead,
     FileStatus,
@@ -27,7 +25,7 @@ from twerk_slots.gateway.testing import (
     FakeSlotsStorageGateway,
 )
 from twerk_slots.pool_state import PoolState, SlotAssignment
-from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
 
 
 @pytest.fixture(scope="module")
@@ -44,10 +42,10 @@ class _SlotFakes:
     repo_root: Path
 
 
-def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
+def _make_obj(fakes: _SlotFakes, slots_root: Path) -> Callable[[], SlotsCliContext]:
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
-    return SlotsCliContext(
+    ctx = SlotsCliContext(
         repo=repo,
         git=fakes.git,
         storage=fakes.storage,
@@ -56,6 +54,7 @@ def _make_obj(fakes: _SlotFakes, slots_root: Path) -> SlotsCliContext:
         pr=FakePRGateway(),
         slots_root=slots_root,
     )
+    return lambda: ctx
 
 
 def _fake_for_repo(
@@ -327,17 +326,10 @@ def test_slot_goto_worktree_missing_errors(cli_group: ClinkrGroup, tmp_path: Pat
     assert "slot-01" in result.output
 
 
-def test_slot_goto_not_in_repo_errors(
-    cli_group: ClinkrGroup, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["git", "rev-parse"]:
-            return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal")
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+def test_slot_goto_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
+    sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
 
-    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
-
-    result = CliRunner().invoke(cli_group, ["goto", "--wt", "slot-01"])
+    result = CliRunner().invoke(cli_group, ["goto", "--wt", "slot-01"], obj=lambda: sentinel)
 
     assert result.exit_code == 1
     assert "Not inside a git repository" in result.output
