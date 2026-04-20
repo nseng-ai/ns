@@ -1,27 +1,28 @@
-"""Write content to an artifact path inside a branch-memory entry."""
+"""Write content to a branch-memory entry."""
 
 from __future__ import annotations
 
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, Any
 
 import click
 
+from twerk_core.brmem.gateway import BRMEM_CONTENT_PATH
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
-from twerk_core.brmem.validation import validate_entry_artifact_request
+from twerk_core.brmem.validation import validate_entry_ref
 from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
-class PutArtifactRequest:
-    path: Annotated[
+class PutRequest:
+    key: Annotated[
         str,
         click.Argument(
-            ["path"],
+            ["key"],
             type=click.STRING,
         ),
     ]
@@ -34,26 +35,16 @@ class PutArtifactRequest:
             help="Entry namespace (e.g. 'workbr', 'objectives').",
         ),
     ]
-    key: Annotated[
-        str,
-        click.Option(
-            ["--key"],
-            required=True,
-            type=click.STRING,
-            help="Entry key inside the namespace.",
-        ),
-    ]
     stdin: bool = False
     file: str | None = None
     branch: str | None = None
 
 
 @dataclass(frozen=True)
-class PutArtifactResult:
+class PutResult:
     namespace: str
     key: str
     branch: str
-    path: str
     ref_name: str
     commit: str
     source_file: str
@@ -63,25 +54,24 @@ class PutArtifactResult:
             "namespace": self.namespace,
             "key": self.key,
             "branch": self.branch,
-            "path": self.path,
             "ref_name": self.ref_name,
             "commit": self.commit,
             "source_file": self.source_file,
         }
 
 
-def render_put_artifact(result: PutArtifactResult) -> None:
+def render_put(result: PutResult) -> None:
     source = "stdin" if result.source_file == "<stdin>" else result.source_file
     click.echo(
         "\n".join(
             [
                 (
-                    f"Stored {result.path} from {source} for "
-                    f"{result.namespace}/{result.key} on branch {result.branch}."
+                    f"Stored {result.key} from {source} for "
+                    f"{result.namespace} on branch {result.branch}."
                 ),
                 f"Ref: {result.ref_name}",
                 f"Commit: {result.commit}",
-                f"Inspect: git show {result.ref_name}:{result.path}",
+                f"Inspect: git show {result.ref_name}:{BRMEM_CONTENT_PATH}",
             ]
         )
     )
@@ -89,13 +79,13 @@ def render_put_artifact(result: PutArtifactResult) -> None:
 
 @clinkr_operation(
     name="put",
-    help="Write content to an artifact path inside a branch-memory entry.",
-    human_renderer=render_put_artifact,
+    help="Write content to a branch-memory entry.",
+    human_renderer=render_put,
 )
-def run_put_artifact(
+def run_put(
     ctx: click.Context,
-    request: PutArtifactRequest,
-) -> PutArtifactResult | ClinkrCommandError:
+    request: PutRequest,
+) -> PutResult | ClinkrCommandError:
     if request.stdin and ctx.parent is not None and ctx.parent.info_name == "json":
         return ClinkrCommandError(
             error_type="stdin_unsupported_in_json_mode",
@@ -115,7 +105,15 @@ def run_put_artifact(
         content = sys.stdin.read()
         source_file = "<stdin>"
     else:
-        source_path = request.file if request.file is not None else request.path
+        source_path = request.file if request.file is not None else _default_source(request.key)
+        if source_path is None:
+            return ClinkrCommandError(
+                error_type="source_file_missing",
+                message=(
+                    f"Cannot infer a default --file for key {request.key!r}; "
+                    "provide --file or --stdin."
+                ),
+            )
         try:
             content = Path(source_path).read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -134,23 +132,17 @@ def run_put_artifact(
     if isinstance(branch, ClinkrCommandError):
         return branch
 
-    entry_ref = validate_entry_artifact_request(
-        request.namespace,
-        request.key,
-        branch,
-        request.path,
-    )
+    entry_ref = validate_entry_ref(request.namespace, request.key, branch)
     if isinstance(entry_ref, ClinkrCommandError):
         return entry_ref
 
     gateway = get_branch_memory_gateway(ctx)
 
     try:
-        commit = gateway.put_artifact(
+        commit = gateway.put(
             entry_ref.namespace,
             entry_ref.key,
             entry_ref.branch,
-            request.path,
             content,
         )
     except subprocess.CalledProcessError as exc:
@@ -160,12 +152,18 @@ def run_put_artifact(
             message=f"Failed to write branch memory: {details}",
         )
 
-    return PutArtifactResult(
+    return PutResult(
         namespace=entry_ref.namespace,
         key=entry_ref.key,
         branch=entry_ref.branch,
-        path=request.path,
         ref_name=entry_ref.ref_name,
         commit=commit,
         source_file=source_file,
     )
+
+
+def _default_source(key: str) -> str | None:
+    basename = PurePosixPath(key).name
+    if not basename:
+        return None
+    return basename

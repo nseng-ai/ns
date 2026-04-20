@@ -1,6 +1,6 @@
 ---
 name: dev-mem-objective-progress
-description: "Progress a local-first objective-mem objective on the current branch. Resume the branch's `objectives/<slug>.md` snapshot from `brmem`, or if none exists, carry it forward from another branch or seed it from `/Users/schrockn/code/scratch/objectives/<slug>.md`. Then implement the next unit of work and rewrite only the branch snapshot conservatively. Use when the user wants to continue a local objective, carry an objective onto a new stacked branch, or update the branch-local objective snapshot without touching GitHub."
+description: "Progress a local-first objective-mem objective on the current branch. Resume the branch's `<slug>.md` entry in the `objectives` brmem namespace, or if none exists, carry it forward from another branch or seed it from `/Users/schrockn/code/scratch/objectives/<slug>.md`. Then implement the next unit of work and rewrite only the branch snapshot conservatively. Use when the user wants to continue a local objective, carry an objective onto a new stacked branch, or update the branch-local objective snapshot without touching GitHub."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -19,7 +19,7 @@ Progress a **local-first objective** from its branch-local brmem snapshot.
 This skill works against exactly one active objective snapshot on the current
 branch:
 
-- `objectives/<slug>.md`
+- namespace `objectives`, key `<slug>.md`
 
 If the current branch has no such snapshot yet, the skill can **carry it
 forward** from another branch or **seed it** from the scratch-store seed file:
@@ -43,8 +43,8 @@ On the current branch:
 ## Core rules
 
 - **Local-first only.** Do not use GitHub issues in this prototype.
-- **One objective per branch.** If the current branch has multiple
-  `objectives/*.md` files, stop and ask the user to clean up the state.
+- **One objective per branch.** If the current branch has multiple entries in
+  the `objectives` namespace, stop and ask the user to clean up the state.
 - **Current branch snapshot wins.** If the branch already has one objective
   snapshot, always resume from it. Do not reseed from the global store or copy
   from another branch on top of an existing snapshot.
@@ -56,8 +56,9 @@ On the current branch:
 - **Use `How to Make Progress` as a load-bearing recipe.** That section exists
   to make future progress sessions fairly mechanical. Follow it, not just the
   checklist.
-- **Treat `plan.md` as the upper context frame.** If `plan.md` exists on the
-  branch, read the objective first, then the plan. Do not overwrite the plan.
+- **Treat the `workbr` plan entry as the upper context frame.** If the branch
+  has a `plan/plan.md` entry in the `workbr` namespace, read the objective
+  first, then the plan. Do not overwrite the plan.
 - **Preserve history.** Update the document conservatively and rely on brmem's
   commit history for rollback.
 
@@ -81,28 +82,33 @@ Abort if:
 
 ### 2. Inspect current-branch brmem state
 
-List current-branch brmem paths:
+List current-branch objectives entries:
 
 ```bash
-brmem list
+brmem list --namespace objectives
+brmem check plan/plan.md --namespace workbr
 ```
 
-From that list, compute:
+`--branch` is omitted so the current branch is used implicitly.
 
-- `objective_paths` = entries matching `objectives/*.md`
-- `has_plan` = whether `plan.md` exists
+From that output, compute:
+
+- `objective_entries` = entries returned by `brmem list --namespace objectives`
+- `has_plan` = whether `brmem check plan/plan.md --namespace workbr` exits `0`
+  (`1` means no such entry; `2` is a validation / command failure — abort)
 
 Decision rules:
 
-- **0 objective paths** → continue to step 3 (attach / carry mode)
-- **1 objective path** → that is the active branch snapshot; continue to step 4
-- **2+ objective paths** → abort; this prototype allows only one active
+- **0 objective entries** → continue to step 3 (attach / carry mode)
+- **1 objective entry** → that is the active branch snapshot; continue to
+  step 4
+- **2+ objective entries** → abort; this prototype allows only one active
   objective per branch
 
 ### 3. Attach / carry mode (only when the current branch has no objective)
 
-If the current branch has no `objectives/*.md`, do **not** guess. Resolve the
-source explicitly.
+If the current branch has no entries in the `objectives` namespace, do
+**not** guess. Resolve the source explicitly.
 
 Supported sources:
 
@@ -114,14 +120,12 @@ source branch.
 Resolution rules:
 
 - If the user names both a source branch and a slug, require that the source
-  branch contain `objectives/<slug>.md`.
+  branch contain the entry `(objectives, <slug>.md)`.
 - If the user names only a source branch, inspect it with:
 
   ```bash
-  brmem list --branch <source-branch>
+  brmem list --namespace objectives --branch <source-branch>
   ```
-
-  Filter to `objectives/*.md`.
 
   - **0 matches** → abort; the source branch has no objective snapshot
   - **1 match** → use it
@@ -130,13 +134,13 @@ Resolution rules:
 Then fetch the source objective:
 
 ```bash
-brmem get objectives/<slug>.md --branch <source-branch>
+brmem get <slug>.md --namespace objectives --branch <source-branch>
 ```
 
 Write that exact content to a temp file and attach it to the current branch:
 
 ```bash
-brmem put objectives/<slug>.md --file <temp-file>
+brmem put <slug>.md --namespace objectives --file <temp-file>
 ```
 
 This exact-copy attach is the moment the child branch receives its own
@@ -156,7 +160,7 @@ Read:
 Then attach that exact text to the current branch as:
 
 ```bash
-brmem put objectives/<slug>.md --file <temp-file-or-store-file>
+brmem put <slug>.md --namespace objectives --file <temp-file-or-store-file>
 ```
 
 #### 3c. If neither source branch nor slug is available
@@ -169,13 +173,13 @@ naming in v0.
 Read the active branch snapshot:
 
 ```bash
-brmem get objectives/<slug>.md
+brmem get <slug>.md --namespace objectives
 ```
 
-If `plan.md` exists on the branch, also read it:
+If the `workbr` plan entry exists on the branch, also read it:
 
 ```bash
-brmem get plan.md
+brmem get plan/plan.md --namespace workbr
 ```
 
 Read the objective before the plan.
@@ -215,7 +219,7 @@ Do the work on the current branch using normal tooling.
 Before writing, capture the old snapshot commit if one exists:
 
 ```bash
-brmem check objectives/<slug>.md
+brmem check <slug>.md --namespace objectives
 ```
 
 Then update the objective document **without rewriting it from scratch**.
@@ -246,10 +250,10 @@ preserving, add one.
 ### 8. Persist the updated snapshot
 
 Write the updated text to a temp file, then store it back to the same brmem
-path:
+key:
 
 ```bash
-brmem put objectives/<slug>.md --file <temp-file>
+brmem put <slug>.md --namespace objectives --file <temp-file>
 ```
 
 Capture the new commit SHA.
@@ -269,7 +273,7 @@ Summarize:
 
 ```text
 Recover the prior snapshot with:
-brmem get objectives/<slug>.md --at <old-sha>
+brmem get <slug>.md --namespace objectives --at <old-sha>
 ```
 
 ## Edge cases
@@ -283,7 +287,8 @@ brmem get objectives/<slug>.md --at <old-sha>
 - **Scratch-store file for the slug does not exist** → abort.
 - **Current branch already has an objective snapshot and the user asks to carry
   another one on top** → refuse; do not clobber an existing branch snapshot.
-- **`plan.md` exists** → read it after the objective; leave it untouched.
+- **`workbr` plan entry exists** → read it after the objective; leave it
+  untouched.
 
 ## Anti-patterns
 

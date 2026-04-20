@@ -1,4 +1,4 @@
-"""Probe whether a branch-memory entry ref exists right now."""
+"""Probe whether a branch-memory entry exists."""
 
 from __future__ import annotations
 
@@ -14,29 +14,33 @@ from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
-class CheckEntryRequest:
+class CheckRequest:
+    key: Annotated[
+        str,
+        click.Argument(["key"], type=click.STRING),
+    ]
     namespace: Annotated[
         str,
         click.Option(["--namespace"], required=True, type=click.STRING),
     ]
-    key: Annotated[
-        str,
-        click.Option(["--key"], required=True, type=click.STRING),
-    ]
     branch: str | None = None
+    at: str | None = None
 
 
 @dataclass(frozen=True)
-class CheckEntryResult:
+class CheckResult:
     namespace: str
     key: str
     branch: str
     ref_name: str
+    target: str
     exists: bool
-    head_sha: str | None = None
-    head_date: str | None = None
-    artifact_count: int | None = None
-    absent_message: str | None = None
+    at: str | None
+    head_sha: str | None
+    head_date: str | None
+    blob_sha: str | None
+    size_bytes: int | None
+    absent_message: str | None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -44,34 +48,39 @@ class CheckEntryResult:
             "key": self.key,
             "branch": self.branch,
             "ref_name": self.ref_name,
+            "target": self.target,
             "exists": self.exists,
+            "at": self.at,
             "head_sha": self.head_sha,
             "head_date": self.head_date,
-            "artifact_count": self.artifact_count,
+            "blob_sha": self.blob_sha,
+            "size_bytes": self.size_bytes,
         }
 
 
-def render_check_entry(result: CheckEntryResult) -> None:
+def render_check(result: CheckResult) -> None:
     lines = [
         f"namespace: {result.namespace}",
         f"key: {result.key}",
         f"branch: {result.branch}",
         f"ref: {result.ref_name}",
+        f"target: {result.target}",
         f"head: {result.head_sha} ({result.head_date})",
-        f"artifact_count: {result.artifact_count}",
+        f"blob: {result.blob_sha}",
+        f"size: {result.size_bytes}",
     ]
     click.echo("\n".join(lines))
 
 
 @clinkr_operation(
-    name="check-entry",
-    help="Check whether a branch-memory entry ref exists.",
-    human_renderer=render_check_entry,
+    name="check",
+    help="Check whether a branch-memory entry exists.",
+    human_renderer=render_check,
 )
-def run_check_entry(
+def run_check(
     ctx: click.Context,
-    request: CheckEntryRequest,
-) -> CheckEntryResult | ClinkrCommandError:
+    request: CheckRequest,
+) -> CheckResult | ClinkrCommandError:
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
         return branch
@@ -80,29 +89,46 @@ def run_check_entry(
     if isinstance(entry_ref, ClinkrCommandError):
         return entry_ref
 
+    target = request.at if request.at is not None else entry_ref.ref_name
+
     gateway = get_branch_memory_gateway(ctx)
-    diagnostic = gateway.check_entry(entry_ref.namespace, entry_ref.key, entry_ref.branch)
+    diagnostic = gateway.check(
+        entry_ref.namespace,
+        entry_ref.key,
+        entry_ref.branch,
+        at=request.at,
+    )
 
     if diagnostic is None:
-        return CheckEntryResult(
+        return CheckResult(
             namespace=entry_ref.namespace,
             key=entry_ref.key,
             branch=entry_ref.branch,
             ref_name=entry_ref.ref_name,
+            target=target,
             exists=False,
+            at=request.at,
+            head_sha=None,
+            head_date=None,
+            blob_sha=None,
+            size_bytes=None,
             absent_message=(
-                f"no entry: namespace={entry_ref.namespace} key={entry_ref.key} "
-                f"branch={entry_ref.branch} ref={entry_ref.ref_name}"
+                f"not found: key={entry_ref.key} namespace={entry_ref.namespace} "
+                f"branch={entry_ref.branch} at {target}"
             ),
         )
 
-    return CheckEntryResult(
+    return CheckResult(
         namespace=entry_ref.namespace,
         key=entry_ref.key,
         branch=entry_ref.branch,
         ref_name=entry_ref.ref_name,
+        target=target,
         exists=True,
+        at=request.at,
         head_sha=diagnostic.head_sha,
         head_date=diagnostic.head_date,
-        artifact_count=diagnostic.artifact_count,
+        blob_sha=diagnostic.blob_sha,
+        size_bytes=diagnostic.size_bytes,
+        absent_message=None,
     )

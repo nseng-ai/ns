@@ -54,11 +54,12 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
     assert "put" in result.output
     assert "get" in result.output
     assert "list" in result.output
-    assert "list-artifacts" in result.output
-    assert "check-entry" in result.output
-    assert "check-artifact" in result.output
+    assert "check" in result.output
     assert "json" in result.output
     assert "copy" not in result.output
+    assert "list-artifacts" not in result.output
+    assert "check-artifact" not in result.output
+    assert "check-entry" not in result.output
     # The legacy `branch` subgroup should no longer appear as a command.
     command_lines = [line for line in result.output.splitlines() if line.startswith("  ")]
     assert not any(line.lstrip().startswith("branch") for line in command_lines)
@@ -85,11 +86,9 @@ def test_brmem_put_and_get_round_trip(cli_group: ClinkrGroup, tmp_path: Path) ->
         cli_group,
         [
             "put",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--file",
             str(source_file),
         ],
@@ -97,25 +96,24 @@ def test_brmem_put_and_get_round_trip(cli_group: ClinkrGroup, tmp_path: Path) ->
     )
     get_result = CliRunner().invoke(
         cli_group,
-        ["get", "docs/notes.md", "--namespace", "workbr", "--key", "plan"],
+        ["get", "plan/plan.md", "--namespace", "workbr"],
         obj=obj,
     )
 
     assert put_result.exit_code == 0, put_result.output
     assert (
-        f"Stored docs/notes.md from {source_file} for workbr/plan on branch feat/x."
-        in put_result.output
+        f"Stored plan/plan.md from {source_file} for workbr on branch feat/x." in put_result.output
     )
-    assert "Ref: refs/brmem/workbr/plan/feat---x" in put_result.output
+    assert "Ref: refs/brmem/workbr/plan---plan.md/feat---x" in put_result.output
     assert "Commit: fake-0001" in put_result.output
-    assert "Inspect: git show refs/brmem/workbr/plan/feat---x:docs/notes.md" in put_result.output
+    assert (
+        "Inspect: git show refs/brmem/workbr/plan---plan.md/feat---x:content" in put_result.output
+    )
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "hello\n"
 
 
-def test_brmem_put_updates_one_artifact_without_disturbing_siblings(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
+def test_brmem_put_sibling_keys_are_independent(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     a_v1 = tmp_path / "a-v1.txt"
     a_v1.write_text("a1\n", encoding="utf-8")
     a_v2 = tmp_path / "a-v2.txt"
@@ -127,33 +125,33 @@ def test_brmem_put_updates_one_artifact_without_disturbing_siblings(
     runner = CliRunner()
     runner.invoke(
         cli_group,
-        ["put", "a.md", "--namespace", "workbr", "--key", "plan", "--file", str(a_v1)],
+        ["put", "plan/a.md", "--namespace", "workbr", "--file", str(a_v1)],
         obj=obj,
     )
     runner.invoke(
         cli_group,
-        ["put", "b.md", "--namespace", "workbr", "--key", "plan", "--file", str(b_v1)],
+        ["put", "plan/b.md", "--namespace", "workbr", "--file", str(b_v1)],
         obj=obj,
     )
     runner.invoke(
         cli_group,
-        ["put", "a.md", "--namespace", "workbr", "--key", "plan", "--file", str(a_v2)],
+        ["put", "plan/a.md", "--namespace", "workbr", "--file", str(a_v2)],
         obj=obj,
     )
 
     a_get = runner.invoke(
         cli_group,
-        ["get", "a.md", "--namespace", "workbr", "--key", "plan"],
+        ["get", "plan/a.md", "--namespace", "workbr"],
         obj=obj,
     )
     b_get = runner.invoke(
         cli_group,
-        ["get", "b.md", "--namespace", "workbr", "--key", "plan"],
+        ["get", "plan/b.md", "--namespace", "workbr"],
         obj=obj,
     )
     list_result = runner.invoke(
         cli_group,
-        ["list-artifacts", "--namespace", "workbr", "--key", "plan"],
+        ["list", "--namespace", "workbr"],
         obj=obj,
     )
 
@@ -162,23 +160,24 @@ def test_brmem_put_updates_one_artifact_without_disturbing_siblings(
     assert b_get.exit_code == 0
     assert b_get.output == "b1\n"
     assert list_result.exit_code == 0
-    assert list_result.output.splitlines() == ["a.md", "b.md"]
+    assert list_result.output.splitlines() == [
+        "refs/brmem/workbr/plan---a.md/feat---x",
+        "refs/brmem/workbr/plan---b.md/feat---x",
+    ]
 
 
 def test_brmem_get_at_reads_older_snapshot(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    first_commit = gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "one\n")
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "two\n")
+    first_commit = gateway.put("workbr", "plan/plan.md", "feat/x", "one\n")
+    gateway.put("workbr", "plan/plan.md", "feat/x", "two\n")
 
     result = CliRunner().invoke(
         cli_group,
         [
             "get",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--at",
             first_commit,
         ],
@@ -191,17 +190,15 @@ def test_brmem_get_at_reads_older_snapshot(cli_group: ClinkrGroup) -> None:
 
 def test_brmem_at_accepts_raw_treeish(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "one\n")
+    gateway.put("workbr", "plan/plan.md", "feat/x", "one\n")
     # Hand an at value that has no known history; fake returns None -> missing.
     result = CliRunner().invoke(
         cli_group,
         [
             "get",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--at",
             "deadbeef",
         ],
@@ -223,9 +220,8 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         input=json.dumps(
             {
                 "file": str(source_file),
-                "path": "docs/notes.md",
+                "key": "plan/plan.md",
                 "namespace": "workbr",
-                "key": "plan",
             }
         ),
         obj=obj,
@@ -238,9 +234,8 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         input=json.dumps(
             {
                 "branch": "feat/x",
-                "path": "docs/notes.md",
+                "key": "plan/plan.md",
                 "namespace": "workbr",
-                "key": "plan",
             }
         ),
         obj=obj,
@@ -250,10 +245,9 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert put_result.exit_code == 0
     assert put_payload == {
         "namespace": "workbr",
-        "key": "plan",
+        "key": "plan/plan.md",
         "branch": "feat/x",
-        "path": "docs/notes.md",
-        "ref_name": "refs/brmem/workbr/plan/feat---x",
+        "ref_name": "refs/brmem/workbr/plan---plan.md/feat---x",
         "commit": "fake-0001",
         "source_file": str(source_file),
         "success": True,
@@ -261,12 +255,11 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert get_result.exit_code == 0
     assert get_payload == {
         "namespace": "workbr",
-        "key": "plan",
+        "key": "plan/plan.md",
         "branch": "feat/x",
-        "path": "docs/notes.md",
         "content": "json\n",
-        "ref_name": "refs/brmem/workbr/plan/feat---x",
-        "target": "refs/brmem/workbr/plan/feat---x",
+        "ref_name": "refs/brmem/workbr/plan---plan.md/feat---x",
+        "target": "refs/brmem/workbr/plan---plan.md/feat---x",
         "at": None,
         "success": True,
     }
@@ -277,19 +270,19 @@ def test_brmem_put_from_stdin(cli_group: ClinkrGroup) -> None:
 
     put_result = CliRunner().invoke(
         cli_group,
-        ["put", "file.md", "--namespace", "workbr", "--key", "plan", "--stdin"],
+        ["put", "plan/plan.md", "--namespace", "workbr", "--stdin"],
         input="contents\n",
         obj=obj,
     )
     get_result = CliRunner().invoke(
         cli_group,
-        ["get", "file.md", "--namespace", "workbr", "--key", "plan"],
+        ["get", "plan/plan.md", "--namespace", "workbr"],
         obj=obj,
     )
 
     assert put_result.exit_code == 0, put_result.output
-    assert "Stored file.md from stdin for workbr/plan on branch feat/x." in put_result.output
-    assert "Ref: refs/brmem/workbr/plan/feat---x" in put_result.output
+    assert "Stored plan/plan.md from stdin for workbr on branch feat/x." in put_result.output
+    assert "Ref: refs/brmem/workbr/plan---plan.md/feat---x" in put_result.output
     assert "Commit: fake-0001" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "contents\n"
@@ -301,9 +294,8 @@ def test_brmem_json_put_from_stdin_is_rejected(cli_group: ClinkrGroup) -> None:
         ["json", "put"],
         input=json.dumps(
             {
-                "path": "file.md",
+                "key": "plan/plan.md",
                 "namespace": "workbr",
-                "key": "plan",
                 "stdin": True,
             }
         ),
@@ -330,11 +322,9 @@ def test_brmem_invalid_branch_surfaces_clean_error(cli_group: ClinkrGroup, tmp_p
         cli_group,
         [
             "put",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--file",
             str(source_file),
             "--branch",
@@ -357,11 +347,9 @@ def test_brmem_invalid_namespace_surfaces_clean_error(
         cli_group,
         [
             "put",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "brs",
-            "--key",
-            "plan",
             "--file",
             str(source_file),
         ],
@@ -380,11 +368,9 @@ def test_brmem_invalid_key_surfaces_clean_error(cli_group: ClinkrGroup, tmp_path
         cli_group,
         [
             "put",
-            "docs/notes.md",
+            "a---b",
             "--namespace",
             "workbr",
-            "--key",
-            "a/b",
             "--file",
             str(source_file),
         ],
@@ -392,7 +378,7 @@ def test_brmem_invalid_key_surfaces_clean_error(cli_group: ClinkrGroup, tmp_path
     )
 
     assert result.exit_code == 1
-    assert "Invalid key 'a/b'" in result.output
+    assert "Invalid key 'a---b'" in result.output
 
 
 def test_brmem_explicit_branch_overrides_current_branch(
@@ -406,11 +392,9 @@ def test_brmem_explicit_branch_overrides_current_branch(
         cli_group,
         [
             "put",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--file",
             str(source_file),
             "--branch",
@@ -422,11 +406,9 @@ def test_brmem_explicit_branch_overrides_current_branch(
         cli_group,
         [
             "get",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--branch",
             "feat/other",
         ],
@@ -448,11 +430,9 @@ def test_brmem_put_rejects_detached_head_when_branch_omitted(
         cli_group,
         [
             "put",
-            "docs/notes.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--file",
             str(source_file),
         ],
@@ -463,7 +443,7 @@ def test_brmem_put_rejects_detached_head_when_branch_omitted(
     assert "detached head" in result.output.lower()
 
 
-def test_brmem_put_defaults_memory_path_from_file(
+def test_brmem_put_defaults_source_file_from_key_basename(
     cli_group: ClinkrGroup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -473,18 +453,18 @@ def test_brmem_put_defaults_memory_path_from_file(
 
     put_result = CliRunner().invoke(
         cli_group,
-        ["put", "plan.md", "--namespace", "workbr", "--key", "plan"],
+        ["put", "plan/plan.md", "--namespace", "workbr"],
         obj=obj,
     )
     get_result = CliRunner().invoke(
         cli_group,
-        ["get", "plan.md", "--namespace", "workbr", "--key", "plan"],
+        ["get", "plan/plan.md", "--namespace", "workbr"],
         obj=obj,
     )
 
     assert put_result.exit_code == 0, put_result.output
-    assert "Stored plan.md from plan.md for workbr/plan on branch feat/x." in put_result.output
-    assert "Ref: refs/brmem/workbr/plan/feat---x" in put_result.output
+    assert "Stored plan/plan.md from plan.md for workbr on branch feat/x." in put_result.output
+    assert "Ref: refs/brmem/workbr/plan---plan.md/feat---x" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "hello\n"
 
@@ -498,11 +478,9 @@ def test_brmem_put_rejects_stdin_and_file_together(cli_group: ClinkrGroup, tmp_p
         cli_group,
         [
             "put",
-            "file.md",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--stdin",
             "--file",
             str(source_file),
@@ -518,7 +496,7 @@ def test_brmem_put_rejects_stdin_and_file_together(cli_group: ClinkrGroup, tmp_p
 def test_brmem_get_surfaces_git_failure_when_branch_omitted(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["get", "docs/notes.md", "--namespace", "workbr", "--key", "plan"],
+        ["get", "plan/plan.md", "--namespace", "workbr"],
         obj=_make_obj(
             branch=GitCommandFailure(
                 message="fatal: not a git repository",
@@ -536,11 +514,9 @@ def test_brmem_missing_content_error_mentions_ref_target(cli_group: ClinkrGroup)
         cli_group,
         [
             "get",
-            "docs/missing.md",
+            "plan/missing.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--branch",
             "feat/x",
         ],
@@ -548,8 +524,8 @@ def test_brmem_missing_content_error_mentions_ref_target(cli_group: ClinkrGroup)
     )
 
     assert result.exit_code == 1
-    assert "refs/brmem/workbr/plan/feat---x" in result.output
-    assert "git ls-tree -r refs/brmem/workbr/plan/feat---x" in result.output
+    assert "refs/brmem/workbr/plan---missing.md/feat---x" in result.output
+    assert "git show refs/brmem/workbr/plan---missing.md/feat---x:content" in result.output
 
 
 def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -> None:
@@ -557,11 +533,9 @@ def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -
         cli_group,
         [
             "get",
-            "../notes.md",
+            "a---b",
             "--namespace",
             "brs",
-            "--key",
-            "a/b",
             "--branch",
             "feat---x",
         ],
@@ -571,9 +545,8 @@ def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -
     assert result.exit_code == 1
     assert "Invalid brmem request:" in result.output
     assert "Invalid namespace 'brs'" in result.output
-    assert "Invalid key 'a/b'" in result.output
+    assert "Invalid key 'a---b'" in result.output
     assert "Invalid branch name 'feat---x'" in result.output
-    assert "Invalid artifact path '../notes.md'" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -583,10 +556,10 @@ def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -
 
 def _seed_for_list_filters() -> FakeBranchMemoryGateway:
     gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "a.md", "a\n")
-    gateway.put_artifact("workbr", "plan", "feat/y", "a.md", "a\n")
-    gateway.put_artifact("workbr", "notes", "feat/x", "a.md", "a\n")
-    gateway.put_artifact("objectives", "obj-1", "feat/x", "a.md", "a\n")
+    gateway.put("workbr", "plan", "feat/x", "a\n")
+    gateway.put("workbr", "plan", "feat/y", "a\n")
+    gateway.put("workbr", "notes", "feat/x", "a\n")
+    gateway.put("objectives", "obj-1", "feat/x", "a\n")
     return gateway
 
 
@@ -666,9 +639,27 @@ def test_brmem_list_empty_returns_nothing(cli_group: ClinkrGroup) -> None:
     assert result.output == ""
 
 
+def test_brmem_list_filters_by_key_with_slash(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("workbr", "plan/a.md", "feat/x", "a\n")
+    gateway.put("workbr", "plan/b.md", "feat/x", "b\n")
+    gateway.put("workbr", "plan/a.md", "feat/y", "a\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group, ["list", "--namespace", "workbr", "--key", "plan/a.md"], obj=obj
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [
+        "refs/brmem/workbr/plan---a.md/feat---x",
+        "refs/brmem/workbr/plan---a.md/feat---y",
+    ]
+
+
 def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/a.md", "a\n")
+    gateway.put("workbr", "plan/a.md", "feat/x", "a\n")
     obj = _make_obj(gateway=gateway)
 
     result = CliRunner().invoke(
@@ -687,9 +678,9 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
         "entries": [
             {
                 "namespace": "workbr",
-                "key": "plan",
+                "key": "plan/a.md",
                 "branch": "feat/x",
-                "ref_name": "refs/brmem/workbr/plan/feat---x",
+                "ref_name": "refs/brmem/workbr/plan---a.md/feat---x",
             }
         ],
         "success": True,
@@ -697,121 +688,54 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
 
 
 # ---------------------------------------------------------------------------
-# brmem list-artifacts
+# brmem check
 # ---------------------------------------------------------------------------
 
 
-def test_brmem_list_artifacts_human(cli_group: ClinkrGroup) -> None:
+def test_brmem_check_hit_exits_zero(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/b.md", "b\n")
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/a.md", "a\n")
-    obj = _make_obj(gateway=gateway)
+    gateway.put("workbr", "plan/plan.md", "feat/x", "hello\n")
 
     result = CliRunner().invoke(
         cli_group,
-        ["list-artifacts", "--namespace", "workbr", "--key", "plan"],
-        obj=obj,
-    )
-
-    assert result.exit_code == 0, result.output
-    assert result.output == "docs/a.md\ndocs/b.md\n"
-
-
-def test_brmem_list_artifacts_json(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/b.md", "b\n")
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/a.md", "a\n")
-    obj = _make_obj(gateway=gateway)
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["json", "list-artifacts"],
-        input=json.dumps({"namespace": "workbr", "key": "plan"}),
-        obj=obj,
-    )
-    payload = _json_output(result.output)
-
-    assert result.exit_code == 0, result.output
-    assert payload == {
-        "namespace": "workbr",
-        "key": "plan",
-        "branch": "feat/x",
-        "ref_name": "refs/brmem/workbr/plan/feat---x",
-        "target": "refs/brmem/workbr/plan/feat---x",
-        "artifacts": ["docs/a.md", "docs/b.md"],
-        "at": None,
-        "success": True,
-    }
-
-
-def test_brmem_json_list_artifacts_collects_multiple_validation_errors(
-    cli_group: ClinkrGroup,
-) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["json", "list-artifacts"],
-        input=json.dumps({"namespace": "brs", "key": "a/b", "branch": "feat---x"}),
-        obj=_make_obj(),
-    )
-    payload = _json_output(result.output)
-
-    assert result.exit_code == 1, result.output
-    assert payload["success"] is False
-    assert payload["error_type"] == "invalid_request"
-    assert "Invalid brmem request:" in payload["message"]
-    assert "Invalid namespace 'brs'" in payload["message"]
-    assert "Invalid key 'a/b'" in payload["message"]
-    assert "Invalid branch name 'feat---x'" in payload["message"]
-
-
-# ---------------------------------------------------------------------------
-# brmem check-entry
-# ---------------------------------------------------------------------------
-
-
-def test_brmem_check_entry_hit_exits_zero(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "a.md", "a\n")
-    gateway.put_artifact("workbr", "plan", "feat/x", "b.md", "b\n")
-    gateway.put_artifact("workbr", "plan", "feat/x", "c.md", "c\n")
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["check-entry", "--namespace", "workbr", "--key", "plan"],
+        ["check", "plan/plan.md", "--namespace", "workbr"],
         obj=_make_obj(gateway=gateway),
     )
 
     assert result.exit_code == 0, result.stderr
+    assert result.stderr == ""
+    assert "key: plan/plan.md" in result.stdout
+    assert "namespace: workbr" in result.stdout
     assert "branch: feat/x" in result.stdout
-    assert "ref: refs/brmem/workbr/plan/feat---x" in result.stdout
-    assert "head: fake-0003" in result.stdout
-    assert "artifact_count: 3" in result.stdout
+    assert "ref: refs/brmem/workbr/plan---plan.md/feat---x" in result.stdout
+    assert "head: fake-0001" in result.stdout
+    assert "blob: blob-fake-0001" in result.stdout
+    assert "size: 6" in result.stdout
 
 
-def test_brmem_check_entry_miss_exits_one_with_absent_message(cli_group: ClinkrGroup) -> None:
+def test_brmem_check_miss_exits_one_with_absent_message(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["check-entry", "--namespace", "workbr", "--key", "plan"],
+        ["check", "plan/plan.md", "--namespace", "workbr"],
         obj=_make_obj(),
     )
 
     assert result.exit_code == 1
     assert result.stdout == ""
-    assert (
-        result.stderr.strip()
-        == "no entry: namespace=workbr key=plan branch=feat/x ref=refs/brmem/workbr/plan/feat---x"
+    assert result.stderr.strip() == (
+        "not found: key=plan/plan.md namespace=workbr branch=feat/x "
+        "at refs/brmem/workbr/plan---plan.md/feat---x"
     )
 
 
-def test_brmem_check_entry_invalid_branch_exits_two(cli_group: ClinkrGroup) -> None:
+def test_brmem_check_invalid_branch_exits_two(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
         [
-            "check-entry",
+            "check",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--branch",
             "feat---x",
         ],
@@ -822,100 +746,29 @@ def test_brmem_check_entry_invalid_branch_exits_two(cli_group: ClinkrGroup) -> N
     assert "Invalid branch name 'feat---x'" in result.stderr
 
 
-def test_brmem_json_check_entry_present(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "a.md", "a\n")
-    obj = _make_obj(gateway=gateway)
-
+def test_brmem_check_detached_head_exits_two(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["json", "check-entry"],
-        input=json.dumps({"namespace": "workbr", "key": "plan"}),
-        obj=obj,
+        ["check", "plan/plan.md", "--namespace", "workbr"],
+        obj=_make_obj(branch=DetachedHead()),
     )
-    payload = _json_output(result.output)
 
-    assert result.exit_code == 0, result.output
-    assert payload["success"] is True
-    assert payload["exists"] is True
-    assert payload["ref_name"] == "refs/brmem/workbr/plan/feat---x"
-    assert payload["artifact_count"] == 1
+    assert result.exit_code == 2
+    assert "detached head" in result.stderr.lower()
 
 
-def test_brmem_json_check_entry_missing(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["json", "check-entry"],
-        input=json.dumps({"namespace": "workbr", "key": "plan"}),
-        obj=_make_obj(),
-    )
-    payload = _json_output(result.output)
-
-    assert result.exit_code == 0, result.output
-    assert payload["success"] is True
-    assert payload["exists"] is False
-    assert payload["head_sha"] is None
-    assert payload["artifact_count"] is None
-
-
-# ---------------------------------------------------------------------------
-# brmem check-artifact
-# ---------------------------------------------------------------------------
-
-
-def test_brmem_check_artifact_hit_exits_zero(cli_group: ClinkrGroup) -> None:
+def test_brmem_check_at_historical(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "hello\n")
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["check-artifact", "docs/notes.md", "--namespace", "workbr", "--key", "plan"],
-        obj=_make_obj(gateway=gateway),
-    )
-
-    assert result.exit_code == 0, result.stderr
-    assert result.stderr == ""
-    assert "path: docs/notes.md" in result.stdout
-    assert "namespace: workbr" in result.stdout
-    assert "key: plan" in result.stdout
-    assert "ref: refs/brmem/workbr/plan/feat---x" in result.stdout
-    assert "blob: blob-fake-0001-docs/notes.md" in result.stdout
-    assert "size: 6" in result.stdout
-    assert "last_commit: fake-0001" in result.stdout
-
-
-def test_brmem_check_artifact_miss_exits_one(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "hello\n")
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["check-artifact", "docs/missing.md", "--namespace", "workbr", "--key", "plan"],
-        obj=_make_obj(gateway=gateway),
-    )
-
-    assert result.exit_code == 1
-    assert result.stdout == ""
-    assert result.stderr.strip() == (
-        "not found: docs/missing.md in namespace=workbr key=plan "
-        "branch=feat/x at refs/brmem/workbr/plan/feat---x"
-    )
-
-
-def test_brmem_check_artifact_at_historical(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    first_commit = gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "one\n")
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "two-and-three\n")
+    first_commit = gateway.put("workbr", "plan/plan.md", "feat/x", "one\n")
+    gateway.put("workbr", "plan/plan.md", "feat/x", "two-and-three\n")
 
     result = CliRunner().invoke(
         cli_group,
         [
-            "check-artifact",
-            "docs/notes.md",
+            "check",
+            "plan/plan.md",
             "--namespace",
             "workbr",
-            "--key",
-            "plan",
             "--at",
             first_commit,
         ],
@@ -927,52 +780,15 @@ def test_brmem_check_artifact_at_historical(cli_group: ClinkrGroup) -> None:
     assert f"target: {first_commit}" in result.stdout
 
 
-def test_brmem_check_artifact_invalid_branch_exits_two(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        [
-            "check-artifact",
-            "docs/notes.md",
-            "--namespace",
-            "workbr",
-            "--key",
-            "plan",
-            "--branch",
-            "feat---x",
-        ],
-        obj=_make_obj(branch=None),
-    )
-
-    assert result.exit_code == 2
-    assert "Invalid branch name 'feat---x'" in result.stderr
-
-
-def test_brmem_check_artifact_detached_head_exits_two(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["check-artifact", "docs/notes.md", "--namespace", "workbr", "--key", "plan"],
-        obj=_make_obj(branch=DetachedHead()),
-    )
-
-    assert result.exit_code == 2
-    assert "detached head" in result.stderr.lower()
-
-
-def test_brmem_json_check_artifact_present(cli_group: ClinkrGroup) -> None:
+def test_brmem_json_check_present(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put_artifact("workbr", "plan", "feat/x", "docs/notes.md", "hello\n")
+    gateway.put("workbr", "plan/plan.md", "feat/x", "hello\n")
     obj = _make_obj(gateway=gateway)
 
     result = CliRunner().invoke(
         cli_group,
-        ["json", "check-artifact"],
-        input=json.dumps(
-            {
-                "namespace": "workbr",
-                "key": "plan",
-                "path": "docs/notes.md",
-            }
-        ),
+        ["json", "check"],
+        input=json.dumps({"namespace": "workbr", "key": "plan/plan.md"}),
         obj=obj,
     )
     payload = _json_output(result.output)
@@ -980,8 +796,26 @@ def test_brmem_json_check_artifact_present(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert payload["success"] is True
     assert payload["exists"] is True
-    assert payload["ref_name"] == "refs/brmem/workbr/plan/feat---x"
+    assert payload["ref_name"] == "refs/brmem/workbr/plan---plan.md/feat---x"
     assert payload["size_bytes"] == 6
+    assert payload["head_sha"] == "fake-0001"
+    assert payload["blob_sha"] == "blob-fake-0001"
+
+
+def test_brmem_json_check_missing(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["json", "check"],
+        input=json.dumps({"namespace": "workbr", "key": "plan/plan.md"}),
+        obj=_make_obj(),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["success"] is True
+    assert payload["exists"] is False
+    assert payload["head_sha"] is None
+    assert payload["size_bytes"] is None
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 ---
 name: dev-mem-objective-create
-description: "Create a local-first objective record for the objective-mem prototype. Draft a simple migration-notice-style objective, store it in `/Users/schrockn/code/scratch/objectives/<slug>.md`, and attach the same text to the current branch via `brmem` as `objectives/<slug>.md`. Use when the user wants to start a new local objective, prototype objective-mem, attach an objective to the current branch, or create a branch-scoped objective snapshot without using GitHub."
+description: "Create a local-first objective record for the objective-mem prototype. Draft a simple migration-notice-style objective, store it in `/Users/schrockn/code/scratch/objectives/<slug>.md`, and attach the same text to the current branch via `brmem` under namespace `objectives`, key `<slug>.md`. Use when the user wants to start a new local objective, prototype objective-mem, attach an objective to the current branch, or create a branch-scoped objective snapshot without using GitHub."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -23,7 +23,7 @@ objective file in the local scratch store:
 
 Then it attaches that exact text to the **current branch** in brmem at:
 
-- `objectives/<slug>.md`
+- namespace `objectives`, key `<slug>.md`
 
 The branch snapshot is the in-flight speculative state. The scratch-store file
 is only the initial seed for this prototype.
@@ -34,15 +34,15 @@ Given a rough objective brief from the user, produce:
 
 1. a migration-notice-style objective document at
    `/Users/schrockn/code/scratch/objectives/<slug>.md`
-2. a matching brmem snapshot for the current branch at
-   `objectives/<slug>.md`
+2. a matching brmem snapshot for the current branch under
+   namespace `objectives`, key `<slug>.md`
 3. a short report naming the slug, global-store path, branch, and brmem commit
 
 ## Core rules
 
 - **This prototype is local-first.** Do not create or edit GitHub issues.
-- **One objective per branch.** If the current branch already has a file under
-  `objectives/*.md`, abort instead of creating a second one.
+- **One objective per branch.** If the current branch already has any entry in
+  the `objectives` namespace, abort instead of creating a second one.
 - **Use the simple template.** Read `references/objective-template.md` and keep
   the draft close to that shape:
   - title
@@ -57,14 +57,15 @@ Given a rough objective brief from the user, produce:
   - `## How to Make Progress`
   - `## Notes` (expected for architectural / migration objectives; optional for
     simpler objectives)
-- **The branch snapshot path must carry the slug.** Do not use bare
-  `objective.md`; the branch path is `objectives/<slug>.md`.
+- **The branch snapshot key must carry the slug.** Do not use bare
+  `objective.md`; the branch key is `<slug>.md` in namespace `objectives`.
 - **Attach the exact drafted text.** Write the global-store file first, then use
   `brmem put` to copy that exact file onto the branch.
 - **Do not write the objective into the working tree.** The only durable copies
   are the scratch-store file and the brmem snapshot.
-- **Do not touch `plan.md`.** If the branch already has a `plan.md`, leave it
-  alone. `plan.md` is the upper execution frame; the objective sits below it.
+- **Do not touch the workbr plan entry.** If the branch already has
+  a `plan/plan.md` entry in the `workbr` namespace, leave it alone.
+  That plan is the upper execution frame; the objective sits below it.
 
 ## Workflow
 
@@ -86,13 +87,13 @@ Abort if:
 
 ### 2. Ensure the branch does not already have an objective
 
-Inspect current-branch brmem:
+Inspect current-branch brmem for the `objectives` namespace:
 
 ```bash
-brmem list
+brmem list --namespace objectives
 ```
 
-Filter the returned paths to `objectives/*.md`.
+`--branch` is omitted so the current branch is used implicitly.
 
 Decision rules:
 
@@ -205,11 +206,11 @@ This file is the prototype's global store / system-of-record seed.
 Copy the exact scratch-store file into branch memory:
 
 ```bash
-brmem put objectives/<slug>.md --file /Users/schrockn/code/scratch/objectives/<slug>.md
+brmem put <slug>.md --namespace objectives --file /Users/schrockn/code/scratch/objectives/<slug>.md
 ```
 
-- The current branch is used implicitly.
-- The branch-local path must be `objectives/<slug>.md`.
+- `--branch` is omitted so the current branch is used implicitly.
+- The positional key must be `<slug>.md`; the namespace must be `objectives`.
 - This is the initial speculative snapshot for the branch.
 
 Capture the commit SHA reported by `brmem put` for the report.
@@ -222,7 +223,7 @@ Return a short summary including:
 - slug
 - scratch-store path
 - current branch name
-- branch snapshot path (`objectives/<slug>.md`)
+- brmem entry location (namespace `objectives`, key `<slug>.md`)
 - brmem commit SHA
 - next-step hint:
 
@@ -240,7 +241,7 @@ objective forward when no local snapshot exists yet.
   clean up the branch state first.
 - **Scratch-store slug already exists** → abort; do not overwrite an existing
   canonical seed file.
-- **Branch already has `plan.md`** → fine; leave it alone.
+- **Branch already has a `workbr` plan entry** → fine; leave it alone.
 - **Objective is too vague to write `How to Make Progress`** → ask a short
   follow-up instead of drafting generic boilerplate.
 
@@ -249,7 +250,8 @@ objective forward when no local snapshot exists yet.
 - Using GitHub issues or comments in this prototype.
 - Writing the objective into the repo working tree.
 - Creating a second objective on a branch that already has one.
-- Attaching the branch snapshot under a generic name like `objective.md`.
+- Attaching the branch snapshot under a generic key like `objective.md` or a
+  namespace other than `objectives`.
 - Replacing `How to Make Progress` with vague advice like “keep working on it.”
 - Treating the scratch-store file as something that should be rewritten during
   ordinary progress sessions. In v0, progress rewrites the **branch snapshot**,
