@@ -6,8 +6,9 @@ from typing import Any
 import click
 
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_reviewer.cli.reviewer.context import load_reviewer_context
+from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.workflow import resolve_harness
 
 
@@ -37,7 +38,7 @@ def run_harness_show_command(
     ctx: click.Context,
     request: HarnessShowRequest,
 ) -> HarnessShowResult | ClinkrCommandError:
-    reviewer_context = load_reviewer_context(ctx)
+    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
 
     resolved = resolve_harness(
         requested_harness=None,

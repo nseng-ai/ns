@@ -6,8 +6,9 @@ from typing import Any
 import click
 
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_reviewer.cli.reviewer.context import load_reviewer_context
+from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.harness_registry import HARNESS_ADAPTERS
 
 
@@ -62,7 +63,7 @@ def run_harness_list_command(
     ctx: click.Context,
     request: HarnessListRequest,
 ) -> HarnessListResult | ClinkrCommandError:
-    reviewer_context = load_reviewer_context(ctx)
+    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
     entries: list[HarnessEntry] = []
     for adapter in HARNESS_ADAPTERS.values():
         detection = reviewer_context.harness_detection.detect(

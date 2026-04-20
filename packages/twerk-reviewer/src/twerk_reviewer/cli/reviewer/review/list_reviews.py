@@ -6,8 +6,9 @@ from typing import Any
 import click
 
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_reviewer.cli.reviewer.context import load_reviewer_context
+from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.gateways.review_definition.gateway import REVIEWS_DIRNAME
 from twerk_reviewer.git_toplevel import git_toplevel
 from twerk_reviewer.models import (
@@ -55,7 +56,7 @@ def run_review_list_command(
     ctx: click.Context,
     request: ReviewListRequest,
 ) -> ReviewListResult | ClinkrCommandError:
-    reviewer_context = load_reviewer_context(ctx)
+    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
 
     try:
         repo_root = git_toplevel(cwd=reviewer_context.cwd)
