@@ -1,14 +1,18 @@
 """Abstract interface and shared validation for branch memory.
 
-The ref layout is ``refs/brmem/<namespace>/<encoded-key>/<encoded-branch>``.
-Each entry ref holds a commit whose tree has a single ``content`` blob. An
-entry exists iff its ref exists — ``put`` is the only creation path.
+The ref layout is ``refs/brmem/<namespace>/<encoded-branch>/<key>``. The key
+is the tail of the ref and keeps its native ``/`` characters; only the branch
+is encoded (``/`` → ``---``) so it fits in a single ref segment. Each entry
+ref holds a commit whose tree has a single ``content`` blob. An entry exists
+iff its ref exists — ``put`` is the only creation path.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+from twerk_core.brmem.key_validation import validate_key
 
 BRMEM_REF_PREFIX = "refs/brmem"
 BRMEM_CONTENT_PATH = "content"
@@ -54,21 +58,12 @@ class InvalidNamespaceError(ValueError):
         super().__init__(f"Invalid namespace {namespace!r}: {reason}")
 
 
-class InvalidKeyError(ValueError):
-    """Raised when a key cannot be used in an entry ref."""
-
-    def __init__(self, key: str, reason: str) -> None:
-        self.key = key
-        self.reason = reason
-        super().__init__(f"Invalid key {key!r}: {reason}")
-
-
 class BranchMemoryGateway(ABC):
     """Store small per-branch blobs outside the working tree.
 
     Entries are keyed by ``(namespace, key, branch)``. An entry exists iff
-    its ref ``refs/brmem/<namespace>/<encoded-key>/<encoded-branch>`` exists.
-    Each ref stores exactly one blob.
+    its ref ``refs/brmem/<namespace>/<encoded-branch>/<key>`` exists. Each
+    ref stores exactly one blob.
     """
 
     @abstractmethod
@@ -122,7 +117,7 @@ def ref_name_for_entry(namespace: str, key: str, branch: str) -> str:
     validate_namespace(namespace)
     validate_key(key)
     validate_branch_name(branch)
-    return f"{BRMEM_REF_PREFIX}/{namespace}/{encode_flat_name(key)}/{encode_flat_name(branch)}"
+    return f"{BRMEM_REF_PREFIX}/{namespace}/{encode_branch_segment(branch)}/{key}"
 
 
 def parse_entry_ref(ref_name: str) -> EntryRef | None:
@@ -130,16 +125,15 @@ def parse_entry_ref(ref_name: str) -> EntryRef | None:
     if not ref_name.startswith(f"{BRMEM_REF_PREFIX}/"):
         return None
     remainder = ref_name[len(BRMEM_REF_PREFIX) + 1 :]
-    parts = remainder.split("/")
+    parts = remainder.split("/", 2)
     if len(parts) != 3:
         return None
-    namespace, encoded_key, encoded_branch = parts
-    if not namespace or not encoded_key or not encoded_branch:
+    namespace, encoded_branch, key = parts
+    if not namespace or not encoded_branch or not key:
         return None
     if namespace in _BANNED_NAMESPACES:
         return None
-    key = decode_flat_name(encoded_key)
-    branch = decode_flat_name(encoded_branch)
+    branch = decode_branch_segment(encoded_branch)
     return EntryRef(
         namespace=namespace,
         key=key,
@@ -148,16 +142,16 @@ def parse_entry_ref(ref_name: str) -> EntryRef | None:
     )
 
 
-# -- flat encoding (shared by key and branch) ---------------------------------
+# -- branch-segment encoding --------------------------------------------------
 
 
-def encode_flat_name(name: str) -> str:
-    """Encode ``name`` into a flat ref segment by replacing ``/`` with ``---``."""
-    return name.replace("/", _FLAT_SEPARATOR)
+def encode_branch_segment(branch: str) -> str:
+    """Encode a branch name into a single ref segment by replacing ``/`` with ``---``."""
+    return branch.replace("/", _FLAT_SEPARATOR)
 
 
-def decode_flat_name(encoded: str) -> str:
-    """Reverse of :func:`encode_flat_name`."""
+def decode_branch_segment(encoded: str) -> str:
+    """Reverse of :func:`encode_branch_segment`."""
     return encoded.replace(_FLAT_SEPARATOR, "/")
 
 
@@ -187,7 +181,7 @@ def _branch_name_reason(branch: str) -> str | None:
     return None
 
 
-# -- namespace / key ---------------------------------------------------------
+# -- namespace ---------------------------------------------------------------
 
 
 def validate_namespace(namespace: str) -> None:
@@ -203,19 +197,6 @@ def check_namespace(namespace: str) -> str | None:
     return f"Invalid namespace {namespace!r}: {reason}"
 
 
-def validate_key(key: str) -> None:
-    reason = _key_reason(key)
-    if reason is not None:
-        raise InvalidKeyError(key, reason)
-
-
-def check_key(key: str) -> str | None:
-    reason = _key_reason(key)
-    if reason is None:
-        return None
-    return f"Invalid key {key!r}: {reason}"
-
-
 def _namespace_reason(namespace: str) -> str | None:
     if not namespace:
         return "namespace must not be empty"
@@ -223,12 +204,4 @@ def _namespace_reason(namespace: str) -> str | None:
         return "namespace must not contain '/'"
     if namespace in _BANNED_NAMESPACES:
         return f"'{namespace}' is a reserved namespace"
-    return None
-
-
-def _key_reason(key: str) -> str | None:
-    if not key:
-        return "key must not be empty"
-    if _FLAT_SEPARATOR in key:
-        return "keys containing '---' cannot be encoded into refs/brmem"
     return None

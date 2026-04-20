@@ -139,7 +139,7 @@ Treat this step like any other plan-driven implementation session:
 
   ```
   brmem list --namespace workbr
-  git show refs/brmem/workbr/plan---plan.md/<encoded-branch>:content
+  git show refs/brmem/workbr/<encoded-branch>/plan/plan.md:content
   ```
 
 - **Entry exists under a different key** (e.g., the user stashed

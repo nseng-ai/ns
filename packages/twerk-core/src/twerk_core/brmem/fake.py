@@ -10,9 +10,9 @@ from twerk_core.brmem.gateway import (
     EntryRef,
     ref_name_for_entry,
     validate_branch_name,
-    validate_key,
     validate_namespace,
 )
+from twerk_core.brmem.key_validation import validate_key
 
 _FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 

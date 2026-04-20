@@ -104,11 +104,9 @@ def test_brmem_put_and_get_round_trip(cli_group: ClinkrGroup, tmp_path: Path) ->
     assert (
         f"Stored plan/plan.md from {source_file} for workbr on branch feat/x." in put_result.output
     )
-    assert "Ref: refs/brmem/workbr/plan---plan.md/feat---x" in put_result.output
+    assert "Ref: refs/brmem/workbr/feat---x/plan/plan.md" in put_result.output
     assert "Commit: fake-0001" in put_result.output
-    assert (
-        "Inspect: git show refs/brmem/workbr/plan---plan.md/feat---x:content" in put_result.output
-    )
+    assert "Inspect: git show refs/brmem/workbr/feat---x/plan/plan.md:content" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "hello\n"
 
@@ -161,8 +159,8 @@ def test_brmem_put_sibling_keys_are_independent(cli_group: ClinkrGroup, tmp_path
     assert b_get.output == "b1\n"
     assert list_result.exit_code == 0
     assert list_result.output.splitlines() == [
-        "refs/brmem/workbr/plan---a.md/feat---x",
-        "refs/brmem/workbr/plan---b.md/feat---x",
+        "refs/brmem/workbr/feat---x/plan/a.md",
+        "refs/brmem/workbr/feat---x/plan/b.md",
     ]
 
 
@@ -247,7 +245,7 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         "namespace": "workbr",
         "key": "plan/plan.md",
         "branch": "feat/x",
-        "ref_name": "refs/brmem/workbr/plan---plan.md/feat---x",
+        "ref_name": "refs/brmem/workbr/feat---x/plan/plan.md",
         "commit": "fake-0001",
         "source_file": str(source_file),
         "success": True,
@@ -258,8 +256,8 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         "key": "plan/plan.md",
         "branch": "feat/x",
         "content": "json\n",
-        "ref_name": "refs/brmem/workbr/plan---plan.md/feat---x",
-        "target": "refs/brmem/workbr/plan---plan.md/feat---x",
+        "ref_name": "refs/brmem/workbr/feat---x/plan/plan.md",
+        "target": "refs/brmem/workbr/feat---x/plan/plan.md",
         "at": None,
         "success": True,
     }
@@ -282,7 +280,7 @@ def test_brmem_put_from_stdin(cli_group: ClinkrGroup) -> None:
 
     assert put_result.exit_code == 0, put_result.output
     assert "Stored plan/plan.md from stdin for workbr on branch feat/x." in put_result.output
-    assert "Ref: refs/brmem/workbr/plan---plan.md/feat---x" in put_result.output
+    assert "Ref: refs/brmem/workbr/feat---x/plan/plan.md" in put_result.output
     assert "Commit: fake-0001" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "contents\n"
@@ -368,7 +366,7 @@ def test_brmem_invalid_key_surfaces_clean_error(cli_group: ClinkrGroup, tmp_path
         cli_group,
         [
             "put",
-            "a---b",
+            "../escape",
             "--namespace",
             "workbr",
             "--file",
@@ -378,7 +376,7 @@ def test_brmem_invalid_key_surfaces_clean_error(cli_group: ClinkrGroup, tmp_path
     )
 
     assert result.exit_code == 1
-    assert "Invalid key 'a---b'" in result.output
+    assert "Invalid key '../escape'" in result.output
 
 
 def test_brmem_explicit_branch_overrides_current_branch(
@@ -464,7 +462,7 @@ def test_brmem_put_defaults_source_file_from_key_basename(
 
     assert put_result.exit_code == 0, put_result.output
     assert "Stored plan/plan.md from plan.md for workbr on branch feat/x." in put_result.output
-    assert "Ref: refs/brmem/workbr/plan---plan.md/feat---x" in put_result.output
+    assert "Ref: refs/brmem/workbr/feat---x/plan/plan.md" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "hello\n"
 
@@ -524,8 +522,8 @@ def test_brmem_missing_content_error_mentions_ref_target(cli_group: ClinkrGroup)
     )
 
     assert result.exit_code == 1
-    assert "refs/brmem/workbr/plan---missing.md/feat---x" in result.output
-    assert "git show refs/brmem/workbr/plan---missing.md/feat---x:content" in result.output
+    assert "refs/brmem/workbr/feat---x/plan/missing.md" in result.output
+    assert "git show refs/brmem/workbr/feat---x/plan/missing.md:content" in result.output
 
 
 def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -> None:
@@ -533,7 +531,7 @@ def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -
         cli_group,
         [
             "get",
-            "a---b",
+            "../escape",
             "--namespace",
             "brs",
             "--branch",
@@ -545,7 +543,7 @@ def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -
     assert result.exit_code == 1
     assert "Invalid brmem request:" in result.output
     assert "Invalid namespace 'brs'" in result.output
-    assert "Invalid key 'a---b'" in result.output
+    assert "Invalid key '../escape'" in result.output
     assert "Invalid branch name 'feat---x'" in result.output
 
 
@@ -569,53 +567,53 @@ def _seed_for_list_filters() -> FakeBranchMemoryGateway:
         (
             [],
             [
-                "refs/brmem/objectives/obj-1/feat---x",
-                "refs/brmem/workbr/notes/feat---x",
-                "refs/brmem/workbr/plan/feat---x",
-                "refs/brmem/workbr/plan/feat---y",
+                "refs/brmem/objectives/feat---x/obj-1",
+                "refs/brmem/workbr/feat---x/notes",
+                "refs/brmem/workbr/feat---x/plan",
+                "refs/brmem/workbr/feat---y/plan",
             ],
         ),
         (
             ["--namespace", "workbr"],
             [
-                "refs/brmem/workbr/notes/feat---x",
-                "refs/brmem/workbr/plan/feat---x",
-                "refs/brmem/workbr/plan/feat---y",
+                "refs/brmem/workbr/feat---x/notes",
+                "refs/brmem/workbr/feat---x/plan",
+                "refs/brmem/workbr/feat---y/plan",
             ],
         ),
         (
             ["--key", "plan"],
             [
-                "refs/brmem/workbr/plan/feat---x",
-                "refs/brmem/workbr/plan/feat---y",
+                "refs/brmem/workbr/feat---x/plan",
+                "refs/brmem/workbr/feat---y/plan",
             ],
         ),
         (
             ["--branch", "feat/x"],
             [
-                "refs/brmem/objectives/obj-1/feat---x",
-                "refs/brmem/workbr/notes/feat---x",
-                "refs/brmem/workbr/plan/feat---x",
+                "refs/brmem/objectives/feat---x/obj-1",
+                "refs/brmem/workbr/feat---x/notes",
+                "refs/brmem/workbr/feat---x/plan",
             ],
         ),
         (
             ["--namespace", "workbr", "--key", "plan"],
             [
-                "refs/brmem/workbr/plan/feat---x",
-                "refs/brmem/workbr/plan/feat---y",
+                "refs/brmem/workbr/feat---x/plan",
+                "refs/brmem/workbr/feat---y/plan",
             ],
         ),
         (
             ["--namespace", "workbr", "--branch", "feat/y"],
-            ["refs/brmem/workbr/plan/feat---y"],
+            ["refs/brmem/workbr/feat---y/plan"],
         ),
         (
             ["--key", "plan", "--branch", "feat/x"],
-            ["refs/brmem/workbr/plan/feat---x"],
+            ["refs/brmem/workbr/feat---x/plan"],
         ),
         (
             ["--namespace", "workbr", "--key", "plan", "--branch", "feat/x"],
-            ["refs/brmem/workbr/plan/feat---x"],
+            ["refs/brmem/workbr/feat---x/plan"],
         ),
     ],
 )
@@ -652,8 +650,8 @@ def test_brmem_list_filters_by_key_with_slash(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert result.output.splitlines() == [
-        "refs/brmem/workbr/plan---a.md/feat---x",
-        "refs/brmem/workbr/plan---a.md/feat---y",
+        "refs/brmem/workbr/feat---x/plan/a.md",
+        "refs/brmem/workbr/feat---y/plan/a.md",
     ]
 
 
@@ -680,7 +678,7 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
                 "namespace": "workbr",
                 "key": "plan/a.md",
                 "branch": "feat/x",
-                "ref_name": "refs/brmem/workbr/plan---a.md/feat---x",
+                "ref_name": "refs/brmem/workbr/feat---x/plan/a.md",
             }
         ],
         "success": True,
@@ -707,7 +705,7 @@ def test_brmem_check_hit_exits_zero(cli_group: ClinkrGroup) -> None:
     assert "key: plan/plan.md" in result.stdout
     assert "namespace: workbr" in result.stdout
     assert "branch: feat/x" in result.stdout
-    assert "ref: refs/brmem/workbr/plan---plan.md/feat---x" in result.stdout
+    assert "ref: refs/brmem/workbr/feat---x/plan/plan.md" in result.stdout
     assert "head: fake-0001" in result.stdout
     assert "blob: blob-fake-0001" in result.stdout
     assert "size: 6" in result.stdout
@@ -724,7 +722,7 @@ def test_brmem_check_miss_exits_one_with_absent_message(cli_group: ClinkrGroup) 
     assert result.stdout == ""
     assert result.stderr.strip() == (
         "not found: key=plan/plan.md namespace=workbr branch=feat/x "
-        "at refs/brmem/workbr/plan---plan.md/feat---x"
+        "at refs/brmem/workbr/feat---x/plan/plan.md"
     )
 
 
@@ -796,7 +794,7 @@ def test_brmem_json_check_present(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert payload["success"] is True
     assert payload["exists"] is True
-    assert payload["ref_name"] == "refs/brmem/workbr/plan---plan.md/feat---x"
+    assert payload["ref_name"] == "refs/brmem/workbr/feat---x/plan/plan.md"
     assert payload["size_bytes"] == 6
     assert payload["head_sha"] == "fake-0001"
     assert payload["blob_sha"] == "blob-fake-0001"

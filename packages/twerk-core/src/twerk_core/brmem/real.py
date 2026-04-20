@@ -14,9 +14,9 @@ from twerk_core.brmem.gateway import (
     parse_entry_ref,
     ref_name_for_entry,
     validate_branch_name,
-    validate_key,
     validate_namespace,
 )
+from twerk_core.brmem.key_validation import validate_key
 
 
 def _run(
@@ -37,7 +37,7 @@ def _run(
 
 
 class RealBranchMemoryGateway(BranchMemoryGateway):
-    """Store branch memory in ``refs/brmem/<namespace>/<encoded-key>/<encoded-branch>``."""
+    """Store branch memory in ``refs/brmem/<namespace>/<encoded-branch>/<key>``."""
 
     def __init__(self, cwd: Path) -> None:
         self._cwd = cwd

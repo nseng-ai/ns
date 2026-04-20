@@ -5,9 +5,9 @@ import pytest
 from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.brmem.gateway import (
     InvalidBranchNameError,
-    InvalidKeyError,
     InvalidNamespaceError,
 )
+from twerk_core.brmem.key_validation import InvalidKeyError
 
 
 def test_fake_brmem_put_then_get_returns_content() -> None:
@@ -72,7 +72,17 @@ def test_fake_brmem_validates_key() -> None:
     with pytest.raises(InvalidKeyError):
         gateway.put("workbr", "", "feat/x", "hello\n")
     with pytest.raises(InvalidKeyError):
-        gateway.put("workbr", "a---b", "feat/x", "hello\n")
+        gateway.put("workbr", "/abs", "feat/x", "hello\n")
+    with pytest.raises(InvalidKeyError):
+        gateway.put("workbr", "../escape", "feat/x", "hello\n")
+
+
+def test_fake_brmem_allows_separator_in_keys() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    gateway.put("workbr", "a---b", "feat/x", "hello\n")
+
+    assert gateway.get("workbr", "a---b", "feat/x") == "hello\n"
 
 
 def test_fake_brmem_allows_slashes_in_keys() -> None:
@@ -145,7 +155,7 @@ def test_fake_brmem_list_entries_no_filters_returns_all_sorted() -> None:
         ("workbr", "plan", "feat/x"),
         ("workbr", "plan", "feat/y"),
     ]
-    assert entries[0].ref_name == "refs/brmem/objectives/obj-1/feat---x"
+    assert entries[0].ref_name == "refs/brmem/objectives/feat---x/obj-1"
 
 
 def test_fake_brmem_list_entries_filters_by_namespace() -> None:

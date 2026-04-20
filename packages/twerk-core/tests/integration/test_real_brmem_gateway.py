@@ -40,7 +40,7 @@ def test_real_brmem_round_trip_uses_entry_refs_and_preserves_history(tmp_path: P
     first_commit = gateway.put("workbr", "plan", "feat/x", "one\n")
     second_commit = gateway.put("workbr", "plan", "feat/x", "two\n")
 
-    entry_ref = "refs/brmem/workbr/plan/feat---x"
+    entry_ref = "refs/brmem/workbr/feat---x/plan"
     assert _run_git(repo, "rev-parse", entry_ref).stdout.strip() == second_commit
     assert gateway.get("workbr", "plan", "feat/x") == "two\n"
     assert gateway.get("workbr", "plan", "feat/x", at=first_commit) == "one\n"
@@ -75,8 +75,8 @@ def test_real_brmem_sibling_keys_under_a_prefix_are_independent(tmp_path: Path) 
 
     entries = gateway.list_entries(namespace="workbr", branch="feat/x")
     assert [(e.key, e.ref_name) for e in entries] == [
-        ("plan/a.md", "refs/brmem/workbr/plan---a.md/feat---x"),
-        ("plan/b.md", "refs/brmem/workbr/plan---b.md/feat---x"),
+        ("plan/a.md", "refs/brmem/workbr/feat---x/plan/a.md"),
+        ("plan/b.md", "refs/brmem/workbr/feat---x/plan/b.md"),
     ]
 
 
@@ -100,7 +100,7 @@ def test_real_brmem_list_entries_encodes_and_decodes_branch(tmp_path: Path) -> N
     entries = gateway.list_entries()
 
     assert len(entries) == 1
-    assert entries[0].ref_name == "refs/brmem/workbr/plan/feature---foo"
+    assert entries[0].ref_name == "refs/brmem/workbr/feature---foo/plan"
     assert entries[0].branch == "feature/foo"
 
     decoded = parse_entry_ref(entries[0].ref_name)
@@ -108,7 +108,7 @@ def test_real_brmem_list_entries_encodes_and_decodes_branch(tmp_path: Path) -> N
     assert decoded.branch == "feature/foo"
 
 
-def test_real_brmem_list_entries_encodes_and_decodes_key_with_slash(tmp_path: Path) -> None:
+def test_real_brmem_list_entries_preserves_native_slashes_in_keys(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
@@ -117,7 +117,7 @@ def test_real_brmem_list_entries_encodes_and_decodes_key_with_slash(tmp_path: Pa
     entries = gateway.list_entries()
 
     assert len(entries) == 1
-    assert entries[0].ref_name == "refs/brmem/workbr/plan---plan.md/feat---x"
+    assert entries[0].ref_name == "refs/brmem/workbr/feat---x/plan/plan.md"
     assert entries[0].key == "plan/plan.md"
     assert entries[0].branch == "feat/x"
 
@@ -153,12 +153,12 @@ def test_real_brmem_list_entries_silently_skips_malformed_refs(tmp_path: Path) -
     gateway = RealBranchMemoryGateway(cwd=repo)
 
     gateway.put("workbr", "plan", "feat/x", "a\n")
-    head = _run_git(repo, "rev-parse", "refs/brmem/workbr/plan/feat---x").stdout.strip()
+    head = _run_git(repo, "rev-parse", "refs/brmem/workbr/feat---x/plan").stdout.strip()
     _run_git(repo, "update-ref", "refs/brmem/onlytwo/segments", head)
 
     entries = gateway.list_entries()
 
-    assert [e.ref_name for e in entries] == ["refs/brmem/workbr/plan/feat---x"]
+    assert [e.ref_name for e in entries] == ["refs/brmem/workbr/feat---x/plan"]
 
 
 def test_real_brmem_list_entries_ignores_legacy_brs_refs(tmp_path: Path) -> None:
@@ -166,12 +166,12 @@ def test_real_brmem_list_entries_ignores_legacy_brs_refs(tmp_path: Path) -> None
     gateway = RealBranchMemoryGateway(cwd=repo)
 
     gateway.put("workbr", "plan", "feat/x", "a\n")
-    head = _run_git(repo, "rev-parse", "refs/brmem/workbr/plan/feat---x").stdout.strip()
-    _run_git(repo, "update-ref", "refs/brmem/brs/feat---legacy", head)
+    head = _run_git(repo, "rev-parse", "refs/brmem/workbr/feat---x/plan").stdout.strip()
+    _run_git(repo, "update-ref", "refs/brmem/brs/feat---legacy/plan", head)
 
     entries = gateway.list_entries()
 
-    assert [e.ref_name for e in entries] == ["refs/brmem/workbr/plan/feat---x"]
+    assert [e.ref_name for e in entries] == ["refs/brmem/workbr/feat---x/plan"]
 
 
 def test_real_brmem_rejects_branch_names_containing_encoding_separator(tmp_path: Path) -> None:
@@ -223,5 +223,5 @@ def test_real_brmem_content_blob_is_inspectable_via_git_show(tmp_path: Path) -> 
 
     gateway.put("workbr", "plan", "feat/x", "hello\n")
 
-    result = _run_git(repo, "show", "refs/brmem/workbr/plan/feat---x:content")
+    result = _run_git(repo, "show", "refs/brmem/workbr/feat---x/plan:content")
     assert result.stdout == "hello\n"
