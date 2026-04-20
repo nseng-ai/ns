@@ -1,0 +1,415 @@
+# Plan: refactor brmem and move workbr onto typed entry refs
+
+## Goal
+
+Refactor `brmem` from a branch-scoped tree store into an entry store
+addressed by `namespace`, `key`, and `branch`, then move the existing
+workbr flow to build on top of that substrate.
+
+This plan is intentionally a hard cut:
+
+- No compatibility layer for `refs/brmem/brs/*`.
+- No migration shim.
+- Intermediate PRs may be temporarily non-runnable.
+- Final workbr convention is `namespace=workbr`, `key=plan`.
+
+## Locked decisions
+
+- Ref shape: `refs/brmem/<namespace>/<key>/<encoded-branch>`.
+- `namespace` is the public term; do not use `type`.
+- `brmem list` means "list entries", not "list artifact paths".
+- Each ref stores a tree, not a single fixed blob.
+- Artifact paths remain relative POSIX paths within an entry tree.
+- `namespace` and `key` are each a single ref path segment.
+- `/` is illegal in `namespace` and `key`.
+- Any domain-specific escaping beyond that belongs to the caller, not the
+  generic `brmem` layer.
+- Branch encoding stays as the current `/ -> ---` mapping for now.
+- The old `refs/brmem/brs/<encoded-branch>` layout is retired.
+- Workbr stores its plan at:
+
+```text
+refs/brmem/workbr/plan/<encoded-branch>:plan.md
+```
+
+## Why this design
+
+The current `brmem` model is structurally branch-first:
+
+```text
+refs/brmem/brs/<encoded-branch>
+  <arbitrary tree paths>
+```
+
+That shape makes "list everything on branch X" easy, but it makes
+cross-branch queries structurally awkward because the meaningful metadata
+is inside tree paths. The new model moves that metadata into the ref
+name:
+
+```text
+refs/brmem/<namespace>/<key>/<encoded-branch>
+  <tree of artifacts>
+```
+
+This gives `brmem` a cheap primitive for entry-level listing:
+
+- all entries in a namespace
+- all branches carrying a key
+- all keys present on a branch
+
+Those queries become `git for-each-ref` plus parsing. Artifact-level
+inspection remains a per-entry tree operation, which is fine because it
+is no longer pretending to be the same query as entry listing.
+
+## End state
+
+After all four PRs land:
+
+- `brmem` is entry-oriented.
+- `brmem list` lists entries.
+- `brmem` has explicit entry and artifact operations.
+- workbr reads and writes through `namespace=workbr`, `key=plan`.
+- No code, tests, docs, or skills refer to `refs/brmem/brs/*`.
+
+## Core model
+
+### Entry identity
+
+An entry is uniquely identified by:
+
+- `namespace`
+- `key`
+- `branch`
+
+The ref name is:
+
+```text
+refs/brmem/<namespace>/<key>/<encoded-branch>
+```
+
+### Artifact identity
+
+Artifacts live inside the tree for one entry and are addressed by a
+relative path such as:
+
+- `plan.md`
+- `snapshot.md`
+- `attachments/log.txt`
+
+### Query semantics
+
+`brmem list` returns entries, not artifact paths.
+
+`brmem list-artifacts` returns the tree contents for one resolved entry.
+
+### Cheap operations
+
+Cheap means one `git for-each-ref` call plus parsing:
+
+- list all entries
+- list entries in one namespace
+- list entries for one `(namespace, key)`
+- list entries on one branch
+
+Artifact reads remain simple:
+
+- `git show <ref>:<path>`
+- `git ls-tree -r --name-only <ref>`
+
+## PR sequence
+
+## PR1: brmem substrate cutover
+
+### Objective
+
+Replace the legacy branch-tree storage model with the new
+`namespace/key/branch` entry model and make the CLI reflect that model.
+
+This PR should not attempt to preserve the old surface. It establishes
+the new foundation cleanly.
+
+### Outcome
+
+- `refs/brmem/brs/*` is gone.
+- `brmem` addresses entries by `namespace`, `key`, and `branch`.
+- `brmem list` lists entries.
+- Artifact operations are explicit.
+- The real gateway and fake gateway both speak the new model.
+
+### CLI target
+
+The exact names can be adjusted during implementation, but PR1 should
+land near this shape:
+
+```bash
+brmem put <path> --namespace <ns> --key <key> [--branch <branch>]
+brmem get <path> --namespace <ns> --key <key> [--branch <branch>] [--at <sha>]
+brmem list [--namespace <ns>] [--key <key>] [--branch <branch>]
+brmem list-artifacts --namespace <ns> --key <key> [--branch <branch>] [--at <sha>]
+brmem check-entry --namespace <ns> --key <key> [--branch <branch>]
+brmem check-artifact <path> --namespace <ns> --key <key> [--branch <branch>] [--at <sha>]
+```
+
+`brmem copy` should be removed or deferred in this PR unless it can be
+reintroduced cleanly on top of the new model without muddying the cutover.
+
+### Internal API target
+
+Split the gateway into entry-level and artifact-level operations.
+
+Entry-level operations:
+
+- `ref_name_for(namespace, key, branch)`
+- `parse_ref_name(ref)`
+- `list_entries(namespace=None, key=None, branch=None)`
+- `check_entry(namespace, key, branch)`
+
+Artifact-level operations:
+
+- `put_artifact(namespace, key, branch, path, content)`
+- `get_artifact(namespace, key, branch, path, at=None)`
+- `list_artifacts(namespace, key, branch, at=None)`
+- `check_artifact(namespace, key, branch, path, at=None)`
+
+### Detailed work
+
+1. Replace branch-oriented ref helpers in
+   `packages/twerk-core/src/twerk_core/brmem/gateway.py`.
+2. Introduce validation for `namespace`, `key`, and artifact path.
+3. Add entry dataclasses for listing and diagnostics.
+4. Refactor `RealBranchMemoryGateway` into a real gateway that:
+   - resolves refs by `namespace/key/branch`
+   - uses a temp index to read the existing tree for one entry
+   - updates one artifact in that tree
+   - commits and advances only that entry ref
+5. Implement `list_entries` with `git for-each-ref`.
+6. Implement `list_artifacts` with `git ls-tree`.
+7. Rewrite the CLI commands to require `--namespace` and `--key` where
+   appropriate.
+8. Remove the old `brmem branch check` concept because the substrate is
+   no longer "one ref per branch".
+9. Remove or stub out old branch-first wording from command help and JSON
+   payloads.
+10. Rewrite the fake gateway and its tests to mirror the new data model.
+
+### Files likely touched
+
+- `packages/twerk-core/src/twerk_core/brmem/gateway.py`
+- `packages/twerk-core/src/twerk_core/brmem/real.py`
+- `packages/twerk-core/src/twerk_core/brmem/fake.py`
+- `packages/twerk-core/src/twerk_core/brmem/put.py`
+- `packages/twerk-core/src/twerk_core/brmem/get.py`
+- `packages/twerk-core/src/twerk_core/brmem/list.py`
+- `packages/twerk-core/src/twerk_core/brmem/check.py`
+- `packages/twerk-core/src/twerk_core/brmem/group.py`
+- `packages/twerk-core/src/twerk_core/brmem/main.py`
+- tests under `packages/twerk-core/tests/{unit,integration,scenario}`
+
+### Verification
+
+- Scenario tests cover the new CLI shape.
+- Integration tests prove:
+  - multiple artifacts can coexist in one entry
+  - updating one artifact preserves siblings
+  - `list_entries` filters correctly by namespace, key, and branch
+  - `list_artifacts` reports tree paths for a single entry
+- No test references `refs/brmem/brs/`.
+
+### Non-goals
+
+- Updating workbr skills.
+- Preserving the legacy CLI.
+- Migrating dev-mem-objective skills.
+
+## PR2: move dev-workbr-create onto new brmem
+
+### Objective
+
+Update the "stash a plan on a branch without checkout" workflow to write
+its state through the new `brmem` substrate.
+
+### Outcome
+
+`dev-workbr-create` writes the source plan into:
+
+```text
+refs/brmem/workbr/plan/<encoded-branch>:plan.md
+```
+
+### Detailed work
+
+1. Update `skills/dev-workbr-create/SKILL.md` to stop referring to
+   `refs/brmem/brs/<branch>`.
+2. Change the stash command in the skill to:
+
+```bash
+brmem put plan.md --namespace workbr --key plan --branch <slug> --file <source-plan-path>
+```
+
+3. Change preflight checks so they validate the new model:
+   - branch does not already exist
+   - workbr entry does not already exist for `(namespace=workbr, key=plan, branch=<slug>)`
+4. Update all report text and inspection hints to reference the new ref
+   path.
+5. Remove any wording that implies `plan.md` is "the branch memory path";
+   it is now the artifact path inside one workbr entry.
+6. Update AGENTS/skill registry text if it mentions the old ref layout.
+
+### Files likely touched
+
+- `skills/dev-workbr-create/SKILL.md`
+- `AGENTS.md` only if it embeds the old storage wording
+
+### Verification
+
+Manual smoke test:
+
+1. Create a source plan file.
+2. Run the skill flow manually.
+3. Confirm the branch exists and the current worktree did not move.
+4. Confirm `git show refs/brmem/workbr/plan/<encoded-branch>:plan.md`
+   prints the source plan verbatim.
+
+### Non-goals
+
+- Updating `dev-workbr-impl`.
+- Adding new convenience subcommands to `brmem`.
+
+## PR3: move dev-workbr-impl onto new brmem
+
+### Objective
+
+Update the "pick up the stashed workbr plan and start implementing"
+workflow to read from the new entry model.
+
+### Outcome
+
+`dev-workbr-impl` fetches `plan.md` from `namespace=workbr`, `key=plan`,
+current branch.
+
+### Detailed work
+
+1. Update `skills/dev-workbr-impl/SKILL.md` to fetch:
+
+```bash
+brmem get plan.md --namespace workbr --key plan
+```
+
+2. Update missing-entry diagnostics so they point at the new ref path or
+   the new `brmem list` / `brmem list-artifacts` commands rather than the
+   retired `refs/brmem/brs/*` layout.
+3. Update any wording that treats "branch memory" as the direct storage
+   key; the direct key is now `(workbr, plan, branch)`.
+4. Update AGENTS/skill registry text if it embeds the old fetch
+   semantics.
+
+### Files likely touched
+
+- `skills/dev-workbr-impl/SKILL.md`
+- `AGENTS.md` only if it embeds the old storage wording
+
+### Verification
+
+Manual smoke test:
+
+1. Prepare a branch using the PR2 flow.
+2. Open a worktree on that branch.
+3. Run the skill flow manually.
+4. Confirm the skill fetches the correct plan content without writing a
+   local `plan.md` file.
+
+### Non-goals
+
+- Restoring removed legacy `brmem` conveniences.
+- Migrating other skill families to namespaced brmem.
+
+## PR4: cleanup, polish, and settle the final contract
+
+### Objective
+
+Remove any remaining legacy assumptions and make the final
+entry-oriented `brmem` contract coherent for future consumers.
+
+### Outcome
+
+- No stale docs or tests mention the branch-tree model.
+- Workbr docs and brmem docs agree on the final storage contract.
+- Any intentionally deferred CLI cleanup is completed.
+
+### Detailed work
+
+1. Sweep for stale references to:
+   - `refs/brmem/brs/`
+   - "list paths stored in branch memory"
+   - "branch check" as a first-class concept
+2. Decide the fate of `brmem copy`:
+   - reintroduce it as an explicit artifact copy between two entries, or
+   - remove it from the product surface entirely for now
+3. Tighten help text, JSON payload names, and renderer wording so they
+   reflect entries and artifacts consistently.
+4. Add or refine scenario coverage around the final UX.
+5. Update top-level docs if they mention the old brmem behavior.
+
+### Files likely touched
+
+- remaining `packages/twerk-core/src/twerk_core/brmem/*`
+- `packages/twerk-core/tests/**`
+- `AGENTS.md`
+- any docs or skill text still mentioning old brmem refs
+
+### Verification
+
+- `rg 'refs/brmem/brs/'` returns no intended product references.
+- CLI help reads coherently without relying on old concepts.
+- End-to-end workbr flow uses only the new namespaced entry model.
+
+## Risks and mitigations
+
+### Risk: "list entries" and "list artifacts" get conflated again
+
+Mitigation:
+
+- keep the commands separate
+- keep the gateway methods separate
+- name result dataclasses after entries vs artifacts, not generic "list"
+
+### Risk: workbr instructions drift from the actual CLI
+
+Mitigation:
+
+- land PR2 and PR3 only after PR1 CLI names are stable
+- keep all examples in skills copied from the actual command surface
+
+### Risk: branch encoding remains lossy
+
+Mitigation:
+
+- accept it as an explicit prototype tradeoff in this stack
+- keep the encoding logic isolated so it can be replaced later without
+  redesigning the entry model
+
+### Risk: other brmem consumers break during the cutover
+
+Mitigation:
+
+- accept that breakage during this stack
+- treat non-workbr consumers as follow-on migrations, not hidden scope in
+  these four PRs
+
+## Explicitly deferred
+
+- Migrating `dev-mem-objective-*` to the new `brmem` model.
+- Any compatibility reader for old `refs/brmem/brs/*` refs.
+- Any bulk migration tool.
+- Any new namespace beyond `workbr`.
+- Any redesign of branch encoding.
+
+## Final acceptance criteria
+
+The plan is complete when all of the following are true:
+
+- `brmem` stores entries at `refs/brmem/<namespace>/<key>/<encoded-branch>`.
+- `brmem list` lists entries, not artifact paths.
+- workbr writes through `--namespace workbr --key plan`.
+- workbr reads through `--namespace workbr --key plan`.
+- no intended product surface refers to `refs/brmem/brs/*`.
