@@ -5,8 +5,8 @@ from typing import Annotated, Literal
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.models import (
@@ -46,15 +46,15 @@ class ReviewRunRequest:
             help="Base branch to diff against. Defaults to the repo trunk branch.",
         ),
     ] = None
-    format: Annotated[
+    review_format: Annotated[
         Literal["findings", "text"],
         click.Option(
-            ["--format"],
+            ["--review-format"],
             type=click.Choice(["findings", "text"]),
             default="text",
             show_default=True,
             help=(
-                "Output format. 'text' returns a human-readable markdown review. "
+                "Review content format. 'text' returns a human-readable markdown review. "
                 "'findings' returns structured JSON findings."
             ),
         ),
@@ -102,7 +102,7 @@ def render_review_run(result: LocalReviewResult) -> None:
 def run_review_command(
     ctx: click.Context,
     request: ReviewRunRequest,
-) -> LocalReviewResult | ClinkrCommandError:
+) -> ClinkrExit[LocalReviewResult]:
     reviewer_context = load_typed_context(ctx, ReviewerCliContext)
     click.echo(f"▶ Running review '{request.key}'", err=True)
     try:
@@ -111,7 +111,7 @@ def run_review_command(
             requested_model=request.model,
             requested_base_ref=request.base_ref,
             requested_harness=request.harness,
-            requested_format=request.format,
+            requested_format=request.review_format,
             cwd=reviewer_context.cwd,
             review_definition_gateway=reviewer_context.review_definition,
             local_diff_gateway=reviewer_context.local_diff,
@@ -119,16 +119,16 @@ def run_review_command(
             harness_detection_gateway=reviewer_context.harness_detection,
         )
     except ReviewDefinitionReadError as exc:
-        return ClinkrCommandError(error_type="review_definition_read_failed", message=str(exc))
+        return ClinkrExit.failure(error_type="review_definition_read_failed", message=str(exc))
     except ReviewExecutorInvocationError as exc:
-        return ClinkrCommandError(error_type="review_execution_invocation_failed", message=str(exc))
+        return ClinkrExit.failure(error_type="review_execution_invocation_failed", message=str(exc))
     except RepoRootUnavailableError as exc:
-        return ClinkrCommandError(error_type="repo_root_unavailable", message=str(exc))
+        return ClinkrExit.failure(error_type="repo_root_unavailable", message=str(exc))
     except GitInvocationFailedError as exc:
-        return ClinkrCommandError(error_type="git_invocation_failed", message=str(exc))
+        return ClinkrExit.failure(error_type="git_invocation_failed", message=str(exc))
     except GitDiffFailedError as exc:
-        return ClinkrCommandError(error_type="git_diff_failed", message=str(exc))
+        return ClinkrExit.failure(error_type="git_diff_failed", message=str(exc))
 
     if isinstance(result, LocalReviewResult):
-        return result
-    return ClinkrCommandError(error_type=result.error_type, message=result.message)
+        return ClinkrExit.ok(result)
+    return ClinkrExit.failure(error_type=result.error_type, message=result.message)
