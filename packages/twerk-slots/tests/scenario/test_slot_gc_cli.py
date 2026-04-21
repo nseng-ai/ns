@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRState, PRSummary
@@ -29,6 +30,10 @@ from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
     return build_cli()
+
+
+def _obj(context: object) -> object:
+    return build_clinkr_context_object(lambda: context)
 
 
 def _build_ctx_for_repo(
@@ -144,7 +149,7 @@ def test_slot_gc_appears_in_group_help(cli_group: ClinkrGroup) -> None:
 def test_slot_gc_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
     sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=lambda: sentinel)
+    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(sentinel))
 
     assert result.exit_code == 1
     assert "Not inside a git repository" in result.output
@@ -154,7 +159,7 @@ def test_slot_gc_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> No
     ctx = _build_ctx_for_repo(tmp_path)
     # No `save` — pool_state.exists() is False.
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=lambda: ctx)
+    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx))
 
     assert result.exit_code == 1
     assert "No pool configured" in result.output
@@ -171,7 +176,7 @@ def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path:
         pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
     )
 
-    result = CliRunner().invoke(cli_group, ["gc", "-f"], obj=lambda: ctx)
+    result = CliRunner().invoke(cli_group, ["gc", "-f"], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
     assert "freed" in result.output.lower()
@@ -194,7 +199,7 @@ def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> 
         pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
     )
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=lambda: ctx, input="y\n")
+    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx), input="y\n")
 
     assert result.exit_code == 0, result.output
     # Preview shown before prompt.
@@ -215,7 +220,7 @@ def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) ->
         pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
     )
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=lambda: ctx, input="n\n")
+    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx), input="n\n")
 
     assert result.exit_code == 0, result.output
     assert "would free" in result.output.lower()
@@ -234,7 +239,7 @@ def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Pa
         pr=FakePRGateway(prs_by_branch={"feat/wip": _make_pr(9, "OPEN", "feat/wip")}),
     )
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=lambda: ctx)
+    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
     assert "Free 1 slot" not in result.output
@@ -248,7 +253,7 @@ def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Pa
     ctx = _build_ctx_for_repo(tmp_path)
     _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
 
-    result = CliRunner().invoke(cli_group, ["gc", "--dry-run", "-f"], obj=lambda: ctx)
+    result = CliRunner().invoke(cli_group, ["gc", "--dry-run", "-f"], obj=_obj(ctx))
 
     assert result.exit_code != 0
     assert "mutually exclusive" in result.output.lower()
@@ -262,7 +267,7 @@ def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path)
         pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
     )
 
-    result = CliRunner().invoke(cli_group, ["gc", "--dry-run"], obj=lambda: ctx)
+    result = CliRunner().invoke(cli_group, ["gc", "--dry-run"], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
     assert "would free" in result.output.lower()
@@ -293,7 +298,7 @@ def test_slot_gc_json_mode_payload(cli_group: ClinkrGroup, tmp_path: Path) -> No
         cli_group,
         ["json", "gc"],
         input=json.dumps({"dry_run": False, "force": True}),
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
 
     assert result.exit_code == 0, result.output
@@ -323,7 +328,7 @@ def test_slot_gc_json_mode_without_force_aborts(cli_group: ClinkrGroup, tmp_path
         cli_group,
         ["json", "gc"],
         input=json.dumps({"dry_run": False}),
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
 
     assert result.exit_code != 0

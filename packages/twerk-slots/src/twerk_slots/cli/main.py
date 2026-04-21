@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import click
 
+from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_slots.cli.slot.context import build_slots_context
 from twerk_slots.cli.slot.group import build_slot_group
@@ -17,4 +18,4 @@ def build_cli() -> ClinkrGroup:
 
 def main() -> None:
     """Entry point for the standalone ``slot`` CLI."""
-    build_cli()(obj=build_slots_context)
+    build_cli()(obj=build_clinkr_context_object(build_slots_context))

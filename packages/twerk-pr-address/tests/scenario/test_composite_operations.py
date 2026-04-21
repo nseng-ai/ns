@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import (
@@ -31,6 +32,10 @@ def cli_group() -> ClinkrGroup:
     return build_cli()
 
 
+def _obj(context: object) -> object:
+    return build_clinkr_context_object(lambda: context)
+
+
 def _invoke_json(
     cli_group: ClinkrGroup,
     op: str,
@@ -48,7 +53,7 @@ def _invoke_json(
         cli_group,
         ["exec", "json", op],
         input=json.dumps(payload),
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output

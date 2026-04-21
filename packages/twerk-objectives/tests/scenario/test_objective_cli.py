@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Callable
 
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import Issue
@@ -23,11 +23,11 @@ def _make_fake(
     issues: tuple[Issue, ...] = (),
     *,
     raise_on: dict[str, BaseException] | None = None,
-) -> Callable[[], ObjectivesCliContext]:
+) -> ClinkrContextObject:
     ctx = ObjectivesCliContext(
         gh_issue_gateway=FakeIssueGateway(issues=issues, raise_on=raise_on),
     )
-    return lambda: ctx
+    return build_clinkr_context_object(lambda: ctx)
 
 
 SAMPLE_ISSUES = (

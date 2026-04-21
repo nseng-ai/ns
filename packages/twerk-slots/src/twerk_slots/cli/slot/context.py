@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from twerk_core.clinkr.context import load_clinkr_context_object
 from twerk_core.gh.pr_gateway import RealPRGateway
 from twerk_slots.allocation import SlotAllocationError
 from twerk_slots.context import SlotsCliContext
@@ -47,23 +48,19 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
 def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoRepoSentinel:
     """Unpack the typed slots context from the given Click context.
 
-    ``ctx.obj`` must be a zero-argument callable returning a
-    :class:`SlotsCliContext` or a :class:`NoRepoSentinel`. The CLI entry point
-    (:func:`twerk_slots.cli.main.main`) installs :func:`build_slots_context`;
-    tests install a ``lambda: ctx`` that returns a pre-built fake context.
+    ``ctx.obj`` must be a :class:`twerk_core.clinkr.context.ClinkrContextObject`
+    whose ``context_factory`` returns a :class:`SlotsCliContext` or a
+    :class:`NoRepoSentinel`. The CLI entry point installs
+    ``build_clinkr_context_object(build_slots_context)``; tests do the same
+    around pre-built fake contexts.
 
     Help paths (``slot -h``, ``slot <cmd> -h``, ``slot json <cmd> --schema``)
     never reach this function, so the factory is not invoked for them.
     """
-    ctx_fn = ctx.obj
-    if not callable(ctx_fn):
-        raise RuntimeError(
-            "ctx.obj must be a Callable[[], SlotsCliContext | NoRepoSentinel]; "
-            "the CLI entry point and tests are responsible for installing it."
-        )
-    result = ctx_fn()
+    result = load_clinkr_context_object(ctx).context_factory()
     if not isinstance(result, SlotsCliContext | NoRepoSentinel):
         raise RuntimeError(
-            f"ctx_fn returned {type(result).__name__}, expected SlotsCliContext or NoRepoSentinel."
+            "context_factory returned "
+            f"{type(result).__name__}, expected SlotsCliContext or NoRepoSentinel."
         )
     return result
