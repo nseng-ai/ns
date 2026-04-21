@@ -122,6 +122,15 @@ before moving on.
 - Remove the `return_style=meta.return_style` argument from the
   `_apply_machine_command(...)` call (only one style remains).
 
+### 3a. `packages/twerk-core/src/twerk_core/clinkr/context.py`
+
+- Delete `_MACHINE_MODE_KEY`.
+- Delete the `# TODO(clinkr-contract-redesign PR 7)` fallback in
+  `set_machine_mode(...)` / `is_machine_mode(...)` that stores the machine
+  signal in `root.meta` when `ctx.obj` is not a `ClinkrContextObject`.
+- After the migration is complete, machine-mode state should live only in the
+  immutable `ClinkrContextObject` copied onto `root.obj`.
+
 ### 4. `packages/twerk-core/src/twerk_core/clinkr/dataclass_json.py`
 
 - Delete `emit_json_success(...)` and `emit_json_error(...)` (replaced by

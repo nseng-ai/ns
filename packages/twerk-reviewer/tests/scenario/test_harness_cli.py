@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.cli.main import build_cli
@@ -23,7 +23,7 @@ REPO_ROOT = Path("/repo")
 def _context(
     *,
     detection: FakeHarnessDetectionGateway | None = None,
-) -> Callable[[], ReviewerCliContext]:
+) -> ClinkrContextObject:
     ctx = ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(),
         local_diff=FakeLocalDiffGateway(),
@@ -31,7 +31,7 @@ def _context(
         harness_detection=detection or FakeHarnessDetectionGateway(),
         cwd=Path("/anywhere"),
     )
-    return lambda: ctx
+    return build_clinkr_context_object(lambda: ctx)
 
 
 @pytest.fixture(scope="module")

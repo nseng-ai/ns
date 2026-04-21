@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.types import (
@@ -42,7 +43,7 @@ class _SlotFakes:
     repo_root: Path
 
 
-def _make_obj(fakes: _SlotFakes, slots_root: Path) -> Callable[[], SlotsCliContext]:
+def _make_obj(fakes: _SlotFakes, slots_root: Path) -> ClinkrContextObject:
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
     ctx = SlotsCliContext(
@@ -54,7 +55,7 @@ def _make_obj(fakes: _SlotFakes, slots_root: Path) -> Callable[[], SlotsCliConte
         pr=FakePRGateway(),
         slots_root=slots_root,
     )
-    return lambda: ctx
+    return build_clinkr_context_object(lambda: ctx)
 
 
 def _fake_for_repo(
@@ -442,7 +443,11 @@ def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> 
 def test_slot_free_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
     sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
 
-    result = CliRunner().invoke(cli_group, ["free", "--wt", "slot-01"], obj=lambda: sentinel)
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01"],
+        obj=build_clinkr_context_object(lambda: sentinel),
+    )
 
     assert result.exit_code == 1
     assert "Not inside a git repository" in result.output

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.types import (
@@ -29,6 +30,10 @@ from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
     return build_cli()
+
+
+def _obj(context: object) -> object:
+    return build_clinkr_context_object(lambda: context)
 
 
 def _fake_for_repo(
@@ -126,7 +131,7 @@ def test_slot_list_empty_pool(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     result = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
         env={"COLUMNS": "200"},
     )
 
@@ -143,13 +148,13 @@ def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> No
     CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
 
     result = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
         env={"COLUMNS": "200"},
     )
 
@@ -164,14 +169,14 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
     checkout_res = CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
     assert checkout_res.exit_code == 0, checkout_res.output
 
     free_res = CliRunner().invoke(
         cli_group,
         ["free", "--wt", "slot-01"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
     assert free_res.exit_code == 0, free_res.output
 
@@ -179,7 +184,7 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
         cli_group,
         ["json", "list"],
         input="",
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
     payload = _json_output(json_res.output)
 
@@ -200,13 +205,13 @@ def test_slot_ls_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     list_res = CliRunner().invoke(
         cli_group,
         ["list"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
         env={"COLUMNS": "200"},
     )
     alias_res = CliRunner().invoke(
         cli_group,
         ["ls"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
         env={"COLUMNS": "200"},
     )
 
@@ -226,13 +231,13 @@ def test_slot_json_list_schema(cli_group: ClinkrGroup) -> None:
 def test_slot_json_list_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
 
-    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=lambda: ctx)
+    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=_obj(ctx))
 
     result = CliRunner().invoke(
         cli_group,
         ["json", "list"],
         input="",
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
     payload = _json_output(result.output)
 
@@ -260,7 +265,7 @@ def test_slot_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> 
 def test_slot_list_surfaces_no_repo_sentinel(cli_group: ClinkrGroup) -> None:
     sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
 
-    result = CliRunner().invoke(cli_group, ["list"], obj=lambda: sentinel)
+    result = CliRunner().invoke(cli_group, ["list"], obj=_obj(sentinel))
 
     assert result.exit_code == 1
     assert "Not inside a git repository" in result.output

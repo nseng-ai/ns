@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 import click
 
+from twerk_core.clinkr.context import set_machine_mode
 from twerk_core.clinkr.dataclass_json import (
     emit_json_error,
     emit_json_success,
@@ -56,6 +57,39 @@ def emit_machine_error(error: ClinkrCommandError) -> None:
 
 def emit_machine_result(result: Any) -> None:
     emit_json_success(serialize_to_json_dict(result))
+
+
+def emit_machine_envelope(result: Any, *, return_style: ReturnStyle) -> None:
+    """Emit the machine-readable envelope for an operation's result.
+
+    Shared by the ``json`` subtree and the ``--format json`` flag so both
+    dispatch paths produce identical output and exit codes. Raises
+    ``SystemExit`` for non-zero exits.
+    """
+    if return_style == "exit":
+        if not isinstance(result, ClinkrExit):
+            emit_machine_error(
+                ClinkrCommandError(
+                    error_type="contract_violation",
+                    message=(
+                        "operation declared return_style='exit' but did not return a ClinkrExit"
+                    ),
+                )
+            )
+            raise SystemExit(2)
+        click.echo(json.dumps(result.to_envelope_dict(), indent=2))
+        if result.exit_code != 0:
+            raise SystemExit(result.exit_code)
+        return
+
+    # TODO(clinkr-contract-redesign PR 7): remove the legacy branch below
+    # once every operation returns ClinkrExit[T].
+    if isinstance(result, ClinkrCommandError):
+        emit_machine_error(result)
+        raise SystemExit(1)
+
+    if result is not None:
+        emit_machine_result(result)
 
 
 def _apply_machine_command(
@@ -121,6 +155,8 @@ def _apply_machine_command(
             )
             raise SystemExit(1) from None
 
+        set_machine_mode(click.get_current_context())
+
         try:
             result = original_callback(**kwargs)
         except click.ClickException as exc:
@@ -135,31 +171,7 @@ def _apply_machine_command(
             )
             raise SystemExit(1) from None
 
-        if return_style == "exit":
-            if not isinstance(result, ClinkrExit):
-                emit_machine_error(
-                    ClinkrCommandError(
-                        error_type="contract_violation",
-                        message=(
-                            "operation declared return_style='exit' but did not return a ClinkrExit"
-                        ),
-                    )
-                )
-                raise SystemExit(2)
-            click.echo(json.dumps(result.to_envelope_dict(), indent=2))
-            if result.exit_code != 0:
-                raise SystemExit(result.exit_code)
-            return result
-
-        # TODO(clinkr-contract-redesign PR 7): remove the legacy branch below
-        # once every operation returns ClinkrExit[T]. Until then, both
-        # envelopes must coexist so migration can proceed package-by-package.
-        if isinstance(result, ClinkrCommandError):
-            emit_machine_error(result)
-            raise SystemExit(1)
-
-        if result is not None:
-            emit_machine_result(result)
+        emit_machine_envelope(result, return_style=return_style)
         return result
 
     wrapped_callback.__name__ = getattr(original_callback, "__name__", "wrapped")

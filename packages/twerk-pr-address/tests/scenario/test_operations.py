@@ -9,6 +9,7 @@ import json
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.gh.types import (
@@ -32,6 +33,10 @@ def _ctx(fake: FakeIssueGateway) -> PrAddressCliContext:
     return PrAddressCliContext(gh_issue_gateway=fake, git_gateway=FakeGitGateway())
 
 
+def _obj(context: object) -> object:
+    return build_clinkr_context_object(lambda: context)
+
+
 def _invoke(
     cli_group: ClinkrGroup,
     args: list[str],
@@ -39,7 +44,7 @@ def _invoke(
 ) -> tuple[int, dict]:
     runner = CliRunner()
     ctx = _ctx(fake)
-    result = runner.invoke(cli_group, args, obj=lambda: ctx)
+    result = runner.invoke(cli_group, args, obj=_obj(ctx))
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output
 
@@ -292,7 +297,7 @@ def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
         cli_group,
         ["exec", "json", "get-feedback"],
         input='{"pr_number": 99}',
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
 
     assert result.exit_code == 0
@@ -424,7 +429,7 @@ def test_add_review_thread_reply_reads_body_from_stdin_sentinel(
     result = runner.invoke(
         cli_group,
         ["exec", "add-review-thread-reply", "PRRT_abc", "-"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
         input=body,
     )
 
@@ -543,7 +548,7 @@ def test_add_issue_comment_reads_body_from_stdin_sentinel(
     result = runner.invoke(
         cli_group,
         ["exec", "add-issue-comment", "42", "-"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
         input=body,
     )
 
@@ -587,7 +592,7 @@ def _invoke_json(
         cli_group,
         ["exec", "json", op],
         input=json.dumps(payload),
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
     output = json.loads(result.output) if result.output.strip() else {}
     return result.exit_code, output

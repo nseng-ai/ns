@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
+from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_objectives.cli.objective.context import ObjectivesCliContext
@@ -73,16 +74,17 @@ def test_objective_plugin_integration() -> None:
 
     runner = CliRunner()
     ctx = ObjectivesCliContext(gh_issue_gateway=FakeIssueGateway())
+    obj = build_clinkr_context_object(lambda: ctx)
 
-    result = runner.invoke(parent, ["objective", "list"], obj=lambda: ctx)
+    result = runner.invoke(parent, ["objective", "list"], obj=obj)
     assert result.exit_code == 0
     assert "No objectives found." in result.output
 
-    result = runner.invoke(parent, ["objective", "ls"], obj=lambda: ctx)
+    result = runner.invoke(parent, ["objective", "ls"], obj=obj)
     assert result.exit_code == 0
     assert "No objectives found." in result.output
 
-    result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=lambda: ctx)
+    result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=obj)
     assert result.exit_code == 0
     assert '"success": true' in result.output
 
@@ -101,6 +103,7 @@ def test_pr_address_plugin_integration() -> None:
         gh_issue_gateway=FakeIssueGateway(),
         git_gateway=FakeGitGateway(),
     )
+    obj = build_clinkr_context_object(lambda: ctx)
 
     # Plugin mounts at expected subgroup name with exec subcommand.
     result = runner.invoke(parent, ["pr-address", "--help"])
@@ -108,9 +111,7 @@ def test_pr_address_plugin_integration() -> None:
     assert "exec" in result.output
 
     # A representative operation routes correctly through the plugin path.
-    result = runner.invoke(
-        parent, ["pr-address", "exec", "get-review-comments", "99"], obj=lambda: ctx
-    )
+    result = runner.invoke(parent, ["pr-address", "exec", "get-review-comments", "99"], obj=obj)
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["count"] == 0
@@ -176,10 +177,12 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
         cwd=Path("/anywhere"),
     )
 
+    clinkr_obj = build_clinkr_context_object(lambda: obj)
+
     result = runner.invoke(
         parent,
         ["reviewer", "review", "run", "dignified-python"],
-        obj=lambda: obj,
+        obj=clinkr_obj,
     )
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
@@ -188,7 +191,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
         parent,
         ["reviewer", "review", "json", "run"],
         input=json.dumps({"key": "dignified-python"}),
-        obj=lambda: obj,
+        obj=clinkr_obj,
     )
     assert result.exit_code == 0, result.output
     output = json.loads(result.stdout)

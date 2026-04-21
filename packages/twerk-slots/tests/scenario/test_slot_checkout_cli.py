@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.types import (
@@ -41,7 +42,7 @@ class _SlotFakes:
     repo_root: Path
 
 
-def _make_obj(fakes: _SlotFakes, slots_root: Path) -> Callable[[], SlotsCliContext]:
+def _make_obj(fakes: _SlotFakes, slots_root: Path) -> ClinkrContextObject:
     repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
     ctx = SlotsCliContext(
@@ -53,7 +54,7 @@ def _make_obj(fakes: _SlotFakes, slots_root: Path) -> Callable[[], SlotsCliConte
         pr=FakePRGateway(),
         slots_root=slots_root,
     )
-    return lambda: ctx
+    return build_clinkr_context_object(lambda: ctx)
 
 
 def _fake_for_repo(

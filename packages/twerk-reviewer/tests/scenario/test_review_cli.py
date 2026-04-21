@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.cli.main import build_cli
@@ -79,14 +79,18 @@ def _context(
     harness_detected: bool = True,
     keys: dict[Path, tuple[str, ...]] | None = None,
     usage: ReviewUsage | None = None,
-) -> Callable[[], ReviewerCliContext]:
+) -> ClinkrContextObject:
     ctx = _build_context(
         payload=payload,
         harness_detected=harness_detected,
         keys=keys,
         usage=usage,
     )
-    return lambda: ctx
+    return build_clinkr_context_object(lambda: ctx)
+
+
+def _obj(context: object) -> ClinkrContextObject:
+    return build_clinkr_context_object(lambda: context)
 
 
 @pytest.fixture(scope="module")
@@ -167,7 +171,7 @@ def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
-        obj=lambda: ctx,
+        obj=_obj(ctx),
     )
 
     assert result.exit_code == 0, result.output
@@ -179,7 +183,7 @@ def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -
     runner = CliRunner()
     ctx = _build_context()
 
-    result = runner.invoke(cli_group, ["review", "run", REVIEW_KEY], obj=lambda: ctx)
+    result = runner.invoke(cli_group, ["review", "run", REVIEW_KEY], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
     assert "Model: sonnet" in result.output
@@ -245,7 +249,7 @@ def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
         keys={REVIEWS_DIR: ("dignified-python", "python/typing")},
     )
 
-    result = runner.invoke(cli_group, ["review", "list"], obj=lambda: ctx)
+    result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
@@ -256,7 +260,7 @@ def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     ctx = _build_context(keys={REVIEWS_DIR: ("dignified-python",)})
 
-    result = runner.invoke(cli_group, ["review", "ls"], obj=lambda: ctx)
+    result = runner.invoke(cli_group, ["review", "ls"], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
@@ -353,4 +357,4 @@ def test_review_run_requires_typed_context(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code != 0
-    assert "ctx.obj must be a Callable" in str(result.exception)
+    assert "ctx.obj must be a ClinkrContextObject" in str(result.exception)

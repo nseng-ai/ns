@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from pathlib import Path
 
 import click
@@ -11,6 +10,7 @@ from click.testing import CliRunner
 from twerk_core.brmem.context import BrmemCliContext
 from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.brmem.main import build_cli
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
@@ -29,14 +29,14 @@ def _make_obj(
     *,
     gateway: FakeBranchMemoryGateway | None = None,
     branch: str | DetachedHead | GitCommandFailure | None = "feat/x",
-) -> Callable[[], BrmemCliContext]:
+) -> ClinkrContextObject:
     brmem_gateway = gateway if gateway is not None else FakeBranchMemoryGateway()
     if branch is None:
         git_gateway = FakeGitGateway()
     else:
         git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): branch})
     ctx = BrmemCliContext(brmem_gateway=brmem_gateway, git_gateway=git_gateway)
-    return lambda: ctx
+    return build_clinkr_context_object(lambda: ctx)
 
 
 # ---------------------------------------------------------------------------
