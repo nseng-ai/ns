@@ -10,9 +10,7 @@ import click
 
 T = TypeVar("T")
 
-# TODO(clinkr-contract-redesign PR 7): remove this fallback key once every
-# machine-dispatch path installs a ClinkrContextObject. During migration,
-# standalone machine_command call sites still fall back to root.meta.
+MACHINE_FORMAT_PARAM_NAME = "_clinkr_format"
 _MACHINE_MODE_KEY = "clinkr.machine_mode"
 
 
@@ -68,12 +66,11 @@ def load_typed_context(ctx: click.Context, context_type: type[T]) -> T:
 
 
 def set_machine_mode(ctx: click.Context) -> None:
-    """Mark the active Click context as running in machine-readable (JSON) mode.
+    """Mark the active Click context as running in machine-readable mode.
 
-    When Clinkr owns ``ctx.obj``, keep that runtime object immutable by
-    replacing the root context object with a copy. Standalone machine-command
-    tests may not install a Clinkr context object, so fall back to ``meta`` in
-    that case.
+    When Clinkr owns ``ctx.obj``, replace the root runtime object with an
+    immutable copy carrying the mode bit. Standalone machine-command tests may
+    not install a Clinkr context object, so fall back to ``meta`` in that case.
     """
     root = ctx.find_root()
     obj = root.obj

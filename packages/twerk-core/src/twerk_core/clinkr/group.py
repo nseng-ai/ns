@@ -11,7 +11,7 @@ from twerk_core.clinkr.command import (
     _apply_machine_command,
     emit_machine_envelope,
 )
-from twerk_core.clinkr.context import set_machine_mode
+from twerk_core.clinkr.context import MACHINE_FORMAT_PARAM_NAME, set_machine_mode
 from twerk_core.clinkr.exit import ClinkrExit, ExitStatus
 from twerk_core.clinkr.json_schema import build_json_schema_document
 from twerk_core.clinkr.operation import ClinkrOperationMeta, get_operation_meta
@@ -19,7 +19,6 @@ from twerk_core.clinkr.params import build_request_from_click_params, extract_cl
 from twerk_core.clinkr.rendering import default_human_renderer
 
 _RESERVED_JSON_NAME = "json"
-_FORMAT_KWARG = "_clinkr_format"
 
 
 class ClinkrGroup(click.Group):
@@ -126,7 +125,7 @@ def _register_operation(
 
     @click.pass_context
     def human_callback(ctx: click.Context, **kwargs: Any) -> None:
-        format_mode = kwargs.pop(_FORMAT_KWARG, "human")
+        format_mode = kwargs.pop(MACHINE_FORMAT_PARAM_NAME, "human")
 
         request = build_request_from_click_params(request_type, kwargs)
 
@@ -231,7 +230,7 @@ def _build_format_flags(
 
     return [
         click.Option(
-            ["--format", _FORMAT_KWARG],
+            ["--format", MACHINE_FORMAT_PARAM_NAME],
             type=click.Choice(["human", "json"]),
             default="human",
             show_default=True,
