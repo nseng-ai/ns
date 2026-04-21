@@ -91,6 +91,14 @@ def _json_output(text: str) -> dict[str, object]:
     return json.loads(text)
 
 
+def _machine_data(text: str) -> dict[str, object]:
+    payload = _json_output(text)
+    assert payload["exit_code"] == 0
+    data = payload.get("data")
+    assert isinstance(data, dict)
+    return data
+
+
 # -- help / shape -----------------------------------------------------------
 
 
@@ -113,6 +121,8 @@ def test_slot_list_help(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: slot list" in result.output
     assert "List worktree pool slots." in result.output
+    assert "--format" in result.output
+    assert "--schema" in result.output
 
 
 def test_slot_version(cli_group: ClinkrGroup) -> None:
@@ -180,23 +190,19 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
     )
     assert free_res.exit_code == 0, free_res.output
 
-    json_res = CliRunner().invoke(
-        cli_group,
-        ["json", "list"],
-        input="",
-        obj=_obj(ctx),
-    )
-    payload = _json_output(json_res.output)
+    json_res = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    payload = _machine_data(json_res.output)
 
     assert json_res.exit_code == 0
-    data = payload["data"]
-    slot_01 = next(r for r in data["rows"] if r["slot_name"] == "slot-01")
+    rows = payload["rows"]
+    assert isinstance(rows, list)
+    slot_01 = next(r for r in rows if r["slot_name"] == "slot-01")
     assert slot_01["status"] == "available"
     assert slot_01["branch"] is None
     assert slot_01["worktree_path"] is not None
     assert "slot-01" in slot_01["worktree_path"]
     # Other slots remain unallocated (no worktree on disk).
-    unallocated = [r for r in data["rows"] if r["status"] == "unallocated"]
+    unallocated = [r for r in rows if r["status"] == "unallocated"]
     assert len(unallocated) == 15
 
 
@@ -221,36 +227,31 @@ def test_slot_ls_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert alias_res.output == list_res.output
 
 
-def test_slot_json_list_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["json", "list", "--schema"])
+def test_slot_list_schema(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--schema"])
     payload = _json_output(result.output)
 
     assert result.exit_code == 0
     assert set(payload) == {"input_schema", "output_schema", "error_schema"}
 
 
-def test_slot_json_list_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_list_format_json_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
 
     CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=_obj(ctx))
 
-    result = CliRunner().invoke(
-        cli_group,
-        ["json", "list"],
-        input="",
-        obj=_obj(ctx),
-    )
-    payload = _json_output(result.output)
+    result = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    payload = _machine_data(result.output)
 
     assert result.exit_code == 0
-    assert payload["exit_code"] == 0
-    data = payload["data"]
-    assert data["pool_size"] == 16
-    assert data["repo_name"] == "repo"
-    assigned_rows = [r for r in data["rows"] if r["status"] == "assigned"]
+    assert payload["pool_size"] == 16
+    assert payload["repo_name"] == "repo"
+    rows = payload["rows"]
+    assert isinstance(rows, list)
+    assigned_rows = [r for r in rows if r["status"] == "assigned"]
     assert len(assigned_rows) == 1
     assert assigned_rows[0]["branch"] == "feat/x"
-    unallocated_rows = [r for r in data["rows"] if r["status"] == "unallocated"]
+    unallocated_rows = [r for r in rows if r["status"] == "unallocated"]
     assert len(unallocated_rows) == 15
 
 

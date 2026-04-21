@@ -141,6 +141,8 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: slot free" in result.output
     assert "Release a slot assignment" in result.output
+    assert "--format" in result.output
+    assert "--schema" in result.output
 
 
 def test_slot_free_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -295,18 +297,17 @@ def test_slot_free_current_conflicts_with_wt(cli_group: ClinkrGroup, tmp_path: P
     assert "exactly one of --num, --wt, or --current" in result.output
 
 
-# -- JSON mode --------------------------------------------------------------
+# -- machine mode -----------------------------------------------------------
 
 
-def test_slot_free_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_assigned(fakes, slots_root)
 
     result = CliRunner().invoke(
         cli_group,
-        ["json", "free"],
-        input=json.dumps({"wt": "slot-01"}),
+        ["free", "--wt", "slot-01", "--format", "json"],
         obj=_make_obj(fakes, slots_root),
     )
 
@@ -319,8 +320,8 @@ def test_slot_free_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) 
     assert "placeholder_branch" not in data
 
 
-def test_slot_free_json_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["json", "free", "--schema"])
+def test_slot_free_schema(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["free", "--schema"])
     payload = json.loads(result.output)
 
     assert result.exit_code == 0

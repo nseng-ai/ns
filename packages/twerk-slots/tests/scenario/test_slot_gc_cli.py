@@ -134,6 +134,8 @@ def test_slot_gc_help(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: slot gc" in result.output
     assert "merged or closed PR" in result.output
+    assert "--format" in result.output
+    assert "--schema" in result.output
 
 
 def test_slot_gc_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -255,7 +257,7 @@ def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Pa
 
     result = CliRunner().invoke(cli_group, ["gc", "--dry-run", "-f"], obj=_obj(ctx))
 
-    assert result.exit_code != 0
+    assert result.exit_code == 2
     assert "mutually exclusive" in result.output.lower()
 
 
@@ -277,10 +279,10 @@ def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path)
     assert git._checkout_calls == []
 
 
-# -- JSON mode --------------------------------------------------------------
+# -- machine mode -----------------------------------------------------------
 
 
-def test_slot_gc_json_mode_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     ctx = _build_ctx_for_repo(tmp_path)
     _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
     _seed_assigned(ctx, slot_name="slot-02", branch="feat/wip")
@@ -296,8 +298,7 @@ def test_slot_gc_json_mode_payload(cli_group: ClinkrGroup, tmp_path: Path) -> No
 
     result = CliRunner().invoke(
         cli_group,
-        ["json", "gc"],
-        input=json.dumps({"dry_run": False, "force": True}),
+        ["gc", "-f", "--format", "json"],
         obj=_obj(ctx),
     )
 
@@ -315,7 +316,7 @@ def test_slot_gc_json_mode_payload(cli_group: ClinkrGroup, tmp_path: Path) -> No
     assert actions_by_slot == {"slot-01": "freed", "slot-02": "kept_open_pr"}
 
 
-def test_slot_gc_json_mode_without_force_aborts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_gc_format_json_without_force_aborts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     ctx = _build_ctx_for_repo(tmp_path)
     _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
     ctx = dataclasses.replace(
@@ -323,14 +324,9 @@ def test_slot_gc_json_mode_without_force_aborts(cli_group: ClinkrGroup, tmp_path
         pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
     )
 
-    # No `force: true` → click.confirm hits EOF on stdin (already drained by
-    # JSON request parsing) and aborts.
-    result = CliRunner().invoke(
-        cli_group,
-        ["json", "gc"],
-        input=json.dumps({"dry_run": False}),
-        obj=_obj(ctx),
-    )
+    # Machine mode still reaches the interactive confirm path without `-f`,
+    # so the prompt aborts when no stdin answer is provided.
+    result = CliRunner().invoke(cli_group, ["gc", "--format", "json"], obj=_obj(ctx))
 
     assert result.exit_code != 0
     # Pool unchanged.
@@ -338,8 +334,8 @@ def test_slot_gc_json_mode_without_force_aborts(cli_group: ClinkrGroup, tmp_path
     assert len(pool_state.load().assignments) == 1
 
 
-def test_slot_gc_json_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["json", "gc", "--schema"])
+def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gc", "--schema"])
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
