@@ -98,7 +98,7 @@ def test_objective_plugin_integration() -> None:
 
     result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=obj)
     assert result.exit_code == 0
-    assert '"success": true' in result.output
+    assert '"exit_code": 0' in result.output
 
 
 def test_pr_address_plugin_integration() -> None:

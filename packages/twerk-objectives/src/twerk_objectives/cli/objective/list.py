@@ -7,7 +7,7 @@ from typing import Any
 import click
 
 from twerk_core import format_relative_time, get_console, make_table, state_badge
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import Issue
 from twerk_objectives.cli.objective.gateway_access import get_gh_issue_gateway
@@ -71,7 +71,7 @@ def render_objective_list(result: ObjectiveListResult) -> None:
 def run_list_objectives(
     ctx: click.Context,
     request: ObjectiveListRequest,
-) -> ObjectiveListResult | ClinkrCommandError:
+) -> ClinkrExit[ObjectiveListResult]:
     # TODO: Validate request.state at the Click/clinkr boundary so invalid values
     # fail before invoking `gh issue list`. Today the user-facing error comes from
     # the gh CLI, which we intentionally preserve for now.
@@ -79,8 +79,8 @@ def run_list_objectives(
         gateway = get_gh_issue_gateway(ctx)
         issues = gateway.list(label="objective", state=request.state)
     except subprocess.CalledProcessError as e:
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="gh_cli_failure",
             message=f"Failed to list objectives: {e.stderr or e}",
         )
-    return ObjectiveListResult(objectives=issues)
+    return ClinkrExit.ok(ObjectiveListResult(objectives=issues))
