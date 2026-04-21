@@ -117,9 +117,10 @@ dev-memjective-create  →  (dev-memjective-next  →  work  →  dev-memjective
 - **Next** (`dev-memjective-next`): read-only advisory. Resolve the active
   memjective, assess the codebase, decide the next slice, and suggest a branch
   slug for the work. Writes nothing. May be invoked from a new branch that
-  doesn't yet have its own snapshot — source resolution walks the ancestor
-  chain looking for the nearest branch with a memjective, falling back to the
-  master seed.
+  doesn't yet have its own snapshot — source resolution first prefers the
+  current branch snapshot, then the nearest ancestor branch snapshot in
+  commit history, falling back to the master seed only when no ancestor
+  snapshot exists.
 - **Work**: normal implementation between `next` and `update`. Not a skill —
   just engineering, using whatever tooling the task calls for.
 - **Update** (`dev-memjective-update`): after a slice lands, conservatively

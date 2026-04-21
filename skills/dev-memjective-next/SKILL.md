@@ -1,10 +1,11 @@
 ---
 name: dev-memjective-next
-description: "Decide what to work on next for a local-first memjective, and suggest a branch slug for the work. Resolves the active memjective by walking sources in order: current-branch snapshot → ancestor branches with a snapshot (raw git, no Graphite dependency; user picks when there are multiple) → master-branch seeds (user picks when there are multiple) → ask. Reports a short summary of the resolved memjective so the user can confirm before planning. Lightly assesses the codebase, proposes the next PR-sized slice (with user feedback when non-obvious), and prints a kebab-case slug plus a suggested follow-up (`dev-memjective-update`, a branch-creation skill, or manual `brmem put` for carry-forward). Warns on slug collisions with existing branches or seeds and asks the user how to proceed. Read-only — writes nothing to brmem or git. Use when the user wants to plan the next slice of a memjective, pick what to work on next, or prep a branch for the next step without committing to implementation. Does **not** implement work (do that between `next` and `update`) and does **not** rewrite the memjective snapshot (that's `dev-memjective-update`)."
+description: "Read-only planning skill for memjectives. Resolve the active memjective from the current branch snapshot, otherwise the nearest ancestor branch snapshot in commit history, otherwise a master seed; summarize it so the user can confirm; lightly assess the codebase; then suggest the next PR-sized slice and a kebab-case branch slug. Warn on slug collisions, and when carry-forward is needed, print the exact `brmem put` command instead of writing anything. Use when the user wants to decide what to work on next, plan the next memjective slice, or prep a branch without starting implementation, especially on Graphite-style branch stacks."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"
   - "Bash(git merge-base *)"
+  - "Bash(git rev-list *)"
   - "Bash(brmem check *)"
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
@@ -17,28 +18,28 @@ metadata:
 
 # dev-memjective-next
 
-Advisory, **read-only** planning skill for the memjective prototype.
+Read-only planning skill for the memjective prototype.
 
 See the `dev-memjective` spec skill for shared vocabulary (seed vs. snapshot,
 carry-forward, one-per-branch invariant).
 
 ## Goal
 
-Given the active memjective for the current branch (from wherever it can be
-read), decide what to work on next and suggest a branch slug for the work.
-
-The skill never mutates brmem, never creates branches, and never implements
-work. It produces advice the user can act on.
+Resolve the active memjective, choose the next slice, and suggest a branch
+slug for it. The skill never writes brmem, never creates branches, and never
+implements work.
 
 ## Core rules
 
 - **Read-only.** No `brmem put`, no branch creation, no git refs written, no
-  checkbox toggling in the memjective document. If the user wants a change
-  landed, they run `dev-memjective-update` after the work is complete (or
-  edit the snapshot manually via `brmem put`).
+  checkbox edits. After the work lands, use `dev-memjective-update` (or edit
+  the snapshot manually via `brmem put`).
 - **Label the source.** Every output names where the memjective was read
   from: current-branch snapshot, ancestor-branch snapshot (with branch
-  name), or master seed.
+  name), master seed, or local file.
+- **Branch continuity first.** If the current branch has no snapshot, prefer
+  the nearest ancestor branch snapshot in commit history. Consult `master`
+  only when no ancestor snapshot exists.
 - **One snapshot per branch.** If any candidate source branch has more than
   one entry in the `memjectives` namespace, abort and surface the invalid
   state instead of guessing.
@@ -46,10 +47,9 @@ work. It produces advice the user can act on.
   branches and existing master seeds with that name. On a collision, warn
   and ask.
 - **No Graphite dependency.** Parent detection uses raw git plumbing only.
-- **No carry-forward side-effect.** If the current branch has no snapshot,
-  this skill reads the source directly and prints the exact `brmem put`
-  command the user can run to attach it. It does not attach on the user's
-  behalf.
+- **Manual carry-forward.** If the current branch has no snapshot, this skill
+  reads the source directly and prints the exact `brmem put` command to
+  attach it. It does not attach anything on the user's behalf.
 
 ## Workflow
 
@@ -69,9 +69,23 @@ Abort if:
 
 ### 2. Resolve the memjective source
 
-Walk these steps in order. Stop at the first one that succeeds.
+Use the strongest source available in this order: explicit user input,
+current-branch snapshot, then fallback discovery.
 
-#### 2a. Current-branch snapshot
+#### 2a. Explicit user source
+
+If the user explicitly names a source, resolve that directly instead of
+guessing:
+
+- a branch name: require exactly one memjective entry on that branch
+- a master seed slug: read `<slug>.md` from `master`
+- a local file path: read the file directly and label the source as
+  _local file_
+
+If the explicit source is invalid, stop and surface the problem instead of
+falling through to discovery.
+
+#### 2b. Current-branch snapshot
 
 ```bash
 brmem list --namespace memjectives
@@ -81,12 +95,18 @@ brmem list --namespace memjectives
 
 Decision rules:
 
-- **0 matches** → continue to 2b.
+- **0 matches** → continue to 2c.
 - **1 match** → record the slug; label as _snapshot (current branch)_; skip
   to step 3.
 - **2+ matches** → abort; the branch is in an invalid v0 state.
 
-#### 2b. Ancestor branches with a snapshot
+#### 2c. Fallback discovery
+
+When the current branch has no snapshot, first look for ancestor branch
+snapshots and continue from the nearest one in commit history. Only fall
+back to master seeds if no ancestor snapshot exists.
+
+##### Ancestor snapshots
 
 Enumerate every `(branch, key)` pair that has a memjective entry:
 
@@ -103,7 +123,7 @@ Filter the list:
 - Drop entries where the branch is `master` (handled in step 2c as a seed,
   not a snapshot).
 - Drop entries where the branch equals the current `<branch>` (already
-  checked in 2a).
+  checked in 2b).
 - Drop entries where the branch no longer exists:
   ```bash
   git rev-parse --verify --quiet refs/heads/<B>
@@ -113,44 +133,43 @@ Filter the list:
   git merge-base --is-ancestor <B> HEAD
   ```
 
-Decision rules on the surviving list:
-
-- **0 candidates** → continue to 2c.
-- **1 candidate** → name it (`<branch>` + slug), confirm with the user in
-  one line ("use the snapshot from ancestor branch `<B>` (slug `<slug>`)?"),
-  and on assent skip to step 3 with label
-  _snapshot (ancestor branch `<B>`)_.
-- **2+ candidates** → list every `(branch, slug)` pair and ask the user
-  which to use. No auto-ranking, no distance counting, no tie-breaks. On
-  the user's pick, skip to step 3 with label
-  _snapshot (ancestor branch `<picked>`)_.
-
 Invariant: if any single ancestor branch surfaces with more than one entry
 in the `memjectives` namespace, abort and surface the invalid v0 state
 instead of presenting it as a candidate. This is the same
-one-snapshot-per-branch rule already enforced in 2a.
+one-snapshot-per-branch rule already enforced in 2b.
 
-#### 2c. Master-branch seeds
+Decision rules for ancestor candidates:
+
+- **0 candidates** → continue to master seeds.
+- **1 candidate** → use it automatically and label it as
+  _snapshot (ancestor branch `<B>`)_.
+- **2+ candidates** → rank them by commit distance from `HEAD` and use the
+  nearest one automatically.
+
+Measure distance with:
+
+```bash
+git rev-list --count refs/heads/<B>..HEAD
+```
+
+The smallest count wins. This makes stacked branches behave naturally: if
+`HEAD` descends from `a`, then `b`, then `c`, and only `b` and `c` have
+snapshots, `c` wins because it is the closest in-flight state. If multiple
+candidates tie for the smallest distance, list those tied candidates and ask
+the user to choose.
+
+##### Master seeds
 
 ```bash
 brmem list --namespace memjectives --branch master
 ```
 
-- **0 matches** → continue to 2d.
-- **1 match** → name it and confirm with the user in one line ("use the
-  master seed `<slug>`?"). On assent, skip to step 3 with label
-  _seed (master)_.
-- **2+ matches** → list every slug and ask the user to pick. On the user's
-  pick, skip to step 3 with label _seed (master)_.
+Decision rules:
 
-If the user named a slug explicitly for any reason, prefer reading from the
-master seed with that slug (step 2c) over an ancestor snapshot — an explicit
-slug signals the user wants the canonical starting point.
-
-#### 2d. Ask the user
-
-If none of 2a–2c succeeded, ask the user to name a source — a branch, a
-slug on master, or a path to a local memjective file.
+- **0 seeds** → ask the user to name a branch, a master slug, or a local
+  memjective file.
+- **1 seed** → use it automatically and label it as _seed (master)_.
+- **2+ seeds** → list them and ask the user to choose.
 
 ### 3. Load the memjective
 
@@ -160,15 +179,17 @@ Read the resolved memjective text:
 brmem get <slug>.md --namespace memjectives --branch <source-branch>
 ```
 
-`<source-branch>` is the current branch for 2a, the ancestor for 2b, or
-`master` for 2c.
+`<source-branch>` is the branch chosen in 2a when the user named a branch,
+the current branch for 2b, the nearest ancestor chosen in 2c, or `master`
+for 2c fallback seeds. If step 2a resolved to a local file, read that file
+directly instead.
 
 Interpret the document's sections per the spec skill's **Document anatomy**.
 
 ### 3a. Report a summary to the user
 
-Before continuing, write a short summary of the loaded memjective back to
-the user:
+Before planning, write a short summary of the loaded memjective back to the
+user:
 
 - Title and Status.
 - The Intro paragraph(s).
@@ -176,25 +197,24 @@ the user:
 - The current state of the Status Checklist (which items are checked vs.
   open).
 
-Also restate the source label from step 2 (e.g.,
-_snapshot (ancestor branch `clinkr-m1`)_, _seed (master)_) so the user can
-see which entry was loaded.
+Also restate the source label from step 2 (for example
+_snapshot (ancestor branch `clinkr-m1`)_, _seed (master)_, _local file_) so
+the user can see what was loaded.
 
-Keep the summary tight — the user should be able to confirm "yes, that's
-the one" at a glance. If the user disagrees with the chosen source, return
-to step 2 and let them pick a different candidate.
+Keep the summary tight so the user can confirm the source at a glance. If the
+user disagrees with the chosen source, return to step 2 and let them pick a
+different candidate.
 
 ### 4. Assess the codebase lightly
 
-The goal is to ground the next-slice choice, not to audit the whole repo.
-Skim the files mentioned in the memjective's Status Checklist or Notes and
-confirm the current state matches what the memjective claims. Surface
-drift in the report if it is material.
+Ground the next-slice choice; do not audit the whole repo. Skim the files
+mentioned in the memjective's Status Checklist or Notes and confirm the
+current state still matches the document. Surface only material drift.
 
 ### 5. Decide the next slice
 
-Prefer the first unchecked item on the Status Checklist that matches the
-`How to Make Progress` recipe.
+Default to the first unchecked checklist item that still matches `How to Make
+Progress`.
 
 **When the choice is non-obvious** — multiple unchecked items at similar
 priority, recent Notes suggesting the plan should be reshaped, or material
@@ -250,43 +270,43 @@ Output:
   from multiple candidates, name the alternatives that were considered.
 - **Codebase drift** — only if material drift was found during step 4.
 - **Suggested branch slug** — with the collision-check result.
-- **Suggested follow-up** —
-  - If the user plans to work on the current branch, run the work, then
-    `dev-memjective-update`.
-  - If the user plans to spin up a new branch for the slice, name a
-    branch-creation tool the user already uses (e.g., `gt create`,
-    `dev-plan-to-branch`, `dev-workbr-create`) — pick based on how heavy
-    the slice is.
-  - If carry-forward is needed (step 2 resolved to an ancestor snapshot or
-    master seed and the user intends to work on the current branch), print
-    the exact command:
-    ```bash
-    brmem get <slug>.md --namespace memjectives --branch <source-branch> > /tmp/<slug>.md
-    brmem put <slug>.md --namespace memjectives --file /tmp/<slug>.md
-    ```
-    so the user can attach the memjective onto the current branch before
-    running `dev-memjective-update`.
+- **Suggested follow-up** — tell the user to do the work, then run
+  `dev-memjective-update`. If they want a fresh branch, name a
+  branch-creation tool they already use (for example `gt create`,
+  `dev-plan-to-branch`, or `dev-workbr-create`) based on how heavy the slice
+  is.
+- **Attach command** — only when the chosen source is not the current-branch
+  snapshot, print:
+  ```bash
+  brmem get <slug>.md --namespace memjectives --branch <source-branch> > /tmp/<slug>.md
+  brmem put <slug>.md --namespace memjectives --file /tmp/<slug>.md
+  ```
+  so the user can attach the memjective onto the current branch before
+  running `dev-memjective-update`.
 
 ## Edge cases
 
 - **Detached HEAD** → abort in step 1.
-- **Stale brmem refs** for deleted branches → dropped during step 2b by the
+- **Stale brmem refs** for deleted branches → dropped during step 2c by the
   `git rev-parse --verify` filter.
 - **Branch with >1 memjective entry** (current, ancestor, or master) →
   abort and surface; never pick silently.
 - **Worktrees** — `git for-each-ref refs/brmem/...` is repo-global, so
   ancestor enumeration works correctly from any worktree.
-- **User explicitly names a slug** that exists only on master (no ancestor
-  snapshot) → use the master seed; label as _seed (master)_.
-- **No memjectives anywhere** → step 2d asks the user for a source rather
-  than silently returning nothing.
+- **Multiple ancestor snapshots on the branch stack** → choose the one with
+  the smallest `git rev-list --count <branch>..HEAD`.
+- **User explicitly names a slug** that exists only on master → use the
+  master seed; label as _seed (master)_.
+- **No memjectives anywhere** → ask the user for a source rather than
+  silently returning nothing.
 
 ## Anti-patterns
 
 - Writing anything to brmem. This skill is advisory only.
 - Auto-resolving slug collisions. Always ask.
-- Auto-ranking ancestor candidates by distance instead of asking the user.
-  Step 2b lists candidates; the user picks.
+- Falling back to the master seed when a nearer ancestor snapshot exists.
+- Ranking ancestor candidates by timestamp or branch name instead of commit
+  distance from `HEAD`.
 - Skipping the step 3a summary. The user needs to see what got loaded
   before planning continues.
 - Letting the slug name the whole memjective instead of the current slice.

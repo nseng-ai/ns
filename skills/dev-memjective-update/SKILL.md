@@ -1,6 +1,6 @@
 ---
 name: dev-memjective-update
-description: "Rewrite the current branch's memjective snapshot after a slice of work has landed. Assumes the branch already has exactly one `memjectives/<slug>.md` entry in brmem and the user has completed a unit of work they want reflected in the snapshot. Loads the existing snapshot, applies conservative in-place edits per the spec's mutation contract (check completed items, split newly granular items, append Notes, amend How to Make Progress when the recipe actually changed), writes the updated text back to brmem, and reports old/new commit SHAs for recoverability. Use after finishing a slice — phrases like 'update the memjective', 'record progress on the memjective', 'snapshot what I just landed'. Does **not** decide what to work on next (see `dev-memjective-next`) and does **not** implement anything (that's the work that happens between `next` and `update`). Does **not** rewrite the master seed. Does **not** carry-forward onto a branch with no snapshot — for that, run the `brmem put` command printed by `dev-memjective-next`."
+description: "Rewrite the current branch's memjective snapshot after a slice of work lands. Requires exactly one `memjectives/<slug>.md` entry on the branch. Load the snapshot, apply conservative in-place edits from the mutation contract, write it back to brmem, and report old/new commit SHAs for recovery. Use when the user wants to record memjective progress or snapshot landed work. It does not choose the next slice, implement anything, rewrite the master seed, or attach a memjective onto a branch that has none."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -14,42 +14,33 @@ metadata:
 
 # dev-memjective-update
 
-Rewrite the current branch's memjective snapshot after a slice of work has
-landed.
+Rewrite the current branch's memjective snapshot after a slice of work lands.
 
 See the `dev-memjective` spec skill for shared vocabulary (seed vs. snapshot,
 carry-forward, one-per-branch invariant) and the full mutation contract.
 
 ## Goal
 
-On the current branch:
+On the current branch, confirm there is exactly one snapshot, load it, update
+it conservatively to reflect the completed slice, write it back to brmem, and
+report old/new commit SHAs so prior snapshots are recoverable.
 
-1. Confirm exactly one active memjective snapshot exists.
-2. Load it.
-3. Rewrite it conservatively to reflect the slice of work the user just
-   completed.
-4. Write the updated text back to brmem.
-5. Report old/new commit SHAs so prior snapshots are recoverable.
-
-This skill deliberately does **not** decide what to work on next and does
-**not** implement anything. `dev-memjective-next` handles the "decide" half of
-the loop; the actual implementation is ordinary engineering work between the
-two skills.
+This skill does **not** choose the next slice and does **not** implement
+anything. `dev-memjective-next` handles the planning half of the loop.
 
 ## Core rules
 
 - **Local-first only.** Never touch GitHub.
 - **One memjective per branch.** Abort if the branch has 0 or more than 1
-  entries in the `memjectives` namespace — use `dev-memjective-next` or the
-  exact `brmem put` command it prints to attach a memjective onto a branch
-  that has none.
+  entries in the `memjectives` namespace. If the branch has none, use
+  `dev-memjective-next` and the exact `brmem put` command it prints.
 - **Never rewrite the master seed.** `update` mutates only the current
   branch's snapshot.
 - **Conservative in-place edits.** Follow the mutation contract in
   `../dev-memjective/references/mutation-contract.md`. Do not regenerate the
   document from scratch.
-- **Preserve history.** brmem keeps prior snapshots by commit; the report
-  surfaces the old SHA so the user can recover.
+- **Preserve history.** brmem keeps prior snapshots by commit; report the old
+  SHA so the user can recover it.
 
 ## Workflow
 
@@ -109,23 +100,19 @@ preserve the existing content rather than regenerating it.
 ### 5. Rewrite conservatively
 
 Apply the mutation contract in
-`../dev-memjective/references/mutation-contract.md`. Summary of the allowed
-per-section edits on the current-branch snapshot:
+`../dev-memjective/references/mutation-contract.md`. In practice, keep the
+rewrite narrow:
 
-- **Title** — leave as-is unless the user explicitly asks to rename.
-- **Status** — may update (`in progress` / `blocked` / `done`).
-- **Intro** — clarify or append; do not replace wholesale.
-- **Completion Criteria** — check items; add brief evidence notes; do not
-  delete or rewrite criteria.
-- **Status Checklist** — check completed items; add newly discovered
-  follow-ups near the affected slice; split items when work turned out more
-  granular than expected. Keep completed items visible — do not erase
-  progress history.
-- **How to Make Progress** — edit only when the actual work recipe has
-  changed, not just because one checklist item finished.
-- **Notes** — append findings, constraints, pointers, collisions. Prefer
-  striking or annotating obsolete notes over silently deleting them. Add the
-  section if it does not exist and you have something worth preserving.
+- Preserve the document shape and title unless the user explicitly asked to
+  rename it.
+- Update `Status` if the branch state changed.
+- Mark completed work in `Completion Criteria` and `Status Checklist`, and
+  keep completed items visible.
+- Add only nearby follow-up checklist items when the work split more finely
+  than expected.
+- Update `How to Make Progress` only when the actual recipe changed.
+- Append durable findings to `Notes`; annotate obsolete notes instead of
+  silently deleting them.
 
 ### 6. Persist the updated snapshot
 
