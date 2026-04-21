@@ -35,7 +35,7 @@ On the current branch:
 
 1. resolve exactly one active memjective snapshot
 2. if missing, attach one by exact-copy carry-forward or master-branch seeding
-3. read that memjective (and `plan.md`, if present)
+3. read that memjective
 4. implement the next unit of work
 5. rewrite the branch-local memjective snapshot conservatively
 6. report the old/new brmem commits so prior snapshots are recoverable
@@ -56,9 +56,6 @@ On the current branch:
 - **Use `How to Make Progress` as a load-bearing recipe.** That section exists
   to make future progress sessions fairly mechanical. Follow it, not just the
   checklist.
-- **Treat the `workbr` plan entry as the upper context frame.** If the branch
-  has a `plan/plan.md` entry in the `workbr` namespace, read the memjective
-  first, then the plan. Do not overwrite the plan.
 - **Preserve history.** Update the document conservatively and rely on brmem's
   commit history for rollback.
 
@@ -86,7 +83,6 @@ List current-branch memjectives entries:
 
 ```bash
 brmem list --namespace memjectives
-brmem check plan/plan.md --namespace workbr
 ```
 
 `--branch` is omitted so the current branch is used implicitly.
@@ -94,8 +90,6 @@ brmem check plan/plan.md --namespace workbr
 From that output, compute:
 
 - `memjective_entries` = entries returned by `brmem list --namespace memjectives`
-- `has_plan` = whether `brmem check plan/plan.md --namespace workbr` exits `0`
-  (`1` means no such entry; `2` is a validation / command failure — abort)
 
 Decision rules:
 
@@ -178,14 +172,6 @@ Read the active branch snapshot:
 brmem get <slug>.md --namespace memjectives
 ```
 
-If the `workbr` plan entry exists on the branch, also read it:
-
-```bash
-brmem get plan/plan.md --namespace workbr
-```
-
-Read the memjective before the plan.
-
 Interpret the memjective shape as:
 
 - intro paragraph(s) = context / why this memjective exists
@@ -207,7 +193,6 @@ When deciding what to do next:
 
 - prefer the first unchecked checklist item that matches the `How to Make
   Progress` recipe
-- use the plan as the immediate execution frame if `plan.md` exists
 - keep the unit of work coherent and landable for a single session
 - if the choice is non-obvious, tell the user which item you plan to take and
   why before implementing
@@ -289,8 +274,6 @@ brmem get <slug>.md --namespace memjectives --at <old-sha>
 - **Master-branch seed for the slug does not exist** → abort.
 - **Current branch already has a memjective snapshot and the user asks to carry
   another one on top** → refuse; do not clobber an existing branch snapshot.
-- **`workbr` plan entry exists** → read it after the memjective; leave it
-  untouched.
 
 ## Anti-patterns
 
