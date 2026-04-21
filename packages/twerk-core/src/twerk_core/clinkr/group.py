@@ -6,6 +6,7 @@ from typing import Any
 import click
 
 from twerk_core.clinkr.command import ClinkrCommandError, _apply_machine_command
+from twerk_core.clinkr.exit import ClinkrExit, ExitStatus
 from twerk_core.clinkr.operation import ClinkrOperationMeta, get_operation_meta
 from twerk_core.clinkr.params import build_request_from_click_params, extract_click_params
 from twerk_core.clinkr.rendering import default_human_renderer
@@ -118,6 +119,26 @@ def _register_operation(
     def human_callback(ctx: click.Context, **kwargs: Any) -> None:
         request = build_request_from_click_params(request_type, kwargs)
         result = operation(ctx, request)
+        if meta.return_style == "exit":
+            if not isinstance(result, ClinkrExit):
+                raise click.ClickException(
+                    f"operation '{meta.name}' declared return_style='exit' "
+                    "but did not return a ClinkrExit"
+                )
+            if result.status is ExitStatus.OK:
+                renderer(result.data)
+                return
+            if result.status is ExitStatus.NEGATIVE:
+                if result.message is not None:
+                    click.echo(result.message, err=True)
+                ctx.exit(1)
+            # FAILURE
+            click.echo(f"error: {result.message}", err=True)
+            ctx.exit(2)
+            return
+        # TODO(clinkr-contract-redesign PR 7): remove the legacy branch below
+        # once every operation returns ClinkrExit[T]. Until then, both
+        # dispatch paths must coexist so migration can proceed package-by-package.
         if isinstance(result, ClinkrCommandError):
             raise click.ClickException(result.message)
         renderer(result)
@@ -147,6 +168,7 @@ def _register_operation(
         machine_cmd,
         request_type=request_type,
         output_types=result_types,
+        return_style=meta.return_style,
     )
 
     # -- register --

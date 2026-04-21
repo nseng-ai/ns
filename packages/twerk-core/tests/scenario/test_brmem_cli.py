@@ -837,12 +837,14 @@ def test_brmem_json_check_present(cli_group: ClinkrGroup) -> None:
     payload = _json_output(result.output)
 
     assert result.exit_code == 0, result.output
-    assert payload["success"] is True
-    assert payload["exists"] is True
-    assert payload["ref_name"] == "refs/brmem/workbr/feat---x/plan/plan.md"
-    assert payload["size_bytes"] == 6
-    assert payload["head_sha"] == "fake-0001"
-    assert payload["blob_sha"] == "blob-fake-0001"
+    assert payload["exit_code"] == 0
+    assert "message" not in payload
+    assert "error_type" not in payload
+    data = payload["data"]
+    assert data["ref_name"] == "refs/brmem/workbr/feat---x/plan/plan.md"
+    assert data["size_bytes"] == 6
+    assert data["head_sha"] == "fake-0001"
+    assert data["blob_sha"] == "blob-fake-0001"
 
 
 def test_brmem_json_check_missing(cli_group: ClinkrGroup) -> None:
@@ -854,11 +856,12 @@ def test_brmem_json_check_missing(cli_group: ClinkrGroup) -> None:
     )
     payload = _json_output(result.output)
 
-    assert result.exit_code == 0, result.output
-    assert payload["success"] is True
-    assert payload["exists"] is False
-    assert payload["head_sha"] is None
-    assert payload["size_bytes"] is None
+    assert result.exit_code == 1, result.output
+    assert payload["exit_code"] == 1
+    assert "not found: key=plan/plan.md" in payload["message"]
+    data = payload["data"]
+    assert data["head_sha"] is None
+    assert data["size_bytes"] is None
 
 
 # ---------------------------------------------------------------------------

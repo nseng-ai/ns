@@ -10,6 +10,7 @@ import click
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.brmem.validation import validate_entry_ref
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -34,13 +35,11 @@ class CheckResult:
     branch: str
     ref_name: str
     target: str
-    exists: bool
     at: str | None
     head_sha: str | None
     head_date: str | None
     blob_sha: str | None
     size_bytes: int | None
-    absent_message: str | None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -49,7 +48,6 @@ class CheckResult:
             "branch": self.branch,
             "ref_name": self.ref_name,
             "target": self.target,
-            "exists": self.exists,
             "at": self.at,
             "head_sha": self.head_sha,
             "head_date": self.head_date,
@@ -80,14 +78,16 @@ def render_check(result: CheckResult) -> None:
 def run_check(
     ctx: click.Context,
     request: CheckRequest,
-) -> CheckResult | ClinkrCommandError:
+) -> ClinkrExit[CheckResult]:
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
-        return branch
+        return ClinkrExit[CheckResult].failure(error_type=branch.error_type, message=branch.message)
 
     entry_ref = validate_entry_ref(request.namespace, request.key, branch)
     if isinstance(entry_ref, ClinkrCommandError):
-        return entry_ref
+        return ClinkrExit[CheckResult].failure(
+            error_type=entry_ref.error_type, message=entry_ref.message
+        )
 
     target = request.at if request.at is not None else entry_ref.ref_name
 
@@ -100,35 +100,37 @@ def run_check(
     )
 
     if diagnostic is None:
-        return CheckResult(
+        absent = CheckResult(
             namespace=entry_ref.namespace,
             key=entry_ref.key,
             branch=entry_ref.branch,
             ref_name=entry_ref.ref_name,
             target=target,
-            exists=False,
             at=request.at,
             head_sha=None,
             head_date=None,
             blob_sha=None,
             size_bytes=None,
-            absent_message=(
+        )
+        return ClinkrExit.negative(
+            absent,
+            message=(
                 f"not found: key={entry_ref.key} namespace={entry_ref.namespace} "
                 f"branch={entry_ref.branch} at {target}"
             ),
         )
 
-    return CheckResult(
-        namespace=entry_ref.namespace,
-        key=entry_ref.key,
-        branch=entry_ref.branch,
-        ref_name=entry_ref.ref_name,
-        target=target,
-        exists=True,
-        at=request.at,
-        head_sha=diagnostic.head_sha,
-        head_date=diagnostic.head_date,
-        blob_sha=diagnostic.blob_sha,
-        size_bytes=diagnostic.size_bytes,
-        absent_message=None,
+    return ClinkrExit.ok(
+        CheckResult(
+            namespace=entry_ref.namespace,
+            key=entry_ref.key,
+            branch=entry_ref.branch,
+            ref_name=entry_ref.ref_name,
+            target=target,
+            at=request.at,
+            head_sha=diagnostic.head_sha,
+            head_date=diagnostic.head_date,
+            blob_sha=diagnostic.blob_sha,
+            size_bytes=diagnostic.size_bytes,
+        )
     )
