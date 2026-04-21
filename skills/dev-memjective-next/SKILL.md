@@ -1,11 +1,10 @@
 ---
 name: dev-memjective-next
-description: "Decide what to work on next for a local-first memjective, and suggest a branch slug for the work. Resolves the active memjective by walking sources in order: current-branch snapshot → nearest ancestor branch with a snapshot (raw git, no Graphite dependency) → master-branch seed → ask. Reads the memjective, lightly assesses the codebase, proposes the next PR-sized slice (with user feedback when non-obvious), and prints a kebab-case slug plus a suggested follow-up (`dev-memjective-update`, a branch-creation skill, or manual `brmem put` for carry-forward). Warns on slug collisions with existing branches or seeds and asks the user how to proceed. Read-only — writes nothing to brmem or git. Use when the user wants to plan the next slice of a memjective, pick what to work on next, or prep a branch for the next step without committing to implementation. Does **not** implement work (do that between `next` and `update`) and does **not** rewrite the memjective snapshot (that's `dev-memjective-update`)."
+description: "Decide what to work on next for a local-first memjective, and suggest a branch slug for the work. Resolves the active memjective by walking sources in order: current-branch snapshot → ancestor branches with a snapshot (raw git, no Graphite dependency; user picks when there are multiple) → master-branch seeds (user picks when there are multiple) → ask. Reports a short summary of the resolved memjective so the user can confirm before planning. Lightly assesses the codebase, proposes the next PR-sized slice (with user feedback when non-obvious), and prints a kebab-case slug plus a suggested follow-up (`dev-memjective-update`, a branch-creation skill, or manual `brmem put` for carry-forward). Warns on slug collisions with existing branches or seeds and asks the user how to proceed. Read-only — writes nothing to brmem or git. Use when the user wants to plan the next slice of a memjective, pick what to work on next, or prep a branch for the next step without committing to implementation. Does **not** implement work (do that between `next` and `update`) and does **not** rewrite the memjective snapshot (that's `dev-memjective-update`)."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"
   - "Bash(git merge-base *)"
-  - "Bash(git rev-list *)"
   - "Bash(brmem check *)"
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
@@ -38,8 +37,8 @@ work. It produces advice the user can act on.
   landed, they run `dev-memjective-update` after the work is complete (or
   edit the snapshot manually via `brmem put`).
 - **Label the source.** Every output names where the memjective was read
-  from: current-branch snapshot, ancestor-branch snapshot (with branch name
-  and distance), or master seed.
+  from: current-branch snapshot, ancestor-branch snapshot (with branch
+  name), or master seed.
 - **One snapshot per branch.** If any candidate source branch has more than
   one entry in the `memjectives` namespace, abort and surface the invalid
   state instead of guessing.
@@ -87,67 +86,62 @@ Decision rules:
   to step 3.
 - **2+ matches** → abort; the branch is in an invalid v0 state.
 
-#### 2b. Nearest ancestor branch with a snapshot
+#### 2b. Ancestor branches with a snapshot
 
-Enumerate every branch that has a memjective entry:
+Enumerate every `(branch, key)` pair that has a memjective entry:
 
 ```bash
 git for-each-ref --format='%(refname)' refs/brmem/memjectives/
 ```
 
-Each refname is `refs/brmem/memjectives/<encoded-branch>/<key>`. Extract the
-`<encoded-branch>` segment (the 4th path component), deduplicate, and decode
-`---` → `/` to recover the real branch name.
+Each refname is `refs/brmem/memjectives/<encoded-branch>/<key>`. Extract
+the `<encoded-branch>` segment (the 4th path component), decode `---` → `/`
+to recover the real branch name, and pair it with `<key>`.
 
-For each candidate branch `B`:
+Filter the list:
 
-1. Skip `B == master` (master is handled in step 2c as a seed, not a
-   snapshot).
-2. Skip `B == <branch>` (the current branch was already checked).
-3. Confirm the branch still exists:
-   ```bash
-   git rev-parse --verify --quiet refs/heads/<B>
-   ```
-   Drop stale refs where this fails.
-4. Confirm `B` is an ancestor of `HEAD`:
-   ```bash
-   git merge-base --is-ancestor <B> HEAD
-   ```
-   Drop non-ancestors.
-5. Measure distance:
-   ```bash
-   git rev-list --count <B>..HEAD
-   ```
+- Drop entries where the branch is `master` (handled in step 2c as a seed,
+  not a snapshot).
+- Drop entries where the branch equals the current `<branch>` (already
+  checked in 2a).
+- Drop entries where the branch no longer exists:
+  ```bash
+  git rev-parse --verify --quiet refs/heads/<B>
+  ```
+- Keep only entries where the branch is an ancestor of `HEAD`:
+  ```bash
+  git merge-base --is-ancestor <B> HEAD
+  ```
 
-Rank the surviving candidates by distance ascending. The smallest wins.
-Tie-break: prefer the branch whose tip is itself an ancestor of the other
-tied candidates (topologically closest); if still tied, lexicographic order.
+Decision rules on the surviving list:
 
-Before using the winner, confirm it has exactly one memjective entry:
+- **0 candidates** → continue to 2c.
+- **1 candidate** → name it (`<branch>` + slug), confirm with the user in
+  one line ("use the snapshot from ancestor branch `<B>` (slug `<slug>`)?"),
+  and on assent skip to step 3 with label
+  _snapshot (ancestor branch `<B>`)_.
+- **2+ candidates** → list every `(branch, slug)` pair and ask the user
+  which to use. No auto-ranking, no distance counting, no tie-breaks. On
+  the user's pick, skip to step 3 with label
+  _snapshot (ancestor branch `<picked>`)_.
 
-```bash
-brmem list --namespace memjectives --branch <winner>
-```
+Invariant: if any single ancestor branch surfaces with more than one entry
+in the `memjectives` namespace, abort and surface the invalid v0 state
+instead of presenting it as a candidate. This is the same
+one-snapshot-per-branch rule already enforced in 2a.
 
-- **0 matches** → should not happen (we found a ref). Treat as stale and
-  drop.
-- **1 match** → record the slug; label as
-  _snapshot (ancestor branch `<winner>`, N commits behind HEAD)_; skip to
-  step 3.
-- **2+ matches** → abort; the ancestor branch is in an invalid v0 state.
-
-If no ancestor candidates survive, continue to 2c.
-
-#### 2c. Master-branch seed
+#### 2c. Master-branch seeds
 
 ```bash
 brmem list --namespace memjectives --branch master
 ```
 
 - **0 matches** → continue to 2d.
-- **1 match** → record the slug; label as _seed (master)_; skip to step 3.
-- **2+ matches** → if the user named a slug explicitly, use that one; else
-  list the available slugs and ask.
+- **1 match** → name it and confirm with the user in one line ("use the
+  master seed `<slug>`?"). On assent, skip to step 3 with label
+  _seed (master)_.
+- **2+ matches** → list every slug and ask the user to pick. On the user's
+  pick, skip to step 3 with label _seed (master)_.
 
 If the user named a slug explicitly for any reason, prefer reading from the
 master seed with that slug (step 2c) over an ancestor snapshot — an explicit
@@ -170,6 +164,25 @@ brmem get <slug>.md --namespace memjectives --branch <source-branch>
 `master` for 2c.
 
 Interpret the document's sections per the spec skill's **Document anatomy**.
+
+### 3a. Report a summary to the user
+
+Before continuing, write a short summary of the loaded memjective back to
+the user:
+
+- Title and Status.
+- The Intro paragraph(s).
+- The Completion Criteria.
+- The current state of the Status Checklist (which items are checked vs.
+  open).
+
+Also restate the source label from step 2 (e.g.,
+_snapshot (ancestor branch `clinkr-m1`)_, _seed (master)_) so the user can
+see which entry was loaded.
+
+Keep the summary tight — the user should be able to confirm "yes, that's
+the one" at a glance. If the user disagrees with the chosen source, return
+to step 2 and let them pick a different candidate.
 
 ### 4. Assess the codebase lightly
 
@@ -231,8 +244,8 @@ Do not auto-resolve the collision.
 
 Output:
 
-- **Source** — label + slug (e.g., _snapshot (ancestor branch `clinkr-m1`, 3
-  commits behind HEAD)_, slug `clinkr-migration`).
+- **Source** — label + slug (e.g., _snapshot (ancestor branch `clinkr-m1`)_,
+  slug `clinkr-migration`).
 - **Chosen slice** — title + 1–2 sentence rationale. If the user picked
   from multiple candidates, name the alternatives that were considered.
 - **Codebase drift** — only if material drift was found during step 4.
@@ -259,8 +272,6 @@ Output:
 - **Detached HEAD** → abort in step 1.
 - **Stale brmem refs** for deleted branches → dropped during step 2b by the
   `git rev-parse --verify` filter.
-- **Tied ancestor distances** → topological proximity first, then
-  lexicographic.
 - **Branch with >1 memjective entry** (current, ancestor, or master) →
   abort and surface; never pick silently.
 - **Worktrees** — `git for-each-ref refs/brmem/...` is repo-global, so
@@ -274,8 +285,10 @@ Output:
 
 - Writing anything to brmem. This skill is advisory only.
 - Auto-resolving slug collisions. Always ask.
-- Silently picking among ancestor branches when any of them has multiple
-  memjective entries — abort instead.
+- Auto-ranking ancestor candidates by distance instead of asking the user.
+  Step 2b lists candidates; the user picks.
+- Skipping the step 3a summary. The user needs to see what got loaded
+  before planning continues.
 - Letting the slug name the whole memjective instead of the current slice.
   Sibling slices need distinguishing names.
 - Using Graphite plumbing (`gt parent`, `gt ls`, graphite branch-config
