@@ -189,13 +189,14 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
     payload = _json_output(json_res.output)
 
     assert json_res.exit_code == 0
-    slot_01 = next(r for r in payload["rows"] if r["slot_name"] == "slot-01")
+    data = payload["data"]
+    slot_01 = next(r for r in data["rows"] if r["slot_name"] == "slot-01")
     assert slot_01["status"] == "available"
     assert slot_01["branch"] is None
     assert slot_01["worktree_path"] is not None
     assert "slot-01" in slot_01["worktree_path"]
     # Other slots remain unallocated (no worktree on disk).
-    unallocated = [r for r in payload["rows"] if r["status"] == "unallocated"]
+    unallocated = [r for r in data["rows"] if r["status"] == "unallocated"]
     assert len(unallocated) == 15
 
 
@@ -242,14 +243,35 @@ def test_slot_json_list_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> 
     payload = _json_output(result.output)
 
     assert result.exit_code == 0
-    assert payload["success"] is True
-    assert payload["pool_size"] == 16
-    assert payload["repo_name"] == "repo"
-    assigned_rows = [r for r in payload["rows"] if r["status"] == "assigned"]
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["pool_size"] == 16
+    assert data["repo_name"] == "repo"
+    assigned_rows = [r for r in data["rows"] if r["status"] == "assigned"]
     assert len(assigned_rows) == 1
     assert assigned_rows[0]["branch"] == "feat/x"
-    unallocated_rows = [r for r in payload["rows"] if r["status"] == "unallocated"]
+    unallocated_rows = [r for r in data["rows"] if r["status"] == "unallocated"]
     assert len(unallocated_rows) == 15
+
+
+def test_slot_list_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
+    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=_obj(ctx))
+
+    flag_result = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    subtree_result = CliRunner().invoke(cli_group, ["json", "list"], input="", obj=_obj(ctx))
+
+    assert flag_result.exit_code == 0
+    assert subtree_result.exit_code == 0
+    assert flag_result.stdout == subtree_result.stdout
+
+
+def test_slot_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--schema"])
+    payload = _json_output(result.stdout)
+
+    assert result.exit_code == 0
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
 
 
 def test_slot_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:
@@ -267,5 +289,17 @@ def test_slot_list_surfaces_no_repo_sentinel(cli_group: ClinkrGroup) -> None:
 
     result = CliRunner().invoke(cli_group, ["list"], obj=_obj(sentinel))
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Not inside a git repository" in result.output
+
+
+def test_slot_list_no_repo_format_json_envelope(cli_group: ClinkrGroup) -> None:
+    sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
+
+    result = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(sentinel))
+    payload = _json_output(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "not_in_repo"
+    assert "Not inside a git repository" in payload["message"]

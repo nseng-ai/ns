@@ -81,13 +81,11 @@ def run_check(
 ) -> ClinkrExit[CheckResult]:
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
-        return ClinkrExit[CheckResult].failure(error_type=branch.error_type, message=branch.message)
+        return ClinkrExit.failure(error_type=branch.error_type, message=branch.message)
 
     entry_ref = validate_entry_ref(request.namespace, request.key, branch)
     if isinstance(entry_ref, ClinkrCommandError):
-        return ClinkrExit[CheckResult].failure(
-            error_type=entry_ref.error_type, message=entry_ref.message
-        )
+        return ClinkrExit.failure(error_type=entry_ref.error_type, message=entry_ref.message)
 
     target = request.at if request.at is not None else entry_ref.ref_name
 

@@ -58,7 +58,7 @@ def run_probe(ctx: click.Context, request: ProbeRequest) -> ClinkrExit[ProbeResu
         return ClinkrExit.ok(ProbeResult(value="found"))
     if request.mode == "negative":
         return ClinkrExit.negative(ProbeResult(value="partial"), message="nothing here")
-    return ClinkrExit[ProbeResult].failure(error_type="bad_mode", message="boom")
+    return ClinkrExit.failure(error_type="bad_mode", message="boom")
 
 
 # -- fixture: operation that sees is_machine_mode ---------------------------

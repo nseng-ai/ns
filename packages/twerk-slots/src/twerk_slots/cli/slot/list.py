@@ -7,7 +7,7 @@ from typing import Any, Literal
 import click
 
 from twerk_core import get_console, make_table
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.format import format_relative_time
 from twerk_slots.allocation import sync_pool_assignments
@@ -128,19 +128,19 @@ def _compose_rows(
     aliases=("ls",),
     human_renderer=render_slot_list,
 )
-def run_list_slots(
-    ctx: click.Context, request: SlotListRequest
-) -> SlotListResult | ClinkrCommandError:
+def run_list_slots(ctx: click.Context, request: SlotListRequest) -> ClinkrExit[SlotListResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
+        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     state = slots_ctx.pool_state.load()
     if slots_ctx.pool_state.exists():
         state = sync_pool_assignments(state, slots_ctx.git, slots_ctx.storage, slots_ctx.pool_state)
 
-    return SlotListResult(
-        pool_size=state.pool_size,
-        rows=_compose_rows(state, slots_ctx.storage, slots_ctx.repo.worktrees_dir),
-        repo_name=slots_ctx.repo.repo_name,
+    return ClinkrExit.ok(
+        SlotListResult(
+            pool_size=state.pool_size,
+            rows=_compose_rows(state, slots_ctx.storage, slots_ctx.repo.worktrees_dir),
+            repo_name=slots_ctx.repo.repo_name,
+        )
     )

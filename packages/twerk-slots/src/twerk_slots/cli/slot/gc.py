@@ -8,7 +8,7 @@ from typing import Annotated, Any
 import click
 
 from twerk_core import get_console
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRState
 from twerk_slots.cli.slot.context import load_slots_context
@@ -143,19 +143,19 @@ def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> 
     help="Free slots whose branch has a merged or closed PR.",
     human_renderer=render_slot_gc,
 )
-def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> SlotGcResult | ClinkrCommandError:
+def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGcResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
+        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     if not slots_ctx.pool_state.exists():
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",
         )
 
     if request.dry_run and request.force:
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="conflicting_flags",
             message="--dry-run and --force are mutually exclusive.",
         )
@@ -163,13 +163,13 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> SlotGcResult | Cl
     plan = plan_gc(slots_ctx)
 
     if request.dry_run:
-        return _result_from_outcome(outcome_from_plan(plan, dry_run=True))
+        return ClinkrExit.ok(_result_from_outcome(outcome_from_plan(plan, dry_run=True)))
 
     if plan.would_free_count == 0:
-        return _result_from_outcome(outcome_from_plan(plan, dry_run=False))
+        return ClinkrExit.ok(_result_from_outcome(outcome_from_plan(plan, dry_run=False)))
 
     if request.force:
-        return _result_from_outcome(execute_gc_plan(slots_ctx, plan))
+        return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
 
     preview = _result_from_outcome(outcome_from_plan(plan, dry_run=True))
     render_slot_gc(preview)
@@ -178,5 +178,7 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> SlotGcResult | Cl
         default=False,
     )
     if proceed:
-        return _result_from_outcome(execute_gc_plan(slots_ctx, plan))
-    return _result_from_outcome(outcome_from_plan(plan, dry_run=False), cancelled=True)
+        return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
+    return ClinkrExit.ok(
+        _result_from_outcome(outcome_from_plan(plan, dry_run=False), cancelled=True)
+    )

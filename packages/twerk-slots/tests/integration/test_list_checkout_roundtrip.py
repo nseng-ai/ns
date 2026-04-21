@@ -91,11 +91,12 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     json_list = runner.invoke(cli, ["json", "list"], input="", obj=_obj(ctx))
     assert json_list.exit_code == 0, json_list.output
     payload = json.loads(json_list.output)
-    assigned = [r for r in payload["rows"] if r["status"] == "assigned"]
+    data = payload["data"]
+    assigned = [r for r in data["rows"] if r["status"] == "assigned"]
     assert len(assigned) == 1
     assert assigned[0]["branch"] == "feat/one"
     assert assigned[0]["slot_name"] == "slot-01"
-    unallocated = [r for r in payload["rows"] if r["status"] == "unallocated"]
+    unallocated = [r for r in data["rows"] if r["status"] == "unallocated"]
     assert len(unallocated) == 15
 
     # Human table also shows the branch.

@@ -56,6 +56,6 @@ def test_top_level_cli_installs_plugin_context_for_slot_commands(
 
     result = runner.invoke(cli, ["slot", "free", "--num", "1"])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Not inside a git repository" in result.output
     assert "ClinkrContextObject" not in result.output
