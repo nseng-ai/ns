@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -423,6 +424,38 @@ def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path)
     saved = fakes.pool_state.load()
     assert saved is not None
     assert len(saved.assignments) == 1
+
+
+def test_slot_free_surfaces_detach_head_failure_as_slot_allocation_error(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root)
+
+    def fail_detach(cwd: Path, ref: str) -> None:
+        raise subprocess.CalledProcessError(
+            128,
+            ["git", "checkout", "--detach", ref],
+            stderr="fatal: reference is not a tree: main",
+        )
+
+    monkeypatch.setattr(fakes.git, "detach_head", fail_detach)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 1
+    assert "Failed to detach" in result.output
+    assert "reference is not a tree" in result.output
+    saved = fakes.pool_state.load()
+    assert saved is not None
+    assert saved.assignments[0].worktree_path == worktree_path
 
 
 def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:

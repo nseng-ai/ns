@@ -63,11 +63,23 @@ def test_discover_plugins_no_plugins() -> None:
     assert len(parent.commands) == 0
 
 
+def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="legacy_slots",
+        value="twerk_slots.cli.slot.group:build_slot_group",
+    )
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    assert len(parent.commands) == 0
+
+
 def test_objective_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="objectives",
-        value="twerk_objectives.cli.objective.group:build_objective_group",
+        value="twerk_objectives.cli.plugin:build_objective_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
@@ -93,7 +105,7 @@ def test_pr_address_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="pr_address",
-        value="twerk_pr_address.cli.pr_address.group:build_pr_address_group",
+        value="twerk_pr_address.cli.plugin:build_pr_address_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
@@ -121,7 +133,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="reviewer",
-        value="twerk_reviewer.cli.reviewer.group:build_reviewer_group",
+        value="twerk_reviewer.cli.plugin:build_reviewer_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
