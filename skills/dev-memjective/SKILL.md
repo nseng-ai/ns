@@ -27,7 +27,7 @@ store backed by dedicated refs.
 
 "Local-first" is a **storage** rule, not a network rule. The memjective
 document itself is never written to GitHub — no issues, no comments, no PR
-bodies. But the skills are free to *read* GitHub for context: checking
+bodies. But the skills are free to _read_ GitHub for context: checking
 whether a referenced PR has merged, pulling a decision from a PR body,
 cross-referencing issue numbers, etc. The constraint is only that the
 memjective record lives locally.
@@ -221,7 +221,7 @@ directory and reference, and (2) remove the `internal: true` flag.
 ## Shared anti-patterns
 
 - Storing the memjective document in GitHub (issues, comments, PR bodies).
-  The prototype is deliberately local-first; a GitHub-*stored* workstream
+  The prototype is deliberately local-first; a GitHub-_stored_ workstream
   should be an `objective`. Note: **reading** GitHub for context (PRs,
   issues, `gh` queries) is allowed — the rule is about where the document
   lives, not where information comes from.
