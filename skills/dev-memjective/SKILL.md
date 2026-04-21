@@ -1,6 +1,6 @@
 ---
 name: dev-memjective
-description: "Conceptual reference for the twerk memjective prototype — local-first, brmem-backed planning docs that mirror the objective subsystem without touching GitHub. Covers what a memjective is, the master-seed / branch-snapshot storage model, the one-memjective-per-branch invariant, the document anatomy (Title / Status / Intro / Completion Criteria / Status Checklist / How to Make Progress / Notes), the create → (next → work → update)* lifecycle, per-operation mutation contracts, exact-copy carry-forward semantics, and the relationship to `objective`, `workbr`, and `plan`. Fires on conceptual questions about memjectives, ad-hoc operations outside the operation skills, and alongside `dev-memjective-create`, `dev-memjective-next`, and `dev-memjective-update` as shared grounding. Owns the memjective template under `templates/` and the mutation-contract table under `references/`. Read-only — no state mutation."
+description: "Conceptual reference for the twerk memjective prototype — local-first, brmem-backed planning docs that mirror the objective subsystem without touching GitHub. Covers what a memjective is, the master-seed / branch-snapshot storage model, the one-memjective-per-branch invariant, the document anatomy (Title / Status / Intro / Completion Criteria / Status Checklist / How to Make Progress / Notes), the create → (peek? → branch → next → update)* lifecycle, per-operation mutation contracts, exact-copy carry-forward semantics, and the relationship to `objective`, `workbr`, and `plan`. Fires on conceptual questions about memjectives, ad-hoc operations outside the operation skills, and alongside `dev-memjective-create`, `dev-memjective-peek`, `dev-memjective-next`, and `dev-memjective-update` as shared grounding. Owns the memjective template under `templates/` and the mutation-contract table under `references/`. Read-only — no state mutation."
 allowed-tools: []
 metadata:
   internal: true
@@ -11,10 +11,10 @@ metadata:
 # dev-memjective
 
 Conceptual reference for the twerk memjective subsystem. This skill does not
-perform operations. Use it as shared grounding alongside the three operation
-skills (`dev-memjective-create`, `dev-memjective-next`, `dev-memjective-update`),
-and as a landing spot for ad-hoc questions about memjectives that don't map
-cleanly to any of them.
+perform operations. Use it as shared grounding alongside the four operation
+skills (`dev-memjective-create`, `dev-memjective-peek`, `dev-memjective-next`,
+`dev-memjective-update`), and as a landing spot for ad-hoc questions about
+memjectives that don't map cleanly to any of them.
 
 ## What a memjective is
 
@@ -76,10 +76,13 @@ into the new branch's entry. This exact-copy attach is the only way a memjective
 snapshot appears on a branch that didn't have one. The skills never merge,
 diff, or synthesize across sources.
 
-Carry-forward is performed explicitly — either by `dev-memjective-update`'s
-preflight when the branch has no snapshot yet, or manually by the user via
-`brmem put` based on the command `dev-memjective-next` prints in its output.
-Nothing auto-attaches at branch-creation time.
+Carry-forward is performed explicitly. In the normal flow, `dev-memjective-next`
+owns the carry-forward: when run on a fresh slice branch, it resolves the
+source memjective, copies the text verbatim onto the current branch via
+`brmem put`, and then implements the slice. `dev-memjective-update`'s
+preflight carry-forward remains as a belt-and-suspenders safety net for users
+who skipped `next` and land work directly on a bare branch. Nothing
+auto-attaches at branch-creation time.
 
 ## Document anatomy
 
@@ -108,27 +111,39 @@ Every memjective shares the same shape. See
 ## Lifecycle
 
 ```
-dev-memjective-create  →  (dev-memjective-next  →  work  →  dev-memjective-update)*
+dev-memjective-create  →  ( dev-memjective-peek?  →  new slice branch  →
+                            dev-memjective-next   →  dev-memjective-update )*
 ```
 
 - **Create** (`dev-memjective-create`): draft the memjective and store it as
   the master-branch seed + an initial branch snapshot on the current branch.
   Runs once per memjective.
-- **Next** (`dev-memjective-next`): read-only advisory. Resolve the active
-  memjective, assess the codebase, decide the next slice, and suggest a branch
-  slug for the work. Writes nothing. May be invoked from a new branch that
-  doesn't yet have its own snapshot — source resolution first prefers the
-  current branch snapshot, then the nearest ancestor branch snapshot in
-  commit history, falling back to the master seed only when no ancestor
-  snapshot exists.
-- **Work**: normal implementation between `next` and `update`. Not a skill —
-  just engineering, using whatever tooling the task calls for.
+- **Peek** (`dev-memjective-peek`): optional, read-only, lightweight. Resolve
+  the active memjective from the current branch snapshot, the nearest
+  ancestor branch snapshot in commit history, or the master seed; report a
+  short status summary (title, status, completion-criteria progress,
+  checklist state); and suggest a kebab-case slug for the next slice.
+  Writes nothing. Useful when you want a quick status check before deciding
+  whether to open a new branch, but skippable — users who already know the
+  state can go straight to creating a branch.
+- **New slice branch**: the user creates a branch for the next slice using
+  their preferred tool (`gt create`, `git checkout -b`, etc.), typically
+  named with the slug `peek` suggested. Not a skill.
+- **Next** (`dev-memjective-next`): runs **on the fresh slice branch**.
+  Precondition: the current branch has no memjective snapshot yet; the skill
+  errors out otherwise. It then (a) copies the source memjective verbatim
+  onto the current branch via `brmem put` (the carry-forward) and (b)
+  implements the next slice directly in the session using normal tooling.
+  Resolution skips the current-branch case (ruled out by the precondition)
+  and uses ancestor snapshots or master seeds.
 - **Update** (`dev-memjective-update`): after a slice lands, conservatively
   rewrite the branch snapshot to reflect what happened. Runs once per slice.
 
-A session may mix these freely: run `next` without running `update`, run
-`update` without running `next`, or run neither and just progress the work
-informally.
+A session may mix these freely: skip `peek` and go straight to `next`, run
+`update` without having run `next` in this session (if a snapshot is already
+attached), or run neither and just progress the work informally. The only
+hard rule is `next`'s precondition — it must run on a branch with no
+existing memjective snapshot.
 
 ## Mutation contracts
 
@@ -137,7 +152,13 @@ honest. The full table lives in `references/mutation-contract.md`. Summary:
 
 - **`create`** — writes the master seed + initial branch snapshot. Does not
   touch any other branch.
-- **`next`** — writes **nothing**. Advisory only.
+- **`peek`** — writes **nothing**. Advisory only; status inspector + slug
+  suggester.
+- **`next`** — writes exactly one brmem entry: the carry-forward of the
+  resolved source onto the current branch. The snapshot is attached as a
+  verbatim copy; no edits at attach time. After implementation, `next` does
+  not rewrite the snapshot — that is `update`'s job. Never writes the master
+  seed or any other branch's snapshot.
 - **`update`** — rewrites only the current branch's snapshot. Never rewrites
   the master seed or any other branch's snapshot.
 
@@ -181,8 +202,12 @@ directory and reference, and (2) remove the `internal: true` flag.
 
 - `dev-memjective-create` — draft a new memjective, store the master seed,
   and attach the initial branch snapshot.
-- `dev-memjective-next` — decide what to work on next; suggest a branch slug.
-  Read-only.
+- `dev-memjective-peek` — optional, read-only status check. Summarize the
+  active memjective and suggest a kebab-case branch slug for the next
+  slice. Writes nothing.
+- `dev-memjective-next` — run on a fresh slice branch; carry the memjective
+  snapshot forward onto the current branch and implement the next slice.
+  Errors if the current branch already has a memjective snapshot.
 - `dev-memjective-update` — after a slice lands, rewrite the branch snapshot
   conservatively.
 
