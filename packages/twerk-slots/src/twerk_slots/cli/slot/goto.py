@@ -7,6 +7,7 @@ import click
 
 from twerk_core import get_console
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import find_assignment_by_slot
 from twerk_slots.cli.slot.context import load_slots_context
@@ -48,15 +49,15 @@ def render_slot_goto(result: SlotGotoResult) -> None:
     help="Print the worktree path for an assigned slot.",
     human_renderer=render_slot_goto,
 )
-def run_goto_slot(
-    ctx: click.Context, request: SlotGotoRequest
-) -> SlotGotoResult | ClinkrCommandError:
+def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[SlotGotoResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
+        return ClinkrExit[SlotGotoResult].failure(
+            error_type="not_in_repo", message=slots_ctx.message
+        )
 
     if not slots_ctx.pool_state.exists():
-        return ClinkrCommandError(
+        return ClinkrExit[SlotGotoResult].failure(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",
         )
@@ -66,18 +67,20 @@ def run_goto_slot(
         num=request.num, wt=request.wt, pool_size=state.pool_size
     )
     if isinstance(slot_name_or_error, ClinkrCommandError):
-        return slot_name_or_error
+        return ClinkrExit[SlotGotoResult].failure(
+            error_type=slot_name_or_error.error_type,
+            message=slot_name_or_error.message,
+        )
     slot_name = slot_name_or_error
 
     assignment = find_assignment_by_slot(state, slot_name)
     if assignment is None:
-        return ClinkrCommandError(
-            error_type="slot_not_assigned",
+        return ClinkrExit[SlotGotoResult].negative(
             message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
         )
 
     if not slots_ctx.storage.path_exists(assignment.worktree_path):
-        return ClinkrCommandError(
+        return ClinkrExit[SlotGotoResult].failure(
             error_type="worktree_missing",
             message=(
                 f"Worktree for {slot_name} is missing at {assignment.worktree_path}. "
@@ -85,8 +88,10 @@ def run_goto_slot(
             ),
         )
 
-    return SlotGotoResult(
-        slot_name=slot_name,
-        branch_name=assignment.branch_name,
-        worktree_path=str(assignment.worktree_path),
+    return ClinkrExit.ok(
+        SlotGotoResult(
+            slot_name=slot_name,
+            branch_name=assignment.branch_name,
+            worktree_path=str(assignment.worktree_path),
+        )
     )

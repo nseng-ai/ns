@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -198,7 +199,7 @@ def test_slot_checkout_branch_missing(cli_group: ClinkrGroup, tmp_path: Path) ->
         obj=_make_obj(fakes, tmp_path / "slots"),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "does not exist" in result.output
     assert "-b/--new" in result.output
     assert fakes.clipboard.copy_calls == 0
@@ -236,7 +237,7 @@ def test_slot_checkout_pool_full(cli_group: ClinkrGroup, tmp_path: Path) -> None
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Pool is full" in result.output
     assert "slot-01" in result.output
     assert fakes.clipboard.copy_calls == 0
@@ -325,7 +326,7 @@ def test_slot_checkout_b_on_existing_branch_errors(cli_group: ClinkrGroup, tmp_p
         obj=_make_obj(fakes, tmp_path / "slots"),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "already exists" in result.output
     assert fakes.git._create_branch_calls == []
     assert _saved_assignments(fakes) == ()
@@ -343,7 +344,7 @@ def test_slot_checkout_b_mutually_exclusive_with_current(
         obj=_make_obj(fakes, tmp_path / "slots"),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "-b/--new cannot be combined with --current" in result.output
     assert fakes.git._create_branch_calls == []
     assert _saved_assignments(fakes) == ()
@@ -516,7 +517,7 @@ def test_slot_checkout_current_rejects_detached_head(
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "detached" in result.output.lower()
     assert fakes.pool_state.exists() is False
     assert fakes.git.list_worktrees() == ()
@@ -544,7 +545,7 @@ def test_slot_checkout_current_surfaces_git_failure_as_slot_allocation_error(
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Failed to determine current branch" in result.output
     assert "not a git repository" in result.output
 
@@ -570,7 +571,7 @@ def test_slot_checkout_current_rejects_dirty_worktree(
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "uncommitted" in result.output
     assert fakes.pool_state.exists() is False
     assert fakes.git.get_current_branch(repo_root) == "feat/x"
@@ -623,7 +624,7 @@ def test_slot_checkout_rejects_both_branch_and_current(
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "exactly one" in result.output
 
 
@@ -639,7 +640,7 @@ def test_slot_checkout_rejects_neither_branch_nor_current(
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "BRANCH_NAME" in result.output or "--current" in result.output
 
 
@@ -736,3 +737,74 @@ def test_slot_co_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         slot_name="slot-01",
         branch_name="feat/x",
     )
+
+
+# -- --format json + --schema -----------------------------------------------
+
+
+def test_slot_checkout_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "feat/x", "--format", "json", "--no-clipboard"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["slot_name"] == "slot-01"
+    assert data["branch_name"] == "feat/x"
+    assert "slot-01" in data["worktree_path"]
+
+
+def test_slot_checkout_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path)  # no branches seeded
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "feat/x", "--format", "json"],
+        obj=_make_obj(fakes, tmp_path / "slots"),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "branch_missing"
+    assert "does not exist" in payload["message"]
+
+
+def test_slot_checkout_format_json_matches_json_subtree(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    fakes_a = _fake_for_repo(tmp_path / "a")
+    fakes_b = _fake_for_repo(tmp_path / "b")
+
+    flag_result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "missing/branch", "--format", "json"],
+        obj=_make_obj(fakes_a, tmp_path / "a" / "slots"),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["json", "checkout"],
+        input=json.dumps({"branch_name": "missing/branch"}),
+        obj=_make_obj(fakes_b, tmp_path / "b" / "slots"),
+    )
+
+    assert flag_result.exit_code == 2
+    assert subtree_result.exit_code == 2
+    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
+
+
+def test_slot_checkout_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["checkout", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}

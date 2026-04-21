@@ -240,11 +240,11 @@ def test_slot_free_current_outside_slot_errors(cli_group: ClinkrGroup, tmp_path:
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "not a slot directory" in result.output
 
 
-def test_slot_free_current_unassigned_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_current_unassigned_is_negative(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_assigned(fakes, slots_root, slot_name="slot-01", branch="feat/x")
@@ -259,8 +259,10 @@ def test_slot_free_current_unassigned_errors(cli_group: ClinkrGroup, tmp_path: P
         obj=_make_obj(fakes, slots_root),
     )
 
+    # SlotNotAssignedError is a "ran fine, answered no" outcome → exit 1.
     assert result.exit_code == 1
-    assert "not currently assigned" in result.output
+    assert result.stdout == ""
+    assert result.stderr.startswith("slot-02 is not currently assigned")
 
 
 def test_slot_free_current_conflicts_with_num(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -274,7 +276,7 @@ def test_slot_free_current_conflicts_with_num(cli_group: ClinkrGroup, tmp_path: 
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "exactly one of --num, --wt, or --current" in result.output
 
 
@@ -289,7 +291,7 @@ def test_slot_free_current_conflicts_with_wt(cli_group: ClinkrGroup, tmp_path: P
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "exactly one of --num, --wt, or --current" in result.output
 
 
@@ -310,10 +312,11 @@ def test_slot_free_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) 
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["success"] is True
-    assert payload["slot_name"] == "slot-01"
-    assert payload["branch_name"] == "feat/x"
-    assert "placeholder_branch" not in payload
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["slot_name"] == "slot-01"
+    assert data["branch_name"] == "feat/x"
+    assert "placeholder_branch" not in data
 
 
 def test_slot_free_json_schema(cli_group: ClinkrGroup) -> None:
@@ -327,7 +330,7 @@ def test_slot_free_json_schema(cli_group: ClinkrGroup) -> None:
 # -- error paths ------------------------------------------------------------
 
 
-def test_slot_free_unknown_slot_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_unknown_slot_is_negative(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     # Seed an empty pool (load returns non-None but no assignments).
@@ -339,8 +342,10 @@ def test_slot_free_unknown_slot_errors(cli_group: ClinkrGroup, tmp_path: Path) -
         obj=_make_obj(fakes, slots_root),
     )
 
+    # SlotNotAssignedError is a "ran fine, answered no" outcome → exit 1.
     assert result.exit_code == 1
-    assert "not currently assigned" in result.output
+    assert result.stdout == ""
+    assert result.stderr.startswith("slot-02 is not currently assigned")
 
 
 def test_slot_free_invalid_slot_num_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -354,7 +359,7 @@ def test_slot_free_invalid_slot_num_errors(cli_group: ClinkrGroup, tmp_path: Pat
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "must be in 1..4" in result.output
 
 
@@ -369,7 +374,7 @@ def test_slot_free_invalid_slot_wt_errors(cli_group: ClinkrGroup, tmp_path: Path
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "not a valid slot name" in result.output
 
 
@@ -384,7 +389,7 @@ def test_slot_free_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "--num, --wt, or --current" in result.output
 
 
@@ -399,7 +404,7 @@ def test_slot_free_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Pa
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "exactly one of --num, --wt, or --current" in result.output
 
 
@@ -418,7 +423,7 @@ def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path)
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "uncommitted changes" in result.output
     # Pool state unchanged.
     saved = fakes.pool_state.load()
@@ -450,7 +455,7 @@ def test_slot_free_surfaces_detach_head_failure_as_slot_allocation_error(
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Failed to detach" in result.output
     assert "reference is not a tree" in result.output
     saved = fakes.pool_state.load()
@@ -469,7 +474,7 @@ def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> 
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "No pool configured" in result.output
 
 
@@ -482,5 +487,76 @@ def test_slot_free_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
         obj=build_clinkr_context_object(lambda: sentinel),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Not inside a git repository" in result.output
+
+
+# -- --format json + --schema -----------------------------------------------
+
+
+def test_slot_free_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["slot_name"] == "slot-01"
+    assert data["branch_name"] == "feat/x"
+
+
+def test_slot_free_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-02", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 1
+    assert payload["exit_code"] == 1
+    assert "not currently assigned" in payload["message"]
+
+
+def test_slot_free_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    # Use the read-only negative path (slot not assigned) so both dispatch
+    # paths see identical state.
+    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+
+    flag_result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-02", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["json", "free"],
+        input=json.dumps({"wt": "slot-02"}),
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert flag_result.exit_code == 1
+    assert subtree_result.exit_code == 1
+    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
+
+
+def test_slot_free_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["free", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}

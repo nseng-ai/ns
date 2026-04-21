@@ -7,6 +7,7 @@ import click
 
 from twerk_core import get_console
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import (
     DirtyWorktreeError,
@@ -55,15 +56,15 @@ def render_slot_free(result: SlotFreeResult) -> None:
     help="Release a slot assignment; keep the worktree directory for reuse.",
     human_renderer=render_slot_free,
 )
-def run_free_slot(
-    ctx: click.Context, request: SlotFreeRequest
-) -> SlotFreeResult | ClinkrCommandError:
+def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[SlotFreeResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrCommandError(error_type="not_in_repo", message=slots_ctx.message)
+        return ClinkrExit[SlotFreeResult].failure(
+            error_type="not_in_repo", message=slots_ctx.message
+        )
 
     if not slots_ctx.pool_state.exists():
-        return ClinkrCommandError(
+        return ClinkrExit[SlotFreeResult].failure(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",
         )
@@ -71,12 +72,12 @@ def run_free_slot(
 
     inputs_provided = sum((request.num is not None, request.wt is not None, request.current))
     if inputs_provided > 1:
-        return ClinkrCommandError(
+        return ClinkrExit[SlotFreeResult].failure(
             error_type="conflicting_slot_args",
             message="Pass exactly one of --num, --wt, or --current.",
         )
     if inputs_provided == 0:
-        return ClinkrCommandError(
+        return ClinkrExit[SlotFreeResult].failure(
             error_type="missing_slot_arg",
             message="Pass one of --num, --wt, or --current to identify the slot.",
         )
@@ -84,7 +85,7 @@ def run_free_slot(
     if request.current:
         cwd = slots_ctx.repo.root
         if extract_slot_number(cwd.name) is None:
-            return ClinkrCommandError(
+            return ClinkrExit[SlotFreeResult].failure(
                 error_type="not_in_slot_wt",
                 message=(
                     f"--current requires running from a slot worktree; "
@@ -97,20 +98,24 @@ def run_free_slot(
             num=request.num, wt=request.wt, pool_size=state.pool_size
         )
         if isinstance(slot_name_or_error, ClinkrCommandError):
-            return slot_name_or_error
+            return ClinkrExit[SlotFreeResult].failure(
+                error_type=slot_name_or_error.error_type,
+                message=slot_name_or_error.message,
+            )
         slot_name = slot_name_or_error
 
     try:
         outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
     except SlotAllocationError as exc:
-        return ClinkrCommandError(error_type="slot_allocation_error", message=str(exc))
+        return ClinkrExit[SlotFreeResult].failure(
+            error_type="slot_allocation_error", message=str(exc)
+        )
     if isinstance(outcome, SlotNotAssignedError):
-        return ClinkrCommandError(
-            error_type="slot_not_assigned",
+        return ClinkrExit[SlotFreeResult].negative(
             message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
         )
     if isinstance(outcome, DirtyWorktreeError):
-        return ClinkrCommandError(
+        return ClinkrExit[SlotFreeResult].failure(
             error_type="dirty_worktree",
             message=(
                 f"{slot_name} has uncommitted changes at {outcome.worktree_path}. "
@@ -118,8 +123,10 @@ def run_free_slot(
             ),
         )
 
-    return SlotFreeResult(
-        slot_name=outcome.slot_name,
-        branch_name=outcome.branch_name,
-        worktree_path=str(outcome.worktree_path),
+    return ClinkrExit.ok(
+        SlotFreeResult(
+            slot_name=outcome.slot_name,
+            branch_name=outcome.branch_name,
+            worktree_path=str(outcome.worktree_path),
+        )
     )

@@ -151,7 +151,7 @@ def test_slot_gc_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
 
     result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(sentinel))
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Not inside a git repository" in result.output
 
 
@@ -161,7 +161,7 @@ def test_slot_gc_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> No
 
     result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx))
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "No pool configured" in result.output
 
 
@@ -303,14 +303,15 @@ def test_slot_gc_json_mode_payload(cli_group: ClinkrGroup, tmp_path: Path) -> No
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["success"] is True
-    assert payload["freed_count"] == 1
-    assert payload["kept_count"] == 1
-    assert payload["skipped_count"] == 0
-    assert payload["error_count"] == 0
-    assert payload["dry_run"] is False
-    assert payload["cancelled"] is False
-    actions_by_slot = {e["slot_name"]: e["action"] for e in payload["entries"]}
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["freed_count"] == 1
+    assert data["kept_count"] == 1
+    assert data["skipped_count"] == 0
+    assert data["error_count"] == 0
+    assert data["dry_run"] is False
+    assert data["cancelled"] is False
+    actions_by_slot = {e["slot_name"]: e["action"] for e in data["entries"]}
     assert actions_by_slot == {"slot-01": "freed", "slot-02": "kept_open_pr"}
 
 
@@ -342,4 +343,66 @@ def test_slot_gc_json_schema(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+
+
+# -- --format json + --schema on the primary command ------------------------
+
+
+def test_slot_gc_format_json_dry_run_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _build_ctx_for_repo(tmp_path)
+    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
+    ctx = dataclasses.replace(
+        ctx,
+        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
+    )
+
+    result = CliRunner().invoke(cli_group, ["gc", "--dry-run", "--format", "json"], obj=_obj(ctx))
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["dry_run"] is True
+    # Pool unchanged.
+    _, _, pool_state = _fakes(ctx)
+    assert len(pool_state.load().assignments) == 1
+
+
+def test_slot_gc_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    ctx = _build_ctx_for_repo(tmp_path)
+    # No `save` — pool_state.exists() is False.
+
+    result = CliRunner().invoke(cli_group, ["gc", "--format", "json"], obj=_obj(ctx))
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "pool_empty"
+
+
+def test_slot_gc_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    ctx_a = _build_ctx_for_repo(tmp_path / "a")
+    ctx_b = _build_ctx_for_repo(tmp_path / "b")
+
+    flag_result = CliRunner().invoke(cli_group, ["gc", "--format", "json"], obj=_obj(ctx_a))
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["json", "gc"],
+        input=json.dumps({"dry_run": False, "force": False}),
+        obj=_obj(ctx_b),
+    )
+
+    assert flag_result.exit_code == 2
+    assert subtree_result.exit_code == 2
+    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
+
+
+def test_slot_gc_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gc", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
     assert set(payload) == {"input_schema", "output_schema", "error_schema"}
