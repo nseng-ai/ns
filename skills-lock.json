@@ -36,6 +36,11 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
+    "dev-memjective-peek": {
+      "source": "skills/dev-memjective-peek",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "dev-memjective-update": {
       "source": "skills/dev-memjective-update",
       "sourceType": "local",

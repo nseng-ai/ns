@@ -100,8 +100,10 @@ Decision rules:
 
 - **0 matches** → continue
 - **1 match** → abort and tell the user this branch already has a memjective;
-  they likely want `dev-memjective-next` (to plan the next slice) or
-  `dev-memjective-update` (to record a landed slice) instead
+  they likely want `dev-memjective-peek` (to inspect the state and get a
+  slug for the next slice) or `dev-memjective-update` (to record a landed
+  slice) instead. `dev-memjective-next` explicitly refuses to run on a
+  branch with an existing snapshot.
 - **2+ matches** → abort and tell the user the branch is in an invalid v0 state
   because this prototype allows only one memjective snapshot per branch
 
@@ -163,8 +165,9 @@ Decision rules:
 - if it returns **non-zero** (no entry) → continue
 - if it returns **0** (entry exists) → abort and tell the user the seed already
   exists on master for this slug; they likely want to run
-  `dev-memjective-next` against the existing seed, or pick a new slug instead
-  of clobbering it
+  `dev-memjective-peek` against the existing seed (or create a new slice
+  branch and run `dev-memjective-next` inside it), or pick a new slug
+  instead of clobbering it
 
 ### 6. Draft the memjective document
 
@@ -229,10 +232,17 @@ Return a short summary including:
 - next-step hint:
 
 ```text
-Run /dev-memjective-next on this branch (or any descendant branch) to decide
-the next slice to work on — it will resolve the memjective from the current
-branch snapshot, an ancestor branch, or the master seed. After completing a
-slice, run /dev-memjective-update to rewrite the branch snapshot.
+Run /dev-memjective-peek on this branch (or any descendant branch) for a
+lightweight status check and a kebab-case slug suggestion for the next
+slice — it reads the memjective without writing anything.
+
+When you are ready to work the next slice, create a new branch with the
+suggested slug and run /dev-memjective-next inside it. That skill carries
+the memjective snapshot forward onto the new branch and then implements the
+slice in-session.
+
+After the slice lands, run /dev-memjective-update on that branch to rewrite
+the snapshot conservatively.
 ```
 
 ## Edge cases

@@ -26,14 +26,17 @@ it conservatively to reflect the completed slice, write it back to brmem, and
 report old/new commit SHAs so prior snapshots are recoverable.
 
 This skill does **not** choose the next slice and does **not** implement
-anything. `dev-memjective-next` handles the planning half of the loop.
+anything. `dev-memjective-peek` handles the lightweight status check + slug
+suggestion, and `dev-memjective-next` handles carry-forward + implementation
+on a fresh slice branch.
 
 ## Core rules
 
 - **Local-first only.** Never touch GitHub.
 - **One memjective per branch.** Abort if the branch has 0 or more than 1
-  entries in the `memjectives` namespace. If the branch has none, use
-  `dev-memjective-next` and the exact `brmem put` command it prints.
+  entries in the `memjectives` namespace. If the branch has none, run
+  `dev-memjective-next` on this branch instead — it carries the snapshot
+  forward and implements a slice before `update`'s turn.
 - **Never rewrite the master seed.** `update` mutates only the current
   branch's snapshot.
 - **Conservative in-place edits.** Follow the mutation contract in
@@ -69,8 +72,8 @@ brmem list --namespace memjectives
 Decision rules:
 
 - **0 matches** → abort; this skill does not attach a memjective onto a branch
-  that has none. Tell the user to run `dev-memjective-next` and follow the
-  `brmem put` command it prints to do the carry-forward explicitly, or to use
+  that has none. Tell the user to run `dev-memjective-next` on this branch
+  to carry the snapshot forward and implement the next slice, or to run
   `dev-memjective-create` if this is a brand-new memjective.
 - **1 match** → that is the active branch snapshot. Continue.
 - **2+ matches** → abort; the branch is in an invalid v0 state.
@@ -145,7 +148,8 @@ brmem get <slug>.md --namespace memjectives --at <old-sha>
 
 - **Detached HEAD** → abort.
 - **Current branch has no memjective snapshot** → abort; direct the user to
-  `dev-memjective-next` or the `brmem put` command it would print.
+  run `dev-memjective-next` on this branch to carry-forward and implement a
+  slice before re-running `update`.
 - **Current branch has multiple memjective snapshots** → abort; invalid v0
   state.
 - **User wants the master seed updated** → refuse; the master seed is frozen
@@ -160,8 +164,7 @@ brmem get <slug>.md --namespace memjectives --at <old-sha>
 - Rewriting Completion Criteria because the plan drifted. If the criteria no
   longer match the work, the memjective has outgrown the prototype.
 - Doing any implementation work from inside this skill. Implementation
-  happens between `dev-memjective-next` and `dev-memjective-update`, not
-  inside either.
+  happens inside `dev-memjective-next`, not here.
 - Attaching a memjective onto a branch that has none. That is explicitly
-  outside this skill's scope; `dev-memjective-next` prints the exact
-  `brmem put` command to run manually.
+  outside this skill's scope; `dev-memjective-next` performs the
+  carry-forward as part of its workflow on a fresh slice branch.
