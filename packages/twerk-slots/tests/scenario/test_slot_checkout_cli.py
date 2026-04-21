@@ -683,6 +683,38 @@ def test_slot_checkout_clipboard_failure_warns_but_succeeds(
     assert fakes.clipboard.last_copied is None
 
 
+def test_slot_checkout_branch_in_main_worktree_redirects(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    """`slot co master` from a slot worktree, when master is held by the main
+    repo worktree, should redirect to that worktree instead of crashing."""
+    repo_root = (tmp_path / "repo").resolve()
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("master",),
+        worktrees=(WorktreeInfo(path=repo_root, branch="master", is_bare=False),),
+        current_branch_by_path={repo_root: "master"},
+    )
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "master"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "already checked out" in result.output
+    assert "main worktree" in result.output
+    assert str(repo_root) in result.output
+    assert f"cd {repo_root}" in result.output
+    assert fakes.clipboard.last_copied == f"cd {repo_root}"
+    # No slot was allocated.
+    assert _saved_assignments(fakes) == ()
+    assert fakes.git._checkout_calls == []
+    assert fakes.git._add_worktree_calls == []
+
+
 def test_slot_co_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
     slots_root = tmp_path / "slots"

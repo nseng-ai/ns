@@ -282,6 +282,24 @@ def allocate_slot_for_branch(
         )
         ctx.pool_state.save(state)
 
+    # If the branch is checked out in the main worktree, treat that worktree
+    # as if it were a tracked assignment: return an ``already_assigned``
+    # result pointing at it instead of trying to check the branch out again
+    # (git would refuse). The CLI's existing "already assigned" path then
+    # prints the cd line and copies it to the clipboard.
+    main_wt = next(
+        (wt for wt in ctx.git.list_worktrees() if wt.path == ctx.repo.main_repo_root),
+        None,
+    )
+    if main_wt is not None and main_wt.branch == branch_name:
+        return SlotAllocationResult(
+            slot_name="",
+            branch_name=branch_name,
+            worktree_path=ctx.repo.main_repo_root,
+            already_assigned=True,
+            evicted_slot=None,
+        )
+
     evicted_slot: str | None = None
     slot_name: str
     worktree_path: Path
