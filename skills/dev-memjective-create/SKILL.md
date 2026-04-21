@@ -1,6 +1,6 @@
 ---
 name: dev-memjective-create
-description: "Create a local-first memjective record for the memjective prototype. Draft a simple migration-notice-style memjective, store the seed on the `master` branch via `brmem` under namespace `memjectives`, key `<slug>.md`, and attach the same text to the current branch. Use when the user wants to start a new local memjective, prototype memjective, attach a memjective to the current branch, or create a branch-scoped memjective snapshot without using GitHub."
+description: "Create a local-first memjective record for the memjective prototype. Draft a simple migration-notice-style memjective body, store the seed on the `master` branch via `brmem` under namespace `memjectives` at `memjectives/<slug>/body.md` with sibling `meta.json`, and attach the same body plus branch-specific metadata to the current branch. Use when the user wants to start a new local memjective, prototype memjective, attach a memjective to the current branch, or create a branch-scoped memjective snapshot without using GitHub."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -16,36 +16,43 @@ metadata:
 
 Create a new **local-first memjective** for the memjective prototype.
 
-This skill deliberately does **not** use GitHub. The canonical seed lives on the
-`master` branch in brmem at:
+This skill deliberately does **not** use GitHub. The canonical seed lives on
+the `master` branch in brmem at:
 
-- namespace `memjectives`, key `<slug>.md` (on `master`)
+- namespace `memjectives`, key `<slug>/body.md`
+- namespace `memjectives`, key `<slug>/meta.json`
 
-Then the exact seed text is attached to the **current branch** in brmem at:
+Then the drafted body is attached to the **current branch** with matching
+branch-specific metadata at the same two keys.
 
-- namespace `memjectives`, key `<slug>.md` (on the current branch)
-
-The branch snapshot is the in-flight speculative state. The master-branch seed
-is the canonical initial seed for this prototype.
+`body.md` is authoritative. `meta.json` is repairable metadata synthesized per
+`../dev-memjective/references/meta-schema.md`.
 
 ## Goal
 
 Given a rough memjective brief from the user, produce:
 
-1. a migration-notice-style memjective document stored as the `master`-branch
-   brmem seed under namespace `memjectives`, key `<slug>.md`
-2. a matching brmem snapshot for the current branch under
-   namespace `memjectives`, key `<slug>.md`
-3. a short report naming the slug, branch, and brmem commits
+1. a migration-notice-style memjective body stored as the master-branch seed at
+   `memjectives/<slug>/body.md`
+2. a matching master seed metadata file at `memjectives/<slug>/meta.json`
+3. a matching current-branch snapshot body at `memjectives/<slug>/body.md`
+4. a current-branch snapshot metadata file at `memjectives/<slug>/meta.json`
+5. a short report naming the slug, branch, and brmem commits
 
 ## Core rules
 
 - **This prototype is local-first.** Do not create or edit GitHub issues.
-- **One memjective per branch.** If the current branch already has any entry in
-  the `memjectives` namespace, abort instead of creating a second one.
+- **Branch validity is body-based.** Preflight the current branch by looking
+  for `*/body.md` entries. A valid branch has zero or one; `create` requires
+  zero.
+- **Legacy flat keys are unsupported.** If the current branch contains any
+  `^[^/]+\.md$` memjective key, abort with a clear unsupported-layout error.
+- **Orphaned metadata is invalid.** If the current branch contains
+  `*/meta.json` without matching `*/body.md`, abort instead of creating
+  alongside broken state.
 - **Use the simple template.** Read
-  `../dev-memjective/templates/memjective-template.md` and keep the draft
-  close to that shape:
+  `../dev-memjective/templates/memjective-template.md` and keep the draft close
+  to that shape:
   - title
   - `Status:` line
   - short intro paragraph(s) that explain where the memjective comes from, what
@@ -56,17 +63,16 @@ Given a rough memjective brief from the user, produce:
   - `## Status Checklist`, organized by PR-sized slices when the work is
     expected to land incrementally
   - `## How to Make Progress`
-  - `## Notes` (expected for architectural / migration memjectives; optional for
-    simpler memjectives)
-- **The branch snapshot key must carry the slug.** Do not use bare
-  `memjective.md`; the branch key is `<slug>.md` in namespace `memjectives`.
-- **Attach the exact drafted text.** Write the master-branch seed first, then
-  use `brmem put` to copy that exact content onto the current branch.
-- **Do not write the memjective into the working tree.** The only durable copies
-  are the master-branch brmem seed and the current-branch brmem snapshot.
-- **Do not touch the workbr plan entry.** If the branch already has
-  a `plan/plan.md` entry in the `workbr` namespace, leave it alone.
-  That plan is the upper execution frame; the memjective sits below it.
+  - `## Notes` (expected for architectural / migration memjectives; optional
+    for simpler memjectives)
+- **Write the body once, then attach it twice.** The master seed body and the
+  current-branch snapshot body should be identical at creation time.
+- **Write fresh metadata in both places.** The master metadata is a `seed`; the
+  branch metadata is a `snapshot`.
+- **Do not write the memjective into the working tree.** The durable copies
+  live only in brmem.
+- **Do not touch the workbr plan entry.** If the branch already has a
+  `plan/plan.md` entry in namespace `workbr`, leave it alone.
 
 ## Workflow
 
@@ -86,7 +92,17 @@ Abort if:
 - not in a git repo
 - the current branch is detached (`HEAD`)
 
-### 2. Ensure the branch does not already have a memjective
+Also capture:
+
+```bash
+git rev-parse HEAD
+git rev-parse master
+```
+
+Use the first SHA for the current-branch snapshot metadata and the second for
+the master seed metadata.
+
+### 2. Ensure the current branch is empty of memjective bodies
 
 Inspect current-branch brmem for the `memjectives` namespace:
 
@@ -94,16 +110,21 @@ Inspect current-branch brmem for the `memjectives` namespace:
 brmem list --namespace memjectives
 ```
 
-`--branch` is omitted so the current branch is used implicitly.
+Classify the results into:
+
+- `*/body.md`
+- `*/meta.json`
+- legacy flat `^[^/]+\.md$`
 
 Decision rules:
 
-- **0 matches** → continue
-- **1 match** → abort and tell the user this branch already has a memjective;
-  they likely want `dev-memjective-next` (to plan the next slice) or
-  `dev-memjective-update` (to record a landed slice) instead
-- **2+ matches** → abort and tell the user the branch is in an invalid v0 state
-  because this prototype allows only one memjective snapshot per branch
+- **any legacy flat key** → abort with an unsupported-layout message
+- **any `meta.json` without sibling `body.md`** → abort; invalid state
+- **0 body matches** → continue
+- **1 body match** → abort and tell the user this branch already has a
+  memjective; they likely want `dev-memjective-peek` or
+  `dev-memjective-update` instead
+- **2+ body matches** → abort; invalid state
 
 ### 3. Capture the memjective from the conversation
 
@@ -115,8 +136,8 @@ You need enough to draft:
 
 - a concrete title
 - intro paragraph(s) that explain the source proposal / trigger for the
-  memjective, adjacent work already landed, the remaining scope now, any clearly
-  out-of-scope adjacent work, and why the remaining work matters
+  memjective, adjacent work already landed, the remaining scope now, any
+  clearly out-of-scope adjacent work, and why the remaining work matters
 - completion criteria that describe the intended end state rather than just a
   pile of tasks
 - a status checklist organized by PR-sized slices when the work is expected to
@@ -150,23 +171,26 @@ Examples:
 - `memjective-prototype`
 - `explicit-group-migration`
 
-### 5. Pre-flight the master-branch seed
+### 5. Pre-flight the master seed location
 
-Before writing, check whether the seed already exists on master:
+Before writing, check the target seed keys on `master`:
 
 ```bash
+brmem check <slug>/body.md --namespace memjectives --branch master
+brmem check <slug>/meta.json --namespace memjectives --branch master
 brmem check <slug>.md --namespace memjectives --branch master
 ```
 
 Decision rules:
 
-- if it returns **non-zero** (no entry) → continue
-- if it returns **0** (entry exists) → abort and tell the user the seed already
-  exists on master for this slug; they likely want to run
-  `dev-memjective-next` against the existing seed, or pick a new slug instead
-  of clobbering it
+- **legacy `<slug>.md` exists on master** → abort with an unsupported-layout
+  error; do not create a mixed-layout seed
+- **`<slug>/body.md` exists on master** → abort; that seed already exists
+- **`<slug>/meta.json` exists without `<slug>/body.md`** → abort; invalid
+  master state
+- otherwise → continue
 
-### 6. Draft the memjective document
+### 6. Draft the memjective body
 
 Read `../dev-memjective/templates/memjective-template.md` and fill it in.
 
@@ -185,64 +209,113 @@ Drafting guidance:
   command or package so the design is exercised end-to-end as early as
   possible.
 - Put the durable work recipe in `## How to Make Progress`. For multi-PR work,
-  this should usually tell future sessions how to choose the next slice,
-  what current behavior to inspect first, and what to update after landing a
-  slice.
-- For architectural / migration memjectives, keep `## Notes` by default and use
-  it to preserve durable findings, constraints, collisions, hidden couplings,
-  and open questions discovered during implementation.
+  this should usually tell future sessions how to choose the next slice, what
+  current behavior to inspect first, and what to update after landing a slice.
+- For architectural / migration memjectives, keep `## Notes` by default and
+  use it to preserve durable findings, constraints, collisions, hidden
+  couplings, and open questions discovered during implementation.
 
-### 7. Write the master-branch seed
+### 7. Synthesize the metadata
 
-Write the drafted memjective text to a temp file, then store it on master:
+Write the body to a temp file and synthesize two metadata files per
+`../dev-memjective/references/meta-schema.md`.
 
-```bash
-brmem put <slug>.md --namespace memjectives --branch master --file <temp>
+Master seed metadata:
+
+```json
+{
+  "schema_version": 1,
+  "slug": "<slug>",
+  "kind": "seed",
+  "branch": "master",
+  "parent_branch": null,
+  "source_branch": null,
+  "baseline_head_sha": "<git rev-parse master>",
+  "body_updated_at": "<now>",
+  "meta_updated_at": "<now>"
+}
 ```
 
-This is the prototype's canonical seed entry. Capture the commit SHA.
+Current-branch snapshot metadata:
 
-### 8. Attach the memjective to the current branch
-
-Copy the same content to the current branch in brmem:
-
-```bash
-brmem put <slug>.md --namespace memjectives --file <temp>
+```json
+{
+  "schema_version": 1,
+  "slug": "<slug>",
+  "kind": "snapshot",
+  "branch": "<branch>",
+  "parent_branch": null,
+  "source_branch": null,
+  "baseline_head_sha": "<git rev-parse HEAD>",
+  "body_updated_at": "<same now>",
+  "meta_updated_at": "<same now>"
+}
 ```
 
-- `--branch` is omitted so the current branch is used implicitly.
-- The positional key must be `<slug>.md`; the namespace must be `memjectives`.
-- This is the initial speculative snapshot for the branch.
+Use the same timestamp for both `body_updated_at` and `meta_updated_at` during
+initial creation.
 
-Capture the commit SHA reported by `brmem put` for the report.
+### 8. Write the master seed
 
-### 9. Report
+Store the drafted body and metadata on `master`:
+
+```bash
+brmem put <slug>/body.md --namespace memjectives --branch master --file <body-temp>
+brmem put <slug>/meta.json --namespace memjectives --branch master --file <master-meta-temp>
+```
+
+Capture both commit SHAs.
+
+### 9. Attach the memjective to the current branch
+
+Store the same body plus the branch metadata on the current branch:
+
+```bash
+brmem put <slug>/body.md --namespace memjectives --file <body-temp>
+brmem put <slug>/meta.json --namespace memjectives --file <branch-meta-temp>
+```
+
+Capture both commit SHAs.
+
+### 10. Report
 
 Return a short summary including:
 
 - memjective title
 - slug
-- master-branch brmem seed location (namespace `memjectives`, key `<slug>.md`, branch `master`)
+- master seed locations:
+  - namespace `memjectives`, key `<slug>/body.md`, branch `master`
+  - namespace `memjectives`, key `<slug>/meta.json`, branch `master`
 - current branch name
-- branch brmem entry location (namespace `memjectives`, key `<slug>.md`)
-- brmem commit SHA (branch snapshot)
+- current-branch locations:
+  - namespace `memjectives`, key `<slug>/body.md`
+  - namespace `memjectives`, key `<slug>/meta.json`
+- brmem commit SHAs for all four writes
 - next-step hint:
 
 ```text
-Run /dev-memjective-next on this branch (or any descendant branch) to decide
-the next slice to work on — it will resolve the memjective from the current
-branch snapshot, an ancestor branch, or the master seed. After completing a
-slice, run /dev-memjective-update to rewrite the branch snapshot.
+Run /dev-memjective-peek on this branch (or any descendant branch) for a
+lightweight status check and a kebab-case slug suggestion for the next slice.
+
+When you are ready to work the next slice, create a new branch with the
+suggested slug and run /dev-memjective-next inside it. That skill exact-copies
+the memjective body forward onto the new branch, synthesizes fresh metadata,
+and then implements the slice in-session.
+
+After the slice lands, run /dev-memjective-update on that branch to rewrite the
+body conservatively and refresh the metadata.
 ```
 
 ## Edge cases
 
 - **Detached HEAD** → abort; brmem attachment needs a branch name.
-- **Current branch already has one memjective snapshot** → abort; do not clobber.
-- **Current branch has multiple memjective snapshots** → abort; ask the user to
-  clean up the branch state first.
-- **Seed already exists on master for this slug** → abort; do not overwrite an existing
-  canonical seed entry.
+- **Current branch already has one memjective body** → abort; do not clobber.
+- **Current branch has multiple memjective bodies** → abort; invalid state.
+- **Current branch has orphaned metadata** → abort; invalid state.
+- **Current branch has legacy flat keys** → abort; unsupported layout.
+- **Seed already exists on master for this slug** → abort; do not overwrite an
+  existing canonical seed entry.
+- **Master has orphaned metadata for this slug** → abort; invalid state.
 - **Branch already has a `workbr` plan entry** → fine; leave it alone.
 - **Memjective is too vague to write `How to Make Progress`** → ask a short
   follow-up instead of drafting generic boilerplate.
@@ -251,12 +324,12 @@ slice, run /dev-memjective-update to rewrite the branch snapshot.
 
 - Using GitHub issues or comments in this prototype.
 - Writing the memjective into the repo working tree.
-- Creating a second memjective on a branch that already has one.
-- Attaching the branch snapshot under a generic key like `memjective.md` or a
-  namespace other than `memjectives`.
+- Creating a second memjective body on a branch that already has one.
+- Writing only `body.md` or only `meta.json` during creation. Create both.
+- Treating legacy flat keys as an alias for the new layout.
 - Replacing `How to Make Progress` with vague advice like "keep working on it."
-- Treating the master-branch seed as something that should be rewritten during
-  ordinary update sessions. In v0, `dev-memjective-update` rewrites the
-  **branch snapshot**, not the master-branch seed.
+- Treating the master seed as something that should be rewritten during
+  ordinary update sessions. In v0, `dev-memjective-update` rewrites the branch
+  snapshot body and metadata, not the master seed.
 - Opening an architectural redesign with framework-only or abstraction-only
   early slices when a steelthreaded end-to-end slice is possible.
