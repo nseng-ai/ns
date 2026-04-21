@@ -43,8 +43,9 @@ Given a rough memjective brief from the user, produce:
 - **This prototype is local-first.** Do not create or edit GitHub issues.
 - **One memjective per branch.** If the current branch already has any entry in
   the `memjectives` namespace, abort instead of creating a second one.
-- **Use the simple template.** Read `references/memjective-template.md` and keep
-  the draft close to that shape:
+- **Use the simple template.** Read
+  `../dev-memjective/templates/memjective-template.md` and keep the draft
+  close to that shape:
   - title
   - `Status:` line
   - short intro paragraph(s) that explain where the memjective comes from, what
@@ -99,7 +100,8 @@ Decision rules:
 
 - **0 matches** → continue
 - **1 match** → abort and tell the user this branch already has a memjective;
-  they likely want `dev-memjective-progress` instead
+  they likely want `dev-memjective-next` (to plan the next slice) or
+  `dev-memjective-update` (to record a landed slice) instead
 - **2+ matches** → abort and tell the user the branch is in an invalid v0 state
   because this prototype allows only one memjective snapshot per branch
 
@@ -160,12 +162,13 @@ Decision rules:
 
 - if it returns **non-zero** (no entry) → continue
 - if it returns **0** (entry exists) → abort and tell the user the seed already
-  exists on master for this slug; they likely want to progress or explicitly
-  create a new slug instead of clobbering it
+  exists on master for this slug; they likely want to run
+  `dev-memjective-next` against the existing seed, or pick a new slug instead
+  of clobbering it
 
 ### 6. Draft the memjective document
 
-Read `references/memjective-template.md` and fill it in.
+Read `../dev-memjective/templates/memjective-template.md` and fill it in.
 
 Drafting guidance:
 
@@ -226,9 +229,10 @@ Return a short summary including:
 - next-step hint:
 
 ```text
-Run /dev-memjective-progress on this branch to continue from the
-branch-local snapshot. On child branches, the same progress skill can carry the
-memjective forward when no local snapshot exists yet.
+Run /dev-memjective-next on this branch (or any descendant branch) to decide
+the next slice to work on — it will resolve the memjective from the current
+branch snapshot, an ancestor branch, or the master seed. After completing a
+slice, run /dev-memjective-update to rewrite the branch snapshot.
 ```
 
 ## Edge cases
@@ -252,7 +256,7 @@ memjective forward when no local snapshot exists yet.
   namespace other than `memjectives`.
 - Replacing `How to Make Progress` with vague advice like "keep working on it."
 - Treating the master-branch seed as something that should be rewritten during
-  ordinary progress sessions. In v0, progress rewrites the **branch snapshot**,
-  not the master-branch seed.
+  ordinary update sessions. In v0, `dev-memjective-update` rewrites the
+  **branch snapshot**, not the master-branch seed.
 - Opening an architectural redesign with framework-only or abstraction-only
   early slices when a steelthreaded end-to-end slice is possible.
