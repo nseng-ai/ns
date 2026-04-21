@@ -21,15 +21,25 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
+    "dev-memjective": {
+      "source": "skills/dev-memjective",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "dev-memjective-create": {
       "source": "skills/dev-memjective-create",
       "sourceType": "local",
-      "computedHash": "7484f5bce4ceac75e59e446e7993879ac46a058b85243d6a3fb7f739643cf233"
+      "computedHash": "PENDING_REGEN"
     },
-    "dev-memjective-progress": {
-      "source": "skills/dev-memjective-progress",
+    "dev-memjective-next": {
+      "source": "skills/dev-memjective-next",
       "sourceType": "local",
-      "computedHash": "e3991a21b71936d9987a220d6dc5ee238efbf73d625558c25e88c322d450b334"
+      "computedHash": "PENDING_REGEN"
+    },
+    "dev-memjective-update": {
+      "source": "skills/dev-memjective-update",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
     },
     "dev-plan-to-branch": {
       "source": "skills/dev-plan-to-branch",
