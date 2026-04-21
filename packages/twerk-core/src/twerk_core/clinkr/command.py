@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import click
 
@@ -13,7 +13,10 @@ from twerk_core.clinkr.dataclass_json import (
     read_json_stdin,
     serialize_to_json_dict,
 )
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.json_schema import build_json_schema_document
+
+ReturnStyle = Literal["exit", "legacy"]
 
 
 @dataclass(frozen=True)
@@ -26,12 +29,14 @@ def machine_command(
     *,
     request_type: type,
     output_types: tuple[type, ...],
+    return_style: ReturnStyle = "legacy",
 ) -> Any:
     def decorator(cmd: click.Command) -> click.Command:
         return _apply_machine_command(
             cmd,
             request_type=request_type,
             output_types=output_types,
+            return_style=return_style,
         )
 
     return decorator
@@ -58,6 +63,7 @@ def _apply_machine_command(
     *,
     request_type: type,
     output_types: tuple[type, ...],
+    return_style: ReturnStyle = "legacy",
 ) -> click.Command:
     cmd.params.append(
         click.Option(
@@ -129,6 +135,25 @@ def _apply_machine_command(
             )
             raise SystemExit(1) from None
 
+        if return_style == "exit":
+            if not isinstance(result, ClinkrExit):
+                emit_machine_error(
+                    ClinkrCommandError(
+                        error_type="contract_violation",
+                        message=(
+                            "operation declared return_style='exit' but did not return a ClinkrExit"
+                        ),
+                    )
+                )
+                raise SystemExit(2)
+            click.echo(json.dumps(result.to_envelope_dict(), indent=2))
+            if result.exit_code != 0:
+                raise SystemExit(result.exit_code)
+            return result
+
+        # TODO(clinkr-contract-redesign PR 7): remove the legacy branch below
+        # once every operation returns ClinkrExit[T]. Until then, both
+        # envelopes must coexist so migration can proceed package-by-package.
         if isinstance(result, ClinkrCommandError):
             emit_machine_error(result)
             raise SystemExit(1)

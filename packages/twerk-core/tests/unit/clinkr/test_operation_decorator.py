@@ -6,6 +6,7 @@ import click
 import pytest
 
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation, get_operation_meta
 
 
@@ -32,6 +33,7 @@ def test_decorator_attaches_metadata() -> None:
     assert meta.request_type is FakeRequest
     assert meta.result_types == (FakeResult,)
     assert meta.human_renderer is None
+    assert meta.return_style == "legacy"
 
 
 def test_plain_return_type_no_union() -> None:
@@ -42,6 +44,37 @@ def test_plain_return_type_no_union() -> None:
     meta = get_operation_meta(op)
     assert meta is not None
     assert meta.result_types == (FakeResult,)
+    assert meta.return_style == "legacy"
+
+
+def test_clinkr_exit_return_tags_exit_style() -> None:
+    @clinkr_operation(name="op")
+    def op(ctx: click.Context, request: FakeRequest) -> ClinkrExit[FakeResult]:
+        return ClinkrExit.ok(FakeResult(message="ok"))
+
+    meta = get_operation_meta(op)
+    assert meta is not None
+    assert meta.result_types == (FakeResult,)
+    assert meta.return_style == "exit"
+
+
+def test_clinkr_exit_unparameterized_rejected() -> None:
+    with pytest.raises(TypeError, match="ClinkrExit must be parameterized"):
+
+        @clinkr_operation(name="op")
+        # Test subject: ClinkrExit without a type parameter — must reject.
+        def op(ctx: click.Context, request: FakeRequest) -> ClinkrExit:  # type: ignore[type-arg]
+            return ClinkrExit.ok(FakeResult(message="ok"))
+
+
+def test_clinkr_exit_in_union_rejected() -> None:
+    with pytest.raises(TypeError, match="ClinkrExit must not appear inside a Union"):
+
+        @clinkr_operation(name="op")
+        def op(
+            ctx: click.Context, request: FakeRequest
+        ) -> ClinkrExit[FakeResult] | ClinkrCommandError:
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_decorated_function_still_callable() -> None:
