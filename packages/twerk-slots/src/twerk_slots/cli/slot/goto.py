@@ -52,12 +52,10 @@ def render_slot_goto(result: SlotGotoResult) -> None:
 def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[SlotGotoResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrExit[SlotGotoResult].failure(
-            error_type="not_in_repo", message=slots_ctx.message
-        )
+        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     if not slots_ctx.pool_state.exists():
-        return ClinkrExit[SlotGotoResult].failure(
+        return ClinkrExit.failure(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",
         )
@@ -67,7 +65,7 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
         num=request.num, wt=request.wt, pool_size=state.pool_size
     )
     if isinstance(slot_name_or_error, ClinkrCommandError):
-        return ClinkrExit[SlotGotoResult].failure(
+        return ClinkrExit.failure(
             error_type=slot_name_or_error.error_type,
             message=slot_name_or_error.message,
         )
@@ -75,12 +73,12 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
 
     assignment = find_assignment_by_slot(state, slot_name)
     if assignment is None:
-        return ClinkrExit[SlotGotoResult].negative(
+        return ClinkrExit.negative(
             message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
         )
 
     if not slots_ctx.storage.path_exists(assignment.worktree_path):
-        return ClinkrExit[SlotGotoResult].failure(
+        return ClinkrExit.failure(
             error_type="worktree_missing",
             message=(
                 f"Worktree for {slot_name} is missing at {assignment.worktree_path}. "

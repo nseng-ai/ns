@@ -131,9 +131,7 @@ def _compose_rows(
 def run_list_slots(ctx: click.Context, request: SlotListRequest) -> ClinkrExit[SlotListResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrExit[SlotListResult].failure(
-            error_type="not_in_repo", message=slots_ctx.message
-        )
+        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     state = slots_ctx.pool_state.load()
     if slots_ctx.pool_state.exists():

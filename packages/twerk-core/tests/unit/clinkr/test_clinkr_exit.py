@@ -33,7 +33,7 @@ def test_negative_has_exit_code_one() -> None:
 
 
 def test_negative_allows_no_data() -> None:
-    exit_obj = ClinkrExit[SampleData].negative(message="nothing here")
+    exit_obj = ClinkrExit.negative(message="nothing here")
 
     assert exit_obj.exit_code == 1
     assert exit_obj.data is None
@@ -41,7 +41,7 @@ def test_negative_allows_no_data() -> None:
 
 
 def test_failure_has_exit_code_two() -> None:
-    exit_obj = ClinkrExit[SampleData].failure(error_type="git_failed", message="detached head")
+    exit_obj = ClinkrExit.failure(error_type="git_failed", message="detached head")
 
     assert exit_obj.status is ExitStatus.FAILURE
     assert exit_obj.exit_code == 2
@@ -122,7 +122,7 @@ def test_envelope_negative_includes_message_and_data() -> None:
 
 
 def test_envelope_negative_without_data_omits_data_key() -> None:
-    exit_obj = ClinkrExit[SampleData].negative(message="nope")
+    exit_obj = ClinkrExit.negative(message="nope")
 
     assert exit_obj.to_envelope_dict() == {
         "exit_code": 1,
@@ -131,7 +131,7 @@ def test_envelope_negative_without_data_omits_data_key() -> None:
 
 
 def test_envelope_failure_includes_error_type_and_message_no_data() -> None:
-    exit_obj = ClinkrExit[SampleData].failure(error_type="invalid_branch", message="bad name")
+    exit_obj = ClinkrExit.failure(error_type="invalid_branch", message="bad name")
 
     assert exit_obj.to_envelope_dict() == {
         "exit_code": 2,

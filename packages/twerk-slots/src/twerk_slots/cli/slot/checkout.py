@@ -109,7 +109,7 @@ def render_slot_checkout(result: SlotCheckoutResult) -> None:
 
 
 def _pool_full_failure(outcome: PoolFullError) -> ClinkrExit[SlotCheckoutResult]:
-    return ClinkrExit[SlotCheckoutResult].failure(
+    return ClinkrExit.failure(
         error_type="pool_full",
         message=(
             f"Pool is full. Oldest slot {outcome.oldest_slot} holds "
@@ -165,26 +165,24 @@ def run_checkout_slot(
 ) -> ClinkrExit[SlotCheckoutResult]:
     inputs_provided = sum((request.branch_name is not None, request.current))
     if inputs_provided > 1:
-        return ClinkrExit[SlotCheckoutResult].failure(
+        return ClinkrExit.failure(
             error_type="mutually_exclusive_args",
             message="Pass exactly one of BRANCH_NAME or --current.",
         )
     if inputs_provided == 0:
-        return ClinkrExit[SlotCheckoutResult].failure(
+        return ClinkrExit.failure(
             error_type="missing_arg",
             message="Pass BRANCH_NAME or --current to identify the branch.",
         )
     if request.current and request.new_branch:
-        return ClinkrExit[SlotCheckoutResult].failure(
+        return ClinkrExit.failure(
             error_type="mutually_exclusive_args",
             message="-b/--new cannot be combined with --current.",
         )
 
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrExit[SlotCheckoutResult].failure(
-            error_type="not_in_repo", message=slots_ctx.message
-        )
+        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
     now = datetime.now(UTC).isoformat()
@@ -195,11 +193,9 @@ def run_checkout_slot(
                 slots_ctx, cwd=slots_ctx.repo.root, now=now, force=False
             )
         except SlotAllocationError as exc:
-            return ClinkrExit[SlotCheckoutResult].failure(
-                error_type="slot_allocation_error", message=str(exc)
-            )
+            return ClinkrExit.failure(error_type="slot_allocation_error", message=str(exc))
         if isinstance(current_outcome, DetachedHeadError):
-            return ClinkrExit[SlotCheckoutResult].failure(
+            return ClinkrExit.failure(
                 error_type="detached_head",
                 message=(
                     f"HEAD at {current_outcome.cwd} is detached. Check out a branch "
@@ -207,7 +203,7 @@ def run_checkout_slot(
                 ),
             )
         if isinstance(current_outcome, DirtyCurrentWorktreeError):
-            return ClinkrExit[SlotCheckoutResult].failure(
+            return ClinkrExit.failure(
                 error_type="dirty_worktree",
                 message=(
                     f"Current worktree at {current_outcome.cwd} has uncommitted changes. "
@@ -233,7 +229,7 @@ def run_checkout_slot(
 
     if request.new_branch:
         if branch_exists:
-            return ClinkrExit[SlotCheckoutResult].failure(
+            return ClinkrExit.failure(
                 error_type="branch_exists",
                 message=(
                     f"Branch '{branch_name}' already exists. "
@@ -243,7 +239,7 @@ def run_checkout_slot(
         slots_ctx.git.create_branch(branch_name, "HEAD", force=False)
         created_branch = True
     elif not branch_exists:
-        return ClinkrExit[SlotCheckoutResult].failure(
+        return ClinkrExit.failure(
             error_type="branch_missing",
             message=(
                 f"Branch '{branch_name}' does not exist. Pass -b/--new to create it from HEAD."
