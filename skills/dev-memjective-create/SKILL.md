@@ -1,6 +1,6 @@
 ---
 name: dev-memjective-create
-description: "Create a local-first memjective record for the memjective prototype. Draft a simple migration-notice-style memjective, store the seed on the `master` branch via `brmem` under namespace `memjectives`, key `<slug>.md`, and attach the same text to the current branch. Use when the user wants to start a new local memjective, prototype memjective, attach a memjective to the current branch, or create a branch-scoped memjective snapshot without using GitHub."
+description: "Create a local-first memjective record for the memjective prototype. Draft a simple migration-notice-style memjective, store the seed on the `master` branch via `brmem` under namespace `memjectives`, key `<slug>.md`, and attach the same text to the current branch. Use when the user wants to start a new local memjective, prototype memjective, attach a memjective to the current branch, or create a branch-scoped memjective snapshot without storing it in GitHub. Reading GitHub for context (referenced PRs, issues, design docs) is fine; only the memjective record itself stays local."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -16,8 +16,10 @@ metadata:
 
 Create a new **local-first memjective** for the memjective prototype.
 
-This skill deliberately does **not** use GitHub. The canonical seed lives on the
-`master` branch in brmem at:
+This skill deliberately does **not** store memjectives in GitHub — no issues,
+no comments, no PR bodies. Reading from GitHub for context (e.g., `gh pr
+view` on a referenced PR) is still fine; only the memjective record itself
+lives locally. The canonical seed lives on the `master` branch in brmem at:
 
 - namespace `memjectives`, key `<slug>.md` (on `master`)
 
@@ -40,7 +42,10 @@ Given a rough memjective brief from the user, produce:
 
 ## Core rules
 
-- **This prototype is local-first.** Do not create or edit GitHub issues.
+- **Storage is local-first.** Do not create or edit GitHub issues, comments,
+  or PR bodies to hold the memjective. Reading GitHub (e.g., `gh pr view`,
+  `gh issue view`) to capture context from a referenced PR or issue is
+  allowed and expected when the user's brief points at one.
 - **One memjective per branch.** If the current branch already has any entry in
   the `memjectives` namespace, abort instead of creating a second one.
 - **Use the simple template.** Read
@@ -259,7 +264,9 @@ the snapshot conservatively.
 
 ## Anti-patterns
 
-- Using GitHub issues or comments in this prototype.
+- Storing the memjective document in a GitHub issue, comment, or PR body.
+  (Reading GitHub for context is fine; the rule is about where the
+  memjective record lives.)
 - Writing the memjective into the repo working tree.
 - Creating a second memjective on a branch that already has one.
 - Attaching the branch snapshot under a generic key like `memjective.md` or a

@@ -1,6 +1,6 @@
 ---
 name: dev-memjective
-description: "Conceptual reference for the twerk memjective prototype — local-first, brmem-backed planning docs that mirror the objective subsystem without touching GitHub. Covers what a memjective is, the master-seed / branch-snapshot storage model, the one-memjective-per-branch invariant, the document anatomy (Title / Status / Intro / Completion Criteria / Status Checklist / How to Make Progress / Notes), the create → (peek? → branch → next → update)* lifecycle, per-operation mutation contracts, exact-copy carry-forward semantics, and the relationship to `objective`, `workbr`, and `plan`. Fires on conceptual questions about memjectives, ad-hoc operations outside the operation skills, and alongside `dev-memjective-create`, `dev-memjective-peek`, `dev-memjective-next`, and `dev-memjective-update` as shared grounding. Owns the memjective template under `templates/` and the mutation-contract table under `references/`. Read-only — no state mutation."
+description: "Conceptual reference for the twerk memjective prototype — local-first, brmem-backed planning docs that mirror the objective subsystem without storing state in GitHub (reading GitHub for context is fine; only the document itself is local). Covers what a memjective is, the master-seed / branch-snapshot storage model, the one-memjective-per-branch invariant, the document anatomy (Title / Status / Intro / Completion Criteria / Status Checklist / How to Make Progress / Notes), the create → (peek? → branch → next → update)* lifecycle, per-operation mutation contracts, exact-copy carry-forward semantics, and the relationship to `objective`, `workbr`, and `plan`. Fires on conceptual questions about memjectives, ad-hoc operations outside the operation skills, and alongside `dev-memjective-create`, `dev-memjective-peek`, `dev-memjective-next`, and `dev-memjective-update` as shared grounding. Owns the memjective template under `templates/` and the mutation-contract table under `references/`. Read-only — no state mutation."
 allowed-tools: []
 metadata:
   internal: true
@@ -24,6 +24,13 @@ subsystem: same primitive operation ("progress this over time"), same
 body-as-current-state discipline, but the storage moves from GitHub issues and
 comments to plain text in **branch memory** (`brmem`) — a git-native key-value
 store backed by dedicated refs.
+
+"Local-first" is a **storage** rule, not a network rule. The memjective
+document itself is never written to GitHub — no issues, no comments, no PR
+bodies. But the skills are free to _read_ GitHub for context: checking
+whether a referenced PR has merged, pulling a decision from a PR body,
+cross-referencing issue numbers, etc. The constraint is only that the
+memjective record lives locally.
 
 The goal is to keep the objective-style loop (read context → decide → implement
 → rewrite context) working entirely inside a local git repo, so early
@@ -213,9 +220,11 @@ directory and reference, and (2) remove the `internal: true` flag.
 
 ## Shared anti-patterns
 
-- Using GitHub issues or comments for memjectives. The prototype is
-  deliberately local-first; a GitHub-backed workstream should be an
-  `objective`.
+- Storing the memjective document in GitHub (issues, comments, PR bodies).
+  The prototype is deliberately local-first; a GitHub-_stored_ workstream
+  should be an `objective`. Note: **reading** GitHub for context (PRs,
+  issues, `gh` queries) is allowed — the rule is about where the document
+  lives, not where information comes from.
 - Treating the master seed as a living document. In the current lifecycle,
   the seed is written once and not rewritten by `update`.
 - Writing a memjective into the working tree. Memjectives live only in brmem.

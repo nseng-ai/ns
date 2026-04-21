@@ -32,7 +32,12 @@ on a fresh slice branch.
 
 ## Core rules
 
-- **Local-first only.** Never touch GitHub.
+- **Storage is local-first.** The memjective document lives in brmem, never
+  in a GitHub issue, comment, or other GitHub-hosted surface. Reading from
+  GitHub (`gh pr view`, `gh issue view`, `gh api`, etc.) to gather context
+  — e.g., checking whether a referenced PR has merged, confirming a PR
+  number, or pulling a design-decision body — is allowed and often useful
+  when the snapshot drifts behind master.
 - **One memjective per branch.** Abort if the branch has 0 or more than 1
   entries in the `memjectives` namespace. If the branch has none, run
   `dev-memjective-next` on this branch instead — it carries the snapshot
@@ -116,6 +121,15 @@ rewrite narrow:
 - Update `How to Make Progress` only when the actual recipe changed.
 - Append durable findings to `Notes`; annotate obsolete notes instead of
   silently deleting them.
+
+**Sourcing "what landed" signal.** For simple rewrites, `git log --oneline
+master` is usually enough — squash-merged PRs appear as `Title (#N)`
+commits on master. When the commit title is terse or the snapshot cites PR
+numbers that need cross-checking, consulting GitHub directly via `gh pr
+view <N>` or `gh pr list --state merged --search ...` is encouraged —
+reading GitHub is allowed (see Core rules). Do not synthesize new
+document content from PR bodies; use GitHub signal only to ground the
+conservative edits the mutation contract already allows.
 
 ### 6. Persist the updated snapshot
 
