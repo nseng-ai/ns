@@ -88,9 +88,10 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     assert (slots_root / "repos" / "repo" / "worktrees" / "slot-01").is_dir()
 
     # `list` reflects the assignment in its JSON output.
-    json_list = runner.invoke(cli, ["json", "list"], input="", obj=_obj(ctx))
+    json_list = runner.invoke(cli, ["list", "--format", "json"], obj=_obj(ctx))
     assert json_list.exit_code == 0, json_list.output
     payload = json.loads(json_list.output)
+    assert payload["exit_code"] == 0
     data = payload["data"]
     assigned = [r for r in data["rows"] if r["status"] == "assigned"]
     assert len(assigned) == 1

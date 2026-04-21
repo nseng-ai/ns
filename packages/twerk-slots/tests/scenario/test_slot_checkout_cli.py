@@ -159,6 +159,8 @@ def test_slot_checkout_help(cli_group: ClinkrGroup) -> None:
     assert "--current" in result.output
     assert "--new" in result.output
     assert "--no-clipboard" in result.output
+    assert "--format" in result.output
+    assert "--schema" in result.output
 
 
 # -- checkout basic ---------------------------------------------------------
@@ -642,6 +644,35 @@ def test_slot_checkout_rejects_neither_branch_nor_current(
 
     assert result.exit_code == 2
     assert "BRANCH_NAME" in result.output or "--current" in result.output
+
+
+def test_slot_checkout_format_json_returns_exit_envelope(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x",))
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "feat/x", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["slot_name"] == "slot-01"
+    assert data["branch_name"] == "feat/x"
+    assert data["already_assigned"] is False
+
+
+def test_slot_checkout_schema(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["checkout", "--schema"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
 
 
 # -- clipboard behavior -----------------------------------------------------

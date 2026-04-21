@@ -135,6 +135,8 @@ def test_slot_goto_help(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: slot goto" in result.output
     assert "worktree path" in result.output
+    assert "--format" in result.output
+    assert "--schema" in result.output
 
 
 def test_slot_goto_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -184,18 +186,17 @@ def test_slot_goto_by_slot_number(cli_group: ClinkrGroup, tmp_path: Path) -> Non
     assert last_line == str(worktree_path)
 
 
-# -- JSON mode --------------------------------------------------------------
+# -- machine mode -----------------------------------------------------------
 
 
-def test_slot_goto_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_goto_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root)
 
     result = CliRunner().invoke(
         cli_group,
-        ["json", "goto"],
-        input=json.dumps({"wt": "slot-01"}),
+        ["goto", "--wt", "slot-01", "--format", "json"],
         obj=_make_obj(fakes, slots_root),
     )
 
@@ -208,8 +209,8 @@ def test_slot_goto_json_returns_payload(cli_group: ClinkrGroup, tmp_path: Path) 
     assert data["worktree_path"] == str(worktree_path)
 
 
-def test_slot_goto_json_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["json", "goto", "--schema"])
+def test_slot_goto_schema(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["goto", "--schema"])
     payload = json.loads(result.output)
 
     assert result.exit_code == 0
