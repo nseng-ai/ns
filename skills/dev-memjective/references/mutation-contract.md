@@ -6,11 +6,11 @@ rules inline.
 
 ## Overview
 
-| Operation               | Master seed           | Current-branch snapshot     | Other-branch snapshot |
-| ----------------------- | --------------------- | --------------------------- | --------------------- |
-| `dev-memjective-create` | **Writes** (one-time) | **Writes** (one-time)       | Never touches         |
-| `dev-memjective-next`   | Never writes          | Never writes                | Never touches         |
-| `dev-memjective-update` | Never writes          | **Rewrites** (conservative) | Never touches         |
+| Operation               | Master seed           | Current-branch snapshot                                                                 | Other-branch snapshot |
+| ----------------------- | --------------------- | --------------------------------------------------------------------------------------- | --------------------- |
+| `dev-memjective-create` | **Writes** (one-time) | **Writes** (one-time)                                                                   | Never touches         |
+| `dev-memjective-next`   | Never writes          | Never writes                                                                            | Never touches         |
+| `dev-memjective-update` | Never writes          | **Writes** (preflight carry-forward, when branch is bare) + **Rewrites** (conservative) | Never touches         |
 
 Carry-forward (copying another source verbatim onto the current branch) is
 allowed for `update` as a preflight when the current branch has no snapshot.
