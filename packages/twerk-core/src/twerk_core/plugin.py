@@ -18,7 +18,7 @@ class TwerkPluginSpec(Generic[GroupT]):
     """Declarative contract for a twerk plugin CLI."""
 
     build_group: Callable[[], GroupT]
-    context_factory: Callable[[], object] | None = None
+    context_factory: Callable[[], object] | None
 
 
 def build_standalone_cli(
