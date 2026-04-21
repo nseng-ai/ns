@@ -3,12 +3,14 @@ from __future__ import annotations
 import importlib
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from importlib.metadata import entry_points
 from typing import Protocol
 
 import click
 
-from twerk_core.clinkr.group import ClinkrGroup
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
+from twerk_core.plugin import TwerkPluginSpec
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class InstalledPluginEntryPointSource(PluginEntryPointSource):
         return tuple(entry_points(group=ENTRY_POINT_GROUP))
 
 
-def _load_plugin_group(value: str) -> ClinkrGroup:
+def _load_plugin_spec(value: str) -> TwerkPluginSpec[click.Group]:
     if ":" not in value:
         raise ValueError(
             f"Plugin entry point {value!r} must be in 'module:function' form; "
@@ -40,15 +42,42 @@ def _load_plugin_group(value: str) -> ClinkrGroup:
     module_path, attr = value.split(":", 1)
     module = importlib.import_module(module_path)
     builder = getattr(module, attr)
-    return builder()
+    spec = builder()
+    if not isinstance(spec, TwerkPluginSpec):
+        raise TypeError(
+            f"Plugin entry point {value!r} must return a TwerkPluginSpec; "
+            f"got {type(spec).__name__}."
+        )
+    return spec
 
 
-def discover_plugins(cli: click.Group, *, source: PluginEntryPointSource) -> None:
+def discover_plugins(
+    cli: click.Group,
+    *,
+    source: PluginEntryPointSource,
+) -> None:
     """Find and register all installed twerk plugin CLI groups."""
     for ep in source.get_entry_points():
         try:
-            group = _load_plugin_group(ep.value)
+            spec = _load_plugin_spec(ep.value)
         except Exception:
             logger.warning("Failed to load plugin %r", ep.name, exc_info=True)
             continue
+        group = spec.build_group()
+        if spec.context_factory is not None:
+            _install_plugin_context(group, context_factory=spec.context_factory)
         cli.add_command(group)
+
+
+def _install_plugin_context(group: click.Group, *, context_factory: Callable[[], object]) -> None:
+    original_callback = group.callback
+
+    @click.pass_context
+    def callback(ctx: click.Context, *args: object, **kwargs: object) -> object:
+        if not isinstance(ctx.obj, ClinkrContextObject):
+            ctx.obj = build_clinkr_context_object(context_factory)
+        if original_callback is None:
+            return None
+        return ctx.invoke(original_callback, *args, **kwargs)
+
+    group.callback = callback

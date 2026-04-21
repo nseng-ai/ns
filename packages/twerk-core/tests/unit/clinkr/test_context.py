@@ -5,7 +5,11 @@ from dataclasses import dataclass
 import click
 import pytest
 
-from twerk_core.clinkr.context import build_clinkr_context_object, load_typed_context
+from twerk_core.clinkr.context import (
+    build_clinkr_context_object,
+    load_clinkr_context_object,
+    load_typed_context,
+)
 
 
 @dataclass(frozen=True)
@@ -28,6 +32,16 @@ def test_returns_instance_from_clinkr_context_object() -> None:
     result = load_typed_context(ctx, FakeContext)
 
     assert result == FakeContext(value=7)
+
+
+def test_loads_context_object_from_ancestor_context() -> None:
+    root = click.Context(click.Command("root"))
+    child_obj = build_clinkr_context_object(lambda: FakeContext(value=7))
+    child = click.Context(click.Command("child"), parent=root, obj=child_obj)
+    leaf = click.Context(click.Command("leaf"), parent=child)
+
+    assert load_clinkr_context_object(leaf) is child_obj
+    assert load_typed_context(leaf, FakeContext) == FakeContext(value=7)
 
 
 def test_rejects_non_clinkr_context_object() -> None:

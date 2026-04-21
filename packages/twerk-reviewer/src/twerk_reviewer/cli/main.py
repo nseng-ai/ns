@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-import click
-
-from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_reviewer.cli.reviewer.context import build_reviewer_context
-from twerk_reviewer.cli.reviewer.group import build_reviewer_group
+from twerk_core.plugin import build_standalone_cli, invoke_standalone_cli
+from twerk_reviewer.cli.plugin import build_reviewer_plugin
 
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``reviewer`` CLI group."""
-    group = build_reviewer_group()
-    group.context_settings = {"help_option_names": ["-h", "--help"]}
-    click.version_option(package_name="twerk-reviewer")(group)
-    return group
+    return build_standalone_cli(build_reviewer_plugin(), package_name="twerk-reviewer")
 
 
 def main() -> None:
     """Entry point for the standalone ``reviewer`` CLI."""
-    build_cli()(obj=build_clinkr_context_object(build_reviewer_context))
+    invoke_standalone_cli(build_reviewer_plugin(), package_name="twerk-reviewer")

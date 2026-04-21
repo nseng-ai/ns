@@ -7,6 +7,7 @@ state on disk.
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -486,7 +487,13 @@ def free_slot_assignment(
         )
 
     trunk = ctx.git.get_trunk_branch()
-    ctx.git.detach_head(assignment.worktree_path, trunk)
+    try:
+        ctx.git.detach_head(assignment.worktree_path, trunk)
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if exc.stderr else str(exc)
+        raise SlotAllocationError(
+            f"Failed to detach {slot_name} at {assignment.worktree_path} to {trunk}: {stderr}"
+        ) from exc
 
     new_state = state.with_assignment_removed(slot_name)
     ctx.pool_state.save(new_state)

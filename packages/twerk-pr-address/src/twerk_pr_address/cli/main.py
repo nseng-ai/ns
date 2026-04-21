@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-import click
-
-from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_pr_address.cli.pr_address.context import build_pr_address_context
-from twerk_pr_address.cli.pr_address.group import build_pr_address_group
+from twerk_core.plugin import build_standalone_cli, invoke_standalone_cli
+from twerk_pr_address.cli.plugin import build_pr_address_plugin
 
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``pr-address`` CLI group."""
-    group = build_pr_address_group()
-    group.context_settings = {"help_option_names": ["-h", "--help"]}
-    click.version_option(package_name="twerk-pr-address")(group)
-    return group
+    return build_standalone_cli(build_pr_address_plugin(), package_name="twerk-pr-address")
 
 
 def main() -> None:
     """Entry point for the standalone ``pr-address`` CLI."""
-    build_cli()(obj=build_clinkr_context_object(build_pr_address_context))
+    invoke_standalone_cli(build_pr_address_plugin(), package_name="twerk-pr-address")

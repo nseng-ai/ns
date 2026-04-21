@@ -12,7 +12,7 @@ dependencies = [
 pr-address = "twerk_pr_address.cli.main:main"
 
 [project.entry-points."twerk.plugins"]
-pr_address = "twerk_pr_address.cli.pr_address.group:build_pr_address_group"
+pr_address = "twerk_pr_address.cli.plugin:build_pr_address_plugin"
 
 [build-system]
 requires = ["hatchling"]

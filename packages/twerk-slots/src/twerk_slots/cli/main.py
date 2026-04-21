@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-import click
-
-from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_slots.cli.slot.context import build_slots_context
-from twerk_slots.cli.slot.group import build_slot_group
+from twerk_core.plugin import build_standalone_cli, invoke_standalone_cli
+from twerk_slots.cli.plugin import build_slot_plugin
 
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``slot`` CLI group."""
-    group = build_slot_group()
-    group.context_settings = {"help_option_names": ["-h", "--help"]}
-    click.version_option(package_name="twerk-slots")(group)
-    return group
+    return build_standalone_cli(build_slot_plugin(), package_name="twerk-slots")
 
 
 def main() -> None:
     """Entry point for the standalone ``slot`` CLI."""
-    build_cli()(obj=build_clinkr_context_object(build_slots_context))
+    invoke_standalone_cli(build_slot_plugin(), package_name="twerk-slots")

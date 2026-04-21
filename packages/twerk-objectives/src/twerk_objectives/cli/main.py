@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-import click
-
-from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_objectives.cli.objective.context import build_objectives_context
-from twerk_objectives.cli.objective.group import build_objective_group
+from twerk_core.plugin import build_standalone_cli, invoke_standalone_cli
+from twerk_objectives.cli.plugin import build_objective_plugin
 
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``objective`` CLI group."""
-    group = build_objective_group()
-    group.context_settings = {"help_option_names": ["-h", "--help"]}
-    click.version_option(package_name="twerk-objectives")(group)
-    return group
+    return build_standalone_cli(build_objective_plugin(), package_name="twerk-objectives")
 
 
 def main() -> None:
     """Entry point for the standalone ``objective`` CLI."""
-    build_cli()(obj=build_clinkr_context_object(build_objectives_context))
+    invoke_standalone_cli(build_objective_plugin(), package_name="twerk-objectives")
