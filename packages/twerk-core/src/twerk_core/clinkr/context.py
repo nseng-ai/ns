@@ -37,11 +37,9 @@ def build_clinkr_context_object(
 
 def load_clinkr_context_object(ctx: click.Context) -> ClinkrContextObject:
     """Load the nearest Clinkr-owned runtime object from the Click context chain."""
-    current: click.Context | None = ctx
-    while current is not None:
-        if isinstance(current.obj, ClinkrContextObject):
-            return current.obj
-        current = current.parent
+    obj = ctx.find_object(ClinkrContextObject)
+    if obj is not None:
+        return obj
     raise RuntimeError(
         "ctx.obj must be a ClinkrContextObject; "
         "the CLI entry point and tests are responsible for installing it."

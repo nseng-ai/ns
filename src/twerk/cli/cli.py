@@ -11,7 +11,7 @@ from twerk.cli.plugins import (
 
 def build_cli(
     *,
-    source: PluginEntryPointSource | None = None,
+    source: PluginEntryPointSource,
 ) -> click.Group:
     @click.group(context_settings={"help_option_names": ["-h", "--help"]})
     @click.version_option(package_name="twerk")
@@ -20,12 +20,13 @@ def build_cli(
         """twerk CLI."""
         del ctx
 
-    discover_plugins(
-        cli,
-        source=source or InstalledPluginEntryPointSource(),
-    )
+    discover_plugins(cli, source=source)
     return cli
 
 
+def build_prod_cli() -> click.Group:
+    return build_cli(source=InstalledPluginEntryPointSource())
+
+
 def main() -> None:
-    build_cli()()
+    build_prod_cli()()
