@@ -9,6 +9,8 @@ import pytest
 from click.testing import CliRunner
 
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
+from twerk_core.brmem.context import BrmemCliContext
+from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.git.testing import FakeGitGateway
@@ -73,6 +75,44 @@ def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec()
     discover_plugins(parent, source=_entry_point_source(ep))
 
     assert len(parent.commands) == 0
+
+
+def test_memjective_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="memjective",
+        value="twerk_core.memjective.plugin:build_memjective_plugin",
+    )
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "clinkr-migration.md", "feat/x", "seed\n")
+    ctx = BrmemCliContext(
+        brmem_gateway=gateway,
+        git_gateway=FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
+    )
+    obj = build_clinkr_context_object(lambda: ctx)
+
+    runner = CliRunner()
+
+    result = runner.invoke(parent, ["memjective", "--help"])
+    assert result.exit_code == 0
+    assert "list" in result.output
+
+    result = runner.invoke(parent, ["memjective", "list"], obj=obj)
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["clinkr-migration.md"]
+
+    result = runner.invoke(
+        parent,
+        ["memjective", "list", "--format", "json"],
+        obj=obj,
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    assert payload["data"]["entries"][0]["key"] == "clinkr-migration.md"
 
 
 def test_objective_plugin_integration() -> None:
