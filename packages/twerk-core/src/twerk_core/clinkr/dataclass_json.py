@@ -7,18 +7,6 @@ import types
 from dataclasses import fields
 from typing import Any, Literal, Union, get_args, get_origin
 
-import click
-
-ERROR_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "success": {"type": "boolean", "const": False},
-        "error_type": {"type": "string"},
-        "message": {"type": "string"},
-    },
-    "required": ["error_type", "message", "success"],
-}
-
 _PYTHON_TYPE_MAP: dict[type, str] = {
     str: "string",
     int: "integer",
@@ -80,7 +68,7 @@ def request_schema(request_type: type) -> dict[str, Any]:
 
 def output_schema(output_types: tuple[type, ...]) -> dict[str, Any]:
     if not output_types:
-        return {"type": "object", "properties": {"success": {"type": "boolean", "const": True}}}
+        return {"type": "object", "properties": {}, "required": []}
 
     schemas = [_single_output_schema(output_type) for output_type in output_types]
     if len(schemas) == 1:
@@ -119,25 +107,6 @@ def read_json_stdin() -> dict[str, Any] | None:
     return data
 
 
-def emit_json_success(data: dict[str, Any]) -> None:
-    payload = dict(data)
-    payload["success"] = True
-    click.echo(json.dumps(payload, indent=2))
-
-
-def emit_json_error(*, error_type: str, message: str) -> None:
-    click.echo(
-        json.dumps(
-            {
-                "success": False,
-                "error_type": error_type,
-                "message": message,
-            },
-            indent=2,
-        )
-    )
-
-
 def _single_output_schema(output_type: type) -> dict[str, Any]:
     json_schema_method = getattr(output_type, "json_schema", None)
     if json_schema_method is not None:
@@ -149,8 +118,8 @@ def _single_output_schema(output_type: type) -> dict[str, Any]:
             f"{output_type.__name__}: not a dataclass and no json_schema()"
         )
 
-    properties: dict[str, Any] = {"success": {"type": "boolean", "const": True}}
-    required = ["success"]
+    properties: dict[str, Any] = {}
+    required: list[str] = []
     for field in fields(output_type):
         properties[field.name] = python_type_to_json_schema(field.type)
         required.append(field.name)

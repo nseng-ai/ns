@@ -6,12 +6,11 @@ from typing import Annotated, Any
 import click
 
 from twerk_core import get_console
-from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import find_assignment_by_slot
 from twerk_slots.cli.slot.context import load_slots_context
-from twerk_slots.cli.slot.slot_target import resolve_slot_target
+from twerk_slots.naming import extract_slot_number, generate_slot_name
 from twerk_slots.repo_context import NoRepoSentinel
 
 
@@ -61,15 +60,30 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
         )
     state = slots_ctx.pool_state.load()
 
-    slot_name_or_error = resolve_slot_target(
-        num=request.num, wt=request.wt, pool_size=state.pool_size
-    )
-    if isinstance(slot_name_or_error, ClinkrCommandError):
+    if request.num is not None and request.wt is not None:
         return ClinkrExit.failure(
-            error_type=slot_name_or_error.error_type,
-            message=slot_name_or_error.message,
+            error_type="conflicting_slot_args",
+            message="Pass exactly one of --num or --wt, not both.",
         )
-    slot_name = slot_name_or_error
+    if request.num is not None:
+        if not (1 <= request.num <= state.pool_size):
+            return ClinkrExit.failure(
+                error_type="invalid_slot_num",
+                message=f"--num must be in 1..{state.pool_size} (got {request.num}).",
+            )
+        slot_name = generate_slot_name(request.num)
+    elif request.wt is not None:
+        if extract_slot_number(request.wt) is None:
+            return ClinkrExit.failure(
+                error_type="invalid_slot_wt",
+                message=f"--wt '{request.wt}' is not a valid slot name (e.g. 'slot-01').",
+            )
+        slot_name = request.wt
+    else:
+        return ClinkrExit.failure(
+            error_type="missing_slot_arg",
+            message="Pass one of --num or --wt to identify the slot.",
+        )
 
     assignment = find_assignment_by_slot(state, slot_name)
     if assignment is None:

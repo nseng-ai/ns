@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import click
+import pytest
 
 from twerk_core.clinkr.context import (
     build_clinkr_context_object,
@@ -23,10 +24,11 @@ def test_default_is_human_mode() -> None:
     assert is_machine_mode(ctx) is False
 
 
-def test_default_is_human_mode_without_clinkr_context_object() -> None:
+def test_is_machine_mode_requires_clinkr_context_object() -> None:
     ctx = click.Context(click.Command("root"))
 
-    assert is_machine_mode(ctx) is False
+    with pytest.raises(RuntimeError, match="ClinkrContextObject"):
+        is_machine_mode(ctx)
 
 
 def test_set_machine_mode_is_observable_on_same_context() -> None:
@@ -37,12 +39,11 @@ def test_set_machine_mode_is_observable_on_same_context() -> None:
     assert is_machine_mode(ctx) is True
 
 
-def test_set_machine_mode_falls_back_without_clinkr_context_object() -> None:
+def test_set_machine_mode_requires_clinkr_context_object() -> None:
     ctx = click.Context(click.Command("root"))
 
-    set_machine_mode(ctx)
-
-    assert is_machine_mode(ctx) is True
+    with pytest.raises(RuntimeError, match="ClinkrContextObject"):
+        set_machine_mode(ctx)
 
 
 def test_set_machine_mode_replaces_root_context_object_immutably() -> None:

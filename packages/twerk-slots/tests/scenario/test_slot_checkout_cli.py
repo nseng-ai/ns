@@ -672,7 +672,7 @@ def test_slot_checkout_schema(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 # -- clipboard behavior -----------------------------------------------------
@@ -838,4 +838,4 @@ def test_slot_checkout_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}

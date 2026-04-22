@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import click
 import pytest
 
-from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation, get_operation_meta
 
@@ -20,10 +19,20 @@ class FakeResult:
     message: str
 
 
+def test_clinkr_exit_return_tags_result_type() -> None:
+    @clinkr_operation(name="op")
+    def op(ctx: click.Context, request: FakeRequest) -> ClinkrExit[FakeResult]:
+        return ClinkrExit.ok(FakeResult(message="ok"))
+
+    meta = get_operation_meta(op)
+    assert meta is not None
+    assert meta.result_types == (FakeResult,)
+
+
 def test_decorator_attaches_metadata() -> None:
     @clinkr_operation(name="greet", help="Say hi.", aliases=("hi",))
-    def greet(ctx: click.Context, request: FakeRequest) -> FakeResult | ClinkrCommandError:
-        return FakeResult(message=f"hello {request.name}")
+    def greet(ctx: click.Context, request: FakeRequest) -> ClinkrExit[FakeResult]:
+        return ClinkrExit.ok(FakeResult(message=f"hello {request.name}"))
 
     meta = get_operation_meta(greet)
     assert meta is not None
@@ -33,29 +42,6 @@ def test_decorator_attaches_metadata() -> None:
     assert meta.request_type is FakeRequest
     assert meta.result_types == (FakeResult,)
     assert meta.human_renderer is None
-    assert meta.return_style == "legacy"
-
-
-def test_plain_return_type_no_union() -> None:
-    @clinkr_operation(name="op")
-    def op(ctx: click.Context, request: FakeRequest) -> FakeResult:
-        return FakeResult(message="ok")
-
-    meta = get_operation_meta(op)
-    assert meta is not None
-    assert meta.result_types == (FakeResult,)
-    assert meta.return_style == "legacy"
-
-
-def test_clinkr_exit_return_tags_exit_style() -> None:
-    @clinkr_operation(name="op")
-    def op(ctx: click.Context, request: FakeRequest) -> ClinkrExit[FakeResult]:
-        return ClinkrExit.ok(FakeResult(message="ok"))
-
-    meta = get_operation_meta(op)
-    assert meta is not None
-    assert meta.result_types == (FakeResult,)
-    assert meta.return_style == "exit"
 
 
 def test_clinkr_exit_unparameterized_rejected() -> None:
@@ -67,29 +53,29 @@ def test_clinkr_exit_unparameterized_rejected() -> None:
             return ClinkrExit.ok(FakeResult(message="ok"))
 
 
-def test_clinkr_exit_in_union_rejected() -> None:
-    with pytest.raises(TypeError, match="ClinkrExit must not appear inside a Union"):
+def test_plain_return_type_rejected() -> None:
+    with pytest.raises(TypeError, match="return annotation must be ClinkrExit"):
 
         @clinkr_operation(name="op")
-        def op(
-            ctx: click.Context, request: FakeRequest
-        ) -> ClinkrExit[FakeResult] | ClinkrCommandError:
-            return ClinkrExit.ok(FakeResult(message="ok"))
+        def op(ctx: click.Context, request: FakeRequest) -> FakeResult:
+            return FakeResult(message="ok")
 
 
 def test_decorated_function_still_callable() -> None:
     @clinkr_operation(name="op")
-    def op(ctx: click.Context, request: FakeRequest) -> FakeResult:
-        return FakeResult(message=f"hi {request.name}")
+    def op(ctx: click.Context, request: FakeRequest) -> ClinkrExit[FakeResult]:
+        return ClinkrExit.ok(FakeResult(message=f"hi {request.name}"))
 
     ctx = click.Context(click.Command("dummy"))
     result = op(ctx, FakeRequest(name="alice"))
-    assert result.message == "hi alice"
+    assert result.status.name == "OK"
+    assert result.data is not None
+    assert result.data.message == "hi alice"
 
 
 def test_undecorated_function_returns_none() -> None:
-    def plain(ctx: click.Context, request: FakeRequest) -> FakeResult:
-        return FakeResult(message="ok")
+    def plain(ctx: click.Context, request: FakeRequest) -> ClinkrExit[FakeResult]:
+        return ClinkrExit.ok(FakeResult(message="ok"))
 
     assert get_operation_meta(plain) is None
 
@@ -98,32 +84,32 @@ def test_error_no_params() -> None:
     with pytest.raises(TypeError, match="exactly two parameters"):
 
         @clinkr_operation(name="op")
-        def op() -> FakeResult:
-            return FakeResult(message="ok")
+        def op() -> ClinkrExit[FakeResult]:
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_error_one_param() -> None:
     with pytest.raises(TypeError, match="exactly two parameters"):
 
         @clinkr_operation(name="op")
-        def op(request: FakeRequest) -> FakeResult:
-            return FakeResult(message="ok")
+        def op(request: FakeRequest) -> ClinkrExit[FakeResult]:
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_error_too_many_params() -> None:
     with pytest.raises(TypeError, match="exactly two parameters"):
 
         @clinkr_operation(name="op")
-        def op(ctx: click.Context, a: FakeRequest, b: str) -> FakeResult:
-            return FakeResult(message="ok")
+        def op(ctx: click.Context, a: FakeRequest, b: str) -> ClinkrExit[FakeResult]:
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_error_first_param_not_click_context() -> None:
     with pytest.raises(TypeError, match="must be annotated as click.Context"):
 
         @clinkr_operation(name="op")
-        def op(ctx: str, request: FakeRequest) -> FakeResult:
-            return FakeResult(message="ok")
+        def op(ctx: str, request: FakeRequest) -> ClinkrExit[FakeResult]:
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_error_first_param_missing_annotation() -> None:
@@ -131,8 +117,8 @@ def test_error_first_param_missing_annotation() -> None:
 
         @clinkr_operation(name="op")
         # Test subject: missing `ctx` annotation — @clinkr_operation must reject.
-        def op(ctx, request: FakeRequest) -> FakeResult:  # type: ignore[no-untyped-def]
-            return FakeResult(message="ok")
+        def op(ctx, request: FakeRequest) -> ClinkrExit[FakeResult]:  # type: ignore[no-untyped-def]
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_error_second_param_missing_annotation() -> None:
@@ -140,8 +126,8 @@ def test_error_second_param_missing_annotation() -> None:
 
         @clinkr_operation(name="op")
         # Test subject: missing `request` annotation — @clinkr_operation must reject.
-        def op(ctx: click.Context, request) -> FakeResult:  # type: ignore[no-untyped-def]
-            return FakeResult(message="ok")
+        def op(ctx: click.Context, request) -> ClinkrExit[FakeResult]:  # type: ignore[no-untyped-def]
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_error_no_return_annotation() -> None:
@@ -150,15 +136,7 @@ def test_error_no_return_annotation() -> None:
         @clinkr_operation(name="op")
         # Test subject: missing return annotation — @clinkr_operation must reject.
         def op(ctx: click.Context, request: FakeRequest):  # type: ignore[no-untyped-def]
-            return FakeResult(message="ok")
-
-
-def test_error_only_machine_command_error_return() -> None:
-    with pytest.raises(TypeError, match="cannot infer result_types"):
-
-        @clinkr_operation(name="op")
-        def op(ctx: click.Context, request: FakeRequest) -> ClinkrCommandError:
-            return ClinkrCommandError(error_type="x", message="y")
+            return ClinkrExit.ok(FakeResult(message="ok"))
 
 
 def test_custom_human_renderer() -> None:
@@ -166,8 +144,8 @@ def test_custom_human_renderer() -> None:
         pass
 
     @clinkr_operation(name="op", human_renderer=my_renderer)
-    def op(ctx: click.Context, request: FakeRequest) -> FakeResult:
-        return FakeResult(message="ok")
+    def op(ctx: click.Context, request: FakeRequest) -> ClinkrExit[FakeResult]:
+        return ClinkrExit.ok(FakeResult(message="ok"))
 
     meta = get_operation_meta(op)
     assert meta is not None

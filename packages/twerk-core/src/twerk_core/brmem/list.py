@@ -7,10 +7,13 @@ from typing import Any
 
 import click
 
-from twerk_core.brmem.gateway import EntryRef
-from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
-from twerk_core.brmem.validation import validate_entry_filters
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.brmem.gateway import EntryRef, check_branch_name, check_namespace
+from twerk_core.brmem.gateway_access import (
+    get_branch_memory_gateway,
+    resolve_current_brmem_branch,
+)
+from twerk_core.brmem.key_validation import check_key
+from twerk_core.brmem.validation import first_failure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -63,20 +66,26 @@ def run_list_entries(
     ctx: click.Context,
     request: ListEntriesRequest,
 ) -> ClinkrExit[ListEntriesResult]:
-    validation_error = validate_entry_filters(
-        namespace=request.namespace,
-        key=request.key,
-        branch=request.branch,
+    validation_failure = first_failure(
+        (
+            "invalid_namespace",
+            None if request.namespace is None else check_namespace(request.namespace),
+        ),
+        ("invalid_key", None if request.key is None else check_key(request.key)),
+        (
+            "invalid_branch_name",
+            None if request.branch is None else check_branch_name(request.branch),
+        ),
     )
-    if validation_error is not None:
-        return ClinkrExit.failure(
-            error_type=validation_error.error_type,
-            message=validation_error.message,
-        )
+    if validation_failure is not None:
+        error_type, message = validation_failure
+        return ClinkrExit.failure(error_type=error_type, message=message)
 
-    branch = resolve_branch_name(ctx, request.branch)
-    if isinstance(branch, ClinkrCommandError):
-        return ClinkrExit.failure(error_type=branch.error_type, message=branch.message)
+    match resolve_current_brmem_branch(ctx, request.branch):
+        case ClinkrExit() as exit_:
+            return exit_
+        case str() as branch:
+            pass
 
     gateway = get_branch_memory_gateway(ctx)
     entries = gateway.list_entries(

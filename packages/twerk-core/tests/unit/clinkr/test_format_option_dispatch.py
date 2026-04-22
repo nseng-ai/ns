@@ -7,36 +7,10 @@ from typing import Annotated, Literal
 import click
 from click.testing import CliRunner
 
-from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.context import build_clinkr_context_object, is_machine_mode
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.clinkr.operation import clinkr_operation
-
-# -- fixtures: legacy-style operation ---------------------------------------
-
-
-@dataclass(frozen=True)
-class LegacyRequest:
-    name: Annotated[str, click.Argument(["name"], type=click.STRING)]
-
-
-@dataclass(frozen=True)
-class LegacyResult:
-    greeting: str
-
-
-def _render_legacy(result: LegacyResult) -> None:
-    click.echo(result.greeting)
-
-
-@clinkr_operation(name="hello", help="Greet a name.", human_renderer=_render_legacy)
-def run_hello(ctx: click.Context, request: LegacyRequest) -> LegacyResult | ClinkrCommandError:
-    del ctx
-    if request.name == "err":
-        return ClinkrCommandError(error_type="bad_name", message="no such name")
-    return LegacyResult(greeting=f"hello {request.name}")
-
 
 # -- fixtures: exit-style operation -----------------------------------------
 
@@ -75,9 +49,9 @@ class ModeResult:
 
 
 @clinkr_operation(name="mode", help="Report machine-mode flag.")
-def run_mode(ctx: click.Context, request: ModeRequest) -> ModeResult | ClinkrCommandError:
+def run_mode(ctx: click.Context, request: ModeRequest) -> ClinkrExit[ModeResult]:
     del request
-    return ModeResult(machine_mode=is_machine_mode(ctx))
+    return ClinkrExit.ok(ModeResult(machine_mode=is_machine_mode(ctx)))
 
 
 # -- fixture: operation that already declares --format ---------------------
@@ -102,61 +76,23 @@ class OutputFormatResult:
 
 
 @clinkr_operation(name="review", help="Command with its own --format option.")
-def run_review(
-    ctx: click.Context, request: OutputFormatRequest
-) -> OutputFormatResult | ClinkrCommandError:
+def run_review(ctx: click.Context, request: OutputFormatRequest) -> ClinkrExit[OutputFormatResult]:
     del ctx
-    return OutputFormatResult(summary=f"{request.name}:{request.format}")
+    return ClinkrExit.ok(OutputFormatResult(summary=f"{request.name}:{request.format}"))
 
 
 def _make_group() -> ClinkrGroup:
-    return ClinkrGroup(name="probes", operations=[run_hello, run_probe, run_mode, run_review])
+    return ClinkrGroup(name="probes", operations=[run_probe, run_mode, run_review])
 
 
 def _runtime_obj() -> object:
     return build_clinkr_context_object(lambda: object())
 
 
-# -- legacy return style ----------------------------------------------------
-
-
-def test_legacy_format_human_default_renders() -> None:
-    result = CliRunner().invoke(_make_group(), ["hello", "world"])
-
-    assert result.exit_code == 0
-    assert result.stdout == "hello world\n"
-
-
-def test_legacy_format_json_emits_success_envelope() -> None:
-    result = CliRunner().invoke(
-        _make_group(),
-        ["hello", "world", "--format", "json"],
-        obj=_runtime_obj(),
-    )
-
-    assert result.exit_code == 0
-    assert json.loads(result.stdout) == {"success": True, "greeting": "hello world"}
-
-
-def test_legacy_format_json_error_emits_error_envelope_and_exits_one() -> None:
-    result = CliRunner().invoke(
-        _make_group(),
-        ["hello", "err", "--format", "json"],
-        obj=_runtime_obj(),
-    )
-
-    assert result.exit_code == 1
-    assert json.loads(result.stdout) == {
-        "success": False,
-        "error_type": "bad_name",
-        "message": "no such name",
-    }
-
-
 # -- exit return style ------------------------------------------------------
 
 
-def test_exit_format_json_ok_matches_json_subtree_envelope() -> None:
+def test_format_json_ok_matches_json_subtree_envelope() -> None:
     runner = CliRunner()
     flag_result = runner.invoke(
         _make_group(), ["probe", "ok", "--format", "json"], obj=_runtime_obj()
@@ -174,7 +110,7 @@ def test_exit_format_json_ok_matches_json_subtree_envelope() -> None:
     assert json.loads(flag_result.stdout) == {"exit_code": 0, "data": {"value": "found"}}
 
 
-def test_exit_format_json_negative_matches_and_exits_one() -> None:
+def test_format_json_negative_matches_and_exits_one() -> None:
     runner = CliRunner()
     flag_result = runner.invoke(
         _make_group(),
@@ -193,7 +129,7 @@ def test_exit_format_json_negative_matches_and_exits_one() -> None:
     assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
 
 
-def test_exit_format_json_failure_matches_and_exits_two() -> None:
+def test_format_json_failure_matches_and_exits_two() -> None:
     runner = CliRunner()
     flag_result = runner.invoke(
         _make_group(),
@@ -222,7 +158,7 @@ def test_schema_prints_schema_document_without_required_args() -> None:
 
     assert result.exit_code == 0
     doc = json.loads(result.stdout)
-    assert set(doc.keys()) == {"input_schema", "output_schema", "error_schema"}
+    assert set(doc.keys()) == {"input_schema", "output_schema"}
 
 
 def test_schema_matches_json_subtree_schema() -> None:
@@ -238,13 +174,13 @@ def test_schema_matches_json_subtree_schema() -> None:
 # -- machine-mode signal ----------------------------------------------------
 
 
-def test_is_machine_mode_false_for_human_dispatch() -> None:
+def test_is_machine_mode_true_for_format_json_dispatch() -> None:
     runner = CliRunner()
     result = runner.invoke(_make_group(), ["mode", "--format", "json"], obj=_runtime_obj())
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload["machine_mode"] is True
+    assert payload["data"]["machine_mode"] is True
 
 
 def test_is_machine_mode_false_for_default_human_dispatch() -> None:
@@ -261,7 +197,7 @@ def test_is_machine_mode_true_for_json_subtree_dispatch() -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload["machine_mode"] is True
+    assert payload["data"]["machine_mode"] is True
 
 
 def test_machine_mode_does_not_leak_when_context_object_is_reused() -> None:
@@ -273,7 +209,7 @@ def test_machine_mode_does_not_leak_when_context_object_is_reused() -> None:
 
     assert json_result.exit_code == 0
     assert human_result.exit_code == 0
-    assert json.loads(json_result.stdout)["machine_mode"] is True
+    assert json.loads(json_result.stdout)["data"]["machine_mode"] is True
     assert '"machine_mode": false' in human_result.stdout
 
 
@@ -283,7 +219,9 @@ def test_machine_mode_does_not_leak_when_context_object_is_reused() -> None:
 def test_existing_format_option_is_preserved() -> None:
     # When the request already declares --format, the framework must not
     # inject its own and must not break the existing semantics.
-    result = CliRunner().invoke(_make_group(), ["review", "x", "--format", "findings"])
+    result = CliRunner().invoke(
+        _make_group(), ["review", "x", "--format", "findings"], obj=_runtime_obj()
+    )
 
     assert result.exit_code == 0
     assert '"summary": "x:findings"' in result.stdout

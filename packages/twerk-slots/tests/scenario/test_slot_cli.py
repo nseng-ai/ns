@@ -232,7 +232,7 @@ def test_slot_list_schema(cli_group: ClinkrGroup) -> None:
     payload = _json_output(result.output)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_slot_list_format_json_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -272,7 +272,7 @@ def test_slot_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = _json_output(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_slot_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:

@@ -6,11 +6,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import (
-    ClinkrCommandError,
-    _apply_machine_command,
-    emit_machine_envelope,
-)
+from twerk_core.clinkr.command import _apply_machine_command, emit_machine_envelope
 from twerk_core.clinkr.context import MACHINE_FORMAT_PARAM_NAME, set_machine_mode
 from twerk_core.clinkr.exit import ClinkrExit, ExitStatus
 from twerk_core.clinkr.json_schema import build_json_schema_document
@@ -132,33 +128,24 @@ def _register_operation(
         if format_mode == "json":
             set_machine_mode(ctx)
             result = operation(ctx, request)
-            emit_machine_envelope(result, return_style=meta.return_style)
+            emit_machine_envelope(result)
             return
 
         result = operation(ctx, request)
-        if meta.return_style == "exit":
-            if not isinstance(result, ClinkrExit):
-                raise click.ClickException(
-                    f"operation '{meta.name}' declared return_style='exit' "
-                    "but did not return a ClinkrExit"
-                )
-            if result.status is ExitStatus.OK:
-                renderer(result.data)
-                return
-            if result.status is ExitStatus.NEGATIVE:
-                if result.message is not None:
-                    click.echo(result.message, err=True)
-                ctx.exit(1)
-            # FAILURE
-            click.echo(f"error: {result.message}", err=True)
-            ctx.exit(2)
+        if not isinstance(result, ClinkrExit):
+            raise click.ClickException(
+                f"operation '{meta.name}' did not return a ClinkrExit; got {type(result).__name__}"
+            )
+        if result.status is ExitStatus.OK:
+            renderer(result.data)
             return
-        # TODO(clinkr-contract-redesign PR 7): remove the legacy branch below
-        # once every operation returns ClinkrExit[T]. Until then, both
-        # dispatch paths must coexist so migration can proceed package-by-package.
-        if isinstance(result, ClinkrCommandError):
-            raise click.ClickException(result.message)
-        renderer(result)
+        if result.status is ExitStatus.NEGATIVE:
+            if result.message is not None:
+                click.echo(result.message, err=True)
+            ctx.exit(1)
+        # FAILURE
+        click.echo(f"error: {result.message}", err=True)
+        ctx.exit(2)
 
     if inject_format_flags:
         params.extend(_build_format_flags(request_type, result_types))
@@ -188,7 +175,6 @@ def _register_operation(
         machine_cmd,
         request_type=request_type,
         output_types=result_types,
-        return_style=meta.return_style,
     )
 
     # -- register --
@@ -213,9 +199,9 @@ def _build_format_flags(
     """Build the framework-injected ``--format`` / ``--schema`` options.
 
     ``--format json`` dispatches the operation through the same envelope path
-    as the legacy ``json`` subtree. ``--schema`` is eager (mirrors ``--help``)
-    and prints the JSON Schema document for the command's input/output
-    shapes before required-argument validation runs, then exits 0.
+    as the ``json`` subtree. ``--schema`` is eager (mirrors ``--help``) and
+    prints the JSON Schema document for the command's input/output shapes
+    before required-argument validation runs, then exits 0.
     """
 
     def _print_schema(ctx: click.Context, _param: click.Parameter, value: bool) -> None:

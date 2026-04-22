@@ -22,7 +22,7 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
 
     Returns a :class:`NoRepoSentinel` when ``cwd`` is outside a git repo or
     when the repo has no resolvable trunk branch, so callers can surface a
-    ClinkrCommandError without another branch.
+    ``ClinkrExit.failure`` without another branch.
     """
     cwd = Path.cwd()
     slots_root = SLOTS_ROOT

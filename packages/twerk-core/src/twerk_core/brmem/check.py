@@ -7,9 +7,18 @@ from typing import Annotated, Any
 
 import click
 
-from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
-from twerk_core.brmem.validation import validate_entry_ref
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.brmem.gateway import (
+    EntryRef,
+    check_branch_name,
+    check_namespace,
+    ref_name_for_entry,
+)
+from twerk_core.brmem.gateway_access import (
+    get_branch_memory_gateway,
+    resolve_current_brmem_branch,
+)
+from twerk_core.brmem.key_validation import check_key
+from twerk_core.brmem.validation import first_failure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -79,13 +88,27 @@ def run_check(
     ctx: click.Context,
     request: CheckRequest,
 ) -> ClinkrExit[CheckResult]:
-    branch = resolve_branch_name(ctx, request.branch)
-    if isinstance(branch, ClinkrCommandError):
-        return ClinkrExit.failure(error_type=branch.error_type, message=branch.message)
+    match resolve_current_brmem_branch(ctx, request.branch):
+        case ClinkrExit() as exit_:
+            return exit_
+        case str() as branch:
+            pass
 
-    entry_ref = validate_entry_ref(request.namespace, request.key, branch)
-    if isinstance(entry_ref, ClinkrCommandError):
-        return ClinkrExit.failure(error_type=entry_ref.error_type, message=entry_ref.message)
+    failure = first_failure(
+        ("invalid_namespace", check_namespace(request.namespace)),
+        ("invalid_key", check_key(request.key)),
+        ("invalid_branch_name", check_branch_name(branch)),
+    )
+    if failure is not None:
+        error_type, message = failure
+        return ClinkrExit.failure(error_type=error_type, message=message)
+
+    entry_ref = EntryRef(
+        namespace=request.namespace,
+        key=request.key,
+        branch=branch,
+        ref_name=ref_name_for_entry(request.namespace, request.key, branch),
+    )
 
     target = request.at if request.at is not None else entry_ref.ref_name
 
