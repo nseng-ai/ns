@@ -431,3 +431,113 @@ def test_memjective_show_missing_slug_json(cli_group: ClinkrGroup) -> None:
         "seed_present": False,
         "branches": [],
     }
+
+
+def _seed_sole_memjective_on_branch() -> FakeBranchMemoryGateway:
+    gateway = FakeBranchMemoryGateway()
+    # memjective-cli is the only memjective on the current branch feat/x,
+    # with a master seed to verify the repo-wide view is returned.
+    gateway.put("memjectives", "memjective-cli.md", "master", "seed\n")
+    gateway.put("memjectives", "memjective-cli.md", "feat/x", "snap\n")
+    # Memjectives on other branches must not trigger ambiguity.
+    gateway.put("memjectives", "other-slug.md", "feat/other", "snap\n")
+    # Entries in other namespaces must not count toward the total.
+    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
+    return gateway
+
+
+def test_memjective_show_no_slug_defaults_to_sole_memjective(
+    cli_group: ClinkrGroup,
+) -> None:
+    obj = _make_obj(
+        gateway=_seed_sole_memjective_on_branch(),
+        live_branches=("master", "feat/x", "feat/other"),
+    )
+
+    result = CliRunner().invoke(cli_group, ["show"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert "slug: memjective-cli" in result.output
+    assert "key:  memjective-cli.md" in result.output
+    assert "seed: present (master)" in result.output
+    assert "feat/x" in result.output
+
+
+def test_memjective_show_no_slug_defaults_json(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(
+        gateway=_seed_sole_memjective_on_branch(),
+        live_branches=("master", "feat/x", "feat/other"),
+    )
+
+    result = CliRunner().invoke(cli_group, ["show", "--format", "json"], obj=obj)
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "slug": "memjective-cli",
+        "key": "memjective-cli.md",
+        "seed_present": True,
+        "branches": [{"branch": "feat/x", "stale": False}],
+    }
+
+
+def test_memjective_show_no_slug_errors_when_branch_empty(
+    cli_group: ClinkrGroup,
+) -> None:
+    # _seed_repo() seeds no memjectives on feat/x (the default current branch),
+    # so the branch-scoped default must fail even though other branches carry
+    # memjectives in the repo.
+    obj = _make_obj(
+        gateway=_seed_repo(),
+        live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
+    )
+
+    result = CliRunner().invoke(cli_group, ["show", "--format", "json"], obj=obj)
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "no_memjective_on_branch"
+    assert payload["message"] == "No memjective on branch 'feat/x'."
+
+
+def test_memjective_show_no_slug_errors_when_ambiguous(cli_group: ClinkrGroup) -> None:
+    # _seed() puts two memjective snapshots on feat/x (the default branch):
+    # clinkr-migration.md and memjective-cli.md.
+    obj = _make_obj(gateway=_seed(), live_branches=("feat/x",))
+
+    result = CliRunner().invoke(cli_group, ["show"], obj=obj)
+
+    assert result.exit_code == 2
+    assert "Multiple memjectives on branch 'feat/x':" in result.output
+    assert "clinkr-migration" in result.output
+    assert "memjective-cli" in result.output
+    assert "Specify a SLUG." in result.output
+
+
+def test_memjective_show_no_slug_ambiguous_json(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed(), live_branches=("feat/x",))
+
+    result = CliRunner().invoke(cli_group, ["show", "--format", "json"], obj=obj)
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "ambiguous_memjective"
+    assert "clinkr-migration" in payload["message"]
+    assert "memjective-cli" in payload["message"]
+
+
+def test_memjective_show_no_slug_errors_on_detached_head(
+    cli_group: ClinkrGroup,
+) -> None:
+    obj = _make_obj(
+        gateway=_seed_sole_memjective_on_branch(),
+        branch=DetachedHead(),
+        live_branches=("master", "feat/x"),
+    )
+
+    result = CliRunner().invoke(cli_group, ["show"], obj=obj)
+
+    assert result.exit_code == 2

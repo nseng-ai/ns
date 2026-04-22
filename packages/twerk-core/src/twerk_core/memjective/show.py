@@ -10,19 +10,25 @@ import click
 from twerk_core.brmem.gateway_access import (
     get_branch_memory_gateway,
     get_git_gateway,
+    resolve_current_brmem_branch,
 )
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.memjective.discovery import (
     BranchPresence,
+    MemjectiveRepoEntry,
     discover_memjectives,
     slug_for_key,
 )
+from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
 
 
 @dataclass(frozen=True)
 class MemjectiveShowRequest:
-    slug: Annotated[str, click.Argument(["slug"], type=click.STRING)]
+    slug: Annotated[
+        str | None,
+        click.Argument(["slug"], type=click.STRING, required=False, default=None),
+    ] = None
 
 
 @dataclass(frozen=True)
@@ -54,11 +60,22 @@ def render_memjective_show(result: MemjectiveShowResult) -> None:
         click.echo(f"  - {bp.branch}{marker}")
 
 
+def _result_from_entry(entry: MemjectiveRepoEntry) -> MemjectiveShowResult:
+    return MemjectiveShowResult(
+        slug=entry.slug,
+        key=entry.key,
+        seed_present=entry.seed_present,
+        branches=entry.branches,
+    )
+
+
 @clinkr_operation(
     name="show",
     help=(
         "Summarize where a memjective currently exists: whether a master "
-        "seed is present and which branches carry a snapshot."
+        "seed is present and which branches carry a snapshot. If SLUG is "
+        "omitted and exactly one memjective is attached to the current "
+        "branch, it is selected automatically."
     ),
     human_renderer=render_memjective_show,
 )
@@ -66,15 +83,41 @@ def run_show_memjective(
     ctx: click.Context,
     request: MemjectiveShowRequest,
 ) -> ClinkrExit[MemjectiveShowResult]:
-    requested_slug = slug_for_key(request.slug)
-
     gateway = get_branch_memory_gateway(ctx)
     git_gateway = get_git_gateway(ctx)
+
+    if request.slug is None:
+        match resolve_current_brmem_branch(ctx, None):
+            case ClinkrExit() as exit_:
+                return exit_
+            case str() as branch:
+                pass
+
+        branch_slugs = sorted(
+            {
+                slug_for_key(entry.key)
+                for entry in gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE, branch=branch)
+            }
+        )
+        if not branch_slugs:
+            return ClinkrExit.failure(
+                error_type="no_memjective_on_branch",
+                message=f"No memjective on branch {branch!r}.",
+            )
+        if len(branch_slugs) > 1:
+            names = ", ".join(branch_slugs)
+            return ClinkrExit.failure(
+                error_type="ambiguous_memjective",
+                message=(f"Multiple memjectives on branch {branch!r}: {names}. Specify a SLUG."),
+            )
+        requested_slug = branch_slugs[0]
+    else:
+        requested_slug = slug_for_key(request.slug)
+
     memjectives = discover_memjectives(
         gateway,
         is_branch_alive=git_gateway.branch_exists,
     )
-
     matches = [m for m in memjectives if m.slug == requested_slug]
     if not matches:
         empty = MemjectiveShowResult(
@@ -88,12 +131,4 @@ def run_show_memjective(
             message=f"No memjective found for slug {requested_slug!r}.",
         )
 
-    memjective = matches[0]
-    return ClinkrExit.ok(
-        MemjectiveShowResult(
-            slug=memjective.slug,
-            key=memjective.key,
-            seed_present=memjective.seed_present,
-            branches=memjective.branches,
-        )
-    )
+    return ClinkrExit.ok(_result_from_entry(matches[0]))
