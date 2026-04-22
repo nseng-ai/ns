@@ -27,16 +27,16 @@ branch snapshot. The rules below keep those rewrites honest. They apply to the
 current-branch snapshot only; the master-branch snapshot is never touched
 during `update`.
 
-| Section              | Allowed                                                                                                                       | Forbidden                                                         |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Title                | Leave as-is                                                                                                                   | Rename unless the user explicitly asks                            |
-| Status               | Update (`in progress` / `blocked` / `done`)                                                                                   | Turning it into a prose progress log                              |
-| Description          | Small clarifications; small factual append-only updates                                                                       | Rewriting it every slice to restate roadmap progress              |
-| Goals                | Small clarifications only                                                                                                     | Turning Goals into a checklist or per-PR progress log             |
-| Completion Criteria  | Check items; add brief evidence notes                                                                                         | Delete criteria; rewrite criteria casually; renumber              |
-| Roadmap              | Check completed items; add nearby follow-ups; split items when work turned out more granular than expected; reorder if needed | Erase completed items; drop progress history; wholesale reshuffle |
-| How to Make Progress | Edit when the actual recipe changed                                                                                           | Edit just because one roadmap item finished                       |
-| Notes                | Append findings, constraints, pointers; annotate obsolete notes                                                               | Silently delete notes; strip context                              |
+| Section              | Allowed                                                                                                                       | Forbidden                                                                                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Title                | Leave as-is                                                                                                                   | Rename unless the user explicitly asks                                                                                                                             |
+| Status               | Update (`in progress` / `blocked` / `done`)                                                                                   | Turning it into a prose progress log                                                                                                                               |
+| Description          | Small clarifications; small factual append-only updates                                                                       | Rewriting it every slice to restate roadmap progress                                                                                                               |
+| Goals                | Small clarifications only                                                                                                     | Turning Goals into a checklist or per-PR progress log                                                                                                              |
+| Completion Criteria  | Check items; add brief evidence notes                                                                                         | Delete criteria; rewrite criteria casually; renumber                                                                                                               |
+| Roadmap              | Check completed items; add nearby follow-ups; split items when work turned out more granular than expected; reorder if needed | Erase completed items; drop progress history; wholesale reshuffle; add manual-only or observation-only bullets (e.g., "live testing session", "manual smoke-test") |
+| How to Make Progress | Edit when the actual recipe changed                                                                                           | Edit just because one roadmap item finished                                                                                                                        |
+| Notes                | Append findings, constraints, pointers; annotate obsolete notes                                                               | Silently delete notes; strip context                                                                                                                               |
 
 ## Section-by-section rules for `dev-memjective-peek`
 
@@ -101,3 +101,6 @@ Criteria / Roadmap / How to Make Progress / Notes` shape.
 - Running `next` on a branch that already has a memjective snapshot. The
   precondition exists on purpose.
 - Carry-forward that is a partial copy or a merge. Always exact-copy.
+- Adding manual-only or observation-only items to the Roadmap. Every roadmap
+  bullet must be codified work that lands in a PR. Verification belongs in
+  the PR's test plan, not as a standalone memjective bullet.

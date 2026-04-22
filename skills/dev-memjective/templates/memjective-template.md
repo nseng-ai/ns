@@ -6,6 +6,8 @@ For architectural redesigns and other multi-PR work:
 - use `## Goals` for the value or outcome this work should deliver
 - use `## Completion Criteria` to describe the end state
 - use `## Roadmap` to organize PR-sized slices
+- every `## Roadmap` bullet must be codified PR work (code, tests, docs,
+  config, or a deliberate delete); no manual-only or observation-only bullets
 - prefer steelthreaded early slices over framework-only setup
 - keep `Status:` terse and categorical rather than a progress narrative
 - keep `## Notes` and let it accumulate durable discoveries over time
