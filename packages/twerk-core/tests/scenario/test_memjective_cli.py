@@ -24,12 +24,16 @@ def _make_obj(
     *,
     gateway: FakeBranchMemoryGateway | None = None,
     branch: str | DetachedHead | GitCommandFailure | None = "feat/x",
+    live_branches: tuple[str, ...] = (),
 ) -> ClinkrContextObject:
     brmem_gateway = gateway if gateway is not None else FakeBranchMemoryGateway()
     if branch is None:
-        git_gateway = FakeGitGateway()
+        git_gateway = FakeGitGateway(branches=live_branches)
     else:
-        git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): branch})
+        git_gateway = FakeGitGateway(
+            current_branch_by_path={Path.cwd(): branch},
+            branches=live_branches,
+        )
     ctx = BrmemCliContext(brmem_gateway=brmem_gateway, git_gateway=git_gateway)
     return build_clinkr_context_object(lambda: ctx)
 
@@ -201,3 +205,229 @@ def test_memjective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert set(payload) == {"input_schema", "output_schema"}
+
+
+# ---------------------------------------------------------------------------
+# memjective list --repo
+# ---------------------------------------------------------------------------
+
+
+def _seed_repo() -> FakeBranchMemoryGateway:
+    gateway = FakeBranchMemoryGateway()
+    # memjective-cli: master seed + two branch snapshots (one stale).
+    gateway.put("memjectives", "memjective-cli.md", "master", "seed\n")
+    gateway.put("memjectives", "memjective-cli.md", "mem-scaffold-list", "snap\n")
+    gateway.put("memjectives", "memjective-cli.md", "mem-stale-branch", "snap\n")
+    # clinkr-migration: master seed only (seed-only case).
+    gateway.put("memjectives", "clinkr-migration.md", "master", "seed\n")
+    # twerk-reviewer: branch snapshot only, no master seed (snapshot-only case).
+    gateway.put("memjectives", "twerk-reviewer.md", "feat/reviewer", "snap\n")
+    # Non-memjective namespace must not leak into --repo output.
+    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
+    return gateway
+
+
+def test_memjective_list_repo_groups_by_slug(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(
+        gateway=_seed_repo(),
+        live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
+    )
+
+    result = CliRunner().invoke(cli_group, ["list", "--repo"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()
+    assert lines[0].startswith("SLUG")
+    assert "SEED" in lines[0]
+    assert "BRANCHES" in lines[0]
+    # slugs are sorted alphabetically by key
+    assert "clinkr-migration" in lines[1]
+    assert "yes" in lines[1]
+    assert "memjective-cli" in lines[2]
+    assert "(+1 stale)" in lines[2]
+    assert "twerk-reviewer" in lines[3]
+    assert "no" in lines[3]
+
+
+def test_memjective_list_repo_rejects_branch_flag(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--repo", "--branch", "feat/x"],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "--repo cannot be combined with --branch" in result.output
+
+
+def test_memjective_list_repo_ignores_other_namespaces(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
+    gateway.put("objectives", "obj.md", "feat/x", "seed\n")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--repo"],
+        obj=_make_obj(gateway=gateway, live_branches=("feat/x",)),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == ""
+
+
+def test_memjective_list_repo_works_from_detached_head(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--repo"],
+        obj=_make_obj(
+            gateway=_seed_repo(),
+            branch=DetachedHead(),
+            live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "clinkr-migration" in result.output
+    assert "memjective-cli" in result.output
+
+
+def test_memjective_list_repo_format_json(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--repo", "--format", "json"],
+        obj=_make_obj(
+            gateway=_seed_repo(),
+            live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
+        ),
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "scope": "repo",
+        "memjectives": [
+            {
+                "slug": "clinkr-migration",
+                "key": "clinkr-migration.md",
+                "seed_present": True,
+                "branches": [],
+            },
+            {
+                "slug": "memjective-cli",
+                "key": "memjective-cli.md",
+                "seed_present": True,
+                "branches": [
+                    {"branch": "mem-scaffold-list", "stale": False},
+                    {"branch": "mem-stale-branch", "stale": True},
+                ],
+            },
+            {
+                "slug": "twerk-reviewer",
+                "key": "twerk-reviewer.md",
+                "seed_present": False,
+                "branches": [
+                    {"branch": "feat/reviewer", "stale": False},
+                ],
+            },
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# memjective show
+# ---------------------------------------------------------------------------
+
+
+def test_memjective_show_reports_seed_and_branches(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(
+        gateway=_seed_repo(),
+        live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
+    )
+
+    result = CliRunner().invoke(cli_group, ["show", "memjective-cli"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert "slug: memjective-cli" in result.output
+    assert "key:  memjective-cli.md" in result.output
+    assert "seed: present (master)" in result.output
+    assert "mem-scaffold-list" in result.output
+    assert "mem-stale-branch [stale]" in result.output
+
+
+def test_memjective_show_accepts_md_suffix(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(
+        gateway=_seed_repo(),
+        live_branches=("master", "mem-scaffold-list"),
+    )
+
+    result = CliRunner().invoke(cli_group, ["show", "memjective-cli.md"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert "slug: memjective-cli" in result.output
+
+
+def test_memjective_show_seed_only_slug(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed_repo(), live_branches=("master",))
+
+    result = CliRunner().invoke(cli_group, ["show", "clinkr-migration"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert "seed: present (master)" in result.output
+    assert "branches: (none)" in result.output
+
+
+def test_memjective_show_missing_slug_is_negative(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed_repo(), live_branches=("master",))
+
+    result = CliRunner().invoke(cli_group, ["show", "does-not-exist"], obj=obj)
+
+    assert result.exit_code == 1
+    assert "No memjective found for slug 'does-not-exist'." in result.output
+
+
+def test_memjective_show_format_json(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(
+        gateway=_seed_repo(),
+        live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["show", "memjective-cli", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "slug": "memjective-cli",
+        "key": "memjective-cli.md",
+        "seed_present": True,
+        "branches": [
+            {"branch": "mem-scaffold-list", "stale": False},
+            {"branch": "mem-stale-branch", "stale": True},
+        ],
+    }
+
+
+def test_memjective_show_missing_slug_json(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed_repo(), live_branches=("master",))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["show", "does-not-exist", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 1
+    assert payload["exit_code"] == 1
+    assert payload["message"] == "No memjective found for slug 'does-not-exist'."
+    assert payload["data"] == {
+        "slug": "does-not-exist",
+        "key": "does-not-exist.md",
+        "seed_present": False,
+        "branches": [],
+    }
