@@ -390,7 +390,7 @@ def test_review_run_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_review_run_format_json_reports_failure(cli_group: ClinkrGroup) -> None:

@@ -11,7 +11,6 @@ import click
 T = TypeVar("T")
 
 MACHINE_FORMAT_PARAM_NAME = "_clinkr_format"
-_MACHINE_MODE_KEY = "clinkr.machine_mode"
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,27 +66,32 @@ def load_typed_context(ctx: click.Context, context_type: type[T]) -> T:
 def set_machine_mode(ctx: click.Context) -> None:
     """Mark the active Click context as running in machine-readable mode.
 
-    When Clinkr owns ``ctx.obj``, replace the root runtime object with an
-    immutable copy carrying the mode bit. Standalone machine-command tests may
-    not install a Clinkr context object, so fall back to ``meta`` in that case.
+    Replaces the root runtime object with an immutable copy carrying the
+    mode bit. ``ctx.obj`` must already be a :class:`ClinkrContextObject`;
+    CLI entry points and tests install it before dispatch.
     """
     root = ctx.find_root()
     obj = root.obj
-    if isinstance(obj, ClinkrContextObject):
-        root.obj = obj.with_machine_mode()
-        return
-    root.meta[_MACHINE_MODE_KEY] = True
+    if not isinstance(obj, ClinkrContextObject):
+        raise RuntimeError(
+            "set_machine_mode requires a ClinkrContextObject on the root Click context; "
+            f"got {type(obj).__name__}. Install one via build_clinkr_context_object(...)."
+        )
+    root.obj = obj.with_machine_mode()
 
 
 def is_machine_mode(ctx: click.Context) -> bool:
     """Return True when the current dispatch was initiated in machine-readable mode.
 
-    Both the legacy ``json`` subgroup and the ``--format json`` flag set this
+    Both the ``json`` subgroup and the ``--format json`` flag set this
     signal, so operations can refuse human-only behavior (e.g. piping stdin
     content) without inspecting the group hierarchy.
     """
     root = ctx.find_root()
     obj = root.obj
-    if isinstance(obj, ClinkrContextObject):
-        return obj.machine_mode
-    return bool(root.meta.get(_MACHINE_MODE_KEY, False))
+    if not isinstance(obj, ClinkrContextObject):
+        raise RuntimeError(
+            "is_machine_mode requires a ClinkrContextObject on the root Click context; "
+            f"got {type(obj).__name__}. Install one via build_clinkr_context_object(...)."
+        )
+    return obj.machine_mode

@@ -1051,7 +1051,7 @@ def test_get_reviews_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_add_issue_comment_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
@@ -1059,7 +1059,7 @@ def test_add_issue_comment_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_reply_to_review_format_json_reports_failure(cli_group: ClinkrGroup) -> None:

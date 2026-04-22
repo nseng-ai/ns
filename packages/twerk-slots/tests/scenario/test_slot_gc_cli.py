@@ -339,7 +339,7 @@ def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 # -- --format json + --schema on the primary command ------------------------
@@ -401,4 +401,4 @@ def test_slot_gc_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}

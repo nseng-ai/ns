@@ -1,43 +1,29 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import click
 
 from twerk_core.clinkr.context import set_machine_mode
 from twerk_core.clinkr.dataclass_json import (
-    emit_json_error,
-    emit_json_success,
     parse_dataclass_from_json,
     read_json_stdin,
-    serialize_to_json_dict,
 )
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.json_schema import build_json_schema_document
-
-ReturnStyle = Literal["exit", "legacy"]
-
-
-@dataclass(frozen=True)
-class ClinkrCommandError:
-    error_type: str
-    message: str
 
 
 def machine_command(
     *,
     request_type: type,
     output_types: tuple[type, ...],
-    return_style: ReturnStyle = "legacy",
 ) -> Any:
     def decorator(cmd: click.Command) -> click.Command:
         return _apply_machine_command(
             cmd,
             request_type=request_type,
             output_types=output_types,
-            return_style=return_style,
         )
 
     return decorator
@@ -51,45 +37,20 @@ def parse_machine_request(request_type: type, data: dict[str, Any]) -> Any:
     return parse_dataclass_from_json(request_type, data)
 
 
-def emit_machine_error(error: ClinkrCommandError) -> None:
-    emit_json_error(error_type=error.error_type, message=error.message)
-
-
-def emit_machine_result(result: Any) -> None:
-    emit_json_success(serialize_to_json_dict(result))
-
-
-def emit_machine_envelope(result: Any, *, return_style: ReturnStyle) -> None:
+def emit_machine_envelope(result: Any) -> None:
     """Emit the machine-readable envelope for an operation's result.
 
     Shared by the ``json`` subtree and the ``--format json`` flag so both
     dispatch paths produce identical output and exit codes. Raises
-    ``SystemExit`` for non-zero exits.
+    ``SystemExit`` when the operation's exit code is non-zero.
     """
-    if return_style == "exit":
-        if not isinstance(result, ClinkrExit):
-            emit_machine_error(
-                ClinkrCommandError(
-                    error_type="contract_violation",
-                    message=(
-                        "operation declared return_style='exit' but did not return a ClinkrExit"
-                    ),
-                )
-            )
-            raise SystemExit(2)
-        click.echo(json.dumps(result.to_envelope_dict(), indent=2))
-        if result.exit_code != 0:
-            raise SystemExit(result.exit_code)
-        return
-
-    # TODO(clinkr-contract-redesign PR 7): remove the legacy branch below
-    # once every operation returns ClinkrExit[T].
-    if isinstance(result, ClinkrCommandError):
-        emit_machine_error(result)
-        raise SystemExit(1)
-
-    if result is not None:
-        emit_machine_result(result)
+    if not isinstance(result, ClinkrExit):
+        raise TypeError(
+            f"clinkr operation did not return a ClinkrExit; got {type(result).__name__}"
+        )
+    click.echo(json.dumps(result.to_envelope_dict(), indent=2))
+    if result.exit_code != 0:
+        raise SystemExit(result.exit_code)
 
 
 def _apply_machine_command(
@@ -97,7 +58,6 @@ def _apply_machine_command(
     *,
     request_type: type,
     output_types: tuple[type, ...],
-    return_style: ReturnStyle = "legacy",
 ) -> click.Command:
     cmd.params.append(
         click.Option(
@@ -125,21 +85,11 @@ def _apply_machine_command(
         try:
             input_data = read_machine_command_input()
         except json.JSONDecodeError as exc:
-            emit_machine_error(
-                ClinkrCommandError(
-                    error_type="invalid_json_input",
-                    message=f"Invalid JSON: {exc}",
-                )
-            )
-            raise SystemExit(1) from None
+            _emit_invalid_input(f"Invalid JSON: {exc}")
+            raise SystemExit(2) from None
         except ValueError as exc:
-            emit_machine_error(
-                ClinkrCommandError(
-                    error_type="invalid_json_input",
-                    message=str(exc),
-                )
-            )
-            raise SystemExit(1) from None
+            _emit_invalid_input(str(exc))
+            raise SystemExit(2) from None
 
         if input_data is None:
             input_data = {}
@@ -147,13 +97,8 @@ def _apply_machine_command(
         try:
             kwargs["request"] = parse_machine_request(request_type, input_data)
         except ValueError as exc:
-            emit_machine_error(
-                ClinkrCommandError(
-                    error_type="invalid_request",
-                    message=str(exc),
-                )
-            )
-            raise SystemExit(1) from None
+            _emit_invalid_request(str(exc))
+            raise SystemExit(2) from None
 
         set_machine_mode(click.get_current_context())
 
@@ -163,18 +108,40 @@ def _apply_machine_command(
             error_type = getattr(exc, "error_type", None)
             if error_type is None:
                 raise
-            emit_machine_error(
-                ClinkrCommandError(
-                    error_type=str(error_type),
-                    message=exc.format_message(),
-                )
-            )
-            raise SystemExit(1) from None
+            _emit_click_exception(error_type=str(error_type), message=exc.format_message())
+            raise SystemExit(2) from None
 
-        emit_machine_envelope(result, return_style=return_style)
+        emit_machine_envelope(result)
         return result
 
     wrapped_callback.__name__ = getattr(original_callback, "__name__", "wrapped")
     wrapped_callback.__doc__ = getattr(original_callback, "__doc__", None)
     cmd.callback = wrapped_callback
     return cmd
+
+
+def _emit_invalid_input(message: str) -> None:
+    click.echo(
+        json.dumps(
+            {"exit_code": 2, "error_type": "invalid_json_input", "message": message},
+            indent=2,
+        )
+    )
+
+
+def _emit_invalid_request(message: str) -> None:
+    click.echo(
+        json.dumps(
+            {"exit_code": 2, "error_type": "invalid_request", "message": message},
+            indent=2,
+        )
+    )
+
+
+def _emit_click_exception(*, error_type: str, message: str) -> None:
+    click.echo(
+        json.dumps(
+            {"exit_code": 2, "error_type": error_type, "message": message},
+            indent=2,
+        )
+    )

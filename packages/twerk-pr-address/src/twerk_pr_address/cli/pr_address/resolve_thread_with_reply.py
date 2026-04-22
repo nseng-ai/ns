@@ -8,7 +8,6 @@ from typing import Any, Literal
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRReviewComment
@@ -48,12 +47,23 @@ def run_resolve_thread_with_reply(
     ctx: click.Context,
     request: ResolveThreadWithReplyRequest,
 ) -> ClinkrExit[ResolveThreadWithReplyResult]:
-    validation_error = _validate_resolution_inputs(request)
-    if validation_error is not None:
-        return ClinkrExit.failure(
-            error_type=validation_error.error_type,
-            message=validation_error.message,
-        )
+    if request.mode == "fixed":
+        if request.message is None or not request.message.strip():
+            return ClinkrExit.failure(
+                error_type="invalid_request",
+                message="mode='fixed' requires a non-empty message",
+            )
+        if request.commit_sha is None or not request.commit_sha.strip():
+            return ClinkrExit.failure(
+                error_type="invalid_request",
+                message="mode='fixed' requires a non-empty commit_sha",
+            )
+    elif request.mode == "explained":
+        if request.message is None or not request.message.strip():
+            return ClinkrExit.failure(
+                error_type="invalid_request",
+                message="mode='explained' requires a non-empty message",
+            )
 
     normalized_message = request.message.strip() if request.message is not None else None
     normalized_sha = request.commit_sha.strip() if request.commit_sha is not None else None
@@ -75,30 +85,3 @@ def run_resolve_thread_with_reply(
             was_already_resolved=resolve_result.was_already_resolved,
         )
     )
-
-
-def _validate_resolution_inputs(
-    request: ResolveThreadWithReplyRequest,
-) -> ClinkrCommandError | None:
-    """Return an invalid_request error if the request violates mode preconditions."""
-    if request.mode == "fixed":
-        if request.message is None or not request.message.strip():
-            return ClinkrCommandError(
-                error_type="invalid_request",
-                message="mode='fixed' requires a non-empty message",
-            )
-        if request.commit_sha is None or not request.commit_sha.strip():
-            return ClinkrCommandError(
-                error_type="invalid_request",
-                message="mode='fixed' requires a non-empty commit_sha",
-            )
-        return None
-    if request.mode == "explained":
-        if request.message is None or not request.message.strip():
-            return ClinkrCommandError(
-                error_type="invalid_request",
-                message="mode='explained' requires a non-empty message",
-            )
-        return None
-    # mode == "pre_existing": message and commit_sha are ignored.
-    return None

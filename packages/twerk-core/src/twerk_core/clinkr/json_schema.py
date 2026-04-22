@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from twerk_core.clinkr.dataclass_json import ERROR_SCHEMA, output_schema, request_schema
+from twerk_core.clinkr.dataclass_json import output_schema, request_schema
 
 
 def build_json_schema_document(
@@ -13,5 +13,4 @@ def build_json_schema_document(
     return {
         "input_schema": request_schema(request_type),
         "output_schema": output_schema(output_types),
-        "error_schema": ERROR_SCHEMA,
     }

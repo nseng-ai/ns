@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -39,11 +39,11 @@ class GreetResult:
 
 
 @clinkr_operation(name="greet", help="Greet someone by name.")
-def run_greet(ctx: click.Context, request: GreetRequest) -> GreetResult | ClinkrCommandError:
+def run_greet(ctx: click.Context, request: GreetRequest) -> ClinkrExit[GreetResult]:
     greeting = f"Hello, {request.name}!"
     if request.loud:
         greeting = greeting.upper()
-    return GreetResult(greeting=greeting)
+    return ClinkrExit.ok(GreetResult(greeting=greeting))
 ```
 
 ```python
@@ -84,7 +84,10 @@ $ myapp greet Alice --loud
 HELLO, ALICE!
 
 $ echo '{"name": "Alice", "loud": true}' | myapp json greet
-{"greeting": "HELLO, ALICE!", "success": true}
+{
+  "exit_code": 0,
+  "data": {"greeting": "HELLO, ALICE!"}
+}
 
 $ myapp json greet --schema
 {
@@ -96,8 +99,7 @@ $ myapp json greet --schema
     },
     "required": ["name"]
   },
-  "output_schema": { ... },
-  "error_schema": { ... }
+  "output_schema": { ... }
 }
 ```
 
@@ -157,13 +159,25 @@ Each `ClinkrGroup` gets its own `json` subgroup, so the machine-readable path is
 
 ### `@clinkr_operation`
 
-Decorator that marks a function as a clinkr operation. The function must accept exactly two parameters — `ctx: click.Context` followed by the request dataclass — and return a result dataclass or `ClinkrCommandError`. Clinkr threads the active Click context in so operations never have to fetch it from globals. Request type and result types are inferred from type annotations.
+Decorator that marks a function as a clinkr operation. The function must accept exactly two parameters — `ctx: click.Context` followed by the request dataclass — and return `ClinkrExit[T]`. Clinkr threads the active Click context in so operations never have to fetch it from globals. The request type and the wrapped result type are inferred from type annotations.
 
 ```python
 @clinkr_operation(name="foo", help="Do foo.", aliases=("f",))
-def run_foo(ctx: click.Context, request: FooRequest) -> FooResult | ClinkrCommandError:
+def run_foo(ctx: click.Context, request: FooRequest) -> ClinkrExit[FooResult]:
     ...
 ```
+
+### `ClinkrExit[T]`
+
+The universal operation return contract. An operation returns one of three constructors; the exit tag determines the CLI exit code in both human and machine modes:
+
+| Constructor                                       | Exit | Human mode                   | Machine envelope                                      |
+| ------------------------------------------------- | ---- | ---------------------------- | ----------------------------------------------------- |
+| `ClinkrExit.ok(data)`                             | `0`  | renderer runs on `data`      | `{"exit_code": 0, "data": ...}`                       |
+| `ClinkrExit.negative(data, message=...)`          | `1`  | `message` to stderr          | `{"exit_code": 1, "message": ..., "data": ...}`       |
+| `ClinkrExit.failure(error_type=..., message=...)` | `2`  | `error: <message>` to stderr | `{"exit_code": 2, "error_type": ..., "message": ...}` |
+
+Use `negative` for "ran to completion, answered no" (not found, empty, false predicate). Use `failure` for invalid input, gateway failure, and anything else that warrants a non-zero exit caused by an error.
 
 ### `ClinkrGroup`
 
@@ -179,9 +193,14 @@ By convention, every group package exposes an explicit builder function in `grou
 
 ### Machine Commands
 
-Every machine command accepts JSON on stdin and emits JSON on stdout. Responses are wrapped with `"success": true` or `"success": false` plus `error_type` and `message`.
+Every machine command accepts JSON on stdin and emits the `ClinkrExit` envelope on stdout. Exit codes follow the table above: `0` for ok, `1` for negative, `2` for failure.
 
-Use `--schema` on any machine command to get the JSON Schema for its input and output.
+Two equivalent dispatch paths produce the same envelope and exit code:
+
+- `<group> json <verb>` — the auto-provisioned subgroup.
+- `<group> <verb> --format json` — the flag injected onto the human command.
+
+Use `--schema` on any machine command to get the JSON Schema document for its input and output.
 
 ### Parameter Mapping
 
@@ -193,13 +212,14 @@ Dataclass fields map to Click parameters automatically:
 
 ### Custom Rendering
 
-Pass a `human_renderer` to `@clinkr_operation` to control how results are displayed in the human CLI. The default renderer serializes the result dataclass as indented JSON.
+Pass a `human_renderer` to `@clinkr_operation` to control how `ClinkrExit.ok` results are displayed in the human CLI. The renderer receives the unwrapped `data` payload. The default renderer serializes the result dataclass as indented JSON. `negative` and `failure` exits bypass the renderer and emit their `message` to stderr.
 
 ## Modules
 
 | Module           | Purpose                                                 |
 | ---------------- | ------------------------------------------------------- |
 | `operation`      | `@clinkr_operation` decorator and metadata              |
+| `exit`           | `ClinkrExit` return contract and exit-code table        |
 | `group`          | `ClinkrGroup`                                           |
 | `command`        | JSON stdin/stdout wiring and `--schema` flag            |
 | `json_schema`    | JSON Schema generation from dataclasses                 |

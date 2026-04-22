@@ -273,7 +273,7 @@ def test_objective_json_list_schema(cli_group: ClinkrGroup) -> None:
     payload = _json_output(result.output)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_objective_list_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
@@ -294,7 +294,7 @@ def test_objective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = _json_output(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_objective_list_format_json_reports_gh_failure(cli_group: ClinkrGroup) -> None:

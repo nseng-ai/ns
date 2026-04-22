@@ -976,7 +976,7 @@ def test_brmem_put_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_brmem_get_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
@@ -984,7 +984,7 @@ def test_brmem_get_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_brmem_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
@@ -992,7 +992,7 @@ def test_brmem_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+    assert set(payload) == {"input_schema", "output_schema"}
 
 
 def test_brmem_put_format_json_reports_failure(cli_group: ClinkrGroup, tmp_path: Path) -> None:

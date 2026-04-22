@@ -7,6 +7,7 @@ from typing import Annotated
 import click
 from click.testing import CliRunner
 
+from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.clinkr.operation import clinkr_operation
@@ -36,11 +37,15 @@ def _make_group() -> ClinkrGroup:
     return ClinkrGroup(name="probes", operations=[run_probe])
 
 
+def _runtime_obj() -> object:
+    return build_clinkr_context_object(lambda: object())
+
+
 # -- human mode --------------------------------------------------------------
 
 
 def test_human_ok_exits_zero_and_renders_data() -> None:
-    result = CliRunner().invoke(_make_group(), ["probe", "ok"])
+    result = CliRunner().invoke(_make_group(), ["probe", "ok"], obj=_runtime_obj())
 
     assert result.exit_code == 0
     assert '"value": "found"' in result.stdout
@@ -48,7 +53,7 @@ def test_human_ok_exits_zero_and_renders_data() -> None:
 
 
 def test_human_negative_exits_one_with_message_on_stderr() -> None:
-    result = CliRunner().invoke(_make_group(), ["probe", "negative"])
+    result = CliRunner().invoke(_make_group(), ["probe", "negative"], obj=_runtime_obj())
 
     assert result.exit_code == 1
     assert result.stdout == ""
@@ -56,7 +61,7 @@ def test_human_negative_exits_one_with_message_on_stderr() -> None:
 
 
 def test_human_failure_exits_two_with_error_prefix_on_stderr() -> None:
-    result = CliRunner().invoke(_make_group(), ["probe", "failure"])
+    result = CliRunner().invoke(_make_group(), ["probe", "failure"], obj=_runtime_obj())
 
     assert result.exit_code == 2
     assert result.stdout == ""
@@ -72,6 +77,7 @@ def test_machine_ok_exits_zero_and_emits_data_envelope() -> None:
         _make_group(),
         ["json", "probe"],
         input='{"mode":"ok"}',
+        obj=_runtime_obj(),
     )
 
     assert result.exit_code == 0
@@ -87,6 +93,7 @@ def test_machine_negative_exits_one_and_emits_message_envelope() -> None:
         _make_group(),
         ["json", "probe"],
         input='{"mode":"negative"}',
+        obj=_runtime_obj(),
     )
 
     assert result.exit_code == 1
@@ -103,6 +110,7 @@ def test_machine_failure_exits_two_and_emits_error_envelope() -> None:
         _make_group(),
         ["json", "probe"],
         input='{"mode":"failure"}',
+        obj=_runtime_obj(),
     )
 
     assert result.exit_code == 2
