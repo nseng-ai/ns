@@ -41,6 +41,5 @@ def build_pr_address_group() -> ClinkrGroup:
         ],
     )
     outer = ClinkrGroup(name="pr-address", help="PR review address operations.")
-    outer._json_group.hidden = True
     outer.add_command(exec_group)
     return outer

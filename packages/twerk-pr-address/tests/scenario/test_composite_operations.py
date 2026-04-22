@@ -178,23 +178,24 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
     exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["found"] is True
-    assert output["current_branch"] == "feature"
-    assert output["number"] == 42
-    assert output["reopened_thread_ids"] == ["PRRT_contested"]
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["found"] is True
+    assert data["current_branch"] == "feature"
+    assert data["number"] == 42
+    assert data["reopened_thread_ids"] == ["PRRT_contested"]
     assert fake._unresolved_thread_ids == ["PRRT_contested"]
-    assert [thread["id"] for thread in output["review_threads"]] == ["PRRT_live", "PRRT_contested"]
-    assert output["review_threads"][1]["is_resolved"] is False
+    assert [thread["id"] for thread in data["review_threads"]] == ["PRRT_live", "PRRT_contested"]
+    assert data["review_threads"][1]["is_resolved"] is False
     # Multi-line threads preserve start_line through to the JSON output;
     # single-line threads report null.
-    assert output["review_threads"][0]["line"] == 10
-    assert output["review_threads"][0]["start_line"] == 7
-    assert output["review_threads"][0]["comments"][0]["start_line"] == 7
-    assert output["review_threads"][1]["start_line"] is None
-    assert len(output["reviews"]) == 1
-    assert len(output["discussion_comments"]) == 1
-    assert output["restructured_files"] == [
+    assert data["review_threads"][0]["line"] == 10
+    assert data["review_threads"][0]["start_line"] == 7
+    assert data["review_threads"][0]["comments"][0]["start_line"] == 7
+    assert data["review_threads"][1]["start_line"] is None
+    assert len(data["reviews"]) == 1
+    assert len(data["discussion_comments"]) == 1
+    assert data["restructured_files"] == [
         {
             "status": "R",
             "old_path": "src/old.py",
@@ -202,7 +203,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
             "similarity": 100,
         }
     ]
-    assert output["warnings"] == []
+    assert data["warnings"] == []
 
 
 def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
@@ -252,9 +253,10 @@ def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert [thread["id"] for thread in output["review_threads"]] == ["PRRT_live", "PRRT_manual"]
-    assert output["review_threads"][1]["is_resolved"] is True
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert [thread["id"] for thread in data["review_threads"]] == ["PRRT_live", "PRRT_manual"]
+    assert data["review_threads"][1]["is_resolved"] is True
 
 
 def test_prepare_run_filters_empty_reviews_by_default(
@@ -298,7 +300,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
         cli_group, "prepare-run", {}, fake_default, git_gateway=git_gateway
     )
     assert exit_default == 0
-    assert [r["id"] for r in out_default["reviews"]] == ["PRR_signal"]
+    assert [r["id"] for r in out_default["data"]["reviews"]] == ["PRR_signal"]
 
     fake_all = FakeIssueGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
     exit_all, out_all = _invoke_json(
@@ -309,7 +311,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
         git_gateway=git_gateway,
     )
     assert exit_all == 0
-    assert [r["id"] for r in out_all["reviews"]] == [
+    assert [r["id"] for r in out_all["data"]["reviews"]] == [
         "PRR_noise_commented",
         "PRR_noise_approved",
         "PRR_signal",
@@ -325,10 +327,11 @@ def test_prepare_run_returns_found_false_when_branch_has_no_pr(
     exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["found"] is False
-    assert output["current_branch"] == "feature"
-    assert output["error"] == "no PR found"
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["found"] is False
+    assert data["current_branch"] == "feature"
+    assert data["error"] == "no PR found"
 
 
 def test_prepare_run_detached_head_returns_command_error(
@@ -339,8 +342,8 @@ def test_prepare_run_detached_head_returns_command_error(
 
     exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
-    assert exit_code == 1
-    assert output["success"] is False
+    assert exit_code == 2
+    assert output["exit_code"] == 2
     assert output["error_type"] == "detached_head"
     assert "checked-out branch" in output["message"]
 
@@ -375,9 +378,10 @@ def test_prepare_run_warns_when_restructured_file_detection_fails(
     exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["restructured_files"] == []
-    assert output["warnings"] == [
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["restructured_files"] == []
+    assert data["warnings"] == [
         "Failed to detect restructured files against origin/master: "
         "fatal: bad revision 'origin/master...HEAD'"
     ]
@@ -395,8 +399,8 @@ def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
 
     exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
 
-    assert exit_code == 1
-    assert output["success"] is False
+    assert exit_code == 2
+    assert output["exit_code"] == 2
     assert output["error_type"] == "git_failed"
     assert "not a git repository" in output["message"]
 
@@ -419,14 +423,15 @@ def test_resolve_thread_with_reply_fixed_uses_canonical_format(
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["thread_id"] == "PRRT_abc"
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["thread_id"] == "PRRT_abc"
     assert fake._resolved_thread_ids == ["PRRT_abc"]
     assert len(fake._thread_replies) == 1
     assert fake._thread_replies[0][0] == "PRRT_abc"
-    assert "Fixed in commit abc1234: Use the LBYL guard here." in output["body"]
-    assert RESOLUTION_MARKER in output["body"]
-    assert "Addressed via _pr-address_ at " in output["body"]
+    assert "Fixed in commit abc1234: Use the LBYL guard here." in data["body"]
+    assert RESOLUTION_MARKER in data["body"]
+    assert "Addressed via _pr-address_ at " in data["body"]
 
 
 def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
@@ -447,9 +452,10 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["body"].startswith(PRE_EXISTING_REPLY)
-    assert RESOLUTION_MARKER in output["body"]
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["body"].startswith(PRE_EXISTING_REPLY)
+    assert RESOLUTION_MARKER in data["body"]
 
 
 def test_reply_to_review_posts_formatted_summary(
@@ -469,11 +475,12 @@ def test_reply_to_review_posts_formatted_summary(
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert fake._comments == [(42, output["body"])]
-    assert output["body"].startswith("Addressed review feedback from @reviewer:")
-    assert "- Updated the helper flow" in output["body"]
-    assert "_Addressed via pr-address at " in output["body"]
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert fake._comments == [(42, data["body"])]
+    assert data["body"].startswith("Addressed review feedback from @reviewer:")
+    assert "- Updated the helper flow" in data["body"]
+    assert "_Addressed via pr-address at " in data["body"]
 
 
 def test_reply_to_discussion_quotes_original_and_adds_reaction(
@@ -495,14 +502,15 @@ def test_reply_to_discussion_quotes_original_and_adds_reaction(
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["reaction_added"] is True
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["reaction_added"] is True
     assert fake._reactions == [(9001, "+1")]
-    assert fake._comments == [(42, output["body"])]
-    assert "> @reviewer wrote:" in output["body"]
-    assert "> Can you update this?" in output["body"]
-    assert "> It still reads oddly." in output["body"]
-    assert "Done in the latest commit." in output["body"]
+    assert fake._comments == [(42, data["body"])]
+    assert "> @reviewer wrote:" in data["body"]
+    assert "> Can you update this?" in data["body"]
+    assert "> It still reads oddly." in data["body"]
+    assert "Done in the latest commit." in data["body"]
 
 
 def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
@@ -532,9 +540,10 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["reaction_added"] is False
-    assert output["warning"].startswith("Failed to add reaction to comment 9001: ")
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["reaction_added"] is False
+    assert data["warning"].startswith("Failed to add reaction to comment 9001: ")
 
 
 def test_reply_to_review_rejects_empty_summary(cli_group: ClinkrGroup) -> None:
@@ -551,8 +560,8 @@ def test_reply_to_review_rejects_empty_summary(cli_group: ClinkrGroup) -> None:
         fake,
     )
 
-    assert exit_code == 1
-    assert output["success"] is False
+    assert exit_code == 2
+    assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "summary_markdown" in output["message"]
     assert fake._comments == []
@@ -574,8 +583,8 @@ def test_reply_to_discussion_rejects_empty_response(cli_group: ClinkrGroup) -> N
         fake,
     )
 
-    assert exit_code == 1
-    assert output["success"] is False
+    assert exit_code == 2
+    assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "response" in output["message"]
     assert fake._comments == []
@@ -596,8 +605,8 @@ def test_resolve_thread_with_reply_fixed_requires_message(cli_group: ClinkrGroup
         fake,
     )
 
-    assert exit_code == 1
-    assert output["success"] is False
+    assert exit_code == 2
+    assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "message" in output["message"]
     assert fake._resolved_thread_ids == []
@@ -618,8 +627,8 @@ def test_resolve_thread_with_reply_fixed_requires_commit_sha(cli_group: ClinkrGr
         fake,
     )
 
-    assert exit_code == 1
-    assert output["success"] is False
+    assert exit_code == 2
+    assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "commit_sha" in output["message"]
     assert fake._resolved_thread_ids == []
@@ -640,8 +649,8 @@ def test_resolve_thread_with_reply_explained_requires_message(cli_group: ClinkrG
         fake,
     )
 
-    assert exit_code == 1
-    assert output["success"] is False
+    assert exit_code == 2
+    assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "message" in output["message"]
     assert fake._resolved_thread_ids == []

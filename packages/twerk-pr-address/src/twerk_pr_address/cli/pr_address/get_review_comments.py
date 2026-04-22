@@ -6,7 +6,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRReviewThread
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -36,9 +36,9 @@ class GetReviewCommentsResult:
 def run_get_review_comments(
     ctx: click.Context,
     request: GetReviewCommentsRequest,
-) -> GetReviewCommentsResult | ClinkrCommandError:
+) -> ClinkrExit[GetReviewCommentsResult]:
     gateway = get_gh_issue_gateway(ctx)
     threads = gateway.get_review_threads(
         request.pr_number, include_resolved=request.include_resolved
     )
-    return GetReviewCommentsResult(threads=threads)
+    return ClinkrExit.ok(GetReviewCommentsResult(threads=threads))

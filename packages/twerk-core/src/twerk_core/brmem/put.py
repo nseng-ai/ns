@@ -14,6 +14,7 @@ from twerk_core.brmem.gateway import BRMEM_CONTENT_PATH
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.brmem.validation import validate_entry_ref
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -85,9 +86,9 @@ def render_put(result: PutResult) -> None:
 def run_put(
     ctx: click.Context,
     request: PutRequest,
-) -> PutResult | ClinkrCommandError:
+) -> ClinkrExit[PutResult]:
     if request.stdin and ctx.parent is not None and ctx.parent.info_name == "json":
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="stdin_unsupported_in_json_mode",
             message=(
                 "brmem put --stdin is only supported in the human CLI; JSON mode already "
@@ -96,7 +97,7 @@ def run_put(
         )
 
     if request.stdin and request.file is not None:
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="stdin_and_file_conflict",
             message="--stdin and --file are mutually exclusive.",
         )
@@ -107,7 +108,7 @@ def run_put(
     else:
         source_path = request.file if request.file is not None else _default_source(request.key)
         if source_path is None:
-            return ClinkrCommandError(
+            return ClinkrExit.failure(
                 error_type="source_file_missing",
                 message=(
                     f"Cannot infer a default --file for key {request.key!r}; "
@@ -117,12 +118,12 @@ def run_put(
         try:
             content = Path(source_path).read_text(encoding="utf-8")
         except FileNotFoundError:
-            return ClinkrCommandError(
+            return ClinkrExit.failure(
                 error_type="source_file_missing",
                 message=f"Source file not found: {source_path}",
             )
         except OSError as exc:
-            return ClinkrCommandError(
+            return ClinkrExit.failure(
                 error_type="source_file_unreadable",
                 message=f"Failed to read source file {source_path}: {exc}",
             )
@@ -130,11 +131,11 @@ def run_put(
 
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
-        return branch
+        return ClinkrExit.failure(error_type=branch.error_type, message=branch.message)
 
     entry_ref = validate_entry_ref(request.namespace, request.key, branch)
     if isinstance(entry_ref, ClinkrCommandError):
-        return entry_ref
+        return ClinkrExit.failure(error_type=entry_ref.error_type, message=entry_ref.message)
 
     gateway = get_branch_memory_gateway(ctx)
 
@@ -147,18 +148,20 @@ def run_put(
         )
     except subprocess.CalledProcessError as exc:
         details = exc.stderr.strip() or str(exc)
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="git_failure",
             message=f"Failed to write branch memory: {details}",
         )
 
-    return PutResult(
-        namespace=entry_ref.namespace,
-        key=entry_ref.key,
-        branch=entry_ref.branch,
-        ref_name=entry_ref.ref_name,
-        commit=commit,
-        source_file=source_file,
+    return ClinkrExit.ok(
+        PutResult(
+            namespace=entry_ref.namespace,
+            key=entry_ref.key,
+            branch=entry_ref.branch,
+            ref_name=entry_ref.ref_name,
+            commit=commit,
+            source_file=source_file,
+        )
     )
 
 

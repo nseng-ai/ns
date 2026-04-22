@@ -6,7 +6,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment, PRReview, PRReviewThread
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -43,15 +43,17 @@ class GetFeedbackResult:
 def run_get_feedback(
     ctx: click.Context,
     request: GetFeedbackRequest,
-) -> GetFeedbackResult | ClinkrCommandError:
+) -> ClinkrExit[GetFeedbackResult]:
     gateway = get_gh_issue_gateway(ctx)
     raw_reviews = gateway.get_reviews(request.pr_number)
     reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
-    return GetFeedbackResult(
-        pr_number=request.pr_number,
-        reviews=reviews,
-        review_threads=gateway.get_review_threads(
-            request.pr_number, include_resolved=request.include_resolved
-        ),
-        discussion_comments=gateway.get_discussion_comments(request.pr_number),
+    return ClinkrExit.ok(
+        GetFeedbackResult(
+            pr_number=request.pr_number,
+            reviews=reviews,
+            review_threads=gateway.get_review_threads(
+                request.pr_number, include_resolved=request.include_resolved
+            ),
+            discussion_comments=gateway.get_discussion_comments(request.pr_number),
+        )
     )

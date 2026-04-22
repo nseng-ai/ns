@@ -6,7 +6,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -35,7 +35,7 @@ class GetDiscussionCommentsResult:
 def run_get_discussion_comments(
     ctx: click.Context,
     request: GetDiscussionCommentsRequest,
-) -> GetDiscussionCommentsResult | ClinkrCommandError:
+) -> ClinkrExit[GetDiscussionCommentsResult]:
     gateway = get_gh_issue_gateway(ctx)
     comments = gateway.get_discussion_comments(request.pr_number)
-    return GetDiscussionCommentsResult(comments=comments)
+    return ClinkrExit.ok(GetDiscussionCommentsResult(comments=comments))

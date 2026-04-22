@@ -9,7 +9,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import (
     IssueComment,
@@ -55,7 +55,7 @@ class PrepareRunResult:
     Attributes:
         found: Whether a PR was resolved for the current branch.
         current_branch: The branch the helper was invoked on (None means
-            detached HEAD, surfaced as a `ClinkrCommandError` before this
+            detached HEAD, surfaced as a `ClinkrExit.failure` before this
             result is constructed).
         number: PR number on the host repository.
         title: PR title at the time of the snapshot.
@@ -139,16 +139,16 @@ class PrepareRunResult:
 def run_prepare_run(
     ctx: click.Context,
     request: PrepareRunRequest,
-) -> PrepareRunResult | ClinkrCommandError:
+) -> ClinkrExit[PrepareRunResult]:
     git_gateway = get_git_gateway(ctx)
     match git_gateway.get_current_branch(Path.cwd()):
         case GitCommandFailure() as failure:
-            return ClinkrCommandError(
+            return ClinkrExit.failure(
                 error_type="git_failed",
                 message=failure.message,
             )
         case DetachedHead():
-            return ClinkrCommandError(
+            return ClinkrExit.failure(
                 error_type="detached_head",
                 message="Detached HEAD: prepare-run requires a checked-out branch.",
             )
@@ -158,11 +158,13 @@ def run_prepare_run(
     gateway = get_gh_issue_gateway(ctx)
     pr = gateway.get_pr_for_branch(current_branch)
     if isinstance(pr, PRLookupError):
-        return PrepareRunResult(
-            found=False,
-            current_branch=current_branch,
-            error=pr.stderr,
-            returncode=pr.returncode,
+        return ClinkrExit.ok(
+            PrepareRunResult(
+                found=False,
+                current_branch=current_branch,
+                error=pr.stderr,
+                returncode=pr.returncode,
+            )
         )
 
     raw_reviews = gateway.get_reviews(pr.number)
@@ -194,21 +196,23 @@ def run_prepare_run(
         case tuple() as files:
             restructured_files = files
 
-    return PrepareRunResult(
-        found=True,
-        current_branch=current_branch,
-        number=pr.number,
-        title=pr.title,
-        url=pr.url,
-        head_ref_name=pr.head_ref_name,
-        base_ref_name=pr.base_ref_name,
-        state=pr.state,
-        reviews=reviews,
-        review_threads=normalized_threads,
-        discussion_comments=discussion_comments,
-        reopened_thread_ids=tuple(reopened_thread_ids),
-        restructured_files=restructured_files,
-        warnings=tuple(warnings),
+    return ClinkrExit.ok(
+        PrepareRunResult(
+            found=True,
+            current_branch=current_branch,
+            number=pr.number,
+            title=pr.title,
+            url=pr.url,
+            head_ref_name=pr.head_ref_name,
+            base_ref_name=pr.base_ref_name,
+            state=pr.state,
+            reviews=reviews,
+            review_threads=normalized_threads,
+            discussion_comments=discussion_comments,
+            reopened_thread_ids=tuple(reopened_thread_ids),
+            restructured_files=restructured_files,
+            warnings=tuple(warnings),
+        )
     )
 
 

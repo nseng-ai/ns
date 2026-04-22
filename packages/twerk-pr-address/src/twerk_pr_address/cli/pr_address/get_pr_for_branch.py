@@ -5,7 +5,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRLookupError, PRState
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -54,21 +54,25 @@ class GetPRForBranchResult:
 def run_get_pr_for_branch(
     ctx: click.Context,
     request: GetPRForBranchRequest,
-) -> GetPRForBranchResult | ClinkrCommandError:
+) -> ClinkrExit[GetPRForBranchResult]:
     gateway = get_gh_issue_gateway(ctx)
     result = gateway.get_pr_for_branch(request.branch)
     if isinstance(result, PRLookupError):
-        return GetPRForBranchResult(
-            found=False,
-            error=result.stderr,
-            returncode=result.returncode,
+        return ClinkrExit.ok(
+            GetPRForBranchResult(
+                found=False,
+                error=result.stderr,
+                returncode=result.returncode,
+            )
         )
-    return GetPRForBranchResult(
-        found=True,
-        number=result.number,
-        title=result.title,
-        url=result.url,
-        head_ref_name=result.head_ref_name,
-        base_ref_name=result.base_ref_name,
-        state=result.state,
+    return ClinkrExit.ok(
+        GetPRForBranchResult(
+            found=True,
+            number=result.number,
+            title=result.title,
+            url=result.url,
+            head_ref_name=result.head_ref_name,
+            base_ref_name=result.base_ref_name,
+            state=result.state,
+        )
     )

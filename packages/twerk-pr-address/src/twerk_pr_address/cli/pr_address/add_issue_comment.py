@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -45,7 +45,7 @@ class AddIssueCommentResult:
 def run_add_issue_comment(
     ctx: click.Context,
     request: AddIssueCommentRequest,
-) -> AddIssueCommentResult | ClinkrCommandError:
+) -> ClinkrExit[AddIssueCommentResult]:
     gateway = get_gh_issue_gateway(ctx)
     comment = gateway.add_comment(request.pr_number, request.body)
-    return AddIssueCommentResult(comment=comment)
+    return ClinkrExit.ok(AddIssueCommentResult(comment=comment))

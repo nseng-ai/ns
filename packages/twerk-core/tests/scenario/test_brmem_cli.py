@@ -203,7 +203,7 @@ def test_brmem_at_accepts_raw_treeish(cli_group: ClinkrGroup) -> None:
         obj=_make_obj(gateway=gateway),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "at deadbeef" in result.output
 
 
@@ -241,17 +241,18 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     get_payload = _json_output(get_result.output)
 
     assert put_result.exit_code == 0
-    assert put_payload == {
+    assert put_payload["exit_code"] == 0
+    assert put_payload["data"] == {
         "namespace": "workbr",
         "key": "plan/plan.md",
         "branch": "feat/x",
         "ref_name": "refs/brmem/workbr/feat---x/plan/plan.md",
         "commit": "fake-0001",
         "source_file": str(source_file),
-        "success": True,
     }
     assert get_result.exit_code == 0
-    assert get_payload == {
+    assert get_payload["exit_code"] == 0
+    assert get_payload["data"] == {
         "namespace": "workbr",
         "key": "plan/plan.md",
         "branch": "feat/x",
@@ -259,7 +260,6 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         "ref_name": "refs/brmem/workbr/feat---x/plan/plan.md",
         "target": "refs/brmem/workbr/feat---x/plan/plan.md",
         "at": None,
-        "success": True,
     }
 
 
@@ -301,9 +301,9 @@ def test_brmem_json_put_from_stdin_is_rejected(cli_group: ClinkrGroup) -> None:
     )
     put_payload = _json_output(put_result.output)
 
-    assert put_result.exit_code == 1
+    assert put_result.exit_code == 2
     assert put_payload == {
-        "success": False,
+        "exit_code": 2,
         "error_type": "stdin_unsupported_in_json_mode",
         "message": (
             "brmem put --stdin is only supported in the human CLI; JSON mode already "
@@ -331,7 +331,7 @@ def test_brmem_invalid_branch_surfaces_clean_error(cli_group: ClinkrGroup, tmp_p
         obj=_make_obj(branch=None),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Invalid branch name 'feat---x'" in result.output
 
 
@@ -354,7 +354,7 @@ def test_brmem_invalid_namespace_surfaces_clean_error(
         obj=_make_obj(),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Invalid namespace 'brs'" in result.output
 
 
@@ -375,7 +375,7 @@ def test_brmem_invalid_key_surfaces_clean_error(cli_group: ClinkrGroup, tmp_path
         obj=_make_obj(),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Invalid key '../escape'" in result.output
 
 
@@ -437,7 +437,7 @@ def test_brmem_put_rejects_detached_head_when_branch_omitted(
         obj=_make_obj(branch=DetachedHead()),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "detached head" in result.output.lower()
 
 
@@ -487,7 +487,7 @@ def test_brmem_put_rejects_stdin_and_file_together(cli_group: ClinkrGroup, tmp_p
         obj=obj,
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "--stdin and --file are mutually exclusive." in result.output
 
 
@@ -503,7 +503,7 @@ def test_brmem_get_surfaces_git_failure_when_branch_omitted(cli_group: ClinkrGro
         ),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "not a git repository" in result.output
 
 
@@ -521,7 +521,7 @@ def test_brmem_missing_content_error_mentions_ref_target(cli_group: ClinkrGroup)
         obj=_make_obj(branch=None),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "refs/brmem/workbr/feat---x/plan/missing.md" in result.output
     assert "git show refs/brmem/workbr/feat---x/plan/missing.md:content" in result.output
 
@@ -540,7 +540,7 @@ def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -
         obj={"brmem_gateway": FakeBranchMemoryGateway()},
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Invalid brmem request:" in result.output
     assert "Invalid namespace 'brs'" in result.output
     assert "Invalid key '../escape'" in result.output
@@ -638,7 +638,7 @@ def test_brmem_list_rejects_detached_head_when_branch_omitted(
         obj=_make_obj(branch=DetachedHead()),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "detached head" in result.output.lower()
 
 
@@ -656,7 +656,7 @@ def test_brmem_list_surfaces_git_failure_when_branch_omitted(
         ),
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "not a git repository" in result.output
 
 
@@ -714,7 +714,8 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
     payload = _json_output(result.output)
 
     assert result.exit_code == 0, result.output
-    assert payload == {
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
         "namespace": "workbr",
         "key": None,
         "branch": "feat/x",
@@ -726,7 +727,6 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
                 "ref_name": "refs/brmem/workbr/feat---x/plan/a.md",
             }
         ],
-        "success": True,
     }
 
 
@@ -886,3 +886,164 @@ def test_brmem_public_commands_have_json_counterparts(cli_group: ClinkrGroup) ->
                 _assert_json_parity(cmd)
 
     _assert_json_parity(cli_group)
+
+
+# ---------------------------------------------------------------------------
+# --format json parity / --schema eagerness / failure envelope
+# ---------------------------------------------------------------------------
+
+
+def test_brmem_put_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("parity\n", encoding="utf-8")
+
+    flag_result = CliRunner().invoke(
+        cli_group,
+        [
+            "put",
+            "plan/plan.md",
+            "--namespace",
+            "workbr",
+            "--file",
+            str(source_file),
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["json", "put"],
+        input=json.dumps(
+            {
+                "file": str(source_file),
+                "key": "plan/plan.md",
+                "namespace": "workbr",
+            }
+        ),
+        obj=_make_obj(),
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert subtree_result.exit_code == 0, subtree_result.output
+    assert flag_result.stdout == subtree_result.stdout
+
+
+def test_brmem_get_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("workbr", "plan/plan.md", "feat/x", "parity\n")
+
+    flag_result = CliRunner().invoke(
+        cli_group,
+        ["get", "plan/plan.md", "--namespace", "workbr", "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["json", "get"],
+        input=json.dumps({"key": "plan/plan.md", "namespace": "workbr"}),
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert subtree_result.exit_code == 0, subtree_result.output
+    assert flag_result.stdout == subtree_result.stdout
+
+
+def test_brmem_list_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("workbr", "plan/a.md", "feat/x", "a\n")
+
+    flag_result = CliRunner().invoke(
+        cli_group,
+        ["list", "--namespace", "workbr", "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["json", "list"],
+        input=json.dumps({"namespace": "workbr"}),
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert subtree_result.exit_code == 0, subtree_result.output
+    assert flag_result.stdout == subtree_result.stdout
+
+
+def test_brmem_put_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["put", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+
+
+def test_brmem_get_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["get", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+
+
+def test_brmem_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+
+
+def test_brmem_put_format_json_reports_failure(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("hello\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "put",
+            "plan/plan.md",
+            "--namespace",
+            "brs",
+            "--file",
+            str(source_file),
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "invalid_namespace"
+    assert "Invalid namespace 'brs'" in payload["message"]
+
+
+def test_brmem_get_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["get", "plan/plan.md", "--namespace", "workbr", "--format", "json"],
+        obj=_make_obj(),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "branch_memory_missing"
+    assert "No content for key plan/plan.md" in payload["message"]
+
+
+def test_brmem_list_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--namespace", "brs", "--format", "json"],
+        obj=_make_obj(),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "invalid_namespace"
+    assert "Invalid namespace 'brs'" in payload["message"]

@@ -5,7 +5,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 
@@ -34,10 +34,12 @@ class ResolveThreadResult:
 def run_resolve_thread(
     ctx: click.Context,
     request: ResolveThreadRequest,
-) -> ResolveThreadResult | ClinkrCommandError:
+) -> ClinkrExit[ResolveThreadResult]:
     gateway = get_gh_issue_gateway(ctx)
     result = gateway.resolve_review_thread(request.thread_id)
-    return ResolveThreadResult(
-        thread_id=result.thread_id,
-        was_already_resolved=result.was_already_resolved,
+    return ClinkrExit.ok(
+        ResolveThreadResult(
+            thread_id=result.thread_id,
+            was_already_resolved=result.was_already_resolved,
+        )
     )
