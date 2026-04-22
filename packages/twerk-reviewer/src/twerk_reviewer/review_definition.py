@@ -6,9 +6,12 @@ from typing import Any
 
 import yaml
 
+from twerk_reviewer.harness_registry import HARNESS_ADAPTERS
 from twerk_reviewer.models import ReviewDefinition
 
 _FRONTMATTER_FENCE = "---"
+
+_ALLOWED_FRONTMATTER_KEYS: frozenset[str] = frozenset({"description", "default_model"})
 
 
 def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
@@ -32,6 +35,8 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
     if not isinstance(parsed_frontmatter, dict):
         raise ValueError("Review definition frontmatter must be a YAML mapping.")
 
+    _reject_unknown_keys(parsed_frontmatter)
+
     description = _require_string(parsed_frontmatter, "description")
 
     default_model_value = parsed_frontmatter.get("default_model")
@@ -39,6 +44,7 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         default_model: str | None = None
     elif isinstance(default_model_value, str) and default_model_value.strip():
         default_model = default_model_value.strip()
+        _validate_supported_model(default_model)
     else:
         raise ValueError("Review definition field `default_model` must be a non-empty string.")
 
@@ -51,6 +57,28 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         description=description,
         instructions=instructions,
         default_model=default_model,
+    )
+
+
+def _reject_unknown_keys(frontmatter: dict[str, Any]) -> None:
+    unknown = sorted(key for key in frontmatter if key not in _ALLOWED_FRONTMATTER_KEYS)
+    if not unknown:
+        return
+    allowed = ", ".join(sorted(_ALLOWED_FRONTMATTER_KEYS))
+    unknown_list = ", ".join(f"`{key}`" for key in unknown)
+    raise ValueError(
+        f"Review definition frontmatter contains unknown field(s): {unknown_list}. "
+        f"Allowed fields: {allowed}."
+    )
+
+
+def _validate_supported_model(model: str) -> None:
+    if any(adapter.supports_model(model) for adapter in HARNESS_ADAPTERS.values()):
+        return
+    known_harnesses = ", ".join(sorted(HARNESS_ADAPTERS))
+    raise ValueError(
+        f"Review definition field `default_model` value {model!r} is not supported by any "
+        f"registered harness (known harnesses: {known_harnesses})."
     )
 
 

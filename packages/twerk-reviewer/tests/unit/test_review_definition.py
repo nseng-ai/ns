@@ -24,7 +24,7 @@ def test_parse_review_definition_success() -> None:
     definition = parse_review_definition(
         "---\n"
         "description: Review Python diffs for style violations.\n"
-        "default_model: gpt-5-mini\n"
+        "default_model: sonnet\n"
         "---\n"
         "\n"
         "Flag concrete issues in the diff.\n",
@@ -34,7 +34,7 @@ def test_parse_review_definition_success() -> None:
     assert definition.name == "dignified-python"
     assert definition.description == "Review Python diffs for style violations."
     assert definition.instructions == "Flag concrete issues in the diff."
-    assert definition.default_model == "gpt-5-mini"
+    assert definition.default_model == "sonnet"
 
 
 def test_parse_review_definition_without_default_model() -> None:
@@ -79,7 +79,7 @@ def test_parse_review_definition_requires_closing_fence() -> None:
 def test_parse_review_definition_requires_description() -> None:
     with pytest.raises(ValueError, match="description"):
         parse_review_definition(
-            "---\ndefault_model: gpt-5-mini\n---\n\nFlag concrete issues in the diff.\n",
+            "---\ndefault_model: sonnet\n---\n\nFlag concrete issues in the diff.\n",
             name="dignified-python",
         )
 
@@ -92,4 +92,98 @@ def test_parse_review_definition_requires_non_empty_name() -> None:
             "---\n"
             "\nFlag concrete issues in the diff.\n",
             name="   ",
+        )
+
+
+def test_parse_review_definition_rejects_unknown_frontmatter_key() -> None:
+    with pytest.raises(ValueError, match=r"unknown field\(s\).*`severity`"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "default_model: sonnet\n"
+            "severity: error\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_lists_all_unknown_frontmatter_keys() -> None:
+    with pytest.raises(ValueError) as excinfo:
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "default_model: sonnet\n"
+            "severity: error\n"
+            "owner: team-platform\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+    message = str(excinfo.value)
+    assert "`owner`" in message
+    assert "`severity`" in message
+    assert "Allowed fields:" in message
+
+
+def test_parse_review_definition_rejects_unsupported_default_model() -> None:
+    with pytest.raises(ValueError, match="not supported by any registered harness"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "default_model: gpt-5-mini\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+@pytest.mark.parametrize(
+    "model",
+    ["sonnet", "opus", "haiku", "claude-sonnet-4-6", "claude-opus-4-7"],
+)
+def test_parse_review_definition_accepts_supported_default_models(model: str) -> None:
+    definition = parse_review_definition(
+        f"---\n"
+        f"description: Review Python diffs for style violations.\n"
+        f"default_model: {model}\n"
+        f"---\n"
+        f"\nFlag concrete issues in the diff.\n",
+        name="dignified-python",
+    )
+
+    assert definition.default_model == model
+
+
+def test_parse_review_definition_requires_default_model_non_empty_string() -> None:
+    with pytest.raises(ValueError, match="`default_model`"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs for style violations.\n"
+            "default_model: 5\n"
+            "---\n"
+            "\nFlag concrete issues in the diff.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_non_mapping_frontmatter() -> None:
+    with pytest.raises(ValueError, match="must be a YAML mapping"):
+        parse_review_definition(
+            "---\n- description: Review Python diffs.\n---\n\nFlag concrete issues.\n",
+            name="dignified-python",
+        )
+
+
+def test_parse_review_definition_rejects_invalid_yaml_frontmatter() -> None:
+    with pytest.raises(ValueError, match="not valid YAML"):
+        parse_review_definition(
+            "---\n"
+            "description: Review Python diffs.\n"
+            "default_model: sonnet\n"
+            "  bad-indent: value\n"
+            "\tmixed: tabs\n"
+            "---\n"
+            "\nFlag concrete issues.\n",
+            name="dignified-python",
         )
