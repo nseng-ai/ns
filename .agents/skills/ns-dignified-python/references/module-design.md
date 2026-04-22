@@ -12,7 +12,14 @@ description: Import-time side effects, @cache for deferred computation, module-l
 
 ### Core Rule
 
-**Avoid computation and side effects at import time. Defer to function calls.**
+**Disallow computation and side effects at import time. Defer the work behind a function call, and
+exercise that function in a unit test.**
+
+`@functools.cache` is the most common way to defer-and-memoize a singleton value, but it is one
+pattern among several. A plain factory function, a constructor argument, or a fixture-driven
+dependency are equally valid — the rule is "no work at import," not "always use `@cache`." Reach
+for `@cache` when callers genuinely want a process-wide singleton; otherwise use whatever shape
+fits the call site.
 
 Module-level code runs when the module is imported. Side effects at import time cause:
 
@@ -20,6 +27,7 @@ Module-level code runs when the module is imported. Side effects at import time 
 2. **Test brittleness** - Hard to mock/control behavior
 3. **Circular import issues** - Dependencies evaluated too early
 4. **Unpredictable order** - Import order affects behavior
+5. **No test boundary** - Failures surface as import errors instead of test failures
 
 ---
 
@@ -39,6 +47,12 @@ CONFIG = load_config()  # I/O at import!
 
 # WRONG: Connection established at import time
 DB_CLIENT = DatabaseClient(os.environ["DB_URL"])  # Side effect at import!
+
+# WRONG: Sibling-file read and JSON-parsed at import time
+FINDINGS_JSON_SCHEMA_PATH = Path(__file__).with_name("findings_schema.json")
+FINDINGS_JSON_SCHEMA: dict[str, Any] = json.loads(
+    FINDINGS_JSON_SCHEMA_PATH.read_text(encoding="utf-8")
+)
 ```
 
 ---
@@ -77,6 +91,38 @@ def get_db_client() -> DatabaseClient:
     """Create database client on first call."""
     return DatabaseClient(os.environ["DB_URL"])
 ```
+
+**Defer file reads and parsing the same way:**
+
+```python
+# CORRECT: Sibling-file read deferred behind @cache
+@cache
+def _findings_schema_path() -> Path:
+    return Path(__file__).with_name("findings_schema.json")
+
+@cache
+def findings_json_schema() -> dict[str, Any]:
+    return json.loads(_findings_schema_path().read_text(encoding="utf-8"))
+```
+
+---
+
+## Test Requirement
+
+Any function that wraps deferred computation (file read, JSON parse, config load, resource creation)
+**MUST** have a unit test that calls it at least once and asserts on the returned value. This is
+the whole point of deferring: you trade a silent import-time crash for a real test boundary.
+
+```python
+# CORRECT: Unit test exercises the cached codepath
+def test_findings_json_schema_loads() -> None:
+    schema = findings_json_schema()
+    assert schema["$schema"].startswith("https://json-schema.org/")
+    assert "properties" in schema
+```
+
+The test also doubles as a smoke check that the bundled file exists, is valid JSON, and matches
+expected shape — failures you would otherwise discover only at first import in production.
 
 ---
 
@@ -199,7 +245,10 @@ Before writing module-level code:
 - [ ] Could this fail or raise exceptions?
 - [ ] Would tests need to mock this value?
 
-If any answer is "yes", wrap in a `@cache`-decorated function instead.
+If any answer is "yes", defer the work behind a function call (commonly `@cache`-decorated, but
+any deferral pattern that fits the call site is fine).
+
+- [ ] Have I added a unit test that exercises the deferred codepath?
 
 Before inline imports:
 

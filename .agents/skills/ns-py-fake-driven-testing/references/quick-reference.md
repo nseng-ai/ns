@@ -121,13 +121,16 @@ Test data builders and helper utilities live next to the tests that use them
 
 ### Fake Implementation Examples
 
-| Fake Class            | Purpose                       | Common Methods                              |
-| --------------------- | ----------------------------- | ------------------------------------------- |
-| `FakeDatabaseAdapter` | In-memory database operations | `query()`, `execute()`, `transaction()`     |
-| `FakeApiClient`       | In-memory API responses       | `get()`, `post()`, `put()`, `delete()`      |
-| `FakeFileSystem`      | In-memory file operations     | `read()`, `write()`, `exists()`, `delete()` |
-| `FakeMessageQueue`    | In-memory message queue       | `publish()`, `subscribe()`, `acknowledge()` |
-| `FakeCache`           | In-memory cache               | `get()`, `set()`, `delete()`, `clear()`     |
+| Fake Class                 | Purpose                        | Common Methods                                    |
+| -------------------------- | ------------------------------ | ------------------------------------------------- |
+| `FakeDatabaseAdapter`      | In-memory database operations  | `query()`, `execute()`, `transaction()`           |
+| `FakeApiClient`            | In-memory API responses        | `get()`, `post()`, `put()`, `delete()`            |
+| `FakeGitCli`               | In-memory git tool             | `status()`, `create_branch()`, `current_branch()` |
+| `FakeProjectManifestStore` | In-memory manifest persistence | `load(project)`, `save(manifest)`                 |
+| `FakeMessageQueue`         | In-memory message queue        | `publish()`, `subscribe()`, `acknowledge()`       |
+| `FakeCache`                | In-memory cache                | `get()`, `set()`, `delete()`, `clear()`           |
+
+Do **not** create a generic `FakeFileSystem` / `FakeSubprocess` / `FakeHttpClient`. Those are primitive-level gateways — see `anti-patterns.md` (Gateways at Too Low an Abstraction Layer).
 
 ## Common Test Patterns
 
@@ -270,11 +273,11 @@ def test_real_database_with_mocking(monkeypatch) -> None:
 **Purpose**: Verify fakes work correctly. Lives in a single file:
 `tests/gateways/test_fakes.py`. Group by fake using `Test<FakeName>` classes.
 
-| Class                | What It Tests                              |
-| -------------------- | ------------------------------------------ |
-| `TestFakeDatabase`   | FakeDatabase tracks queries correctly      |
-| `TestFakeApiClient`  | FakeApiClient returns configured responses |
-| `TestFakeFileSystem` | FakeFileSystem simulates file operations   |
+| Class                          | What It Tests                                  |
+| ------------------------------ | ---------------------------------------------- |
+| `TestFakeDatabase`             | FakeDatabase tracks queries correctly          |
+| `TestFakeApiClient`            | FakeApiClient returns configured responses     |
+| `TestFakeProjectManifestStore` | FakeProjectManifestStore round-trips load/save |
 
 ### Layer 2 "real-sanity": Integration Sanity Tests (10%)
 
@@ -334,7 +337,7 @@ from collections.abc import Generator
 # Your fakes
 from myapp.gateways.database.fake import FakeDatabaseAdapter
 from myapp.gateways.api_client.fake import FakeApiClient
-from myapp.gateways.filesystem.fake import FakeFileSystem
+from myapp.gateways.project_manifest_store.fake import FakeProjectManifestStore
 
 # Your services and models
 from myapp.services.user_service import UserService

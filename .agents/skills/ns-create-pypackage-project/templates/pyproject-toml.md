@@ -43,6 +43,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/<PACKAGE_NAME>"]
 
+[tool.hatch.build.targets.sdist]
+only-include = ["src/<PACKAGE_NAME>", "pyproject.toml", "README.md", "LICENSE"]
+
 [tool.ruff]
 target-version = "<TARGET_VERSION_RUFF>"
 line-length = 100
@@ -62,8 +65,10 @@ select = [
 [tool.ruff.lint.isort]
 known-first-party = ["<PACKAGE_NAME>"]
 
+# `packages/*/src` auto-discovers uv workspace packages so `ty` doesn't
+# silently skip any package added under `packages/` later.
 [tool.ty.src]
-include = ["src"]
+include = ["src", "packages/*/src"]
 exclude = [".agents/skills/", ".claude/skills/"]
 
 [tool.ty.environment]

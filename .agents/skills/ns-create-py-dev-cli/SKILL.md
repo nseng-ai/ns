@@ -166,17 +166,16 @@ exist, create it. If it exists, append to the existing list.
    "<DEV_PACKAGE_NAME>"
    ```
 
-5. **Add to `[tool.ty.src] include`:**
-
-   ```toml
-   "packages/<DEV_PROJECT_NAME>/src"
-   ```
-
-6. **Add to `[tool.pytest.ini_options] testpaths`:**
+5. **Add to `[tool.pytest.ini_options] testpaths`:**
 
    ```toml
    "packages/<DEV_PROJECT_NAME>/tests"
    ```
+
+   Note: `[tool.ty.src] include` is not updated here — the scaffolded root
+   pyproject uses `packages/*/src`, which already covers every workspace
+   package. If the root uses an explicit list instead of the glob, append
+   `"packages/<DEV_PROJECT_NAME>/src"` to it.
 
 ### Step 7: Update root justfile
 

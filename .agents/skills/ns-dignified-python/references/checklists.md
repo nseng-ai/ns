@@ -131,4 +131,7 @@ description: All decision checklists consolidated for final review before commit
 - [ ] Could this fail or raise exceptions?
 - [ ] Would tests need to mock this value?
 
-If any answer is "yes", wrap in a `@cache`-decorated function instead.
+If any answer is "yes", defer the work behind a function call (commonly `@cache`-decorated, but
+any deferral pattern that fits the call site is fine).
+
+- [ ] Have I added a unit test that exercises the deferred codepath?

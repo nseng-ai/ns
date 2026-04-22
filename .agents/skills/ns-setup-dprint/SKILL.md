@@ -1,6 +1,6 @@
 ---
 name: ns-setup-dprint
-description: "Set up dprint formatting for Markdown and TOML files. Use when adding dprint to a project or integrating format checks into the build system."
+description: "Set up dprint formatting for Markdown and TOML files locally, with build-system integration. Use when adding dprint to a project. Does NOT add GitHub Actions CI -- use ns-setup-dprint-gh-ci for that."
 allowed-tools:
   - "Bash(dprint *)"
   - "Bash(which dprint)"
@@ -13,6 +13,9 @@ allowed-tools:
 
 Set up [dprint](https://dprint.dev) as the formatter for Markdown and TOML files in a project, with
 build-system integration for check and fix workflows.
+
+This skill does NOT add a GitHub Actions workflow. After running this skill, run
+`ns-setup-dprint-gh-ci` if you also want CI.
 
 ## Step 1: Check preconditions
 
@@ -31,7 +34,7 @@ If not found, install it:
 
 Look for `dprint.json` or `.dprint.json` in the project root.
 
-- **If a config exists:** read it and go to [Step 8: Update existing configuration](#step-8-update-existing-configuration).
+- **If a config exists:** read it and go to [Step 7: Update existing configuration](#step-7-update-existing-configuration).
 - **If no config exists:** continue with Step 3.
 
 ## Step 3: Create `dprint.json`
@@ -138,18 +141,7 @@ dprint-fix:
     dprint fmt
 ```
 
-## Step 6: Add CI workflow
-
-If the project uses GitHub Actions, add a CI workflow for dprint. Load `references/dprint-ci.yml` as
-a template and copy it to `.github/workflows/dprint-ci.yml`.
-
-Key details:
-
-- Uses `dprint/check@v2.2` — no manual dprint installation needed in CI.
-- Runs on pushes to the default branch and on pull requests (excluding drafts).
-- Adjust the `branches` list if the default branch is not `master`.
-
-## Step 7: Run initial format
+## Step 6: Run initial format
 
 Format all existing files and verify:
 
@@ -160,7 +152,7 @@ dprint check
 
 If `dprint check` reports violations after `dprint fmt`, investigate and fix.
 
-## Step 8: Update existing configuration
+## Step 7: Update existing configuration
 
 When a `dprint.json` already exists (branched from Step 2):
 
@@ -172,3 +164,8 @@ When a `dprint.json` already exists (branched from Step 2):
 4. Add any missing plugin config blocks (`"markdown": {...}`, `"toml": {...}`).
 5. Do NOT overwrite existing config values -- only add what's missing.
 6. Run `dprint fmt` and `dprint check` to verify.
+
+## Next steps
+
+To add a GitHub Actions workflow that runs `dprint check` on pushes and PRs,
+run the `ns-setup-dprint-gh-ci` skill.

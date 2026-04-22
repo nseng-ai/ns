@@ -27,7 +27,8 @@ use `ns-skillx` for that.
 
 ## CLI prefix
 
-All commands use this prefix (always runs latest from PyPI):
+All commands use this prefix (uses the latest released `nonslop` from PyPI;
+run `uv tool upgrade nonslop` or `uvx nonslop@latest ...` to refresh):
 
 ```
 uvx nonslop exec nsx
@@ -53,7 +54,13 @@ uvx nonslop exec nsx list
 ```
 
 Returns JSON: `{"success": true, "repo": "nseng-ai/nonslop", "skills": [...]}`.
-Report the list to the user and stop.
+Report the list to the user. For each skill, show its name and the install command:
+
+```
+npx skills add nseng-ai/nonslop --skill <name> --agent codex claude-code -y
+```
+
+Then stop.
 
 **If a skill name was provided**, proceed to Step 3.
 
