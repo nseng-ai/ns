@@ -180,6 +180,11 @@ Drafting guidance:
   implementation steps.
 - Use `Roadmap` as the single main progress surface. When the work will land
   over multiple PRs, organize it by PR-sized slices.
+- Roadmap bullets must be codified work that lands in a PR (code, tests,
+  docs, config, or a deliberate delete). Do not draft manual-only or
+  observation-only bullets like "live testing session", "smoke-test in
+  prod", or "watch for regressions"; verification belongs in the PR's test
+  plan, not as a standalone roadmap item.
 - Keep `Status:` short and categorical. Do not stuff PR-by-PR history into it.
 - For architectural redesigns and other long-running work, prefer
   **steelthreaded** early slices: combine the smallest necessary core plumbing

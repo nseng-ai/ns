@@ -116,7 +116,10 @@ Every memjective shares the same canonical shape. See
   steelthreaded early slices (end-to-end) over framework-only scaffolding.
   This is the single main place to record slice progress. This can change
   as the memjective unfolds. New data or findings might mean new work items
-  and PRs.
+  and PRs. Every bullet must describe codified work that lands in a PR —
+  code, tests, docs, config, or a deliberate delete. Manual observation,
+  live-run sessions, or any step that produces no diff does not belong in
+  the roadmap; fold verification into the PR's test plan instead.
 - **How to Make Progress** — the mechanical recipe for future sessions. Says
   how to pick the next slice, what current behavior to inspect first, and what
   to update after landing a slice.
