@@ -37,20 +37,22 @@ def test_format_findings_comment_renders_findings_from_stdin(
     cli_group: ClinkrGroup,
 ) -> None:
     payload = {
-        "success": True,
-        "review_name": "dignified-python",
-        "base_ref": "master",
-        "format": "findings",
-        "count": 1,
-        "findings": [
-            {
-                "path": "app.py",
-                "line": 42,
-                "severity": "warning",
-                "summary": "Avoid print",
-                "details": "Use click.echo() instead.",
-            }
-        ],
+        "exit_code": 0,
+        "data": {
+            "review_name": "dignified-python",
+            "base_ref": "master",
+            "format": "findings",
+            "count": 1,
+            "findings": [
+                {
+                    "path": "app.py",
+                    "line": 42,
+                    "severity": "warning",
+                    "summary": "Avoid print",
+                    "details": "Use click.echo() instead.",
+                }
+            ],
+        },
     }
 
     runner = CliRunner()
@@ -71,12 +73,14 @@ def test_format_findings_comment_renders_findings_from_stdin(
 
 def test_format_findings_comment_renders_empty_findings(cli_group: ClinkrGroup) -> None:
     payload = {
-        "success": True,
-        "review_name": "dignified-python",
-        "base_ref": "master",
-        "format": "findings",
-        "count": 0,
-        "findings": [],
+        "exit_code": 0,
+        "data": {
+            "review_name": "dignified-python",
+            "base_ref": "master",
+            "format": "findings",
+            "count": 0,
+            "findings": [],
+        },
     }
 
     runner = CliRunner()
@@ -93,7 +97,7 @@ def test_format_findings_comment_renders_empty_findings(cli_group: ClinkrGroup) 
 
 def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -> None:
     payload = {
-        "success": False,
+        "exit_code": 2,
         "error_type": "harness_binary_missing",
         "message": "claude not on PATH",
     }

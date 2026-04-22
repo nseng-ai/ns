@@ -145,20 +145,22 @@ def test_render_error_payload_flags_failure_without_footer() -> None:
 def test_parse_success_wrapped_payload() -> None:
     raw = json.dumps(
         {
-            "success": True,
-            "review_name": "dignified-python",
-            "base_ref": "master",
-            "format": "findings",
-            "count": 1,
-            "findings": [
-                {
-                    "path": "app.py",
-                    "line": 1,
-                    "severity": "warning",
-                    "summary": "s",
-                    "details": "d",
-                }
-            ],
+            "exit_code": 0,
+            "data": {
+                "review_name": "dignified-python",
+                "base_ref": "master",
+                "format": "findings",
+                "count": 1,
+                "findings": [
+                    {
+                        "path": "app.py",
+                        "line": 1,
+                        "severity": "warning",
+                        "summary": "s",
+                        "details": "d",
+                    }
+                ],
+            },
         }
     )
 
@@ -174,7 +176,7 @@ def test_parse_success_wrapped_payload() -> None:
 
 
 def test_parse_missing_optional_fields_uses_defaults() -> None:
-    payload = parse_findings_payload(json.dumps({}))
+    payload = parse_findings_payload(json.dumps({"exit_code": 0, "data": {}}))
 
     assert payload.review_name == "unknown"
     assert payload.base_ref == "unknown"
@@ -185,15 +187,18 @@ def test_parse_missing_optional_fields_uses_defaults() -> None:
 def test_parse_count_derives_from_findings_when_absent() -> None:
     raw = json.dumps(
         {
-            "findings": [
-                {
-                    "path": "a.py",
-                    "line": None,
-                    "severity": "info",
-                    "summary": "s",
-                    "details": "d",
-                }
-            ],
+            "exit_code": 0,
+            "data": {
+                "findings": [
+                    {
+                        "path": "a.py",
+                        "line": None,
+                        "severity": "info",
+                        "summary": "s",
+                        "details": "d",
+                    }
+                ],
+            },
         }
     )
 
@@ -205,7 +210,7 @@ def test_parse_count_derives_from_findings_when_absent() -> None:
 def test_parse_error_shape_produces_error_payload() -> None:
     raw = json.dumps(
         {
-            "success": False,
+            "exit_code": 2,
             "error_type": "harness_binary_missing",
             "message": "claude not on PATH",
         }
@@ -230,21 +235,39 @@ def test_parse_rejects_non_object_root() -> None:
 
 def test_parse_rejects_non_list_findings() -> None:
     with pytest.raises(FindingsParseError, match="findings"):
-        parse_findings_payload(json.dumps({"findings": "oops"}))
+        parse_findings_payload(json.dumps({"exit_code": 0, "data": {"findings": "oops"}}))
 
 
 def test_parse_rejects_finding_missing_required_field() -> None:
     raw = json.dumps(
         {
-            "findings": [
-                {
-                    "path": "a.py",
-                    "line": 1,
-                    "severity": "warning",
-                    # missing summary + details
-                }
-            ]
+            "exit_code": 0,
+            "data": {
+                "findings": [
+                    {
+                        "path": "a.py",
+                        "line": 1,
+                        "severity": "warning",
+                        # missing summary + details
+                    }
+                ]
+            },
         }
     )
     with pytest.raises(FindingsParseError, match="finding #0"):
         parse_findings_payload(raw)
+
+
+def test_parse_rejects_envelope_without_exit_code() -> None:
+    with pytest.raises(FindingsParseError, match="exit_code"):
+        parse_findings_payload(json.dumps({"data": {}}))
+
+
+def test_parse_negative_envelope_renders_as_error() -> None:
+    raw = json.dumps({"exit_code": 1, "message": "boom"})
+
+    payload = parse_findings_payload(raw)
+
+    assert payload.is_error is True
+    assert payload.error_type == "unknown"
+    assert payload.error_message == "boom"
