@@ -75,8 +75,7 @@ def test_machine_ok_exits_zero_and_emits_data_envelope() -> None:
     runner = CliRunner()
     result = runner.invoke(
         _make_group(),
-        ["json", "probe"],
-        input='{"mode":"ok"}',
+        ["probe", "ok", "--format", "json"],
         obj=_runtime_obj(),
     )
 
@@ -91,8 +90,7 @@ def test_machine_negative_exits_one_and_emits_message_envelope() -> None:
     runner = CliRunner()
     result = runner.invoke(
         _make_group(),
-        ["json", "probe"],
-        input='{"mode":"negative"}',
+        ["probe", "negative", "--format", "json"],
         obj=_runtime_obj(),
     )
 
@@ -108,8 +106,7 @@ def test_machine_failure_exits_two_and_emits_error_envelope() -> None:
     runner = CliRunner()
     result = runner.invoke(
         _make_group(),
-        ["json", "probe"],
-        input='{"mode":"failure"}',
+        ["probe", "failure", "--format", "json"],
         obj=_runtime_obj(),
     )
 

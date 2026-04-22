@@ -96,7 +96,7 @@ def test_objective_plugin_integration() -> None:
     assert result.exit_code == 0
     assert "No objectives found." in result.output
 
-    result = runner.invoke(parent, ["objective", "json", "list"], input="", obj=obj)
+    result = runner.invoke(parent, ["objective", "list", "--format", "json"], obj=obj)
     assert result.exit_code == 0
     assert '"exit_code": 0' in result.output
 
@@ -201,8 +201,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
 
     result = runner.invoke(
         parent,
-        ["reviewer", "review", "json", "run"],
-        input=json.dumps({"key": "dignified-python"}),
+        ["reviewer", "review", "run", "dignified-python", "--format", "json"],
         obj=clinkr_obj,
     )
     assert result.exit_code == 0, result.output

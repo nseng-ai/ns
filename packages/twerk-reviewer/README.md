@@ -34,8 +34,8 @@ reviewer review run <key>    # resolve reviews/<key>.md, run it, print findings
 Every operation also has a JSON form for machine consumers:
 
 ```bash
-echo '{"key": "dignified-python"}' | reviewer review json run
-reviewer harness json list
+reviewer review run dignified-python --format json
+reviewer harness list --format json
 ```
 
 ## Harness selection

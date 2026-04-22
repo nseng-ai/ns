@@ -47,8 +47,8 @@ This package provides:
 - Standalone CLI: `pr-address` console script (declared in `pyproject.toml`).
 - Twerk plugin: `twerk pr-address …` (via the `twerk.plugins` entry point).
 - Operation groups:
-  - `pr-address exec ...` for normal CLI usage
-  - `pr-address exec json ...` for JSON-over-stdin automation
+  - `pr-address exec ...` for normal CLI usage; pass `--format json` for
+    machine-readable output
 
 Run `pr-address exec --help` for the full operation list.
 

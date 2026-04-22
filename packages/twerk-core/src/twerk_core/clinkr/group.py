@@ -6,7 +6,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import _apply_machine_command, emit_machine_envelope
+from twerk_core.clinkr.command import emit_machine_envelope
 from twerk_core.clinkr.context import MACHINE_FORMAT_PARAM_NAME, set_machine_mode
 from twerk_core.clinkr.exit import ClinkrExit, ExitStatus
 from twerk_core.clinkr.json_schema import build_json_schema_document
@@ -14,12 +14,9 @@ from twerk_core.clinkr.operation import ClinkrOperationMeta, get_operation_meta
 from twerk_core.clinkr.params import build_request_from_click_params, extract_click_params
 from twerk_core.clinkr.rendering import default_human_renderer
 
-_RESERVED_JSON_NAME = "json"
-
 
 class ClinkrGroup(click.Group):
-    """A Click group that auto-provisions a ``json`` subgroup and supports
-    command aliases.
+    """A Click group that registers clinkr operations and supports command aliases.
 
     All operations must be provided at construction time via the
     ``operations`` parameter. The group is immutable after ``__init__``.
@@ -34,21 +31,12 @@ class ClinkrGroup(click.Group):
     ) -> None:
         super().__init__(name, **kwargs)
         self._aliases: dict[str, str] = {}
-        self._json_group = click.Group(
-            _RESERVED_JSON_NAME,
-            help="Machine-readable command variants.",
-        )
-        super().add_command(self._json_group, _RESERVED_JSON_NAME)
 
         for op_fn in operations:
             meta = get_operation_meta(op_fn)
             if meta is None:
                 raise TypeError(f"{op_fn!r} is not decorated with @clinkr_operation")
             _register_operation(self, op_fn, meta)
-
-    @property
-    def json_group(self) -> click.Group:
-        return self._json_group
 
     # -- alias handling (ported from AliasedGroup) --
 
@@ -57,26 +45,6 @@ class ClinkrGroup(click.Group):
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
         return super().get_command(ctx, self._aliases.get(cmd_name, cmd_name))
-
-    # -- guard the reserved json name --
-
-    def add_command(self, cmd: click.Command, name: str | None = None) -> None:
-        resolved = name or cmd.name
-        if resolved == _RESERVED_JSON_NAME:
-            raise ValueError(
-                f"'{_RESERVED_JSON_NAME}' is a reserved subgroup owned by ClinkrGroup. "
-                "Use the operations parameter instead."
-            )
-        super().add_command(cmd, name)
-
-    # -- ordering: json last --
-
-    def list_commands(self, ctx: click.Context) -> list[str]:
-        commands = super().list_commands(ctx)
-        if _RESERVED_JSON_NAME in commands:
-            commands.remove(_RESERVED_JSON_NAME)
-            commands.append(_RESERVED_JSON_NAME)
-        return commands
 
     # -- help formatting with aliases --
 
@@ -117,7 +85,7 @@ def _register_operation(
 
     # -- build human command --
     params = extract_click_params(request_type)
-    inject_format_flags = not _has_option(params, "--format")
+    inject_format_option = not _has_option(params, "--format")
 
     @click.pass_context
     def human_callback(ctx: click.Context, **kwargs: Any) -> None:
@@ -147,8 +115,9 @@ def _register_operation(
         click.echo(f"error: {result.message}", err=True)
         ctx.exit(2)
 
-    if inject_format_flags:
-        params.extend(_build_format_flags(request_type, result_types))
+    if inject_format_option:
+        params.append(_build_format_option())
+    params.append(_build_schema_option(request_type, result_types))
 
     human_cmd = click.Command(
         name=meta.name,
@@ -157,29 +126,8 @@ def _register_operation(
         help=help_text,
     )
 
-    # -- build machine command --
-    # Note: ``_apply_machine_command`` re-wraps this callback; decorating it
-    # with ``click.pass_context`` would not help because Click only dispatches
-    # through the outer wrapper. ``click.get_current_context()`` works here
-    # because it runs inside Click's dispatch stack.
-    def machine_callback(*, request: Any) -> Any:
-        ctx = click.get_current_context()
-        return operation(ctx, request)
-
-    machine_cmd = click.Command(
-        name=meta.name,
-        callback=machine_callback,
-        help=f"{help_text} (JSON)",
-    )
-    _apply_machine_command(
-        machine_cmd,
-        request_type=request_type,
-        output_types=result_types,
-    )
-
     # -- register --
     group.add_command(human_cmd, meta.name)
-    group._json_group.add_command(machine_cmd, meta.name)
     for alias in meta.aliases:
         group._aliases[alias] = meta.name
 
@@ -192,16 +140,30 @@ def _has_option(params: list[click.Parameter], flag: str) -> bool:
     return False
 
 
-def _build_format_flags(
+def _build_format_option() -> click.Parameter:
+    """Build the framework-injected ``--format`` option.
+
+    ``--format json`` dispatches the operation through the machine-envelope
+    path on the same (human) command.
+    """
+    return click.Option(
+        ["--format", MACHINE_FORMAT_PARAM_NAME],
+        type=click.Choice(["human", "json"]),
+        default="human",
+        show_default=True,
+        help="Output format. 'json' emits the machine envelope for scripting.",
+    )
+
+
+def _build_schema_option(
     request_type: type,
     result_types: tuple[type, ...],
-) -> list[click.Parameter]:
-    """Build the framework-injected ``--format`` / ``--schema`` options.
+) -> click.Parameter:
+    """Build the framework-injected ``--schema`` option.
 
-    ``--format json`` dispatches the operation through the same envelope path
-    as the ``json`` subtree. ``--schema`` is eager (mirrors ``--help``) and
-    prints the JSON Schema document for the command's input/output shapes
-    before required-argument validation runs, then exits 0.
+    Eager (mirrors ``--help``): prints the JSON Schema document for the
+    command's input/output shapes before required-argument validation runs,
+    then exits 0.
     """
 
     def _print_schema(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
@@ -214,20 +176,11 @@ def _build_format_flags(
         click.echo(json.dumps(schema_doc, indent=2))
         ctx.exit(0)
 
-    return [
-        click.Option(
-            ["--format", MACHINE_FORMAT_PARAM_NAME],
-            type=click.Choice(["human", "json"]),
-            default="human",
-            show_default=True,
-            help="Output format. 'json' emits the machine envelope for scripting.",
-        ),
-        click.Option(
-            ["--schema"],
-            is_flag=True,
-            is_eager=True,
-            expose_value=False,
-            callback=_print_schema,
-            help="Print the JSON Schema for this command's input/output and exit.",
-        ),
-    ]
+    return click.Option(
+        ["--schema"],
+        is_flag=True,
+        is_eager=True,
+        expose_value=False,
+        callback=_print_schema,
+        help="Print the JSON Schema for this command's input/output and exit.",
+    )

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import click
 import pytest
 from click.testing import CliRunner
 
@@ -55,7 +54,6 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
     assert "get" in result.output
     assert "list" in result.output
     assert "check" in result.output
-    assert "json" in result.output
     assert "copy" not in result.output
     assert "list-artifacts" not in result.output
     assert "check-artifact" not in result.output
@@ -214,28 +212,32 @@ def test_brmem_json_put_and_get(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     put_result = CliRunner().invoke(
         cli_group,
-        ["json", "put"],
-        input=json.dumps(
-            {
-                "file": str(source_file),
-                "key": "plan/plan.md",
-                "namespace": "workbr",
-            }
-        ),
+        [
+            "put",
+            "plan/plan.md",
+            "--namespace",
+            "workbr",
+            "--file",
+            str(source_file),
+            "--format",
+            "json",
+        ],
         obj=obj,
     )
     put_payload = _json_output(put_result.output)
 
     get_result = CliRunner().invoke(
         cli_group,
-        ["json", "get"],
-        input=json.dumps(
-            {
-                "branch": "feat/x",
-                "key": "plan/plan.md",
-                "namespace": "workbr",
-            }
-        ),
+        [
+            "get",
+            "plan/plan.md",
+            "--namespace",
+            "workbr",
+            "--branch",
+            "feat/x",
+            "--format",
+            "json",
+        ],
         obj=obj,
     )
     get_payload = _json_output(get_result.output)
@@ -289,14 +291,15 @@ def test_brmem_put_from_stdin(cli_group: ClinkrGroup) -> None:
 def test_brmem_json_put_from_stdin_is_rejected(cli_group: ClinkrGroup) -> None:
     put_result = CliRunner().invoke(
         cli_group,
-        ["json", "put"],
-        input=json.dumps(
-            {
-                "key": "plan/plan.md",
-                "namespace": "workbr",
-                "stdin": True,
-            }
-        ),
+        [
+            "put",
+            "plan/plan.md",
+            "--namespace",
+            "workbr",
+            "--stdin",
+            "--format",
+            "json",
+        ],
         obj=_make_obj(),
     )
     put_payload = _json_output(put_result.output)
@@ -707,8 +710,7 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["json", "list"],
-        input=json.dumps({"namespace": "workbr"}),
+        ["list", "--namespace", "workbr", "--format", "json"],
         obj=obj,
     )
     payload = _json_output(result.output)
@@ -830,8 +832,7 @@ def test_brmem_json_check_present(cli_group: ClinkrGroup) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["json", "check"],
-        input=json.dumps({"namespace": "workbr", "key": "plan/plan.md"}),
+        ["check", "plan/plan.md", "--namespace", "workbr", "--format", "json"],
         obj=obj,
     )
     payload = _json_output(result.output)
@@ -850,8 +851,7 @@ def test_brmem_json_check_present(cli_group: ClinkrGroup) -> None:
 def test_brmem_json_check_missing(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["json", "check"],
-        input=json.dumps({"namespace": "workbr", "key": "plan/plan.md"}),
+        ["check", "plan/plan.md", "--namespace", "workbr", "--format", "json"],
         obj=_make_obj(),
     )
     payload = _json_output(result.output)
@@ -865,110 +865,8 @@ def test_brmem_json_check_missing(cli_group: ClinkrGroup) -> None:
 
 
 # ---------------------------------------------------------------------------
-# JSON parity
+# --schema eagerness / failure envelope
 # ---------------------------------------------------------------------------
-
-
-def test_brmem_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:
-    def _assert_json_parity(group: ClinkrGroup) -> None:
-        json_group = group.commands["json"]
-        assert isinstance(json_group, click.Group)
-        operation_children = {
-            name
-            for name, cmd in group.commands.items()
-            if name != "json" and not isinstance(cmd, ClinkrGroup)
-        }
-        assert operation_children <= set(json_group.commands)
-        for name, cmd in group.commands.items():
-            if name == "json":
-                continue
-            if isinstance(cmd, ClinkrGroup):
-                _assert_json_parity(cmd)
-
-    _assert_json_parity(cli_group)
-
-
-# ---------------------------------------------------------------------------
-# --format json parity / --schema eagerness / failure envelope
-# ---------------------------------------------------------------------------
-
-
-def test_brmem_put_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    source_file = tmp_path / "local.txt"
-    source_file.write_text("parity\n", encoding="utf-8")
-
-    flag_result = CliRunner().invoke(
-        cli_group,
-        [
-            "put",
-            "plan/plan.md",
-            "--namespace",
-            "workbr",
-            "--file",
-            str(source_file),
-            "--format",
-            "json",
-        ],
-        obj=_make_obj(),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["json", "put"],
-        input=json.dumps(
-            {
-                "file": str(source_file),
-                "key": "plan/plan.md",
-                "namespace": "workbr",
-            }
-        ),
-        obj=_make_obj(),
-    )
-
-    assert flag_result.exit_code == 0, flag_result.output
-    assert subtree_result.exit_code == 0, subtree_result.output
-    assert flag_result.stdout == subtree_result.stdout
-
-
-def test_brmem_get_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan/plan.md", "feat/x", "parity\n")
-
-    flag_result = CliRunner().invoke(
-        cli_group,
-        ["get", "plan/plan.md", "--namespace", "workbr", "--format", "json"],
-        obj=_make_obj(gateway=gateway),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["json", "get"],
-        input=json.dumps({"key": "plan/plan.md", "namespace": "workbr"}),
-        obj=_make_obj(gateway=gateway),
-    )
-
-    assert flag_result.exit_code == 0, flag_result.output
-    assert subtree_result.exit_code == 0, subtree_result.output
-    assert flag_result.stdout == subtree_result.stdout
-
-
-def test_brmem_list_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan/a.md", "feat/x", "a\n")
-
-    flag_result = CliRunner().invoke(
-        cli_group,
-        ["list", "--namespace", "workbr", "--format", "json"],
-        obj=_make_obj(gateway=gateway),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["json", "list"],
-        input=json.dumps({"namespace": "workbr"}),
-        obj=_make_obj(gateway=gateway),
-    )
-
-    assert flag_result.exit_code == 0, flag_result.output
-    assert subtree_result.exit_code == 0, subtree_result.output
-    assert flag_result.stdout == subtree_result.stdout
 
 
 def test_brmem_put_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:

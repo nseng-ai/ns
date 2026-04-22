@@ -4,7 +4,7 @@ description: "Display the user's twerk objectives — GitHub issues labeled `obj
 allowed-tools:
   - "Bash(twerk objective list*)"
   - "Bash(twerk objective ls*)"
-  - "Bash(twerk objective json list*)"
+  - "Bash(twerk objective list --format json*)"
   - "Bash(gh issue view*)"
   - "Bash(gh auth status)"
 ---

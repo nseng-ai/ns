@@ -38,8 +38,7 @@ def _obj(context: object) -> object:
 
 def _invoke_json(
     cli_group: ClinkrGroup,
-    op: str,
-    payload: dict,
+    args: list[str],
     fake: FakeIssueGateway,
     *,
     git_gateway: FakeGitGateway | None = None,
@@ -49,10 +48,13 @@ def _invoke_json(
         gh_issue_gateway=fake,
         git_gateway=git_gateway if git_gateway is not None else FakeGitGateway(),
     )
+    # The operation name comes first; `--format json` goes next (before any
+    # positional arg that might start with `-`) so Click parses it as an
+    # option rather than a positional.
+    op_name, *rest = args
     result = runner.invoke(
         cli_group,
-        ["exec", "json", op],
-        input=json.dumps(payload),
+        ["exec", op_name, "--format", "json", *rest],
         obj=_obj(ctx),
     )
     output = json.loads(result.output) if result.output.strip() else {}
@@ -175,7 +177,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
         },
     )
 
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
 
     assert exit_code == 0
     assert output["exit_code"] == 0
@@ -246,8 +248,7 @@ def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
 
     exit_code, output = _invoke_json(
         cli_group,
-        "prepare-run",
-        {"include_all_threads": True},
+        ["prepare-run", "--include-all-threads"],
         fake,
         git_gateway=git_gateway,
     )
@@ -297,7 +298,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
     fake_default = FakeIssueGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
     exit_default, out_default = _invoke_json(
-        cli_group, "prepare-run", {}, fake_default, git_gateway=git_gateway
+        cli_group, ["prepare-run"], fake_default, git_gateway=git_gateway
     )
     assert exit_default == 0
     assert [r["id"] for r in out_default["data"]["reviews"]] == ["PRR_signal"]
@@ -305,8 +306,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
     fake_all = FakeIssueGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
     exit_all, out_all = _invoke_json(
         cli_group,
-        "prepare-run",
-        {"include_empty_reviews": True},
+        ["prepare-run", "--include-empty-reviews"],
         fake_all,
         git_gateway=git_gateway,
     )
@@ -324,7 +324,7 @@ def test_prepare_run_returns_found_false_when_branch_has_no_pr(
     fake = FakeIssueGateway()
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
 
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
 
     assert exit_code == 0
     assert output["exit_code"] == 0
@@ -340,7 +340,7 @@ def test_prepare_run_detached_head_returns_command_error(
     fake = FakeIssueGateway()
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): DetachedHead()})
 
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
 
     assert exit_code == 2
     assert output["exit_code"] == 2
@@ -375,7 +375,7 @@ def test_prepare_run_warns_when_restructured_file_detection_fails(
         },
     )
 
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
 
     assert exit_code == 0
     assert output["exit_code"] == 0
@@ -397,7 +397,7 @@ def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
         }
     )
 
-    exit_code, output = _invoke_json(cli_group, "prepare-run", {}, fake, git_gateway=git_gateway)
+    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
 
     assert exit_code == 2
     assert output["exit_code"] == 2
@@ -412,13 +412,13 @@ def test_resolve_thread_with_reply_fixed_uses_canonical_format(
 
     exit_code, output = _invoke_json(
         cli_group,
-        "resolve-thread-with-reply",
-        {
-            "thread_id": "PRRT_abc",
-            "mode": "fixed",
-            "message": "Use the LBYL guard here.",
-            "commit_sha": "abc1234",
-        },
+        [
+            "resolve-thread-with-reply",
+            "PRRT_abc",
+            "fixed",
+            "Use the LBYL guard here.",
+            "abc1234",
+        ],
         fake,
     )
 
@@ -441,13 +441,7 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
 
     exit_code, output = _invoke_json(
         cli_group,
-        "resolve-thread-with-reply",
-        {
-            "thread_id": "PRRT_old",
-            "mode": "pre_existing",
-            "message": None,
-            "commit_sha": None,
-        },
+        ["resolve-thread-with-reply", "PRRT_old", "pre_existing", "", ""],
         fake,
     )
 
@@ -465,12 +459,13 @@ def test_reply_to_review_posts_formatted_summary(
 
     exit_code, output = _invoke_json(
         cli_group,
-        "reply-to-review",
-        {
-            "pr_number": 42,
-            "review_author": "reviewer",
-            "summary_markdown": "- Updated the helper flow\n- Added coverage",
-        },
+        [
+            "reply-to-review",
+            "42",
+            "reviewer",
+            "--",
+            "- Updated the helper flow\n- Added coverage",
+        ],
         fake,
     )
 
@@ -490,14 +485,14 @@ def test_reply_to_discussion_quotes_original_and_adds_reaction(
 
     exit_code, output = _invoke_json(
         cli_group,
-        "reply-to-discussion",
-        {
-            "pr_number": 42,
-            "comment_id": 9001,
-            "comment_author": "reviewer",
-            "original_body": "Can you update this?\nIt still reads oddly.",
-            "response": "Done in the latest commit.",
-        },
+        [
+            "reply-to-discussion",
+            "42",
+            "9001",
+            "reviewer",
+            "Can you update this?\nIt still reads oddly.",
+            "Done in the latest commit.",
+        ],
         fake,
     )
 
@@ -528,14 +523,14 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
 
     exit_code, output = _invoke_json(
         cli_group,
-        "reply-to-discussion",
-        {
-            "pr_number": 42,
-            "comment_id": 9001,
-            "comment_author": "reviewer",
-            "original_body": "Can you update this?",
-            "response": "Done in the latest commit.",
-        },
+        [
+            "reply-to-discussion",
+            "42",
+            "9001",
+            "reviewer",
+            "Can you update this?",
+            "Done in the latest commit.",
+        ],
         fake,
     )
 
@@ -551,12 +546,7 @@ def test_reply_to_review_rejects_empty_summary(cli_group: ClinkrGroup) -> None:
 
     exit_code, output = _invoke_json(
         cli_group,
-        "reply-to-review",
-        {
-            "pr_number": 42,
-            "review_author": "reviewer",
-            "summary_markdown": "   \n  ",
-        },
+        ["reply-to-review", "42", "reviewer", "   \n  "],
         fake,
     )
 
@@ -572,14 +562,14 @@ def test_reply_to_discussion_rejects_empty_response(cli_group: ClinkrGroup) -> N
 
     exit_code, output = _invoke_json(
         cli_group,
-        "reply-to-discussion",
-        {
-            "pr_number": 42,
-            "comment_id": 9001,
-            "comment_author": "reviewer",
-            "original_body": "Can you update this?",
-            "response": "",
-        },
+        [
+            "reply-to-discussion",
+            "42",
+            "9001",
+            "reviewer",
+            "Can you update this?",
+            "",
+        ],
         fake,
     )
 
@@ -595,13 +585,7 @@ def test_resolve_thread_with_reply_fixed_requires_message(cli_group: ClinkrGroup
 
     exit_code, output = _invoke_json(
         cli_group,
-        "resolve-thread-with-reply",
-        {
-            "thread_id": "PRRT_abc",
-            "mode": "fixed",
-            "message": None,
-            "commit_sha": "abc1234",
-        },
+        ["resolve-thread-with-reply", "PRRT_abc", "fixed", "", "abc1234"],
         fake,
     )
 
@@ -617,13 +601,13 @@ def test_resolve_thread_with_reply_fixed_requires_commit_sha(cli_group: ClinkrGr
 
     exit_code, output = _invoke_json(
         cli_group,
-        "resolve-thread-with-reply",
-        {
-            "thread_id": "PRRT_abc",
-            "mode": "fixed",
-            "message": "Use the LBYL guard.",
-            "commit_sha": "   ",
-        },
+        [
+            "resolve-thread-with-reply",
+            "PRRT_abc",
+            "fixed",
+            "Use the LBYL guard.",
+            "   ",
+        ],
         fake,
     )
 
@@ -639,13 +623,7 @@ def test_resolve_thread_with_reply_explained_requires_message(cli_group: ClinkrG
 
     exit_code, output = _invoke_json(
         cli_group,
-        "resolve-thread-with-reply",
-        {
-            "thread_id": "PRRT_abc",
-            "mode": "explained",
-            "message": "",
-            "commit_sha": None,
-        },
+        ["resolve-thread-with-reply", "PRRT_abc", "explained", "", ""],
         fake,
     )
 

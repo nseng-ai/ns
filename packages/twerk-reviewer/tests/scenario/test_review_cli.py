@@ -116,7 +116,6 @@ def test_reviewer_help_lists_subgroups(cli_group: ClinkrGroup) -> None:
     assert "Markdown-driven reviewer operations." in result.output
     assert "review" in result.output
     assert "harness" in result.output
-    assert "json" in result.output
     assert "--version" in result.output
 
 
@@ -213,8 +212,17 @@ def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "findings"}),
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--review-format",
+            "findings",
+            "--format",
+            "json",
+        ],
         obj=_context(payload=FindingsReview(findings=(finding,))),
     )
 
@@ -231,8 +239,17 @@ def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "text"}),
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--review-format",
+            "text",
+            "--format",
+            "json",
+        ],
         obj=_context(payload=ProseReview(prose="**ok**")),
     )
 
@@ -317,8 +334,17 @@ def test_review_run_json_output_includes_usage(cli_group: ClinkrGroup) -> None:
     )
     result = runner.invoke(
         cli_group,
-        ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "text"}),
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--review-format",
+            "text",
+            "--format",
+            "json",
+        ],
         obj=_context(payload=ProseReview(prose="**ok**"), usage=usage),
     )
 
@@ -340,26 +366,6 @@ def test_review_run_json_output_usage_is_null_when_absent(cli_group: ClinkrGroup
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "text"}),
-        obj=_context(payload=ProseReview(prose="**ok**")),
-    )
-
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.stdout)
-    assert output["data"]["usage"] is None
-
-
-def test_review_run_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
-    finding = ReviewFinding(
-        path="app.py",
-        line=1,
-        severity="warning",
-        summary="Avoid print in library code",
-        details="Use click.echo() instead.",
-    )
-    flag_result = CliRunner().invoke(
-        cli_group,
         [
             "review",
             "run",
@@ -367,22 +373,16 @@ def test_review_run_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> 
             "--model",
             "sonnet",
             "--review-format",
-            "findings",
+            "text",
             "--format",
             "json",
         ],
-        obj=_context(payload=FindingsReview(findings=(finding,))),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "findings"}),
-        obj=_context(payload=FindingsReview(findings=(finding,))),
+        obj=_context(payload=ProseReview(prose="**ok**")),
     )
 
-    assert flag_result.exit_code == 0, flag_result.output
-    assert subtree_result.exit_code == 0, subtree_result.output
-    assert flag_result.stdout == subtree_result.stdout
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.stdout)
+    assert output["data"]["usage"] is None
 
 
 def test_review_run_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:

@@ -531,30 +531,6 @@ def test_slot_free_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_pat
     assert "not currently assigned" in payload["message"]
 
 
-def test_slot_free_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    slots_root = tmp_path / "slots"
-    fakes = _fake_for_repo(tmp_path)
-    # Use the read-only negative path (slot not assigned) so both dispatch
-    # paths see identical state.
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
-
-    flag_result = CliRunner().invoke(
-        cli_group,
-        ["free", "--wt", "slot-02", "--format", "json"],
-        obj=_make_obj(fakes, slots_root),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["json", "free"],
-        input=json.dumps({"wt": "slot-02"}),
-        obj=_make_obj(fakes, slots_root),
-    )
-
-    assert flag_result.exit_code == 1
-    assert subtree_result.exit_code == 1
-    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
-
-
 def test_slot_free_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["free", "--schema"])
     payload = json.loads(result.stdout)

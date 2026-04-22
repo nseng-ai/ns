@@ -808,31 +808,6 @@ def test_slot_checkout_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_
     assert "does not exist" in payload["message"]
 
 
-def test_slot_checkout_format_json_matches_json_subtree(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
-    (tmp_path / "a").mkdir()
-    (tmp_path / "b").mkdir()
-    fakes_a = _fake_for_repo(tmp_path / "a")
-    fakes_b = _fake_for_repo(tmp_path / "b")
-
-    flag_result = CliRunner().invoke(
-        cli_group,
-        ["checkout", "missing/branch", "--format", "json"],
-        obj=_make_obj(fakes_a, tmp_path / "a" / "slots"),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["json", "checkout"],
-        input=json.dumps({"branch_name": "missing/branch"}),
-        obj=_make_obj(fakes_b, tmp_path / "b" / "slots"),
-    )
-
-    assert flag_result.exit_code == 2
-    assert subtree_result.exit_code == 2
-    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
-
-
 def test_slot_checkout_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["checkout", "--schema"])
     payload = json.loads(result.stdout)

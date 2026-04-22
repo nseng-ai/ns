@@ -10,11 +10,7 @@ the bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
 
 All `pr-address exec <command> --format json` helpers:
 
-- Accept input either as CLI options/arguments (human mode) or — equivalently
-  — as a single JSON document on stdin when invoked through the legacy
-  `pr-address exec json <command>` subtree. Prefer `--format json` on the
-  human surface; the `json` subtree is transitional and will be removed.
-- Emit the machine envelope
+- Accept input as CLI options/arguments and produce the machine envelope
   `{"exit_code": 0|1|2, "data": ..., "error_type": ..., "message": ...}`
   on stdout. Successful runs set `exit_code: 0` and place the payload under
   `data`. Failures set `exit_code: 2` with `error_type` and `message` (no
@@ -23,12 +19,9 @@ All `pr-address exec <command> --format json` helpers:
   exit without running the operation.
 
 ```bash
-echo '{"thread_id": "PRRT_kw...", "mode": "fixed", ...}' \
-  | pr-address exec json resolve-thread-with-reply
+pr-address exec resolve-thread-with-reply \
+  --thread-id PRRT_kw... --mode fixed --format json
 ```
-
-The equivalent `--format json` invocation uses positional arguments and
-options instead of stdin JSON.
 
 ## ID scoping
 

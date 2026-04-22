@@ -29,9 +29,9 @@ jobs:
       - uses: ./.github/actions/setup-python-uv
       - id: list
         run: |
-          output=$(jq -n '{}' | uv run reviewer review json list)
-          reviews=$(printf '%s' "$output" | jq -c '.keys')
-          count=$(printf '%s' "$output" | jq '.count')
+          output=$(uv run reviewer review list --format json)
+          reviews=$(printf '%s' "$output" | jq -c '.data.keys')
+          count=$(printf '%s' "$output" | jq '.data.count')
           {
             echo "reviews=$reviews"
             echo "count=$count"
@@ -70,10 +70,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jq -n \
-            --arg key "$REVIEW_KEY" \
-            --arg base_ref "$BASE_REF" \
-            '{key: $key, base_ref: $base_ref, format: "findings"}' \
-            | uv run reviewer review json run \
+          uv run reviewer review run "$REVIEW_KEY" \
+            --base-ref "$BASE_REF" \
+            --review-format findings \
+            --format json \
+            | jq '.data' \
             | uv run reviewer exec format-findings-comment \
             | gh pr comment "$PR_NUMBER" --body-file -
