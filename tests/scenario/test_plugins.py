@@ -106,8 +106,7 @@ def test_memjective_plugin_integration() -> None:
 
     result = runner.invoke(
         parent,
-        ["memjective", "json", "list"],
-        input=json.dumps({}),
+        ["memjective", "list", "--format", "json"],
         obj=obj,
     )
     assert result.exit_code == 0, result.output

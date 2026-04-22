@@ -169,14 +169,13 @@ def test_memjective_list_ignores_other_namespaces(cli_group: ClinkrGroup) -> Non
     assert result.output == ""
 
 
-def test_memjective_json_list(cli_group: ClinkrGroup) -> None:
+def test_memjective_list_format_json(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("memjectives", "clinkr-migration.md", "feat/x", "seed\n")
 
     result = CliRunner().invoke(
         cli_group,
-        ["json", "list"],
-        input=json.dumps({}),
+        ["list", "--format", "json"],
         obj=_make_obj(gateway=gateway),
     )
     payload = json.loads(result.output)
@@ -202,24 +201,3 @@ def test_memjective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert set(payload) == {"input_schema", "output_schema"}
-
-
-def test_memjective_list_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "clinkr-migration.md", "feat/x", "seed\n")
-
-    flag_result = CliRunner().invoke(
-        cli_group,
-        ["list", "--format", "json"],
-        obj=_make_obj(gateway=gateway),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["json", "list"],
-        input=json.dumps({}),
-        obj=_make_obj(gateway=gateway),
-    )
-
-    assert flag_result.exit_code == 0, flag_result.output
-    assert subtree_result.exit_code == 0, subtree_result.output
-    assert flag_result.stdout == subtree_result.stdout
