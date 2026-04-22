@@ -1,6 +1,6 @@
 ---
 name: dev-memjective-create
-description: "Create a local-first memjective record for the memjective prototype. Draft a simple migration-notice-style memjective, store the seed on the `master` branch via `brmem` under namespace `memjectives`, key `<slug>.md`, and attach the same text to the current branch. Use when the user wants to start a new local memjective, prototype memjective, attach a memjective to the current branch, or create a branch-scoped memjective snapshot without storing it in GitHub. Reading GitHub for context (referenced PRs, issues, design docs) is fine; only the memjective record itself stays local."
+description: "Draft a new memjective and store it in `brmem` as the master-branch snapshot plus an initial snapshot on the current branch. Use when the user wants to start a new local memjective or attach one to the current branch. See `dev-memjective` for the subsystem overview."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -10,68 +10,54 @@ metadata:
   internal: true
 ---
 
-<!-- INTERNAL SKILL: twerk-only. Local-first memjective prototype on top of brmem. -->
+<!-- INTERNAL SKILL: twerk-only. Local-first memjective subsystem on top of brmem. -->
 
 # dev-memjective-create
 
-Create a new **local-first memjective** for the memjective prototype.
+Create a new local-first memjective: the master-branch snapshot and an initial
+per-branch snapshot on the current branch.
 
-This skill deliberately does **not** store memjectives in GitHub — no issues,
-no comments, no PR bodies. Reading from GitHub for context (e.g., `gh pr
-view` on a referenced PR) is still fine; only the memjective record itself
-lives locally. The canonical seed lives on the `master` branch in brmem at:
-
-- namespace `memjectives`, key `<slug>.md` (on `master`)
-
-Then the exact seed text is attached to the **current branch** in brmem at:
-
-- namespace `memjectives`, key `<slug>.md` (on the current branch)
-
-The branch snapshot is the in-flight speculative state. The master-branch seed
-is the canonical initial seed for this prototype.
+> For shared concepts — vocabulary (`snapshot`, `master-branch snapshot`,
+> `per-branch snapshot`), the storage model, the one-memjective-per-branch
+> invariant, carry-forward semantics, the lifecycle, and the mutation-contract
+> summary — see `../dev-memjective/SKILL.md`.
 
 ## Goal
 
 Given a rough memjective brief from the user, produce:
 
-1. a migration-notice-style memjective document stored as the `master`-branch
-   brmem seed under namespace `memjectives`, key `<slug>.md`
+1. a memjective document stored as the `master`-branch brmem snapshot under
+   namespace `memjectives`, key `<slug>.md`
 2. a matching brmem snapshot for the current branch under
    namespace `memjectives`, key `<slug>.md`
 3. a short report naming the slug, branch, and brmem commits
 
 ## Core rules
 
-- **Storage is local-first.** Do not create or edit GitHub issues, comments,
-  or PR bodies to hold the memjective. Reading GitHub (e.g., `gh pr view`,
-  `gh issue view`) to capture context from a referenced PR or issue is
-  allowed and expected when the user's brief points at one.
-- **One memjective per branch.** If the current branch already has any entry in
-  the `memjectives` namespace, abort instead of creating a second one.
-- **Use the simple template.** Read
+- **Use the canonical template.** Read
   `../dev-memjective/templates/memjective-template.md` and keep the draft
   close to that shape:
   - title
-  - `Status:` line
-  - short intro paragraph(s) that explain where the memjective comes from, what
-    related work is already landed, what remains in scope now, what is out of
-    scope, and why the remaining work matters
+  - short, categorical `Status:` line
+  - `## Description` for durable context and scope
+  - `## Goals` for the higher-level value this work should deliver
   - `## Completion Criteria` describing the target end state in re-checkable
     terms
-  - `## Status Checklist`, organized by PR-sized slices when the work is
-    expected to land incrementally
+  - `## Roadmap`, organized by PR-sized slices when the work is expected to
+    land incrementally
   - `## How to Make Progress`
-  - `## Notes` (expected for architectural / migration memjectives; optional for
-    simpler memjectives)
+  - `## Notes` (expected for architectural or multi-PR memjectives; optional
+    for simpler memjectives)
 - **The branch snapshot key must carry the slug.** Do not use bare
   `memjective.md`; the branch key is `<slug>.md` in namespace `memjectives`.
-- **Attach the exact drafted text.** Write the master-branch seed first, then
-  use `brmem put` to copy that exact content onto the current branch.
-- **Do not write the memjective into the working tree.** The only durable copies
-  are the master-branch brmem seed and the current-branch brmem snapshot.
-- **Do not touch the workbr plan entry.** If the branch already has
-  a `plan/plan.md` entry in the `workbr` namespace, leave it alone.
-  That plan is the upper execution frame; the memjective sits below it.
+- **Attach the exact drafted text.** Write the master-branch snapshot first,
+  then use `brmem put` to copy that exact content onto the current branch.
+- **Do not write the memjective into the working tree.** The only durable
+  copies are the master-branch brmem snapshot and the current-branch brmem
+  snapshot.
+- **Do not touch the workbr plan entry.** If the branch already has a
+  `plan/plan.md` entry in the `workbr` namespace, leave it alone. That plan
+  is the upper execution frame; the memjective sits below it.
 
 ## Workflow
 
@@ -109,8 +95,8 @@ Decision rules:
   slug for the next slice) or `dev-memjective-update` (to record a landed
   slice) instead. `dev-memjective-next` explicitly refuses to run on a
   branch with an existing snapshot.
-- **2+ matches** → abort and tell the user the branch is in an invalid v0 state
-  because this prototype allows only one memjective snapshot per branch
+- **2+ matches** → abort and tell the user the branch is in an invalid state;
+  only one memjective snapshot per branch is allowed.
 
 ### 3. Capture the memjective from the conversation
 
@@ -121,20 +107,22 @@ follow-ups when a critical piece is missing.
 You need enough to draft:
 
 - a concrete title
-- intro paragraph(s) that explain the source proposal / trigger for the
-  memjective, adjacent work already landed, the remaining scope now, any clearly
-  out-of-scope adjacent work, and why the remaining work matters
+- a stable `Description` that explains the source proposal / trigger for the
+  memjective, adjacent work already landed, the remaining scope now, and any
+  clearly out-of-scope adjacent work
+- `Goals` that explain what value or improvement the remaining work should
+  deliver
 - completion criteria that describe the intended end state rather than just a
   pile of tasks
-- a status checklist organized by PR-sized slices when the work is expected to
-  land incrementally
+- a roadmap organized by PR-sized slices when the work is expected to land
+  incrementally
 - a `How to Make Progress` section that makes future progress sessions fairly
   mechanical
 - notes / constraints / collisions / file pointers that future sessions are
   likely to need
 
-Bias toward the **migration-notice level of simplicity**. This is not the full
-GitHub objective template.
+Bias toward a **simple, durable workstream note**. This is not the full GitHub
+objective template.
 
 ### 4. Generate the slug
 
@@ -153,13 +141,13 @@ Slug rules:
 
 Examples:
 
-- `clinkr-migration`
-- `memjective-prototype`
-- `explicit-group-migration`
+- `clinkr-followups`
+- `memjective-subsystem`
+- `explicit-group-cleanup`
 
-### 5. Pre-flight the master-branch seed
+### 5. Pre-flight the master-branch snapshot
 
-Before writing, check whether the seed already exists on master:
+Before writing, check whether a snapshot already exists on master:
 
 ```bash
 brmem check <slug>.md --namespace memjectives --branch master
@@ -168,11 +156,11 @@ brmem check <slug>.md --namespace memjectives --branch master
 Decision rules:
 
 - if it returns **non-zero** (no entry) → continue
-- if it returns **0** (entry exists) → abort and tell the user the seed already
-  exists on master for this slug; they likely want to run
-  `dev-memjective-peek` against the existing seed (or create a new slice
-  branch and run `dev-memjective-next` inside it), or pick a new slug
-  instead of clobbering it
+- if it returns **0** (entry exists) → abort and tell the user the
+  master-branch snapshot already exists for this slug; they likely want to
+  run `dev-memjective-peek` against the existing snapshot, or create a new
+  slice branch and run `dev-memjective-next` inside it instead of
+  clobbering the master-branch snapshot
 
 ### 6. Draft the memjective document
 
@@ -180,27 +168,30 @@ Read `../dev-memjective/templates/memjective-template.md` and fill it in.
 
 Drafting guidance:
 
-- Keep the intro short, but make it load-bearing: it should say what proposal
-  or change triggered the memjective, what related work is already landed, what
-  remains in scope now, and why the remaining work matters.
-- Make completion criteria re-checkable and end-state oriented. For migrations
-  and redesigns, prefer criteria that describe the final contract / public
-  surface / cleanup state, not just intermediate implementation steps.
-- Use the checklist as the main roadmap / progress surface. When the work will
-  land over multiple PRs, organize it by PR-sized slices.
-- For architectural redesigns and migrations, prefer **steelthreaded** early
-  slices: combine the smallest necessary core plumbing with one real migrated
-  command or package so the design is exercised end-to-end as early as
+- Keep `Description` stable and load-bearing: it should say what proposal or
+  change triggered the memjective, what related work is already landed, what
+  remains in scope now, and what is out of scope.
+- Make `Goals` value-oriented. Capture what better state the work should
+  create, not the implementation slices required to get there.
+- Make completion criteria re-checkable and end-state oriented. For redesigns
+  and other long-running work, prefer criteria that describe the final
+  contract / public surface / cleanup state, not just intermediate
+  implementation steps.
+- Use `Roadmap` as the single main progress surface. When the work will land
+  over multiple PRs, organize it by PR-sized slices.
+- Keep `Status:` short and categorical. Do not stuff PR-by-PR history into it.
+- For architectural redesigns and other long-running work, prefer
+  **steelthreaded** early slices: combine the smallest necessary core plumbing
+  with one real surface so the design is exercised end-to-end as early as
   possible.
 - Put the durable work recipe in `## How to Make Progress`. For multi-PR work,
-  this should usually tell future sessions how to choose the next slice,
-  what current behavior to inspect first, and what to update after landing a
-  slice.
-- For architectural / migration memjectives, keep `## Notes` by default and use
+  this should usually tell future sessions how to choose the next slice, what
+  current behavior to inspect first, and what to update after landing a slice.
+- For architectural or multi-PR memjectives, keep `## Notes` by default and use
   it to preserve durable findings, constraints, collisions, hidden couplings,
   and open questions discovered during implementation.
 
-### 7. Write the master-branch seed
+### 7. Write the master-branch snapshot
 
 Write the drafted memjective text to a temp file, then store it on master:
 
@@ -208,7 +199,7 @@ Write the drafted memjective text to a temp file, then store it on master:
 brmem put <slug>.md --namespace memjectives --branch master --file <temp>
 ```
 
-This is the prototype's canonical seed entry. Capture the commit SHA.
+This is the initial snapshot. Capture the commit SHA.
 
 ### 8. Attach the memjective to the current branch
 
@@ -230,7 +221,8 @@ Return a short summary including:
 
 - memjective title
 - slug
-- master-branch brmem seed location (namespace `memjectives`, key `<slug>.md`, branch `master`)
+- master-branch brmem snapshot location (namespace `memjectives`, key
+  `<slug>.md`, branch `master`)
 - current branch name
 - branch brmem entry location (namespace `memjectives`, key `<slug>.md`)
 - brmem commit SHA (branch snapshot)
@@ -253,11 +245,12 @@ the snapshot conservatively.
 ## Edge cases
 
 - **Detached HEAD** → abort; brmem attachment needs a branch name.
-- **Current branch already has one memjective snapshot** → abort; do not clobber.
+- **Current branch already has one memjective snapshot** → abort; do not
+  clobber.
 - **Current branch has multiple memjective snapshots** → abort; ask the user to
   clean up the branch state first.
-- **Seed already exists on master for this slug** → abort; do not overwrite an existing
-  canonical seed entry.
+- **Master-branch snapshot already exists for this slug** → abort; do not
+  overwrite the existing snapshot.
 - **Branch already has a `workbr` plan entry** → fine; leave it alone.
 - **Memjective is too vague to write `How to Make Progress`** → ask a short
   follow-up instead of drafting generic boilerplate.
@@ -272,8 +265,9 @@ the snapshot conservatively.
 - Attaching the branch snapshot under a generic key like `memjective.md` or a
   namespace other than `memjectives`.
 - Replacing `How to Make Progress` with vague advice like "keep working on it."
-- Treating the master-branch seed as something that should be rewritten during
-  ordinary update sessions. In v0, `dev-memjective-update` rewrites the
-  **branch snapshot**, not the master-branch seed.
+- Treating the master-branch snapshot as something that should be rewritten
+  during ordinary update sessions. `dev-memjective-update` rewrites the
+  **branch snapshot**, not the master-branch snapshot.
+- Stuffing roadmap history into the `Status:` line.
 - Opening an architectural redesign with framework-only or abstraction-only
   early slices when a steelthreaded end-to-end slice is possible.
