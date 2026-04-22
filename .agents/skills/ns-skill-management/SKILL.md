@@ -47,7 +47,6 @@ For every skill-management operation, produce an end state that has:
 - a working entry at `.agents/skills/<name>` that Codex, Cursor, Amp,
   and other universal agents can read
 - a correct `skills-lock.json` entry recording the source
-- a registry entry in AGENTS.md's "Available skills" list
 
 ## Core rules
 
@@ -70,9 +69,9 @@ For every skill-management operation, produce an end state that has:
 - **Never use `--copy`.** It forces the CLI into copy-only mode, which
   defeats the `.claude/skills/ -> .agents/skills/` symlink that the rest
   of the flow depends on.
-- **Every new skill must be registered** in AGENTS.md's "Available
-  skills" list (alphabetical, one-line entry with description and file
-  path). Unregistered skills are invisible to Codex sessions.
+- **Do not maintain a duplicate skill index in `AGENTS.md`.**
+  Installed skills are discovered natively from the on-disk install and
+  the `SKILL.md` frontmatter.
 
 ## Mental model
 
@@ -149,9 +148,8 @@ ls -la .agents/skills/<name>     # expect: l... -> ../../skills/<name>
 ls -la .claude/skills/<name>     # expect: l... -> ../../.agents/skills/<name>
 cat .claude/skills/<name>/SKILL.md  # expect: content visible through chain
 npx skills list                  # expect: agents include Claude Code, Codex, Cursor
-# 7. Register in AGENTS.md (Available skills list, alphabetical)
-# 8. Stage and commit
-git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.json AGENTS.md
+# 7. Stage and commit
+git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.json
 ```
 
 ### 2. Add a new skill from GitHub
@@ -160,8 +158,7 @@ git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.j
 npx skills add <owner>/<repo> --agent codex claude-code -y
 # Optional: --skill <name1> <name2> to pick specific skills from a multi-skill repo
 #   e.g. npx skills add dagster-io/fake-driven-testing --skill fake-driven-testing fdt-refactor-mock-to-fake --agent codex claude-code -y
-# Register each installed skill in AGENTS.md
-git add .agents/skills/<name>/ .claude/skills/<name> skills-lock.json AGENTS.md
+git add .agents/skills/<name>/ .claude/skills/<name> skills-lock.json
 ```
 
 GitHub-sourced skills live as real directories under `.agents/skills/<name>/`
@@ -191,8 +188,7 @@ Local skills are never modified by these commands.
 npx skills remove <name> --agent codex claude-code -y
 # For a local skill, also remove the canonical source
 rm -rf skills/<name>
-# Remove the AGENTS.md registry entry (manually)
-git add -u skills/ .agents/skills/ .claude/skills/ skills-lock.json AGENTS.md
+git add -u skills/ .agents/skills/ .claude/skills/ skills-lock.json
 ```
 
 ### 6. Rename a local skill
@@ -217,24 +213,22 @@ ln -s ../../.agents/skills/<new> .claude/skills/<new>
 #    - Rename the key from "<old>" to "<new>"
 #    - Update "source" from "skills/<old>" to "skills/<new>"
 
-# 5. Update the AGENTS.md "Available skills" entry (name, description, file path)
-
-# 6. Update cross-references -- any other skill that mentions the old name
-grep -r "<old>" .agents/skills/ skills-lock.json AGENTS.md
+# 5. Update cross-references -- any other skill that mentions the old name
+grep -r "<old>" .agents/skills/ skills-lock.json
 #    Fix hits in other skills' SKILL.md or reference files.
 
-# 7. Check .claude/settings.local.json for skill-specific permission entries
+# 6. Check .claude/settings.local.json for skill-specific permission entries
 #    e.g. Skill(<old>) → Skill(<new>)
 
-# 8. Verify
+# 7. Verify
 ls -la .agents/skills/<new>     # expect: l... -> ../../skills/<new>
 ls -la .claude/skills/<new>     # expect: l... -> ../../.agents/skills/<new>
 test ! -e .agents/skills/<old>  # old symlink gone
 test ! -e .claude/skills/<old>  # old symlink gone
 
-# 9. Stage and commit
+# 8. Stage and commit
 git add skills/<new>/ .agents/skills/<new> .claude/skills/<new> \
-  skills-lock.json AGENTS.md
+  skills-lock.json
 git add -u skills/<old> .agents/skills/<old> .claude/skills/<old>
 ```
 
@@ -316,8 +310,8 @@ INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --skill <name> --agent c
   breaking the universal-cache chain.
 - Omitting `-a` entirely -- installs `.windsurf/skills/<name>` as a
   side effect, which you then have to clean up.
-- Creating a new local skill without registering it in AGENTS.md's
-  "Available skills" list -- it becomes invisible to Codex sessions.
+- Maintaining a duplicate skill index in `AGENTS.md` -- installed
+  skills are discovered natively from on-disk state and frontmatter.
 - Leaving `.agents/skills/<name>` as a real directory for a local skill
   after bootstrap -- replace it with a symlink to `../../skills/<name>`.
 - Committing an absolute machine-specific local path in
@@ -326,11 +320,10 @@ INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --skill <name> --agent c
 - Assuming `npx skills check` will catch stale local-skill state --
   it only checks remote sources.
 - Deleting `skills/<name>/` without also running `npx skills remove`
-  and updating AGENTS.md -- leaves dangling lockfile entries and broken
-  symlinks.
+  -- leaves dangling lockfile entries and broken symlinks.
 - Renaming a local skill by only moving `skills/<old>` without fixing
   the `.agents/skills/` and `.claude/skills/` symlinks, `skills-lock.json`,
-  and AGENTS.md -- leaves dangling symlinks and stale registry entries.
+  and cross-references -- leaves dangling symlinks and stale references.
 - Running `npx skills add/update` while peer repo skills are symlinked
   via `local.just` -- can pollute `skills-lock.json` with untracked
   entries that break CI. See `references/peer-repo-skills.md`.
