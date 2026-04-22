@@ -13,7 +13,6 @@ twerk-objectives = { workspace = true }
 twerk-pr-address = { workspace = true }
 twerk-reviewer = { workspace = true }
 twerk-slots = { workspace = true }
-nonslop = { git = "https://github.com/nseng-ai/nonslop.git", branch = "master" }
 
 [project]
 name = "twerk"

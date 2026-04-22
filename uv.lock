@@ -74,10 +74,14 @@ wheels = [
 
 [[package]]
 name = "nonslop"
-version = "0.1.2"
-source = { git = "https://github.com/nseng-ai/nonslop.git?branch=master#9818299c9cd2885c9e825662f34c31fad6a28c3c" }
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b4/8b/4b1b354fff16888f2ae73823b3fe3ec3f9e4cf6d1a245a69c6a8a288cc43/nonslop-0.1.0.tar.gz", hash = "sha256:e3d245fc37f31fd6003ecb4535b52571c0991d313ada0616b1da2beb9448bf5a", size = 86621, upload-time = "2026-04-08T11:15:07.491Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2d/67/fc1f055a427a5c14b887f43ecee31265567bcc50d9dbd48a240f2402bef2/nonslop-0.1.0-py3-none-any.whl", hash = "sha256:024f75175d41a3c079bbd604a4e526fce38b8cbedb7e6ff4da64ad865a19df2c", size = 9978, upload-time = "2026-04-08T11:15:06.285Z" },
 ]
 
 [[package]]
@@ -271,7 +275,7 @@ provides-extras = ["plugins"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "nonslop", git = "https://github.com/nseng-ai/nonslop.git?branch=master" },
+    { name = "nonslop" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.5.0" },
