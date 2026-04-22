@@ -139,7 +139,7 @@ def test_review_run_human_output(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "findings"],
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--review-format", "findings"],
         obj=_context(payload=FindingsReview(findings=(finding,))),
     )
 
@@ -154,7 +154,7 @@ def test_review_run_text_format_renders_prose(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--review-format", "text"],
         obj=_context(payload=ProseReview(prose="### Review\n\n- app.py:1 — prefer click.echo")),
     )
 
@@ -170,7 +170,7 @@ def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
 
     result = runner.invoke(
         cli_group,
-        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--review-format", "text"],
         obj=_obj(ctx),
     )
 
@@ -214,16 +214,17 @@ def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "findings"}),
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "findings"}),
         obj=_context(payload=FindingsReview(findings=(finding,))),
     )
 
     assert result.exit_code == 0, result.output
     output = json.loads(result.stdout)
-    assert output["success"] is True
-    assert output["format"] == "findings"
-    assert output["count"] == 1
-    assert output["findings"][0]["summary"] == "Avoid print in library code"
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["format"] == "findings"
+    assert data["count"] == 1
+    assert data["findings"][0]["summary"] == "Avoid print in library code"
 
 
 def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
@@ -231,16 +232,17 @@ def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "text"}),
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "text"}),
         obj=_context(payload=ProseReview(prose="**ok**")),
     )
 
     assert result.exit_code == 0, result.output
     output = json.loads(result.stdout)
-    assert output["success"] is True
-    assert output["format"] == "text"
-    assert output["prose"] == "**ok**"
-    assert "findings" not in output
+    assert output["exit_code"] == 0
+    data = output["data"]
+    assert data["format"] == "text"
+    assert data["prose"] == "**ok**"
+    assert "findings" not in data
 
 
 def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
@@ -279,7 +281,7 @@ def test_review_run_prints_usage_block_when_present(cli_group: ClinkrGroup) -> N
     )
     result = runner.invoke(
         cli_group,
-        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--review-format", "text"],
         obj=_context(payload=ProseReview(prose="body"), usage=usage),
     )
 
@@ -293,7 +295,7 @@ def test_review_run_omits_usage_block_when_absent(cli_group: ClinkrGroup) -> Non
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "text"],
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--review-format", "text"],
         obj=_context(payload=ProseReview(prose="body")),
     )
 
@@ -316,14 +318,14 @@ def test_review_run_json_output_includes_usage(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(
         cli_group,
         ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "text"}),
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "text"}),
         obj=_context(payload=ProseReview(prose="**ok**"), usage=usage),
     )
 
     assert result.exit_code == 0, result.output
     output = json.loads(result.stdout)
-    assert output["success"] is True
-    assert output["usage"] == {
+    assert output["exit_code"] == 0
+    assert output["data"]["usage"] == {
         "input_tokens": 1000,
         "output_tokens": 500,
         "cache_creation_input_tokens": 200,
@@ -339,13 +341,70 @@ def test_review_run_json_output_usage_is_null_when_absent(cli_group: ClinkrGroup
     result = runner.invoke(
         cli_group,
         ["review", "json", "run"],
-        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "format": "text"}),
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "text"}),
         obj=_context(payload=ProseReview(prose="**ok**")),
     )
 
     assert result.exit_code == 0, result.output
     output = json.loads(result.stdout)
-    assert output["usage"] is None
+    assert output["data"]["usage"] is None
+
+
+def test_review_run_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
+    finding = ReviewFinding(
+        path="app.py",
+        line=1,
+        severity="warning",
+        summary="Avoid print in library code",
+        details="Use click.echo() instead.",
+    )
+    flag_result = CliRunner().invoke(
+        cli_group,
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--review-format",
+            "findings",
+            "--format",
+            "json",
+        ],
+        obj=_context(payload=FindingsReview(findings=(finding,))),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["review", "json", "run"],
+        input=json.dumps({"key": REVIEW_KEY, "model": "sonnet", "review_format": "findings"}),
+        obj=_context(payload=FindingsReview(findings=(finding,))),
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert subtree_result.exit_code == 0, subtree_result.output
+    assert flag_result.stdout == subtree_result.stdout
+
+
+def test_review_run_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["review", "run", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+
+
+def test_review_run_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["review", "run", REVIEW_KEY, "--model", "sonnet", "--format", "json"],
+        obj=_context(harness_detected=False),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert "error_type" in payload
+    assert "message" in payload
 
 
 def test_review_run_requires_typed_context(cli_group: ClinkrGroup) -> None:

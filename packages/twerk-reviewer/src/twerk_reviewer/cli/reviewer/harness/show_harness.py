@@ -5,8 +5,8 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
 from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.workflow import resolve_harness
@@ -37,7 +37,7 @@ def render_harness_show(result: HarnessShowResult) -> None:
 def run_harness_show_command(
     ctx: click.Context,
     request: HarnessShowRequest,
-) -> HarnessShowResult | ClinkrCommandError:
+) -> ClinkrExit[HarnessShowResult]:
     reviewer_context = load_typed_context(ctx, ReviewerCliContext)
 
     resolved = resolve_harness(
@@ -45,6 +45,6 @@ def run_harness_show_command(
         harness_detection_gateway=reviewer_context.harness_detection,
     )
     if not isinstance(resolved, str):
-        return ClinkrCommandError(error_type=resolved.error_type, message=resolved.message)
+        return ClinkrExit.failure(error_type=resolved.error_type, message=resolved.message)
 
-    return HarnessShowResult(harness_name=resolved)
+    return ClinkrExit.ok(HarnessShowResult(harness_name=resolved))
