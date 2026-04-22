@@ -79,17 +79,17 @@
     "ns-create-py-dev-cli": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "053d63137bf1c590cf4b8587abcfb9ad90e7788f5640fcd80def1b2813a9ac20"
+      "computedHash": "f46408b4c7c8cc335a530c050dbfa49ee844d1482bbcccb61b397724faf74fb0"
     },
     "ns-create-pypackage-project": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "5bb6a756f8bcbe44fee8cbd4ab76d6bb90cac673850b72e651c1c3a8272f7a42"
+      "computedHash": "9091f7ae9fd65a7c97bd632e4b5a0118adf77308e566035b84db8fc84c8a2849"
     },
     "ns-dignified-python": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "7dbc6e73ed4341eab97b4cd604f095f23762a76eb47656a9b6ef8b3176e8be1a"
+      "computedHash": "9a5643a93e035bc14d1a1a789e789decc70bcab6d1a968911f4b5f329f178cf5"
     },
     "ns-fake-driven-test-layout": {
       "source": "nseng-ai/nonslop",
@@ -99,7 +99,7 @@
     "ns-py-fake-driven-testing": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "5e3978c5d408c0250b0a96147412a3889292658e8d3503458e2f79617383626d"
+      "computedHash": "e04d19c1895942e6eea284289516f504125cb0773b8ce1adb1837df75ecb616a"
     },
     "ns-pytest": {
       "source": "nseng-ai/nonslop",
@@ -124,7 +124,7 @@
     "ns-setup-dprint": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "494adca78016e498ab2560f20a2f9438daeb23f4dbb4ece27fb63c3952476d8a"
+      "computedHash": "5596dd4376fadb504ec6b60bf008282b7c654a7c6006c8c2e96bfc67f16a2e53"
     },
     "ns-setup-python-ci": {
       "source": "nseng-ai/nonslop",
@@ -134,17 +134,17 @@
     "ns-skill-management": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "2ae1ae4d5149c65ec1759b51d85caf8769ee59d1dcdbf4bd45b28ca9ef0e8d0b"
+      "computedHash": "9c64031d952e05b45878763c9938edd1087fd37e00a6aa37b1280f12b37cb41d"
     },
     "ns-skillx": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "4b388880ec01241671339e658829129bce1d5a4f96bc48fa905dc1cfbe93aeef"
+      "computedHash": "c297f295512eb614d4902c1701d3fe8a141fe07991a5d55b766d1955f997a56a"
     },
     "nsx": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "5b0813c9c5557d4dd419a8eb1b4076152f115dda46a4ba9ab164039ff0404401"
+      "computedHash": "1e055bb882ffce70b36ea2344b80a755a5289b1a9af0f4045f3ac4813cd945e9"
     },
     "objective": {
       "source": "skills/objective",

@@ -56,6 +56,9 @@ An **end-to-end scenario test** is a three-phase Arrange/Act/Assert test that co
 **Adding/changing a gateway interface?**
 → Read `gateway-architecture.md`, then `workflows.md#adding-a-gateway-method`
 
+**About to create a `FileSystem`, `Subprocess`, `Shell`, or `Http`-named gateway?**
+→ Don't. Read `anti-patterns.md` (Gateways at Too Low an Abstraction Layer) and `gateway-architecture.md#keep-gateways-narrow` first — pick a capability-shaped name instead.
+
 **Wondering where the DI boundary is?**
 → Read `gateway-architecture.md#the-di-boundary-only-fake-gateways` — only gateways get fakes
 
@@ -331,7 +334,7 @@ An **end-to-end scenario test** is a three-phase Arrange/Act/Assert test that co
 ┌──────────────────────────────────────────────────────────────┐
 │ Layer 4 "logic": Business Logic Tests (70%) ← MOST TESTS    │
 │ ┌──────────────────────────────────────────────────────────┐ │
-│ │ FakeDatabase, FakeApiClient, FakeFileSystem              │ │
+│ │ FakeDatabase, FakeApiClient, FakeProjectManifestStore    │ │
 │ │ Purpose: Test features and business logic extensively    │ │
 │ │ When: For EVERY feature and bug fix                      │ │
 │ │ Speed: Milliseconds per test                              │ │
@@ -376,11 +379,12 @@ An **end-to-end scenario test** is a three-phase Arrange/Act/Assert test that co
 ## Key Principles
 
 1. **Thin gateway layer**: Wrap external state, push complexity to business logic
-2. **Fast tests over fakes**: 70% of tests should use in-memory fakes
-3. **Defense in depth**: Fakes → sanity tests → pure unit → business logic → integration
-4. **Test what you're building**: No speculative tests, only active work
-5. **Update all layers**: When changing interfaces, update ABC/Real/Fake
-6. **The DI boundary**: Only gateways get fakes; everything above them is tested with real logic and fake gateways
+2. **Narrow gateway surface**: Name the gateway after the tool or capability (`GitCli`, `NpxSkillsClient`, `ProjectManifestStore`, `EnvLayoutStore`), not after the mechanism (`FileSystemGateway`, `SubprocessGateway`, `HttpClient`). A gateway's fake should not approximate a whole OS subsystem. See `gateway-architecture.md#keep-gateways-narrow` and `anti-patterns.md#gateways-at-too-low-an-abstraction-layer`.
+3. **Fast tests over fakes**: 70% of tests should use in-memory fakes
+4. **Defense in depth**: Fakes → sanity tests → pure unit → business logic → integration
+5. **Test what you're building**: No speculative tests, only active work
+6. **Update all layers**: When changing interfaces, update ABC/Real/Fake
+7. **The DI boundary**: Only gateways get fakes; everything above them is tested with real logic and fake gateways
 
 ## Layer Selection Guide
 

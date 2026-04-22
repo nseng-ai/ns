@@ -1,6 +1,6 @@
 ---
 name: ns-skillx
-description: "Run any skill from a GitHub repo without installing it. Like npx for skills -- fetches into a temp dir, reads the SKILL.md, follows its instructions, then discards. No project pollution. Accepts: owner/repo@skill, GitHub URLs, --skill syntax, or natural language."
+description: "Run any skill from a GitHub repo without installing it. Like npx for skills -- fetches into a temp dir, reads the SKILL.md, follows its instructions, then discards. No project pollution. Accepts: owner/repo --skill name (or -s), GitHub URLs, or natural language."
 allowed-tools:
   - "Bash(uvx nonslop exec skillx *)"
 ---
@@ -15,9 +15,9 @@ Like `npx` for packages -- fetch, use, discard. Zero project pollution.
 Use skillx when the user wants to **use** a skill from a GitHub repo
 without permanently adding it to this project. Typical triggers:
 
-- `skillx owner/repo@skill-name`
-- `skillx https://github.com/owner/repo/blob/master/skills/skill-name`
 - `skillx owner/repo --skill skill-name`
+- `skillx owner/repo -s skill-name`
+- `skillx https://github.com/owner/repo/blob/master/skills/skill-name`
 - "use the X skill from owner/repo without installing it"
 
 Do NOT use skillx when the user wants to permanently install a skill --
@@ -25,7 +25,8 @@ use `ns-skill-management` for that.
 
 ## CLI prefix
 
-All commands use this prefix (always runs latest from PyPI):
+All commands use this prefix (uses the latest released `nonslop` from PyPI;
+run `uv tool upgrade nonslop` or `uvx nonslop@latest ...` to refresh):
 
 ```
 uvx nonslop exec skillx
@@ -42,7 +43,7 @@ uvx nonslop exec skillx parse "<user-input>"
 Returns JSON: `{"success": true, "repo": "owner/repo", "skill": "name-or-null", "format": "..."}`.
 
 If parsing fails, extract `repo` and `skill` from context using your
-judgment. The CLI handles URLs, `@` syntax, `--skill` flags, and plain
+judgment. The CLI handles URLs, `-s`/`--skill` flags, and plain
 `owner/repo [skill]` -- natural language stays with you.
 
 Also extract the **task**: whatever the user actually wants done with the

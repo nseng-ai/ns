@@ -104,9 +104,6 @@ For **GitHub-sourced** skills (`dignified-python`, `graphite`, etc.):
 
 GitHub-sourced skills do NOT get a `skills/<name>` entry.
 
-For **peer repo** skills (from another repo on your machine, linked
-via `local.just`), see `references/peer-repo-skills.md`.
-
 ### `skills-lock.json`
 
 Records one entry per installed skill:
@@ -173,14 +170,28 @@ and `.claude/skills/<name>` symlink chain -- no command needed.
 ### 4. Update a GitHub-sourced skill
 
 ```bash
-npx skills check             # shows which remote skills have updates
-npx skills update            # pulls latest for all updatable skills
+uvx nonslop update-skills              # refresh every github skill in the lockfile
+uvx nonslop update-skills --dry-run    # preview which skills would be refreshed
+uvx nonslop update-skills --skill <name>    # refresh one skill
+uvx nonslop update-skills --source <owner>/<repo>    # limit to one source
 git add -A .agents/skills/ skills-lock.json
-git diff --cached            # review the vendored-content changes
+git diff --cached                      # review the vendored-content changes
 ```
 
-`check` and `update` only touch skills with `sourceType: "github"`.
-Local skills are never modified by these commands.
+`nonslop update-skills` walks `skills-lock.json` and runs
+`npx skills add <source> --skill <name>` once per entry. This is the
+only known-safe refresh path: it touches only skills already in the
+lockfile and preserves the curated skill set. Local skills
+(`sourceType: "local"`) are skipped -- they are edited in-place.
+
+**Do not use `npx skills update` directly.** The upstream command
+interprets each lockfile `source` as "install every skill from that
+repo", so a 5-skill lockfile pointing at `nseng-ai/nonslop` balloons
+to the full nonslop catalog and silently adds skills the project
+never asked for. Tracked upstream at
+[vercel-labs/skills#915](https://github.com/vercel-labs/skills/issues/915).
+Use `uvx nonslop update-skills` until that is fixed -- the command will
+be removed once the upstream bug is resolved.
 
 ### 5. Remove a skill
 
@@ -324,6 +335,3 @@ INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --skill <name> --agent c
 - Renaming a local skill by only moving `skills/<old>` without fixing
   the `.agents/skills/` and `.claude/skills/` symlinks, `skills-lock.json`,
   and cross-references -- leaves dangling symlinks and stale references.
-- Running `npx skills add/update` while peer repo skills are symlinked
-  via `local.just` -- can pollute `skills-lock.json` with untracked
-  entries that break CI. See `references/peer-repo-skills.md`.

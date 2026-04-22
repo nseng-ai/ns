@@ -25,27 +25,29 @@ This distinction drives how you design gateway method signatures, which in turn 
 Use exceptions when **all callers terminate identically** — the error is just a message, no branching logic, no meaningful field inspection.
 
 ```python
-class RealFileSystem(FileSystemGateway):
-    def read_file(self, path: Path) -> str:
-        """Read file contents. Raises if file doesn't exist."""
+class RealConfigFileReader(ConfigFileReader):
+    def read(self, config_name: str) -> str:
+        """Read a named config. Raises if the config file is missing."""
+        path = self._config_root / f"{config_name}.yaml"
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+            raise FileNotFoundError(f"Config not found: {config_name}")
         return path.read_text(encoding="utf-8")
 ```
 
 The fake is simple — it raises the same exception when configured to:
 
 ```python
-class FakeFileSystem(FileSystemGateway):
-    def __init__(self, *, files: dict[str, str] | None = None) -> None:
-        self._files = files or {}
+class FakeConfigFileReader(ConfigFileReader):
+    def __init__(self, *, configs: dict[str, str] | None = None) -> None:
+        self._configs = configs or {}
 
-    def read_file(self, path: Path) -> str:
-        key = str(path)
-        if key not in self._files:
-            raise FileNotFoundError(f"File not found: {path}")
-        return self._files[key]
+    def read(self, config_name: str) -> str:
+        if config_name not in self._configs:
+            raise FileNotFoundError(f"Config not found: {config_name}")
+        return self._configs[config_name]
 ```
+
+Note that `ConfigFileReader` is narrow — it reads one specific kind of thing. It is not a generic `FileSystemGateway`; see `gateway-architecture.md#keep-gateways-narrow`.
 
 ## When to Use Non-Ideal States (Discriminated Unions)
 

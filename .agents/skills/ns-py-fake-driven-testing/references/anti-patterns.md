@@ -451,6 +451,100 @@ class SubscriptionService:
 
 ---
 
+## ❌ Gateways at Too Low an Abstraction Layer
+
+**Gateways should wrap a specific tool or capability, not an OS primitive or stdlib module.** "Thin" means no business logic; **"narrow" means a small, domain-shaped surface area**. Both matter.
+
+### The Wrong Shapes
+
+Any gateway whose name describes a **mechanism** rather than a **capability**:
+
+- `FileSystemGateway` with `read_file` / `write_file` / `mkdir` / `exists` / `iterdir` / `symlink`
+- `SubprocessGateway`, `ShellRunner`, `CommandRunner` — "runs any command"
+- `HttpClient` with `get(url)` / `post(url)` — "calls any URL"
+- `ProcessGateway`, `OsGateway`, or anything else that mirrors a stdlib module
+
+**How to spot it**: the gateway's methods look like the public API of `pathlib.Path`, `subprocess`, `requests`, or `os`. That is the tell. The gateway is pretending the application needs a general-purpose wrapper when in fact it only needs three or four named operations.
+
+### Why It Breaks
+
+1. **The fake becomes a reimplementation of the wrapped system.** A `FakeFileSystemGateway` ends up modeling directories, files, symlinks, parent creation, and recursive deletion as parallel in-memory state. Every time the application touches a new corner of the filesystem, the fake has to grow to match.
+2. **The contract grows unboundedly.** Every new caller adds "just one more method" — `rename`, `stat`, `chmod`, `is_symlink`. The interface has no natural stopping point because the underlying primitive has no natural stopping point.
+3. **Tests over the fake stop proving anything meaningful.** If the business logic under test is "call `mkdir` then `create_symlink` then `write_file`," a fake that records those three calls just shows you made the three calls in order — which is what the production code obviously does. You verified the order, not the outcome.
+4. **You mask boundary bugs, not catch them.** Real bugs in this layer are things like "mkdir with parents=False fails when the parent is missing" or "the symlink points somewhere unexpected after rebase." A filesystem fake either replicates those rules (and is now a small OS) or skips them (and the test lies).
+
+### The Fix Shape
+
+Name the gateway after the **tool** or **capability** and expose **only the operations the business logic actually calls**. Positive examples:
+
+| Use case                       | Narrow gateway         | Methods the app actually needs                                     |
+| ------------------------------ | ---------------------- | ------------------------------------------------------------------ |
+| Running git commands           | `GitCli`               | `status()`, `create_branch(name)`, `current_branch()`              |
+| Running `npx skills`           | `NpxSkillsClient`      | `install(skill)`, `list()`, `remove(skill)`                        |
+| Persisting a manifest          | `ProjectManifestStore` | `load(project)`, `save(manifest)`                                  |
+| Managing a specific dir layout | `EnvLayoutStore`       | `create_env(name, passthrough)`, `list_envs()`, `remove_env(name)` |
+| Uploading artifacts            | `ArtifactStorage`      | `upload(artifact, key)`, `download(key)`                           |
+
+Each of these is named after one conceptual external system, exposes only the operations used, and has a fake that is a dict plus some recorded calls — not a partial simulator.
+
+### Worked Example: From `FileSystemGateway` to `EnvLayoutStore`
+
+An agent bootstrapping an env-manager CLI first wrote:
+
+```python
+# ❌ WRONG: filesystem-level gateway
+class FileSystemGateway(ABC):
+    @abstractmethod
+    def exists(self, path: Path) -> bool: ...
+    @abstractmethod
+    def is_dir(self, path: Path) -> bool: ...
+    @abstractmethod
+    def mkdir(self, path: Path, *, parents: bool = False, exist_ok: bool = False) -> None: ...
+    @abstractmethod
+    def create_symlink(self, link_path: Path, target: Path) -> None: ...
+    @abstractmethod
+    def iterdir(self, path: Path) -> tuple[Path, ...]: ...
+    @abstractmethod
+    def rmtree(self, path: Path) -> None: ...
+```
+
+The fake for this tracks `_directories`, `_files`, `_symlinks` as three sets; walks parents to simulate `parents=True`; resolves symlinks to answer `is_dir`; and filters containment to simulate `rmtree`. That is ~100 lines of filesystem re-implementation.
+
+What the application actually does with this gateway is manage a `~/.henv/environments/` layout: create one env, list envs, remove one env. So the right shape is:
+
+```python
+# ✅ CORRECT: capability-level gateway
+@dataclass(frozen=True)
+class EnvDirectory:
+    root: Path
+    passthrough_links: tuple[Path, ...]
+
+class EnvLayoutStore(ABC):
+    @abstractmethod
+    def create_env(self, name: str, *, passthrough: tuple[Path, ...]) -> EnvDirectory: ...
+
+    @abstractmethod
+    def list_envs(self) -> tuple[str, ...]: ...
+
+    @abstractmethod
+    def remove_env(self, name: str) -> None: ...
+```
+
+The real implementation uses `pathlib` internally. The fake is a dict of name → `EnvDirectory` and a `_removed_envs: list[str]`. Tests assert "after `remove_env('foo')`, `list_envs()` no longer contains `'foo'`" — which is a real contract, not a fake-bookkeeping coincidence.
+
+### Rule of Thumb
+
+If you are about to create a gateway whose name starts with `FileSystem`, `Subprocess`, `Shell`, `Command`, `Process`, `Os`, or `Http`, stop. Ask: **what does the business logic above this gateway actually need to do?** Name the gateway after that. Expose only those operations.
+
+This is a judgment call — there are edge cases where a narrow gateway is still thin enough to look primitive-ish — but raw filesystem and subprocess gateways are nearly always too unconstrained to be reasonably modeled by a fake.
+
+### See Also
+
+- `gateway-architecture.md#keep-gateways-narrow` — the positive principle
+- `mock-to-fake-conversion.md` — same rule applied to existing mock-based tests
+
+---
+
 ## ❌ Fakes with I/O Operations
 
 **Fakes should be in-memory ONLY** (except minimal directory creation).
@@ -815,17 +909,18 @@ Application entry point → DI container / context
 
 ## Summary of Anti-Patterns
 
-| Anti-Pattern                 | Why It's Wrong                    | Correct Approach         |
-| ---------------------------- | --------------------------------- | ------------------------ |
-| Testing speculative features | Maintenance burden, no value      | Only test active work    |
-| Hardcoded paths              | Catastrophic: pollutes filesystem | Use `tmp_path` fixture   |
-| Not updating all layers      | Type errors, broken tests         | Update ABC/Real/Fake     |
-| subprocess in unit tests     | 100x slower, harder to debug      | Use test clients         |
-| Complex logic in gateways    | Hard to test, hard to fake        | Keep gateways thin       |
-| Fakes with I/O               | Slow, defeats purpose             | In-memory only           |
-| Testing implementation       | Breaks on refactoring             | Test behavior            |
-| Incomplete gateway tests     | Untested code, potential bugs     | Test all implementations |
-| Mocking third-party libs     | Fragile, coupled to internals     | Create your own gateways |
+| Anti-Pattern                 | Why It's Wrong                    | Correct Approach                                                |
+| ---------------------------- | --------------------------------- | --------------------------------------------------------------- |
+| Testing speculative features | Maintenance burden, no value      | Only test active work                                           |
+| Hardcoded paths              | Catastrophic: pollutes filesystem | Use `tmp_path` fixture                                          |
+| Not updating all layers      | Type errors, broken tests         | Update ABC/Real/Fake                                            |
+| subprocess in unit tests     | 100x slower, harder to debug      | Use test clients                                                |
+| Complex logic in gateways    | Hard to test, hard to fake        | Keep gateways thin                                              |
+| Primitive-level gateways     | Fake reimplements the OS          | Keep gateways narrow; name after tool/capability, not mechanism |
+| Fakes with I/O               | Slow, defeats purpose             | In-memory only                                                  |
+| Testing implementation       | Breaks on refactoring             | Test behavior                                                   |
+| Incomplete gateway tests     | Untested code, potential bugs     | Test all implementations                                        |
+| Mocking third-party libs     | Fragile, coupled to internals     | Create your own gateways                                        |
 
 ## Related Documentation
 

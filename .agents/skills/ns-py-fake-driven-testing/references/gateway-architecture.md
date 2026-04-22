@@ -237,6 +237,8 @@ assert "INSERT INTO users" in fake_db.executed_commands[0]
 
 ## Common Gateway Types
 
+The examples below are all named after **what they do**, not how they execute. `GitCli`, `ApiClient`, `ProjectManifestStore`, `MessageQueue`, `Time` — not `SubprocessGateway`, `HttpClient`, `FileSystemGateway`. See "Keep Gateways Narrow" below for why this matters.
+
 ### API Client Gateway
 
 ```python
@@ -280,57 +282,81 @@ class FakeApiClient(ApiClient):
         return self.responses.get(endpoint, {})
 ```
 
-### File System Gateway
+### Project Manifest Store (filesystem-adjacent — narrow)
+
+A good filesystem-adjacent gateway is named after the **thing being stored**, not after the filesystem. It exposes domain operations (`load`, `save`) and hides the disk layout entirely. The fake stores manifests in a dict, not files.
+
+See **Keep Gateways Narrow** below and `anti-patterns.md` for why a generic `FileSystemGateway` with `read_file` / `write_file` / `mkdir` is the wrong shape.
 
 ```python
-class FileSystemGateway(ABC):
-    """Gateway for file system operations."""
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Manifest:
+    project: str
+    skills: tuple[str, ...]
+
+@dataclass(frozen=True)
+class ManifestMissing:
+    project: str
+
+
+class ProjectManifestStore(ABC):
+    """Stores one manifest per project."""
 
     @abstractmethod
-    def read_file(self, path: Path) -> str:
-        """Read file contents."""
+    def load(self, project: str) -> Manifest | ManifestMissing:
+        """Load a manifest, or return ManifestMissing if absent."""
 
     @abstractmethod
-    def write_file(self, path: Path, content: str) -> None:
-        """Write file contents."""
+    def save(self, manifest: Manifest) -> None:
+        """Persist a manifest, overwriting any prior value."""
 
-    @abstractmethod
-    def exists(self, path: Path) -> bool:
-        """Check if path exists."""
 
-class RealFileSystemGateway(FileSystemGateway):
-    """Real file system operations."""
+class RealProjectManifestStore(ProjectManifestStore):
+    """Manifests serialized as JSON under a root directory."""
 
-    def read_file(self, path: Path) -> str:
-        if path.exists():
-            return path.read_text(encoding="utf-8")
-        raise FileNotFoundError(f"File not found: {path}")
+    def __init__(self, root: Path) -> None:
+        self._root = root
 
-    def write_file(self, path: Path, content: str) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+    def load(self, project: str) -> Manifest | ManifestMissing:
+        manifest_path = self._root / project / "manifest.json"
+        if not manifest_path.exists():
+            return ManifestMissing(project=project)
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return Manifest(project=project, skills=tuple(data["skills"]))
 
-    def exists(self, path: Path) -> bool:
-        return path.exists()
+    def save(self, manifest: Manifest) -> None:
+        manifest_path = self._root / manifest.project / "manifest.json"
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            json.dumps({"skills": list(manifest.skills)}),
+            encoding="utf-8",
+        )
 
-class FakeFileSystemGateway(FileSystemGateway):
-    """In-memory file system for testing."""
 
-    def __init__(self) -> None:
-        self._files: dict[str, str] = {}
+class FakeProjectManifestStore(ProjectManifestStore):
+    """In-memory manifests for testing."""
 
-    def read_file(self, path: Path) -> str:
-        key = str(path)
-        if key in self._files:
-            return self._files[key]
-        raise FileNotFoundError(f"File not found: {path}")
+    def __init__(self, *, manifests: dict[str, Manifest] | None = None) -> None:
+        self._manifests = dict(manifests or {})
+        self._save_calls: list[Manifest] = []
 
-    def write_file(self, path: Path, content: str) -> None:
-        self._files[str(path)] = content
+    def load(self, project: str) -> Manifest | ManifestMissing:
+        if project in self._manifests:
+            return self._manifests[project]
+        return ManifestMissing(project=project)
 
-    def exists(self, path: Path) -> bool:
-        return str(path) in self._files
+    def save(self, manifest: Manifest) -> None:
+        self._manifests[manifest.project] = manifest
+        self._save_calls.append(manifest)
+
+    @property
+    def save_calls(self) -> list[Manifest]:
+        return list(self._save_calls)
 ```
+
+**Why this shape works**: the contract is two methods the application actually uses. The fake is ~15 lines because the dict replaces JSON serialization plus directory creation. There is no way to ask this gateway "does arbitrary path `/tmp/x` exist?" — and there shouldn't be, because the business logic above it never needs to.
 
 ### Message Queue Gateway
 
@@ -483,27 +509,93 @@ class UserService:
 
 **Why**: Thin gateways are easier to fake, easier to test, easier to understand.
 
+### Keep Gateways Narrow
+
+"Thin" and "narrow" are different axes. A thin gateway contains no business logic. A **narrow** gateway exposes only the specific operations the application actually uses, at the abstraction level of a tool or capability — not the abstraction level of an OS primitive.
+
+Narrow gateways are named after **what they do**:
+
+- ✅ `GitCli.status()`, `.create_branch(name)` — wraps the git tool, only the subcommands the app uses
+- ✅ `NpxSkillsClient.install(skill)`, `.list()` — wraps `npx skills` specifically
+- ✅ `ProjectManifestStore.load(project)`, `.save(manifest)` — stores a specific thing
+- ✅ `EnvLayoutStore.create_env(name, passthrough)`, `.remove_env(name)`, `.list_envs()` — manages one well-defined directory layout
+
+Over-broad gateways are named after **how they execute**:
+
+- ❌ `FileSystemGateway.mkdir()`, `.read_file()`, `.iterdir()`, `.symlink()` — can manipulate any path
+- ❌ `SubprocessGateway.run()`, `ShellRunner`, `CommandRunner` — can execute anything
+- ❌ `HttpClient.get(url)`, `.post(url)` — can call any URL
+
+**The sniff test**: if the fake needs to approximate the whole wrapped system — its parent-creation rules, symlink semantics, recursive-delete behavior — the gateway boundary is too broad. A correctly-narrow fake is a dict lookup plus a list of recorded calls. It is not a partial filesystem reimplementation.
+
+**Worked example**. An agent bootstrapping a `henv`-style tool wrote:
+
+```python
+# ❌ WRONG: filesystem-level gateway
+class FileSystemGateway(ABC):
+    @abstractmethod
+    def exists(self, path: Path) -> bool: ...
+    @abstractmethod
+    def is_dir(self, path: Path) -> bool: ...
+    @abstractmethod
+    def mkdir(self, path: Path, *, parents: bool = False, exist_ok: bool = False) -> None: ...
+    @abstractmethod
+    def create_symlink(self, link_path: Path, target: Path) -> None: ...
+    @abstractmethod
+    def iterdir(self, path: Path) -> tuple[Path, ...]: ...
+    @abstractmethod
+    def rmtree(self, path: Path) -> None: ...
+```
+
+The fake for this gateway tracks `_directories`, `_files`, `_symlinks` as three separate sets, walks parents to simulate `parents=True`, resolves symlinks to answer `is_dir`, and recursively filters membership to simulate `rmtree`. That is a filesystem reimplementation, and every test that uses it is really testing the fake.
+
+The right shape names the capability, not the mechanism:
+
+```python
+# ✅ CORRECT: capability-level gateway
+@dataclass(frozen=True)
+class EnvDirectory:
+    root: Path
+    passthrough_links: tuple[Path, ...]
+
+class EnvLayoutStore(ABC):
+    @abstractmethod
+    def create_env(self, name: str, *, passthrough: tuple[Path, ...]) -> EnvDirectory: ...
+    @abstractmethod
+    def list_envs(self) -> tuple[str, ...]: ...
+    @abstractmethod
+    def remove_env(self, name: str) -> None: ...
+```
+
+Three methods, one conceptual system (the `~/.henv/environments/` layout). The fake is a dict of name → `EnvDirectory` plus a `_removed_envs` list. There is no way to simulate arbitrary filesystem state through it, which is the point.
+
+**When in doubt**: if you are about to create a gateway named `FileSystem*`, `Subprocess*`, `Shell*`, `Command*`, `Http*`, or `Process*`, stop. Ask what the business logic above the gateway actually needs, name the gateway after that, and expose only those operations. See `anti-patterns.md` for the full anti-pattern write-up.
+
 ### Fakes Should Be In-Memory
 
 **Fakes should avoid I/O operations** (except minimal directory creation when testing file operations).
 
 ```python
 # ❌ WRONG: Fake performs I/O
-class FakeFileSystem(FileSystemGateway):
-    def read_file(self, path: Path) -> str:
+class FakeProjectManifestStore(ProjectManifestStore):
+    def __init__(self, root: Path) -> None:
+        self._root = root
+
+    def load(self, project: str) -> Manifest | ManifestMissing:
         # Reading real files defeats the purpose of fakes!
-        return path.read_text()
+        data = (self._root / project / "manifest.json").read_text(encoding="utf-8")
+        parsed = json.loads(data)
+        return Manifest(project=project, skills=tuple(parsed["skills"]))
 
 # ✅ CORRECT: Fake uses in-memory state
-class FakeFileSystem(FileSystemGateway):
-    def __init__(self) -> None:
-        self._files: dict[str, str] = {}
+class FakeProjectManifestStore(ProjectManifestStore):
+    def __init__(self, *, manifests: dict[str, Manifest] | None = None) -> None:
+        self._manifests = dict(manifests or {})
 
-    def read_file(self, path: Path) -> str:
-        key = str(path)
-        if key in self._files:
-            return self._files[key]
-        raise FileNotFoundError(f"File not found: {path}")
+    def load(self, project: str) -> Manifest | ManifestMissing:
+        if project in self._manifests:
+            return self._manifests[project]
+        return ManifestMissing(project=project)
 ```
 
 **Exception**: Fakes may create real directories when necessary for integration, but should not read/write actual files.
