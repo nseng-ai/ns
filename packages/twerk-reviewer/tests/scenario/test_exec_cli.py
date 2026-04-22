@@ -109,6 +109,7 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "**Reviewer failed**" in result.output
     assert "- **Error type:** `harness_binary_missing`" in result.output
     assert "- **Message:** claude not on PATH" in result.output
+    assert "Post-only steelthread" not in result.output
 
 
 def test_format_findings_comment_fails_on_malformed_stdin(

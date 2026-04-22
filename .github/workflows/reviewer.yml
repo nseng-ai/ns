@@ -67,7 +67,9 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
         run: |
+          set -euo pipefail
           jq -n \
             --arg key "$REVIEW_KEY" \
             --arg base_ref "$BASE_REF" \

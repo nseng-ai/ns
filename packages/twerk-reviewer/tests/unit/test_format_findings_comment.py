@@ -120,7 +120,7 @@ def test_render_includes_details_block_and_footer() -> None:
     assert "_Post-only steelthread: this comment never blocks the check._" in body
 
 
-def test_render_error_payload_flags_failure_and_carries_footer() -> None:
+def test_render_error_payload_flags_failure_without_footer() -> None:
     payload = FindingsPayload(
         review_name="dignified-python",
         base_ref="master",
@@ -136,7 +136,7 @@ def test_render_error_payload_flags_failure_and_carries_footer() -> None:
     assert "**Reviewer failed** against base `master`. ⚠️" in body
     assert "- **Error type:** `harness_binary_missing`" in body
     assert "- **Message:** claude not on PATH" in body
-    assert "_Post-only steelthread: this comment never blocks the check._" in body
+    assert "Post-only steelthread" not in body
 
 
 # -- parse_findings_payload -------------------------------------------------

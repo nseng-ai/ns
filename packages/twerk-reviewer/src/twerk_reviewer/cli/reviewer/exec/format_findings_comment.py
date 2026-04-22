@@ -119,8 +119,6 @@ def _render_error_body(payload: FindingsPayload) -> list[str]:
         "",
         f"- **Error type:** `{payload.error_type}`",
         f"- **Message:** {payload.error_message or '(none)'}",
-        "",
-        _FOOTER,
     ]
 
 
