@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated, Any
 
 import click
@@ -14,12 +13,14 @@ from twerk_core.brmem.gateway import (
     check_namespace,
     ref_name_for_entry,
 )
-from twerk_core.brmem.gateway_access import get_branch_memory_gateway, get_git_gateway
+from twerk_core.brmem.gateway_access import (
+    get_branch_memory_gateway,
+    resolve_current_brmem_branch,
+)
 from twerk_core.brmem.key_validation import check_key
 from twerk_core.brmem.validation import first_failure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_core.git.types import DetachedHead, GitCommandFailure
 
 
 @dataclass(frozen=True)
@@ -87,19 +88,11 @@ def run_check(
     ctx: click.Context,
     request: CheckRequest,
 ) -> ClinkrExit[CheckResult]:
-    if request.branch is not None:
-        branch = request.branch
-    else:
-        match get_git_gateway(ctx).get_current_branch(Path.cwd()):
-            case GitCommandFailure() as failure:
-                return ClinkrExit.failure(error_type="git_failed", message=failure.message)
-            case DetachedHead():
-                return ClinkrExit.failure(
-                    error_type="detached_head",
-                    message="Detached HEAD: brmem requires a checked-out branch.",
-                )
-            case str() as current_branch:
-                branch = current_branch
+    match resolve_current_brmem_branch(ctx, request.branch):
+        case ClinkrExit() as exit_:
+            return exit_
+        case str() as branch:
+            pass
 
     failure = first_failure(
         ("invalid_namespace", check_namespace(request.namespace)),
