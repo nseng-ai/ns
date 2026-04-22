@@ -23,6 +23,7 @@ from twerk_core.brmem.gateway_access import (
 )
 from twerk_core.brmem.key_validation import check_key
 from twerk_core.brmem.validation import first_failure
+from twerk_core.clinkr.context import is_machine_mode
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -96,7 +97,7 @@ def run_put(
     ctx: click.Context,
     request: PutRequest,
 ) -> ClinkrExit[PutResult]:
-    if request.stdin and ctx.parent is not None and ctx.parent.info_name == "json":
+    if request.stdin and is_machine_mode(ctx):
         return ClinkrExit.failure(
             error_type="stdin_unsupported_in_json_mode",
             message=(

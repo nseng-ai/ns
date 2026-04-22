@@ -83,9 +83,9 @@ def set_machine_mode(ctx: click.Context) -> None:
 def is_machine_mode(ctx: click.Context) -> bool:
     """Return True when the current dispatch was initiated in machine-readable mode.
 
-    Both the ``json`` subgroup and the ``--format json`` flag set this
-    signal, so operations can refuse human-only behavior (e.g. piping stdin
-    content) without inspecting the group hierarchy.
+    The ``--format json`` flag sets this signal, so operations can refuse
+    human-only behavior (e.g. piping stdin content) without inspecting the
+    group hierarchy.
     """
     root = ctx.find_root()
     obj = root.obj

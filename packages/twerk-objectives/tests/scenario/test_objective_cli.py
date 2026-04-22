@@ -68,7 +68,6 @@ def test_objective_help(cli_group: ClinkrGroup) -> None:
     assert "Manage objectives." in result.output
     assert "--version" in result.output
     assert "list" in result.output
-    assert "json" in result.output
 
 
 def test_objective_version_option(cli_group: ClinkrGroup) -> None:
@@ -87,26 +86,6 @@ def test_objective_list_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective list" in result.output
     assert "List objectives." in result.output
     assert "--state" in result.output
-
-
-def test_objective_json_help(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["json", "-h"])
-
-    assert result.exit_code == 0
-    assert "Usage: objective json" in result.output
-    assert "Machine-readable command variants." in result.output
-    assert "list" in result.output
-
-
-def test_objective_json_list_help(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["json", "list", "-h"])
-
-    assert result.exit_code == 0
-    assert "Usage: objective json list" in result.output
-    assert "List objectives. (JSON)" in result.output
-    assert "--schema" in result.output
 
 
 def test_objective_list_empty(cli_group: ClinkrGroup) -> None:
@@ -207,7 +186,7 @@ def test_objective_list_reports_gh_failure(cli_group: ClinkrGroup) -> None:
 
 def test_objective_json_list_empty(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["json", "list"], input="", obj=_make_fake())
+    result = runner.invoke(cli_group, ["list", "--format", "json"], obj=_make_fake())
     payload = _json_output(result.output)
 
     assert result.exit_code == 0
@@ -216,7 +195,7 @@ def test_objective_json_list_empty(cli_group: ClinkrGroup) -> None:
 
 def test_objective_json_list_default_shows_open_objectives_only(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    result = runner.invoke(cli_group, ["json", "list"], input="", obj=_make_fake(SAMPLE_ISSUES))
+    result = runner.invoke(cli_group, ["list", "--format", "json"], obj=_make_fake(SAMPLE_ISSUES))
     payload = _json_output(result.output)
 
     assert result.exit_code == 0
@@ -241,20 +220,12 @@ def test_objective_json_list_default_shows_open_objectives_only(cli_group: Clink
     ]
 
 
-def test_objective_json_list_rejects_state_option(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["json", "list", "--state", "all"], input="")
-
-    assert result.exit_code == 2
-    assert "No such option: --state" in result.output
-
-
 def test_objective_json_list_reports_gh_failure(cli_group: ClinkrGroup) -> None:
     failure = subprocess.CalledProcessError(1, "gh issue list", stderr="boom stderr")
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
-        ["json", "list"],
+        ["list", "--format", "json"],
         obj=_make_fake(raise_on={"list": failure}),
     )
     payload = _json_output(result.output)
@@ -265,28 +236,6 @@ def test_objective_json_list_reports_gh_failure(cli_group: ClinkrGroup) -> None:
         "error_type": "gh_cli_failure",
         "message": "Failed to list objectives: boom stderr",
     }
-
-
-def test_objective_json_list_schema(cli_group: ClinkrGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["json", "list", "--schema"])
-    payload = _json_output(result.output)
-
-    assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
-
-
-def test_objective_list_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
-    flag_result = CliRunner().invoke(
-        cli_group, ["list", "--format", "json"], obj=_make_fake(SAMPLE_ISSUES)
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group, ["json", "list"], input="", obj=_make_fake(SAMPLE_ISSUES)
-    )
-
-    assert flag_result.exit_code == 0
-    assert subtree_result.exit_code == 0
-    assert flag_result.stdout == subtree_result.stdout
 
 
 def test_objective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
@@ -312,10 +261,3 @@ def test_objective_list_format_json_reports_gh_failure(cli_group: ClinkrGroup) -
         "error_type": "gh_cli_failure",
         "message": "Failed to list objectives: boom stderr",
     }
-
-
-def test_objective_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:
-    json_group = cli_group.commands["json"]
-    public_commands = {name for name in cli_group.commands if name != "json"}
-
-    assert public_commands <= set(json_group.commands)

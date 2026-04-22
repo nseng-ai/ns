@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import click
-import pytest
 from click.testing import CliRunner
 
 from twerk_core.clinkr.group import ClinkrGroup
@@ -23,28 +22,6 @@ def _make_group() -> ClinkrGroup:
     group.add_command(hello)
     group.add_command(bye)
     return group
-
-
-def test_json_subgroup_auto_provisioned() -> None:
-    group = ClinkrGroup("test")
-    assert "json" in group.commands
-    assert isinstance(group.commands["json"], click.Group)
-
-
-def test_json_subgroup_accessible_via_property() -> None:
-    group = ClinkrGroup("test")
-    assert group.json_group is group.commands["json"]
-
-
-def test_cannot_add_command_named_json() -> None:
-    group = ClinkrGroup("test")
-
-    @click.command("json")
-    def bad() -> None:
-        pass
-
-    with pytest.raises(ValueError, match="reserved subgroup"):
-        group.add_command(bad)
 
 
 def test_alias_resolution() -> None:
@@ -75,16 +52,3 @@ def test_help_shows_aliases() -> None:
     result = runner.invoke(group, ["--help"])
     assert result.exit_code == 0
     assert "hello (hi)" in result.output
-
-
-def test_json_listed_last_in_help() -> None:
-    group = _make_group()
-
-    runner = CliRunner()
-    result = runner.invoke(group, ["--help"])
-    assert result.exit_code == 0
-    lines = result.output.splitlines()
-    command_lines = [
-        line.strip() for line in lines if line.strip().startswith(("hello", "bye", "json"))
-    ]
-    assert command_lines[-1].startswith("json")

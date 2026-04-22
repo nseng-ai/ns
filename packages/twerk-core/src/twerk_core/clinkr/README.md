@@ -83,13 +83,13 @@ Options:
 $ myapp greet Alice --loud
 HELLO, ALICE!
 
-$ echo '{"name": "Alice", "loud": true}' | myapp json greet
+$ myapp greet Alice --loud --format json
 {
   "exit_code": 0,
   "data": {"greeting": "HELLO, ALICE!"}
 }
 
-$ myapp json greet --schema
+$ myapp greet --schema
 {
   "input_schema": {
     "type": "object",
@@ -153,7 +153,7 @@ def build_myapp_group() -> ClinkrGroup:
     return group
 ```
 
-Each `ClinkrGroup` gets its own `json` subgroup, so the machine-readable path is always `<noun> json <verb>`.
+Every operation's machine-readable path is `<noun> <verb> --format json`.
 
 ## Key Concepts
 
@@ -183,7 +183,7 @@ Use `negative` for "ran to completion, answered no" (not found, empty, false pre
 
 A `click.Group` subclass that:
 
-- Auto-creates a `json` subgroup for machine-readable variants of every registered command
+- Registers clinkr operations as Click commands, each with `--format json` / `--schema` injected
 - Supports command aliases
 - Takes all operations at construction time via the `operations` parameter
 
@@ -193,14 +193,9 @@ By convention, every group package exposes an explicit builder function in `grou
 
 ### Machine Commands
 
-Every machine command accepts JSON on stdin and emits the `ClinkrExit` envelope on stdout. Exit codes follow the table above: `0` for ok, `1` for negative, `2` for failure.
+Every operation emits the `ClinkrExit` envelope on stdout when invoked with `--format json`. Exit codes follow the table above: `0` for ok, `1` for negative, `2` for failure.
 
-Two equivalent dispatch paths produce the same envelope and exit code:
-
-- `<group> json <verb>` — the auto-provisioned subgroup.
-- `<group> <verb> --format json` — the flag injected onto the human command.
-
-Use `--schema` on any machine command to get the JSON Schema document for its input and output.
+Use `--schema` on any command to get the JSON Schema document for its input and output.
 
 ### Parameter Mapping
 

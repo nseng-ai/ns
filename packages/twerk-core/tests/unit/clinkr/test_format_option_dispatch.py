@@ -92,60 +92,44 @@ def _runtime_obj() -> object:
 # -- exit return style ------------------------------------------------------
 
 
-def test_format_json_ok_matches_json_subtree_envelope() -> None:
+def test_format_json_ok_emits_envelope() -> None:
     runner = CliRunner()
-    flag_result = runner.invoke(
-        _make_group(), ["probe", "ok", "--format", "json"], obj=_runtime_obj()
-    )
-    subtree_result = runner.invoke(
-        _make_group(),
-        ["json", "probe"],
-        input='{"mode":"ok"}',
-        obj=_runtime_obj(),
-    )
+    result = runner.invoke(_make_group(), ["probe", "ok", "--format", "json"], obj=_runtime_obj())
 
-    assert flag_result.exit_code == 0
-    assert subtree_result.exit_code == 0
-    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
-    assert json.loads(flag_result.stdout) == {"exit_code": 0, "data": {"value": "found"}}
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"exit_code": 0, "data": {"value": "found"}}
 
 
-def test_format_json_negative_matches_and_exits_one() -> None:
+def test_format_json_negative_emits_envelope_and_exits_one() -> None:
     runner = CliRunner()
-    flag_result = runner.invoke(
+    result = runner.invoke(
         _make_group(),
         ["probe", "negative", "--format", "json"],
         obj=_runtime_obj(),
     )
-    subtree_result = runner.invoke(
-        _make_group(),
-        ["json", "probe"],
-        input='{"mode":"negative"}',
-        obj=_runtime_obj(),
-    )
 
-    assert flag_result.exit_code == 1
-    assert subtree_result.exit_code == 1
-    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == {
+        "exit_code": 1,
+        "message": "nothing here",
+        "data": {"value": "partial"},
+    }
 
 
-def test_format_json_failure_matches_and_exits_two() -> None:
+def test_format_json_failure_emits_envelope_and_exits_two() -> None:
     runner = CliRunner()
-    flag_result = runner.invoke(
+    result = runner.invoke(
         _make_group(),
         ["probe", "failure", "--format", "json"],
         obj=_runtime_obj(),
     )
-    subtree_result = runner.invoke(
-        _make_group(),
-        ["json", "probe"],
-        input='{"mode":"failure"}',
-        obj=_runtime_obj(),
-    )
 
-    assert flag_result.exit_code == 2
-    assert subtree_result.exit_code == 2
-    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
+    assert result.exit_code == 2
+    assert json.loads(result.stdout) == {
+        "exit_code": 2,
+        "error_type": "bad_mode",
+        "message": "boom",
+    }
 
 
 # -- schema -----------------------------------------------------------------
@@ -159,16 +143,6 @@ def test_schema_prints_schema_document_without_required_args() -> None:
     assert result.exit_code == 0
     doc = json.loads(result.stdout)
     assert set(doc.keys()) == {"input_schema", "output_schema"}
-
-
-def test_schema_matches_json_subtree_schema() -> None:
-    runner = CliRunner()
-    flag_result = runner.invoke(_make_group(), ["probe", "--schema"])
-    subtree_result = runner.invoke(_make_group(), ["json", "probe", "--schema"])
-
-    assert flag_result.exit_code == 0
-    assert subtree_result.exit_code == 0
-    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
 
 
 # -- machine-mode signal ----------------------------------------------------
@@ -190,14 +164,6 @@ def test_is_machine_mode_false_for_default_human_dispatch() -> None:
 
     assert result.exit_code == 0
     assert '"machine_mode": false' in result.stdout
-
-
-def test_is_machine_mode_true_for_json_subtree_dispatch() -> None:
-    result = CliRunner().invoke(_make_group(), ["json", "mode"], input="{}", obj=_runtime_obj())
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    assert payload["data"]["machine_mode"] is True
 
 
 def test_machine_mode_does_not_leak_when_context_object_is_reused() -> None:
@@ -227,10 +193,11 @@ def test_existing_format_option_is_preserved() -> None:
     assert '"summary": "x:findings"' in result.stdout
 
 
-def test_existing_format_option_blocks_schema_injection_too() -> None:
-    # The framework does not inject --schema either when --format is reserved;
-    # users can still get schema via the legacy json subtree.
+def test_existing_format_option_still_gets_schema_injected() -> None:
+    # --schema is always injected, even on commands that declare their own
+    # --format option.
     result = CliRunner().invoke(_make_group(), ["review", "x", "--schema"])
 
-    assert result.exit_code != 0
-    assert "No such option: --schema" in result.output
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert set(payload) == {"input_schema", "output_schema"}

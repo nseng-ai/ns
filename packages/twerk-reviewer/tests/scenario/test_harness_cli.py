@@ -84,8 +84,7 @@ def test_harness_list_json_output(cli_group: ClinkrGroup) -> None:
 
     result = runner.invoke(
         cli_group,
-        ["harness", "json", "list"],
-        input="",
+        ["harness", "list", "--format", "json"],
         obj=_context(detection=detection),
     )
 
@@ -96,25 +95,6 @@ def test_harness_list_json_output(cli_group: ClinkrGroup) -> None:
     assert data["count"] == 1
     assert data["harnesses"][0]["name"] == "claude-code"
     assert data["harnesses"][0]["available"] is True
-
-
-def test_harness_list_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
-    detection = FakeHarnessDetectionGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
-    flag_result = CliRunner().invoke(
-        cli_group,
-        ["harness", "list", "--format", "json"],
-        obj=_context(detection=detection),
-    )
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["harness", "json", "list"],
-        input="",
-        obj=_context(detection=detection),
-    )
-
-    assert flag_result.exit_code == 0, flag_result.output
-    assert subtree_result.exit_code == 0, subtree_result.output
-    assert flag_result.stdout == subtree_result.stdout
 
 
 def test_harness_show_reports_single_detected_harness(cli_group: ClinkrGroup) -> None:

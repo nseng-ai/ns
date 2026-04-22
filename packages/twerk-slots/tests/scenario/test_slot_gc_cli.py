@@ -377,25 +377,6 @@ def test_slot_gc_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: 
     assert payload["error_type"] == "pool_empty"
 
 
-def test_slot_gc_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    (tmp_path / "a").mkdir()
-    (tmp_path / "b").mkdir()
-    ctx_a = _build_ctx_for_repo(tmp_path / "a")
-    ctx_b = _build_ctx_for_repo(tmp_path / "b")
-
-    flag_result = CliRunner().invoke(cli_group, ["gc", "--format", "json"], obj=_obj(ctx_a))
-    subtree_result = CliRunner().invoke(
-        cli_group,
-        ["json", "gc"],
-        input=json.dumps({"dry_run": False, "force": False}),
-        obj=_obj(ctx_b),
-    )
-
-    assert flag_result.exit_code == 2
-    assert subtree_result.exit_code == 2
-    assert json.loads(flag_result.stdout) == json.loads(subtree_result.stdout)
-
-
 def test_slot_gc_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["gc", "--schema"])
     payload = json.loads(result.stdout)

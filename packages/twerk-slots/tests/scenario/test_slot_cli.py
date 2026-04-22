@@ -112,7 +112,6 @@ def test_slot_help(cli_group: ClinkrGroup) -> None:
     assert "list" in result.output
     assert "checkout" in result.output
     assert "free" in result.output
-    assert "json" in result.output
 
 
 def test_slot_list_help(cli_group: ClinkrGroup) -> None:
@@ -255,31 +254,12 @@ def test_slot_list_format_json_returns_rows(cli_group: ClinkrGroup, tmp_path: Pa
     assert len(unallocated_rows) == 15
 
 
-def test_slot_list_format_json_matches_json_subtree(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
-    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=_obj(ctx))
-
-    flag_result = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
-    subtree_result = CliRunner().invoke(cli_group, ["json", "list"], input="", obj=_obj(ctx))
-
-    assert flag_result.exit_code == 0
-    assert subtree_result.exit_code == 0
-    assert flag_result.stdout == subtree_result.stdout
-
-
 def test_slot_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["list", "--schema"])
     payload = _json_output(result.stdout)
 
     assert result.exit_code == 0
     assert set(payload) == {"input_schema", "output_schema"}
-
-
-def test_slot_public_commands_have_json_counterparts(cli_group: ClinkrGroup) -> None:
-    json_group = cli_group.commands["json"]
-    public_commands = {name for name in cli_group.commands if name != "json"}
-
-    assert public_commands <= set(json_group.commands)
 
 
 # -- not-in-repo error surface ----------------------------------------------

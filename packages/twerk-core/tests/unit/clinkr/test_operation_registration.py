@@ -46,11 +46,6 @@ def test_human_command_exists() -> None:
     assert "greet" in group.commands
 
 
-def test_json_command_exists() -> None:
-    group = _make_group()
-    assert "greet" in group.json_group.commands
-
-
 def test_human_command_invocation() -> None:
     runner = CliRunner()
     result = runner.invoke(_make_group(), ["greet", "alice"], obj=_runtime_obj())
@@ -65,29 +60,6 @@ def test_human_command_with_flag() -> None:
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["message"] == "hello alice!"
-
-
-def test_json_command_invocation() -> None:
-    runner = CliRunner()
-    result = runner.invoke(
-        _make_group(),
-        ["json", "greet"],
-        input='{"name": "bob", "excited": true}',
-        obj=_runtime_obj(),
-    )
-    assert result.exit_code == 0
-    data = json.loads(result.output)
-    assert data == {"exit_code": 0, "data": {"message": "hello bob!"}}
-
-
-def test_json_command_schema() -> None:
-    runner = CliRunner()
-    result = runner.invoke(_make_group(), ["json", "greet", "--schema"])
-    assert result.exit_code == 0
-    data = json.loads(result.output)
-    assert "input_schema" in data
-    assert "output_schema" in data
-    assert "name" in data["input_schema"]["properties"]
 
 
 def test_alias_works() -> None:
@@ -128,21 +100,6 @@ def test_error_handling_human() -> None:
     assert "error: it broke" in result.stderr
 
 
-def test_error_handling_json() -> None:
-    @clinkr_operation(name="fail", help="Always fails.")
-    def failing_op(ctx: click.Context, request: GreetRequest) -> ClinkrExit[GreetResult]:
-        return ClinkrExit.failure(error_type="boom", message="it broke")
-
-    group = ClinkrGroup("test", help="Test.", operations=[failing_op])
-
-    runner = CliRunner()
-    result = runner.invoke(group, ["json", "fail"], input='{"name": "alice"}', obj=_runtime_obj())
-    assert result.exit_code == 2
-    data = json.loads(result.output)
-    assert data["exit_code"] == 2
-    assert data["error_type"] == "boom"
-
-
 @dataclass(frozen=True)
 class EmptyRequest:
     pass
@@ -170,13 +127,6 @@ def test_empty_request_no_args() -> None:
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["count"] == 0
-
-
-def test_json_parity_enforced() -> None:
-    """Every registered operation has both a human and json command."""
-    group = _make_group()
-    public_commands = {name for name in group.commands if name != "json"}
-    assert public_commands <= set(group.json_group.commands)
 
 
 @dataclass(frozen=True)
