@@ -16,10 +16,10 @@ def _entries(gateway: FakeBranchMemoryGateway) -> list:
 
 
 def test_slug_round_trip() -> None:
-    assert slug_for_key("memjective-cli.md") == "memjective-cli"
+    assert slug_for_key("widget/body.md") == "widget"
     assert slug_for_key("no-suffix") == "no-suffix"
-    assert key_for_slug("memjective-cli") == "memjective-cli.md"
-    assert key_for_slug("already.md") == "already.md"
+    assert key_for_slug("widget") == "widget/body.md"
+    assert key_for_slug("already/body.md") == "already/body.md"
 
 
 def test_empty_repo_produces_empty_result() -> None:
@@ -30,9 +30,9 @@ def test_empty_repo_produces_empty_result() -> None:
 
 def test_groups_duplicate_snapshots_by_slug() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "a.md", "b1", "x")
-    gateway.put("memjectives", "a.md", "b2", "x")
-    gateway.put("memjectives", "a.md", "b3", "x")
+    gateway.put("memjectives", "a/body.md", "b1", "x")
+    gateway.put("memjectives", "a/body.md", "b2", "x")
+    gateway.put("memjectives", "a/body.md", "b3", "x")
 
     result = discover_memjectives(gateway)
 
@@ -44,14 +44,14 @@ def test_groups_duplicate_snapshots_by_slug() -> None:
 
 def test_seed_only_memjective_has_no_branches() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "orphan.md", "master", "x")
+    gateway.put("memjectives", "orphan/body.md", "master", "x")
 
     result = discover_memjectives(gateway)
 
     assert result == (
         MemjectiveRepoEntry(
             slug="orphan",
-            key="orphan.md",
+            key="orphan/body.md",
             seed_present=True,
             branches=(),
         ),
@@ -60,7 +60,7 @@ def test_seed_only_memjective_has_no_branches() -> None:
 
 def test_snapshot_only_memjective_has_no_seed() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "detached.md", "feat/x", "x")
+    gateway.put("memjectives", "detached/body.md", "feat/x", "x")
 
     result = discover_memjectives(gateway)
 
@@ -70,8 +70,8 @@ def test_snapshot_only_memjective_has_no_seed() -> None:
 
 def test_stale_branches_marked_when_branch_validator_provided() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "s.md", "live", "x")
-    gateway.put("memjectives", "s.md", "dead", "x")
+    gateway.put("memjectives", "s/body.md", "live", "x")
+    gateway.put("memjectives", "s/body.md", "dead", "x")
 
     result = discover_memjectives(gateway, is_branch_alive={"live"}.__contains__)
 
@@ -85,7 +85,7 @@ def test_stale_branches_marked_when_branch_validator_provided() -> None:
 
 def test_stale_is_never_true_when_validator_omitted() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "s.md", "anywhere", "x")
+    gateway.put("memjectives", "s/body.md", "anywhere", "x")
 
     result = discover_memjectives(gateway)
 
@@ -94,9 +94,9 @@ def test_stale_is_never_true_when_validator_omitted() -> None:
 
 def test_results_sorted_by_key() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "z.md", "master", "x")
-    gateway.put("memjectives", "a.md", "master", "x")
-    gateway.put("memjectives", "m.md", "master", "x")
+    gateway.put("memjectives", "z/body.md", "master", "x")
+    gateway.put("memjectives", "a/body.md", "master", "x")
+    gateway.put("memjectives", "m/body.md", "master", "x")
 
     result = discover_memjectives(gateway)
 
@@ -105,9 +105,9 @@ def test_results_sorted_by_key() -> None:
 
 def test_group_memjective_entries_accepts_preloaded_entries() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "x.md", "master", "x")
-    gateway.put("memjectives", "x.md", "feat/live", "x")
-    gateway.put("memjectives", "x.md", "feat/dead", "x")
+    gateway.put("memjectives", "x/body.md", "master", "x")
+    gateway.put("memjectives", "x/body.md", "feat/live", "x")
+    gateway.put("memjectives", "x/body.md", "feat/dead", "x")
 
     grouped = group_memjective_entries(
         _entries(gateway),

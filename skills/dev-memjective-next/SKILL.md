@@ -107,17 +107,18 @@ Decision rules:
 #### 0a. Cut a new slice branch (1-match case)
 
 The current branch — call it `<prev>` — already has a memjective snapshot
-(`<slug>.md`). To continue the workstream, cut a new branch off `<prev>`
+(`<slug>/body.md`). To continue the workstream, cut a new branch off
+`<prev>`
 and let discovery (step 2b) pick up `<prev>`'s snapshot as the ancestor
 source.
 
 1. **Load the current snapshot** to pick the next slice and derive a slug.
 
    ```bash
-   brmem get <slug>.md --namespace memjectives > /tmp/<slug>.md
+   brmem get <slug>/body.md --namespace memjectives > /tmp/<slug>-body.md
    ```
 
-   Read `/tmp/<slug>.md`. Identify the next unchecked roadmap item that
+   Read `/tmp/<slug>-body.md`. Identify the next unchecked roadmap item that
    still matches `How to Make Progress`. Follow the slice-sizing guidance
    in step 5 (coherent, landable in one session, steelthreaded for large
    memjectives).
@@ -204,7 +205,7 @@ If the user explicitly names a source, resolve that directly instead of
 guessing:
 
 - a branch name: require exactly one memjective entry on that branch
-- a master-branch snapshot slug: read `<slug>.md` from `master`
+- a master-branch snapshot slug: read `<slug>/body.md` from `master`
 - a local file path: read the file directly and label the source as
   _local file_
 
@@ -219,9 +220,10 @@ Enumerate every `(branch, key)` pair that has a memjective entry:
 git for-each-ref --format='%(refname)' refs/brmem/memjectives/
 ```
 
-Each refname is `refs/brmem/memjectives/<encoded-branch>/<key>`. Extract
-the `<encoded-branch>` segment (the 4th path component), decode `---` → `/`
-to recover the real branch name, and pair it with `<key>`.
+Each refname is `refs/brmem/memjectives/<encoded-branch>/<slug>/body.md`.
+Extract the `<encoded-branch>` segment (the 4th path component), decode
+`---` → `/` to recover the real branch name, and pair it with the trailing
+`<slug>/body.md` key.
 
 Filter the list:
 
@@ -278,7 +280,7 @@ Decision rules:
 Read the resolved memjective text:
 
 ```bash
-brmem get <slug>.md --namespace memjectives --branch <source-branch> > /tmp/<slug>.md
+brmem get <slug>/body.md --namespace memjectives --branch <source-branch> > /tmp/<slug>-body.md
 ```
 
 `<source-branch>` is the branch chosen in 2a, the nearest ancestor chosen
@@ -311,10 +313,10 @@ brmem list --namespace memjectives
 (Expected: still empty per the precondition.)
 
 Then copy the resolved text onto the current branch, using the same
-`<slug>.md` key under namespace `memjectives`:
+`<slug>/body.md` key under namespace `memjectives`:
 
 ```bash
-brmem put <slug>.md --namespace memjectives --file /tmp/<slug>.md
+brmem put <slug>/body.md --namespace memjectives --file /tmp/<slug>-body.md
 ```
 
 `--branch` omitted so the current branch is used implicitly. The content

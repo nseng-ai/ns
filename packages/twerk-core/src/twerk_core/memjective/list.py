@@ -19,6 +19,7 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.memjective.discovery import (
     MemjectiveRepoEntry,
     discover_memjectives,
+    slug_for_key,
 )
 from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
 
@@ -67,7 +68,7 @@ class MemjectiveListResult:
 def render_memjective_list(result: MemjectiveListResult) -> None:
     if result.scope == "branch":
         for entry in result.entries:
-            click.echo(entry.key)
+            click.echo(slug_for_key(entry.key))
         return
 
     if not result.memjectives:

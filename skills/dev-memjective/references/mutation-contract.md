@@ -54,7 +54,7 @@ assessment).
 
 `next` writes exactly one brmem entry: the carry-forward of the resolved
 source memjective onto the current branch, under namespace `memjectives`,
-key `<slug>.md`. The carry-forward is strictly an **exact copy** — `next`
+key `<slug>/body.md`. The carry-forward is strictly an **exact copy** — `next`
 may not edit, reshape, or annotate the text while attaching it. Any
 reshaping of the document (checking completed items, splitting newly
 granular roadmap items, appending Notes, amending `How to Make Progress`) is

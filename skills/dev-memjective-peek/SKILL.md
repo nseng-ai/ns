@@ -76,7 +76,7 @@ If the user explicitly names a source, resolve that directly instead of
 guessing:
 
 - a branch name: require exactly one memjective entry on that branch
-- a master-branch snapshot slug: read `<slug>.md` from `master`
+- a master-branch snapshot slug: read `<slug>/body.md` from `master`
 - a local file path: read the file directly and label the source as
   _local file_
 
@@ -172,7 +172,7 @@ Decision rules:
 Read the resolved memjective text:
 
 ```bash
-brmem get <slug>.md --namespace memjectives --branch <source-branch>
+brmem get <slug>/body.md --namespace memjectives --branch <source-branch>
 ```
 
 `<source-branch>` is the branch chosen in 2a when the user named a branch,
@@ -228,7 +228,7 @@ Probe for collisions:
 
 ```bash
 git rev-parse --verify --quiet refs/heads/<slug>
-brmem check <slug>.md --namespace memjectives --branch master
+brmem check <slug>/body.md --namespace memjectives --branch master
 ```
 
 If either returns success (a local branch already exists or a master-branch
