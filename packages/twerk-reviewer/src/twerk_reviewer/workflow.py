@@ -60,7 +60,7 @@ def run_review_by_key(
         return source
 
     try:
-        review_definition = parse_review_definition(source, name=review_path.stem)
+        review_definition = parse_review_definition(source, name=key)
     except ValueError as exc:
         return InvalidReviewDefinition(message=str(exc))
 

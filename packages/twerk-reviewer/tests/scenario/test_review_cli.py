@@ -271,8 +271,10 @@ def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
 
     assert result.exit_code == 0, result.output
-    assert "dignified-python" in result.output
-    assert "python/typing" in result.output
+    output_lines = result.output.splitlines()
+    assert "- dignified-python" in output_lines
+    assert "python/" in output_lines
+    assert "  - typing" in output_lines
 
 
 def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
@@ -283,6 +285,59 @@ def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert "dignified-python" in result.output
+
+
+def test_review_list_groups_nested_keys_under_top_level_dirs(
+    cli_group: ClinkrGroup,
+) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        keys={REVIEWS_DIR: ("dignified-python", "python/fakes", "python/typing")},
+    )
+
+    result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
+
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()
+    assert "- dignified-python" in lines
+    assert "python/" in lines
+    python_idx = lines.index("python/")
+    assert lines[python_idx + 1] == "  - fakes"
+    assert lines[python_idx + 2] == "  - typing"
+
+
+def test_review_list_flat_only_output_has_no_group_headers(
+    cli_group: ClinkrGroup,
+) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        keys={REVIEWS_DIR: ("alpha", "beta", "gamma")},
+    )
+
+    result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
+
+    assert result.exit_code == 0, result.output
+    output_lines = result.output.splitlines()
+    for key in ("alpha", "beta", "gamma"):
+        assert f"- {key}" in output_lines
+    assert not any(line.startswith("  - ") for line in output_lines)
+
+
+def test_review_list_json_envelope_preserves_ci_contract(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        keys={REVIEWS_DIR: ("dignified-python", "python/typing")},
+    )
+
+    result = runner.invoke(cli_group, ["review", "list", "--format", "json"], obj=_obj(ctx))
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["keys"] == ["dignified-python", "python/typing"]
+    assert data["count"] == 2
+    assert data["reviews_dir"] == str(REVIEWS_DIR)
 
 
 def test_review_run_prints_usage_block_when_present(cli_group: ClinkrGroup) -> None:

@@ -42,8 +42,24 @@ def render_review_list(result: ReviewListResult) -> None:
         click.echo("No reviews found.")
         return
     click.echo(f"Reviews: {len(result.keys)}")
+
+    flat: list[str] = []
+    groups: dict[str, list[str]] = {}
     for key in result.keys:
+        if "/" in key:
+            top, rest = key.split("/", 1)
+            groups.setdefault(top, []).append(rest)
+        else:
+            flat.append(key)
+
+    for key in flat:
         click.echo(f"- {key}")
+
+    for group, rests in groups.items():
+        click.echo("")
+        click.echo(f"{group}/")
+        for rest in rests:
+            click.echo(f"  - {rest}")
 
 
 @clinkr_operation(

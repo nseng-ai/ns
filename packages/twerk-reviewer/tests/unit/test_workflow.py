@@ -101,6 +101,29 @@ def test_runs_end_to_end_auto_selecting_single_detected_harness(
     assert review_execution.executed_requests[0].adapter_name == "claude-code"
 
 
+def test_nested_key_preserves_subpath_in_review_name(
+    harness_detection: FakeHarnessDetectionGateway,
+    local_diff: FakeLocalDiffGateway,
+    review_execution: FakeReviewExecutionGateway,
+) -> None:
+    nested_path = REVIEWS_DIR / "python" / "typing.md"
+    review_definition = FakeReviewDefinitionGateway(
+        sources_by_path={nested_path: SAMPLE_SOURCE},
+    )
+
+    result = _run(
+        key="python/typing",
+        review_definition_gateway=review_definition,
+        local_diff_gateway=local_diff,
+        review_execution_gateway=review_execution,
+        harness_detection_gateway=harness_detection,
+    )
+
+    assert isinstance(result, LocalReviewResult)
+    assert result.review_name == "python/typing"
+    assert review_execution.executed_requests[0].review_name == "python/typing"
+
+
 def test_explicit_harness_flag_wins(
     harness_detection: FakeHarnessDetectionGateway,
     review_definition: FakeReviewDefinitionGateway,
