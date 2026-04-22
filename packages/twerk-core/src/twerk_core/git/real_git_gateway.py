@@ -90,6 +90,22 @@ def _branch_exists(repo_root: Path, branch: str) -> bool:
     return result.returncode == 0
 
 
+def resolve_repo_root(cwd: Path) -> Path | None:
+    """Return the git working-tree root for ``cwd``; ``None`` outside a repo."""
+
+    result = _run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=cwd,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    raw = result.stdout.strip()
+    if not raw:
+        return None
+    return Path(raw)
+
+
 def resolve_trunk_branch(repo_root: Path) -> str | None:
     """Resolve the trunk branch name for ``repo_root``; None if unresolvable."""
 
