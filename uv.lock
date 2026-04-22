@@ -73,6 +73,14 @@ wheels = [
 ]
 
 [[package]]
+name = "nonslop"
+version = "0.1.2"
+source = { git = "https://github.com/nseng-ai/nonslop.git?branch=master#9818299c9cd2885c9e825662f34c31fad6a28c3c" }
+dependencies = [
+    { name = "click" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -239,6 +247,7 @@ plugins = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "nonslop" },
     { name = "pytest" },
     { name = "pytest-xdist" },
     { name = "ruff" },
@@ -262,6 +271,7 @@ provides-extras = ["plugins"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "nonslop", git = "https://github.com/nseng-ai/nonslop.git?branch=master" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.5.0" },
