@@ -302,8 +302,8 @@ def test_get_feedback_json_mode(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["success"] is True
-    assert output["pr_number"] == 99
+    assert output["exit_code"] == 0
+    assert output["data"]["pr_number"] == 99
 
 
 # -- resolve-thread --
@@ -604,9 +604,9 @@ def test_get_review_comments_json_mode(cli_group: ClinkrGroup) -> None:
     exit_code, output = _invoke_json(cli_group, "get-review-comments", {"pr_number": 99}, fake)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["count"] == 0
-    assert output["threads"] == []
+    assert output["exit_code"] == 0
+    assert output["data"]["count"] == 0
+    assert output["data"]["threads"] == []
 
 
 def test_get_reviews_json_mode(cli_group: ClinkrGroup) -> None:
@@ -615,9 +615,9 @@ def test_get_reviews_json_mode(cli_group: ClinkrGroup) -> None:
     exit_code, output = _invoke_json(cli_group, "get-reviews", {"pr_number": 99}, fake)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["count"] == 0
-    assert output["reviews"] == []
+    assert output["exit_code"] == 0
+    assert output["data"]["count"] == 0
+    assert output["data"]["reviews"] == []
 
 
 def test_get_discussion_comments_json_mode(cli_group: ClinkrGroup) -> None:
@@ -626,9 +626,9 @@ def test_get_discussion_comments_json_mode(cli_group: ClinkrGroup) -> None:
     exit_code, output = _invoke_json(cli_group, "get-discussion-comments", {"pr_number": 99}, fake)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["count"] == 0
-    assert output["comments"] == []
+    assert output["exit_code"] == 0
+    assert output["data"]["count"] == 0
+    assert output["data"]["comments"] == []
 
 
 def test_get_pr_for_branch_json_mode(cli_group: ClinkrGroup) -> None:
@@ -645,10 +645,10 @@ def test_get_pr_for_branch_json_mode(cli_group: ClinkrGroup) -> None:
     exit_code, output = _invoke_json(cli_group, "get-pr-for-branch", {"branch": "feature"}, fake)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["found"] is True
-    assert output["number"] == 42
-    assert output["state"] == "OPEN"
+    assert output["exit_code"] == 0
+    assert output["data"]["found"] is True
+    assert output["data"]["number"] == 42
+    assert output["data"]["state"] == "OPEN"
 
 
 def test_resolve_thread_json_mode(cli_group: ClinkrGroup) -> None:
@@ -657,9 +657,9 @@ def test_resolve_thread_json_mode(cli_group: ClinkrGroup) -> None:
     exit_code, output = _invoke_json(cli_group, "resolve-thread", {"thread_id": "PRRT_abc"}, fake)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["thread_id"] == "PRRT_abc"
-    assert output["was_already_resolved"] is False
+    assert output["exit_code"] == 0
+    assert output["data"]["thread_id"] == "PRRT_abc"
+    assert output["data"]["was_already_resolved"] is False
     assert fake._resolved_thread_ids == ["PRRT_abc"]
 
 
@@ -669,9 +669,9 @@ def test_unresolve_thread_json_mode(cli_group: ClinkrGroup) -> None:
     exit_code, output = _invoke_json(cli_group, "unresolve-thread", {"thread_id": "PRRT_abc"}, fake)
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["thread_id"] == "PRRT_abc"
-    assert output["was_already_unresolved"] is False
+    assert output["exit_code"] == 0
+    assert output["data"]["thread_id"] == "PRRT_abc"
+    assert output["data"]["was_already_unresolved"] is False
     assert fake._unresolved_thread_ids == ["PRRT_abc"]
 
 
@@ -686,8 +686,8 @@ def test_add_review_thread_reply_json_mode(cli_group: ClinkrGroup) -> None:
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["comment"]["body"] == "Fixed."
+    assert output["exit_code"] == 0
+    assert output["data"]["comment"]["body"] == "Fixed."
     assert fake._thread_replies == [("PRRT_abc", "Fixed.")]
 
 
@@ -702,8 +702,8 @@ def test_add_issue_comment_json_mode(cli_group: ClinkrGroup) -> None:
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["comment"]["body"] == "Addressed."
+    assert output["exit_code"] == 0
+    assert output["data"]["comment"]["body"] == "Addressed."
     assert fake._comments == [(42, "Addressed.")]
 
 
@@ -718,9 +718,9 @@ def test_add_reaction_json_mode(cli_group: ClinkrGroup) -> None:
     )
 
     assert exit_code == 0
-    assert output["success"] is True
-    assert output["comment_id"] == 9001
-    assert output["content"] == "+1"
+    assert output["exit_code"] == 0
+    assert output["data"]["comment_id"] == 9001
+    assert output["data"]["content"] == "+1"
     assert fake._reactions == [(9001, "+1")]
 
 
@@ -990,3 +990,96 @@ def test_resolve_then_unresolve_then_resolve_tracks_independently(
     assert final_output["was_already_resolved"] is True
     assert fake._resolved_thread_ids == ["PRRT_abc", "PRRT_abc"]
     assert fake._unresolved_thread_ids == ["PRRT_abc"]
+
+
+# -- --format json parity / --schema eagerness / failure envelope --
+
+
+def test_get_reviews_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
+    reviews = [
+        PRReview(
+            id="PRR_1",
+            author="reviewer",
+            body="Fix this",
+            state="CHANGES_REQUESTED",
+            submitted_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    fake_flag = FakeIssueGateway(reviews={42: reviews})
+    fake_subtree = FakeIssueGateway(reviews={42: reviews})
+
+    flag_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "get-reviews", "42", "--format", "json"],
+        obj=_obj(_ctx(fake_flag)),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "json", "get-reviews"],
+        input=json.dumps({"pr_number": 42}),
+        obj=_obj(_ctx(fake_subtree)),
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert subtree_result.exit_code == 0, subtree_result.output
+    assert flag_result.stdout == subtree_result.stdout
+
+
+def test_add_issue_comment_format_json_matches_json_subtree(cli_group: ClinkrGroup) -> None:
+    fake_flag = FakeIssueGateway()
+    fake_subtree = FakeIssueGateway()
+
+    flag_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "add-issue-comment", "42", "Addressed.", "--format", "json"],
+        obj=_obj(_ctx(fake_flag)),
+    )
+    subtree_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "json", "add-issue-comment"],
+        input=json.dumps({"pr_number": 42, "body": "Addressed."}),
+        obj=_obj(_ctx(fake_subtree)),
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert subtree_result.exit_code == 0, subtree_result.output
+    assert flag_result.stdout == subtree_result.stdout
+
+
+def test_get_reviews_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "get-reviews", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+
+
+def test_add_issue_comment_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "add-issue-comment", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema", "error_schema"}
+
+
+def test_reply_to_review_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "reply-to-review",
+            "42",
+            "reviewer",
+            "   ",
+            "--format",
+            "json",
+        ],
+        obj=_obj(_ctx(fake)),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "invalid_request"
+    assert "summary_markdown" in payload["message"]

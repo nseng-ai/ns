@@ -9,7 +9,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment, Reaction
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -53,10 +53,10 @@ class ReplyToDiscussionResult:
 def run_reply_to_discussion(
     ctx: click.Context,
     request: ReplyToDiscussionRequest,
-) -> ReplyToDiscussionResult | ClinkrCommandError:
+) -> ClinkrExit[ReplyToDiscussionResult]:
     normalized_response = request.response.strip()
     if not normalized_response:
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="invalid_request",
             message="response must not be empty",
         )
@@ -79,10 +79,12 @@ def run_reply_to_discussion(
     except subprocess.CalledProcessError as exc:
         warning = f"Failed to add reaction to comment {request.comment_id}: {exc}"
 
-    return ReplyToDiscussionResult(
-        body=body,
-        comment=comment,
-        reaction_added=reaction_added,
-        reaction=reaction,
-        warning=warning,
+    return ClinkrExit.ok(
+        ReplyToDiscussionResult(
+            body=body,
+            comment=comment,
+            reaction_added=reaction_added,
+            reaction=reaction,
+            warning=warning,
+        )
     )

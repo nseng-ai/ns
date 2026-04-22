@@ -8,7 +8,7 @@ from typing import Any
 
 import click
 
-from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -41,10 +41,10 @@ class ReplyToReviewResult:
 def run_reply_to_review(
     ctx: click.Context,
     request: ReplyToReviewRequest,
-) -> ReplyToReviewResult | ClinkrCommandError:
+) -> ClinkrExit[ReplyToReviewResult]:
     normalized_summary = request.summary_markdown.strip()
     if not normalized_summary:
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="invalid_request",
             message="summary_markdown must not be empty",
         )
@@ -56,4 +56,4 @@ def run_reply_to_review(
 
     gateway = get_gh_issue_gateway(ctx)
     comment = gateway.add_comment(request.pr_number, body)
-    return ReplyToReviewResult(body=body, comment=comment)
+    return ClinkrExit.ok(ReplyToReviewResult(body=body, comment=comment))

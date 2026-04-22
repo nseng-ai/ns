@@ -10,6 +10,7 @@ import click
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway, resolve_branch_name
 from twerk_core.brmem.validation import validate_entry_ref
 from twerk_core.clinkr.command import ClinkrCommandError
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -61,14 +62,14 @@ def render_get(result: GetResult) -> None:
 def run_get(
     ctx: click.Context,
     request: GetRequest,
-) -> GetResult | ClinkrCommandError:
+) -> ClinkrExit[GetResult]:
     branch = resolve_branch_name(ctx, request.branch)
     if isinstance(branch, ClinkrCommandError):
-        return branch
+        return ClinkrExit.failure(error_type=branch.error_type, message=branch.message)
 
     entry_ref = validate_entry_ref(request.namespace, request.key, branch)
     if isinstance(entry_ref, ClinkrCommandError):
-        return entry_ref
+        return ClinkrExit.failure(error_type=entry_ref.error_type, message=entry_ref.message)
 
     gateway = get_branch_memory_gateway(ctx)
     target = request.at if request.at is not None else entry_ref.ref_name
@@ -80,7 +81,7 @@ def run_get(
     )
 
     if content is None:
-        return ClinkrCommandError(
+        return ClinkrExit.failure(
             error_type="branch_memory_missing",
             message=(
                 f"No content for key {request.key} in namespace {entry_ref.namespace} "
@@ -89,12 +90,14 @@ def run_get(
             ),
         )
 
-    return GetResult(
-        namespace=entry_ref.namespace,
-        key=entry_ref.key,
-        branch=entry_ref.branch,
-        content=content,
-        ref_name=entry_ref.ref_name,
-        target=target,
-        at=request.at,
+    return ClinkrExit.ok(
+        GetResult(
+            namespace=entry_ref.namespace,
+            key=entry_ref.key,
+            branch=entry_ref.branch,
+            content=content,
+            ref_name=entry_ref.ref_name,
+            target=target,
+            at=request.at,
+        )
     )

@@ -75,7 +75,7 @@ Wherever this skill or `references/cli-reference.md` shows `pr-address ...`,
 substitute `<pr-address-runner>`. For example:
 
 ```bash
-echo '{}' | <pr-address-runner> exec json prepare-run
+echo '{}' | <pr-address-runner> exec prepare-run --format json
 ```
 
 `TWERK_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
@@ -103,7 +103,7 @@ commands.
 
 Use the composite helper:
 
-- `<pr-address-runner> exec json prepare-run`
+- `<pr-address-runner> exec prepare-run --format json`
 
 Pass `{"include_all_threads": true}` only when the user explicitly wants
 resolved threads included for reference. Otherwise let it default to `false`.
@@ -258,14 +258,16 @@ For each approved batch, do the real engineering work:
 - stage only the files changed for that batch
 - create exactly one commit for the batch
 
-All `pr-address exec json` helpers accept input as JSON on stdin.
+All `pr-address exec <helper> --format json` helpers emit the machine
+envelope `{"exit_code": 0|1|2, "data": ..., "error_type": ..., "message": ...}`
+on stdout. Failures exit 2 with `error_type` and `message` set.
 
-**Before calling any `pr-address exec json <helper>`, open
+**Before calling any `pr-address exec <helper> --format json`, open
 `references/cli-reference.md` and read that helper's input field table and
 enum values.** Do not guess field names, omit required fields, or invent
 enum values (for example, `mode`). The reference is authoritative — if it
 disagrees with memory, the reference wins. If unsure about a field's exact
-shape, also run `pr-address exec json <helper> --schema` to print the
+shape, also run `pr-address exec <helper> --schema` to print the
 JSON schema.
 
 Substitute the wrapper path documented above for every literal

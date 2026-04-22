@@ -1,6 +1,6 @@
 # pr-address CLI reference
 
-Command reference for `pr-address exec json` helpers, with invocation
+Command reference for `pr-address exec` helpers, with invocation
 examples from real sessions.
 
 When this reference is used from the skill, replace literal `pr-address` with
@@ -8,19 +8,27 @@ the bundled wrapper at `<skill-dir>/scripts/pr-address-run`.
 
 ## Invocation convention
 
-All `pr-address exec json <command>` helpers:
+All `pr-address exec <command> --format json` helpers:
 
-- Read input as **JSON on stdin** (not positional arguments)
-- Return JSON on stdout with `"success": true` or `"success": false`
-- Support `--schema` to print input/output JSON schemas
+- Accept input either as CLI options/arguments (human mode) or — equivalently
+  — as a single JSON document on stdin when invoked through the legacy
+  `pr-address exec json <command>` subtree. Prefer `--format json` on the
+  human surface; the `json` subtree is transitional and will be removed.
+- Emit the machine envelope
+  `{"exit_code": 0|1|2, "data": ..., "error_type": ..., "message": ...}`
+  on stdout. Successful runs set `exit_code: 0` and place the payload under
+  `data`. Failures set `exit_code: 2` with `error_type` and `message` (no
+  `data`).
+- Support `--schema` to print JSON schemas for input/output/error shapes and
+  exit without running the operation.
 
 ```bash
 echo '{"thread_id": "PRRT_kw...", "mode": "fixed", ...}' \
   | pr-address exec json resolve-thread-with-reply
 ```
 
-Do **not** pass JSON as a positional argument — that fails with
-"Got unexpected extra argument".
+The equivalent `--format json` invocation uses positional arguments and
+options instead of stdin JSON.
 
 ## ID scoping
 
@@ -43,7 +51,7 @@ Resolve PR context, reopen contested threads, and normalize feedback.
 | `include_all_threads`   | no       | Include resolved threads for reference (default false)                                  |
 | `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise) |
 
-**Output fields:**
+**Output fields (under `data`):**
 
 | Field                 | Description                                             |
 | --------------------- | ------------------------------------------------------- |
@@ -65,30 +73,32 @@ Resolve PR context, reopen contested threads, and normalize feedback.
 **Example:**
 
 ```bash
-echo '{}' | pr-address exec json prepare-run
+pr-address exec prepare-run --format json
 ```
 
 ```json
 {
-  "success": true,
-  "found": true,
-  "current_branch": "implement-push-down-refactor",
-  "number": 104,
-  "title": "Add composite pr-address operations",
-  "url": "https://github.com/dagster-io/twerk/pull/104",
-  "head_ref_name": "implement-push-down-refactor",
-  "base_ref_name": "master",
-  "state": "OPEN",
-  "reviews": [ ... ],
-  "review_threads": [ ... ],
-  "discussion_comments": [ ... ],
-  "reopened_thread_ids": [],
-  "restructured_files": [],
-  "warnings": []
+  "exit_code": 0,
+  "data": {
+    "found": true,
+    "current_branch": "implement-push-down-refactor",
+    "number": 104,
+    "title": "Add composite pr-address operations",
+    "url": "https://github.com/dagster-io/twerk/pull/104",
+    "head_ref_name": "implement-push-down-refactor",
+    "base_ref_name": "master",
+    "state": "OPEN",
+    "reviews": [ ... ],
+    "review_threads": [ ... ],
+    "discussion_comments": [ ... ],
+    "reopened_thread_ids": [],
+    "restructured_files": [],
+    "warnings": []
+  }
 }
 ```
 
-When `found` is `false`, there is no PR for the current branch.
+When `data.found` is `false`, there is no PR for the current branch.
 
 ### `resolve-thread-with-reply`
 
@@ -109,7 +119,7 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
 - `fixed` — code change resolved by the current batch commit
 - `explained` — already-fixed case or false positive
 
-**Output fields:**
+**Output fields (under `data`):**
 
 | Field                  | Description                               |
 | ---------------------- | ----------------------------------------- |
@@ -121,25 +131,27 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
 **Example:**
 
 ```bash
-echo '{
-  "thread_id": "PRRT_kwDOR4YhMs57SeUg",
-  "mode": "fixed",
-  "message": "Introduced DetachedHead frozen dataclass as a named sentinel.",
-  "commit_sha": "ac18f2b"
-}' | pr-address exec json resolve-thread-with-reply
+pr-address exec resolve-thread-with-reply \
+  PRRT_kwDOR4YhMs57SeUg \
+  --mode fixed \
+  --message "Introduced DetachedHead frozen dataclass as a named sentinel." \
+  --commit-sha ac18f2b \
+  --format json
 ```
 
 ```json
 {
-  "success": true,
-  "thread_id": "PRRT_kwDOR4YhMs57SeUg",
-  "body": "Fixed in commit ac18f2b: Introduced DetachedHead ...\n\nAddressed via _pr-address_ at 2026-04-16T01:40:33Z\n<!-- pr-address:resolved -->",
-  "comment": { "id": 3090302853, "author": "schrockn", ... },
-  "was_already_resolved": false
+  "exit_code": 0,
+  "data": {
+    "thread_id": "PRRT_kwDOR4YhMs57SeUg",
+    "body": "Fixed in commit ac18f2b: Introduced DetachedHead ...\n\nAddressed via _pr-address_ at 2026-04-16T01:40:33Z\n<!-- pr-address:resolved -->",
+    "comment": { "id": 3090302853, "author": "schrockn", ... },
+    "was_already_resolved": false
+  }
 }
 ```
 
-On error: `{"success": false, "error_type": "...", "message": "..."}`.
+On error: `{"exit_code": 2, "error_type": "...", "message": "..."}`.
 
 ### `reply-to-review`
 
@@ -153,7 +165,7 @@ Post a formatted reply to a PR-level review submission.
 | `review_author`    | GitHub login of the reviewer                           |
 | `summary_markdown` | Markdown summary of changes made to address the review |
 
-**Output fields:**
+**Output fields (under `data`):**
 
 | Field     | Description                               |
 | --------- | ----------------------------------------- |
@@ -163,18 +175,20 @@ Post a formatted reply to a PR-level review submission.
 **Example:**
 
 ```bash
-echo '{
-  "pr_number": 104,
-  "review_author": "reviewer-login",
-  "summary_markdown": "- Used LBYL pattern in local_git.py\n- Added type alias for RestructuredFiles"
-}' | pr-address exec json reply-to-review
+pr-address exec reply-to-review \
+  104 \
+  reviewer-login \
+  "- Used LBYL pattern in local_git.py\n- Added type alias for RestructuredFiles" \
+  --format json
 ```
 
 ```json
 {
-  "success": true,
-  "body": "Addressed review feedback from @reviewer-login:\n- Used LBYL pattern ...\n\n_Addressed via pr-address at ..._",
-  "comment": { "id": 12345678, ... }
+  "exit_code": 0,
+  "data": {
+    "body": "Addressed review feedback from @reviewer-login:\n- Used LBYL pattern ...\n\n_Addressed via pr-address at ..._",
+    "comment": { "id": 12345678, ... }
+  }
 }
 ```
 
@@ -192,7 +206,7 @@ Reply to a PR discussion comment and add a +1 reaction.
 | `original_body`  | Body of the comment being replied to (used for quoting)    |
 | `response`       | Your reply text                                            |
 
-**Output fields:**
+**Output fields (under `data`):**
 
 | Field            | Description                                           |
 | ---------------- | ----------------------------------------------------- |
@@ -205,23 +219,25 @@ Reply to a PR discussion comment and add a +1 reaction.
 **Example:**
 
 ```bash
-echo '{
-  "pr_number": 104,
-  "comment_id": 4256544189,
-  "comment_author": "reviewer-login",
-  "original_body": "Can we add a named type for this return value?",
-  "response": "Done — introduced RestructuredFiles TypeAlias."
-}' | pr-address exec json reply-to-discussion
+pr-address exec reply-to-discussion \
+  104 \
+  4256544189 \
+  reviewer-login \
+  "Can we add a named type for this return value?" \
+  "Done — introduced RestructuredFiles TypeAlias." \
+  --format json
 ```
 
 ```json
 {
-  "success": true,
-  "body": "> @reviewer-login wrote:\n> Can we add a named type ...\n\nDone — introduced ...\n\n_Addressed via pr-address at ..._",
-  "comment": { "id": 98765432, ... },
-  "reaction_added": true,
-  "reaction": "+1",
-  "warning": null
+  "exit_code": 0,
+  "data": {
+    "body": "> @reviewer-login wrote:\n> Can we add a named type ...\n\nDone — introduced ...\n\n_Addressed via pr-address at ..._",
+    "comment": { "id": 98765432, ... },
+    "reaction_added": true,
+    "reaction": "+1",
+    "warning": null
+  }
 }
 ```
 
@@ -229,9 +245,9 @@ Reaction failure produces a warning, not a batch failure.
 
 ## Other commands
 
-Lower-level helpers available via `pr-address exec json`. The composite
-helpers above call these internally — use them directly only when the
-workflow requires it. Run `<command> --schema` for full schemas.
+Lower-level helpers available via `pr-address exec <command> --format json`.
+The composite helpers above call these internally — use them directly only
+when the workflow requires it. Run `<command> --schema` for full schemas.
 
 | Command                   | Description                                                                                                                                                                                                                                           |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
