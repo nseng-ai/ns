@@ -46,10 +46,10 @@ issues, comments, or PR bodies.
 ## Storage model
 
 Memjectives live entirely in `brmem` under namespace `memjectives`, key
-`<slug>.md`. The ref layout is:
+`<slug>/body.md`. The ref layout is:
 
 ```text
-refs/brmem/memjectives/<encoded-branch>/<slug>.md
+refs/brmem/memjectives/<encoded-branch>/<slug>/body.md
 ```
 
 Branch names are encoded by replacing `/` with `---`.
@@ -57,12 +57,12 @@ Branch names are encoded by replacing `/` with `---`.
 Each memjective has **two kinds of snapshots**:
 
 1. **Master-branch snapshot (initial)** — the initial snapshot, stored on
-   `master` at `refs/brmem/memjectives/master/<slug>.md`. Written once by
-   `dev-memjective-create`. Not rewritten by any operation skill during
+   `master` at `refs/brmem/memjectives/master/<slug>/body.md`. Written once
+   by `dev-memjective-create`. Not rewritten by any operation skill during
    normal progress.
 2. **Per-branch snapshot** — the speculative, in-flight state on a specific
    working branch. Stored at
-   `refs/brmem/memjectives/<encoded-branch>/<slug>.md`. Rewritten
+   `refs/brmem/memjectives/<encoded-branch>/<slug>/body.md`. Rewritten
    conservatively by `dev-memjective-update` as slices land. Each branch
    has at most one memjective.
 
@@ -132,7 +132,8 @@ A concrete slice-cycle walkthrough, using slug `widget-rewrite`.
 ### t=0 — `dev-memjective-create` on `master`
 
 `create` drafts the memjective and writes it to
-`refs/brmem/memjectives/master/widget-rewrite.md` as the initial snapshot:
+`refs/brmem/memjectives/master/widget-rewrite/body.md` as the initial
+snapshot:
 
 ```markdown
 # Rewrite the widget subsystem for async I/O
@@ -183,7 +184,7 @@ initial per-branch snapshot.
 
 Alice creates a fresh slice branch; it has no snapshot yet. `next` resolves
 the initial snapshot on `master` and copies it verbatim to
-`refs/brmem/memjectives/alice---widget-rewrite-slice-1/widget-rewrite.md`,
+`refs/brmem/memjectives/alice---widget-rewrite-slice-1/widget-rewrite/body.md`,
 then implements Slice 1 in-session.
 
 After the work lands, `dev-memjective-update` checks off Slice 1's Roadmap

@@ -18,6 +18,7 @@ from twerk_core.memjective.discovery import (
     BranchPresence,
     MemjectiveRepoEntry,
     discover_memjectives,
+    key_for_slug,
     slug_for_key,
 )
 from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
@@ -122,7 +123,7 @@ def run_show_memjective(
     if not matches:
         empty = MemjectiveShowResult(
             slug=requested_slug,
-            key=f"{requested_slug}.md",
+            key=key_for_slug(requested_slug),
             seed_present=False,
             branches=(),
         )

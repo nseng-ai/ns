@@ -27,9 +27,9 @@ per-branch snapshot on the current branch.
 Given a rough memjective brief from the user, produce:
 
 1. a memjective document stored as the `master`-branch brmem snapshot under
-   namespace `memjectives`, key `<slug>.md`
+   namespace `memjectives`, key `<slug>/body.md`
 2. a matching brmem snapshot for the current branch under
-   namespace `memjectives`, key `<slug>.md`
+   namespace `memjectives`, key `<slug>/body.md`
 3. a short report naming the slug, branch, and brmem commits
 
 ## Core rules
@@ -49,7 +49,8 @@ Given a rough memjective brief from the user, produce:
   - `## Notes` (expected for architectural or multi-PR memjectives; optional
     for simpler memjectives)
 - **The branch snapshot key must carry the slug.** Do not use bare
-  `memjective.md`; the branch key is `<slug>.md` in namespace `memjectives`.
+  `memjective/body.md`; the branch key is `<slug>/body.md` in namespace
+  `memjectives`.
 - **Attach the exact drafted text.** Write the master-branch snapshot first,
   then use `brmem put` to copy that exact content onto the current branch.
 - **Do not write the memjective into the working tree.** The only durable
@@ -134,7 +135,7 @@ Slug rules:
 - lowercase ASCII
 - hyphen-separated
 - concise, stable, and descriptive of the workstream
-- no `.md` suffix
+- no `/body.md` suffix
 - usually ≤50 characters
 - do not add redundant prefixes like `memjective-` unless they are part of the
   natural name
@@ -150,7 +151,7 @@ Examples:
 Before writing, check whether a snapshot already exists on master:
 
 ```bash
-brmem check <slug>.md --namespace memjectives --branch master
+brmem check <slug>/body.md --namespace memjectives --branch master
 ```
 
 Decision rules:
@@ -196,7 +197,7 @@ Drafting guidance:
 Write the drafted memjective text to a temp file, then store it on master:
 
 ```bash
-brmem put <slug>.md --namespace memjectives --branch master --file <temp>
+brmem put <slug>/body.md --namespace memjectives --branch master --file <temp>
 ```
 
 This is the initial snapshot. Capture the commit SHA.
@@ -206,11 +207,12 @@ This is the initial snapshot. Capture the commit SHA.
 Copy the same content to the current branch in brmem:
 
 ```bash
-brmem put <slug>.md --namespace memjectives --file <temp>
+brmem put <slug>/body.md --namespace memjectives --file <temp>
 ```
 
 - `--branch` is omitted so the current branch is used implicitly.
-- The positional key must be `<slug>.md`; the namespace must be `memjectives`.
+- The positional key must be `<slug>/body.md`; the namespace must be
+  `memjectives`.
 - This is the initial speculative snapshot for the branch.
 
 Capture the commit SHA reported by `brmem put` for the report.
@@ -222,9 +224,9 @@ Return a short summary including:
 - memjective title
 - slug
 - master-branch brmem snapshot location (namespace `memjectives`, key
-  `<slug>.md`, branch `master`)
+  `<slug>/body.md`, branch `master`)
 - current branch name
-- branch brmem entry location (namespace `memjectives`, key `<slug>.md`)
+- branch brmem entry location (namespace `memjectives`, key `<slug>/body.md`)
 - brmem commit SHA (branch snapshot)
 - next-step hint:
 
@@ -262,8 +264,8 @@ the snapshot conservatively.
   memjective record lives.)
 - Writing the memjective into the repo working tree.
 - Creating a second memjective on a branch that already has one.
-- Attaching the branch snapshot under a generic key like `memjective.md` or a
-  namespace other than `memjectives`.
+- Attaching the branch snapshot under a generic key like `memjective/body.md`
+  or a namespace other than `memjectives`.
 - Replacing `How to Make Progress` with vague advice like "keep working on it."
 - Treating the master-branch snapshot as something that should be rewritten
   during ordinary update sessions. `dev-memjective-update` rewrites the

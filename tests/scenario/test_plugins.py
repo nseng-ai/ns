@@ -87,7 +87,7 @@ def test_memjective_plugin_integration() -> None:
     discover_plugins(parent, source=_entry_point_source(ep))
 
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "clinkr-migration.md", "feat/x", "seed\n")
+    gateway.put("memjectives", "clinkr-migration/body.md", "feat/x", "seed\n")
     ctx = BrmemCliContext(
         brmem_gateway=gateway,
         git_gateway=FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
@@ -102,7 +102,7 @@ def test_memjective_plugin_integration() -> None:
 
     result = runner.invoke(parent, ["memjective", "list"], obj=obj)
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["clinkr-migration.md"]
+    assert result.output.splitlines() == ["clinkr-migration"]
 
     result = runner.invoke(
         parent,
@@ -112,7 +112,7 @@ def test_memjective_plugin_integration() -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["exit_code"] == 0
-    assert payload["data"]["entries"][0]["key"] == "clinkr-migration.md"
+    assert payload["data"]["entries"][0]["key"] == "clinkr-migration/body.md"
 
 
 def test_objective_plugin_integration() -> None:

@@ -1,7 +1,7 @@
 """Repo-wide memjective discovery.
 
-Group every ``refs/brmem/memjectives/<encoded-branch>/<slug>.md`` entry by
-slug, tracking master-seed presence separately from branch snapshots and
+Group every ``refs/brmem/memjectives/<encoded-branch>/<slug>/body.md`` entry
+by slug, tracking master-seed presence separately from branch snapshots and
 marking snapshot branches that no longer exist as local refs.
 """
 
@@ -14,7 +14,7 @@ from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
 
 MASTER_BRANCH = "master"
-_MD_SUFFIX = ".md"
+_BODY_SUFFIX = "/body.md"
 
 
 @dataclass(frozen=True)
@@ -44,17 +44,17 @@ class MemjectiveRepoEntry:
 
 
 def slug_for_key(key: str) -> str:
-    """Return the user-facing slug for a brmem key (strips a trailing ``.md``)."""
-    if key.endswith(_MD_SUFFIX):
-        return key[: -len(_MD_SUFFIX)]
+    """Return the user-facing slug for a brmem key (strips a trailing ``/body.md``)."""
+    if key.endswith(_BODY_SUFFIX):
+        return key[: -len(_BODY_SUFFIX)]
     return key
 
 
 def key_for_slug(slug: str) -> str:
-    """Return the canonical brmem key for ``slug`` (adds ``.md`` when missing)."""
-    if slug.endswith(_MD_SUFFIX):
+    """Return the canonical brmem key for ``slug`` (adds ``/body.md`` when missing)."""
+    if slug.endswith(_BODY_SUFFIX):
         return slug
-    return f"{slug}{_MD_SUFFIX}"
+    return f"{slug}{_BODY_SUFFIX}"
 
 
 def discover_memjectives(

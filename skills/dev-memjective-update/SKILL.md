@@ -1,6 +1,6 @@
 ---
 name: dev-memjective-update
-description: "Rewrite the current branch's memjective snapshot after a slice of work lands. Requires exactly one `memjectives/<slug>.md` entry on the branch. Applies conservative in-place edits per the mutation contract, writes back to brmem, and reports old/new commit SHAs for recovery. See `dev-memjective` for the subsystem overview."
+description: "Rewrite the current branch's memjective snapshot after a slice of work lands. Requires exactly one `memjectives/<slug>/body.md` entry on the branch. Applies conservative in-place edits per the mutation contract, writes back to brmem, and reports old/new commit SHAs for recovery. See `dev-memjective` for the subsystem overview."
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -78,13 +78,13 @@ Decision rules:
 Before rewriting, capture the current snapshot commit for the report:
 
 ```bash
-brmem check <slug>.md --namespace memjectives
+brmem check <slug>/body.md --namespace memjectives
 ```
 
 ### 4. Load the active snapshot
 
 ```bash
-brmem get <slug>.md --namespace memjectives
+brmem get <slug>/body.md --namespace memjectives
 ```
 
 Read the document. Interpret its sections per the spec skill's **Document
@@ -132,7 +132,7 @@ Write the updated text to a temp file, then store it back to the same brmem
 key:
 
 ```bash
-brmem put <slug>.md --namespace memjectives --file <temp-file>
+brmem put <slug>/body.md --namespace memjectives --file <temp-file>
 ```
 
 Capture the new commit SHA.
@@ -150,7 +150,7 @@ Summarize:
 
 ```text
 Recover the prior snapshot with:
-brmem get <slug>.md --namespace memjectives --at <old-sha>
+brmem get <slug>/body.md --namespace memjectives --at <old-sha>
 ```
 
 ## Edge cases
