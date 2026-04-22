@@ -51,13 +51,13 @@ class FindingsPayload:
 
 
 def parse_findings_payload(raw: str) -> FindingsPayload:
-    """Parse a reviewer findings JSON blob into a normalized payload.
+    """Parse a reviewer clinkr envelope into a normalized findings payload.
 
-    Accepts either the clinkr-wrapped success shape emitted by
-    `reviewer json review run` (flat keys plus `success: true`) or the
-    clinkr error shape (`success: false` with `error_type` / `message`).
-    Missing string fields default to "unknown" to match the legacy jq
-    template's leniency.
+    Expects a top-level JSON object carrying `exit_code` (the clinkr envelope
+    shape). On `exit_code == 0` the `data` object is unwrapped and its flat
+    fields (`review_name`, `base_ref`, `findings`, `count`) are parsed. On any
+    non-zero `exit_code` the envelope's `error_type` / `message` are surfaced
+    as an error payload.
     """
     try:
         data = json.loads(raw)
@@ -67,25 +67,33 @@ def parse_findings_payload(raw: str) -> FindingsPayload:
     if not isinstance(data, dict):
         raise FindingsParseError(f"expected a JSON object at top level, got {type(data).__name__}")
 
-    review_name = _coerce_str(data.get("review_name"), default="unknown")
-    base_ref = _coerce_str(data.get("base_ref"), default="unknown")
+    if "exit_code" not in data:
+        raise FindingsParseError("expected a clinkr envelope with top-level 'exit_code'")
 
-    if data.get("success") is False:
+    exit_code = data.get("exit_code")
+    if exit_code != 0:
         return FindingsPayload(
-            review_name=review_name,
-            base_ref=base_ref,
+            review_name="unknown",
+            base_ref="unknown",
             count=0,
             findings=(),
             error_type=_coerce_str(data.get("error_type"), default="unknown"),
             error_message=_coerce_str(data.get("message"), default=""),
         )
 
-    raw_findings = data.get("findings") or []
+    inner = data.get("data")
+    if not isinstance(inner, dict):
+        raise FindingsParseError("`data` must be an object when `exit_code` is 0")
+
+    review_name = _coerce_str(inner.get("review_name"), default="unknown")
+    base_ref = _coerce_str(inner.get("base_ref"), default="unknown")
+
+    raw_findings = inner.get("findings") or []
     if not isinstance(raw_findings, list):
         raise FindingsParseError("`findings` must be a list when present")
 
     findings = tuple(_parse_finding(item, index=i) for i, item in enumerate(raw_findings))
-    count = data.get("count")
+    count = inner.get("count")
     if not isinstance(count, int):
         count = len(findings)
 

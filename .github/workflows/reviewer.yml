@@ -70,10 +70,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          uv run reviewer review run "$REVIEW_KEY" \
+
+          status=0
+          output=$(uv run reviewer review run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             --review-format findings \
-            --format json \
-            | jq '.data' \
+            --format json) || status=$?
+
+          echo "--- reviewer envelope ---"
+          printf '%s\n' "$output"
+          echo "--- end reviewer envelope ---"
+
+          printf '%s' "$output" \
             | uv run reviewer exec format-findings-comment \
             | gh pr comment "$PR_NUMBER" --body-file -
+
+          exit "$status"
