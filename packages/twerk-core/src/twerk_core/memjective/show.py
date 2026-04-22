@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 import click
+from rich.markdown import Markdown
 
+from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_core.brmem.gateway_access import (
     get_branch_memory_gateway,
     get_git_gateway,
@@ -14,14 +16,15 @@ from twerk_core.brmem.gateway_access import (
 )
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.console import get_console
 from twerk_core.memjective.discovery import (
+    MASTER_BRANCH,
     BranchPresence,
-    MemjectiveRepoEntry,
-    discover_memjectives,
-    key_for_slug,
     slug_for_key,
 )
 from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
+
+_BODY_FILE = "body.md"
 
 
 @dataclass(frozen=True)
@@ -33,41 +36,87 @@ class MemjectiveShowRequest:
 
 
 @dataclass(frozen=True)
+class MemjectiveBody:
+    source_branch: str
+    content: str
+
+
+@dataclass(frozen=True)
 class MemjectiveShowResult:
     slug: str
-    key: str
     seed_present: bool
     branches: tuple[BranchPresence, ...]
+    files: tuple[str, ...]
+    body: MemjectiveBody | None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "slug": self.slug,
-            "key": self.key,
             "seed_present": self.seed_present,
             "branches": [{"branch": bp.branch, "stale": bp.stale} for bp in self.branches],
+            "files": list(self.files),
+            "body": (
+                None
+                if self.body is None
+                else {
+                    "source_branch": self.body.source_branch,
+                    "content": self.body.content,
+                }
+            ),
         }
 
 
 def render_memjective_show(result: MemjectiveShowResult) -> None:
     click.echo(f"slug: {result.slug}")
-    click.echo(f"key:  {result.key}")
     click.echo(f"seed: {'present (master)' if result.seed_present else 'absent'}")
-    if not result.branches:
+    if result.branches:
+        click.echo("branches:")
+        for bp in result.branches:
+            marker = " [stale]" if bp.stale else ""
+            click.echo(f"  - {bp.branch}{marker}")
+    else:
         click.echo("branches: (none)")
-        return
-    click.echo("branches:")
-    for bp in result.branches:
-        marker = " [stale]" if bp.stale else ""
-        click.echo(f"  - {bp.branch}{marker}")
+    if result.files:
+        click.echo("files:")
+        for path in result.files:
+            click.echo(f"  - {path}")
+    if result.body is not None:
+        console = get_console()
+        console.print()
+        console.rule(f"{_BODY_FILE} ({result.body.source_branch})")
+        console.print(Markdown(result.body.content))
 
 
-def _result_from_entry(entry: MemjectiveRepoEntry) -> MemjectiveShowResult:
-    return MemjectiveShowResult(
-        slug=entry.slug,
-        key=entry.key,
-        seed_present=entry.seed_present,
-        branches=entry.branches,
-    )
+def _resolve_current_branch(ctx: click.Context) -> str | None:
+    match resolve_current_brmem_branch(ctx, None):
+        case ClinkrExit():
+            return None
+        case str() as branch:
+            return branch
+
+
+def _read_body(
+    gateway: BranchMemoryGateway,
+    slug: str,
+    *,
+    current_branch: str | None,
+    seed_present: bool,
+) -> MemjectiveBody | None:
+    key = f"{slug}/{_BODY_FILE}"
+    if current_branch is not None and current_branch != MASTER_BRANCH:
+        content = gateway.get(MEMJECTIVE_NAMESPACE, key, current_branch)
+        if content is not None:
+            return MemjectiveBody(source_branch=current_branch, content=content)
+    if seed_present:
+        content = gateway.get(MEMJECTIVE_NAMESPACE, key, MASTER_BRANCH)
+        if content is not None:
+            return MemjectiveBody(source_branch=MASTER_BRANCH, content=content)
+    return None
+
+
+def _slug_entries(entries: list[EntryRef], slug: str) -> list[EntryRef]:
+    prefix = f"{slug}/"
+    return [e for e in entries if e.key.startswith(prefix)]
 
 
 @clinkr_operation(
@@ -112,24 +161,46 @@ def run_show_memjective(
                 message=(f"Multiple memjectives on branch {branch!r}: {names}. Specify a SLUG."),
             )
         requested_slug = branch_slugs[0]
+        current_branch: str | None = branch
     else:
         requested_slug = slug_for_key(request.slug)
+        current_branch = _resolve_current_branch(ctx)
 
-    memjectives = discover_memjectives(
-        gateway,
-        is_branch_alive=git_gateway.branch_exists,
-    )
-    matches = [m for m in memjectives if m.slug == requested_slug]
-    if not matches:
+    all_entries = gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE)
+    slug_entries = _slug_entries(all_entries, requested_slug)
+    if not slug_entries:
         empty = MemjectiveShowResult(
             slug=requested_slug,
-            key=key_for_slug(requested_slug),
             seed_present=False,
             branches=(),
+            files=(),
+            body=None,
         )
         return ClinkrExit.negative(
             empty,
             message=f"No memjective found for slug {requested_slug!r}.",
         )
 
-    return ClinkrExit.ok(_result_from_entry(matches[0]))
+    files = tuple(sorted({e.key[len(requested_slug) + 1 :] for e in slug_entries}))
+    seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
+    branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
+    branches = tuple(
+        BranchPresence(branch=name, stale=not git_gateway.branch_exists(name))
+        for name in branch_names
+    )
+    body = _read_body(
+        gateway,
+        requested_slug,
+        current_branch=current_branch,
+        seed_present=seed_present,
+    )
+
+    return ClinkrExit.ok(
+        MemjectiveShowResult(
+            slug=requested_slug,
+            seed_present=seed_present,
+            branches=branches,
+            files=files,
+            body=body,
+        )
+    )
