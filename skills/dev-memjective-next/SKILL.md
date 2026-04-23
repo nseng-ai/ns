@@ -6,6 +6,7 @@ allowed-tools:
   - "Bash(git for-each-ref *)"
   - "Bash(git merge-base *)"
   - "Bash(git rev-list *)"
+  - "Bash(git log *)"
   - "Bash(git checkout *)"
   - "Bash(git branch *)"
   - "Bash(gt create *)"
@@ -56,14 +57,20 @@ This skill:
    In both stack-a-new-branch paths, proposes a slug, asks the user to
    confirm, creates the new branch using the project's branch-creation
    convention, and continues from there.
-2. Resolves the active memjective from an ancestor branch snapshot, or from
+2. **Before cutting a new slice branch off an active `<prev>`** (the
+   previous-slice-branch case), runs a cheap freshness check — if
+   commits have landed on `<prev>` since the memjective was last
+   touched, prompts once to run the `dev-memjective-update` workflow
+   inline against `<prev>` before the cut. Silent no-op when already in
+   sync; never fires in the off-topic-parent case.
+3. Resolves the active memjective from an ancestor branch snapshot, or from
    the master-branch snapshot when no ancestor snapshot exists.
-3. Copies every file under the resolved source's `<slug>/` verbatim onto
+4. Copies every file under the resolved source's `<slug>/` verbatim onto
    the current branch with a single atomic `brmem copy` — `body.md`
    always, and each of `roadmap.md` / `notes.md` that exists on the
    source.
-4. Picks the next PR-sized slice from the roadmap.
-5. Implements the slice directly in the current session using normal
+5. Picks the next PR-sized slice from the roadmap.
+6. Implements the slice directly in the current session using normal
    tooling.
 
 For a lightweight status check with no writes, use `dev-memjective-peek`
@@ -80,17 +87,17 @@ out of the prompt text the user invoked the skill with.
 When a slug arg is present, use it to auto-select at three decision
 points that would otherwise prompt:
 
-- Step 0 multi-slug picker (current branch has 2+ memjective slugs).
-- Step 2b multi-ancestor tie (multiple ancestor branches have
+- Step 2 multi-slug picker (current branch has 2+ memjective slugs).
+- Step 3b multi-ancestor tie (multiple ancestor branches have
   memjective snapshots).
-- Step 2c multi-master picker (`master` has 2+ memjective snapshots).
+- Step 3c multi-master picker (`master` has 2+ memjective snapshots).
 
-Step 0b's source picker (0-slug stack-on-top case) reuses step 2b and
-step 2c's discovery logic, so the slug arg auto-selects transitively
+Step 2b's source picker (0-slug stack-on-top case) reuses step 3b and
+step 3c's discovery logic, so the slug arg auto-selects transitively
 there too.
 
 The slug arg identifies **which memjective** to progress. It does **not**
-disambiguate step 0's here-vs-stack mode choice (fresh-slice vs
+disambiguate step 2's here-vs-stack mode choice (fresh-slice vs
 off-topic-parent) — that choice is always surfaced to the user when the
 current branch has 0 memjective files and at least one carry-forward
 source exists somewhere in the repo.
@@ -109,16 +116,25 @@ prompt flows described below.
 - **One memjective per branch.** Carry-forward only ever writes to a branch
   that currently has zero entries under `memjectives/<slug>/`. If the
   current branch already has any file for the slug, cut a new slice branch
-  first (see step 0) and continue the rest of the workflow from there.
-  When the current branch carries 2+ distinct slugs, step 0 lets the user
+  first (see step 2) and continue the rest of the workflow from there.
+  When the current branch carries 2+ distinct slugs, step 2 lets the user
   pick which slug to progress — the newly cut slice branch still holds
   exactly one memjective, preserving the invariant for new work.
 - **Off-topic branches are valid starting points, but not implement-in-place
-  targets.** When the current branch has 0 memjective files, step 0 asks
+  targets.** When the current branch has 0 memjective files, step 2 asks
   whether it's a fresh slice branch (carry-forward writes to it, implement
   here) or an off-topic parent (carry-forward writes to a new slice branch
   stacked on top, implement there). The skill never guesses — it surfaces
   the choice.
+- **Update on next (active-slug only).** Before cutting a new slice
+  branch off a `<prev>` that holds an active memjective, run a cheap
+  freshness check (brmem `head_date` vs branch HEAD commit time). If
+  commits have landed since the memjective was last touched, prompt once;
+  on confirmation, run the `dev-memjective-update` workflow on `<prev>`
+  before the cut. The hook is silent when the memjective is already in
+  sync and does **not** fire in the off-topic-parent case (§2b) —
+  updating an ancestor's memjective that may belong to a different
+  workstream is out of scope for `next`.
 - **Carry-forward copies every file under the slug.** The brmem mutation
   this skill performs is an exact-copy carry-forward — one atomic
   `brmem copy` that transfers every file under `<slug>/`
@@ -128,7 +144,7 @@ prompt flows described below.
 - **Label the source.** The final report names where the memjective was
   read from: ancestor-branch snapshot (with branch name), master-branch
   snapshot, or local file.
-- **Branch creation defers to the project convention.** When step 0 needs
+- **Branch creation defers to the project convention.** When step 2 needs
   to create a new slice branch, follow the project's stated convention —
   for twerk that's `gt create` per the `graphite` skill. Fall back to
   `git checkout -b <slug>` only when `gt` cannot express the operation
@@ -142,11 +158,25 @@ prompt flows described below.
 
 ## Workflow
 
-### 0. Branch state check — fresh branch, or cut one
+### 1. Pre-flight: confirm repo + current branch
 
-Step 0 is the session's entry-point state check. It runs **once** per
-invocation. When §0a or §0b cuts a new slice branch, subsequent steps
-(1 onwards) execute on the new branch — step 0 itself does not re-run,
+```bash
+git rev-parse --show-toplevel
+git rev-parse --abbrev-ref HEAD
+```
+
+Call the branch `<branch>`.
+
+Abort if:
+
+- not in a git repo
+- the current branch is detached (`HEAD`)
+
+### 2. Branch state check — fresh branch, or cut one
+
+Step 2 is the session's entry-point state check. It runs **once** per
+invocation. When §2a or §2b cuts a new slice branch, subsequent steps
+(§3 onwards) execute on the new branch — step 2 itself does not re-run,
 so its prompts never fire twice.
 
 ```bash
@@ -164,16 +194,16 @@ Decision rules:
   branch the user just cut for the next slice, or an off-topic parent in
   a stack. Ask the user which:
 
-  - **Implement on this branch** (fresh-slice case). Continue to step 1.
-    Step 2 will discover the source from ancestors or master.
+  - **Implement on this branch** (fresh-slice case). Continue to step 3.
+    Step 3 will discover the source from ancestors or master.
   - **Stack a new slice branch on top** (off-topic-parent case). Run
-    §0b's cut-new-branch flow.
+    §2b's cut-new-branch flow.
 
   Two short-circuits skip the prompt:
 
   - If no memjectives exist anywhere in the repo (no ancestor snapshots,
     no master-branch snapshots), the stack-on-top option is unavailable;
-    fall through as fresh-slice and continue to step 1 (step 2c's
+    fall through as fresh-slice and continue to step 3 (step 3c's
     0-snapshots rule will ask the user to name a source — or they
     probably want `dev-memjective-create`, not this skill).
   - If a slug arg was provided, it still does **not** pick the mode —
@@ -182,8 +212,9 @@ Decision rules:
 
 - **1 distinct slug** → current branch already holds a memjective. Do
   **not** abort. Instead, treat that slug as the **active slug** and run
-  the "cut a new slice branch" flow below, then restart at step 1 on the
-  newly-created branch.
+  the update-then-cut flow below (§2a) — the cheap freshness check
+  decides whether an inline `dev-memjective-update` runs against `<prev>`
+  before the new branch is cut.
 - **2+ distinct slugs** → do **not** abort. Present the slugs to the user
   and let them pick which memjective to progress:
   - For each slug, read `body.md`'s Title line so the list is meaningful,
@@ -196,21 +227,69 @@ Decision rules:
     picker.
   - Otherwise ask the user to choose one.
   - Once a slug is chosen, treat it as the **active slug** and run the
-    "cut a new slice branch" flow below against it. The branch's other
+    update-then-cut flow below (§2a) against it. The branch's other
     memjective files stay attached to `<prev>` untouched — the user can
     come back and progress them in a future session.
 
-#### 0a. Cut a new slice branch (active-slug case)
+#### 2a. Update-then-cut (active-slug case)
 
 The current branch — call it `<prev>` — holds a memjective snapshot for
 the **active slug** (`<slug>`) picked above (either the only slug, or the
 one chosen from a 2+-slug picker), with `body.md` and possibly sibling
-`roadmap.md` / `notes.md`. To continue the workstream, cut a new branch
-off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
+`roadmap.md` / `notes.md`. To continue the workstream, first decide
+whether `<prev>`'s memjective needs to absorb work that landed since it
+was last touched, then cut a new branch off `<prev>` and let discovery
+(step 3b) pick up `<prev>`'s (possibly just-updated) snapshot for
 `<slug>` as the ancestor source.
 
-1. **Load the current body + roadmap** to pick the next slice and derive a
-   slug.
+1. **Cheap freshness check.** Compare the newest memjective write under
+   `<slug>/` against the current branch's HEAD commit time:
+
+   ```bash
+   latest_mem_ts=$(
+     for f in body.md roadmap.md notes.md; do
+       brmem check <slug>/$f --namespace memjectives --format json 2>/dev/null \
+         | jq -r '.data.head_date // empty'
+     done | sort | tail -n1
+   )
+
+   head_ts=$(git log -1 --format=%cI HEAD)
+   ```
+
+   Compare as ISO 8601 strings (lexicographic sort is correct for the
+   `%cI` / `head_date` format). Two outcomes:
+
+   - `head_ts <= latest_mem_ts` → **no update needed.** Log one line,
+     e.g. _"memjective is up to date with HEAD"_, and skip to step 3.
+   - `head_ts > latest_mem_ts` → **update may be warranted.** Continue
+     to step 2.
+
+2. **Conditional update.** Surface the signal to the user:
+
+   > _N commits have landed on `<prev>` since the memjective was last
+   > touched at `<latest_mem_ts>`. Run `dev-memjective-update` on
+   > `<prev>` now? [Y/n]_
+
+   Default is **yes**. Accept yes/no:
+
+   - **Yes** → run the `dev-memjective-update` workflow inline against
+     the current branch (`<prev>`). Follow that skill's steps 3–6
+     verbatim: capture prior per-file commit SHAs (step 3), load the
+     active files (step 4), apply the conservative rewrite per the
+     per-file mutation contract (step 5), and persist any changed
+     files back to brmem (step 6). Capture the per-file old → new
+     commit SHAs for the §9 report. Do **not** duplicate the
+     mutation-contract logic here — reference
+     `dev-memjective-update`'s workflow.
+   - **No** → skip the update and continue to step 3. Note the skip
+     in the §9 report.
+
+   Rationale for the prompt: the cheap freshness signal can be noisy
+   after a rebase or `git commit --amend` on `<prev>`, so a single
+   confirmation keeps false positives from quietly mutating brmem state.
+
+3. **Load `body.md` + `roadmap.md`** — read the **post-update** files
+   (if step 2 ran an update) to pick the next slice:
 
    ```bash
    brmem get <slug>/body.md --namespace memjectives > /tmp/<slug>-body.md
@@ -219,10 +298,10 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
 
    Read the files. Identify the next unchecked roadmap item in
    `roadmap.md` that still matches `body.md`'s `How to Make Progress`.
-   Follow the slice-sizing guidance in step 5 (coherent, landable in one
+   Follow the slice-sizing guidance in step 7 (coherent, landable in one
    session, steelthreaded for large memjectives).
 
-2. **Propose a kebab-case slug** for the new branch derived from the
+4. **Propose a kebab-case slug** for the new branch derived from the
    chosen roadmap item. Keep it short and descriptive — e.g., if the next
    roadmap item is _"Wire up the repo-discovery CLI command"_, a good slug
    is `wire-repo-discovery-cli`. Respect the project's branch-naming
@@ -230,7 +309,7 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
    `feature-stack/terse-description` for grouped stacks, but a single-token
    slug is also fine for standalone slices).
 
-3. **Ask the user to confirm.** Present: the next slice title, a one-line
+5. **Ask the user to confirm.** Present: the next slice title, a one-line
    rationale, the proposed slug, and the branch name that will be created.
    Wait for confirmation. Accept a user-supplied slug and use it verbatim
    if provided.
@@ -240,7 +319,7 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
    or material drift between the memjective and the codebase), offer 2–3
    candidate slices with slug suggestions and let the user pick.
 
-4. **Create the branch** using the project's convention. In twerk, that's
+6. **Create the branch** using the project's convention. In twerk, that's
    `gt` per the `graphite` skill:
 
    ```bash
@@ -255,7 +334,7 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
    ```
 
    Do not stage or commit anything on the user's behalf just to satisfy
-   `gt create` — the slice's actual work comes later (step 6) and will be
+   `gt create` — the slice's actual work comes later (step 8) and will be
    committed by the user.
 
    > **TODO:** make branch creation pluggable per project (config-driven
@@ -264,7 +343,7 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
    > hard-coded while this skill carries the `dev-` prefix; revisit before
    > graduating to a published (`memjective-next`) skill.
 
-5. **Re-verify the precondition** on the new branch before proceeding:
+7. **Re-verify the precondition** on the new branch before proceeding:
 
    ```bash
    brmem list --namespace memjectives
@@ -275,50 +354,56 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
    collided with an existing key in the current snapshot's tree), abort
    and surface the collision so the user can pick a different slug.
 
-6. **Continue at step 1** on the new branch. Discovery in step 2b will see
-   `<prev>` as an ancestor, find its snapshot, and carry it forward.
+8. **Continue at step 3** (Resolve source) on the new branch. Discovery
+   in step 3b will see `<prev>` as an ancestor, find its (possibly
+   just-updated) snapshot, and carry it forward.
 
-#### 0b. Cut a new slice branch (off-topic-parent case)
+#### 2b. Resolve-then-cut (off-topic-parent case)
 
 The current branch — call it `<prev>` — has no memjective files, but the
 user chose **stack a new slice branch on top** rather than implement here.
 `<prev>` is unrelated work (a sibling feature commit, an in-flight
 refactor, anything) that the user wants to stack the next slice onto.
-Because `<prev>` carries no memjective, step 2b cannot find the source via
-ancestry of the new branch — so §0b resolves the source **before** cutting
-and passes it forward as an explicit user source for step 2a.
+Because `<prev>` carries no memjective, step 3b cannot find the source via
+ancestry of the new branch — so §2b resolves the source **before** cutting
+and passes it forward as an explicit user source for step 3a.
+
+**The update-on-next hook does not fire in §2b.** `<prev>` holds no
+memjective of its own, and the ancestor that does hold one may be owned
+by a different workstream — writing to it here would be out of scope for
+`next`. Jump straight to source resolution.
 
 1. **Resolve the source now**, running against the current (off-topic)
    branch:
 
-   - Run step 2b's ancestor discovery over the current branch's history.
+   - Run step 3b's ancestor discovery over the current branch's history.
      `<prev>` itself contributes 0 slugs, so it won't appear as a
      candidate, but older ancestors that carry memjective snapshots
      will. Apply the slug-arg hook if a slug arg was provided.
-   - If step 2b produces 0 candidates, fall through to step 2c
+   - If step 3b produces 0 candidates, fall through to step 3c
      (master-branch snapshots). Apply the slug-arg hook.
-   - If both 2b and 2c produce 0 candidates, the short-circuit in
-     step 0's 0-slug rule should already have routed here as
-     fresh-slice instead; abort §0b and tell the user there is
+   - If both 3b and 3c produce 0 candidates, the short-circuit in
+     step 2's 0-slug rule should already have routed here as
+     fresh-slice instead; abort §2b and tell the user there is
      nothing to carry forward.
 
    Let the chosen source be labeled `<source>` with slug `<slug>`.
 
-2. **Load `<source>`** per step 3 (`body.md` always, plus `roadmap.md`
+2. **Load `<source>`** per step 4 (`body.md` always, plus `roadmap.md`
    and `notes.md` if present) into `/tmp/<slug>-*.md`.
 
 3. **Propose a kebab-case slug for the new branch** derived from the
    next unchecked roadmap item in `<source>`'s `roadmap.md`. Follow
-   §0a step 2's slug guidance.
+   §2a step 4's slug guidance.
 
 4. **Ask the user to confirm.** Present: `<source>` label + slug, the
    chosen next slice title, a one-line rationale, the proposed branch
    name. Accept a user-supplied slug and use it verbatim if provided.
 
    If the roadmap choice is non-obvious, offer 2–3 candidate slices
-   with slug suggestions and let the user pick (same as §0a step 3).
+   with slug suggestions and let the user pick (same as §2a step 5).
 
-5. **Create the branch** per §0a step 4:
+5. **Create the branch** per §2a step 6:
 
    ```bash
    gt create <slug>
@@ -327,38 +412,24 @@ and passes it forward as an explicit user source for step 2a.
    Fall back to `git checkout -b <slug>` if `gt create` refuses. Do
    not stage throwaway content just to satisfy `gt`.
 
-6. **Re-verify the precondition** on the new branch per §0a step 5 —
+6. **Re-verify the precondition** on the new branch per §2a step 7 —
    `brmem list --namespace memjectives` should return 0 entries.
 
-7. **Continue at step 1** on the new branch, treating `<source>` as
-   the **explicit user source for step 2a**. This bypasses step 2b /
-   2c discovery on the new branch — they must not re-prompt the user,
-   since the source was already chosen in §0b step 1. Steps 3, 3a, 4,
-   5, 6 then proceed normally.
+7. **Continue at step 3** on the new branch, treating `<source>` as
+   the **explicit user source for step 3a**. This bypasses step 3b /
+   3c discovery on the new branch — they must not re-prompt the user,
+   since the source was already chosen in §2b step 1. Steps 4, 5, 6,
+   7, 8 then proceed normally.
 
-### 1. Pre-flight: confirm repo + current branch
+### 3. Resolve the memjective source
 
-```bash
-git rev-parse --show-toplevel
-git rev-parse --abbrev-ref HEAD
-```
+Step 2 guarantees the current branch has zero memjective entries (either
+because it was already fresh, or because §2a / §2b cut a new one). Three
+sources remain, in order. When §2b cut the branch it also pre-seeded
+`<source>` as the explicit step 3a source — in that case 3a resolves
+immediately and 3b / 3c do not run.
 
-Call the branch `<branch>`.
-
-Abort if:
-
-- not in a git repo
-- the current branch is detached (`HEAD`)
-
-### 2. Resolve the memjective source
-
-Step 0 guarantees the current branch has zero memjective entries (either
-because it was already fresh, or because §0a / §0b cut a new one). Two
-sources remain, in order. When §0b cut the branch it also pre-seeded
-`<source>` as the explicit step 2a source — in that case 2a resolves
-immediately and 2b / 2c do not run.
-
-#### 2a. Explicit user source
+#### 3a. Explicit user source
 
 If the user explicitly names a source, resolve that directly instead of
 guessing:
@@ -374,7 +445,7 @@ guessing:
 If the explicit source is invalid, stop and surface the problem instead of
 falling through to discovery.
 
-#### 2b. Ancestor snapshots
+#### 3b. Ancestor snapshots
 
 Enumerate every `(branch, key)` pair that has a memjective entry. Storage
 is snapshot-shaped — one ref per `(namespace, branch)` — so enumeration is
@@ -440,9 +511,9 @@ tie-break rules above:
   with distance ranking over the filtered list.
 - If no ancestor carries that slug, the arg doesn't match anything here —
   surface the mismatch (list the slugs available on ancestor candidates)
-  and fall through to step 2c. Do not silently ignore the arg.
+  and fall through to step 3c. Do not silently ignore the arg.
 
-#### 2c. Master-branch snapshots
+#### 3c. Master-branch snapshots
 
 ```bash
 brmem list --namespace memjectives --branch master
@@ -464,7 +535,7 @@ master-branch snapshot slug, surface the mismatch (list the available
 master-branch slugs) and fall through to the decision rules above. Do
 not silently ignore the arg.
 
-### 3. Load the memjective
+### 4. Load the memjective
 
 Read every file that exists under the resolved source's `<slug>/`. Always
 read `body.md`; probe for sibling files and read them when present:
@@ -477,27 +548,27 @@ brmem check <slug>/notes.md --namespace memjectives --branch <source-branch> \
   && brmem get <slug>/notes.md --namespace memjectives --branch <source-branch> > /tmp/<slug>-notes.md
 ```
 
-`<source-branch>` is the branch chosen in 2a, the nearest ancestor chosen
-in 2b, or `master` for 2c snapshots. If step 2a resolved to a local file,
+`<source-branch>` is the branch chosen in 3a, the nearest ancestor chosen
+in 3b, or `master` for 3c snapshots. If step 3a resolved to a local file,
 copy that file into the appropriate temp path instead.
 
 Interpret the documents per the spec skill's **Document anatomy** —
 `body.md` is the stable spine, `roadmap.md` holds the slice plan,
 `notes.md` holds durable findings.
 
-### 3a. Brief summary to the user
+### 5. Brief summary to the user
 
 Before carrying forward, write a short summary back to the user so they can
 confirm the source:
 
 - Title and Status.
-- Source label (from step 2).
+- Source label (from step 3).
 - The current state of the roadmap (which items are checked vs. open).
 
 Keep the summary tight. If the user disagrees with the chosen source, return
-to step 2 and let them pick a different candidate.
+to step 3 and let them pick a different candidate.
 
-### 4. Carry-forward: attach every file to the current branch
+### 6. Carry-forward: attach every file to the current branch
 
 Capture the prior commit state of the namespace on the current branch for
 the report:
@@ -508,7 +579,7 @@ brmem list --namespace memjectives
 
 (Expected: still empty per the precondition.)
 
-When the source is a brmem snapshot (2a branch, 2b ancestor, or 2c master),
+When the source is a brmem snapshot (3a branch, 3b ancestor, or 3c master),
 carry the `memjectives` snapshot forward in a single atomic operation:
 
 ```bash
@@ -518,15 +589,15 @@ brmem copy \
   --to-branch <branch>
 ```
 
-`<source-branch>` is the branch chosen in 2a, the nearest ancestor chosen
-in 2b, or `master` for 2c snapshots. The new destination refs point at the
+`<source-branch>` is the branch chosen in 3a, the nearest ancestor chosen
+in 3b, or `master` for 3c snapshots. The new destination refs point at the
 same commit SHAs as the source — carry-forward is byte-identical by
-construction. No `--overwrite` flag: the step-0 precondition already
+construction. No `--overwrite` flag: the step-2 precondition already
 guarantees zero destination entries in the `memjectives` namespace, and
 the one-memjective-per-branch invariant means the source snapshot holds
 exactly the slug being carried forward.
 
-When the source resolved in 2a is a **local file**, fall back to a single
+When the source resolved in 3a is a **local file**, fall back to a single
 `brmem put` instead (there is no brmem snapshot to copy from):
 
 ```bash
@@ -542,7 +613,7 @@ Capture the destination ref / commit entries reported by `brmem copy` (or
 the `brmem put` commit SHA, in the local-file branch) for the final
 report.
 
-### 5. Decide the next slice
+### 7. Decide the next slice
 
 Default to the first unchecked item in `roadmap.md` that still matches
 `body.md`'s `How to Make Progress`.
@@ -562,7 +633,7 @@ Keep the chosen slice:
 - Small enough that a future `dev-memjective-update` session can
   conservatively reflect it in the snapshot.
 
-### 6. Implement the slice
+### 8. Implement the slice
 
 With the memjective snapshot attached and a slice chosen, implement the
 slice directly in the current session using standard tooling (Edit, Write,
@@ -573,12 +644,24 @@ The session will typically end with the user committing the resulting
 changes themselves. This skill does not commit or push on the user's
 behalf.
 
-### 7. Report
+### 9. Report
 
 After implementation, summarize:
 
 - **Source** — label + slug (e.g., _snapshot (ancestor branch `clinkr-m1`)_,
   slug `clinkr-followups`).
+- **Update-on-next hook** — one of:
+  - _fired_ — the cheap freshness check tripped, the user accepted, and
+    the inline `dev-memjective-update` workflow ran on `<prev>`. List
+    per-file rewrites as `<slug>/<file>: <old-sha> → <new-sha>` for each
+    file that was rewritten.
+  - _skipped (declined)_ — the cheap check tripped but the user declined
+    the prompt. No writes to `<prev>`.
+  - _no-op (in sync)_ — the cheap check saw no new commits on `<prev>`
+    since the memjective was last touched. Include the one-liner
+    _"memjective was already in sync with HEAD"_.
+  - _n/a_ — the hook does not apply (fresh-slice case, §2b
+    off-topic-parent case).
 - **Carry-forward** — old state (namespace was empty on the current
   branch), which files were written (`body.md`, and optionally
   `roadmap.md` / `notes.md`), and the commit SHA each destination ref
@@ -597,48 +680,60 @@ After implementation, summarize:
 
 - **Detached HEAD** → abort in step 1.
 - **Current branch already has a memjective snapshot** → do not abort.
-  Run step 0a to cut a new slice branch, then continue at step 1 on the
-  new branch.
-- **Current branch has files for 2+ distinct memjective slugs** → step 0
+  Run step 2a to cut a new slice branch (with the update-on-next hook
+  firing first if the freshness check trips), then continue at step 3 on
+  the new branch.
+- **Current branch has files for 2+ distinct memjective slugs** → step 2
   presents a picker; the user chooses which slug to progress. If a slug
   arg was provided in the invoking prompt and matches one of the slugs,
-  step 0 auto-selects it. Either way, step 0a cuts a fresh slice branch
+  step 2 auto-selects it. Either way, step 2a cuts a fresh slice branch
   for the chosen slug and the other memjectives stay on `<prev>`
   untouched. Not an abort.
 - **Current branch has 0 memjective snapshots and is off-topic** (an
-  unrelated feature branch the user wants to stack onto) → step 0 asks
+  unrelated feature branch the user wants to stack onto) → step 2 asks
   whether to implement here or stack a new slice branch on top. If the
-  user picks stack-on-top, §0b resolves the source, cuts a new slice
+  user picks stack-on-top, §2b resolves the source, cuts a new slice
   branch via `gt create`, and continues there. `<prev>` stays untouched.
 - **Current branch has 0 memjective snapshots and no memjectives exist
-  anywhere in the repo** → step 0 short-circuits to the fresh-slice
-  path. Step 2c's 0-snapshots rule then asks the user to name a source,
+  anywhere in the repo** → step 2 short-circuits to the fresh-slice
+  path. Step 3c's 0-snapshots rule then asks the user to name a source,
   or the user should use `dev-memjective-create` instead.
 - **Slug arg does not match any candidate** at the relevant decision
-  point (step 0 multi-slug, step 2b multi-ancestor, step 2c multi-master)
+  point (step 2 multi-slug, step 3b multi-ancestor, step 3c multi-master)
   → list what is available, flag the mismatch, and fall back to the
   interactive flow. Do not silently ignore the arg.
+- **Cheap freshness check trips but user declines the update** → proceed
+  to branch-cut; the §9 report notes the skip. `<prev>`'s memjective is
+  unchanged from what was there before this session.
+- **Cheap freshness check signal is noisy after a rebase or
+  `git commit --amend` on `<prev>`** → the prompt still fires; the user
+  can decline and move on. The signal is advisory — a single
+  confirmation is the cheap insurance against false positives.
+- **`<prev>` has only `body.md` (no `roadmap.md` / `notes.md`)** → the
+  freshness check still works: the max `head_date` across whatever
+  files exist is well-defined, and the single-file case compares
+  `body.md`'s `head_date` directly against the branch HEAD commit time.
 - **`gt create` refuses because there are no staged changes** → fall back
-  to `git checkout -b <slug>` in step 0a. Never stage throwaway content
+  to `git checkout -b <slug>` in step 2a. Never stage throwaway content
   just to satisfy `gt`.
 - **User rejects the proposed slug** → take the user's slug verbatim and
-  use it in step 0a.
+  use it in step 2a.
 - **User wants a different next slice** than the one proposed → present
-  alternatives in step 0a, let the user pick, then derive the slug from
+  alternatives in step 2a, let the user pick, then derive the slug from
   their choice.
-- **Stale brmem refs** for deleted branches → dropped during step 2b by
+- **Stale brmem refs** for deleted branches → dropped during step 3b by
   the `git rev-parse --verify` filter.
 - **Branch with >1 distinct memjective slug** (ancestor or master) →
   abort and surface; never pick silently. (The current-branch case is
-  handled by the step 0 picker above; this rule still applies to
-  ancestor branches enumerated in step 2b and to master-branch handling
-  in step 2c.)
+  handled by the step 2 picker above; this rule still applies to
+  ancestor branches enumerated in step 3b and to master-branch handling
+  in step 3c.)
 - **Worktrees** — `git for-each-ref refs/brmem/ns/...` is repo-global, so
   ancestor enumeration works correctly from any worktree.
 - **Multiple ancestor snapshots on the branch stack** → choose the one
   with the smallest `git rev-list --count <branch>..HEAD`. If a slug
   arg was provided, filter to ancestors carrying that slug first (see
-  step 2b's slug-argument hook).
+  step 3b's slug-argument hook).
 - **User explicitly names a slug** that exists only on master → use the
   master-branch snapshot; label as _master-branch snapshot_.
 - **No memjectives anywhere** → ask the user for a source rather than
@@ -647,11 +742,11 @@ After implementation, summarize:
 ## Anti-patterns
 
 - Aborting when the current branch already has a memjective snapshot.
-  That's now step 0a's job to resolve — cut a new slice branch and
+  That's now step 2a's job to resolve — cut a new slice branch and
   continue, don't push the user back to a shell. This applies whether
   the branch carries one slug or multiple; 2+ slugs is a picker, not a
   dead end.
-- Silently implementing on an off-topic branch. When step 0 sees 0
+- Silently implementing on an off-topic branch. When step 2 sees 0
   memjective files on the current branch, do not assume "fresh slice
   branch, implement here" — ask whether to implement here (fresh
   slice) or stack a new slice branch on top (off-topic parent). The
@@ -660,15 +755,27 @@ After implementation, summarize:
 - Using a slug arg to decide the here-vs-stack mode. The slug arg
   identifies which memjective to carry forward; it does not pick
   between fresh-slice and off-topic-parent. Always ask the user for
-  the mode when step 0 sees 0 memjective files.
-- Re-prompting the user on the new branch after §0a or §0b cuts it.
-  Step 0 runs once per invocation; §0a and §0b hand off to step 1 on
-  the new branch, and in §0b's case pre-seed `<source>` as step 2a's
-  explicit source so 2b/2c do not re-ask.
+  the mode when step 2 sees 0 memjective files.
+- Re-prompting the user on the new branch after §2a or §2b cuts it.
+  Step 2 runs once per invocation; §2a and §2b hand off to step 3 on
+  the new branch, and in §2b's case pre-seed `<source>` as step 3a's
+  explicit source so 3b/3c do not re-ask.
 - Silently ignoring a slug arg supplied in the invoking prompt. If the
   arg matches a candidate at the relevant decision point, auto-select
   it. If it doesn't, surface the mismatch and fall back — never drop
   the arg on the floor.
+- Auto-running the update-on-next hook without user confirmation. The
+  prompt is the cheap insurance against noisy timestamp signals
+  (rebase, amend). Always ask once when the freshness check trips.
+- Firing the update-on-next hook in the §2b off-topic-parent case. The
+  ancestor source may belong to a different workstream — `next` does
+  not mutate someone else's memjective on their behalf.
+- Loading `body.md` / `roadmap.md` for slice-picking **before** the
+  update runs. Slice selection in §2a step 3 reads the post-update
+  roadmap; running it earlier can pick a slice against a stale plan.
+- Duplicating the `dev-memjective-update` workflow inline in §2a step 2
+  instead of referencing that skill's steps 3–6. Keep the mutation
+  contract in one place.
 - Creating the new slice branch without user confirmation of the slug.
   Always surface the proposed slug and the next slice first; accept the
   user's override.
