@@ -18,3 +18,14 @@ Operations return `ClinkrExit[T]`. The exit tag determines the CLI exit code in 
 - `ClinkrExit.failure(error_type=..., message=...)` → exit 2; `error:` prefix on stderr in human mode; machine envelope is `{"exit_code": 2, "error_type": ..., "message": ...}`. Use for invalid input, gateway failure, etc.
 
 The `@clinkr_operation` decorator reads the return annotation and rejects anything that is not `ClinkrExit[T]`.
+
+## Domain errors vs `ClinkrExit`
+
+`ClinkrExit` is a CLI concern. It encodes `error_type` / `message` / exit code for a user-facing command and must only be built by CLI-layer code.
+
+- Domain helpers (resolvers, gateway-adjacent utilities, anything reusable below the CLI) return sum types that describe _what went wrong_ in domain terms: frozen dataclasses or sentinels such as `DetachedHead`, `GitCommandFailure`, `NoMemjectiveOnBranch`, `AmbiguousMemjective`. The return type is `Result | Error1 | Error2 | …`, matched at the caller.
+- Only CLI entry points (`run_*` operations, `@clinkr_operation`-decorated functions, and the CLI-layer helpers they directly call) may construct `ClinkrExit`.
+- At the CLI boundary, translate domain errors into `ClinkrExit.failure(...)` with stable `error_type` strings. Keep the match arms explicit at each entry point so error wording stays visible and grep-able.
+- Do not sneak `ClinkrExit` into domain helpers "for convenience." A helper that returns `ClinkrExit` drags the CLI shape into every other consumer (tests, other commands, future non-CLI callers) and couples domain logic to the exit protocol.
+
+The same principle applies to other context-specific error shapes (HTTP responses, JSON envelopes, structured logging records): domain code returns domain errors; translation happens where the context is known.

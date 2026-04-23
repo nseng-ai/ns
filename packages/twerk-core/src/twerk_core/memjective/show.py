@@ -9,23 +9,26 @@ import click
 from rich.markdown import Markdown
 
 from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
-from twerk_core.brmem.gateway_access import (
-    get_branch_memory_gateway,
-    get_git_gateway,
-    resolve_current_brmem_branch,
-)
+from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console
+from twerk_core.git.types import DetachedHead, GitCommandFailure
+from twerk_core.memjective.context import MemjectiveCliContext
 from twerk_core.memjective.discovery import (
     BODY_FILE,
     MASTER_BRANCH,
     NOTES_FILE,
     ROADMAP_FILE,
     BranchPresence,
-    slug_for_key,
 )
 from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
+from twerk_core.memjective.slug_resolution import (
+    AmbiguousMemjective,
+    NoMemjectiveOnBranch,
+    SlugResolution,
+    resolve_slug,
+)
 
 
 @dataclass(frozen=True)
@@ -95,14 +98,6 @@ def render_memjective_show(result: MemjectiveShowResult) -> None:
         console.print(Markdown(file.content))
 
 
-def _resolve_current_branch(ctx: click.Context) -> str | None:
-    match resolve_current_brmem_branch(ctx, None):
-        case ClinkrExit():
-            return None
-        case str() as branch:
-            return branch
-
-
 def _read_file(
     gateway: BranchMemoryGateway,
     slug: str,
@@ -142,38 +137,31 @@ def run_show_memjective(
     ctx: click.Context,
     request: MemjectiveShowRequest,
 ) -> ClinkrExit[MemjectiveShowResult]:
-    gateway = get_branch_memory_gateway(ctx)
-    git_gateway = get_git_gateway(ctx)
+    mctx = load_typed_context(ctx, MemjectiveCliContext)
+    gateway = mctx.brmem_gateway
+    git_gateway = mctx.git_gateway
 
-    if request.slug is None:
-        match resolve_current_brmem_branch(ctx, None):
-            case ClinkrExit() as exit_:
-                return exit_
-            case str() as branch:
-                pass
-
-        branch_slugs = sorted(
-            {
-                slug_for_key(entry.key)
-                for entry in gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE, branch=branch)
-            }
-        )
-        if not branch_slugs:
+    match resolve_slug(mctx, request.slug):
+        case GitCommandFailure() as failure:
+            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            return ClinkrExit.failure(
+                error_type="detached_head",
+                message="Detached HEAD: brmem requires a checked-out branch.",
+            )
+        case NoMemjectiveOnBranch(branch=branch):
             return ClinkrExit.failure(
                 error_type="no_memjective_on_branch",
                 message=f"No memjective on branch {branch!r}.",
             )
-        if len(branch_slugs) > 1:
-            names = ", ".join(branch_slugs)
+        case AmbiguousMemjective(branch=branch, slugs=slugs):
+            names = ", ".join(slugs)
             return ClinkrExit.failure(
                 error_type="ambiguous_memjective",
-                message=(f"Multiple memjectives on branch {branch!r}: {names}. Specify a SLUG."),
+                message=f"Multiple memjectives on branch {branch!r}: {names}. Specify a SLUG.",
             )
-        requested_slug = branch_slugs[0]
-        current_branch: str | None = branch
-    else:
-        requested_slug = slug_for_key(request.slug)
-        current_branch = _resolve_current_branch(ctx)
+        case SlugResolution(slug=requested_slug, current_branch=current_branch):
+            pass
 
     all_entries = gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE)
     slug_entries = _slug_entries(all_entries, requested_slug)

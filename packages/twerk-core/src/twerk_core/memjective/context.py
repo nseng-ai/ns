@@ -1,16 +1,36 @@
 """Context factory for the memjective CLI.
 
-Memjectives reuse :class:`BrmemCliContext` because the memjective CLI is a
-namespace-pinned veneer over brmem; both surfaces need exactly the same
-``BranchMemoryGateway`` and ``GitGateway``. Keep this module thin — no
-duplication of brmem gateway wiring.
+The memjective CLI needs both the brmem and git gateways (for snapshot reads
+and branch liveness) plus a PR gateway (for enriching snapshot-carrying
+branches with PR metadata). The brmem subsystem stays domain-agnostic — no
+PRGateway leakage there — so memjective composes its own typed context on top
+of :func:`twerk_core.brmem.context.build_brmem_context`.
 """
 
 from __future__ import annotations
 
-from twerk_core.brmem.context import BrmemCliContext, build_brmem_context
+from dataclasses import dataclass
+
+from twerk_core.brmem.context import build_brmem_context
+from twerk_core.brmem.gateway import BranchMemoryGateway
+from twerk_core.gh.pr_gateway import PRGateway, RealPRGateway
+from twerk_core.git.git_gateway import GitGateway
 
 
-def build_memjective_context() -> BrmemCliContext:
-    """Assemble a :class:`BrmemCliContext` for the memjective CLI."""
-    return build_brmem_context()
+@dataclass(frozen=True)
+class MemjectiveCliContext:
+    """Typed context for the ``memjective`` CLI."""
+
+    brmem_gateway: BranchMemoryGateway
+    git_gateway: GitGateway
+    pr_gateway: PRGateway
+
+
+def build_memjective_context() -> MemjectiveCliContext:
+    """Assemble a :class:`MemjectiveCliContext` from real gateways."""
+    brmem_ctx = build_brmem_context()
+    return MemjectiveCliContext(
+        brmem_gateway=brmem_ctx.brmem_gateway,
+        git_gateway=brmem_ctx.git_gateway,
+        pr_gateway=RealPRGateway(),
+    )

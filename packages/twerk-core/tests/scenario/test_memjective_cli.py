@@ -6,12 +6,13 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from twerk_core.brmem.context import BrmemCliContext
 from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
+from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
+from twerk_core.memjective.context import MemjectiveCliContext
 from twerk_core.memjective.main import build_cli
 
 
@@ -34,7 +35,11 @@ def _make_obj(
             current_branch_by_path={Path.cwd(): branch},
             branches=live_branches,
         )
-    ctx = BrmemCliContext(brmem_gateway=brmem_gateway, git_gateway=git_gateway)
+    ctx = MemjectiveCliContext(
+        brmem_gateway=brmem_gateway,
+        git_gateway=git_gateway,
+        pr_gateway=FakePRGateway(),
+    )
     return build_clinkr_context_object(lambda: ctx)
 
 
@@ -61,7 +66,7 @@ def test_memjective_version(cli_group: ClinkrGroup) -> None:
 
 
 # ---------------------------------------------------------------------------
-# memjective list
+# memjective list (repo-wide default)
 # ---------------------------------------------------------------------------
 
 
@@ -71,146 +76,9 @@ def _seed(branch: str = "feat/x") -> FakeBranchMemoryGateway:
     gateway.put("memjectives", "memjective-cli/body.md", branch, "seed\n")
     # Entries in other namespaces must not leak into memjective list output.
     gateway.put("workbr", "plan.md", branch, "seed\n")
-    # Entries on other branches must not leak into current-branch output.
+    # Entries on other branches must not leak into --here output.
     gateway.put("memjectives", "other-branch-only/body.md", "feat/other", "seed\n")
     return gateway
-
-
-def test_memjective_list_defaults_to_current_branch(cli_group: ClinkrGroup) -> None:
-    obj = _make_obj(gateway=_seed())
-
-    result = CliRunner().invoke(cli_group, ["list"], obj=obj)
-
-    assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == [
-        "clinkr-migration",
-        "memjective-cli",
-    ]
-
-
-def test_memjective_list_alias_ls(cli_group: ClinkrGroup) -> None:
-    obj = _make_obj(gateway=_seed())
-
-    result = CliRunner().invoke(cli_group, ["ls"], obj=obj)
-
-    assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == [
-        "clinkr-migration",
-        "memjective-cli",
-    ]
-
-
-def test_memjective_list_empty_returns_nothing(cli_group: ClinkrGroup) -> None:
-    obj = _make_obj()
-
-    result = CliRunner().invoke(cli_group, ["list"], obj=obj)
-
-    assert result.exit_code == 0, result.output
-    assert result.output == ""
-
-
-def test_memjective_list_explicit_branch_bypasses_current_branch(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["list", "--branch", "feat/other"],
-        obj=_make_obj(gateway=_seed(), branch=DetachedHead()),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["other-branch-only"]
-
-
-def test_memjective_list_rejects_detached_head_when_branch_omitted(
-    cli_group: ClinkrGroup,
-) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["list"],
-        obj=_make_obj(branch=DetachedHead()),
-    )
-
-    assert result.exit_code == 2
-    assert "detached head" in result.output.lower()
-
-
-def test_memjective_list_surfaces_git_failure_when_branch_omitted(
-    cli_group: ClinkrGroup,
-) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["list"],
-        obj=_make_obj(
-            branch=GitCommandFailure(
-                message="fatal: not a git repository",
-                returncode=128,
-            )
-        ),
-    )
-
-    assert result.exit_code == 2
-    assert "not a git repository" in result.output
-
-
-def test_memjective_list_rejects_invalid_branch_name(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["list", "--branch", "feat---x"],
-        obj=_make_obj(branch=None),
-    )
-
-    assert result.exit_code == 2
-    assert "Invalid branch name 'feat---x'" in result.output
-
-
-def test_memjective_list_ignores_other_namespaces(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
-    gateway.put("objectives", "obj.md", "feat/x", "seed\n")
-
-    result = CliRunner().invoke(cli_group, ["list"], obj=_make_obj(gateway=gateway))
-
-    assert result.exit_code == 0, result.output
-    assert result.output == ""
-
-
-def test_memjective_list_format_json(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "clinkr-migration/body.md", "feat/x", "seed\n")
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["list", "--format", "json"],
-        obj=_make_obj(gateway=gateway),
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    assert payload["exit_code"] == 0
-    assert payload["data"] == {
-        "branch": "feat/x",
-        "slugs": ["clinkr-migration"],
-        "entries": [
-            {
-                "namespace": "memjectives",
-                "key": "clinkr-migration/body.md",
-                "branch": "feat/x",
-                "ref_name": "refs/brmem/ns/memjectives/feat---x:clinkr-migration/body.md",
-            }
-        ],
-    }
-
-
-def test_memjective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["list", "--schema"])
-    payload = json.loads(result.stdout)
-
-    assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
-
-
-# ---------------------------------------------------------------------------
-# memjective list --repo
-# ---------------------------------------------------------------------------
 
 
 def _seed_repo() -> FakeBranchMemoryGateway:
@@ -223,18 +91,18 @@ def _seed_repo() -> FakeBranchMemoryGateway:
     gateway.put("memjectives", "clinkr-migration/body.md", "master", "seed\n")
     # twerk-reviewer: branch snapshot only, no master seed (snapshot-only case).
     gateway.put("memjectives", "twerk-reviewer/body.md", "feat/reviewer", "snap\n")
-    # Non-memjective namespace must not leak into --repo output.
+    # Non-memjective namespace must not leak into repo-wide output.
     gateway.put("workbr", "plan.md", "feat/x", "seed\n")
     return gateway
 
 
-def test_memjective_list_repo_groups_by_slug(cli_group: ClinkrGroup) -> None:
+def test_memjective_list_defaults_to_repo_wide(cli_group: ClinkrGroup) -> None:
     obj = _make_obj(
         gateway=_seed_repo(),
         live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
     )
 
-    result = CliRunner().invoke(cli_group, ["list", "--repo"], obj=obj)
+    result = CliRunner().invoke(cli_group, ["list"], obj=obj)
 
     assert result.exit_code == 0, result.output
     lines = result.output.splitlines()
@@ -250,25 +118,39 @@ def test_memjective_list_repo_groups_by_slug(cli_group: ClinkrGroup) -> None:
     assert "no" in lines[3]
 
 
-def test_memjective_list_repo_rejects_branch_flag(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(
-        cli_group,
-        ["list", "--repo", "--branch", "feat/x"],
-        obj=_make_obj(),
+def test_memjective_list_alias_ls(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(
+        gateway=_seed_repo(),
+        live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
     )
 
-    assert result.exit_code == 2
-    assert "--repo cannot be combined with --branch" in result.output
+    result = CliRunner().invoke(cli_group, ["ls"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()
+    assert lines[0].startswith("SLUG")
+    assert "clinkr-migration" in lines[1]
+    assert "memjective-cli" in lines[2]
+    assert "twerk-reviewer" in lines[3]
 
 
-def test_memjective_list_repo_ignores_other_namespaces(cli_group: ClinkrGroup) -> None:
+def test_memjective_list_empty_returns_nothing(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj()
+
+    result = CliRunner().invoke(cli_group, ["list"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert result.output == ""
+
+
+def test_memjective_list_ignores_other_namespaces(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("workbr", "plan.md", "feat/x", "seed\n")
     gateway.put("objectives", "obj.md", "feat/x", "seed\n")
 
     result = CliRunner().invoke(
         cli_group,
-        ["list", "--repo"],
+        ["list"],
         obj=_make_obj(gateway=gateway, live_branches=("feat/x",)),
     )
 
@@ -276,10 +158,10 @@ def test_memjective_list_repo_ignores_other_namespaces(cli_group: ClinkrGroup) -
     assert result.output == ""
 
 
-def test_memjective_list_repo_works_from_detached_head(cli_group: ClinkrGroup) -> None:
+def test_memjective_list_works_from_detached_head(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["list", "--repo"],
+        ["list"],
         obj=_make_obj(
             gateway=_seed_repo(),
             branch=DetachedHead(),
@@ -292,10 +174,10 @@ def test_memjective_list_repo_works_from_detached_head(cli_group: ClinkrGroup) -
     assert "memjective-cli" in result.output
 
 
-def test_memjective_list_repo_format_json(cli_group: ClinkrGroup) -> None:
+def test_memjective_list_format_json(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["list", "--repo", "--format", "json"],
+        ["list", "--format", "json"],
         obj=_make_obj(
             gateway=_seed_repo(),
             live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
@@ -333,6 +215,136 @@ def test_memjective_list_repo_format_json(cli_group: ClinkrGroup) -> None:
             },
         ],
     }
+
+
+def test_memjective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema"}
+
+
+# ---------------------------------------------------------------------------
+# memjective list --here
+# ---------------------------------------------------------------------------
+
+
+def test_memjective_list_here_returns_current_branch_slugs(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed())
+
+    result = CliRunner().invoke(cli_group, ["list", "--here"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [
+        "clinkr-migration",
+        "memjective-cli",
+    ]
+
+
+def test_memjective_list_here_format_json(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "clinkr-migration/body.md", "feat/x", "seed\n")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--here", "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "branch": "feat/x",
+        "slugs": ["clinkr-migration"],
+        "entries": [
+            {
+                "namespace": "memjectives",
+                "key": "clinkr-migration/body.md",
+                "branch": "feat/x",
+                "ref_name": "refs/brmem/ns/memjectives/feat---x:clinkr-migration/body.md",
+            }
+        ],
+    }
+
+
+def test_memjective_list_here_rejects_detached_head(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--here"],
+        obj=_make_obj(branch=DetachedHead()),
+    )
+
+    assert result.exit_code == 2
+    assert "detached head" in result.output.lower()
+
+
+def test_memjective_list_here_surfaces_git_failure(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--here"],
+        obj=_make_obj(
+            branch=GitCommandFailure(
+                message="fatal: not a git repository",
+                returncode=128,
+            )
+        ),
+    )
+
+    assert result.exit_code == 2
+    assert "not a git repository" in result.output
+
+
+def test_memjective_list_here_rejects_branch_flag(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--here", "--branch", "feat/x"],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "--here cannot be combined with --branch" in result.output
+
+
+def test_memjective_list_here_and_branch_conflict_json(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--here", "--branch", "feat/x", "--format", "json"],
+        obj=_make_obj(),
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "conflicting_flags"
+    assert payload["message"] == "--here cannot be combined with --branch."
+
+
+# ---------------------------------------------------------------------------
+# memjective list --branch <name>
+# ---------------------------------------------------------------------------
+
+
+def test_memjective_list_explicit_branch_bypasses_current_branch(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--branch", "feat/other"],
+        obj=_make_obj(gateway=_seed(), branch=DetachedHead()),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["other-branch-only"]
+
+
+def test_memjective_list_rejects_invalid_branch_name(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--branch", "feat---x"],
+        obj=_make_obj(branch=None),
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid branch name 'feat---x'" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -717,20 +729,20 @@ def test_memjective_show_prefers_current_branch_per_file(cli_group: ClinkrGroup)
     assert payload["data"]["notes"] == {"source_branch": "feat/x", "content": "branch-notes\n"}
 
 
-def test_memjective_list_dedupes_slug_with_multiple_files(cli_group: ClinkrGroup) -> None:
+def test_memjective_list_here_dedupes_slug_with_multiple_files(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("memjectives", "memjective-cli/body.md", "feat/x", "body\n")
     gateway.put("memjectives", "memjective-cli/roadmap.md", "feat/x", "roadmap\n")
     gateway.put("memjectives", "memjective-cli/notes.md", "feat/x", "notes\n")
     obj = _make_obj(gateway=gateway)
 
-    result = CliRunner().invoke(cli_group, ["list"], obj=obj)
+    result = CliRunner().invoke(cli_group, ["list", "--here"], obj=obj)
 
     assert result.exit_code == 0, result.output
     assert result.output.splitlines() == ["memjective-cli"]
 
 
-def test_memjective_list_repo_groups_multiple_files_under_one_slug(
+def test_memjective_list_groups_multiple_files_under_one_slug(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = FakeBranchMemoryGateway()
@@ -741,7 +753,7 @@ def test_memjective_list_repo_groups_multiple_files_under_one_slug(
 
     result = CliRunner().invoke(
         cli_group,
-        ["list", "--repo", "--format", "json"],
+        ["list", "--format", "json"],
         obj=obj,
     )
     payload = json.loads(result.output)
