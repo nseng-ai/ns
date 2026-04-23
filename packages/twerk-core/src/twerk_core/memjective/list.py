@@ -37,10 +37,15 @@ class MemjectiveListResult:
     entries: tuple[EntryRef, ...] = ()
     memjectives: tuple[MemjectiveRepoEntry, ...] = ()
 
+    @property
+    def branch_slugs(self) -> tuple[str, ...]:
+        return tuple(sorted({slug_for_key(entry.key) for entry in self.entries}))
+
     def to_json_dict(self) -> dict[str, Any]:
         if self.scope == "branch":
             return {
                 "branch": self.branch,
+                "slugs": list(self.branch_slugs),
                 "entries": [
                     {
                         "namespace": entry.namespace,
@@ -56,7 +61,7 @@ class MemjectiveListResult:
             "memjectives": [
                 {
                     "slug": m.slug,
-                    "key": m.key,
+                    "files": list(m.files),
                     "seed_present": m.seed_present,
                     "branches": [{"branch": bp.branch, "stale": bp.stale} for bp in m.branches],
                 }
@@ -67,8 +72,8 @@ class MemjectiveListResult:
 
 def render_memjective_list(result: MemjectiveListResult) -> None:
     if result.scope == "branch":
-        for entry in result.entries:
-            click.echo(slug_for_key(entry.key))
+        for slug in result.branch_slugs:
+            click.echo(slug)
         return
 
     if not result.memjectives:

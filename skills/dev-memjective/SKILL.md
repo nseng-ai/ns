@@ -45,29 +45,39 @@ issues, comments, or PR bodies.
 
 ## Storage model
 
-Memjectives live entirely in `brmem` under namespace `memjectives`, key
-`<slug>/body.md`. The ref layout is:
+Memjectives live entirely in `brmem` under namespace `memjectives`, keyed by
+`<slug>/<filename>`. A memjective is a **directory of files** — a required
+`body.md` plus optional siblings `roadmap.md` and `notes.md`. The ref layout
+is:
 
 ```text
 refs/brmem/memjectives/<encoded-branch>/<slug>/body.md
+refs/brmem/memjectives/<encoded-branch>/<slug>/roadmap.md    (optional)
+refs/brmem/memjectives/<encoded-branch>/<slug>/notes.md      (optional)
 ```
 
-Branch names are encoded by replacing `/` with `---`.
+Branch names are encoded by replacing `/` with `---`. The slug is the path
+segment before the filename — `memjective show` groups all files under a
+slug into a single memjective.
 
 Each memjective has **two kinds of snapshots**:
 
 1. **Master-branch snapshot (initial)** — the initial snapshot, stored on
-   `master` at `refs/brmem/memjectives/master/<slug>/body.md`. Written once
-   by `dev-memjective-create`. Not rewritten by any operation skill during
-   normal progress.
+   `master`. `dev-memjective-create` writes `body.md` there once; subsequent
+   `roadmap.md` / `notes.md` files appear when there is content to put in
+   them. Not rewritten by any operation skill during normal progress.
 2. **Per-branch snapshot** — the speculative, in-flight state on a specific
-   working branch. Stored at
-   `refs/brmem/memjectives/<encoded-branch>/<slug>/body.md`. Rewritten
-   conservatively by `dev-memjective-update` as slices land. Each branch
-   has at most one memjective.
+   working branch. Files appear under
+   `refs/brmem/memjectives/<encoded-branch>/<slug>/`. Rewritten
+   conservatively by `dev-memjective-update` as slices land — typically
+   `roadmap.md` (checking off items) and `notes.md` (appending findings)
+   move most. Each branch has at most one memjective.
 
 The master-branch snapshot is treated as an immutable starting point during
 the normal lifecycle. The per-branch snapshot is the working document.
+
+Only `body.md` is required; the absence of `roadmap.md` or `notes.md` means
+that file hasn't been written yet, not that the memjective is malformed.
 
 ### One-memjective-per-branch invariant
 
@@ -85,18 +95,22 @@ is **copied verbatim** into the new branch's snapshot. This exact-copy
 attach is the only way a memjective snapshot appears on a branch that did
 not have one. The skills never merge, diff, or synthesize across sources.
 
-Carry-forward is performed explicitly. In the normal flow,
-`dev-memjective-next` owns the carry-forward: when run on a fresh slice
-branch, it resolves the source memjective, copies the text verbatim onto
-the current branch via `brmem put`, and then implements the slice.
-`dev-memjective-update`'s preflight carry-forward remains as a
-belt-and-suspenders safety net for users who skipped `next` and land work
-directly on a bare branch. Nothing auto-attaches at branch-creation time.
+Carry-forward is performed explicitly. `dev-memjective-next` owns the
+carry-forward: when run on a fresh slice branch, it resolves the source
+memjective, copies the text verbatim onto the current branch via
+`brmem put`, and then implements the slice. No other skill attaches a
+snapshot — `dev-memjective-update` refuses to run on a bare branch, and
+nothing auto-attaches at branch-creation time.
 
 ## Document anatomy
 
-Every memjective shares the same canonical shape. See
-`templates/memjective-template.md` for the reference form.
+A memjective is split across three sibling files with different editing
+cadences. See `templates/body-template.md`, `templates/roadmap-template.md`,
+and `templates/notes-template.md` for reference forms.
+
+### `body.md` — the stable spine (required)
+
+The part that rarely changes after `create`. Edits are small clarifications.
 
 - **Title** — one line. Describes the workstream, not the current slice.
 - **Status** — a single line: `in progress`, `blocked`, `done`, or similar.
@@ -111,22 +125,30 @@ Every memjective shares the same canonical shape. See
 - **Completion Criteria** — re-checkable, end-state-oriented bullets. Prefer
   criteria that describe the final contract / public surface / cleanup state
   over intermediate implementation steps. More precise than Goals.
-- **Roadmap** — the evolving ordered progress surface. Organized by PR-sized
-  or session-sized slices when work is expected to land incrementally. Prefer
-  steelthreaded early slices (end-to-end) over framework-only scaffolding.
-  This is the single main place to record slice progress. This can change
-  as the memjective unfolds. New data or findings might mean new work items
-  and PRs. Every bullet must describe codified work that lands in a PR —
-  code, tests, docs, config, or a deliberate delete. Manual observation,
-  live-run sessions, or any step that produces no diff does not belong in
-  the roadmap; fold verification into the PR's test plan instead.
 - **How to Make Progress** — the mechanical recipe for future sessions. Says
   how to pick the next slice, what current behavior to inspect first, and what
   to update after landing a slice.
-- **Notes** — durable findings, constraints, collisions, and pointers
-  discovered during implementation. Optional for simple memjectives; kept for
-  architectural or long-running memjectives so hard-won knowledge is
-  preserved. Also serves as log of changes to the memjective itself.
+
+### `roadmap.md` — the evolving progress surface (optional)
+
+The ordered list of PR-sized or session-sized slices. Rewritten often as
+slices are chosen, checked off, split, or reordered.
+
+Organize by slices when work is expected to land incrementally. Prefer
+steelthreaded early slices (end-to-end) over framework-only scaffolding.
+This is the single main place to record slice progress. It can change as
+the memjective unfolds. New data or findings might mean new work items and
+PRs. Every bullet must describe codified work that lands in a PR — code,
+tests, docs, config, or a deliberate delete. Manual observation, live-run
+sessions, or any step that produces no diff does not belong in the roadmap;
+fold verification into the PR's test plan instead.
+
+### `notes.md` — durable findings (optional)
+
+Append-only accumulation of durable findings, constraints, collisions, and
+pointers discovered during implementation. Expected for architectural or
+long-running memjectives so hard-won knowledge is preserved. Also serves as
+a log of non-trivial changes to the memjective itself.
 
 ## Example
 
@@ -134,7 +156,7 @@ A concrete slice-cycle walkthrough, using slug `widget-rewrite`.
 
 ### t=0 — `dev-memjective-create` on `master`
 
-`create` drafts the memjective and writes it to
+`create` drafts the memjective and writes `body.md` to
 `refs/brmem/memjectives/master/widget-rewrite/body.md` as the initial
 snapshot:
 
@@ -157,44 +179,49 @@ same; internal storage gateway moves first.
 - [ ] `WidgetGateway` exposes an async API with no sync shims left behind.
 - [ ] All call sites migrated; sync wrappers deleted.
 
-## Roadmap
+## How to Make Progress
 
-### Slice 1 — Introduce async `WidgetGateway` alongside sync
+1. Pick the next incomplete roadmap slice.
+2. Inspect current `WidgetGateway` implementations and their callers.
+3. After landing, check off the completed roadmap items.
+```
+
+When there is already a concrete slice plan, `create` also writes
+`roadmap.md`:
+
+```markdown
+# Roadmap
+
+## Slice 1 — Introduce async `WidgetGateway` alongside sync
 
 - [ ] New `WidgetGateway` ABC with async methods.
 - [ ] First call site ported end-to-end.
 
-### Slice 2 — Migrate remaining call sites and delete sync wrappers
+## Slice 2 — Migrate remaining call sites and delete sync wrappers
 
 - [ ] Port remaining call sites.
 - [ ] Delete sync wrappers and the shim gateway.
-
-## How to Make Progress
-
-1. Pick the next incomplete Roadmap slice.
-2. Inspect current `WidgetGateway` implementations and their callers.
-3. After landing, check off the completed Roadmap items.
-
-## Notes
-
-- (empty)
 ```
 
-The same text is also attached to the current working branch as its
+Notes are not written yet — `notes.md` appears the first time
+`dev-memjective-update` records a durable finding.
+
+The same files are also attached to the current working branch as its
 initial per-branch snapshot.
 
 ### t=1 — `dev-memjective-next` on `alice/widget-rewrite-slice-1`
 
 Alice creates a fresh slice branch; it has no snapshot yet. `next` resolves
-the initial snapshot on `master` and copies it verbatim to
-`refs/brmem/memjectives/alice---widget-rewrite-slice-1/widget-rewrite/body.md`,
-then implements Slice 1 in-session.
+the initial snapshot on `master`, copies every file under
+`widget-rewrite/` verbatim onto the new branch, then implements Slice 1
+in-session.
 
-After the work lands, `dev-memjective-update` checks off Slice 1's Roadmap
-bullets and appends a Note about a threading gotcha discovered mid-slice:
+After the work lands, `dev-memjective-update` checks off Slice 1's bullets
+in `roadmap.md` and writes `notes.md` for the first time with a threading
+gotcha discovered mid-slice:
 
 ```markdown
-## Notes
+# Notes
 
 - `WidgetStore.flush()` blocks under the async event loop if called from a
   sync context — keep the sync shim until Slice 2 removes the last caller.
@@ -202,12 +229,13 @@ bullets and appends a Note about a threading gotcha discovered mid-slice:
 
 ### t=2 — `dev-memjective-next` on `alice/widget-rewrite-slice-2`
 
-Alice opens the next slice branch off Slice 1. `next` carries forward from
-the `alice/widget-rewrite-slice-1` snapshot (not from the master-branch
-snapshot), so the completed Slice 1 checkboxes and the threading-gotcha
-Note travel with it. Slice 2 lands; `update` checks off its Roadmap
-bullets. The Roadmap now shows Slices 1–2 done and the terminal
-`Completion Criteria` checked off.
+Alice opens the next slice branch off Slice 1. `next` carries forward every
+file under `widget-rewrite/` on the `alice/widget-rewrite-slice-1` snapshot
+(not from the master-branch snapshot), so the completed Slice 1 checkboxes
+in `roadmap.md` and the threading-gotcha entry in `notes.md` travel with
+it. Slice 2 lands; `update` checks off its roadmap bullets. `roadmap.md`
+now shows Slices 1–2 done and `body.md`'s `Completion Criteria` are
+checked off.
 
 ## Lifecycle
 
@@ -254,30 +282,41 @@ existing memjective snapshot.
 Each operation skill has a narrow mutation contract that keeps the system
 honest. The full table lives in `references/mutation-contract.md`. Summary:
 
-- **`create`** — writes the master-branch snapshot + initial branch snapshot.
+- **`create`** — writes the master-branch `body.md` + initial branch
+  `body.md`, and optionally `roadmap.md` when a concrete slice plan exists.
 - **`peek`** — writes **nothing**. Advisory only; status inspector + slug
   suggester.
-- **`next`** — writes exactly one brmem entry — the carry-forward onto the
-  current branch.
-- **`update`** — rewrites only the current branch's snapshot.
+- **`next`** — writes the carry-forward onto the current branch. Copies
+  every file present under `<slug>/` on the source verbatim (body + any
+  roadmap + any notes).
+- **`update`** — rewrites only the current branch's files. Each file has
+  its own per-section rules (see the full table).
 
 No operation skill rewrites the master-branch snapshot or any other branch's
 snapshot during normal progress.
 
-Within `update`, the rewrite is **conservative**: completed items may be
-checked; the Roadmap may be split or extended; the Notes section may grow;
-`How to Make Progress` may be amended when the recipe actually changed.
-`Description` and `Goals` stay mostly stable but can change if the
-memjective has materially changed. Completion Criteria and the master-branch
-snapshot are not rewritten casually. See the full table for the per-section
-rules.
+Within `update`, the rewrite is **conservative** and per-file:
+
+- `body.md` edits are small clarifications only — Title, Description, and
+  Goals stay mostly stable; Status moves categorically; Completion Criteria
+  check off with brief evidence; How to Make Progress changes only when the
+  recipe changed.
+- `roadmap.md` is where most of the motion happens — check items, split
+  newly-granular items, reorder, and add nearby follow-ups. Never add
+  manual-only or observation-only bullets.
+- `notes.md` is append-only with obsolete annotations — never silently
+  delete.
+
+See the mutation contract for the full per-file tables.
 
 ## Shared references
 
-- `templates/memjective-template.md` — canonical memjective shape used by
+- `templates/body-template.md` — canonical `body.md` shape used by
   `dev-memjective-create` when drafting a new memjective.
-- `references/mutation-contract.md` — per-operation, per-section table of
-  what each skill may and may not change.
+- `templates/roadmap-template.md` — canonical `roadmap.md` shape.
+- `templates/notes-template.md` — canonical `notes.md` shape.
+- `references/mutation-contract.md` — per-operation, per-file, per-section
+  table of what each skill may and may not change.
 
 This subsystem follows the `dev-` prefix convention — see `AGENTS.md` >
 "Dev Skill Naming Convention" for the graduation path.

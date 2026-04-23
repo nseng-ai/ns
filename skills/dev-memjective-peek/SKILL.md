@@ -75,10 +75,11 @@ current-branch snapshot, then fallback discovery.
 If the user explicitly names a source, resolve that directly instead of
 guessing:
 
-- a branch name: require exactly one memjective entry on that branch
-- a master-branch snapshot slug: read `<slug>/body.md` from `master`
+- a branch name: require exactly one memjective slug on that branch
+- a master-branch snapshot slug: read every file under `<slug>/` from
+  `master`
 - a local file path: read the file directly and label the source as
-  _local file_
+  _local file_ (treat its content as `body.md`)
 
 If the explicit source is invalid, stop and surface the problem instead of
 falling through to discovery.
@@ -89,14 +90,17 @@ falling through to discovery.
 brmem list --namespace memjectives
 ```
 
-`--branch` omitted so the current branch is used implicitly.
+`--branch` omitted so the current branch is used implicitly. Group the
+returned keys by `<slug>/` prefix — one memjective per distinct slug,
+regardless of how many files are attached (`body.md`, `roadmap.md`,
+`notes.md`).
 
 Decision rules:
 
-- **0 matches** → continue to 2c.
-- **1 match** → record the slug; label as _snapshot (current branch)_; skip
-  to step 3.
-- **2+ matches** → abort; the branch is in an invalid state.
+- **0 distinct slugs** → continue to 2c.
+- **1 distinct slug** → record the slug and note which files are present;
+  label as _snapshot (current branch)_; skip to step 3.
+- **2+ distinct slugs** → abort; the branch is in an invalid state.
 
 #### 2c. Fallback discovery
 
@@ -131,10 +135,11 @@ Filter the list:
   git merge-base --is-ancestor <B> HEAD
   ```
 
-Invariant: if any single ancestor branch surfaces with more than one entry
-in the `memjectives` namespace, abort and surface the invalid state
-instead of presenting it as a candidate. This is the same
-one-snapshot-per-branch rule already enforced in 2b.
+Invariant: if any single ancestor branch surfaces with more than one
+distinct slug in the `memjectives` namespace, abort and surface the
+invalid state instead of presenting it as a candidate. This is the same
+one-memjective-per-branch rule already enforced in 2b. (Multiple files
+under the same `<slug>/` are fine — that's how the split layout works.)
 
 Decision rules for ancestor candidates:
 
@@ -169,18 +174,24 @@ Decision rules:
 
 ### 3. Load the memjective
 
-Read the resolved memjective text:
+Read every file under the resolved source's `<slug>/`:
 
 ```bash
 brmem get <slug>/body.md --namespace memjectives --branch <source-branch>
+brmem check <slug>/roadmap.md --namespace memjectives --branch <source-branch> \
+  && brmem get <slug>/roadmap.md --namespace memjectives --branch <source-branch>
+brmem check <slug>/notes.md --namespace memjectives --branch <source-branch> \
+  && brmem get <slug>/notes.md --namespace memjectives --branch <source-branch>
 ```
 
 `<source-branch>` is the branch chosen in 2a when the user named a branch,
 the current branch for 2b, the nearest ancestor chosen in 2c, or `master`
 for 2c fallback snapshots. If step 2a resolved to a local file, read that
-file directly instead.
+file directly instead (and treat it as the `body.md` content).
 
-Interpret the document's sections per the spec skill's **Document anatomy**.
+Interpret the files per the spec skill's **Document anatomy** — `body.md`
+is the stable spine, `roadmap.md` holds the slice plan, `notes.md` holds
+durable findings.
 
 ### 4. Report a status summary
 
@@ -188,14 +199,18 @@ Write a short status summary back to the user so they can confirm:
 
 - **Source** — the label from step 2 (e.g., _snapshot (ancestor branch
   `clinkr-m1`)_, _master-branch snapshot_, _local file_) and the slug.
-- **Title** — from the memjective document.
-- **Status** — from the `Status:` line.
+- **Files present** — `body.md` always, plus whichever of `roadmap.md` /
+  `notes.md` exist.
+- **Title** — from `body.md`.
+- **Status** — from the `Status:` line in `body.md`.
 - **Description / Goals summary** — only if it adds signal; keep it to one
   short sentence or 1–2 bullets.
-- **Completion Criteria** — count checked vs. open, and list any remaining
-  open criteria.
-- **Roadmap** — the current roadmap state, with unchecked items clearly
-  flagged so the user can see what is left.
+- **Completion Criteria** — from `body.md`. Count checked vs. open, and
+  list any remaining open criteria.
+- **Roadmap** — from `roadmap.md`. Current roadmap state, with unchecked
+  items clearly flagged so the user can see what is left.
+- **Notes** — optional, one-line summary ("3 durable notes recorded" or
+  "none yet"). Do not dump the full notes file.
 
 Keep this tight. The goal is enough signal for the user to recognize the
 state at a glance; it is not a full re-print of the document.
@@ -205,8 +220,8 @@ pick a different candidate.
 
 ### 5. Suggest a branch slug
 
-Default to naming the slug after the first unchecked roadmap slice that still
-matches `How to Make Progress`.
+Default to naming the slug after the first unchecked roadmap slice in
+`roadmap.md` that still matches `body.md`'s `How to Make Progress`.
 
 If the choice is genuinely non-obvious (multiple unchecked items at similar
 priority, recent Notes suggesting the plan should be reshaped), present 2–3
@@ -261,8 +276,8 @@ Output:
 - **Detached HEAD** → abort in step 1.
 - **Stale brmem refs** for deleted branches → dropped during step 2c by the
   `git rev-parse --verify` filter.
-- **Branch with >1 memjective entry** (current, ancestor, or master) →
-  abort and surface; never pick silently.
+- **Branch with >1 distinct memjective slug** (current, ancestor, or
+  master) → abort and surface; never pick silently.
 - **Worktrees** — `git for-each-ref refs/brmem/...` is repo-global, so
   ancestor enumeration works correctly from any worktree.
 - **Multiple ancestor snapshots on the branch stack** → choose the one with

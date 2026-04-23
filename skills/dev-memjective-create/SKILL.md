@@ -26,36 +26,44 @@ per-branch snapshot on the current branch.
 
 Given a rough memjective brief from the user, produce:
 
-1. a memjective document stored as the `master`-branch brmem snapshot under
+1. a memjective `body.md` stored as the `master`-branch brmem snapshot under
    namespace `memjectives`, key `<slug>/body.md`
-2. a matching brmem snapshot for the current branch under
-   namespace `memjectives`, key `<slug>/body.md`
-3. a short report naming the slug, branch, and brmem commits
+2. a matching brmem `body.md` for the current branch under namespace
+   `memjectives`, key `<slug>/body.md`
+3. when the conversation already contains a concrete slice plan, a matching
+   `roadmap.md` written to both snapshots at key `<slug>/roadmap.md`
+4. a short report naming the slug, branch, and brmem commits
+
+A memjective is a directory of files under `<slug>/`; this skill writes
+`body.md` (and optionally `roadmap.md`). `notes.md` is never written by
+`create` — it appears the first time `dev-memjective-update` records a
+durable finding.
 
 ## Core rules
 
-- **Use the canonical template.** Read
-  `../dev-memjective/templates/memjective-template.md` and keep the draft
-  close to that shape:
+- **Use the canonical templates.** Read
+  `../dev-memjective/templates/body-template.md` and keep the `body.md`
+  draft close to that shape:
   - title
   - short, categorical `Status:` line
   - `## Description` for durable context and scope
   - `## Goals` for the higher-level value this work should deliver
   - `## Completion Criteria` describing the target end state in re-checkable
     terms
-  - `## Roadmap`, organized by PR-sized slices when the work is expected to
-    land incrementally
   - `## How to Make Progress`
-  - `## Notes` (expected for architectural or multi-PR memjectives; optional
-    for simpler memjectives)
-- **The branch snapshot key must carry the slug.** Do not use bare
-  `memjective/body.md`; the branch key is `<slug>/body.md` in namespace
-  `memjectives`.
+
+  When a concrete slice plan already exists in the conversation, also draft
+  `roadmap.md` per `../dev-memjective/templates/roadmap-template.md`:
+  - `# Roadmap` heading
+  - ordered slices, organized by PR-sized chunks
+  - codified PR work only — no manual-only or observation-only bullets
+- **Keys must carry the slug.** Do not use bare filenames; the keys are
+  `<slug>/body.md` and `<slug>/roadmap.md` in namespace `memjectives`.
 - **Attach the exact drafted text.** Write the master-branch snapshot first,
   then use `brmem put` to copy that exact content onto the current branch.
 - **Do not write the memjective into the working tree.** The only durable
-  copies are the master-branch brmem snapshot and the current-branch brmem
-  snapshot.
+  copies are the master-branch brmem files and the current-branch brmem
+  files.
 - **Do not touch the workbr plan entry.** If the branch already has a
   `plan/plan.md` entry in the `workbr` namespace, leave it alone. That plan
   is the upper execution frame; the memjective sits below it.
@@ -105,7 +113,7 @@ Start from the current conversation. If the user references a PR, issue, design
 spec, or local markdown document, read it before drafting. Ask only brief
 follow-ups when a critical piece is missing.
 
-You need enough to draft:
+You need enough to draft the stable spine (`body.md`):
 
 - a concrete title
 - a stable `Description` that explains the source proposal / trigger for the
@@ -115,12 +123,12 @@ You need enough to draft:
   deliver
 - completion criteria that describe the intended end state rather than just a
   pile of tasks
-- a roadmap organized by PR-sized slices when the work is expected to land
-  incrementally
 - a `How to Make Progress` section that makes future progress sessions fairly
   mechanical
-- notes / constraints / collisions / file pointers that future sessions are
-  likely to need
+
+If the conversation already contains a concrete slice plan, also draft
+`roadmap.md` with PR-sized slices. If the slice plan is still vague, skip
+`roadmap.md` for now — the first `update` session can write it later.
 
 Bias toward a **simple, durable workstream note**. This is not the full GitHub
 objective template.
@@ -148,26 +156,31 @@ Examples:
 
 ### 5. Pre-flight the master-branch snapshot
 
-Before writing, check whether a snapshot already exists on master:
+Before writing, check whether any file for this slug already exists on
+master:
 
 ```bash
-brmem check <slug>/body.md --namespace memjectives --branch master
+brmem list --namespace memjectives --branch master
 ```
+
+Filter the output for keys starting with `<slug>/`.
 
 Decision rules:
 
-- if it returns **non-zero** (no entry) → continue
-- if it returns **0** (entry exists) → abort and tell the user the
-  master-branch snapshot already exists for this slug; they likely want to
-  run `dev-memjective-peek` against the existing snapshot, or create a new
+- **no matching keys** → continue
+- **any matching key** (`<slug>/body.md`, `<slug>/roadmap.md`, or
+  `<slug>/notes.md`) → abort and tell the user the master-branch snapshot
+  already exists for this slug; they likely want to run
+  `dev-memjective-peek` against the existing snapshot, or create a new
   slice branch and run `dev-memjective-next` inside it instead of
   clobbering the master-branch snapshot
 
-### 6. Draft the memjective document
+### 6. Draft the memjective documents
 
-Read `../dev-memjective/templates/memjective-template.md` and fill it in.
+Read `../dev-memjective/templates/body-template.md` and fill it in as
+`body.md`.
 
-Drafting guidance:
+Drafting guidance for `body.md`:
 
 - Keep `Description` stable and load-bearing: it should say what proposal or
   change triggered the memjective, what related work is already landed, what
@@ -178,49 +191,67 @@ Drafting guidance:
   and other long-running work, prefer criteria that describe the final
   contract / public surface / cleanup state, not just intermediate
   implementation steps.
-- Use `Roadmap` as the single main progress surface. When the work will land
-  over multiple PRs, organize it by PR-sized slices.
-- Roadmap bullets must be codified work that lands in a PR (code, tests,
-  docs, config, or a deliberate delete). Do not draft manual-only or
+- Keep `Status:` short and categorical. Do not stuff PR-by-PR history into it.
+- Put the durable work recipe in `## How to Make Progress`. For multi-PR work,
+  this should usually tell future sessions how to choose the next slice, what
+  current behavior to inspect first, and what to update after landing a slice.
+- Do not include a `## Roadmap` or `## Notes` heading in `body.md` — those
+  live in sibling files.
+
+If a concrete slice plan exists, also read
+`../dev-memjective/templates/roadmap-template.md` and draft `roadmap.md`:
+
+- Use it as the single main progress surface. When the work will land over
+  multiple PRs, organize it by PR-sized slices.
+- Bullets must be codified work that lands in a PR (code, tests, docs,
+  config, or a deliberate delete). Do not draft manual-only or
   observation-only bullets like "live testing session", "smoke-test in
   prod", or "watch for regressions"; verification belongs in the PR's test
   plan, not as a standalone roadmap item.
-- Keep `Status:` short and categorical. Do not stuff PR-by-PR history into it.
 - For architectural redesigns and other long-running work, prefer
   **steelthreaded** early slices: combine the smallest necessary core plumbing
   with one real surface so the design is exercised end-to-end as early as
   possible.
-- Put the durable work recipe in `## How to Make Progress`. For multi-PR work,
-  this should usually tell future sessions how to choose the next slice, what
-  current behavior to inspect first, and what to update after landing a slice.
-- For architectural or multi-PR memjectives, keep `## Notes` by default and use
-  it to preserve durable findings, constraints, collisions, hidden couplings,
-  and open questions discovered during implementation.
+
+Do not write `notes.md` yet — it appears the first time `update` records a
+durable finding.
 
 ### 7. Write the master-branch snapshot
 
-Write the drafted memjective text to a temp file, then store it on master:
+Write the drafted `body.md` text to a temp file, then store it on master:
 
 ```bash
-brmem put <slug>/body.md --namespace memjectives --branch master --file <temp>
+brmem put <slug>/body.md --namespace memjectives --branch master --file <temp-body>
 ```
 
-This is the initial snapshot. Capture the commit SHA.
+If a `roadmap.md` was drafted in step 6, write it too:
+
+```bash
+brmem put <slug>/roadmap.md --namespace memjectives --branch master --file <temp-roadmap>
+```
+
+This is the initial snapshot. Capture the commit SHAs.
 
 ### 8. Attach the memjective to the current branch
 
 Copy the same content to the current branch in brmem:
 
 ```bash
-brmem put <slug>/body.md --namespace memjectives --file <temp>
+brmem put <slug>/body.md --namespace memjectives --file <temp-body>
+```
+
+If a `roadmap.md` was drafted, attach it too:
+
+```bash
+brmem put <slug>/roadmap.md --namespace memjectives --file <temp-roadmap>
 ```
 
 - `--branch` is omitted so the current branch is used implicitly.
-- The positional key must be `<slug>/body.md`; the namespace must be
-  `memjectives`.
-- This is the initial speculative snapshot for the branch.
+- Positional keys must be `<slug>/body.md` and `<slug>/roadmap.md`; the
+  namespace must be `memjectives`.
+- These are the initial speculative files for the branch.
 
-Capture the commit SHA reported by `brmem put` for the report.
+Capture the commit SHAs reported by `brmem put` for the report.
 
 ### 9. Report
 
@@ -228,11 +259,13 @@ Return a short summary including:
 
 - memjective title
 - slug
+- files written (`body.md`, and `roadmap.md` if drafted)
 - master-branch brmem snapshot location (namespace `memjectives`, key
-  `<slug>/body.md`, branch `master`)
+  prefix `<slug>/`, branch `master`)
 - current branch name
-- branch brmem entry location (namespace `memjectives`, key `<slug>/body.md`)
-- brmem commit SHA (branch snapshot)
+- branch brmem entry location (namespace `memjectives`, key prefix
+  `<slug>/`)
+- brmem commit SHA(s) for the branch writes
 - next-step hint:
 
 ```text
