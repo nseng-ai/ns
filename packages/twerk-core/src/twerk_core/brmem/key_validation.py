@@ -1,7 +1,8 @@
 """Key validation for branch-memory entry refs.
 
-Keys are appended to ``refs/brmem/<namespace>/<encoded-branch>/`` to form the
-full ref name, so every rule here mirrors a clause in git's ref-format spec.
+Keys are appended to the ``refs/brmem/base/<encoded-branch>/`` or
+``refs/brmem/ns/<namespace>/<encoded-branch>/`` prefix to form the full ref
+name, so every rule here mirrors a clause in git's ref-format spec.
 See ``git-check-ref-format(1)`` (https://git-scm.com/docs/git-check-ref-format)
 for the authoritative list of what git will accept as a ref component.
 """

@@ -38,14 +38,14 @@ class PutRequest:
         ),
     ]
     namespace: Annotated[
-        str,
+        str | None,
         click.Option(
             ["--namespace"],
-            required=True,
             type=click.STRING,
-            help="Entry namespace (e.g. 'workbr', 'memjectives').",
+            default=None,
+            help=("Entry namespace (e.g. 'workbr', 'memjectives'). Omit for ad-hoc base entries."),
         ),
-    ]
+    ] = None
     stdin: bool = False
     file: str | None = None
     branch: str | None = None
@@ -53,7 +53,7 @@ class PutRequest:
 
 @dataclass(frozen=True)
 class PutResult:
-    namespace: str
+    namespace: str | None
     key: str
     branch: str
     ref_name: str
@@ -73,12 +73,13 @@ class PutResult:
 
 def render_put(result: PutResult) -> None:
     source = "stdin" if result.source_file == "<stdin>" else result.source_file
+    namespace_label = result.namespace if result.namespace is not None else "base"
     click.echo(
         "\n".join(
             [
                 (
                     f"Stored {result.key} from {source} for "
-                    f"{result.namespace} on branch {result.branch}."
+                    f"{namespace_label} on branch {result.branch}."
                 ),
                 f"Ref: {result.ref_name}",
                 f"Commit: {result.commit}",
@@ -146,7 +147,10 @@ def run_put(
             pass
 
     validation_failure = first_failure(
-        ("invalid_namespace", check_namespace(request.namespace)),
+        (
+            "invalid_namespace",
+            None if request.namespace is None else check_namespace(request.namespace),
+        ),
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )

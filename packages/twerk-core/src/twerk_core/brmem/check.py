@@ -30,16 +30,21 @@ class CheckRequest:
         click.Argument(["key"], type=click.STRING),
     ]
     namespace: Annotated[
-        str,
-        click.Option(["--namespace"], required=True, type=click.STRING),
-    ]
+        str | None,
+        click.Option(
+            ["--namespace"],
+            type=click.STRING,
+            default=None,
+            help=("Entry namespace (e.g. 'workbr', 'memjectives'). Omit for ad-hoc base entries."),
+        ),
+    ] = None
     branch: str | None = None
     at: str | None = None
 
 
 @dataclass(frozen=True)
 class CheckResult:
-    namespace: str
+    namespace: str | None
     key: str
     branch: str
     ref_name: str
@@ -66,8 +71,9 @@ class CheckResult:
 
 
 def render_check(result: CheckResult) -> None:
+    namespace_label = result.namespace if result.namespace is not None else "(base)"
     lines = [
-        f"namespace: {result.namespace}",
+        f"namespace: {namespace_label}",
         f"key: {result.key}",
         f"branch: {result.branch}",
         f"ref: {result.ref_name}",
@@ -95,7 +101,10 @@ def run_check(
             pass
 
     failure = first_failure(
-        ("invalid_namespace", check_namespace(request.namespace)),
+        (
+            "invalid_namespace",
+            None if request.namespace is None else check_namespace(request.namespace),
+        ),
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
@@ -133,10 +142,11 @@ def run_check(
             blob_sha=None,
             size_bytes=None,
         )
+        namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
         return ClinkrExit.negative(
             absent,
             message=(
-                f"not found: key={entry_ref.key} namespace={entry_ref.namespace} "
+                f"not found: key={entry_ref.key} namespace={namespace_label} "
                 f"branch={entry_ref.branch} at {target}"
             ),
         )

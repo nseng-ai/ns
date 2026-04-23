@@ -6,7 +6,10 @@ import subprocess
 from pathlib import Path
 
 from twerk_core.brmem.gateway import (
+    BRMEM_BASE_SEGMENT,
     BRMEM_CONTENT_PATH,
+    BRMEM_NS_SEGMENT,
+    BRMEM_REF_PREFIX,
     BranchMemoryGateway,
     EntryDiagnostic,
     EntryRef,
@@ -37,7 +40,7 @@ def _run(
 
 
 class RealBranchMemoryGateway(BranchMemoryGateway):
-    """Store branch memory in ``refs/brmem/<namespace>/<encoded-branch>/<key>``."""
+    """Store branch memory under ``refs/brmem/base/...`` or ``refs/brmem/ns/<ns>/...``."""
 
     def __init__(self, cwd: Path) -> None:
         self._cwd = cwd
@@ -56,8 +59,12 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         if branch is not None:
             validate_branch_name(branch)
 
+        ref_prefixes = [
+            f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/",
+            f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/",
+        ]
         result = _run(
-            ["git", "for-each-ref", "--format=%(refname)", "refs/brmem/"],
+            ["git", "for-each-ref", "--format=%(refname)", *ref_prefixes],
             cwd=self._cwd,
             check=False,
         )
@@ -80,12 +87,12 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
                 continue
             entries.append(entry)
 
-        entries.sort(key=lambda e: (e.namespace, e.key, e.branch))
+        entries.sort(key=lambda e: (e.namespace or "", e.key, e.branch))
         return entries
 
     def put(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         content: str,
@@ -117,7 +124,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
 
     def get(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         *,
@@ -136,7 +143,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
 
     def check(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         *,
@@ -175,7 +182,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             size_bytes=size_bytes,
         )
 
-    def _validated_ref_name(self, namespace: str, key: str, branch: str) -> str:
+    def _validated_ref_name(self, namespace: str | None, key: str, branch: str) -> str:
         ref_name = ref_name_for_entry(namespace, key, branch)
         validation = _run(
             ["git", "check-ref-format", "--branch", branch],

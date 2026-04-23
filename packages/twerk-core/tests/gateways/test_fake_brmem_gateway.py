@@ -62,8 +62,6 @@ def test_fake_brmem_validates_namespace() -> None:
         gateway.put("", "plan", "feat/x", "hello\n")
     with pytest.raises(InvalidNamespaceError):
         gateway.put("ns/with/slash", "plan", "feat/x", "hello\n")
-    with pytest.raises(InvalidNamespaceError):
-        gateway.put("brs", "plan", "feat/x", "hello\n")
 
 
 def test_fake_brmem_validates_key() -> None:
@@ -155,7 +153,7 @@ def test_fake_brmem_list_entries_no_filters_returns_all_sorted() -> None:
         ("workbr", "plan", "feat/x"),
         ("workbr", "plan", "feat/y"),
     ]
-    assert entries[0].ref_name == "refs/brmem/objectives/feat---x/obj-1"
+    assert entries[0].ref_name == "refs/brmem/ns/objectives/feat---x/obj-1"
 
 
 def test_fake_brmem_list_entries_filters_by_namespace() -> None:
@@ -197,4 +195,33 @@ def test_fake_brmem_list_entries_rejects_malformed_filters() -> None:
     with pytest.raises(InvalidBranchNameError):
         gateway.list_entries(branch="")
     with pytest.raises(InvalidNamespaceError):
-        gateway.list_entries(namespace="brs")
+        gateway.list_entries(namespace="ns/with/slash")
+
+
+def test_fake_brmem_base_namespace_round_trip() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    commit = gateway.put(None, "scratchpad", "feat/x", "hello\n")
+
+    assert commit == "fake-0001"
+    assert gateway.get(None, "scratchpad", "feat/x") == "hello\n"
+
+    diagnostic = gateway.check(None, "scratchpad", "feat/x")
+    assert diagnostic is not None
+    assert diagnostic.size_bytes == 6
+
+
+def test_fake_brmem_base_and_namespaced_entries_do_not_collide() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    gateway.put(None, "scratchpad", "feat/x", "base\n")
+    gateway.put("workbr", "scratchpad", "feat/x", "ns\n")
+
+    assert gateway.get(None, "scratchpad", "feat/x") == "base\n"
+    assert gateway.get("workbr", "scratchpad", "feat/x") == "ns\n"
+
+    entries = gateway.list_entries()
+    assert [(e.namespace, e.ref_name) for e in entries] == [
+        (None, "refs/brmem/base/feat---x/scratchpad"),
+        ("workbr", "refs/brmem/ns/workbr/feat---x/scratchpad"),
+    ]

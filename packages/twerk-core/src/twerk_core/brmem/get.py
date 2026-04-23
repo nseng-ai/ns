@@ -30,16 +30,21 @@ class GetRequest:
         click.Argument(["key"], type=click.STRING),
     ]
     namespace: Annotated[
-        str,
-        click.Option(["--namespace"], required=True, type=click.STRING),
-    ]
+        str | None,
+        click.Option(
+            ["--namespace"],
+            type=click.STRING,
+            default=None,
+            help=("Entry namespace (e.g. 'workbr', 'memjectives'). Omit for ad-hoc base entries."),
+        ),
+    ] = None
     branch: str | None = None
     at: str | None = None
 
 
 @dataclass(frozen=True)
 class GetResult:
-    namespace: str
+    namespace: str | None
     key: str
     branch: str
     content: str
@@ -79,7 +84,10 @@ def run_get(
             pass
 
     failure = first_failure(
-        ("invalid_namespace", check_namespace(request.namespace)),
+        (
+            "invalid_namespace",
+            None if request.namespace is None else check_namespace(request.namespace),
+        ),
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
@@ -104,10 +112,11 @@ def run_get(
     )
 
     if content is None:
+        namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
         return ClinkrExit.failure(
             error_type="branch_memory_missing",
             message=(
-                f"No content for key {request.key} in namespace {entry_ref.namespace} "
+                f"No content for key {request.key} in namespace {namespace_label} "
                 f"on branch {entry_ref.branch} at {target}. "
                 f"Inspect with: git show {target}:content"
             ),

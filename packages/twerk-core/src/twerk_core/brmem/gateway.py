@@ -1,10 +1,17 @@
 """Abstract interface and shared validation for branch memory.
 
-The ref layout is ``refs/brmem/<namespace>/<encoded-branch>/<key>``. The key
-is the tail of the ref and keeps its native ``/`` characters; only the branch
-is encoded (``/`` → ``---``) so it fits in a single ref segment. Each entry
-ref holds a commit whose tree has a single ``content`` blob. An entry exists
-iff its ref exists — ``put`` is the only creation path.
+Entries live under one of two ref subtrees::
+
+    refs/brmem/base/<encoded-branch>/<key>             # ad-hoc / unnamespaced
+    refs/brmem/ns/<namespace>/<encoded-branch>/<key>   # domain-owned
+
+The key is the tail of the ref and keeps its native ``/`` characters; only the
+branch is encoded (``/`` → ``---``) so it fits in a single ref segment. Each
+entry ref holds a commit whose tree has a single ``content`` blob. An entry
+exists iff its ref exists — ``put`` is the only creation path.
+
+Namespaced entries and base (ad-hoc) entries occupy disjoint ref prefixes, so
+a scratch key cannot collide with a namespace name.
 """
 
 from __future__ import annotations
@@ -15,16 +22,20 @@ from dataclasses import dataclass
 from twerk_core.brmem.key_validation import validate_key
 
 BRMEM_REF_PREFIX = "refs/brmem"
+BRMEM_BASE_SEGMENT = "base"
+BRMEM_NS_SEGMENT = "ns"
 BRMEM_CONTENT_PATH = "content"
 _FLAT_SEPARATOR = "---"
-_BANNED_NAMESPACES = frozenset({"brs"})
 
 
 @dataclass(frozen=True)
 class EntryRef:
-    """Identifies a single branch-memory entry ref."""
+    """Identifies a single branch-memory entry ref.
 
-    namespace: str
+    ``namespace`` is ``None`` for base (ad-hoc) entries.
+    """
+
+    namespace: str | None
     key: str
     branch: str
     ref_name: str
@@ -61,9 +72,9 @@ class InvalidNamespaceError(ValueError):
 class BranchMemoryGateway(ABC):
     """Store small per-branch blobs outside the working tree.
 
-    Entries are keyed by ``(namespace, key, branch)``. An entry exists iff
-    its ref ``refs/brmem/<namespace>/<encoded-branch>/<key>`` exists. Each
-    ref stores exactly one blob.
+    Entries are keyed by ``(namespace, key, branch)`` where ``namespace`` may
+    be ``None`` to store under the ad-hoc base subtree. An entry exists iff
+    its ref exists. Each ref stores exactly one blob.
     """
 
     @abstractmethod
@@ -74,12 +85,16 @@ class BranchMemoryGateway(ABC):
         key: str | None = None,
         branch: str | None = None,
     ) -> list[EntryRef]:
-        """Return entries, optionally filtered by namespace/key/branch."""
+        """Return entries, optionally filtered by namespace/key/branch.
+
+        ``namespace=None`` means "no namespace filter" — both base and
+        namespaced entries are returned.
+        """
 
     @abstractmethod
     def put(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         content: str,
@@ -89,7 +104,7 @@ class BranchMemoryGateway(ABC):
     @abstractmethod
     def get(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         *,
@@ -100,7 +115,7 @@ class BranchMemoryGateway(ABC):
     @abstractmethod
     def check(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         *,
@@ -112,12 +127,15 @@ class BranchMemoryGateway(ABC):
 # -- ref helpers --------------------------------------------------------------
 
 
-def ref_name_for_entry(namespace: str, key: str, branch: str) -> str:
+def ref_name_for_entry(namespace: str | None, key: str, branch: str) -> str:
     """Return the git ref used to store the entry ``(namespace, key, branch)``."""
-    validate_namespace(namespace)
     validate_key(key)
     validate_branch_name(branch)
-    return f"{BRMEM_REF_PREFIX}/{namespace}/{encode_branch_segment(branch)}/{key}"
+    encoded_branch = encode_branch_segment(branch)
+    if namespace is None:
+        return f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/{encoded_branch}/{key}"
+    validate_namespace(namespace)
+    return f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/{encoded_branch}/{key}"
 
 
 def parse_entry_ref(ref_name: str) -> EntryRef | None:
@@ -125,21 +143,36 @@ def parse_entry_ref(ref_name: str) -> EntryRef | None:
     if not ref_name.startswith(f"{BRMEM_REF_PREFIX}/"):
         return None
     remainder = ref_name[len(BRMEM_REF_PREFIX) + 1 :]
-    parts = remainder.split("/", 2)
-    if len(parts) != 3:
+    head, _, tail = remainder.partition("/")
+    if not tail:
         return None
-    namespace, encoded_branch, key = parts
-    if not namespace or not encoded_branch or not key:
-        return None
-    if namespace in _BANNED_NAMESPACES:
-        return None
-    branch = decode_branch_segment(encoded_branch)
-    return EntryRef(
-        namespace=namespace,
-        key=key,
-        branch=branch,
-        ref_name=ref_name,
-    )
+
+    if head == BRMEM_BASE_SEGMENT:
+        encoded_branch, _, key = tail.partition("/")
+        if not encoded_branch or not key:
+            return None
+        return EntryRef(
+            namespace=None,
+            key=key,
+            branch=decode_branch_segment(encoded_branch),
+            ref_name=ref_name,
+        )
+
+    if head == BRMEM_NS_SEGMENT:
+        namespace, _, rest = tail.partition("/")
+        if not namespace or not rest:
+            return None
+        encoded_branch, _, key = rest.partition("/")
+        if not encoded_branch or not key:
+            return None
+        return EntryRef(
+            namespace=namespace,
+            key=key,
+            branch=decode_branch_segment(encoded_branch),
+            ref_name=ref_name,
+        )
+
+    return None
 
 
 # -- branch-segment encoding --------------------------------------------------
@@ -202,6 +235,4 @@ def _namespace_reason(namespace: str) -> str | None:
         return "namespace must not be empty"
     if "/" in namespace:
         return "namespace must not contain '/'"
-    if namespace in _BANNED_NAMESPACES:
-        return f"'{namespace}' is a reserved namespace"
     return None

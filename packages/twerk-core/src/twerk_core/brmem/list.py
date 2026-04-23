@@ -23,6 +23,7 @@ class ListEntriesRequest:
     namespace: str | None = None
     key: str | None = None
     branch: str | None = None
+    base: bool = False
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class ListEntriesResult:
     namespace: str | None
     key: str | None
     branch: str | None
+    base: bool
     entries: list[EntryRef]
 
     def to_json_dict(self) -> dict[str, Any]:
@@ -37,6 +39,7 @@ class ListEntriesResult:
             "namespace": self.namespace,
             "key": self.key,
             "branch": self.branch,
+            "base": self.base,
             "entries": [
                 {
                     "namespace": entry.namespace,
@@ -49,16 +52,21 @@ class ListEntriesResult:
         }
 
 
+def _display_namespace(namespace: str | None) -> str:
+    return namespace if namespace is not None else "(base)"
+
+
 def render_list_entries(result: ListEntriesResult) -> None:
     for entry in result.entries:
-        click.echo(f"{entry.namespace}/{entry.key}")
+        click.echo(f"{_display_namespace(entry.namespace)}/{entry.key}")
 
 
 @clinkr_operation(
     name="list",
     help=(
         "List branch-memory entries. Defaults to the current branch; "
-        "pass --branch to override. --namespace and --key further filter."
+        "pass --branch to override. --namespace and --key further filter. "
+        "Pass --base to restrict to ad-hoc base entries."
     ),
     human_renderer=render_list_entries,
 )
@@ -66,6 +74,12 @@ def run_list_entries(
     ctx: click.Context,
     request: ListEntriesRequest,
 ) -> ClinkrExit[ListEntriesResult]:
+    if request.base and request.namespace is not None:
+        return ClinkrExit.failure(
+            error_type="base_and_namespace_conflict",
+            message="--base and --namespace are mutually exclusive.",
+        )
+
     validation_failure = first_failure(
         (
             "invalid_namespace",
@@ -94,11 +108,15 @@ def run_list_entries(
         branch=branch,
     )
 
+    if request.base:
+        entries = [e for e in entries if e.namespace is None]
+
     return ClinkrExit.ok(
         ListEntriesResult(
             namespace=request.namespace,
             key=request.key,
             branch=branch,
+            base=request.base,
             entries=entries,
         )
     )
