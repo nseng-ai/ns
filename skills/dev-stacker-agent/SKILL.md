@@ -1,225 +1,235 @@
 ---
 name: dev-stacker-agent
-description: "Implement a plan file that's decomposed into a stack of PRs by acting as coordinator for one serial sub-agent per PR. Fires when the user asks to 'implement the stacked plan', 'run the PR stack', 'execute this plan as a Graphite stack', or points at a plan file with numbered 'PR N — ...' scope sections. Reads the plan, reconciles the base-branch chain against real git state, creates a task per PR, spawns one general-purpose sub-agent per PR, verifies tree-green handoffs + reviews the diff between each, and stops short of pushing. Companion to the `graphite` skill, which owns branch mechanics."
+description: "Execute a multi-PR implementation plan as a serial local stack by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping at a reviewable local stack without pushing."
 metadata:
   internal: true
 ---
 
-<!-- INTERNAL SKILL: twerk-only. Coordinator for stacked-PR plan execution. -->
+<!-- INTERNAL SKILL: twerk-only. Coordinator for stacked-PR execution. -->
 
 # dev-stacker-agent
 
-Coordinate a stacked-PR plan by spawning one serial `general-purpose`
-sub-agent per PR. The user supplies an absolute path to a plan whose
-scope is decomposed into numbered `## PR N — <title>` sections. The
-coordinator reconciles the plan's base-branch chain against real git
-state, fills one brief per PR from `references/brief-template.md`,
-spawns sub-agents one at a time, verifies each handoff (tree-green +
-diff-skim), forwards downstream context, and stops at a reviewable
-local stack. It never pushes or submits.
+Use this skill when the user wants to implement a multi-PR plan as a
+local stack. The input plan may be freeform markdown, rough notes, or
+harness-native planner output. No author-facing plan schema is
+required.
 
-## Invariants
+The coordinator's job is to:
 
-- **Serial-only.** No parallelism within a single invocation, even when
-  the plan marks PRs independent. Parallel "independent" PRs break the
-  inter-PR diff-review contract because PR N+1's base is unstable until
-  PR N's diff is reviewed. Two disjoint stacks → run the skill twice
-  from separate worktrees.
-- **Coordinator never implements code.** Only composes briefs, spawns,
-  verifies, reviews diffs, forwards context.
-- **Tree-green AND diff-skim** is the handoff bar. `exit_code == 0` in
-  the handoff payload is not enough by itself.
-- **Never `gt submit`, `git push`, or `gh pr create`.** The stop
-  condition is a reviewable local stack; submission is the user's call.
-- **Branch mechanics defer to `graphite`.** Sub-agents use `gt create` /
-  `gt modify`, not raw `git commit` / `git push`.
-- **Plan's own sub-agent contract wins** when present. The default
-  below supplements only fields the plan omits.
-- **Default brief lives in `references/brief-template.md`.** Fill its
-  placeholders and pass the result as `Agent.prompt`.
+1. Normalize the plan into an ordered list of slice manifests.
+2. Run one worker per slice in strict order.
+3. Verify each slice before allowing the next one to begin.
+4. Stop at a reviewable local stack without pushing or submitting.
+
+## Read These References As Needed
+
+- `references/runtime-contract.md`:
+  the internal manifest and handoff schemas.
+- `references/brief-template.md`:
+  the worker brief filled from a normalized slice manifest.
+- `references/harnesses/generic.md` first, then the current harness
+  note (`codex.md`, `claude.md`, or another adapter):
+  how the current harness maps worker orchestration to the core
+  protocol.
+- `references/examples.md`:
+  examples of normalizing freeform plans into slice manifests.
+
+## Core Invariants
+
+- **Serial only.** Run one slice at a time. Never parallelize slices
+  inside one invocation.
+- **Coordinator orchestrates; worker implements.** The coordinator may
+  normalize, brief, verify, retry once, and surface questions. It does
+  not silently absorb implementation work from the worker.
+- **Verification requires validation plus diff skim.** A worker saying
+  "tests passed" is not enough.
+- **Never push, submit, or open PRs.** Stop at a reviewable local
+  stack. Submission is the user's call.
+- **No required user-facing plan schema.** The plan may be loose; the
+  coordinator normalizes it into the internal runtime contract.
+- **Use conservative defaults when risk is low; ask when ambiguity is
+  material.** If title, scope, order, base, or validation is too
+  ambiguous to normalize safely, stop and ask.
+- **Task objects are adapter-level only.** Some harnesses have native
+  task tracking; many do not. The core protocol does not depend on it.
+- **Precedence is explicit.** Core invariants > repo workflow
+  conventions > harness adapter rules > plan-derived details. Plans may
+  enrich execution; they may not weaken the invariants above.
+
+## Harness Capability Gate
+
+This skill is only executable in a harness that can do all of the
+following:
+
+- delegate exactly one worker at a time and wait for completion,
+- pass a textual brief to that worker,
+- inspect local git state between slices,
+- collect a structured handoff from the worker, and
+- either send one targeted follow-up to the worker or stop and surface
+  the failure.
+
+The skill assumes the worker can participate in the live repo/worktree
+used for the local stack. If the current harness only supports isolated
+or forked workspaces, this skill is unsupported as written; do not fake
+support by treating advisory output as an implemented slice.
+
+## Repo Workflow
+
+The core protocol is harness-neutral, not repo-neutral. Use the repo's
+branch workflow conventions when naming branches, creating commits, and
+inspecting stack shape.
+
+In this repo, consult the `graphite` skill for branch mechanics and use
+Graphite conventions rather than inventing your own.
 
 ## Workflow
 
 ### 1. Preconditions
 
-Read the plan once up front. Bail and surface to the user if any of
-these fail:
+Read the input plan once up front. Bail and surface to the user if any
+of these fail:
 
-- Plan has ≥2 numbered PR sections (`## PR N — <title>` or `### PR N —
-  <title>`). Single-PR plans don't justify the coordinator pattern —
-  tell the user to implement in-session.
-- Each PR states its base branch explicitly; PR 1 typically `master`,
-  PR N stacks on PR N-1's branch. Ambiguous chain → stop and ask.
-- Working tree clean (`git status --porcelain` empty). Don't stash on
-  the user's behalf — their uncommitted work may or may not be related.
-- `gt` available on PATH (`command -v gt`).
+- The working tree is dirty. Do not stash on the user's behalf.
+- The repo's branch workflow tool is unavailable. In this repo, that
+  usually means `gt` is missing.
+- The harness capability gate does not pass.
+- After normalization, the plan yields fewer than 2 slices. Single-slice
+  work should be implemented in-session instead of through this
+  coordinator.
 
-Per-PR green-bar command: take it from the plan; default to `just` at
-repo root when absent. If the plan specifies something nonstandard
-(e.g. a scoped `pytest` invocation), use it verbatim — no silent
-substitution.
+### 2. Normalize the plan
 
-### 2. Pre-flight reconciliation
+Convert the input plan into the internal `stacker-slice-manifest/v1`
+shape defined in `references/runtime-contract.md`.
 
-Before any spawn, verify PR 1's base against real git state. PR 2+
-bases are the branches PR N-1 will create; defer those to step 3e's
-post-handoff SHA check.
+Required per slice:
 
-- `git rev-parse --verify <PR 1 base>`. Missing → bail and ask which
-  base to use.
-- **Identifier sanity check.** Pick 2–3 concrete identifiers named in
-  PR 1's scope (method names, file paths, CLI flags). For each,
-  verify it exists on the base:
-  - `git cat-file -e <base>:<path>` for files,
-  - `git grep -l <identifier> <base>` for symbols.
+- `title`
+- `scope`
+- `base`
+- `validate.command`
 
-  One confirmed mismatch is enough — stop and report. This catches
-  plans written against a feature branch that are about to be stacked
-  onto trunk.
+Optional per slice:
 
-### 3. Per-PR loop (serial)
+- `constraints`
+- `source_excerpt`
+- `suggested_branch_name`
+- `suggested_commit_subject`
+- `downstream_context`
 
-For each PR in order, do all of the following:
+Defaulting rules:
 
-**a. Track.** `TaskCreate` one task per PR with an imperative subject
-copied from the PR heading (e.g. _"PR 1 — Tree-plumbing primitives"_).
-Wire `addBlockedBy` so PR N depends on PR N-1 — this is the
-serial-execution contract. Mark `in_progress` when spawning (3c);
-mark `completed` only after 3e passes. Never batch completions.
+- First slice base defaults to the repo's default branch unless the plan
+  says otherwise.
+- Later slice bases default to `previous_slice`.
+- Validation defaults to the repo's standard green-bar command when the
+  plan does not supply one. In this repo, default to `just` at the repo
+  root.
+- Constraints default to an empty list.
 
-**b. Fill the brief.** Fill `references/brief-template.md` with:
+If the plan provides richer hints such as file lists, do-not-touch
+lists, or concrete identifiers, preserve them as optional constraints or
+notes. They strengthen verification when present, but they are not
+required for normalization.
 
-1. Plan file path (absolute).
-2. PR number + scope heading (verbatim from the plan).
-3. Verified base branch — for PR 1, the base from step 2; for PR 2+,
-   the branch reported by PR N-1's handoff (not the raw plan-prose
-   base).
-4. Suggested branch name + commit-message stub. Sub-agent may override;
-   it must report whichever name it used.
-5. Do-not-touch list from the PR's scope (empty if absent).
-6. Green-bar command (from plan, default `just`, run from repo root).
-7. Forwarded context from prior PRs — fragments flagged
-   `important for downstream` in step 3e of earlier iterations. Empty
-   on PR 1.
-8. Hard prohibitions: no `gt submit`, no `git push`, no `gh pr create`,
-   no silent scope expansion.
-9. Handoff format: JSON line + prose (see step 3d).
+### 3. Serial slice loop
 
-If the plan has its own **Coordinator / sub-agent contract** section,
-honor it verbatim and supplement only fields it omits.
+For each slice in order, do all of the following:
 
-**c. Spawn.** Synchronously — no `run_in_background`, no parallel
-spawns:
+**a. Prepare slice context.**
 
-```
-Agent(
-  description: "Implement PR N — <title>",
-  subagent_type: "general-purpose",
-  prompt: <filled brief>,
-)
-```
+- Resolve the concrete base ref for this slice.
+- Choose a suggested branch name and commit subject using repo
+  conventions.
+- Carry forward any downstream notes from prior slices.
 
-Wait for the sub-agent to return before doing anything else.
+**b. Compose the worker brief.**
 
-**d. Handoff contract.** Each sub-agent returns:
+Fill `references/brief-template.md` from the normalized slice manifest
+plus the current base ref and downstream context.
 
-1. A single JSON line: `{"branch": "<name>", "commit_sha": "<sha>",
-   "exit_code": 0}`. Non-zero `exit_code` means the green bar failed;
-   the sub-agent should include the last ~40 lines of output in the
-   prose.
-2. A prose summary flagging:
-   - **Deviations** — files touched outside the scope section, tests
-     added beyond what the plan asked for.
-   - **Hidden design choices** — naming, argument ordering, helper
-     placement, error-message strings. Mark `important for downstream`
-     if PR N+1 must adopt the exact name or shape verbatim.
-   - **Exact names / shapes** downstream PRs must reuse verbatim.
+**c. Run one worker.**
 
-A plan-supplied richer handoff format wins; JSON + prose is the floor.
+Use the current harness's worker/delegation primitive to implement this
+slice. Run exactly one worker for the current slice and wait for it to
+finish before doing anything else.
 
-**e. Verify (do not skip any substep).**
+**d. Require a structured handoff.**
 
-1. Parse the handoff; confirm `exit_code == 0`. If not, apply the
-   failure policy below.
-2. `git rev-parse --verify <reported-branch>`. The resolved SHA must
-   equal the handoff's `commit_sha` — a mismatch means the sub-agent
-   amended or reset the branch between reporting and the check; pause
-   and investigate.
-3. `git diff <prior-branch>..<reported-branch> --stat` (for PR 1,
-   `<prior-branch>` is the step-2 base). Check the file list against
-   the do-not-touch list — any hit → pause. Obviously out-of-scope
-   entries (unrelated packages, random config, vendored skill dirs)
-   → pause. Then open the full diff and skim for scope drift. The
-   bar is "nothing obvious would embarrass me in PR review," not a
-   line-by-line audit.
-4. Stash any `important for downstream` fragments for the next PR's
-   brief composition.
-5. Mark the task `completed`. Advance to PR N+1.
+The worker must return a `stacker-handoff/v1` payload plus short prose,
+as defined in `references/runtime-contract.md`.
+
+**e. Verify before advancing.**
+
+Do not skip any of these checks:
+
+1. `status == "ok"` and `validation.exit_code == 0`.
+2. The reported branch/ref resolves locally and its resolved head equals
+   the handoff's `head_sha`.
+3. `git diff <base>..<reported-branch> --stat` looks plausibly in
+   scope.
+4. Skim the full diff for obvious scope drift.
+5. If optional constraints were supplied, check them now.
+6. Stash any `downstream_notes` for the next slice's brief.
+
+Only after those checks pass may the coordinator continue to the next
+slice.
 
 ### 4. Stop conditions
 
-After the last PR's verification passes, print the stack summary and
-stop:
+After the final slice passes verification, print a concise stack
+summary and stop.
 
-- One line per PR: `<branch>  <first-commit-subject>  (+X -Y Nf)`
-  where the tuple is the `--shortstat` of the branch against its
-  base.
-- Optional: run `gt ls` and pass its output through as a shape
-  confirmation.
-- Final line: **Run `gt submit --no-interactive` yourself when ready
-  to push.**
+Include one line per slice with:
 
-Do not run `gt submit`, `git push`, or `gh pr create`. Do not offer to.
+- branch name,
+- head SHA,
+- validation command and exit code, and
+- a compact changed-files or shortstat summary.
 
-## Failure / retry policy
+Optionally show the stack shape using the repo's normal workflow tool.
+In this repo, `gt ls` is the natural confirmation step.
 
-- **Red green-bar (`exit_code != 0`):** one `SendMessage` retry to the
-  same sub-agent quoting the specific failure (last ~40 lines from the
-  prose). Still red → surface to the user with the sub-agent's output
-  and stop. Never advance PR N+1 on a red PR N.
-- **Blocking question from the sub-agent:** surface verbatim; never
-  improvise. The whole point of the coordinator pattern is to avoid
-  silent scope drift.
-- **Scope deviation flagged in prose:** clear deviation → surface and
-  pause. Unclear → surface. Obviously in-scope (e.g., an adjacent
-  helper edit to make a referenced symbol compile) → proceed, but
-  capture the interpretation in the forwarded downstream context so
-  PR N+1 sees the same reading.
-- **Missing handoff JSON line:** treat as red; one `SendMessage`
-  asking for the JSON explicitly, then surface if still missing.
-- **Pre-flight mismatch surfaced mid-run** (PR N's handoff reveals
-  that PR N+1's plan-stated base is wrong): stop before spawning
-  PR N+1 and ask the user.
+End by telling the user to submit or push manually if they want to move
+the stack upstream.
 
-## Bail table
+## Failure / Retry Policy
 
-| Trigger                                                          | Action                                                                                |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Plan has one PR                                                  | Bail in step 1; tell the user to implement in-session.                                |
-| Dirty working tree at start                                      | Bail; don't stash on the user's behalf.                                               |
-| `gt` missing                                                     | Bail with a pointer to install Graphite.                                              |
-| PR 1 base doesn't resolve                                        | Bail in step 2; report the asserted base and ask for the correct one.                 |
-| PR 1 identifier sanity-check mismatch                            | Bail in step 2; report the missing identifier.                                        |
-| Plan's sub-agent contract conflicts with the default             | Honor the plan's contract.                                                            |
-| Plan's green-bar command is nonstandard                          | Use the plan's command verbatim; no silent `just` substitution.                       |
-| Sub-agent reports a branch name different from the suggested one | Accept it; use the reported name as PR N+1's verified base.                           |
-| User wants two disjoint sub-stacks in parallel                   | Run the skill twice from separate worktrees; never parallelize within one invocation. |
+- **Red validation or `status != "ok"`:** issue one targeted retry
+  using the current harness's native follow-up mechanism, quoting the
+  concrete failure. If the harness cannot do that cleanly, stop and
+  surface.
+- **Missing or malformed structured handoff:** ask once for a corrected
+  handoff. Still malformed -> stop and surface.
+- **Blocking question from the worker:** surface it verbatim. Do not
+  improvise architectural answers.
+- **Clear or ambiguous scope drift:** surface and pause. Only proceed
+  when the change is clearly in-scope and you can record the
+  interpretation as downstream context.
+- **Base/order ambiguity discovered mid-run:** stop before spawning the
+  next slice and ask.
 
-## Anti-patterns
+## Bail Table
 
-- **Tree-green without diff-skim.** Tree-green is a weak signal; the
-  coordinator diff-skim is the retrospective fix that exists because
-  tree-green missed scope-drift issues in prior runs.
-- **Coordinator implementing code.** The coordinator composes briefs,
-  spawns, verifies, and forwards context — nothing else.
-- **Forwarding the whole plan as "do what the plan says."** The filled
-  brief is the contract; the plan is ambient context. Each sub-agent
-  cares about its own PR scope + forwarded downstream context from
-  prior PRs. Less context = less drift.
-- **Trusting "sub-agent said tree is green" without checking the
-  JSON.** Verify `exit_code == 0` in the handoff payload; do not infer
-  greenness from prose.
-- **Letting a plan's contract weaken the verification bar.** If the
-  plan says "no verification between PRs," override — the
-  coordinator's verification exists because tree-green alone missed
-  scope drift before, and it is not negotiable.
+| Trigger                                                                          | Action                                                            |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Dirty working tree at start                                                      | Bail. Do not stash on the user's behalf.                          |
+| Fewer than 2 slices after normalization                                          | Bail and tell the user to implement in-session.                   |
+| Repo workflow tool missing                                                       | Bail and point to the missing tool.                               |
+| Harness lacks required worker capabilities                                       | Bail and say the skill is unsupported in that harness as written. |
+| Material ambiguity in slice title/scope/order/base/validate                      | Bail and ask only for the missing fact.                           |
+| Worker cannot produce a valid structured handoff                                 | Retry once, then surface and stop.                                |
+| Worker reveals a plan flaw that changes later slice ordering or base assumptions | Stop before the next slice and ask.                               |
+
+## Anti-Patterns
+
+- **Forcing humans to author one exact markdown shape.** Normalize
+  freeform plans instead.
+- **Using harness-specific tool names in the core protocol.** Keep that
+  in adapter notes.
+- **Trusting worker prose without a structured handoff.** Parse the
+  handoff, then verify locally.
+- **Letting the plan weaken verification or no-push rules.** Plans may
+  add detail, not remove guardrails.
+- **Parallelizing slices because the plan says they are independent.**
+  The whole point of the coordinator is serial verification.
