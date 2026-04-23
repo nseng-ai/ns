@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.gh.types import IssueComment
+from twerk_core.gh.types import IssueComment, PRFile
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
@@ -312,3 +312,243 @@ def test_post_findings_comment_caps_activity_log_at_ten_entries(
     assert written.count("- 2026-01-") == 9
     assert "2026-01-01T12:00:00Z" not in written
     assert "2026-01-10T12:00:00Z" in written
+
+
+# -- post-inline-review --
+
+
+# Patch exposing lines 40–45 (context) and 46–47 (added) on the new side.
+_PATCH_HUNK = (
+    "@@ -40,6 +40,8 @@ def foo():\n"
+    " ctx40\n"
+    " ctx41\n"
+    " ctx42\n"
+    " ctx43\n"
+    " ctx44\n"
+    " ctx45\n"
+    "+added_46\n"
+    "+added_47\n"
+)
+
+
+def _run_post_inline_review(
+    cli_group: ClinkrGroup,
+    *,
+    fake: FakeIssueGateway,
+    findings: list[dict[str, object]],
+) -> tuple[int, str]:
+    payload = {
+        "exit_code": 0,
+        "data": {
+            "review_name": "dignified-python",
+            "base_ref": "master",
+            "format": "findings",
+            "count": len(findings),
+            "findings": findings,
+        },
+    }
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-inline-review",
+            "--pr-number",
+            "47",
+            "--commit-sha",
+            "deadbeef",
+        ],
+        input=json.dumps(payload),
+        obj=_context_with_issue_gateway(fake),
+    )
+    return result.exit_code, result.output
+
+
+def test_exec_help_lists_post_inline_review(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["exec", "-h"])
+
+    assert result.exit_code == 0
+    assert "post-inline-review" in result.output
+
+
+def test_post_inline_review_posts_batched_review_with_in_diff_findings(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway(pr_files={47: [PRFile(path="app.py", patch=_PATCH_HUNK)]})
+    findings = [
+        {
+            "path": "app.py",
+            "line": 46,
+            "severity": "warning",
+            "summary": "Avoid print",
+            "details": "Use click.echo() instead.",
+        }
+    ]
+
+    exit_code, output = _run_post_inline_review(cli_group, fake=fake, findings=findings)
+
+    assert exit_code == 0, output
+    assert len(fake._submitted_reviews) == 1
+    submitted = fake._submitted_reviews[0]
+    assert submitted.pr_number == 47
+    assert submitted.commit_sha == "deadbeef"
+    assert len(submitted.comments) == 1
+    assert submitted.comments[0].path == "app.py"
+    assert submitted.comments[0].line == 46
+    assert "Avoid print" in submitted.comments[0].body
+    # Summary body carries the inline marker so it's distinguishable from the
+    # discussion-comment summary produced by post-findings-comment.
+    assert submitted.body.startswith("<!-- twerk-reviewer-inline:dignified-python -->\n")
+
+
+def test_post_inline_review_filters_out_of_diff_findings(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway(pr_files={47: [PRFile(path="app.py", patch=_PATCH_HUNK)]})
+    findings = [
+        # line 100 is outside the patch hunk → filtered out
+        {
+            "path": "app.py",
+            "line": 100,
+            "severity": "warning",
+            "summary": "Bad out-of-diff finding",
+            "details": "details.",
+        },
+        # line 47 is inside the patch hunk → kept
+        {
+            "path": "app.py",
+            "line": 47,
+            "severity": "error",
+            "summary": "Bad in-diff finding",
+            "details": "details.",
+        },
+    ]
+
+    exit_code, output = _run_post_inline_review(cli_group, fake=fake, findings=findings)
+
+    assert exit_code == 0, output
+    assert len(fake._submitted_reviews) == 1
+    submitted = fake._submitted_reviews[0]
+    assert [(c.path, c.line) for c in submitted.comments] == [("app.py", 47)]
+    # The summary body should mention the dropped finding so reviewers know
+    # they were not silently lost.
+    assert "Bad out-of-diff finding" in submitted.body
+    assert "Outside the PR diff" in submitted.body
+
+
+def test_post_inline_review_filters_null_line_findings(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway(pr_files={47: [PRFile(path="app.py", patch=_PATCH_HUNK)]})
+    findings = [
+        {
+            "path": "app.py",
+            "line": None,
+            "severity": "warning",
+            "summary": "file-level thing",
+            "details": "details.",
+        },
+        {
+            "path": "app.py",
+            "line": 46,
+            "severity": "warning",
+            "summary": "real finding",
+            "details": "details.",
+        },
+    ]
+
+    exit_code, output = _run_post_inline_review(cli_group, fake=fake, findings=findings)
+
+    assert exit_code == 0, output
+    submitted = fake._submitted_reviews[0]
+    assert [c.line for c in submitted.comments] == [46]
+    assert "No line" in submitted.body
+    assert "file-level thing" in submitted.body
+
+
+def test_post_inline_review_skips_submission_when_all_findings_filtered(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway(pr_files={47: [PRFile(path="app.py", patch=_PATCH_HUNK)]})
+    findings = [
+        {
+            "path": "app.py",
+            "line": 999,
+            "severity": "warning",
+            "summary": "out of diff",
+            "details": "details.",
+        },
+        {
+            "path": "app.py",
+            "line": None,
+            "severity": "warning",
+            "summary": "no line",
+            "details": "details.",
+        },
+    ]
+
+    exit_code, output = _run_post_inline_review(cli_group, fake=fake, findings=findings)
+
+    assert exit_code == 0, output
+    assert fake._submitted_reviews == []
+    assert "skipping submission" in output
+
+
+def test_post_inline_review_skips_submission_on_empty_findings(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway(pr_files={47: [PRFile(path="app.py", patch=_PATCH_HUNK)]})
+
+    exit_code, output = _run_post_inline_review(cli_group, fake=fake, findings=[])
+
+    assert exit_code == 0, output
+    assert fake._submitted_reviews == []
+    assert "no findings" in output.lower()
+
+
+def test_post_inline_review_skips_submission_on_upstream_error_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway()
+    payload = {
+        "exit_code": 2,
+        "error_type": "harness_binary_missing",
+        "message": "claude not on PATH",
+    }
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-inline-review",
+            "--pr-number",
+            "47",
+            "--commit-sha",
+            "deadbeef",
+        ],
+        input=json.dumps(payload),
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert fake._submitted_reviews == []
+    assert "harness_binary_missing" in result.output
+
+
+def test_post_inline_review_fails_on_malformed_stdin(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-inline-review",
+            "--pr-number",
+            "47",
+            "--commit-sha",
+            "deadbeef",
+        ],
+        input="not json",
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 1
+    assert "post-inline-review" in result.output
+    assert fake._submitted_reviews == []

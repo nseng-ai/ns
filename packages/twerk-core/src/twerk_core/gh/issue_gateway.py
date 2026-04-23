@@ -9,13 +9,16 @@ the REST API, or GraphQL — whichever fits the operation best.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRFile,
     PRLookupError,
     PRReview,
     PRReviewComment,
+    PRReviewInlineComment,
     PRReviewThread,
     PRSummary,
     Reaction,
@@ -66,6 +69,16 @@ class IssueGateway(ABC):
         """Fetch discussion comments on a PR (not inline review comments)."""
 
     @abstractmethod
+    def get_pr_files(self, pr_number: int) -> tuple[PRFile, ...]:
+        """List files changed in a PR, with the unified-diff patch for each.
+
+        Used by callers that need to determine which ``(path, line)`` pairs
+        are targetable by inline review comments before submitting a batched
+        review — GitHub rejects the whole review with ``422 line not in
+        diff`` if any comment points at a line outside a diff hunk.
+        """
+
+    @abstractmethod
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
         """Look up the open PR for a branch.
 
@@ -114,6 +127,27 @@ class IssueGateway(ABC):
     @abstractmethod
     def update_comment(self, comment_id: int, body: str) -> IssueComment:
         """Replace the body of an existing discussion comment. Returns the updated comment."""
+
+    @abstractmethod
+    def submit_pr_review(
+        self,
+        pr_number: int,
+        *,
+        commit_sha: str,
+        body: str,
+        comments: Sequence[PRReviewInlineComment],
+    ) -> int:
+        """Submit a batched PR review with optional inline comments.
+
+        Posts via ``POST /repos/{owner}/{repo}/pulls/{n}/reviews`` with
+        ``event="COMMENT"`` so the review is post-only and does not block
+        the PR's merge check. Returns the new review's numeric ``id``.
+
+        All ``comments`` target ``side="RIGHT"`` (the PR head's view of the
+        file). Callers must filter out findings whose ``(path, line)`` is
+        not inside a diff hunk on ``commit_sha`` — an out-of-diff line
+        fails the whole review with a non-transient ``422``.
+        """
 
     @abstractmethod
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:

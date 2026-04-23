@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Sequence
 from typing import Any, cast
 
 from twerk_core.gh.issue_gateway import IssueGateway
@@ -11,9 +12,11 @@ from twerk_core.gh.real_gateway_helpers import fetch_pr_summary_for_branch
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRFile,
     PRLookupError,
     PRReview,
     PRReviewComment,
+    PRReviewInlineComment,
     PRReviewThread,
     PRSummary,
     Reaction,
@@ -274,6 +277,28 @@ class RealIssueGateway(IssueGateway):
             for comment in raw_comments
         )
 
+    def get_pr_files(self, pr_number: int) -> tuple[PRFile, ...]:
+        owner, repo = _get_owner_repo()
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{owner}/{repo}/pulls/{pr_number}/files",
+                "--paginate",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        raw_files = _load_paginated_array_output(result.stdout)
+        return tuple(
+            PRFile(
+                path=entry["filename"],
+                patch=entry.get("patch"),
+            )
+            for entry in raw_files
+        )
+
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
         return fetch_pr_summary_for_branch(branch)
 
@@ -386,6 +411,50 @@ class RealIssueGateway(IssueGateway):
             author=comment["user"]["login"] if comment["user"] else "",
             url=comment["html_url"],
         )
+
+    def submit_pr_review(
+        self,
+        pr_number: int,
+        *,
+        commit_sha: str,
+        body: str,
+        comments: Sequence[PRReviewInlineComment],
+    ) -> int:
+        owner, repo = _get_owner_repo()
+        payload: dict[str, Any] = {
+            "commit_id": commit_sha,
+            "body": body,
+            "event": "COMMENT",
+            "comments": [
+                {
+                    "path": comment.path,
+                    "line": comment.line,
+                    "side": "RIGHT",
+                    "body": comment.body,
+                }
+                for comment in comments
+            ],
+        }
+        # `--input -` passes a JSON body on stdin. We avoid -f key=value pairs
+        # because the "comments" array is a nested structure and -F/-f cannot
+        # express nested JSON cleanly.
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                "--method",
+                "POST",
+                f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
+                "--input",
+                "-",
+            ],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        response = json.loads(result.stdout)
+        return int(response["id"])
 
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
         owner, repo = _get_owner_repo()

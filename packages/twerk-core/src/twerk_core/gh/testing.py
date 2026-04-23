@@ -3,20 +3,38 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRFile,
     PRLookupError,
     PRReview,
     PRReviewComment,
+    PRReviewInlineComment,
     PRReviewThread,
     PRSummary,
     Reaction,
     ResolveReviewThreadResult,
     UnresolveReviewThreadResult,
 )
+
+
+@dataclass(frozen=True)
+class _SubmittedReview:
+    """One record of a review submission made against :class:`FakeIssueGateway`.
+
+    Mutation-tracking detail — tests assert against
+    ``fake._submitted_reviews`` to confirm a review was posted.
+    """
+
+    id: int
+    pr_number: int
+    commit_sha: str
+    body: str
+    comments: tuple[PRReviewInlineComment, ...]
 
 
 class FakeIssueGateway(IssueGateway):
@@ -37,6 +55,7 @@ class FakeIssueGateway(IssueGateway):
         review_threads: dict[int, Sequence[PRReviewThread]] | None = None,
         reviews: dict[int, Sequence[PRReview]] | None = None,
         discussion_comments: dict[int, Sequence[IssueComment]] | None = None,
+        pr_files: dict[int, Sequence[PRFile]] | None = None,
         prs_by_branch: dict[str, PRSummary] | None = None,
         raise_on: dict[str, BaseException] | None = None,
     ) -> None:
@@ -48,10 +67,12 @@ class FakeIssueGateway(IssueGateway):
         self._discussion_comments: dict[int, list[IssueComment]] = {
             pr_number: list(entries) for pr_number, entries in (discussion_comments or {}).items()
         }
+        self._pr_files = pr_files or {}
         self._prs_by_branch = prs_by_branch or {}
         self._raise_on = dict(raise_on or {})
         self._next_comment_id = 1
         self._next_reaction_id = 1
+        self._next_review_id = 1
 
         # Mutation tracking — public-but-underscored, read in tests for assertions.
         self._resolved_thread_ids: list[str] = []
@@ -59,6 +80,7 @@ class FakeIssueGateway(IssueGateway):
         self._thread_replies: list[tuple[str, str]] = []
         self._comments: list[tuple[int, str]] = []
         self._updated_comments: list[tuple[int, str]] = []
+        self._submitted_reviews: list[_SubmittedReview] = []
         self._reactions: list[tuple[int, str]] = []
 
     # -- Issue queries --
@@ -85,6 +107,9 @@ class FakeIssueGateway(IssueGateway):
 
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         return tuple(self._discussion_comments.get(pr_number, []))
+
+    def get_pr_files(self, pr_number: int) -> tuple[PRFile, ...]:
+        return tuple(self._pr_files.get(pr_number, ()))
 
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
         pr = self._prs_by_branch.get(branch)
@@ -160,6 +185,27 @@ class FakeIssueGateway(IssueGateway):
                     self._updated_comments.append((comment_id, body))
                     return updated
         raise KeyError(f"no fake comment with id {comment_id}")
+
+    def submit_pr_review(
+        self,
+        pr_number: int,
+        *,
+        commit_sha: str,
+        body: str,
+        comments: Sequence[PRReviewInlineComment],
+    ) -> int:
+        review_id = self._next_review_id
+        self._next_review_id += 1
+        self._submitted_reviews.append(
+            _SubmittedReview(
+                id=review_id,
+                pr_number=pr_number,
+                commit_sha=commit_sha,
+                body=body,
+                comments=tuple(comments),
+            )
+        )
+        return review_id
 
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
         reaction_id = self._next_reaction_id

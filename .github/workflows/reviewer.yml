@@ -67,6 +67,7 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -86,5 +87,15 @@ jobs:
             | uv run reviewer exec post-findings-comment \
                 --pr-number "$PR_NUMBER" \
                 --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+          # Post-only inline review — failures here must not mask the
+          # reviewer's own exit status, which `status` already captured
+          # above. The summary comment remains the source of truth; the
+          # inline layer is advisory.
+          printf '%s' "$output" \
+            | uv run reviewer exec post-inline-review \
+                --pr-number "$PR_NUMBER" \
+                --commit-sha "$HEAD_SHA" \
+            || echo "post-inline-review: non-zero exit; summary comment still posted" >&2
 
           exit "$status"

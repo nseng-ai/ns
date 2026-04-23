@@ -125,6 +125,36 @@ class Reaction:
 
 
 @dataclass(frozen=True)
+class PRFile:
+    """A file entry returned by ``GET /repos/{owner}/{repo}/pulls/{n}/files``.
+
+    ``patch`` is the unified-diff text GitHub returns for the file and is
+    None for cases where no patch is available (e.g. renames without content
+    changes, or files too large to diff). Inline review comments can only
+    target lines that fall inside a patch hunk, so callers that pre-filter
+    findings against the diff must skip files where ``patch is None``.
+    """
+
+    path: str
+    patch: str | None
+
+
+@dataclass(frozen=True)
+class PRReviewInlineComment:
+    """A single inline comment within a batched PR review submission.
+
+    ``line`` is a line number in the PR head's view of the file
+    (``side="RIGHT"`` in the GitHub API). Comments must target a line that
+    is part of a diff hunk — either an added (``+``) or a context line —
+    or GitHub rejects the whole review with ``422 line not in diff``.
+    """
+
+    path: str
+    line: int
+    body: str
+
+
+@dataclass(frozen=True)
 class PRSummary:
     """Summary metadata for a PR associated with a branch.
 

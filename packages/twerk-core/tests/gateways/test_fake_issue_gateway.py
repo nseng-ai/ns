@@ -3,7 +3,7 @@
 import pytest
 
 from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.gh.types import Issue, IssueComment
+from twerk_core.gh.types import Issue, IssueComment, PRFile, PRReviewInlineComment
 
 
 def _make_issue(number: int, *, state: str = "open") -> Issue:
@@ -153,3 +153,48 @@ def test_add_comment_appends_to_discussion_comments_for_round_trip() -> None:
     # should seed the comment via `discussion_comments=` rather than relying on
     # `add_comment`'s placeholder author.
     assert fake.find_comment_by_marker(47, _MARKER, author_login=new_comment.author) is not None
+
+
+# -- get_pr_files / submit_pr_review --
+
+
+def test_get_pr_files_returns_seeded_files_for_pr() -> None:
+    files = (
+        PRFile(path="a.py", patch="@@ -1 +1 @@\n-old\n+new\n"),
+        PRFile(path="b.py", patch=None),
+    )
+    fake = FakeIssueGateway(pr_files={47: files})
+    assert fake.get_pr_files(47) == files
+
+
+def test_get_pr_files_returns_empty_tuple_when_unseeded() -> None:
+    fake = FakeIssueGateway()
+    assert fake.get_pr_files(47) == ()
+
+
+def test_submit_pr_review_tracks_submission_and_returns_fresh_id() -> None:
+    fake = FakeIssueGateway()
+    comments = (PRReviewInlineComment(path="a.py", line=10, body="nit"),)
+    review_id = fake.submit_pr_review(
+        47,
+        commit_sha="deadbeef",
+        body="summary body",
+        comments=comments,
+    )
+
+    assert review_id == 1
+    assert len(fake._submitted_reviews) == 1
+    record = fake._submitted_reviews[0]
+    assert record.id == 1
+    assert record.pr_number == 47
+    assert record.commit_sha == "deadbeef"
+    assert record.body == "summary body"
+    assert record.comments == comments
+
+
+def test_submit_pr_review_issues_monotonically_increasing_ids() -> None:
+    fake = FakeIssueGateway()
+    first = fake.submit_pr_review(47, commit_sha="a", body="b1", comments=())
+    second = fake.submit_pr_review(47, commit_sha="a", body="b2", comments=())
+    assert (first, second) == (1, 2)
+    assert [r.body for r in fake._submitted_reviews] == ["b1", "b2"]
