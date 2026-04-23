@@ -38,12 +38,9 @@ adopt verbatim. Empty on PR 1.]
 
 ## Branching
 
-1. Use `gt create <branch-name> -m "<commit-message>"` to create this
-   PR's branch on top of the verified base. Do **not**:
-   - use raw `git commit` (bypasses the Graphite workflow),
-   - use `gt submit` or `gt submit --no-interactive` (pushes upstream),
-   - run `git push` directly,
-   - run `gh pr create`.
+1. Use `gt create <branch-name> -m "<commit-message>"` on top of the
+   verified base. Do not use raw `git commit`, `gt submit`, `git push`,
+   or `gh pr create`.
 2. Suggested branch name: `[suggested-slug]`. You may choose a
    different kebab-case slug if it fits the scope better; report whichever
    name you actually used in the handoff payload.
@@ -68,16 +65,10 @@ the Files to add/modify list above."]
 
 ## Lint / format
 
-When `just` reports a lint or format failure, **do not hand-edit files
-to satisfy the formatter**. Run the corresponding autofix recipe:
-
-- `ruff check` failures → `just fix`
-- `ruff format --check` failures → `just fix`
-- `dprint check` failures (Markdown / TOML) → `just dprint-fix`
-
-After autofixing, re-run `just` to confirm the suite is green. Only
-edit by hand when the failure is a real lint / type / test bug that
-the autofixer cannot resolve.
+Do not hand-edit files to satisfy the formatter. Run `just fix` for
+ruff failures and `just dprint-fix` for Markdown / TOML failures, then
+re-run `just`. Only edit by hand for real lint/type/test bugs the
+autofixer can't resolve. (Full policy: `AGENTS.md`.)
 
 ## Green bar
 
@@ -118,9 +109,9 @@ When your assigned scope lands and the green bar is clean:
 Do **not**:
 
 - move on to the next PR's scope,
-- submit, push, or open a PR,
+- submit, push, or open a PR (`gt submit`, `git push`, `gh pr create`),
 - modify the plan file itself,
-- silently scope-expand. If the task as written cannot succeed (e.g., a
+- silently scope-expand. If the task as written cannot succeed (e.g. a
   failing test reveals a plan flaw), stop and report with a specific
-  question. The coordinator decides whether to expand scope or fix the
-  plan.
+  question — the coordinator decides whether to expand scope or fix
+  the plan.
