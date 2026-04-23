@@ -234,24 +234,29 @@ This is the initial snapshot. Capture the commit SHAs.
 
 ### 8. Attach the memjective to the current branch
 
-Copy the same content to the current branch in brmem:
+Carry the master-branch snapshot onto the current branch in a single
+atomic operation:
 
 ```bash
-brmem put <slug>/body.md --namespace memjectives --file <temp-body>
+brmem copy \
+  --namespace memjectives \
+  --from-branch master \
+  --to-branch <branch>
 ```
 
-If a `roadmap.md` was drafted, attach it too:
+- `<branch>` is the branch captured in step 1.
+- `brmem copy` is byte-identical by construction — the destination refs
+  point at the same commit SHAs as the master-branch snapshot written in
+  step 7, so `body.md` (and `roadmap.md`, if drafted) carry over without
+  re-reading the temp files.
+- No `--overwrite` flag: the step-2 precondition already guarantees zero
+  entries under the `memjectives` namespace on this branch.
+- If more sibling files (e.g., a future `notes.md`) are added to the
+  initial snapshot, they carry forward automatically — no edits to this
+  step required.
 
-```bash
-brmem put <slug>/roadmap.md --namespace memjectives --file <temp-roadmap>
-```
-
-- `--branch` is omitted so the current branch is used implicitly.
-- Positional keys must be `<slug>/body.md` and `<slug>/roadmap.md`; the
-  namespace must be `memjectives`.
-- These are the initial speculative files for the branch.
-
-Capture the commit SHAs reported by `brmem put` for the report.
+Capture the destination ref / commit entries reported by `brmem copy` for
+the report.
 
 ### 9. Report
 
