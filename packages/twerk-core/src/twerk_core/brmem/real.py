@@ -89,6 +89,10 @@ def _parse_existing_keys(
     return keys
 
 
+# Git's canonical empty-tree object SHA-1: the hash of a tree containing zero
+# entries. It's a well-known constant — every SHA-1 git repository has this
+# exact hash for the empty tree, and git treats it as implicitly present even
+# when not stored.
 _EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
