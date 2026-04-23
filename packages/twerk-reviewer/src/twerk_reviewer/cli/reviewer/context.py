@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from twerk_core.gh.real_issue_gateway import RealIssueGateway
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.gateways.harness_detection.real import RealHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.real import RealLocalDiffGateway
@@ -25,5 +26,6 @@ def build_reviewer_context() -> ReviewerCliContext:
         local_diff=RealLocalDiffGateway(cwd=cwd),
         review_execution=RealReviewExecutionGateway(progress_writer=_stderr_progress),
         harness_detection=RealHarnessDetectionGateway(),
+        issue_gateway=RealIssueGateway(),
         cwd=cwd,
     )

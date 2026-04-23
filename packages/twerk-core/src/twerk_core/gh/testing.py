@@ -43,7 +43,11 @@ class FakeIssueGateway(IssueGateway):
         self._issues = tuple(issues)
         self._review_threads = review_threads or {}
         self._reviews = reviews or {}
-        self._discussion_comments = discussion_comments or {}
+        # Copy into a mutable mapping with list values so `add_comment` and
+        # `update_comment` can round-trip newly created entries.
+        self._discussion_comments: dict[int, list[IssueComment]] = {
+            pr_number: list(entries) for pr_number, entries in (discussion_comments or {}).items()
+        }
         self._prs_by_branch = prs_by_branch or {}
         self._raise_on = dict(raise_on or {})
         self._next_comment_id = 1
@@ -54,6 +58,7 @@ class FakeIssueGateway(IssueGateway):
         self._unresolved_thread_ids: list[str] = []
         self._thread_replies: list[tuple[str, str]] = []
         self._comments: list[tuple[int, str]] = []
+        self._updated_comments: list[tuple[int, str]] = []
         self._reactions: list[tuple[int, str]] = []
 
     # -- Issue queries --
@@ -122,12 +127,39 @@ class FakeIssueGateway(IssueGateway):
         comment_id = self._next_comment_id
         self._next_comment_id += 1
         self._comments.append((pr_number, body))
-        return IssueComment(
+        comment = IssueComment(
             id=comment_id,
             body=body,
             author="fake-user",
             url=f"https://github.com/fake/fake/pull/{pr_number}#issuecomment-{comment_id}",
         )
+        # Append to the seeded comments so later `find_comment_by_marker` and
+        # `update_comment` calls can round-trip the newly created entry.
+        self._discussion_comments.setdefault(pr_number, []).append(comment)
+        return comment
+
+    def find_comment_by_marker(
+        self, pr_number: int, marker: str, author_login: str
+    ) -> IssueComment | None:
+        for comment in self._discussion_comments.get(pr_number, ()):
+            if comment.author == author_login and marker in comment.body:
+                return comment
+        return None
+
+    def update_comment(self, comment_id: int, body: str) -> IssueComment:
+        for comments in self._discussion_comments.values():
+            for index, comment in enumerate(comments):
+                if comment.id == comment_id:
+                    updated = IssueComment(
+                        id=comment.id,
+                        body=body,
+                        author=comment.author,
+                        url=comment.url,
+                    )
+                    comments[index] = updated
+                    self._updated_comments.append((comment_id, body))
+                    return updated
+        raise KeyError(f"no fake comment with id {comment_id}")
 
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
         reaction_id = self._next_reaction_id

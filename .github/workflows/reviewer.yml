@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: reviewer-${{ github.head_ref || github.ref }}
+  group: reviewer-pr-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -83,6 +83,8 @@ jobs:
 
           printf '%s' "$output" \
             | uv run reviewer exec format-findings-comment \
-            | gh pr comment "$PR_NUMBER" --body-file -
+            | uv run reviewer exec post-findings-comment \
+                --pr-number "$PR_NUMBER" \
+                --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           exit "$status"

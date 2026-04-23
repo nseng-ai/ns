@@ -101,5 +101,20 @@ class IssueGateway(ABC):
         """Add a discussion comment to a PR. Returns the new comment."""
 
     @abstractmethod
+    def find_comment_by_marker(
+        self, pr_number: int, marker: str, author_login: str
+    ) -> IssueComment | None:
+        """Find a discussion comment whose body carries `marker` and whose author matches.
+
+        Requiring both the marker and the author login defends against the
+        marker-capture footgun: a human adding the marker to their own comment
+        cannot fool the bot into overwriting it on a later run.
+        """
+
+    @abstractmethod
+    def update_comment(self, comment_id: int, body: str) -> IssueComment:
+        """Replace the body of an existing discussion comment. Returns the updated comment."""
+
+    @abstractmethod
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
         """Add a reaction to a comment. Returns the new reaction."""

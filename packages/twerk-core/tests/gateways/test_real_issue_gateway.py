@@ -66,6 +66,7 @@ def _make_fake_run(
     unresolve_response: dict[str, object] | None = None,
     reply_response: dict[str, object] | None = None,
     add_comment_response: dict[str, object] | None = None,
+    update_comment_response: dict[str, object] | None = None,
     add_reaction_response: dict[str, object] | None = None,
     pr_view_response: dict[str, object] | None = None,
     pr_view_returncode: int = 0,
@@ -99,6 +100,7 @@ def _make_fake_run(
     unresolve_payload = json.dumps({"data": {"unresolveReviewThread": unresolve_response or {}}})
     reply_payload = json.dumps({"data": {"addPullRequestReviewThreadReply": reply_response or {}}})
     add_comment_payload = json.dumps(add_comment_response or {})
+    update_comment_payload = json.dumps(update_comment_response or {})
     add_reaction_payload = json.dumps(add_reaction_response or {})
     pr_view_payload = json.dumps(pr_view_response) if pr_view_response else ""
 
@@ -149,6 +151,8 @@ def _make_fake_run(
                 return subprocess.CompletedProcess(cmd, 0, stdout=add_reaction_payload, stderr="")
             if path.startswith("repos/") and path.endswith("/comments"):
                 return subprocess.CompletedProcess(cmd, 0, stdout=add_comment_payload, stderr="")
+        if cmd[:4] == ["gh", "api", "--method", "PATCH"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=update_comment_payload, stderr="")
         raise AssertionError(f"unexpected subprocess.run call: {cmd!r}")
 
     return fake_run
@@ -723,3 +727,130 @@ def test_get_pr_for_branch_returns_error_when_no_pr(
 
     assert isinstance(result, PRLookupError)
     assert result.returncode == 1
+
+
+# -- find_comment_by_marker / update_comment --
+
+
+def test_find_comment_by_marker_returns_matching_bot_comment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discussion_comment_pages = [
+        [
+            {
+                "id": 101,
+                "body": "<!-- twerk-reviewer:dignified-python -->\nFindings",
+                "user": {"login": "github-actions[bot]"},
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-101",
+            },
+            {
+                "id": 102,
+                "body": "<!-- twerk-reviewer:dignified-python -->\nFake!",
+                "user": {"login": "alice"},
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-102",
+            },
+        ]
+    ]
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(discussion_comment_pages=discussion_comment_pages),
+    )
+
+    found = RealIssueGateway().find_comment_by_marker(
+        47,
+        "<!-- twerk-reviewer:dignified-python -->",
+        author_login="github-actions[bot]",
+    )
+
+    assert found is not None
+    assert found.id == 101
+    assert found.author == "github-actions[bot]"
+
+
+def test_find_comment_by_marker_returns_none_when_only_human_carries_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discussion_comment_pages = [
+        [
+            {
+                "id": 999,
+                "body": "<!-- twerk-reviewer:dignified-python -->\nI'm a human!",
+                "user": {"login": "alice"},
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-999",
+            },
+        ]
+    ]
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(discussion_comment_pages=discussion_comment_pages),
+    )
+
+    found = RealIssueGateway().find_comment_by_marker(
+        47,
+        "<!-- twerk-reviewer:dignified-python -->",
+        author_login="github-actions[bot]",
+    )
+    assert found is None
+
+
+def test_update_comment_sends_patch_and_returns_updated_comment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            update_comment_response={
+                "id": 101,
+                "body": "updated body",
+                "user": {"login": "github-actions[bot]"},
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-101",
+            },
+            calls=calls,
+        ),
+    )
+
+    updated = RealIssueGateway().update_comment(101, "updated body")
+
+    assert updated.id == 101
+    assert updated.body == "updated body"
+
+    patch_calls = [c for c in calls if c[:4] == ["gh", "api", "--method", "PATCH"]]
+    assert len(patch_calls) == 1
+    cmd = patch_calls[0]
+    assert cmd[4] == "repos/dagster-io/twerk/issues/comments/101"
+    assert "body=updated body" in cmd
+
+
+def test_update_comment_preserves_body_newlines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression guard mirroring the reply test: PATCH body must carry real
+    # newlines, not `\n` literals.
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            update_comment_response={
+                "id": 101,
+                "body": "multi\nline",
+                "user": {"login": "github-actions[bot]"},
+                "html_url": "https://github.com/dagster-io/twerk/pull/47#issuecomment-101",
+            },
+            calls=calls,
+        ),
+    )
+
+    body = "first\n\n### Activity Log\n\n- 2026-04-23T00:00:00Z"
+    RealIssueGateway().update_comment(101, body)
+
+    patch_calls = [c for c in calls if c[:4] == ["gh", "api", "--method", "PATCH"]]
+    assert len(patch_calls) == 1
+    body_arg = next(arg for arg in patch_calls[0] if arg.startswith("body="))
+    assert body_arg == f"body={body}"
+    assert "\n" in body_arg
+    assert "\\n" not in body_arg
