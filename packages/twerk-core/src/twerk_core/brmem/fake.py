@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import NamedTuple
 
 from twerk_core.brmem.gateway import (
     BranchMemoryGateway,
@@ -27,15 +28,28 @@ from twerk_core.brmem.key_validation import validate_key
 
 _FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 
-_EntryKey = tuple[str | None, str, str]
-_SnapshotKey = tuple[str | None, str]
+
+class EntryKey(NamedTuple):
+    namespace: str | None
+    key: str
+    branch: str
+
+
+class _SnapshotKey(NamedTuple):
+    namespace: str | None
+    branch: str
+
+
+class _TreeEntry(NamedTuple):
+    key: str
+    content_sha: str
 
 
 @dataclass(frozen=True)
 class _Snapshot:
     """Per-commit view of a snapshot: its tree and its parent."""
 
-    tree: tuple[tuple[str, str], ...]  # sorted ((key, content_sha), ...)
+    tree: tuple[_TreeEntry, ...]  # sorted by key
     parent: str | None
 
 
@@ -45,7 +59,7 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
     def __init__(
         self,
         *,
-        initial_entries: dict[_EntryKey, str] | None = None,
+        initial_entries: dict[EntryKey, str] | None = None,
     ) -> None:
         self._contents_by_sha: dict[str, str] = {}
         self._commits: dict[str, _Snapshot] = {}
@@ -55,12 +69,11 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         self._next_commit_number = 1
 
         for entry_key, content in (initial_entries or {}).items():
-            namespace, key, branch = entry_key
-            if namespace is not None:
-                validate_namespace(namespace)
-            validate_key(key)
-            validate_branch_name(branch)
-            self._put(namespace, key, branch, content)
+            if entry_key.namespace is not None:
+                validate_namespace(entry_key.namespace)
+            validate_key(entry_key.key)
+            validate_branch_name(entry_key.branch)
+            self._put(entry_key.namespace, entry_key.key, entry_key.branch, content)
 
     def list_entries(
         self,
@@ -77,20 +90,22 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
             validate_branch_name(branch)
 
         entries: list[EntryRef] = []
-        for (ns, br), head_sha in self._snapshot_heads.items():
-            if namespace is not None and ns != namespace:
+        for snapshot_key, head_sha in self._snapshot_heads.items():
+            if namespace is not None and snapshot_key.namespace != namespace:
                 continue
-            if branch is not None and br != branch:
+            if branch is not None and snapshot_key.branch != branch:
                 continue
-            for k, _content_sha in self._commits[head_sha].tree:
-                if key is not None and k != key:
+            for tree_entry in self._commits[head_sha].tree:
+                if key is not None and tree_entry.key != key:
                     continue
                 entries.append(
                     EntryRef(
-                        namespace=ns,
-                        key=k,
-                        branch=br,
-                        ref_name=ref_name_for_entry(ns, k, br),
+                        namespace=snapshot_key.namespace,
+                        key=tree_entry.key,
+                        branch=snapshot_key.branch,
+                        ref_name=ref_name_for_entry(
+                            snapshot_key.namespace, tree_entry.key, snapshot_key.branch
+                        ),
                     )
                 )
 
@@ -173,42 +188,42 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         validate_branch_name(from_branch)
         validate_branch_name(to_branch)
 
-        source_head = self._snapshot_heads.get((namespace, from_branch))
+        source_head = self._snapshot_heads.get(_SnapshotKey(namespace, from_branch))
         if source_head is None:
             return ()
 
-        dest_head = self._snapshot_heads.get((namespace, to_branch))
+        dest_head = self._snapshot_heads.get(_SnapshotKey(namespace, to_branch))
         if dest_head is not None and not overwrite:
             # Conflict is snapshot-level: surface every key currently on the
             # destination snapshot that would be replaced.
             conflicts = tuple(
                 EntryRef(
                     namespace=namespace,
-                    key=k,
+                    key=tree_entry.key,
                     branch=to_branch,
-                    ref_name=ref_name_for_entry(namespace, k, to_branch),
+                    ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
                 )
-                for k, _content_sha in sorted(self._commits[dest_head].tree)
+                for tree_entry in sorted(self._commits[dest_head].tree)
             )
             raise BrmemCopyConflictError(conflicts)
 
-        self._snapshot_heads[(namespace, to_branch)] = source_head
+        self._snapshot_heads[_SnapshotKey(namespace, to_branch)] = source_head
 
         dest_entries = [
             EntryRef(
                 namespace=namespace,
-                key=k,
+                key=tree_entry.key,
                 branch=to_branch,
-                ref_name=ref_name_for_entry(namespace, k, to_branch),
+                ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
             )
-            for k, _content_sha in sorted(self._commits[source_head].tree)
+            for tree_entry in sorted(self._commits[source_head].tree)
         ]
         return tuple(dest_entries)
 
     # -- internals -----------------------------------------------------------
 
     def _put(self, namespace: str | None, key: str, branch: str, content: str) -> str:
-        snapshot_key = (namespace, branch)
+        snapshot_key = _SnapshotKey(namespace, branch)
         parent = self._snapshot_heads.get(snapshot_key)
         if parent is not None:
             tree = dict(self._commits[parent].tree)
@@ -227,7 +242,7 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         tree[key] = sha
 
         self._commits[sha] = _Snapshot(
-            tree=tuple(sorted(tree.items())),
+            tree=tuple(_TreeEntry(k, s) for k, s in sorted(tree.items())),
             parent=parent,
         )
         self._commit_dates_by_sha[sha] = commit_date
@@ -236,5 +251,5 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
 
     def _resolve_target(self, namespace: str | None, branch: str, at: str | None) -> str | None:
         if at is None:
-            return self._snapshot_heads.get((namespace, branch))
+            return self._snapshot_heads.get(_SnapshotKey(namespace, branch))
         return at if at in self._commits else None

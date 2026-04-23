@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from twerk_core.brmem.fake import FakeBranchMemoryGateway
+from twerk_core.brmem.fake import EntryKey, FakeBranchMemoryGateway
 from twerk_core.brmem.gateway import (
     BrmemCopyConflictError,
     InvalidBranchNameError,
@@ -33,7 +33,9 @@ def test_fake_brmem_get_at_reads_historical_snapshot() -> None:
 
 def test_fake_brmem_initial_entries_seed_state() -> None:
     gateway = FakeBranchMemoryGateway(
-        initial_entries={("workbr", "plan/plan.md", "feat/x"): "hello\n"}
+        initial_entries={
+            EntryKey(namespace="workbr", key="plan/plan.md", branch="feat/x"): "hello\n"
+        }
     )
 
     assert gateway.get("workbr", "plan/plan.md", "feat/x") == "hello\n"
