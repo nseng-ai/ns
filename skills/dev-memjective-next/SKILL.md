@@ -58,14 +58,39 @@ For a lightweight status check with no writes, use `dev-memjective-peek`
 instead. For recording work after a slice has landed, use
 `dev-memjective-update`.
 
+## Arguments
+
+The skill accepts an optional **slug argument** as a free-text fragment of
+the invoking prompt — e.g., _"run dev-memjective-next for `widget-rewrite`"_
+or _"progress the `foo-bar` memjective"_. There is no CLI flag; parse it
+out of the prompt text the user invoked the skill with.
+
+When a slug arg is present, use it to auto-select at three decision
+points that would otherwise prompt:
+
+- Step 0 multi-slug picker (current branch has 2+ memjective slugs).
+- Step 2b multi-ancestor tie (multiple ancestor branches have
+  memjective snapshots).
+- Step 2c multi-master picker (`master` has 2+ memjective snapshots).
+
+If a slug arg is present but does **not** match any candidate at the
+relevant decision point, surface the mismatch (list the available slugs)
+and fall back to the interactive prompt. Do not silently ignore the
+arg, and do not silently fall through as if no arg was given.
+
+When no slug arg is present, behavior at single-candidate decision points
+is unchanged and multi-candidate decision points use the interactive
+prompt flows described below.
+
 ## Core rules
 
 - **One memjective per branch.** Carry-forward only ever writes to a branch
   that currently has zero entries under `memjectives/<slug>/`. If the
   current branch already has any file for the slug, cut a new slice branch
   first (see step 0) and continue the rest of the workflow from there.
-- **Invalid state aborts hard.** If the current branch carries files for
-  2+ distinct memjective slugs, abort — do not try to branch out of it.
+  When the current branch carries 2+ distinct slugs, step 0 lets the user
+  pick which slug to progress — the newly cut slice branch still holds
+  exactly one memjective, preserving the invariant for new work.
 - **Carry-forward copies every file under the slug.** The brmem mutations
   this skill performs are exact-copy carry-forwards — one `brmem put` per
   file (`body.md`, and any of `roadmap.md` / `notes.md` that exist on the
@@ -103,18 +128,33 @@ Decision rules:
 
 - **0 distinct slugs** → fresh branch, continue to step 1.
 - **1 distinct slug** → current branch already holds a memjective. Do
-  **not** abort. Instead, run the "cut a new slice branch" flow below,
-  then restart at step 1 on the newly-created branch.
-- **2+ distinct slugs** → abort; the branch is in an invalid state. Tell
-  the user to clean it up before retrying.
+  **not** abort. Instead, treat that slug as the **active slug** and run
+  the "cut a new slice branch" flow below, then restart at step 1 on the
+  newly-created branch.
+- **2+ distinct slugs** → do **not** abort. Present the slugs to the user
+  and let them pick which memjective to progress:
+  - For each slug, read `body.md`'s Title line so the list is meaningful,
+    e.g., `brmem get <slug>/body.md --namespace memjectives | head -n 5`
+    to get the heading. Render a short list: `<slug> — <title>`.
+  - If a slug arg was provided in the invoking prompt (see **Arguments**
+    above) and matches one of the listed slugs, auto-select it without
+    prompting. If the arg does not match any listed slug, list what is
+    available, flag the mismatch, and fall back to the interactive
+    picker.
+  - Otherwise ask the user to choose one.
+  - Once a slug is chosen, treat it as the **active slug** and run the
+    "cut a new slice branch" flow below against it. The branch's other
+    memjective files stay attached to `<prev>` untouched — the user can
+    come back and progress them in a future session.
 
-#### 0a. Cut a new slice branch (1-slug case)
+#### 0a. Cut a new slice branch (active-slug case)
 
-The current branch — call it `<prev>` — already has a memjective snapshot
-for a single slug (`<slug>`), with `body.md` and possibly sibling
-`roadmap.md` / `notes.md`. To continue the workstream, cut a new branch off
-`<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot as the
-ancestor source.
+The current branch — call it `<prev>` — holds a memjective snapshot for
+the **active slug** (`<slug>`) picked above (either the only slug, or the
+one chosen from a 2+-slug picker), with `body.md` and possibly sibling
+`roadmap.md` / `notes.md`. To continue the workstream, cut a new branch
+off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
+`<slug>` as the ancestor source.
 
 1. **Load the current body + roadmap** to pick the next slice and derive a
    slug.
@@ -272,6 +312,20 @@ git rev-list --count refs/heads/<B>..HEAD
 The smallest count wins. If multiple candidates tie for the smallest
 distance, list those tied candidates and ask the user to choose.
 
+**Slug argument hook.** If a slug arg was provided in the invoking prompt
+(see **Arguments** above), filter the candidate list to ancestors whose
+memjective slug equals the arg _before_ applying the distance-ranking /
+tie-break rules above:
+
+- If exactly one ancestor carries that slug, use it (label it
+  _snapshot (ancestor branch `<B>`)_) and skip straight past the
+  multi-candidate tie-break.
+- If multiple ancestors carry that slug, keep only those and continue
+  with distance ranking over the filtered list.
+- If no ancestor carries that slug, the arg doesn't match anything here —
+  surface the mismatch (list the slugs available on ancestor candidates)
+  and fall through to step 2c. Do not silently ignore the arg.
+
 #### 2c. Master-branch snapshots
 
 ```bash
@@ -285,6 +339,14 @@ Decision rules:
 - **1 snapshot** → use it automatically and label it as
   _master-branch snapshot_.
 - **2+ snapshots** → list them and ask the user to choose.
+
+**Slug argument hook.** If a slug arg was provided in the invoking prompt
+(see **Arguments** above) and matches the slug of a master-branch
+snapshot, use that snapshot directly and label it as
+_master-branch snapshot_ — no prompt. If the arg does not match any
+master-branch snapshot slug, surface the mismatch (list the available
+master-branch slugs) and fall through to the decision rules above. Do
+not silently ignore the arg.
 
 ### 3. Load the memjective
 
@@ -404,9 +466,16 @@ After implementation, summarize:
 - **Current branch already has a memjective snapshot** → do not abort.
   Run step 0a to cut a new slice branch, then continue at step 1 on the
   new branch.
-- **Current branch has files for 2+ distinct memjective slugs** → abort
-  in step 0; invalid state. Do not try to branch out of it — clean up
-  first.
+- **Current branch has files for 2+ distinct memjective slugs** → step 0
+  presents a picker; the user chooses which slug to progress. If a slug
+  arg was provided in the invoking prompt and matches one of the slugs,
+  step 0 auto-selects it. Either way, step 0a cuts a fresh slice branch
+  for the chosen slug and the other memjectives stay on `<prev>`
+  untouched. Not an abort.
+- **Slug arg does not match any candidate** at the relevant decision
+  point (step 0 multi-slug, step 2b multi-ancestor, step 2c multi-master)
+  → list what is available, flag the mismatch, and fall back to the
+  interactive flow. Do not silently ignore the arg.
 - **`gt create` refuses because there are no staged changes** → fall back
   to `git checkout -b <slug>` in step 0a. Never stage throwaway content
   just to satisfy `gt`.
@@ -418,11 +487,16 @@ After implementation, summarize:
 - **Stale brmem refs** for deleted branches → dropped during step 2b by
   the `git rev-parse --verify` filter.
 - **Branch with >1 distinct memjective slug** (ancestor or master) →
-  abort and surface; never pick silently.
+  abort and surface; never pick silently. (The current-branch case is
+  handled by the step 0 picker above; this rule still applies to
+  ancestor branches enumerated in step 2b and to master-branch handling
+  in step 2c.)
 - **Worktrees** — `git for-each-ref refs/brmem/...` is repo-global, so
   ancestor enumeration works correctly from any worktree.
 - **Multiple ancestor snapshots on the branch stack** → choose the one
-  with the smallest `git rev-list --count <branch>..HEAD`.
+  with the smallest `git rev-list --count <branch>..HEAD`. If a slug
+  arg was provided, filter to ancestors carrying that slug first (see
+  step 2b's slug-argument hook).
 - **User explicitly names a slug** that exists only on master → use the
   master-branch snapshot; label as _master-branch snapshot_.
 - **No memjectives anywhere** → ask the user for a source rather than
@@ -432,7 +506,13 @@ After implementation, summarize:
 
 - Aborting when the current branch already has a memjective snapshot.
   That's now step 0a's job to resolve — cut a new slice branch and
-  continue, don't push the user back to a shell.
+  continue, don't push the user back to a shell. This applies whether
+  the branch carries one slug or multiple; 2+ slugs is a picker, not a
+  dead end.
+- Silently ignoring a slug arg supplied in the invoking prompt. If the
+  arg matches a candidate at the relevant decision point, auto-select
+  it. If it doesn't, surface the mismatch and fall back — never drop
+  the arg on the floor.
 - Creating the new slice branch without user confirmation of the slug.
   Always surface the proposed slug and the next slice first; accept the
   user's override.
