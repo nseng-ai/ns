@@ -28,7 +28,7 @@ class BranchPresence:
     """A branch that carries a memjective snapshot."""
 
     branch: str
-    stale: bool
+    deleted: bool
 
 
 @dataclass(frozen=True)
@@ -42,11 +42,11 @@ class MemjectiveRepoEntry:
 
     @property
     def live_branch_count(self) -> int:
-        return sum(1 for bp in self.branches if not bp.stale)
+        return sum(1 for bp in self.branches if not bp.deleted)
 
     @property
-    def stale_branch_count(self) -> int:
-        return sum(1 for bp in self.branches if bp.stale)
+    def deleted_branch_count(self) -> int:
+        return sum(1 for bp in self.branches if bp.deleted)
 
 
 def slug_for_key(key: str) -> str:
@@ -103,7 +103,7 @@ def group_memjective_entries(
         presences = tuple(
             BranchPresence(
                 branch=branch,
-                stale=is_branch_alive is not None and not is_branch_alive(branch),
+                deleted=is_branch_alive is not None and not is_branch_alive(branch),
             )
             for branch in branch_names
         )

@@ -92,7 +92,7 @@ def test_snapshot_only_memjective_has_no_seed() -> None:
     assert [bp.branch for bp in result[0].branches] == ["feat/x"]
 
 
-def test_stale_branches_marked_when_branch_validator_provided() -> None:
+def test_deleted_branches_marked_when_branch_validator_provided() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("memjectives", "s/body.md", "live", "x")
     gateway.put("memjectives", "s/body.md", "dead", "x")
@@ -100,20 +100,20 @@ def test_stale_branches_marked_when_branch_validator_provided() -> None:
     result = discover_memjectives(gateway, is_branch_alive={"live"}.__contains__)
 
     assert result[0].branches == (
-        BranchPresence(branch="dead", stale=True),
-        BranchPresence(branch="live", stale=False),
+        BranchPresence(branch="dead", deleted=True),
+        BranchPresence(branch="live", deleted=False),
     )
     assert result[0].live_branch_count == 1
-    assert result[0].stale_branch_count == 1
+    assert result[0].deleted_branch_count == 1
 
 
-def test_stale_is_never_true_when_validator_omitted() -> None:
+def test_deleted_is_never_true_when_validator_omitted() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("memjectives", "s/body.md", "anywhere", "x")
 
     result = discover_memjectives(gateway)
 
-    assert result[0].branches == (BranchPresence(branch="anywhere", stale=False),)
+    assert result[0].branches == (BranchPresence(branch="anywhere", deleted=False),)
 
 
 def test_results_sorted_by_slug() -> None:
@@ -140,6 +140,6 @@ def test_group_memjective_entries_accepts_preloaded_entries() -> None:
 
     assert grouped[0].seed_present is True
     assert grouped[0].branches == (
-        BranchPresence(branch="feat/dead", stale=True),
-        BranchPresence(branch="feat/live", stale=False),
+        BranchPresence(branch="feat/dead", deleted=True),
+        BranchPresence(branch="feat/live", deleted=False),
     )
