@@ -1,14 +1,15 @@
 """Abstract interface and shared validation for branch memory.
 
-Entries live under one of two ref subtrees::
+Entries live under one of two snapshot-ref subtrees::
 
-    refs/brmem/base/<encoded-branch>/<key>             # ad-hoc / unnamespaced
-    refs/brmem/ns/<namespace>/<encoded-branch>/<key>   # domain-owned
+    refs/brmem/base/<encoded-branch>                   # ad-hoc / unnamespaced
+    refs/brmem/ns/<namespace>/<encoded-branch>         # domain-owned
 
-The key is the tail of the ref and keeps its native ``/`` characters; only the
-branch is encoded (``/`` → ``---``) so it fits in a single ref segment. Each
-entry ref holds a commit whose tree has a single ``content`` blob. An entry
-exists iff its ref exists — ``put`` is the only creation path.
+Each ``(namespace, branch)`` pair maps to **one** snapshot ref whose commit's
+tree holds every entry as a blob at path ``<key>``. Keys keep their native
+``/`` characters (nesting becomes nested subtrees); only the branch is encoded
+(``/`` → ``---``) so it fits in a single ref segment. An entry exists iff its
+``key`` appears in the tree of its snapshot commit.
 
 Namespaced entries and base (ad-hoc) entries occupy disjoint ref prefixes, so
 a scratch key cannot collide with a namespace name.
@@ -24,15 +25,17 @@ from twerk_core.brmem.key_validation import validate_key
 BRMEM_REF_PREFIX = "refs/brmem"
 BRMEM_BASE_SEGMENT = "base"
 BRMEM_NS_SEGMENT = "ns"
-BRMEM_CONTENT_PATH = "content"
 _FLAT_SEPARATOR = "---"
 
 
 @dataclass(frozen=True)
 class EntryRef:
-    """Identifies a single branch-memory entry ref.
+    """Identifies a single branch-memory entry within its snapshot.
 
-    ``namespace`` is ``None`` for base (ad-hoc) entries.
+    ``namespace`` is ``None`` for base (ad-hoc) entries. ``ref_name`` is a
+    copy-pastable ``git show`` locator of the form
+    ``<snapshot-ref>:<key>`` — not a real git ref. All entries in the same
+    ``(namespace, branch)`` snapshot share the same ``<snapshot-ref>`` prefix.
     """
 
     namespace: str | None
@@ -82,8 +85,9 @@ class BranchMemoryGateway(ABC):
     """Store small per-branch blobs outside the working tree.
 
     Entries are keyed by ``(namespace, key, branch)`` where ``namespace`` may
-    be ``None`` to store under the ad-hoc base subtree. An entry exists iff
-    its ref exists. Each ref stores exactly one blob.
+    be ``None`` to store under the ad-hoc base subtree. Each
+    ``(namespace, branch)`` pair maps to a single snapshot commit whose tree
+    holds every entry as a blob at path ``key``.
     """
 
     @abstractmethod
@@ -141,14 +145,18 @@ class BranchMemoryGateway(ABC):
         to_branch: str,
         overwrite: bool = False,
     ) -> tuple[EntryRef, ...]:
-        """Atomically copy every entry within ``namespace`` from ``from_branch``
-        to ``to_branch``.
+        """Atomically copy the ``namespace`` snapshot from ``from_branch`` to
+        ``to_branch``.
 
-        Each destination entry is pointed at the **same commit SHA** as its
-        source — no new blob or tree is created. When ``overwrite`` is
-        ``False`` and any destination key already exists, raises
-        :class:`BrmemCopyConflictError` before mutating any ref. Returns the
-        destination :class:`EntryRef`\\s in sorted key order.
+        This is a snapshot-level operation: the destination snapshot ref is
+        pointed at the **same commit SHA** as the source snapshot — no new
+        blob, tree, or commit is created. When ``overwrite`` is ``False`` and
+        the destination snapshot already exists, raises
+        :class:`BrmemCopyConflictError` before mutating any ref. When
+        ``overwrite`` is ``True``, the destination snapshot is **replaced
+        entirely** (any keys that existed only on the destination are dropped,
+        since the snapshot ref is reassigned). Returns the destination
+        :class:`EntryRef`\\s in sorted key order.
         """
 
 
@@ -156,48 +164,61 @@ class BranchMemoryGateway(ABC):
 
 
 def ref_name_for_entry(namespace: str | None, key: str, branch: str) -> str:
-    """Return the git ref used to store the entry ``(namespace, key, branch)``."""
+    """Return the ``git show`` locator for the entry ``(namespace, key, branch)``.
+
+    The locator has the form ``<snapshot-ref>:<key>`` where ``<snapshot-ref>``
+    is ``refs/brmem/base/<encoded-branch>`` when ``namespace`` is ``None`` and
+    ``refs/brmem/ns/<namespace>/<encoded-branch>`` otherwise. The result is
+    not a real git ref — it is a copy-pastable argument for ``git show``.
+    """
     validate_key(key)
     validate_branch_name(branch)
     encoded_branch = encode_branch_segment(branch)
     if namespace is None:
-        return f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/{encoded_branch}/{key}"
+        return f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/{encoded_branch}:{key}"
     validate_namespace(namespace)
-    return f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/{encoded_branch}/{key}"
+    return f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/{encoded_branch}:{key}"
 
 
-def parse_entry_ref(ref_name: str) -> EntryRef | None:
-    """Parse a ref name into an ``EntryRef`` or return ``None`` if malformed."""
-    if not ref_name.startswith(f"{BRMEM_REF_PREFIX}/"):
+def parse_entry_ref(locator: str) -> EntryRef | None:
+    """Parse a snapshot locator into an ``EntryRef`` or return ``None`` if malformed.
+
+    Accepts the ``git show`` locator form
+    ``refs/brmem/(base|ns/<namespace>)/<encoded-branch>:<key>``.
+    """
+    if not locator.startswith(f"{BRMEM_REF_PREFIX}/"):
         return None
-    remainder = ref_name[len(BRMEM_REF_PREFIX) + 1 :]
+    snapshot_ref, sep, key = locator.partition(":")
+    if not sep or not key:
+        return None
+
+    remainder = snapshot_ref[len(BRMEM_REF_PREFIX) + 1 :]
     head, _, tail = remainder.partition("/")
     if not tail:
         return None
 
     if head == BRMEM_BASE_SEGMENT:
-        encoded_branch, _, key = tail.partition("/")
-        if not encoded_branch or not key:
+        if "/" in tail:
+            return None
+        encoded_branch = tail
+        if not encoded_branch:
             return None
         return EntryRef(
             namespace=None,
             key=key,
             branch=decode_branch_segment(encoded_branch),
-            ref_name=ref_name,
+            ref_name=locator,
         )
 
     if head == BRMEM_NS_SEGMENT:
-        namespace, _, rest = tail.partition("/")
-        if not namespace or not rest:
-            return None
-        encoded_branch, _, key = rest.partition("/")
-        if not encoded_branch or not key:
+        namespace, _, encoded_branch = tail.partition("/")
+        if not namespace or not encoded_branch or "/" in encoded_branch:
             return None
         return EntryRef(
             namespace=namespace,
             key=key,
             branch=decode_branch_segment(encoded_branch),
-            ref_name=ref_name,
+            ref_name=locator,
         )
 
     return None

@@ -194,7 +194,7 @@ def test_memjective_list_format_json(cli_group: ClinkrGroup) -> None:
                 "namespace": "memjectives",
                 "key": "clinkr-migration/body.md",
                 "branch": "feat/x",
-                "ref_name": "refs/brmem/ns/memjectives/feat---x/clinkr-migration/body.md",
+                "ref_name": "refs/brmem/ns/memjectives/feat---x:clinkr-migration/body.md",
             }
         ],
     }

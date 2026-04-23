@@ -5,18 +5,18 @@ import pytest
 from twerk_core.brmem.gateway import parse_entry_ref
 
 
-def test_parse_entry_ref_parses_base_subtree() -> None:
-    entry = parse_entry_ref("refs/brmem/base/feat---x/scratchpad")
+def test_parse_entry_ref_parses_base_snapshot_locator() -> None:
+    entry = parse_entry_ref("refs/brmem/base/feat---x:scratchpad")
 
     assert entry is not None
     assert entry.namespace is None
     assert entry.branch == "feat/x"
     assert entry.key == "scratchpad"
-    assert entry.ref_name == "refs/brmem/base/feat---x/scratchpad"
+    assert entry.ref_name == "refs/brmem/base/feat---x:scratchpad"
 
 
-def test_parse_entry_ref_parses_base_subtree_with_nested_key() -> None:
-    entry = parse_entry_ref("refs/brmem/base/feat---x/plan/plan.md")
+def test_parse_entry_ref_parses_base_snapshot_with_nested_key() -> None:
+    entry = parse_entry_ref("refs/brmem/base/feat---x:plan/plan.md")
 
     assert entry is not None
     assert entry.namespace is None
@@ -24,8 +24,8 @@ def test_parse_entry_ref_parses_base_subtree_with_nested_key() -> None:
     assert entry.branch == "feat/x"
 
 
-def test_parse_entry_ref_parses_namespaced_subtree() -> None:
-    entry = parse_entry_ref("refs/brmem/ns/workbr/feat---x/plan.md")
+def test_parse_entry_ref_parses_namespaced_snapshot_locator() -> None:
+    entry = parse_entry_ref("refs/brmem/ns/workbr/feat---x:plan.md")
 
     assert entry is not None
     assert entry.namespace == "workbr"
@@ -33,8 +33,8 @@ def test_parse_entry_ref_parses_namespaced_subtree() -> None:
     assert entry.key == "plan.md"
 
 
-def test_parse_entry_ref_parses_namespaced_subtree_with_nested_key() -> None:
-    entry = parse_entry_ref("refs/brmem/ns/memjectives/feat---x/slug/body.md")
+def test_parse_entry_ref_parses_namespaced_snapshot_with_nested_key() -> None:
+    entry = parse_entry_ref("refs/brmem/ns/memjectives/feat---x:slug/body.md")
 
     assert entry is not None
     assert entry.namespace == "memjectives"
@@ -43,21 +43,24 @@ def test_parse_entry_ref_parses_namespaced_subtree_with_nested_key() -> None:
 
 
 @pytest.mark.parametrize(
-    "ref_name",
+    "locator",
     [
         "",
         "refs/heads/main",
         "refs/brmem/",
         "refs/brmem/base",
         "refs/brmem/base/",
-        "refs/brmem/base/just-one-segment",
+        "refs/brmem/base/feat---x",  # snapshot ref without key
+        "refs/brmem/base/feat---x:",  # empty key
+        "refs/brmem/base/feat---x/extra:key",  # extra path segments before ':'
         "refs/brmem/ns",
         "refs/brmem/ns/",
         "refs/brmem/ns/onlytwo",
-        "refs/brmem/ns/onlytwo/segments",
-        "refs/brmem/brs/feat---legacy/plan",
-        "refs/brmem/other/feat---x/plan",
+        "refs/brmem/ns/workbr/feat---x",  # snapshot ref without key
+        "refs/brmem/ns/workbr/feat---x/extra:key",  # extra path segments
+        "refs/brmem/brs/feat---legacy:plan",
+        "refs/brmem/other/feat---x:plan",
     ],
 )
-def test_parse_entry_ref_returns_none_for_garbage(ref_name: str) -> None:
-    assert parse_entry_ref(ref_name) is None
+def test_parse_entry_ref_returns_none_for_garbage(locator: str) -> None:
+    assert parse_entry_ref(locator) is None
