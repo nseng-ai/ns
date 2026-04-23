@@ -95,6 +95,12 @@ def _parse_existing_keys(
 # when not stored.
 _EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
+# Git tree-entry mode for a regular (non-executable) file. Git encodes each
+# tree entry's mode as six octal digits: ``100644`` means a regular file with
+# ``rw-r--r--`` permissions. Contrast with ``100755`` (executable file),
+# ``040000`` (tree), ``120000`` (symlink), ``160000`` (gitlink / submodule).
+_GIT_BLOB_MODE_FILE = "100644"
+
 
 def _build_tree_from_entries(cwd: Path, entries: dict[str, str]) -> str:
     """Build a git tree from ``{path: blob_sha}`` and return the tree SHA.
@@ -122,7 +128,7 @@ def _build_tree_from_entries(cwd: Path, entries: dict[str, str]) -> str:
                     "update-index",
                     "--add",
                     "--cacheinfo",
-                    f"100644,{blob_sha},{path}",
+                    f"{_GIT_BLOB_MODE_FILE},{blob_sha},{path}",
                 ],
                 cwd=cwd,
                 env=env,
@@ -258,7 +264,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             input=content,
         ).stdout.strip()
 
-        mktree_input = f"100644 blob {blob_sha}\t{BRMEM_CONTENT_PATH}\n"
+        mktree_input = f"{_GIT_BLOB_MODE_FILE} blob {blob_sha}\t{BRMEM_CONTENT_PATH}\n"
         tree_sha = _run(
             ["git", "mktree"],
             cwd=self._cwd,
