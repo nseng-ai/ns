@@ -31,6 +31,10 @@ class SlotCheckoutRequest:
         str | None,
         click.Argument(["branch_name"], required=False, default=None),
     ] = None
+    base: Annotated[
+        str | None,
+        click.Argument(["base"], required=False, default=None),
+    ] = None
     new_branch: Annotated[
         bool,
         click.Option(["-b", "--new"], "new_branch", is_flag=True, default=False),
@@ -156,7 +160,7 @@ def _build_result(
 
 @clinkr_operation(
     name="checkout",
-    help="Check out a branch into a pool slot worktree (like `git checkout [-b]`).",
+    help="Check out a branch into a pool slot worktree (like `git checkout [-b] [<base>]`).",
     aliases=("co",),
     human_renderer=render_slot_checkout,
 )
@@ -178,6 +182,11 @@ def run_checkout_slot(
         return ClinkrExit.failure(
             error_type="mutually_exclusive_args",
             message="-b/--new cannot be combined with --current.",
+        )
+    if request.base is not None and not request.new_branch:
+        return ClinkrExit.failure(
+            error_type="base_without_new",
+            message="BASE is only valid with -b/--new.",
         )
 
     slots_ctx = load_slots_context(ctx)
@@ -236,7 +245,13 @@ def run_checkout_slot(
                     f"Drop -b to check out the existing branch."
                 ),
             )
-        slots_ctx.git.create_branch(branch_name, "HEAD", force=False)
+        if request.base is not None and not slots_ctx.git.branch_exists(request.base):
+            return ClinkrExit.failure(
+                error_type="base_missing",
+                message=f"Base branch '{request.base}' does not exist.",
+            )
+        start_point = request.base if request.base is not None else "HEAD"
+        slots_ctx.git.create_branch(branch_name, start_point, force=False)
         created_branch = True
     elif not branch_exists:
         return ClinkrExit.failure(

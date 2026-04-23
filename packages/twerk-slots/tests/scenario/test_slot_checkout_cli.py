@@ -156,6 +156,7 @@ def test_slot_checkout_help(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: slot checkout" in result.output
     assert "BRANCH_NAME" in result.output
+    assert "BASE" in result.output
     assert "--current" in result.output
     assert "--new" in result.output
     assert "--no-clipboard" in result.output
@@ -333,6 +334,59 @@ def test_slot_checkout_b_on_existing_branch_errors(cli_group: ClinkrGroup, tmp_p
     assert fakes.git._create_branch_calls == []
     assert _saved_assignments(fakes) == ()
     assert fakes.clipboard.copy_calls == 0
+
+
+def test_slot_checkout_b_with_base_creates_from_base(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("main",))
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "feat/x", "main", "-b"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ("feat/x", "main", False) in fakes.git._create_branch_calls
+    _assert_assigned_slot_state(
+        fakes,
+        slots_root=slots_root,
+        slot_name="slot-01",
+        branch_name="feat/x",
+    )
+
+
+def test_slot_checkout_b_with_missing_base_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path)  # no branches seeded
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "feat/x", "nonexistent", "-b"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 2
+    assert "Base branch 'nonexistent' does not exist" in result.output
+    assert fakes.git._create_branch_calls == []
+    assert _saved_assignments(fakes) == ()
+
+
+def test_slot_checkout_base_without_new_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    fakes = _fake_for_repo(tmp_path, branches=("feat/x", "main"))
+    slots_root = tmp_path / "slots"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "feat/x", "main"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 2
+    assert "only valid with -b/--new" in result.output
+    assert _saved_assignments(fakes) == ()
 
 
 def test_slot_checkout_b_mutually_exclusive_with_current(
