@@ -1,6 +1,6 @@
 """Repo-wide memjective discovery.
 
-Group every ``refs/brmem/memjectives/<encoded-branch>/<slug>/<filename>``
+Group every ``refs/brmem/ns/memjectives/<encoded-branch>/<slug>/<filename>``
 entry by slug, tracking master-seed presence separately from branch
 snapshots and marking snapshot branches that no longer exist as local
 refs. A memjective is a directory of files (``body.md`` plus optional

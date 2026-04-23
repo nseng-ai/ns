@@ -16,7 +16,7 @@ from twerk_core.brmem.key_validation import validate_key
 
 _FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 
-_EntryKey = tuple[str, str, str]
+_EntryKey = tuple[str | None, str, str]
 
 
 class FakeBranchMemoryGateway(BranchMemoryGateway):
@@ -30,12 +30,13 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         self._contents_by_sha: dict[str, str] = {}
         self._head_by_entry: dict[_EntryKey, str] = {}
         self._commit_dates_by_sha: dict[str, str] = {}
-        self._put_calls: list[tuple[str, str, str, str]] = []
+        self._put_calls: list[tuple[str | None, str, str, str]] = []
         self._next_commit_number = 1
 
         for entry_key, content in (initial_entries or {}).items():
             namespace, key, branch = entry_key
-            validate_namespace(namespace)
+            if namespace is not None:
+                validate_namespace(namespace)
             validate_key(key)
             validate_branch_name(branch)
             self._head_by_entry[entry_key] = self._record_content(content)
@@ -71,17 +72,18 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
                 )
             )
 
-        entries.sort(key=lambda e: (e.namespace, e.key, e.branch))
+        entries.sort(key=lambda e: (e.namespace or "", e.key, e.branch))
         return entries
 
     def put(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         content: str,
     ) -> str:
-        validate_namespace(namespace)
+        if namespace is not None:
+            validate_namespace(namespace)
         validate_key(key)
         validate_branch_name(branch)
 
@@ -93,13 +95,14 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
 
     def get(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         *,
         at: str | None = None,
     ) -> str | None:
-        validate_namespace(namespace)
+        if namespace is not None:
+            validate_namespace(namespace)
         validate_key(key)
         validate_branch_name(branch)
 
@@ -113,13 +116,14 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
 
     def check(
         self,
-        namespace: str,
+        namespace: str | None,
         key: str,
         branch: str,
         *,
         at: str | None = None,
     ) -> EntryDiagnostic | None:
-        validate_namespace(namespace)
+        if namespace is not None:
+            validate_namespace(namespace)
         validate_key(key)
         validate_branch_name(branch)
 

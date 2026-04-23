@@ -16,20 +16,20 @@ def test_first_failure_returns_none_when_all_checks_pass() -> None:
 
 def test_first_failure_returns_single_failure_unchanged() -> None:
     result = first_failure(
-        ("invalid_namespace", "Invalid namespace 'brs': 'brs' is a reserved namespace"),
+        ("invalid_namespace", "Invalid namespace 'a/b': namespace must not contain '/'"),
         ("invalid_key", None),
         ("invalid_branch_name", None),
     )
 
     assert result == (
         "invalid_namespace",
-        "Invalid namespace 'brs': 'brs' is a reserved namespace",
+        "Invalid namespace 'a/b': namespace must not contain '/'",
     )
 
 
 def test_first_failure_collects_multiple_into_invalid_request() -> None:
     result = first_failure(
-        ("invalid_namespace", "Invalid namespace 'brs': 'brs' is a reserved namespace"),
+        ("invalid_namespace", "Invalid namespace 'a/b': namespace must not contain '/'"),
         ("invalid_key", "Invalid key '../escape': key must not contain '..' segment"),
         (
             "invalid_branch_name",
@@ -43,7 +43,7 @@ def test_first_failure_collects_multiple_into_invalid_request() -> None:
         "\n".join(
             [
                 "Invalid brmem request:",
-                "- Invalid namespace 'brs': 'brs' is a reserved namespace",
+                "- Invalid namespace 'a/b': namespace must not contain '/'",
                 "- Invalid key '../escape': key must not contain '..' segment",
                 (
                     "- Invalid branch name 'feat---x': branch names containing '---' "
