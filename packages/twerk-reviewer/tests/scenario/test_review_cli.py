@@ -323,6 +323,24 @@ def test_review_list_flat_only_output_has_no_group_headers(
     assert not any(line.startswith("  - ") for line in output_lines)
 
 
+def test_review_list_renders_root_entries_before_group_headers(
+    cli_group: ClinkrGroup,
+) -> None:
+    runner = CliRunner()
+    ctx = _build_context(
+        keys={REVIEWS_DIR: ("alpha", "python/fakes", "rust/clippy")},
+    )
+
+    result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
+
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()
+    assert lines.index("- alpha") < lines.index("python/")
+    assert lines.index("python/") < lines.index("rust/")
+    assert "  - fakes" in lines
+    assert "  - clippy" in lines
+
+
 def test_review_list_json_envelope_preserves_ci_contract(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     ctx = _build_context(
