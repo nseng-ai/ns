@@ -150,6 +150,30 @@ def _build_tree_from_entries(cwd: Path, entries: dict[str, str]) -> str:
         tmp_dir.rmdir()
 
 
+def _parse_ls_tree_lines(stdout: str) -> list[tuple[str, str]]:
+    """Parse ``git ls-tree --format=%(path)%x09%(objectname)`` output.
+
+    Returns ``(path, blob_sha)`` pairs in input order, skipping malformed or
+    empty lines. ``path`` and ``blob_sha`` are separated by a single tab
+    (``%x09`` in git's format language).
+
+    Examples:
+        >>> _parse_ls_tree_lines("body.md\\tabc123\\nfoo/bar.md\\tdef456\\n")
+        [('body.md', 'abc123'), ('foo/bar.md', 'def456')]
+        >>> _parse_ls_tree_lines("")
+        []
+        >>> _parse_ls_tree_lines("malformed-no-tab\\n")
+        []
+    """
+    pairs: list[tuple[str, str]] = []
+    for line in stdout.splitlines():
+        path, _, blob_sha = line.partition("\t")
+        if not path or not blob_sha:
+            continue
+        pairs.append((path, blob_sha))
+    return pairs
+
+
 def _enumerate_tree_entries(cwd: Path, ref_or_tree: str) -> list[tuple[str, str]]:
     """Return ``(path, blob_sha)`` pairs for every blob reachable from ``ref_or_tree``.
 
@@ -170,13 +194,7 @@ def _enumerate_tree_entries(cwd: Path, ref_or_tree: str) -> list[tuple[str, str]
     if result.returncode != 0:
         return []
 
-    pairs: list[tuple[str, str]] = []
-    for line in result.stdout.splitlines():
-        path, _, blob_sha = line.partition("\t")
-        if not path or not blob_sha:
-            continue
-        pairs.append((path, blob_sha))
-    return pairs
+    return _parse_ls_tree_lines(result.stdout)
 
 
 def _snapshot_ref_name(namespace: str | None, branch: str) -> str:
