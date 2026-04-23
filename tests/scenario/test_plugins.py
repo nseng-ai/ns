@@ -226,6 +226,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
         harness_detection=FakeHarnessDetectionGateway(
             paths_by_binary={"claude": "/usr/local/bin/claude"}
         ),
+        issue_gateway=FakeIssueGateway(),
         cwd=Path("/anywhere"),
     )
 

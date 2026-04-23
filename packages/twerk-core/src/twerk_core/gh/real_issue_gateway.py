@@ -355,6 +355,38 @@ class RealIssueGateway(IssueGateway):
             url=comment["html_url"],
         )
 
+    def find_comment_by_marker(
+        self, pr_number: int, marker: str, author_login: str
+    ) -> IssueComment | None:
+        # Reuses `get_discussion_comments`'s paginated fetch so pagination
+        # lives in one place. The O(N) scan is fine for any realistic PR
+        # (hundreds of comments at most).
+        for comment in self.get_discussion_comments(pr_number):
+            if comment.author == author_login and marker in comment.body:
+                return comment
+        return None
+
+    def update_comment(self, comment_id: int, body: str) -> IssueComment:
+        owner, repo = _get_owner_repo()
+        cmd = [
+            "gh",
+            "api",
+            "--method",
+            "PATCH",
+            f"repos/{owner}/{repo}/issues/comments/{comment_id}",
+            "-f",
+            f"body={body}",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        comment = json.loads(result.stdout)
+        return IssueComment(
+            id=comment["id"],
+            body=comment["body"],
+            # user can be null when the GitHub account is deleted.
+            author=comment["user"]["login"] if comment["user"] else "",
+            url=comment["html_url"],
+        )
+
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
         owner, repo = _get_owner_repo()
         cmd = [
