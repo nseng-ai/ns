@@ -110,15 +110,20 @@ back to the master-branch snapshot if no ancestor snapshot exists.
 
 ##### Ancestor snapshots
 
-Enumerate every `(branch, key)` pair that has a memjective entry:
+Enumerate every `(branch, key)` pair that has a memjective entry. Storage
+is snapshot-shaped — one ref per `(namespace, branch)` — so enumeration is
+a two-step walk: list the snapshot refs first, then read the keys inside
+each snapshot's tree.
 
 ```bash
-git for-each-ref --format='%(refname)' refs/brmem/memjectives/
+git for-each-ref --format='%(refname)' refs/brmem/ns/memjectives/
 ```
 
-Each refname is `refs/brmem/memjectives/<encoded-branch>/<key>`. Extract
-the `<encoded-branch>` segment (the 4th path component), decode `---` → `/`
-to recover the real branch name, and pair it with `<key>`.
+Each refname is `refs/brmem/ns/memjectives/<encoded-branch>`. Extract the
+`<encoded-branch>` segment (the trailing path component), decode `---` →
+`/` to recover the real branch name. To enumerate the keys on a given
+snapshot, pair with `git ls-tree -r <refname>`. An individual file can be
+addressed as `<refname>:<key>`.
 
 Filter the list:
 
@@ -278,7 +283,7 @@ Output:
   `git rev-parse --verify` filter.
 - **Branch with >1 distinct memjective slug** (current, ancestor, or
   master) → abort and surface; never pick silently.
-- **Worktrees** — `git for-each-ref refs/brmem/...` is repo-global, so
+- **Worktrees** — `git for-each-ref refs/brmem/ns/...` is repo-global, so
   ancestor enumeration works correctly from any worktree.
 - **Multiple ancestor snapshots on the branch stack** → choose the one with
   the smallest `git rev-list --count <branch>..HEAD`.
