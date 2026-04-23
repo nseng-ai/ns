@@ -1,6 +1,7 @@
 """Explicit builder for the `brmem` CLI group."""
 
 from twerk_core.brmem.check import run_check
+from twerk_core.brmem.copy import run_copy
 from twerk_core.brmem.get import run_get
 from twerk_core.brmem.list import run_list_entries
 from twerk_core.brmem.put import run_put
@@ -16,5 +17,6 @@ def build_brmem_group() -> ClinkrGroup:
             run_get,
             run_list_entries,
             run_check,
+            run_copy,
         ],
     )

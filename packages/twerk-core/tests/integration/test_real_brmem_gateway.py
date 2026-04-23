@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from twerk_core.brmem.gateway import InvalidBranchNameError, parse_entry_ref
+from twerk_core.brmem.gateway import (
+    BrmemCopyConflictError,
+    InvalidBranchNameError,
+    parse_entry_ref,
+)
 from twerk_core.brmem.real import RealBranchMemoryGateway
 
 
@@ -265,3 +269,135 @@ def test_real_brmem_content_blob_is_inspectable_via_git_show(tmp_path: Path) -> 
 
     result = _run_git(repo, "show", "refs/brmem/ns/workbr/feat---x/plan:content")
     assert result.stdout == "hello\n"
+
+
+def test_real_brmem_copy_entries_reuses_source_commit_shas(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    body_sha = gateway.put("memjectives", "foo/body.md", "master", "body\n")
+    roadmap_sha = gateway.put("memjectives", "foo/roadmap.md", "master", "road\n")
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+    )
+
+    assert [(e.key, e.ref_name) for e in copied] == [
+        ("foo/body.md", "refs/brmem/ns/memjectives/feat---x/foo/body.md"),
+        ("foo/roadmap.md", "refs/brmem/ns/memjectives/feat---x/foo/roadmap.md"),
+    ]
+    assert (
+        _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/body.md").stdout.strip()
+        == body_sha
+    )
+    assert (
+        _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/roadmap.md").stdout.strip()
+        == roadmap_sha
+    )
+
+
+def test_real_brmem_copy_entries_raises_on_conflict_without_overwrite(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("memjectives", "foo/body.md", "master", "source\n")
+    dest_sha = gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+
+    with pytest.raises(BrmemCopyConflictError):
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="master",
+            to_branch="feat/x",
+        )
+
+    # Destination must be untouched — the copy aborts before any ref mutation.
+    assert (
+        _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/body.md").stdout.strip()
+        == dest_sha
+    )
+
+
+def test_real_brmem_copy_entries_overwrite_replaces_destination(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    source_sha = gateway.put("memjectives", "foo/body.md", "master", "source\n")
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+
+    gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=True,
+    )
+
+    assert (
+        _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/body.md").stdout.strip()
+        == source_sha
+    )
+
+
+def test_real_brmem_copy_entries_no_matching_source_returns_empty(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+    )
+
+    assert copied == ()
+    # Nothing should have been created on feat/x.
+    assert (
+        subprocess.run(
+            ["git", "for-each-ref", "refs/brmem/ns/memjectives/feat---x/"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        == ""
+    )
+
+
+def test_real_brmem_copy_entries_is_atomic_under_partial_conflict(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("memjectives", "foo/body.md", "master", "body\n")
+    gateway.put("memjectives", "foo/roadmap.md", "master", "road\n")
+    # Only one of the three destination keys pre-exists; copy must refuse
+    # without touching the other two, so the destination must be exactly as
+    # it was before the attempt.
+    pre_existing = gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+
+    with pytest.raises(BrmemCopyConflictError):
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="master",
+            to_branch="feat/x",
+        )
+
+    assert (
+        _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/body.md").stdout.strip()
+        == pre_existing
+    )
+    # foo/roadmap.md must not have leaked onto feat/x.
+    assert (
+        subprocess.run(
+            [
+                "git",
+                "rev-parse",
+                "--verify",
+                "refs/brmem/ns/memjectives/feat---x/foo/roadmap.md",
+            ],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        != 0
+    )

@@ -12,6 +12,7 @@ allowed-tools:
   - "Bash(gt branch *)"
   - "Bash(gt track *)"
   - "Bash(brmem check *)"
+  - "Bash(brmem copy *)"
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
   - "Bash(brmem put *)"
@@ -58,8 +59,9 @@ This skill:
 2. Resolves the active memjective from an ancestor branch snapshot, or from
    the master-branch snapshot when no ancestor snapshot exists.
 3. Copies every file under the resolved source's `<slug>/` verbatim onto
-   the current branch via `brmem put` — `body.md` always, and each of
-   `roadmap.md` / `notes.md` that exists on the source.
+   the current branch with a single atomic `brmem copy` — `body.md`
+   always, and each of `roadmap.md` / `notes.md` that exists on the
+   source.
 4. Picks the next PR-sized slice from the roadmap.
 5. Implements the slice directly in the current session using normal
    tooling.
@@ -117,9 +119,10 @@ prompt flows described below.
   here) or an off-topic parent (carry-forward writes to a new slice branch
   stacked on top, implement there). The skill never guesses — it surfaces
   the choice.
-- **Carry-forward copies every file under the slug.** The brmem mutations
-  this skill performs are exact-copy carry-forwards — one `brmem put` per
-  file (`body.md`, and any of `roadmap.md` / `notes.md` that exist on the
+- **Carry-forward copies every file under the slug.** The brmem mutation
+  this skill performs is an exact-copy carry-forward — one atomic
+  `brmem copy` that transfers every file under `<slug>/`
+  (`body.md`, and any of `roadmap.md` / `notes.md` that exist on the
   source). No edits to the text at attach time; no writes to the
   master-branch snapshot; no writes to any other branch.
 - **Label the source.** The final report names where the memjective was
@@ -502,24 +505,39 @@ brmem list --namespace memjectives
 
 (Expected: still empty per the precondition.)
 
-For every file read in step 3, copy it onto the current branch at the
-matching `<slug>/<filename>` key under namespace `memjectives`:
+When the source is a brmem snapshot (2a branch, 2b ancestor, or 2c master),
+carry the `memjectives` snapshot forward in a single atomic operation:
 
 ```bash
-brmem put <slug>/body.md --namespace memjectives --file /tmp/<slug>-body.md
-# Only if the source had roadmap.md:
-brmem put <slug>/roadmap.md --namespace memjectives --file /tmp/<slug>-roadmap.md
-# Only if the source had notes.md:
-brmem put <slug>/notes.md --namespace memjectives --file /tmp/<slug>-notes.md
+brmem copy \
+  --namespace memjectives \
+  --from-branch <source-branch> \
+  --to-branch <branch>
 ```
 
-`--branch` omitted so the current branch is used implicitly. Each file's
-content must be a verbatim copy of the source text — no edits, no section
-rewrites, no section renames, no splitting or merging across files. Any
-reshaping belongs to `dev-memjective-update` after work lands, not to
-carry-forward.
+`<source-branch>` is the branch chosen in 2a, the nearest ancestor chosen
+in 2b, or `master` for 2c snapshots. The new destination refs point at the
+same commit SHAs as the source — carry-forward is byte-identical by
+construction. No `--overwrite` flag: the step-0 precondition already
+guarantees zero destination entries in the `memjectives` namespace, and
+the one-memjective-per-branch invariant means the source snapshot holds
+exactly the slug being carried forward.
 
-Capture every new commit SHA reported by `brmem put` for the final report.
+When the source resolved in 2a is a **local file**, fall back to a single
+`brmem put` instead (there is no brmem snapshot to copy from):
+
+```bash
+brmem put <slug>/body.md --namespace memjectives --file <local-path>
+```
+
+In either path, the carried-forward text is a verbatim copy of the source
+— no edits, no section rewrites, no section renames, no splitting or
+merging across files. Any reshaping belongs to `dev-memjective-update`
+after work lands, not to carry-forward.
+
+Capture the destination ref / commit entries reported by `brmem copy` (or
+the `brmem put` commit SHA, in the local-file branch) for the final
+report.
 
 ### 5. Decide the next slice
 
@@ -560,8 +578,10 @@ After implementation, summarize:
   slug `clinkr-followups`).
 - **Carry-forward** — old state (namespace was empty on the current
   branch), which files were written (`body.md`, and optionally
-  `roadmap.md` / `notes.md`), and each new `brmem put` commit SHA, so the
-  user can recover the attached snapshot if needed.
+  `roadmap.md` / `notes.md`), and the commit SHA each destination ref
+  now points at (reported by `brmem copy`, or by the `brmem put` fallback
+  for the local-file path), so the user can recover the attached snapshot
+  if needed.
 - **Chosen slice** — title + 1–2 sentence rationale. If the user picked
   from multiple candidates, name the alternatives that were considered.
 - **What was implemented** — a brief summary of the files touched and the

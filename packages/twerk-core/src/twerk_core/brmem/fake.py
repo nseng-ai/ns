@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from twerk_core.brmem.gateway import (
     BranchMemoryGateway,
+    BrmemCopyConflictError,
     EntryDiagnostic,
     EntryRef,
     ref_name_for_entry,
@@ -141,6 +142,58 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
             blob_sha=f"blob-{target_sha}",
             size_bytes=len(content.encode("utf-8")),
         )
+
+    def copy_entries(
+        self,
+        *,
+        namespace: str,
+        from_branch: str,
+        to_branch: str,
+        overwrite: bool = False,
+    ) -> tuple[EntryRef, ...]:
+        validate_namespace(namespace)
+        validate_branch_name(from_branch)
+        validate_branch_name(to_branch)
+
+        source_pairs: list[tuple[str, str]] = []
+        for (ns, k, br), head_sha in self._head_by_entry.items():
+            if ns != namespace or br != from_branch:
+                continue
+            source_pairs.append((k, head_sha))
+
+        source_pairs.sort(key=lambda pair: pair[0])
+
+        if not source_pairs:
+            return ()
+
+        existing_dest_keys = {
+            k for (ns, k, br) in self._head_by_entry if ns == namespace and br == to_branch
+        }
+        source_keys = {key for key, _ in source_pairs}
+        conflicts = tuple(
+            EntryRef(
+                namespace=namespace,
+                key=key,
+                branch=to_branch,
+                ref_name=ref_name_for_entry(namespace, key, to_branch),
+            )
+            for key in sorted(source_keys & existing_dest_keys)
+        )
+        if conflicts and not overwrite:
+            raise BrmemCopyConflictError(conflicts)
+
+        dest_entries: list[EntryRef] = []
+        for key, head_sha in source_pairs:
+            self._head_by_entry[(namespace, key, to_branch)] = head_sha
+            dest_entries.append(
+                EntryRef(
+                    namespace=namespace,
+                    key=key,
+                    branch=to_branch,
+                    ref_name=ref_name_for_entry(namespace, key, to_branch),
+                )
+            )
+        return tuple(dest_entries)
 
     def _record_content(self, content: str) -> str:
         commit_sha = f"fake-{self._next_commit_number:04d}"

@@ -4,6 +4,7 @@ import pytest
 
 from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.brmem.gateway import (
+    BrmemCopyConflictError,
     InvalidBranchNameError,
     InvalidNamespaceError,
 )
@@ -225,3 +226,94 @@ def test_fake_brmem_base_and_namespaced_entries_do_not_collide() -> None:
         (None, "refs/brmem/base/feat---x/scratchpad"),
         ("workbr", "refs/brmem/ns/workbr/feat---x/scratchpad"),
     ]
+
+
+def test_fake_brmem_copy_entries_copies_every_key_without_prefix() -> None:
+    gateway = FakeBranchMemoryGateway()
+    source_body = gateway.put("memjectives", "foo/body.md", "master", "body\n")
+    source_roadmap = gateway.put("memjectives", "foo/roadmap.md", "master", "road\n")
+    gateway.put("memjectives", "bar/body.md", "master", "other\n")
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+    )
+
+    assert [(e.key, e.branch) for e in copied] == [
+        ("bar/body.md", "feat/x"),
+        ("foo/body.md", "feat/x"),
+        ("foo/roadmap.md", "feat/x"),
+    ]
+    # Destination entries reuse source commit SHAs.
+    assert gateway.check("memjectives", "foo/body.md", "feat/x") is not None
+    assert gateway.check("memjectives", "foo/body.md", "feat/x").head_sha == source_body
+    assert gateway.check("memjectives", "foo/roadmap.md", "feat/x").head_sha == source_roadmap
+
+
+def test_fake_brmem_copy_entries_empty_source_returns_empty_tuple() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+    )
+
+    assert copied == ()
+
+
+def test_fake_brmem_copy_entries_requires_overwrite_on_conflict() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "foo/body.md", "master", "source\n")
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+
+    with pytest.raises(BrmemCopyConflictError) as excinfo:
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="master",
+            to_branch="feat/x",
+        )
+
+    assert [entry.key for entry in excinfo.value.conflicts] == ["foo/body.md"]
+    # Source content on feat/x must be untouched by the failed copy.
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "existing\n"
+
+
+def test_fake_brmem_copy_entries_overwrite_replaces_destination() -> None:
+    gateway = FakeBranchMemoryGateway()
+    source_sha = gateway.put("memjectives", "foo/body.md", "master", "source\n")
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=True,
+    )
+
+    assert [e.key for e in copied] == ["foo/body.md"]
+    assert gateway.check("memjectives", "foo/body.md", "feat/x").head_sha == source_sha
+
+
+def test_fake_brmem_copy_entries_validates_branch_names() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    with pytest.raises(InvalidBranchNameError):
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="feat---x",
+            to_branch="feat/y",
+        )
+    with pytest.raises(InvalidBranchNameError):
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="feat/x",
+            to_branch="feat---y",
+        )
+    with pytest.raises(InvalidNamespaceError):
+        gateway.copy_entries(
+            namespace="ns/with/slash",
+            from_branch="feat/x",
+            to_branch="feat/y",
+        )
