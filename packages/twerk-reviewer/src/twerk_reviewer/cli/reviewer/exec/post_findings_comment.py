@@ -11,6 +11,7 @@ comment and tricking the reviewer into overwriting it on a later run.
 
 from __future__ import annotations
 
+import functools
 import re
 import sys
 from dataclasses import dataclass
@@ -23,9 +24,13 @@ from twerk_core.gh.types import IssueComment
 from twerk_reviewer.context import ReviewerCliContext
 
 _BOT_AUTHOR_LOGIN = "github-actions[bot]"
-_MARKER_PATTERN = re.compile(r"^<!-- (twerk-reviewer:[^ ]+) -->$")
 _ACTIVITY_LOG_HEADING = "### Activity Log"
 _ACTIVITY_LOG_CAP = 10
+
+
+@functools.cache
+def _get_marker_pattern() -> re.Pattern[str]:
+    return re.compile(r"^<!-- (twerk-reviewer:[^ ]+) -->$")
 
 
 class MarkerExtractionError(ValueError):
@@ -42,7 +47,7 @@ def _parse_body(raw: str) -> _ParsedBody:
     lines = raw.splitlines()
     if not lines:
         raise MarkerExtractionError("input body is empty")
-    match = _MARKER_PATTERN.match(lines[0].rstrip("\r"))
+    match = _get_marker_pattern().match(lines[0].rstrip("\r"))
     if match is None:
         raise MarkerExtractionError(
             "first line of body must be a `<!-- twerk-reviewer:<key> -->` marker"
@@ -118,8 +123,7 @@ def post_findings_comment_command(
         click.echo(f"post-findings-comment: {exc}", err=True)
         sys.exit(1)
 
-    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
-    issue_gateway = reviewer_context.issue_gateway
+    issue_gateway = load_typed_context(ctx, ReviewerCliContext).issue_gateway
 
     run_summary = _format_run_summary(run_url)
     existing = issue_gateway.find_comment_by_marker(
