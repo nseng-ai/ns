@@ -1,8 +1,11 @@
 """Repo-wide memjective discovery.
 
-Group every ``refs/brmem/memjectives/<encoded-branch>/<slug>/body.md`` entry
-by slug, tracking master-seed presence separately from branch snapshots and
-marking snapshot branches that no longer exist as local refs.
+Group every ``refs/brmem/memjectives/<encoded-branch>/<slug>/<filename>``
+entry by slug, tracking master-seed presence separately from branch
+snapshots and marking snapshot branches that no longer exist as local
+refs. A memjective is a directory of files (``body.md`` plus optional
+``roadmap.md`` / ``notes.md``), so the slug is the key prefix up to the
+last ``/``.
 """
 
 from __future__ import annotations
@@ -14,7 +17,10 @@ from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
 
 MASTER_BRANCH = "master"
-_BODY_SUFFIX = "/body.md"
+
+BODY_FILE = "body.md"
+ROADMAP_FILE = "roadmap.md"
+NOTES_FILE = "notes.md"
 
 
 @dataclass(frozen=True)
@@ -30,7 +36,7 @@ class MemjectiveRepoEntry:
     """A single memjective slug as it exists across the repo."""
 
     slug: str
-    key: str
+    files: tuple[str, ...]
     seed_present: bool
     branches: tuple[BranchPresence, ...]
 
@@ -44,17 +50,29 @@ class MemjectiveRepoEntry:
 
 
 def slug_for_key(key: str) -> str:
-    """Return the user-facing slug for a brmem key (strips a trailing ``/body.md``)."""
-    if key.endswith(_BODY_SUFFIX):
-        return key[: -len(_BODY_SUFFIX)]
-    return key
+    """Return the user-facing slug for a brmem key.
+
+    The slug is everything before the last ``/`` in the key. Keys without a
+    ``/`` are returned unchanged (legacy safety).
+    """
+    if "/" not in key:
+        return key
+    return key.rsplit("/", 1)[0]
 
 
-def key_for_slug(slug: str) -> str:
-    """Return the canonical brmem key for ``slug`` (adds ``/body.md`` when missing)."""
-    if slug.endswith(_BODY_SUFFIX):
-        return slug
-    return f"{slug}{_BODY_SUFFIX}"
+def body_key(slug: str) -> str:
+    """Return the brmem key for the ``body.md`` file of ``slug``."""
+    return f"{slug}/{BODY_FILE}"
+
+
+def roadmap_key(slug: str) -> str:
+    """Return the brmem key for the ``roadmap.md`` file of ``slug``."""
+    return f"{slug}/{ROADMAP_FILE}"
+
+
+def notes_key(slug: str) -> str:
+    """Return the brmem key for the ``notes.md`` file of ``slug``."""
+    return f"{slug}/{NOTES_FILE}"
 
 
 def discover_memjectives(
@@ -73,15 +91,15 @@ def group_memjective_entries(
     is_branch_alive: Callable[[str], bool] | None = None,
 ) -> tuple[MemjectiveRepoEntry, ...]:
     """Group ``entries`` (already filtered to the memjectives namespace) by slug."""
-    by_key: dict[str, list[EntryRef]] = {}
+    by_slug: dict[str, list[EntryRef]] = {}
     for entry in entries:
-        by_key.setdefault(entry.key, []).append(entry)
+        by_slug.setdefault(slug_for_key(entry.key), []).append(entry)
 
     result: list[MemjectiveRepoEntry] = []
-    for key in sorted(by_key):
-        key_entries = by_key[key]
-        seed_present = any(e.branch == MASTER_BRANCH for e in key_entries)
-        branch_names = sorted({e.branch for e in key_entries if e.branch != MASTER_BRANCH})
+    for slug in sorted(by_slug):
+        slug_entries = by_slug[slug]
+        seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
+        branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
         presences = tuple(
             BranchPresence(
                 branch=branch,
@@ -89,12 +107,20 @@ def group_memjective_entries(
             )
             for branch in branch_names
         )
+        files = tuple(sorted({_filename_for_key(e.key, slug) for e in slug_entries}))
         result.append(
             MemjectiveRepoEntry(
-                slug=slug_for_key(key),
-                key=key,
+                slug=slug,
+                files=files,
                 seed_present=seed_present,
                 branches=presences,
             )
         )
     return tuple(result)
+
+
+def _filename_for_key(key: str, slug: str) -> str:
+    prefix = f"{slug}/"
+    if key.startswith(prefix):
+        return key[len(prefix) :]
+    return key

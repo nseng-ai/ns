@@ -18,13 +18,14 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console
 from twerk_core.memjective.discovery import (
+    BODY_FILE,
     MASTER_BRANCH,
+    NOTES_FILE,
+    ROADMAP_FILE,
     BranchPresence,
     slug_for_key,
 )
 from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
-
-_BODY_FILE = "body.md"
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,8 @@ class MemjectiveShowRequest:
 
 
 @dataclass(frozen=True)
-class MemjectiveBody:
+class MemjectiveFile:
+    filename: str
     source_branch: str
     content: str
 
@@ -47,7 +49,9 @@ class MemjectiveShowResult:
     seed_present: bool
     branches: tuple[BranchPresence, ...]
     files: tuple[str, ...]
-    body: MemjectiveBody | None
+    body: MemjectiveFile | None
+    roadmap: MemjectiveFile | None
+    notes: MemjectiveFile | None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -55,15 +59,16 @@ class MemjectiveShowResult:
             "seed_present": self.seed_present,
             "branches": [{"branch": bp.branch, "stale": bp.stale} for bp in self.branches],
             "files": list(self.files),
-            "body": (
-                None
-                if self.body is None
-                else {
-                    "source_branch": self.body.source_branch,
-                    "content": self.body.content,
-                }
-            ),
+            "body": _file_to_json(self.body),
+            "roadmap": _file_to_json(self.roadmap),
+            "notes": _file_to_json(self.notes),
         }
+
+
+def _file_to_json(file: MemjectiveFile | None) -> dict[str, str] | None:
+    if file is None:
+        return None
+    return {"source_branch": file.source_branch, "content": file.content}
 
 
 def render_memjective_show(result: MemjectiveShowResult) -> None:
@@ -80,11 +85,14 @@ def render_memjective_show(result: MemjectiveShowResult) -> None:
         click.echo("files:")
         for path in result.files:
             click.echo(f"  - {path}")
-    if result.body is not None:
-        console = get_console()
+
+    console = get_console()
+    for file in (result.body, result.roadmap, result.notes):
+        if file is None:
+            continue
         console.print()
-        console.rule(f"{_BODY_FILE} ({result.body.source_branch})")
-        console.print(Markdown(result.body.content))
+        console.rule(f"{file.filename} ({file.source_branch})")
+        console.print(Markdown(file.content))
 
 
 def _resolve_current_branch(ctx: click.Context) -> str | None:
@@ -95,22 +103,23 @@ def _resolve_current_branch(ctx: click.Context) -> str | None:
             return branch
 
 
-def _read_body(
+def _read_file(
     gateway: BranchMemoryGateway,
     slug: str,
+    filename: str,
     *,
     current_branch: str | None,
     seed_present: bool,
-) -> MemjectiveBody | None:
-    key = f"{slug}/{_BODY_FILE}"
+) -> MemjectiveFile | None:
+    key = f"{slug}/{filename}"
     if current_branch is not None and current_branch != MASTER_BRANCH:
         content = gateway.get(MEMJECTIVE_NAMESPACE, key, current_branch)
         if content is not None:
-            return MemjectiveBody(source_branch=current_branch, content=content)
+            return MemjectiveFile(filename=filename, source_branch=current_branch, content=content)
     if seed_present:
         content = gateway.get(MEMJECTIVE_NAMESPACE, key, MASTER_BRANCH)
         if content is not None:
-            return MemjectiveBody(source_branch=MASTER_BRANCH, content=content)
+            return MemjectiveFile(filename=filename, source_branch=MASTER_BRANCH, content=content)
     return None
 
 
@@ -175,6 +184,8 @@ def run_show_memjective(
             branches=(),
             files=(),
             body=None,
+            roadmap=None,
+            notes=None,
         )
         return ClinkrExit.negative(
             empty,
@@ -188,9 +199,24 @@ def run_show_memjective(
         BranchPresence(branch=name, stale=not git_gateway.branch_exists(name))
         for name in branch_names
     )
-    body = _read_body(
+    body = _read_file(
         gateway,
         requested_slug,
+        BODY_FILE,
+        current_branch=current_branch,
+        seed_present=seed_present,
+    )
+    roadmap = _read_file(
+        gateway,
+        requested_slug,
+        ROADMAP_FILE,
+        current_branch=current_branch,
+        seed_present=seed_present,
+    )
+    notes = _read_file(
+        gateway,
+        requested_slug,
+        NOTES_FILE,
         current_branch=current_branch,
         seed_present=seed_present,
     )
@@ -202,5 +228,7 @@ def run_show_memjective(
             branches=branches,
             files=files,
             body=body,
+            roadmap=roadmap,
+            notes=notes,
         )
     )

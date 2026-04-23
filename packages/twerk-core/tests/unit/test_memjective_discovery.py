@@ -4,9 +4,11 @@ from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.memjective.discovery import (
     BranchPresence,
     MemjectiveRepoEntry,
+    body_key,
     discover_memjectives,
     group_memjective_entries,
-    key_for_slug,
+    notes_key,
+    roadmap_key,
     slug_for_key,
 )
 
@@ -15,11 +17,17 @@ def _entries(gateway: FakeBranchMemoryGateway) -> list:
     return gateway.list_entries(namespace="memjectives")
 
 
-def test_slug_round_trip() -> None:
+def test_slug_for_key_strips_trailing_filename() -> None:
     assert slug_for_key("widget/body.md") == "widget"
+    assert slug_for_key("widget/roadmap.md") == "widget"
+    assert slug_for_key("widget/notes.md") == "widget"
     assert slug_for_key("no-suffix") == "no-suffix"
-    assert key_for_slug("widget") == "widget/body.md"
-    assert key_for_slug("already/body.md") == "already/body.md"
+
+
+def test_file_key_helpers() -> None:
+    assert body_key("widget") == "widget/body.md"
+    assert roadmap_key("widget") == "widget/roadmap.md"
+    assert notes_key("widget") == "widget/notes.md"
 
 
 def test_empty_repo_produces_empty_result() -> None:
@@ -38,8 +46,24 @@ def test_groups_duplicate_snapshots_by_slug() -> None:
 
     assert len(result) == 1
     assert result[0].slug == "a"
+    assert result[0].files == ("body.md",)
     assert result[0].seed_present is False
     assert [bp.branch for bp in result[0].branches] == ["b1", "b2", "b3"]
+
+
+def test_groups_multiple_files_under_one_slug() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "a/body.md", "master", "body")
+    gateway.put("memjectives", "a/roadmap.md", "master", "roadmap")
+    gateway.put("memjectives", "a/notes.md", "feat/x", "notes")
+
+    result = discover_memjectives(gateway)
+
+    assert len(result) == 1
+    assert result[0].slug == "a"
+    assert result[0].files == ("body.md", "notes.md", "roadmap.md")
+    assert result[0].seed_present is True
+    assert [bp.branch for bp in result[0].branches] == ["feat/x"]
 
 
 def test_seed_only_memjective_has_no_branches() -> None:
@@ -51,7 +75,7 @@ def test_seed_only_memjective_has_no_branches() -> None:
     assert result == (
         MemjectiveRepoEntry(
             slug="orphan",
-            key="orphan/body.md",
+            files=("body.md",),
             seed_present=True,
             branches=(),
         ),
@@ -92,7 +116,7 @@ def test_stale_is_never_true_when_validator_omitted() -> None:
     assert result[0].branches == (BranchPresence(branch="anywhere", stale=False),)
 
 
-def test_results_sorted_by_key() -> None:
+def test_results_sorted_by_slug() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("memjectives", "z/body.md", "master", "x")
     gateway.put("memjectives", "a/body.md", "master", "x")

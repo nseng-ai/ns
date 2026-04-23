@@ -188,6 +188,7 @@ def test_memjective_list_format_json(cli_group: ClinkrGroup) -> None:
     assert payload["exit_code"] == 0
     assert payload["data"] == {
         "branch": "feat/x",
+        "slugs": ["clinkr-migration"],
         "entries": [
             {
                 "namespace": "memjectives",
@@ -309,13 +310,13 @@ def test_memjective_list_repo_format_json(cli_group: ClinkrGroup) -> None:
         "memjectives": [
             {
                 "slug": "clinkr-migration",
-                "key": "clinkr-migration/body.md",
+                "files": ["body.md"],
                 "seed_present": True,
                 "branches": [],
             },
             {
                 "slug": "memjective-cli",
-                "key": "memjective-cli/body.md",
+                "files": ["body.md"],
                 "seed_present": True,
                 "branches": [
                     {"branch": "mem-scaffold-list", "stale": False},
@@ -324,7 +325,7 @@ def test_memjective_list_repo_format_json(cli_group: ClinkrGroup) -> None:
             },
             {
                 "slug": "twerk-reviewer",
-                "key": "twerk-reviewer/body.md",
+                "files": ["body.md"],
                 "seed_present": False,
                 "branches": [
                     {"branch": "feat/reviewer", "stale": False},
@@ -414,6 +415,8 @@ def test_memjective_show_format_json(cli_group: ClinkrGroup) -> None:
         ],
         "files": ["body.md"],
         "body": {"source_branch": "master", "content": "seed\n"},
+        "roadmap": None,
+        "notes": None,
     }
 
 
@@ -436,6 +439,8 @@ def test_memjective_show_missing_slug_json(cli_group: ClinkrGroup) -> None:
         "branches": [],
         "files": [],
         "body": None,
+        "roadmap": None,
+        "notes": None,
     }
 
 
@@ -488,6 +493,8 @@ def test_memjective_show_no_slug_defaults_json(cli_group: ClinkrGroup) -> None:
         "branches": [{"branch": "feat/x", "stale": False}],
         "files": ["body.md"],
         "body": {"source_branch": "feat/x", "content": "snap\n"},
+        "roadmap": None,
+        "notes": None,
     }
 
 
@@ -565,7 +572,9 @@ def test_memjective_show_lists_multiple_files_under_slug(cli_group: ClinkrGroup)
     assert "- body.md" in result.output
     assert "- notes.md" in result.output
     assert "body seed" in result.output
-    assert "notes seed" not in result.output
+    assert "notes seed" in result.output
+    assert "body.md (master)" in result.output
+    assert "notes.md (master)" in result.output
 
 
 def test_memjective_show_lists_multiple_files_json(cli_group: ClinkrGroup) -> None:
@@ -584,6 +593,8 @@ def test_memjective_show_lists_multiple_files_json(cli_group: ClinkrGroup) -> No
     assert result.exit_code == 0, result.output
     assert payload["data"]["files"] == ["body.md", "notes.md"]
     assert payload["data"]["body"] == {"source_branch": "master", "content": "body seed\n"}
+    assert payload["data"]["notes"] == {"source_branch": "master", "content": "notes seed\n"}
+    assert payload["data"]["roadmap"] is None
 
 
 def test_memjective_show_renders_body_markdown(cli_group: ClinkrGroup) -> None:
@@ -637,7 +648,8 @@ def test_memjective_show_omits_body_when_only_non_body_files_present(
     assert result.exit_code == 0, result.output
     assert "files:" in result.output
     assert "- notes.md" in result.output
-    assert "notes only" not in result.output
+    assert "notes only" in result.output
+    assert "notes.md (master)" in result.output
     assert "body.md (" not in result.output
 
     json_result = CliRunner().invoke(
@@ -648,3 +660,98 @@ def test_memjective_show_omits_body_when_only_non_body_files_present(
     payload = json.loads(json_result.output)
     assert payload["data"]["files"] == ["notes.md"]
     assert payload["data"]["body"] is None
+    assert payload["data"]["notes"] == {"source_branch": "master", "content": "notes only\n"}
+
+
+def test_memjective_show_renders_body_roadmap_and_notes_markdown(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "memjective-cli/body.md", "master", "# Body\n\nbody-sentinel\n")
+    gateway.put(
+        "memjectives",
+        "memjective-cli/roadmap.md",
+        "master",
+        "# Roadmap\n\n- [ ] roadmap-sentinel\n",
+    )
+    gateway.put(
+        "memjectives",
+        "memjective-cli/notes.md",
+        "master",
+        "# Notes\n\n- notes-sentinel\n",
+    )
+    obj = _make_obj(gateway=gateway, live_branches=("master",))
+
+    result = CliRunner().invoke(cli_group, ["show", "memjective-cli"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert "body-sentinel" in result.output
+    assert "roadmap-sentinel" in result.output
+    assert "notes-sentinel" in result.output
+    assert "body.md (master)" in result.output
+    assert "roadmap.md (master)" in result.output
+    assert "notes.md (master)" in result.output
+
+
+def test_memjective_show_prefers_current_branch_per_file(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "memjective-cli/body.md", "master", "master-body\n")
+    gateway.put("memjectives", "memjective-cli/body.md", "feat/x", "branch-body\n")
+    gateway.put("memjectives", "memjective-cli/roadmap.md", "master", "master-roadmap\n")
+    gateway.put("memjectives", "memjective-cli/notes.md", "feat/x", "branch-notes\n")
+    obj = _make_obj(gateway=gateway, live_branches=("master", "feat/x"))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["show", "memjective-cli", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["body"] == {"source_branch": "feat/x", "content": "branch-body\n"}
+    assert payload["data"]["roadmap"] == {
+        "source_branch": "master",
+        "content": "master-roadmap\n",
+    }
+    assert payload["data"]["notes"] == {"source_branch": "feat/x", "content": "branch-notes\n"}
+
+
+def test_memjective_list_dedupes_slug_with_multiple_files(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "memjective-cli/body.md", "feat/x", "body\n")
+    gateway.put("memjectives", "memjective-cli/roadmap.md", "feat/x", "roadmap\n")
+    gateway.put("memjectives", "memjective-cli/notes.md", "feat/x", "notes\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(cli_group, ["list"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["memjective-cli"]
+
+
+def test_memjective_list_repo_groups_multiple_files_under_one_slug(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "memjective-cli/body.md", "master", "body\n")
+    gateway.put("memjectives", "memjective-cli/roadmap.md", "master", "roadmap\n")
+    gateway.put("memjectives", "memjective-cli/notes.md", "master", "notes\n")
+    obj = _make_obj(gateway=gateway, live_branches=("master",))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--repo", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["memjectives"] == [
+        {
+            "slug": "memjective-cli",
+            "files": ["body.md", "notes.md", "roadmap.md"],
+            "seed_present": True,
+            "branches": [],
+        }
+    ]

@@ -41,14 +41,15 @@ Run **on a slice branch** — either a fresh branch the user just created, or
 the previous slice branch in which case this skill will help cut a new one.
 This skill:
 
-1. Checks whether the current branch already has a memjective snapshot. If
+1. Checks whether the current branch already has any memjective files. If
    so, proposes a slug for the next slice, asks the user to confirm, creates
    a new branch using the project's branch-creation convention, and
    continues from that fresh branch.
 2. Resolves the active memjective from an ancestor branch snapshot, or from
    the master-branch snapshot when no ancestor snapshot exists.
-3. Copies the resolved memjective text verbatim onto the current branch via
-   `brmem put` (the carry-forward write).
+3. Copies every file under the resolved source's `<slug>/` verbatim onto
+   the current branch via `brmem put` — `body.md` always, and each of
+   `roadmap.md` / `notes.md` that exists on the source.
 4. Picks the next PR-sized slice from the roadmap.
 5. Implements the slice directly in the current session using normal
    tooling.
@@ -60,16 +61,16 @@ instead. For recording work after a slice has landed, use
 ## Core rules
 
 - **One memjective per branch.** Carry-forward only ever writes to a branch
-  that currently has zero entries in the `memjectives` namespace. If the
-  current branch already has an entry, cut a new slice branch first (see
-  step 0) and continue the rest of the workflow from there.
-- **Invalid state aborts hard.** If the current branch has 2+ entries in
-  the `memjectives` namespace, abort — do not try to branch out of it.
-- **Writes exactly one brmem entry: the carry-forward.** The only brmem
-  mutation this skill performs is the exact-copy carry-forward of the
-  resolved source onto the (post-branching) current branch. No edits to the
-  text at attach time; no writes to the master-branch snapshot; no writes
-  to any other branch.
+  that currently has zero entries under `memjectives/<slug>/`. If the
+  current branch already has any file for the slug, cut a new slice branch
+  first (see step 0) and continue the rest of the workflow from there.
+- **Invalid state aborts hard.** If the current branch carries files for
+  2+ distinct memjective slugs, abort — do not try to branch out of it.
+- **Carry-forward copies every file under the slug.** The brmem mutations
+  this skill performs are exact-copy carry-forwards — one `brmem put` per
+  file (`body.md`, and any of `roadmap.md` / `notes.md` that exist on the
+  source). No edits to the text at attach time; no writes to the
+  master-branch snapshot; no writes to any other branch.
 - **Label the source.** The final report names where the memjective was
   read from: ancestor-branch snapshot (with branch name), master-branch
   snapshot, or local file.
@@ -93,35 +94,40 @@ instead. For recording work after a slice has landed, use
 brmem list --namespace memjectives
 ```
 
-`--branch` omitted so the current branch is used implicitly.
+`--branch` omitted so the current branch is used implicitly. Group the
+returned keys by their `<slug>/` prefix — each distinct slug is one
+memjective, regardless of how many files (body.md / roadmap.md / notes.md)
+are attached.
 
 Decision rules:
 
-- **0 matches** → fresh branch, continue to step 1.
-- **1 match** → current branch already holds a memjective. Do **not** abort.
-  Instead, run the "cut a new slice branch" flow below, then restart at
-  step 1 on the newly-created branch.
-- **2+ matches** → abort; the branch is in an invalid state. Tell the user
-  to clean it up before retrying.
+- **0 distinct slugs** → fresh branch, continue to step 1.
+- **1 distinct slug** → current branch already holds a memjective. Do
+  **not** abort. Instead, run the "cut a new slice branch" flow below,
+  then restart at step 1 on the newly-created branch.
+- **2+ distinct slugs** → abort; the branch is in an invalid state. Tell
+  the user to clean it up before retrying.
 
-#### 0a. Cut a new slice branch (1-match case)
+#### 0a. Cut a new slice branch (1-slug case)
 
 The current branch — call it `<prev>` — already has a memjective snapshot
-(`<slug>/body.md`). To continue the workstream, cut a new branch off
-`<prev>`
-and let discovery (step 2b) pick up `<prev>`'s snapshot as the ancestor
-source.
+for a single slug (`<slug>`), with `body.md` and possibly sibling
+`roadmap.md` / `notes.md`. To continue the workstream, cut a new branch off
+`<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot as the
+ancestor source.
 
-1. **Load the current snapshot** to pick the next slice and derive a slug.
+1. **Load the current body + roadmap** to pick the next slice and derive a
+   slug.
 
    ```bash
    brmem get <slug>/body.md --namespace memjectives > /tmp/<slug>-body.md
+   brmem get <slug>/roadmap.md --namespace memjectives > /tmp/<slug>-roadmap.md  # if present
    ```
 
-   Read `/tmp/<slug>-body.md`. Identify the next unchecked roadmap item that
-   still matches `How to Make Progress`. Follow the slice-sizing guidance
-   in step 5 (coherent, landable in one session, steelthreaded for large
-   memjectives).
+   Read the files. Identify the next unchecked roadmap item in
+   `roadmap.md` that still matches `body.md`'s `How to Make Progress`.
+   Follow the slice-sizing guidance in step 5 (coherent, landable in one
+   session, steelthreaded for large memjectives).
 
 2. **Propose a kebab-case slug** for the new branch derived from the
    chosen roadmap item. Keep it short and descriptive — e.g., if the next
@@ -171,10 +177,10 @@ source.
    brmem list --namespace memjectives
    ```
 
-   Expect 0 matches. If the new branch somehow already has an entry
-   (extremely unlikely — would mean the slug collided with an existing
-   refs/brmem path), abort and surface the collision so the user can pick
-   a different slug.
+   Expect 0 matches. If the new branch somehow already has any entry
+   under a `<slug>/` prefix (extremely unlikely — would mean the slug
+   collided with an existing refs/brmem path), abort and surface the
+   collision so the user can pick a different slug.
 
 6. **Continue at step 1** on the new branch. Discovery in step 2b will see
    `<prev>` as an ancestor, find its snapshot, and carry it forward.
@@ -204,10 +210,13 @@ sources remain, in order.
 If the user explicitly names a source, resolve that directly instead of
 guessing:
 
-- a branch name: require exactly one memjective entry on that branch
-- a master-branch snapshot slug: read `<slug>/body.md` from `master`
+- a branch name: require exactly one memjective slug on that branch (the
+  slug may have multiple files under it)
+- a master-branch snapshot slug: read every file under `<slug>/` from
+  `master` (at minimum `body.md`, plus any of `roadmap.md` / `notes.md`
+  that are present)
 - a local file path: read the file directly and label the source as
-  _local file_
+  _local file_ — the file's content becomes the carried-forward `body.md`
 
 If the explicit source is invalid, stop and surface the problem instead of
 falling through to discovery.
@@ -220,10 +229,12 @@ Enumerate every `(branch, key)` pair that has a memjective entry:
 git for-each-ref --format='%(refname)' refs/brmem/memjectives/
 ```
 
-Each refname is `refs/brmem/memjectives/<encoded-branch>/<slug>/body.md`.
-Extract the `<encoded-branch>` segment (the 4th path component), decode
-`---` → `/` to recover the real branch name, and pair it with the trailing
-`<slug>/body.md` key.
+Each refname is
+`refs/brmem/memjectives/<encoded-branch>/<slug>/<filename>`. Extract the
+`<encoded-branch>` segment (the 4th path component), decode `---` → `/` to
+recover the real branch name, and pair it with the trailing
+`<slug>/<filename>` key. Group keys by `<slug>` per branch — one memjective
+per (branch, slug) regardless of how many files are attached.
 
 Filter the list:
 
@@ -240,9 +251,9 @@ Filter the list:
   git merge-base --is-ancestor <B> HEAD
   ```
 
-Invariant: if any single ancestor branch surfaces with more than one entry
-in the `memjectives` namespace, abort and surface the invalid state
-instead of presenting it as a candidate.
+Invariant: if any single ancestor branch surfaces with more than one
+distinct slug in the `memjectives` namespace, abort and surface the
+invalid state instead of presenting it as a candidate.
 
 Decision rules for ancestor candidates:
 
@@ -277,17 +288,24 @@ Decision rules:
 
 ### 3. Load the memjective
 
-Read the resolved memjective text:
+Read every file that exists under the resolved source's `<slug>/`. Always
+read `body.md`; probe for sibling files and read them when present:
 
 ```bash
 brmem get <slug>/body.md --namespace memjectives --branch <source-branch> > /tmp/<slug>-body.md
+brmem check <slug>/roadmap.md --namespace memjectives --branch <source-branch> \
+  && brmem get <slug>/roadmap.md --namespace memjectives --branch <source-branch> > /tmp/<slug>-roadmap.md
+brmem check <slug>/notes.md --namespace memjectives --branch <source-branch> \
+  && brmem get <slug>/notes.md --namespace memjectives --branch <source-branch> > /tmp/<slug>-notes.md
 ```
 
 `<source-branch>` is the branch chosen in 2a, the nearest ancestor chosen
 in 2b, or `master` for 2c snapshots. If step 2a resolved to a local file,
-copy that file to the temp path instead.
+copy that file into the appropriate temp path instead.
 
-Interpret the document's sections per the spec skill's **Document anatomy**.
+Interpret the documents per the spec skill's **Document anatomy** —
+`body.md` is the stable spine, `roadmap.md` holds the slice plan,
+`notes.md` holds durable findings.
 
 ### 3a. Brief summary to the user
 
@@ -301,7 +319,7 @@ confirm the source:
 Keep the summary tight. If the user disagrees with the chosen source, return
 to step 2 and let them pick a different candidate.
 
-### 4. Carry-forward: attach the snapshot to the current branch
+### 4. Carry-forward: attach every file to the current branch
 
 Capture the prior commit state of the namespace on the current branch for
 the report:
@@ -312,24 +330,29 @@ brmem list --namespace memjectives
 
 (Expected: still empty per the precondition.)
 
-Then copy the resolved text onto the current branch, using the same
-`<slug>/body.md` key under namespace `memjectives`:
+For every file read in step 3, copy it onto the current branch at the
+matching `<slug>/<filename>` key under namespace `memjectives`:
 
 ```bash
 brmem put <slug>/body.md --namespace memjectives --file /tmp/<slug>-body.md
+# Only if the source had roadmap.md:
+brmem put <slug>/roadmap.md --namespace memjectives --file /tmp/<slug>-roadmap.md
+# Only if the source had notes.md:
+brmem put <slug>/notes.md --namespace memjectives --file /tmp/<slug>-notes.md
 ```
 
-`--branch` omitted so the current branch is used implicitly. The content
-must be a verbatim copy of the source text — no edits, no section
-rewrites, no section renames. Any reshaping belongs to
-`dev-memjective-update` after work lands, not to carry-forward.
+`--branch` omitted so the current branch is used implicitly. Each file's
+content must be a verbatim copy of the source text — no edits, no section
+rewrites, no section renames, no splitting or merging across files. Any
+reshaping belongs to `dev-memjective-update` after work lands, not to
+carry-forward.
 
-Capture the new commit SHA reported by `brmem put` for the final report.
+Capture every new commit SHA reported by `brmem put` for the final report.
 
 ### 5. Decide the next slice
 
-Default to the first unchecked roadmap item that still matches
-`How to Make Progress`.
+Default to the first unchecked item in `roadmap.md` that still matches
+`body.md`'s `How to Make Progress`.
 
 **When the choice is non-obvious** — multiple unchecked items at similar
 priority, recent Notes suggesting the plan should be reshaped, or material
@@ -364,8 +387,9 @@ After implementation, summarize:
 - **Source** — label + slug (e.g., _snapshot (ancestor branch `clinkr-m1`)_,
   slug `clinkr-followups`).
 - **Carry-forward** — old state (namespace was empty on the current
-  branch) and the new `brmem put` commit SHA, so the user can recover the
-  attached snapshot if needed.
+  branch), which files were written (`body.md`, and optionally
+  `roadmap.md` / `notes.md`), and each new `brmem put` commit SHA, so the
+  user can recover the attached snapshot if needed.
 - **Chosen slice** — title + 1–2 sentence rationale. If the user picked
   from multiple candidates, name the alternatives that were considered.
 - **What was implemented** — a brief summary of the files touched and the
@@ -380,8 +404,9 @@ After implementation, summarize:
 - **Current branch already has a memjective snapshot** → do not abort.
   Run step 0a to cut a new slice branch, then continue at step 1 on the
   new branch.
-- **Current branch has 2+ memjective snapshots** → abort in step 0;
-  invalid state. Do not try to branch out of it — clean up first.
+- **Current branch has files for 2+ distinct memjective slugs** → abort
+  in step 0; invalid state. Do not try to branch out of it — clean up
+  first.
 - **`gt create` refuses because there are no staged changes** → fall back
   to `git checkout -b <slug>` in step 0a. Never stage throwaway content
   just to satisfy `gt`.
@@ -392,8 +417,8 @@ After implementation, summarize:
   their choice.
 - **Stale brmem refs** for deleted branches → dropped during step 2b by
   the `git rev-parse --verify` filter.
-- **Branch with >1 memjective entry** (ancestor or master) → abort and
-  surface; never pick silently.
+- **Branch with >1 distinct memjective slug** (ancestor or master) →
+  abort and surface; never pick silently.
 - **Worktrees** — `git for-each-ref refs/brmem/...` is repo-global, so
   ancestor enumeration works correctly from any worktree.
 - **Multiple ancestor snapshots on the branch stack** → choose the one
@@ -414,6 +439,8 @@ After implementation, summarize:
 - Staging or committing throwaway content just to make `gt create` happy.
   Use `git checkout -b` as the fallback when `gt` refuses an empty
   branch.
+- Carrying forward only `body.md` when the source also has `roadmap.md`
+  and/or `notes.md`. Carry-forward copies every file under `<slug>/`.
 - Editing the snapshot text while carrying it forward. Carry-forward is
   always an exact copy of a single source. Any reshaping is
   `dev-memjective-update`'s job after implementation lands.
