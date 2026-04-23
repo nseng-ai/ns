@@ -6,12 +6,12 @@ restating the rules inline.
 
 ## Overview
 
-| Operation               | Master-branch snapshot                                                             | Current-branch snapshot                                           | Other-branch snapshot |
-| ----------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------- |
-| `dev-memjective-create` | **Writes** `body.md` (one-time); `roadmap.md` when a slice plan is already drafted | **Writes** `body.md` (one-time); `roadmap.md` when drafted        | Never touches         |
-| `dev-memjective-peek`   | Never writes                                                                       | Never writes                                                      | Never touches         |
-| `dev-memjective-next`   | Never writes                                                                       | **Writes** each file present on the source (carry-forward)        | Never touches         |
-| `dev-memjective-update` | Never writes                                                                       | **Rewrites** `body.md` / `roadmap.md` / `notes.md` (conservative) | Never touches         |
+| Operation               | Master-branch snapshot                                                                                       | Current-branch snapshot                                           | Other-branch snapshot |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | --------------------- |
+| `dev-memjective-create` | **Writes** `body.md` (one-time); `roadmap.md` when a slice plan is already drafted                           | **Writes** `body.md` (one-time); `roadmap.md` when drafted        | Never touches         |
+| `dev-memjective-peek`   | Never writes                                                                                                 | Never writes                                                      | Never touches         |
+| `dev-memjective-next`   | Never writes directly (but may invoke `update`'s master-reconcile variant when run on master — see below)    | **Writes** each file present on the source (carry-forward)        | Never touches         |
+| `dev-memjective-update` | **Rewrites** (conservative; master-reconcile variant only — fired by `next` on master with sibling evidence) | **Rewrites** `body.md` / `roadmap.md` / `notes.md` (conservative) | Never touches         |
 
 Carry-forward (copying the source verbatim onto the current branch) is
 exclusively the job of `dev-memjective-next`, which is designed to run on a
@@ -27,9 +27,19 @@ them.
 ## Per-file rules for `dev-memjective-update`
 
 `update` is the only normal-lifecycle operation that rewrites existing
-branch files. The rules below keep those rewrites honest. They apply to the
-current-branch snapshot only; the master-branch snapshot is never touched
-during `update`.
+branch files. The rules below keep those rewrites honest. They apply
+identically to both variants of `update`:
+
+- the **normal variant** running on a slice branch (current-branch
+  snapshot); and
+- the **master-reconcile variant** running on master (master-branch
+  snapshot), fired by `dev-memjective-next` when invoked on master.
+
+Only the evidence source differs between variants — the normal variant
+is grounded by the branch's own commit log, the master-reconcile variant
+is grounded by sibling-branch snapshots (see "Master-reconcile variant"
+below). In both cases, `body.md` stays stable, `roadmap.md` is where most
+motion happens, and `notes.md` is append-only.
 
 ### `body.md` — the stable spine
 
@@ -63,6 +73,38 @@ PR's test plan, not as a standalone roadmap bullet.
 
 `notes.md` grows over time. When a note becomes obsolete, annotate it in
 place (e.g., `~~...~~ — superseded by slice 3`) instead of deleting it.
+
+## Master-reconcile variant
+
+`dev-memjective-update`'s **master-reconcile variant** fires only when the
+skill runs on `master`, and only as a downstream step from
+`dev-memjective-next` on master (never invoked directly by the user).
+It reconciles master's snapshot against **sibling-branch snapshots** —
+other refs under `refs/brmem/ns/memjectives/*` carrying the same slug,
+including orphaned refs whose branches have been deleted.
+
+Invariants:
+
+- **Sibling snapshots are read-only evidence.** The reconcile reads
+  sibling `body.md` / `roadmap.md` / `notes.md` to ground its rewrite;
+  it never writes back to any sibling ref.
+- **Rewrite obeys the per-file mutation contract.** Sibling evidence
+  informs _which_ roadmap items to check, _what_ durable findings to
+  append to `notes.md`, and _whether_ a completion criterion in
+  `body.md` has landed — it does not unlock wholesale regeneration.
+- **Enumeration is in-repo only.** `git for-each-ref
+  refs/brmem/ns/memjectives/` + local `brmem` reads. No `gh`, no
+  `git fetch`, no network dependency.
+- **Orphaned refs are valid but labeled.** A ref whose branch is
+  deleted still holds a readable snapshot. Treat its content as
+  evidence; label it `orphaned-ref` in the report; prefer corroboration
+  from a live sibling or a merged PR on master before acting on its
+  signal alone.
+- **Verbatim copy is forbidden.** Carry-forward (exact-copy,
+  single-source) is `dev-memjective-next`'s job on slice branches; the
+  reconcile fuses evidence across siblings into a conservative rewrite.
+
+See `../../dev-memjective-update/SKILL.md` §5a for the full algorithm.
 
 ## Rules for `dev-memjective-peek`
 
@@ -122,7 +164,14 @@ that point forward.
 - Repeating roadmap progress in `body.md`'s Description.
 - Using `body.md`'s Goals as a second roadmap.
 - Storing progress history in the `Status:` line.
-- Using `update` to rewrite the master-branch snapshot.
+- Rewriting the master-branch snapshot without going through `update`'s
+  master-reconcile variant (invoked by `next` on master). Direct
+  `update` calls on master are forbidden; the sibling-evidence
+  gathering pass is mandatory.
+- Copying a sibling snapshot verbatim onto master during reconcile.
+  Verbatim copy is the carry-forward primitive, which is `next`'s job
+  on slice branches — not `update`'s job on master. Sibling text is
+  evidence, not source.
 - Letting `next` edit any file while carrying it forward. Carry-forward is
   always an exact copy of a single source; any reshaping belongs to
   `update` after implementation lands.
