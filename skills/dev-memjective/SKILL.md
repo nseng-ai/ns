@@ -47,13 +47,22 @@ issues, comments, or PR bodies.
 
 Memjectives live entirely in `brmem` under namespace `memjectives`, keyed by
 `<slug>/<filename>`. A memjective is a **directory of files** — a required
-`body.md` plus optional siblings `roadmap.md` and `notes.md`. The ref layout
-is:
+`body.md` plus optional siblings `roadmap.md` and `notes.md`.
+
+Storage is snapshot-shaped: a single ref per `(namespace, branch)` holds a
+commit whose tree is the namespace's filesystem for that branch. Keys are
+paths inside that tree. The snapshot ref is:
 
 ```text
-refs/brmem/memjectives/<encoded-branch>/<slug>/body.md
-refs/brmem/memjectives/<encoded-branch>/<slug>/roadmap.md    (optional)
-refs/brmem/memjectives/<encoded-branch>/<slug>/notes.md      (optional)
+refs/brmem/ns/memjectives/<encoded-branch>
+```
+
+and an individual file is addressed with a `:<key>` suffix:
+
+```text
+refs/brmem/ns/memjectives/<encoded-branch>:<slug>/body.md
+refs/brmem/ns/memjectives/<encoded-branch>:<slug>/roadmap.md    (optional)
+refs/brmem/ns/memjectives/<encoded-branch>:<slug>/notes.md      (optional)
 ```
 
 Branch names are encoded by replacing `/` with `---`. The slug is the path
@@ -68,7 +77,7 @@ Each memjective has **two kinds of snapshots**:
    them. Not rewritten by any operation skill during normal progress.
 2. **Per-branch snapshot** — the speculative, in-flight state on a specific
    working branch. Files appear under
-   `refs/brmem/memjectives/<encoded-branch>/<slug>/`. Rewritten
+   `refs/brmem/ns/memjectives/<encoded-branch>:<slug>/`. Rewritten
    conservatively by `dev-memjective-update` as slices land — typically
    `roadmap.md` (checking off items) and `notes.md` (appending findings)
    move most. Each branch has at most one memjective.
@@ -157,7 +166,7 @@ A concrete slice-cycle walkthrough, using slug `widget-rewrite`.
 ### t=0 — `dev-memjective-create` on `master`
 
 `create` drafts the memjective and writes `body.md` to
-`refs/brmem/memjectives/master/widget-rewrite/body.md` as the initial
+`refs/brmem/ns/memjectives/master:widget-rewrite/body.md` as the initial
 snapshot:
 
 ```markdown

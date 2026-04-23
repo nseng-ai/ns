@@ -272,8 +272,8 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
 
    Expect 0 matches. If the new branch somehow already has any entry
    under a `<slug>/` prefix (extremely unlikely — would mean the slug
-   collided with an existing refs/brmem path), abort and surface the
-   collision so the user can pick a different slug.
+   collided with an existing key in the current snapshot's tree), abort
+   and surface the collision so the user can pick a different slug.
 
 6. **Continue at step 1** on the new branch. Discovery in step 2b will see
    `<prev>` as an ancestor, find its snapshot, and carry it forward.
@@ -376,18 +376,21 @@ falling through to discovery.
 
 #### 2b. Ancestor snapshots
 
-Enumerate every `(branch, key)` pair that has a memjective entry:
+Enumerate every `(branch, key)` pair that has a memjective entry. Storage
+is snapshot-shaped — one ref per `(namespace, branch)` — so enumeration is
+a two-step walk: list the snapshot refs first, then read the keys inside
+each snapshot's tree.
 
 ```bash
-git for-each-ref --format='%(refname)' refs/brmem/memjectives/
+git for-each-ref --format='%(refname)' refs/brmem/ns/memjectives/
 ```
 
-Each refname is
-`refs/brmem/memjectives/<encoded-branch>/<slug>/<filename>`. Extract the
-`<encoded-branch>` segment (the 4th path component), decode `---` → `/` to
-recover the real branch name, and pair it with the trailing
-`<slug>/<filename>` key. Group keys by `<slug>` per branch — one memjective
-per (branch, slug) regardless of how many files are attached.
+Each refname is `refs/brmem/ns/memjectives/<encoded-branch>`. Extract the
+`<encoded-branch>` segment (the trailing path component), decode `---` →
+`/` to recover the real branch name. Then list the keys on that snapshot
+with `git ls-tree -r <refname>` — each path is a `<slug>/<filename>` key.
+Group keys by `<slug>` per branch — one memjective per (branch, slug)
+regardless of how many files are attached.
 
 Filter the list:
 
@@ -630,7 +633,7 @@ After implementation, summarize:
   handled by the step 0 picker above; this rule still applies to
   ancestor branches enumerated in step 2b and to master-branch handling
   in step 2c.)
-- **Worktrees** — `git for-each-ref refs/brmem/...` is repo-global, so
+- **Worktrees** — `git for-each-ref refs/brmem/ns/...` is repo-global, so
   ancestor enumeration works correctly from any worktree.
 - **Multiple ancestor snapshots on the branch stack** → choose the one
   with the smallest `git rev-list --count <branch>..HEAD`. If a slug
