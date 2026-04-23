@@ -74,7 +74,11 @@ Each memjective has **two kinds of snapshots**:
 1. **Master-branch snapshot (initial)** — the initial snapshot, stored on
    `master`. `dev-memjective-create` writes `body.md` there once; subsequent
    `roadmap.md` / `notes.md` files appear when there is content to put in
-   them. Not rewritten by any operation skill during normal progress.
+   them. Mostly stable during normal lifecycle — the one normal-lifecycle
+   write path is `dev-memjective-update`'s **master-reconcile variant**,
+   invoked by `dev-memjective-next` when run on master, which folds
+   evidence from sibling-branch snapshots into a conservative rewrite
+   (see the mutation contract and `dev-memjective-update` §5a).
 2. **Per-branch snapshot** — the speculative, in-flight state on a specific
    working branch. Files appear under
    `refs/brmem/ns/memjectives/<encoded-branch>:<slug>/`. Rewritten
@@ -82,8 +86,10 @@ Each memjective has **two kinds of snapshots**:
    `roadmap.md` (checking off items) and `notes.md` (appending findings)
    move most. Each branch has at most one memjective.
 
-The master-branch snapshot is treated as an immutable starting point during
-the normal lifecycle. The per-branch snapshot is the working document.
+The master-branch snapshot is mostly stable during the normal lifecycle;
+its only normal-lifecycle rewrite path is the master-reconcile variant
+of `update`, gated behind a user confirmation in `dev-memjective-next` on
+master. The per-branch snapshot is the working document.
 
 Only `body.md` is required; the absence of `roadmap.md` or `notes.md` means
 that file hasn't been written yet, not that the memjective is malformed.
@@ -278,7 +284,10 @@ dev-memjective-create  →  ( dev-memjective-peek?  →  new slice branch  →
 - **Update** (`dev-memjective-update`): after work completes, conservatively
   rewrite the branch snapshot to reflect what happened. This brings the
   memjective up-to-date with respect to the state of the current branch at
-  a particular point in time. Runs once per slice.
+  a particular point in time. Runs once per slice. Also supports a
+  **master-reconcile variant** invoked by `dev-memjective-next` when run
+  on master, which rewrites master's snapshot with sibling-branch
+  evidence (see that skill's §5a).
 
 A session may mix these freely: skip `peek` and go straight to `next`, run
 `update` without having run `next` in this session (if a snapshot is already
@@ -299,10 +308,16 @@ honest. The full table lives in `references/mutation-contract.md`. Summary:
   every file present under `<slug>/` on the source verbatim (body + any
   roadmap + any notes).
 - **`update`** — rewrites only the current branch's files. Each file has
-  its own per-section rules (see the full table).
+  its own per-section rules (see the full table). Has a **master-reconcile
+  variant** that runs when the current branch is master, fired by
+  `dev-memjective-next` on master; it rewrites master's snapshot using
+  sibling-branch snapshots as evidence, still bound by the per-file
+  mutation contract.
 
-No operation skill rewrites the master-branch snapshot or any other branch's
-snapshot during normal progress.
+No operation skill rewrites any other-branch snapshot during normal
+progress. The master-branch snapshot is similarly stable in normal
+progress, with one narrow exception: the `update` master-reconcile
+variant described above.
 
 Within `update`, the rewrite is **conservative** and per-file:
 
@@ -335,7 +350,10 @@ This subsystem follows the `dev-` prefix convention — see `AGENTS.md` >
 - **Branch deleted before its snapshot was consumed.** The snapshot is
   effectively orphaned but still addressable by ref until garbage collected.
   The master-branch snapshot remains authoritative; any fresh slice branch
-  can resolve from it.
+  can resolve from it. Orphaned refs are also valid _evidence_ for
+  `update`'s master-reconcile variant — their content is readable even
+  after the branch is gone, and the reconcile labels them `orphaned-ref`
+  when surfacing them in its report.
 - **Concurrent drafts on different branches.** No git-level conflict because
   refs are per-branch. The snapshots will diverge. Reconciliation is manual
   and human-driven; the system does not auto-merge.

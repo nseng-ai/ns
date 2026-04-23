@@ -126,15 +126,24 @@ prompt flows described below.
   here) or an off-topic parent (carry-forward writes to a new slice branch
   stacked on top, implement there). The skill never guesses — it surfaces
   the choice.
-- **Update on next (active-slug only).** Before cutting a new slice
-  branch off a `<prev>` that holds an active memjective, run a cheap
-  freshness check (brmem `head_date` vs branch HEAD commit time). If
-  commits have landed since the memjective was last touched, prompt once;
-  on confirmation, run the `dev-memjective-update` workflow on `<prev>`
-  before the cut. The hook is silent when the memjective is already in
-  sync and does **not** fire in the off-topic-parent case (§2b) —
-  updating an ancestor's memjective that may belong to a different
-  workstream is out of scope for `next`.
+- **Update on next.** Before cutting a new slice branch off a `<prev>`
+  that holds an active memjective, run a cheap freshness check (brmem
+  `head_date` vs branch HEAD commit time). If commits have landed since
+  the memjective was last touched, prompt once; on confirmation, run the
+  `dev-memjective-update` workflow on `<prev>` before the cut. The hook
+  is silent when the memjective is already in sync and does **not** fire
+  in the off-topic-parent case (§2b) — updating an ancestor's memjective
+  that may belong to a different workstream is out of scope for `next`.
+
+  **Master variant.** When `<prev>` is `master`, the freshness check
+  itself is skipped (master's HEAD is virtually always newer than its
+  snapshot, so the compare adds no signal) and the hook **always
+  prompts** the user. On confirmation, `next` invokes
+  `dev-memjective-update`'s **master-reconcile variant** (see that
+  skill's §5a) — which gathers evidence from sibling-branch snapshots
+  carrying the same slug before rewriting master's files
+  conservatively. The user-confirmation gate is preserved; writes to
+  master only happen on an explicit `[Y/n]` yes.
 - **Carry-forward copies every file under the slug.** The brmem mutation
   this skill performs is an exact-copy carry-forward — one atomic
   `brmem copy` that transfers every file under `<slug>/`
@@ -242,41 +251,58 @@ was last touched, then cut a new branch off `<prev>` and let discovery
 (step 3b) pick up `<prev>`'s (possibly just-updated) snapshot for
 `<slug>` as the ancestor source.
 
-1. **Cheap freshness check.** Compare the newest memjective write under
-   `<slug>/` against the current branch's HEAD commit time:
+1. **Freshness signal.** Three-arm decision:
 
-   ```bash
-   latest_mem_ts=$(
-     for f in body.md roadmap.md notes.md; do
-       brmem check <slug>/$f --namespace memjectives --format json 2>/dev/null \
-         | jq -r '.data.head_date // empty'
-     done | sort | tail -n1
-   )
+   - **`<prev>` is `master`** → skip the comparison; always prompt.
+     Master's HEAD is virtually always newer than its snapshot (every
+     merged PR lands there), so the compare adds no signal. Continue
+     to step 2's master-variant prompt.
+   - **`<prev>` is any other branch** → run the cheap freshness check:
 
-   head_ts=$(git log -1 --format=%cI HEAD)
-   ```
+     ```bash
+     latest_mem_ts=$(
+       for f in body.md roadmap.md notes.md; do
+         brmem check <slug>/$f --namespace memjectives --format json 2>/dev/null \
+           | jq -r '.data.head_date // empty'
+       done | sort | tail -n1
+     )
 
-   Compare as ISO 8601 strings (lexicographic sort is correct for the
-   `%cI` / `head_date` format). Two outcomes:
+     head_ts=$(git log -1 --format=%cI HEAD)
+     ```
 
-   - `head_ts <= latest_mem_ts` → **no update needed.** Log one line,
-     e.g. _"memjective is up to date with HEAD"_, and skip to step 3.
-   - `head_ts > latest_mem_ts` → **update may be warranted.** Continue
-     to step 2.
+     Compare as ISO 8601 strings (lexicographic sort is correct for
+     the `%cI` / `head_date` format). Two sub-outcomes:
 
-2. **Conditional update.** Surface the signal to the user:
+     - `head_ts <= latest_mem_ts` → **no update needed.** Log one
+       line, e.g. _"memjective is up to date with HEAD"_, and skip
+       to step 3.
+     - `head_ts > latest_mem_ts` → **update may be warranted.**
+       Continue to step 2's active-slug prompt.
+
+2. **Conditional update.** Two variants, depending on `<prev>`.
+
+   **Active-slug variant** (`<prev>` is a slice branch, freshness check
+   tripped):
 
    > _N commits have landed on `<prev>` since the memjective was last
    > touched at `<latest_mem_ts>`. Run `dev-memjective-update` on
    > `<prev>` now? [Y/n]_
 
+   **Master variant** (`<prev>` is `master`):
+
+   > _You're on `master`. Run `dev-memjective-update`'s master-reconcile
+   > variant to fold evidence from sibling-branch snapshots into
+   > master's `<slug>` snapshot before cutting the slice branch?
+   > [Y/n]_
+
    Default is **yes**. Accept yes/no:
 
    - **Yes** → run the `dev-memjective-update` workflow inline against
-     the current branch (`<prev>`). Follow that skill's steps 3–6
+     the current branch (`<prev>`). Follow that skill's relevant steps
      verbatim: capture prior per-file commit SHAs (step 3), load the
-     active files (step 4), apply the conservative rewrite per the
-     per-file mutation contract (step 5), and persist any changed
+     active files (step 4), gather sibling-branch evidence when
+     `<prev>` is master (step 5a), apply the conservative rewrite per
+     the per-file mutation contract (step 5), and persist any changed
      files back to brmem (step 6). Capture the per-file old → new
      commit SHAs for the §9 report. Do **not** duplicate the
      mutation-contract logic here — reference
@@ -284,9 +310,12 @@ was last touched, then cut a new branch off `<prev>` and let discovery
    - **No** → skip the update and continue to step 3. Note the skip
      in the §9 report.
 
-   Rationale for the prompt: the cheap freshness signal can be noisy
-   after a rebase or `git commit --amend` on `<prev>`, so a single
-   confirmation keeps false positives from quietly mutating brmem state.
+   Rationale for the prompt: on a slice branch, the cheap freshness
+   signal can be noisy after a rebase or `git commit --amend` on
+   `<prev>`, so a single confirmation keeps false positives from
+   quietly mutating brmem state. On master, writes to the durable
+   starting-point snapshot are higher-stakes and always deserve an
+   explicit yes.
 
 3. **Load `body.md` + `roadmap.md`** — read the **post-update** files
    (if step 2 ran an update) to pick the next slice:
@@ -651,15 +680,27 @@ After implementation, summarize:
 - **Source** — label + slug (e.g., _snapshot (ancestor branch `clinkr-m1`)_,
   slug `clinkr-followups`).
 - **Update-on-next hook** — one of:
-  - _fired_ — the cheap freshness check tripped, the user accepted, and
-    the inline `dev-memjective-update` workflow ran on `<prev>`. List
-    per-file rewrites as `<slug>/<file>: <old-sha> → <new-sha>` for each
-    file that was rewritten.
-  - _skipped (declined)_ — the cheap check tripped but the user declined
-    the prompt. No writes to `<prev>`.
-  - _no-op (in sync)_ — the cheap check saw no new commits on `<prev>`
-    since the memjective was last touched. Include the one-liner
-    _"memjective was already in sync with HEAD"_.
+  - _fired (active-slug)_ — the cheap freshness check tripped on a
+    non-master `<prev>`, the user accepted, and the inline
+    `dev-memjective-update` workflow ran on `<prev>`. List per-file
+    rewrites as `<slug>/<file>: <old-sha> → <new-sha>` for each file
+    that was rewritten.
+  - _fired (master-reconcile)_ — `<prev>` was master, the user
+    accepted, and `dev-memjective-update`'s master-reconcile variant
+    ran (§5a sibling-evidence gathering + §5 rewrite). List per-file
+    rewrites on master as `<slug>/<file>: <old-sha> → <new-sha>`, and
+    include a **Sibling evidence consulted** sub-section: for each
+    sibling, `<branch>` — liveness (`live` / `orphaned-ref`), newest
+    `head_date`, per-file verdict (`same` / `modified` /
+    `sibling-only`), one-line contribution. Note siblings dropped as
+    identical and the "plus K more (older)" bucket, if any.
+  - _skipped (declined)_ — the prompt fired but the user declined. No
+    writes to `<prev>`.
+  - _no-op (in sync)_ — the cheap check (non-master branch) saw no new
+    commits on `<prev>` since the memjective was last touched. Include
+    the one-liner _"memjective was already in sync with HEAD"_. Does
+    not apply on master (the check is skipped there and always
+    prompts).
   - _n/a_ — the hook does not apply (fresh-slice case, §2b
     off-topic-parent case).
 - **Carry-forward** — old state (namespace was empty on the current
@@ -681,8 +722,13 @@ After implementation, summarize:
 - **Detached HEAD** → abort in step 1.
 - **Current branch already has a memjective snapshot** → do not abort.
   Run step 2a to cut a new slice branch (with the update-on-next hook
-  firing first if the freshness check trips), then continue at step 3 on
-  the new branch.
+  firing first if the freshness check trips, or unconditionally if
+  `<prev>` is master), then continue at step 3 on the new branch.
+- **Current branch is `master`** → not an abort. Step 2's 2+-slug or
+  1-slug path runs as usual; step 2a's update-on-next hook fires in the
+  master variant (skip the compare, always prompt), which routes to
+  `dev-memjective-update`'s master-reconcile variant (§5a
+  sibling-evidence gathering) on user confirmation.
 - **Current branch has files for 2+ distinct memjective slugs** → step 2
   presents a picker; the user chooses which slug to progress. If a slug
   arg was provided in the invoking prompt and matches one of the slugs,
@@ -702,13 +748,21 @@ After implementation, summarize:
   point (step 2 multi-slug, step 3b multi-ancestor, step 3c multi-master)
   → list what is available, flag the mismatch, and fall back to the
   interactive flow. Do not silently ignore the arg.
-- **Cheap freshness check trips but user declines the update** → proceed
+- **Update hook prompt fires but user declines the update** → proceed
   to branch-cut; the §9 report notes the skip. `<prev>`'s memjective is
-  unchanged from what was there before this session.
+  unchanged from what was there before this session. Applies to both
+  the active-slug variant (cheap check tripped) and the master variant
+  (unconditional prompt).
 - **Cheap freshness check signal is noisy after a rebase or
   `git commit --amend` on `<prev>`** → the prompt still fires; the user
   can decline and move on. The signal is advisory — a single
-  confirmation is the cheap insurance against false positives.
+  confirmation is the cheap insurance against false positives. Does
+  not apply on master (the compare is skipped there).
+- **Master snapshot has no sibling branches** → §5a's enumeration
+  returns 0 candidates. The master-reconcile variant still runs but
+  has no evidence to fuse; the §5 rewrite ends up touching nothing (or
+  only what the user explicitly confirms). Report in §9 as
+  `fired (master-reconcile)` with an empty sibling list.
 - **`<prev>` has only `body.md` (no `roadmap.md` / `notes.md`)** → the
   freshness check still works: the max `head_date` across whatever
   files exist is well-defined, and the single-file case compares
@@ -766,16 +820,30 @@ After implementation, summarize:
   the arg on the floor.
 - Auto-running the update-on-next hook without user confirmation. The
   prompt is the cheap insurance against noisy timestamp signals
-  (rebase, amend). Always ask once when the freshness check trips.
+  (rebase, amend) on slice branches, and the gate against unintended
+  writes to master's durable snapshot. Always ask once — whether the
+  freshness check tripped or `<prev>` is master.
 - Firing the update-on-next hook in the §2b off-topic-parent case. The
   ancestor source may belong to a different workstream — `next` does
   not mutate someone else's memjective on their behalf.
+- Running the cheap freshness compare on master anyway. Master HEAD is
+  always newer than its snapshot; the compare adds no signal and
+  "trips" are not informative. Skip straight to the master-variant
+  prompt.
+- Invoking `dev-memjective-update`'s master-reconcile variant on a
+  slice branch. The variant fires only when `<prev>` is master; on any
+  other branch, use the normal `update` workflow grounded by the
+  branch's own commit log.
+- Copying a sibling snapshot verbatim onto master during a
+  master-reconcile run. Sibling text is evidence, not source;
+  carry-forward (exact-copy, single-source) is `next`'s job on slice
+  branches, not `update`'s job on master.
 - Loading `body.md` / `roadmap.md` for slice-picking **before** the
   update runs. Slice selection in §2a step 3 reads the post-update
   roadmap; running it earlier can pick a slice against a stale plan.
 - Duplicating the `dev-memjective-update` workflow inline in §2a step 2
-  instead of referencing that skill's steps 3–6. Keep the mutation
-  contract in one place.
+  instead of referencing that skill's steps 3–6 (and §5a for master).
+  Keep the mutation contract in one place.
 - Creating the new slice branch without user confirmation of the slug.
   Always surface the proposed slug and the next slice first; accept the
   user's override.

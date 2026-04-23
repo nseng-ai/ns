@@ -3,6 +3,11 @@ name: dev-memjective-update
 description: "Rewrite the current branch's memjective files after a slice of work lands. Requires exactly one memjective slug under `memjectives/<slug>/` on the branch. Applies conservative in-place edits per the per-file mutation contract, writes back to brmem, and reports old/new commit SHAs for recovery. See `dev-memjective` for the subsystem overview."
 allowed-tools:
   - "Bash(git rev-parse *)"
+  - "Bash(git for-each-ref *)"
+  - "Bash(git ls-tree *)"
+  - "Bash(git merge-base *)"
+  - "Bash(git log *)"
+  - "Bash(diff *)"
   - "Bash(brmem *)"
   - "Read"
   - "Write"
@@ -40,6 +45,12 @@ a fresh slice branch.
   file from scratch.
 - **Preserve history.** brmem keeps prior snapshots by commit; report the
   old SHA for every file you rewrite so the user can recover it.
+- **Master-reconcile variant.** When the current branch is `master`, run
+  the sibling-evidence gathering pass (§5a) before the §5 rewrite. The
+  per-file mutation contract still applies — sibling snapshots are
+  read-only evidence, never a verbatim source. This variant is invoked
+  by `dev-memjective-next` on master; see `../dev-memjective-next/SKILL.md`
+  §2a.
 
 ## Workflow
 
@@ -109,11 +120,96 @@ If any file is badly malformed, consult the corresponding template under
 `../dev-memjective/templates/` for intended shape, but preserve the
 existing content rather than regenerating it.
 
+### 5a. Sibling-evidence gathering (master only)
+
+This step runs only when the current branch is `master`. On any other
+branch, skip straight to §5.
+
+On master, the `git log master` signal is noisy (every merged PR) and
+the branch's own commit log does not cleanly describe per-slice work.
+Instead, ground the rewrite in **sibling-branch snapshots** — other
+refs under `refs/brmem/ns/memjectives/*` carrying the same slug. Each
+sibling's `update`-written snapshot is itself a distilled record of
+what landed on its branch.
+
+#### Step 1 — Enumerate sibling refs
+
+```bash
+git for-each-ref --format='%(refname)' refs/brmem/ns/memjectives/
+```
+
+For each ref, extract `<encoded-branch>` (the trailing path segment)
+and decode `---` → `/`. Run `git ls-tree -r <refname>` and keep only
+refs whose tree contains paths starting with `<slug>/`. Drop the ref
+whose encoded branch is `master` — that is the target, not a sibling.
+
+#### Step 2 — Classify each sibling
+
+For each surviving sibling, record:
+
+- **Liveness** — `git rev-parse --verify --quiet refs/heads/<sibling>`
+  → `live` or `orphaned-ref` (branch deleted; ref still readable).
+- **Per-file metadata** — for each of `body.md`, `roadmap.md`, `notes.md`
+  that exists under `<slug>/` on that ref:
+
+  ```bash
+  brmem check <slug>/<file> --namespace memjectives --branch <sibling> --format json
+  ```
+
+  Extract `.data.head_sha` and `.data.head_date`.
+- **Per-file text** —
+
+  ```bash
+  brmem get <slug>/<file> --namespace memjectives --branch <sibling> \
+    > /tmp/<slug>-<sibling>-<file>
+  ```
+- **Divergence from master** — diff each sibling file against master's
+  copy from §4. Flag each file `same`, `modified`, or `sibling-only`.
+
+#### Step 3 — Filter and rank
+
+Drop siblings whose files are byte-identical to master's across every
+file (they add no signal). Rank the remainder by newest `head_date`
+across their files (ISO 8601 lexicographic sort). Cap at N=10; footnote
+any excess as "plus K more (older)".
+
+#### Step 4 — Assemble the evidence bundle
+
+For each surviving sibling, build a block containing:
+
+- Sibling branch name + liveness (`live` / `orphaned-ref`).
+- Newest `head_date` across its files.
+- Per-file verdict (`same` / `modified` / `sibling-only`) and the diff
+  regions against master for modified files.
+- For `roadmap.md` across all siblings: the union of items with checked
+  boxes. An item checked in any sibling is evidence that the slice
+  landed.
+- For `notes.md` across all siblings: durable findings not already
+  present on master, attributed with markers like
+  `<!-- from sibling <branch>, <head_date> -->`.
+
+This bundle is the grounding for §5's rewrite. It is not itself a
+rewrite.
+
+#### Step 5 — Report the evidence to the user before rewriting
+
+Summarize which siblings were consulted (count + list with liveness
+labels) and the headline per-file signals. The user can course-correct
+if the sibling set looks wrong (e.g., an unrelated slug collision).
+The §7 report later includes the full per-sibling record.
+
 ### 5. Rewrite conservatively, per file
 
 Apply the per-file mutation contract in
 `../dev-memjective/references/mutation-contract.md`. In practice, keep
-each rewrite narrow:
+each rewrite narrow.
+
+On master (master-reconcile variant), use the sibling-evidence bundle
+from §5a as the primary grounding for what moves. The per-file rules
+are the same as on a slice branch; only the evidence source differs.
+For checkbox flips in `body.md`'s Completion Criteria and `roadmap.md`,
+prefer signals corroborated by more than one sibling when available, and
+treat orphaned-ref-only signals as weaker than live-sibling signals.
 
 **`body.md`** — the stable spine; touch sparingly:
 
@@ -145,14 +241,21 @@ should mostly touch `Status` + `Completion Criteria` in `body.md`,
 checkboxes in `roadmap.md`, and appends to `notes.md`. `body.md`'s
 top-of-document context should stay mostly stable over time.
 
-**Sourcing "what landed" signal.** For simple rewrites, `git log --oneline
-master` is usually enough — squash-merged PRs appear as `Title (#N)`
-commits on master. When the commit title is terse or a file cites PR
-numbers that need cross-checking, consulting GitHub directly via `gh pr
-view <N>` or `gh pr list --state merged --search ...` is encouraged —
-reading GitHub is allowed. Do not synthesize new document content from PR
-bodies; use GitHub signal only to ground the conservative edits the
-mutation contract already allows.
+**Sourcing "what landed" signal.** On a slice branch (normal variant),
+`git log --oneline master` is usually enough — squash-merged PRs appear
+as `Title (#N)` commits on master. When the commit title is terse or a
+file cites PR numbers that need cross-checking, consulting GitHub
+directly via `gh pr view <N>` or `gh pr list --state merged --search
+...` is encouraged — reading GitHub is allowed. Do not synthesize new
+document content from PR bodies; use GitHub signal only to ground the
+conservative edits the mutation contract already allows.
+
+On master (master-reconcile variant), prefer sibling-branch snapshots
+(§5a evidence bundle) over raw `git log master`. Sibling `roadmap.md`
+and `notes.md` are already distilled records of per-slice work; the
+master `git log` is comparatively noisy. GitHub lookups remain
+available for cross-checking a specific PR referenced in sibling text,
+not as a primary signal source.
 
 ### 6. Persist the updated files
 
@@ -175,11 +278,19 @@ change in this session.
 Summarize:
 
 - memjective slug
+- variant — `normal` (slice branch) or `master-reconcile` (on master).
 - files touched (`body.md`, `roadmap.md`, `notes.md`) and a one-line note
   for each — e.g., "body.md: status → done; 2 criteria checked",
   "roadmap.md: Slice 2 items checked", "notes.md: appended threading
   gotcha"
 - per-file old commit SHA → new commit SHA
+- **Sibling evidence consulted** (master-reconcile only): for each
+  sibling listed by recency, report `<branch>` — liveness
+  (`live` / `orphaned-ref`), newest `head_date`, per-file verdict
+  (`same` / `modified` / `sibling-only`), and a one-line contribution
+  (e.g., "checked Slice 1 items 1–3 in roadmap", "notes: threading
+  gotcha carried forward"). Also note siblings dropped as identical and
+  siblings skipped as too old (the "plus K more" bucket, if any).
 - recovery hint:
 
 ```text
@@ -195,12 +306,25 @@ brmem get <slug>/<file> --namespace memjectives --at <old-sha>
   a slice before re-running `update`.
 - **Current branch has files for 2+ distinct memjective slugs** → abort;
   invalid state.
-- **User wants the master-branch snapshot updated** → refuse; the
-  master-branch snapshot is frozen during the normal lifecycle.
+- **Current branch is master** → run the master-reconcile variant
+  (§5a sibling-evidence gathering, then §5 rewrite). This variant is
+  normally invoked by `dev-memjective-next` on master; direct user
+  invocation is allowed but should confirm with the user before
+  writing.
+- **Sibling ref exists but its branch has been deleted** → treat the
+  ref as valid evidence; label it `orphaned-ref` in the report.
+  Prefer corroboration from a live sibling or a merged PR on master
+  before acting on its signal alone.
 
 ## Anti-patterns
 
-- Updating the master-branch memjective files.
+- Updating the master-branch snapshot without the sibling-evidence
+  gathering pass (§5a). The master-reconcile variant is mandatory on
+  master; direct freehand `update` on master is forbidden.
+- Copying a sibling snapshot verbatim onto master during reconcile.
+  Verbatim copy is `dev-memjective-next`'s carry-forward primitive on
+  slice branches, not `update`'s job on master. Sibling text is
+  evidence, not source.
 - Regenerating any file from memory or from the original user brief when a
   real snapshot already exists.
 - Silently deleting completed roadmap items or notes.
