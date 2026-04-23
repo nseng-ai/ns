@@ -54,7 +54,7 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
     assert "get" in result.output
     assert "list" in result.output
     assert "check" in result.output
-    assert "copy" not in result.output
+    assert "copy" in result.output
     assert "list-artifacts" not in result.output
     assert "check-artifact" not in result.output
     assert "check-entry" not in result.output
@@ -1142,3 +1142,228 @@ def test_brmem_list_base_and_namespace_are_mutually_exclusive(
     assert result.exit_code == 2
     assert payload["error_type"] == "base_and_namespace_conflict"
     assert "mutually exclusive" in payload["message"]
+
+
+# ---------------------------------------------------------------------------
+# brmem copy
+# ---------------------------------------------------------------------------
+
+
+def _seed_for_copy() -> FakeBranchMemoryGateway:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "foo/body.md", "master", "body\n")
+    gateway.put("memjectives", "foo/roadmap.md", "master", "road\n")
+    gateway.put("memjectives", "foo/notes.md", "master", "notes\n")
+    gateway.put("memjectives", "bar/body.md", "master", "other\n")
+    return gateway
+
+
+def test_brmem_copy_help_lists_flags(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["copy", "-h"])
+
+    assert result.exit_code == 0
+    assert "--namespace" in result.output
+    assert "--from-branch" in result.output
+    assert "--to-branch" in result.output
+    assert "--overwrite" in result.output
+    assert "--dry-run" in result.output
+
+
+def test_brmem_copy_happy_path_copies_every_file_in_namespace(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_for_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Copied 4 entries from master to feat/x" in result.output
+    assert "foo/body.md" in result.output
+    assert "foo/roadmap.md" in result.output
+    assert "foo/notes.md" in result.output
+    assert "bar/body.md" in result.output
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "body\n"
+    assert gateway.get("memjectives", "foo/roadmap.md", "feat/x") == "road\n"
+    assert gateway.get("memjectives", "foo/notes.md", "feat/x") == "notes\n"
+    assert gateway.get("memjectives", "bar/body.md", "feat/x") == "other\n"
+
+
+def test_brmem_copy_dry_run_does_not_mutate(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_for_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--dry-run",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Would copy 4 entries" in result.output
+    assert gateway.check("memjectives", "foo/body.md", "feat/x") is None
+    assert gateway.check("memjectives", "foo/roadmap.md", "feat/x") is None
+    assert gateway.check("memjectives", "foo/notes.md", "feat/x") is None
+    assert gateway.check("memjectives", "bar/body.md", "feat/x") is None
+
+
+def test_brmem_copy_empty_source_exits_failure(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=FakeBranchMemoryGateway())
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 2
+    assert "No entries found on branch master" in result.output
+    assert "memjectives" in result.output
+
+
+def test_brmem_copy_conflict_without_overwrite_exits_failure(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_for_copy()
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 2
+    assert "already has entries for: foo/body.md" in result.output
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "existing\n"
+    assert gateway.check("memjectives", "foo/roadmap.md", "feat/x") is None
+
+
+def test_brmem_copy_overwrite_replaces_destination(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_for_copy()
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--overwrite",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "body\n"
+
+
+def test_brmem_copy_invalid_branch_surfaces_clean_error(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "feat---x",
+            "--to-branch",
+            "feat/y",
+        ],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid branch name 'feat---x'" in result.output
+
+
+def test_brmem_copy_json_envelope_reports_plan(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_for_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert data["namespace"] == "memjectives"
+    assert data["from_branch"] == "master"
+    assert data["to_branch"] == "feat/x"
+    assert data["overwrite"] is False
+    assert data["dry_run"] is False
+    assert [item["key"] for item in data["copied"]] == [
+        "bar/body.md",
+        "foo/body.md",
+        "foo/notes.md",
+        "foo/roadmap.md",
+    ]
+    for item in data["copied"]:
+        assert item["source_ref"].startswith("refs/brmem/ns/memjectives/master/")
+        assert item["destination_ref"].startswith("refs/brmem/ns/memjectives/feat---x/")
+        assert item["source_sha"].startswith("fake-")
+
+
+def test_brmem_copy_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["copy", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema"}

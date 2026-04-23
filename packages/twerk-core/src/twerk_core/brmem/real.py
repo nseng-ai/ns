@@ -11,9 +11,11 @@ from twerk_core.brmem.gateway import (
     BRMEM_NS_SEGMENT,
     BRMEM_REF_PREFIX,
     BranchMemoryGateway,
+    BrmemCopyConflictError,
     EntryDiagnostic,
     EntryRef,
     InvalidBranchNameError,
+    encode_branch_segment,
     parse_entry_ref,
     ref_name_for_entry,
     validate_branch_name,
@@ -37,6 +39,52 @@ def _run(
         check=check,
         input=input,
     )
+
+
+def _parse_source_pairs(
+    listing_stdout: str,
+    namespace: str,
+    branch: str,
+) -> list[tuple[EntryRef, str]]:
+    """Parse ``git for-each-ref --format='%(refname) %(objectname)'`` output.
+
+    Returns ``(entry, objectname)`` pairs for refs matching ``namespace`` and
+    ``branch``, sorted by ``entry.key``. Malformed lines are skipped.
+    """
+    pairs: list[tuple[EntryRef, str]] = []
+    for line in listing_stdout.splitlines():
+        refname, _, objectname = line.strip().partition(" ")
+        if not refname or not objectname:
+            continue
+        entry = parse_entry_ref(refname)
+        if entry is None:
+            continue
+        if entry.namespace != namespace or entry.branch != branch:
+            continue
+        pairs.append((entry, objectname))
+    pairs.sort(key=lambda pair: pair[0].key)
+    return pairs
+
+
+def _parse_existing_keys(
+    listing_stdout: str,
+    namespace: str,
+    branch: str,
+) -> set[str]:
+    """Parse ``git for-each-ref --format='%(refname)'`` output.
+
+    Returns the set of ``entry.key`` values for refs matching ``namespace``
+    and ``branch``. Malformed lines are skipped.
+    """
+    keys: set[str] = set()
+    for line in listing_stdout.splitlines():
+        entry = parse_entry_ref(line.strip())
+        if entry is None:
+            continue
+        if entry.namespace != namespace or entry.branch != branch:
+            continue
+        keys.add(entry.key)
+    return keys
 
 
 class RealBranchMemoryGateway(BranchMemoryGateway):
@@ -181,6 +229,88 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             blob_sha=blob_sha,
             size_bytes=size_bytes,
         )
+
+    def copy_entries(
+        self,
+        *,
+        namespace: str,
+        from_branch: str,
+        to_branch: str,
+        overwrite: bool = False,
+    ) -> tuple[EntryRef, ...]:
+        validate_namespace(namespace)
+        validate_branch_name(from_branch)
+        validate_branch_name(to_branch)
+
+        source_prefix = (
+            f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/"
+            f"{encode_branch_segment(from_branch)}/"
+        )
+        listing = _run(
+            ["git", "for-each-ref", "--format=%(refname) %(objectname)", source_prefix],
+            cwd=self._cwd,
+            check=False,
+        )
+        if listing.returncode != 0:
+            return ()
+
+        source_pairs = _parse_source_pairs(listing.stdout, namespace, from_branch)
+
+        if not source_pairs:
+            return ()
+
+        existing_dest: set[str] = set()
+        if not overwrite:
+            dest_listing = _run(
+                [
+                    "git",
+                    "for-each-ref",
+                    "--format=%(refname)",
+                    (
+                        f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/"
+                        f"{encode_branch_segment(to_branch)}/"
+                    ),
+                ],
+                cwd=self._cwd,
+                check=False,
+            )
+            if dest_listing.returncode == 0:
+                existing_dest = _parse_existing_keys(dest_listing.stdout, namespace, to_branch)
+
+        source_keys = {entry.key for entry, _ in source_pairs}
+        conflicts = tuple(
+            EntryRef(
+                namespace=namespace,
+                key=key,
+                branch=to_branch,
+                ref_name=ref_name_for_entry(namespace, key, to_branch),
+            )
+            for key in sorted(source_keys & existing_dest)
+        )
+        if conflicts and not overwrite:
+            raise BrmemCopyConflictError(conflicts)
+
+        stdin_lines: list[str] = []
+        dest_entries: list[EntryRef] = []
+        for entry, sha in source_pairs:
+            dest_ref = ref_name_for_entry(namespace, entry.key, to_branch)
+            verb = "update" if overwrite else "create"
+            stdin_lines.append(f"{verb} {dest_ref} {sha}\n")
+            dest_entries.append(
+                EntryRef(
+                    namespace=namespace,
+                    key=entry.key,
+                    branch=to_branch,
+                    ref_name=dest_ref,
+                )
+            )
+
+        _run(
+            ["git", "update-ref", "--stdin"],
+            cwd=self._cwd,
+            input="".join(stdin_lines),
+        )
+        return tuple(dest_entries)
 
     def _validated_ref_name(self, namespace: str | None, key: str, branch: str) -> str:
         ref_name = ref_name_for_entry(namespace, key, branch)

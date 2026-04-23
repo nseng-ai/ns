@@ -69,6 +69,15 @@ class InvalidNamespaceError(ValueError):
         super().__init__(f"Invalid namespace {namespace!r}: {reason}")
 
 
+class BrmemCopyConflictError(Exception):
+    """Raised when ``copy_entries`` finds existing destination keys and ``overwrite`` is false."""
+
+    def __init__(self, conflicts: tuple[EntryRef, ...]) -> None:
+        self.conflicts = conflicts
+        joined = ", ".join(entry.key for entry in conflicts)
+        super().__init__(f"destination has conflicting entries: {joined}")
+
+
 class BranchMemoryGateway(ABC):
     """Store small per-branch blobs outside the working tree.
 
@@ -122,6 +131,25 @@ class BranchMemoryGateway(ABC):
         at: str | None = None,
     ) -> EntryDiagnostic | None:
         """Return diagnostics for the entry at ``at`` (or head), or ``None``."""
+
+    @abstractmethod
+    def copy_entries(
+        self,
+        *,
+        namespace: str,
+        from_branch: str,
+        to_branch: str,
+        overwrite: bool = False,
+    ) -> tuple[EntryRef, ...]:
+        """Atomically copy every entry within ``namespace`` from ``from_branch``
+        to ``to_branch``.
+
+        Each destination entry is pointed at the **same commit SHA** as its
+        source — no new blob or tree is created. When ``overwrite`` is
+        ``False`` and any destination key already exists, raises
+        :class:`BrmemCopyConflictError` before mutating any ref. Returns the
+        destination :class:`EntryRef`\\s in sorted key order.
+        """
 
 
 # -- ref helpers --------------------------------------------------------------
