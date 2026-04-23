@@ -36,14 +36,46 @@ class ReviewListResult:
         }
 
 
+@dataclass(frozen=True)
+class ReviewKeyGroup:
+    prefix: str | None
+    entries: tuple[str, ...]
+
+
+def build_review_key_groups(keys: tuple[str, ...]) -> tuple[ReviewKeyGroup, ...]:
+    grouped_entries: dict[str | None, list[str]] = {}
+    for key in keys:
+        prefix, separator, remainder = key.partition("/")
+        group_prefix = prefix if separator else None
+        entry = remainder if separator else prefix
+        grouped_entries.setdefault(group_prefix, []).append(entry)
+
+    return tuple(
+        ReviewKeyGroup(prefix=prefix, entries=tuple(entries))
+        for prefix, entries in sorted(
+            grouped_entries.items(),
+            key=lambda item: (item[0] is not None, item[0] or ""),
+        )
+    )
+
+
 def render_review_list(result: ReviewListResult) -> None:
     click.echo(f"Reviews directory: {result.reviews_dir}")
     if not result.keys:
         click.echo("No reviews found.")
         return
     click.echo(f"Reviews: {len(result.keys)}")
-    for key in result.keys:
-        click.echo(f"- {key}")
+
+    for group in build_review_key_groups(result.keys):
+        if group.prefix is None:
+            for entry in group.entries:
+                click.echo(f"- {entry}")
+            continue
+
+        click.echo("")
+        click.echo(f"{group.prefix}/")
+        for entry in group.entries:
+            click.echo(f"  - {entry}")
 
 
 @clinkr_operation(
