@@ -11,7 +11,6 @@ from typing import Annotated, Any
 import click
 
 from twerk_core.brmem.gateway import (
-    BRMEM_CONTENT_PATH,
     EntryRef,
     check_branch_name,
     check_namespace,
@@ -83,7 +82,7 @@ def render_put(result: PutResult) -> None:
                 ),
                 f"Ref: {result.ref_name}",
                 f"Commit: {result.commit}",
-                f"Inspect: git show {result.ref_name}:{BRMEM_CONTENT_PATH}",
+                f"Inspect: git show {result.ref_name}",
             ]
         )
     )

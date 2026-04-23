@@ -104,6 +104,9 @@ def run_get(
 
     gateway = get_branch_memory_gateway(ctx)
     target = request.at if request.at is not None else entry_ref.ref_name
+    inspect_locator = (
+        f"{request.at}:{entry_ref.key}" if request.at is not None else entry_ref.ref_name
+    )
     content = gateway.get(
         entry_ref.namespace,
         entry_ref.key,
@@ -118,7 +121,7 @@ def run_get(
             message=(
                 f"No content for key {request.key} in namespace {namespace_label} "
                 f"on branch {entry_ref.branch} at {target}. "
-                f"Inspect with: git show {target}:content"
+                f"Inspect with: git show {inspect_locator}"
             ),
         )
 

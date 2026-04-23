@@ -1,10 +1,12 @@
-"""Key validation for branch-memory entry refs.
+"""Key validation for branch-memory entries.
 
-Keys are appended to the ``refs/brmem/base/<encoded-branch>/`` or
-``refs/brmem/ns/<namespace>/<encoded-branch>/`` prefix to form the full ref
-name, so every rule here mirrors a clause in git's ref-format spec.
-See ``git-check-ref-format(1)`` (https://git-scm.com/docs/git-check-ref-format)
-for the authoritative list of what git will accept as a ref component.
+Keys become path components inside the snapshot commit's tree (e.g.
+``foo/body.md``). They are also serialized after a ``:`` into the
+``<snapshot-ref>:<key>`` locator returned by :func:`ref_name_for_entry`, so
+the validation here keeps keys both git-path-safe and locator-safe.
+Restrictions mirror ``git-check-ref-format(1)``
+(https://git-scm.com/docs/git-check-ref-format) where applicable so any key
+also behaves well when used as a pathspec.
 """
 
 from __future__ import annotations
