@@ -37,14 +37,24 @@ the current branch if needed), then implement the next chunk of work.
 
 ## Goal
 
-Run **on a slice branch** — either a fresh branch the user just created, or
-the previous slice branch in which case this skill will help cut a new one.
+Run from one of three starting branches:
+
+- a **fresh slice branch** the user just created for the next slice — the
+  skill carries the memjective forward and implements here;
+- a **previous slice branch** that already holds a memjective snapshot —
+  the skill cuts a new slice branch off it and continues there;
+- an **off-topic parent branch** that has no memjective of its own but
+  sits in a stack the user wants to build on — the skill cuts a new
+  slice branch on top of it and continues there.
+
 This skill:
 
-1. Checks whether the current branch already has any memjective files. If
-   so, proposes a slug for the next slice, asks the user to confirm, creates
-   a new branch using the project's branch-creation convention, and
-   continues from that fresh branch.
+1. Checks whether the current branch already has any memjective files,
+   and in the 0-file case asks whether to implement on this branch
+   (fresh slice) or stack a new slice branch on top (off-topic parent).
+   In both stack-a-new-branch paths, proposes a slug, asks the user to
+   confirm, creates the new branch using the project's branch-creation
+   convention, and continues from there.
 2. Resolves the active memjective from an ancestor branch snapshot, or from
    the master-branch snapshot when no ancestor snapshot exists.
 3. Copies every file under the resolved source's `<slug>/` verbatim onto
@@ -73,6 +83,16 @@ points that would otherwise prompt:
   memjective snapshots).
 - Step 2c multi-master picker (`master` has 2+ memjective snapshots).
 
+Step 0b's source picker (0-slug stack-on-top case) reuses step 2b and
+step 2c's discovery logic, so the slug arg auto-selects transitively
+there too.
+
+The slug arg identifies **which memjective** to progress. It does **not**
+disambiguate step 0's here-vs-stack mode choice (fresh-slice vs
+off-topic-parent) — that choice is always surfaced to the user when the
+current branch has 0 memjective files and at least one carry-forward
+source exists somewhere in the repo.
+
 If a slug arg is present but does **not** match any candidate at the
 relevant decision point, surface the mismatch (list the available slugs)
 and fall back to the interactive prompt. Do not silently ignore the
@@ -91,6 +111,12 @@ prompt flows described below.
   When the current branch carries 2+ distinct slugs, step 0 lets the user
   pick which slug to progress — the newly cut slice branch still holds
   exactly one memjective, preserving the invariant for new work.
+- **Off-topic branches are valid starting points, but not implement-in-place
+  targets.** When the current branch has 0 memjective files, step 0 asks
+  whether it's a fresh slice branch (carry-forward writes to it, implement
+  here) or an off-topic parent (carry-forward writes to a new slice branch
+  stacked on top, implement there). The skill never guesses — it surfaces
+  the choice.
 - **Carry-forward copies every file under the slug.** The brmem mutations
   this skill performs are exact-copy carry-forwards — one `brmem put` per
   file (`body.md`, and any of `roadmap.md` / `notes.md` that exist on the
@@ -115,6 +141,11 @@ prompt flows described below.
 
 ### 0. Branch state check — fresh branch, or cut one
 
+Step 0 is the session's entry-point state check. It runs **once** per
+invocation. When §0a or §0b cuts a new slice branch, subsequent steps
+(1 onwards) execute on the new branch — step 0 itself does not re-run,
+so its prompts never fire twice.
+
 ```bash
 brmem list --namespace memjectives
 ```
@@ -126,7 +157,26 @@ are attached.
 
 Decision rules:
 
-- **0 distinct slugs** → fresh branch, continue to step 1.
+- **0 distinct slugs** → the current branch could be either a fresh slice
+  branch the user just cut for the next slice, or an off-topic parent in
+  a stack. Ask the user which:
+
+  - **Implement on this branch** (fresh-slice case). Continue to step 1.
+    Step 2 will discover the source from ancestors or master.
+  - **Stack a new slice branch on top** (off-topic-parent case). Run
+    §0b's cut-new-branch flow.
+
+  Two short-circuits skip the prompt:
+
+  - If no memjectives exist anywhere in the repo (no ancestor snapshots,
+    no master-branch snapshots), the stack-on-top option is unavailable;
+    fall through as fresh-slice and continue to step 1 (step 2c's
+    0-snapshots rule will ask the user to name a source — or they
+    probably want `dev-memjective-create`, not this skill).
+  - If a slug arg was provided, it still does **not** pick the mode —
+    the here-vs-stack choice is independent of which memjective is
+    being progressed. Surface both options and let the user choose.
+
 - **1 distinct slug** → current branch already holds a memjective. Do
   **not** abort. Instead, treat that slug as the **active slug** and run
   the "cut a new slice branch" flow below, then restart at step 1 on the
@@ -225,6 +275,64 @@ off `<prev>` and let discovery (step 2b) pick up `<prev>`'s snapshot for
 6. **Continue at step 1** on the new branch. Discovery in step 2b will see
    `<prev>` as an ancestor, find its snapshot, and carry it forward.
 
+#### 0b. Cut a new slice branch (off-topic-parent case)
+
+The current branch — call it `<prev>` — has no memjective files, but the
+user chose **stack a new slice branch on top** rather than implement here.
+`<prev>` is unrelated work (a sibling feature commit, an in-flight
+refactor, anything) that the user wants to stack the next slice onto.
+Because `<prev>` carries no memjective, step 2b cannot find the source via
+ancestry of the new branch — so §0b resolves the source **before** cutting
+and passes it forward as an explicit user source for step 2a.
+
+1. **Resolve the source now**, running against the current (off-topic)
+   branch:
+
+   - Run step 2b's ancestor discovery over the current branch's history.
+     `<prev>` itself contributes 0 slugs, so it won't appear as a
+     candidate, but older ancestors that carry memjective snapshots
+     will. Apply the slug-arg hook if a slug arg was provided.
+   - If step 2b produces 0 candidates, fall through to step 2c
+     (master-branch snapshots). Apply the slug-arg hook.
+   - If both 2b and 2c produce 0 candidates, the short-circuit in
+     step 0's 0-slug rule should already have routed here as
+     fresh-slice instead; abort §0b and tell the user there is
+     nothing to carry forward.
+
+   Let the chosen source be labeled `<source>` with slug `<slug>`.
+
+2. **Load `<source>`** per step 3 (`body.md` always, plus `roadmap.md`
+   and `notes.md` if present) into `/tmp/<slug>-*.md`.
+
+3. **Propose a kebab-case slug for the new branch** derived from the
+   next unchecked roadmap item in `<source>`'s `roadmap.md`. Follow
+   §0a step 2's slug guidance.
+
+4. **Ask the user to confirm.** Present: `<source>` label + slug, the
+   chosen next slice title, a one-line rationale, the proposed branch
+   name. Accept a user-supplied slug and use it verbatim if provided.
+
+   If the roadmap choice is non-obvious, offer 2–3 candidate slices
+   with slug suggestions and let the user pick (same as §0a step 3).
+
+5. **Create the branch** per §0a step 4:
+
+   ```bash
+   gt create <slug>
+   ```
+
+   Fall back to `git checkout -b <slug>` if `gt create` refuses. Do
+   not stage throwaway content just to satisfy `gt`.
+
+6. **Re-verify the precondition** on the new branch per §0a step 5 —
+   `brmem list --namespace memjectives` should return 0 entries.
+
+7. **Continue at step 1** on the new branch, treating `<source>` as
+   the **explicit user source for step 2a**. This bypasses step 2b /
+   2c discovery on the new branch — they must not re-prompt the user,
+   since the source was already chosen in §0b step 1. Steps 3, 3a, 4,
+   5, 6 then proceed normally.
+
 ### 1. Pre-flight: confirm repo + current branch
 
 ```bash
@@ -242,8 +350,10 @@ Abort if:
 ### 2. Resolve the memjective source
 
 Step 0 guarantees the current branch has zero memjective entries (either
-because it was already fresh, or because step 0a cut a new one). Two
-sources remain, in order.
+because it was already fresh, or because §0a / §0b cut a new one). Two
+sources remain, in order. When §0b cut the branch it also pre-seeded
+`<source>` as the explicit step 2a source — in that case 2a resolves
+immediately and 2b / 2c do not run.
 
 #### 2a. Explicit user source
 
@@ -472,6 +582,15 @@ After implementation, summarize:
   step 0 auto-selects it. Either way, step 0a cuts a fresh slice branch
   for the chosen slug and the other memjectives stay on `<prev>`
   untouched. Not an abort.
+- **Current branch has 0 memjective snapshots and is off-topic** (an
+  unrelated feature branch the user wants to stack onto) → step 0 asks
+  whether to implement here or stack a new slice branch on top. If the
+  user picks stack-on-top, §0b resolves the source, cuts a new slice
+  branch via `gt create`, and continues there. `<prev>` stays untouched.
+- **Current branch has 0 memjective snapshots and no memjectives exist
+  anywhere in the repo** → step 0 short-circuits to the fresh-slice
+  path. Step 2c's 0-snapshots rule then asks the user to name a source,
+  or the user should use `dev-memjective-create` instead.
 - **Slug arg does not match any candidate** at the relevant decision
   point (step 0 multi-slug, step 2b multi-ancestor, step 2c multi-master)
   → list what is available, flag the mismatch, and fall back to the
@@ -509,6 +628,20 @@ After implementation, summarize:
   continue, don't push the user back to a shell. This applies whether
   the branch carries one slug or multiple; 2+ slugs is a picker, not a
   dead end.
+- Silently implementing on an off-topic branch. When step 0 sees 0
+  memjective files on the current branch, do not assume "fresh slice
+  branch, implement here" — ask whether to implement here (fresh
+  slice) or stack a new slice branch on top (off-topic parent). The
+  only time the prompt is skipped is when no memjectives exist
+  anywhere in the repo (nothing to stack).
+- Using a slug arg to decide the here-vs-stack mode. The slug arg
+  identifies which memjective to carry forward; it does not pick
+  between fresh-slice and off-topic-parent. Always ask the user for
+  the mode when step 0 sees 0 memjective files.
+- Re-prompting the user on the new branch after §0a or §0b cuts it.
+  Step 0 runs once per invocation; §0a and §0b hand off to step 1 on
+  the new branch, and in §0b's case pre-seed `<source>` as step 2a's
+  explicit source so 2b/2c do not re-ask.
 - Silently ignoring a slug arg supplied in the invoking prompt. If the
   arg matches a candidate at the relevant decision point, auto-select
   it. If it doesn't, surface the mismatch and fall back — never drop
