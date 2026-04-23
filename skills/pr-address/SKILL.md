@@ -82,12 +82,15 @@ echo '{}' | <pr-address-runner> exec prepare-run --format json
 
 ## Prerequisites
 
-1. `git status --porcelain` is empty.
-2. `test -x <pr-address-runner>` succeeds.
-3. `gh auth status` is healthy.
-4. The current branch has an open PR.
+1. `test -x <pr-address-runner>` succeeds.
+2. `gh auth status` is healthy.
+3. The current branch has an open PR.
 
 Stop on the first failed prerequisite and report the problem clearly.
+
+The working tree does not need to be clean. `pr-address` is allowed to run
+with uncommitted edits in the tree. The operator is responsible for staging
+only the files belonging to each batch (see step 4).
 
 ## Workflow
 
