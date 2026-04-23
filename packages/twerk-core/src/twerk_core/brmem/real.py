@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from twerk_core.brmem.gateway import (
@@ -85,6 +87,102 @@ def _parse_existing_keys(
             continue
         keys.add(entry.key)
     return keys
+
+
+_EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+
+def _build_tree_from_entries(cwd: Path, entries: dict[str, str]) -> str:
+    """Build a git tree from ``{path: blob_sha}`` and return the tree SHA.
+
+    Uses a temporary ``GIT_INDEX_FILE`` plus ``git update-index
+    --add --cacheinfo 100644,<blob-sha>,<path>`` followed by ``git write-tree``.
+    ``path`` may be nested (e.g. ``foo/body.md``); ``git write-tree`` builds
+    subtrees as needed. An empty ``entries`` dict returns git's canonical
+    empty-tree SHA without invoking git.
+    """
+    if not entries:
+        return _EMPTY_TREE_SHA
+
+    # Git refuses to read an empty file as an index ("index file smaller than
+    # expected"), so we point ``GIT_INDEX_FILE`` at a path that does not yet
+    # exist inside a fresh temp directory and let git create it on first write.
+    tmp_dir = Path(tempfile.mkdtemp(prefix="brmem-index-"))
+    index_path = tmp_dir / "index"
+    try:
+        env = {**os.environ, "GIT_INDEX_FILE": str(index_path)}
+        for path, blob_sha in entries.items():
+            subprocess.run(
+                [
+                    "git",
+                    "update-index",
+                    "--add",
+                    "--cacheinfo",
+                    f"100644,{blob_sha},{path}",
+                ],
+                cwd=cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        result = subprocess.run(
+            ["git", "write-tree"],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    finally:
+        index_path.unlink(missing_ok=True)
+        tmp_dir.rmdir()
+
+
+def _enumerate_tree_entries(cwd: Path, ref_or_tree: str) -> list[tuple[str, str]]:
+    """Return ``(path, blob_sha)`` pairs for every blob reachable from ``ref_or_tree``.
+
+    Uses ``git ls-tree -r --format=%(path)%x09%(objectname)``. Returns an empty
+    list when the ref or tree does not exist.
+    """
+    result = _run(
+        [
+            "git",
+            "ls-tree",
+            "-r",
+            "--format=%(path)%x09%(objectname)",
+            ref_or_tree,
+        ],
+        cwd=cwd,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    for line in result.stdout.splitlines():
+        path, _, blob_sha = line.partition("\t")
+        if not path or not blob_sha:
+            continue
+        pairs.append((path, blob_sha))
+    return pairs
+
+
+def _snapshot_ref_name(namespace: str | None, branch: str) -> str:
+    """Return the snapshot ref name for ``(namespace, branch)``.
+
+    Produces ``refs/brmem/ns/<namespace>/<encoded-branch>`` for namespaced
+    snapshots and ``refs/brmem/base/<encoded-branch>`` for ad-hoc ones. The
+    branch is encoded with :func:`encode_branch_segment` so it fits in a single
+    ref segment.
+    """
+    validate_branch_name(branch)
+    encoded_branch = encode_branch_segment(branch)
+    if namespace is None:
+        return f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/{encoded_branch}"
+    validate_namespace(namespace)
+    return f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/{encoded_branch}"
 
 
 class RealBranchMemoryGateway(BranchMemoryGateway):

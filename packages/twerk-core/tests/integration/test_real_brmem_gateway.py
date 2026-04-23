@@ -292,10 +292,10 @@ def test_real_brmem_copy_entries_reuses_source_commit_shas(tmp_path: Path) -> No
         _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/body.md").stdout.strip()
         == body_sha
     )
-    assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/roadmap.md").stdout.strip()
-        == roadmap_sha
-    )
+    roadmap_rev = _run_git(
+        repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x/foo/roadmap.md"
+    ).stdout.strip()
+    assert roadmap_rev == roadmap_sha
 
 
 def test_real_brmem_copy_entries_raises_on_conflict_without_overwrite(tmp_path: Path) -> None:
