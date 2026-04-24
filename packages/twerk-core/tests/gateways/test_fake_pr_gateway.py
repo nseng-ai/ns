@@ -72,6 +72,7 @@ def test_get_pr_for_branch() -> None:
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
+        head_sha="fakesha",
         base_ref_name="master",
         state="OPEN",
     )

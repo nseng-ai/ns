@@ -12,6 +12,7 @@ import click
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import (
+    CheckRunAnnotation,
     IssueComment,
     PRLookupError,
     PRReview,
@@ -19,9 +20,19 @@ from twerk_core.gh.types import (
     PRState,
 )
 from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
-from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway, get_git_gateway
+from twerk_pr_address.cli.pr_address.gateway_access import (
+    get_check_runs_gateway,
+    get_gh_issue_gateway,
+    get_git_gateway,
+)
 from twerk_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
 from twerk_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
+
+# Prefix on the check-run ``name`` that identifies a reviewer-authored
+# check run. Ingestion filters by this prefix so pr-address only picks up
+# machine-generated reviewer annotations, not arbitrary third-party check
+# runs (lint CI, type CI, etc.) that also attach to the same commit.
+_REVIEWER_CHECK_NAME_PREFIX = "twerk-reviewer/"
 
 RestructuredFiles = tuple[RestructuredFile, ...]
 
@@ -77,6 +88,11 @@ class PrepareRunResult:
             `origin/<base_ref_name>` and HEAD, detected via
             `git diff --name-status -M -C`. Used by the classifier to mark
             bot comments on moved code as `pre_existing`.
+        check_run_annotations: Reviewer-generated line annotations attached
+            to the PR's head SHA. Collected from all check runs whose name
+            starts with ``twerk-reviewer/``. Empty when the reviewer hasn't
+            run against the current head SHA yet — pr-address tolerates
+            that gracefully (no-op for unaffected branches).
         warnings: Non-fatal issues encountered while preparing the run
             (e.g. `git diff` failed; failed to reopen a contested thread).
         error: stderr from `gh pr view` when `found` is False.
@@ -96,6 +112,7 @@ class PrepareRunResult:
     discussion_comments: tuple[IssueComment, ...] = field(default_factory=tuple)
     reopened_thread_ids: tuple[str, ...] = field(default_factory=tuple)
     restructured_files: RestructuredFiles = field(default_factory=tuple)
+    check_run_annotations: tuple[CheckRunAnnotation, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = field(default_factory=tuple)
     error: str | None = None
     returncode: int | None = None
@@ -128,6 +145,9 @@ class PrepareRunResult:
             ],
             "reopened_thread_ids": list(self.reopened_thread_ids),
             "restructured_files": [dataclasses.asdict(item) for item in self.restructured_files],
+            "check_run_annotations": [
+                dataclasses.asdict(annotation) for annotation in self.check_run_annotations
+            ],
             "warnings": list(self.warnings),
         }
 
@@ -171,6 +191,8 @@ def run_prepare_run(
     reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
     snapshot_threads = gateway.get_review_threads(pr.number, include_resolved=True)
     discussion_comments = gateway.get_discussion_comments(pr.number)
+    check_runs_gateway = get_check_runs_gateway(ctx)
+    check_run_annotations = _fetch_reviewer_annotations(check_runs_gateway, pr.head_sha)
 
     warnings: list[str] = []
     reopened_thread_ids: list[str] = []
@@ -211,9 +233,31 @@ def run_prepare_run(
             discussion_comments=discussion_comments,
             reopened_thread_ids=tuple(reopened_thread_ids),
             restructured_files=restructured_files,
+            check_run_annotations=check_run_annotations,
             warnings=tuple(warnings),
         )
     )
+
+
+def _fetch_reviewer_annotations(
+    gateway: Any,
+    head_sha: str,
+) -> tuple[CheckRunAnnotation, ...]:
+    """Return all reviewer-authored annotations on ``head_sha``.
+
+    The set of review keys is discovered dynamically via ``list_check_runs``
+    with the ``twerk-reviewer/`` prefix filter, so the helper naturally
+    picks up check runs from every reviewer that has run against this
+    commit.
+    """
+    check_runs = gateway.list_check_runs(
+        head_sha,
+        name_prefix=_REVIEWER_CHECK_NAME_PREFIX,
+    )
+    annotations: list[CheckRunAnnotation] = []
+    for run in check_runs:
+        annotations.extend(gateway.list_annotations(run.id))
+    return tuple(annotations)
 
 
 def _contested_thread_ids(review_threads: tuple[PRReviewThread, ...]) -> tuple[str, ...]:

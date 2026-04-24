@@ -37,6 +37,7 @@ def _pr(
         title=title,
         url=url,
         head_ref_name=head,
+        head_sha="fakesha",
         base_ref_name=base,
         state=state,  # type: ignore[arg-type]
     )

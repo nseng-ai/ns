@@ -220,6 +220,17 @@ class FakeCheckRunsGateway(CheckRunsGateway):
     def find_check_run(self, head_sha: str, name: str) -> CheckRun | None:
         return self._check_runs.get((head_sha, name))
 
+    def list_check_runs(
+        self,
+        head_sha: str,
+        *,
+        name_prefix: str | None = None,
+    ) -> tuple[CheckRun, ...]:
+        runs = [run for (sha, _name), run in self._check_runs.items() if sha == head_sha]
+        if name_prefix is not None:
+            runs = [run for run in runs if run.name.startswith(name_prefix)]
+        return tuple(runs)
+
     def upsert_check_run(
         self,
         *,

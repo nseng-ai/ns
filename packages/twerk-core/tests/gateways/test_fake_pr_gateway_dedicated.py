@@ -12,6 +12,7 @@ def _make_pr(state: PRState) -> PRSummary:
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
+        head_sha="fakesha",
         base_ref_name="master",
         state=state,
     )

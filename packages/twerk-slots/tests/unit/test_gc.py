@@ -47,6 +47,7 @@ def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
         title=f"PR {number}",
         url=f"https://github.com/dagster-io/twerk/pull/{number}",
         head_ref_name=branch,
+        head_sha="fakesha",
         base_ref_name="master",
         state=state,
     )

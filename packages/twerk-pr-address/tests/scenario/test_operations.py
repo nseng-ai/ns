@@ -11,7 +11,7 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.testing import FakeCheckRunsGateway, FakeIssueGateway
 from twerk_core.gh.types import (
     IssueComment,
     PRReview,
@@ -30,7 +30,11 @@ def cli_group() -> ClinkrGroup:
 
 
 def _ctx(fake: FakeIssueGateway) -> PrAddressCliContext:
-    return PrAddressCliContext(gh_issue_gateway=fake, git_gateway=FakeGitGateway())
+    return PrAddressCliContext(
+        gh_issue_gateway=fake,
+        git_gateway=FakeGitGateway(),
+        check_runs=FakeCheckRunsGateway(),
+    )
 
 
 def _obj(context: object) -> object:
@@ -447,6 +451,7 @@ def test_get_pr_for_branch_returns_summary(cli_group: ClinkrGroup) -> None:
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
+        head_sha="fakesha",
         base_ref_name="master",
         state="OPEN",
     )
@@ -634,6 +639,7 @@ def test_get_pr_for_branch_json_mode(cli_group: ClinkrGroup) -> None:
         title="Add feature",
         url="https://github.com/dagster-io/twerk/pull/42",
         head_ref_name="feature",
+        head_sha="fakesha",
         base_ref_name="master",
         state="OPEN",
     )

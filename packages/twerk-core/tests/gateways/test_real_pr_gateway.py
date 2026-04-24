@@ -44,6 +44,7 @@ def test_real_pr_gateway_returns_summary(
                 "title": "Port pr-address skill",
                 "url": "https://github.com/dagster-io/twerk/pull/47",
                 "headRefName": "feature",
+                "headRefOid": "fakesha",
                 "baseRefName": "master",
                 "state": state,
             },

@@ -108,7 +108,7 @@ def _run_gh_api(
 class RealCheckRunsGateway(CheckRunsGateway):
     """CheckRunsGateway implemented by shelling out to the ``gh`` CLI."""
 
-    def find_check_run(self, head_sha: str, name: str) -> CheckRun | None:
+    def _fetch_check_runs_raw(self, head_sha: str) -> list[dict[str, Any]]:
         owner, repo = fetch_owner_repo()
         result = subprocess.run(
             [
@@ -136,10 +136,24 @@ class RealCheckRunsGateway(CheckRunsGateway):
             raw_page, index = decoder.raw_decode(stdout, index)
             page = cast(dict[str, Any], raw_page)
             runs.extend(page.get("check_runs", []))
-        for run in runs:
+        return runs
+
+    def find_check_run(self, head_sha: str, name: str) -> CheckRun | None:
+        for run in self._fetch_check_runs_raw(head_sha):
             if run["name"] == name:
                 return _check_run_from_api(run)
         return None
+
+    def list_check_runs(
+        self,
+        head_sha: str,
+        *,
+        name_prefix: str | None = None,
+    ) -> tuple[CheckRun, ...]:
+        runs = self._fetch_check_runs_raw(head_sha)
+        if name_prefix is not None:
+            runs = [r for r in runs if r["name"].startswith(name_prefix)]
+        return tuple(_check_run_from_api(r) for r in runs)
 
     def upsert_check_run(
         self,

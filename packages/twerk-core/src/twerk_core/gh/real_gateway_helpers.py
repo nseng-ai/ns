@@ -24,7 +24,7 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
             "view",
             branch,
             "--json",
-            "number,title,url,headRefName,baseRefName,state",
+            "number,title,url,headRefName,headRefOid,baseRefName,state",
         ],
         capture_output=True,
         text=True,
@@ -41,6 +41,7 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
         title=data["title"],
         url=data["url"],
         head_ref_name=data["headRefName"],
+        head_sha=data["headRefOid"],
         base_ref_name=data["baseRefName"],
         state=state,
     )

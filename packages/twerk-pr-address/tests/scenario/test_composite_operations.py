@@ -11,8 +11,10 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.testing import FakeCheckRunsGateway, FakeIssueGateway
 from twerk_core.gh.types import (
+    CheckRun,
+    CheckRunAnnotation,
     IssueComment,
     PRReview,
     PRReviewComment,
@@ -42,11 +44,13 @@ def _invoke_json(
     fake: FakeIssueGateway,
     *,
     git_gateway: FakeGitGateway | None = None,
+    check_runs: FakeCheckRunsGateway | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     ctx = PrAddressCliContext(
         gh_issue_gateway=fake,
         git_gateway=git_gateway if git_gateway is not None else FakeGitGateway(),
+        check_runs=check_runs if check_runs is not None else FakeCheckRunsGateway(),
     )
     # The operation name comes first; `--format json` goes next (before any
     # positional arg that might start with `-`) so Click parses it as an
@@ -71,6 +75,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
                 title="Update helper surface",
                 url="https://example.com/pr/42",
                 head_ref_name="feature",
+                head_sha="fakesha",
                 base_ref_name="master",
                 state="OPEN",
             )
@@ -218,6 +223,7 @@ def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
                 title="Update helper surface",
                 url="https://example.com/pr/42",
                 head_ref_name="feature",
+                head_sha="fakesha",
                 base_ref_name="master",
                 state="OPEN",
             )
@@ -291,6 +297,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
         title="t",
         url="u",
         head_ref_name="feature",
+        head_sha="fakesha",
         base_ref_name="master",
         state="OPEN",
     )
@@ -358,6 +365,7 @@ def test_prepare_run_warns_when_restructured_file_detection_fails(
                 title="Update helper surface",
                 url="https://example.com/pr/42",
                 head_ref_name="feature",
+                head_sha="fakesha",
                 base_ref_name="master",
                 state="OPEN",
             )
@@ -632,3 +640,183 @@ def test_resolve_thread_with_reply_explained_requires_message(cli_group: ClinkrG
     assert output["error_type"] == "invalid_request"
     assert "message" in output["message"]
     assert fake._resolved_thread_ids == []
+
+
+# -- prepare-run check-run annotation ingestion --
+
+
+def _pr(*, head_sha: str = "abc123") -> PRSummary:
+    return PRSummary(
+        number=42,
+        title="Test PR",
+        url="https://example.com/pr/42",
+        head_ref_name="feature",
+        head_sha=head_sha,
+        base_ref_name="master",
+        state="OPEN",
+    )
+
+
+def _reviewer_check_run(
+    *,
+    run_id: int,
+    head_sha: str = "abc123",
+    review_key: str,
+) -> CheckRun:
+    return CheckRun(
+        id=run_id,
+        name=f"twerk-reviewer/{review_key}",
+        head_sha=head_sha,
+        status="completed",
+        conclusion="neutral",
+        html_url=f"https://example.com/checks/{run_id}",
+    )
+
+
+def _annotation(*, line: int, message: str = "m", path: str = "src/a.py") -> CheckRunAnnotation:
+    return CheckRunAnnotation(
+        path=path,
+        start_line=line,
+        end_line=line,
+        annotation_level="warning",
+        message=message,
+    )
+
+
+def test_prepare_run_ingests_reviewer_check_annotations(cli_group: ClinkrGroup) -> None:
+    fake = FakeIssueGateway(prs_by_branch={"feature": _pr()})
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+    check_runs = FakeCheckRunsGateway(
+        check_runs=[_reviewer_check_run(run_id=1, review_key="dignified-python")],
+        annotations_by_id={
+            1: [
+                _annotation(line=1, message="first"),
+                _annotation(line=2, message="second"),
+            ]
+        },
+    )
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        fake,
+        git_gateway=git_gateway,
+        check_runs=check_runs,
+    )
+
+    assert exit_code == 0
+    data = output["data"]
+    assert len(data["check_run_annotations"]) == 2
+    assert data["check_run_annotations"][0]["message"] == "first"
+    assert data["check_run_annotations"][0]["start_line"] == 1
+    assert data["check_run_annotations"][1]["message"] == "second"
+
+
+def test_prepare_run_aggregates_annotations_across_reviewers(cli_group: ClinkrGroup) -> None:
+    """Multiple reviewer check runs on the same head SHA all flow through."""
+    fake = FakeIssueGateway(prs_by_branch={"feature": _pr()})
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+    check_runs = FakeCheckRunsGateway(
+        check_runs=[
+            _reviewer_check_run(run_id=1, review_key="dignified-python"),
+            _reviewer_check_run(run_id=2, review_key="security"),
+        ],
+        annotations_by_id={
+            1: [_annotation(line=1, message="from-python")],
+            2: [_annotation(line=2, message="from-security")],
+        },
+    )
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        fake,
+        git_gateway=git_gateway,
+        check_runs=check_runs,
+    )
+
+    assert exit_code == 0
+    annotations = output["data"]["check_run_annotations"]
+    messages = {a["message"] for a in annotations}
+    assert messages == {"from-python", "from-security"}
+
+
+def test_prepare_run_filters_non_reviewer_check_runs(cli_group: ClinkrGroup) -> None:
+    """Check runs that don't start with 'twerk-reviewer/' are skipped."""
+    fake = FakeIssueGateway(prs_by_branch={"feature": _pr()})
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+    foreign_check_run = CheckRun(
+        id=99,
+        name="lint-ci",
+        head_sha="abc123",
+        status="completed",
+        conclusion="failure",
+        html_url="https://example.com/checks/99",
+    )
+    check_runs = FakeCheckRunsGateway(
+        check_runs=[
+            _reviewer_check_run(run_id=1, review_key="dignified-python"),
+            foreign_check_run,
+        ],
+        annotations_by_id={
+            1: [_annotation(line=1, message="from-reviewer")],
+            99: [_annotation(line=1, message="from-lint")],
+        },
+    )
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        fake,
+        git_gateway=git_gateway,
+        check_runs=check_runs,
+    )
+
+    assert exit_code == 0
+    annotations = output["data"]["check_run_annotations"]
+    assert len(annotations) == 1
+    assert annotations[0]["message"] == "from-reviewer"
+
+
+def test_prepare_run_returns_empty_annotations_when_no_reviewer_check_run(
+    cli_group: ClinkrGroup,
+) -> None:
+    """Running pr-address before the reviewer has published is a no-op for annotations."""
+    fake = FakeIssueGateway(prs_by_branch={"feature": _pr()})
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+    check_runs = FakeCheckRunsGateway()
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        fake,
+        git_gateway=git_gateway,
+        check_runs=check_runs,
+    )
+
+    assert exit_code == 0
+    assert output["data"]["check_run_annotations"] == []
+
+
+def test_prepare_run_ignores_check_runs_on_different_head_sha(
+    cli_group: ClinkrGroup,
+) -> None:
+    """Only the PR head SHA's annotations are ingested — stale SHAs are filtered."""
+    fake = FakeIssueGateway(prs_by_branch={"feature": _pr(head_sha="abc123")})
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+    stale_run = _reviewer_check_run(run_id=1, head_sha="ffffff", review_key="dignified-python")
+    check_runs = FakeCheckRunsGateway(
+        check_runs=[stale_run],
+        annotations_by_id={1: [_annotation(line=1, message="stale")]},
+    )
+
+    exit_code, output = _invoke_json(
+        cli_group,
+        ["prepare-run"],
+        fake,
+        git_gateway=git_gateway,
+        check_runs=check_runs,
+    )
+
+    assert exit_code == 0
+    assert output["data"]["check_run_annotations"] == []

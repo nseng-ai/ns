@@ -696,6 +696,7 @@ def test_get_pr_for_branch_returns_summary(
                 "title": "Port pr-address skill",
                 "url": "https://github.com/dagster-io/twerk/pull/47",
                 "headRefName": "twerk-pr-address-skill",
+                "headRefOid": "fakesha",
                 "baseRefName": "master",
                 "state": state,
             },

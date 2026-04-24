@@ -132,12 +132,17 @@ class PRSummary:
     needs for its Phase 0 preflight (number, title, URL, head/base refs) plus
     the lifecycle `state` used by `slot gc` to decide whether to reclaim the
     slot.
+
+    ``head_sha`` is the commit SHA at the tip of the PR's head branch. It is
+    required by commit-scoped APIs like the GitHub Checks API, which the
+    reviewer's annotation surface relies on.
     """
 
     number: int
     title: str
     url: str
     head_ref_name: str
+    head_sha: str
     base_ref_name: str
     state: PRState
 

@@ -49,6 +49,22 @@ class CheckRunsGateway(ABC):
         """
 
     @abstractmethod
+    def list_check_runs(
+        self,
+        head_sha: str,
+        *,
+        name_prefix: str | None = None,
+    ) -> tuple[CheckRun, ...]:
+        """Return all check runs attached to ``head_sha``.
+
+        When ``name_prefix`` is supplied, only check runs whose ``name``
+        starts with the prefix are returned. Used by consumers
+        (e.g. ``twerk-pr-address``) that want to ingest all reviewer check
+        runs on a given commit without knowing the set of review keys up
+        front — e.g. ``name_prefix="twerk-reviewer/"``.
+        """
+
+    @abstractmethod
     def upsert_check_run(
         self,
         *,
