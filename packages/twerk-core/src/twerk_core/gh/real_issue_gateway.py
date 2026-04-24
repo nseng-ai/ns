@@ -7,7 +7,7 @@ import subprocess
 from typing import Any, cast
 
 from twerk_core.gh.issue_gateway import IssueGateway
-from twerk_core.gh.real_gateway_helpers import fetch_pr_summary_for_branch
+from twerk_core.gh.real_gateway_helpers import fetch_owner_repo, fetch_pr_summary_for_branch
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
@@ -97,24 +97,6 @@ mutation($threadId: ID!, $body: String!) {
 """
 
 
-def _get_owner_repo() -> tuple[str, str]:
-    """Resolve `(owner, repo)` for the current working directory via `gh repo view`.
-
-    GraphQL queries require owner and repo as separate variables. This helper
-    is module-level (not a method) so sibling push-down methods that also
-    need owner/repo (`get_reviews`, `get_discussion_comments`, the mutation
-    ops) can reuse it without refactor churn.
-    """
-    result = subprocess.run(
-        ["gh", "repo", "view", "--json", "owner,name"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    data = json.loads(result.stdout)
-    return data["owner"]["login"], data["name"]
-
-
 def _load_paginated_array_output(stdout: str) -> list[dict[str, Any]]:
     """Parse `gh api --paginate` output for endpoints that return arrays.
 
@@ -171,7 +153,7 @@ class RealIssueGateway(IssueGateway):
     def get_review_threads(
         self, pr_number: int, *, include_resolved: bool = False
     ) -> tuple[PRReviewThread, ...]:
-        owner, repo = _get_owner_repo()
+        owner, repo = fetch_owner_repo()
         cmd = [
             "gh",
             "api",
@@ -223,7 +205,7 @@ class RealIssueGateway(IssueGateway):
         return tuple(threads)
 
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
-        owner, repo = _get_owner_repo()
+        owner, repo = fetch_owner_repo()
         result = subprocess.run(
             [
                 "gh",
@@ -250,7 +232,7 @@ class RealIssueGateway(IssueGateway):
         )
 
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
-        owner, repo = _get_owner_repo()
+        owner, repo = fetch_owner_repo()
         result = subprocess.run(
             [
                 "gh",
@@ -335,7 +317,7 @@ class RealIssueGateway(IssueGateway):
         )
 
     def add_comment(self, pr_number: int, body: str) -> IssueComment:
-        owner, repo = _get_owner_repo()
+        owner, repo = fetch_owner_repo()
         cmd = [
             "gh",
             "api",
@@ -367,7 +349,7 @@ class RealIssueGateway(IssueGateway):
         return None
 
     def update_comment(self, comment_id: int, body: str) -> IssueComment:
-        owner, repo = _get_owner_repo()
+        owner, repo = fetch_owner_repo()
         cmd = [
             "gh",
             "api",
@@ -388,7 +370,7 @@ class RealIssueGateway(IssueGateway):
         )
 
     def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
-        owner, repo = _get_owner_repo()
+        owner, repo = fetch_owner_repo()
         cmd = [
             "gh",
             "api",

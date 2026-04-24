@@ -186,3 +186,98 @@ class UnresolveReviewThreadResult:
 
     thread_id: str
     was_already_unresolved: bool
+
+
+# GitHub's check-runs API uses these three strings for the annotation severity.
+AnnotationLevel = Literal["notice", "warning", "failure"]
+
+# Conclusion values the reviewer will emit. The reviewer is informational, not
+# merge-gating, so only `neutral` is used in practice — but the full type is
+# kept so gateway consumers can read historical check runs that might have
+# landed with a different conclusion.
+CheckRunConclusion = Literal[
+    "success",
+    "neutral",
+    "failure",
+    "skipped",
+    "cancelled",
+    "timed_out",
+    "action_required",
+    "stale",
+]
+
+CheckRunStatus = Literal["queued", "in_progress", "completed"]
+
+
+@dataclass(frozen=True)
+class CheckRunAnnotation:
+    """A single line-anchored annotation attached to a GitHub check run.
+
+    Annotations carry per-finding signal in the "Files changed" view of a PR.
+    GitHub's Checks API requires both ``start_line`` and ``end_line`` to be
+    1-indexed, so findings without a usable line number must be rendered
+    elsewhere (e.g. into the check run's ``output.text``) rather than
+    anchored here.
+
+    Attributes:
+        path: File path the annotation anchors to (repository-relative).
+        start_line: First line of the annotated range (1-indexed).
+        end_line: Last line of the annotated range (1-indexed). Equal to
+            ``start_line`` for single-line annotations.
+        annotation_level: Severity, mapped from the reviewer's severity on the
+            publishing side.
+        message: Short, human-readable description of the finding. GitHub
+            caps this at 64 KB.
+        title: Optional short title rendered above the message. GitHub caps
+            this at 255 characters.
+        raw_details: Optional long-form detail shown in the expanded view.
+    """
+
+    path: str
+    start_line: int
+    end_line: int
+    annotation_level: AnnotationLevel
+    message: str
+    title: str | None = None
+    raw_details: str | None = None
+
+
+@dataclass(frozen=True)
+class CheckRunOutput:
+    """The ``output`` block of a check run.
+
+    Attributes:
+        title: Short title shown at the top of the check in the GitHub UI.
+        summary: Short markdown body shown above the annotations list.
+        text: Optional long markdown body. The reviewer uses this for
+            file-level findings that cannot be line-anchored (honours the
+            "full visibility of all findings" invariant).
+    """
+
+    title: str
+    summary: str
+    text: str | None = None
+
+
+@dataclass(frozen=True)
+class CheckRun:
+    """A GitHub check run attached to a commit SHA.
+
+    Attributes:
+        id: Numeric database ID — needed to append further annotations via
+            PATCH.
+        name: Check run name. The reviewer uses ``twerk-reviewer/<review-key>``
+            so each reviewer pass has its own idempotency key.
+        head_sha: Commit SHA the check run anchors to.
+        status: Current status.
+        conclusion: Terminal conclusion when status is ``completed``;
+            ``None`` otherwise.
+        html_url: Permalink to the check run in the GitHub UI.
+    """
+
+    id: int
+    name: str
+    head_sha: str
+    status: CheckRunStatus
+    conclusion: CheckRunConclusion | None
+    html_url: str

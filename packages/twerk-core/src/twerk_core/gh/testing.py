@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
+from twerk_core.gh.check_runs_gateway import CheckRunsGateway
 from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.types import (
+    CheckRun,
+    CheckRunAnnotation,
+    CheckRunOutput,
     Issue,
     IssueComment,
     PRLookupError,
@@ -166,3 +171,95 @@ class FakeIssueGateway(IssueGateway):
         self._next_reaction_id += 1
         self._reactions.append((comment_id, reaction))
         return Reaction(id=reaction_id, comment_id=comment_id, content=reaction)
+
+
+# The per-request annotation cap the real gateway has to respect. The fake
+# mirrors the chunking so tests can assert the real gateway's batch count
+# via ``_append_batches`` without having to reason about the REST surface.
+_FAKE_ANNOTATIONS_PER_REQUEST = 50
+
+
+class FakeCheckRunsGateway(CheckRunsGateway):
+    """In-memory fake implementation of CheckRunsGateway.
+
+    Constructor-only configuration with mutation tracking for assertions.
+    The fake mirrors the real gateway's 50-annotations-per-request chunking
+    so tests can assert on the number of batches without exercising the
+    REST surface.
+
+    Key shape: check runs are stored by ``(head_sha, name)``. ``upsert`` on
+    an existing key replaces the stored check run, matching the real
+    gateway's behavior for reruns against the same head SHA.
+    """
+
+    def __init__(
+        self,
+        *,
+        check_runs: Sequence[CheckRun] = (),
+        annotations_by_id: dict[int, Sequence[CheckRunAnnotation]] | None = None,
+    ) -> None:
+        self._check_runs: dict[tuple[str, str], CheckRun] = {
+            (run.head_sha, run.name): run for run in check_runs
+        }
+        self._annotations_by_id: dict[int, list[CheckRunAnnotation]] = {
+            run_id: list(entries) for run_id, entries in (annotations_by_id or {}).items()
+        }
+        self._next_check_run_id = max((run.id for run in check_runs), default=0) + 1
+
+        # Mutation tracking — public-but-underscored, read in tests for
+        # assertions. ``_upserted_calls`` records each top-level upsert with
+        # the annotation total. ``_append_batches`` records the size of
+        # every REST batch the real gateway would have sent, including the
+        # initial POST/PATCH body's chunk.
+        self._upserted_calls: list[tuple[str, str, int]] = []
+        self._append_batches: list[int] = []
+
+    def find_check_run(self, head_sha: str, name: str) -> CheckRun | None:
+        return self._check_runs.get((head_sha, name))
+
+    def upsert_check_run(
+        self,
+        *,
+        head_sha: str,
+        name: str,
+        output: CheckRunOutput,
+        annotations: Sequence[CheckRunAnnotation],
+        conclusion: Literal["neutral"] = "neutral",
+    ) -> CheckRun:
+        existing = self._check_runs.get((head_sha, name))
+        if existing is None:
+            check_run_id = self._next_check_run_id
+            self._next_check_run_id += 1
+            html_url = f"https://github.com/fake/fake/runs/{check_run_id}?check_suite_focus=true"
+        else:
+            check_run_id = existing.id
+            html_url = existing.html_url
+
+        check_run = CheckRun(
+            id=check_run_id,
+            name=name,
+            head_sha=head_sha,
+            status="completed",
+            conclusion=conclusion,
+            html_url=html_url,
+        )
+        self._check_runs[(head_sha, name)] = check_run
+
+        annotation_list = list(annotations)
+        self._annotations_by_id[check_run_id] = list(annotation_list)
+        self._upserted_calls.append((head_sha, name, len(annotation_list)))
+
+        # Record the batch sizes the real gateway would have sent so tests
+        # can assert pagination behavior without exercising REST.
+        if not annotation_list:
+            self._append_batches.append(0)
+        else:
+            for i in range(0, len(annotation_list), _FAKE_ANNOTATIONS_PER_REQUEST):
+                self._append_batches.append(
+                    len(annotation_list[i : i + _FAKE_ANNOTATIONS_PER_REQUEST])
+                )
+
+        return check_run
+
+    def list_annotations(self, check_run_id: int) -> tuple[CheckRunAnnotation, ...]:
+        return tuple(self._annotations_by_id.get(check_run_id, ()))
