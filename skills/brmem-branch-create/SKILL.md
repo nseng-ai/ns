@@ -137,9 +137,9 @@ can re-run with an explicit path if needed.
 
 Default bundle for the common case:
 
-| namespace | key       | source                 |
-| --------- | --------- | ---------------------- |
-| `base`    | `plan.md` | resolved plan file     |
+| namespace | key       | source             |
+| --------- | --------- | ------------------ |
+| `base`    | `plan.md` | resolved plan file |
 
 That means one `brmem put plan.md --branch <final-branch> --file
 <source-path>` call later in the workflow.
