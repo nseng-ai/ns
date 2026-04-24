@@ -60,11 +60,11 @@ If several distinct plan paths appear in recent context, pick the most recent re
 
 Default bundle:
 
-| namespace | key       | source             |
-| --------- | --------- | ------------------ |
-| `base`    | `plan.md` | resolved plan file |
+| namespace | key                    | source             |
+| --------- | ---------------------- | ------------------ |
+| `base`    | `plans/<slug-name>.md` | resolved plan file |
 
-That becomes one `brmem put plan.md --branch <final-branch> --file <source-path>` call in step 7.
+That becomes one `brmem put plans/<slug-name>.md --branch <final-branch> --file <source-path>` call in step 7.
 
 Only widen the bundle if the user explicitly asks to stash more. When that happens: keep keys simple, default to the `base` namespace unless asked otherwise, stash files verbatim, and do not synthesize a summary just to have something to store.
 
