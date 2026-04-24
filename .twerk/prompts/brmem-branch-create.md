@@ -1,3 +1,12 @@
+<!--
+REPO-LOCAL CUSTOMIZATION (twerk): this plugin has been adapted from the
+packaged default (`skills/brmem-branch-create/default-prompt.md`) to use
+Graphite (`gt create`) instead of `git branch`. Twerk uses `gt` as the
+default branching tool — see AGENTS.md § "Branch Creation and PR Submission
+(Graphite)". Consequence: branches created by this plugin ARE checked out
+(unlike the packaged default, which stays on the original branch).
+-->
+
 # brmem-branch-create — packaged canonical branch-creation plugin
 
 Packaged starting point for `.twerk/prompts/brmem-branch-create.md`. The invoking skill reads whatever is at that path; copy this file there (manually or via a setup flow) to use the default.
@@ -21,8 +30,9 @@ Given the suggested slug:
 ## Default behavior
 
 - keep the suggested slug unchanged as the final branch name
-- create with `git branch <final-branch> HEAD` (keeps current worktree in place)
-- do not check out, do not push
+- create with `gt create <final-branch>` (repo convention — see comment at top of file)
+- this DOES check out the new branch (Graphite's default); report that back to the skill so its summary is accurate
+- do not push, do not submit
 
 ## Default pre-flights
 
