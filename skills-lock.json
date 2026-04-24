@@ -11,6 +11,26 @@
       "sourceType": "local",
       "computedHash": "926c73c4d36acb7c4676353140694b95035e28f024d0cb2c733c5fa87f3bb16e"
     },
+    "ce-brainstorm": {
+      "source": "EveryInc/compound-engineering-plugin",
+      "sourceType": "github",
+      "computedHash": "ee90b7477198d20ec206cd5f116c23e07b0b44d80925b488025a80ef5c025feb"
+    },
+    "ce-doc-review": {
+      "source": "EveryInc/compound-engineering-plugin",
+      "sourceType": "github",
+      "computedHash": "543d938b42f37d76a889073834e10694fd8ed3bf16de3698da182d45d639b7ba"
+    },
+    "ce-ideate": {
+      "source": "EveryInc/compound-engineering-plugin",
+      "sourceType": "github",
+      "computedHash": "b09a442088620fce0f5cd1345401749e375b5983bf233a2960b86d10a322af4d"
+    },
+    "ce-plan": {
+      "source": "EveryInc/compound-engineering-plugin",
+      "sourceType": "github",
+      "computedHash": "16500bae62b2d7f2ef72ee4b792d27db0e589170ef3ead779d3d84c4e8970a26"
+    },
     "dev-fix-just": {
       "source": "skills/dev-fix-just",
       "sourceType": "local",
