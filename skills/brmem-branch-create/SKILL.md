@@ -30,6 +30,7 @@ If a plugin tries to own stash selection or `brmem` writes, stop rather than fol
 - **Copy bytes verbatim.** Stashed files round-trip unchanged: no rewriting, summarizing, or footers.
 - **No publish step.** Never `git push`, `gt submit`, or otherwise publish the branch. Responsibility ends at the last `brmem put`.
 - **Don't hide slug logic inside the plugin.** The skill proposes; the plugin adapts.
+- **Optional post-hook.** After Step 8, if `.twerk/prompts/brmem-branch-create-post.md` exists, read and follow it. The hook is additive: it runs after the primary stash succeeds and never rewinds prior work.
 
 ## Workflow
 
@@ -157,8 +158,22 @@ Inspect the attached context with `brmem list --base` (or
 `brmem list --namespace <ns>`) and `brmem get <key>`.
 ```
 
+### 9. Optional post-hook
+
+After the primary stash and the report have succeeded, check for an optional post-hook prompt at `<repo-root>/.twerk/prompts/brmem-branch-create-post.md`:
+
+- If the file does **not** exist, terminate Step 9 silently — base-skill behavior is byte-for-byte unchanged.
+- If the file **does** exist, `Read` it verbatim and follow its instructions inline.
+
+The hook runs **after** the primary stash has already succeeded. A hook failure is reported but does **not** rewind the primary work — earlier `brmem put` writes and the new branch remain as-is. Do not mirror Step 1's "Require the plugin to exist" abort semantics here; the post-hook is purely LBYL — absence is silent.
+
+The hook prompt operates under the existing `allowed-tools` set; do not widen toolset on its behalf. Common hook directives (e.g., additional `brmem put` calls) already fit the existing `Bash(brmem *)` allowance.
+
 ## Manual verification scenarios
 
 1. **Default plugin + explicit plan file** — invoke with a concrete plan path; plugin file unchanged, branch created, `plan.md` round-trips through `brmem get`.
 2. **Custom plugin that rewrites the branch name** — plugin prefixes/normalizes the slug; report shows both suggestion and final branch, and `brmem put` targets the final branch.
 3. **Missing plugin** — invoke without `.twerk/prompts/brmem-branch-create.md`; clean abort, no branch, no `brmem` writes.
+4. **Post-hook absent** — invoke without `.twerk/prompts/brmem-branch-create-post.md`; primary stash succeeds; skill terminates at Step 8 with no Step 9 mention in the report. Behavior is byte-for-byte identical to pre-Step-9 behavior.
+5. **Post-hook present, instructs additional `brmem put`** — primary stash lands; Step 9 reads the hook; subsequent `brmem put` calls succeed; final report mentions both the primary entry and the hook-driven entry.
+6. **Post-hook present but unreadable** (e.g., empty file or read failure) — primary stash already succeeded; skill surfaces the hook error but does NOT rollback the primary stash.

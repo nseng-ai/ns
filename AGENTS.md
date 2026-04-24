@@ -50,6 +50,10 @@ This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. W
 
 Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the `graphite` skill's "Surgical Rebasing" section).
 
+### Optional Post-Hooks on `brmem-branch-*` Skills
+
+The `brmem-branch-create` and `brmem-branch-impl` skills support an optional post-hook slot at `.twerk/prompts/brmem-branch-create-post.md` and `.twerk/prompts/brmem-branch-impl-post.md` respectively. The contract is LBYL: if the file is present, the skill reads and follows it after its primary work; if absent, the skill returns silently and behavior is byte-for-byte unchanged from the no-hook baseline. A hook failure is reported but never rewinds the primary stash or implementation. The first plugin using these slots is `dev-vibechk-branch-eval`, which captures per-session learning into `brmem` for branch-based eval.
+
 ### CLI Scenario Testing Convention
 
 Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) built by `build_cli()` in `<package>.cli.main`, and a twerk plugin subgroup discovered via `twerk.plugins` entry points. Test them separately:

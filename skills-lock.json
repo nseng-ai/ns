@@ -86,6 +86,11 @@
       "sourceType": "local",
       "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
     },
+    "dev-vibechk-branch-eval": {
+      "source": "skills/dev-vibechk-branch-eval",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "fdt-refactor-mock-to-fake": {
       "source": "dagster-io/fake-driven-testing",
       "sourceType": "github",
