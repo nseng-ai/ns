@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "brmem-branch-create": {
+      "source": "skills/brmem-branch-create",
+      "sourceType": "local",
+      "computedHash": "066d8fdd3ac736f5752611fbaf0d75001f92b60273ef2d35ccaa58b7f15676f7"
+    },
     "dev-fix-just": {
       "source": "skills/dev-fix-just",
       "sourceType": "local",
