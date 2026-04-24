@@ -8,6 +8,7 @@ import pytest
 from twerk_core.brmem.gateway import (
     BrmemCopyConflictError,
     InvalidBranchNameError,
+    KeyNotFoundError,
     parse_entry_ref,
 )
 from twerk_core.brmem.real import RealBranchMemoryGateway
@@ -444,3 +445,70 @@ def test_real_brmem_copy_entries_is_atomic_under_conflict(tmp_path: Path) -> Non
         repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/memjectives/feat---x"
     ).stdout.splitlines()
     assert tree_output == ["foo/body.md"]
+
+
+def test_real_brmem_delete_removes_existing_key(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    parent_sha = gateway.put("scratch", "plan", "feat/x", "hello\n")
+    new_sha = gateway.delete("scratch", "plan", "feat/x")
+
+    snapshot_ref = "refs/brmem/ns/scratch/feat---x"
+    assert new_sha != parent_sha
+    assert _run_git(repo, "rev-parse", snapshot_ref).stdout.strip() == new_sha
+    # New commit's parent is the previous snapshot — history is preserved.
+    assert _run_git(repo, "rev-parse", f"{snapshot_ref}^").stdout.strip() == parent_sha
+    assert gateway.get("scratch", "plan", "feat/x") is None
+
+
+def test_real_brmem_delete_preserves_sibling_keys(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/b.md", "feat/x", "b\n")
+
+    gateway.delete("scratch", "plan/a.md", "feat/x")
+
+    tree_output = _run_git(
+        repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/scratch/feat---x"
+    ).stdout.splitlines()
+    assert tree_output == ["plan/b.md"]
+    assert gateway.get("scratch", "plan/b.md", "feat/x") == "b\n"
+
+
+def test_real_brmem_delete_missing_snapshot_raises(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    with pytest.raises(KeyNotFoundError):
+        gateway.delete("scratch", "plan", "feat/x")
+
+
+def test_real_brmem_delete_missing_key_raises(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("scratch", "plan", "feat/x", "hello\n")
+
+    with pytest.raises(KeyNotFoundError):
+        gateway.delete("scratch", "missing", "feat/x")
+
+
+def test_real_brmem_delete_last_key_leaves_empty_tree_snapshot(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("scratch", "plan", "feat/x", "hello\n")
+    new_sha = gateway.delete("scratch", "plan", "feat/x")
+
+    snapshot_ref = "refs/brmem/ns/scratch/feat---x"
+    # The ref still exists.
+    assert _run_git(repo, "rev-parse", snapshot_ref).stdout.strip() == new_sha
+    # The new commit's tree is git's canonical empty tree.
+    tree_sha = _run_git(repo, "rev-parse", f"{new_sha}^{{tree}}").stdout.strip()
+    assert tree_sha == "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+    # And a second delete on the same key fails — delete is non-idempotent.
+    with pytest.raises(KeyNotFoundError):
+        gateway.delete("scratch", "plan", "feat/x")

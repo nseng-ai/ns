@@ -81,6 +81,22 @@ class BrmemCopyConflictError(Exception):
         super().__init__(f"destination has conflicting entries: {joined}")
 
 
+class KeyNotFoundError(Exception):
+    """Raised when ``delete`` cannot find the entry to remove.
+
+    Carries the ``(namespace, key, branch)`` identity so callers (in particular
+    the CLI layer) can build a human-readable failure message without
+    re-deriving the locator.
+    """
+
+    def __init__(self, namespace: str | None, key: str, branch: str) -> None:
+        self.namespace = namespace
+        self.key = key
+        self.branch = branch
+        ns_label = namespace if namespace is not None else "(base)"
+        super().__init__(f"key {key!r} not found in namespace {ns_label} on branch {branch!r}")
+
+
 class BranchMemoryGateway(ABC):
     """Store small per-branch blobs outside the working tree.
 
@@ -135,6 +151,21 @@ class BranchMemoryGateway(ABC):
         at: str | None = None,
     ) -> EntryDiagnostic | None:
         """Return diagnostics for the entry at ``at`` (or head), or ``None``."""
+
+    @abstractmethod
+    def delete(
+        self,
+        namespace: str | None,
+        key: str,
+        branch: str,
+    ) -> str:
+        """Remove the entry and return the new snapshot commit SHA.
+
+        Raises :class:`KeyNotFoundError` if the snapshot ref does not exist or
+        the key is not present in it. Deleting the last key leaves the snapshot
+        ref pointing at a commit with an empty tree — the ref is **not**
+        removed.
+        """
 
     @abstractmethod
     def copy_entries(

@@ -20,6 +20,7 @@ from twerk_core.brmem.gateway import (
     BrmemCopyConflictError,
     EntryDiagnostic,
     EntryRef,
+    KeyNotFoundError,
     ref_name_for_entry,
     validate_branch_name,
     validate_namespace,
@@ -126,6 +127,38 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         commit_sha = self._put(namespace, key, branch, content)
         self._put_calls.append((namespace, key, branch, content))
         return commit_sha
+
+    def delete(
+        self,
+        namespace: str | None,
+        key: str,
+        branch: str,
+    ) -> str:
+        if namespace is not None:
+            validate_namespace(namespace)
+        validate_key(key)
+        validate_branch_name(branch)
+
+        snapshot_key = _SnapshotKey(namespace, branch)
+        parent = self._snapshot_heads.get(snapshot_key)
+        if parent is None:
+            raise KeyNotFoundError(namespace, key, branch)
+        tree = dict(self._commits[parent].tree)
+        if key not in tree:
+            raise KeyNotFoundError(namespace, key, branch)
+        del tree[key]
+
+        sha = f"fake-{self._next_commit_number:04d}"
+        commit_date = (_FAKE_EPOCH + timedelta(seconds=self._next_commit_number)).isoformat()
+        self._next_commit_number += 1
+
+        self._commits[sha] = _Snapshot(
+            tree=tuple(_TreeEntry(k, s) for k, s in sorted(tree.items())),
+            parent=parent,
+        )
+        self._commit_dates_by_sha[sha] = commit_date
+        self._snapshot_heads[snapshot_key] = sha
+        return sha
 
     def get(
         self,

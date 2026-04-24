@@ -7,6 +7,7 @@ from twerk_core.brmem.gateway import (
     BrmemCopyConflictError,
     InvalidBranchNameError,
     InvalidNamespaceError,
+    KeyNotFoundError,
 )
 from twerk_core.brmem.key_validation import InvalidKeyError
 
@@ -323,6 +324,65 @@ def test_fake_brmem_copy_entries_overwrite_drops_destination_only_keys() -> None
     keys = [e.key for e in gateway.list_entries(namespace="memjectives", branch="feat/x")]
     assert keys == ["foo/body.md"]
     assert gateway.check("memjectives", "foo/notes.md", "feat/x") is None
+
+
+def test_fake_brmem_delete_removes_existing_key() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan", "feat/x", "hello\n")
+
+    new_sha = gateway.delete("scratch", "plan", "feat/x")
+
+    assert new_sha == "fake-0002"
+    assert gateway.get("scratch", "plan", "feat/x") is None
+    assert gateway.check("scratch", "plan", "feat/x") is None
+
+
+def test_fake_brmem_delete_missing_key_raises() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan", "feat/x", "hello\n")
+
+    with pytest.raises(KeyNotFoundError):
+        gateway.delete("scratch", "missing", "feat/x")
+
+
+def test_fake_brmem_delete_missing_branch_raises() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    with pytest.raises(KeyNotFoundError):
+        gateway.delete("scratch", "plan", "feat/x")
+
+
+def test_fake_brmem_delete_preserves_sibling_keys() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/b.md", "feat/x", "b\n")
+
+    gateway.delete("scratch", "plan/a.md", "feat/x")
+
+    assert gateway.get("scratch", "plan/a.md", "feat/x") is None
+    assert gateway.get("scratch", "plan/b.md", "feat/x") == "b\n"
+
+
+def test_fake_brmem_delete_last_key_leaves_empty_snapshot() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan", "feat/x", "hello\n")
+
+    gateway.delete("scratch", "plan", "feat/x")
+
+    # The snapshot ref still exists (delete is non-idempotent: a second delete
+    # on the same key fails) but holds no entries.
+    assert gateway.list_entries(namespace="scratch", branch="feat/x") == []
+    with pytest.raises(KeyNotFoundError):
+        gateway.delete("scratch", "plan", "feat/x")
+
+
+def test_fake_brmem_delete_validates_inputs() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    with pytest.raises(InvalidBranchNameError):
+        gateway.delete("scratch", "plan", "feat---x")
+    with pytest.raises(InvalidNamespaceError):
+        gateway.delete("ns/with/slash", "plan", "feat/x")
 
 
 def test_fake_brmem_copy_entries_validates_branch_names() -> None:
