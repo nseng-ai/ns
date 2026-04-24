@@ -1096,7 +1096,7 @@ def test_brmem_list_returns_base_and_namespaced_entries_intermixed(
 
     assert result.exit_code == 0, result.output
     assert result.output.splitlines() == [
-        "(base)/scratch",
+        "scratch",
         "scratch/plan",
     ]
 
@@ -1124,7 +1124,7 @@ def test_brmem_list_base_flag_returns_only_base_entries(cli_group: ClinkrGroup) 
     result = CliRunner().invoke(cli_group, ["list", "--base"], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["(base)/scratch"]
+    assert result.output.splitlines() == ["scratch"]
 
 
 def test_brmem_list_base_and_namespace_are_mutually_exclusive(
