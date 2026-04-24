@@ -4,11 +4,13 @@ import json
 
 import pytest
 
-from twerk_reviewer.cli.reviewer.exec.format_findings_comment import (
+from twerk_reviewer.cli.reviewer.exec.findings_payload import (
     FindingRow,
     FindingsParseError,
     FindingsPayload,
     parse_findings_payload,
+)
+from twerk_reviewer.cli.reviewer.exec.format_findings_comment import (
     render_findings_comment,
 )
 

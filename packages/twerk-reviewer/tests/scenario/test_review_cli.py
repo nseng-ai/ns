@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.testing import FakeCheckRunsGateway, FakeIssueGateway
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
@@ -71,6 +71,7 @@ def _build_context(
         ),
         harness_detection=FakeHarnessDetectionGateway(paths_by_binary=paths_by_binary),
         issue_gateway=FakeIssueGateway(),
+        check_runs=FakeCheckRunsGateway(),
         cwd=Path("/anywhere"),
     )
 

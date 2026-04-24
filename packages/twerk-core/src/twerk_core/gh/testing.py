@@ -208,10 +208,13 @@ class FakeCheckRunsGateway(CheckRunsGateway):
 
         # Mutation tracking — public-but-underscored, read in tests for
         # assertions. ``_upserted_calls`` records each top-level upsert with
-        # the annotation total. ``_append_batches`` records the size of
+        # the annotation total. ``_upserted_outputs`` records the output
+        # body passed to each upsert call (parallel index with
+        # ``_upserted_calls``). ``_append_batches`` records the size of
         # every REST batch the real gateway would have sent, including the
         # initial POST/PATCH body's chunk.
         self._upserted_calls: list[tuple[str, str, int]] = []
+        self._upserted_outputs: list[CheckRunOutput] = []
         self._append_batches: list[int] = []
 
     def find_check_run(self, head_sha: str, name: str) -> CheckRun | None:
@@ -248,6 +251,7 @@ class FakeCheckRunsGateway(CheckRunsGateway):
         annotation_list = list(annotations)
         self._annotations_by_id[check_run_id] = list(annotation_list)
         self._upserted_calls.append((head_sha, name, len(annotation_list)))
+        self._upserted_outputs.append(output)
 
         # Record the batch sizes the real gateway would have sent so tests
         # can assert pagination behavior without exercising REST.

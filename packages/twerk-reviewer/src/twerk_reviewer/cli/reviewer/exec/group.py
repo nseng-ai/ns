@@ -6,6 +6,9 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_reviewer.cli.reviewer.exec.format_findings_comment import (
     format_findings_comment_command,
 )
+from twerk_reviewer.cli.reviewer.exec.post_findings_check import (
+    post_findings_check_command,
+)
 from twerk_reviewer.cli.reviewer.exec.post_findings_comment import (
     post_findings_comment_command,
 )
@@ -19,4 +22,5 @@ def build_exec_group() -> ClinkrGroup:
     group.hidden = True
     group.add_command(format_findings_comment_command)
     group.add_command(post_findings_comment_command)
+    group.add_command(post_findings_check_command)
     return group

@@ -12,7 +12,7 @@ from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
 from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.testing import FakeCheckRunsGateway, FakeIssueGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.memjective.context import MemjectiveCliContext
 from twerk_objectives.cli.objective.context import ObjectivesCliContext
@@ -229,6 +229,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
             paths_by_binary={"claude": "/usr/local/bin/claude"}
         ),
         issue_gateway=FakeIssueGateway(),
+        check_runs=FakeCheckRunsGateway(),
         cwd=Path("/anywhere"),
     )
 

@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.gh.testing import FakeIssueGateway
+from twerk_core.gh.testing import FakeCheckRunsGateway, FakeIssueGateway
 from twerk_core.gh.types import IssueComment
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
@@ -26,16 +26,25 @@ def cli_group() -> ClinkrGroup:
 _BOT = "github-actions[bot]"
 
 
-def _context_with_issue_gateway(gateway: FakeIssueGateway) -> ClinkrContextObject:
+def _context(
+    *,
+    issue_gateway: FakeIssueGateway | None = None,
+    check_runs: FakeCheckRunsGateway | None = None,
+) -> ClinkrContextObject:
     ctx = ReviewerCliContext(
         review_definition=FakeReviewDefinitionGateway(),
         local_diff=FakeLocalDiffGateway(),
         review_execution=FakeReviewExecutionGateway(),
         harness_detection=FakeHarnessDetectionGateway(),
-        issue_gateway=gateway,
+        issue_gateway=issue_gateway or FakeIssueGateway(),
+        check_runs=check_runs or FakeCheckRunsGateway(),
         cwd=Path("/anywhere"),
     )
     return build_clinkr_context_object(lambda: ctx)
+
+
+def _context_with_issue_gateway(gateway: FakeIssueGateway) -> ClinkrContextObject:
+    return _context(issue_gateway=gateway)
 
 
 def test_exec_group_is_hidden_from_reviewer_help(cli_group: ClinkrGroup) -> None:
@@ -312,3 +321,288 @@ def test_post_findings_comment_caps_activity_log_at_ten_entries(
     assert written.count("- 2026-01-") == 9
     assert "2026-01-01T12:00:00Z" not in written
     assert "2026-01-10T12:00:00Z" in written
+
+
+# -- post-findings-check --
+
+
+def _findings_envelope(
+    *,
+    review_name: str = "dignified-python",
+    base_ref: str = "master",
+    findings: list[dict[str, object]] | None = None,
+) -> str:
+    findings = findings or []
+    return json.dumps(
+        {
+            "exit_code": 0,
+            "data": {
+                "review_name": review_name,
+                "base_ref": base_ref,
+                "format": "findings",
+                "count": len(findings),
+                "findings": findings,
+            },
+        }
+    )
+
+
+def test_exec_help_lists_post_findings_check(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["exec", "-h"])
+    assert result.exit_code == 0
+    assert "post-findings-check" in result.output
+
+
+def test_post_findings_check_creates_check_run_with_line_annotations(
+    cli_group: ClinkrGroup,
+) -> None:
+    check_runs = FakeCheckRunsGateway()
+    envelope = _findings_envelope(
+        findings=[
+            {
+                "path": "app.py",
+                "line": 42,
+                "severity": "warning",
+                "summary": "Avoid print",
+                "details": "Use click.echo() instead.",
+            },
+            {
+                "path": "app.py",
+                "line": 99,
+                "severity": "error",
+                "summary": "Fix import",
+                "details": "Unused import breaks lint.",
+            },
+        ]
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-findings-check",
+            "--head-sha",
+            "abc123",
+            "--review-key",
+            "dignified-python",
+        ],
+        input=envelope,
+        obj=_context(check_runs=check_runs),
+    )
+
+    assert result.exit_code == 0, result.output
+    run = check_runs.find_check_run("abc123", "twerk-reviewer/dignified-python")
+    assert run is not None
+    annotations = check_runs.list_annotations(run.id)
+    assert len(annotations) == 2
+    assert annotations[0].start_line == 42
+    assert annotations[0].annotation_level == "warning"
+    assert annotations[0].title == "Avoid print"
+    assert annotations[1].annotation_level == "failure"  # "error" → "failure"
+
+
+def test_post_findings_check_is_idempotent_across_reruns(
+    cli_group: ClinkrGroup,
+) -> None:
+    """Re-running against the same (head_sha, review_key) replaces — does not duplicate."""
+    check_runs = FakeCheckRunsGateway()
+    envelope = _findings_envelope(
+        findings=[
+            {
+                "path": "app.py",
+                "line": 1,
+                "severity": "warning",
+                "summary": "s",
+                "details": "d",
+            }
+        ]
+    )
+    runner = CliRunner()
+
+    for _ in range(2):
+        result = runner.invoke(
+            cli_group,
+            [
+                "exec",
+                "post-findings-check",
+                "--head-sha",
+                "abc",
+                "--review-key",
+                "r",
+            ],
+            input=envelope,
+            obj=_context(check_runs=check_runs),
+        )
+        assert result.exit_code == 0, result.output
+
+    # Two upsert calls, same (head_sha, name) — only one check run stored.
+    assert len(check_runs._upserted_calls) == 2
+    assert check_runs.find_check_run("abc", "twerk-reviewer/r") is not None
+    # Distinct SHA would create a separate run; same SHA should not.
+    all_runs = [v for k, v in check_runs._check_runs.items() if k == ("abc", "twerk-reviewer/r")]
+    assert len(all_runs) == 1
+
+
+def test_post_findings_check_renders_file_level_findings_in_output_text(
+    cli_group: ClinkrGroup,
+) -> None:
+    """Findings with line=None are not dropped — they appear in output.text."""
+    check_runs = FakeCheckRunsGateway()
+    envelope = _findings_envelope(
+        findings=[
+            {
+                "path": "docs/README.md",
+                "line": None,
+                "severity": "info",
+                "summary": "File-level observation",
+                "details": "Consider rewriting.",
+            },
+            {
+                "path": "app.py",
+                "line": 5,
+                "severity": "warning",
+                "summary": "Line-level finding",
+                "details": "Use x instead of y.",
+            },
+        ]
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-findings-check",
+            "--head-sha",
+            "abc",
+            "--review-key",
+            "r",
+        ],
+        input=envelope,
+        obj=_context(check_runs=check_runs),
+    )
+
+    assert result.exit_code == 0, result.output
+    run = check_runs.find_check_run("abc", "twerk-reviewer/r")
+    assert run is not None
+    annotations = check_runs.list_annotations(run.id)
+    # Only the line-bearing finding becomes an annotation.
+    assert len(annotations) == 1
+    assert annotations[0].start_line == 5
+
+    # The file-level finding lives in output.text — never dropped.
+    output = check_runs._upserted_outputs[-1]
+    assert output.text is not None
+    assert "docs/README.md" in output.text
+    assert "File-level observation" in output.text
+
+
+def test_post_findings_check_handles_error_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    """A non-zero exit_code envelope still produces a check run — just with no annotations."""
+    check_runs = FakeCheckRunsGateway()
+    envelope = json.dumps(
+        {
+            "exit_code": 2,
+            "error_type": "harness_binary_missing",
+            "message": "claude not on PATH",
+        }
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-findings-check",
+            "--head-sha",
+            "abc",
+            "--review-key",
+            "r",
+        ],
+        input=envelope,
+        obj=_context(check_runs=check_runs),
+    )
+
+    assert result.exit_code == 0, result.output
+    run = check_runs.find_check_run("abc", "twerk-reviewer/r")
+    assert run is not None
+    # Zero annotations — there are no findings to anchor.
+    assert check_runs.list_annotations(run.id) == ()
+
+
+def test_post_findings_check_rejects_malformed_stdin(
+    cli_group: ClinkrGroup,
+) -> None:
+    check_runs = FakeCheckRunsGateway()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-findings-check",
+            "--head-sha",
+            "abc",
+            "--review-key",
+            "r",
+        ],
+        input="not json at all",
+        obj=_context(check_runs=check_runs),
+    )
+
+    assert result.exit_code == 1
+    assert "post-findings-check" in result.output
+    # No check run was created on parse failure.
+    assert check_runs.find_check_run("abc", "twerk-reviewer/r") is None
+
+
+def test_post_findings_check_run_url_flag_accepted(cli_group: ClinkrGroup) -> None:
+    """--run-url is optional and ends up in the summary; exit code 0."""
+    check_runs = FakeCheckRunsGateway()
+    envelope = _findings_envelope(findings=[])
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-findings-check",
+            "--head-sha",
+            "abc",
+            "--review-key",
+            "r",
+            "--run-url",
+            "https://example.com/run/42",
+        ],
+        input=envelope,
+        obj=_context(check_runs=check_runs),
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_post_findings_check_empty_findings_creates_no_annotations(
+    cli_group: ClinkrGroup,
+) -> None:
+    check_runs = FakeCheckRunsGateway()
+    envelope = _findings_envelope(findings=[])
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        [
+            "exec",
+            "post-findings-check",
+            "--head-sha",
+            "abc",
+            "--review-key",
+            "r",
+        ],
+        input=envelope,
+        obj=_context(check_runs=check_runs),
+    )
+
+    assert result.exit_code == 0, result.output
+    run = check_runs.find_check_run("abc", "twerk-reviewer/r")
+    assert run is not None
+    assert check_runs.list_annotations(run.id) == ()
