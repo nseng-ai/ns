@@ -1,4 +1,4 @@
-"""List memjective snapshots attached to a branch or across the whole repo."""
+"""List memjective snapshots across the repo or on a specific branch."""
 
 from __future__ import annotations
 
@@ -8,26 +8,27 @@ from typing import Any, Literal
 import click
 
 from twerk_core.brmem.gateway import EntryRef, check_branch_name
-from twerk_core.brmem.gateway_access import (
-    get_branch_memory_gateway,
-    get_git_gateway,
-    resolve_current_brmem_branch,
-)
 from twerk_core.brmem.validation import first_failure
+from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.git.types import DetachedHead, GitCommandFailure
+from twerk_core.memjective.context import MemjectiveCliContext
 from twerk_core.memjective.discovery import (
     MemjectiveRepoEntry,
     discover_memjectives,
     slug_for_key,
 )
-from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
+from twerk_core.memjective.gateway_access import (
+    MEMJECTIVE_NAMESPACE,
+    resolve_current_memjective_branch,
+)
 
 
 @dataclass(frozen=True)
 class MemjectiveListRequest:
     branch: str | None = None
-    repo: bool = False
+    here: bool = False
 
 
 @dataclass(frozen=True)
@@ -93,9 +94,9 @@ def render_memjective_list(result: MemjectiveListResult) -> None:
 @clinkr_operation(
     name="list",
     help=(
-        "List memjective snapshots. Defaults to the current branch; "
-        "pass --branch to inspect another branch, or --repo to group every "
-        "memjective in the repo by slug."
+        "List memjective snapshots. Defaults to a repo-wide grouping by "
+        "slug; pass --here for the current branch's snapshots, or "
+        "--branch <name> to inspect a specific branch."
     ),
     aliases=("ls",),
     human_renderer=render_memjective_list,
@@ -104,18 +105,18 @@ def run_list_memjectives(
     ctx: click.Context,
     request: MemjectiveListRequest,
 ) -> ClinkrExit[MemjectiveListResult]:
-    if request.repo and request.branch is not None:
+    if request.here and request.branch is not None:
         return ClinkrExit.failure(
             error_type="conflicting_flags",
-            message="--repo cannot be combined with --branch.",
+            message="--here cannot be combined with --branch.",
         )
 
-    if request.repo:
-        gateway = get_branch_memory_gateway(ctx)
-        git_gateway = get_git_gateway(ctx)
+    mctx = load_typed_context(ctx, MemjectiveCliContext)
+
+    if not request.here and request.branch is None:
         memjectives = discover_memjectives(
-            gateway,
-            is_branch_alive=git_gateway.branch_exists,
+            mctx.brmem_gateway,
+            is_branch_alive=mctx.git_gateway.branch_exists,
         )
         return ClinkrExit.ok(
             MemjectiveListResult(scope="repo", memjectives=memjectives),
@@ -131,14 +132,18 @@ def run_list_memjectives(
         error_type, message = validation_failure
         return ClinkrExit.failure(error_type=error_type, message=message)
 
-    match resolve_current_brmem_branch(ctx, request.branch):
-        case ClinkrExit() as exit_:
-            return exit_
+    match resolve_current_memjective_branch(mctx.git_gateway, request.branch):
+        case GitCommandFailure() as failure:
+            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            return ClinkrExit.failure(
+                error_type="detached_head",
+                message="Detached HEAD: brmem requires a checked-out branch.",
+            )
         case str() as branch:
             pass
 
-    gateway = get_branch_memory_gateway(ctx)
-    entries = gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE, branch=branch)
+    entries = mctx.brmem_gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE, branch=branch)
 
     return ClinkrExit.ok(
         MemjectiveListResult(
