@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  checks: write
 
 concurrency:
   group: reviewer-pr-${{ github.event.pull_request.number || github.ref }}
@@ -60,16 +61,19 @@ jobs:
       - name: Install claude-code CLI
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Run reviewer and post summary comment
+      - name: Run reviewer and publish surfaces
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REVIEW_KEY: ${{ matrix.review }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         shell: bash
         run: |
           set -euo pipefail
+
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           status=0
           output=$(uv run reviewer review run "$REVIEW_KEY" \
@@ -81,10 +85,39 @@ jobs:
           printf '%s\n' "$output"
           echo "--- end reviewer envelope ---"
 
+          # Publish the two surfaces independently. set +e around each so a
+          # failure in one does not prevent the other from running (plan
+          # invariant #3 — "minimal PR noise" hinges on the check surface
+          # always being reachable; invariant #4 — "full visibility" hinges
+          # on the summary comment still landing if the check run fails).
+          set +e
           printf '%s' "$output" \
             | uv run reviewer exec format-findings-comment \
             | uv run reviewer exec post-findings-comment \
                 --pr-number "$PR_NUMBER" \
-                --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+                --run-url "$run_url"
+          comment_status=$?
 
+          printf '%s' "$output" \
+            | uv run reviewer exec post-findings-check \
+                --head-sha "$HEAD_SHA" \
+                --review-key "$REVIEW_KEY" \
+                --run-url "$run_url"
+          check_status=$?
+          set -e
+
+          if [ "$comment_status" -ne 0 ]; then
+            echo "post-findings-comment failed with exit $comment_status" >&2
+          fi
+          if [ "$check_status" -ne 0 ]; then
+            echo "post-findings-check failed with exit $check_status" >&2
+          fi
+
+          # Surface any publish failure as a job failure, but only after both
+          # have had a chance to run. If both published OK, bubble the
+          # reviewer run status (which may itself be non-zero for harness
+          # errors).
+          if [ "$comment_status" -ne 0 ] || [ "$check_status" -ne 0 ]; then
+            exit 1
+          fi
           exit "$status"
