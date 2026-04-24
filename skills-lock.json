@@ -51,6 +51,11 @@
       "sourceType": "local",
       "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
     },
+    "dev-stacker-agent": {
+      "source": "skills/dev-stacker-agent",
+      "sourceType": "local",
+      "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
+    },
     "dev-workbr-create": {
       "source": "skills/dev-workbr-create",
       "sourceType": "local",
