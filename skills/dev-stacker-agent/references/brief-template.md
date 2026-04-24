@@ -1,117 +1,80 @@
-# Sub-agent brief template
+# Worker brief template
 
-Fillable brief the `dev-stacker-agent` coordinator composes per PR and
-passes as the `Agent` tool's `prompt` argument. Replace every `[bracketed]`
-placeholder with the concrete value for this PR. Drop any section that does
-not apply (e.g., _Context from prior PRs_ on PR 1, _Do-not-touch_ when the
-plan's scope section has no such list). Do not rename sections — downstream
-sub-agents and the coordinator's verification step rely on the shape.
+Fill this brief from a normalized `stacker-slice-manifest/v1`, not from
+a required user-authored plan schema. Replace every `[bracketed]`
+placeholder with the concrete value for this slice. Drop a section when
+it does not apply, but do not rename the remaining sections.
 
 ---
 
-## Plan file
+## Assignment
 
-Read the full plan at:
+- Plan file: `[absolute-path-to-plan-file]`
+- Slice ordinal: `[1-based-index]`
+- Slice title: `[normalized title]`
+- Source excerpt: `[optional source text excerpt or "not provided"]`
 
-`[absolute-path-to-plan-file]`
-
-Your assigned scope section in that plan is:
-
-`[exact scope-section heading, e.g., "## PR 2 — Storage switch (the big atomic one)"]`
-
-Read the plan end-to-end for context, but implement **only** what your
-scope section describes. If the plan has a "Coordinator / sub-agent
-contract" section, honor its terms on top of this brief.
+Implement only this slice. Do not move on to later slices. If the plan
+is incomplete or contradictory, stop and report a blocking question.
 
 ## Environment
 
 - Repo root: `[absolute-repo-root]`
-- Base branch (verified by coordinator): `[branch-name]`
-- You are stacking this PR **on top of** the base branch. Do not rebase
-  onto trunk if the base is not trunk.
+- Base ref resolved by coordinator: `[branch-or-ref]`
+- Suggested branch name: `[suggested-branch-name]`
+- Suggested commit subject: `[suggested-commit-subject]`
+- Repo workflow notes: `[repo-specific workflow notes, such as Graphite
+  conventions]`
 
-## Context from prior PRs
-
-[Forwarded summary fragments flagged `important for downstream` by prior
-sub-agents. Include exact names / shapes / contracts that this PR must
-adopt verbatim. Empty on PR 1.]
-
-## Branching
-
-1. Use `gt create <branch-name> -m "<commit-message>"` on top of the
-   verified base. Do not use raw `git commit`, `gt submit`, `git push`,
-   or `gh pr create`.
-2. Suggested branch name: `[suggested-slug]`. You may choose a
-   different kebab-case slug if it fits the scope better; report whichever
-   name you actually used in the handoff payload.
-3. Suggested commit subject: `[commit-subject-stub]`. Rewrite if a more
-   accurate subject fits. Use the project's commit-message conventions
-   (see the `graphite` skill's notes on commit messages if unsure).
-
-If `gt create` refuses for any reason, stop and report the exact error
-rather than falling back to raw `git`.
+Use the repo's workflow conventions for branch creation, commit
+creation, and stack inspection. Do not push, submit, or open a PR.
 
 ## Scope
 
-[Paste the plan's scope bullets for this PR verbatim. Keep the "Files to
-add/modify" list intact so the sub-agent sees the exact file-level
-scope.]
+`[normalized scope for this slice]`
 
-## Do-not-touch
+## Constraints
 
-[Paste the plan's "Do not touch" list for this PR. If none exists,
-write: "No explicit do-not-touch list. Infer scope boundaries from
-the Files to add/modify list above."]
+[Zero or more explicit constraints. If none, write:
+"No explicit extra constraints beyond the normalized scope."]
 
-## Lint / format
+## Downstream Context
 
-Do not hand-edit files to satisfy the formatter. Run `just fix` for
-ruff failures and `just dprint-fix` for Markdown / TOML failures, then
-re-run `just`. Only edit by hand for real lint/type/test bugs the
-autofixer can't resolve. (Full policy: `AGENTS.md`.)
+[Forwarded notes from prior slices. If none, write: "None."]
 
-## Green bar
+## Validation
 
 From the repo root, run:
 
+```bash
+[exact validation command]
 ```
-[green-bar-command — default `just`]
-```
 
-The exit code **must** be `0`. If it is non-zero, include the last ~40
-lines of output in the handoff prose so the coordinator can retry you
-with the specific failure.
+The exit code must be `0` for a successful handoff.
 
-## Exit criteria
+## Exit Criteria
 
-When your assigned scope lands and the green bar is clean:
+When this slice lands and validation is complete, emit:
 
-1. Emit a single JSON line (machine-readable handoff):
+1. One JSON line conforming to `stacker-handoff/v1`:
 
    ```json
-   {"branch": "<name>", "commit_sha": "<full-sha>", "exit_code": 0}
+   {"schema":"stacker-handoff/v1","status":"ok","branch":"<name>","head_sha":"<full-sha>","validation":{"command":"<command>","exit_code":0},"files_changed":["path/to/file"],"deviations":[],"downstream_notes":[],"questions":[]}
    ```
 
-   Non-zero `exit_code` means the green bar failed. Report anyway — the
-   coordinator decides whether to retry.
+2. A short prose summary covering:
+   - scope actually implemented,
+   - any deviations or scope interpretations,
+   - any exact names or shapes later slices must reuse,
+   - any blocking questions if you had to guess.
 
-2. Emit a short prose summary flagging:
-   - **Deviations** — any files touched outside the Files to add/modify
-     list, any tests added beyond what the plan asked for, any do-not-touch
-     entries you had to interpret.
-   - **Hidden design choices** — naming, argument ordering, helper
-     placement, error message strings. Mark any of these `important for
-     downstream` if PR N+1 must adopt the exact name or shape verbatim.
-   - **Blocking questions** — anything the plan does not answer that
-     forced you to guess. Prefer to stop and ask rather than guess on
-     anything architectural.
+If validation failed, still emit the JSON line with `status: "failed"`
+and the real non-zero exit code, then summarize the failure and include
+the last useful chunk of validation output.
 
 Do **not**:
 
-- move on to the next PR's scope,
-- submit, push, or open a PR (`gt submit`, `git push`, `gh pr create`),
-- modify the plan file itself,
-- silently scope-expand. If the task as written cannot succeed (e.g. a
-  failing test reveals a plan flaw), stop and report with a specific
-  question — the coordinator decides whether to expand scope or fix
-  the plan.
+- advance to the next slice,
+- submit, push, or open a PR,
+- modify the plan file itself, or
+- silently scope-expand to "fix the whole stack."
