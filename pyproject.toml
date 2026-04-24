@@ -1,6 +1,7 @@
 [tool.uv.workspace]
 members = [
   "packages/twerk-core",
+  "packages/twerk-dispatcher",
   "packages/twerk-objectives",
   "packages/twerk-pr-address",
   "packages/twerk-reviewer",
@@ -9,6 +10,7 @@ members = [
 
 [tool.uv.sources]
 twerk-core = { workspace = true }
+twerk-dispatcher = { workspace = true }
 twerk-objectives = { workspace = true }
 twerk-pr-address = { workspace = true }
 twerk-reviewer = { workspace = true }
@@ -33,6 +35,7 @@ twerk = "twerk.cli.cli:main"
 
 [project.optional-dependencies]
 plugins = [
+  "twerk-dispatcher",
   "twerk-objectives",
   "twerk-pr-address",
   "twerk-slots",
@@ -45,6 +48,7 @@ dev = [
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
   "twerk-core",
+  "twerk-dispatcher",
   "twerk-objectives",
   "twerk-pr-address",
   "twerk-reviewer",
@@ -65,6 +69,7 @@ line-length = 100
 src = [
   "src",
   "packages/twerk-core/src",
+  "packages/twerk-dispatcher/src",
   "packages/twerk-objectives/src",
   "packages/twerk-pr-address/src",
   "packages/twerk-reviewer/src",
@@ -86,6 +91,7 @@ select = [
 known-first-party = [
   "twerk",
   "twerk_core",
+  "twerk_dispatcher",
   "twerk_objectives",
   "twerk_pr_address",
   "twerk_reviewer",
@@ -105,6 +111,7 @@ addopts = "-q --import-mode=importlib"
 testpaths = [
   "tests",
   "packages/twerk-core/tests",
+  "packages/twerk-dispatcher/tests",
   "packages/twerk-objectives/tests",
   "packages/twerk-pr-address/tests",
   "packages/twerk-reviewer/tests",
