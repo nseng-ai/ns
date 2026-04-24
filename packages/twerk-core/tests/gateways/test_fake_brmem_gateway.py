@@ -10,6 +10,7 @@ from twerk_core.brmem.gateway import (
     KeyNotFoundError,
 )
 from twerk_core.brmem.key_validation import InvalidKeyError
+from twerk_core.brmem.validation import InvalidKeyGlobError
 
 
 def test_fake_brmem_put_then_get_returns_content() -> None:
@@ -241,6 +242,8 @@ def test_fake_brmem_copy_entries_copies_every_key_without_prefix() -> None:
         namespace="memjectives",
         from_branch="master",
         to_branch="feat/x",
+        overwrite=False,
+        key_glob=None,
     )
 
     assert [(e.key, e.branch) for e in copied] == [
@@ -263,6 +266,8 @@ def test_fake_brmem_copy_entries_empty_source_returns_empty_tuple() -> None:
         namespace="memjectives",
         from_branch="master",
         to_branch="feat/x",
+        overwrite=False,
+        key_glob=None,
     )
 
     assert copied == ()
@@ -278,6 +283,8 @@ def test_fake_brmem_copy_entries_requires_overwrite_on_conflict() -> None:
             namespace="memjectives",
             from_branch="master",
             to_branch="feat/x",
+            overwrite=False,
+            key_glob=None,
         )
 
     assert [entry.key for entry in excinfo.value.conflicts] == ["foo/body.md"]
@@ -295,6 +302,7 @@ def test_fake_brmem_copy_entries_overwrite_replaces_destination() -> None:
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
+        key_glob=None,
     )
 
     assert [e.key for e in copied] == ["foo/body.md"]
@@ -318,6 +326,7 @@ def test_fake_brmem_copy_entries_overwrite_drops_destination_only_keys() -> None
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
+        key_glob=None,
     )
 
     # Destination now matches master exactly — the dest-only key is gone.
@@ -393,16 +402,131 @@ def test_fake_brmem_copy_entries_validates_branch_names() -> None:
             namespace="memjectives",
             from_branch="feat---x",
             to_branch="feat/y",
+            overwrite=False,
+            key_glob=None,
         )
     with pytest.raises(InvalidBranchNameError):
         gateway.copy_entries(
             namespace="memjectives",
             from_branch="feat/x",
             to_branch="feat---y",
+            overwrite=False,
+            key_glob=None,
         )
     with pytest.raises(InvalidNamespaceError):
         gateway.copy_entries(
             namespace="ns/with/slash",
             from_branch="feat/x",
             to_branch="feat/y",
+            overwrite=False,
+            key_glob=None,
+        )
+
+
+def _seed_glob_gateway() -> FakeBranchMemoryGateway:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "foo/body.md", "master", "foo-body\n")
+    gateway.put("memjectives", "foo/sub/x.md", "master", "foo-sub\n")
+    gateway.put("memjectives", "foobar/body.md", "master", "foobar-body\n")
+    gateway.put("memjectives", "bar/body.md", "master", "bar-body\n")
+    return gateway
+
+
+def test_fake_brmem_copy_entries_key_glob_filters_source() -> None:
+    gateway = _seed_glob_gateway()
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob="foo/*",
+    )
+
+    assert sorted(e.key for e in copied) == ["foo/body.md", "foo/sub/x.md"]
+    dest_keys = sorted(
+        e.key for e in gateway.list_entries(namespace="memjectives", branch="feat/x")
+    )
+    # foobar/body.md and bar/body.md are not copied — the trailing '/' in
+    # the glob anchors the prefix segment.
+    assert dest_keys == ["foo/body.md", "foo/sub/x.md"]
+
+
+def test_fake_brmem_copy_entries_key_glob_zero_match_returns_empty() -> None:
+    gateway = _seed_glob_gateway()
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob="nope/*",
+    )
+
+    assert copied == ()
+    assert gateway.list_entries(namespace="memjectives", branch="feat/x") == []
+
+
+def test_fake_brmem_copy_entries_key_glob_does_not_match_sibling_prefix() -> None:
+    gateway = _seed_glob_gateway()
+
+    gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob="foo/*",
+    )
+
+    assert gateway.check("memjectives", "foobar/body.md", "feat/x") is None
+
+
+def test_fake_brmem_copy_entries_key_glob_overwrite_preserves_non_matching() -> None:
+    gateway = _seed_glob_gateway()
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing-foo\n")
+    gateway.put("memjectives", "bar/body.md", "feat/x", "existing-bar\n")
+
+    gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=True,
+        key_glob="foo/*",
+    )
+
+    # Matching dest key was replaced by the source entry.
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "foo-body\n"
+    # Non-matching dest key survived bit-for-bit.
+    assert gateway.get("memjectives", "bar/body.md", "feat/x") == "existing-bar\n"
+
+
+def test_fake_brmem_copy_entries_key_glob_conflict_lists_only_matching_dest_keys() -> None:
+    gateway = _seed_glob_gateway()
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing-foo\n")
+    gateway.put("memjectives", "bar/body.md", "feat/x", "existing-bar\n")
+
+    with pytest.raises(BrmemCopyConflictError) as excinfo:
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="master",
+            to_branch="feat/x",
+            overwrite=False,
+            key_glob="foo/*",
+        )
+
+    assert [entry.key for entry in excinfo.value.conflicts] == ["foo/body.md"]
+    # Non-matching dest content must survive the aborted copy.
+    assert gateway.get("memjectives", "bar/body.md", "feat/x") == "existing-bar\n"
+
+
+def test_fake_brmem_copy_entries_rejects_empty_key_glob() -> None:
+    gateway = _seed_glob_gateway()
+
+    with pytest.raises(InvalidKeyGlobError):
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="master",
+            to_branch="feat/x",
+            overwrite=False,
+            key_glob="",
         )

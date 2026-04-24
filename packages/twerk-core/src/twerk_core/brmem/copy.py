@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import subprocess
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -16,7 +17,7 @@ from twerk_core.brmem.gateway import (
     ref_name_for_entry,
 )
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway
-from twerk_core.brmem.validation import first_failure
+from twerk_core.brmem.validation import check_key_glob, first_failure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -50,6 +51,22 @@ class CopyRequest:
             help="Destination branch that receives the copied entries.",
         ),
     ]
+    key_glob: Annotated[
+        str | None,
+        click.Option(
+            ["--key-glob"],
+            type=click.STRING,
+            default=None,
+            help=(
+                "Copy only entries whose key matches this fnmatch glob "
+                "(e.g. 'my-slug/*'). '*' matches any characters including "
+                "'/', '?' matches one character, '[seq]' matches a class. "
+                "Non-matching destination keys are preserved. When absent, "
+                "every entry in the namespace is copied and the destination "
+                "snapshot is replaced entirely."
+            ),
+        ),
+    ] = None
     overwrite: bool = False
     dry_run: bool = False
 
@@ -78,6 +95,7 @@ class CopyResult:
     overwrite: bool
     dry_run: bool
     copied: list[CopyPlanItem]
+    key_glob: str | None = None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -86,6 +104,7 @@ class CopyResult:
             "to_branch": self.to_branch,
             "overwrite": self.overwrite,
             "dry_run": self.dry_run,
+            "key_glob": self.key_glob,
             "copied": [item.to_json_dict() for item in self.copied],
         }
 
@@ -98,6 +117,8 @@ def render_copy(result: CopyResult) -> None:
         f"from {result.from_branch} to {result.to_branch} "
         f"in namespace {result.namespace}."
     )
+    if result.key_glob is not None:
+        click.echo(f"  (filtered by --key-glob {result.key_glob!r})")
     for item in result.copied:
         click.echo(f"  {item.key}  {item.source_sha}")
         click.echo(f"    {item.source_ref}")
@@ -113,10 +134,12 @@ def run_copy(
     ctx: click.Context,
     request: CopyRequest,
 ) -> ClinkrExit[CopyResult]:
+    key_glob_message = check_key_glob(request.key_glob) if request.key_glob is not None else None
     validation_failure = first_failure(
         ("invalid_namespace", check_namespace(request.namespace)),
         ("invalid_from_branch", check_branch_name(request.from_branch)),
         ("invalid_to_branch", check_branch_name(request.to_branch)),
+        ("invalid_key_glob", key_glob_message),
     )
     if validation_failure is not None:
         error_type, message = validation_failure
@@ -124,29 +147,51 @@ def run_copy(
 
     gateway = get_branch_memory_gateway(ctx)
 
-    source_entries = list(
+    all_source_entries = list(
         gateway.list_entries(
             namespace=request.namespace,
             branch=request.from_branch,
         )
     )
 
+    if request.key_glob is not None:
+        source_entries = [
+            entry
+            for entry in all_source_entries
+            if fnmatch.fnmatchcase(entry.key, request.key_glob)
+        ]
+    else:
+        source_entries = all_source_entries
+
     if not source_entries:
-        return ClinkrExit.failure(
-            error_type="no_matching_entries",
-            message=(
+        if request.key_glob is not None:
+            message = (
+                f"No entries on branch {request.from_branch} in namespace "
+                f"{request.namespace} match --key-glob {request.key_glob!r}."
+            )
+        else:
+            message = (
                 f"No entries found on branch {request.from_branch} in namespace "
                 f"{request.namespace}."
-            ),
+            )
+        return ClinkrExit.failure(
+            error_type="no_matching_entries",
+            message=message,
         )
 
-    existing_dest_keys = {
-        entry.key
-        for entry in gateway.list_entries(
-            namespace=request.namespace,
-            branch=request.to_branch,
-        )
-    }
+    all_dest_entries = gateway.list_entries(
+        namespace=request.namespace,
+        branch=request.to_branch,
+    )
+    if request.key_glob is not None:
+        # Non-matching destination keys are preserved and never conflict.
+        existing_dest_keys = {
+            entry.key
+            for entry in all_dest_entries
+            if fnmatch.fnmatchcase(entry.key, request.key_glob)
+        }
+    else:
+        existing_dest_keys = {entry.key for entry in all_dest_entries}
     conflicting_keys = sorted({entry.key for entry in source_entries} & existing_dest_keys)
     if conflicting_keys and not request.overwrite:
         joined = ", ".join(conflicting_keys)
@@ -186,6 +231,7 @@ def run_copy(
             from_branch=request.from_branch,
             to_branch=request.to_branch,
             overwrite=request.overwrite,
+            key_glob=request.key_glob,
         )
     except BrmemCopyConflictError as exc:
         return ClinkrExit.failure(
@@ -232,6 +278,7 @@ def _result(request: CopyRequest, plan: list[CopyPlanItem]) -> CopyResult:
         overwrite=request.overwrite,
         dry_run=request.dry_run,
         copied=plan,
+        key_glob=request.key_glob,
     )
 
 

@@ -9,6 +9,7 @@ form a linear history on that ref.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import subprocess
 import tempfile
@@ -30,6 +31,7 @@ from twerk_core.brmem.gateway import (
     validate_namespace,
 )
 from twerk_core.brmem.key_validation import validate_key
+from twerk_core.brmem.validation import validate_key_glob
 
 
 def _run(
@@ -409,11 +411,14 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         namespace: str,
         from_branch: str,
         to_branch: str,
-        overwrite: bool = False,
+        overwrite: bool,
+        key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
         validate_namespace(namespace)
         validate_branch_name(from_branch)
         validate_branch_name(to_branch)
+        if key_glob is not None:
+            validate_key_glob(key_glob)
 
         source_ref = _snapshot_ref_name(namespace, from_branch)
         source_sha_result = _run(
@@ -426,16 +431,49 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         source_sha = source_sha_result.stdout.strip()
 
         dest_ref = _snapshot_ref_name(namespace, to_branch)
-        dest_exists = (
-            _run(
-                ["git", "rev-parse", "--verify", dest_ref],
-                cwd=self._cwd,
-                check=False,
-            ).returncode
-            == 0
+        dest_sha_result = _run(
+            ["git", "rev-parse", "--verify", dest_ref],
+            cwd=self._cwd,
+            check=False,
+        )
+        dest_sha: str | None = (
+            dest_sha_result.stdout.strip() if dest_sha_result.returncode == 0 else None
         )
 
-        if dest_exists and not overwrite:
+        if key_glob is None:
+            return self._copy_snapshot(
+                namespace=namespace,
+                to_branch=to_branch,
+                source_ref=source_ref,
+                source_sha=source_sha,
+                dest_ref=dest_ref,
+                dest_sha=dest_sha,
+                overwrite=overwrite,
+            )
+
+        return self._copy_with_glob(
+            namespace=namespace,
+            from_branch=from_branch,
+            to_branch=to_branch,
+            source_ref=source_ref,
+            dest_ref=dest_ref,
+            dest_sha=dest_sha,
+            overwrite=overwrite,
+            key_glob=key_glob,
+        )
+
+    def _copy_snapshot(
+        self,
+        *,
+        namespace: str,
+        to_branch: str,
+        source_ref: str,
+        source_sha: str,
+        dest_ref: str,
+        dest_sha: str | None,
+        overwrite: bool,
+    ) -> tuple[EntryRef, ...]:
+        if dest_sha is not None and not overwrite:
             # Conflict is snapshot-level; the EntryRefs we surface describe
             # every key that currently lives on the destination snapshot and
             # would be overwritten.
@@ -458,7 +496,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             cwd=self._cwd,
         )
 
-        dest_entries = [
+        return tuple(
             EntryRef(
                 namespace=namespace,
                 key=path,
@@ -469,8 +507,82 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
                 _enumerate_tree_entries(self._cwd, source_ref),
                 key=lambda pair: pair[0],
             )
+        )
+
+    def _copy_with_glob(
+        self,
+        *,
+        namespace: str,
+        from_branch: str,
+        to_branch: str,
+        source_ref: str,
+        dest_ref: str,
+        dest_sha: str | None,
+        overwrite: bool,
+        key_glob: str,
+    ) -> tuple[EntryRef, ...]:
+        source_matching = [
+            (path, blob_sha)
+            for path, blob_sha in _enumerate_tree_entries(self._cwd, source_ref)
+            if fnmatch.fnmatchcase(path, key_glob)
         ]
-        return tuple(dest_entries)
+        if not source_matching:
+            return ()
+
+        if dest_sha is not None:
+            dest_tree = _enumerate_tree_entries(self._cwd, dest_ref)
+        else:
+            dest_tree = []
+        dest_matching = {
+            path: blob_sha for path, blob_sha in dest_tree if fnmatch.fnmatchcase(path, key_glob)
+        }
+        dest_non_matching = {
+            path: blob_sha
+            for path, blob_sha in dest_tree
+            if not fnmatch.fnmatchcase(path, key_glob)
+        }
+
+        if dest_matching and not overwrite:
+            conflicts = tuple(
+                EntryRef(
+                    namespace=namespace,
+                    key=path,
+                    branch=to_branch,
+                    ref_name=ref_name_for_entry(namespace, path, to_branch),
+                )
+                for path in sorted(dest_matching)
+            )
+            raise BrmemCopyConflictError(conflicts)
+
+        merged: dict[str, str] = dict(dest_non_matching)
+        for path, blob_sha in source_matching:
+            merged[path] = blob_sha
+
+        tree_sha = _build_tree_from_entries(self._cwd, merged)
+        commit_cmd = [
+            "git",
+            "commit-tree",
+            tree_sha,
+            "-m",
+            (
+                f"brmem copy --namespace {namespace} --from-branch {from_branch} "
+                f"--to-branch {to_branch} --key-glob {key_glob}"
+            ),
+        ]
+        if dest_sha is not None:
+            commit_cmd[2:2] = ["-p", dest_sha]
+        new_commit_sha = _run(commit_cmd, cwd=self._cwd).stdout.strip()
+        _run(["git", "update-ref", dest_ref, new_commit_sha], cwd=self._cwd)
+
+        return tuple(
+            EntryRef(
+                namespace=namespace,
+                key=path,
+                branch=to_branch,
+                ref_name=ref_name_for_entry(namespace, path, to_branch),
+            )
+            for path, _blob_sha in sorted(source_matching, key=lambda pair: pair[0])
+        )
 
     def _check_branch_ref_format(self, branch: str) -> None:
         validate_branch_name(branch)
