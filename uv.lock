@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 members = [
     "twerk",
     "twerk-core",
+    "twerk-dispatcher",
     "twerk-objectives",
     "twerk-pr-address",
     "twerk-reviewer",
@@ -244,6 +245,7 @@ dependencies = [
 
 [package.optional-dependencies]
 plugins = [
+    { name = "twerk-dispatcher" },
     { name = "twerk-objectives" },
     { name = "twerk-pr-address" },
     { name = "twerk-slots" },
@@ -256,6 +258,7 @@ dev = [
     { name = "pytest-xdist" },
     { name = "ruff" },
     { name = "twerk-core" },
+    { name = "twerk-dispatcher" },
     { name = "twerk-objectives" },
     { name = "twerk-pr-address" },
     { name = "twerk-reviewer" },
@@ -267,6 +270,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
     { name = "twerk-core", editable = "packages/twerk-core" },
+    { name = "twerk-dispatcher", marker = "extra == 'plugins'", editable = "packages/twerk-dispatcher" },
     { name = "twerk-objectives", marker = "extra == 'plugins'", editable = "packages/twerk-objectives" },
     { name = "twerk-pr-address", marker = "extra == 'plugins'", editable = "packages/twerk-pr-address" },
     { name = "twerk-slots", marker = "extra == 'plugins'", editable = "packages/twerk-slots" },
@@ -280,6 +284,7 @@ dev = [
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.5.0" },
     { name = "twerk-core", editable = "packages/twerk-core" },
+    { name = "twerk-dispatcher", editable = "packages/twerk-dispatcher" },
     { name = "twerk-objectives", editable = "packages/twerk-objectives" },
     { name = "twerk-pr-address", editable = "packages/twerk-pr-address" },
     { name = "twerk-reviewer", editable = "packages/twerk-reviewer" },
@@ -300,6 +305,21 @@ dependencies = [
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
     { name = "rich", specifier = ">=13.0" },
+]
+
+[[package]]
+name = "twerk-dispatcher"
+version = "0.1.0"
+source = { editable = "packages/twerk-dispatcher" }
+dependencies = [
+    { name = "click" },
+    { name = "twerk-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "twerk-core", editable = "packages/twerk-core" },
 ]
 
 [[package]]
