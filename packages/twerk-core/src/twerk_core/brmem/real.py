@@ -23,6 +23,7 @@ from twerk_core.brmem.gateway import (
     EntryDiagnostic,
     EntryRef,
     InvalidBranchNameError,
+    KeyNotFoundError,
     encode_branch_segment,
     ref_name_for_entry,
     validate_branch_name,
@@ -326,6 +327,38 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         if result.returncode != 0:
             return None
         return result.stdout
+
+    def delete(
+        self,
+        namespace: str | None,
+        key: str,
+        branch: str,
+    ) -> str:
+        validate_key(key)
+        self._check_branch_ref_format(branch)
+        snapshot_ref = _snapshot_ref_name(namespace, branch)
+
+        parent_result = _run(
+            ["git", "rev-parse", "--verify", snapshot_ref],
+            cwd=self._cwd,
+            check=False,
+        )
+        if parent_result.returncode != 0:
+            raise KeyNotFoundError(namespace, key, branch)
+        parent_sha = parent_result.stdout.strip()
+
+        existing = dict(_enumerate_tree_entries(self._cwd, snapshot_ref))
+        if key not in existing:
+            raise KeyNotFoundError(namespace, key, branch)
+        del existing[key]
+
+        tree_sha = _build_tree_from_entries(self._cwd, existing)
+        commit_sha = _run(
+            ["git", "commit-tree", tree_sha, "-p", parent_sha, "-m", f"brmem delete {key}"],
+            cwd=self._cwd,
+        ).stdout.strip()
+        _run(["git", "update-ref", snapshot_ref, commit_sha], cwd=self._cwd)
+        return commit_sha
 
     def check(
         self,

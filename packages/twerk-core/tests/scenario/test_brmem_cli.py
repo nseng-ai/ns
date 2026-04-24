@@ -52,6 +52,7 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
     assert "--version" in result.output
     assert "put" in result.output
     assert "get" in result.output
+    assert "delete" in result.output
     assert "list" in result.output
     assert "check" in result.output
     assert "copy" in result.output
@@ -1361,6 +1362,157 @@ def test_brmem_copy_json_envelope_reports_plan(cli_group: ClinkrGroup) -> None:
 
 def test_brmem_copy_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["copy", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_schema", "output_schema"}
+
+
+# ---------------------------------------------------------------------------
+# brmem delete
+# ---------------------------------------------------------------------------
+
+
+def test_brmem_delete_existing_key(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan/plan.md", "feat/x", "hello\n")
+    obj = _make_obj(gateway=gateway)
+
+    delete_result = CliRunner().invoke(
+        cli_group,
+        ["delete", "plan/plan.md", "--namespace", "scratch"],
+        obj=obj,
+    )
+    get_result = CliRunner().invoke(
+        cli_group,
+        ["get", "plan/plan.md", "--namespace", "scratch"],
+        obj=obj,
+    )
+
+    assert delete_result.exit_code == 0, delete_result.output
+    assert "Deleted plan/plan.md from scratch on branch feat/x." in delete_result.output
+    assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in delete_result.output
+    assert "Commit: fake-0002" in delete_result.output
+    assert get_result.exit_code == 2
+    assert "No content for key plan/plan.md" in get_result.output
+
+
+def test_brmem_delete_missing_key_errors(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "plan/plan.md", "--namespace", "scratch"],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "key_not_found" not in result.output  # error_type only surfaces in JSON envelope
+    assert "No entry to delete" in result.output
+    assert "key=plan/plan.md" in result.output
+    assert "namespace=scratch" in result.output
+    assert "branch=feat/x" in result.output
+
+
+def test_brmem_delete_preserves_siblings(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/b.md", "feat/x", "b\n")
+    obj = _make_obj(gateway=gateway)
+
+    runner = CliRunner()
+    delete_result = runner.invoke(
+        cli_group,
+        ["delete", "plan/a.md", "--namespace", "scratch"],
+        obj=obj,
+    )
+    a_get = runner.invoke(
+        cli_group,
+        ["get", "plan/a.md", "--namespace", "scratch"],
+        obj=obj,
+    )
+    b_get = runner.invoke(
+        cli_group,
+        ["get", "plan/b.md", "--namespace", "scratch"],
+        obj=obj,
+    )
+
+    assert delete_result.exit_code == 0, delete_result.output
+    assert a_get.exit_code == 2
+    assert b_get.exit_code == 0
+    assert b_get.output == "b\n"
+
+
+def test_brmem_delete_json_output(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan/plan.md", "feat/x", "hello\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
+        obj=obj,
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "namespace": "scratch",
+        "key": "plan/plan.md",
+        "branch": "feat/x",
+        "ref_name": "refs/brmem/ns/scratch/feat---x:plan/plan.md",
+        "commit": "fake-0002",
+    }
+
+
+def test_brmem_delete_json_missing_key_reports_failure(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
+        obj=_make_obj(),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "key_not_found"
+    assert "No entry to delete" in payload["message"]
+
+
+def test_brmem_delete_without_namespace_targets_base_entry(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "scratchpad", "feat/x", "hi\n")
+    obj = _make_obj(gateway=gateway)
+
+    runner = CliRunner()
+    delete_result = runner.invoke(cli_group, ["delete", "scratchpad"], obj=obj)
+    get_result = runner.invoke(cli_group, ["get", "scratchpad"], obj=obj)
+
+    assert delete_result.exit_code == 0, delete_result.output
+    assert "Deleted scratchpad from base on branch feat/x." in delete_result.output
+    assert "Ref: refs/brmem/base/feat---x:scratchpad" in delete_result.output
+    assert get_result.exit_code == 2
+
+
+def test_brmem_delete_invalid_branch_surfaces_clean_error(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "delete",
+            "plan/plan.md",
+            "--namespace",
+            "scratch",
+            "--branch",
+            "feat---x",
+        ],
+        obj=_make_obj(branch=None),
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid branch name 'feat---x'" in result.output
+
+
+def test_brmem_delete_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["delete", "--schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
