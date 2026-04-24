@@ -57,7 +57,7 @@ class MemjectiveShowResult:
         return {
             "slug": self.slug,
             "seed_present": self.seed_present,
-            "branches": [{"branch": bp.branch, "stale": bp.stale} for bp in self.branches],
+            "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in self.branches],
             "files": list(self.files),
             "body": _file_to_json(self.body),
             "roadmap": _file_to_json(self.roadmap),
@@ -77,7 +77,7 @@ def render_memjective_show(result: MemjectiveShowResult) -> None:
     if result.branches:
         click.echo("branches:")
         for bp in result.branches:
-            marker = " [stale]" if bp.stale else ""
+            marker = " [deleted]" if bp.deleted else ""
             click.echo(f"  - {bp.branch}{marker}")
     else:
         click.echo("branches: (none)")
@@ -196,7 +196,7 @@ def run_show_memjective(
     seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
     branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
     branches = tuple(
-        BranchPresence(branch=name, stale=not git_gateway.branch_exists(name))
+        BranchPresence(branch=name, deleted=not git_gateway.branch_exists(name))
         for name in branch_names
     )
     body = _read_file(

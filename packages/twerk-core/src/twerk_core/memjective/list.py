@@ -63,7 +63,7 @@ class MemjectiveListResult:
                     "slug": m.slug,
                     "files": list(m.files),
                     "seed_present": m.seed_present,
-                    "branches": [{"branch": bp.branch, "stale": bp.stale} for bp in m.branches],
+                    "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in m.branches],
                 }
                 for m in self.memjectives
             ],
@@ -85,8 +85,8 @@ def render_memjective_list(result: MemjectiveListResult) -> None:
     for memjective in result.memjectives:
         seed_cell = "yes" if memjective.seed_present else "no "
         branches_cell = str(memjective.live_branch_count)
-        if memjective.stale_branch_count:
-            branches_cell = f"{branches_cell} (+{memjective.stale_branch_count} stale)"
+        if memjective.deleted_branch_count:
+            branches_cell = f"{branches_cell} (+{memjective.deleted_branch_count} deleted)"
         click.echo(f"{memjective.slug.ljust(slug_width)}  {seed_cell}   {branches_cell}")
 
 

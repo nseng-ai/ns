@@ -215,10 +215,10 @@ def test_memjective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 
 def _seed_repo() -> FakeBranchMemoryGateway:
     gateway = FakeBranchMemoryGateway()
-    # memjective-cli: master seed + two branch snapshots (one stale).
+    # memjective-cli: master seed + two branch snapshots (one deleted).
     gateway.put("memjectives", "memjective-cli/body.md", "master", "seed\n")
     gateway.put("memjectives", "memjective-cli/body.md", "mem-scaffold-list", "snap\n")
-    gateway.put("memjectives", "memjective-cli/body.md", "mem-stale-branch", "snap\n")
+    gateway.put("memjectives", "memjective-cli/body.md", "mem-deleted-branch", "snap\n")
     # clinkr-migration: master seed only (seed-only case).
     gateway.put("memjectives", "clinkr-migration/body.md", "master", "seed\n")
     # twerk-reviewer: branch snapshot only, no master seed (snapshot-only case).
@@ -245,7 +245,7 @@ def test_memjective_list_repo_groups_by_slug(cli_group: ClinkrGroup) -> None:
     assert "clinkr-migration" in lines[1]
     assert "yes" in lines[1]
     assert "memjective-cli" in lines[2]
-    assert "(+1 stale)" in lines[2]
+    assert "(+1 deleted)" in lines[2]
     assert "twerk-reviewer" in lines[3]
     assert "no" in lines[3]
 
@@ -319,8 +319,8 @@ def test_memjective_list_repo_format_json(cli_group: ClinkrGroup) -> None:
                 "files": ["body.md"],
                 "seed_present": True,
                 "branches": [
-                    {"branch": "mem-scaffold-list", "stale": False},
-                    {"branch": "mem-stale-branch", "stale": True},
+                    {"branch": "mem-deleted-branch", "deleted": True},
+                    {"branch": "mem-scaffold-list", "deleted": False},
                 ],
             },
             {
@@ -328,7 +328,7 @@ def test_memjective_list_repo_format_json(cli_group: ClinkrGroup) -> None:
                 "files": ["body.md"],
                 "seed_present": False,
                 "branches": [
-                    {"branch": "feat/reviewer", "stale": False},
+                    {"branch": "feat/reviewer", "deleted": False},
                 ],
             },
         ],
@@ -353,7 +353,7 @@ def test_memjective_show_reports_seed_and_branches(cli_group: ClinkrGroup) -> No
     assert "key:" not in result.output
     assert "seed: present (master)" in result.output
     assert "mem-scaffold-list" in result.output
-    assert "mem-stale-branch [stale]" in result.output
+    assert "mem-deleted-branch [deleted]" in result.output
     assert "files:" in result.output
     assert "- body.md" in result.output
 
@@ -410,8 +410,8 @@ def test_memjective_show_format_json(cli_group: ClinkrGroup) -> None:
         "slug": "memjective-cli",
         "seed_present": True,
         "branches": [
-            {"branch": "mem-scaffold-list", "stale": False},
-            {"branch": "mem-stale-branch", "stale": True},
+            {"branch": "mem-deleted-branch", "deleted": True},
+            {"branch": "mem-scaffold-list", "deleted": False},
         ],
         "files": ["body.md"],
         "body": {"source_branch": "master", "content": "seed\n"},
@@ -490,7 +490,7 @@ def test_memjective_show_no_slug_defaults_json(cli_group: ClinkrGroup) -> None:
     assert payload["data"] == {
         "slug": "memjective-cli",
         "seed_present": True,
-        "branches": [{"branch": "feat/x", "stale": False}],
+        "branches": [{"branch": "feat/x", "deleted": False}],
         "files": ["body.md"],
         "body": {"source_branch": "feat/x", "content": "snap\n"},
         "roadmap": None,
