@@ -264,9 +264,9 @@ None needed. The work is fully local to the repo.
 
 ## High-Level Technical Design
 
-> *This illustrates the intended approach and is directional guidance for
+> _This illustrates the intended approach and is directional guidance for
 > review, not implementation specification. The implementing agent should
-> treat it as context, not code to reproduce.*
+> treat it as context, not code to reproduce._
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -321,12 +321,14 @@ plugin surface.
 **Dependencies:** None
 
 **Files:**
+
 - Create: `skills/brmem-branch-create/SKILL.md`
 - Create: `skills/brmem-branch-create/default-prompt.md`
 - Create: `.agents/skills/brmem-branch-create` (symlink → `../../skills/brmem-branch-create`)
 - Create: `.claude/skills/brmem-branch-create` (symlink via `npx skills` install flow)
 
 **Approach:**
+
 - `SKILL.md` frontmatter: `name: brmem-branch-create`, descriptive
   trigger text covering "stash a plan on a new branch", "prep a prefilled
   branch", etc. **No `metadata.internal: true`** (public skill). Allowed
@@ -356,6 +358,7 @@ plugin surface.
   symlinks consistently.
 
 **Patterns to follow:**
+
 - Public skill frontmatter shape: `skills/objective-list/SKILL.md`
   (lines 1-12, including the `PUBLIC SKILL` comment banner).
 - Skill-with-sibling-files layout: `skills/dev-memjective/` and
@@ -367,6 +370,7 @@ markdown-only skill; no Python surface to assert against.
 
 Document these as **manual verification scenarios** in the SKILL.md and
 reproduce them in this plan's own Verification section:
+
 - Happy path (seed-from-default): Invoke the skill in a repo with no
   `.twerk/prompts/brmem-branch-create.md` present and a plan file
   `/tmp/plan.md`. Expected outcomes: (a) `.twerk/prompts/brmem-branch-create.md`
@@ -385,6 +389,7 @@ reproduce them in this plan's own Verification section:
   aborts with a clear error (no partial branch or brmem state).
 
 **Verification:**
+
 - `skills/brmem-branch-create/SKILL.md` exists and does not reference
   any `twerk_core.*` module or class.
 - `skills/brmem-branch-create/default-prompt.md` exists, is non-empty,
@@ -405,12 +410,14 @@ surface so help output reflects only real plugin namespaces.
 **Dependencies:** None
 
 **Files:**
+
 - Modify: `packages/twerk-core/src/twerk_core/brmem/put.py` (line 45)
 - Modify: `packages/twerk-core/src/twerk_core/brmem/get.py` (line 38)
 - Modify: `packages/twerk-core/src/twerk_core/brmem/check.py` (line 38)
 - Modify: `packages/twerk-core/src/twerk_core/brmem/copy.py` (line 32)
 
 **Approach:**
+
 - In `put.py`, `get.py`, `check.py`: replace the example list
   `'workbr', 'memjectives'` with just `'memjectives'` — preserves the
   "namespace = real plugin" framing with a single concrete example.
@@ -420,10 +427,12 @@ surface so help output reflects only real plugin namespaces.
   change is strictly in the `help=` string values.
 
 **Patterns to follow:**
+
 - Existing help-text style in the same files — short, parenthesized
   examples, period-terminated.
 
 **Test scenarios:**
+
 - Test expectation: none — pure help-text wording change with no
   behavioral surface. Existing scenario tests for `brmem put/get/check/copy`
   assert outputs and exit codes, not help-text content; no regression
@@ -431,6 +440,7 @@ surface so help output reflects only real plugin namespaces.
   one does not.
 
 **Verification:**
+
 - `rg "'workbr'" packages/twerk-core/src/twerk_core/brmem/` returns zero
   matches.
 - `just` (lint + format + types + tests) runs green.
@@ -448,6 +458,7 @@ or seed data.
 **Dependencies:** None (independent of U2)
 
 **Files:**
+
 - Modify: `packages/twerk-core/tests/unit/test_brmem_parse_entry_ref.py`
 - Modify: `packages/twerk-core/tests/unit/test_brmem_tree_helpers.py`
 - Modify: `packages/twerk-core/tests/integration/test_real_brmem_gateway.py`
@@ -459,6 +470,7 @@ or seed data.
 - Modify: `packages/twerk-core/tests/gateways/test_fake_brmem_gateway.py`
 
 **Approach:**
+
 - Rename the literal string `workbr` to `example-plugin` in every
   occurrence listed above, along with any expected-output assertions
   that embed the name (e.g., `refs/brmem/ns/workbr/...` → `refs/brmem/ns/example-plugin/...`).
@@ -469,16 +481,19 @@ or seed data.
   within each file, followed by a `just` run to confirm nothing broke.
 
 **Patterns to follow:**
+
 - Existing neutral sample names in the codebase (`memjectives` where
   real, otherwise short descriptive kebab-case).
 
 **Test scenarios:**
+
 - Test expectation: none of these tests gain new assertions; they are
   renamed in place and must still pass. The change is "the test suite
   continues to pass with the renamed fixture string" — verified by
   running `just` after the change.
 
 **Verification:**
+
 - `rg "\bworkbr\b" packages/twerk-core/tests/` returns zero matches.
 - `just` runs green (in particular, all renamed scenario/integration/
   unit tests still pass).
@@ -496,9 +511,11 @@ without relying on the retired concept.
 **Dependencies:** None
 
 **Files:**
+
 - Modify: `skills/dev-memjective-create/SKILL.md` (lines 67-69 and line 299)
 
 **Approach:**
+
 - Lines 67-69 sit in the "Rules" section. Rephrase to preserve the
   actual operational guidance — "do not overwrite any pre-existing
   per-branch plan entry the memjective is sitting beneath" — without
@@ -515,13 +532,16 @@ without relying on the retired concept.
   namespace key conventions, and workflow stay exactly as-is.
 
 **Patterns to follow:**
+
 - Surrounding bullet rhythm and tone in the "Rules" and "Edge cases"
   sections of `dev-memjective-create/SKILL.md`.
 
 **Test scenarios:**
+
 - Test expectation: none — documentation-only edit.
 
 **Verification:**
+
 - `rg workbr skills/dev-memjective-create/` returns zero matches.
 - `skills/dev-memjective-create/SKILL.md` reads coherently end-to-end
   (manual review). The "Rules" and "Edge cases" sections still prevent
@@ -540,9 +560,11 @@ references to the retired concept disappear.
 **Dependencies:** None
 
 **Files:**
+
 - Modify: `skills/objective-list/SKILL.md` (line 83)
 
 **Approach:**
+
 - Replace the mocked row
   `#40   ● open     Implement workbranch primitive: branch-embedded c…    2h ago`
   with a neutral fictional issue title that doesn't reference the
@@ -553,13 +575,16 @@ references to the retired concept disappear.
   same render shape.
 
 **Patterns to follow:**
+
 - Existing mock row on the adjacent line (`#34   ● open     Explore
   using pluggy …`).
 
 **Test scenarios:**
+
 - Test expectation: none — mock output text only.
 
 **Verification:**
+
 - `rg -w 'workbr|workbranch' skills/objective-list/` returns zero matches.
 - The sample table in `objective-list/SKILL.md` still visually
   demonstrates a two-row render.
@@ -582,6 +607,7 @@ points at a dead skill name). Hard dependency is only on U1; U2-U5 are
 soft preferences.
 
 **Files:**
+
 - Delete: `skills/dev-workbr-create/` (whole directory)
 - Delete: `skills/dev-workbr-impl/` (whole directory)
 - Delete: `.agents/skills/dev-workbr-create` (symlink)
@@ -590,6 +616,7 @@ soft preferences.
 - Delete: `.claude/skills/dev-workbr-impl` (symlink)
 
 **Approach:**
+
 - Prefer `npx skills remove dev-workbr-create --agent codex claude-code -y`
   and the same for `dev-workbr-impl` per the `ns-skill-management`
   convention in `AGENTS.md`. The tool removes the real directory under
@@ -602,14 +629,17 @@ soft preferences.
   repositories. Those are local user data, outside this plan's scope.
 
 **Patterns to follow:**
+
 - The `ns-skill-management` workflow for skill removal (see
   `.agents/skills/ns-skill-management/SKILL.md`).
 
 **Test scenarios:**
+
 - Test expectation: none — deletions of markdown skills with no Python
   behavior.
 
 **Verification:**
+
 - `ls skills/dev-workbr-create skills/dev-workbr-impl` fails with
   no-such-file for both.
 - `ls .agents/skills/dev-workbr-create .agents/skills/dev-workbr-impl
@@ -696,13 +726,13 @@ by committing U2-U5 earlier in the PR #2 series. Standard Graphite flow
 
 ## Risks & Dependencies
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                                                                                                                                                                                       | Mitigation                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Test fixture rename (`workbr` → `example-plugin`) accidentally renames a memjective-related assertion that was using `workbr` as an "other namespace" marker, and the semantic is changed. | Scope the rename per-file and re-run `just` after each file to catch assertion drift; in `test_memjective_cli.py` and `test_memjective_tree_cli.py`, only rename the seed rows that use `workbr` — rows referencing `memjectives` stay untouched. |
-| Deleting `dev-workbr-create` / `dev-workbr-impl` leaves dangling symlinks under `.agents/skills/` or `.claude/skills/`. | Delete via `npx skills remove` (canonical path) so all three locations stay in sync. If falling back to manual deletion, explicitly `readlink` each symlink target to confirm the chain is clean. |
-| Users on older worktrees still have local `refs/brmem/ns/workbr/**` entries and get surprised when `brmem list --namespace workbr` still returns hits. | Explicitly in-scope: those entries stay readable. The brainstorm's non-goal stance is documented in the origin doc, and the new skill's writeup mentions that existing local workbr data remains accessible via `brmem get --namespace workbr`. |
-| First-run side-effect of the new skill: a new file appears in `.twerk/prompts/`, which the user might not expect. | The skill's final "report" explicitly names the seeded file so the user sees it and can review/commit/gitignore as they prefer. `.twerk/prompts/` is the convention going forward; teams will develop their own norm for whether to commit it. |
-| `npx skills remove` breaks or is unavailable, leaving partial state mid-removal. | Fallback removal procedure (manual `rm -rf` + `rm` on symlinks) is spelled out in U6's Approach and Verification sections; the unit is not complete until all six paths are absent. |
+| Deleting `dev-workbr-create` / `dev-workbr-impl` leaves dangling symlinks under `.agents/skills/` or `.claude/skills/`.                                                                    | Delete via `npx skills remove` (canonical path) so all three locations stay in sync. If falling back to manual deletion, explicitly `readlink` each symlink target to confirm the chain is clean.                                                 |
+| Users on older worktrees still have local `refs/brmem/ns/workbr/**` entries and get surprised when `brmem list --namespace workbr` still returns hits.                                     | Explicitly in-scope: those entries stay readable. The brainstorm's non-goal stance is documented in the origin doc, and the new skill's writeup mentions that existing local workbr data remains accessible via `brmem get --namespace workbr`.   |
+| First-run side-effect of the new skill: a new file appears in `.twerk/prompts/`, which the user might not expect.                                                                          | The skill's final "report" explicitly names the seeded file so the user sees it and can review/commit/gitignore as they prefer. `.twerk/prompts/` is the convention going forward; teams will develop their own norm for whether to commit it.    |
+| `npx skills remove` breaks or is unavailable, leaving partial state mid-removal.                                                                                                           | Fallback removal procedure (manual `rm -rf` + `rm` on symlinks) is spelled out in U6's Approach and Verification sections; the unit is not complete until all six paths are absent.                                                               |
 
 ---
 

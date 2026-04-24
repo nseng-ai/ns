@@ -8,16 +8,16 @@ codename: vibechk
 
 ## Problem Frame
 
-Twerk sessions produce a lot of implicit learning — what context actually mattered for planning, what gaps in docs or skills slowed implementation down, what surprises showed up mid-execution — and none of it is captured today. We also have no concrete way to tell whether adding a skill or doc file *actually* improves future sessions on the same kind of work.
+Twerk sessions produce a lot of implicit learning — what context actually mattered for planning, what gaps in docs or skills slowed implementation down, what surprises showed up mid-execution — and none of it is captured today. We also have no concrete way to tell whether adding a skill or doc file _actually_ improves future sessions on the same kind of work.
 
 The goal is a deliberately crude, **opt-in plugin** — codename `vibechk` — that does two things:
 
 1. Captures a plain-text summary of "what was in context" at two natural moments — right after branch creation (planning session) and right after implementation (impl session) — and parks both into `brmem` on the branch.
 2. Uses git branching itself as the eval substrate: a sibling branch off the parent applies the impl-session suggestions, re-plans with the captured planning context, and re-implements. Tool-call counts and token costs from each implementation get posted into the PR body so the two runs can be compared later by a prompt-driven read of the PRs.
 
-**Core architectural commitment**: none of this behavior is baked into the existing `brmem-branch-create` / `brmem-branch-impl` skills. The skills gain *optional prompt-based hook contracts*; `vibechk` plugs into those hook contracts by installing prompt files at known paths. If `vibechk` is not installed, the base skills behave exactly as they do today. The prompts *are* the hook points.
+**Core architectural commitment**: none of this behavior is baked into the existing `brmem-branch-create` / `brmem-branch-impl` skills. The skills gain _optional prompt-based hook contracts_; `vibechk` plugs into those hook contracts by installing prompt files at known paths. If `vibechk` is not installed, the base skills behave exactly as they do today. The prompts _are_ the hook points.
 
-No external eval tool, no schema'd note format, no automated chain. Steel-thread prototype meant to test whether the *workflow* is useful before investing in infrastructure.
+No external eval tool, no schema'd note format, no automated chain. Steel-thread prototype meant to test whether the _workflow_ is useful before investing in infrastructure.
 
 ---
 
@@ -30,21 +30,21 @@ No external eval tool, no schema'd note format, no automated chain. Steel-thread
 - A5. **Second impl session agent**: the session that plans and implements on `Impl2` using the improved context and the carried-forward planning notes.
 - A6. **Comparison session agent** (later, out of v1 scope for automation but flagged here): prompt-driven reader of the two PRs.
 
-A2–A5 are session *roles*, not distinct agents. They may all be the same Claude Code session at different times, or different sessions entirely. Telemetry cleanliness depends on them being different sessions — see Dependencies / Assumptions.
+A2–A5 are session _roles_, not distinct agents. They may all be the same Claude Code session at different times, or different sessions entirely. Telemetry cleanliness depends on them being different sessions — see Dependencies / Assumptions.
 
 ---
 
 ## Key Flows
 
 ```
-                        Base
-                       /    \
-                      /      \
-               Impl (F2)   ImprovedContextBranch (F3)
-                   |              |
-                  PR1            Impl2 (F4)
-                                  |
-                                 PR2
+         Base
+        /    \
+       /      \
+Impl (F2)   ImprovedContextBranch (F3)
+    |              |
+   PR1            Impl2 (F4)
+                   |
+                  PR2
 ```
 
 - F1. **Plan capture** (vibechk-gated)
@@ -87,7 +87,7 @@ A2–A5 are session *roles*, not distinct agents. They may all be the same Claud
 
 **Hook contracts (base-skill changes)**
 
-- R6. The `brmem-branch-create` and `brmem-branch-impl` skills gain *optional prompt-based hook contracts*. After their primary work completes, each skill checks for a well-known repo-local prompt file; if present, it reads the file and follows its instructions inline (same pattern as the existing `.twerk/prompts/brmem-branch-create.md` plugin point). If absent, the skill terminates normally — the base skills are unchanged in behavior for repos that do not opt in.
+- R6. The `brmem-branch-create` and `brmem-branch-impl` skills gain _optional prompt-based hook contracts_. After their primary work completes, each skill checks for a well-known repo-local prompt file; if present, it reads the file and follows its instructions inline (same pattern as the existing `.twerk/prompts/brmem-branch-create.md` plugin point). If absent, the skill terminates normally — the base skills are unchanged in behavior for repos that do not opt in.
   - `brmem-branch-create` post-hook path: `.twerk/prompts/brmem-branch-create-post.md` (proposed; exact filename deferred to planning).
   - `brmem-branch-impl` post-hook path: `.twerk/prompts/brmem-branch-impl-post.md` (proposed; exact filename deferred to planning).
 - R15. The hook mechanism is generic: any plugin (not just `vibechk`) can occupy a hook file. v1 assumes at most one plugin per hook point; coexistence of multiple plugins at the same hook point is a v2 concern.
@@ -129,7 +129,7 @@ A2–A5 are session *roles*, not distinct agents. They may all be the same Claud
 - A Claude Code session pointed at both PRs can read the telemetry blocks and the diffs and produce a coherent comparison without the user having to teach it the schema.
 - `impl-session-notes.txt` from a real session actually contains suggestions concrete enough that A4 can act on them without asking the user for clarification on the "main" recommendations. If every session produces vague notes, the prototype has failed regardless of infra correctness.
 - The v1 implementation does not require any additions to the brmem storage layer or the Graphite/branch plugin contract — it only adds (a) optional post-hook checks in the two existing `brmem-branch-*` skills, (b) the `vibechk-branch-eval` skill, and (c) two template hook prompts plus one install step.
-- When `vibechk` is *not* installed, `brmem-branch-create` and `brmem-branch-impl` behave byte-for-byte as they do today. A passing test proves the base-skill behavior is unchanged in the no-hook case.
+- When `vibechk` is _not_ installed, `brmem-branch-create` and `brmem-branch-impl` behave byte-for-byte as they do today. A passing test proves the base-skill behavior is unchanged in the no-hook case.
 
 ---
 

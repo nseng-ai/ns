@@ -35,26 +35,32 @@ Twerk sessions produce a lot of implicit learning — what context mattered for 
 Origin R-IDs carried forward verbatim; plan-local requirement nesting follows the origin's groupings for traceability.
 
 **Hook contracts (base-skill changes)**
+
 - R6. `brmem-branch-create` and `brmem-branch-impl` gain optional prompt-based post-hook contracts. Hook files at well-known paths, read verbatim when present, skipped silently when absent.
 - R15. Hook mechanism is generic (not vibechk-specific). One plugin per hook point in v1.
 
 **Session notes capture (vibechk content)**
+
 - R1–R3. `plan-session-notes.txt` stashed into `brmem` on the new branch by vibechk's post-create hook.
 - R4–R5. `impl-session-notes.txt` stashed into `brmem` on the current branch by vibechk's post-impl hook.
 
 **Telemetry (vibechk content)**
+
 - R7. Tool-call count + token totals extracted by parsing the current session's JSONL transcript under `~/.claude/projects/<encoded-cwd>/`.
 - R10–R11. Telemetry written to the PR body in a machine-extractable, delimited block.
 
 **Eval-branch workflow (vibechk skill)**
+
 - R8. `vibechk-branch-eval` creates `ImprovedContextBranch` off the parent of the current Impl branch using the repo's branch-creation plugin.
 - R9. Copies both notes files from Impl's brmem to ImprovedContextBranch's brmem via `brmem copy`.
 - R12. Applies the impl-session-notes suggestions as commits with a minimum rigor bar.
 
 **Plugin packaging**
+
 - R16. Delivered as three artifacts: two template default-prompt files + one skill; install is manual copy of the default-prompts + `npx skills` registration of the skill.
 
 **Storage contract**
+
 - R13–R14. Notes stored as plain `.txt` entries in brmem under a dedicated namespace (`vibechk`); never written into the working tree.
 
 **Origin actors:** A1 (User), A2 (Planning session agent), A3 (Impl session agent), A4 (Eval session agent), A5 (Second impl session agent), A6 (Comparison session agent — out of scope).
@@ -110,12 +116,12 @@ Origin R-IDs carried forward verbatim; plan-local requirement nesting follows th
 
 ### Verified Empirically
 
-| Claim | Evidence |
-|---|---|
-| JSONL filename == sessionId | First record of file `<sessionId>.jsonl` has `sessionId` field matching filename (stem) |
+| Claim                                    | Evidence                                                                                                                                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| JSONL filename == sessionId              | First record of file `<sessionId>.jsonl` has `sessionId` field matching filename (stem)                                                                                              |
 | Session tokens + tool uses are reachable | Aggregating `message.usage.{input,output,cache_creation,cache_read}_tokens` over `type == "assistant"` records + counting `tool_use` content blocks gave sane totals for a live file |
-| `cwd` → project-dir mapping | `/Users/schrockn/code/twerk` maps to `-Users-schrockn-code-twerk` |
-| No `CLAUDE_CODE_SESSION_ID` env var | `env | grep -i claude` shows only `ENTRYPOINT`, `CLAUDECODE`, `EXECPATH` |
+| `cwd` → project-dir mapping              | `/Users/schrockn/code/twerk` maps to `-Users-schrockn-code-twerk`                                                                                                                    |
+| No `CLAUDE_CODE_SESSION_ID` env var      | `env                                                                                                                                                                                 |
 
 ---
 
@@ -194,7 +200,7 @@ Per `AGENTS.md § Package Import Rules`, `__init__.py` files stay empty.
 
 ## High-Level Technical Design
 
-> *This illustrates the intended approach and is directional guidance for review, not implementation specification. The implementing agent should treat it as context, not code to reproduce.*
+> _This illustrates the intended approach and is directional guidance for review, not implementation specification. The implementing agent should treat it as context, not code to reproduce._
 
 ### Hook flow (base skill + vibechk, side-by-side)
 
@@ -286,10 +292,12 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
 **Dependencies:** None.
 
 **Files:**
+
 - Modify: `skills/brmem-branch-create/SKILL.md`
 - Test: manual verification scenarios inside the SKILL.md file (existing convention; extend with new cases)
 
 **Approach:**
+
 - After Step 8 "Report", add Step 9 "Optional post-hook". The step checks for `.twerk/prompts/brmem-branch-create-post.md`; if present, reads it verbatim and follows its instructions; if absent, returns.
 - Do NOT mirror the primary plugin's "Require the plugin to exist" rule — the post-hook is LBYL.
 - Do NOT widen `allowed-tools`. The hook prompt's directives run under the existing toolset (`Bash(brmem put *)` is already allowed).
@@ -300,9 +308,11 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
   - Hook present but malformed/unreadable → skill reports the hook error after the primary stash succeeded (partial success is acceptable).
 
 **Patterns to follow:**
+
 - `skills/brmem-branch-create/SKILL.md` Step 1 "Ensure the plugin exists" — but with `git rev-parse --show-toplevel` already done; the post-hook check is a simple file-exists test followed by a `Read`.
 
 **Test scenarios:**
+
 - Happy path — Hook file absent; primary stash succeeds; skill terminates at Step 8 as today.
 - Happy path — Hook file present; skill performs primary stash, then reads the hook file, then follows its instructions to issue additional `brmem put --namespace vibechk plan-session-notes.txt --stdin` calls; final report mentions both the primary plan entry and the vibechk entry.
 - Edge case — Hook file exists but is empty; skill completes primary stash and logs "hook file empty; no further action" without error.
@@ -310,6 +320,7 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
 - Integration scenario — With vibechk's `default-prompt-create-post.md` copied to `.twerk/prompts/brmem-branch-create-post.md`: invoking `brmem-branch-create` produces both `base/plans/<slug>.md` and `vibechk/plan-session-notes.txt` on the new branch; `brmem list --branch <new>` returns both.
 
 **Verification:**
+
 - `diff` between post-Step-8 behavior today and post-Step-8 behavior with hook absent is empty.
 - Rules section acknowledges the optional hook.
 
@@ -324,20 +335,24 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
 **Dependencies:** None (U1 not strictly required, but reviewing them together keeps the two skill changes consistent).
 
 **Files:**
+
 - Modify: `skills/brmem-branch-impl/SKILL.md`
 - Test: manual verification scenarios inside the SKILL.md file
 
 **Approach:**
+
 - Add a new Step 7 "Optional post-implementation hook" after Step 6 "Begin implementation". LBYL check for `.twerk/prompts/brmem-branch-impl-post.md`; if present, read and follow; if absent, return.
 - Widen `allowed-tools` to add: `Bash(brmem put *)`, `Bash(gh pr view *)`, `Bash(gh pr edit *)`, `Bash(python3 *)`, `Bash(ls *)`, `Write`. Pick narrow `gh` patterns where possible; do NOT use `Bash(*)`.
 - Update the "Read-only on `brmem`" rule: "Read-only on `brmem` for the core workflow. An optional post-hook at `.twerk/prompts/brmem-branch-impl-post.md` may direct `brmem put` calls under its own guidance; the skill's core steps 1–6 remain read-only."
 - Add manual verification scenarios covering hook-absent (unchanged behavior), hook-present (writes to brmem + edits PR body), and PR-absent (hook aborts cleanly).
 
 **Patterns to follow:**
+
 - U1's post-hook seam pattern, adapted to `brmem-branch-impl`'s Step 6 exit.
 - `.agents/skills/graphite/SKILL.md` PR body editing guidance — hook prompt must use `/tmp/pr-body.md` + `--body-file`, never heredoc.
 
 **Test scenarios:**
+
 - Happy path — Hook file absent; implementation runs, skill terminates at Step 6 as today; no new writes to brmem; no PR edits.
 - Happy path — Hook file present, PR exists: after implementation, hook reads JSONL → writes `impl-session-notes.txt` → appends telemetry block to PR body → terminates cleanly.
 - Happy path — Hook file present, repeated run (same session): telemetry block is updated in place, not duplicated. (Validates the idempotent delimiter-strip-and-append.)
@@ -348,6 +363,7 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
 - Integration scenario — With vibechk installed and a PR present: after an impl session, `brmem get vibechk/impl-session-notes.txt --branch <current>` returns a prose summary and `gh pr view <num> --json body -q .body` contains a single `<!-- vibechk:telemetry:start -->` block.
 
 **Verification:**
+
 - Hook-absent behavior is indistinguishable from today's — the widened `allowed-tools` is observable only when the hook is present.
 - The core "read-only on `brmem`" guarantee is preserved for steps 1–6.
 
@@ -362,6 +378,7 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
 **Dependencies:** None.
 
 **Files:**
+
 - Create: `skills/dev-vibechk-branch-eval/scripts/extract_session_metrics.py`
 - Create: `skills/dev-vibechk-branch-eval/scripts/__init__.py` (empty)
 - Create: `skills/dev-vibechk-branch-eval/scripts/tests/__init__.py` (empty)
@@ -369,6 +386,7 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
 - Create: `skills/dev-vibechk-branch-eval/scripts/tests/test_extract_session_metrics.py`
 
 **Approach:**
+
 - Single-file Python 3.11+ script, stdlib-only (json, pathlib, sys, argparse, os).
 - CLI shape: `python3 extract_session_metrics.py [--cwd <path>] [--jsonl <file>] [--home <dir>]`.
 - Defaults: `cwd` from `os.getcwd()`, `home` from `~`, `jsonl` derived by picking max-mtime `*.jsonl` in `<home>/.claude/projects/<encode(cwd)>/` where `encode` replaces `/` with `-`.
@@ -382,7 +400,7 @@ Idempotent update: the hook reads the existing body, strips any existing delimit
 
 **Execution note:** Implement test-first. Write `test_extract_session_metrics.py` with a fixture JSONL mirroring the verified shape from the Technical Design section; iterate until the script passes.
 
-**Technical design:** *(directional — one-file layout, frozen dataclass for output, argparse CLI)*
+**Technical design:** _(directional — one-file layout, frozen dataclass for output, argparse CLI)_
 
 ```
 extract_session_metrics.py (sketch)
@@ -406,11 +424,13 @@ def main() -> int: ...
 ```
 
 **Patterns to follow:**
+
 - `CLAUDE.md § Tech Stack` — Python 3.11+, frozen dataclasses, modern type syntax.
 - `AGENTS.md § Package Import Rules` — empty `__init__.py` files; import from canonical paths.
 - pytest conventions from existing scenario tests (e.g., `packages/twerk-pr-address/tests/scenario/test_operations.py`): functional tests, `tmp_path`, no test classes.
 
 **Test scenarios:**
+
 - Happy path — Fixture JSONL with 3 assistant turns and 5 tool_use blocks; output contains correct sums, counts, and session_id.
 - Happy path — `--jsonl` flag overrides discovery; script uses the given file even when the cwd-based directory has other candidates.
 - Edge case — Empty JSONL file (0 bytes); script exits 1 with message "no records found".
@@ -424,6 +444,7 @@ def main() -> int: ...
 - Integration scenario — Invoke with `--cwd=/Users/schrockn/code/twerk` against a real JSONL dir containing multiple files with different mtimes; script picks the most recent and reports its session_id.
 
 **Verification:**
+
 - `pytest skills/dev-vibechk-branch-eval/scripts/tests/` passes.
 - `python3 skills/dev-vibechk-branch-eval/scripts/extract_session_metrics.py` in this repo produces a JSON payload with non-zero `assistant_messages`.
 
@@ -438,9 +459,11 @@ def main() -> int: ...
 **Dependencies:** None at plan time (but operationally depends on U1/U2 hooks being live for end-to-end work).
 
 **Files:**
+
 - Create: `skills/dev-vibechk-branch-eval/SKILL.md`
 
 **Approach:**
+
 - Frontmatter: `name: dev-vibechk-branch-eval`, `metadata.internal: true`, `allowed-tools` including `Bash(git *)`, `Bash(gt *)`, `Bash(brmem list *)`, `Bash(brmem get *)`, `Bash(brmem copy *)`, `Read`, `Write`, `Edit`. Description must clearly disclose the branch-spawning side-effect.
 - Workflow sections:
   1. Pre-flight: confirm git repo, refuse trunk, confirm current branch has `brmem list --namespace vibechk` entries for `plan-session-notes.txt` and `impl-session-notes.txt` (both required; abort otherwise).
@@ -454,11 +477,13 @@ def main() -> int: ...
 - Update SKILL.md to reference the extractor script's location and the two default-prompts for install guidance.
 
 **Patterns to follow:**
+
 - `skills/brmem-branch-create/SKILL.md` — pre-flight shape, abort messages, plugin-contract invocation pattern.
 - `skills/brmem-branch-impl/SKILL.md` — trunk-refusal, branch-detection idioms.
 - `skills/objective-reconcile/SKILL.md` (local skill that also applies judgment-driven edits to markdown) — for tone of the "apply suggestions" workflow step.
 
 **Test scenarios:**
+
 - Happy path — Impl branch with both notes in `vibechk` namespace; skill creates `<impl>--vibechk-improved` off parent, copies notes, reads impl notes, commits 2 suggestion-driven changes, reports "2 applied, 0 skipped".
 - Happy path — Some suggestions are vague; skill records "skipped: <suggestion> — too vague to act on without clarification" in the final report; verifies the rigor bar fires.
 - Edge case — No `vibechk/impl-session-notes.txt` on the current branch; skill aborts with the specific missing-key message.
@@ -469,6 +494,7 @@ def main() -> int: ...
 - Integration scenario — End-to-end with U1/U2 hooks live: run `brmem-branch-create` on a plan, switch to Impl, run `brmem-branch-impl`, invoke `dev-vibechk-branch-eval`, confirm `ImprovedContextBranch` exists with both notes and with at least one suggestion commit.
 
 **Verification:**
+
 - `Manual verification scenarios` section in the SKILL.md covers the happy path, the rigor-bar scenario, and at least one abort.
 - Skill does not reference twerk-internal module paths (public-skill rule — even under `dev-` prefix, keep this clean to ease graduation).
 
@@ -483,24 +509,29 @@ def main() -> int: ...
 **Dependencies:** U1, U2 (hook contracts must be defined); U3 (extractor script exists so the impl-post hook can reference it).
 
 **Files:**
+
 - Create: `skills/dev-vibechk-branch-eval/default-prompt-create-post.md`
 - Create: `skills/dev-vibechk-branch-eval/default-prompt-impl-post.md`
 
 **Approach:**
+
 - Both files mirror the shape of `skills/brmem-branch-create/default-prompt.md`: a scope statement up top, then input-from-skill, contract steps, default behavior, customization guidance.
 - `default-prompt-create-post.md`: instructs the session agent to summarize the planning session context in prose and run `brmem put plan-session-notes.txt --namespace vibechk --branch <final-branch> --stdin` piping the summary. Includes a prompt for what the summary should contain (what was examined, alternatives considered, decisions).
 - `default-prompt-impl-post.md`: instructs the session agent to (a) summarize the impl session in prose and write to `brmem put impl-session-notes.txt --namespace vibechk --branch <current> --stdin`; (b) run `python3 <repo-root>/skills/dev-vibechk-branch-eval/scripts/extract_session_metrics.py` to get metrics JSON; (c) identify the PR with `gh pr view <current> --json number,body -q '{number: .number, body: .body}'` (abort with user-guidance if none); (d) compose the telemetry block; (e) strip any prior vibechk:telemetry block from the body; (f) append the new block; (g) write the assembled body to `/tmp/vibechk-pr-body.md`; (h) `gh pr edit <num> --body-file /tmp/vibechk-pr-body.md`.
 - Both files explicitly note: "This is vibechk's opinionated opinion. Edit this file to change what vibechk captures in this repo."
 
 **Patterns to follow:**
+
 - `skills/brmem-branch-create/default-prompt.md` structural shape.
 - `.agents/skills/graphite/SKILL.md` — `--body-file` usage pattern.
 - `skills/dev-gh/references/gh.md` — PR read-modify-write pattern.
 
 **Test scenarios:**
+
 - Test expectation: manual verification — both prompts are markdown content, not executable code. Verified via U1/U2/U9 end-to-end scenarios. No dedicated unit tests.
 
 **Verification:**
+
 - Running through the prompts by hand (as the session agent would) produces the expected brmem entries and PR body shape.
 - Neither prompt references absolute user-specific paths.
 
@@ -515,6 +546,7 @@ def main() -> int: ...
 **Dependencies:** U4 (skill directory exists).
 
 **Files:**
+
 - Create symlink: `.agents/skills/dev-vibechk-branch-eval` → `../../skills/dev-vibechk-branch-eval`
 - Create symlink: `.claude/skills/dev-vibechk-branch-eval` → `../../.agents/skills/dev-vibechk-branch-eval`
 - Modify: `skills-lock.json` (register the new skill with `source: "skills/dev-vibechk-branch-eval"`, `sourceType: "local"`)
@@ -522,16 +554,19 @@ def main() -> int: ...
 - Create: `.twerk/prompts/brmem-branch-impl-post.md` (copy of `skills/dev-vibechk-branch-eval/default-prompt-impl-post.md`)
 
 **Approach:**
+
 - Prefer `npx skills add local` with the canonical `--agent codex claude-code -y` flag from `ns-skill-management`; it handles symlinks + skills-lock.json updates.
 - If `skills-lock.json` is still in `UU` merge-unresolved state at implementation time, resolve that first (out of plan scope — it predates this work).
 - Copying the two default-prompts into `.twerk/prompts/` is a manual `cp` step. Do NOT automate this inside a skill — it's a one-time operation per repo and an explicit opt-in gesture. Call it out in the final report.
 - Verify by running `brmem-branch-create` in dry-test mode on a throwaway branch and confirming the hook fires.
 
 **Patterns to follow:**
+
 - `.agents/skills/ns-skill-management/SKILL.md` — canonical install flow.
 - `skills-lock.json` existing entries for local skills — copy the `source`/`sourceType`/`computedHash` shape.
 
 **Test scenarios:**
+
 - Happy path — After install, `ls -la .claude/skills/dev-vibechk-branch-eval` resolves through two symlink hops to the real directory.
 - Happy path — `cat skills-lock.json | jq '.skills["dev-vibechk-branch-eval"]'` returns the new entry.
 - Edge case — `skills-lock.json` is in `UU` merge-unresolved state; installer aborts with a clear message and does NOT attempt to edit the file.
@@ -539,6 +574,7 @@ def main() -> int: ...
 - Integration scenario — Full install dry-run: create a disposable branch, invoke `brmem-branch-create`, confirm both `plans/*.md` and `vibechk/plan-session-notes.txt` land.
 
 **Verification:**
+
 - `skills-lock.json` entry exists and is hashable.
 - Symlinks resolve.
 - `.twerk/prompts/` contains both post-hook files.
@@ -554,19 +590,24 @@ def main() -> int: ...
 **Dependencies:** U1, U2.
 
 **Files:**
+
 - Modify: `AGENTS.md`
 
 **Approach:**
-- Add a short section, e.g., `### Optional Post-Hooks on `brmem-branch-*` Skills`, under the existing `How to use skills` block. One or two paragraphs naming the two hook paths, the LBYL semantics, and pointing at `dev-vibechk-branch-eval` as the first and so-far only plugin using them.
+
+- Add a short section, e.g., `### Optional Post-Hooks on`brmem-branch-*`Skills`, under the existing `How to use skills` block. One or two paragraphs naming the two hook paths, the LBYL semantics, and pointing at `dev-vibechk-branch-eval` as the first and so-far only plugin using them.
 - Do not describe vibechk's opinions in `AGENTS.md` — that belongs in the skill's SKILL.md. The convention note is plugin-agnostic.
 
 **Patterns to follow:**
+
 - Existing `AGENTS.md` sections such as `### GitHub Backend Interactions` — short, prescriptive, single-pointer style.
 
 **Test scenarios:**
+
 - Test expectation: none — documentation-only change. Proofread pass is sufficient; no unit tests.
 
 **Verification:**
+
 - Reading the new section communicates the contract to a first-time contributor without requiring them to open the skill files.
 
 ---
@@ -580,9 +621,11 @@ def main() -> int: ...
 **Dependencies:** U1, U2, U3, U4, U5, U6, U7.
 
 **Files:**
+
 - Test: ad-hoc — no files created. Results land in a short scratch document or a comment trail in the associated PR.
 
 **Approach:**
+
 - Pick a tiny real task in this repo (e.g., fix a typo in a doc). Run the complete flow:
   1. Start a fresh Claude Code session; brainstorm and plan the task.
   2. `brmem-branch-create` → confirm `plan.md` and `vibechk/plan-session-notes.txt` both land in brmem.
@@ -594,12 +637,15 @@ def main() -> int: ...
 **Execution note:** Run this in a fresh session specifically to avoid conflating planning-session tokens with implementation-session tokens — the limitation the mtime heuristic has documented.
 
 **Patterns to follow:**
+
 - Existing skills' "Manual verification scenarios" sections demonstrate the manual-testing mindset this unit exercises.
 
 **Test scenarios:**
+
 - Test expectation: none (integration pass; findings captured as follow-ups rather than formal tests).
 
 **Verification:**
+
 - The full walkthrough completes without manual patching between skills.
 - Both notes exist in brmem on both Impl and ImprovedContextBranch.
 - PR body on Impl contains a single, well-formed telemetry block.
@@ -635,16 +681,16 @@ def main() -> int: ...
 
 ## Risks & Dependencies
 
-| Risk | Mitigation |
-|------|------------|
-| `extract_session_metrics.py` mtime heuristic misidentifies the session when the user runs multiple Claude Code sessions against the same cwd | Document the "fresh session per impl" discipline in both the skill SKILL.md and the `default-prompt-impl-post.md`. Escape hatch: `--jsonl <path>` flag lets the user pin the file explicitly. |
-| `gt submit` or a manual PR body edit strips the vibechk telemetry block | v1 tolerance: re-run `brmem-branch-impl` (or a small refresh command later) to re-append. Documented as a known-rough-edge. |
-| Widening `brmem-branch-impl`'s `allowed-tools` weakens the "read-only on brmem" invariant when the hook is not installed | Tools are still gated per-invocation by the user's permission prompt. The SKILL.md Rules section preserves the invariant for the core workflow; the hook is additive. |
-| Claude Code's JSONL schema changes, breaking the extractor | Schema was verified empirically as of 2026-04-24. If schema shifts, fail fast (`extract_session_metrics.py` raises on unknown field layouts); add a schema-version check if repeated drift occurs. |
-| Default-prompt files in `.twerk/prompts/` get committed and then diverge from the skill's canonical `default-prompt-*.md` | Document the "sync periodically" guidance in the skill's SKILL.md; accepted drift is the whole point of repo-local overrides. |
-| Skill-lock.json merge conflict (currently present per git status) blocks the install step | Resolve the pre-existing conflict before running U6; it's pre-existing work unrelated to this plan. |
-| `Write` tool in `brmem-branch-impl`'s widened `allowed-tools` is used for unrelated writes | Rules section explicitly scopes `Write` to "only in service of the optional post-hook's temp-file needs"; a reviewer or auditing tool can catch misuse. |
-| Multi-plugin coexistence at a hook point (future, out of scope) | Origin R15 acknowledges this as v2. If a second plugin shows up before then, users merge prompts by hand. |
+| Risk                                                                                                                                         | Mitigation                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extract_session_metrics.py` mtime heuristic misidentifies the session when the user runs multiple Claude Code sessions against the same cwd | Document the "fresh session per impl" discipline in both the skill SKILL.md and the `default-prompt-impl-post.md`. Escape hatch: `--jsonl <path>` flag lets the user pin the file explicitly.      |
+| `gt submit` or a manual PR body edit strips the vibechk telemetry block                                                                      | v1 tolerance: re-run `brmem-branch-impl` (or a small refresh command later) to re-append. Documented as a known-rough-edge.                                                                        |
+| Widening `brmem-branch-impl`'s `allowed-tools` weakens the "read-only on brmem" invariant when the hook is not installed                     | Tools are still gated per-invocation by the user's permission prompt. The SKILL.md Rules section preserves the invariant for the core workflow; the hook is additive.                              |
+| Claude Code's JSONL schema changes, breaking the extractor                                                                                   | Schema was verified empirically as of 2026-04-24. If schema shifts, fail fast (`extract_session_metrics.py` raises on unknown field layouts); add a schema-version check if repeated drift occurs. |
+| Default-prompt files in `.twerk/prompts/` get committed and then diverge from the skill's canonical `default-prompt-*.md`                    | Document the "sync periodically" guidance in the skill's SKILL.md; accepted drift is the whole point of repo-local overrides.                                                                      |
+| Skill-lock.json merge conflict (currently present per git status) blocks the install step                                                    | Resolve the pre-existing conflict before running U6; it's pre-existing work unrelated to this plan.                                                                                                |
+| `Write` tool in `brmem-branch-impl`'s widened `allowed-tools` is used for unrelated writes                                                   | Rules section explicitly scopes `Write` to "only in service of the optional post-hook's temp-file needs"; a reviewer or auditing tool can catch misuse.                                            |
+| Multi-plugin coexistence at a hook point (future, out of scope)                                                                              | Origin R15 acknowledges this as v2. If a second plugin shows up before then, users merge prompts by hand.                                                                                          |
 
 ---
 

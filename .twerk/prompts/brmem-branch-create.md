@@ -1,10 +1,12 @@
 <!--
 REPO-LOCAL CUSTOMIZATION (twerk): this plugin has been adapted from the
-packaged default (`skills/brmem-branch-create/default-prompt.md`) to use
-Graphite (`gt create`) instead of `git branch`. Twerk uses `gt` as the
-default branching tool — see AGENTS.md § "Branch Creation and PR Submission
-(Graphite)". Consequence: branches created by this plugin ARE checked out
-(unlike the packaged default, which stays on the original branch).
+packaged default (`skills/brmem-branch-create/default-prompt.md`) to
+register the new branch with Graphite without checking it out. Twerk uses
+`gt` as the default branching tool — see AGENTS.md § "Branch Creation and
+PR Submission (Graphite)". Consequence: the new branch is created at HEAD
+and tracked in the Graphite stack with the current branch as its parent;
+the worktree stays on the original branch (matches packaged-default
+no-checkout semantics while keeping Graphite awareness).
 -->
 
 # brmem-branch-create — packaged canonical branch-creation plugin
@@ -30,8 +32,10 @@ Given the suggested slug:
 ## Default behavior
 
 - keep the suggested slug unchanged as the final branch name
-- create with `gt create <final-branch>` (repo convention — see comment at top of file)
-- this DOES check out the new branch (Graphite's default); report that back to the skill so its summary is accurate
+- capture the original branch name first: `git rev-parse --abbrev-ref HEAD`
+- create the ref without moving HEAD: `git branch <final-branch> HEAD`
+- register the new branch in the Graphite stack: `gt track <final-branch> --parent <original-branch>`
+- do NOT check out the new branch; the worktree stays on the original branch (report that back to the skill so its summary is accurate)
 - do not push, do not submit
 
 ## Default pre-flights
