@@ -52,13 +52,12 @@ class ListEntriesResult:
         }
 
 
-def _display_namespace(namespace: str | None) -> str:
-    return namespace if namespace is not None else "(base)"
-
-
 def render_list_entries(result: ListEntriesResult) -> None:
     for entry in result.entries:
-        click.echo(f"{_display_namespace(entry.namespace)}/{entry.key}")
+        if entry.namespace is None:
+            click.echo(entry.key)
+        else:
+            click.echo(f"{entry.namespace}/{entry.key}")
 
 
 @clinkr_operation(
