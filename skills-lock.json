@@ -61,16 +61,6 @@
       "sourceType": "local",
       "computedHash": "7386c76b52adcbde551323da9c416705a6f9170347c57b74b2bb60e5208ab36f"
     },
-    "dev-workbr-create": {
-      "source": "skills/dev-workbr-create",
-      "sourceType": "local",
-      "computedHash": "14668fdb2f62ebf38a44e50e2fe1623e74687814da4597cce822aaf7f6ea3691"
-    },
-    "dev-workbr-impl": {
-      "source": "skills/dev-workbr-impl",
-      "sourceType": "local",
-      "computedHash": "d3ec0214b60855944189bbc18c09933da8791ee9f898a15cd8a32a53b7746830"
-    },
     "fdt-refactor-mock-to-fake": {
       "source": "dagster-io/fake-driven-testing",
       "sourceType": "github",

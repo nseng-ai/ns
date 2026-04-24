@@ -75,7 +75,7 @@ def _seed(branch: str = "feat/x") -> FakeBranchMemoryGateway:
     gateway.put("memjectives", "clinkr-migration/body.md", branch, "seed\n")
     gateway.put("memjectives", "memjective-cli/body.md", branch, "seed\n")
     # Entries in other namespaces must not leak into memjective list output.
-    gateway.put("workbr", "plan.md", branch, "seed\n")
+    gateway.put("scratch", "plan.md", branch, "seed\n")
     # Entries on other branches must not leak into --here output.
     gateway.put("memjectives", "other-branch-only/body.md", "feat/other", "seed\n")
     return gateway
@@ -92,7 +92,7 @@ def _seed_repo() -> FakeBranchMemoryGateway:
     # twerk-reviewer: branch snapshot only, no master seed (snapshot-only case).
     gateway.put("memjectives", "twerk-reviewer/body.md", "feat/reviewer", "snap\n")
     # Non-memjective namespace must not leak into repo-wide output.
-    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
+    gateway.put("scratch", "plan.md", "feat/x", "seed\n")
     return gateway
 
 
@@ -145,7 +145,7 @@ def test_memjective_list_empty_returns_nothing(cli_group: ClinkrGroup) -> None:
 
 def test_memjective_list_ignores_other_namespaces(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
+    gateway.put("scratch", "plan.md", "feat/x", "seed\n")
     gateway.put("objectives", "obj.md", "feat/x", "seed\n")
 
     result = CliRunner().invoke(
@@ -465,7 +465,7 @@ def _seed_sole_memjective_on_branch() -> FakeBranchMemoryGateway:
     # Memjectives on other branches must not trigger ambiguity.
     gateway.put("memjectives", "other-slug/body.md", "feat/other", "snap\n")
     # Entries in other namespaces must not count toward the total.
-    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
+    gateway.put("scratch", "plan.md", "feat/x", "seed\n")
     return gateway
 
 

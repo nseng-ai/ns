@@ -41,13 +41,13 @@ def test_real_brmem_round_trip_uses_snapshot_refs_and_preserves_history(tmp_path
     head_before = _run_git(repo, "rev-parse", "HEAD").stdout.strip()
     status_before = _run_git(repo, "status", "--porcelain").stdout
 
-    first_commit = gateway.put("workbr", "plan", "feat/x", "one\n")
-    second_commit = gateway.put("workbr", "plan", "feat/x", "two\n")
+    first_commit = gateway.put("scratch", "plan", "feat/x", "one\n")
+    second_commit = gateway.put("scratch", "plan", "feat/x", "two\n")
 
-    snapshot_ref = "refs/brmem/ns/workbr/feat---x"
+    snapshot_ref = "refs/brmem/ns/scratch/feat---x"
     assert _run_git(repo, "rev-parse", snapshot_ref).stdout.strip() == second_commit
-    assert gateway.get("workbr", "plan", "feat/x") == "two\n"
-    assert gateway.get("workbr", "plan", "feat/x", at=first_commit) == "one\n"
+    assert gateway.get("scratch", "plan", "feat/x") == "two\n"
+    assert gateway.get("scratch", "plan", "feat/x", at=first_commit) == "one\n"
 
     # Consecutive puts form a linear commit history on the snapshot ref.
     log_lines = _run_git(repo, "log", "--format=%H", snapshot_ref).stdout.splitlines()
@@ -63,28 +63,28 @@ def test_real_brmem_multiple_entries_coexist_on_same_branch(tmp_path: Path) -> N
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feat/x", "a\n")
-    gateway.put("workbr", "notes", "feat/x", "b\n")
-    gateway.put("workbr", "plan", "feat/x", "a-updated\n")
+    gateway.put("scratch", "plan", "feat/x", "a\n")
+    gateway.put("scratch", "notes", "feat/x", "b\n")
+    gateway.put("scratch", "plan", "feat/x", "a-updated\n")
 
-    assert gateway.get("workbr", "plan", "feat/x") == "a-updated\n"
-    assert gateway.get("workbr", "notes", "feat/x") == "b\n"
+    assert gateway.get("scratch", "plan", "feat/x") == "a-updated\n"
+    assert gateway.get("scratch", "notes", "feat/x") == "b\n"
 
 
 def test_real_brmem_sibling_keys_under_a_prefix_are_independent(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan/a.md", "feat/x", "a\n")
-    gateway.put("workbr", "plan/b.md", "feat/x", "b\n")
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/b.md", "feat/x", "b\n")
 
-    assert gateway.get("workbr", "plan/a.md", "feat/x") == "a\n"
-    assert gateway.get("workbr", "plan/b.md", "feat/x") == "b\n"
+    assert gateway.get("scratch", "plan/a.md", "feat/x") == "a\n"
+    assert gateway.get("scratch", "plan/b.md", "feat/x") == "b\n"
 
-    entries = gateway.list_entries(namespace="workbr", branch="feat/x")
+    entries = gateway.list_entries(namespace="scratch", branch="feat/x")
     assert [(e.key, e.ref_name) for e in entries] == [
-        ("plan/a.md", "refs/brmem/ns/workbr/feat---x:plan/a.md"),
-        ("plan/b.md", "refs/brmem/ns/workbr/feat---x:plan/b.md"),
+        ("plan/a.md", "refs/brmem/ns/scratch/feat---x:plan/a.md"),
+        ("plan/b.md", "refs/brmem/ns/scratch/feat---x:plan/b.md"),
     ]
 
 
@@ -92,23 +92,23 @@ def test_real_brmem_same_namespace_key_on_two_branches(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feat/x", "x\n")
-    gateway.put("workbr", "plan", "feat/y", "y\n")
+    gateway.put("scratch", "plan", "feat/x", "x\n")
+    gateway.put("scratch", "plan", "feat/y", "y\n")
 
-    assert gateway.get("workbr", "plan", "feat/x") == "x\n"
-    assert gateway.get("workbr", "plan", "feat/y") == "y\n"
+    assert gateway.get("scratch", "plan", "feat/x") == "x\n"
+    assert gateway.get("scratch", "plan", "feat/y") == "y\n"
 
 
 def test_real_brmem_list_entries_encodes_and_decodes_branch(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feature/foo", "a\n")
+    gateway.put("scratch", "plan", "feature/foo", "a\n")
 
     entries = gateway.list_entries()
 
     assert len(entries) == 1
-    assert entries[0].ref_name == "refs/brmem/ns/workbr/feature---foo:plan"
+    assert entries[0].ref_name == "refs/brmem/ns/scratch/feature---foo:plan"
     assert entries[0].branch == "feature/foo"
 
     decoded = parse_entry_ref(entries[0].ref_name)
@@ -120,12 +120,12 @@ def test_real_brmem_list_entries_preserves_native_slashes_in_keys(tmp_path: Path
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan/plan.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/plan.md", "feat/x", "a\n")
 
     entries = gateway.list_entries()
 
     assert len(entries) == 1
-    assert entries[0].ref_name == "refs/brmem/ns/workbr/feat---x:plan/plan.md"
+    assert entries[0].ref_name == "refs/brmem/ns/scratch/feat---x:plan/plan.md"
     assert entries[0].key == "plan/plan.md"
     assert entries[0].branch == "feat/x"
 
@@ -139,20 +139,20 @@ def test_real_brmem_list_entries_filters(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feat/x", "a\n")
-    gateway.put("workbr", "plan", "feat/y", "a\n")
+    gateway.put("scratch", "plan", "feat/x", "a\n")
+    gateway.put("scratch", "plan", "feat/y", "a\n")
     gateway.put("objectives", "obj-1", "feat/x", "a\n")
 
-    ws = gateway.list_entries(namespace="workbr")
+    ws = gateway.list_entries(namespace="scratch")
     assert [(e.namespace, e.key, e.branch) for e in ws] == [
-        ("workbr", "plan", "feat/x"),
-        ("workbr", "plan", "feat/y"),
+        ("scratch", "plan", "feat/x"),
+        ("scratch", "plan", "feat/y"),
     ]
 
     fx = gateway.list_entries(branch="feat/x")
     assert [(e.namespace, e.key, e.branch) for e in fx] == [
         ("objectives", "obj-1", "feat/x"),
-        ("workbr", "plan", "feat/x"),
+        ("scratch", "plan", "feat/x"),
     ]
 
 
@@ -160,15 +160,15 @@ def test_real_brmem_list_entries_silently_skips_malformed_snapshot_refs(tmp_path
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feat/x", "a\n")
-    head = _run_git(repo, "rev-parse", "refs/brmem/ns/workbr/feat---x").stdout.strip()
+    gateway.put("scratch", "plan", "feat/x", "a\n")
+    head = _run_git(repo, "rev-parse", "refs/brmem/ns/scratch/feat---x").stdout.strip()
     # Malformed ref under the ns/ prefix (has an extra path segment beyond
     # the single encoded-branch segment that the snapshot layout allows).
-    _run_git(repo, "update-ref", "refs/brmem/ns/workbr/extra/feat---y", head)
+    _run_git(repo, "update-ref", "refs/brmem/ns/scratch/extra/feat---y", head)
 
     entries = gateway.list_entries()
 
-    assert [e.ref_name for e in entries] == ["refs/brmem/ns/workbr/feat---x:plan"]
+    assert [e.ref_name for e in entries] == ["refs/brmem/ns/scratch/feat---x:plan"]
 
 
 def test_real_brmem_list_entries_ignores_refs_outside_base_and_ns_subtrees(
@@ -177,14 +177,14 @@ def test_real_brmem_list_entries_ignores_refs_outside_base_and_ns_subtrees(
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feat/x", "a\n")
-    head = _run_git(repo, "rev-parse", "refs/brmem/ns/workbr/feat---x").stdout.strip()
+    gateway.put("scratch", "plan", "feat/x", "a\n")
+    head = _run_git(repo, "rev-parse", "refs/brmem/ns/scratch/feat---x").stdout.strip()
     # A stray ref that does not live under refs/brmem/base/ or refs/brmem/ns/.
     _run_git(repo, "update-ref", "refs/brmem/brs/feat---legacy", head)
 
     entries = gateway.list_entries()
 
-    assert [e.ref_name for e in entries] == ["refs/brmem/ns/workbr/feat---x:plan"]
+    assert [e.ref_name for e in entries] == ["refs/brmem/ns/scratch/feat---x:plan"]
 
 
 def test_real_brmem_base_namespace_round_trip(tmp_path: Path) -> None:
@@ -209,15 +209,15 @@ def test_real_brmem_base_and_namespaced_entries_coexist(tmp_path: Path) -> None:
     gateway = RealBranchMemoryGateway(cwd=repo)
 
     gateway.put(None, "plan.md", "feat/x", "base\n")
-    gateway.put("workbr", "plan.md", "feat/x", "ns\n")
+    gateway.put("scratch", "plan.md", "feat/x", "ns\n")
 
     assert gateway.get(None, "plan.md", "feat/x") == "base\n"
-    assert gateway.get("workbr", "plan.md", "feat/x") == "ns\n"
+    assert gateway.get("scratch", "plan.md", "feat/x") == "ns\n"
 
     entries = gateway.list_entries()
     assert [(e.namespace, e.ref_name) for e in entries] == [
         (None, "refs/brmem/base/feat---x:plan.md"),
-        ("workbr", "refs/brmem/ns/workbr/feat---x:plan.md"),
+        ("scratch", "refs/brmem/ns/scratch/feat---x:plan.md"),
     ]
 
 
@@ -226,17 +226,17 @@ def test_real_brmem_rejects_branch_names_containing_encoding_separator(tmp_path:
     gateway = RealBranchMemoryGateway(cwd=repo)
 
     with pytest.raises(InvalidBranchNameError):
-        gateway.put("workbr", "plan", "feat---x", "hello\n")
+        gateway.put("scratch", "plan", "feat---x", "hello\n")
 
 
 def test_real_brmem_check_returns_diagnostic(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feat/x", "one\n")
-    second = gateway.put("workbr", "plan", "feat/x", "two-plus\n")
+    gateway.put("scratch", "plan", "feat/x", "one\n")
+    second = gateway.put("scratch", "plan", "feat/x", "two-plus\n")
 
-    diagnostic = gateway.check("workbr", "plan", "feat/x")
+    diagnostic = gateway.check("scratch", "plan", "feat/x")
 
     assert diagnostic is not None
     assert diagnostic.head_sha == second
@@ -247,17 +247,17 @@ def test_real_brmem_check_returns_none_for_missing(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    assert gateway.check("workbr", "plan", "feat/x") is None
+    assert gateway.check("scratch", "plan", "feat/x") is None
 
 
 def test_real_brmem_check_at_historical(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    first = gateway.put("workbr", "plan", "feat/x", "one\n")
-    gateway.put("workbr", "plan", "feat/x", "two-plus\n")
+    first = gateway.put("scratch", "plan", "feat/x", "one\n")
+    gateway.put("scratch", "plan", "feat/x", "two-plus\n")
 
-    diagnostic = gateway.check("workbr", "plan", "feat/x", at=first)
+    diagnostic = gateway.check("scratch", "plan", "feat/x", at=first)
 
     assert diagnostic is not None
     assert diagnostic.size_bytes == 4
@@ -268,11 +268,11 @@ def test_real_brmem_content_blob_is_inspectable_via_git_show(tmp_path: Path) -> 
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("workbr", "plan", "feat/x", "hello\n")
+    gateway.put("scratch", "plan", "feat/x", "hello\n")
 
     # The snapshot-locator form from ``ref_name_for_entry`` is a valid
     # ``git show`` argument: ``<snapshot-ref>:<key>``.
-    result = _run_git(repo, "show", "refs/brmem/ns/workbr/feat---x:plan")
+    result = _run_git(repo, "show", "refs/brmem/ns/scratch/feat---x:plan")
     assert result.stdout == "hello\n"
 
 

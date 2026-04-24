@@ -42,7 +42,7 @@ class PutRequest:
             ["--namespace"],
             type=click.STRING,
             default=None,
-            help=("Entry namespace (e.g. 'workbr', 'memjectives'). Omit for ad-hoc base entries."),
+            help=("Entry namespace (e.g. 'memjectives'). Omit for ad-hoc base entries."),
         ),
     ] = None
     stdin: bool = False
