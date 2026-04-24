@@ -1166,6 +1166,10 @@ def test_brmem_copy_help_lists_flags(cli_group: ClinkrGroup) -> None:
     assert "--to-branch" in result.output
     assert "--overwrite" in result.output
     assert "--dry-run" in result.output
+    assert "--key-glob" in result.output
+    # The help text must warn that '*' matches '/' so skill authors know
+    # `<slug>/*` is recursive (flat and nested keys both match).
+    assert "'/'" in result.output
 
 
 def test_brmem_copy_happy_path_copies_every_file_in_namespace(
@@ -1517,3 +1521,324 @@ def test_brmem_delete_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert set(payload) == {"input_schema", "output_schema"}
+
+
+# ---------------------------------------------------------------------------
+# brmem copy --key-glob
+# ---------------------------------------------------------------------------
+
+
+def _seed_for_glob_copy() -> FakeBranchMemoryGateway:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "foo/body.md", "master", "foo-body\n")
+    gateway.put("memjectives", "foo/roadmap.md", "master", "foo-road\n")
+    gateway.put("memjectives", "foo/sub/x.md", "master", "foo-sub\n")
+    gateway.put("memjectives", "foobar/body.md", "master", "foobar-body\n")
+    gateway.put("memjectives", "bar/body.md", "master", "bar-body\n")
+    return gateway
+
+
+def test_brmem_copy_key_glob_copies_only_matching_source_keys(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_for_glob_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "foo/*",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Copied 3 entries" in result.output
+    assert "(filtered by --key-glob 'foo/*')" in result.output
+    dest_keys = sorted(
+        e.key for e in gateway.list_entries(namespace="memjectives", branch="feat/x")
+    )
+    assert dest_keys == ["foo/body.md", "foo/roadmap.md", "foo/sub/x.md"]
+
+
+def test_brmem_copy_key_glob_zero_matches_exits_failure(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_for_glob_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "nope/*",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 2
+    assert "match --key-glob 'nope/*'" in result.output
+    # Destination snapshot must not have been created.
+    assert gateway.list_entries(namespace="memjectives", branch="feat/x") == []
+
+
+def test_brmem_copy_key_glob_does_not_match_sibling_prefix(cli_group: ClinkrGroup) -> None:
+    """`foo/*` must not copy `foobar/body.md` — the trailing slash anchors
+    the prefix segment.
+    """
+    gateway = _seed_for_glob_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "foo/*",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert gateway.check("memjectives", "foobar/body.md", "feat/x") is None
+
+
+def test_brmem_copy_key_glob_is_slash_tolerant(cli_group: ClinkrGroup) -> None:
+    """`foo/*` must match both flat (`foo/body.md`) and nested
+    (`foo/sub/x.md`) keys — `*` matches `/`.
+    """
+    gateway = _seed_for_glob_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "foo/*",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "foo-body\n"
+    assert gateway.get("memjectives", "foo/sub/x.md", "feat/x") == "foo-sub\n"
+
+
+def test_brmem_copy_key_glob_conflict_lists_only_matching_dest_keys(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_for_glob_copy()
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing-foo\n")
+    gateway.put("memjectives", "bar/body.md", "feat/x", "existing-bar\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "foo/*",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 2
+    assert "foo/body.md" in result.output
+    # Non-matching dest key (bar/body.md) is not a conflict, so it must not
+    # appear in the conflict message.
+    assert "bar/body.md" not in result.output
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "existing-foo\n"
+    assert gateway.get("memjectives", "bar/body.md", "feat/x") == "existing-bar\n"
+
+
+def test_brmem_copy_key_glob_overwrite_preserves_non_matching_dest_keys(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_for_glob_copy()
+    gateway.put("memjectives", "foo/body.md", "feat/x", "existing-foo\n")
+    gateway.put("memjectives", "bar/body.md", "feat/x", "existing-bar\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "foo/*",
+            "--overwrite",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    # Matching dest key was replaced by the source content.
+    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "foo-body\n"
+    # Non-matching dest key survived the copy verbatim.
+    assert gateway.get("memjectives", "bar/body.md", "feat/x") == "existing-bar\n"
+    # Other foo/* keys were copied too.
+    dest_keys = sorted(
+        e.key for e in gateway.list_entries(namespace="memjectives", branch="feat/x")
+    )
+    assert dest_keys == ["bar/body.md", "foo/body.md", "foo/roadmap.md", "foo/sub/x.md"]
+
+
+def test_brmem_copy_key_glob_cross_slug_pattern_matches_multiple_prefixes(
+    cli_group: ClinkrGroup,
+) -> None:
+    """`*.md` should match keys across every slug directory — verifies glob
+    expressiveness beyond a single-prefix pattern.
+    """
+    gateway = _seed_for_glob_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "*.md",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    dest_keys = sorted(
+        e.key for e in gateway.list_entries(namespace="memjectives", branch="feat/x")
+    )
+    assert dest_keys == [
+        "bar/body.md",
+        "foo/body.md",
+        "foo/roadmap.md",
+        "foo/sub/x.md",
+        "foobar/body.md",
+    ]
+
+
+def test_brmem_copy_key_glob_dry_run_reports_matching_plan_only(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_for_glob_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "foo/*",
+            "--dry-run",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Would copy 3 entries" in result.output
+    assert gateway.list_entries(namespace="memjectives", branch="feat/x") == []
+
+
+def test_brmem_copy_empty_key_glob_exits_failure(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed_for_glob_copy())
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid key glob" in result.output
+
+
+def test_brmem_copy_key_glob_json_envelope_records_filter(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_for_glob_copy()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            "memjectives",
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+            "--key-glob",
+            "foo/*",
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = _json_output(result.output)
+    data = payload["data"]
+    assert data["key_glob"] == "foo/*"
+    assert [item["key"] for item in data["copied"]] == [
+        "foo/body.md",
+        "foo/roadmap.md",
+        "foo/sub/x.md",
+    ]

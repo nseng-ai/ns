@@ -307,6 +307,8 @@ def test_real_brmem_copy_entries_reuses_source_snapshot_sha(tmp_path: Path) -> N
         namespace="memjectives",
         from_branch="master",
         to_branch="feat/x",
+        overwrite=False,
+        key_glob=None,
     )
 
     assert [(e.key, e.ref_name) for e in copied] == [
@@ -337,6 +339,8 @@ def test_real_brmem_copy_entries_raises_on_conflict_without_overwrite(tmp_path: 
             namespace="memjectives",
             from_branch="master",
             to_branch="feat/x",
+            overwrite=False,
+            key_glob=None,
         )
 
     # Destination snapshot must be untouched — copy aborts before any ref
@@ -358,6 +362,7 @@ def test_real_brmem_copy_entries_overwrite_replaces_destination(tmp_path: Path) 
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
+        key_glob=None,
     )
 
     # Destination snapshot is reassigned to the source commit verbatim.
@@ -383,6 +388,7 @@ def test_real_brmem_copy_entries_overwrite_drops_destination_only_keys(tmp_path:
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
+        key_glob=None,
     )
 
     assert (
@@ -403,6 +409,8 @@ def test_real_brmem_copy_entries_no_matching_source_returns_empty(tmp_path: Path
         namespace="memjectives",
         from_branch="master",
         to_branch="feat/x",
+        overwrite=False,
+        key_glob=None,
     )
 
     assert copied == ()
@@ -434,6 +442,8 @@ def test_real_brmem_copy_entries_is_atomic_under_conflict(tmp_path: Path) -> Non
             namespace="memjectives",
             from_branch="master",
             to_branch="feat/x",
+            overwrite=False,
+            key_glob=None,
         )
 
     assert (
@@ -512,3 +522,129 @@ def test_real_brmem_delete_last_key_leaves_empty_tree_snapshot(tmp_path: Path) -
     # And a second delete on the same key fails — delete is non-idempotent.
     with pytest.raises(KeyNotFoundError):
         gateway.delete("scratch", "plan", "feat/x")
+
+
+def test_real_brmem_copy_entries_key_glob_rebuilds_tree_with_parent_pointer(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("memjectives", "foo/body.md", "master", "foo-body\n")
+    gateway.put("memjectives", "bar/body.md", "master", "bar-body\n")
+    # Destination starts with one non-matching key that must be preserved.
+    dest_head_before = gateway.put("memjectives", "bar/body.md", "feat/x", "dest-bar\n")
+    dest_bar_blob_before = _run_git(
+        repo,
+        "rev-parse",
+        "refs/brmem/ns/memjectives/feat---x:bar/body.md",
+    ).stdout.strip()
+
+    gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob="foo/*",
+    )
+
+    dest_ref = "refs/brmem/ns/memjectives/feat---x"
+    dest_head_after = _run_git(repo, "rev-parse", dest_ref).stdout.strip()
+    assert dest_head_after != dest_head_before
+
+    # The new commit must have the prior dest commit as its parent — the
+    # skill requires a linear history on the destination snapshot ref.
+    parents = _run_git(repo, "rev-list", "--parents", "-n", "1", dest_head_after).stdout.split()
+    assert parents[1:] == [dest_head_before]
+
+    # Non-matching dest blob must be preserved bit-for-bit.
+    dest_bar_blob_after = _run_git(repo, "rev-parse", f"{dest_ref}:bar/body.md").stdout.strip()
+    assert dest_bar_blob_after == dest_bar_blob_before
+
+    tree_output = sorted(
+        _run_git(repo, "ls-tree", "-r", "--name-only", dest_ref).stdout.splitlines()
+    )
+    assert tree_output == ["bar/body.md", "foo/body.md"]
+
+
+def test_real_brmem_copy_entries_key_glob_to_empty_dest_has_no_parent(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("memjectives", "foo/body.md", "master", "foo-body\n")
+    gateway.put("memjectives", "bar/body.md", "master", "bar-body\n")
+
+    gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob="foo/*",
+    )
+
+    dest_ref = "refs/brmem/ns/memjectives/feat---x"
+    dest_head = _run_git(repo, "rev-parse", dest_ref).stdout.strip()
+
+    # Parentless commit: rev-list --parents prints just the commit sha.
+    parents = _run_git(repo, "rev-list", "--parents", "-n", "1", dest_head).stdout.split()
+    assert parents == [dest_head]
+
+    tree_output = _run_git(repo, "ls-tree", "-r", "--name-only", dest_ref).stdout.splitlines()
+    assert tree_output == ["foo/body.md"]
+
+
+def test_real_brmem_copy_entries_key_glob_is_atomic_under_conflict(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("memjectives", "foo/body.md", "master", "source\n")
+    dest_head = gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+
+    with pytest.raises(BrmemCopyConflictError) as excinfo:
+        gateway.copy_entries(
+            namespace="memjectives",
+            from_branch="master",
+            to_branch="feat/x",
+            overwrite=False,
+            key_glob="foo/*",
+        )
+
+    assert [entry.key for entry in excinfo.value.conflicts] == ["foo/body.md"]
+    # Destination ref must be untouched — conflict check runs before any ref
+    # write.
+    assert (
+        _run_git(repo, "rev-parse", "refs/brmem/ns/memjectives/feat---x").stdout.strip()
+        == dest_head
+    )
+
+
+def test_real_brmem_copy_entries_key_glob_zero_match_does_not_touch_dest(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    gateway.put("memjectives", "foo/body.md", "master", "source\n")
+
+    copied = gateway.copy_entries(
+        namespace="memjectives",
+        from_branch="master",
+        to_branch="feat/x",
+        overwrite=False,
+        key_glob="nope/*",
+    )
+
+    assert copied == ()
+    # Destination ref must not exist: zero-match copies never create a ref.
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "refs/brmem/ns/memjectives/feat---x"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        != 0
+    )

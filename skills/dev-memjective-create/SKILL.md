@@ -232,25 +232,30 @@ This is the initial snapshot. Capture the commit SHAs.
 ### 8. Attach the memjective to the current branch
 
 Carry the master-branch snapshot onto the current branch in a single
-atomic operation:
+atomic operation, scoped to this slug's entries only:
 
 ```bash
 brmem copy \
   --namespace memjectives \
   --from-branch master \
-  --to-branch <branch>
+  --to-branch <branch> \
+  --key-glob '<slug>/*'
 ```
 
-- `<branch>` is the branch captured in step 1.
-- `brmem copy` is byte-identical by construction — the destination refs
-  point at the same commit SHAs as the master-branch snapshot written in
-  step 7, so `body.md` (and `roadmap.md`, if drafted) carry over without
-  re-reading the temp files.
+- `<branch>` is the branch captured in step 1; `<slug>` is the slug from
+  step 3.
+- `--key-glob '<slug>/*'` copies only keys under this slug's directory,
+  byte-identical for the matching keys. Other memjectives' snapshots
+  on master are intentionally **not** carried forward — this preserves
+  the one-memjective-per-branch invariant (see `dev-memjective`,
+  "Invariant: One memjective per branch"). Without this filter, every
+  pre-existing master-level memjective would also land on the new
+  branch.
 - No `--overwrite` flag: the step-2 precondition already guarantees zero
   entries under the `memjectives` namespace on this branch.
 - If more sibling files (e.g., a future `notes.md`) are added to the
-  initial snapshot, they carry forward automatically — no edits to this
-  step required.
+  initial snapshot under `<slug>/`, they carry forward automatically —
+  no edits to this step required.
 
 Capture the destination ref / commit entries reported by `brmem copy` for
 the report.

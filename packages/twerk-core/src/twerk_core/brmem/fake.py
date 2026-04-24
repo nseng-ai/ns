@@ -11,6 +11,7 @@ enforces.
 
 from __future__ import annotations
 
+import fnmatch
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
@@ -26,6 +27,7 @@ from twerk_core.brmem.gateway import (
     validate_namespace,
 )
 from twerk_core.brmem.key_validation import validate_key
+from twerk_core.brmem.validation import validate_key_glob
 
 _FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -215,20 +217,68 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         namespace: str,
         from_branch: str,
         to_branch: str,
-        overwrite: bool = False,
+        overwrite: bool,
+        key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
         validate_namespace(namespace)
         validate_branch_name(from_branch)
         validate_branch_name(to_branch)
+        if key_glob is not None:
+            validate_key_glob(key_glob)
 
         source_head = self._snapshot_heads.get(_SnapshotKey(namespace, from_branch))
         if source_head is None:
             return ()
 
-        dest_head = self._snapshot_heads.get(_SnapshotKey(namespace, to_branch))
-        if dest_head is not None and not overwrite:
-            # Conflict is snapshot-level: surface every key currently on the
-            # destination snapshot that would be replaced.
+        dest_key = _SnapshotKey(namespace, to_branch)
+        dest_head = self._snapshot_heads.get(dest_key)
+
+        if key_glob is None:
+            if dest_head is not None and not overwrite:
+                # Conflict is snapshot-level: surface every key currently on the
+                # destination snapshot that would be replaced.
+                conflicts = tuple(
+                    EntryRef(
+                        namespace=namespace,
+                        key=tree_entry.key,
+                        branch=to_branch,
+                        ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
+                    )
+                    for tree_entry in sorted(self._commits[dest_head].tree)
+                )
+                raise BrmemCopyConflictError(conflicts)
+
+            self._snapshot_heads[dest_key] = source_head
+
+            return tuple(
+                EntryRef(
+                    namespace=namespace,
+                    key=tree_entry.key,
+                    branch=to_branch,
+                    ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
+                )
+                for tree_entry in sorted(self._commits[source_head].tree)
+            )
+
+        source_matching = [
+            tree_entry
+            for tree_entry in self._commits[source_head].tree
+            if fnmatch.fnmatchcase(tree_entry.key, key_glob)
+        ]
+        if not source_matching:
+            return ()
+
+        dest_tree = self._commits[dest_head].tree if dest_head is not None else ()
+        dest_matching = [
+            tree_entry for tree_entry in dest_tree if fnmatch.fnmatchcase(tree_entry.key, key_glob)
+        ]
+        dest_non_matching = [
+            tree_entry
+            for tree_entry in dest_tree
+            if not fnmatch.fnmatchcase(tree_entry.key, key_glob)
+        ]
+
+        if dest_matching and not overwrite:
             conflicts = tuple(
                 EntryRef(
                     namespace=namespace,
@@ -236,22 +286,34 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
                     branch=to_branch,
                     ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
                 )
-                for tree_entry in sorted(self._commits[dest_head].tree)
+                for tree_entry in sorted(dest_matching)
             )
             raise BrmemCopyConflictError(conflicts)
 
-        self._snapshot_heads[_SnapshotKey(namespace, to_branch)] = source_head
+        merged: dict[str, str] = {entry.key: entry.content_sha for entry in dest_non_matching}
+        for entry in source_matching:
+            merged[entry.key] = entry.content_sha
 
-        dest_entries = [
+        sha = f"fake-{self._next_commit_number:04d}"
+        commit_date = (_FAKE_EPOCH + timedelta(seconds=self._next_commit_number)).isoformat()
+        self._next_commit_number += 1
+
+        self._commits[sha] = _Snapshot(
+            tree=tuple(_TreeEntry(k, s) for k, s in sorted(merged.items())),
+            parent=dest_head,
+        )
+        self._commit_dates_by_sha[sha] = commit_date
+        self._snapshot_heads[dest_key] = sha
+
+        return tuple(
             EntryRef(
                 namespace=namespace,
-                key=tree_entry.key,
+                key=entry.key,
                 branch=to_branch,
-                ref_name=ref_name_for_entry(namespace, tree_entry.key, to_branch),
+                ref_name=ref_name_for_entry(namespace, entry.key, to_branch),
             )
-            for tree_entry in sorted(self._commits[source_head].tree)
-        ]
-        return tuple(dest_entries)
+            for entry in sorted(source_matching)
+        )
 
     # -- internals -----------------------------------------------------------
 

@@ -609,22 +609,34 @@ brmem list --namespace memjectives
 (Expected: still empty per the precondition.)
 
 When the source is a brmem snapshot (3a branch, 3b ancestor, or 3c master),
-carry the `memjectives` snapshot forward in a single atomic operation:
+carry the `memjectives` snapshot forward in a single atomic operation,
+scoped to the chosen slug:
 
 ```bash
 brmem copy \
   --namespace memjectives \
   --from-branch <source-branch> \
-  --to-branch <branch>
+  --to-branch <branch> \
+  --key-glob '<slug>/*'
 ```
 
 `<source-branch>` is the branch chosen in 3a, the nearest ancestor chosen
-in 3b, or `master` for 3c snapshots. The new destination refs point at the
-same commit SHAs as the source — carry-forward is byte-identical by
-construction. No `--overwrite` flag: the step-2 precondition already
-guarantees zero destination entries in the `memjectives` namespace, and
-the one-memjective-per-branch invariant means the source snapshot holds
-exactly the slug being carried forward.
+in 3b, or `master` for 3c snapshots. `<slug>` is the memjective slug
+resolved in step 3. The destination tree holds byte-identical copies of
+every matching source key; non-matching source keys are intentionally not
+carried forward. No `--overwrite` flag: the step-2 precondition already
+guarantees zero destination entries in the `memjectives` namespace.
+
+Why `--key-glob` on every source:
+
+- **3a branch / 3b ancestor**: the one-memjective-per-branch invariant
+  already guarantees the source snapshot holds exactly the slug being
+  carried forward, so the glob is defense-in-depth — a uniform command
+  shape across sources.
+- **3c master**: `master` is the _only_ snapshot that legitimately holds
+  multiple slugs (one per memjective), so the glob is load-bearing here —
+  without it, every master-level memjective would land on the new
+  branch, violating the one-memjective-per-branch invariant.
 
 When the source resolved in 3a is a **local file**, fall back to a single
 `brmem put` instead (there is no brmem snapshot to copy from):

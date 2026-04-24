@@ -174,20 +174,32 @@ class BranchMemoryGateway(ABC):
         namespace: str,
         from_branch: str,
         to_branch: str,
-        overwrite: bool = False,
+        overwrite: bool,
+        key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
-        """Atomically copy the ``namespace`` snapshot from ``from_branch`` to
-        ``to_branch``.
+        """Atomically copy entries in ``namespace`` from ``from_branch`` to ``to_branch``.
 
-        This is a snapshot-level operation: the destination snapshot ref is
-        pointed at the **same commit SHA** as the source snapshot — no new
-        blob, tree, or commit is created. When ``overwrite`` is ``False`` and
-        the destination snapshot already exists, raises
-        :class:`BrmemCopyConflictError` before mutating any ref. When
+        When ``key_glob`` is ``None`` this is a snapshot-level operation: the
+        destination snapshot ref is pointed at the **same commit SHA** as the
+        source snapshot — no new blob, tree, or commit is created. When
+        ``overwrite`` is ``False`` and the destination snapshot already exists,
+        raises :class:`BrmemCopyConflictError` before mutating any ref. When
         ``overwrite`` is ``True``, the destination snapshot is **replaced
         entirely** (any keys that existed only on the destination are dropped,
-        since the snapshot ref is reassigned). Returns the destination
-        :class:`EntryRef`\\s in sorted key order.
+        since the snapshot ref is reassigned).
+
+        When ``key_glob`` is a non-empty ``fnmatch`` pattern, only source keys
+        where ``fnmatch.fnmatchcase(key, key_glob)`` is true are copied. The
+        destination tree is rebuilt as ``dest_non_matching ∪ source_matching``
+        (source wins on key collision), committed, and the destination ref is
+        updated in one ``update-ref`` call. Non-matching destination keys are
+        always preserved regardless of ``overwrite``; ``overwrite=False`` with
+        matching destination keys raises :class:`BrmemCopyConflictError`, and
+        ``overwrite=True`` replaces only the matching destination keys. If no
+        source keys match, the gateway returns an empty tuple without touching
+        the destination ref.
+
+        Returns the destination :class:`EntryRef`\\s in sorted key order.
         """
 
 
