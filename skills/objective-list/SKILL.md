@@ -80,7 +80,7 @@ and `Updated` (relative time, e.g. `2h ago`):
 ```
    #   Status     Title                                                Updated
 ──────────────────────────────────────────────────────────────────────────────
- #40   ● open     Implement workbranch primitive: branch-embedded c…    2h ago
+ #40   ● open     Add memjective reconcile step                        2h ago
  #34   ● open     Explore using pluggy                                   1d ago
 ```
 

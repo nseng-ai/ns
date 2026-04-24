@@ -29,7 +29,7 @@ class CopyRequest:
             ["--namespace"],
             required=True,
             type=click.STRING,
-            help="Entry namespace (e.g. 'memjectives', 'workbr').",
+            help="Entry namespace (e.g. 'memjectives').",
         ),
     ]
     from_branch: Annotated[

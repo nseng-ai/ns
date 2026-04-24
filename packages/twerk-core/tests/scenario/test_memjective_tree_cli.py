@@ -106,7 +106,7 @@ def _seed_sole_memjective_on_feat_x() -> FakeBranchMemoryGateway:
     # An unrelated memjective on a different branch must not cause ambiguity.
     gateway.put("memjectives", "other-slug/body.md", "feat/other", "snap\n")
     # Other namespaces must not count.
-    gateway.put("workbr", "plan.md", "feat/x", "seed\n")
+    gateway.put("scratch", "plan.md", "feat/x", "seed\n")
     return gateway
 
 

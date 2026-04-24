@@ -14,48 +14,48 @@ from twerk_core.brmem.key_validation import InvalidKeyError
 def test_fake_brmem_put_then_get_returns_content() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    commit = gateway.put("workbr", "plan", "feat/x", "hello\n")
+    commit = gateway.put("scratch", "plan", "feat/x", "hello\n")
 
     assert commit == "fake-0001"
-    assert gateway.get("workbr", "plan", "feat/x") == "hello\n"
+    assert gateway.get("scratch", "plan", "feat/x") == "hello\n"
 
 
 def test_fake_brmem_get_at_reads_historical_snapshot() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    first_commit = gateway.put("workbr", "plan", "feat/x", "one\n")
-    second_commit = gateway.put("workbr", "plan", "feat/x", "two\n")
+    first_commit = gateway.put("scratch", "plan", "feat/x", "one\n")
+    second_commit = gateway.put("scratch", "plan", "feat/x", "two\n")
 
     assert second_commit == "fake-0002"
-    assert gateway.get("workbr", "plan", "feat/x") == "two\n"
-    assert gateway.get("workbr", "plan", "feat/x", at=first_commit) == "one\n"
+    assert gateway.get("scratch", "plan", "feat/x") == "two\n"
+    assert gateway.get("scratch", "plan", "feat/x", at=first_commit) == "one\n"
 
 
 def test_fake_brmem_initial_entries_seed_state() -> None:
     gateway = FakeBranchMemoryGateway(
         initial_entries={
-            EntryKey(namespace="workbr", key="plan/plan.md", branch="feat/x"): "hello\n"
+            EntryKey(namespace="scratch", key="plan/plan.md", branch="feat/x"): "hello\n"
         }
     )
 
-    assert gateway.get("workbr", "plan/plan.md", "feat/x") == "hello\n"
+    assert gateway.get("scratch", "plan/plan.md", "feat/x") == "hello\n"
 
 
 def test_fake_brmem_put_preserves_sibling_key_entries() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    gateway.put("workbr", "plan/a.md", "feat/x", "a\n")
-    gateway.put("workbr", "plan/b.md", "feat/x", "b\n")
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/b.md", "feat/x", "b\n")
 
-    assert gateway.get("workbr", "plan/a.md", "feat/x") == "a\n"
-    assert gateway.get("workbr", "plan/b.md", "feat/x") == "b\n"
+    assert gateway.get("scratch", "plan/a.md", "feat/x") == "a\n"
+    assert gateway.get("scratch", "plan/b.md", "feat/x") == "b\n"
 
 
 def test_fake_brmem_validates_branch_names() -> None:
     gateway = FakeBranchMemoryGateway()
 
     with pytest.raises(InvalidBranchNameError):
-        gateway.put("workbr", "plan", "feat---x", "hello\n")
+        gateway.put("scratch", "plan", "feat---x", "hello\n")
 
 
 def test_fake_brmem_validates_namespace() -> None:
@@ -71,46 +71,46 @@ def test_fake_brmem_validates_key() -> None:
     gateway = FakeBranchMemoryGateway()
 
     with pytest.raises(InvalidKeyError):
-        gateway.put("workbr", "", "feat/x", "hello\n")
+        gateway.put("scratch", "", "feat/x", "hello\n")
     with pytest.raises(InvalidKeyError):
-        gateway.put("workbr", "/abs", "feat/x", "hello\n")
+        gateway.put("scratch", "/abs", "feat/x", "hello\n")
     with pytest.raises(InvalidKeyError):
-        gateway.put("workbr", "../escape", "feat/x", "hello\n")
+        gateway.put("scratch", "../escape", "feat/x", "hello\n")
 
 
 def test_fake_brmem_allows_separator_in_keys() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    gateway.put("workbr", "a---b", "feat/x", "hello\n")
+    gateway.put("scratch", "a---b", "feat/x", "hello\n")
 
-    assert gateway.get("workbr", "a---b", "feat/x") == "hello\n"
+    assert gateway.get("scratch", "a---b", "feat/x") == "hello\n"
 
 
 def test_fake_brmem_allows_slashes_in_keys() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    gateway.put("workbr", "plan/plan.md", "feat/x", "hello\n")
+    gateway.put("scratch", "plan/plan.md", "feat/x", "hello\n")
 
-    assert gateway.get("workbr", "plan/plan.md", "feat/x") == "hello\n"
+    assert gateway.get("scratch", "plan/plan.md", "feat/x") == "hello\n"
 
 
 def test_fake_brmem_tracks_put_calls() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    gateway.put("workbr", "plan", "feat/x", "one\n")
-    gateway.put("workbr", "plan/docs.txt", "feat/x", "two\n")
+    gateway.put("scratch", "plan", "feat/x", "one\n")
+    gateway.put("scratch", "plan/docs.txt", "feat/x", "two\n")
 
     assert gateway._put_calls == [
-        ("workbr", "plan", "feat/x", "one\n"),
-        ("workbr", "plan/docs.txt", "feat/x", "two\n"),
+        ("scratch", "plan", "feat/x", "one\n"),
+        ("scratch", "plan/docs.txt", "feat/x", "two\n"),
     ]
 
 
 def test_fake_brmem_check_returns_diagnostic_at_head() -> None:
     gateway = FakeBranchMemoryGateway()
-    last = gateway.put("workbr", "plan", "feat/x", "hello\n")
+    last = gateway.put("scratch", "plan", "feat/x", "hello\n")
 
-    diagnostic = gateway.check("workbr", "plan", "feat/x")
+    diagnostic = gateway.check("scratch", "plan", "feat/x")
 
     assert diagnostic is not None
     assert diagnostic.head_sha == last
@@ -121,15 +121,15 @@ def test_fake_brmem_check_returns_diagnostic_at_head() -> None:
 def test_fake_brmem_check_returns_none_for_missing_entry() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    assert gateway.check("workbr", "plan", "feat/x") is None
+    assert gateway.check("scratch", "plan", "feat/x") is None
 
 
 def test_fake_brmem_check_at_historical_sha() -> None:
     gateway = FakeBranchMemoryGateway()
-    first_commit = gateway.put("workbr", "plan", "feat/x", "one\n")
-    gateway.put("workbr", "plan", "feat/x", "two-and-three\n")
+    first_commit = gateway.put("scratch", "plan", "feat/x", "one\n")
+    gateway.put("scratch", "plan", "feat/x", "two-and-three\n")
 
-    diagnostic = gateway.check("workbr", "plan", "feat/x", at=first_commit)
+    diagnostic = gateway.check("scratch", "plan", "feat/x", at=first_commit)
 
     assert diagnostic is not None
     assert diagnostic.size_bytes == 4
@@ -138,57 +138,57 @@ def test_fake_brmem_check_at_historical_sha() -> None:
 
 def test_fake_brmem_check_at_unknown_sha_returns_none() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan", "feat/x", "hello\n")
+    gateway.put("scratch", "plan", "feat/x", "hello\n")
 
-    assert gateway.check("workbr", "plan", "feat/x", at="does-not-exist") is None
+    assert gateway.check("scratch", "plan", "feat/x", at="does-not-exist") is None
 
 
 def test_fake_brmem_list_entries_no_filters_returns_all_sorted() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan", "feat/x", "a\n")
-    gateway.put("workbr", "plan", "feat/y", "a\n")
+    gateway.put("scratch", "plan", "feat/x", "a\n")
+    gateway.put("scratch", "plan", "feat/y", "a\n")
     gateway.put("objectives", "obj-1", "feat/x", "a\n")
 
     entries = gateway.list_entries()
 
     assert [(e.namespace, e.key, e.branch) for e in entries] == [
         ("objectives", "obj-1", "feat/x"),
-        ("workbr", "plan", "feat/x"),
-        ("workbr", "plan", "feat/y"),
+        ("scratch", "plan", "feat/x"),
+        ("scratch", "plan", "feat/y"),
     ]
     assert entries[0].ref_name == "refs/brmem/ns/objectives/feat---x:obj-1"
 
 
 def test_fake_brmem_list_entries_filters_by_namespace() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan", "feat/x", "a\n")
+    gateway.put("scratch", "plan", "feat/x", "a\n")
     gateway.put("objectives", "obj-1", "feat/x", "a\n")
 
-    entries = gateway.list_entries(namespace="workbr")
+    entries = gateway.list_entries(namespace="scratch")
 
-    assert [(e.namespace, e.key, e.branch) for e in entries] == [("workbr", "plan", "feat/x")]
+    assert [(e.namespace, e.key, e.branch) for e in entries] == [("scratch", "plan", "feat/x")]
 
 
 def test_fake_brmem_list_entries_filters_by_key_and_branch() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan", "feat/x", "a\n")
-    gateway.put("workbr", "notes", "feat/x", "a\n")
-    gateway.put("workbr", "plan", "feat/y", "a\n")
+    gateway.put("scratch", "plan", "feat/x", "a\n")
+    gateway.put("scratch", "notes", "feat/x", "a\n")
+    gateway.put("scratch", "plan", "feat/y", "a\n")
 
     entries = gateway.list_entries(key="plan", branch="feat/y")
 
-    assert [(e.namespace, e.key, e.branch) for e in entries] == [("workbr", "plan", "feat/y")]
+    assert [(e.namespace, e.key, e.branch) for e in entries] == [("scratch", "plan", "feat/y")]
 
 
 def test_fake_brmem_list_entries_matches_keys_with_slashes() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("workbr", "plan/a.md", "feat/x", "a\n")
-    gateway.put("workbr", "plan/b.md", "feat/x", "b\n")
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/b.md", "feat/x", "b\n")
 
     entries = gateway.list_entries(key="plan/a.md")
 
     assert [(e.namespace, e.key, e.branch) for e in entries] == [
-        ("workbr", "plan/a.md", "feat/x"),
+        ("scratch", "plan/a.md", "feat/x"),
     ]
 
 
@@ -218,15 +218,15 @@ def test_fake_brmem_base_and_namespaced_entries_do_not_collide() -> None:
     gateway = FakeBranchMemoryGateway()
 
     gateway.put(None, "scratchpad", "feat/x", "base\n")
-    gateway.put("workbr", "scratchpad", "feat/x", "ns\n")
+    gateway.put("scratch", "scratchpad", "feat/x", "ns\n")
 
     assert gateway.get(None, "scratchpad", "feat/x") == "base\n"
-    assert gateway.get("workbr", "scratchpad", "feat/x") == "ns\n"
+    assert gateway.get("scratch", "scratchpad", "feat/x") == "ns\n"
 
     entries = gateway.list_entries()
     assert [(e.namespace, e.ref_name) for e in entries] == [
         (None, "refs/brmem/base/feat---x:scratchpad"),
-        ("workbr", "refs/brmem/ns/workbr/feat---x:scratchpad"),
+        ("scratch", "refs/brmem/ns/scratch/feat---x:scratchpad"),
     ]
 
 

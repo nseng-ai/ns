@@ -121,7 +121,7 @@ def test_build_tree_is_deterministic_for_same_inputs(tmp_path: Path) -> None:
 
 
 def test_snapshot_ref_name_namespaced() -> None:
-    assert _snapshot_ref_name("workbr", "feat/x") == "refs/brmem/ns/workbr/feat---x"
+    assert _snapshot_ref_name("scratch", "feat/x") == "refs/brmem/ns/scratch/feat---x"
 
 
 def test_snapshot_ref_name_base() -> None:

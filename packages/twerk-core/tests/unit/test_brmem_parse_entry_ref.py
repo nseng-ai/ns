@@ -25,10 +25,10 @@ def test_parse_entry_ref_parses_base_snapshot_with_nested_key() -> None:
 
 
 def test_parse_entry_ref_parses_namespaced_snapshot_locator() -> None:
-    entry = parse_entry_ref("refs/brmem/ns/workbr/feat---x:plan.md")
+    entry = parse_entry_ref("refs/brmem/ns/scratch/feat---x:plan.md")
 
     assert entry is not None
-    assert entry.namespace == "workbr"
+    assert entry.namespace == "scratch"
     assert entry.branch == "feat/x"
     assert entry.key == "plan.md"
 
@@ -56,8 +56,8 @@ def test_parse_entry_ref_parses_namespaced_snapshot_with_nested_key() -> None:
         "refs/brmem/ns",
         "refs/brmem/ns/",
         "refs/brmem/ns/onlytwo",
-        "refs/brmem/ns/workbr/feat---x",  # snapshot ref without key
-        "refs/brmem/ns/workbr/feat---x/extra:key",  # extra path segments
+        "refs/brmem/ns/scratch/feat---x",  # snapshot ref without key
+        "refs/brmem/ns/scratch/feat---x/extra:key",  # extra path segments
         "refs/brmem/brs/feat---legacy:plan",
         "refs/brmem/other/feat---x:plan",
     ],

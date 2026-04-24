@@ -64,9 +64,6 @@ durable finding.
 - **Do not write the memjective into the working tree.** The only durable
   copies are the master-branch brmem files and the current-branch brmem
   files.
-- **Do not touch the workbr plan entry.** If the branch already has a
-  `plan/plan.md` entry in the `workbr` namespace, leave it alone. That plan
-  is the upper execution frame; the memjective sits below it.
 
 ## Workflow
 
@@ -296,7 +293,6 @@ the snapshot conservatively.
   clean up the branch state first.
 - **Master-branch snapshot already exists for this slug** → abort; do not
   overwrite the existing snapshot.
-- **Branch already has a `workbr` plan entry** → fine; leave it alone.
 - **Memjective is too vague to write `How to Make Progress`** → ask a short
   follow-up instead of drafting generic boilerplate.
 
