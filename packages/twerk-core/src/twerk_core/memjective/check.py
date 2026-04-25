@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
@@ -35,6 +36,32 @@ from twerk_core.memjective.tree_model import (
 
 CheckRecommendedAction = Literal["incorporate", "decide_skip", "wait", "none"]
 CheckErrorKind = Literal["state_parse_error", "pr_lookup_error"]
+
+ItemBucketKey = Literal[
+    "merged_pending_incorporation",
+    "merged_incorporated",
+    "stale_incorporation_entries",
+    "closed_needs_skip_decision",
+    "closed_skipped",
+    "tracked_not_eligible",
+]
+
+ITEM_BUCKET_KEYS: tuple[ItemBucketKey, ...] = (
+    "merged_pending_incorporation",
+    "merged_incorporated",
+    "stale_incorporation_entries",
+    "closed_needs_skip_decision",
+    "closed_skipped",
+    "tracked_not_eligible",
+)
+
+ATTENTION_ITEM_BUCKETS: frozenset[ItemBucketKey] = frozenset(
+    {
+        "merged_pending_incorporation",
+        "stale_incorporation_entries",
+        "closed_needs_skip_decision",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -157,40 +184,22 @@ class MemjectiveCheckError:
 
 @dataclass(frozen=True)
 class MemjectiveCheckBuckets:
-    merged_pending_incorporation: tuple[MemjectiveCheckItem, ...]
-    merged_incorporated: tuple[MemjectiveCheckItem, ...]
-    stale_incorporation_entries: tuple[MemjectiveCheckItem, ...]
-    closed_needs_skip_decision: tuple[MemjectiveCheckItem, ...]
-    closed_skipped: tuple[MemjectiveCheckItem, ...]
-    tracked_not_eligible: tuple[MemjectiveCheckItem, ...]
+    items: Mapping[ItemBucketKey, tuple[MemjectiveCheckItem, ...]]
     lookup_or_state_errors: tuple[MemjectiveCheckError, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "merged_pending_incorporation": [
-                item.to_json_dict() for item in self.merged_pending_incorporation
-            ],
-            "merged_incorporated": [item.to_json_dict() for item in self.merged_incorporated],
-            "stale_incorporation_entries": [
-                item.to_json_dict() for item in self.stale_incorporation_entries
-            ],
-            "closed_needs_skip_decision": [
-                item.to_json_dict() for item in self.closed_needs_skip_decision
-            ],
-            "closed_skipped": [item.to_json_dict() for item in self.closed_skipped],
-            "tracked_not_eligible": [item.to_json_dict() for item in self.tracked_not_eligible],
-            "lookup_or_state_errors": [
-                error.to_json_dict() for error in self.lookup_or_state_errors
-            ],
+        payload: dict[str, Any] = {
+            key: [item.to_json_dict() for item in self.items[key]] for key in ITEM_BUCKET_KEYS
         }
+        payload["lookup_or_state_errors"] = [
+            error.to_json_dict() for error in self.lookup_or_state_errors
+        ]
+        return payload
 
     @property
     def needs_attention_count(self) -> int:
-        return (
-            len(self.merged_pending_incorporation)
-            + len(self.stale_incorporation_entries)
-            + len(self.closed_needs_skip_decision)
-            + len(self.lookup_or_state_errors)
+        return sum(len(self.items[key]) for key in ATTENTION_ITEM_BUCKETS) + len(
+            self.lookup_or_state_errors
         )
 
 
@@ -233,19 +242,19 @@ def render_memjective_check(result: MemjectiveCheckResult) -> None:
 
     _render_items(
         "merged pending incorporation",
-        result.buckets.merged_pending_incorporation,
+        result.buckets.items["merged_pending_incorporation"],
     )
     _render_items(
         "stale incorporation entries",
-        result.buckets.stale_incorporation_entries,
+        result.buckets.items["stale_incorporation_entries"],
     )
     _render_items(
         "closed PRs needing skip decision",
-        result.buckets.closed_needs_skip_decision,
+        result.buckets.items["closed_needs_skip_decision"],
     )
-    _render_items("merged incorporated", result.buckets.merged_incorporated)
-    _render_items("closed skipped", result.buckets.closed_skipped)
-    _render_items("tracked but not eligible", result.buckets.tracked_not_eligible)
+    _render_items("merged incorporated", result.buckets.items["merged_incorporated"])
+    _render_items("closed skipped", result.buckets.items["closed_skipped"])
+    _render_items("tracked but not eligible", result.buckets.items["tracked_not_eligible"])
     _render_errors(result.buckets.lookup_or_state_errors)
 
 
@@ -478,13 +487,16 @@ def _build_buckets(
             continue
         tracked_not_eligible.append(item)
 
+    item_buckets: dict[ItemBucketKey, tuple[MemjectiveCheckItem, ...]] = {
+        "merged_pending_incorporation": tuple(merged_pending),
+        "merged_incorporated": tuple(merged_incorporated),
+        "stale_incorporation_entries": tuple(stale_incorporations),
+        "closed_needs_skip_decision": tuple(closed_needs_skip),
+        "closed_skipped": tuple(closed_skipped),
+        "tracked_not_eligible": tuple(tracked_not_eligible),
+    }
     return MemjectiveCheckBuckets(
-        merged_pending_incorporation=tuple(merged_pending),
-        merged_incorporated=tuple(merged_incorporated),
-        stale_incorporation_entries=tuple(stale_incorporations),
-        closed_needs_skip_decision=tuple(closed_needs_skip),
-        closed_skipped=tuple(closed_skipped),
-        tracked_not_eligible=tuple(tracked_not_eligible),
+        items=item_buckets,
         lookup_or_state_errors=tuple(errors),
     )
 
