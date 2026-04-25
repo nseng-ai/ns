@@ -1,6 +1,6 @@
 ---
 name: ns-pytest
-description: "Pytest-specific style guide for writing and reviewing tests. Use when deciding between fixtures, context managers, and plain helpers; choosing module-level `test_*` functions instead of test classes; using `@pytest.mark.parametrize`, `tmp_path`, `monkeypatch`, and `capsys`; structuring `unittest.mock.patch`; or cleaning up `autouse` fixtures and `conftest.py` sprawl. Prescribes functional-only tests, a strict setup hierarchy, and pragmatic mocking defaults. For architecture-level questions about gateway/fake design or where tests belong in the stack, use `ns-py-fake-driven-testing` instead."
+description: "Pytest style guide. Use when writing or reviewing pytest tests: fixtures vs. helpers, module-level `test_*` functions, `parametrize`, `tmp_path`, `monkeypatch`, `capsys`, `unittest.mock.patch`, or `conftest.py` cleanup. For gateway/fake architecture, use `ns-py-fake-driven-testing`."
 ---
 
 # ns-pytest

@@ -99,7 +99,7 @@
     "ns-fake-driven-test-layout": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "6c9f4a3782bce29ad7a4a04086b29fa26e8a1db7501c778938dfb26c94dbe093"
+      "computedHash": "7e96441ead1b42ad588d100f0015ca9fd22257161bbc9728eb457bca8a1a8ae0"
     },
     "ns-py-fake-driven-testing": {
       "source": "nseng-ai/nonslop",
@@ -109,12 +109,12 @@
     "ns-pytest": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "7f8f35a5f268b14e9560d6ee0421847b08a4c57d8786d7e981b0d0c12ad7c7e5"
+      "computedHash": "2147522e7381780d391ac8bb10922af6438d67a2dccb3f6b7b7683c362acf949"
     },
     "ns-refac-cli-push-down": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "1d6db447d54714511447d1fd1cad87a1822b1cfe3eb4e80b77dfe5d20ac9562d"
+      "computedHash": "af6cb6103f7f6c62784b633da4b806e4d83864efd7c81f06d8b66e0f3c4a993f"
     },
     "ns-refactor-swarm": {
       "source": "nseng-ai/nonslop",
@@ -139,7 +139,7 @@
     "ns-skill-management": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "9c64031d952e05b45878763c9938edd1087fd37e00a6aa37b1280f12b37cb41d"
+      "computedHash": "716d8e0930b191fa14d83173dd4e9beacba4fe5c15252659f7d20dbef8a7b218"
     },
     "ns-skillx": {
       "source": "nseng-ai/nonslop",

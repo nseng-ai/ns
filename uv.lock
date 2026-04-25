@@ -75,14 +75,14 @@ wheels = [
 
 [[package]]
 name = "nonslop"
-version = "0.1.4"
+version = "0.1.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/54/fe/c2c31e89729d789e637b9dd49c57de1432c5028ddb807711f08e84f40d2a/nonslop-0.1.4.tar.gz", hash = "sha256:5e7c37f1749dc7d56a4709fc730cac3daba488ff3188251f079f44796a5f513e", size = 17360, upload-time = "2026-04-25T22:19:19.457Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/e6/84d0f7ddca7ee1a7c8fffd96d93446f72368377ca43778697b921ab29148/nonslop-0.1.5.tar.gz", hash = "sha256:8175369a68f4264449b23bfa5c11a1c93c5b67b8552881d8d5a449c9cc213cd9", size = 17375, upload-time = "2026-04-25T22:35:04.094Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/91/ad4622cf7ebfd614587ccfa61bf953ac225f67174e94300a138cbbc364ca/nonslop-0.1.4-py3-none-any.whl", hash = "sha256:10c70a67fdd9cb12e636de056a078a5862b504ca29b0a7695749bfe5f5c9e283", size = 28552, upload-time = "2026-04-25T22:19:18.402Z" },
+    { url = "https://files.pythonhosted.org/packages/25/c4/7c77757791dbb404523bb01d9fd897b7a0b29ca54b289ee423d76e43f0b7/nonslop-0.1.5-py3-none-any.whl", hash = "sha256:2ed73fdcee9fd6712007fc5719e39aaac6a8b4fb830c9a4aff94a395004de2f0", size = 28578, upload-time = "2026-04-25T22:35:02.949Z" },
 ]
 
 [[package]]

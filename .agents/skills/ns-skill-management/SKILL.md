@@ -1,6 +1,6 @@
 ---
 name: ns-skill-management
-description: "Manage skills in nonslop projects with `npx skills`. Use whenever you need to add a new skill (local or from GitHub), edit an existing skill, remove one, rename one, update GitHub-sourced skills, inspect what's installed, or publish skills for external consumption. Covers the convention of `skills/<name>/` as the canonical source for local skills, `.agents/skills/` for vendored code, and the canonical `--agent codex claude-code -y` install flag. Also covers the hard-won gotchas: never omit `-a` (installs unwanted artifacts sometimes), and never use `--copy`."
+description: "Manage skills in nonslop projects with `npx skills`: add, edit, remove, rename, update, list, or publish skills (local or GitHub). Covers `skills/<name>/` and `.agents/skills/` conventions, the `--agent codex claude-code -y` flag, and `-a`/`--copy` gotchas."
 allowed-tools:
   - "Bash(npx skills *)"
   - "Bash(ln *)"
