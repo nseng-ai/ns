@@ -1,8 +1,10 @@
 ---
 name: dev-memjective-reconcile
-description: "Reconcile a memjective by consuming the fact bundle from `memjective check`, identifying merged PR observations whose source snapshots have not been incorporated into the root docs, and conservatively rewriting the master-branch snapshot to reflect what landed. Steelthread variant — does not yet record state entries (Slice 4 adds the write CLI); reports the entry the future writer will accept. Use after one or more PRs in a memjective stack land on master and the root docs need to catch up. See `dev-memjective` for the subsystem overview."
+description: "Reconcile a memjective by consuming the fact bundle from `memjective check`, identifying merged PR observations whose source snapshots have not been incorporated into the root docs, conservatively rewriting the master-branch snapshot, and persisting an incorporation entry via `memjective exec init` / `memjective exec record-entry`. Use after one or more PRs in a memjective stack land on master and the root docs need to catch up. See `dev-memjective` for the subsystem overview."
 allowed-tools:
   - "Bash(memjective check *)"
+  - "Bash(memjective exec init *)"
+  - "Bash(memjective exec record-entry *)"
   - "Bash(brmem get *)"
   - "Bash(brmem put *)"
   - "Bash(brmem check *)"
@@ -31,15 +33,12 @@ LM-led reconciliation of a memjective's root (master-branch) snapshot.
 For one memjective slug, identify merged PR observations whose source
 snapshots carry findings the master-branch snapshot does not yet reflect,
 read the source docs and the root docs, conservatively rewrite the root
-docs in place per the per-file mutation contract, and persist the result
-with `brmem put`. Surface every fact the LM uses to make those decisions
-so a future state-writing CLI (Slice 4 of the LM-boundary plan) can record
-the incorporation entry verbatim.
-
-This is the **steelthread** variant: it does not write to the
-`memjective-state` namespace yet. Step 8 reports the entry that
-Slice 4's `memjective exec record-entry` will accept; the LM does not
-synthesize state-blob writes by hand.
+docs in place per the per-file mutation contract, persist the rewrite
+with `brmem put`, and record an incorporation entry in
+`memjective-state/master:<slug>/state.json` via `memjective exec
+record-entry`. After this skill runs cleanly, a re-run is a no-op:
+`matching_stored_entry_ids` is non-empty for every reconciled PR, so the
+candidate filter in Step 3 skips it.
 
 ## Where this skill fits
 
@@ -240,11 +239,12 @@ Capture the new `head_sha` for each persisted file.
 Skip `brmem put` for any file whose proposed content is byte-identical
 to its current root content.
 
-#### 4f. Compose the proposed state entry
+#### 4f. Record the state entry
 
-Slice 3 does not yet write to `memjective-state`. Compose the entry
-the future `memjective exec record-entry` (Slice 4) will accept and
-include it verbatim in the report:
+Compose the entry payload below, then persist it via the writer CLI.
+Do not edit `memjective-state/master:<slug>/state.json` by hand — the
+writer enforces the schema, regression guard, and unique-PR-number
+invariant.
 
 ```json
 {
@@ -296,23 +296,40 @@ Use `incorporated_no_doc_change` as the `resolution` when the LM
 decided no root edit was warranted; in that case `root_after` equals
 `root_before` field-for-field.
 
-This entry is the contract Slice 4's writer will accept. Do not
-synthesize a `state.json` rewrite by hand — wait for the writer.
+If `data.state.status == "absent"` from the original `memjective check`
+bundle, initialize the state blob first:
+
+```bash
+memjective exec init <slug>
+```
+
+`init` is idempotent — if state already exists for the slug it returns
+ok with `created: false`. Then persist the entry:
+
+```bash
+memjective exec record-entry <slug> --json '<payload>'
+# or, if the payload is on disk:
+memjective exec record-entry <slug> --file /tmp/<slug>-pr-<number>-entry.json
+```
+
+Capture the returned `commit_sha` and `action` (`created`, `updated`,
+or `promoted`) for the final report.
 
 ### 5. Re-run `memjective check`
 
-After persisting all candidate rewrites, re-run:
+After persisting all candidate rewrites and recording their entries,
+re-run:
 
 ```bash
 memjective check <slug> --format json
 ```
 
 Diff the new fact bundle against the original. The expected delta is
-that the candidate branches' `matching_stored_entry_ids` are still
-empty (state is unchanged in this slice) but their root snapshots
-have moved — the user can inspect with `memjective show <slug>` if
-they want a rendered preview. Diagnostics should not regress (no
-new `missing_root_memjective`, `invalid_state`, or
+that each reconciled candidate's `matching_stored_entry_ids` now
+contains the recorded entry id (e.g. `["pr-221"]`) and the root
+snapshots have moved — the user can inspect with `memjective show
+<slug>` if they want a rendered preview. Diagnostics should not
+regress (no new `missing_root_memjective`, `invalid_state`, or
 `branch_pr_identity_conflict`); call out any that did.
 
 ### 6. Final report
@@ -321,15 +338,17 @@ Summarize:
 
 - **Slug** and the candidate count scanned, processed, and skipped
   (with reasons for each skip).
-- **Per-PR record** — for each processed candidate, the proposed
-  entry from Step 4f, the per-file old → new SHA pairs on root, and
-  a one-line summary of the rewrite's intent.
-- **Pending state writes** — the explicit list of entries that
-  Slice 4's `memjective exec record-entry` will need to apply, with a
-  reminder that `memjective-state/master:<slug>/state.json` is still
-  unchanged.
+- **Per-PR record** — for each processed candidate, the entry from
+  Step 4f, the per-file old → new SHA pairs on root, and a one-line
+  summary of the rewrite's intent.
+- **Recorded state entries** — for each processed candidate, the
+  `commit_sha` and `action` returned by `memjective exec record-entry`
+  (and, on first call this run, the `commit_sha` returned by
+  `memjective exec init` if it created the state blob).
 - **Re-check delta** — any new diagnostics, plus a one-liner
-  confirming the original blocking diagnostics are still absent.
+  confirming the original blocking diagnostics are still absent and
+  that the reconciled PRs now show non-empty
+  `matching_stored_entry_ids`.
 - **Recovery hint** for each rewritten root file:
 
   ```text
@@ -371,9 +390,10 @@ Summarize:
 - Auto-writing root docs without a user confirmation. Root is the
   authoritative shared state; reconcile must not rewrite it on the
   LM's say-so alone.
-- Synthesizing a `state.json` write directly from this skill. State
-  writes are deferred to Slice 4's `memjective exec record-entry`.
-  Compose the entry; do not persist it.
+- Synthesizing a `state.json` write by hand. Always go through
+  `memjective exec init` and `memjective exec record-entry`; the
+  writer enforces schema, regression guard, and the unique-PR-number
+  invariant.
 - Copying source files verbatim onto root. Carry-forward (`copy
   source onto root`) is `dev-memjective-next`'s primitive, not
   reconcile's. Reconcile applies the per-file mutation contract.
@@ -393,16 +413,14 @@ Summarize:
 
 ## Status
 
-Slice 3 of the LM-boundary memjective plan. Ships the steelthread:
-read fact bundle → rewrite root docs → report proposed state entry.
+End-to-end as of the minimal-state-writes slice: read fact bundle →
+rewrite root docs → record incorporation entry via `memjective exec
+init` + `memjective exec record-entry`.
 
 Deferred to later slices:
 
-- **Slice 4** — `memjective exec record-entry` so the proposed entries
-  in Step 4f can be persisted. Once Slice 4 lands, this skill will be
-  updated to call the writer after Step 4e.
-- **Slice 5** — recorded reconcile: integrate the `record-entry` call
-  end-to-end, including the LM-authored summary line.
-- **Slice 6** — provenance hardening (root-before / root-after
-  `tree_sha`, merge commit OID, idempotency guards). Until then,
-  Step 4f's entry shape is best-effort.
+- **Provenance hardening** — root-before / root-after `tree_sha`,
+  merge commit OID, and strict matching of `root_before` / `root_after`
+  against pending-entry evidence. The current writer accepts the
+  Step 4f shape opaquely under `source` / `root_before` / `root_after`;
+  it does not yet validate provenance.

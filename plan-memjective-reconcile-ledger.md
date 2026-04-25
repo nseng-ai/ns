@@ -23,7 +23,7 @@ writes (PR 2).
   (`fb18544`). The skill at `skills/dev-memjective-reconcile/SKILL.md` consumes
   `memjective check`, performs the conservative root-doc rewrite, and reports
   the entry payload that the future writer will accept. It explicitly does
-  *not* call `memjective exec record-entry` yet — it depends on PR 2.
+  _not_ call `memjective exec record-entry` yet — it depends on PR 2.
 - PR 4 — Extract Tree Model: **done** (`1fad6f3`). `tree_model.py` and unit
   tests at `tests/unit/test_memjective_tree_model.py`. `tree.py` consumes the
   extracted model. `check.py` was implemented against this model from the
