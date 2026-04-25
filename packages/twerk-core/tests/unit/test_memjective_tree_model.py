@@ -129,6 +129,8 @@ def test_live_branch_with_pr_maps_lifecycle_state(
     assert branch.pr.state == state
     assert branch.pr.title == "Widget slice"
     assert branch.pr.url == "https://example.com/pull/123"
+    assert branch.pr.head_ref_name == "feat/x"
+    assert branch.pr.base_ref_name == "master"
     assert branch.pr.error_stderr is None
 
 
