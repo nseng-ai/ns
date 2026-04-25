@@ -2,7 +2,7 @@
 name: dev-stacker-agent
 description: Command
 # Original description (preserved for reference):
-# Execute a multi-PR implementation plan as a serial local stack by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping at a reviewable local stack without pushing.
+# Execute a multi-slice implementation plan as a serial local branch stack or commit series by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping without pushing.
 metadata:
   internal: true
 ---
@@ -11,17 +11,19 @@ metadata:
 
 # dev-stacker-agent
 
-Use this skill when the user wants to implement a multi-PR plan as a
-local stack. The input plan may be freeform markdown, rough notes, or
-harness-native planner output. No author-facing plan schema is
-required.
+Use this skill when the user wants to implement a multi-slice plan as a
+local stack, or explicitly wants the slices recorded as commits without
+opening per-slice PRs. The input plan may be freeform markdown, rough
+notes, or harness-native planner output. No author-facing plan schema
+is required.
 
 The coordinator's job is to:
 
 1. Normalize the plan into an ordered list of slice manifests.
 2. Run one worker per slice in strict order.
 3. Verify each slice before allowing the next one to begin.
-4. Stop at a reviewable local stack without pushing or submitting.
+4. Stop at reviewable local branches or commits without pushing or
+   submitting.
 
 ## Read These References As Needed
 
@@ -45,8 +47,14 @@ The coordinator's job is to:
   not silently absorb implementation work from the worker.
 - **Verification requires validation plus diff skim.** A worker saying
   "tests passed" is not enough.
-- **Never push, submit, or open PRs.** Stop at a reviewable local
-  stack. Submission is the user's call.
+- **Never push, submit, or open PRs.** Stop at reviewable local
+  branches or commits. Submission is the user's call.
+- **Output shape follows the request.** Default to one branch per slice
+  for stacked-PR or local-stack requests. If the user explicitly asks
+  for commits without PRs, no PRs, or a single branch, keep all slices
+  on one target branch and make each slice a commit. This changes only
+  where the worker puts the slice; the handoff and verification
+  protocol stays the same.
 - **No required user-facing plan schema.** The plan may be loose; the
   coordinator normalizes it into the internal runtime contract.
 - **Use conservative defaults when risk is low; ask when ambiguity is
@@ -104,6 +112,22 @@ of these fail:
 Convert the input plan into the internal `stacker-slice-manifest/v1`
 shape defined in `references/runtime-contract.md`.
 
+Also record a run-level output shape:
+
+- **Branch stack** is the default for multi-PR, stack, or unspecified
+  requests.
+- **Commit series** is used only when the user explicitly asks for
+  commits without PRs, no per-slice PRs, or one branch with multiple
+  commits.
+
+For a commit series, resolve one target branch before slice 1. Prefer
+the current branch if it is not the repo's default branch. If the
+current branch is the default branch and the plan does not name a
+target branch, ask for a feature branch name or bail; do not commit
+slices directly to the default branch. Create or check out the target
+branch before the first worker when needed, using repo workflow
+conventions.
+
 Required per slice:
 
 - `title`
@@ -121,9 +145,12 @@ Optional per slice:
 
 Defaulting rules:
 
-- First slice base defaults to the repo's default branch unless the plan
-  says otherwise.
-- Later slice bases default to `previous_slice`.
+- In branch-stack runs, first slice `base` defaults to the repo's
+  default branch unless the plan says otherwise; later slices default
+  to `previous_slice`.
+- In commit-series runs, first slice `base` defaults to the target
+  branch's current `HEAD` before slice 1; later slices default to the
+  previous slice's verified head. A concrete SHA is fine.
 - Validation defaults to the repo's standard green-bar command when the
   plan does not supply one. In this repo, default to `just` at the repo
   root.
@@ -141,14 +168,19 @@ For each slice in order, do all of the following:
 **a. Prepare slice context.**
 
 - Resolve the concrete base ref for this slice.
-- Choose a suggested branch name and commit subject using repo
+- In branch-stack runs, choose a suggested branch name using repo
   conventions.
+- In commit-series runs, use the single target branch and tell the
+  worker to stay on it and add one commit on top of the resolved base.
+  Do not create a per-slice branch.
+- Choose a suggested commit subject using repo conventions.
 - Carry forward any downstream notes from prior slices.
 
 **b. Compose the worker brief.**
 
 Fill `references/brief-template.md` from the normalized slice manifest
-plus the current base ref and downstream context.
+plus the current base ref, output-shape-specific branch instructions,
+and downstream context.
 
 **c. Run one worker.**
 
@@ -171,8 +203,10 @@ Do not skip any of these checks:
 3. `git diff <base>..<reported-branch> --stat` looks plausibly in
    scope.
 4. Skim the full diff for obvious scope drift.
-5. If optional constraints were supplied, check them now.
-6. Stash any `downstream_notes` for the next slice's brief.
+5. In commit-series runs, confirm the reported branch is the target
+   branch and its head is a descendant of the resolved base.
+6. If optional constraints were supplied, check them now.
+7. Stash any `downstream_notes` for the next slice's brief.
 
 Only after those checks pass may the coordinator continue to the next
 slice.
@@ -184,16 +218,20 @@ summary and stop.
 
 Include one line per slice with:
 
-- branch name,
+- branch name or commit subject,
 - head SHA,
 - validation command and exit code, and
 - a compact changed-files or shortstat summary.
 
-Optionally show the stack shape using the repo's normal workflow tool.
-In this repo, `gt ls` is the natural confirmation step.
+For branch-stack runs, optionally show the stack shape using the repo's
+normal workflow tool. In this repo, `gt ls` is the natural confirmation
+step.
+
+For commit-series runs, mention the target branch and the commit range,
+for example `git log --oneline <start-sha>..HEAD`.
 
 End by telling the user to submit or push manually if they want to move
-the stack upstream.
+the work upstream.
 
 ## Failure / Retry Policy
 
@@ -219,6 +257,7 @@ the stack upstream.
 | Fewer than 2 slices after normalization                                          | Bail and tell the user to implement in-session.                   |
 | Repo workflow tool missing                                                       | Bail and point to the missing tool.                               |
 | Harness lacks required worker capabilities                                       | Bail and say the skill is unsupported in that harness as written. |
+| Commit-series target is the repo's default branch                                | Bail or ask for a feature branch name.                            |
 | Material ambiguity in slice title/scope/order/base/validate                      | Bail and ask only for the missing fact.                           |
 | Worker cannot produce a valid structured handoff                                 | Retry once, then surface and stop.                                |
 | Worker reveals a plan flaw that changes later slice ordering or base assumptions | Stop before the next slice and ask.                               |
@@ -235,3 +274,6 @@ the stack upstream.
   add detail, not remove guardrails.
 - **Parallelizing slices because the plan says they are independent.**
   The whole point of the coordinator is serial verification.
+- **Treating commits-without-PRs as a new protocol.** It is only a
+  different output shape; keep the same manifest, handoff, serial loop,
+  and verification bar.

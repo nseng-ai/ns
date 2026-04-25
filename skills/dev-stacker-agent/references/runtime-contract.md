@@ -21,6 +21,7 @@ Required fields:
   - `default_branch`
   - `previous_slice`
   - a literal branch or ref name
+  - a concrete SHA, usually for commit-series runs
 - `validate.command`: exact validation command to run from the repo root
 
 Optional fields:
@@ -53,10 +54,13 @@ Example:
 When the source plan omits a field, use these defaults unless that would
 be materially risky:
 
-- first slice `base = default_branch`
-- later slices `base = previous_slice`
-- `validate.command =` repo standard green-bar command
-- `constraints = []`
+- In branch-stack runs, first slice `base = default_branch`; later
+  slices `base = previous_slice`.
+- In commit-series runs, first slice `base` is the target branch's
+  current `HEAD` before slice 1; later slices use the previous slice's
+  verified `head_sha`.
+- `validate.command =` repo standard green-bar command.
+- `constraints = []`.
 
 If title, scope, order, base, or validation cannot be inferred safely,
 stop and ask the user only for the missing fact.
@@ -133,8 +137,11 @@ are true:
 - `status == "ok"`,
 - `validation.exit_code == 0`,
 - the reported `branch` resolves locally,
-- the resolved head equals `head_sha`, and
+- the resolved head equals `head_sha`,
 - the diff against the slice base passes a human diff skim.
+
+For commit-series runs, also confirm the reported `branch` is the run's
+target branch and the resolved head is a descendant of the slice base.
 
 Optional constraints strengthen verification when present; they do not
 become mandatory plan-authoring requirements.

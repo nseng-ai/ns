@@ -77,7 +77,9 @@ via another `Agent` call — runs the verification steps from the main
 - resolve `branch` locally and confirm its head equals `head_sha`,
 - run the validation command if the worker's report is at all
   suspicious,
-- `git diff <base>..<branch> --stat` and skim the full diff, and
+- `git diff <base>..<branch> --stat` and skim the full diff,
+- for commit-series runs, confirm `branch` is the target branch and
+  `head_sha` is a descendant of the resolved slice base, and
 - record `downstream_notes` for the next slice's brief.
 
 Do not delegate verification back to a subagent.
