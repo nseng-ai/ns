@@ -30,6 +30,8 @@ class MemjectiveTreePr:
     state: PRState | None
     title: str | None
     url: str | None
+    head_ref_name: str | None
+    base_ref_name: str | None
     error_stderr: str | None
 
 
@@ -99,6 +101,8 @@ def _lookup_pr(branch: str, pr_gateway: PRGateway) -> MemjectiveTreePr:
                 state=None,
                 title=None,
                 url=None,
+                head_ref_name=None,
+                base_ref_name=None,
                 error_stderr=None,
             )
         return MemjectiveTreePr(
@@ -107,6 +111,8 @@ def _lookup_pr(branch: str, pr_gateway: PRGateway) -> MemjectiveTreePr:
             state=None,
             title=None,
             url=None,
+            head_ref_name=None,
+            base_ref_name=None,
             error_stderr=result.stderr or None,
         )
     return MemjectiveTreePr(
@@ -115,5 +121,7 @@ def _lookup_pr(branch: str, pr_gateway: PRGateway) -> MemjectiveTreePr:
         state=result.state,
         title=result.title,
         url=result.url,
+        head_ref_name=result.head_ref_name,
+        base_ref_name=result.base_ref_name,
         error_stderr=None,
     )
