@@ -175,17 +175,17 @@ Rules:
 - Merge is the promotion boundary. Only merged PRs are eligible for semantic
   incorporation into root docs.
 
-## PR 1: Extract The Workstream Graph Behind `memjective tree`
+## PR 1: Extract The Tree Model Behind `memjective tree`
 
 Goal: make the underlying data model first-class without changing user-facing
 behavior.
 
 Implementation:
 
-- Add `packages/twerk-core/src/twerk_core/memjective/workstream_graph.py`.
-  This is a regular public module path; do not hide it behind a leading
-  underscore and do not re-export it from `__init__.py`.
-- Move the non-Click graph-building logic out of
+- Add `packages/twerk-core/src/twerk_core/memjective/tree_model.py`. This is a
+  regular public module path; do not hide it behind a leading underscore and do
+  not re-export it from `__init__.py`.
+- Move the non-Click tree model construction out of
   `packages/twerk-core/src/twerk_core/memjective/tree.py` into this module:
   - list brmem entries in the `memjectives` namespace,
   - filter entries whose key is under `<slug>/`,
@@ -195,12 +195,12 @@ Implementation:
   - mark branch liveness with `GitGateway.branch_exists`,
   - enrich each branch through the existing `PRGateway.get_pr_for_branch`.
 - Introduce small frozen dataclasses in the new module:
-  - `MemjectiveWorkstreamGraph` with `slug`, `seed_present`, and `branches`.
-  - `MemjectiveWorkstreamBranch` with `branch`, `stale`, and `pr`.
-  - `MemjectiveBranchPr` as a normalized PR observation with `action`,
-    `number`, `state`, `title`, `url`, and `error_stderr`.
-    The field names should remain close to today's `tree` JSON shape so the
-    CLI adapter stays mechanical.
+  - `MemjectiveTreeModel` with `slug`, `seed_present`, and `branches`.
+  - `MemjectiveTreeBranch` with `branch`, `stale`, and `pr`.
+  - `MemjectiveTreePr` as a normalized PR observation with `action`, `number`,
+    `state`, `title`, `url`, and `error_stderr`.
+    The field names should remain close to today's `tree` JSON shape so the CLI
+    adapter stays mechanical.
 - Keep PR lookup semantics exactly as they are today:
   - `PRSummary.state == OPEN` maps to `open`.
   - `PRSummary.state == MERGED` maps to `merged`.
@@ -209,15 +209,16 @@ Implementation:
   - Any other `PRLookupError` maps to `error` and preserves stderr.
 - Keep GitHub interaction behind the existing `PRGateway`. PR 1 should not add
   new `gh` commands, REST calls, GraphQL queries, or PR lookup fields.
-- Make the graph builder deterministic but layout-neutral:
-  - graph construction may return branch nodes sorted alphabetically by branch,
+- Make the tree model builder deterministic but layout-neutral:
+  - tree model construction may return branch nodes sorted alphabetically by branch,
   - the `memjective tree` command remains responsible for the current display
     grouping `merged -> open -> closed -> no_pr -> error`.
-    Future reconciliation code should depend on graph facts, not table order.
+    Future reconciliation code should depend on tree model facts, not table
+    order.
 - Update `tree.py` so `run_tree_memjective` still owns:
   - Click request/response types,
   - slug auto-resolution and its existing error handling,
-  - conversion from graph facts into `MemjectiveTreeResult`,
+  - conversion from tree model facts into `MemjectiveTreeResult`,
   - human rendering and JSON schema compatibility,
   - negative exit when a slug has no brmem entries.
 - Preserve all existing user-visible behavior:
@@ -234,11 +235,11 @@ Implementation:
 Tests:
 
 - Existing `test_memjective_tree_cli.py` remains green.
-- Add unit tests for graph construction independent of Click rendering.
+- Add unit tests for tree model construction independent of Click rendering.
 - Suggested new file:
-  `packages/twerk-core/tests/unit/test_memjective_workstream_graph.py`.
-- Unit-test graph construction with fakes:
-  - no entries for the slug produces an empty graph with `seed_present=False`,
+  `packages/twerk-core/tests/unit/test_memjective_tree_model.py`.
+- Unit-test tree model construction with fakes:
+  - no entries for the slug produces an empty model with `seed_present=False`,
   - master-only seed produces `seed_present=True` and no branch nodes,
   - multiple files under the same slug on one branch collapse to one node,
   - unrelated slugs and unrelated namespaces are ignored,
@@ -250,8 +251,8 @@ Tests:
   - non-1 PR lookup failure maps to `error` and preserves stderr,
   - `master` is never emitted as a branch node even when it has files.
 - Add or adjust one scenario assertion only if needed to prove `tree` still
-  renders from the graph. Prefer keeping the existing scenario suite as the
-  compatibility contract.
+  renders from the tree model. Prefer keeping the existing scenario suite as
+  the compatibility contract.
 
 Review boundary:
 
@@ -260,7 +261,7 @@ Review boundary:
 - No state schema yet.
 - No `memjective check` yet.
 - No changes to the real GitHub lookup mechanism.
-- Pure extraction plus tests.
+- Pure tree model extraction plus tests.
 
 ## PR 2: Add State Schema And Read-Only Check
 
@@ -272,7 +273,7 @@ Implementation:
 - Add typed parse/render/validate code for state schema version 1.
 - Treat absent state as a valid legacy memjective with zero stored entries.
 - Add `memjective check <slug>` that joins:
-  - workstream graph facts from PR 1,
+  - tree model facts from PR 1,
   - optional stored state,
   - root snapshot diagnostics.
 - Report the important invariant buckets:
@@ -564,7 +565,7 @@ coverage invariant.
 
 ## Suggested Stack Order
 
-1. Extract workstream graph behind `tree`.
+1. Extract tree model behind `tree`.
 2. Add state schema plus read-only check.
 3. Add generic state mutation.
 4. Add pending-entry computation.
