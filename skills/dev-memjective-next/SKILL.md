@@ -17,6 +17,7 @@ allowed-tools:
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
   - "Bash(brmem put *)"
+  - "Bash(memjective *)"
   - "Read"
   - "Write"
   - "Edit"
@@ -654,6 +655,78 @@ Capture the destination ref / commit entries reported by `brmem copy` (or
 the `brmem put` commit SHA, in the local-file branch) for the final
 report.
 
+### 6.5. Record the branch observation in state
+
+Now that the snapshot is attached to the current branch, record a
+machine-readable **branch observation** so `memjective check <slug>` and
+`memjective exec compute-pending-entries <slug>` see the new branch as a
+tracked observation immediately — without waiting for a PR to materialize.
+
+Run `init` first; it is idempotent and handles legacy memjectives whose
+master snapshot exists but whose `state.json` does not:
+
+```bash
+memjective exec init <slug>
+```
+
+If `init` already returned ok before, this re-call returns ok with
+`created: false`. If it has not been called for this slug yet (legacy
+memjective), it creates `memjective-state/master:<slug>/state.json` on
+master. Capture the `created` flag for the report.
+
+Then record the branch observation:
+
+```bash
+memjective exec record-entry <slug> --json '<payload>'
+```
+
+The payload is a small inline JSON object:
+
+```json
+{
+  "id": "branch-<branch>",
+  "resolution": "tracked",
+  "summary": "Carried forward from <source-label> on <YYYY-MM-DD>",
+  "pr": { "head_ref_name": "<branch>" }
+}
+```
+
+- `<branch>` is the current branch from step 1's pre-flight (the
+  destination of the carry-forward).
+- `<source-label>` describes the resolved source from step 3 — e.g.
+  `<source-branch>` for 3a/3b/3c snapshot sources, or
+  `local file <path>` for the local-file fallback.
+- `<YYYY-MM-DD>` is today's date.
+- `resolution: "tracked"` is the only legal resolution for `branch-`
+  ids; incorporation resolutions are reserved for `pr-` ids.
+- `pr.head_ref_name: "<branch>"` is what lets
+  `dev-memjective-reconcile` later **promote** this entry in place to
+  `pr-<number>` when a PR opens against this branch. Pre-populating it
+  makes that promotion deterministic.
+
+`record-entry` returns the entry's `id` and an `action`: `created` for
+first-time runs on this branch, `updated` if a `branch-<branch>` entry
+already existed (e.g., re-running this skill on the same branch).
+
+**Edge cases — handle inline, do not abort the skill:**
+
+- **Legacy memjective (no `state.json`)** — `init` creates it on master.
+  Continue normally. Treat the carry-forward as already successful;
+  the new state file is just catching up to the brmem snapshot layer.
+- **`init` fails because root memjective docs are missing** — surface
+  the CLI's error verbatim and **continue without recording**. The
+  carry-forward itself already succeeded; do not block work on a
+  state-layer hiccup. Skip the `record-entry` call entirely in this
+  case and note the skip in step 9's report.
+- **Local-file fallback path (the 3a-local-file branch in step 6)** —
+  still record the branch observation. The entry doesn't depend on the
+  source being a brmem snapshot; the carry-forward is what `tracked`
+  refers to, and the source label can simply name the local file.
+
+Do **not** record an `incorporated` or `incorporated_no_doc_change`
+entry from this skill — those are reserved for
+`dev-memjective-reconcile` after a PR merges.
+
 ### 7. Decide the next slice
 
 Default to the first unchecked item in `roadmap.md` that still matches
@@ -721,6 +794,14 @@ After implementation, summarize:
   now points at (reported by `brmem copy`, or by the `brmem put` fallback
   for the local-file path), so the user can recover the attached snapshot
   if needed.
+- **State** — one of:
+  - `init` outcome (`created: true` for first-time init on this slug,
+    `created: false` if state already existed),
+  - the recorded entry `id` (`branch-<branch>`) and the `action`
+    returned by `record-entry` (`created` on a fresh slice branch,
+    `updated` on a re-run of this skill on the same branch),
+  - or _skipped (root memjective docs missing)_ when `init` failed and
+    the `record-entry` call was therefore skipped per step 6.5.
 - **Chosen slice** — title + 1–2 sentence rationale. If the user picked
   from multiple candidates, name the alternatives that were considered.
 - **What was implemented** — a brief summary of the files touched and the

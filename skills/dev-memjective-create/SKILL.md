@@ -4,6 +4,7 @@ description: "Draft a new memjective and store it in `brmem` as the master-branc
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
+  - "Bash(memjective *)"
   - "Read"
   - "Write"
 metadata:
@@ -260,6 +261,57 @@ brmem copy \
 Capture the destination ref / commit entries reported by `brmem copy` for
 the report.
 
+### 8.5. Initialize machine-readable state
+
+Initialize the slug's reconciliation state on master and record an initial
+**branch observation** for the current branch. This keeps the machine-
+readable state layer (`memjective check`, `memjective exec
+compute-pending-entries`) consistent with the brmem snapshots from t=0,
+and pre-populates the entry that `dev-memjective-reconcile` will later
+**promote** in place when a PR opens for this branch.
+
+```bash
+memjective exec init <slug>
+```
+
+`init` is idempotent — if state already exists for the slug it returns
+ok with `created: false`. Capture the `created` flag for the report.
+
+Then record the initial branch observation:
+
+```bash
+memjective exec record-entry <slug> --json '<payload>'
+```
+
+The payload is a small inline JSON object:
+
+```json
+{
+  "id": "branch-<branch>",
+  "resolution": "tracked",
+  "summary": "Initial branch snapshot from dev-memjective-create on <YYYY-MM-DD>",
+  "pr": { "head_ref_name": "<branch>" }
+}
+```
+
+- `<branch>` is the current branch captured in step 1.
+- `<YYYY-MM-DD>` is today's date.
+- `resolution: "tracked"` is the only legal resolution for `branch-` ids
+  (incorporation resolutions are reserved for `pr-` ids backed by a
+  merged PR).
+- `pr.head_ref_name: "<branch>"` is the hook used by
+  `dev-memjective-reconcile` later: when a PR opens against this branch,
+  the writer matches the existing `branch-<branch>` entry by
+  `pr.head_ref_name` and **promotes** it to `pr-<number>` in place.
+  Pre-populating it makes that promotion deterministic.
+
+`record-entry` returns the entry's `id` and an `action` (`created` for
+first-time runs, `updated` if the same entry id already existed).
+
+Do **not** record an `incorporated` or `incorporated_no_doc_change` entry
+from this skill — those resolutions are reserved for
+`dev-memjective-reconcile` after a PR merges.
+
 ### 9. Report
 
 Return a short summary including:
@@ -273,12 +325,20 @@ Return a short summary including:
 - branch brmem entry location (namespace `memjectives`, key prefix
   `<slug>/`)
 - brmem commit SHA(s) for the branch writes
+- machine-readable state initialization: whether `memjective exec init`
+  reported `created: true` (first-time init) or `created: false`
+  (already initialized)
+- recorded entry: the `id` (`branch-<branch>`) and the `action` returned
+  by `record-entry` (normally `created` on a fresh memjective)
 - next-step hint:
 
 ```text
 Run /dev-memjective-peek on this branch (or any descendant branch) for a
 lightweight status check and a kebab-case slug suggestion for the next
 slice — it reads the memjective without writing anything.
+
+`memjective check <slug>` now reflects the freshly-created memjective and
+its initial branch observation; use it for a machine-readable view.
 
 When you are ready to work the next slice, create a new branch with the
 suggested slug and run /dev-memjective-next inside it. That skill carries

@@ -52,6 +52,18 @@ a fresh slice branch.
   by `dev-memjective-next` on master; see `../dev-memjective-next/SKILL.md`
   §2a.
 
+  When a slice has merged via PR and the goal is to land that slice's
+  docs into the root snapshot with provenance, prefer
+  `dev-memjective-reconcile`. That skill consumes
+  `memjective exec compute-pending-entries`, applies the conservative
+  root rewrite, and persists an `incorporated` entry with `source` /
+  `root_before` / `root_after` provenance — including the `tree_sha`
+  values the strict validator now requires. The `update`
+  master-reconcile variant remains available for cases not backed by a
+  single merged PR (manual evidence aggregation across sibling
+  snapshots), but it is no longer the default path for merged-PR
+  incorporation.
+
 ## Workflow
 
 ### 1. Pre-flight: confirm repo + current branch
@@ -211,6 +223,16 @@ For checkbox flips in `body.md`'s Completion Criteria and `roadmap.md`,
 prefer signals corroborated by more than one sibling when available, and
 treat orphaned-ref-only signals as weaker than live-sibling signals.
 
+When the work that needs to land in root traces to a single merged PR
+rather than aggregated sibling evidence, prefer
+`dev-memjective-reconcile` instead of this variant. That skill consumes
+`memjective exec compute-pending-entries`, performs the same kind of
+conservative root rewrite, and persists an `incorporated` entry with
+`source` / `root_before` / `root_after` provenance (including the
+`tree_sha` values the strict validator requires). Use the
+master-reconcile variant here only for the genuine sibling-aggregation
+case where no single merged PR underwrites the change.
+
 **`body.md`** — the stable spine; touch sparingly:
 
 - Preserve the title unless the user explicitly asked to rename it.
@@ -325,6 +347,12 @@ brmem get <slug>/<file> --namespace memjectives --at <old-sha>
   Verbatim copy is `dev-memjective-next`'s carry-forward primitive on
   slice branches, not `update`'s job on master. Sibling text is
   evidence, not source.
+- Using `update`'s master-reconcile variant to "incorporate" a single
+  merged PR's docs into root. That work belongs to
+  `dev-memjective-reconcile`, which records the structured incorporation
+  entry (with `source` / `root_before` / `root_after` `tree_sha`
+  provenance). The `update` master-reconcile variant is for
+  sibling-aggregation cases that don't map onto one merged PR.
 - Regenerating any file from memory or from the original user brief when a
   real snapshot already exists.
 - Silently deleting completed roadmap items or notes.
