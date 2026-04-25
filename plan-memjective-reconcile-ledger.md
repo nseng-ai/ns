@@ -6,11 +6,17 @@ migration. It is a plain repo plan for changing memjectives safely.
 ## Progress
 
 Snapshot of what has landed on `add-memjective-state-writes` so far (not yet
-on `master`). The plan's stack order has been partially executed and partially
-reordered in practice: the read-only check shipped first, then the tree model
-extraction (PR 4) and the reconcile skill (PR 3) shipped before minimal state
-writes (PR 2). PR 2 has now landed and the reconcile skill has been wired
-through to call the writer commands.
+on `master`), plus PR 5 in flight on top of it as
+`add-memjective-compute-pending-entries`. The plan's stack order has been
+partially executed and partially reordered in practice: the read-only check
+shipped first, then the tree model extraction (PR 4) and the reconcile skill
+(PR 3) shipped before minimal state writes (PR 2). PR 5 is now open as
+PR #256 against base `add-memjective-state-writes`; it adds
+`memjective exec compute-pending-entries`, durable subtree provenance via a
+new `BranchMemoryGateway.get_tree_sha`, PR merge provenance on `PRSummary`,
+and a shared `EvidenceBundle` that both `memjective check` and the new
+command project from. The same PR also lifts the `dev-memjective-reconcile`
+skill (PR 3) onto `compute-pending-entries` per PR 5's review boundary.
 
 - PR 1 — Steelthread Read-Only Check: **done** (`f63cc61`).
   - `memjective check <slug>` with `--format human|json`.
@@ -48,11 +54,54 @@ through to call the writer commands.
   tests at `tests/unit/test_memjective_tree_model.py`. `tree.py` consumes the
   extracted model. `check.py` was implemented against this model from the
   start.
-- PRs 5–8: **not started**.
+- PR 5 — Snapshot Provenance + `memjective exec compute-pending-entries`:
+  **in flight** (PR #256 on `add-memjective-compute-pending-entries`, base
+  `add-memjective-state-writes`, tip `ffcc45b`).
+  - `BranchMemoryGateway.get_tree_sha(namespace, branch, path)` at
+    `packages/twerk-core/src/twerk_core/brmem/gateway.py`, with the real
+    implementation in `brmem/real.py` (resolves via
+    `git rev-parse <ref>:<path>` and verifies the object type is `tree`)
+    and the fake in `brmem/fake.py` (synthetic `faketree-<hex>` over sorted
+    `(key, content_sha)` pairs under the prefix).
+  - `PRSummary.merged_at` and `PRSummary.merge_commit_oid` at
+    `packages/twerk-core/src/twerk_core/gh/types.py`, populated from the
+    `gh pr view` JSON via a `_none_if_blank` helper in
+    `gh/real_gateway_helpers.py`; threaded through `MemjectiveTreePr` and
+    `MemjectiveTreeBranch`.
+  - Shared `EvidenceBundle` and `compute_evidence` at
+    `packages/twerk-core/src/twerk_core/memjective/evidence.py`, joining
+    `build_memjective_tree_model`, `load_state`, and per-snapshot
+    `get_tree_sha` calls. Both `memjective check` and
+    `memjective exec compute-pending-entries` now project from this bundle,
+    eliminating drift.
+  - `memjective exec compute-pending-entries <slug>` at
+    `packages/twerk-core/src/twerk_core/memjective/exec_compute_pending_entries.py`,
+    mounted in `exec_group.py`. Returns `pending_entries` (merged PR + no
+    matching stored entry; carries `candidate_entry` and `recommended_reads`
+    with the source `tree_sha`), `blocked_entries` (closed-unmerged with
+    action `decide_skip`), `ignored_entries` (open / no PR / no PR identity),
+    and structured `errors` (`missing_root_memjective`, `invalid_state`,
+    `pr_lookup_error`, `missing_brmem_snapshot_for_merged_pr`,
+    `branch_pr_identity_conflict`).
+  - `memjective check` refactored to thin `_adapt_root` / `_adapt_branch`
+    adapters over `EvidenceBundle`; `CheckRoot` and `CheckSource` gain
+    `tree_sha`, and `CheckPR` gains `merged_at` and `merge_commit_oid`. The
+    old `_matching_stored_entry_ids` and candidate-filtering logic is gone.
+  - `dev-memjective-reconcile` skill rewritten to drive off
+    `memjective exec compute-pending-entries`: iterates
+    `data.pending_entries`, uses subtree-level `tree_sha` for source
+    provenance, and references `data.errors` by `kind` for stop conditions.
+  - Tests: scenario at
+    `packages/twerk-core/tests/scenario/test_memjective_exec_compute_pending_entries_cli.py`
+    (~570 lines); unit at `tests/unit/test_memjective_evidence.py`; gateway
+    coverage for `get_tree_sha` and the new merge-provenance fields under
+    `tests/gateways/` and `tests/integration/`.
+- PRs 6–8: **not started**.
 
-Next reviewable slice: PR 5 (snapshot provenance + `memjective exec
-compute-pending-entries`), which turns the evidence shape proven by `check`
-and the reconcile skill into a hardened lower-level primitive.
+Next reviewable slice: PR 6 (Harden Incorporation Recording Semantics), which
+tightens `memjective exec record-entry` validation for `incorporated`
+payloads now that `compute-pending-entries` provides the matching evidence
+shape.
 
 ## Direction
 
