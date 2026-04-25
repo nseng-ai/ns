@@ -5,8 +5,7 @@ branch that carries a memjective snapshot alongside the PR attached to that
 branch — number, title, URL, and lifecycle state. The "tree" is typically a
 Graphite stack rooted off the memjective's base branch; the listing is flat
 but the underlying shape is a tree. The master-branch snapshot is reported
-separately via ``seed_present`` because it is a seed, not a PR-bearing
-workstream.
+separately via ``seed_present`` because it is a seed, not a PR-bearing branch.
 
 The primary consumer is ``dev-memjective-update``, an LLM scanning stdout
 after a slice lands: rows are grouped by state (merged → open → closed →
@@ -17,7 +16,7 @@ one branch become ``error`` rows instead of aborting the whole command.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 import click
 
@@ -25,28 +24,22 @@ from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console, make_table
-from twerk_core.gh.pr_gateway import PRGateway
-from twerk_core.gh.types import PRLookupError, PRState
-from twerk_core.git.git_gateway import GitGateway
+from twerk_core.gh.types import PRState
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_core.memjective.context import MemjectiveCliContext
-from twerk_core.memjective.discovery import MASTER_BRANCH
-from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
 from twerk_core.memjective.slug_resolution import (
     AmbiguousMemjective,
     NoMemjectiveOnBranch,
     SlugResolution,
     resolve_slug,
 )
-
-BranchPrAction = Literal["open", "merged", "closed", "no_pr", "error"]
+from twerk_core.memjective.tree_model import (
+    BranchPrAction,
+    MemjectiveTreeBranch,
+    build_memjective_tree_model,
+)
 
 _STATE_GROUP_ORDER: tuple[BranchPrAction, ...] = ("merged", "open", "closed", "no_pr", "error")
-_STATE_TO_ACTION: dict[PRState, BranchPrAction] = {
-    "OPEN": "open",
-    "MERGED": "merged",
-    "CLOSED": "closed",
-}
 
 
 @dataclass(frozen=True)
@@ -146,40 +139,16 @@ def _title_cell(entry: BranchPrEntry) -> str:
     return "-"
 
 
-def _classify_branch(branch: str, git: GitGateway, pr: PRGateway) -> BranchPrEntry:
-    stale = not git.branch_exists(branch)
-    result = pr.get_pr_for_branch(branch)
-    if isinstance(result, PRLookupError):
-        if result.returncode == 1:
-            return BranchPrEntry(
-                branch=branch,
-                stale=stale,
-                action="no_pr",
-                pr_number=None,
-                pr_state=None,
-                pr_title=None,
-                pr_url=None,
-                pr_error_stderr=None,
-            )
-        return BranchPrEntry(
-            branch=branch,
-            stale=stale,
-            action="error",
-            pr_number=None,
-            pr_state=None,
-            pr_title=None,
-            pr_url=None,
-            pr_error_stderr=result.stderr or None,
-        )
+def _entry_from_tree_branch(branch: MemjectiveTreeBranch) -> BranchPrEntry:
     return BranchPrEntry(
-        branch=branch,
-        stale=stale,
-        action=_STATE_TO_ACTION[result.state],
-        pr_number=result.number,
-        pr_state=result.state,
-        pr_title=result.title,
-        pr_url=result.url,
-        pr_error_stderr=None,
+        branch=branch.branch,
+        stale=branch.stale,
+        action=branch.pr.action,
+        pr_number=branch.pr.number,
+        pr_state=branch.pr.state,
+        pr_title=branch.pr.title,
+        pr_url=branch.pr.url,
+        pr_error_stderr=branch.pr.error_stderr,
     )
 
 
@@ -231,19 +200,25 @@ def run_tree_memjective(
         case SlugResolution(slug=slug):
             pass
 
-    all_entries = gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE)
-    slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
-    if not slug_entries:
+    tree_model = build_memjective_tree_model(
+        slug=slug,
+        brmem_gateway=gateway,
+        git_gateway=git,
+        pr_gateway=pr,
+    )
+    if not tree_model.seed_present and not tree_model.branches:
         empty = MemjectiveTreeResult(slug=slug, seed_present=False, entries=())
         return ClinkrExit.negative(
             empty,
             message=f"No memjective found for slug {slug!r}.",
         )
 
-    seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
-    branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
-    rows = tuple(_classify_branch(b, git, pr) for b in branch_names)
+    rows = tuple(_entry_from_tree_branch(branch) for branch in tree_model.branches)
     rows = _sort_by_state_group(rows)
     return ClinkrExit.ok(
-        MemjectiveTreeResult(slug=slug, seed_present=seed_present, entries=rows),
+        MemjectiveTreeResult(
+            slug=tree_model.slug,
+            seed_present=tree_model.seed_present,
+            entries=rows,
+        ),
     )
