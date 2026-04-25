@@ -201,6 +201,15 @@ class _Buckets:
     errors: tuple[ErrorItem, ...]
 
 
+def pending_entry_ids(bundle: EvidenceBundle) -> frozenset[str]:
+    """The set of entry ids the bucketizer would surface as pending right now.
+
+    Shared with ``exec_record_entry`` so the writer's ``no_pending_match``
+    rule and this command project from the same source of truth.
+    """
+    return frozenset(p.id for p in _bucketize(bundle).pending)
+
+
 def _bucketize(bundle: EvidenceBundle) -> _Buckets:
     pending: list[PendingEntry] = []
     blocked: list[BlockedEntry] = []

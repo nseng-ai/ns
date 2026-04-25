@@ -121,14 +121,42 @@ def test_validate_rejects_pr_state_invalid() -> None:
     assert "state" in result.reason
 
 
-def test_validate_accepts_pr_entry() -> None:
-    payload = {
-        "id": "pr-221",
-        "resolution": "incorporated",
-        "summary": "lifted",
-        "pr": {"number": 221, "state": "MERGED", "head_ref_name": "feat/x"},
-        "source": {"branch": "feat/x"},
+def _provenance(*, branch: str, tree_sha: str, path: str = "widget") -> dict[str, str]:
+    return {
+        "namespace": "memjectives",
+        "branch": branch,
+        "path": path,
+        "tree_sha": tree_sha,
     }
+
+
+def _incorporation_payload(
+    *,
+    resolution: str = "incorporated",
+    pr_number: int = 221,
+    merge_commit_oid: str = "abc123",
+    root_after_tree_sha: str = "rootafter",
+    root_before_tree_sha: str = "rootbefore",
+    source_tree_sha: str = "srctree",
+) -> dict[str, Any]:
+    return {
+        "id": f"pr-{pr_number}",
+        "resolution": resolution,
+        "summary": "lifted",
+        "pr": {
+            "number": pr_number,
+            "state": "MERGED",
+            "head_ref_name": "feat/x",
+            "merge_commit_oid": merge_commit_oid,
+        },
+        "source": _provenance(branch="feat/x", tree_sha=source_tree_sha),
+        "root_before": _provenance(branch="master", tree_sha=root_before_tree_sha),
+        "root_after": _provenance(branch="master", tree_sha=root_after_tree_sha),
+    }
+
+
+def test_validate_accepts_pr_entry() -> None:
+    payload = _incorporation_payload()
     result = validate_entry_payload(payload)
 
     assert isinstance(result, ValidEntry)
@@ -145,11 +173,107 @@ def test_validate_accepts_branch_entry_without_pr() -> None:
 
 
 def test_validate_accepts_no_doc_change_resolution() -> None:
-    payload = {
-        "id": "pr-221",
-        "resolution": "incorporated_no_doc_change",
-        "pr": {"number": 221},
-    }
+    payload = _incorporation_payload(
+        resolution="incorporated_no_doc_change",
+        root_before_tree_sha="rootsame",
+        root_after_tree_sha="rootsame",
+    )
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, ValidEntry)
+
+
+# ---------------------------------------------------------------------------
+# validate_entry_payload — strict incorporation schema (PR 6)
+# ---------------------------------------------------------------------------
+
+
+def test_validate_rejects_incorporation_when_pr_state_not_merged() -> None:
+    payload = _incorporation_payload()
+    payload["pr"]["state"] = "OPEN"
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "pr_not_merged"
+
+
+def test_validate_rejects_incorporation_when_merge_commit_oid_missing() -> None:
+    payload = _incorporation_payload()
+    del payload["pr"]["merge_commit_oid"]
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "missing_merge_commit_oid"
+
+
+def test_validate_rejects_incorporation_when_merge_commit_oid_empty() -> None:
+    payload = _incorporation_payload(merge_commit_oid="")
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "missing_merge_commit_oid"
+
+
+def test_validate_rejects_incorporation_missing_source_block() -> None:
+    payload = _incorporation_payload()
+    del payload["source"]
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "missing_source"
+
+
+def test_validate_rejects_incorporation_missing_root_before_block() -> None:
+    payload = _incorporation_payload()
+    del payload["root_before"]
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "missing_root_before"
+
+
+def test_validate_rejects_incorporation_missing_root_after_block() -> None:
+    payload = _incorporation_payload()
+    del payload["root_after"]
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "missing_root_after"
+
+
+def test_validate_rejects_source_block_missing_tree_sha() -> None:
+    payload = _incorporation_payload()
+    del payload["source"]["tree_sha"]
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "missing_source_tree_sha"
+
+
+def test_validate_rejects_root_after_block_missing_namespace() -> None:
+    payload = _incorporation_payload()
+    payload["root_after"]["namespace"] = ""
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "missing_root_after_namespace"
+
+
+def test_validate_rejects_incorporation_with_branch_id() -> None:
+    payload = _incorporation_payload()
+    payload["id"] = "branch-foo"
+    result = validate_entry_payload(payload)
+
+    assert isinstance(result, EntryInvalid)
+    assert result.error_type == "incorporation_requires_pr_id"
+
+
+def test_validate_no_doc_change_payload_passes_strict_schema() -> None:
+    payload = _incorporation_payload(
+        resolution="incorporated_no_doc_change",
+        root_before_tree_sha="same",
+        root_after_tree_sha="same",
+    )
     result = validate_entry_payload(payload)
 
     assert isinstance(result, ValidEntry)

@@ -96,12 +96,61 @@ skill (PR 3) onto `compute-pending-entries` per PR 5's review boundary.
     (~570 lines); unit at `tests/unit/test_memjective_evidence.py`; gateway
     coverage for `get_tree_sha` and the new merge-provenance fields under
     `tests/gateways/` and `tests/integration/`.
-- PRs 6–8: **not started**.
+- PR 6 — Harden Incorporation Recording Semantics: **done** (this branch,
+  `harden-memjective-incorporation-recording`).
+  - Strict incorporation schema in `validate_entry_payload` at
+    `packages/twerk-core/src/twerk_core/memjective/exec_record_entry.py`,
+    via `_validate_incorporation_schema` and `_validate_provenance_block`.
+    When `resolution` is `incorporated` or `incorporated_no_doc_change`,
+    the writer now requires `pr.state == "MERGED"`, non-empty
+    `pr.merge_commit_oid`, and `source` / `root_before` / `root_after`
+    blocks each carrying non-empty `namespace`, `branch`, `path`, and
+    `tree_sha`. Each rule surfaces a distinct `error_type`
+    (`pr_not_merged`, `missing_merge_commit_oid`, `missing_source` /
+    `missing_root_before` / `missing_root_after` and per-field variants
+    like `missing_source_tree_sha`, `incorporation_requires_pr_id`).
+    `EntryInvalid` gained an optional `error_type` field (default
+    `"entry_invalid"`) and `run_exec_record_entry` propagates it.
+  - New `_validate_incorporation_against_evidence` helper in the same
+    module runs after schema validation and `load_state` for
+    incorporation-shaped payloads. It calls `compute_evidence(...)` once
+    and applies, in order: duplicate-merge check (state-only, never
+    bypassable; `error_type="already_incorporated"`), doc-change
+    invariant (`root_unchanged_for_incorporated` /
+    `root_changed_for_no_doc_change`), `root_after_mismatch` against the
+    current root tree, then per-branch checks (`pr_not_merged`,
+    `merge_commit_oid_mismatch`, `source_tree_sha_mismatch`), and finally
+    `no_pending_match` (overridden by `--force`). `--force` now bypasses
+    only `resolution_regression` and `no_pending_match`; help text
+    updated to spell that out.
+  - New shared helper `pending_entry_ids(bundle)` in
+    `packages/twerk-core/src/twerk_core/memjective/exec_compute_pending_entries.py`
+    so `record-entry` and `compute-pending-entries` project the
+    pending-set rule from a single source of truth.
+  - `skills/dev-memjective-reconcile/SKILL.md` updated: the example
+    incorporation payload now includes `pr.merge_commit_oid`; the
+    "writer treats fields opaquely" paragraph is replaced with the
+    hardened-contract description listing every `error_type`; the
+    Status section reflects that provenance validation is now
+    end-to-end and the empty Deferred bullet is removed.
+  - Tests: 9 new strict-schema rejection tests in
+    `packages/twerk-core/tests/unit/test_memjective_exec_record_entry.py`
+    (one per rule), and 9 new evidence-cross-check scenario tests in
+    `packages/twerk-core/tests/scenario/test_memjective_exec_cli.py`
+    (happy path, open-PR refusal, root_after mismatch, both doc-change
+    invariant violations, source tree_sha drift, merge_commit_oid
+    mismatch, no-pending-match overridden by `--force`, duplicate
+    incorporation never bypassable by `--force`, end-to-end via
+    `compute-pending-entries → record-entry → compute-pending-entries`).
+    Five existing scenario tests whose use of `incorporated` was
+    incidental switched to `tracked` to keep them focused on their
+    original rule.
+- PRs 7–8: **not started**.
 
-Next reviewable slice: PR 6 (Harden Incorporation Recording Semantics), which
-tightens `memjective exec record-entry` validation for `incorporated`
-payloads now that `compute-pending-entries` provides the matching evidence
-shape.
+Next reviewable slice: PR 7 (Teach Existing Memjective Skills To Record
+State), which threads `memjective exec init` and `record-entry` calls into
+`dev-memjective-create`, `dev-memjective-next`, and `dev-memjective-update`
+so normal usage feeds machine state automatically.
 
 ## Direction
 

@@ -252,7 +252,8 @@ invariant.
     "title": "<title>",
     "head_ref_name": "<head_ref_name>",
     "base_ref_name": "<base_ref_name>",
-    "state": "MERGED"
+    "state": "MERGED",
+    "merge_commit_oid": "<pr.merge_commit_oid>"
   },
   "source": {
     "namespace": "<recommended_reads[0].namespace>",
@@ -296,10 +297,27 @@ memjective exec record-entry <slug> --json '<payload>'
 memjective exec record-entry <slug> --file /tmp/<slug>-pr-<number>-entry.json
 ```
 
-The writer treats the `source` / `root_before` / `root_after` blocks
-opaquely in this slice — the `tree_sha` value is recorded but not yet
-validated. A later slice will use these fields to enforce non-stale
-incorporation.
+The writer enforces an incorporation contract: `pr.state` must be
+`MERGED` and `pr.merge_commit_oid` must agree with the live PR
+observation, the `source` / `root_before` / `root_after` blocks must
+each carry `namespace` / `branch` / `path` / `tree_sha` (all non-empty
+strings), `source.tree_sha` must match the current source snapshot,
+`root_after.tree_sha` must match the current root tree, and the
+`root_before` vs `root_after` relationship must match the chosen
+resolution (`incorporated` requires a different tree;
+`incorporated_no_doc_change` requires the same tree). The writer also
+refuses a duplicate incorporation for the same `(pr.number,
+pr.merge_commit_oid)` regardless of `--force`. Expect distinct
+`error_type` values when these rules fire: `pr_not_merged`,
+`missing_merge_commit_oid`, `merge_commit_oid_mismatch`,
+`source_tree_sha_mismatch`, `root_after_mismatch`,
+`root_unchanged_for_incorporated`, `root_changed_for_no_doc_change`,
+`no_pending_match` (override with `--force`), and
+`already_incorporated` (never overridden).
+
+Use `incorporated_no_doc_change` whenever the rewrite was a no-op so
+the writer accepts it. `--force` only bypasses
+`resolution_regression` and `no_pending_match`.
 
 Capture the returned `commit_sha` and `action` (`created`, `updated`,
 or `promoted`) for the final report.
@@ -401,15 +419,11 @@ Summarize:
 
 ## Status
 
-End-to-end as of the snapshot-provenance slice: iterate
+End-to-end as of the hardened-incorporation slice: iterate
 `pending_entries` from `memjective exec compute-pending-entries` →
-rewrite root docs → record incorporation entry (with
-`source.tree_sha`, `root_before.tree_sha`, `root_after.tree_sha`)
-via `memjective exec init` + `memjective exec record-entry`.
-
-Deferred to later slices:
-
-- **Provenance validation** — strict matching of `root_before` /
-  `root_after` `tree_sha`, plus `merged_at` / `merge_commit_oid`
-  staleness checks. The current writer accepts the Step 4f shape
-  opaquely; it does not yet validate provenance.
+rewrite root docs → record incorporation entry (with `pr.state`,
+`pr.merge_commit_oid`, `source.tree_sha`, `root_before.tree_sha`,
+`root_after.tree_sha`) via `memjective exec init` + `memjective exec
+record-entry`. The writer cross-checks every provenance field against
+the live evidence bundle and refuses duplicate incorporations for the
+same `(pr.number, pr.merge_commit_oid)`.

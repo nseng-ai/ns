@@ -16,6 +16,8 @@ from twerk_core.clinkr.context import is_machine_mode, load_typed_context
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.memjective.context import MemjectiveCliContext
+from twerk_core.memjective.evidence import EvidenceBundle, compute_evidence
+from twerk_core.memjective.exec_compute_pending_entries import pending_entry_ids
 from twerk_core.memjective.exec_init import serialize_state_payload
 from twerk_core.memjective.state import (
     STATE_BRANCH,
@@ -32,6 +34,7 @@ UpsertAction = Literal["created", "updated", "promoted"]
 
 VALID_RESOLUTIONS = ("incorporated", "incorporated_no_doc_change", "skipped", "tracked")
 VALID_PR_STATES = ("OPEN", "MERGED", "CLOSED")
+INCORPORATION_RESOLUTIONS = frozenset({"incorporated", "incorporated_no_doc_change"})
 
 _ID_PR_RE = re.compile(r"^pr-(\d+)$")
 _ID_BRANCH_RE = re.compile(r"^branch-(.+)$")
@@ -71,7 +74,11 @@ class ExecRecordEntryRequest:
             ["--force"],
             is_flag=True,
             default=False,
-            help="Override the resolution-regression guard.",
+            help=(
+                "Bypass the resolution-regression guard and the incorporation "
+                "no_pending_match check. Does not bypass duplicate-merge or "
+                "doc-change consistency checks."
+            ),
         ),
     ] = False
 
@@ -101,9 +108,12 @@ class ValidEntry:
 @dataclass(frozen=True)
 class EntryInvalid:
     reason: str
+    error_type: str = "entry_invalid"
 
 
 EntryValidation = ValidEntry | EntryInvalid
+
+_INCORPORATION_PROVENANCE_KEYS = ("namespace", "branch", "path", "tree_sha")
 
 
 @dataclass(frozen=True)
@@ -176,7 +186,89 @@ def validate_entry_payload(payload: object) -> EntryValidation:
     elif pr_payload is not None and not isinstance(pr_payload, dict):
         return EntryInvalid(reason="entry.pr must be an object when present")
 
+    if resolution in INCORPORATION_RESOLUTIONS:
+        incorporation_check = _validate_incorporation_schema(payload_dict, entry_id=entry_id)
+        if incorporation_check is not None:
+            return incorporation_check
+
     return ValidEntry(raw=dict(payload_dict), id=entry_id)
+
+
+def _validate_incorporation_schema(
+    payload: dict[str, Any],
+    *,
+    entry_id: str,
+) -> EntryInvalid | None:
+    """Strict-schema gate for incorporation-shaped entries.
+
+    Returns ``None`` when the payload satisfies the hard requirements that
+    PR 6 enforces: a merged PR with ``merge_commit_oid``, plus ``source`` /
+    ``root_before`` / ``root_after`` blocks each carrying full provenance.
+    """
+    if not entry_id.startswith("pr-"):
+        return EntryInvalid(
+            reason=(f"entry.id {entry_id!r} must start with 'pr-' for an incorporation resolution"),
+            error_type="incorporation_requires_pr_id",
+        )
+
+    pr_payload = payload.get("pr")
+    if not isinstance(pr_payload, dict):
+        return EntryInvalid(
+            reason="entry.pr is required for an incorporation resolution",
+            error_type="entry_invalid",
+        )
+    pr_dict = cast(dict[str, Any], pr_payload)
+
+    pr_state = pr_dict.get("state")
+    if pr_state != "MERGED":
+        return EntryInvalid(
+            reason=(
+                f"entry.pr.state must be 'MERGED' for an incorporation resolution; got {pr_state!r}"
+            ),
+            error_type="pr_not_merged",
+        )
+
+    merge_commit_oid = pr_dict.get("merge_commit_oid")
+    if not isinstance(merge_commit_oid, str) or not merge_commit_oid:
+        return EntryInvalid(
+            reason="entry.pr.merge_commit_oid is required for an incorporation resolution",
+            error_type="missing_merge_commit_oid",
+        )
+
+    for block in ("source", "root_before", "root_after"):
+        block_check = _validate_provenance_block(payload, block_name=block)
+        if block_check is not None:
+            return block_check
+
+    return None
+
+
+def _validate_provenance_block(
+    payload: dict[str, Any],
+    *,
+    block_name: str,
+) -> EntryInvalid | None:
+    block = payload.get(block_name)
+    if not isinstance(block, dict):
+        return EntryInvalid(
+            reason=(
+                f"entry.{block_name} is required for an incorporation resolution "
+                f"and must be an object"
+            ),
+            error_type=f"missing_{block_name}",
+        )
+    block_dict = cast(dict[str, Any], block)
+    for field in _INCORPORATION_PROVENANCE_KEYS:
+        value = block_dict.get(field)
+        if not isinstance(value, str) or not value:
+            return EntryInvalid(
+                reason=(
+                    f"entry.{block_name}.{field} must be a non-empty string for an "
+                    f"incorporation resolution"
+                ),
+                error_type=f"missing_{block_name}_{field}",
+            )
+    return None
 
 
 def apply_upsert(
@@ -232,6 +324,157 @@ def apply_upsert(
 
     new_entry = StateEntry(id=new_id, raw=valid.raw)
     return UpsertOk(entries=(*state.entries, new_entry), action="created")
+
+
+def _validate_incorporation_against_evidence(
+    valid: ValidEntry,
+    *,
+    bundle: EvidenceBundle,
+    state: MemjectiveState,
+    force: bool,
+) -> UpsertReject | None:
+    """Cross-check an incorporation payload against live evidence and stored state.
+
+    Returns ``None`` when the payload is consistent with the system; otherwise an
+    :class:`UpsertReject` whose ``error_type`` names the specific rule that fired.
+
+    ``force`` only bypasses the ``no_pending_match`` rule (per PR 6's "unless
+    explicitly forced" clause). The doc-change invariant and the
+    duplicate-merge check are about consistency, not policy, and are never
+    bypassed.
+    """
+    payload = valid.raw
+    pr_payload = cast(dict[str, Any], payload["pr"])
+    pr_number = cast(int, pr_payload["number"])
+    payload_merge_oid = cast(str, pr_payload["merge_commit_oid"])
+    resolution = cast(str, payload["resolution"])
+    payload_source = cast(dict[str, Any], payload["source"])
+    payload_root_before = cast(dict[str, Any], payload["root_before"])
+    payload_root_after = cast(dict[str, Any], payload["root_after"])
+
+    duplicate = _find_duplicate_incorporation(
+        state=state,
+        pr_number=pr_number,
+        merge_commit_oid=payload_merge_oid,
+        payload_id=valid.id,
+    )
+    if duplicate is not None:
+        return duplicate
+
+    same_root = payload_root_before["tree_sha"] == payload_root_after["tree_sha"]
+    if resolution == "incorporated" and same_root:
+        return UpsertReject(
+            error_type="root_unchanged_for_incorporated",
+            message=(
+                "entry.root_before.tree_sha equals entry.root_after.tree_sha; record "
+                "'incorporated_no_doc_change' when the rewrite was a no-op."
+            ),
+        )
+    if resolution == "incorporated_no_doc_change" and not same_root:
+        return UpsertReject(
+            error_type="root_changed_for_no_doc_change",
+            message=(
+                "entry.root_before.tree_sha differs from entry.root_after.tree_sha; "
+                "record 'incorporated' when the rewrite changes root docs."
+            ),
+        )
+
+    if bundle.root.tree_sha != payload_root_after["tree_sha"]:
+        return UpsertReject(
+            error_type="root_after_mismatch",
+            message=(
+                f"entry.root_after.tree_sha {payload_root_after['tree_sha']!r} does not "
+                f"match the current root tree_sha {bundle.root.tree_sha!r}."
+            ),
+        )
+
+    evidence_branch = next(
+        (b for b in bundle.branches if b.pr.number == pr_number),
+        None,
+    )
+    if evidence_branch is None or evidence_branch.pr.lookup_status != "found":
+        if force:
+            return None
+        return UpsertReject(
+            error_type="no_pending_match",
+            message=(
+                f"PR #{pr_number} is not present in the live evidence bundle for "
+                f"slug {bundle.slug!r}; pass --force to override."
+            ),
+        )
+
+    evidence_pr = evidence_branch.pr
+    if evidence_pr.state != "MERGED":
+        return UpsertReject(
+            error_type="pr_not_merged",
+            message=(
+                f"PR #{pr_number} is in state {evidence_pr.state!r}; an incorporation "
+                f"resolution requires a merged PR."
+            ),
+        )
+
+    if evidence_pr.merge_commit_oid != payload_merge_oid:
+        return UpsertReject(
+            error_type="merge_commit_oid_mismatch",
+            message=(
+                f"PR #{pr_number} merge_commit_oid {payload_merge_oid!r} does not "
+                f"match the live observation {evidence_pr.merge_commit_oid!r}."
+            ),
+        )
+
+    if evidence_branch.source.tree_sha != payload_source["tree_sha"]:
+        return UpsertReject(
+            error_type="source_tree_sha_mismatch",
+            message=(
+                f"entry.source.tree_sha {payload_source['tree_sha']!r} does not match "
+                f"the current source snapshot tree_sha "
+                f"{evidence_branch.source.tree_sha!r} for branch "
+                f"{evidence_branch.source.branch!r}."
+            ),
+        )
+
+    if not force and valid.id not in pending_entry_ids(bundle):
+        return UpsertReject(
+            error_type="no_pending_match",
+            message=(
+                f"Entry {valid.id!r} is not in the current pending set for slug "
+                f"{bundle.slug!r}; pass --force to override."
+            ),
+        )
+
+    return None
+
+
+def _find_duplicate_incorporation(
+    *,
+    state: MemjectiveState,
+    pr_number: int,
+    merge_commit_oid: str,
+    payload_id: str,
+) -> UpsertReject | None:
+    for existing in state.entries:
+        existing_pr = existing.raw.get("pr")
+        if not isinstance(existing_pr, dict):
+            continue
+        if existing_pr.get("number") != pr_number:
+            continue
+        existing_resolution = existing.raw.get("resolution")
+        if existing_resolution not in INCORPORATION_RESOLUTIONS:
+            continue
+        if existing_pr.get("merge_commit_oid") != merge_commit_oid:
+            continue
+        if existing.id == payload_id:
+            detail = f"entry {payload_id!r} is already recorded as {existing_resolution!r}"
+        else:
+            detail = (
+                f"PR #{pr_number} merge {merge_commit_oid!r} is already recorded under "
+                f"entry {existing.id!r} as {existing_resolution!r}"
+            )
+        return UpsertReject(
+            error_type="already_incorporated",
+            message=f"{detail}; refusing duplicate (not bypassable by --force).",
+        )
+    return None
 
 
 def _extract_pr_number(raw: dict[str, Any]) -> int | None:
@@ -379,7 +622,7 @@ def run_exec_record_entry(
     validation = validate_entry_payload(payload)
     if isinstance(validation, EntryInvalid):
         return ClinkrExit.failure(
-            error_type="entry_invalid",
+            error_type=validation.error_type,
             message=validation.reason,
         )
 
@@ -400,6 +643,25 @@ def run_exec_record_entry(
             )
         case MemjectiveState():
             pass
+
+    if validation.raw.get("resolution") in INCORPORATION_RESOLUTIONS:
+        bundle = compute_evidence(
+            slug=request.slug,
+            brmem_gateway=mctx.brmem_gateway,
+            git_gateway=mctx.git_gateway,
+            pr_gateway=mctx.pr_gateway,
+        )
+        cross_check = _validate_incorporation_against_evidence(
+            validation,
+            bundle=bundle,
+            state=state,
+            force=request.force,
+        )
+        if cross_check is not None:
+            return ClinkrExit.failure(
+                error_type=cross_check.error_type,
+                message=cross_check.message,
+            )
 
     upsert = apply_upsert(state, validation, force=request.force)
     if isinstance(upsert, UpsertReject):
