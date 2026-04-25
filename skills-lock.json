@@ -51,6 +51,11 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
+    "dev-memjective-reconcile": {
+      "source": "skills/dev-memjective-reconcile",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "dev-memjective-update": {
       "source": "skills/dev-memjective-update",
       "sourceType": "local",
