@@ -1,6 +1,8 @@
 ---
 name: objective-reconcile
-description: "Reconcile an objective after landing a PR. Auto-detects the PR from the current branch and the objective from Objective: #N trailers in commit messages — zero arguments needed in the common case. Reads the merged PR, updates the objective issue body to reflect current state, and posts a reconciliation comment as a log entry. Use after merging a PR — 'reconcile', 'reconcile objective', 'reconcile PR #M', 'update objective after merge'. The body is the state snapshot; the comments are the history."
+description: Command
+# Original description (preserved for reference):
+# Reconcile an objective after landing a PR. Auto-detects the PR from the current branch and the objective from Objective: #N trailers in commit messages — zero arguments needed in the common case. Reads the merged PR, updates the objective issue body to reflect current state, and posts a reconciliation comment as a log entry. Use after merging a PR — 'reconcile', 'reconcile objective', 'reconcile PR #M', 'update objective after merge'. The body is the state snapshot; the comments are the history.
 allowed-tools:
   - "Bash(gh pr view *)"
   - "Bash(gh pr diff *)"

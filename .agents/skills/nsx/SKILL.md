@@ -1,6 +1,8 @@
 ---
 name: nsx
-description: "Run any skill from nseng-ai/nonslop without installing it. Shorthand for skillx against the nonslop repo. Pass a skill name to run it, or no arguments to list available skills."
+# Full description commented out to save tokens (coding agents inject skill descriptions into every session):
+# "Run any skill from nseng-ai/nonslop without installing it. Shorthand for skillx against the nonslop repo. Pass a skill name to run it, or no arguments to list available skills."
+description: "Command: nsx"
 allowed-tools:
   - "Bash(uvx nonslop exec nsx *)"
 ---

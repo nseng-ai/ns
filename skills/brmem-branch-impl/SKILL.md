@@ -1,6 +1,8 @@
 ---
 name: brmem-branch-impl
-description: "Load the brmem-stashed plan/context from the current branch and begin implementation against it. Confirms that `brmem` entries exist on the branch, reads every entry into session context, summarizes the loaded plan, seeds a TODO list, and starts executing. Use when the user is sitting on a branch created by `brmem-branch-create` (or any branch with brmem content) and wants to pick up the stashed work. Read-only with respect to `brmem` — never writes entries."
+description: Command
+# Original description (preserved for reference):
+# Load the brmem-stashed plan/context from the current branch and begin implementation against it. Confirms that `brmem` entries exist on the branch, reads every entry into session context, summarizes the loaded plan, seeds a TODO list, and starts executing. Use when the user is sitting on a branch created by `brmem-branch-create` (or any branch with brmem content) and wants to pick up the stashed work. Read-only with respect to `brmem` — never writes entries.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git symbolic-ref *)"

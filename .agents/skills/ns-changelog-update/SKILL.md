@@ -1,6 +1,8 @@
 ---
 name: ns-changelog-update
-description: "Sync CHANGELOG.md unreleased section with recent commits. Use when the user wants to update the changelog, add recent changes to the changelog, sync the changelog with commits, or prepare changelog entries. Also handles first-time changelog initialization when no CHANGELOG.md exists."
+# Full description commented out to save tokens (coding agents inject skill descriptions into every session):
+# "Sync CHANGELOG.md unreleased section with recent commits. Use when the user wants to update the changelog, add recent changes to the changelog, sync the changelog with commits, or prepare changelog entries. Also handles first-time changelog initialization when no CHANGELOG.md exists."
+description: "Command: ns-changelog-update"
 references:
   - references/changelog-format
   - references/commit-fetching

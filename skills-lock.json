@@ -79,17 +79,17 @@
     "ns-changelog-update": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "c237e2963a5d8a9f2ebdcb6df7de0d7328e95d39acfa057d1ab74aead02863d8"
+      "computedHash": "a2eba8cfba4d63454a55bf72a63a2afd6bcd2a4fc26d07320c40df4d415a4584"
     },
     "ns-create-py-dev-cli": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "f46408b4c7c8cc335a530c050dbfa49ee844d1482bbcccb61b397724faf74fb0"
+      "computedHash": "5f77d5cd4c45939f703138c5e3402965b5d088967974ebe38f1a29a5d1efae3c"
     },
     "ns-create-pypackage-project": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "9091f7ae9fd65a7c97bd632e4b5a0118adf77308e566035b84db8fc84c8a2849"
+      "computedHash": "a05f76714e88cdd41eb506c006783a77a0fa8cbbbbf7d2b3ce26e988ffa9a9d8"
     },
     "ns-dignified-python": {
       "source": "nseng-ai/nonslop",
@@ -129,7 +129,7 @@
     "ns-setup-dprint": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "5596dd4376fadb504ec6b60bf008282b7c654a7c6006c8c2e96bfc67f16a2e53"
+      "computedHash": "517d8a05b5e6cadcc872f1973a7636cad5dd8b02700c51b95d8ee26aad326f17"
     },
     "ns-setup-python-ci": {
       "source": "nseng-ai/nonslop",
@@ -144,12 +144,12 @@
     "ns-skillx": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "c297f295512eb614d4902c1701d3fe8a141fe07991a5d55b766d1955f997a56a"
+      "computedHash": "baa9a4fa29c889e3f1bfe718cf8bc94033408f74280473899f19d772121e8cd9"
     },
     "nsx": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "1e055bb882ffce70b36ea2344b80a755a5289b1a9af0f4045f3ac4813cd945e9"
+      "computedHash": "b46238d4c9f4f40df3781a4a9688b28ba0e17aece4f38b4c141e9c458ab33eae"
     },
     "objective": {
       "source": "skills/objective",

@@ -1,6 +1,8 @@
 ---
 name: dev-memjective-peek
-description: "Read-only status inspector for memjectives. Resolves the active memjective from the current branch snapshot, the nearest ancestor branch snapshot, or the master-branch snapshot; reports a short status summary and suggests a kebab-case slug for the next slice. Writes nothing. See `dev-memjective` for the subsystem overview."
+description: Command
+# Original description (preserved for reference):
+# Read-only status inspector for memjectives. Resolves the active memjective from the current branch snapshot, the nearest ancestor branch snapshot, or the master-branch snapshot; reports a short status summary and suggests a kebab-case slug for the next slice. Writes nothing. See `dev-memjective` for the subsystem overview.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"

@@ -1,6 +1,8 @@
 ---
 name: brmem-branch-create
-description: "Create a branch via a repo-local branch-policy plugin, then stash the current session's plan/context onto that branch with `brmem`. The skill picks the bundle and suggested slug; `.twerk/prompts/brmem-branch-create.md` only handles repo-specific branch creation. Use when the user wants to park session context on a new branch for later pickup."
+description: Command
+# Original description (preserved for reference):
+# Create a branch via a repo-local branch-policy plugin, then stash the current session's plan/context onto that branch with `brmem`. The skill picks the bundle and suggested slug; `.twerk/prompts/brmem-branch-create.md` only handles repo-specific branch creation. Use when the user wants to park session context on a new branch for later pickup.
 allowed-tools:
   - "Bash(git *)"
   - "Bash(gt *)"

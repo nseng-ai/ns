@@ -1,6 +1,8 @@
 ---
 name: dev-memjective-next
-description: "Run on a slice branch: carry the memjective snapshot forward onto the current branch via `brmem put`, choose the next slice from the roadmap, and implement it in-session. If the current branch already has a snapshot, propose a slug for the next slice, create a fresh branch using the project's branch-creation convention, and continue from there. See `dev-memjective` for the subsystem overview."
+description: Command
+# Original description (preserved for reference):
+# Run on a slice branch: carry the memjective snapshot forward onto the current branch via `brmem put`, choose the next slice from the roadmap, and implement it in-session. If the current branch already has a snapshot, propose a slug for the next slice, create a fresh branch using the project's branch-creation convention, and continue from there. See `dev-memjective` for the subsystem overview.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"

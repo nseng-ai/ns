@@ -1,6 +1,8 @@
 ---
 name: dev-memjective-create
-description: "Draft a new memjective and store it in `brmem` as the master-branch snapshot plus an initial snapshot on the current branch. Use when the user wants to start a new local memjective or attach one to the current branch. See `dev-memjective` for the subsystem overview."
+description: Command
+# Original description (preserved for reference):
+# Draft a new memjective and store it in `brmem` as the master-branch snapshot plus an initial snapshot on the current branch. Use when the user wants to start a new local memjective or attach one to the current branch. See `dev-memjective` for the subsystem overview.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
