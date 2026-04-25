@@ -1,4 +1,4 @@
-# Memjective Reconcile State Multi-PR Plan
+# Memjective Reconcile State Steelthread Plan
 
 This plan intentionally does not use the memjective workflow to manage the
 migration. It is a plain repo plan for changing memjectives safely.
@@ -26,6 +26,23 @@ Core invariant:
 > Every merged PR associated with a memjective has exactly one root
 > incorporation entry, and that entry points to the PR facts, source snapshot,
 > and root memjective snapshot mutation that incorporated it.
+
+## Steelthread Bias
+
+Ship the first useful behavior before extracting every substrate.
+
+The earliest reviewable slice should let a user answer:
+
+- Which merged PRs for this memjective still need to be incorporated?
+- Which closed PRs need a skip decision?
+- Which open/local branches are visible but not eligible for root promotion?
+- Is there already recorded incorporation state?
+
+That means the first PR should expose `memjective check <slug>` with read-only
+diagnostics, even if some internals are intentionally modest. Once the
+user-facing loop exists, later PRs can extract the tree model, strengthen
+provenance, add lower-level computation commands, and tighten recording
+invariants without delaying the first observable value.
 
 ## Storage Decision
 
@@ -77,6 +94,15 @@ memjective exec record-entry <slug> --json '{"id":"pr-221",...}'
 memjective exec record-entry <slug> - < entry.json
 memjective exec compute-pending-entries <slug> --format json
 ```
+
+Steelthread order:
+
+1. Ship `memjective check <slug>` first, read-only, with enough JSON for the
+   first reconcile skill to consume.
+2. Add `init` and `record-entry` once there is a visible check result worth
+   updating.
+3. Add `compute-pending-entries` later as a hardened, lower-level primitive when
+   the skill workflow has proven the exact evidence shape it needs.
 
 Avoid command names like `plan`, `stamp`, `record-pr-skipped`, or
 `record-pr-incorporated` in the public workflow. The CLI primitives compute or
@@ -175,10 +201,153 @@ Rules:
 - Merge is the promotion boundary. Only merged PRs are eligible for semantic
   incorporation into root docs.
 
-## PR 1: Extract The Tree Model Behind `memjective tree`
+## PR 1: Steelthread Read-Only Check
 
-Goal: make the underlying data model first-class without changing user-facing
-behavior.
+Goal: deliver the first user-facing value quickly: a user can run
+`memjective check <slug>` and see which PRs need incorporation, which closed PRs
+need a skip decision, and what state has already been recorded.
+
+Implementation:
+
+- Add typed parse/render/validate code for state schema version 1.
+- Treat absent state as a valid legacy memjective with zero stored entries.
+- Add `memjective check <slug>` with `--format human` and `--format json`.
+- Build check facts by reusing today's `memjective tree` data path directly or
+  by extracting only the smallest helper needed. Do not require the full tree
+  model extraction before this command can ship.
+- Join:
+  - current brmem branch snapshots for the slug,
+  - current PR lookup facts,
+  - optional stored state,
+  - root diagnostics for `memjectives/master/<slug>`.
+- Report the important user-facing buckets:
+  - merged PRs without incorporation entries,
+  - merged PRs already recorded as incorporated,
+  - incorporated PRs whose current PR facts no longer match the recorded facts,
+  - closed-unmerged PRs needing skip decisions,
+  - closed-unmerged PRs already recorded as skipped,
+  - open/local branches being tracked but not eligible for semantic promotion,
+  - lookup or state parse errors.
+- Include enough JSON evidence for the first reconcile skill to consume:
+  - slug,
+  - root namespace/branch/path and existence,
+  - source namespace/branch/path for each branch snapshot,
+  - PR number/state/title/url/head/base/merged-at when known,
+  - stored entry, when present,
+  - recommended action such as `incorporate`, `decide_skip`, `wait`, or
+    `none`.
+- Keep root `tree_sha` best-effort in this PR. If resolving it cleanly would
+  expand the slice, expose root existence now and harden snapshot provenance in
+  a later PR.
+- Preserve all existing `list`, `show`, and `tree` behavior.
+
+Tests:
+
+- Unit tests for schema parse failures, version mismatch, absent state, and
+  empty state.
+- Scenario tests for `check` with no state, empty state, merged-pending PR,
+  incorporated PR, closed-unmerged PR, skipped closed PR, open PR, and stale
+  incorporation entry.
+- Existing `test_memjective_tree_cli.py` remains green.
+
+Review boundary:
+
+- No writes.
+- No semantic doc edits.
+- No new lower-level `compute-pending-entries` command yet.
+- No full tree model extraction required.
+
+## PR 2: Minimal State Writes
+
+Goal: make the `check` result actionable by adding deterministic writes for the
+machine-readable state.
+
+Implementation:
+
+- Add `memjective exec init <slug>`:
+  - creates `memjective-state/<slug>/state.json` on `master` if absent,
+  - records `version`, `slug`, and the root path,
+  - fails if root memjective docs do not exist,
+  - is idempotent when the existing state is valid for the slug.
+- Add `memjective exec record-entry <slug>`:
+  - accepts exactly one JSON payload via `--file`, `--json`, or stdin (`-`),
+  - validates the payload against the entry schema,
+  - upserts the entry by stable `id`,
+  - enforces unique PR numbers across entries,
+  - supports the statuses needed by the steelthread: `incorporated`, `skipped`,
+    and tracked non-terminal branch/PR observations,
+  - writes only the `memjective-state` namespace.
+- Keep validation practical in this PR:
+  - reject malformed JSON, schema version mismatches, slug mismatches, duplicate
+    PR numbers, and obvious status regressions,
+  - defer strict `root_before`/`root_after` provenance matching until the
+    hardening PR.
+- After each write, `memjective check <slug>` should reflect the updated state.
+
+Tests:
+
+- `init` is idempotent.
+- `record-entry` creates a new entry.
+- `record-entry` updates the same entry instead of duplicating it.
+- `record-entry` upgrades `branch-*` to `pr-*` when a PR-backed payload is
+  supplied, preserving prior source facts when appropriate.
+- Duplicate PR numbers are rejected.
+- Invalid JSON, unknown schema versions, slug mismatches, and invalid basic
+  transitions fail cleanly.
+- A check scenario proves that a recorded incorporated entry leaves the merged
+  pending bucket.
+
+Review boundary:
+
+- Mechanical state mutation only.
+- No semantic root doc edits.
+- No hardened incorporation proof yet.
+
+## PR 3: Add `dev-memjective-reconcile` Steelthread
+
+Goal: provide the first end-to-end user workflow: inspect pending merged PRs,
+incorporate their branch memjective docs into the root docs, and record the
+state entry so rerunning the workflow is idempotent.
+
+Implementation:
+
+- New skill flow:
+  1. Run `memjective check <slug> --format json`.
+  2. Run `memjective exec init <slug>` if state is absent.
+  3. For each check item whose recommended action is `incorporate`, read the
+     source brmem docs from the item's namespace/branch/path.
+  4. Conservatively update root memjective docs using the existing mutation
+     contract.
+  5. Persist root doc changes with `brmem put`.
+  6. Build a JSON entry payload with `resolution.status: incorporated`,
+     recorded PR facts, source snapshot facts available from `check`, and a
+     human summary.
+  7. Run `memjective exec record-entry <slug> --file <payload>`.
+  8. Re-run `memjective check` and report remaining pending work.
+- The skill must say explicitly that open PRs are not semantically incorporated.
+- Closed-unmerged PRs are skipped only on user confirmation, then recorded via
+  `record-entry` with a `skipped` resolution.
+- If the first check cannot provide enough evidence for a merged PR, the skill
+  stops on that PR and reports the missing fact instead of guessing.
+
+Tests:
+
+- Skill-level manual verification scenarios for:
+  - one merged-pending PR,
+  - no pending PRs,
+  - closed-unmerged PR requiring confirmation,
+  - rerun after incorporation showing no pending work.
+
+Review boundary:
+
+- Skill only, consuming `check`, `init`, and `record-entry`.
+- No new Python-side semantic summarization.
+- No changes to `dev-memjective-next` yet.
+
+## PR 4: Extract The Tree Model Behind `memjective tree` And `check`
+
+Goal: harden the data model after the user-facing loop exists, without changing
+visible behavior.
 
 Implementation:
 
@@ -199,28 +368,15 @@ Implementation:
   - `MemjectiveTreeBranch` with `branch`, `stale`, and `pr`.
   - `MemjectiveTreePr` as a normalized PR observation with `action`, `number`,
     `state`, `title`, `url`, and `error_stderr`.
-    The field names should remain close to today's `tree` JSON shape so the CLI
-    adapter stays mechanical.
+- Update both `tree` and `check` to consume the extracted model.
 - Keep PR lookup semantics exactly as they are today:
   - `PRSummary.state == OPEN` maps to `open`.
   - `PRSummary.state == MERGED` maps to `merged`.
   - `PRSummary.state == CLOSED` maps to `closed`.
   - `PRLookupError.returncode == 1` maps to `no_pr`.
   - Any other `PRLookupError` maps to `error` and preserves stderr.
-- Keep GitHub interaction behind the existing `PRGateway`. PR 1 should not add
-  new `gh` commands, REST calls, GraphQL queries, or PR lookup fields.
-- Make the tree model builder deterministic but layout-neutral:
-  - tree model construction may return branch nodes sorted alphabetically by branch,
-  - the `memjective tree` command remains responsible for the current display
-    grouping `merged -> open -> closed -> no_pr -> error`.
-    Future reconciliation code should depend on tree model facts, not table
-    order.
-- Update `tree.py` so `run_tree_memjective` still owns:
-  - Click request/response types,
-  - slug auto-resolution and its existing error handling,
-  - conversion from tree model facts into `MemjectiveTreeResult`,
-  - human rendering and JSON schema compatibility,
-  - negative exit when a slug has no brmem entries.
+- Keep GitHub interaction behind the existing `PRGateway`. This PR should not
+  add new `gh` commands, REST calls, GraphQL queries, or PR lookup fields.
 - Preserve all existing user-visible behavior:
   - `memjective tree --schema` unchanged,
   - omitted slug auto-resolves from the current branch as before,
@@ -229,12 +385,11 @@ Implementation:
   - stale marker remains JSON-only and is still omitted from human output,
   - auth or other `gh` failures become `error` rows instead of failing the
     command.
-- Do not compute or persist `path`/`tree_sha` in PR 1. That belongs to the
-  state/check substrate in later PRs.
 
 Tests:
 
 - Existing `test_memjective_tree_cli.py` remains green.
+- Existing `check` scenarios remain green.
 - Add unit tests for tree model construction independent of Click rendering.
 - Suggested new file:
   `packages/twerk-core/tests/unit/test_memjective_tree_model.py`.
@@ -250,95 +405,22 @@ Tests:
   - missing PR (`returncode == 1`) maps to `no_pr`,
   - non-1 PR lookup failure maps to `error` and preserves stderr,
   - `master` is never emitted as a branch node even when it has files.
-- Add or adjust one scenario assertion only if needed to prove `tree` still
-  renders from the tree model. Prefer keeping the existing scenario suite as
-  the compatibility contract.
 
 Review boundary:
 
+- Refactor plus tests.
 - No new persistence.
 - No new reconcile semantics.
-- No state schema yet.
-- No `memjective check` yet.
-- No changes to the real GitHub lookup mechanism.
-- Pure tree model extraction plus tests.
 
-## PR 2: Add State Schema And Read-Only Check
+## PR 5: Add Snapshot Provenance And Pending-Entry Computation
 
-Goal: introduce `memjective-state/<slug>/state.json` as optional root-owned
-model state, but keep all operations read-only.
+Goal: turn the evidence shape proven by `check` and the steelthread skill into a
+stable lower-level primitive for agents and scripts.
 
 Implementation:
 
-- Add typed parse/render/validate code for state schema version 1.
-- Treat absent state as a valid legacy memjective with zero stored entries.
-- Add `memjective check <slug>` that joins:
-  - tree model facts from PR 1,
-  - optional stored state,
-  - root snapshot diagnostics.
-- Report the important invariant buckets:
-  - merged PRs without incorporation entries,
-  - incorporated PRs whose current PR facts no longer match,
-  - closed-unmerged PRs needing skip decisions,
-  - open/local branches being tracked but not eligible for semantic promotion.
-- Provide `--format json` for agent/skill consumers.
-
-Tests:
-
-- Unit tests for schema parse failures and version mismatch.
-- Scenario tests for check with no state, empty state, merged-pending PR,
-  incorporated PR, closed-unmerged PR, and stale incorporation entry.
-
-Review boundary:
-
-- Still no writes.
-- Existing `list`, `show`, and `tree` behavior unchanged.
-
-## PR 3: Add Generic State Mutation
-
-Goal: make state writes deterministic CLI operations instead of hand-edited
-JSON in skills.
-
-Implementation:
-
-- Add `memjective exec init <slug>`:
-  - creates `memjective-state/<slug>/state.json` on `master` if absent,
-  - records `version`, `slug`, and the root path,
-  - fails if root memjective docs do not exist,
-  - is idempotent when the existing state is valid for the slug.
-- Add `memjective exec record-entry <slug>`:
-  - accepts exactly one JSON payload via `--file`, `--json`, or stdin (`-`),
-  - validates the payload against the entry schema,
-  - upserts the entry by stable `id`,
-  - enforces unique PR numbers across entries,
-  - refuses invalid state transitions unless an explicit force flag is added,
-  - writes only the `memjective-state` namespace.
-- Document payload shapes for PR observations, skipped closed PRs, and
-  incorporated PRs, but keep the CLI surface generic.
-
-Tests:
-
-- `init` is idempotent.
-- `record-entry` creates a new entry.
-- `record-entry` updates the same entry instead of duplicating it.
-- `record-entry` upgrades `branch-*` to `pr-*` when a PR-backed payload is
-  supplied, preserving the prior source snapshot when appropriate.
-- Duplicate PR numbers are rejected.
-- Invalid JSON, unknown schema versions, and invalid transitions fail cleanly.
-
-Review boundary:
-
-- Mechanical state mutation only.
-- No semantic doc edits.
-- No pending-entry computation yet.
-
-## PR 4: Add Pending-Entry Computation
-
-Goal: compute the exact work needed to converge root docs and stored state
-without performing semantic edits.
-
-Implementation:
-
+- Resolve and expose durable snapshot provenance for root and source docs:
+  `namespace`, `branch`, `path`, and `tree_sha`.
 - Add `memjective exec compute-pending-entries <slug>`.
 - The command is read-only. It does not mutate state, initialize state, or ask an
   LLM for prose changes.
@@ -400,7 +482,8 @@ Implementation:
 - `origin` distinguishes stored entries from entries synthesized from current
   external state. A returned item may include both a `stored_entry` and a
   `candidate_entry` when the command is showing drift.
-- `--format json` is the primary interface for future skills.
+- `--format json` is the primary interface.
+- Update `dev-memjective-reconcile` to use this command once it exists.
 
 Tests:
 
@@ -414,13 +497,13 @@ Tests:
 Review boundary:
 
 - Evidence computation only.
-- No LLM summarization in Python.
-- No root doc mutation.
+- No root doc mutation in Python.
+- No new skill behavior beyond switching the skill to the hardened primitive.
 
-## PR 5: Add Incorporation Recording Semantics
+## PR 6: Harden Incorporation Recording Semantics
 
-Goal: let an agent perform the semantic doc edits and then record the mechanical
-incorporation entry so future reconcile runs are idempotent.
+Goal: make the already-working reconciliation loop auditable and resistant to
+stale evidence.
 
 Implementation:
 
@@ -450,44 +533,8 @@ Tests:
 
 Review boundary:
 
-- Still no automated semantic editing.
-- This PR makes the human/agent reconciliation loop auditable.
-
-## PR 6: Add `dev-memjective-reconcile` Skill
-
-Goal: introduce the user-facing reconciliation workflow after the CLI has
-enough mechanical support.
-
-Implementation:
-
-- New skill flow:
-  1. Run `memjective check <slug> --format json`.
-  2. Run `memjective exec compute-pending-entries <slug> --format json`.
-  3. For each pending entry with `action: incorporate`, read the recommended
-     brmem source docs.
-  4. Conservatively update root memjective docs using the existing mutation
-     contract.
-  5. Persist root doc changes with `brmem put`.
-  6. Build a JSON entry payload that adds an `incorporated` resolution with
-     summary and root before/after snapshots.
-  7. Run `memjective exec record-entry <slug> --file <payload>`.
-  8. Re-run `memjective check` and report remaining pending work.
-- The skill must say explicitly that open PRs are not semantically incorporated.
-- Closed-unmerged PRs are skipped only on user confirmation, then recorded via
-  `record-entry` with a `skipped` resolution.
-
-Tests:
-
-- Skill-level manual verification scenarios for:
-  - one merged-pending PR,
-  - no pending PRs,
-  - closed-unmerged PR requiring confirmation,
-  - stale root docs requiring rerun.
-
-Review boundary:
-
-- Skill only. It consumes CLI commands introduced earlier.
-- No changes to `dev-memjective-next` yet.
+- Validation hardening only.
+- The semantic doc edit remains in the user/agent workflow.
 
 ## PR 7: Teach Existing Memjective Skills To Record State
 
@@ -551,7 +598,7 @@ Review boundary:
 
 ## Deferred Work
 
-Do not include these in the first stack:
+Do not include these in the steelthread stack:
 
 - Cross-namespace brmem transactions.
 - Fully derived memjective docs.
@@ -565,13 +612,15 @@ coverage invariant.
 
 ## Suggested Stack Order
 
-1. Extract tree model behind `tree`.
-2. Add state schema plus read-only check.
-3. Add generic state mutation.
-4. Add pending-entry computation.
-5. Add incorporation recording semantics.
-6. Add `dev-memjective-reconcile`.
+1. Add the steelthread read-only `memjective check`.
+2. Add minimal state writes with `init` and `record-entry`.
+3. Add the `dev-memjective-reconcile` steelthread.
+4. Extract and harden the shared tree model behind `tree` and `check`.
+5. Add snapshot provenance plus `compute-pending-entries`.
+6. Harden incorporation recording semantics.
 7. Update existing memjective skills to feed state.
 8. Promote check into the default status surface.
 
-The first five PRs create the substrate. PRs 6-8 make the workflow natural.
+The first three PRs create a complete user-facing loop. PRs 4-6 harden the
+substrate after behavior exists. PRs 7-8 make the workflow natural during
+normal memjective usage.
