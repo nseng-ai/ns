@@ -648,3 +648,76 @@ def test_real_brmem_copy_entries_key_glob_zero_match_does_not_touch_dest(
         ).returncode
         != 0
     )
+
+
+def test_real_brmem_get_tree_sha_returns_none_when_snapshot_absent(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+
+    assert gateway.get_tree_sha("memjectives", "feat/x", "my-feature") is None
+
+
+def test_real_brmem_get_tree_sha_returns_none_when_no_subtree_at_path(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+    gateway.put("memjectives", "other/body.md", "feat/x", "x\n")
+
+    assert gateway.get_tree_sha("memjectives", "feat/x", "my-feature") is None
+
+
+def test_real_brmem_get_tree_sha_stable_across_no_op_reads(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body\n")
+    gateway.put("memjectives", "my-feature/roadmap.md", "feat/x", "road\n")
+
+    first = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+    second = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+
+    assert first is not None
+    assert first == second
+    # Real implementation returns a 40-char hex SHA for a tree object.
+    assert len(first) == 40
+
+
+def test_real_brmem_get_tree_sha_changes_after_put_under_path(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body\n")
+
+    before = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body-updated\n")
+    after = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+
+    assert before is not None
+    assert after is not None
+    assert before != after
+
+
+def test_real_brmem_get_tree_sha_unchanged_after_unrelated_sibling_put(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body\n")
+
+    before = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+    gateway.put("memjectives", "sibling/body.md", "feat/x", "sib\n")
+    after = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+
+    assert before is not None
+    assert before == after
+
+
+def test_real_brmem_get_tree_sha_identical_content_yields_identical_tree_sha(
+    tmp_path: Path,
+) -> None:
+    """Git's content-addressing guarantee: identical tree contents → identical SHA."""
+    repo = _init_repo(tmp_path)
+    gateway = RealBranchMemoryGateway(cwd=repo)
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body\n")
+    gateway.put("memjectives", "my-feature/body.md", "feat/y", "body\n")
+
+    sha_x = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+    sha_y = gateway.get_tree_sha("memjectives", "feat/y", "my-feature")
+
+    assert sha_x is not None
+    assert sha_x == sha_y

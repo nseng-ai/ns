@@ -530,3 +530,73 @@ def test_fake_brmem_copy_entries_rejects_empty_key_glob() -> None:
             overwrite=False,
             key_glob="",
         )
+
+
+def test_fake_brmem_get_tree_sha_returns_none_when_snapshot_absent() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    assert gateway.get_tree_sha("memjectives", "feat/x", "my-feature") is None
+
+
+def test_fake_brmem_get_tree_sha_returns_none_when_no_subtree_at_path() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "other/body.md", "feat/x", "x\n")
+
+    assert gateway.get_tree_sha("memjectives", "feat/x", "my-feature") is None
+
+
+def test_fake_brmem_get_tree_sha_stable_across_no_op_reads() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body\n")
+    gateway.put("memjectives", "my-feature/roadmap.md", "feat/x", "road\n")
+
+    first = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+    second = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+
+    assert first is not None
+    assert first == second
+    assert first.startswith("faketree-")
+
+
+def test_fake_brmem_get_tree_sha_changes_after_put_under_path() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body\n")
+
+    before = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body-updated\n")
+    after = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+
+    assert before is not None
+    assert after is not None
+    assert before != after
+
+
+def test_fake_brmem_get_tree_sha_unchanged_after_unrelated_sibling_put() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "my-feature/body.md", "feat/x", "body\n")
+
+    before = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+    gateway.put("memjectives", "sibling/body.md", "feat/x", "sib\n")
+    after = gateway.get_tree_sha("memjectives", "feat/x", "my-feature")
+
+    assert before is not None
+    assert before == after
+
+
+def test_fake_brmem_get_tree_sha_does_not_match_sibling_prefix() -> None:
+    """`my-feature` must not match the `my-feature-x/` sibling prefix."""
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "my-feature-x/body.md", "feat/x", "x\n")
+
+    assert gateway.get_tree_sha("memjectives", "feat/x", "my-feature") is None
+
+
+def test_fake_brmem_get_tree_sha_validates_inputs() -> None:
+    gateway = FakeBranchMemoryGateway()
+
+    with pytest.raises(InvalidBranchNameError):
+        gateway.get_tree_sha("memjectives", "feat---x", "my-feature")
+    with pytest.raises(InvalidNamespaceError):
+        gateway.get_tree_sha("ns/with/slash", "feat/x", "my-feature")
+    with pytest.raises(InvalidKeyError):
+        gateway.get_tree_sha("memjectives", "feat/x", "")

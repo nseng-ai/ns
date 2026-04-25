@@ -33,6 +33,8 @@ class MemjectiveTreePr:
     head_ref_name: str | None
     base_ref_name: str | None
     error_stderr: str | None
+    merged_at: str | None
+    merge_commit_oid: str | None
 
 
 @dataclass(frozen=True)
@@ -104,6 +106,8 @@ def _lookup_pr(branch: str, pr_gateway: PRGateway) -> MemjectiveTreePr:
                 head_ref_name=None,
                 base_ref_name=None,
                 error_stderr=None,
+                merged_at=None,
+                merge_commit_oid=None,
             )
         return MemjectiveTreePr(
             action="error",
@@ -114,6 +118,8 @@ def _lookup_pr(branch: str, pr_gateway: PRGateway) -> MemjectiveTreePr:
             head_ref_name=None,
             base_ref_name=None,
             error_stderr=result.stderr or None,
+            merged_at=None,
+            merge_commit_oid=None,
         )
     return MemjectiveTreePr(
         action=_STATE_TO_ACTION[result.state],
@@ -124,4 +130,6 @@ def _lookup_pr(branch: str, pr_gateway: PRGateway) -> MemjectiveTreePr:
         head_ref_name=result.head_ref_name,
         base_ref_name=result.base_ref_name,
         error_stderr=None,
+        merged_at=result.merged_at,
+        merge_commit_oid=result.merge_commit_oid,
     )

@@ -362,6 +362,34 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         _run(["git", "update-ref", snapshot_ref, commit_sha], cwd=self._cwd)
         return commit_sha
 
+    def get_tree_sha(
+        self,
+        namespace: str | None,
+        branch: str,
+        path: str,
+    ) -> str | None:
+        validate_key(path)
+        self._check_branch_ref_format(branch)
+        snapshot_ref = _snapshot_ref_name(namespace, branch)
+        result = _run(
+            ["git", "rev-parse", f"{snapshot_ref}:{path}"],
+            cwd=self._cwd,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        sha = result.stdout.strip()
+        if not sha:
+            return None
+        type_result = _run(
+            ["git", "cat-file", "-t", sha],
+            cwd=self._cwd,
+            check=False,
+        )
+        if type_result.returncode != 0 or type_result.stdout.strip() != "tree":
+            return None
+        return sha
+
     def check(
         self,
         namespace: str | None,

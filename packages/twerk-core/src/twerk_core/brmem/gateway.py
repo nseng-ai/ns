@@ -168,6 +168,28 @@ class BranchMemoryGateway(ABC):
         """
 
     @abstractmethod
+    def get_tree_sha(
+        self,
+        namespace: str | None,
+        branch: str,
+        path: str,
+    ) -> str | None:
+        """Return the git tree SHA at ``path`` within the snapshot, or ``None``.
+
+        ``path`` identifies a subtree of the ``(namespace, branch)`` snapshot —
+        typically a memjective slug like ``my-feature`` (or a nested
+        ``parent/child``). The returned SHA is content-addressed: two snapshots
+        with identical content under ``path/`` share a tree SHA, and the value
+        changes when content under ``path/`` changes. Sibling paths do not
+        affect the value. Returns ``None`` when the snapshot ref does not exist
+        or no entries live under ``path/``.
+
+        The fake returns a synthetic ``faketree-<hex>`` derived from the entries
+        under ``path/`` rather than a real git tree object SHA — tests should
+        assert on shape and stability, not on a particular value.
+        """
+
+    @abstractmethod
     def copy_entries(
         self,
         *,

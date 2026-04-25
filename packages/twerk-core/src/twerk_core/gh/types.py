@@ -131,7 +131,9 @@ class PRSummary:
     Returned by `get_pr_for_branch` — carries the fields the pr-address skill
     needs for its Phase 0 preflight (number, title, URL, head/base refs) plus
     the lifecycle `state` used by `slot gc` to decide whether to reclaim the
-    slot.
+    slot. ``merged_at`` and ``merge_commit_oid`` carry merge provenance for
+    callers that need to validate or content-address against the merge event;
+    both are ``None`` for non-merged PRs.
     """
 
     number: int
@@ -140,6 +142,8 @@ class PRSummary:
     head_ref_name: str
     base_ref_name: str
     state: PRState
+    merged_at: str | None = None
+    merge_commit_oid: str | None = None
 
 
 @dataclass(frozen=True)

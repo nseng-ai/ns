@@ -12,6 +12,7 @@ enforces.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
@@ -182,6 +183,35 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         if content_sha is None:
             return None
         return self._contents_by_sha[content_sha]
+
+    def get_tree_sha(
+        self,
+        namespace: str | None,
+        branch: str,
+        path: str,
+    ) -> str | None:
+        if namespace is not None:
+            validate_namespace(namespace)
+        validate_key(path)
+        validate_branch_name(branch)
+
+        snapshot_key = _SnapshotKey(namespace, branch)
+        head_sha = self._snapshot_heads.get(snapshot_key)
+        if head_sha is None:
+            return None
+        prefix = f"{path}/"
+        matching = [
+            (entry.key, entry.content_sha)
+            for entry in self._commits[head_sha].tree
+            if entry.key.startswith(prefix)
+        ]
+        if not matching:
+            return None
+        matching.sort()
+        digest = hashlib.sha1(usedforsecurity=False)
+        for key, content_sha in matching:
+            digest.update(f"{key}\0{content_sha}\0".encode())
+        return f"faketree-{digest.hexdigest()}"
 
     def check(
         self,

@@ -203,3 +203,71 @@ def test_branches_are_sorted_alphabetically() -> None:
     result = _build(gateway, live_branches=("feat/a", "feat/b"))
 
     assert [branch.branch for branch in result.branches] == ["feat/a", "feat/b"]
+
+
+def test_merge_provenance_threads_through_merged_pr() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "widget/body.md", "feat/x", "snap\n")
+    pr = PRSummary(
+        number=42,
+        title="t",
+        url="u",
+        head_ref_name="feat/x",
+        base_ref_name="master",
+        state="MERGED",
+        merged_at="2026-04-01T12:00:00Z",
+        merge_commit_oid="deadbeef",
+    )
+
+    result = _build(
+        gateway,
+        live_branches=("feat/x",),
+        pr_gateway=FakePRGateway(prs_by_branch={"feat/x": pr}),
+    )
+
+    [branch] = result.branches
+    assert branch.pr.merged_at == "2026-04-01T12:00:00Z"
+    assert branch.pr.merge_commit_oid == "deadbeef"
+
+
+def test_merge_provenance_is_none_for_non_merged_pr() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "widget/body.md", "feat/x", "snap\n")
+
+    result = _build(
+        gateway,
+        live_branches=("feat/x",),
+        pr_gateway=FakePRGateway(prs_by_branch={"feat/x": _pr(branch="feat/x", state="OPEN")}),
+    )
+
+    [branch] = result.branches
+    assert branch.pr.merged_at is None
+    assert branch.pr.merge_commit_oid is None
+
+
+def test_merge_provenance_is_none_when_pr_missing() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "widget/body.md", "feat/no-pr", "snap\n")
+
+    result = _build(gateway, live_branches=("feat/no-pr",))
+
+    [branch] = result.branches
+    assert branch.pr.action == "no_pr"
+    assert branch.pr.merged_at is None
+    assert branch.pr.merge_commit_oid is None
+
+
+def test_merge_provenance_is_none_when_pr_lookup_fails() -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "widget/body.md", "feat/broken", "snap\n")
+
+    result = _build(
+        gateway,
+        live_branches=("feat/broken",),
+        pr_gateway=_BrokenPRGateway(),
+    )
+
+    [branch] = result.branches
+    assert branch.pr.action == "error"
+    assert branch.pr.merged_at is None
+    assert branch.pr.merge_commit_oid is None

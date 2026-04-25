@@ -160,12 +160,12 @@ def test_seed_only_with_absent_state(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert data["slug"] == "widget"
-    assert data["root"] == {
-        "namespace": "memjectives",
-        "branch": "master",
-        "path": "widget",
-        "exists": True,
-    }
+    assert data["root"]["namespace"] == "memjectives"
+    assert data["root"]["branch"] == "master"
+    assert data["root"]["path"] == "widget"
+    assert data["root"]["exists"] is True
+    assert data["root"]["tree_sha"] is not None
+    assert data["root"]["tree_sha"].startswith("faketree-")
     assert data["state"]["status"] == "absent"
     assert data["state"]["error"] is None
     assert data["state"]["entries"] == []
@@ -183,6 +183,7 @@ def test_missing_root_with_state_present(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert data["root"]["exists"] is False
+    assert data["root"]["tree_sha"] is None
     assert data["state"]["status"] == "loaded"
     kinds = [d["kind"] for d in data["diagnostics"]]
     assert "missing_root_memjective" in kinds
@@ -230,12 +231,15 @@ def test_merged_pr_observation_in_facts(cli_group: ClinkrGroup) -> None:
         live_branches=("master", "feat/example"),
         pr_gateway=FakePRGateway(
             prs_by_branch={
-                "feat/example": _pr(
+                "feat/example": PRSummary(
                     number=123,
                     title="Widget slice",
                     url="https://example.com/pull/123",
+                    head_ref_name="feat/example",
+                    base_ref_name="master",
                     state="MERGED",
-                    head="feat/example",
+                    merged_at="2026-04-01T12:00:00Z",
+                    merge_commit_oid="deadbeef",
                 ),
             },
         ),
@@ -252,6 +256,10 @@ def test_merged_pr_observation_in_facts(cli_group: ClinkrGroup) -> None:
     assert branch["pr"]["base_ref_name"] == "master"
     assert branch["pr"]["number"] == 123
     assert branch["pr"]["error_stderr"] is None
+    assert branch["pr"]["merged_at"] == "2026-04-01T12:00:00Z"
+    assert branch["pr"]["merge_commit_oid"] == "deadbeef"
+    assert branch["source"]["tree_sha"] is not None
+    assert branch["source"]["tree_sha"].startswith("faketree-")
 
 
 def test_closed_pr_observation_in_facts(cli_group: ClinkrGroup) -> None:
@@ -310,6 +318,9 @@ def test_open_pr_observation_in_facts(cli_group: ClinkrGroup) -> None:
     assert branch["pr"]["state"] == "OPEN"
     assert branch["pr"]["head_ref_name"] == "feat/example"
     assert branch["pr"]["base_ref_name"] == "master"
+    # Non-merged PRs always emit null merge provenance.
+    assert branch["pr"]["merged_at"] is None
+    assert branch["pr"]["merge_commit_oid"] is None
 
 
 def test_local_branch_with_no_pr(cli_group: ClinkrGroup) -> None:

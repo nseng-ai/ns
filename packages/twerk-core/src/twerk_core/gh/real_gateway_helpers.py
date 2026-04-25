@@ -24,7 +24,7 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
             "view",
             branch,
             "--json",
-            "number,title,url,headRefName,baseRefName,state",
+            "number,title,url,headRefName,baseRefName,state,mergedAt,mergeCommitOid",
         ],
         capture_output=True,
         text=True,
@@ -43,4 +43,17 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
         head_ref_name=data["headRefName"],
         base_ref_name=data["baseRefName"],
         state=state,
+        merged_at=_none_if_blank(data.get("mergedAt")),
+        merge_commit_oid=_none_if_blank(data.get("mergeCommitOid")),
     )
+
+
+def _none_if_blank(value: object) -> str | None:
+    """Coerce empty strings (``gh``'s representation of an absent field) to ``None``."""
+    if value is None:
+        return None
+    if isinstance(value, str) and value == "":
+        return None
+    if isinstance(value, str):
+        return value
+    return None

@@ -8,6 +8,7 @@ from twerk_core.gh.types import (
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    PRSummary,
 )
 
 
@@ -148,3 +149,31 @@ def test_issue_is_frozen() -> None:
     with pytest.raises(AttributeError):
         # Test subject: mutating a frozen field.
         issue.title = "changed"  # type: ignore[misc]
+
+
+def test_pr_summary_merge_provenance_defaults_to_none() -> None:
+    pr = PRSummary(
+        number=1,
+        title="t",
+        url="u",
+        head_ref_name="h",
+        base_ref_name="b",
+        state="OPEN",
+    )
+    assert pr.merged_at is None
+    assert pr.merge_commit_oid is None
+
+
+def test_pr_summary_merge_provenance_round_trips() -> None:
+    pr = PRSummary(
+        number=1,
+        title="t",
+        url="u",
+        head_ref_name="h",
+        base_ref_name="b",
+        state="MERGED",
+        merged_at="2026-04-01T12:00:00Z",
+        merge_commit_oid="deadbeef",
+    )
+    assert pr.merged_at == "2026-04-01T12:00:00Z"
+    assert pr.merge_commit_oid == "deadbeef"

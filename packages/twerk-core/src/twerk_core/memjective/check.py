@@ -14,8 +14,12 @@ from twerk_core.console import get_console, make_table
 from twerk_core.gh.types import PRState
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_core.memjective.context import MemjectiveCliContext
-from twerk_core.memjective.discovery import MASTER_BRANCH
-from twerk_core.memjective.gateway_access import MEMJECTIVE_NAMESPACE
+from twerk_core.memjective.evidence import (
+    BranchEvidence,
+    EvidenceBundle,
+    RootEvidence,
+    compute_evidence,
+)
 from twerk_core.memjective.slug_resolution import (
     AmbiguousMemjective,
     NoMemjectiveOnBranch,
@@ -28,22 +32,8 @@ from twerk_core.memjective.state import (
     MemjectiveState,
     StateAbsent,
     StateInvalid,
-    load_state,
     state_key,
 )
-from twerk_core.memjective.tree_model import (
-    BranchPrAction,
-    MemjectiveTreeBranch,
-    build_memjective_tree_model,
-)
-
-_ACTION_TO_LOOKUP_STATUS: dict[BranchPrAction, Literal["found", "missing", "error"]] = {
-    "open": "found",
-    "merged": "found",
-    "closed": "found",
-    "no_pr": "missing",
-    "error": "error",
-}
 
 
 @dataclass(frozen=True)
@@ -60,6 +50,7 @@ class CheckRoot:
     branch: str
     path: str
     exists: bool
+    tree_sha: str | None
 
 
 @dataclass(frozen=True)
@@ -78,6 +69,7 @@ class CheckSource:
     branch: str
     path: str
     stale: bool
+    tree_sha: str | None
 
 
 @dataclass(frozen=True)
@@ -89,6 +81,8 @@ class CheckPR:
     url: str | None
     head_ref_name: str | None
     base_ref_name: str | None
+    merged_at: str | None
+    merge_commit_oid: str | None
     error_stderr: str | None
 
 
@@ -121,6 +115,7 @@ class MemjectiveCheckResult:
                 "branch": self.root.branch,
                 "path": self.root.path,
                 "exists": self.root.exists,
+                "tree_sha": self.root.tree_sha,
             },
             "state": {
                 "namespace": self.state.namespace,
@@ -137,6 +132,7 @@ class MemjectiveCheckResult:
                         "branch": branch.source.branch,
                         "path": branch.source.path,
                         "stale": branch.source.stale,
+                        "tree_sha": branch.source.tree_sha,
                     },
                     "pr": {
                         "lookup_status": branch.pr.lookup_status,
@@ -146,6 +142,8 @@ class MemjectiveCheckResult:
                         "url": branch.pr.url,
                         "head_ref_name": branch.pr.head_ref_name,
                         "base_ref_name": branch.pr.base_ref_name,
+                        "merged_at": branch.pr.merged_at,
+                        "merge_commit_oid": branch.pr.merge_commit_oid,
                         "error_stderr": branch.pr.error_stderr,
                     },
                     "matching_stored_entry_ids": list(branch.matching_stored_entry_ids),
@@ -156,55 +154,41 @@ class MemjectiveCheckResult:
         }
 
 
-def _build_check_branch(
-    tree_branch: MemjectiveTreeBranch,
-    *,
-    slug: str,
-    state: MemjectiveState | StateAbsent | StateInvalid,
-) -> CheckBranch:
-    lookup_status = _ACTION_TO_LOOKUP_STATUS[tree_branch.pr.action]
+def _adapt_root(root: RootEvidence) -> CheckRoot:
+    return CheckRoot(
+        namespace=root.namespace,
+        branch=root.branch,
+        path=root.path,
+        exists=root.exists,
+        tree_sha=root.tree_sha,
+    )
+
+
+def _adapt_branch(branch: BranchEvidence) -> CheckBranch:
     source = CheckSource(
-        namespace=MEMJECTIVE_NAMESPACE,
-        branch=tree_branch.branch,
-        path=slug,
-        stale=tree_branch.stale,
+        namespace=branch.source.namespace,
+        branch=branch.source.branch,
+        path=branch.source.path,
+        stale=branch.source.stale,
+        tree_sha=branch.source.tree_sha,
     )
     pr = CheckPR(
-        lookup_status=lookup_status,
-        number=tree_branch.pr.number,
-        state=tree_branch.pr.state,
-        title=tree_branch.pr.title,
-        url=tree_branch.pr.url,
-        head_ref_name=tree_branch.pr.head_ref_name,
-        base_ref_name=tree_branch.pr.base_ref_name,
-        error_stderr=tree_branch.pr.error_stderr,
+        lookup_status=branch.pr.lookup_status,
+        number=branch.pr.number,
+        state=branch.pr.state,
+        title=branch.pr.title,
+        url=branch.pr.url,
+        head_ref_name=branch.pr.head_ref_name,
+        base_ref_name=branch.pr.base_ref_name,
+        merged_at=branch.pr.merged_at,
+        merge_commit_oid=branch.pr.merge_commit_oid,
+        error_stderr=branch.pr.error_stderr,
     )
-    matching_ids = _matching_stored_entry_ids(
-        branch_name=tree_branch.branch,
-        pr_number=tree_branch.pr.number if lookup_status == "found" else None,
-        state=state,
+    return CheckBranch(
+        source=source,
+        pr=pr,
+        matching_stored_entry_ids=branch.matching_stored_entry_ids,
     )
-    return CheckBranch(source=source, pr=pr, matching_stored_entry_ids=matching_ids)
-
-
-def _matching_stored_entry_ids(
-    *,
-    branch_name: str,
-    pr_number: int | None,
-    state: MemjectiveState | StateAbsent | StateInvalid,
-) -> tuple[str, ...]:
-    if not isinstance(state, MemjectiveState):
-        return ()
-    matches: list[str] = []
-    branch_id = f"branch-{branch_name}"
-    pr_id = f"pr-{pr_number}" if pr_number is not None else None
-    for entry in state.entries:
-        if pr_id is not None and entry.id == pr_id:
-            matches.append(entry.id)
-            continue
-        if entry.id == branch_id:
-            matches.append(entry.id)
-    return tuple(matches)
 
 
 def _build_state_view(
@@ -256,8 +240,8 @@ def _build_diagnostics(
             CheckDiagnostic(
                 kind="missing_root_memjective",
                 payload={
-                    "namespace": MEMJECTIVE_NAMESPACE,
-                    "branch": MASTER_BRANCH,
+                    "namespace": root.namespace,
+                    "branch": root.branch,
                     "path": slug,
                 },
             )
@@ -388,6 +372,25 @@ def render_memjective_check(result: MemjectiveCheckResult) -> None:
         click.echo("diagnostics: (none)")
 
 
+def _project_check(bundle: EvidenceBundle) -> MemjectiveCheckResult:
+    root = _adapt_root(bundle.root)
+    branches = tuple(_adapt_branch(b) for b in bundle.branches)
+    state_view = _build_state_view(bundle.slug, bundle.state)
+    diagnostics = _build_diagnostics(
+        slug=bundle.slug,
+        root=root,
+        state=bundle.state,
+        branches=branches,
+    )
+    return MemjectiveCheckResult(
+        slug=bundle.slug,
+        root=root,
+        state=state_view,
+        branches=branches,
+        diagnostics=diagnostics,
+    )
+
+
 @clinkr_operation(
     name="check",
     help=(
@@ -402,9 +405,6 @@ def run_check_memjective(
     request: MemjectiveCheckRequest,
 ) -> ClinkrExit[MemjectiveCheckResult]:
     mctx = load_typed_context(ctx, MemjectiveCliContext)
-    gateway = mctx.brmem_gateway
-    git = mctx.git_gateway
-    pr = mctx.pr_gateway
 
     match resolve_slug(mctx, request.slug):
         case GitCommandFailure() as failure:
@@ -428,41 +428,10 @@ def run_check_memjective(
         case SlugResolution(slug=slug):
             pass
 
-    tree_model = build_memjective_tree_model(
+    bundle = compute_evidence(
         slug=slug,
-        brmem_gateway=gateway,
-        git_gateway=git,
-        pr_gateway=pr,
+        brmem_gateway=mctx.brmem_gateway,
+        git_gateway=mctx.git_gateway,
+        pr_gateway=mctx.pr_gateway,
     )
-
-    root = CheckRoot(
-        namespace=MEMJECTIVE_NAMESPACE,
-        branch=MASTER_BRANCH,
-        path=slug,
-        exists=tree_model.seed_present,
-    )
-
-    state = load_state(slug=slug, brmem_gateway=gateway)
-    state_view = _build_state_view(slug, state)
-
-    branches = tuple(
-        _build_check_branch(tree_branch, slug=slug, state=state)
-        for tree_branch in tree_model.branches
-    )
-
-    diagnostics = _build_diagnostics(
-        slug=slug,
-        root=root,
-        state=state,
-        branches=branches,
-    )
-
-    return ClinkrExit.ok(
-        MemjectiveCheckResult(
-            slug=slug,
-            root=root,
-            state=state_view,
-            branches=branches,
-            diagnostics=diagnostics,
-        )
-    )
+    return ClinkrExit.ok(_project_check(bundle))
