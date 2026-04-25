@@ -3,6 +3,37 @@
 This plan intentionally does not use the memjective workflow to manage the
 migration. It is a plain repo plan for changing memjectives safely.
 
+## Progress
+
+Snapshot of what has landed on `dev-memjective-reconcile-skill` so far (not yet
+on `master`). The plan's stack order has been partially executed and partially
+reordered in practice: the read-only check shipped first, and the tree model
+extraction (PR 4) and the reconcile skill (PR 3) shipped before minimal state
+writes (PR 2).
+
+- PR 1 — Steelthread Read-Only Check: **done** (`f63cc61`).
+  - `memjective check <slug>` with `--format human|json`.
+  - State schema v1 parser at `packages/twerk-core/src/twerk_core/memjective/state.py`.
+  - Scenario tests at `tests/scenario/test_memjective_check_cli.py`; unit tests
+    at `tests/unit/test_memjective_state.py`.
+- PR 2 — Minimal State Writes (`memjective exec init`, `memjective exec
+  record-entry`): **not started**. No `exec` subgroup exists yet under
+  `memjective/group.py`.
+- PR 3 — `dev-memjective-reconcile` Steelthread: **done as LM-only variant**
+  (`fb18544`). The skill at `skills/dev-memjective-reconcile/SKILL.md` consumes
+  `memjective check`, performs the conservative root-doc rewrite, and reports
+  the entry payload that the future writer will accept. It explicitly does
+  *not* call `memjective exec record-entry` yet — it depends on PR 2.
+- PR 4 — Extract Tree Model: **done** (`1fad6f3`). `tree_model.py` and unit
+  tests at `tests/unit/test_memjective_tree_model.py`. `tree.py` consumes the
+  extracted model. `check.py` was implemented against this model from the
+  start.
+- PRs 5–8: **not started**.
+
+Next reviewable slice: PR 2 (minimal state writes), which unblocks teaching the
+reconcile skill to call `memjective exec record-entry` instead of only
+reporting the would-be payload.
+
 ## Direction
 
 The target model is **curated root docs plus root-owned machine-readable
