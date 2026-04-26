@@ -1,225 +1,199 @@
 # Memjective Mutation Contract
 
-Per-operation, per-file, per-section table of what each memjective skill may
-and may not change. Each operation skill defers to this file rather than
-restating the rules inline.
+Single source of truth for what memjective operations may mutate, how shared
+rewrite logic works, and how `update` and `reconcile` differ.
 
-## Overview
+## Data model
 
-| Operation                  | Master-branch snapshot                             | Current-branch snapshot                                           | Other-branch snapshot |
-| -------------------------- | -------------------------------------------------- | ----------------------------------------------------------------- | --------------------- |
-| `dev-memjective-create`    | **Writes** `body.md` (+ `roadmap.md` when drafted) | Never                                                             | Never                 |
-| `dev-memjective-next`      | Never                                              | Never                                                             | Never                 |
-| `dev-memjective-claim`     | Never                                              | **Writes** carry-forward to target (verbatim copy)                | Never                 |
-| `dev-memjective-update`    | Never (aborts if invoked on master)                | **Rewrites** `body.md` / `roadmap.md` / `notes.md` (conservative) | Never                 |
-| `dev-memjective-reconcile` | **Rewrites** `body.md` / `roadmap.md` / `notes.md` | Never (aborts if invoked off master)                              | Never                 |
+- **Canonical memjective**: shared ground truth for a slug. In the current
+  implementation this is stored in `brmem` on branch `master`.
+- **Branch snapshot**: local working copy/checkpoint for a slug on a working
+  branch.
 
-Carry-forward (copying the source verbatim onto a target branch) is
-exclusively the job of `dev-memjective-claim`. The carry is an exact copy
-of every file under the source slug — never a merge or synthesis.
-`dev-memjective-update` refuses to run on a branch that has no entries
-for the requested slug; it does not carry-forward on behalf of the user.
+Only `body.md` is required. `roadmap.md` and `notes.md` appear when useful.
 
-Only `body.md` is required. A slug with only `body.md` is a valid
-memjective; `roadmap.md` and `notes.md` appear when there is content for
-them.
+## Operation table
 
-## Per-file rules for `dev-memjective-update`
+| Operation                  | Canonical memjective                 | Current branch snapshot        | Other branch snapshots |
+| -------------------------- | ------------------------------------ | ------------------------------ | ---------------------- |
+| `dev-memjective-create`    | Writes initial `body.md` and roadmap | Never                          | Never                  |
+| `dev-memjective-next`      | Reads only                           | Reads only                     | Reads only             |
+| `dev-memjective-claim`     | May read as source                   | Writes verbatim copy to target | May read as source     |
+| `dev-memjective-update`    | Never                                | Rewrites from branch work      | Never                  |
+| `dev-memjective-reconcile` | Rewrites from branch + PR evidence   | Reads only as evidence         | Reads only as evidence |
 
-`update` is the slice-branch normal-lifecycle operation that rewrites the
-current-branch snapshot. It is grounded by **the branch's own commit log**
-since the snapshot's `head_date` — what landed on this branch becomes the
-evidence for what to check off, append to notes, or move in status.
+Carry-forward is exclusively `dev-memjective-claim`'s job. It copies one
+source snapshot exactly; it never merges or summarizes.
 
-`update` aborts when run on master. The master-snapshot rewrite path is
-`dev-memjective-reconcile` (see "Rules for `dev-memjective-reconcile`"
-below).
+## Shared conservative rewrite rules
 
-`update` is a **no-op when the snapshot is already in sync with branch
-HEAD** — when no file under `<slug>/` has a `head_date` older than HEAD's
-commit time, `update` reports "in sync" and exits without writing.
+`dev-memjective-update` and `dev-memjective-reconcile` share these file
+editing rules. The evidence source differs by mode, but the allowed edits are
+the same.
 
-### `body.md` — the stable spine
+### `body.md`
 
-| Section              | Allowed                                                 | Forbidden                                             |
-| -------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
-| Title                | Leave as-is                                             | Rename unless the user explicitly asks                |
-| Status               | Update (`in progress` / `blocked` / `done`)             | Turning it into a prose progress log                  |
-| Description          | Small clarifications; small factual append-only updates | Rewriting it every slice to restate roadmap progress  |
-| Goals                | Small clarifications only                               | Turning Goals into a checklist or per-PR progress log |
-| Completion Criteria  | Check items; add brief evidence notes                   | Delete criteria; rewrite criteria casually; renumber  |
-| How to Make Progress | Edit when the actual recipe changed                     | Edit just because one roadmap item finished           |
+| Section              | Allowed                                               | Forbidden                                            |
+| -------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+| Title                | Leave as-is                                           | Rename unless the user explicitly asks               |
+| Status               | Move categorically (`in progress`, `blocked`, `done`) | Turn into a progress log                             |
+| Description          | Small factual clarifications                          | Restate per-PR progress every slice                  |
+| Goals                | Small clarifications only                             | Turn into a checklist or second roadmap              |
+| Completion Criteria  | Check items; add brief evidence notes                 | Delete criteria; casually rewrite criteria; renumber |
+| How to Make Progress | Edit when the actual recipe changed                   | Edit merely because a roadmap item finished          |
 
-`body.md` should be the quietest file — most normal `update` sessions touch
-only `Status` and check items in `Completion Criteria`.
+`body.md` should be the quietest file. Most progress lands in `roadmap.md`
+and `notes.md`.
 
-### `roadmap.md` — the evolving progress surface
+### `roadmap.md`
 
-| Allowed                                                                                                                       | Forbidden                                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Check completed items; add nearby follow-ups; split items when work turned out more granular than expected; reorder if needed | Erase completed items; drop progress history; wholesale reshuffle; add manual-only or observation-only bullets (e.g., "live testing session", "manual smoke-test") |
+Allowed:
 
-Every `roadmap.md` bullet must be codified work that lands in a PR — code,
-tests, docs, config, or a deliberate delete. Verification belongs in the
-PR's test plan, not as a standalone roadmap bullet.
+- check completed items
+- keep completed items visible
+- add nearby follow-ups discovered during slice work
+- split an item when work landed in more granular pieces than expected
+- reorder remaining items when the actual slice order changed
 
-### `notes.md` — durable findings
+Forbidden:
 
-| Allowed                                                         | Forbidden                            |
-| --------------------------------------------------------------- | ------------------------------------ |
-| Append findings, constraints, pointers; annotate obsolete notes | Silently delete notes; strip context |
+- erase completed items or progress history
+- wholesale reshuffle without clear evidence
+- add manual-only or observation-only bullets such as "live testing session"
+  or "manual smoke-test"
 
-`notes.md` grows over time. When a note becomes obsolete, annotate it in
-place (e.g., `~~...~~ — superseded by slice 3`) instead of deleting it.
+Every roadmap bullet must describe codified work that lands in a PR: code,
+tests, docs, config, or deliberate deletion.
 
-## Rules for `dev-memjective-reconcile`
+### `notes.md`
 
-`dev-memjective-reconcile` is the master-snapshot rewrite path. It runs
-**only on master** (aborts otherwise) and is grounded by **sibling-branch
-snapshots** — other refs under `refs/brmem/ns/memjectives/*` carrying the
-same slug, including orphaned refs whose branches have been deleted.
+Allowed:
 
-The rewrite obeys the same per-file mutation contract as `update` (see
-above). Only the evidence source differs: instead of the branch's own
-commits, `reconcile` reads sibling `body.md` / `roadmap.md` / `notes.md`
-and folds them into a conservative rewrite of master.
+- append durable findings, constraints, collisions, and pointers
+- annotate obsolete notes in place
+- create `notes.md` when durable findings first appear
 
-Invariants:
+Forbidden:
 
-- **Sibling snapshots are read-only evidence.** The reconcile reads
-  sibling files to ground its rewrite; it never writes back to any
-  sibling ref.
-- **Rewrite obeys the per-file mutation contract.** Sibling evidence
-  informs _which_ roadmap items to check, _what_ durable findings to
-  append to `notes.md`, and _whether_ a completion criterion in
-  `body.md` has landed — it does not unlock wholesale regeneration.
-- **Enumeration is in-repo only.** `git for-each-ref
-  refs/brmem/ns/memjectives/` + local `brmem` reads. No `gh`, no
-  `git fetch`, no network dependency.
-- **Orphaned refs are valid but labeled.** A ref whose branch is
-  deleted still holds a readable snapshot. Treat its content as
-  evidence; label it `orphaned-ref` in the report; prefer corroboration
-  from a live sibling or a merged PR on master before acting on its
-  signal alone.
-- **Verbatim copy is forbidden.** Carry-forward (exact-copy,
-  single-source) is `dev-memjective-claim`'s job; the reconcile fuses
-  evidence across siblings into a conservative rewrite, never a copy.
-- **No freshness check.** `reconcile` always does the work — sibling
-  snapshot changes do not bump master's HEAD, so the no-op-when-in-sync
-  short-circuit that `update` uses does not apply here.
+- silently delete notes
+- strip context just because a branch or PR is done
 
-See `../../dev-memjective-reconcile/SKILL.md` for the full algorithm.
+## Rewrite modes
 
-## Rules for `dev-memjective-next`
+| Mode                   | Skill                      | Target               | Evidence                                           | No-op rule                       |
+| ---------------------- | -------------------------- | -------------------- | -------------------------------------------------- | -------------------------------- |
+| Branch snapshot update | `dev-memjective-update`    | Current branch       | Branch commits since snapshot freshness            | Snapshot fresh relative to HEAD  |
+| Canonical reconcile    | `dev-memjective-reconcile` | Canonical memjective | Branch snapshots plus associated PR state/metadata | No branch/PR evidence to fold in |
 
-`next` writes nothing. It reports a status summary (title, status, optional
-description/goals summary, completion-criteria progress, roadmap state,
-notes presence) and suggests a kebab-case slug for the next slice. It
-also flags **staleness** — when the resolved source is a non-master
-snapshot whose max `head_date` (across present files) is older than the
-source branch's HEAD commit time, `next` prints an advisory pointing the
-user at `dev-memjective-update` for that branch.
+### Branch snapshot update
 
-`next` requires the memjective slug as an explicit positional argument.
-It does not auto-pick when only one slug is present on the source — the
-slug is always explicit.
+`update` refreshes the current branch snapshot from work that landed on the
+same branch. It aborts on `master` in the current implementation because
+`master` is the canonical storage branch.
 
-`next` is intentionally the lightest-weight memjective operation and has
-no obligation to look past the memjective documents themselves (no
-codebase assessment, no git diff inspection beyond the staleness check).
+Evidence:
 
-## Rules for `dev-memjective-claim`
+- files currently attached under `<slug>/` on the branch
+- `head_date` metadata for those files
+- commits newer than the snapshot, usually from `git log`
 
-`claim` is the carry-forward primitive. It writes an exact copy of every
-file under `<slug>/` from a resolved source onto a target branch. It
-never edits, reshapes, or annotates any file while attaching it. Any
-reshaping of the documents (checking completed items, splitting newly
-granular roadmap items, appending notes, amending `How to Make Progress`)
-is `update`'s responsibility after a slice lands.
+Freshness rule:
 
-`claim` requires the memjective slug as an explicit positional argument.
-The target branch defaults to the current branch and may be overridden
-with `--target <branch>`.
+- If the maximum `head_date` across attached files is at-or-after branch
+  HEAD's commit time, print the in-sync message and do not write.
+
+### Canonical reconcile
+
+`reconcile` refreshes the canonical memjective. It is grounded by branch
+snapshots carrying the same slug and by the PRs associated with those
+branches.
+
+Preferred evidence adapter:
+
+```bash
+memjective tree <slug> --format json
+```
+
+Use the tree output to identify:
+
+- branch snapshots carrying `<slug>/`
+- whether the canonical seed is present
+- whether each branch is live or stale/orphaned
+- PR number, URL, title, state, and lookup errors for each branch
+
+Then load the relevant branch snapshot files with `brmem get` and, when PR
+metadata is needed to interpret the snapshot, inspect the associated PR:
+
+```bash
+gh pr view <number-or-branch> \
+  --json number,title,url,headRefName,baseRefName,state,mergedAt,commits,body
+```
+
+Use PR state as evidence weight:
+
+- **merged PR**: strongest signal that checked roadmap items and completion
+  criteria should be folded into canonical state.
+- **open PR**: useful for in-flight findings and likely follow-ups, but avoid
+  marking canonical completion unless already true on the target branch.
+- **closed unmerged PR**: weak evidence; preserve durable findings only when
+  still relevant and label uncertainty in the report.
+- **no PR**: local-only evidence; treat conservatively.
+- **PR lookup error**: do not abort reconciliation; report the evidence gap.
+- **orphaned branch snapshot**: valid but weak evidence; prefer corroboration
+  from a live branch or merged PR.
+
+`reconcile` never writes to branch snapshots and never copies a branch
+snapshot verbatim onto canonical state. Branch text and PR metadata are
+evidence for a conservative rewrite, not source content to paste wholesale.
+
+## Common rewrite workflow
+
+Both rewrite modes follow the same shape:
+
+1. Confirm repository, branch, and explicit slug.
+2. Confirm the target exists (`update`: branch snapshot; `reconcile`:
+   canonical memjective).
+3. Capture old brmem commit SHAs for files that may be rewritten.
+4. Load target files.
+5. Collect mode-specific evidence.
+6. Apply the shared conservative rewrite rules.
+7. `brmem put` only files that changed.
+8. Report files touched, old SHA to new SHA, evidence consulted, and recovery
+   commands.
+
+## Other operation rules
+
+### `dev-memjective-next`
+
+`next` writes nothing. It resolves the best source for a slug, reports status,
+flags stale non-canonical branch snapshots, and suggests a next-slice slug.
+It does not inspect source code to audit progress.
+
+### `dev-memjective-claim`
+
+`claim` writes an exact copy of every file under `<slug>/` from a resolved
+source onto a target branch. It never edits the files while attaching them.
 
 Source resolution:
 
-1. If `--from-file <path>` is given, the file is treated as the `body.md`
-   source for a single `brmem put` (mutually exclusive with `--from`).
-2. If `--from <branch>` is given, that branch is used directly. The source
-   must have at least `<slug>/body.md`.
-3. Otherwise: the nearest ancestor branch carrying `<slug>/`, then master.
+1. explicit local file or branch, if supplied
+2. nearest ancestor branch snapshot carrying the slug
+3. canonical memjective
 
-Carry-forward is **verbatim**:
+### `dev-memjective-create`
 
-- Every file present under `<slug>/` on the source is copied to the same
-  key on the target.
-- A single atomic `brmem copy --namespace memjectives --from-branch <source>
-  --to-branch <target> --key-glob '<slug>/*'` is preferred when both source
-  and target are branches.
-- For `--from-file`, a single `brmem put <slug>/body.md` is performed;
-  `roadmap.md` / `notes.md` are not synthesized.
-
-`claim` aborts if the target branch already carries any entry under
-`<slug>/`. To advance an attached memjective, use `update` (slice branch)
-or `reconcile` (master).
-
-`claim` writes only to the target branch. It never writes to master and
-never writes to other branches.
-
-## Rules for `dev-memjective-create`
-
-`create` drafts `body.md` and writes it once, to the **master-branch
-snapshot only**. When the conversation already contains a concrete slice
-plan, `create` also drafts `roadmap.md` and writes it to the master-branch
-snapshot. `notes.md` is not written by `create`; it appears the first time
-`update` or `reconcile` records a durable finding.
-
-`create` does **not** attach the memjective to the current working
-branch. Users run `dev-memjective-claim <slug>` to attach the snapshot
-to whatever branch they are working on (current or otherwise).
-
-After `create` runs, the master-branch files are stable during normal
-slice work. The only normal-lifecycle path that rewrites them is
-`dev-memjective-reconcile`.
-
-`create` always writes the canonical shape per
-`../templates/body-template.md` (and, when applicable,
-`../templates/roadmap-template.md`).
+`create` drafts the canonical memjective. It writes `body.md`, optionally
+`roadmap.md`, and never writes `notes.md`.
 
 ## Anti-patterns
 
-- Letting `update` edit `body.md`'s Completion Criteria because the plan
-  drifted. If the completion criteria no longer match the work, the
-  memjective has outgrown the subsystem — graduate to an `objective` or
-  start a new memjective.
-- Repeating roadmap progress in `body.md`'s Description.
-- Using `body.md`'s Goals as a second roadmap.
-- Storing progress history in the `Status:` line.
-- **Running `update` on master.** Master-snapshot rewrites go through
-  `dev-memjective-reconcile`, which gathers sibling evidence. `update`
-  on master aborts on purpose.
-- **Running `reconcile` on a slice branch.** `reconcile` is master-only;
-  use `update` to record progress on a slice branch.
-- **Using `next` to attach a snapshot.** `next` is read-only — it writes
-  nothing. To attach, run `dev-memjective-claim`.
-- Copying a sibling snapshot verbatim onto master during reconcile.
-  Verbatim copy is the carry-forward primitive (`claim`'s job). Sibling
-  text is evidence, not source.
-- Letting `claim` edit any file while carrying it forward. Carry-forward
-  is always an exact copy of a single source; any reshaping belongs to
-  `update` after implementation lands.
-- Letting ordinary `update` or `reconcile` runs rename sections or rebuild
-  a snapshot wholesale.
-- Having `next` write to brmem "just this once" as a convenience. Breaks
-  the read-only contract.
-- Running `claim` on a branch that already has files for the target slug.
-  The precondition exists on purpose — use `update` (slice) or
-  `reconcile` (master) to advance an attached memjective.
-- Carry-forward that copies only `body.md` and drops sibling files. Always
-  carry every file under `<slug>/`.
-- Adding manual-only or observation-only items to `roadmap.md`. Every
-  roadmap bullet must be codified work that lands in a PR. Verification
-  belongs in the PR's test plan, not as a standalone memjective bullet.
-- Aborting because a branch has more than one memjective slug. Many-to-many
-  is allowed; operations always target one explicit slug. Older guards
-  that aborted on multi-slug branches have been removed.
+- Letting `update` edit canonical state.
+- Letting `reconcile` write back to branch snapshots.
+- Copying a branch snapshot verbatim onto canonical state.
+- Letting ordinary update/reconcile runs rename sections or rebuild a
+  snapshot wholesale.
+- Treating a closed-unmerged PR or orphaned snapshot as authoritative on its
+  own.
+- Storing progress history in `Status:`.
+- Repeating roadmap progress in `Description`.
+- Adding manual-only or observation-only roadmap bullets.

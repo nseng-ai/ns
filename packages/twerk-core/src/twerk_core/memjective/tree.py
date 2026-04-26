@@ -2,16 +2,17 @@
 
 Given a slug (explicit or inferred from the current branch), list every
 branch that carries a memjective snapshot alongside the PR attached to that
-branch — number, title, URL, and lifecycle state. The "tree" is typically a
+branch - number, title, URL, and lifecycle state. The "tree" is typically a
 Graphite stack rooted off the memjective's base branch; the listing is flat
-but the underlying shape is a tree. The master-branch snapshot is reported
+but the underlying shape is a tree. The canonical memjective is reported
 separately via ``seed_present`` because it is a seed, not a PR-bearing
 workstream.
 
-The primary consumer is ``dev-memjective-update``, an LLM scanning stdout
-after a slice lands: rows are grouped by state (merged → open → closed →
-no_pr → error) so recently-landed work surfaces first, and ``gh`` errors on
-one branch become ``error`` rows instead of aborting the whole command.
+The primary consumer is ``dev-memjective-reconcile``, an LLM scanning stdout
+while folding branch snapshots into canonical memjective state: rows are
+grouped by state (merged -> open -> closed -> no_pr -> error) so landed work
+surfaces first, and ``gh`` errors on one branch become ``error`` rows instead
+of aborting the whole command.
 """
 
 from __future__ import annotations
@@ -196,7 +197,7 @@ def _sort_by_state_group(rows: tuple[BranchPrEntry, ...]) -> tuple[BranchPrEntry
         "their associated PRs (number, URL, state). The tree is typically "
         "a Graphite stack. If SLUG is omitted and exactly one memjective "
         "is attached to the current branch, it is selected automatically. "
-        "The master-branch seed is reported via `seed_present`, not as a "
+        "The canonical seed is reported via `seed_present`, not as a "
         "row."
     ),
     human_renderer=render_memjective_tree,

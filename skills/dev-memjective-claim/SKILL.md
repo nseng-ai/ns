@@ -29,12 +29,12 @@ branch.
 
 ## Goal
 
-Given an explicit memjective slug, resolve one source snapshot and copy it
-verbatim to the target branch's per-branch snapshot.
+Given an explicit memjective slug, resolve one source and copy it verbatim to
+the target branch snapshot.
 
 `claim` only attaches existing workstream state. It never edits, merges, or
 summarizes memjective content; reshaping belongs to `dev-memjective-update`
-on slice branches or `dev-memjective-reconcile` on master.
+on branch snapshots or `dev-memjective-reconcile` into canonical state.
 
 ## Memjective Content
 
@@ -70,13 +70,14 @@ the copy to the current content inventory.
 - **Verbatim carry-forward.** Copy exactly one source. No edits, section
   rewrites, annotations, synthesis, or cross-snapshot fusion.
 - **One slug per invocation.** To attach two memjectives, run `claim` twice.
-- **Write only to the target branch.** Never write to master or any other
-  branch.
+- **Write only to the target branch.** Never write to canonical storage or any
+  non-target branch.
 - **Target must be empty for this slug.** Abort if the target already carries
   any key under `<slug>/`; use `dev-memjective-update` or
   `dev-memjective-reconcile` to advance an attached snapshot.
 - **Prefer the nearest working snapshot.** Discovery order is nearest
-  ancestor branch, then master. Explicit sources bypass discovery.
+  ancestor branch snapshot, then canonical state. Explicit sources bypass
+  discovery.
 - **No Graphite dependency.** Use raw git and brmem only; never use `gt` for
   source discovery.
 
@@ -118,8 +119,8 @@ copy to carry:
    `HEAD`, are not `<target>`, and carry `<slug>/body.md`. Choose the
    candidate with the smallest
    `git rev-list --count refs/heads/<branch>..HEAD`; ask on ties.
-4. **Master branch**: use it when `brmem check` succeeds for
-   `<slug>/body.md` on `master`.
+4. **Canonical record**: use current canonical storage (`master`) when
+   `brmem check` succeeds for `<slug>/body.md`.
 
 If no source contains the slug, ask the user to name `--from`, name
 `--from-file`, or run `dev-memjective-create` if the slug is new.
@@ -129,7 +130,7 @@ Record the source label:
 - `local file <path>`
 - `branch <branch> (explicit --from)`
 - `ancestor branch <branch>`
-- `master snapshot`
+- `canonical memjective`
 
 ### 3. Carry Forward
 
@@ -183,10 +184,10 @@ dev-memjective-update <slug> to record progress.
   discovery.
 - Multiple nearest ancestor candidates at the same distance: list the tied
   branches and ask.
-- Slug exists only on master: use the master snapshot.
+- Slug exists only in canonical storage: use the canonical memjective.
 - Slug exists nowhere: ask for an explicit source or create the memjective
   first.
-- Never auto-pick a slug, auto-resolve a source tie, write to master, carry
-  only `body.md` from a branch source, synthesize sibling files from
-  `--from-file`, fuse multiple snapshots, use Graphite for discovery, run
-  `update`, or implement work during `claim`.
+- Never auto-pick a slug, auto-resolve a source tie, write to canonical
+  storage, carry only `body.md` from a branch source, synthesize sibling files
+  from `--from-file`, fuse multiple snapshots, use Graphite for discovery,
+  run `update`, or implement work during `claim`.
