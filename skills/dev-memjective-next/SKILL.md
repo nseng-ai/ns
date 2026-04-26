@@ -33,8 +33,9 @@ the content state, flag stale branch snapshots, and suggest a
 collision-checked kebab-case slug for the next PR-sized slice.
 
 `next` writes nothing: no `brmem put`, no `brmem copy`, no branch creation,
-no checkbox edits, and no working-tree changes. It is optional in the
-memjective lifecycle; users can skip it when they already know what to do.
+no checkbox edits, and no working-tree changes. It is the normal planning
+step before `dev-memjective-claim`: choose the slice first, then create a
+branch and attach the memjective snapshot to that branch.
 
 ## Memjective Content
 
@@ -195,8 +196,9 @@ Return:
 ```text
 To proceed: cut a branch (for example, gt create <suggested-slug>), then run
 dev-memjective-claim <slug> --target <suggested-slug> to attach the snapshot.
-After implementing the slice, run dev-memjective-update <slug> to record
-progress.
+After implementing the slice, merge the PR and run dev-memjective-reconcile
+<slug> on master. Run dev-memjective-update <slug> only if you are stacking a
+child branch before this branch lands.
 ```
 
 If the freshness advisory fired, prepend a reminder to update the stale source

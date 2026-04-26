@@ -29,8 +29,8 @@ branch-local working copies:
   memjectives in a shared database without changing the branch-snapshot
   model.
 - **Branch snapshot**: a local working copy/checkpoint attached to a branch.
-  It can drift while slice work is in flight, accumulate notes, and later
-  serve as evidence during reconciliation.
+  It can drift while slice work is in flight and accumulate notes. It serves
+  as evidence during reconciliation only after the branch's work has landed.
 
 The memjective body is the current state of the workstream: what is in
 scope, what has landed, what remains, and how to make the next slice of
@@ -119,27 +119,38 @@ obsolete, annotate it in place instead of deleting it.
 
 ```text
 create canonical
+  -> inspect with next and choose a PR-sized slice
   -> claim canonical or ancestor snapshot into a branch snapshot
-  -> inspect with next, if useful
-  -> implement a slice
-  -> update the branch snapshot from branch work
-  -> reconcile branch snapshots and associated PR evidence into canonical
+  -> implement and merge a slice
+  -> reconcile landed branch snapshots and associated PR evidence into canonical
+```
+
+For stacked PRs, insert `update` after implementation and before a child
+branch claims from the current branch snapshot:
+
+```text
+implement a slice on a branch
+  -> update that branch snapshot from branch work
+  -> inspect with next and choose the child slice
+  -> claim from the updated ancestor snapshot into the child branch
 ```
 
 - **Create** (`dev-memjective-create`): draft the canonical memjective.
   Writes `body.md` and, when a concrete slice plan exists, `roadmap.md`.
+- **Next** (`dev-memjective-next`): read-only inspection and next-slice
+  recommendation before branch claim. It writes nothing.
 - **Claim** (`dev-memjective-claim`): attach a branch snapshot by verbatim
   copy from an explicit source, nearest ancestor branch snapshot, or the
   canonical memjective.
-- **Next** (`dev-memjective-next`): read-only inspection and next-slice
-  recommendation. It writes nothing.
 - **Update** (`dev-memjective-update`): refresh the current branch snapshot
-  from commits that landed on that branch. It is a no-op when the snapshot is
-  already fresh relative to branch HEAD.
+  from commits on that branch when another branch will claim from it before it
+  lands. It is normally only needed for stacked PRs. It is a no-op when the
+  snapshot is already fresh relative to branch HEAD.
 - **Reconcile** (`dev-memjective-reconcile`): rewrite the canonical
   memjective by exploring branch snapshots that carry the slug,
-  cross-referencing their associated PRs, and folding that evidence into a
-  conservative canonical update.
+  cross-referencing their associated PRs, and folding only landed evidence
+  into a conservative canonical update. Open PRs and unmerged branches stay
+  outside canonical state.
 
 ## Carry-forward semantics
 
@@ -153,27 +164,29 @@ Source resolution is:
 3. canonical memjective
 
 Carry-forward never edits, merges, summarizes, or synthesizes. Any reshaping
-belongs to `update` after work lands on a branch, or `reconcile` when branch
-evidence is folded into canonical state.
+belongs to `update` after work lands on a branch, or `reconcile` when landed
+branch evidence is folded into canonical state.
 
 ## Mutation contracts
 
 The full contract lives in `references/mutation-contract.md`. Summary:
 
-| Operation                  | Canonical memjective                  | Current branch snapshot                  | Other branch snapshots |
-| -------------------------- | ------------------------------------- | ---------------------------------------- | ---------------------- |
-| `dev-memjective-create`    | Writes initial `body.md` and roadmap  | Never                                    | Never                  |
-| `dev-memjective-next`      | Reads only                            | Reads only                               | Reads only             |
-| `dev-memjective-claim`     | May read as source                    | Writes verbatim carry-forward to target  | May read as source     |
-| `dev-memjective-update`    | Never                                 | Rewrites conservatively from branch work | Never                  |
-| `dev-memjective-reconcile` | Rewrites conservatively from evidence | Reads only as evidence                   | Reads only as evidence |
+| Operation                  | Canonical memjective                         | Current branch snapshot                  | Other branch snapshots |
+| -------------------------- | -------------------------------------------- | ---------------------------------------- | ---------------------- |
+| `dev-memjective-create`    | Writes initial `body.md` and roadmap         | Never                                    | Never                  |
+| `dev-memjective-next`      | Reads only                                   | Reads only                               | Reads only             |
+| `dev-memjective-claim`     | May read as source                           | Writes verbatim carry-forward to target  | May read as source     |
+| `dev-memjective-update`    | Never                                        | Rewrites conservatively from branch work | Never                  |
+| `dev-memjective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                   | Reads only as evidence |
 
 `update` and `reconcile` share the same conservative per-file rewrite rules.
 They differ in authority and evidence:
 
 - `update` mutates a branch snapshot, using that branch's work as evidence.
-- `reconcile` mutates the canonical memjective, using branch snapshots plus
-  associated PR state/metadata as evidence.
+- `reconcile` mutates the canonical memjective, using landed branch snapshots
+  plus associated merged PR state/metadata as evidence. Open PRs and unmerged
+  branches are left to higher-level views across canonical state and branch
+  snapshots.
 
 ## Shared references
 
@@ -189,8 +202,8 @@ This subsystem follows the `dev-` prefix convention. See `AGENTS.md` >
 ## Failure modes and edge cases
 
 - **Deleted branch with remaining snapshot**: the branch snapshot is
-  orphaned but still readable through its brmem ref. Reconcile may use it as
-  weak evidence and must label it accordingly.
+  orphaned but still readable through its brmem ref. Reconcile must not fold
+  it into canonical state unless it is tied to landed work.
 - **Concurrent branch snapshots diverge**: expected. Reconciliation is
   user-driven and conservative; the system does not auto-merge.
 - **Slug collision in canonical storage**: `create` aborts. Pick another slug
