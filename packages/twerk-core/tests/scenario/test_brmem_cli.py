@@ -56,12 +56,13 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
     assert "list" in result.output
     assert "check" in result.output
     assert "copy" in result.output
+    assert "resolve-prompt" in result.output
     assert "list-artifacts" not in result.output
     assert "check-artifact" not in result.output
     assert "check-entry" not in result.output
     # The legacy `branch` subgroup should no longer appear as a command.
     command_lines = [line for line in result.output.splitlines() if line.startswith("  ")]
-    assert not any(line.lstrip().startswith("branch") for line in command_lines)
+    assert not any(line.lstrip().split(" ", 1)[0] == "branch" for line in command_lines)
 
 
 def test_brmem_version(cli_group: ClinkrGroup) -> None:

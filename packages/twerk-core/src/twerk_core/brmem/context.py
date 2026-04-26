@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from twerk_core.brmem.gateway import BranchMemoryGateway
@@ -17,6 +17,7 @@ class BrmemCliContext:
 
     brmem_gateway: BranchMemoryGateway
     git_gateway: GitGateway
+    home_root: Path = field(default_factory=Path.home)
 
 
 def build_brmem_context() -> BrmemCliContext:
@@ -25,4 +26,5 @@ def build_brmem_context() -> BrmemCliContext:
     return BrmemCliContext(
         brmem_gateway=RealBranchMemoryGateway(cwd=cwd),
         git_gateway=RealGitGateway(repo_root=resolve_repo_root(cwd)),
+        home_root=Path.home(),
     )
