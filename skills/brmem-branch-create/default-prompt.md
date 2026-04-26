@@ -1,6 +1,11 @@
 # brmem-branch-create — packaged canonical branch-creation plugin
 
-Packaged starting point for `.twerk/prompts/brmem-branch-create.md`. The invoking skill reads whatever is at that path; copy this file there (manually or via a setup flow) to use the default.
+Packaged starting point. Copy this file to one of:
+
+- `<repo-root>/.brmem/prompts/brmem-branch-create.md` — repo-specific override
+- `~/.brmem/prompts/brmem-branch-create.md` — global default
+
+The skill's `brmem exec resolve-prompt` step prefers the project-local file; if absent, it reads the global file. `just install-tools` seeds the global path non-destructively.
 
 **Scope: branch creation only.** This plugin does not decide what to stash, does not run `brmem put`, and does not push or submit. See the `brmem-branch-create` skill for the full contract split.
 
@@ -37,7 +42,7 @@ Given the suggested slug:
 
 ## Customizing this plugin
 
-Edit the repo-local copy at `.twerk/prompts/brmem-branch-create.md` to teach repo conventions. Common changes:
+Edit the repo-local copy at `.brmem/prompts/brmem-branch-create.md` to teach repo conventions. Common changes:
 
 - **Prefix/normalize names** — e.g. `add-widget-cache` → `feature/add-widget-cache`.
 - **Use Graphite** — swap `git branch` for `gt create <final-branch>`.

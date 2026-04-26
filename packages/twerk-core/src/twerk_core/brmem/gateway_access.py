@@ -25,6 +25,11 @@ def get_git_gateway(ctx: click.Context) -> GitGateway:
     return load_typed_context(ctx, BrmemCliContext).git_gateway
 
 
+def get_home_root(ctx: click.Context) -> Path:
+    """Return the home directory used to resolve ``~/.brmem/...`` paths."""
+    return load_typed_context(ctx, BrmemCliContext).home_root
+
+
 def resolve_current_brmem_branch(
     ctx: click.Context,
     requested_branch: str | None,

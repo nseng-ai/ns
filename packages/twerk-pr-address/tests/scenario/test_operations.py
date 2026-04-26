@@ -67,11 +67,11 @@ def test_help_short_flag(cli_group: ClinkrGroup) -> None:
     assert "--version" in result.output
 
 
-def test_subcommands_present(cli_group: ClinkrGroup) -> None:
+def test_exec_group_is_hidden_from_top_level_help(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["-h"])
     assert result.exit_code == 0
-    assert "exec" in result.output
+    assert "exec" not in result.output
 
 
 # -- get-review-comments --
