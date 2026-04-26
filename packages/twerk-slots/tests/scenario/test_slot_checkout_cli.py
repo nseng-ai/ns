@@ -219,15 +219,14 @@ def test_slot_checkout_pool_full(cli_group: ClinkrGroup, tmp_path: Path) -> None
         branches=("feat/a", "feat/b", "feat/c"),
         extra_existing=(slot_01, slot_02),
     )
-    fakes.pool_state.save(
-        PoolState(
-            pool_size=2,
-            assignments=(
-                SlotAssignment("slot-01", "feat/a", "2026-01-01T00:00:00+00:00", slot_01),
-                SlotAssignment("slot-02", "feat/b", "2026-02-01T00:00:00+00:00", slot_02),
-            ),
+    seeded = PoolState(
+        pool_size=2,
+        assignments=(
+            SlotAssignment("slot-01", "feat/a", "2026-01-01T00:00:00+00:00", slot_01),
+            SlotAssignment("slot-02", "feat/b", "2026-02-01T00:00:00+00:00", slot_02),
         ),
     )
+    fakes.pool_state.save(seeded)
     fakes.git._worktrees = [
         WorktreeInfo(path=slot_01, branch="feat/a", is_bare=False),
         WorktreeInfo(path=slot_02, branch="feat/b", is_bare=False),
@@ -241,9 +240,15 @@ def test_slot_checkout_pool_full(cli_group: ClinkrGroup, tmp_path: Path) -> None
     )
 
     assert result.exit_code == 2
-    assert "Pool is full" in result.output
-    assert "slot-01" in result.output
+    assert (
+        "Pool is full. Oldest slot slot-01 holds 'feat/a'. "
+        "Free a slot before checking out a new branch."
+    ) in result.output
     assert fakes.clipboard.copy_calls == 0
+    # Pool state is untouched: no eviction occurred.
+    assert fakes.pool_state.load() == seeded
+    assert fakes.git._add_worktree_calls == []
+    assert fakes.git._checkout_calls == []
 
 
 def test_slot_checkout_already_assigned_reuses(cli_group: ClinkrGroup, tmp_path: Path) -> None:

@@ -374,13 +374,12 @@ def test_allocate_empty_pool_creates_slot_01() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     assert result.slot_name == "slot-01"
     assert result.worktree_path == repo.worktrees_dir / "slot-01"
     assert result.already_assigned is False
-    assert result.evicted_slot is None
     assert git._add_worktree_calls == [(repo.root, repo.worktrees_dir / "slot-01", "feat/x", False)]
     saved = pool_state_gw.load()
     assert saved is not None
@@ -410,7 +409,7 @@ def test_allocate_picks_next_slot_when_partially_full() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/b", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/b", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     assert result.slot_name == "slot-02"
@@ -440,7 +439,7 @@ def test_allocate_returns_already_assigned_when_branch_matches() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     assert result.already_assigned is True
@@ -467,7 +466,7 @@ def test_allocate_reallocates_when_recorded_worktree_missing() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     assert result.already_assigned is False
@@ -493,7 +492,7 @@ def test_allocate_reuses_inactive_slot_via_checkout() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     assert result.slot_name == "slot-01"
@@ -521,7 +520,7 @@ def test_allocate_skips_dirty_inactive_slot_and_creates_new() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     # slot-01's directory already exists in storage, so disk-check bumps to slot-02.
@@ -529,7 +528,7 @@ def test_allocate_skips_dirty_inactive_slot_and_creates_new() -> None:
     assert git._add_worktree_calls == [(repo.root, repo.worktrees_dir / "slot-02", "feat/x", False)]
 
 
-def test_allocate_pool_full_without_force_returns_error() -> None:
+def test_allocate_pool_full_returns_error() -> None:
     repo = _make_repo()
     slot_01_path = repo.worktrees_dir / "slot-01"
     slot_02_path = repo.worktrees_dir / "slot-02"
@@ -559,55 +558,11 @@ def test_allocate_pool_full_without_force_returns_error() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW)
 
     assert isinstance(result, PoolFullError)
     assert result.oldest_slot == "slot-01"
     assert result.oldest_branch == "feat/a"
-
-
-def test_allocate_pool_full_with_force_evicts_oldest() -> None:
-    repo = _make_repo()
-    slot_01_path = repo.worktrees_dir / "slot-01"
-    slot_02_path = repo.worktrees_dir / "slot-02"
-    seeded = PoolState(
-        pool_size=2,
-        assignments=(
-            SlotAssignment("slot-01", "feat/a", EARLIER, slot_01_path),
-            SlotAssignment("slot-02", "feat/b", NOW, slot_02_path),
-        ),
-    )
-    git = FakeGitGateway(
-        repo_root=repo.root,
-        branches={"feat/a", "feat/b", "feat/c"},
-        worktrees=(
-            WorktreeInfo(path=slot_01_path, branch="feat/a", is_bare=False),
-            WorktreeInfo(path=slot_02_path, branch="feat/b", is_bare=False),
-        ),
-        current_branch_by_path={slot_01_path: "feat/a", slot_02_path: "feat/b"},
-    )
-    storage = _seeded_storage(existing_paths={slot_01_path, slot_02_path})
-    pool_state_gw = FakePoolStateGateway(repo.pool_json_path, initial_state=seeded)
-
-    ctx = build_test_slots_context(
-        repo=repo,
-        slots_root=ROOT / "slots",
-        git=git,
-        storage=storage,
-        pool_state=pool_state_gw,
-    )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW, force=True)
-
-    assert isinstance(result, SlotAllocationResult)
-    assert result.slot_name == "slot-01"  # reused
-    assert result.worktree_path == slot_01_path
-    assert result.evicted_slot == "slot-01"
-    # Existing worktree directory is preserved — we checkout, not add.
-    assert git._checkout_calls == [(slot_01_path, "feat/c")]
-    assert git._add_worktree_calls == []
-    saved = pool_state_gw.load()
-    assert saved is not None
-    assert {a.branch_name for a in saved.assignments} == {"feat/b", "feat/c"}
 
 
 def test_allocate_branch_in_main_worktree_returns_already_assigned() -> None:
@@ -631,14 +586,13 @@ def test_allocate_branch_in_main_worktree_returns_already_assigned() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="master", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="master", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     assert result.already_assigned is True
     assert result.slot_name == ""  # sentinel: not a slot, points at main worktree
     assert result.worktree_path == repo.root
     assert result.branch_name == "master"
-    assert result.evicted_slot is None
     # No checkout, no worktree add, no pool mutation.
     assert git._checkout_calls == []
     assert git._add_worktree_calls == []
@@ -671,7 +625,7 @@ def test_allocate_syncs_before_deciding() -> None:
         storage=storage,
         pool_state=pool_state_gw,
     )
-    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW, force=False)
+    result = allocate_slot_for_branch(ctx, branch_name="feat/x", now=NOW)
 
     assert isinstance(result, SlotAllocationResult)
     saved = pool_state_gw.load()
