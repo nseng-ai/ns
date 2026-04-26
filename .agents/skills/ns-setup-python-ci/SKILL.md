@@ -1,6 +1,8 @@
 ---
 name: ns-setup-python-ci
-description: "Generate GitHub Actions CI workflow for Python projects using uv and just. Use when the user wants to set up CI, add GitHub Actions, create a CI workflow, configure continuous integration, or add automated testing to their project. Produces .github/workflows/python-ci.yml and .github/actions/setup-python-uv/action.yml with jobs for lint, format-check, ty, and test (with Python version matrix)."
+description: Command
+# Original description (preserved for reference):
+# Generate GitHub Actions CI workflow for Python projects using uv and just. Use when the user wants to set up CI, add GitHub Actions, create a CI workflow, configure continuous integration, or add automated testing to their project. Produces .github/workflows/python-ci.yml and .github/actions/setup-python-uv/action.yml with jobs for lint, format-check, ty, and test (with Python version matrix).
 references:
   - templates/composite-action
   - templates/ci-workflow

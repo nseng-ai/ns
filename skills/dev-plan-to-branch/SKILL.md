@@ -1,6 +1,8 @@
 ---
 name: dev-plan-to-branch
-description: "Stamp an existing plan file onto a new Graphite branch. Resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent markdown plan file discoverable from the active harness context), generates a kebab-case slug that summarizes the plan, creates a new branch with `gt create`, writes the plan to `plan-<slug>.md` at the repo root, and commits it as the first commit on that branch. Use when the user wants to 'branch this plan', 'stamp the plan', 'turn this plan into a branch', or right after exiting plan mode to commit the plan as the branch's spec."
+description: Command
+# Original description (preserved for reference):
+# Stamp an existing plan file onto a new Graphite branch. Resolves a plan file (from current conversation context, an explicit path argument, or — as last resort — the most recent markdown plan file discoverable from the active harness context), generates a kebab-case slug that summarizes the plan, creates a new branch with `gt create`, writes the plan to `plan-<slug>.md` at the repo root, and commits it as the first commit on that branch. Use when the user wants to 'branch this plan', 'stamp the plan', 'turn this plan into a branch', or right after exiting plan mode to commit the plan as the branch's spec.
 allowed-tools:
   - "Bash(gt *)"
   - "Bash(git status *)"

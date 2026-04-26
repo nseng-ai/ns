@@ -1,6 +1,8 @@
 ---
 name: ns-skillx
-description: "Run any skill from a GitHub repo without installing it. Like npx for skills -- fetches into a temp dir, reads the SKILL.md, follows its instructions, then discards. No project pollution. Accepts: owner/repo --skill name (or -s), GitHub URLs, or natural language."
+# Full description commented out to save tokens (coding agents inject skill descriptions into every session):
+# "Run any skill from a GitHub repo without installing it. Like npx for skills -- fetches into a temp dir, reads the SKILL.md, follows its instructions, then discards. No project pollution. Accepts: owner/repo --skill name (or -s), GitHub URLs, or natural language."
+description: "Command: ns-skillx"
 allowed-tools:
   - "Bash(uvx nonslop exec skillx *)"
 ---

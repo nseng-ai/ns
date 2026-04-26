@@ -1,6 +1,8 @@
 ---
 name: ns-setup-dprint
-description: "Set up dprint formatting for Markdown and TOML files locally, with build-system integration. Use when adding dprint to a project. Does NOT add GitHub Actions CI -- use ns-setup-dprint-gh-ci for that."
+# Full description commented out to save tokens (coding agents inject skill descriptions into every session):
+# "Set up dprint formatting for Markdown and TOML files locally, with build-system integration. Use when adding dprint to a project. Does NOT add GitHub Actions CI -- use ns-setup-dprint-gh-ci for that."
+description: "Command: ns-setup-dprint"
 allowed-tools:
   - "Bash(dprint *)"
   - "Bash(which dprint)"

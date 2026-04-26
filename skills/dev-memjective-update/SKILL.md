@@ -1,6 +1,8 @@
 ---
 name: dev-memjective-update
-description: "Rewrite the current branch's memjective files after a slice of work lands. Requires exactly one memjective slug under `memjectives/<slug>/` on the branch. Applies conservative in-place edits per the per-file mutation contract, writes back to brmem, and reports old/new commit SHAs for recovery. See `dev-memjective` for the subsystem overview."
+description: Command
+# Original description (preserved for reference):
+# Rewrite the current branch's memjective files after a slice of work lands. Requires exactly one memjective slug under `memjectives/<slug>/` on the branch. Applies conservative in-place edits per the per-file mutation contract, writes back to brmem, and reports old/new commit SHAs for recovery. See `dev-memjective` for the subsystem overview.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"

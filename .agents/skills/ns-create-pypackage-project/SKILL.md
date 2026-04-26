@@ -1,6 +1,8 @@
 ---
 name: ns-create-pypackage-project
-description: "Scaffold a well-structured Python package project. Use when the user wants to create a new Python package, set up a Python project, initialize a pypackage, bootstrap a Python library or CLI tool, or start a new Python repo with modern tooling. Creates the full project structure: pyproject.toml (uv + hatchling), src layout, ruff, ty, pytest + pytest-xdist, justfile, and .gitignore. Produces a project that passes `just check` immediately. Run when the user says things like 'set up a new Python project', 'create a package called X', 'scaffold this repo', or 'initialize the project structure'."
+# Full description commented out to save tokens (coding agents inject skill descriptions into every session):
+# "Scaffold a well-structured Python package project. Use when the user wants to create a new Python package, set up a Python project, initialize a pypackage, bootstrap a Python library or CLI tool, or start a new Python repo with modern tooling. Creates the full project structure: pyproject.toml (uv + hatchling), src layout, ruff, ty, pytest + pytest-xdist, justfile, and .gitignore. Produces a project that passes `just check` immediately. Run when the user says things like 'set up a new Python project', 'create a package called X', 'scaffold this repo', or 'initialize the project structure'."
+description: "Command: ns-create-pypackage-project"
 references:
   - templates/pyproject-toml
   - templates/justfile

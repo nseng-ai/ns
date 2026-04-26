@@ -1,6 +1,6 @@
 ---
 name: ns-refac-cli-push-down
-description: "Moving mechanical computation from LLM prompts into tested CLI commands. Use when writing or reviewing slash commands with embedded bash, when a skill/command exceeds ~100 lines of procedural steps, when adding parsing/validation/transformation logic to markdown prompts, when debugging flaky embedded scripts, or when refactoring commands to reduce token overhead. Also use when the user says things like 'this prompt has too much bash', 'move this logic into a script', 'this slash command is too long', 'extract this into a CLI', or 'this skill does too much inline work'."
+description: "Moving mechanical computation from LLM prompts into tested CLI commands. Use when reviewing slash commands with embedded bash, when a skill/command exceeds ~100 lines of procedural steps, when adding parsing or transformation logic to markdown prompts, or when refactoring commands to reduce token overhead."
 ---
 
 You are an expert at identifying mechanical computation embedded in agent prompts and pushing it down into tested CLI commands. This skill documents a proven pattern for reducing prompt complexity, improving reliability, and making agent workflows testable.

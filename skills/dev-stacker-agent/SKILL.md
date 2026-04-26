@@ -1,6 +1,8 @@
 ---
 name: dev-stacker-agent
-description: "Execute a multi-PR implementation plan as a serial local stack by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping at a reviewable local stack without pushing."
+description: Command
+# Original description (preserved for reference):
+# Execute a multi-PR implementation plan as a serial local stack by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping at a reviewable local stack without pushing.
 metadata:
   internal: true
 ---

@@ -1,6 +1,6 @@
 ---
 name: ns-fake-driven-test-layout
-description: "Per-package test directory convention for fake-driven Python projects. Defines the canonical layout `tests/{unit,integration,scenario,gateways}/` and what belongs in each subfolder. Use whenever creating a new package, reorganizing tests, or deciding which subdirectory a new test file goes in. This skill owns the on-disk layout that `ns-py-fake-driven-testing` defers to for placement decisions; that skill still owns the architectural strategy (the five test layers, the gateway/fake pattern, the scenario shape) and `ns-pytest` still owns the pytest mechanics (fixtures, parametrize, mocking style)."
+description: "Per-package test directory layout for fake-driven Python projects: `tests/{unit,integration,scenario,gateways}/` and what belongs where. Use when creating a package, reorganizing tests, or placing a new test file. Defers architecture to `ns-py-fake-driven-testing` and pytest mechanics to `ns-pytest`."
 ---
 
 # ns-fake-driven-test-layout

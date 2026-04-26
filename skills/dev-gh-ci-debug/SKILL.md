@@ -1,6 +1,8 @@
 ---
 name: dev-gh-ci-debug
-description: "Debug a failing GitHub Actions run end-to-end. Fires when the user pastes a GitHub Actions URL, gives a run ID, or says things like 'debug this CI run', 'why did CI fail', 'look at gh actions run <id>', 'investigate the failing workflow'. Uses `gh run view` + `--log-failed` to fetch only failed-step logs, correlates `##[error]` annotations with steps in the workflow YAML, reads invoked scripts, and returns a structured diagnosis with the file/line to fix. Developer-only; defers to `dev-gh` for general `gh` CLI questions and to `dev-fix-just` for applying fixes locally."
+description: Command
+# Original description (preserved for reference):
+# Debug a failing GitHub Actions run end-to-end. Fires when the user pastes a GitHub Actions URL, gives a run ID, or says things like 'debug this CI run', 'why did CI fail', 'look at gh actions run <id>', 'investigate the failing workflow'. Uses `gh run view` + `--log-failed` to fetch only failed-step logs, correlates `##[error]` annotations with steps in the workflow YAML, reads invoked scripts, and returns a structured diagnosis with the file/line to fix. Developer-only; defers to `dev-gh` for general `gh` CLI questions and to `dev-fix-just` for applying fixes locally.
 allowed-tools:
   - "Bash(gh run *)"
   - "Bash(gh api *)"
