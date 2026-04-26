@@ -6,6 +6,7 @@ Persistence lives in :class:`twerk_slots.gateway.pool_state_gateway.PoolStateGat
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 
 DEFAULT_POOL_SIZE = 16
@@ -22,11 +23,52 @@ class SlotAssignment:
 
 
 @dataclass(frozen=True)
+class AssignmentFound:
+    """Successful lookup result wrapping the matched assignment."""
+
+    assignment: SlotAssignment
+
+
+@dataclass(frozen=True)
+class AssignmentMissing:
+    """Lookup result for a slot/branch with no current assignment."""
+
+    queried: str
+
+
+AssignmentLookup = AssignmentFound | AssignmentMissing
+
+
+@dataclass(frozen=True)
 class PoolState:
     """Complete state of the worktree pool."""
 
     pool_size: int
     assignments: tuple[SlotAssignment, ...]
+
+    @cached_property
+    def _by_slot(self) -> dict[str, SlotAssignment]:
+        return {a.slot_name: a for a in self.assignments}
+
+    @cached_property
+    def _by_branch(self) -> dict[str, SlotAssignment]:
+        return {a.branch_name: a for a in self.assignments}
+
+    def find_by_slot(self, slot_name: str) -> AssignmentLookup:
+        """Return ``AssignmentFound`` when ``slot_name`` is assigned, else
+        ``AssignmentMissing(queried=slot_name)``."""
+        found = self._by_slot.get(slot_name)
+        if found is None:
+            return AssignmentMissing(queried=slot_name)
+        return AssignmentFound(assignment=found)
+
+    def find_by_branch(self, branch_name: str) -> AssignmentLookup:
+        """Return ``AssignmentFound`` when ``branch_name`` is assigned to a
+        slot, else ``AssignmentMissing(queried=branch_name)``."""
+        found = self._by_branch.get(branch_name)
+        if found is None:
+            return AssignmentMissing(queried=branch_name)
+        return AssignmentFound(assignment=found)
 
     def with_assignment_added(self, assignment: SlotAssignment) -> PoolState:
         """Return a new :class:`PoolState` with ``assignment`` appended.

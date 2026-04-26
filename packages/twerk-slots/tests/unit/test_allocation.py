@@ -15,7 +15,6 @@ from twerk_slots.allocation import (
     SlotAllocationError,
     SlotAllocationResult,
     allocate_slot_for_branch,
-    find_branch_assignment,
     find_inactive_slot,
     find_next_available_slot,
     find_oldest_assignment,
@@ -97,13 +96,6 @@ def test_find_next_available_slot_full_pool() -> None:
     )
     storage = FakeSlotsStorageGateway()
     assert find_next_available_slot(state, storage, Path("/wt")) is None
-
-
-def test_find_branch_assignment() -> None:
-    a = SlotAssignment("slot-01", "feat/x", NOW, Path("/wt/slot-01"))
-    state = PoolState(pool_size=4, assignments=(a,))
-    assert find_branch_assignment(state, "feat/x") is a
-    assert find_branch_assignment(state, "other") is None
 
 
 def test_find_oldest_assignment_picks_earliest() -> None:

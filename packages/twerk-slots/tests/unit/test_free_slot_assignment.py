@@ -8,7 +8,6 @@ from twerk_slots.allocation import (
     DirtyWorktreeError,
     SlotFreeOutcome,
     SlotNotAssignedError,
-    find_assignment_by_slot,
     free_slot_assignment,
 )
 from twerk_slots.context import SlotsCliContext
@@ -66,22 +65,6 @@ def _assigned_state(
             ),
         ),
     )
-
-
-# -- find_assignment_by_slot -------------------------------------------------
-
-
-def test_find_assignment_by_slot_hits() -> None:
-    slot_path = Path("/wt/slot-01")
-    assignment = SlotAssignment("slot-01", "feat/x", NOW, slot_path)
-    state = PoolState(pool_size=4, assignments=(assignment,))
-
-    assert find_assignment_by_slot(state, "slot-01") is assignment
-
-
-def test_find_assignment_by_slot_miss() -> None:
-    state = PoolState(pool_size=4, assignments=())
-    assert find_assignment_by_slot(state, "slot-01") is None
 
 
 # -- free_slot_assignment happy path -----------------------------------------

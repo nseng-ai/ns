@@ -21,7 +21,12 @@ from twerk_slots.naming import (
     extract_slot_number,
     generate_slot_name,
 )
-from twerk_slots.pool_state import PoolState, SlotAssignment
+from twerk_slots.pool_state import (
+    AssignmentFound,
+    AssignmentMissing,
+    PoolState,
+    SlotAssignment,
+)
 
 
 @dataclass(frozen=True)
@@ -140,13 +145,6 @@ def find_inactive_slot(
     return None
 
 
-def find_branch_assignment(state: PoolState, branch_name: str) -> SlotAssignment | None:
-    for assignment in state.assignments:
-        if assignment.branch_name == branch_name:
-            return assignment
-    return None
-
-
 def find_oldest_assignment(state: PoolState) -> SlotAssignment | None:
     """Return the assignment with the earliest ``assigned_at`` timestamp."""
     if not state.assignments:
@@ -257,8 +255,9 @@ def allocate_slot_for_branch(
     state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
 
-    existing = find_branch_assignment(state, branch_name)
-    if existing is not None:
+    existing_lookup = state.find_by_branch(branch_name)
+    if isinstance(existing_lookup, AssignmentFound):
+        existing = existing_lookup.assignment
         if ctx.storage.path_exists(existing.worktree_path):
             actual = ctx.git.get_current_branch(existing.worktree_path)
             if isinstance(actual, GitCommandFailure):
@@ -274,10 +273,7 @@ def allocate_slot_for_branch(
                     already_assigned=True,
                 )
         # Stale assignment — drop and reallocate below.
-        state = PoolState(
-            pool_size=state.pool_size,
-            assignments=tuple(a for a in state.assignments if a.slot_name != existing.slot_name),
-        )
+        state = state.with_assignment_removed(existing.slot_name)
         ctx.pool_state.save(state)
 
     # If the branch is checked out in the main worktree, treat that worktree
@@ -412,7 +408,7 @@ def allocate_slot_for_current_branch(
 
     state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
-    already_in_slot = find_branch_assignment(state, current_branch) is not None
+    already_in_slot = isinstance(state.find_by_branch(current_branch), AssignmentFound)
 
     note: str | None = None
     if not already_in_slot:
@@ -424,14 +420,6 @@ def allocate_slot_for_current_branch(
     if isinstance(outcome, PoolFullError):
         return outcome
     return CurrentBranchAllocationResult(allocation=outcome, current_wt_note=note)
-
-
-def find_assignment_by_slot(state: PoolState, slot_name: str) -> SlotAssignment | None:
-    """Return the assignment for ``slot_name`` or None when the slot is free."""
-    for assignment in state.assignments:
-        if assignment.slot_name == slot_name:
-            return assignment
-    return None
 
 
 def free_slot_assignment(
@@ -453,9 +441,10 @@ def free_slot_assignment(
     state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
 
-    assignment = find_assignment_by_slot(state, slot_name)
-    if assignment is None:
+    lookup = state.find_by_slot(slot_name)
+    if isinstance(lookup, AssignmentMissing):
         return SlotNotAssignedError(slot_name=slot_name)
+    assignment = lookup.assignment
 
     if ctx.git.has_uncommitted_changes(assignment.worktree_path):
         return DirtyWorktreeError(

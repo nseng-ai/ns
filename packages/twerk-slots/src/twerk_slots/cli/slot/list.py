@@ -15,7 +15,7 @@ from twerk_slots.allocation import sync_pool_assignments
 from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import generate_slot_name
-from twerk_slots.pool_state import PoolState
+from twerk_slots.pool_state import AssignmentFound, PoolState
 from twerk_slots.repo_context import NoRepoSentinel
 
 SlotStatus = Literal["unallocated", "available", "assigned"]
@@ -67,12 +67,12 @@ def _compose_rows(
     storage: SlotsStorageGateway,
     worktrees_dir: Path,
 ) -> tuple[SlotRow, ...]:
-    by_slot = {a.slot_name: a for a in state.assignments}
     rows: list[SlotRow] = []
     for slot_num in range(1, state.pool_size + 1):
         slot_name = generate_slot_name(slot_num)
-        assignment = by_slot.get(slot_name)
-        if assignment is not None:
+        lookup = state.find_by_slot(slot_name)
+        if isinstance(lookup, AssignmentFound):
+            assignment = lookup.assignment
             rows.append(
                 SlotRow(
                     slot_name=slot_name,

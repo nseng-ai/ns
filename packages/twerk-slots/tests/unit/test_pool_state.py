@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from twerk_slots.pool_state import PoolState, SlotAssignment
+from twerk_slots.pool_state import (
+    AssignmentFound,
+    AssignmentMissing,
+    PoolState,
+    SlotAssignment,
+)
 
 NOW = "2026-04-12T00:00:00+00:00"
 
@@ -101,3 +106,41 @@ def test_with_assignment_removed_missing_asserts() -> None:
 
     with pytest.raises(AssertionError, match="slot 'slot-02' is not currently assigned"):
         state.with_assignment_removed("slot-02")
+
+
+def test_find_by_slot_returns_found_when_assigned() -> None:
+    assignment = _assignment("slot-01", "feat/a")
+    state = PoolState(pool_size=4, assignments=(assignment,))
+
+    result = state.find_by_slot("slot-01")
+
+    assert isinstance(result, AssignmentFound)
+    assert result.assignment is assignment
+
+
+def test_find_by_slot_returns_missing_when_unassigned() -> None:
+    state = PoolState(pool_size=4, assignments=(_assignment("slot-01", "feat/a"),))
+
+    result = state.find_by_slot("slot-02")
+
+    assert isinstance(result, AssignmentMissing)
+    assert result.queried == "slot-02"
+
+
+def test_find_by_branch_returns_found_when_assigned() -> None:
+    assignment = _assignment("slot-01", "feat/a")
+    state = PoolState(pool_size=4, assignments=(assignment,))
+
+    result = state.find_by_branch("feat/a")
+
+    assert isinstance(result, AssignmentFound)
+    assert result.assignment is assignment
+
+
+def test_find_by_branch_returns_missing_when_unassigned() -> None:
+    state = PoolState(pool_size=4, assignments=(_assignment("slot-01", "feat/a"),))
+
+    result = state.find_by_branch("feat/b")
+
+    assert isinstance(result, AssignmentMissing)
+    assert result.queried == "feat/b"

@@ -9,9 +9,9 @@ from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_slots.allocation import find_assignment_by_slot
 from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.cli.slot.selectors import SelectorOk, resolve_num, resolve_wt
+from twerk_slots.pool_state import AssignmentMissing
 from twerk_slots.repo_context import NoRepoSentinel
 
 
@@ -75,11 +75,12 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
             message="Pass one of --num or --wt to identify the slot.",
         )
 
-    assignment = find_assignment_by_slot(state, slot_name)
-    if assignment is None:
+    lookup = state.find_by_slot(slot_name)
+    if isinstance(lookup, AssignmentMissing):
         return ClinkrExit.negative(
             message=f"{slot_name} is not currently assigned. Run `slot list` to see the pool.",
         )
+    assignment = lookup.assignment
 
     if not slots_ctx.storage.path_exists(assignment.worktree_path):
         return ClinkrExit.failure(
