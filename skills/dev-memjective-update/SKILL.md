@@ -36,12 +36,44 @@ snapshots are recoverable.
 current implementation, canonical state is stored on `master`, so `update`
 aborts on `master` and points to `dev-memjective-reconcile`.
 
-## Arguments
+## Memjective Content
 
-The memjective slug is required and explicit. Do not infer it from "the only
-memjective" on a branch; one branch may carry multiple slugs.
+A branch snapshot is stored under `<slug>/` in namespace `memjectives` on
+the current branch. Files:
 
-If the prompt does not name a slug, abort and ask which memjective to update.
+- `body.md` (required): stable workstream spine and progress guidance.
+- `roadmap.md` (optional): ordered slice plan and progress surface.
+- `notes.md` (optional): durable findings from this branch's work.
+
+`update` reads every present file under `<slug>/` on the current branch and
+rewrites only files whose content changed. It never reads or writes other
+branch snapshots and never touches canonical state.
+
+## Inputs
+
+- **Slug, required.** The prompt must name the memjective slug. Do not infer
+  it from "the only memjective" on a branch; one branch may carry multiple
+  slugs. If the prompt does not name a slug, abort and ask which memjective
+  to update.
+
+## Core Rules
+
+- **Branch snapshots only.** `update` writes only to the current branch's
+  `<slug>/` snapshot. Abort on `master` or detached `HEAD`.
+- **Slug always explicit.** No auto-pick from "the only slug on the branch."
+- **One slug per invocation.** Multiple slugs on the branch are fine; operate
+  only on the explicit slug.
+- **No-op when in sync.** If the snapshot's max `head_date` is at-or-after
+  branch HEAD's commit time, report in sync and exit without writing.
+- **Conservative per-file rewrites.** Apply the shared rules in
+  `../dev-memjective/references/mutation-contract.md`. Do not regenerate
+  files from the original brief, rename sections, delete history, or rebuild
+  files wholesale.
+- **Never attach a missing snapshot.** If `<slug>/` is not present on the
+  branch, abort and point at `dev-memjective-claim`. Use `claim`, not
+  `update`, to attach.
+- **Never implement work.** `update` records progress; it does not write
+  code or perform the slice's engineering.
 
 ## Workflow
 
@@ -170,7 +202,7 @@ Include:
 brmem get <slug>/<file> --namespace memjectives --at <old-sha>
 ```
 
-## Edge cases and anti-patterns
+## Edge Cases and Anti-Patterns
 
 - Detached `HEAD`: abort.
 - Current branch is `master`: abort and point to `reconcile`.

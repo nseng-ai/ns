@@ -40,13 +40,50 @@ In the current implementation, canonical state is stored in `brmem` on
 branch `master`, so `reconcile` runs only on `master`. It never writes to
 branch snapshots and never copies one snapshot verbatim onto canonical state.
 
-## Arguments
+## Memjective Content
 
-The memjective slug is required and explicit. Do not infer it from "the only
-memjective" in canonical storage.
+The canonical memjective is stored under `<slug>/` in namespace
+`memjectives` on `master`. Files:
 
-If the prompt does not name a slug, abort and ask which memjective to
-reconcile.
+- `body.md` (required): stable workstream spine and progress guidance.
+- `roadmap.md` (optional): ordered slice plan and progress surface.
+- `notes.md` (optional): durable findings.
+
+`reconcile` reads every present canonical file and rewrites only files whose
+content changed. It also reads `<slug>/body.md`, `<slug>/roadmap.md`, and
+`<slug>/notes.md` from each branch snapshot carrying the slug, plus PR
+metadata for those branches. Branch snapshots and PRs are evidence only;
+reconcile never writes to them.
+
+## Inputs
+
+- **Slug, required.** The prompt must name the memjective slug. Do not infer
+  it from "the only memjective" in canonical storage. If the prompt does not
+  name a slug, abort and ask which memjective to reconcile.
+
+## Core Rules
+
+- **Canonical state only.** `reconcile` writes only to the canonical
+  `<slug>/` on `master`; never to branch snapshots, other branches, or PRs.
+- **Off-master aborts.** Run only on `master`; abort on detached `HEAD` or
+  any other branch.
+- **Slug always explicit.** No auto-pick from "the only canonical slug."
+- **Branch snapshots and PRs are read-only evidence.** Use them to inform
+  the rewrite; never paste a branch snapshot into canonical state or use a
+  PR body as canonical text.
+- **Verbatim copy forbidden.** Sibling text is evidence, not source. Fuse
+  evidence under the per-file mutation contract.
+- **No freshness shortcut.** Always fold available evidence. Sibling changes
+  do not bump canonical HEAD, so HEAD-vs-snapshot checks are invalid here.
+- **In-repo enumeration only.** Discover branch snapshots from local
+  `refs/brmem/ns/memjectives/` (or the `memjective tree` helper). Do not
+  fetch from remotes during reconcile.
+- **PR errors are gaps, not failures.** A failed PR lookup becomes an
+  evidence gap in the report unless every PR lookup needed for the
+  requested reconciliation is unavailable.
+- **Conservative per-file rewrites.** Apply the shared rules in
+  `../dev-memjective/references/mutation-contract.md`. Do not rebuild
+  canonical files wholesale, delete completed history, or rename sections.
 
 ## Workflow
 
@@ -213,7 +250,7 @@ Include:
 brmem get <slug>/<file> --namespace memjectives --branch master --at <old-sha>
 ```
 
-## Edge cases and anti-patterns
+## Edge Cases and Anti-Patterns
 
 - Off `master`: abort and point to `update`.
 - No canonical `body.md`: abort and point to `create`.
