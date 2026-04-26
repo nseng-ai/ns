@@ -96,6 +96,45 @@ def _fake_for_repo(
     )
 
 
+def _seed_assignments(
+    fakes: _SlotFakes,
+    slots_root: Path,
+    *,
+    assignments: tuple[tuple[str, str], ...],
+    pool_size: int = 4,
+    file_status_by_slot: dict[str, FileStatus] | None = None,
+) -> dict[str, Path]:
+    """Seed a pool with one or more (slot_name, branch_name) assignments.
+
+    Returns a dict mapping slot_name -> worktree_path.
+    """
+    file_status_by_slot = file_status_by_slot or {}
+    paths: dict[str, Path] = {}
+    pool_assignments: list[SlotAssignment] = []
+    for slot_name, branch in assignments:
+        worktree_path = slots_root / "repos" / "repo" / "worktrees" / slot_name
+        fakes.storage._existing_paths.add(worktree_path)
+        fakes.git._existing_paths.add(worktree_path)
+        fakes.git._branches.add(branch)
+        fakes.git._worktrees.append(
+            WorktreeInfo(path=worktree_path, branch=branch, is_bare=False),
+        )
+        fakes.git._current_branch_by_path[worktree_path] = branch
+        if slot_name in file_status_by_slot:
+            fakes.git._file_status_by_path[worktree_path] = file_status_by_slot[slot_name]
+        pool_assignments.append(
+            SlotAssignment(
+                slot_name=slot_name,
+                branch_name=branch,
+                assigned_at="2026-04-01T00:00:00+00:00",
+                worktree_path=worktree_path,
+            )
+        )
+        paths[slot_name] = worktree_path
+    fakes.pool_state.save(PoolState(pool_size=pool_size, assignments=tuple(pool_assignments)))
+    return paths
+
+
 def _seed_assigned(
     fakes: _SlotFakes,
     slots_root: Path,
@@ -105,31 +144,14 @@ def _seed_assigned(
     pool_size: int = 4,
     file_status: FileStatus | None = None,
 ) -> Path:
-    """Seed pool state + git fakes so ``slot_name`` holds ``branch``. Returns worktree path."""
-    worktree_path = slots_root / "repos" / "repo" / "worktrees" / slot_name
-    fakes.storage._existing_paths.add(worktree_path)
-    fakes.git._existing_paths.add(worktree_path)
-    fakes.git._branches.add(branch)
-    fakes.git._worktrees.append(
-        WorktreeInfo(path=worktree_path, branch=branch, is_bare=False),
-    )
-    fakes.git._current_branch_by_path[worktree_path] = branch
-    if file_status is not None:
-        fakes.git._file_status_by_path[worktree_path] = file_status
-    fakes.pool_state.save(
-        PoolState(
-            pool_size=pool_size,
-            assignments=(
-                SlotAssignment(
-                    slot_name=slot_name,
-                    branch_name=branch,
-                    assigned_at="2026-04-01T00:00:00+00:00",
-                    worktree_path=worktree_path,
-                ),
-            ),
-        ),
-    )
-    return worktree_path
+    """Backwards-compatible single-slot helper used by simple happy-path tests."""
+    return _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=((slot_name, branch),),
+        pool_size=pool_size,
+        file_status_by_slot={slot_name: file_status} if file_status is not None else None,
+    )[slot_name]
 
 
 # -- help / shape -----------------------------------------------------------
@@ -140,9 +162,13 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: slot free" in result.output
-    assert "Release a slot assignment" in result.output
+    assert "Release one or more slot assignments" in result.output
     assert "--format" in result.output
     assert "--schema" in result.output
+    # Short flags advertised in help.
+    assert "-n" in result.output
+    assert "-w" in result.output
+    assert "-c" in result.output
 
 
 def test_slot_free_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -170,9 +196,7 @@ def test_slot_free_by_slot_name(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert "Freed" in result.output
     assert "slot-01" in result.output
     assert "feat/x" in result.output
-    # Worktree detached at trunk.
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
-    # pool.json now has the slot removed.
     saved = fakes.pool_state.load()
     assert saved is not None
     assert saved.assignments == ()
@@ -192,6 +216,38 @@ def test_slot_free_by_slot_number(cli_group: ClinkrGroup, tmp_path: Path) -> Non
     assert result.exit_code == 0, result.output
     assert "slot-03" in result.output
     assert "feat/three" in result.output
+
+
+def test_slot_free_short_flag_n(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, slot_name="slot-02", branch="feat/two")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "-n", "2"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-02" in result.output
+    assert "feat/two" in result.output
+
+
+def test_slot_free_short_flag_w(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "-w", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-01" in result.output
+    assert "feat/x" in result.output
 
 
 def test_slot_free_current_happy_path(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -246,55 +302,131 @@ def test_slot_free_current_outside_slot_errors(cli_group: ClinkrGroup, tmp_path:
     assert "not a slot directory" in result.output
 
 
-def test_slot_free_current_unassigned_is_negative(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+# -- batch / multi-target happy paths --------------------------------------
+
+
+def test_slot_free_multi_num_frees_all_in_order(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    _seed_assigned(fakes, slots_root, slot_name="slot-01", branch="feat/x")
-    slot_02_path = slots_root / "repos" / "repo" / "worktrees" / "slot-02"
-    fakes.storage._existing_paths.add(slot_02_path)
-    fakes.git._existing_paths.add(slot_02_path)
-    fakes.git._repository_root_by_cwd[Path.cwd().resolve()] = slot_02_path
+    paths = _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/a"), ("slot-02", "feat/b"), ("slot-03", "feat/c")),
+    )
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "--current"],
+        ["free", "-n", "3", "-n", "1", "--format", "json"],
         obj=_make_obj(fakes, slots_root),
     )
 
-    # SlotNotAssignedError is a "ran fine, answered no" outcome → exit 1.
-    assert result.exit_code == 1
-    assert result.stdout == ""
-    assert result.stderr.startswith("slot-02 is not currently assigned")
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    freed = payload["data"]["freed"]
+    assert [f["slot_name"] for f in freed] == ["slot-03", "slot-01"]
+    assert [f["branch_name"] for f in freed] == ["feat/c", "feat/a"]
+    # Detach order matches resolved order.
+    assert fakes.git._detach_head_calls == [
+        (paths["slot-03"], "main"),
+        (paths["slot-01"], "main"),
+    ]
+    saved = fakes.pool_state.load()
+    assert saved is not None
+    assert {a.slot_name for a in saved.assignments} == {"slot-02"}
 
 
-def test_slot_free_current_conflicts_with_num(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_current_combined_with_num(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    paths = _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/x"), ("slot-02", "feat/y")),
+    )
+    fakes.git._repository_root_by_cwd[Path.cwd().resolve()] = paths["slot-01"]
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "--current", "--num", "1"],
+        ["free", "--num", "2", "--current", "--format", "json"],
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 2
-    assert "exactly one of --num, --wt, or --current" in result.output
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    # Order: --num before --current.
+    assert [f["slot_name"] for f in payload["data"]["freed"]] == ["slot-02", "slot-01"]
+    saved = fakes.pool_state.load()
+    assert saved is not None
+    assert saved.assignments == ()
 
 
-def test_slot_free_current_conflicts_with_wt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_current_combined_with_wt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    paths = _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/x"), ("slot-02", "feat/y")),
+    )
+    fakes.git._repository_root_by_cwd[Path.cwd().resolve()] = paths["slot-02"]
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "--current", "--wt", "slot-01"],
+        ["free", "--wt", "slot-01", "--current", "--format", "json"],
         obj=_make_obj(fakes, slots_root),
     )
 
-    assert result.exit_code == 2
-    assert "exactly one of --num, --wt, or --current" in result.output
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert [f["slot_name"] for f in payload["data"]["freed"]] == ["slot-01", "slot-02"]
+
+
+def test_slot_free_dedupes_repeated_targets(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    paths = _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/x"), ("slot-02", "feat/y")),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "-n", "1", "-n", "1", "-w", "slot-01", "-w", "slot-02", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert [f["slot_name"] for f in payload["data"]["freed"]] == ["slot-01", "slot-02"]
+    # Detach was called once per resolved target, not per flag occurrence.
+    assert fakes.git._detach_head_calls == [
+        (paths["slot-01"], "main"),
+        (paths["slot-02"], "main"),
+    ]
+
+
+def test_slot_free_combined_flags_were_legal_now_succeeds(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    """Previously `--num` + `--wt` was a hard error; now it's a multi-target batch."""
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/a"), ("slot-02", "feat/b")),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--num", "2", "--wt", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-01" in result.output
+    assert "slot-02" in result.output
 
 
 # -- machine mode -----------------------------------------------------------
@@ -314,10 +446,11 @@ def test_slot_free_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["exit_code"] == 0
-    data = payload["data"]
-    assert data["slot_name"] == "slot-01"
-    assert data["branch_name"] == "feat/x"
-    assert "placeholder_branch" not in data
+    freed = payload["data"]["freed"]
+    assert len(freed) == 1
+    assert freed[0]["slot_name"] == "slot-01"
+    assert freed[0]["branch_name"] == "feat/x"
+    assert "placeholder_branch" not in freed[0]
 
 
 def test_slot_free_schema(cli_group: ClinkrGroup) -> None:
@@ -331,10 +464,9 @@ def test_slot_free_schema(cli_group: ClinkrGroup) -> None:
 # -- error paths ------------------------------------------------------------
 
 
-def test_slot_free_unknown_slot_is_negative(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_unknown_slot_is_failure(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    # Seed an empty pool (load returns non-None but no assignments).
     fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
 
     result = CliRunner().invoke(
@@ -343,10 +475,30 @@ def test_slot_free_unknown_slot_is_negative(cli_group: ClinkrGroup, tmp_path: Pa
         obj=_make_obj(fakes, slots_root),
     )
 
-    # SlotNotAssignedError is a "ran fine, answered no" outcome → exit 1.
-    assert result.exit_code == 1
+    # Pre-flight catches "not assigned" → exit 2 (input error), not exit 1.
+    assert result.exit_code == 2
     assert result.stdout == ""
-    assert result.stderr.startswith("slot-02 is not currently assigned")
+    assert "slot-02 is not currently assigned" in result.stderr
+
+
+def test_slot_free_current_unassigned_is_failure(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, slot_name="slot-01", branch="feat/x")
+    slot_02_path = slots_root / "repos" / "repo" / "worktrees" / "slot-02"
+    fakes.storage._existing_paths.add(slot_02_path)
+    fakes.git._existing_paths.add(slot_02_path)
+    fakes.git._repository_root_by_cwd[Path.cwd().resolve()] = slot_02_path
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--current"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert "slot-02 is not currently assigned" in result.stderr
 
 
 def test_slot_free_invalid_slot_num_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -391,22 +543,37 @@ def test_slot_free_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -
     )
 
     assert result.exit_code == 2
-    assert "--num, --wt, or --current" in result.output
+    # Message advertises every selector form, including the new short flags.
+    assert "-n/--num" in result.output
+    assert "-w/--wt" in result.output
+    assert "-c/--current" in result.output
 
 
-def test_slot_free_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_combined_errors_are_collected(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/x"),),
+    )
 
     result = CliRunner().invoke(
         cli_group,
-        ["free", "--num", "1", "--wt", "slot-01"],
+        ["free", "--num", "99", "--wt", "slot-02", "--wt", "bogus"],
         obj=_make_obj(fakes, slots_root),
     )
 
     assert result.exit_code == 2
-    assert "exactly one of --num, --wt, or --current" in result.output
+    # Each problem surfaces in the same message — no fail-fast on first error.
+    assert "must be in 1..4" in result.output
+    assert "slot-02 is not currently assigned" in result.output
+    assert "not a valid slot name" in result.output
+    # Nothing was freed.
+    saved = fakes.pool_state.load()
+    assert saved is not None
+    assert {a.slot_name for a in saved.assignments} == {"slot-01"}
+    assert fakes.git._detach_head_calls == []
 
 
 def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -426,10 +593,36 @@ def test_slot_free_dirty_worktree_errors(cli_group: ClinkrGroup, tmp_path: Path)
 
     assert result.exit_code == 2
     assert "uncommitted changes" in result.output
-    # Pool state unchanged.
     saved = fakes.pool_state.load()
     assert saved is not None
     assert len(saved.assignments) == 1
+
+
+def test_slot_free_dirty_in_batch_blocks_clean_targets(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    """Pre-flight fails fast as a unit: even clean targets aren't freed."""
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assignments(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/a"), ("slot-02", "feat/b")),
+        file_status_by_slot={"slot-02": FileStatus(staged=False, modified=True, untracked=False)},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "-n", "1", "-n", "2"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 2
+    assert "uncommitted changes" in result.output
+    saved = fakes.pool_state.load()
+    assert saved is not None
+    assert {a.slot_name for a in saved.assignments} == {"slot-01", "slot-02"}
+    assert fakes.git._detach_head_calls == []
 
 
 def test_slot_free_surfaces_detach_head_failure_as_slot_allocation_error(
@@ -467,7 +660,6 @@ def test_slot_free_surfaces_detach_head_failure_as_slot_allocation_error(
 def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    # No prior `save` — pool_state.exists() is False.
 
     result = CliRunner().invoke(
         cli_group,
@@ -509,12 +701,13 @@ def test_slot_free_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Pat
 
     assert result.exit_code == 0
     assert payload["exit_code"] == 0
-    data = payload["data"]
-    assert data["slot_name"] == "slot-01"
-    assert data["branch_name"] == "feat/x"
+    freed = payload["data"]["freed"]
+    assert len(freed) == 1
+    assert freed[0]["slot_name"] == "slot-01"
+    assert freed[0]["branch_name"] == "feat/x"
 
 
-def test_slot_free_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_free_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
@@ -526,8 +719,10 @@ def test_slot_free_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_pat
     )
     payload = json.loads(result.stdout)
 
-    assert result.exit_code == 1
-    assert payload["exit_code"] == 1
+    # `not assigned` is now a pre-flight failure (exit 2) for uniform batch semantics.
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "invalid_slot_args"
     assert "not currently assigned" in payload["message"]
 
 
