@@ -16,8 +16,7 @@ metadata:
 
 # dev-memjective-create
 
-Create a new local-first memjective: the master-branch snapshot and an initial
-per-branch snapshot on the current branch.
+Create a new local-first memjective: the master-branch snapshot.
 
 > For shared concepts — vocabulary (`snapshot`, `master-branch snapshot`,
 > `per-branch snapshot`), the storage model, the one-memjective-per-branch
@@ -30,11 +29,9 @@ Given a rough memjective brief from the user, produce:
 
 1. a memjective `body.md` stored as the `master`-branch brmem snapshot under
    namespace `memjectives`, key `<slug>/body.md`
-2. a matching brmem `body.md` for the current branch under namespace
-   `memjectives`, key `<slug>/body.md`
-3. when the conversation already contains a concrete slice plan, a matching
-   `roadmap.md` written to both snapshots at key `<slug>/roadmap.md`
-4. a short report naming the slug, branch, and brmem commits
+2. when the conversation already contains a concrete slice plan, a matching
+   `roadmap.md` written to the master snapshot at key `<slug>/roadmap.md`
+3. a short report naming the slug and the brmem commits on master
 
 A memjective is a directory of files under `<slug>/`; this skill writes
 `body.md` (and optionally `roadmap.md`). `notes.md` is never written by
@@ -61,11 +58,8 @@ durable finding.
   - codified PR work only — no manual-only or observation-only bullets
 - **Keys must carry the slug.** Do not use bare filenames; the keys are
   `<slug>/body.md` and `<slug>/roadmap.md` in namespace `memjectives`.
-- **Attach the exact drafted text.** Write the master-branch snapshot first,
-  then use `brmem put` to copy that exact content onto the current branch.
 - **Do not write the memjective into the working tree.** The only durable
-  copies are the master-branch brmem files and the current-branch brmem
-  files.
+  copies are the master-branch brmem files.
 
 ## Workflow
 
@@ -231,38 +225,7 @@ brmem put <slug>/roadmap.md --namespace memjectives --branch master --file <temp
 
 This is the initial snapshot. Capture the commit SHAs.
 
-### 8. Attach the memjective to the current branch
-
-Carry the master-branch snapshot onto the current branch in a single
-atomic operation, scoped to this slug's entries only:
-
-```bash
-brmem copy \
-  --namespace memjectives \
-  --from-branch master \
-  --to-branch <branch> \
-  --key-glob '<slug>/*'
-```
-
-- `<branch>` is the branch captured in step 1; `<slug>` is the slug from
-  step 3.
-- `--key-glob '<slug>/*'` copies only keys under this slug's directory,
-  byte-identical for the matching keys. Other memjectives' snapshots
-  on master are intentionally **not** carried forward — this preserves
-  the one-memjective-per-branch invariant (see `dev-memjective`,
-  "Invariant: One memjective per branch"). Without this filter, every
-  pre-existing master-level memjective would also land on the new
-  branch.
-- No `--overwrite` flag: the step-2 precondition already guarantees zero
-  entries under the `memjectives` namespace on this branch.
-- If more sibling files (e.g., a future `notes.md`) are added to the
-  initial snapshot under `<slug>/`, they carry forward automatically —
-  no edits to this step required.
-
-Capture the destination ref / commit entries reported by `brmem copy` for
-the report.
-
-### 9. Report
+### 8. Report
 
 Return a short summary including:
 
@@ -271,16 +234,17 @@ Return a short summary including:
 - files written (`body.md`, and `roadmap.md` if drafted)
 - master-branch brmem snapshot location (namespace `memjectives`, key
   prefix `<slug>/`, branch `master`)
-- current branch name
-- branch brmem entry location (namespace `memjectives`, key prefix
-  `<slug>/`)
-- brmem commit SHA(s) for the branch writes
+- brmem commit SHA(s) for the master-branch writes
 - next-step hint:
 
 ```text
-Run /dev-memjective-peek on this branch (or any descendant branch) for a
-lightweight status check and a kebab-case slug suggestion for the next
-slice — it reads the memjective without writing anything.
+To attach this memjective to your current working branch, run
+`dev-memjective-claim <slug>`. The master-branch snapshot is the durable
+starting point for future slice branches.
+
+Run /dev-memjective-peek on any branch for a lightweight status check and a
+kebab-case slug suggestion for the next slice — it reads the memjective
+without writing anything.
 
 When you are ready to work the next slice, create a new branch with the
 suggested slug and run /dev-memjective-next inside it. That skill carries
@@ -309,6 +273,8 @@ the snapshot conservatively.
   (Reading GitHub for context is fine; the rule is about where the
   memjective record lives.)
 - Writing the memjective into the repo working tree.
+- Writing the initial branch snapshot from `create` (use
+  `dev-memjective-claim` instead).
 - Creating a second memjective on a branch that already has one.
 - Attaching the branch snapshot under a generic key like `memjective/body.md`
   or a namespace other than `memjectives`.
