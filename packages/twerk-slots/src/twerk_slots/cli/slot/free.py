@@ -32,9 +32,7 @@ class SlotFreeRequest:
         tuple[str, ...],
         click.Option(["-w", "--wt"], type=click.STRING, multiple=True),
     ] = ()
-    current: Annotated[
-        bool, click.Option(["-c", "--current"], is_flag=True, default=False)
-    ] = False
+    current: Annotated[bool, click.Option(["-c", "--current"], is_flag=True, default=False)] = False
 
 
 @dataclass(frozen=True)
