@@ -48,21 +48,32 @@ SlugResolutionError = NoMemjectiveOnBranch | AmbiguousMemjective | DetachedHead 
 def resolve_slug(
     mctx: MemjectiveCliContext,
     requested: str | None,
+    *,
+    requested_branch: str | None = None,
 ) -> SlugResolution | SlugResolutionError:
     """Return a ``SlugResolution`` or a domain error.
 
-    When ``requested`` is ``None`` we resolve the current branch and require
-    exactly one memjective slug under ``refs/brmem/ns/memjectives/<branch>``.
+    When ``requested`` is ``None`` we resolve a branch and require exactly
+    one memjective slug under ``refs/brmem/ns/memjectives/<branch>``. The
+    branch defaults to the current HEAD; passing ``requested_branch``
+    overrides that and resolves from the named branch instead, so callers
+    can drive ``memjective show --branch <name>`` from any working branch.
+
     When ``requested`` is provided we normalize any ``<slug>/<file>``
     addressing and best-effort-resolve the current branch for downstream
-    current-branch-aware reads.
+    current-branch-aware reads. ``requested_branch`` is ignored in this
+    path; callers who need branch-strict file reads should consume it
+    directly.
     """
     if requested is None:
-        match resolve_current_memjective_branch(mctx.git_gateway, None):
-            case DetachedHead() | GitCommandFailure() as err:
-                return err
-            case str() as branch:
-                pass
+        if requested_branch is None:
+            match resolve_current_memjective_branch(mctx.git_gateway, None):
+                case DetachedHead() | GitCommandFailure() as err:
+                    return err
+                case str() as branch:
+                    pass
+        else:
+            branch = requested_branch
 
         branch_slugs = tuple(
             sorted(
