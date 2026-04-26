@@ -40,6 +40,7 @@ def build_pr_address_group() -> ClinkrGroup:
             run_unresolve_thread,
         ],
     )
+    exec_group.hidden = True
     outer = ClinkrGroup(name="pr-address", help="PR review address operations.")
     outer.add_command(exec_group)
     return outer

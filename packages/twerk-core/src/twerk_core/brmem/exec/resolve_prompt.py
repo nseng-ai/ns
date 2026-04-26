@@ -58,7 +58,7 @@ def run_resolve_prompt(
             error_type="not-a-git-repo",
             message=(
                 f"Not inside a git repository: {cwd}. "
-                "`brmem resolve-prompt` requires a git repo to resolve the project-local "
+                "`brmem exec resolve-prompt` requires a git repo to resolve the project-local "
                 "prompt path; run it from inside a checkout."
             ),
         )

@@ -159,12 +159,14 @@ def test_pr_address_plugin_integration() -> None:
     )
     obj = build_clinkr_context_object(lambda: ctx)
 
-    # Plugin mounts at expected subgroup name with exec subcommand.
+    # Plugin mounts at expected subgroup name; exec subgroup is hidden, so it
+    # must not appear in top-level help output.
     result = runner.invoke(parent, ["pr-address", "--help"])
     assert result.exit_code == 0
-    assert "exec" in result.output
+    assert "exec" not in result.output
 
-    # A representative operation routes correctly through the plugin path.
+    # A representative operation routes correctly through the plugin path,
+    # confirming the exec subgroup is still invocable despite being hidden.
     result = runner.invoke(parent, ["pr-address", "exec", "get-review-comments", "99"], obj=obj)
     assert result.exit_code == 0
     output = json.loads(result.output)

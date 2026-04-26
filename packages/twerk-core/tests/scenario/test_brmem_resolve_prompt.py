@@ -50,7 +50,7 @@ def test_resolves_project_local(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["resolve-prompt", "foo", "--format", "json"],
+        ["exec", "resolve-prompt", "foo", "--format", "json"],
         obj=_make_obj(repo_root=repo_root, home_root=home_root),
     )
 
@@ -70,7 +70,7 @@ def test_falls_back_to_global(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["resolve-prompt", "foo", "--format", "json"],
+        ["exec", "resolve-prompt", "foo", "--format", "json"],
         obj=_make_obj(repo_root=repo_root, home_root=home_root),
     )
 
@@ -90,7 +90,7 @@ def test_project_wins_over_global(cli_group: ClinkrGroup, tmp_path: Path) -> Non
 
     result = CliRunner().invoke(
         cli_group,
-        ["resolve-prompt", "foo", "--format", "json"],
+        ["exec", "resolve-prompt", "foo", "--format", "json"],
         obj=_make_obj(repo_root=repo_root, home_root=home_root),
     )
 
@@ -107,7 +107,7 @@ def test_neither_exists_returns_failure(cli_group: ClinkrGroup, tmp_path: Path) 
 
     result = CliRunner().invoke(
         cli_group,
-        ["resolve-prompt", "foo", "--format", "json"],
+        ["exec", "resolve-prompt", "foo", "--format", "json"],
         obj=_make_obj(repo_root=repo_root, home_root=home_root),
     )
 
@@ -127,7 +127,7 @@ def test_not_in_git_repo(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["resolve-prompt", "foo", "--format", "json"],
+        ["exec", "resolve-prompt", "foo", "--format", "json"],
         obj=_make_obj(repo_root=repo_root, home_root=home_root, in_repo=False),
     )
 
@@ -145,7 +145,7 @@ def test_human_render_prints_path_to_stdout(cli_group: ClinkrGroup, tmp_path: Pa
 
     result = CliRunner().invoke(
         cli_group,
-        ["resolve-prompt", "foo"],
+        ["exec", "resolve-prompt", "foo"],
         obj=_make_obj(repo_root=repo_root, home_root=home_root),
     )
 
