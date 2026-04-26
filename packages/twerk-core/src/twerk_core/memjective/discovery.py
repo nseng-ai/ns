@@ -1,7 +1,7 @@
 """Repo-wide memjective discovery.
 
 Group every ``refs/brmem/ns/memjectives/<encoded-branch>:<slug>/<filename>``
-entry by slug, tracking master-seed presence separately from branch
+entry by slug, tracking canonical-record presence separately from branch
 snapshots and marking snapshot branches that no longer exist as local
 refs. A memjective is a directory of files (``body.md`` plus optional
 ``roadmap.md`` / ``notes.md``), so the slug is the key prefix up to the
@@ -37,7 +37,7 @@ class MemjectiveRepoEntry:
 
     slug: str
     files: tuple[str, ...]
-    seed_present: bool
+    canonical_present: bool
     branches: tuple[BranchPresence, ...]
 
     @property
@@ -98,7 +98,7 @@ def group_memjective_entries(
     result: list[MemjectiveRepoEntry] = []
     for slug in sorted(by_slug):
         slug_entries = by_slug[slug]
-        seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
+        canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
         branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
         presences = tuple(
             BranchPresence(
@@ -112,7 +112,7 @@ def group_memjective_entries(
             MemjectiveRepoEntry(
                 slug=slug,
                 files=files,
-                seed_present=seed_present,
+                canonical_present=canonical_present,
                 branches=presences,
             )
         )

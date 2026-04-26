@@ -5,8 +5,8 @@ branch that carries a memjective snapshot alongside the PR attached to that
 branch - number, title, URL, and lifecycle state. The "tree" is typically a
 Graphite stack rooted off the memjective's base branch; the listing is flat
 but the underlying shape is a tree. The canonical memjective is reported
-separately via ``seed_present`` because it is a seed, not a PR-bearing
-workstream.
+separately via ``canonical_present`` because it is a record on ``master``,
+not a PR-bearing workstream.
 
 The primary consumer is ``dev-memjective-reconcile``, an LLM scanning stdout
 while folding branch snapshots into canonical memjective state: rows are
@@ -74,13 +74,13 @@ class MemjectiveTreeRequest:
 @dataclass(frozen=True)
 class MemjectiveTreeResult(JsonSerializable):
     slug: str
-    seed_present: bool
+    canonical_present: bool
     entries: tuple[BranchPrEntry, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "slug": self.slug,
-            "seed_present": self.seed_present,
+            "canonical_present": self.canonical_present,
             "entries": [
                 {
                     "branch": e.branch,
@@ -108,7 +108,7 @@ _STATE_BADGES: dict[BranchPrAction, str] = {
 
 def render_memjective_tree(result: MemjectiveTreeResult) -> None:
     click.echo(f"slug: {result.slug}")
-    click.echo(f"seed: {'present (master)' if result.seed_present else 'absent'}")
+    click.echo(f"canonical: {'present (master)' if result.canonical_present else 'absent'}")
 
     if not result.entries:
         click.echo("(no branches)")
@@ -197,8 +197,8 @@ def _sort_by_state_group(rows: tuple[BranchPrEntry, ...]) -> tuple[BranchPrEntry
         "their associated PRs (number, URL, state). The tree is typically "
         "a Graphite stack. If SLUG is omitted and exactly one memjective "
         "is attached to the current branch, it is selected automatically. "
-        "The canonical seed is reported via `seed_present`, not as a "
-        "row."
+        "The canonical record is reported via `canonical_present`, not as "
+        "a row."
     ),
     human_renderer=render_memjective_tree,
 )
@@ -236,16 +236,16 @@ def run_tree_memjective(
     all_entries = gateway.list_entries(namespace=MEMJECTIVE_NAMESPACE)
     slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
     if not slug_entries:
-        empty = MemjectiveTreeResult(slug=slug, seed_present=False, entries=())
+        empty = MemjectiveTreeResult(slug=slug, canonical_present=False, entries=())
         return ClinkrExit.negative(
             empty,
             message=f"No memjective found for slug {slug!r}.",
         )
 
-    seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
+    canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
     branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
     rows = tuple(_classify_branch(b, git, pr) for b in branch_names)
     rows = _sort_by_state_group(rows)
     return ClinkrExit.ok(
-        MemjectiveTreeResult(slug=slug, seed_present=seed_present, entries=rows),
+        MemjectiveTreeResult(slug=slug, canonical_present=canonical_present, entries=rows),
     )

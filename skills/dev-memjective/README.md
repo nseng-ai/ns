@@ -73,7 +73,7 @@ structure for a PR-sized roadmap. It proposes a stable slug, such as
 `dashboard-revamp`, and asks a short follow-up if the scope or slug would
 otherwise be ambiguous.
 
-Once the shape is clear, the skill seeds the shared record on `master`. It
+Once the shape is clear, the skill writes the shared record on `master`. It
 writes `body.md` and, when there is already a concrete slice plan,
 `roadmap.md`. It does not attach anything to a feature branch.
 

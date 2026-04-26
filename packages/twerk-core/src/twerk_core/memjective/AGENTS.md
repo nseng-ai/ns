@@ -4,7 +4,7 @@ Treat this subpackage as if it were its own package that the rest of `twerk-core
 
 A memjective is a directory of files (`body.md` plus optional `roadmap.md` / `notes.md`) tracked across branches via git refs under `refs/brmem/ns/memjectives/...`. This subpackage owns a workflow system whose mass spans three layers:
 
-- **Python code** that builds on `brmem` storage — slug resolution, repo-wide discovery, master-seed semantics, and the `memjective` CLI.
+- **Python code** that builds on `brmem` storage — slug resolution, repo-wide discovery, canonical-record semantics, and the `memjective` CLI.
 - **The `dev-memjective-*` skill family** in `skills/` that drives the create / claim / update / reconcile / next workflow.
 - **Schema assets** — `references/mutation-contract.md` and `templates/{body,roadmap,notes}-template.md` — that codify what a memjective document is.
 

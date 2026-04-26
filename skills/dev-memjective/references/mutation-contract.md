@@ -122,7 +122,7 @@ memjective tree <slug> --format json
 Use the tree output to identify:
 
 - branch snapshots carrying `<slug>/`
-- whether the canonical seed is present
+- whether the canonical record is present
 - whether each branch is live or stale/orphaned
 - PR number, URL, title, state, and lookup errors for each branch
 

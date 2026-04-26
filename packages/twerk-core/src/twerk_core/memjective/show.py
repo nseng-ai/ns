@@ -52,7 +52,7 @@ class MemjectiveFile:
 @dataclass(frozen=True)
 class MemjectiveShowResult(JsonSerializable):
     slug: str
-    seed_present: bool
+    canonical_present: bool
     branches: tuple[BranchPresence, ...]
     files: tuple[str, ...]
     body: MemjectiveFile | None
@@ -62,7 +62,7 @@ class MemjectiveShowResult(JsonSerializable):
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "slug": self.slug,
-            "seed_present": self.seed_present,
+            "canonical_present": self.canonical_present,
             "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in self.branches],
             "files": list(self.files),
             "body": _file_to_json(self.body),
@@ -79,7 +79,7 @@ def _file_to_json(file: MemjectiveFile | None) -> dict[str, str] | None:
 
 def render_memjective_show(result: MemjectiveShowResult) -> None:
     click.echo(f"slug: {result.slug}")
-    click.echo(f"seed: {'present (master)' if result.seed_present else 'absent'}")
+    click.echo(f"canonical: {'present (master)' if result.canonical_present else 'absent'}")
     if result.branches:
         click.echo("branches:")
         for bp in result.branches:
@@ -107,7 +107,7 @@ def _read_file(
     filename: str,
     *,
     current_branch: str | None,
-    seed_present: bool,
+    canonical_present: bool,
     requested_branch: str | None,
 ) -> MemjectiveFile | None:
     key = f"{slug}/{filename}"
@@ -120,7 +120,7 @@ def _read_file(
         content = gateway.get(MEMJECTIVE_NAMESPACE, key, current_branch)
         if content is not None:
             return MemjectiveFile(filename=filename, source_branch=current_branch, content=content)
-    if seed_present:
+    if canonical_present:
         content = gateway.get(MEMJECTIVE_NAMESPACE, key, MASTER_BRANCH)
         if content is not None:
             return MemjectiveFile(filename=filename, source_branch=MASTER_BRANCH, content=content)
@@ -135,13 +135,13 @@ def _slug_entries(entries: list[EntryRef], slug: str) -> list[EntryRef]:
 @clinkr_operation(
     name="show",
     help=(
-        "Summarize where a memjective currently exists: whether a master "
-        "seed is present and which branches carry a snapshot. If SLUG is "
-        "omitted and exactly one memjective is attached to the current "
-        "branch, it is selected automatically. Pass --branch <name> to "
-        "render file content strictly from that branch's snapshot (no "
-        "master-seed fallback) and to auto-resolve SLUG from <name> "
-        "instead of HEAD."
+        "Summarize where a memjective currently exists: whether the "
+        "canonical memjective is present and which branches carry a "
+        "snapshot. If SLUG is omitted and exactly one memjective is "
+        "attached to the current branch, it is selected automatically. "
+        "Pass --branch <name> to render file content strictly from that "
+        "branch's snapshot (no canonical fallback) and to auto-resolve "
+        "SLUG from <name> instead of HEAD."
     ),
     human_renderer=render_memjective_show,
 )
@@ -190,7 +190,7 @@ def run_show_memjective(
     if not slug_entries:
         empty = MemjectiveShowResult(
             slug=requested_slug,
-            seed_present=False,
+            canonical_present=False,
             branches=(),
             files=(),
             body=None,
@@ -203,7 +203,7 @@ def run_show_memjective(
         )
 
     files = tuple(sorted({e.key[len(requested_slug) + 1 :] for e in slug_entries}))
-    seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
+    canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
     branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
     branches = tuple(
         BranchPresence(branch=name, deleted=not git_gateway.branch_exists(name))
@@ -214,7 +214,7 @@ def run_show_memjective(
         requested_slug,
         BODY_FILE,
         current_branch=current_branch,
-        seed_present=seed_present,
+        canonical_present=canonical_present,
         requested_branch=request.branch,
     )
     roadmap = _read_file(
@@ -222,7 +222,7 @@ def run_show_memjective(
         requested_slug,
         ROADMAP_FILE,
         current_branch=current_branch,
-        seed_present=seed_present,
+        canonical_present=canonical_present,
         requested_branch=request.branch,
     )
     notes = _read_file(
@@ -230,14 +230,14 @@ def run_show_memjective(
         requested_slug,
         NOTES_FILE,
         current_branch=current_branch,
-        seed_present=seed_present,
+        canonical_present=canonical_present,
         requested_branch=request.branch,
     )
 
     return ClinkrExit.ok(
         MemjectiveShowResult(
             slug=requested_slug,
-            seed_present=seed_present,
+            canonical_present=canonical_present,
             branches=branches,
             files=files,
             body=body,

@@ -120,7 +120,7 @@ def test_tree_auto_resolves_sole_memjective_on_current_branch(cli_group: ClinkrG
 
     assert result.exit_code == 0, result.output
     assert "slug: widget-rewrite" in result.output
-    assert "seed: present (master)" in result.output
+    assert "canonical: present (master)" in result.output
     assert "feat/x" in result.output
 
 
@@ -194,7 +194,7 @@ def test_tree_explicit_slug_happy_path(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     assert "slug: widget-rewrite" in result.output
-    assert "seed: present (master)" in result.output
+    assert "canonical: present (master)" in result.output
     assert "widget-rewrite-layer-1" in result.output
     assert "open" in result.output
     assert "#833" in result.output
@@ -225,7 +225,7 @@ def test_tree_unknown_slug_json(cli_group: ClinkrGroup) -> None:
     assert payload["message"] == "No memjective found for slug 'does-not-exist'."
     assert payload["data"] == {
         "slug": "does-not-exist",
-        "seed_present": False,
+        "canonical_present": False,
         "entries": [],
     }
 
@@ -314,7 +314,7 @@ def test_tree_mixed_rows_json(cli_group: ClinkrGroup) -> None:
     assert payload["exit_code"] == 0
     data = payload["data"]
     assert data["slug"] == "widget-rewrite"
-    assert data["seed_present"] is True
+    assert data["canonical_present"] is True
 
     entries = data["entries"]
     # Ordering: merged → open → closed → no_pr → error, alpha within group.
@@ -398,13 +398,13 @@ def test_tree_seed_only_has_empty_rows(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert payload["data"] == {
         "slug": "clinkr-migration",
-        "seed_present": True,
+        "canonical_present": True,
         "entries": [],
     }
 
     human = CliRunner().invoke(cli_group, ["tree", "clinkr-migration"], obj=obj)
     assert human.exit_code == 0, human.output
-    assert "seed: present (master)" in human.output
+    assert "canonical: present (master)" in human.output
     assert "(no branches)" in human.output
 
 
@@ -425,7 +425,7 @@ def test_tree_all_broken_gh_becomes_error_rows(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    assert payload["data"]["seed_present"] is False
+    assert payload["data"]["canonical_present"] is False
     entries = payload["data"]["entries"]
     assert [e["action"] for e in entries] == ["error"]
     assert entries[0]["pr_error_stderr"] == "auth failed"
