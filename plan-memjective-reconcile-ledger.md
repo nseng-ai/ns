@@ -5,18 +5,22 @@ migration. It is a plain repo plan for changing memjectives safely.
 
 ## Progress
 
-Snapshot of what has landed on `add-memjective-state-writes` so far (not yet
-on `master`), plus PR 5 in flight on top of it as
-`add-memjective-compute-pending-entries`. The plan's stack order has been
-partially executed and partially reordered in practice: the read-only check
-shipped first, then the tree model extraction (PR 4) and the reconcile skill
-(PR 3) shipped before minimal state writes (PR 2). PR 5 is now open as
-PR #256 against base `add-memjective-state-writes`; it adds
-`memjective exec compute-pending-entries`, durable subtree provenance via a
-new `BranchMemoryGateway.get_tree_sha`, PR merge provenance on `PRSummary`,
-and a shared `EvidenceBundle` that both `memjective check` and the new
-command project from. The same PR also lifts the `dev-memjective-reconcile`
-skill (PR 3) onto `compute-pending-entries` per PR 5's review boundary.
+Snapshot of what has landed so far (none yet on `master`). The bottom of
+the stack — PRs 1–4 — is on `add-memjective-state-writes` (and earlier
+ancestors). PRs 5–7 are each open as their own PR, stacked on top: PR 5
+on `add-memjective-compute-pending-entries` (PR #256), PR 6 on
+`harden-memjective-incorporation-recording` (PR #257), and PR 7 on the
+current branch `teach-memjective-skills-to-record-state` (no PR opened
+yet). The plan's stack order has been partially executed and partially
+reordered in practice: the read-only check shipped first, then the tree
+model extraction (PR 4) and the reconcile skill (PR 3) shipped before
+minimal state writes (PR 2). PR 5 adds
+`memjective exec compute-pending-entries`, durable subtree provenance via
+a new `BranchMemoryGateway.get_tree_sha`, PR merge provenance on
+`PRSummary`, and a shared `EvidenceBundle` that both `memjective check`
+and the new command project from. The same PR also lifts the
+`dev-memjective-reconcile` skill (PR 3) onto `compute-pending-entries`
+per PR 5's review boundary.
 
 - PR 1 — Steelthread Read-Only Check: **done** (`f63cc61`).
   - `memjective check <slug>` with `--format human|json`.
@@ -56,7 +60,7 @@ skill (PR 3) onto `compute-pending-entries` per PR 5's review boundary.
   start.
 - PR 5 — Snapshot Provenance + `memjective exec compute-pending-entries`:
   **in flight** (PR #256 on `add-memjective-compute-pending-entries`, base
-  `add-memjective-state-writes`, tip `ffcc45b`).
+  `add-memjective-state-writes`, tip `40b0ad5`).
   - `BranchMemoryGateway.get_tree_sha(namespace, branch, path)` at
     `packages/twerk-core/src/twerk_core/brmem/gateway.py`, with the real
     implementation in `brmem/real.py` (resolves via
@@ -96,8 +100,9 @@ skill (PR 3) onto `compute-pending-entries` per PR 5's review boundary.
     (~570 lines); unit at `tests/unit/test_memjective_evidence.py`; gateway
     coverage for `get_tree_sha` and the new merge-provenance fields under
     `tests/gateways/` and `tests/integration/`.
-- PR 6 — Harden Incorporation Recording Semantics: **done** (this branch,
-  `harden-memjective-incorporation-recording`).
+- PR 6 — Harden Incorporation Recording Semantics: **in flight** (PR #257
+  on `harden-memjective-incorporation-recording`, base
+  `add-memjective-compute-pending-entries`, tip `6f58eb9`).
   - Strict incorporation schema in `validate_entry_payload` at
     `packages/twerk-core/src/twerk_core/memjective/exec_record_entry.py`,
     via `_validate_incorporation_schema` and `_validate_provenance_block`.
@@ -145,12 +150,45 @@ skill (PR 3) onto `compute-pending-entries` per PR 5's review boundary.
     Five existing scenario tests whose use of `incorporated` was
     incidental switched to `tracked` to keep them focused on their
     original rule.
-- PRs 7–8: **not started**.
+- PR 7 — Teach Existing Memjective Skills To Record State: **in flight**
+  (current branch `teach-memjective-skills-to-record-state`, base
+  `harden-memjective-incorporation-recording`, tip `9a78aa5`; no GitHub
+  PR opened yet). Skill-text-only changes that thread `memjective exec
+  init` and `record-entry` calls into the three remaining memjective
+  skills so normal usage feeds machine state automatically.
+  - `skills/dev-memjective-create/SKILL.md` — adds **§8.5 Initialize
+    machine-readable state** between the existing carry-attach step and
+    the report. Calls `memjective exec init <slug>` (idempotent) then
+    `memjective exec record-entry <slug> --json '<payload>'` with a
+    branch observation shape (`id: branch-<branch>`,
+    `resolution: tracked`, `pr.head_ref_name: <branch>`). The
+    `head_ref_name` field is the hook `dev-memjective-reconcile` later
+    uses to **promote** the entry in place to `pr-<number>` when a PR
+    opens. The §9 report and next-step hint are extended to cover the
+    new `init` outcome and recorded entry.
+  - `skills/dev-memjective-next/SKILL.md` — adds **§6.5 Record the
+    branch observation in state** after the carry-forward step and
+    before slice selection. Same `init` + `record-entry` shape as
+    create, with the summary describing the carry-forward source.
+    Handles three edge cases inline: legacy memjective with no
+    `state.json` (init creates it), `init` failing because root docs
+    are missing (skip recording, do not abort the skill), and the
+    local-file fallback path (still record). The §9 report gains a
+    **State** line.
+  - `skills/dev-memjective-update/SKILL.md` — text-only
+    cross-references, no new state writes. Adds a paragraph in §1
+    core rules and §5 master-rewrite section pointing single-merged-PR
+    incorporation work at `dev-memjective-reconcile` (which records
+    the structured `incorporated` entry with full
+    `source` / `root_before` / `root_after` `tree_sha` provenance);
+    keeps the master-reconcile variant as the path for genuine
+    sibling-aggregation cases. Adds a matching Anti-patterns bullet.
+  - No Python source touched, no new tests; the parent plan's PR 7
+    test plan specifies manual scenarios per skill.
+- PR 8: **not started**.
 
-Next reviewable slice: PR 7 (Teach Existing Memjective Skills To Record
-State), which threads `memjective exec init` and `record-entry` calls into
-`dev-memjective-create`, `dev-memjective-next`, and `dev-memjective-update`
-so normal usage feeds machine state automatically.
+Next reviewable slice: PR 8 (Promote Check Into The Default Status
+Surface). PR 7's branch is ready to open as a GitHub PR once PR 6 lands.
 
 ## Direction
 
