@@ -36,6 +36,11 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
+    "dev-memjective-claim": {
+      "source": "skills/dev-memjective-claim",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "dev-memjective-create": {
       "source": "skills/dev-memjective-create",
       "sourceType": "local",
