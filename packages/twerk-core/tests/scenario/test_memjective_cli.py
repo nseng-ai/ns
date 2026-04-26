@@ -729,6 +729,116 @@ def test_memjective_show_prefers_current_branch_per_file(cli_group: ClinkrGroup)
     assert payload["data"]["notes"] == {"source_branch": "feat/x", "content": "branch-notes\n"}
 
 
+def test_memjective_show_branch_reads_from_requested_branch(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "memjective-cli/body.md", "master", "master-sentinel\n")
+    gateway.put("memjectives", "memjective-cli/body.md", "feat/x", "feat-x-sentinel\n")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/other",
+        live_branches=("master", "feat/x", "feat/other"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["show", "memjective-cli", "--branch", "feat/x", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["body"] == {
+        "source_branch": "feat/x",
+        "content": "feat-x-sentinel\n",
+    }
+
+
+def test_memjective_show_branch_strict_no_master_fallback(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "memjective-cli/body.md", "master", "master-sentinel\n")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/other",
+        live_branches=("master", "feat/other"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["show", "memjective-cli", "--branch", "feat/x", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["body"] is None
+    assert payload["data"]["roadmap"] is None
+    assert payload["data"]["notes"] is None
+    assert payload["data"]["seed_present"] is True
+    assert payload["data"]["files"] == ["body.md"]
+
+
+def test_memjective_show_branch_auto_resolves_slug_from_requested_branch(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "memjective-cli/body.md", "feat/x", "snap\n")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/empty",
+        live_branches=("feat/x", "feat/empty"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["show", "--branch", "feat/x", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["slug"] == "memjective-cli"
+
+
+def test_memjective_show_branch_invalid_name_errors(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=_seed_repo(), live_branches=("master",))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["show", "memjective-cli", "--branch", "nope---bad", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code != 0
+    assert payload["error_type"] == "invalid_branch_name"
+
+
+def test_memjective_show_branch_repo_summary_unchanged(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(
+        gateway=_seed_repo(),
+        live_branches=("master", "mem-scaffold-list", "feat/reviewer"),
+    )
+
+    no_flag = CliRunner().invoke(
+        cli_group,
+        ["show", "memjective-cli", "--format", "json"],
+        obj=obj,
+    )
+    with_flag = CliRunner().invoke(
+        cli_group,
+        ["show", "memjective-cli", "--branch", "mem-scaffold-list", "--format", "json"],
+        obj=obj,
+    )
+
+    assert no_flag.exit_code == 0, no_flag.output
+    assert with_flag.exit_code == 0, with_flag.output
+    no_flag_data = json.loads(no_flag.output)["data"]
+    with_flag_data = json.loads(with_flag.output)["data"]
+    assert with_flag_data["branches"] == no_flag_data["branches"]
+    assert with_flag_data["seed_present"] == no_flag_data["seed_present"]
+    assert with_flag_data["files"] == no_flag_data["files"]
+
+
 def test_memjective_list_here_dedupes_slug_with_multiple_files(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("memjectives", "memjective-cli/body.md", "feat/x", "body\n")

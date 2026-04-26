@@ -8,7 +8,8 @@ from typing import Annotated, Any
 import click
 from rich.markdown import Markdown
 
-from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
+from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef, check_branch_name
+from twerk_core.brmem.validation import first_failure
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
@@ -38,6 +39,7 @@ class MemjectiveShowRequest:
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
     ] = None
+    branch: str | None = None
 
 
 @dataclass(frozen=True)
@@ -106,8 +108,14 @@ def _read_file(
     *,
     current_branch: str | None,
     seed_present: bool,
+    requested_branch: str | None,
 ) -> MemjectiveFile | None:
     key = f"{slug}/{filename}"
+    if requested_branch is not None:
+        content = gateway.get(MEMJECTIVE_NAMESPACE, key, requested_branch)
+        if content is None:
+            return None
+        return MemjectiveFile(filename=filename, source_branch=requested_branch, content=content)
     if current_branch is not None and current_branch != MASTER_BRANCH:
         content = gateway.get(MEMJECTIVE_NAMESPACE, key, current_branch)
         if content is not None:
@@ -130,7 +138,10 @@ def _slug_entries(entries: list[EntryRef], slug: str) -> list[EntryRef]:
         "Summarize where a memjective currently exists: whether a master "
         "seed is present and which branches carry a snapshot. If SLUG is "
         "omitted and exactly one memjective is attached to the current "
-        "branch, it is selected automatically."
+        "branch, it is selected automatically. Pass --branch <name> to "
+        "render file content strictly from that branch's snapshot (no "
+        "master-seed fallback) and to auto-resolve SLUG from <name> "
+        "instead of HEAD."
     ),
     human_renderer=render_memjective_show,
 )
@@ -142,7 +153,17 @@ def run_show_memjective(
     gateway = mctx.brmem_gateway
     git_gateway = mctx.git_gateway
 
-    match resolve_slug(mctx, request.slug):
+    validation_failure = first_failure(
+        (
+            "invalid_branch_name",
+            None if request.branch is None else check_branch_name(request.branch),
+        ),
+    )
+    if validation_failure is not None:
+        error_type, message = validation_failure
+        return ClinkrExit.failure(error_type=error_type, message=message)
+
+    match resolve_slug(mctx, request.slug, requested_branch=request.branch):
         case GitCommandFailure() as failure:
             return ClinkrExit.failure(error_type="git_failed", message=failure.message)
         case DetachedHead():
@@ -194,6 +215,7 @@ def run_show_memjective(
         BODY_FILE,
         current_branch=current_branch,
         seed_present=seed_present,
+        requested_branch=request.branch,
     )
     roadmap = _read_file(
         gateway,
@@ -201,6 +223,7 @@ def run_show_memjective(
         ROADMAP_FILE,
         current_branch=current_branch,
         seed_present=seed_present,
+        requested_branch=request.branch,
     )
     notes = _read_file(
         gateway,
@@ -208,6 +231,7 @@ def run_show_memjective(
         NOTES_FILE,
         current_branch=current_branch,
         seed_present=seed_present,
+        requested_branch=request.branch,
     )
 
     return ClinkrExit.ok(
