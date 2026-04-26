@@ -14,7 +14,7 @@ metadata:
 
 # dev-memjective-create
 
-Create the master-branch snapshot for a new local-first memjective.
+Create the canonical record for a new local-first memjective.
 
 > For shared concepts — vocabulary, storage model, content anatomy, lifecycle,
 > carry-forward semantics, and mutation contracts — see
@@ -23,13 +23,13 @@ Create the master-branch snapshot for a new local-first memjective.
 
 ## Goal
 
-Given a memjective brief, draft the initial master snapshot under namespace
-`memjectives` and key prefix `<slug>/`.
+Given a memjective brief, draft the initial canonical memjective under
+namespace `memjectives` and key prefix `<slug>/`.
 
 `create` writes `body.md` once, and writes `roadmap.md` only when the
 conversation already contains a concrete slice plan. It never writes
-`notes.md`, never attaches the snapshot to the current branch, and never
-writes durable memjective files into the working tree.
+`notes.md`, never attaches a branch snapshot, and never writes durable
+memjective files into the working tree.
 
 ## Memjective Content
 
@@ -45,8 +45,9 @@ A memjective snapshot is the content stored under `<slug>/` in namespace
 - `notes.md` (optional): durable findings.
 
 `create` may write only `body.md` and, when warranted, `roadmap.md`.
-`notes.md` appears later when `dev-memjective-update` or
-`dev-memjective-reconcile` records a durable finding.
+`notes.md` appears later when `dev-memjective-update` records a branch
+finding or `dev-memjective-reconcile` folds durable evidence into canonical
+state.
 
 ## Inputs
 
@@ -62,8 +63,9 @@ A memjective snapshot is the content stored under `<slug>/` in namespace
 
 ## Core Rules
 
-- **Master snapshot only.** Write to `--branch master`; do not attach to the
-  current branch. Users run `dev-memjective-claim <slug>` to attach.
+- **Canonical only.** In the current brmem-backed implementation, write to
+  `--branch master`; do not attach to the current branch. Users run
+  `dev-memjective-claim <slug>` to attach a branch snapshot.
 - **Use canonical templates.** Draft `body.md` from
   `../dev-memjective/templates/body-template.md` and `roadmap.md` from
   `../dev-memjective/templates/roadmap-template.md` when a roadmap is needed.
@@ -139,7 +141,7 @@ For `roadmap.md`, when drafted:
 - prefer steelthreaded early slices over framework-only scaffolding
 - keep completed-item history visible for later `update`/`reconcile`
 
-### 5. Write The Master Snapshot
+### 5. Write The Canonical Record
 
 Write drafts to temporary files, then store them in brmem:
 
@@ -158,8 +160,8 @@ Return:
 - memjective title
 - slug
 - files written
-- master snapshot location: namespace `memjectives`, branch `master`, key
-  prefix `<slug>/`
+- canonical location: namespace `memjectives`, branch `master`, key prefix
+  `<slug>/`
 - brmem commit SHA or SHAs
 - next-step hint:
 
@@ -174,13 +176,13 @@ dev-memjective-update <slug> to record progress.
 
 - Detached `HEAD` or missing critical brief details: abort and describe/ask
   briefly.
-- Master already carries `<slug>/`: abort instead of overwriting.
+- Canonical storage already carries `<slug>/`: abort instead of overwriting.
 - Vague slice plan: write only `body.md`; do not invent `roadmap.md`
   filler.
 - Current branch already carries one or more memjective slugs: not a create
-  blocker, because `create` writes only master.
+  blocker, because `create` writes only canonical state.
 - Never store the memjective in GitHub, write durable files into the working
   tree, attach a branch snapshot, write `notes.md`, use bare keys, rewrite an
-  existing master snapshot, stuff roadmap history into `Status:`, or open a
-  multi-PR redesign with framework-only slices when a steelthreaded slice is
-  possible.
+  existing canonical memjective, stuff roadmap history into `Status:`, or
+  open a multi-PR redesign with framework-only slices when a steelthreaded
+  slice is possible.

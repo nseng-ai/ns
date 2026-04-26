@@ -6,11 +6,14 @@ allowed-tools:
   - "Bash(git for-each-ref *)"
   - "Bash(git ls-tree *)"
   - "Bash(git log *)"
+  - "Bash(memjective tree *)"
+  - "Bash(gh pr view *)"
   - "Bash(brmem check *)"
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
   - "Bash(brmem put *)"
   - "Read"
+  - "Write"
 metadata:
   internal: true
 ---
@@ -19,308 +22,205 @@ metadata:
 
 # dev-memjective-reconcile
 
-Master-snapshot rewrite primitive for the memjective subsystem.
-`reconcile` runs **only on master** and folds evidence from sibling-branch
-snapshots — other refs under `refs/brmem/ns/memjectives/*` carrying the
-same slug — into a conservative rewrite of the master-branch snapshot.
+Refresh the canonical memjective from branch snapshots and the PRs associated
+with those branches.
 
-> For shared concepts — vocabulary (`snapshot`, `master-branch snapshot`,
-> `per-branch snapshot`), the storage model, the document anatomy, the
-> lifecycle, and the per-operation mutation contract — see
-> `../dev-memjective/SKILL.md` and
-> `../dev-memjective/references/mutation-contract.md`. This skill does not
-> redefine those concepts; it documents the workflow that implements
-> `reconcile`'s row of the mutation contract.
+> For the canonical-vs-branch model, document anatomy, lifecycle, and shared
+> rewrite rules, see `../dev-memjective/SKILL.md` and
+> `../dev-memjective/references/mutation-contract.md`.
 
 ## Goal
 
-On master, enumerate sibling-branch snapshots carrying `<slug>/`, read
-each sibling's `body.md` / `roadmap.md` / `notes.md` as evidence, and
-rewrite the master-branch snapshot's same files conservatively per the
-per-file mutation contract. Report the per-file old → new SHAs on master
-plus the per-sibling evidence consulted.
+Given an explicit memjective slug, rewrite the canonical memjective
+conservatively by exploring branch snapshots that carry `<slug>/`,
+cross-referencing their associated PRs, and folding that evidence into
+canonical `body.md`, `roadmap.md`, and `notes.md`.
 
-`reconcile` is the **only** rewrite path for the master-branch snapshot.
-Initial master writes go through `dev-memjective-create`; slice-branch
-rewrites go through `dev-memjective-update`. `reconcile` never carries
-forward verbatim and never writes to a sibling ref.
+In the current implementation, canonical state is stored in `brmem` on
+branch `master`, so `reconcile` runs only on `master`. It never writes to
+branch snapshots and never copies one snapshot verbatim onto canonical state.
 
 ## Arguments
 
-`reconcile` requires the **memjective slug** as an explicit positional
-argument, parsed from the invoking prompt (e.g., _"run dev-memjective-reconcile
-for `widget-rewrite`"_). The slug is always explicit — many-to-many is
-allowed in the storage model, so master can carry multiple distinct
-slugs, and `reconcile` does not auto-pick.
+The memjective slug is required and explicit. Do not infer it from "the only
+memjective" in canonical storage.
 
-If the invoking prompt does not contain a slug, abort and ask the user
-which memjective to reconcile.
-
-## Core rules
-
-- **Master only.** `reconcile` aborts off master with a pointer to
-  `dev-memjective-update`. Slice-branch rewrites use the branch's own
-  commit log and live in a separate skill.
-- **Sibling snapshots are read-only evidence.** `reconcile` reads
-  sibling files to ground its rewrite; it never writes back to any
-  sibling ref.
-- **Rewrite obeys the per-file mutation contract.** Sibling evidence
-  informs _which_ roadmap items to check, _what_ durable findings to
-  append to `notes.md`, and _whether_ a completion criterion in
-  `body.md` has landed — it does not unlock wholesale regeneration.
-  See `../dev-memjective/references/mutation-contract.md`
-  ("Rules for `dev-memjective-reconcile`") for the full contract.
-- **Enumeration is in-repo only.** `git for-each-ref
-  refs/brmem/ns/memjectives/` plus local `brmem` reads. No `gh`, no
-  `git fetch`, no network dependency.
-- **Orphaned refs are valid evidence but labeled.** A ref whose branch
-  is deleted still holds a readable snapshot. Treat its content as
-  evidence; label it `orphaned-ref` in the report; prefer corroboration
-  from a live sibling or a merged PR before acting on its signal alone.
-- **Verbatim copy is forbidden.** Carry-forward (single-source exact
-  copy) is `dev-memjective-claim`'s job, not `reconcile`'s. The
-  reconcile fuses evidence across siblings into a conservative
-  rewrite — never a copy.
-- **No freshness check / no no-op-when-in-sync short-circuit.**
-  Sibling snapshot changes do not bump master's HEAD, so the
-  freshness shortcut that `update` uses does not apply.
-  `reconcile` always does the work.
+If the prompt does not name a slug, abort and ask which memjective to
+reconcile.
 
 ## Workflow
 
-### 1. Pre-flight: confirm repo + abort if not on master
+### 1. Preflight
 
 ```bash
 git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-Call the current branch `<branch>`. Abort if:
+Abort if not in a git repo, on detached `HEAD`, off `master`, or missing the
+slug. Off `master`, print:
 
-- not in a git repo,
-- the current branch is detached (`HEAD`),
-- the invoking prompt did not name a memjective slug (see **Arguments**).
+```text
+dev-memjective-reconcile updates canonical state. Use
+dev-memjective-update <slug> to record progress on a branch snapshot.
+```
 
-If `<branch>` is **not** `master`, abort with exit code 1 and print:
-
-> `dev-memjective-reconcile` runs on master only. Use
-> `dev-memjective-update <slug>` to record progress on a slice branch.
-
-Slice-branch rewrites use the branch's own commit log as evidence and
-live in a separate skill. Do not proceed past this guard off master.
-
-### 2. Pre-flight: master snapshot for `<slug>` must exist
+### 2. Confirm canonical state exists
 
 ```bash
 brmem check <slug>/body.md --namespace memjectives --branch master
 ```
 
-If the master snapshot lacks `<slug>/body.md`, abort with exit code 1
-and point the user at `dev-memjective-create`:
+If canonical `body.md` is missing, abort and point the user at
+`dev-memjective-create`.
 
-> No master snapshot for `<slug>`. Run `dev-memjective-create` to seed
-> it before reconciling.
-
-`reconcile` rewrites an existing master snapshot; it does not seed
-one. The initial draft is always `create`'s job.
-
-### 3. Capture master's prior file commits and load the active files
-
-Capture the current commit of each existing file under `<slug>/` on
-master for the report:
+Capture old SHAs and load present canonical files:
 
 ```bash
 brmem check <slug>/body.md --namespace memjectives --branch master
-brmem check <slug>/roadmap.md --namespace memjectives --branch master   # if present
-brmem check <slug>/notes.md --namespace memjectives --branch master     # if present
-```
+brmem check <slug>/roadmap.md --namespace memjectives --branch master
+brmem check <slug>/notes.md --namespace memjectives --branch master
 
-Then load each present file:
-
-```bash
 brmem get <slug>/body.md --namespace memjectives --branch master \
-  > /tmp/<slug>-master-body.md
+  > /tmp/<slug>-canonical-body.md
 brmem get <slug>/roadmap.md --namespace memjectives --branch master \
-  > /tmp/<slug>-master-roadmap.md   # if present
+  > /tmp/<slug>-canonical-roadmap.md
 brmem get <slug>/notes.md --namespace memjectives --branch master \
-  > /tmp/<slug>-master-notes.md     # if present
+  > /tmp/<slug>-canonical-notes.md
 ```
 
-### 4. Enumerate sibling-branch snapshots
+Only run commands for files that exist.
+
+### 3. Enumerate branch snapshots and PRs
+
+Prefer the purpose-built tree command:
+
+```bash
+memjective tree <slug> --format json
+```
+
+Use it to identify:
+
+- branch snapshots carrying `<slug>/`
+- live vs stale/orphaned branches
+- associated PR number, URL, title, and state
+- branches with no PR
+- PR lookup errors
+
+If no branch snapshots carry the slug, report that there is no evidence to
+fold in and write nothing.
+
+If the tree command is unavailable or insufficient, fall back to local refs
+plus direct PR lookup:
 
 ```bash
 git for-each-ref --format='%(refname)' refs/brmem/ns/memjectives/
+git ls-tree -r <refname>
+gh pr view <branch> --json number,title,url,headRefName,baseRefName,state,mergedAt
 ```
 
-For each ref, extract `<encoded-branch>` (the trailing path segment)
-and decode `---` → `/`. Then:
+PR lookup failures should become evidence gaps in the report, not hard
+failures, unless every PR lookup needed for the requested reconciliation is
+unavailable.
 
-- **Drop the `master` entry** — that is the target, not a sibling.
-- For each remaining ref, run `git ls-tree -r <refname>` and keep only
-  refs whose tree contains paths starting with `<slug>/`. Drop refs
-  that do not carry the requested slug.
-- Label the survivors:
-  - **`live`** if the branch still exists:
-    ```bash
-    git rev-parse --verify --quiet refs/heads/<sibling>
-    ```
-  - **`orphaned-ref`** if the branch has been deleted but the snapshot
-    ref remains.
+### 4. Load branch snapshot evidence
 
-### 5. Read each sibling's files as evidence
-
-For each surviving sibling, read every present file under `<slug>/`
-using `brmem get` (read-only — no `gh`, no `git fetch`, purely
-in-repo):
+For each relevant branch snapshot, read present files:
 
 ```bash
-brmem get <slug>/body.md --namespace memjectives --branch <sibling> \
-  > /tmp/<slug>-<sibling>-body.md
-brmem get <slug>/roadmap.md --namespace memjectives --branch <sibling> \
-  > /tmp/<slug>-<sibling>-roadmap.md   # if present
-brmem get <slug>/notes.md --namespace memjectives --branch <sibling> \
-  > /tmp/<slug>-<sibling>-notes.md     # if present
+brmem get <slug>/body.md --namespace memjectives --branch <branch> \
+  > /tmp/<slug>-<branch>-body.md
+brmem get <slug>/roadmap.md --namespace memjectives --branch <branch> \
+  > /tmp/<slug>-<branch>-roadmap.md
+brmem get <slug>/notes.md --namespace memjectives --branch <branch> \
+  > /tmp/<slug>-<branch>-notes.md
 ```
 
-Also record per-file metadata for the report:
+Capture per-file metadata when useful:
 
 ```bash
-brmem check <slug>/<file> --namespace memjectives --branch <sibling> --format json
+brmem check <slug>/<file> --namespace memjectives --branch <branch> --format json
 ```
 
-Extract `.data.head_sha` and `.data.head_date`. Take the **maximum**
-`head_date` across each sibling's present files as that sibling's
-freshness stamp.
+When branch snapshot text is ambiguous, enrich the associated PR:
 
-### 6. Rewrite master conservatively, per file
+```bash
+gh pr view <number-or-branch> \
+  --json number,title,url,headRefName,baseRefName,state,mergedAt,commits,body
+```
 
-Apply the per-file mutation contract from
-`../dev-memjective/references/mutation-contract.md`. Sibling evidence
-is the grounding; the per-file rules are the same as `update`'s. For
-checkbox flips in `body.md`'s Completion Criteria and `roadmap.md`,
-prefer signals corroborated by more than one sibling when available,
-and treat orphaned-ref-only signals as weaker than live-sibling
-signals.
+Use PR metadata to ground the rewrite, not as text to copy wholesale.
 
-**`body.md`** — the stable spine; touch sparingly:
+### 5. Weigh evidence
 
-- Preserve the title unless the user explicitly asked to rename it.
-- Update `Status` if sibling evidence supports a categorical move
-  (`in progress` → `done`, etc.).
-- Mark completed `Completion Criteria` items and keep them visible.
-- Update `Description` or `Goals` only for small clarifications
-  grounded in sibling text.
-- Update `How to Make Progress` only when sibling notes show the
-  recipe genuinely changed.
+Use the weighting rules from
+`../dev-memjective/references/mutation-contract.md`:
 
-**`roadmap.md`** — where most of the motion happens:
+- merged PRs are the strongest signal
+- open PRs are useful for in-flight findings but weaker for canonical
+  completion
+- closed-unmerged PRs are weak and should be labeled
+- no-PR branches are local-only evidence
+- PR lookup errors are evidence gaps
+- stale/orphaned snapshots are valid but weak evidence
 
-- Check items completed across siblings.
-- Split a roadmap entry when sibling evidence shows the work landed in
-  more granular pieces than originally planned.
-- Append nearby follow-ups discovered during slice work (visible in
-  sibling `roadmap.md` or `notes.md`).
-- Never delete history — keep completed items visible.
-- Never add manual-only or observation-only bullets (e.g., "live
-  testing session", "manual smoke-test").
+Prefer corroborated signals when multiple branch snapshots disagree. Surface
+contradictions in the report instead of forcing a confident rewrite.
 
-**`notes.md`** — append-only with obsolete annotations:
+### 6. Rewrite canonical files conservatively
 
-- Append durable findings observed in sibling `notes.md` that are not
-  yet on master.
-- Annotate obsolete notes in place (e.g.,
-  `~~…~~ — superseded by slice 3`) rather than deleting them.
-- Create `notes.md` for the first time when sibling evidence shows a
-  durable finding worth recording and master had no notes file before.
+Apply the shared conservative rewrite rules in
+`../dev-memjective/references/mutation-contract.md`.
 
-**Verbatim copy is forbidden.** Sibling text is evidence, not source.
-The reconcile fuses evidence across siblings into a conservative
-rewrite. Single-source exact copy is `dev-memjective-claim`'s job.
+Typical reconcile work:
 
-### 7. Persist the updated files
+- check canonical roadmap items supported by merged branch/PR evidence
+- check canonical completion criteria when the end-state is actually true
+- append durable findings from branch `notes.md` or PR context
+- split or add nearby roadmap follow-ups discovered during branch work
+- move `Status:` only when canonical state changed categorically
 
-Write each file that you changed to a temp file, then store it back to
-the master-branch snapshot:
+Do not paste a branch snapshot over canonical state. Do not write to branch
+snapshots.
+
+### 7. Persist changed canonical files
+
+Write changed content to temporary files, then store only changed files back
+to canonical storage:
 
 ```bash
 brmem put <slug>/body.md --namespace memjectives --branch master --file <temp-body>
-# If roadmap.md changed:
 brmem put <slug>/roadmap.md --namespace memjectives --branch master --file <temp-roadmap>
-# If notes.md changed (including a first-time append):
 brmem put <slug>/notes.md --namespace memjectives --branch master --file <temp-notes>
 ```
 
-Capture the new commit SHAs. Skip `brmem put` for any file that did
-not change in this session.
+Skip `brmem put` for unchanged files. Capture new commit SHAs.
 
 ### 8. Report
 
-Summarize:
+Include:
 
-- memjective slug
-- target — `master`.
-- files touched on master (`body.md`, `roadmap.md`, `notes.md`) and a
-  one-line note for each — e.g., "body.md: 2 criteria checked from
-  sibling evidence", "roadmap.md: Slice 2 items checked",
-  "notes.md: appended threading gotcha".
-- per-file old commit SHA → new commit SHA on master.
-- **Sibling evidence consulted** — for each sibling (in newest-first
-  order by max `head_date`), report:
-  - `<sibling>` — liveness (`live` / `orphaned-ref`),
-  - newest `head_date`,
-  - per-file verdict (`same` / `modified` / `sibling-only`),
-  - one-line contribution (e.g., "checked Slice 1 items 1–3 in
-    roadmap", "notes: threading gotcha carried forward").
+- slug and canonical target (`master` in current storage)
+- files touched with one-line notes
+- old SHA to new SHA for each changed file
+- branch snapshots consulted
+- PR evidence consulted: branch, liveness, PR number/state/URL/title, and
+  one-line contribution
+- conflicts or evidence gaps
 - recovery hint:
 
 ```text
-Recover a prior master file with:
 brmem get <slug>/<file> --namespace memjectives --branch master --at <old-sha>
 ```
 
-## Edge cases
+## Edge cases and anti-patterns
 
-- **Off master** → abort with the off-master pointer (§1). Use
-  `dev-memjective-update <slug>` on a slice branch instead.
-- **No master snapshot for the slug** → abort (§2) and direct the
-  user at `dev-memjective-create`.
-- **No sibling snapshots carry the slug** → there is nothing to fold
-  in. Report this and exit without writing — there is no evidence to
-  ground a conservative rewrite. (This is not the same as
-  `update`'s no-op-when-in-sync; it is "no evidence available".)
-- **Sibling ref exists but its branch has been deleted** → treat the
-  ref as valid evidence; label it `orphaned-ref` in the report.
-  Prefer corroboration from a live sibling or a merged PR before
-  acting on its signal alone.
-- **Master also carries other slugs** → fine. Many-to-many is allowed;
-  `reconcile` operates on the explicit slug only.
-- **Sibling text contradicts master without clear corroboration** →
-  prefer the conservative move (do not check off, do not delete) and
-  surface the conflict in the report so the user can resolve it
-  directly.
-
-## Anti-patterns
-
-- **Running `reconcile` off master.** Slice-branch rewrites go through
-  `dev-memjective-update`. `reconcile` aborts off master on purpose.
-- **Copying a sibling snapshot verbatim onto master.** Verbatim
-  carry-forward is `dev-memjective-claim`'s job; sibling text is
-  evidence, not source.
-- **Writing back to a sibling ref.** `reconcile` only writes to
-  master.
-- **Pulling sibling text by way of `git fetch` or `gh`.** Enumeration
-  is in-repo only — siblings are local refs under
-  `refs/brmem/ns/memjectives/`.
-- **Treating an orphaned-ref's signal as authoritative on its own.**
-  Always prefer corroboration from a live sibling or a merged PR
-  before acting on it.
-- **Regenerating master files from scratch from sibling evidence.**
-  The rewrite is conservative — small clarifications, status moves,
-  checkbox flips, appended notes. Never wholesale regeneration.
-- **Renaming sections or restructuring files** during a `reconcile`
-  run. Section names are stable.
-- **Skipping the off-master abort** to "just reconcile real quick on a
-  slice branch." Use `update` on a slice branch.
-- **Adding a freshness check** to short-circuit master writes. Sibling
-  snapshot changes do not bump master's HEAD, so the freshness
-  shortcut does not apply.
+- Off `master`: abort and point to `update`.
+- No canonical `body.md`: abort and point to `create`.
+- No branch snapshots carry the slug: report no evidence and write nothing.
+- PR lookup errors: continue when possible and report the gap.
+- Contradictory branch/PR evidence: keep canonical state conservative and
+  surface the conflict.
+- Never copy a branch snapshot verbatim, write to branch snapshots, treat an
+  orphaned/no-PR branch as authoritative on its own, add a HEAD freshness
+  shortcut, or rebuild canonical files wholesale.

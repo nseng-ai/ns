@@ -29,7 +29,7 @@ Read-only status peek and next-slice recommendation for a memjective.
 ## Goal
 
 Given an explicit memjective slug, load the best matching source, summarize
-the content state, flag stale non-master branch snapshots, and suggest a
+the content state, flag stale branch snapshots, and suggest a
 collision-checked kebab-case slug for the next PR-sized slice.
 
 `next` writes nothing: no `brmem put`, no `brmem copy`, no branch creation,
@@ -58,7 +58,7 @@ which known content files exist under `<slug>/` and operate on that set.
 - **Slug, required.** Parse the memjective slug from the prompt. Never infer
   it from "the only memjective" on a branch; branches may carry multiple
   slugs. If the prompt lacks a slug, ask which memjective to inspect.
-- **Source, optional.** The user may name a branch, a master-branch snapshot
+- **Source, optional.** The user may name a branch, a canonical memjective
   slug, or a local file path. Use an explicit source directly. If it is
   invalid, stop and report the problem instead of falling back to discovery.
 
@@ -69,14 +69,14 @@ which known content files exist under `<slug>/` and operate on that set.
 - **Content-only.** Do not inspect repo source files to audit progress.
   Implementation evidence is folded back later by `dev-memjective-update`.
 - **Source labels are mandatory.** Every report says whether content came
-  from the current-branch snapshot, an ancestor-branch snapshot, the
-  master-branch snapshot, an explicit branch, or a local file.
+  from the current-branch snapshot, an ancestor-branch snapshot, canonical
+  state, an explicit branch, or a local file.
 - **Prefer the nearest working snapshot.** Discovery order is current branch,
-  nearest ancestor branch, then master.
+  nearest ancestor branch snapshot, then canonical state.
 - **No Graphite dependency.** Use raw git and brmem only; never use `gt` for
   source discovery.
 - **Collision-safe suggestion.** Check the suggested slice slug against local
-  branches and master-branch memjective slugs. On collision, warn and ask;
+  branches and canonical memjective slugs. On collision, warn and ask;
   do not auto-resolve.
 
 ## Workflow
@@ -100,8 +100,8 @@ copy to read:
 1. **Explicit source from the user**
    - Branch: require the memjective's required content file in that branch's
      snapshot.
-   - Master snapshot slug: require it on `master`; if it differs from the
-     requested slug, surface the mismatch and ask.
+   - Canonical slug: require it in canonical storage (`master` today); if it
+     differs from the requested slug, surface the mismatch and ask.
    - Local file: read it as the required content file and label the source
      `local file`.
 2. **Current branch**: use it when
@@ -110,11 +110,11 @@ copy to read:
    `---` to `/`, and keep only live non-master branches that are ancestors of
    `HEAD` and carry the required content file. Choose the candidate with the
    smallest `git rev-list --count refs/heads/<branch>..HEAD`; ask on ties.
-4. **Master branch**: use it when `brmem check` succeeds for the required
-   content file on `master`.
+4. **Canonical state**: use it when `brmem check` succeeds for the required
+   content file in canonical storage (`master` today).
 
-If no source contains the slug, ask the user to name a branch, master slug, or
-local file. Do not return an empty report.
+If no source contains the slug, ask the user to name a branch, canonical slug,
+or local file. Do not return an empty report.
 
 Record the source type, source branch when applicable, and which known content
 files are present under `<slug>/`.
@@ -128,8 +128,8 @@ content inventory and the anatomy in `../dev-memjective/SKILL.md`.
 
 ### 4. Check Freshness
 
-Run this only for non-master branch snapshots: current branch, ancestor
-branch, or explicit branch. Skip master and local files.
+Run this only for branch snapshots: current branch, ancestor branch, or
+explicit branch. Skip canonical state and local files.
 
 Compare the newest `head_date` reported by `brmem check --format json` across
 the present files with the source branch's `git log -1 --format=%cI` time. If
@@ -212,7 +212,7 @@ branch before claiming a new slice.
 - Source has only the required content file: report that no optional progress
   surface exists; fall back to progress guidance, or ask if the next slug is
   ambiguous.
-- Master source: never run the freshness check; master rewrites go through
-  `dev-memjective-reconcile`, not `dev-memjective-update`.
+- Canonical source: never run the freshness check; canonical rewrites go
+  through `dev-memjective-reconcile`, not `dev-memjective-update`.
 - Never auto-pick a slug, auto-resolve a collision, inspect source code for
   drift, attach/carry forward a snapshot, or implement work during `next`.

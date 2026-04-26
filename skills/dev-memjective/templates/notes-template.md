@@ -8,7 +8,8 @@ Rules:
 - Keep entries terse — one or two sentences plus a file/commit pointer
   when helpful. This is a knowledge log, not a changelog.
 - Optional file. `dev-memjective-create` does not write this; it appears
-  the first time `dev-memjective-update` records a durable finding.
+  when `dev-memjective-update` records a branch finding or
+  `dev-memjective-reconcile` folds a durable finding into canonical state.
 
 Delete this HTML comment before use.
 -->
