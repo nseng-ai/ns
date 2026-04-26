@@ -9,6 +9,7 @@ from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import (
@@ -45,7 +46,7 @@ class PrepareRunRequest:
 
 
 @dataclass(frozen=True)
-class PrepareRunResult:
+class PrepareRunResult(JsonSerializable):
     """Normalized PR feedback snapshot for a single `pr-address` run.
 
     When `found` is False the current branch has no associated PR; all other

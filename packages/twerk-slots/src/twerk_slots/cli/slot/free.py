@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
 from twerk_core import get_console
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import (
@@ -43,20 +44,8 @@ class FreedSlot:
 
 
 @dataclass(frozen=True)
-class SlotFreeResult:
+class SlotFreeResult(JsonSerializable):
     freed: tuple[FreedSlot, ...]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "freed": [
-                {
-                    "slot_name": f.slot_name,
-                    "branch_name": f.branch_name,
-                    "worktree_path": f.worktree_path,
-                }
-                for f in self.freed
-            ],
-        }
 
 
 def render_slot_free(result: SlotFreeResult) -> None:

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import click
 import pytest
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation, get_operation_meta
 
@@ -15,8 +16,18 @@ class FakeRequest:
 
 
 @dataclass(frozen=True)
-class FakeResult:
+class FakeResult(JsonSerializable):
     message: str
+
+
+@dataclass(frozen=True)
+class BadResult:
+    """Fixture for test_result_type_must_subclass_json_serializable.
+
+    Deliberately does not subclass JsonSerializable.
+    """
+
+    value: str
 
 
 def test_clinkr_exit_return_tags_result_type() -> None:
@@ -51,6 +62,19 @@ def test_clinkr_exit_unparameterized_rejected() -> None:
         # Test subject: ClinkrExit without a type parameter — must reject.
         def op(ctx: click.Context, request: FakeRequest) -> ClinkrExit:  # type: ignore[type-arg]
             return ClinkrExit.ok(FakeResult(message="ok"))
+
+
+def test_result_type_must_subclass_json_serializable() -> None:
+    with pytest.raises(
+        TypeError,
+        match=r"clinkr_operation function .*op_with_bad_result.*"
+        r"result type BadResult must subclass JsonSerializable",
+    ):
+
+        @clinkr_operation(name="op")
+        def op_with_bad_result(ctx: click.Context, request: FakeRequest) -> ClinkrExit[BadResult]:  # type: ignore[type-var]
+            del ctx, request
+            return ClinkrExit.ok(BadResult(value="x"))  # type: ignore[type-var]
 
 
 def test_plain_return_type_rejected() -> None:

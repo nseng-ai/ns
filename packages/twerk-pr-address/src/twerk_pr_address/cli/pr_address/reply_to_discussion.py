@@ -9,6 +9,7 @@ from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment, Reaction
@@ -26,7 +27,7 @@ class ReplyToDiscussionRequest:
 
 
 @dataclass(frozen=True)
-class ReplyToDiscussionResult:
+class ReplyToDiscussionResult(JsonSerializable):
     body: str
     comment: IssueComment
     reaction_added: bool

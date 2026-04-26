@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
 from twerk_core import get_console
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRState
@@ -41,7 +42,7 @@ class SlotGcResultEntry:
 
 
 @dataclass(frozen=True)
-class SlotGcResult:
+class SlotGcResult(JsonSerializable):
     entries: tuple[SlotGcResultEntry, ...]
     freed_count: int
     kept_count: int
@@ -49,29 +50,6 @@ class SlotGcResult:
     error_count: int
     dry_run: bool
     cancelled: bool = False
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "dry_run": self.dry_run,
-            "cancelled": self.cancelled,
-            "freed_count": self.freed_count,
-            "kept_count": self.kept_count,
-            "skipped_count": self.skipped_count,
-            "error_count": self.error_count,
-            "entries": [
-                {
-                    "slot_name": e.slot_name,
-                    "branch_name": e.branch_name,
-                    "worktree_path": e.worktree_path,
-                    "action": e.action,
-                    "pr_number": e.pr_number,
-                    "pr_state": e.pr_state,
-                    "pr_url": e.pr_url,
-                    "message": e.message,
-                }
-                for e in self.entries
-            ],
-        }
 
 
 _ACTION_LABELS: dict[SlotGcAction, tuple[str, str]] = {

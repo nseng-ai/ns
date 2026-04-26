@@ -6,6 +6,7 @@ from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment, PRReview, PRReviewThread
@@ -21,7 +22,7 @@ class GetFeedbackRequest:
 
 
 @dataclass(frozen=True)
-class GetFeedbackResult:
+class GetFeedbackResult(JsonSerializable):
     pr_number: int
     reviews: tuple[PRReview, ...]
     review_threads: tuple[PRReviewThread, ...]

@@ -6,7 +6,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
@@ -23,6 +23,7 @@ from twerk_core.brmem.gateway_access import (
 from twerk_core.brmem.key_validation import check_key
 from twerk_core.brmem.validation import first_failure
 from twerk_core.clinkr.context import is_machine_mode
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -51,23 +52,13 @@ class PutRequest:
 
 
 @dataclass(frozen=True)
-class PutResult:
+class PutResult(JsonSerializable):
     namespace: str | None
     key: str
     branch: str
     ref_name: str
     commit: str
     source_file: str
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "namespace": self.namespace,
-            "key": self.key,
-            "branch": self.branch,
-            "ref_name": self.ref_name,
-            "commit": self.commit,
-            "source_file": self.source_file,
-        }
 
 
 def render_put(result: PutResult) -> None:

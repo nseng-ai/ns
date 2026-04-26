@@ -4,11 +4,12 @@ from dataclasses import FrozenInstanceError, dataclass
 
 import pytest
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit, ExitStatus
 
 
 @dataclass(frozen=True)
-class SampleData:
+class SampleData(JsonSerializable):
     value: str
 
 
@@ -142,7 +143,7 @@ def test_envelope_failure_includes_error_type_and_message_no_data() -> None:
 
 def test_envelope_data_uses_to_json_dict_when_available() -> None:
     @dataclass(frozen=True)
-    class CustomPayload:
+    class CustomPayload(JsonSerializable):
         raw: str
 
         def to_json_dict(self) -> dict[str, str]:

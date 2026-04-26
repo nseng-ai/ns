@@ -10,6 +10,7 @@ from rich.markdown import Markdown
 
 from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console
@@ -47,7 +48,7 @@ class MemjectiveFile:
 
 
 @dataclass(frozen=True)
-class MemjectiveShowResult:
+class MemjectiveShowResult(JsonSerializable):
     slug: str
     seed_present: bool
     branches: tuple[BranchPresence, ...]

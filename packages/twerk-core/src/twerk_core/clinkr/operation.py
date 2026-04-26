@@ -7,6 +7,7 @@ from typing import Any, get_args, get_origin, get_type_hints
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 
 _META_ATTR = "_clinkr_operation_meta"
@@ -115,7 +116,13 @@ def _extract_types_from_hints(
                 f"clinkr_operation function {fn_name}: "
                 "ClinkrExit must be parameterized by a single concrete type"
             )
-        return request_type, (args[0],)
+        result_type = args[0]
+        if not issubclass(result_type, JsonSerializable):
+            raise TypeError(
+                f"clinkr_operation function {fn_name}: "
+                f"result type {result_type.__name__} must subclass JsonSerializable"
+            )
+        return request_type, (result_type,)
 
     if return_hint is ClinkrExit:
         raise TypeError(

@@ -5,6 +5,7 @@ from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRLookupError, PRState
@@ -17,7 +18,7 @@ class GetPRForBranchRequest:
 
 
 @dataclass(frozen=True)
-class GetPRForBranchResult:
+class GetPRForBranchResult(JsonSerializable):
     found: bool
     number: int | None = None
     title: str | None = None

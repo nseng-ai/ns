@@ -1,10 +1,10 @@
 """Unresolve a PR review thread."""
 
 from dataclasses import dataclass
-from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -16,15 +16,9 @@ class UnresolveThreadRequest:
 
 
 @dataclass(frozen=True)
-class UnresolveThreadResult:
+class UnresolveThreadResult(JsonSerializable):
     thread_id: str
     was_already_unresolved: bool
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "thread_id": self.thread_id,
-            "was_already_unresolved": self.was_already_unresolved,
-        }
 
 
 @clinkr_operation(

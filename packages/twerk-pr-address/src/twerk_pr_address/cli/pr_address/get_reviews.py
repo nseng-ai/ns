@@ -6,6 +6,7 @@ from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRReview
@@ -18,7 +19,7 @@ class GetReviewsRequest:
 
 
 @dataclass(frozen=True)
-class GetReviewsResult:
+class GetReviewsResult(JsonSerializable):
     reviews: tuple[PRReview, ...]
 
     def to_json_dict(self) -> dict[str, Any]:

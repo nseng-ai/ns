@@ -18,6 +18,7 @@ from twerk_core.brmem.gateway import (
 )
 from twerk_core.brmem.gateway_access import get_branch_memory_gateway
 from twerk_core.brmem.validation import check_key_glob, first_failure
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -78,17 +79,9 @@ class CopyPlanItem:
     destination_ref: str
     source_sha: str
 
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "key": self.key,
-            "source_ref": self.source_ref,
-            "destination_ref": self.destination_ref,
-            "source_sha": self.source_sha,
-        }
-
 
 @dataclass(frozen=True)
-class CopyResult:
+class CopyResult(JsonSerializable):
     namespace: str
     from_branch: str
     to_branch: str
@@ -96,17 +89,6 @@ class CopyResult:
     dry_run: bool
     copied: list[CopyPlanItem]
     key_glob: str | None = None
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "namespace": self.namespace,
-            "from_branch": self.from_branch,
-            "to_branch": self.to_branch,
-            "overwrite": self.overwrite,
-            "dry_run": self.dry_run,
-            "key_glob": self.key_glob,
-            "copied": [item.to_json_dict() for item in self.copied],
-        }
 
 
 def render_copy(result: CopyResult) -> None:
