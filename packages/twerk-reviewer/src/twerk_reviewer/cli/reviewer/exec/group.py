@@ -15,8 +15,8 @@ def build_exec_group() -> ClinkrGroup:
     group = ClinkrGroup(
         name="exec",
         help="Commands used by reviewer CI automation.",
+        hidden=True,
     )
-    group.hidden = True
     group.add_command(format_findings_comment_command)
     group.add_command(post_findings_comment_command)
     return group

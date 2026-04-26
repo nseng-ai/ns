@@ -15,8 +15,8 @@ def build_brmem_group() -> ClinkrGroup:
         name="exec",
         help="Commands for use by skills (not interactive users).",
         operations=[run_resolve_prompt],
+        hidden=True,
     )
-    exec_group.hidden = True
     outer = ClinkrGroup(
         name="brmem",
         help="Manage branch-scoped memory stored in git refs.",

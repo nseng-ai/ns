@@ -27,9 +27,10 @@ class ClinkrGroup(click.Group):
         name: str | None = None,
         *,
         operations: Sequence[Callable[..., Any]] = (),
+        hidden: bool = False,
         **kwargs: Any,
     ) -> None:
-        super().__init__(name, **kwargs)
+        super().__init__(name, hidden=hidden, **kwargs)
         self._aliases: dict[str, str] = {}
 
         for op_fn in operations:
