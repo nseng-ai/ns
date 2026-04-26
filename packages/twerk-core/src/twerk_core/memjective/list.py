@@ -64,7 +64,7 @@ class MemjectiveListResult(JsonSerializable):
                 {
                     "slug": m.slug,
                     "files": list(m.files),
-                    "seed_present": m.seed_present,
+                    "canonical_present": m.canonical_present,
                     "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in m.branches],
                 }
                 for m in self.memjectives
@@ -82,14 +82,14 @@ def render_memjective_list(result: MemjectiveListResult) -> None:
         return
 
     slug_width = max(len("SLUG"), max(len(m.slug) for m in result.memjectives))
-    header = f"{'SLUG'.ljust(slug_width)}  SEED  BRANCHES"
+    header = f"{'SLUG'.ljust(slug_width)}  CANONICAL  BRANCHES"
     click.echo(header)
     for memjective in result.memjectives:
-        seed_cell = "yes" if memjective.seed_present else "no "
+        canonical_cell = ("yes" if memjective.canonical_present else "no").ljust(len("CANONICAL"))
         branches_cell = str(memjective.live_branch_count)
         if memjective.deleted_branch_count:
             branches_cell = f"{branches_cell} (+{memjective.deleted_branch_count} deleted)"
-        click.echo(f"{memjective.slug.ljust(slug_width)}  {seed_cell}   {branches_cell}")
+        click.echo(f"{memjective.slug.ljust(slug_width)}  {canonical_cell}  {branches_cell}")
 
 
 @clinkr_operation(

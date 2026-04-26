@@ -65,7 +65,7 @@ The canonical memjective is the authoritative record. In the current
 brmem-backed implementation, it is the `<slug>/` directory stored on branch
 `master`.
 
-- `dev-memjective-create` seeds the canonical memjective.
+- `dev-memjective-create` writes the canonical memjective.
 - `dev-memjective-reconcile` is the normal lifecycle path that rewrites it.
 - `dev-memjective-update` never rewrites it.
 - `dev-memjective-claim` may copy from it, but never mutates it.

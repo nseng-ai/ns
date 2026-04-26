@@ -2,7 +2,7 @@
 name: brmem-branch-impl
 description: Command
 # Original description (preserved for reference):
-# Load the brmem-stashed plan/context from the current branch and begin implementation against it. Confirms that `brmem` entries exist on the branch, reads every entry into session context, summarizes the loaded plan, seeds a TODO list, and starts executing. Use when the user is sitting on a branch created by `brmem-branch-create` (or any branch with brmem content) and wants to pick up the stashed work. Read-only with respect to `brmem` — never writes entries.
+# Load the brmem-stashed plan/context from the current branch and begin implementation against it. Confirms that `brmem` entries exist on the branch, reads every entry into session context, summarizes the loaded plan, creates a TODO list, and starts executing. Use when the user is sitting on a branch created by `brmem-branch-create` (or any branch with brmem content) and wants to pick up the stashed work. Read-only with respect to `brmem` — never writes entries.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git symbolic-ref *)"
@@ -18,7 +18,7 @@ allowed-tools:
 
 Pick up a branch that has plan/context stashed via `brmem` and start implementing against it.
 
-**The skill owns:** confirming `brmem` content exists on the current branch, reading every entry verbatim into session context, summarizing what was loaded, seeding a TODO list from the plan, and beginning implementation.
+**The skill owns:** confirming `brmem` content exists on the current branch, reading every entry verbatim into session context, summarizing what was loaded, creating a TODO list from the plan, and beginning implementation.
 
 **Symmetric to `brmem-branch-create`:** that skill parks context on a branch; this skill unparks it and gets to work. No repo-local plugin is involved — impl is uniform across branches.
 
@@ -82,9 +82,9 @@ Plan summary:
 
 If multiple entries were loaded, identify the primary plan (the one whose key matches `plans/*.md`, or the single entry if only one, or the first listed otherwise) and summarize that. Mention any secondary entries by key without summarizing them individually.
 
-### 5. Seed the TODO list
+### 5. Create the TODO list
 
-Use `TodoWrite` to seed the task list:
+Use `TodoWrite` to create the task list:
 
 - If the primary plan has explicit numbered or bulleted steps, create one TODO per step, preserving the plan's order.
 - If the plan is prose-only, create a single "Implement plan" TODO and plan to break it down as execution reveals structure.
@@ -103,7 +103,7 @@ Start executing the plan. Apply normal session behavior:
 
 ## Manual verification scenarios
 
-1. **Branch with a single `plans/<slug>.md` entry** — skill reports one entry loaded, summarizes the plan in 3–5 bullets, seeds TODOs from the plan's numbered steps, and begins implementation.
+1. **Branch with a single `plans/<slug>.md` entry** — skill reports one entry loaded, summarizes the plan in 3–5 bullets, creates TODOs from the plan's numbered steps, and begins implementation.
 2. **Branch with no brmem entries** — clean abort naming the branch; no TODOs created, no implementation begun.
 3. **Trunk branch (`main`/`master`) with entries** — refuses to run regardless of entry count; names the trunk branch in the error.
 4. **Branch with multiple entries across namespaces** — all entries loaded; report lists each by `namespace/key`; summary focuses on the primary plan; secondary entries are acknowledged but not summarized individually.

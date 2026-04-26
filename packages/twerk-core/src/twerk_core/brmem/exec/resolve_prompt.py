@@ -81,7 +81,7 @@ def run_resolve_prompt(
             f"No prompt named {request.name!r} found. Checked:\n"
             f"  - {project_path} (project-local)\n"
             f"  - {global_path} (global)\n"
-            "Seed the global default by running `just install-tools` from a twerk checkout, "
+            "Initialize the global default by running `just install-tools` from a twerk checkout, "
             "or copy a packaged `default-prompt.md` to one of the paths above."
         ),
     )

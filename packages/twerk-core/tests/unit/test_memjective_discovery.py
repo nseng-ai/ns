@@ -47,7 +47,7 @@ def test_groups_duplicate_snapshots_by_slug() -> None:
     assert len(result) == 1
     assert result[0].slug == "a"
     assert result[0].files == ("body.md",)
-    assert result[0].seed_present is False
+    assert result[0].canonical_present is False
     assert [bp.branch for bp in result[0].branches] == ["b1", "b2", "b3"]
 
 
@@ -62,7 +62,7 @@ def test_groups_multiple_files_under_one_slug() -> None:
     assert len(result) == 1
     assert result[0].slug == "a"
     assert result[0].files == ("body.md", "notes.md", "roadmap.md")
-    assert result[0].seed_present is True
+    assert result[0].canonical_present is True
     assert [bp.branch for bp in result[0].branches] == ["feat/x"]
 
 
@@ -76,7 +76,7 @@ def test_seed_only_memjective_has_no_branches() -> None:
         MemjectiveRepoEntry(
             slug="orphan",
             files=("body.md",),
-            seed_present=True,
+            canonical_present=True,
             branches=(),
         ),
     )
@@ -88,7 +88,7 @@ def test_snapshot_only_memjective_has_no_seed() -> None:
 
     result = discover_memjectives(gateway)
 
-    assert result[0].seed_present is False
+    assert result[0].canonical_present is False
     assert [bp.branch for bp in result[0].branches] == ["feat/x"]
 
 
@@ -138,7 +138,7 @@ def test_group_memjective_entries_accepts_preloaded_entries() -> None:
         is_branch_alive={"master", "feat/live"}.__contains__,
     )
 
-    assert grouped[0].seed_present is True
+    assert grouped[0].canonical_present is True
     assert grouped[0].branches == (
         BranchPresence(branch="feat/dead", deleted=True),
         BranchPresence(branch="feat/live", deleted=False),

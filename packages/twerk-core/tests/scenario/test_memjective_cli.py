@@ -107,7 +107,7 @@ def test_memjective_list_defaults_to_repo_wide(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     lines = result.output.splitlines()
     assert lines[0].startswith("SLUG")
-    assert "SEED" in lines[0]
+    assert "CANONICAL" in lines[0]
     assert "BRANCHES" in lines[0]
     # slugs are sorted alphabetically by key
     assert "clinkr-migration" in lines[1]
@@ -193,13 +193,13 @@ def test_memjective_list_format_json(cli_group: ClinkrGroup) -> None:
             {
                 "slug": "clinkr-migration",
                 "files": ["body.md"],
-                "seed_present": True,
+                "canonical_present": True,
                 "branches": [],
             },
             {
                 "slug": "memjective-cli",
                 "files": ["body.md"],
-                "seed_present": True,
+                "canonical_present": True,
                 "branches": [
                     {"branch": "mem-deleted-branch", "deleted": True},
                     {"branch": "mem-scaffold-list", "deleted": False},
@@ -208,7 +208,7 @@ def test_memjective_list_format_json(cli_group: ClinkrGroup) -> None:
             {
                 "slug": "twerk-reviewer",
                 "files": ["body.md"],
-                "seed_present": False,
+                "canonical_present": False,
                 "branches": [
                     {"branch": "feat/reviewer", "deleted": False},
                 ],
@@ -363,7 +363,7 @@ def test_memjective_show_reports_seed_and_branches(cli_group: ClinkrGroup) -> No
     assert result.exit_code == 0, result.output
     assert "slug: memjective-cli" in result.output
     assert "key:" not in result.output
-    assert "seed: present (master)" in result.output
+    assert "canonical: present (master)" in result.output
     assert "mem-scaffold-list" in result.output
     assert "mem-deleted-branch [deleted]" in result.output
     assert "files:" in result.output
@@ -388,7 +388,7 @@ def test_memjective_show_seed_only_slug(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["show", "clinkr-migration"], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert "seed: present (master)" in result.output
+    assert "canonical: present (master)" in result.output
     assert "branches: (none)" in result.output
     assert "files:" in result.output
     assert "- body.md" in result.output
@@ -420,7 +420,7 @@ def test_memjective_show_format_json(cli_group: ClinkrGroup) -> None:
     assert payload["exit_code"] == 0
     assert payload["data"] == {
         "slug": "memjective-cli",
-        "seed_present": True,
+        "canonical_present": True,
         "branches": [
             {"branch": "mem-deleted-branch", "deleted": True},
             {"branch": "mem-scaffold-list", "deleted": False},
@@ -447,7 +447,7 @@ def test_memjective_show_missing_slug_json(cli_group: ClinkrGroup) -> None:
     assert payload["message"] == "No memjective found for slug 'does-not-exist'."
     assert payload["data"] == {
         "slug": "does-not-exist",
-        "seed_present": False,
+        "canonical_present": False,
         "branches": [],
         "files": [],
         "body": None,
@@ -482,7 +482,7 @@ def test_memjective_show_no_slug_defaults_to_sole_memjective(
     assert result.exit_code == 0, result.output
     assert "slug: memjective-cli" in result.output
     assert "key:" not in result.output
-    assert "seed: present (master)" in result.output
+    assert "canonical: present (master)" in result.output
     assert "feat/x" in result.output
     assert "files:" in result.output
     assert "- body.md" in result.output
@@ -501,7 +501,7 @@ def test_memjective_show_no_slug_defaults_json(cli_group: ClinkrGroup) -> None:
     assert payload["exit_code"] == 0
     assert payload["data"] == {
         "slug": "memjective-cli",
-        "seed_present": True,
+        "canonical_present": True,
         "branches": [{"branch": "feat/x", "deleted": False}],
         "files": ["body.md"],
         "body": {"source_branch": "feat/x", "content": "snap\n"},
@@ -773,7 +773,7 @@ def test_memjective_show_branch_strict_no_master_fallback(cli_group: ClinkrGroup
     assert payload["data"]["body"] is None
     assert payload["data"]["roadmap"] is None
     assert payload["data"]["notes"] is None
-    assert payload["data"]["seed_present"] is True
+    assert payload["data"]["canonical_present"] is True
     assert payload["data"]["files"] == ["body.md"]
 
 
@@ -835,7 +835,7 @@ def test_memjective_show_branch_repo_summary_unchanged(cli_group: ClinkrGroup) -
     no_flag_data = json.loads(no_flag.output)["data"]
     with_flag_data = json.loads(with_flag.output)["data"]
     assert with_flag_data["branches"] == no_flag_data["branches"]
-    assert with_flag_data["seed_present"] == no_flag_data["seed_present"]
+    assert with_flag_data["canonical_present"] == no_flag_data["canonical_present"]
     assert with_flag_data["files"] == no_flag_data["files"]
 
 
@@ -873,7 +873,7 @@ def test_memjective_list_groups_multiple_files_under_one_slug(
         {
             "slug": "memjective-cli",
             "files": ["body.md", "notes.md", "roadmap.md"],
-            "seed_present": True,
+            "canonical_present": True,
             "branches": [],
         }
     ]
