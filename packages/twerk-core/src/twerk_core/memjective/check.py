@@ -16,8 +16,10 @@ from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_core.memjective.context import MemjectiveCliContext
 from twerk_core.memjective.evidence import (
     BranchEvidence,
+    BranchIncorporationState,
     EvidenceBundle,
     RootEvidence,
+    classify_branch_incorporation_state,
     compute_evidence,
 )
 from twerk_core.memjective.slug_resolution import (
@@ -91,6 +93,7 @@ class CheckBranch:
     source: CheckSource
     pr: CheckPR
     matching_stored_entry_ids: tuple[str, ...]
+    incorporation_state: BranchIncorporationState
 
 
 @dataclass(frozen=True)
@@ -100,12 +103,31 @@ class CheckDiagnostic:
 
 
 @dataclass(frozen=True)
+class CheckSummary:
+    open: int
+    tracked: int
+    merged_pending_incorporation: int
+    merged_incorporated: int
+    closed_needs_decision: int
+    closed_skipped: int
+    lookup_error: int
+
+
+@dataclass(frozen=True)
+class CheckNextStep:
+    command: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class MemjectiveCheckResult:
     slug: str
     root: CheckRoot
     state: CheckStateView
     branches: tuple[CheckBranch, ...]
     diagnostics: tuple[CheckDiagnostic, ...]
+    summary: CheckSummary
+    next_steps: tuple[CheckNextStep, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -147,10 +169,23 @@ class MemjectiveCheckResult:
                         "error_stderr": branch.pr.error_stderr,
                     },
                     "matching_stored_entry_ids": list(branch.matching_stored_entry_ids),
+                    "incorporation_state": branch.incorporation_state,
                 }
                 for branch in self.branches
             ],
             "diagnostics": [{"kind": d.kind, **d.payload} for d in self.diagnostics],
+            "summary": {
+                "open": self.summary.open,
+                "tracked": self.summary.tracked,
+                "merged_pending_incorporation": self.summary.merged_pending_incorporation,
+                "merged_incorporated": self.summary.merged_incorporated,
+                "closed_needs_decision": self.summary.closed_needs_decision,
+                "closed_skipped": self.summary.closed_skipped,
+                "lookup_error": self.summary.lookup_error,
+            },
+            "next_steps": [
+                {"command": step.command, "reason": step.reason} for step in self.next_steps
+            ],
         }
 
 
@@ -164,7 +199,10 @@ def _adapt_root(root: RootEvidence) -> CheckRoot:
     )
 
 
-def _adapt_branch(branch: BranchEvidence) -> CheckBranch:
+def _adapt_branch(
+    branch: BranchEvidence,
+    state: MemjectiveState | StateAbsent | StateInvalid,
+) -> CheckBranch:
     source = CheckSource(
         namespace=branch.source.namespace,
         branch=branch.source.branch,
@@ -188,6 +226,110 @@ def _adapt_branch(branch: BranchEvidence) -> CheckBranch:
         source=source,
         pr=pr,
         matching_stored_entry_ids=branch.matching_stored_entry_ids,
+        incorporation_state=classify_branch_incorporation_state(branch, state),
+    )
+
+
+def _build_summary(branches: tuple[CheckBranch, ...]) -> CheckSummary:
+    counts: dict[BranchIncorporationState, int] = {
+        "open": 0,
+        "tracked": 0,
+        "merged_pending_incorporation": 0,
+        "merged_incorporated": 0,
+        "closed_needs_decision": 0,
+        "closed_skipped": 0,
+        "lookup_error": 0,
+    }
+    for branch in branches:
+        counts[branch.incorporation_state] += 1
+    return CheckSummary(
+        open=counts["open"],
+        tracked=counts["tracked"],
+        merged_pending_incorporation=counts["merged_pending_incorporation"],
+        merged_incorporated=counts["merged_incorporated"],
+        closed_needs_decision=counts["closed_needs_decision"],
+        closed_skipped=counts["closed_skipped"],
+        lookup_error=counts["lookup_error"],
+    )
+
+
+def _build_next_steps(
+    *,
+    slug: str,
+    state: MemjectiveState | StateAbsent | StateInvalid,
+    summary: CheckSummary,
+) -> tuple[CheckNextStep, ...]:
+    steps: list[CheckNextStep] = []
+
+    # 1. State absent or invalid → seed the state file; skip pending/decision hints.
+    if isinstance(state, StateAbsent):
+        steps.append(
+            CheckNextStep(
+                command=f"memjective exec init {slug}",
+                reason="No machine-readable state recorded yet",
+            )
+        )
+        if summary.lookup_error > 0:
+            steps.append(_lookup_error_step(slug=slug, count=summary.lookup_error))
+        return tuple(steps)
+    if isinstance(state, StateInvalid):
+        steps.append(
+            CheckNextStep(
+                command=f"memjective exec init {slug}",
+                reason=f"State file is invalid: {state.reason}",
+            )
+        )
+        if summary.lookup_error > 0:
+            steps.append(_lookup_error_step(slug=slug, count=summary.lookup_error))
+        return tuple(steps)
+
+    # 2. merged_pending_incorporation > 0 → reconcile.
+    if summary.merged_pending_incorporation > 0:
+        steps.append(
+            CheckNextStep(
+                command=f"dev-memjective-reconcile {slug}",
+                reason=(
+                    f"{summary.merged_pending_incorporation} merged "
+                    f"{'PR is' if summary.merged_pending_incorporation == 1 else 'PRs are'} "
+                    f"not yet incorporated into root docs"
+                ),
+            )
+        )
+
+    # 3. closed_needs_decision > 0 → compute-pending-entries (coalesces with #2).
+    needs_pending_lookup = (
+        summary.merged_pending_incorporation > 0 or summary.closed_needs_decision > 0
+    )
+    if needs_pending_lookup:
+        if summary.closed_needs_decision > 0:
+            reason = (
+                f"{summary.closed_needs_decision} closed-unmerged "
+                f"{'PR needs' if summary.closed_needs_decision == 1 else 'PRs need'} "
+                f"a skip decision"
+            )
+        else:
+            reason = "Inspect pending entries for scripting / LM consumption"
+        steps.append(
+            CheckNextStep(
+                command=f"memjective exec compute-pending-entries {slug} --format json",
+                reason=reason,
+            )
+        )
+
+    # 4. lookup_error > 0 → user-action hint (no command target).
+    if summary.lookup_error > 0:
+        steps.append(_lookup_error_step(slug=slug, count=summary.lookup_error))
+
+    return tuple(steps)
+
+
+def _lookup_error_step(*, slug: str, count: int) -> CheckNextStep:
+    return CheckNextStep(
+        command=f"memjective check {slug}",
+        reason=(
+            f"Resolve gh authentication and rerun ({count} "
+            f"{'branch' if count == 1 else 'branches'} hit a PR lookup error)"
+        ),
     )
 
 
@@ -321,6 +463,33 @@ def _summarize_diagnostic(d: CheckDiagnostic) -> str:
     return d.kind
 
 
+_INCORPORATION_LABELS: dict[BranchIncorporationState, str] = {
+    "open": "open",
+    "tracked": "tracked",
+    "merged_pending_incorporation": "merged-pending",
+    "merged_incorporated": "merged-done",
+    "closed_needs_decision": "closed-todo",
+    "closed_skipped": "closed-skipped",
+    "lookup_error": "lookup-error",
+}
+
+
+def _summary_line(summary: CheckSummary) -> str:
+    parts: list[tuple[str, int]] = [
+        ("open", summary.open),
+        ("tracked", summary.tracked),
+        ("merged-pending", summary.merged_pending_incorporation),
+        ("merged-done", summary.merged_incorporated),
+        ("closed-todo", summary.closed_needs_decision),
+        ("closed-skipped", summary.closed_skipped),
+        ("lookup-error", summary.lookup_error),
+    ]
+    rendered = [f"{count} {label}" for label, count in parts if count > 0]
+    if not rendered:
+        return "summary: (no branches)"
+    return "summary: " + ", ".join(rendered)
+
+
 def render_memjective_check(result: MemjectiveCheckResult) -> None:
     click.echo(f"slug: {result.slug}")
     root_status = "exists" if result.root.exists else "missing"
@@ -336,6 +505,7 @@ def render_memjective_check(result: MemjectiveCheckResult) -> None:
     state_line += ")"
     click.echo(state_line)
     click.echo(f"stored entries: {len(result.state.entries)}")
+    click.echo(_summary_line(result.summary))
 
     if result.branches:
         click.echo("branches:")
@@ -343,8 +513,9 @@ def render_memjective_check(result: MemjectiveCheckResult) -> None:
         table.add_column("BRANCH", style="cyan", no_wrap=True)
         table.add_column("LOOKUP", no_wrap=True)
         table.add_column("PR", no_wrap=True, justify="right")
-        table.add_column("TITLE", overflow="ellipsis", ratio=1)
         table.add_column("MATCHES", no_wrap=True)
+        table.add_column("INCORPORATION", no_wrap=True)
+        table.add_column("TITLE", overflow="ellipsis", ratio=1)
         for branch in result.branches:
             pr_cell = f"#{branch.pr.number}" if branch.pr.number is not None else "-"
             title_cell = branch.pr.title if branch.pr.title is not None else "-"
@@ -357,8 +528,9 @@ def render_memjective_check(result: MemjectiveCheckResult) -> None:
                 branch.source.branch,
                 branch.pr.lookup_status,
                 pr_cell,
-                title_cell,
                 matches_cell,
+                _INCORPORATION_LABELS[branch.incorporation_state],
+                title_cell,
             )
         get_console().print(table)
     else:
@@ -371,10 +543,18 @@ def render_memjective_check(result: MemjectiveCheckResult) -> None:
     else:
         click.echo("diagnostics: (none)")
 
+    if result.next_steps:
+        click.echo("next steps:")
+        for step in result.next_steps:
+            click.echo(f"  $ {step.command}")
+            click.echo(f"    ({step.reason})")
+    else:
+        click.echo("next steps: (caught up)")
+
 
 def _project_check(bundle: EvidenceBundle) -> MemjectiveCheckResult:
     root = _adapt_root(bundle.root)
-    branches = tuple(_adapt_branch(b) for b in bundle.branches)
+    branches = tuple(_adapt_branch(b, bundle.state) for b in bundle.branches)
     state_view = _build_state_view(bundle.slug, bundle.state)
     diagnostics = _build_diagnostics(
         slug=bundle.slug,
@@ -382,12 +562,16 @@ def _project_check(bundle: EvidenceBundle) -> MemjectiveCheckResult:
         state=bundle.state,
         branches=branches,
     )
+    summary = _build_summary(branches)
+    next_steps = _build_next_steps(slug=bundle.slug, state=bundle.state, summary=summary)
     return MemjectiveCheckResult(
         slug=bundle.slug,
         root=root,
         state=state_view,
         branches=branches,
         diagnostics=diagnostics,
+        summary=summary,
+        next_steps=next_steps,
     )
 
 

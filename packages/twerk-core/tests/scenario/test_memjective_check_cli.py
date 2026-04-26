@@ -448,3 +448,458 @@ def test_branch_pr_identity_conflict(cli_group: ClinkrGroup) -> None:
     conflict = next(d for d in data["diagnostics"] if d["kind"] == "branch_pr_identity_conflict")
     assert conflict["pr_number"] == 777
     assert conflict["branches"] == ["feat/a", "feat/b"]
+
+
+# ---------------------------------------------------------------------------
+# incorporation_state buckets, summary, and next_steps
+# ---------------------------------------------------------------------------
+
+
+def _summary_zeros() -> dict[str, int]:
+    return {
+        "open": 0,
+        "tracked": 0,
+        "merged_pending_incorporation": 0,
+        "merged_incorporated": 0,
+        "closed_needs_decision": 0,
+        "closed_skipped": 0,
+        "lookup_error": 0,
+    }
+
+
+def test_summary_caught_up_no_branches(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "widget/body.md", "master", "seed\n")
+    _seed_state_blob(gateway, "widget", _state_payload("widget", entries=[]))
+    obj = _make_obj(gateway=gateway, live_branches=("master",))
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert data["summary"] == _summary_zeros()
+    assert data["next_steps"] == []
+
+
+def test_state_absent_with_branches_emits_init_hint(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "feat/example": _pr(
+                    number=1,
+                    title="Open",
+                    url="https://example.com/pull/1",
+                    state="OPEN",
+                    head="feat/example",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert data["next_steps"][0]["command"] == "memjective exec init widget"
+    assert "No machine-readable state recorded" in data["next_steps"][0]["reason"]
+
+
+def test_state_invalid_emits_init_hint_with_reason(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(gateway, "widget", "{not json")
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert data["next_steps"][0]["command"] == "memjective exec init widget"
+    assert "State file is invalid" in data["next_steps"][0]["reason"]
+
+
+def test_merged_pending_incorporation_bucket_and_hint(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(gateway, "widget", _state_payload("widget", entries=[]))
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "feat/example": PRSummary(
+                    number=10,
+                    title="Slice",
+                    url="https://example.com/pull/10",
+                    head_ref_name="feat/example",
+                    base_ref_name="master",
+                    state="MERGED",
+                    merged_at="2026-04-01T12:00:00Z",
+                    merge_commit_oid="abc123",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    [branch] = data["branches"]
+    assert branch["incorporation_state"] == "merged_pending_incorporation"
+    assert data["summary"]["merged_pending_incorporation"] == 1
+    commands = [step["command"] for step in data["next_steps"]]
+    assert "dev-memjective-reconcile widget" in commands
+    assert "memjective exec compute-pending-entries widget --format json" in commands
+
+
+def test_merged_incorporated_bucket_clears_next_steps(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(
+        gateway,
+        "widget",
+        _state_payload(
+            "widget",
+            entries=[
+                {
+                    "id": "pr-10",
+                    "resolution": "incorporated",
+                    "pr": {"number": 10, "merge_commit_oid": "abc123", "state": "MERGED"},
+                },
+            ],
+        ),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "feat/example": PRSummary(
+                    number=10,
+                    title="Slice",
+                    url="https://example.com/pull/10",
+                    head_ref_name="feat/example",
+                    base_ref_name="master",
+                    state="MERGED",
+                    merged_at="2026-04-01T12:00:00Z",
+                    merge_commit_oid="abc123",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    [branch] = data["branches"]
+    assert branch["incorporation_state"] == "merged_incorporated"
+    assert data["summary"]["merged_incorporated"] == 1
+    assert data["next_steps"] == []
+
+
+def test_closed_needs_decision_emits_compute_pending_hint(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(gateway, "widget", _state_payload("widget", entries=[]))
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "feat/example": _pr(
+                    number=20,
+                    title="Closed",
+                    url="https://example.com/pull/20",
+                    state="CLOSED",
+                    head="feat/example",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    [branch] = data["branches"]
+    assert branch["incorporation_state"] == "closed_needs_decision"
+    assert data["summary"]["closed_needs_decision"] == 1
+    commands = [step["command"] for step in data["next_steps"]]
+    assert commands == ["memjective exec compute-pending-entries widget --format json"]
+
+
+def test_closed_skipped_bucket_clears_next_steps(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(
+        gateway,
+        "widget",
+        _state_payload(
+            "widget",
+            entries=[
+                {"id": "pr-20", "resolution": "skipped", "pr": {"number": 20}},
+            ],
+        ),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "feat/example": _pr(
+                    number=20,
+                    title="Closed",
+                    url="https://example.com/pull/20",
+                    state="CLOSED",
+                    head="feat/example",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    [branch] = data["branches"]
+    assert branch["incorporation_state"] == "closed_skipped"
+    assert data["summary"]["closed_skipped"] == 1
+    assert data["next_steps"] == []
+
+
+def test_lookup_error_bucket_emits_resolve_gh_hint(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(gateway, "widget", _state_payload("widget", entries=[]))
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=_BrokenPRGateway(stderr="auth failed", returncode=4),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    [branch] = data["branches"]
+    assert branch["incorporation_state"] == "lookup_error"
+    assert data["summary"]["lookup_error"] == 1
+    commands = [step["command"] for step in data["next_steps"]]
+    reasons = [step["reason"] for step in data["next_steps"]]
+    assert "memjective check widget" in commands
+    assert any("gh authentication" in r for r in reasons)
+
+
+def test_open_pr_bucket_no_hint_contribution(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(gateway, "widget", _state_payload("widget", entries=[]))
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "feat/example": _pr(
+                    number=30,
+                    title="Open",
+                    url="https://example.com/pull/30",
+                    state="OPEN",
+                    head="feat/example",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    [branch] = data["branches"]
+    assert branch["incorporation_state"] == "open"
+    assert data["summary"]["open"] == 1
+    assert data["next_steps"] == []
+
+
+def test_tracked_bucket_no_pr_no_hint_contribution(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_branch("widget", "feat/example")
+    _seed_state_blob(gateway, "widget", _state_payload("widget", entries=[]))
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/example"),
+        pr_gateway=FakePRGateway(),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    [branch] = data["branches"]
+    assert branch["incorporation_state"] == "tracked"
+    assert data["summary"]["tracked"] == 1
+    assert data["next_steps"] == []
+
+
+class _PerBranchPRGateway(FakePRGateway):
+    """Returns a different PRSummary or PRLookupError per branch from a mapping."""
+
+    def __init__(self, results: dict[str, PRSummary | PRLookupError]) -> None:
+        super().__init__()
+        self._results = results
+
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+        return self._results.get(branch, PRLookupError(stderr="no PR found", returncode=1))
+
+
+def test_mixed_buckets_summary_counts_match_branches(cli_group: ClinkrGroup) -> None:
+    branches = {
+        "feat/open": "OPEN",
+        "feat/merged-pending": "MERGED",
+        "feat/merged-done": "MERGED",
+        "feat/closed-todo": "CLOSED",
+        "feat/closed-skipped": "CLOSED",
+        "feat/lookup-error": "ERROR",
+        "feat/tracked": "MISSING",
+    }
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "widget/body.md", "master", "seed\n")
+    for branch_name in branches:
+        gateway.put("memjectives", "widget/body.md", branch_name, "snap\n")
+
+    _seed_state_blob(
+        gateway,
+        "widget",
+        _state_payload(
+            "widget",
+            entries=[
+                {
+                    "id": "pr-102",
+                    "resolution": "incorporated",
+                    "pr": {"number": 102, "merge_commit_oid": "abc", "state": "MERGED"},
+                },
+                {"id": "pr-104", "resolution": "skipped", "pr": {"number": 104}},
+            ],
+        ),
+    )
+
+    pr_results: dict[str, PRSummary | PRLookupError] = {
+        "feat/open": _pr(
+            number=100,
+            title="Open",
+            url="https://example.com/pull/100",
+            state="OPEN",
+            head="feat/open",
+        ),
+        "feat/merged-pending": PRSummary(
+            number=101,
+            title="Merged pending",
+            url="https://example.com/pull/101",
+            head_ref_name="feat/merged-pending",
+            base_ref_name="master",
+            state="MERGED",
+            merged_at="2026-04-01T12:00:00Z",
+            merge_commit_oid="oid101",
+        ),
+        "feat/merged-done": PRSummary(
+            number=102,
+            title="Merged done",
+            url="https://example.com/pull/102",
+            head_ref_name="feat/merged-done",
+            base_ref_name="master",
+            state="MERGED",
+            merged_at="2026-04-02T12:00:00Z",
+            merge_commit_oid="abc",
+        ),
+        "feat/closed-todo": _pr(
+            number=103,
+            title="Closed todo",
+            url="https://example.com/pull/103",
+            state="CLOSED",
+            head="feat/closed-todo",
+        ),
+        "feat/closed-skipped": _pr(
+            number=104,
+            title="Closed skipped",
+            url="https://example.com/pull/104",
+            state="CLOSED",
+            head="feat/closed-skipped",
+        ),
+        "feat/lookup-error": PRLookupError(stderr="auth failed", returncode=4),
+        # feat/tracked: returns the default missing-PR error from _PerBranchPRGateway.
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", *branches.keys()),
+        pr_gateway=_PerBranchPRGateway(pr_results),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    expected = {
+        "open": 1,
+        "tracked": 1,
+        "merged_pending_incorporation": 1,
+        "merged_incorporated": 1,
+        "closed_needs_decision": 1,
+        "closed_skipped": 1,
+        "lookup_error": 1,
+    }
+    assert data["summary"] == expected
+    assert sum(expected.values()) == len(data["branches"])
+
+
+def test_pending_and_closed_coalesce_compute_pending_entries_hint(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("memjectives", "widget/body.md", "master", "seed\n")
+    gateway.put("memjectives", "widget/body.md", "feat/merged", "snap\n")
+    gateway.put("memjectives", "widget/body.md", "feat/closed", "snap\n")
+    _seed_state_blob(gateway, "widget", _state_payload("widget", entries=[]))
+
+    pr_results: dict[str, PRSummary | PRLookupError] = {
+        "feat/merged": PRSummary(
+            number=200,
+            title="Merged",
+            url="https://example.com/pull/200",
+            head_ref_name="feat/merged",
+            base_ref_name="master",
+            state="MERGED",
+            merged_at="2026-04-01T12:00:00Z",
+            merge_commit_oid="oid200",
+        ),
+        "feat/closed": _pr(
+            number=201,
+            title="Closed",
+            url="https://example.com/pull/201",
+            state="CLOSED",
+            head="feat/closed",
+        ),
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "feat/merged", "feat/closed"),
+        pr_gateway=_PerBranchPRGateway(pr_results),
+    )
+
+    result = CliRunner().invoke(cli_group, ["check", "widget", "--format", "json"], obj=obj)
+    data = _data(result.output)
+
+    assert result.exit_code == 0, result.output
+    commands = [step["command"] for step in data["next_steps"]]
+    assert commands.count("memjective exec compute-pending-entries widget --format json") == 1
+    assert commands == [
+        "dev-memjective-reconcile widget",
+        "memjective exec compute-pending-entries widget --format json",
+    ]
+
+
+def test_schema_lists_new_top_level_fields(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["check", "--schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    output_required = payload["output_schema"]["required"]
+    assert "summary" in output_required
+    assert "next_steps" in output_required

@@ -40,6 +40,20 @@ _ACTION_TO_LOOKUP_STATUS: dict[BranchPrAction, Literal["found", "missing", "erro
     "error": "error",
 }
 
+BranchIncorporationState = Literal[
+    "open",
+    "tracked",
+    "merged_pending_incorporation",
+    "merged_incorporated",
+    "closed_needs_decision",
+    "closed_skipped",
+    "lookup_error",
+]
+
+_INCORPORATED_RESOLUTIONS: frozenset[str] = frozenset(
+    {"incorporated", "incorporated_no_doc_change"},
+)
+
 
 @dataclass(frozen=True)
 class RootEvidence:
@@ -207,3 +221,53 @@ def _matching_stored_entry_ids(
         if entry.id == branch_id:
             matches.append(entry.id)
     return tuple(matches)
+
+
+def classify_branch_incorporation_state(
+    branch: BranchEvidence,
+    state: MemjectiveState | StateAbsent | StateInvalid,
+) -> BranchIncorporationState:
+    """Bucket a branch's lifecycle relative to incorporation into the root snapshot.
+
+    Inputs come straight from ``compute_evidence``: ``branch.pr.lookup_status``
+    and ``branch.pr.state`` answer the lifecycle question, while
+    ``branch.matching_stored_entry_ids`` + ``state.entries`` answer the
+    "did anyone record what happened next" question. Buckets are mutually
+    exclusive — every branch lands in exactly one.
+    """
+    pr = branch.pr
+    if pr.lookup_status == "error":
+        return "lookup_error"
+    if pr.lookup_status == "missing":
+        return "tracked"
+    # lookup_status == "found"
+    if pr.state == "OPEN":
+        return "open"
+    if pr.state == "MERGED":
+        if _matching_resolution_in(branch, state, _INCORPORATED_RESOLUTIONS):
+            return "merged_incorporated"
+        return "merged_pending_incorporation"
+    if pr.state == "CLOSED":
+        if _matching_resolution_in(branch, state, frozenset({"skipped"})):
+            return "closed_skipped"
+        return "closed_needs_decision"
+    # Defensive default: unknown PR state behaves like a missing PR observation.
+    return "tracked"
+
+
+def _matching_resolution_in(
+    branch: BranchEvidence,
+    state: MemjectiveState | StateAbsent | StateInvalid,
+    resolutions: frozenset[str],
+) -> bool:
+    if not isinstance(state, MemjectiveState):
+        return False
+    if not branch.matching_stored_entry_ids:
+        return False
+    matching = set(branch.matching_stored_entry_ids)
+    for entry in state.entries:
+        if entry.id not in matching:
+            continue
+        if entry.raw.get("resolution") in resolutions:
+            return True
+    return False

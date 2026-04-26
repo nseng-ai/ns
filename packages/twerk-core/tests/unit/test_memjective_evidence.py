@@ -1,13 +1,28 @@
 from __future__ import annotations
 
+from typing import Any
+
 from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRLookupError, PRState, PRSummary
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.testing import FakeGitGateway
-from twerk_core.memjective.evidence import EvidenceBundle, compute_evidence
-from twerk_core.memjective.state import MemjectiveState
+from twerk_core.memjective.evidence import (
+    BranchEvidence,
+    EvidenceBundle,
+    PrEvidence,
+    SourceEvidence,
+    classify_branch_incorporation_state,
+    compute_evidence,
+)
+from twerk_core.memjective.state import (
+    MemjectiveState,
+    StateAbsent,
+    StateEntry,
+    StateInvalid,
+    StateRoot,
+)
 
 
 def _pr(
@@ -192,3 +207,130 @@ def test_pr_lookup_error_surfaces_in_evidence() -> None:
     [branch] = bundle.branches
     assert branch.pr.lookup_status == "error"
     assert branch.pr.error_stderr == "auth failed"
+
+
+# ---------------------------------------------------------------------------
+# classify_branch_incorporation_state — one fabricated case per bucket.
+# ---------------------------------------------------------------------------
+
+
+def _branch(
+    *,
+    branch_name: str = "feat/x",
+    lookup_status: str = "found",
+    pr_state: PRState | None = "OPEN",
+    pr_number: int | None = 42,
+    matching_stored_entry_ids: tuple[str, ...] = (),
+) -> BranchEvidence:
+    return BranchEvidence(
+        source=SourceEvidence(
+            namespace="memjectives",
+            branch=branch_name,
+            path="widget",
+            stale=False,
+            tree_sha="faketree-1",
+        ),
+        pr=PrEvidence(
+            lookup_status=lookup_status,  # type: ignore[arg-type]
+            number=pr_number,
+            state=pr_state,
+            title="t",
+            url="https://example.com/pull/42",
+            head_ref_name=branch_name,
+            base_ref_name="master",
+            merged_at=None,
+            merge_commit_oid=None,
+            error_stderr=None,
+        ),
+        matching_stored_entry_ids=matching_stored_entry_ids,
+    )
+
+
+def _state_with(*entries: dict[str, Any]) -> MemjectiveState:
+    return MemjectiveState(
+        version=1,
+        slug="widget",
+        root=StateRoot(namespace="memjectives", branch="master", path="widget"),
+        entries=tuple(StateEntry(id=entry["id"], raw=entry) for entry in entries),
+    )
+
+
+def test_classify_lookup_error() -> None:
+    branch = _branch(lookup_status="error", pr_state=None, pr_number=None)
+    assert classify_branch_incorporation_state(branch, StateAbsent()) == "lookup_error"
+
+
+def test_classify_tracked_when_no_pr() -> None:
+    branch = _branch(lookup_status="missing", pr_state=None, pr_number=None)
+    assert classify_branch_incorporation_state(branch, StateAbsent()) == "tracked"
+
+
+def test_classify_open() -> None:
+    branch = _branch(pr_state="OPEN")
+    assert classify_branch_incorporation_state(branch, StateAbsent()) == "open"
+
+
+def test_classify_merged_pending_no_stored_entry() -> None:
+    branch = _branch(pr_state="MERGED")
+    assert (
+        classify_branch_incorporation_state(branch, StateAbsent()) == "merged_pending_incorporation"
+    )
+
+
+def test_classify_merged_pending_when_only_tracked_entry_present() -> None:
+    branch = _branch(pr_state="MERGED", matching_stored_entry_ids=("pr-42",))
+    state = _state_with({"id": "pr-42", "resolution": "tracked", "pr": {"number": 42}})
+    assert classify_branch_incorporation_state(branch, state) == "merged_pending_incorporation"
+
+
+def test_classify_merged_incorporated() -> None:
+    branch = _branch(pr_state="MERGED", matching_stored_entry_ids=("pr-42",))
+    state = _state_with({"id": "pr-42", "resolution": "incorporated", "pr": {"number": 42}})
+    assert classify_branch_incorporation_state(branch, state) == "merged_incorporated"
+
+
+def test_classify_merged_incorporated_no_doc_change() -> None:
+    branch = _branch(pr_state="MERGED", matching_stored_entry_ids=("pr-42",))
+    state = _state_with(
+        {"id": "pr-42", "resolution": "incorporated_no_doc_change", "pr": {"number": 42}},
+    )
+    assert classify_branch_incorporation_state(branch, state) == "merged_incorporated"
+
+
+def test_classify_closed_needs_decision_no_entry() -> None:
+    branch = _branch(pr_state="CLOSED")
+    assert classify_branch_incorporation_state(branch, StateAbsent()) == "closed_needs_decision"
+
+
+def test_classify_closed_skipped() -> None:
+    branch = _branch(pr_state="CLOSED", matching_stored_entry_ids=("pr-42",))
+    state = _state_with({"id": "pr-42", "resolution": "skipped", "pr": {"number": 42}})
+    assert classify_branch_incorporation_state(branch, state) == "closed_skipped"
+
+
+def test_classify_state_absent_merged_buckets_to_pending() -> None:
+    branch = _branch(pr_state="MERGED")
+    assert (
+        classify_branch_incorporation_state(branch, StateAbsent()) == "merged_pending_incorporation"
+    )
+
+
+def test_classify_state_invalid_merged_buckets_to_pending() -> None:
+    branch = _branch(pr_state="MERGED")
+    assert (
+        classify_branch_incorporation_state(branch, StateInvalid(reason="bad json"))
+        == "merged_pending_incorporation"
+    )
+
+
+def test_classify_state_absent_closed_buckets_to_needs_decision() -> None:
+    branch = _branch(pr_state="CLOSED")
+    assert classify_branch_incorporation_state(branch, StateAbsent()) == "closed_needs_decision"
+
+
+def test_classify_state_invalid_closed_buckets_to_needs_decision() -> None:
+    branch = _branch(pr_state="CLOSED")
+    assert (
+        classify_branch_incorporation_state(branch, StateInvalid(reason="bad json"))
+        == "closed_needs_decision"
+    )
