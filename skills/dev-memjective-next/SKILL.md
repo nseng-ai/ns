@@ -22,14 +22,14 @@ metadata:
 
 Read-only status peek and next-slice recommendation for a memjective.
 
-> For shared concepts — vocabulary, storage model, document anatomy,
-> lifecycle, carry-forward semantics, and mutation contracts — see
+> For shared concepts — vocabulary, storage model, content anatomy, lifecycle,
+> carry-forward semantics, and mutation contracts — see
 > `../dev-memjective/SKILL.md`.
 
 ## Goal
 
 Given an explicit memjective slug, load the best matching source, summarize
-the document state, flag stale non-master branch snapshots, and suggest a
+the content state, flag stale non-master branch snapshots, and suggest a
 collision-checked kebab-case slug for the next PR-sized slice.
 
 `next` writes nothing: no `brmem put`, no `brmem copy`, no branch creation,
@@ -177,7 +177,7 @@ Collision check before finalizing:
 
 ```bash
 git rev-parse --verify --quiet refs/heads/<suggested-slug>
-brmem check <suggested-slug>/body.md --namespace memjectives --branch master
+brmem check <suggested-slug>/<required-content-file> --namespace memjectives --branch master
 ```
 
 If either exists, warn and ask whether to pick another slug, append a suffix,
