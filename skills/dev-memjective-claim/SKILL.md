@@ -167,9 +167,10 @@ Return:
 - next-step hint:
 
 ```text
-Run dev-memjective-next <slug> to inspect the attached snapshot, or proceed
-with implementation. After implementing the slice, run
-dev-memjective-update <slug> to record progress.
+This branch is ready for implementation. After implementing the slice, merge
+the PR and run dev-memjective-reconcile <slug> on master. Run
+dev-memjective-update <slug> only if another branch will claim from this
+branch before it lands.
 ```
 
 ## Edge Cases And Anti-Patterns

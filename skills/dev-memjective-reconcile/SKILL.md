@@ -22,8 +22,8 @@ metadata:
 
 # dev-memjective-reconcile
 
-Refresh the canonical memjective from branch snapshots and the PRs associated
-with those branches.
+Refresh the canonical memjective from landed branch snapshots and the merged
+PRs associated with those branches.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
 > rewrite rules, see `../dev-memjective/SKILL.md` and
@@ -33,12 +33,14 @@ with those branches.
 
 Given an explicit memjective slug, rewrite the canonical memjective
 conservatively by exploring branch snapshots that carry `<slug>/`,
-cross-referencing their associated PRs, and folding that evidence into
+cross-referencing their associated PRs, and folding only landed evidence into
 canonical `body.md`, `roadmap.md`, and `notes.md`.
 
 In the current implementation, canonical state is stored in `brmem` on
 branch `master`, so `reconcile` runs only on `master`. It never writes to
 branch snapshots and never copies one snapshot verbatim onto canonical state.
+Open PRs and unmerged branches remain branch-local state for higher-level
+views; reconcile must not incorporate them into canonical state.
 
 ## Memjective Content
 
@@ -50,10 +52,10 @@ The canonical memjective is stored under `<slug>/` in namespace
 - `notes.md` (optional): durable findings.
 
 `reconcile` reads every present canonical file and rewrites only files whose
-content changed. It also reads `<slug>/body.md`, `<slug>/roadmap.md`, and
-`<slug>/notes.md` from each branch snapshot carrying the slug, plus PR
-metadata for those branches. Branch snapshots and PRs are evidence only;
-reconcile never writes to them.
+content changed. It also reads PR metadata for branch snapshots carrying the
+slug, then reads `<slug>/body.md`, `<slug>/roadmap.md`, and `<slug>/notes.md`
+only from branch snapshots whose associated PRs are merged. Branch snapshots
+and PRs are evidence only; reconcile never writes to them.
 
 ## Inputs
 
@@ -68,13 +70,14 @@ reconcile never writes to them.
 - **Off-master aborts.** Run only on `master`; abort on detached `HEAD` or
   any other branch.
 - **Slug always explicit.** No auto-pick from "the only canonical slug."
-- **Branch snapshots and PRs are read-only evidence.** Use them to inform
-  the rewrite; never paste a branch snapshot into canonical state or use a
-  PR body as canonical text.
+- **Only landed work enters canonical state.** Use merged PR-backed branch
+  snapshots to inform the rewrite. Do not fold open PRs, closed-unmerged PRs,
+  no-PR branches, or orphaned snapshots into canonical state.
 - **Verbatim copy forbidden.** Sibling text is evidence, not source. Fuse
   evidence under the per-file mutation contract.
-- **No freshness shortcut.** Always fold available evidence. Sibling changes
-  do not bump canonical HEAD, so HEAD-vs-snapshot checks are invalid here.
+- **No freshness shortcut.** Always evaluate available branch/PR state, but
+  fold only landed evidence. Sibling changes do not bump canonical HEAD, so
+  HEAD-vs-snapshot checks are invalid here.
 - **In-repo enumeration only.** Discover branch snapshots from local
   `refs/brmem/ns/memjectives/` (or the `memjective tree` helper). Do not
   fetch from remotes during reconcile.
@@ -162,7 +165,7 @@ unavailable.
 
 ### 4. Load branch snapshot evidence
 
-For each relevant branch snapshot, read present files:
+For each branch snapshot whose associated PR is merged, read present files:
 
 ```bash
 brmem get <slug>/body.md --namespace memjectives --branch <branch> \
@@ -179,7 +182,7 @@ Capture per-file metadata when useful:
 brmem check <slug>/<file> --namespace memjectives --branch <branch> --format json
 ```
 
-When branch snapshot text is ambiguous, enrich the associated PR:
+When landed branch snapshot text is ambiguous, enrich the associated PR:
 
 ```bash
 gh pr view <number-or-branch> \
@@ -188,21 +191,21 @@ gh pr view <number-or-branch> \
 
 Use PR metadata to ground the rewrite, not as text to copy wholesale.
 
-### 5. Weigh evidence
+### 5. Gate evidence
 
-Use the weighting rules from
+Use the inclusion rules from
 `../dev-memjective/references/mutation-contract.md`:
 
-- merged PRs are the strongest signal
-- open PRs are useful for in-flight findings but weaker for canonical
-  completion
-- closed-unmerged PRs are weak and should be labeled
-- no-PR branches are local-only evidence
+- merged PR-backed branch snapshots are eligible evidence
+- open PRs are not folded into canonical state
+- closed-unmerged PRs are not folded into canonical state
+- no-PR branches are local-only state and are not folded into canonical state
 - PR lookup errors are evidence gaps
-- stale/orphaned snapshots are valid but weak evidence
+- stale/orphaned snapshots are not folded into canonical state unless tied to
+  landed work
 
-Prefer corroborated signals when multiple branch snapshots disagree. Surface
-contradictions in the report instead of forcing a confident rewrite.
+Prefer corroborated signals when multiple landed branch snapshots disagree.
+Surface contradictions in the report instead of forcing a confident rewrite.
 
 ### 6. Rewrite canonical files conservatively
 
@@ -213,7 +216,7 @@ Typical reconcile work:
 
 - check canonical roadmap items supported by merged branch/PR evidence
 - check canonical completion criteria when the end-state is actually true
-- append durable findings from branch `notes.md` or PR context
+- append durable findings from landed branch `notes.md` or merged PR context
 - split or add nearby roadmap follow-ups discovered during branch work
 - move `Status:` only when canonical state changed categorically
 
@@ -240,7 +243,7 @@ Include:
 - slug and canonical target (`master` in current storage)
 - files touched with one-line notes
 - old SHA to new SHA for each changed file
-- branch snapshots consulted
+- branch snapshots consulted, including skipped unmerged snapshots
 - PR evidence consulted: branch, liveness, PR number/state/URL/title, and
   one-line contribution
 - conflicts or evidence gaps
@@ -255,9 +258,11 @@ brmem get <slug>/<file> --namespace memjectives --branch master --at <old-sha>
 - Off `master`: abort and point to `update`.
 - No canonical `body.md`: abort and point to `create`.
 - No branch snapshots carry the slug: report no evidence and write nothing.
+- No merged PR-backed branch snapshots carry the slug: report no landed
+  evidence and write nothing.
 - PR lookup errors: continue when possible and report the gap.
 - Contradictory branch/PR evidence: keep canonical state conservative and
   surface the conflict.
-- Never copy a branch snapshot verbatim, write to branch snapshots, treat an
-  orphaned/no-PR branch as authoritative on its own, add a HEAD freshness
-  shortcut, or rebuild canonical files wholesale.
+- Never copy a branch snapshot verbatim, write to branch snapshots,
+  incorporate open PR or unmerged branch state into canonical, add a HEAD
+  freshness shortcut, or rebuild canonical files wholesale.

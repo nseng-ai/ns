@@ -14,7 +14,8 @@ metadata:
 
 # dev-memjective-create
 
-Create the canonical record for a new local-first memjective.
+Collaboratively define a new local-first memjective, choose its slug, and
+create the canonical record.
 
 > For shared concepts — vocabulary, storage model, content anatomy, lifecycle,
 > carry-forward semantics, and mutation contracts — see
@@ -23,8 +24,9 @@ Create the canonical record for a new local-first memjective.
 
 ## Goal
 
-Given a memjective brief, draft the initial canonical memjective under
-namespace `memjectives` and key prefix `<slug>/`.
+Given a workstream brief from the conversation, help frame the memjective,
+choose or propose a stable slug, and draft the initial canonical memjective
+under namespace `memjectives` and key prefix `<slug>/`.
 
 `create` writes `body.md` once, and writes `roadmap.md` only when the
 conversation already contains a concrete slice plan. It never writes
@@ -51,11 +53,14 @@ state.
 
 ## Inputs
 
-- **Brief, required.** Use the current conversation as the source brief. If
-  the user references a PR, issue, design spec, or local markdown document,
-  read it before drafting.
-- **Slug, optional.** Use a user-provided slug when present. Otherwise
-  generate one from the title and intent.
+- **Brief, required.** Use the current conversation as the source brief. The
+  user may start with a rough intent rather than a complete memjective. Help
+  turn that intent into a title, scope, goals, completion criteria, and
+  progress recipe. If the user references a PR, issue, design spec, or local
+  markdown document, read it before drafting.
+- **Slug, optional.** Use a user-provided slug when present and valid.
+  Otherwise propose one from the title and intent. The slug is part of the
+  create output, not a prerequisite for starting the conversation.
 - **Concrete slice plan, optional.** Draft `roadmap.md` only when the
   conversation already contains PR-sized slices. If the plan is still vague,
   skip `roadmap.md`; `body.md`'s progress recipe is enough for the initial
@@ -92,9 +97,11 @@ git rev-parse --abbrev-ref HEAD
 
 Abort if not in a git repo or on detached `HEAD`.
 
-### 2. Capture the Workstream
+### 2. Frame The Workstream With The User
 
-Gather enough context to draft the stable `body.md` spine:
+Gather enough context to draft the stable `body.md` spine and identify the
+slug. Treat this as a brief collaborative framing pass, not a mechanical form
+fill.
 
 - concrete title
 - durable description of trigger, scope, already-landed adjacent work, and
@@ -102,9 +109,11 @@ Gather enough context to draft the stable `body.md` spine:
 - value-oriented goals
 - re-checkable completion criteria for the intended end state
 - mechanical `How to Make Progress` recipe for future sessions
+- candidate slug
 
-Ask a short follow-up only when a critical piece is missing. Keep the document
-lighter than a full GitHub objective.
+Ask a short follow-up when a critical piece is missing or when the proposed
+slug/scope would be ambiguous. Keep the document lighter than a full GitHub
+objective.
 
 ### 3. Choose And Check The Slug
 
@@ -112,6 +121,11 @@ Use the explicit slug if provided; otherwise generate one that is lowercase
 ASCII, hyphen-separated, concise, stable, descriptive of the workstream,
 usually 50 characters or fewer, and has no `/body.md` suffix or redundant
 `memjective-` prefix.
+
+When generating the slug, surface it as the proposed identifier for the
+memjective. If the user asked only for creation and the slug is obvious,
+proceed after checking for collisions. If multiple reasonable slugs imply
+different scopes, ask the user to choose before writing.
 
 Before writing, check master for an existing snapshot:
 

@@ -1,117 +1,157 @@
 # memjective
 
-Local-first planning docs for multi-session workstreams. One canonical record on `master`, zero or more branch-local snapshots that can drift while a slice is in flight.
+A memjective is a local planning record for work that will span multiple
+branches, PRs, or sessions. Use one when you need a durable answer to:
 
-A memjective is a directory of files (`body.md`, optional `roadmap.md`, optional `notes.md`) keyed by slug, stored in `brmem` rather than GitHub or the working tree. The full conceptual reference lives in [`SKILL.md`](./SKILL.md); this README walks an end-to-end example.
+- What is this workstream trying to finish?
+- What has already landed?
+- What remains to be done?
+- What branch-local context should stay with in-flight work until it lands?
 
-## The shape
+Memjectives are stored in `brmem`, not in GitHub issues, PR comments, or files
+in the working tree. Each memjective is keyed by a slug, such as
+`dashboard-revamp`, and stores a small directory of markdown files:
 
-The subsystem splits authority cleanly:
+- `body.md`: required, stable description of the workstream.
+- `roadmap.md`: optional, ordered PR-sized slices.
+- `notes.md`: optional, durable findings discovered while implementing.
 
-- **Canonical record** on `master` — the workstream's shared ground truth. Advanced only by `create` and `reconcile`.
-- **Branch snapshot** on each working branch — a local checkpoint that can drift, accumulate notes, and serve as evidence later. Advanced only by `claim` and `update`.
+The full conceptual reference lives in [`SKILL.md`](./SKILL.md). This README
+is the human walkthrough.
 
-Each operation mutates exactly one snapshot type (canonical XOR branch). Carry-forward between them is explicit — `claim` is the only primitive that copies a snapshot from one place to another, and it never edits while copying.
+## Mental Model
 
-Two further invariants worth knowing up front:
+There are two places a memjective can live:
 
-- **Many-to-many.** A single branch may carry multiple memjective slugs in the `memjectives` namespace. Each primitive operates per-slug.
-- **Slug always explicit.** Every primitive takes the slug as a required positional argument. There is no auto-pick from "the only memjective on the branch."
+- **Canonical record**: The record of the memjective that lives on trunk/master/main. It
+  is the ground truth of how the objective is proceding from the point of view of the global
+  system. As code lands and time progresses, a reconcilation process ensures that it is
+  up-to-date with respect the code base and any relevant external state.
 
-## The five primitives
+- **Branch snapshot**: a working copy attached to a feature branch. This represents
+  the state of the memjective IF branch were the ground truth of the system. Memjectives
+  can themselves evolve in branches, with changing goals, plans, and assumptions as they
+  are discovered during the implementation process.
 
-| Skill                      | Mutates   | Job                                             |
-| -------------------------- | --------- | ----------------------------------------------- |
-| `dev-memjective-create`    | canonical | Seed the canonical record on `master`           |
-| `dev-memjective-claim`     | branch    | Verbatim carry-forward into a branch snapshot   |
-| `dev-memjective-next`      | nothing   | Read-only status peek + next-slice suggestion   |
-| `dev-memjective-update`    | branch    | Refresh branch snapshot from landed branch work |
-| `dev-memjective-reconcile` | canonical | Fold branch + PR evidence into canonical state  |
+The write boundary is explicit. `update` can rewrite only the current branch
+snapshot. `reconcile` can rewrite only the canonical record, and only from
+landed work. Open PRs and unmerged branches stay in branch snapshots;
+higher-level tooling can build a combined view across canonical state and
+those snapshots. `claim` is the only operation that copies a snapshot from one
+place to another, and it copies verbatim.
 
-Full mutation contract, including the conservative per-file rewrite rules shared by `update` and `reconcile`, lives in [`references/mutation-contract.md`](./references/mutation-contract.md).
+## Which Operation To Use
 
-## Example workflow
+| You want to...                                | Use                        | Writes to |
+| --------------------------------------------- | -------------------------- | --------- |
+| Start tracking a new workstream               | `dev-memjective-create`    | Canonical |
+| See status and choose the next PR-sized slice | `dev-memjective-next`      | Nothing   |
+| Attach the workstream to a branch             | `dev-memjective-claim`     | Branch    |
+| Refresh a snapshot before stacking on it      | `dev-memjective-update`    | Branch    |
+| Refresh canonical state after PRs merge       | `dev-memjective-reconcile` | Canonical |
 
-A worked example: a workstream to revamp a dashboard. The slug is `dashboard-revamp`. We'll cut several PR-sized slices over multiple sessions.
+Full write rules live in
+[`references/mutation-contract.md`](./references/mutation-contract.md).
 
-### Step 0 — On `master`, draft the canonical record
+## Normal Workflow
+
+Assume you want to track a dashboard revamp across several branches. You do
+not need to know the final memjective shape or slug before you start.
+
+### 1. Create the canonical record on `master`
 
 ```text
-dev-memjective-create dashboard-revamp
+Use dev-memjective-create to set up a memjective for revamping the dashboard.
+The work will likely include the data layer, table interactions, and follow-up
+polish across multiple PRs.
 ```
 
-`create` runs only against canonical storage. It writes `<slug>/body.md` (always) and `<slug>/roadmap.md` (only when the conversation already contains a concrete slice plan). It never attaches the snapshot to the current branch and never writes `notes.md`. Aborts if `dashboard-revamp/` already exists on `master`.
+`dev-memjective-create` is a collaborative drafting step, not just a storage
+command. The agent uses the conversation to identify the workstream title,
+scope, goals, completion criteria, and whether there is already enough
+structure for a PR-sized roadmap. It proposes a stable slug, such as
+`dashboard-revamp`, and asks a short follow-up if the scope or slug would
+otherwise be ambiguous.
 
-After this step, canonical state exists. No branch yet carries a snapshot.
+Once the shape is clear, the skill seeds the shared record on `master`. It
+writes `body.md` and, when there is already a concrete slice plan,
+`roadmap.md`. It does not attach anything to a feature branch.
 
-### Step 1 — Cut a working branch and claim the snapshot
-
-```text
-gt create dashboard-data-layer
-dev-memjective-claim dashboard-revamp
-```
-
-`claim` resolves a source (in this case canonical, since no ancestor branch carries the slug) and `brmem copy`s the entire `dashboard-revamp/` directory verbatim onto the new branch. No edits, no synthesis. Aborts if the target branch already carries this slug.
-
-The branch now has its own working copy. It and canonical are byte-identical at this moment.
-
-### Step 2 — Inspect and pick the next slice
+### 2. Choose the next slice
 
 ```text
 dev-memjective-next dashboard-revamp
 ```
 
-`next` writes nothing. It loads the best matching source (current branch wins over ancestor wins over canonical), summarizes title/status/roadmap, flags stale branch snapshots, and proposes a kebab-case slug for the next PR-sized slice. Skip it if you already know what to do.
+`next` is read-only. It inspects the canonical record and recommends the next
+PR-sized slice, including a branch slug such as `dashboard-revamp/data-layer`.
+This happens before `claim` so the branch you create is tied to the slice you
+intend to implement.
 
-### Step 3 — Implement and ship the slice
-
-Write code, land commits, open and merge a PR. Memjective tooling is not in the loop here.
-
-### Step 4 — Refresh the branch snapshot
-
-```text
-dev-memjective-update dashboard-revamp
-```
-
-`update` reads the new commits as evidence and rewrites the branch snapshot conservatively: checks completed roadmap items, appends durable findings to `notes.md`, moves `Status:` only on a categorical change. It writes only files whose content actually changed and reports old→new brmem SHAs for recovery.
-
-`update` aborts on `master` and points to `reconcile`. It is a no-op when the snapshot's max `head_date` is at-or-after branch HEAD's commit time.
-
-Repeat steps 1–4 for additional slices: cut a new branch off the appropriate base, `claim` the snapshot (which now resolves to the nearest ancestor branch carrying it, not canonical), pick the next slice, implement, update.
-
-### Step 5 — Inspect what's in flight
+### 3. Create a branch for that slice and claim the snapshot
 
 ```text
-twerk memjective tree dashboard-revamp
-twerk memjective show dashboard-revamp
+gt create dashboard-revamp/data-layer
+dev-memjective-claim dashboard-revamp
 ```
 
-The introspection CLI surfaces every branch carrying the slug along with its PR state. Useful before reconciling, to see which branches are merged, open, closed, or orphaned.
+`claim` attaches the memjective to the new branch by copying an existing
+snapshot. For the first branch in this example, it copies the canonical
+record you just created. For a later branch in a stack, it copies from the
+nearest ancestor branch that already carries `dashboard-revamp`.
 
-### Step 6 — Back on `master`, reconcile
+The copy is exact. On a newly created empty branch, no progress has been made
+yet toward the workstream, so there is nothing to summarize or merge. If the
+target branch already has `dashboard-revamp/`, `claim` aborts instead of
+merging.
+
+### 4. Implement and merge the slice
+
+Write code, land commits, open and merge a PR. For this simple path, do not
+run `dev-memjective-update`: no later branch needs to inherit progress from
+this branch snapshot.
+
+### 5. Reconcile canonical state on `master`
 
 ```text
 dev-memjective-reconcile dashboard-revamp
 ```
 
-`reconcile` runs only on `master`. It enumerates branch snapshots carrying the slug (typically via `memjective tree --format json`), looks up each branch's PR for state/metadata, and folds that evidence into canonical `body.md` / `roadmap.md` / `notes.md` using the same conservative rewrite rules `update` uses.
+`reconcile` reads branch snapshots and their associated PR state, then folds
+only landed evidence into canonical `body.md`, `roadmap.md`, and `notes.md`.
+In normal PR-backed work, that means branches whose PRs are merged. Open PRs,
+closed-unmerged PRs, no-PR branches, and orphaned snapshots are not folded
+into canonical state.
 
-Evidence is weighted: merged PRs are strongest; open PRs are useful for in-flight findings but weaker for canonical completion; closed-unmerged and orphaned-snapshot evidence are weak and labeled. Branch snapshots are never written to, and a branch snapshot is never pasted verbatim into canonical state.
+Reconciliation never writes branch snapshots, and it never pastes a branch
+snapshot verbatim into canonical state.
 
-Canonical now reflects what landed across the workstream. Branch snapshots remain untouched as historical evidence.
+Repeat steps 2-5 for the next non-stacked slice.
 
-## Introspection CLI
+## Stacked Branches
 
-Three read-only commands surfaced under `twerk memjective`:
+Use `dev-memjective-update` only when another branch will claim from the
+current branch before the current branch lands. That is the stacked-PR case:
+the branch snapshot needs to reflect committed work so the child branch starts
+from the right memjective state.
 
-- `twerk memjective list [--branch <name>|--here]` — list snapshots on a branch or across the repo
-- `twerk memjective show [<slug>]` — render a present-state summary for a slug
-- `twerk memjective tree [<slug>]` — show every branch carrying the slug, grouped by PR state
+## Rules Worth Remembering
 
-All mutation is skill-driven; the CLI is for inspection only.
+- Always name the slug explicitly. A branch can carry multiple memjectives.
+- `claim` copies exactly one source snapshot and does not edit while copying.
+- `update` is for stacked branch snapshots. `reconcile` is for `master`.
+- Branch snapshots are branch-local state, not shared truth.
+- Canonical state incorporates landed work, not open PRs or unmerged branches.
 
 ## See also
 
-- [`SKILL.md`](./SKILL.md) — full conceptual reference (storage refs, document anatomy, lifecycle, failure modes)
-- [`references/mutation-contract.md`](./references/mutation-contract.md) — single source of truth for what each operation may touch and the shared conservative rewrite rules
-- The five operation skills under [`../dev-memjective-create/`](../dev-memjective-create/), [`../dev-memjective-claim/`](../dev-memjective-claim/), [`../dev-memjective-next/`](../dev-memjective-next/), [`../dev-memjective-update/`](../dev-memjective-update/), [`../dev-memjective-reconcile/`](../dev-memjective-reconcile/)
+- [`SKILL.md`](./SKILL.md): full conceptual reference, including storage,
+  document anatomy, lifecycle, and failure modes.
+- [`references/mutation-contract.md`](./references/mutation-contract.md):
+  single source of truth for what each operation may touch.
+- Operation skills:
+  [`dev-memjective-create`](../dev-memjective-create/),
+  [`dev-memjective-claim`](../dev-memjective-claim/),
+  [`dev-memjective-next`](../dev-memjective-next/),
+  [`dev-memjective-update`](../dev-memjective-update/), and
+  [`dev-memjective-reconcile`](../dev-memjective-reconcile/).

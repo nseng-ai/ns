@@ -18,8 +18,8 @@ metadata:
 
 # dev-memjective-update
 
-Refresh the current branch's memjective snapshot after work lands on that
-branch.
+Refresh the current branch's memjective snapshot before another branch claims
+from it.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
 > rewrite rules, see `../dev-memjective/SKILL.md` and
@@ -28,13 +28,17 @@ branch.
 ## Goal
 
 Given an explicit memjective slug, update the branch-local snapshot under
-`<slug>/` to reflect commits that landed on the current branch. Write only
-changed files back to `brmem`, and report old/new commit SHAs so prior
-snapshots are recoverable.
+`<slug>/` to reflect commits on the current branch. Write only changed files
+back to `brmem`, and report old/new commit SHAs so prior snapshots are
+recoverable.
 
 `update` mutates a **branch snapshot**, not the canonical memjective. In the
 current implementation, canonical state is stored on `master`, so `update`
 aborts on `master` and points to `dev-memjective-reconcile`.
+
+This is normally needed only for stacked PRs, when a later branch will claim
+from this branch before this branch lands. For a simple single-PR path, merge
+the PR and run `dev-memjective-reconcile` on `master` instead.
 
 ## Memjective Content
 

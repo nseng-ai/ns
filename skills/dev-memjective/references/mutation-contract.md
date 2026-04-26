@@ -14,13 +14,13 @@ Only `body.md` is required. `roadmap.md` and `notes.md` appear when useful.
 
 ## Operation table
 
-| Operation                  | Canonical memjective                 | Current branch snapshot        | Other branch snapshots |
-| -------------------------- | ------------------------------------ | ------------------------------ | ---------------------- |
-| `dev-memjective-create`    | Writes initial `body.md` and roadmap | Never                          | Never                  |
-| `dev-memjective-next`      | Reads only                           | Reads only                     | Reads only             |
-| `dev-memjective-claim`     | May read as source                   | Writes verbatim copy to target | May read as source     |
-| `dev-memjective-update`    | Never                                | Rewrites from branch work      | Never                  |
-| `dev-memjective-reconcile` | Rewrites from branch + PR evidence   | Reads only as evidence         | Reads only as evidence |
+| Operation                  | Canonical memjective                      | Current branch snapshot        | Other branch snapshots |
+| -------------------------- | ----------------------------------------- | ------------------------------ | ---------------------- |
+| `dev-memjective-create`    | Writes initial `body.md` and roadmap      | Never                          | Never                  |
+| `dev-memjective-next`      | Reads only                                | Reads only                     | Reads only             |
+| `dev-memjective-claim`     | May read as source                        | Writes verbatim copy to target | May read as source     |
+| `dev-memjective-update`    | Never                                     | Rewrites from branch work      | Never                  |
+| `dev-memjective-reconcile` | Rewrites from landed branch + PR evidence | Reads only as evidence         | Reads only as evidence |
 
 Carry-forward is exclusively `dev-memjective-claim`'s job. It copies one
 source snapshot exactly; it never merges or summarizes.
@@ -80,15 +80,18 @@ Forbidden:
 
 ## Rewrite modes
 
-| Mode                   | Skill                      | Target               | Evidence                                           | No-op rule                       |
-| ---------------------- | -------------------------- | -------------------- | -------------------------------------------------- | -------------------------------- |
-| Branch snapshot update | `dev-memjective-update`    | Current branch       | Branch commits since snapshot freshness            | Snapshot fresh relative to HEAD  |
-| Canonical reconcile    | `dev-memjective-reconcile` | Canonical memjective | Branch snapshots plus associated PR state/metadata | No branch/PR evidence to fold in |
+| Mode                   | Skill                      | Target               | Evidence                                                  | No-op rule                              |
+| ---------------------- | -------------------------- | -------------------- | --------------------------------------------------------- | --------------------------------------- |
+| Branch snapshot update | `dev-memjective-update`    | Current branch       | Branch commits since snapshot freshness                   | Snapshot fresh relative to HEAD         |
+| Canonical reconcile    | `dev-memjective-reconcile` | Canonical memjective | Landed branch snapshots plus associated PR state/metadata | No landed branch/PR evidence to fold in |
 
 ### Branch snapshot update
 
-`update` refreshes the current branch snapshot from work that landed on the
-same branch. It aborts on `master` in the current implementation because
+`update` refreshes the current branch snapshot from work committed on the
+same branch. It is for stacked PRs: use it when another branch will claim
+from the current branch before the current branch lands. For a simple
+single-PR path, merge the PR and run `dev-memjective-reconcile` on `master`
+instead. `update` aborts on `master` in the current implementation because
 `master` is the canonical storage branch.
 
 Evidence:
@@ -104,9 +107,11 @@ Freshness rule:
 
 ### Canonical reconcile
 
-`reconcile` refreshes the canonical memjective. It is grounded by branch
-snapshots carrying the same slug and by the PRs associated with those
-branches.
+`reconcile` refreshes the canonical memjective. It is grounded by landed
+branch snapshots carrying the same slug and by the merged PRs associated with
+those branches. Open PRs and unmerged branches remain branch-local state; a
+higher-level view may combine canonical state with those snapshots without
+mutating canonical state.
 
 Preferred evidence adapter:
 
@@ -121,30 +126,30 @@ Use the tree output to identify:
 - whether each branch is live or stale/orphaned
 - PR number, URL, title, state, and lookup errors for each branch
 
-Then load the relevant branch snapshot files with `brmem get` and, when PR
-metadata is needed to interpret the snapshot, inspect the associated PR:
+Then load the relevant merged PR-backed branch snapshot files with `brmem get`
+and, when PR metadata is needed to interpret the snapshot, inspect the
+associated PR:
 
 ```bash
 gh pr view <number-or-branch> \
   --json number,title,url,headRefName,baseRefName,state,mergedAt,commits,body
 ```
 
-Use PR state as evidence weight:
+Use PR state as an inclusion gate:
 
-- **merged PR**: strongest signal that checked roadmap items and completion
-  criteria should be folded into canonical state.
-- **open PR**: useful for in-flight findings and likely follow-ups, but avoid
-  marking canonical completion unless already true on the target branch.
-- **closed unmerged PR**: weak evidence; preserve durable findings only when
-  still relevant and label uncertainty in the report.
-- **no PR**: local-only evidence; treat conservatively.
+- **merged PR**: eligible evidence for canonical rewrites.
+- **open PR**: do not fold into canonical state. Leave it in the branch
+  snapshot for higher-level views.
+- **closed unmerged PR**: do not fold into canonical state.
+- **no PR**: local-only evidence; do not fold into canonical state.
 - **PR lookup error**: do not abort reconciliation; report the evidence gap.
-- **orphaned branch snapshot**: valid but weak evidence; prefer corroboration
-  from a live branch or merged PR.
+- **orphaned branch snapshot**: do not fold into canonical state unless it is
+  tied to landed work.
 
 `reconcile` never writes to branch snapshots and never copies a branch
-snapshot verbatim onto canonical state. Branch text and PR metadata are
-evidence for a conservative rewrite, not source content to paste wholesale.
+snapshot verbatim onto canonical state. Text from eligible landed branch
+snapshots and PR metadata are evidence for a conservative rewrite, not source
+content to paste wholesale.
 
 ## Common rewrite workflow
 
@@ -190,6 +195,7 @@ Source resolution:
 - Letting `update` edit canonical state.
 - Letting `reconcile` write back to branch snapshots.
 - Copying a branch snapshot verbatim onto canonical state.
+- Incorporating open PR or unmerged branch information into canonical state.
 - Letting ordinary update/reconcile runs rename sections or rebuild a
   snapshot wholesale.
 - Treating a closed-unmerged PR or orphaned snapshot as authoritative on its
