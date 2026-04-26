@@ -6,6 +6,7 @@ from typing import Any
 import click
 
 from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.context import ReviewerCliContext
@@ -26,7 +27,7 @@ class HarnessEntry:
 
 
 @dataclass(frozen=True)
-class HarnessListResult:
+class HarnessListResult(JsonSerializable):
     harnesses: tuple[HarnessEntry, ...]
 
     def to_json_dict(self) -> dict[str, Any]:

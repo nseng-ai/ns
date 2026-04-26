@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
 from twerk_core import get_console
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import (
@@ -47,7 +48,7 @@ class SlotCheckoutRequest:
 
 
 @dataclass(frozen=True)
-class SlotCheckoutResult:
+class SlotCheckoutResult(JsonSerializable):
     slot_name: str
     branch_name: str
     worktree_path: str
@@ -60,22 +61,6 @@ class SlotCheckoutResult:
     clipboard_skipped: bool
     clipboard_failure_reason: str | None
     clipboard_failure_detail: str | None
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "slot_name": self.slot_name,
-            "branch_name": self.branch_name,
-            "worktree_path": self.worktree_path,
-            "cd_command": self.cd_command,
-            "already_assigned": self.already_assigned,
-            "created_branch": self.created_branch,
-            "evicted_slot": self.evicted_slot,
-            "current_wt_note": self.current_wt_note,
-            "clipboard_copied": self.clipboard_copied,
-            "clipboard_skipped": self.clipboard_skipped,
-            "clipboard_failure_reason": self.clipboard_failure_reason,
-            "clipboard_failure_detail": self.clipboard_failure_detail,
-        }
 
 
 def render_slot_checkout(result: SlotCheckoutResult) -> None:

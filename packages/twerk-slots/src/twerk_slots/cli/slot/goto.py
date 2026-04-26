@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
 from twerk_core import get_console
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import find_assignment_by_slot
@@ -21,17 +22,10 @@ class SlotGotoRequest:
 
 
 @dataclass(frozen=True)
-class SlotGotoResult:
+class SlotGotoResult(JsonSerializable):
     slot_name: str
     branch_name: str
     worktree_path: str
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "slot_name": self.slot_name,
-            "branch_name": self.branch_name,
-            "worktree_path": self.worktree_path,
-        }
 
 
 def render_slot_goto(result: SlotGotoResult) -> None:

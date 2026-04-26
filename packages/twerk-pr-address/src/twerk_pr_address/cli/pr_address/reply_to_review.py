@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass
-from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment
@@ -23,15 +22,9 @@ class ReplyToReviewRequest:
 
 
 @dataclass(frozen=True)
-class ReplyToReviewResult:
+class ReplyToReviewResult(JsonSerializable):
     body: str
     comment: IssueComment
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "body": self.body,
-            "comment": dataclasses.asdict(self.comment),
-        }
 
 
 @clinkr_operation(

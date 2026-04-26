@@ -5,7 +5,7 @@ import json
 import sys
 import types
 from dataclasses import fields
-from typing import Any, Literal, Union, get_args, get_origin
+from typing import Any, Literal, Union, cast, get_args, get_origin
 
 _PYTHON_TYPE_MAP: dict[type, str] = {
     str: "string",
@@ -83,14 +83,22 @@ def parse_dataclass_from_json(cls: type, data: dict[str, Any]) -> Any:
     return _build_dataclass_request(cls, data)
 
 
-def serialize_to_json_dict(result: Any) -> dict[str, Any]:
-    if hasattr(result, "to_json_dict"):
-        return result.to_json_dict()
-    if dataclasses.is_dataclass(result) and not isinstance(result, type):
-        return dataclasses.asdict(result)
-    raise TypeError(
-        f"Cannot serialize {type(result).__name__}: no to_json_dict() and not a dataclass"
-    )
+class JsonSerializable:
+    """Marker mixin for clinkr result types.
+
+    Subclasses must be dataclasses. The default `to_json_dict` mirrors
+    `dataclasses.asdict(self)`; override for custom shape (added or
+    omitted fields, flattening, conditional output, etc.).
+    """
+
+    def to_json_dict(self) -> dict[str, Any]:
+        # Contract: subclasses must be dataclasses (see docstring). asdict's
+        # type stub requires DataclassInstance; mixin can't express that.
+        return dataclasses.asdict(cast(Any, self))
+
+
+def serialize_to_json_dict(result: JsonSerializable) -> dict[str, Any]:
+    return result.to_json_dict()
 
 
 def read_json_stdin() -> dict[str, Any] | None:

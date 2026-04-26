@@ -1,10 +1,10 @@
 """Add a reaction to a comment."""
 
 from dataclasses import dataclass
-from typing import Any
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -17,17 +17,10 @@ class AddReactionRequest:
 
 
 @dataclass(frozen=True)
-class AddReactionResult:
+class AddReactionResult(JsonSerializable):
     id: int
     comment_id: int
     content: str
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "comment_id": self.comment_id,
-            "content": self.content,
-        }
 
 
 @clinkr_operation(

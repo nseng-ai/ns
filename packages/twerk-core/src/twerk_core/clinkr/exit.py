@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
-from twerk_core.clinkr.dataclass_json import serialize_to_json_dict
+from twerk_core.clinkr.dataclass_json import JsonSerializable, serialize_to_json_dict
 
-T = TypeVar("T")
+T = TypeVar("T", bound=JsonSerializable)
 
 
 class ExitStatus(Enum):

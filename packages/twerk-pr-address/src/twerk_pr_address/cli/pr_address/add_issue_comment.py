@@ -1,12 +1,12 @@
 """Add a discussion comment to a PR."""
 
-import dataclasses
 import sys
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment
@@ -31,11 +31,8 @@ class AddIssueCommentRequest:
 
 
 @dataclass(frozen=True)
-class AddIssueCommentResult:
+class AddIssueCommentResult(JsonSerializable):
     comment: IssueComment
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {"comment": dataclasses.asdict(self.comment)}
 
 
 @clinkr_operation(

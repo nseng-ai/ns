@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
@@ -21,6 +21,7 @@ from twerk_core.brmem.gateway_access import (
 )
 from twerk_core.brmem.key_validation import check_key
 from twerk_core.brmem.validation import first_failure
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -44,21 +45,12 @@ class DeleteRequest:
 
 
 @dataclass(frozen=True)
-class DeleteResult:
+class DeleteResult(JsonSerializable):
     namespace: str | None
     key: str
     branch: str
     ref_name: str
     commit: str
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "namespace": self.namespace,
-            "key": self.key,
-            "branch": self.branch,
-            "ref_name": self.ref_name,
-            "commit": self.commit,
-        }
 
 
 def render_delete(result: DeleteResult) -> None:

@@ -7,6 +7,7 @@ from typing import Any
 import click
 
 from twerk_core import format_relative_time, get_console, make_table, state_badge
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import Issue
@@ -21,7 +22,7 @@ class ObjectiveListRequest:
 
 
 @dataclass(frozen=True)
-class ObjectiveListResult:
+class ObjectiveListResult(JsonSerializable):
     objectives: tuple[Issue, ...]
 
     def to_json_dict(self) -> dict[str, Any]:

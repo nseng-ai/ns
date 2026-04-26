@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import click
 
 from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.context import ReviewerCliContext
@@ -18,11 +18,8 @@ class HarnessShowRequest:
 
 
 @dataclass(frozen=True)
-class HarnessShowResult:
+class HarnessShowResult(JsonSerializable):
     harness_name: str
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {"harness_name": self.harness_name}
 
 
 def render_harness_show(result: HarnessShowResult) -> None:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
@@ -19,6 +19,7 @@ from twerk_core.brmem.gateway_access import (
 )
 from twerk_core.brmem.key_validation import check_key
 from twerk_core.brmem.validation import first_failure
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -43,7 +44,7 @@ class GetRequest:
 
 
 @dataclass(frozen=True)
-class GetResult:
+class GetResult(JsonSerializable):
     namespace: str | None
     key: str
     branch: str
@@ -51,17 +52,6 @@ class GetResult:
     ref_name: str
     target: str
     at: str | None = None
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "namespace": self.namespace,
-            "key": self.key,
-            "branch": self.branch,
-            "content": self.content,
-            "ref_name": self.ref_name,
-            "target": self.target,
-            "at": self.at,
-        }
 
 
 def render_get(result: GetResult) -> None:

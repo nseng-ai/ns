@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import click
 
 from twerk_core import get_console, make_table
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.format import format_relative_time
@@ -35,26 +36,10 @@ class SlotRow:
 
 
 @dataclass(frozen=True)
-class SlotListResult:
+class SlotListResult(JsonSerializable):
     pool_size: int
     rows: tuple[SlotRow, ...]
     repo_name: str
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "repo_name": self.repo_name,
-            "pool_size": self.pool_size,
-            "rows": [
-                {
-                    "slot_name": r.slot_name,
-                    "branch": r.branch,
-                    "assigned_at": r.assigned_at,
-                    "worktree_path": r.worktree_path,
-                    "status": r.status,
-                }
-                for r in self.rows
-            ],
-        }
 
 
 def render_slot_list(result: SlotListResult) -> None:

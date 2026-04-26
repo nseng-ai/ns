@@ -8,6 +8,7 @@ import click
 from click.testing import CliRunner
 
 from twerk_core.clinkr.context import build_clinkr_context_object
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.clinkr.operation import clinkr_operation
@@ -19,7 +20,7 @@ class ProbeRequest:
 
 
 @dataclass(frozen=True)
-class ProbeResult:
+class ProbeResult(JsonSerializable):
     value: str
 
 

@@ -22,6 +22,7 @@ from typing import Annotated, Any, Literal
 import click
 
 from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console, make_table
@@ -70,7 +71,7 @@ class MemjectiveTreeRequest:
 
 
 @dataclass(frozen=True)
-class MemjectiveTreeResult:
+class MemjectiveTreeResult(JsonSerializable):
     slug: str
     seed_present: bool
     entries: tuple[BranchPrEntry, ...]

@@ -8,6 +8,7 @@ import click
 from click.testing import CliRunner
 
 from twerk_core.clinkr.context import build_clinkr_context_object
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.clinkr.operation import clinkr_operation
@@ -20,7 +21,7 @@ class GreetRequest:
 
 
 @dataclass(frozen=True)
-class GreetResult:
+class GreetResult(JsonSerializable):
     message: str
 
     def to_json_dict(self) -> dict[str, str]:
@@ -106,7 +107,7 @@ class EmptyRequest:
 
 
 @dataclass(frozen=True)
-class EmptyResult:
+class EmptyResult(JsonSerializable):
     count: int
 
     def to_json_dict(self) -> dict[str, int]:
@@ -136,7 +137,7 @@ class SearchRequest:
 
 
 @dataclass(frozen=True)
-class SearchResult:
+class SearchResult(JsonSerializable):
     results: tuple[str, ...]
 
     def to_json_dict(self) -> dict[str, list[str]]:

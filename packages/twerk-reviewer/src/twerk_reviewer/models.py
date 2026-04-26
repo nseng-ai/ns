@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal, TypeAlias
+
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 
 Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
@@ -353,19 +356,9 @@ class ReviewFinding:
             details=details,
         )
 
-    def to_json_dict(self) -> dict[str, Any]:
-        """Serialize the finding for JSON output."""
-        return {
-            "path": self.path,
-            "line": self.line,
-            "severity": self.severity,
-            "summary": self.summary,
-            "details": self.details,
-        }
-
 
 @dataclass(frozen=True)
-class FindingsReview:
+class FindingsReview(JsonSerializable):
     """A review payload carrying structured findings."""
 
     findings: tuple[ReviewFinding, ...]
@@ -373,13 +366,13 @@ class FindingsReview:
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "format": "findings",
-            "findings": [finding.to_json_dict() for finding in self.findings],
+            "findings": [dataclasses.asdict(finding) for finding in self.findings],
             "count": len(self.findings),
         }
 
 
 @dataclass(frozen=True)
-class ProseReview:
+class ProseReview(JsonSerializable):
     """A review payload carrying a human-readable markdown review."""
 
     prose: str
@@ -409,21 +402,6 @@ class ReviewExecutionRequest:
     base_ref: str
     diff_text: str
 
-    def to_json_dict(self) -> dict[str, Any]:
-        """Serialize the request for JSON output (e.g. structured logs)."""
-        return {
-            "review_name": self.review_name,
-            "review_description": self.review_description,
-            "review_instructions": self.review_instructions,
-            "adapter_name": self.adapter_name,
-            "model": self.model,
-            "review_format": self.review_format,
-            "base_ref": self.base_ref,
-            "diff_text": self.diff_text,
-            "prompt": self.prompt,
-            "system_prompt": self.system_prompt,
-        }
-
 
 @dataclass(frozen=True)
 class ReviewUsage:
@@ -441,17 +419,6 @@ class ReviewUsage:
     def total_input_tokens(self) -> int:
         return self.input_tokens + self.cache_creation_input_tokens + self.cache_read_input_tokens
 
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "input_tokens": self.input_tokens,
-            "output_tokens": self.output_tokens,
-            "cache_creation_input_tokens": self.cache_creation_input_tokens,
-            "cache_read_input_tokens": self.cache_read_input_tokens,
-            "total_cost_usd": self.total_cost_usd,
-            "duration_ms": self.duration_ms,
-            "num_turns": self.num_turns,
-        }
-
 
 @dataclass(frozen=True)
 class ReviewExecutionResponse:
@@ -462,7 +429,7 @@ class ReviewExecutionResponse:
 
 
 @dataclass(frozen=True)
-class LocalReviewResult:
+class LocalReviewResult(JsonSerializable):
     """Structured result returned by the local reviewer CLI."""
 
     review_name: str
@@ -479,6 +446,6 @@ class LocalReviewResult:
             "review_path": self.review_path,
             "model": self.model,
             "base_ref": self.base_ref,
-            "usage": self.usage.to_json_dict() if self.usage else None,
+            "usage": dataclasses.asdict(self.usage) if self.usage else None,
             **self.payload.to_json_dict(),
         }
