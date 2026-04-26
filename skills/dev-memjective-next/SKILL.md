@@ -47,7 +47,7 @@ afterwards.
 
 `next` requires the **memjective slug** as an explicit positional argument,
 parsed from the invoking prompt — e.g., _"run dev-memjective-next for
-`widget-rewrite`"_ or _"peek the `foo-bar` memjective"_. There is no CLI
+`widget-rewrite`"_ or _"inspect the `foo-bar` memjective"_. There is no CLI
 flag; pull the slug out of the prompt text.
 
 The slug is **always explicit**. Many-to-many is allowed in the storage
@@ -56,7 +56,7 @@ not auto-pick a slug even when the resolved source has only one — the slug
 arg disambiguates which memjective to inspect.
 
 If the invoking prompt does not contain a slug, abort and ask the user
-which memjective to peek at. Do not silently fall through to a "show me
+which memjective to inspect. Do not silently fall through to a "show me
 whatever you find" mode.
 
 The user may optionally name a source explicitly (a branch, a master-branch
@@ -252,8 +252,12 @@ latest_mem_ts=$(
 
 head_ts=$(git log -1 --format=%cI refs/heads/<source-branch>)
 
+snapshot_head_sha=$(
+  brmem check <slug>/body.md --namespace memjectives --branch <source-branch> \
+    --format json | jq -r '.data.head_sha'
+)
 commits_behind=$(git rev-list --count \
-  $(brmem head-sha <slug>/body.md --namespace memjectives --branch <source-branch>)..refs/heads/<source-branch>)
+  ${snapshot_head_sha}..refs/heads/<source-branch>)
 ```
 
 Compare `head_ts` and `latest_mem_ts` as ISO 8601 strings (lexicographic
@@ -267,7 +271,7 @@ sort is correct for the `%cI` / `head_date` format).
   > running `dev-memjective-update <slug>` on `<source-branch>` first._
 
 If `commits_behind` is hard to compute cheaply (e.g., the snapshot's
-recorded `head-sha` is not reachable from the source branch's HEAD), drop
+recorded `head_sha` is not reachable from the source branch's HEAD), drop
 the count and emit the line without the "N commits" qualifier — the
 pointer to `dev-memjective-update` is the load-bearing part.
 
@@ -289,8 +293,8 @@ Write a short status summary back to the user so they can confirm:
 - **Title** — from `body.md`.
 - **Status** — from the `Status:` line in `body.md`.
 - **Description / Goals summary** — only if it adds signal; keep it to one
-  short sentence or 1–2 bullets. Skip on a routine peek where the user
-  already knows the workstream.
+  short sentence or 1–2 bullets. Skip on a routine status check where the
+  user already knows the workstream.
 - **Completion Criteria** — from `body.md`. Count checked vs. open, and
   list any remaining open criteria.
 - **Roadmap state** — from `roadmap.md`. Which items are checked vs. open,
@@ -368,7 +372,7 @@ Output:
 
 - **Detached HEAD** → abort in step 1.
 - **No slug arg in the invoking prompt** → abort in step 1; ask the user
-  which memjective to peek at. Never default to "the only one I can find"
+  which memjective to inspect. Never default to "the only one I can find"
   — many-to-many is allowed and the slug is always explicit.
 - **Stale brmem refs** for deleted branches → dropped during step 2c by
   the `git rev-parse --verify` filter.

@@ -1,6 +1,6 @@
 ---
 name: dev-memjective
-description: "Conceptual reference for the twerk memjective subsystem — local-first planning docs stored in `brmem` that track a multi-session workstream. Covers the storage model (master-branch snapshot + per-branch snapshots), the one-memjective-per-branch invariant, the document anatomy, the lifecycle, carry-forward semantics, and per-operation mutation contracts. Fires on conceptual questions about memjectives and alongside `dev-memjective-create`, `dev-memjective-next`, `dev-memjective-claim`, `dev-memjective-update`, and `dev-memjective-reconcile` as shared grounding. Read-only."
+description: "Conceptual reference for the twerk memjective subsystem — local-first planning docs stored in `brmem` that track a multi-session workstream. Covers the storage model (master-branch snapshot + per-branch snapshots, many-to-many slugs per branch), the document anatomy, the lifecycle, carry-forward semantics, and per-operation mutation contracts. Fires on conceptual questions about memjectives and alongside `dev-memjective-create`, `dev-memjective-next`, `dev-memjective-claim`, `dev-memjective-update`, and `dev-memjective-reconcile` as shared grounding. Read-only."
 allowed-tools: []
 metadata:
   internal: true

@@ -1,8 +1,6 @@
 ---
 name: dev-memjective-create
 description: Command
-# Original description (preserved for reference):
-# Draft a new memjective and store it in `brmem` as the master-branch snapshot plus an initial snapshot on the current branch. Use when the user wants to start a new local memjective or attach one to the current branch. See `dev-memjective` for the subsystem overview.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -19,9 +17,9 @@ metadata:
 Create a new local-first memjective: the master-branch snapshot.
 
 > For shared concepts — vocabulary (`snapshot`, `master-branch snapshot`,
-> `per-branch snapshot`), the storage model, the one-memjective-per-branch
-> invariant, carry-forward semantics, the lifecycle, and the mutation-contract
-> summary — see `../dev-memjective/SKILL.md`.
+> `per-branch snapshot`), the storage model, carry-forward semantics, the
+> lifecycle, and the mutation-contract summary — see
+> `../dev-memjective/SKILL.md`.
 
 ## Goal
 
@@ -79,28 +77,7 @@ Abort if:
 - not in a git repo
 - the current branch is detached (`HEAD`)
 
-### 2. Ensure the branch does not already have a memjective
-
-Inspect current-branch brmem for the `memjectives` namespace:
-
-```bash
-brmem list --namespace memjectives
-```
-
-`--branch` is omitted so the current branch is used implicitly.
-
-Decision rules:
-
-- **0 matches** → continue
-- **1 match** → abort and tell the user this branch already has a memjective;
-  they likely want `dev-memjective-peek` (to inspect the state and get a
-  slug for the next slice) or `dev-memjective-update` (to record a landed
-  slice) instead. `dev-memjective-next` explicitly refuses to run on a
-  branch with an existing snapshot.
-- **2+ matches** → abort and tell the user the branch is in an invalid state;
-  only one memjective snapshot per branch is allowed.
-
-### 3. Capture the memjective from the conversation
+### 2. Capture the memjective from the conversation
 
 Start from the current conversation. If the user references a PR, issue, design
 spec, or local markdown document, read it before drafting. Ask only brief
@@ -126,7 +103,7 @@ If the conversation already contains a concrete slice plan, also draft
 Bias toward a **simple, durable workstream note**. This is not the full GitHub
 objective template.
 
-### 4. Generate the slug
+### 3. Generate the slug
 
 If the user explicitly provides a slug, use it. Otherwise generate one from the
 memjective title + intent.
@@ -147,7 +124,7 @@ Examples:
 - `memjective-subsystem`
 - `explicit-group-cleanup`
 
-### 5. Pre-flight the master-branch snapshot
+### 4. Pre-flight the master-branch snapshot
 
 Before writing, check whether any file for this slug already exists on
 master:
@@ -164,11 +141,11 @@ Decision rules:
 - **any matching key** (`<slug>/body.md`, `<slug>/roadmap.md`, or
   `<slug>/notes.md`) → abort and tell the user the master-branch snapshot
   already exists for this slug; they likely want to run
-  `dev-memjective-peek` against the existing snapshot, or create a new
-  slice branch and run `dev-memjective-next` inside it instead of
-  clobbering the master-branch snapshot
+  `dev-memjective-next <slug>` against the existing snapshot, or
+  `dev-memjective-claim <slug>` to attach it to a working branch, instead
+  of clobbering the master-branch snapshot
 
-### 6. Draft the memjective documents
+### 5. Draft the memjective documents
 
 Read `../dev-memjective/templates/body-template.md` and fill it in as
 `body.md`.
@@ -209,7 +186,7 @@ If a concrete slice plan exists, also read
 Do not write `notes.md` yet — it appears the first time `update` records a
 durable finding.
 
-### 7. Write the master-branch snapshot
+### 6. Write the master-branch snapshot
 
 Write the drafted `body.md` text to a temp file, then store it on master:
 
@@ -217,7 +194,7 @@ Write the drafted `body.md` text to a temp file, then store it on master:
 brmem put <slug>/body.md --namespace memjectives --branch master --file <temp-body>
 ```
 
-If a `roadmap.md` was drafted in step 6, write it too:
+If a `roadmap.md` was drafted in step 5, write it too:
 
 ```bash
 brmem put <slug>/roadmap.md --namespace memjectives --branch master --file <temp-roadmap>
@@ -225,7 +202,7 @@ brmem put <slug>/roadmap.md --namespace memjectives --branch master --file <temp
 
 This is the initial snapshot. Capture the commit SHAs.
 
-### 8. Report
+### 7. Report
 
 Return a short summary including:
 
@@ -238,30 +215,23 @@ Return a short summary including:
 - next-step hint:
 
 ```text
-To attach this memjective to your current working branch, run
-`dev-memjective-claim <slug>`. The master-branch snapshot is the durable
-starting point for future slice branches.
+To attach this memjective to a working branch, run
+`dev-memjective-claim <slug>` on that branch. The master-branch snapshot is
+the durable starting point for future slice branches.
 
-Run /dev-memjective-peek on any branch for a lightweight status check and a
-kebab-case slug suggestion for the next slice — it reads the memjective
-without writing anything.
+Run `dev-memjective-next <slug>` on any branch for a read-only status check
+and a kebab-case slug suggestion for the next slice — it reads the
+memjective without writing anything.
 
-When you are ready to work the next slice, create a new branch with the
-suggested slug and run /dev-memjective-next inside it. That skill carries
-the memjective snapshot forward onto the new branch and then implements the
-slice in-session.
-
-After the slice lands, run /dev-memjective-update on that branch to rewrite
-the snapshot conservatively.
+After a slice lands on a slice branch, run `dev-memjective-update <slug>`
+on that branch to rewrite the snapshot conservatively. Once sibling
+branches have merged, run `dev-memjective-reconcile <slug>` on master to
+fold their evidence into the master-branch snapshot.
 ```
 
 ## Edge cases
 
-- **Detached HEAD** → abort; brmem attachment needs a branch name.
-- **Current branch already has one memjective snapshot** → abort; do not
-  clobber.
-- **Current branch has multiple memjective snapshots** → abort; ask the user to
-  clean up the branch state first.
+- **Detached HEAD** → abort; the pre-flight requires a branch name.
 - **Master-branch snapshot already exists for this slug** → abort; do not
   overwrite the existing snapshot.
 - **Memjective is too vague to write `How to Make Progress`** → ask a short
@@ -275,7 +245,6 @@ the snapshot conservatively.
 - Writing the memjective into the repo working tree.
 - Writing the initial branch snapshot from `create` (use
   `dev-memjective-claim` instead).
-- Creating a second memjective on a branch that already has one.
 - Attaching the branch snapshot under a generic key like `memjective/body.md`
   or a namespace other than `memjectives`.
 - Replacing `How to Make Progress` with vague advice like "keep working on it."
