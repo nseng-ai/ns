@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 import click
 
 from twerk_core.brmem.gateway_access import get_git_gateway, get_home_root
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -22,7 +23,7 @@ class ResolvePromptRequest:
 
 
 @dataclass(frozen=True)
-class ResolvePromptResult:
+class ResolvePromptResult(JsonSerializable):
     path: Path
     tier: Literal["project", "global"]
 
