@@ -17,8 +17,14 @@ from twerk_slots.allocation import (
     free_slot_assignment,
 )
 from twerk_slots.cli.slot.context import load_slots_context
+from twerk_slots.cli.slot.selectors import (
+    SelectorOk,
+    SelectorResult,
+    resolve_current,
+    resolve_num,
+    resolve_wt,
+)
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.naming import extract_slot_number, generate_slot_name
 from twerk_slots.pool_state import PoolState
 from twerk_slots.repo_context import NoRepoSentinel
 
@@ -76,33 +82,22 @@ def _resolve_targets(
     seen: set[str] = set()
     errors: list[str] = []
 
+    def absorb(result: SelectorResult) -> None:
+        if isinstance(result, SelectorOk):
+            if result.slot_name not in seen:
+                seen.add(result.slot_name)
+                resolved.append(result.slot_name)
+        else:
+            errors.append(result.message)
+
     for value in request.num:
-        if not (1 <= value <= state.pool_size):
-            errors.append(f"--num must be in 1..{state.pool_size} (got {value}).")
-            continue
-        slot_name = generate_slot_name(value)
-        if slot_name not in seen:
-            seen.add(slot_name)
-            resolved.append(slot_name)
+        absorb(resolve_num(value, state.pool_size))
 
     for value in request.wt:
-        if extract_slot_number(value) is None:
-            errors.append(f"--wt '{value}' is not a valid slot name (e.g. 'slot-01').")
-            continue
-        if value not in seen:
-            seen.add(value)
-            resolved.append(value)
+        absorb(resolve_wt(value))
 
     if request.current:
-        cwd = slots_ctx.repo.root
-        if extract_slot_number(cwd.name) is None:
-            errors.append(
-                f"--current requires running from a slot worktree; "
-                f"cwd '{cwd}' is not a slot directory (e.g. 'slot-01')."
-            )
-        elif cwd.name not in seen:
-            seen.add(cwd.name)
-            resolved.append(cwd.name)
+        absorb(resolve_current(slots_ctx.repo.root))
 
     return tuple(resolved), tuple(errors)
 
