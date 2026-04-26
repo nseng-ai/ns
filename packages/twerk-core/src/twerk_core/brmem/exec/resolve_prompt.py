@@ -1,4 +1,4 @@
-"""Resolve a twerk prompt file with project-local + global fallback."""
+"""Resolve a brmem prompt file with project-local + global fallback."""
 
 from __future__ import annotations
 
@@ -41,8 +41,8 @@ def render_resolve_prompt(result: ResolvePromptResult) -> None:
 @clinkr_operation(
     name="resolve-prompt",
     help=(
-        "Resolve a twerk prompt file. Prefers <repo-root>/.twerk/prompts/<name>.md; "
-        "falls back to ~/.twerk/prompts/<name>.md."
+        "Resolve a brmem prompt file. Prefers <repo-root>/.brmem/prompts/<name>.md; "
+        "falls back to ~/.brmem/prompts/<name>.md."
     ),
     human_renderer=render_resolve_prompt,
 )
@@ -66,8 +66,8 @@ def run_resolve_prompt(
     repo_root = git_gateway.get_repository_root(cwd)
     home_root = get_home_root(ctx)
 
-    project_path = repo_root / ".twerk" / "prompts" / f"{request.name}.md"
-    global_path = home_root / ".twerk" / "prompts" / f"{request.name}.md"
+    project_path = repo_root / ".brmem" / "prompts" / f"{request.name}.md"
+    global_path = home_root / ".brmem" / "prompts" / f"{request.name}.md"
 
     if project_path.exists():
         return ClinkrExit.ok(ResolvePromptResult(path=project_path, tier="project"))

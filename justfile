@@ -60,17 +60,17 @@ install-tools:
         ln -sfn {{justfile_directory()}}/skills/$skill ~/.claude/skills/$skill; \
         ln -sfn {{justfile_directory()}}/skills/$skill ~/.codex/skills/$skill; \
     done
-    mkdir -p ~/.twerk/prompts
-    if [ ! -e ~/.twerk/prompts/brmem-branch-create.md ]; then \
+    mkdir -p ~/.brmem/prompts
+    if [ ! -e ~/.brmem/prompts/brmem-branch-create.md ]; then \
         cp {{justfile_directory()}}/skills/brmem-branch-create/default-prompt.md \
-           ~/.twerk/prompts/brmem-branch-create.md; \
-        echo "seeded:    ~/.twerk/prompts/brmem-branch-create.md"; \
+           ~/.brmem/prompts/brmem-branch-create.md; \
+        echo "seeded:    ~/.brmem/prompts/brmem-branch-create.md"; \
     else \
-        echo "kept:      ~/.twerk/prompts/brmem-branch-create.md (already exists)"; \
+        echo "kept:      ~/.brmem/prompts/brmem-branch-create.md (already exists)"; \
     fi
     @echo "installed: slot, brmem, memjective"
     @echo "linked:    {{brmem_skills}} -> ~/.claude/skills, ~/.codex/skills"
-    @echo "prompts:   ~/.twerk/prompts/ (global brmem-branch-create default)"
+    @echo "prompts:   ~/.brmem/prompts/ (global brmem-branch-create default)"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

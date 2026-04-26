@@ -46,7 +46,7 @@ def _seed(path: Path, body: str = "x") -> Path:
 def test_resolves_project_local(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     home_root = tmp_path / "home"
-    project_path = _seed(repo_root / ".twerk" / "prompts" / "foo.md")
+    project_path = _seed(repo_root / ".brmem" / "prompts" / "foo.md")
 
     result = CliRunner().invoke(
         cli_group,
@@ -66,7 +66,7 @@ def test_falls_back_to_global(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     home_root = tmp_path / "home"
     repo_root.mkdir()
-    global_path = _seed(home_root / ".twerk" / "prompts" / "foo.md")
+    global_path = _seed(home_root / ".brmem" / "prompts" / "foo.md")
 
     result = CliRunner().invoke(
         cli_group,
@@ -85,8 +85,8 @@ def test_falls_back_to_global(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 def test_project_wins_over_global(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     home_root = tmp_path / "home"
-    project_path = _seed(repo_root / ".twerk" / "prompts" / "foo.md", body="project")
-    _seed(home_root / ".twerk" / "prompts" / "foo.md", body="global")
+    project_path = _seed(repo_root / ".brmem" / "prompts" / "foo.md", body="project")
+    _seed(home_root / ".brmem" / "prompts" / "foo.md", body="global")
 
     result = CliRunner().invoke(
         cli_group,
@@ -115,15 +115,15 @@ def test_neither_exists_returns_failure(cli_group: ClinkrGroup, tmp_path: Path) 
     assert result.exit_code == 2
     assert payload["exit_code"] == 2
     assert payload["error_type"] == "prompt-not-found"
-    assert str(repo_root / ".twerk" / "prompts" / "foo.md") in payload["message"]
-    assert str(home_root / ".twerk" / "prompts" / "foo.md") in payload["message"]
+    assert str(repo_root / ".brmem" / "prompts" / "foo.md") in payload["message"]
+    assert str(home_root / ".brmem" / "prompts" / "foo.md") in payload["message"]
     assert "just install-tools" in payload["message"]
 
 
 def test_not_in_git_repo(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     home_root = tmp_path / "home"
-    _seed(home_root / ".twerk" / "prompts" / "foo.md")
+    _seed(home_root / ".brmem" / "prompts" / "foo.md")
 
     result = CliRunner().invoke(
         cli_group,
@@ -141,7 +141,7 @@ def test_not_in_git_repo(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 def test_human_render_prints_path_to_stdout(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     home_root = tmp_path / "home"
-    project_path = _seed(repo_root / ".twerk" / "prompts" / "foo.md")
+    project_path = _seed(repo_root / ".brmem" / "prompts" / "foo.md")
 
     result = CliRunner().invoke(
         cli_group,

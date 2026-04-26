@@ -2,7 +2,7 @@
 name: brmem-branch-create
 description: Command
 # Original description (preserved for reference):
-# Create a branch via a repo-local branch-policy plugin, then stash the current session's plan/context onto that branch with `brmem`. The skill picks the bundle and suggested slug; `.twerk/prompts/brmem-branch-create.md` only handles repo-specific branch creation. Use when the user wants to park session context on a new branch for later pickup.
+# Create a branch via a repo-local branch-policy plugin, then stash the current session's plan/context onto that branch with `brmem`. The skill picks the bundle and suggested slug; `.brmem/prompts/brmem-branch-create.md` only handles repo-specific branch creation. Use when the user wants to park session context on a new branch for later pickup.
 allowed-tools:
   - "Bash(git *)"
   - "Bash(gt *)"
@@ -19,13 +19,13 @@ Create a branch and stash current-session context onto it via `brmem`.
 
 **The skill owns:** resolving the source context, choosing the stash bundle and its `brmem` namespace/key layout, generating the suggested kebab-case slug, running every `brmem check` / `brmem put`, and reporting what landed.
 
-**The plugin owns only branch creation:** mapping the suggested slug to the final branch name under repo conventions, running branch-creation-only pre-flights, and executing the branch-creation command (`git` vs `gt`, checkout or no checkout). It does **not** decide what to stash, does not run `brmem put`, and does not push or submit. The skill resolves the plugin via `brmem exec resolve-prompt brmem-branch-create`, which prefers `<repo-root>/.twerk/prompts/brmem-branch-create.md` and falls back to `~/.twerk/prompts/brmem-branch-create.md`.
+**The plugin owns only branch creation:** mapping the suggested slug to the final branch name under repo conventions, running branch-creation-only pre-flights, and executing the branch-creation command (`git` vs `gt`, checkout or no checkout). It does **not** decide what to stash, does not run `brmem put`, and does not push or submit. The skill resolves the plugin via `brmem exec resolve-prompt brmem-branch-create`, which prefers `<repo-root>/.brmem/prompts/brmem-branch-create.md` and falls back to `~/.brmem/prompts/brmem-branch-create.md`.
 
 If a plugin tries to own stash selection or `brmem` writes, stop rather than follow two competing sources of truth.
 
 ## Rules
 
-- **Resolve the plugin file with `brmem exec resolve-prompt brmem-branch-create --format json`.** Read whichever file the CLI returns verbatim. Do not seed it, overwrite it, or fall back to an inline default. The CLI prefers the project-local path; the global path at `~/.twerk/prompts/` is a fallback only.
+- **Resolve the plugin file with `brmem exec resolve-prompt brmem-branch-create --format json`.** Read whichever file the CLI returns verbatim. Do not seed it, overwrite it, or fall back to an inline default. The CLI prefers the project-local path; the global path at `~/.brmem/prompts/` is a fallback only.
 - **The skill chooses the bundle.** For plan-centric requests, default to one verbatim `plan.md` entry in the `base` namespace unless the user explicitly asks for more.
 - **The skill suggests the slug; the plugin may adapt it** to repo conventions. The final created branch name is authoritative for every later `brmem` call.
 - **The final branch name must be explicit.** If the plugin makes the target branch ambiguous, stop and ask for a clearer plugin — do not guess.
@@ -157,5 +157,5 @@ Inspect the attached context with `brmem list --base` (or
 
 1. **Default plugin + explicit plan file** — invoke with a concrete plan path; plugin file unchanged, branch created, `plan.md` round-trips through `brmem get`.
 2. **Custom plugin that rewrites the branch name** — plugin prefixes/normalizes the slug; report shows both suggestion and final branch, and `brmem put` targets the final branch.
-3. **Missing plugin** — invoke from a repo with no project-local plugin and no global plugin at `~/.twerk/prompts/brmem-branch-create.md`; clean abort, no branch, no `brmem` writes.
-4. **Global fallback** — invoke from a repo with no `.twerk/prompts/brmem-branch-create.md`, with a populated `~/.twerk/prompts/brmem-branch-create.md`; `brmem exec resolve-prompt` returns `tier="global"`, the skill reads that file and creates the branch normally. After seeding the project-local file, a re-run returns `tier="project"` (project wins).
+3. **Missing plugin** — invoke from a repo with no project-local plugin and no global plugin at `~/.brmem/prompts/brmem-branch-create.md`; clean abort, no branch, no `brmem` writes.
+4. **Global fallback** — invoke from a repo with no `.brmem/prompts/brmem-branch-create.md`, with a populated `~/.brmem/prompts/brmem-branch-create.md`; `brmem exec resolve-prompt` returns `tier="global"`, the skill reads that file and creates the branch normally. After seeding the project-local file, a re-run returns `tier="project"` (project wins).
