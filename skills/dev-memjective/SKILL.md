@@ -1,6 +1,6 @@
 ---
 name: dev-memjective
-description: "Conceptual reference for the twerk memjective subsystem — local-first planning docs stored in `brmem` that track a multi-session workstream. Covers the storage model (master-branch snapshot + per-branch snapshots), the one-memjective-per-branch invariant, the document anatomy, the lifecycle, carry-forward semantics, and per-operation mutation contracts. Fires on conceptual questions about memjectives and alongside `dev-memjective-create`, `dev-memjective-peek`, `dev-memjective-next`, and `dev-memjective-update` as shared grounding. Read-only."
+description: "Conceptual reference for the twerk memjective subsystem — local-first planning docs stored in `brmem` that track a multi-session workstream. Covers the storage model (master-branch snapshot + per-branch snapshots), the one-memjective-per-branch invariant, the document anatomy, the lifecycle, carry-forward semantics, and per-operation mutation contracts. Fires on conceptual questions about memjectives and alongside `dev-memjective-create`, `dev-memjective-next`, `dev-memjective-claim`, `dev-memjective-update`, and `dev-memjective-reconcile` as shared grounding. Read-only."
 allowed-tools: []
 metadata:
   internal: true
@@ -12,9 +12,10 @@ metadata:
 
 Conceptual reference for the memjective subsystem. This skill does not
 perform operations. Use it as shared grounding alongside the operation skills
-(`dev-memjective-create`, `dev-memjective-peek`, `dev-memjective-next`,
-`dev-memjective-update`), and as a landing spot for ad-hoc questions about
-memjectives that do not map cleanly to any of them.
+(`dev-memjective-create`, `dev-memjective-next`, `dev-memjective-claim`,
+`dev-memjective-update`, `dev-memjective-reconcile`), and as a landing spot
+for ad-hoc questions about memjectives that do not map cleanly to any of
+them.
 
 ## What a memjective is
 
@@ -72,50 +73,63 @@ slug into a single memjective.
 Each memjective has **two kinds of snapshots**:
 
 1. **Master-branch snapshot (initial)** — the initial snapshot, stored on
-   `master`. `dev-memjective-create` writes `body.md` there once; subsequent
-   `roadmap.md` / `notes.md` files appear when there is content to put in
-   them. Mostly stable during normal lifecycle — the one normal-lifecycle
-   write path is `dev-memjective-update`'s **master-reconcile variant**,
-   invoked by `dev-memjective-next` when run on master, which folds
-   evidence from sibling-branch snapshots into a conservative rewrite
-   (see the mutation contract and `dev-memjective-update` §5a).
+   `master`. `dev-memjective-create` writes `body.md` there once;
+   `roadmap.md` is written at create time when a concrete slice plan exists.
+   `notes.md` appears later if it appears at all. The master snapshot is
+   stable during normal slice work and is rewritten only by
+   `dev-memjective-reconcile`, which folds evidence from sibling-branch
+   snapshots into a conservative rewrite (see the mutation contract and
+   `dev-memjective-reconcile`'s SKILL.md).
 2. **Per-branch snapshot** — the speculative, in-flight state on a specific
    working branch. Files appear under
-   `refs/brmem/ns/memjectives/<encoded-branch>:<slug>/`. Rewritten
+   `refs/brmem/ns/memjectives/<encoded-branch>:<slug>/`. Attached to a
+   branch by `dev-memjective-claim` (carry-forward) and rewritten
    conservatively by `dev-memjective-update` as slices land — typically
    `roadmap.md` (checking off items) and `notes.md` (appending findings)
-   move most. Each branch has at most one memjective.
+   move most.
 
 The master-branch snapshot is mostly stable during the normal lifecycle;
-its only normal-lifecycle rewrite path is the master-reconcile variant
-of `update`, gated behind a user confirmation in `dev-memjective-next` on
-master. The per-branch snapshot is the working document.
+its only normal-lifecycle rewrite path is `dev-memjective-reconcile`. The
+per-branch snapshot is the working document.
 
 Only `body.md` is required; the absence of `roadmap.md` or `notes.md` means
 that file hasn't been written yet, not that the memjective is malformed.
 
-### One-memjective-per-branch invariant
+### Multi-memjective-per-branch (many-to-many)
 
-A single branch must have **at most one** entry in the `memjectives`
-namespace. Every operation skill enforces this: `create` aborts if the
-branch already has a memjective; `next` and `update` abort if a branch they
-rely on has more than one. This invariant simplifies source resolution and
-prevents silent ambiguity.
+A single branch may carry **multiple distinct memjective slugs** in the
+`memjectives` namespace. Each operation skill targets one slug at a time
+via its required slug argument; the slug disambiguates which memjective is
+being acted on when more than one is attached to the same branch. Files
+under a single `<slug>/` directory still form one logical memjective —
+that grouping is unchanged. The previous "at most one memjective per
+branch" invariant has been **relaxed**: skills no longer abort when more
+than one slug is present on a branch they read from.
 
 ### Carry-forward semantics
 
 When a new branch is created and work on the memjective should continue
-there, the snapshot from the source branch (or the master-branch snapshot)
+there, the snapshot from a source branch (or the master-branch snapshot)
 is **copied verbatim** into the new branch's snapshot. This exact-copy
 attach is the only way a memjective snapshot appears on a branch that did
-not have one. The skills never merge, diff, or synthesize across sources.
+not have one. The skills never merge, diff, or synthesize across sources
+during carry-forward.
 
-Carry-forward is performed explicitly. `dev-memjective-next` owns the
-carry-forward: when run on a fresh slice branch, it resolves the source
-memjective, copies the text verbatim onto the current branch via
-`brmem put`, and then implements the slice. No other skill attaches a
-snapshot — `dev-memjective-update` refuses to run on a bare branch, and
-nothing auto-attaches at branch-creation time.
+Carry-forward is performed by **`dev-memjective-claim`** and only by
+`claim`. The user invokes `claim` explicitly with the memjective's slug
+to attach it to a target branch (defaulting to the current branch).
+`claim` resolves a source — current-branch snapshot, nearest ancestor
+branch, master — and copies every file under `<slug>/` verbatim onto the
+target. No other skill attaches a snapshot:
+
+- `dev-memjective-create` writes only the master-branch snapshot. It does
+  **not** attach to the current working branch.
+- `dev-memjective-next` is read-only inspection and never writes anything.
+- `dev-memjective-update` refuses to run on a branch that has no entries
+  for the requested slug.
+- `dev-memjective-reconcile` runs only on master and never carries
+  forward; sibling text is evidence for a conservative rewrite, not source
+  for a verbatim copy.
 
 ## Document anatomy
 
@@ -221,19 +235,32 @@ When there is already a concrete slice plan, `create` also writes
 Notes are not written yet — `notes.md` appears the first time
 `dev-memjective-update` records a durable finding.
 
-The same files are also attached to the current working branch as its
-initial per-branch snapshot.
+`create` writes only the master-branch snapshot. It does **not** attach
+the memjective to the current working branch — Alice runs
+`dev-memjective-claim widget-rewrite` to attach the snapshot when she's
+ready to work on the first slice.
 
-### t=1 — `dev-memjective-next` on `alice/widget-rewrite-slice-1`
+### t=1 — fresh slice branch + `claim` + work + `update`
 
-Alice creates a fresh slice branch; it has no snapshot yet. `next` resolves
-the initial snapshot on `master`, copies every file under
-`widget-rewrite/` verbatim onto the new branch, then implements Slice 1
-in-session.
+Alice creates a fresh slice branch (`alice/widget-rewrite-slice-1`); it has
+no snapshot yet. She runs:
 
-After the work lands, `dev-memjective-update` checks off Slice 1's bullets
-in `roadmap.md` and writes `notes.md` for the first time with a threading
-gotcha discovered mid-slice:
+```text
+dev-memjective-claim widget-rewrite
+```
+
+`claim` resolves the source (master, since no ancestor carries the slug),
+copies every file under `widget-rewrite/` verbatim onto the new branch,
+and reports what was attached.
+
+Optionally, Alice runs `dev-memjective-next widget-rewrite` to inspect the
+attached snapshot and confirm the recommended next slice — `next` is
+read-only and writes nothing.
+
+Alice implements Slice 1 in-session using normal tooling. After the work
+lands, she runs `dev-memjective-update widget-rewrite`, which checks off
+Slice 1's bullets in `roadmap.md` and writes `notes.md` for the first time
+with a threading gotcha discovered mid-slice:
 
 ```markdown
 # Notes
@@ -242,84 +269,93 @@ gotcha discovered mid-slice:
   sync context — keep the sync shim until Slice 2 removes the last caller.
 ```
 
-### t=2 — `dev-memjective-next` on `alice/widget-rewrite-slice-2`
+### t=2 — next slice branch
 
-Alice opens the next slice branch off Slice 1. `next` carries forward every
-file under `widget-rewrite/` on the `alice/widget-rewrite-slice-1` snapshot
-(not from the master-branch snapshot), so the completed Slice 1 checkboxes
-in `roadmap.md` and the threading-gotcha entry in `notes.md` travel with
-it. Slice 2 lands; `update` checks off its roadmap bullets. `roadmap.md`
-now shows Slices 1–2 done and `body.md`'s `Completion Criteria` are
-checked off.
+Alice opens `alice/widget-rewrite-slice-2` off Slice 1. The new branch has
+no snapshot yet, so she runs:
+
+```text
+dev-memjective-claim widget-rewrite
+```
+
+`claim` discovers `alice/widget-rewrite-slice-1` as the nearest ancestor
+carrying the slug and carries every file under `widget-rewrite/` verbatim
+forward, so the completed Slice 1 checkboxes in `roadmap.md` and the
+threading-gotcha entry in `notes.md` travel with it. Slice 2 lands;
+`update` checks off its roadmap bullets. `roadmap.md` now shows Slices 1–2
+done and `body.md`'s `Completion Criteria` are checked off.
+
+### t=3 — `dev-memjective-reconcile` on master
+
+Once both slices have merged into master (or whenever the user wants to
+fold sibling evidence back into the durable starting point), Alice runs:
+
+```text
+dev-memjective-reconcile widget-rewrite
+```
+
+on master. `reconcile` enumerates sibling-branch snapshots under
+`refs/brmem/ns/memjectives/`, reads each sibling's `body.md` /
+`roadmap.md` / `notes.md` as evidence, and conservatively rewrites the
+master-branch snapshot — checking completion-criteria items, checking
+roadmap items, and appending durable findings to `notes.md`. Sibling
+snapshots are read-only evidence; `reconcile` never writes back to a
+sibling ref and never carries forward verbatim.
 
 ## Lifecycle
 
 ```text
-dev-memjective-create  →  ( dev-memjective-peek?  →  new slice branch  →
-                            dev-memjective-next   →  dev-memjective-update )*
+dev-memjective-create  →  ( dev-memjective-claim   →  dev-memjective-next?  →
+                            implement              →  dev-memjective-update )*
+                       →    dev-memjective-reconcile (on master, when desired)
 ```
 
-- **Create** (`dev-memjective-create`): draft the memjective and store it as
-  the master-branch snapshot + an initial branch snapshot on the current
-  branch. Runs once per memjective.
-- **Peek** (`dev-memjective-peek`): optional, read-only, lightweight. Resolve
-  the active memjective from the current branch snapshot, the nearest
-  ancestor branch snapshot in commit history, or the master-branch snapshot;
-  report a short status summary (title, status, optional description/goals
-  summary, completion-criteria progress, roadmap state); and suggest a
-  kebab-case slug for the next slice. Writes nothing. Useful when you want
-  a quick status check before deciding whether to open a new branch, but
-  skippable — users who already know the state can go straight to creating
-  a branch.
-- **New slice branch**: the user creates a branch for the next slice using
-  their preferred tool (`gt create`, `git checkout -b`, etc.), typically
-  named with the slug `peek` suggested. Not a skill.
-- **Next** (`dev-memjective-next`): runs **on the fresh slice branch**.
-  Precondition: the current branch has no memjective snapshot yet; the skill
-  errors out otherwise. It performs the carry-forward (see
-  `## Carry-forward semantics`), then implements the next slice directly in
-  the session using normal tooling. Resolution skips the current-branch case
-  (ruled out by the precondition) and uses ancestor snapshots or the
-  master-branch snapshot.
-- **Update** (`dev-memjective-update`): after work completes, conservatively
-  rewrite the branch snapshot to reflect what happened. This brings the
-  memjective up-to-date with respect to the state of the current branch at
-  a particular point in time. Runs once per slice. Also supports a
-  **master-reconcile variant** invoked by `dev-memjective-next` when run
-  on master, which rewrites master's snapshot with sibling-branch
-  evidence (see that skill's §5a).
+- **Create** (`dev-memjective-create`): draft the memjective and store it
+  as the master-branch snapshot. Writes `body.md` and, when a concrete
+  slice plan exists, `roadmap.md`. Runs once per memjective. Does not
+  attach to any working branch — that is `claim`'s job.
+- **Claim** (`dev-memjective-claim`): explicit carry-forward. Attaches a
+  memjective slug to a target branch (default: current) by copying every
+  file under `<slug>/` verbatim from a resolved source (current branch,
+  nearest ancestor branch, or master). Required positional arg: the slug.
+- **Next** (`dev-memjective-next`): read-only inspect + recommend. Resolves
+  the active source (current → ancestor → master) for the requested slug,
+  reports title/status/completion criteria/roadmap state/notes presence,
+  flags staleness when the snapshot is behind branch HEAD on a non-master
+  source, and recommends the next slice with a suggested kebab-case slug.
+  Writes nothing. Required positional arg: the slug.
+- **Implement**: the user does the work using normal tooling. Not a skill.
+- **Update** (`dev-memjective-update`): runs on a slice branch only. After
+  work completes, conservatively rewrites the current-branch snapshot to
+  reflect what happened. No-op when the snapshot is already at-or-after
+  branch HEAD. Aborts if invoked on master with a pointer to `reconcile`.
+  Required positional arg: the slug.
+- **Reconcile** (`dev-memjective-reconcile`): runs on master only. Folds
+  sibling-branch snapshots (live or orphaned) into a conservative rewrite
+  of the master-branch snapshot. Aborts if invoked on a slice branch with
+  a pointer to `update`. Required positional arg: the slug.
 
-A session may mix these freely: skip `peek` and go straight to `next`, run
-`update` without having run `next` in this session (if a snapshot is already
-attached), or run neither and just progress the work informally. The only
-hard rule is `next`'s precondition — it must run on a branch with no
-existing memjective snapshot.
+A session may mix these freely: skip `next` and go straight to implement,
+run `update` without having run `next` in this session, run `claim` again
+on a new branch as the workstream advances. The hard guards are simple
+identity checks: `update` aborts on master, `reconcile` aborts off master,
+`claim` aborts if the target already carries the slug.
 
 ## Mutation contracts
 
 Each operation skill has a narrow mutation contract that keeps the system
 honest. The full table lives in `references/mutation-contract.md`. Summary:
 
-- **`create`** — writes the master-branch `body.md` + initial branch
-  `body.md`, and optionally `roadmap.md` when a concrete slice plan exists.
-- **`peek`** — writes **nothing**. Advisory only; status inspector + slug
-  suggester.
-- **`next`** — writes the carry-forward onto the current branch. Copies
-  every file present under `<slug>/` on the source verbatim (body + any
-  roadmap + any notes).
-- **`update`** — rewrites only the current branch's files. Each file has
-  its own per-section rules (see the full table). Has a **master-reconcile
-  variant** that runs when the current branch is master, fired by
-  `dev-memjective-next` on master; it rewrites master's snapshot using
-  sibling-branch snapshots as evidence, still bound by the per-file
-  mutation contract.
+| Operation                  | Master snapshot                                         | Current-branch snapshot                                | Other-branch snapshot |
+| -------------------------- | ------------------------------------------------------- | ------------------------------------------------------ | --------------------- |
+| `dev-memjective-create`    | **Writes** `body.md` (+ `roadmap.md` when drafted)      | Never                                                  | Never                 |
+| `dev-memjective-next`      | Never                                                   | Never                                                  | Never                 |
+| `dev-memjective-claim`     | Never                                                   | **Writes** carry-forward to the target (verbatim copy) | Never                 |
+| `dev-memjective-update`    | Never (aborts if invoked on master)                     | **Rewrites** per-file conservatively                   | Never                 |
+| `dev-memjective-reconcile` | **Rewrites** per-file conservatively (sibling evidence) | Never (aborts if invoked off master)                   | Never                 |
 
-No operation skill rewrites any other-branch snapshot during normal
-progress. The master-branch snapshot is similarly stable in normal
-progress, with one narrow exception: the `update` master-reconcile
-variant described above.
-
-Within `update`, the rewrite is **conservative** and per-file:
+Within `update` and `reconcile`, the rewrite is **conservative** and
+per-file:
 
 - `body.md` edits are small clarifications only — Title, Description, and
   Goals stay mostly stable; Status moves categorically; Completion Criteria
@@ -350,26 +386,34 @@ This subsystem follows the `dev-` prefix convention — see `AGENTS.md` >
 - **Branch deleted before its snapshot was consumed.** The snapshot is
   effectively orphaned but still addressable by ref until garbage collected.
   The master-branch snapshot remains authoritative; any fresh slice branch
-  can resolve from it. Orphaned refs are also valid _evidence_ for
-  `update`'s master-reconcile variant — their content is readable even
-  after the branch is gone, and the reconcile labels them `orphaned-ref`
-  when surfacing them in its report.
+  can resolve from it via `claim`. Orphaned refs are also valid _evidence_
+  for `dev-memjective-reconcile` — their content is readable even after
+  the branch is gone, and the reconcile labels them `orphaned-ref` when
+  surfacing them in its report.
 - **Concurrent drafts on different branches.** No git-level conflict because
-  refs are per-branch. The snapshots will diverge. Reconciliation is manual
-  and human-driven; the system does not auto-merge.
+  refs are per-branch. The snapshots will diverge. Reconciliation is
+  user-driven via `dev-memjective-reconcile` on master; the system does
+  not auto-merge.
 - **Slug collision on `master`.** `dev-memjective-create` aborts. The user
   picks a different slug or deletes the existing master-branch snapshot
   explicitly before retrying.
+- **Slug already attached to a target branch.** `dev-memjective-claim`
+  aborts with a pointer to `update` (to record progress) or `next` (to
+  inspect).
 - **Lost brmem ref** (force-push, manual `git update-ref -d`, failed push
   from another clone). Nothing auto-recovers. If the master-branch snapshot
   is gone, re-run `dev-memjective-create`. If a per-branch snapshot is gone,
-  manually re-attach from an ancestor ref via `brmem put`.
+  re-run `dev-memjective-claim` to re-attach from an ancestor or master.
 
 ## Non-goals
 
 - Storing the memjective document anywhere outside `brmem` — no GitHub
   issues, comments, or PR bodies; no files in the working tree.
 - Auto-attaching memjectives to newly created branches. Carry-forward is
-  explicit.
-- Letting `next` or `update` rename sections or rebuild an older snapshot
-  wholesale during ordinary progress work.
+  always explicit via `dev-memjective-claim`.
+- Letting `next` carry forward, attach, or write anything. `next` is
+  strictly read-only.
+- Letting `update` rewrite master, or `reconcile` rewrite a slice branch.
+  The branch-identity guards are absolute.
+- Letting `update` or `reconcile` rename sections or rebuild an older
+  snapshot wholesale during ordinary progress work.
