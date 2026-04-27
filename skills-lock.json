@@ -161,31 +161,6 @@
       "sourceType": "github",
       "computedHash": "b46238d4c9f4f40df3781a4a9688b28ba0e17aece4f38b4c141e9c458ab33eae"
     },
-    "objective": {
-      "source": "skills/objective",
-      "sourceType": "local",
-      "computedHash": "3261888278c8318401cab510ff1e9a8535d50a5fe16104a9613f01add491d78c"
-    },
-    "objective-create": {
-      "source": "skills/objective-create",
-      "sourceType": "local",
-      "computedHash": "75ed30558628f85b911034006f4d64ab879c21c0042f44869d186c255e5fe9d7"
-    },
-    "objective-list": {
-      "source": "skills/objective-list",
-      "sourceType": "local",
-      "computedHash": "e049b1e50727152a4f1eefa673b1c019624b5660be70819523cf4ab4a1bf84b4"
-    },
-    "objective-progress": {
-      "source": "skills/objective-progress",
-      "sourceType": "local",
-      "computedHash": "0b0cbcab1c632ead9c0109c5827fd06a81c453aa09604783aad4afe49fed9b90"
-    },
-    "objective-reconcile": {
-      "source": "skills/objective-reconcile",
-      "sourceType": "local",
-      "computedHash": "98ce3292fbb12cc43c031715bf17421c321c64be3250bc88884e1373b45edf66"
-    },
     "pr-address": {
       "source": "skills/pr-address",
       "sourceType": "local",
