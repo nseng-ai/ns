@@ -16,7 +16,7 @@ from typing import Annotated
 
 import click
 
-from twerk_core.brmem.gateway import BranchMemoryGateway
+from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
