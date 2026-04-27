@@ -18,11 +18,9 @@ from twerk_core.gt.types import UntrackedBranch
 from twerk_slots.cli.main import build_cli
 from twerk_slots.cli.slot.gt.context import SlotGtContext
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.testing import (
-    FakeClipboardGateway,
-    FakePoolStateGateway,
-    FakeSlotsStorageGateway,
-)
+from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import RepoContext
 

@@ -12,11 +12,9 @@ from twerk_slots.cli.slot.gt.navigation import (
 )
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopyFailure
-from twerk_slots.gateway.testing import (
-    FakeClipboardGateway,
-    FakePoolStateGateway,
-    FakeSlotsStorageGateway,
-)
+from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import RepoContext
 

@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
-from twerk_slots.gateway.testing import (
-    FakeGitGateway,
-    FakePoolStateGateway,
-    FakeSlotsStorageGateway,
-)
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
 
 

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from twerk_slots.gateway.testing import FakeGitGateway, FakeSlotsStorageGateway
+from twerk_core.git.testing import FakeGitGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import (
     SLOTS_ROOT,
     NoRepoSentinel,
