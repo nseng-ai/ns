@@ -98,12 +98,20 @@ Evidence:
 
 - files currently attached under `<slug>/` on the branch
 - `head_date` metadata for those files
-- commits newer than the snapshot, usually from `git log`
+- all commits on `master..HEAD`, plus any date-filtered commit view needed
+  to understand work since the snapshot
 
 Freshness rule:
 
-- If the maximum `head_date` across attached files is at-or-after branch
-  HEAD's commit time, print the in-sync message and do not write.
+- If `master..HEAD` is empty, print the in-sync message and do not write.
+- Otherwise, use the maximum `head_date` across attached files and the
+  branch's max numeric author time over `master..HEAD` as a rebase-stable
+  staleness check. Compare them as timestamps, not lexicographic strings.
+  Author time is rebase-stable; committer time is not.
+- Do not use a date-fresh result as the sole reason to skip evidence triage.
+  Cherry-picks and imported commits can preserve old author times, and
+  `git commit --amend --reset-author` can move them. Triage `master..HEAD`
+  commits before deciding that no rewrite is needed.
 
 ### Canonical reconcile
 
@@ -162,7 +170,8 @@ Both rewrite modes follow the same shape:
 4. Load target files.
 5. Collect mode-specific evidence.
 6. Apply the shared conservative rewrite rules.
-7. `brmem put` only files that changed.
+7. `brmem put` only files that changed. "No rewrite" — every post-snapshot
+   commit is already documented — is a valid step-7 outcome.
 8. Report files touched, old SHA to new SHA, evidence consulted, and recovery
    commands.
 
