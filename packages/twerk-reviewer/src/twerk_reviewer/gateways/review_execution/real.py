@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import threading
 from collections.abc import Callable, Mapping
 
 from twerk_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
@@ -61,11 +62,13 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
             )
 
         argv = adapter.build_argv(request)
+        stdin_payload = adapter.build_stdin(request)
+        stdin_arg = subprocess.PIPE if stdin_payload is not None else subprocess.DEVNULL
 
         try:
             process = subprocess.Popen(
                 argv,
-                stdin=subprocess.DEVNULL,
+                stdin=stdin_arg,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -83,6 +86,25 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
                 message=f"Unable to invoke {adapter.binary!r}: {exc}",
             )
 
+        # Pump stdin from a daemon thread so we can keep streaming stdout.
+        # Writing inline would deadlock once the prompt exceeds the OS pipe
+        # buffer (~64KB) since nothing would be draining stdout in parallel.
+        writer_thread: threading.Thread | None = None
+        if stdin_payload is not None:
+            assert process.stdin is not None  # PIPE guarantees this
+            stdin_stream = process.stdin
+
+            def _pump_stdin() -> None:
+                try:
+                    stdin_stream.write(stdin_payload)
+                except BrokenPipeError:
+                    pass
+                finally:
+                    stdin_stream.close()
+
+            writer_thread = threading.Thread(target=_pump_stdin, daemon=True)
+            writer_thread.start()
+
         stdout_lines: list[str] = []
         assert process.stdout is not None  # PIPE guarantees this
         for line in process.stdout:
@@ -92,6 +114,8 @@ class RealReviewExecutionGateway(ReviewExecutionGateway):
                 self._progress_writer(description)
 
         process.wait()
+        if writer_thread is not None:
+            writer_thread.join(timeout=5.0)
         stderr_text = ""
         if process.stderr is not None:
             stderr_text = process.stderr.read()

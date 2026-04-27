@@ -46,6 +46,21 @@ def _sample_request(
     )
 
 
+class _CapturingStdin:
+    """Stand-in for ``Popen.stdin`` that records writes and survives close."""
+
+    def __init__(self) -> None:
+        self.buffer = ""
+        self.closed = False
+
+    def write(self, data: str) -> int:
+        self.buffer += data
+        return len(data)
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class _FakePopen:
     def __init__(
         self,
@@ -56,6 +71,7 @@ class _FakePopen:
     ) -> None:
         self.stdout = iter(list(stdout_lines))
         self.stderr = StringIO(stderr_text)
+        self.stdin = _CapturingStdin()
         self.returncode = returncode
 
     def wait(self) -> int:
@@ -138,14 +154,17 @@ def test_real_review_execution_gateway_runs_claude_code_findings(
     stdout_lines = _stream_json_lines(structured_output=structured)
     progress_messages: list[str] = []
     captured: dict[str, Any] = {}
+    fake_process: dict[str, _FakePopen] = {}
 
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         captured["cmd"] = cmd
         captured["kwargs"] = kwargs
         assert cmd[0] == "claude"
         assert "--model" in cmd
-        assert cmd[-1] == "review this diff"
-        return _FakePopen(stdout_lines=stdout_lines)
+        assert "review this diff" not in cmd
+        process = _FakePopen(stdout_lines=stdout_lines)
+        fake_process["value"] = process
+        return process
 
     monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
 
@@ -163,7 +182,9 @@ def test_real_review_execution_gateway_runs_claude_code_findings(
     assert cmd[cmd.index("--system-prompt") + 1] == "OUR SYSTEM PROMPT"
     assert "--append-system-prompt" not in cmd
     assert "--json-schema" in cmd
-    assert captured["kwargs"]["stdin"] is subprocess.DEVNULL
+    assert captured["kwargs"]["stdin"] is subprocess.PIPE
+    assert fake_process["value"].stdin.buffer == "review this diff"
+    assert fake_process["value"].stdin.closed
 
 
 def test_real_review_execution_gateway_text_format_returns_prose(
@@ -172,10 +193,14 @@ def test_real_review_execution_gateway_text_format_returns_prose(
     prose = "### Review\n\n- app.py:1 — prefer click.echo"
     stdout_lines = _stream_json_lines(result_text=prose, include_structured_output=False)
     captured: dict[str, Any] = {}
+    fake_process: dict[str, _FakePopen] = {}
 
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         captured["cmd"] = cmd
-        return _FakePopen(stdout_lines=stdout_lines)
+        captured["kwargs"] = kwargs
+        process = _FakePopen(stdout_lines=stdout_lines)
+        fake_process["value"] = process
+        return process
 
     monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
 
@@ -186,6 +211,48 @@ def test_real_review_execution_gateway_text_format_returns_prose(
     assert isinstance(result.payload, ProseReview)
     assert result.payload.prose == prose
     assert "--json-schema" not in captured["cmd"]
+    assert "review this diff" not in captured["cmd"]
+    assert captured["kwargs"]["stdin"] is subprocess.PIPE
+    assert fake_process["value"].stdin.buffer == "review this diff"
+
+
+def test_real_review_execution_gateway_handles_large_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: a 200KB prompt would have exceeded ARG_MAX on macOS when
+    inlined into argv. With the prompt on stdin, it must round-trip cleanly
+    even when the OS pipe buffer (~64KB) cannot absorb it in a single write.
+    """
+    large_prompt = "x" * (200 * 1024)
+    stdout_lines = _stream_json_lines()
+    fake_process: dict[str, _FakePopen] = {}
+
+    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
+        assert large_prompt not in cmd
+        process = _FakePopen(stdout_lines=stdout_lines)
+        fake_process["value"] = process
+        return process
+
+    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+
+    request = _sample_request()
+    request_with_large_prompt = ReviewExecutionRequest(
+        adapter_name=request.adapter_name,
+        model=request.model,
+        prompt=large_prompt,
+        system_prompt=request.system_prompt,
+        review_format=request.review_format,
+        review_name=request.review_name,
+        review_description=request.review_description,
+        review_instructions=request.review_instructions,
+        base_ref=request.base_ref,
+        diff_text=request.diff_text,
+    )
+    result = RealReviewExecutionGateway().run_review(request_with_large_prompt)
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert fake_process["value"].stdin.buffer == large_prompt
+    assert fake_process["value"].stdin.closed
 
 
 def test_real_review_execution_gateway_rejects_unknown_harness() -> None:

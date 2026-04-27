@@ -63,6 +63,10 @@ def _claude_code_supports_model(model: str) -> bool:
 
 
 def _claude_code_build_argv(request: ReviewExecutionRequest) -> list[str]:
+    # The user prompt is fed via stdin (see ``_claude_code_build_stdin``), not
+    # argv, so a large diff can never trigger E2BIG when claude is execve'd.
+    # `--tools` is variadic, so it must always be followed by another flag —
+    # we keep `--model` immediately after it to terminate the variadic.
     argv = [
         CLAUDE_CODE_BINARY,
         "-p",
@@ -70,22 +74,23 @@ def _claude_code_build_argv(request: ReviewExecutionRequest) -> list[str]:
         "stream-json",
         "--verbose",
         "--bare",
-        "--model",
-        request.model,
-        "--system-prompt",
-        request.system_prompt,
         # Read-only exploration only. Edit/Write stay out so a review run
         # cannot mutate the repo. In findings mode --json-schema also injects
         # the StructuredOutput tool, which the model uses to return findings.
         "--tools",
         _READ_ONLY_TOOLS,
+        "--model",
+        request.model,
+        "--system-prompt",
+        request.system_prompt,
     ]
     if request.review_format == "findings":
         argv += ["--json-schema", json.dumps(FINDINGS_JSON_SCHEMA)]
-    # `--tools` is variadic; terminate option parsing with `--` so the prompt
-    # positional is never interpreted as another tool name.
-    argv += ["--", request.prompt]
     return argv
+
+
+def _claude_code_build_stdin(request: ReviewExecutionRequest) -> str:
+    return request.prompt
 
 
 def _parse_findings_payload(
@@ -305,4 +310,5 @@ CLAUDE_CODE_ADAPTER = HarnessAdapter(
     parse_stdout=_claude_code_parse_stdout,
     supports_model=_claude_code_supports_model,
     describe_event=_claude_code_describe_event,
+    build_stdin=_claude_code_build_stdin,
 )
