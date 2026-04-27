@@ -328,3 +328,53 @@ class RealGitGateway(GitGateway):
             return None
         stamp = result.stdout.strip()
         return stamp or None
+
+    def branch_head_oid(self, branch: str) -> str | GitCommandFailure:
+        result = _run(
+            ["git", "rev-parse", branch],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            return GitCommandFailure(
+                message=result.stderr.strip() or "git rev-parse failed",
+                returncode=result.returncode,
+            )
+        return result.stdout.strip()
+
+    def fetch_remote_branch(
+        self,
+        cwd: Path,
+        remote: str,
+        branch: str,
+    ) -> GitCommandFailure | None:
+        result = _run(["git", "fetch", remote, branch], cwd=cwd, check=False)
+        if result.returncode == 0:
+            return None
+        return GitCommandFailure(
+            message=result.stderr.strip() or "git fetch failed",
+            returncode=result.returncode,
+        )
+
+    def pull_fast_forward(self, cwd: Path) -> GitCommandFailure | None:
+        result = _run(["git", "pull", "--ff-only"], cwd=cwd, check=False)
+        if result.returncode == 0:
+            return None
+        return GitCommandFailure(
+            message=result.stderr.strip() or "git pull failed",
+            returncode=result.returncode,
+        )
+
+    def update_local_ref(
+        self,
+        cwd: Path,
+        ref: str,
+        source: str,
+    ) -> GitCommandFailure | None:
+        result = _run(["git", "update-ref", ref, source], cwd=cwd, check=False)
+        if result.returncode == 0:
+            return None
+        return GitCommandFailure(
+            message=result.stderr.strip() or "git update-ref failed",
+            returncode=result.returncode,
+        )

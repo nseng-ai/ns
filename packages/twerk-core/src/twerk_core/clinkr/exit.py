@@ -34,8 +34,6 @@ class ClinkrExit(Generic[T]):
         elif self.status is ExitStatus.FAILURE:
             if self.message is None or self.error_type is None:
                 raise ValueError("ClinkrExit.failure requires both error_type and message")
-            if self.data is not None:
-                raise ValueError("ClinkrExit.failure must not carry data")
 
     @classmethod
     def ok(cls, data: T) -> ClinkrExit[T]:
@@ -46,8 +44,19 @@ class ClinkrExit(Generic[T]):
         return cls(status=ExitStatus.NEGATIVE, data=data, message=message)
 
     @classmethod
-    def failure(cls, *, error_type: str, message: str) -> ClinkrExit[T]:
-        return cls(status=ExitStatus.FAILURE, error_type=error_type, message=message)
+    def failure(
+        cls,
+        *,
+        error_type: str,
+        message: str,
+        data: T | None = None,
+    ) -> ClinkrExit[T]:
+        return cls(
+            status=ExitStatus.FAILURE,
+            error_type=error_type,
+            message=message,
+            data=data,
+        )
 
     @property
     def exit_code(self) -> int:
