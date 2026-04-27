@@ -1,6 +1,6 @@
 ---
 name: objective-digest
-description: "Command: objective-digest"
+description: 'Read-only objective dossier. Summarizes one objective across canonical and branch snapshots, including thesis, slice progress, PR state, readiness, and key findings.'
 allowed-tools:
   - "Bash(objective exec digest *)"
   - "Bash(objective list *)"
@@ -8,8 +8,8 @@ allowed-tools:
 
 # objective-digest
 
-Render a one-page Markdown digest of an objective from the raw snapshots
-emitted by `objective exec digest`.
+Render a one-page objective dossier from the raw snapshots emitted by
+`objective exec digest`.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
 > rewrite rules, see `../objective/SKILL.md`.
@@ -25,6 +25,11 @@ and checkbox counts, picking the most-progressed branch, judging which
 unclaimed PRs really belong to an unchecked slice, and selecting **Key
 findings**.
 
+`objective-digest` is the workstream briefing. It is deliberately different
+from `objective-current`, which answers "where am I in the current stack?"
+with current-branch PR, brmem, snapshot freshness, downstack ancestry, and
+immediate children.
+
 `digest` is read-only: it never writes to brmem, never modifies canonical
 state, and never opens, closes, or comments on PRs. Safe to run on any
 branch, including `master`.
@@ -36,6 +41,14 @@ branch, including `master`.
   resolved, the CLI surfaces `no_objective_on_branch` or
   `ambiguous_objective` — surface the message and direct the user to
   `objective list`.
+
+## Related Objective Views
+
+| Need                                           | Use                       |
+| ---------------------------------------------- | ------------------------- |
+| "What branch am I on and what is around me?"   | `objective-current`       |
+| "What is this objective trying to accomplish?" | `objective-digest <slug>` |
+| "What should I work on next?"                  | `objective-next <slug>`   |
 
 ## Workflow
 

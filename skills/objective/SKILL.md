@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Use for conceptual questions about twerk objectives and as shared grounding with objective-create, objective-next, objective-claim, objective-update, objective-reconcile, or objective-digest. Read-only."
+description: "Use for conceptual questions about twerk objectives and as shared grounding with objective-create, objective-current, objective-next, objective-claim, objective-update, objective-reconcile, or objective-digest. Read-only."
 allowed-tools: []
 ---
 
@@ -9,9 +9,9 @@ allowed-tools: []
 Conceptual reference for the objective subsystem. This skill does not
 perform operations. Use it as shared grounding alongside the operation skills
 (`objective-create`, `objective-next`, `objective-claim`,
-`objective-update`, `objective-reconcile`, `objective-digest`), and as a
-landing spot for ad-hoc questions about objectives that do not map cleanly to
-one operation.
+`objective-current`, `objective-update`, `objective-reconcile`,
+`objective-digest`), and as a landing spot for ad-hoc questions about
+objectives that do not map cleanly to one operation.
 
 ## What an objective is
 
@@ -135,8 +135,12 @@ implement a slice on a branch
   Writes `body.md` and, when a concrete slice plan exists, `roadmap.md`.
 - **Next** (`objective-next`): read-only inspection and next-slice
   recommendation before branch claim. It writes nothing.
-- **Digest** (`objective-digest`): read-only one-page status digest from
-  canonical and branch snapshots. It writes nothing.
+- **Current** (`objective-current`): read-only current-branch stack map. It
+  shows the claimed objective, PR, branch snapshot freshness, brmem entries,
+  downstack ancestry, and immediate upstack children. It writes nothing.
+- **Digest** (`objective-digest`): read-only objective dossier from canonical
+  and branch snapshots. It summarizes thesis, slice progress, PR state,
+  readiness, and durable findings. It writes nothing.
 - **Claim** (`objective-claim`): attach a branch snapshot by verbatim
   copy from an explicit source, nearest ancestor branch snapshot, or the
   canonical objective.
@@ -173,6 +177,7 @@ The full contract lives in `references/mutation-contract.md`. Summary:
 | --------------------- | -------------------------------------------- | ---------------------------------------- | ---------------------- |
 | `objective-create`    | Writes initial `body.md` and roadmap         | Never                                    | Never                  |
 | `objective-next`      | Reads only                                   | Reads only                               | Reads only             |
+| `objective-current`   | Reads only                                   | Reads only                               | Reads only             |
 | `objective-digest`    | Reads only                                   | Reads only                               | Reads only             |
 | `objective-claim`     | May read as source                           | Writes verbatim carry-forward to target  | May read as source     |
 | `objective-update`    | Never                                        | Rewrites conservatively from branch work | Never                  |

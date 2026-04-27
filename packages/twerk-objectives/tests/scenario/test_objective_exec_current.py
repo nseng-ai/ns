@@ -109,6 +109,7 @@ def test_current_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: objective exec current" in result.output
+    assert "stack map facts" in result.output
 
 
 def test_current_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
