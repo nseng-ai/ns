@@ -45,3 +45,12 @@ class FileStatus(NamedTuple):
     staged: bool
     modified: bool
     untracked: bool
+
+
+@dataclass(frozen=True)
+class CommitSummary:
+    """One commit reported by ``git log`` over a range."""
+
+    sha: str
+    author_iso: str
+    subject: str

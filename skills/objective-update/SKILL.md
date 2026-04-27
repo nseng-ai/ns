@@ -5,9 +5,8 @@ allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git log *)"
   - "Bash(git show *)"
-  - "Bash(brmem check *)"
+  - "Bash(objective exec update-precheck *)"
   - "Bash(brmem get *)"
-  - "Bash(brmem list *)"
   - "Bash(brmem put *)"
   - "Read"
   - "Write"
@@ -46,13 +45,14 @@ state.
 
 ## Inputs
 
-- **Slug, usually required.** Parse the slug from the prompt and use it
-  directly. If the prompt names no slug, defer to Step 2 to enumerate slugs
-  attached to the current branch: a single slug auto-resolves, multiple
-  slugs still requires the user to choose, zero slugs aborts and points at
-  `objective-claim`. Never derive the slug from the branch name —
-  branches commonly carry a parent objective whose slug differs from the
-  branch's slice slug.
+- **Slug, usually required.** Parse the slug from the prompt and pass it
+  to the Step 1 precheck. If the prompt names no slug, omit the argument
+  and let the precheck enumerate slugs attached to the current branch: a
+  single slug auto-resolves, multiple slugs returns
+  `ambiguous_objective` (ask the user to choose), zero slugs returns
+  `no_objective_on_branch` (point at `objective-claim`). Never derive
+  the slug from the branch name — branches commonly carry a parent
+  objective whose slug differs from the branch's slice slug.
 
 ## Core Rules
 
@@ -81,101 +81,57 @@ state.
 
 ## Workflow
 
-### 1. Preflight
+### 1. Precheck
+
+Run the precheck CLI and parse the JSON envelope:
 
 ```bash
-git rev-parse --show-toplevel
-git rev-parse --abbrev-ref HEAD
+objective exec update-precheck [<slug>] --format json
 ```
 
-Abort if not in a git repo, on detached `HEAD`, or on `master`. Slug
-presence is checked in Step 2. On `master`, print:
+The envelope handles preflight (current branch, master refusal, detached
+HEAD), slug resolution, file presence + old SHAs, and the `master..HEAD`
+commit list in one round-trip.
 
-```text
-objective-update runs on branch snapshots only. Use
-objective-reconcile <slug> to update canonical state.
-```
+Handle the result:
 
-### 2. Resolve the slug against branch snapshots
+- **`error_type` set**: surface the message and stop. The possible values
+  and what they mean:
+  - `detached_head` — not on a branch; user must check out a branch.
+  - `on_master_branch` — `update` operates on branch snapshots only;
+    direct the user to `objective-reconcile`.
+  - `no_objective_on_branch` — no slugs attached on this branch; direct
+    the user to `objective-claim <slug>` first.
+  - `ambiguous_objective` — multiple slugs attached; ask the user to
+    name one explicitly and re-run with the slug argument.
+  - `slug_not_attached` — the named slug has no snapshot on this
+    branch; direct the user to `objective-claim <slug>` first.
+  - `git_failed` — surface the underlying git error verbatim.
+- **`data.in_sync == true`**: report and exit without loading or writing
+  files:
 
-List slugs attached to the current branch:
+  ```text
+  objective <data.slug> is in sync with HEAD on <data.branch> - no update needed
+  ```
 
-```bash
-brmem list --namespace objectives
-```
+- **Otherwise**: carry forward `data.slug`, `data.branch`, the three
+  `FilePrecheck` records (`body`, `roadmap`, `notes` — `present` flags
+  drive "only run for present files" gating; `head_sha` values are the
+  old SHAs for the recovery hint), `data.snapshot_max_head_date` (date-
+  fresh hint input), and `data.branch_commits` (evidence list for
+  triage). Continue to step 2.
 
-Split each returned key on `/` and take the first segment. Deduplicate to
-get the set of attached slugs.
+The snapshot date-fresh hint is the comparison `snapshot_max_head_date >=
+branch_max_author_iso`. Use this as a hint only — cherry-picks, imported
+commits, and `git commit --amend --reset-author` can preserve or move
+author times in ways that hide net-new content, so always proceed to
+evidence triage and expect a no-op when the branch evidence is already
+documented. If false-stales or false-fresh results become common, switch
+to patch-id bookkeeping (Change B, deferred).
 
-- **Slug provided in the prompt**: confirm at least one returned key
-  starts with `<slug>/`. If not, abort and point the user at
-  `objective-claim <slug>` on this branch first.
-- **No slug in the prompt, single attached slug**: use it. Surface the
-  resolved slug name in the final report so a wrong-slug guess is visible.
-- **No slug in the prompt, multiple attached slugs**: list them with
-  one-line context (e.g., the title from each `body.md` if cheap to fetch)
-  and ask which to update. Never auto-pick; multiple slugs may be a parent
-  objective plus an in-flight slice, and updating the wrong one is
-  destructive.
-- **No slug in the prompt, zero attached slugs**: abort and direct the
-  user to run `objective-claim <slug>` on this branch first. `update`
-  never attaches a missing snapshot.
+### 2. Load target files
 
-Other slugs on the branch beyond the resolved one are ignored.
-
-### 3. Freshness check
-
-For each present file under `<slug>/`, fetch metadata:
-
-```bash
-brmem check <slug>/body.md --namespace objectives --format json
-brmem check <slug>/roadmap.md --namespace objectives --format json
-brmem check <slug>/notes.md --namespace objectives --format json
-```
-
-Only run checks for files that exist. Take the maximum `.data.head_date`
-across present files.
-
-Read the branch commits and latest author time since master:
-
-```bash
-git log --format="%H %at %s" master..HEAD
-git log --format=%at master..HEAD | sort -nr | head -1
-```
-
-Use numeric **author** time over `master..HEAD`, not committer time over
-`HEAD`. `gt restack` and other pure rebases re-stamp committer time without
-moving author time, so this avoids false-stales after a restack. Compare times
-as instants: convert `.data.head_date` to epoch seconds, or otherwise compare
-it as a timestamp, before comparing it with `%at`.
-
-If `master..HEAD` is empty, treat the branch as in sync and exit without
-loading or writing files. Print:
-
-```text
-objective <slug> is in sync with HEAD on <branch> - no update needed
-```
-
-If the snapshot max `head_date` is at-or-after the branch's max author time,
-the snapshot is date-fresh, but this is not enough to skip evidence triage:
-cherry-picks, imported commits, and `git commit --amend --reset-author` can
-preserve or move author times in ways that hide net-new content. Continue to
-steps 4-5 and expect a no-op when the branch evidence is already documented.
-
-If false-stales or false-fresh results become common, switch to patch-id
-bookkeeping (Change B, deferred).
-
-### 4. Load target files and collect evidence
-
-Capture old SHAs for present files:
-
-```bash
-brmem check <slug>/body.md --namespace objectives
-brmem check <slug>/roadmap.md --namespace objectives
-brmem check <slug>/notes.md --namespace objectives
-```
-
-Load present files:
+For every `FilePrecheck` with `present == true`, load the content:
 
 ```bash
 brmem get <slug>/body.md --namespace objectives > /tmp/<slug>-body.md
@@ -183,23 +139,13 @@ brmem get <slug>/roadmap.md --namespace objectives > /tmp/<slug>-roadmap.md
 brmem get <slug>/notes.md --namespace objectives > /tmp/<slug>-notes.md
 ```
 
-Use the branch's own commits as evidence:
+Skip absent files. Use the per-file `head_sha` from the precheck envelope
+as the "old SHA" in the final report's recovery hint — do not re-query.
 
-```bash
-git log --oneline master..HEAD
-git log --since=<snapshot-head-date> --oneline HEAD
-git show --stat --oneline <sha>
-```
+### 3. Triage: net-new content?
 
-The first command is required for triage. Do not limit triage to
-`--since=<snapshot-head-date>`, because preserved old author dates can hide
-net-new cherry-picks. The second command is useful when the snapshot was
-updated after the branch diverged. Use `git show --stat` when a commit's
-subject alone is not enough to classify it.
-
-### 5. Triage: net-new content?
-
-Before drafting edits, classify each commit collected in step 4:
+Before drafting edits, classify each commit in `data.branch_commits` from
+step 1:
 
 - **Already-documented** — subject and stat match a roadmap item that's
   already checked off, or a `notes.md` section that already names the same
@@ -207,11 +153,17 @@ Before drafting edits, classify each commit collected in step 4:
   cherry-pick of an already-folded commit, squash-merge of a substack.
 - **Net-new** — introduces work not yet reflected in body/roadmap/notes.
 
-If every post-snapshot commit is already documented, skip steps 6–7 and
-report no-op at step 8. Do not draft "freshening" edits to a snapshot whose
+When a commit's subject alone is not enough to classify it, fetch detail:
+
+```bash
+git show --stat --oneline <sha>
+```
+
+If every post-snapshot commit is already documented, skip steps 4–5 and
+report no-op at step 6. Do not draft "freshening" edits to a snapshot whose
 content already covers the work.
 
-### 6. Rewrite conservatively
+### 4. Rewrite conservatively
 
 Apply the shared conservative rewrite rules in
 `../objective/references/mutation-contract.md`.
@@ -227,7 +179,7 @@ Typical update work:
 Do not regenerate files from the original brief, rename sections, delete
 history, or attach a missing snapshot.
 
-### 7. Persist changed files
+### 5. Persist changed files
 
 Write changed content to temporary files, then store only changed files back
 to the same branch snapshot:
@@ -240,7 +192,7 @@ brmem put <slug>/notes.md --namespace objectives --file <temp-notes>
 
 Skip `brmem put` for unchanged files. Capture new commit SHAs.
 
-### 8. Report
+### 6. Report
 
 Include:
 

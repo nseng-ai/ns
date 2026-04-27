@@ -7,6 +7,7 @@ from pathlib import Path
 
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import (
+    CommitSummary,
     DetachedHead,
     FileStatus,
     GitCommandFailure,
@@ -125,6 +126,25 @@ def resolve_trunk_branch(repo_root: Path) -> str | None:
         if _branch_exists(repo_root, candidate):
             return candidate
     return None
+
+
+def parse_log_range_output(stdout: str) -> tuple[CommitSummary, ...]:
+    """Parse NUL-delimited ``git log --format=%H%x00%aI%x00%s`` output.
+
+    Each commit is one line of three NUL-delimited fields. Empty stdout (no
+    commits in range) yields an empty tuple. Lines that do not contain the
+    expected two NUL separators are skipped defensively.
+    """
+    commits: list[CommitSummary] = []
+    for raw_line in stdout.splitlines():
+        if not raw_line:
+            continue
+        parts = raw_line.split("\x00")
+        if len(parts) != 3:
+            continue
+        sha, author_iso, subject = parts
+        commits.append(CommitSummary(sha=sha, author_iso=author_iso, subject=subject))
+    return tuple(commits)
 
 
 def parse_name_status_output(stdout: str) -> tuple[RestructuredFile, ...]:
@@ -378,3 +398,17 @@ class RealGitGateway(GitGateway):
             message=result.stderr.strip() or "git update-ref failed",
             returncode=result.returncode,
         )
+
+    def log_range(self, range_spec: str) -> tuple[CommitSummary, ...] | GitCommandFailure:
+        result = _run(
+            ["git", "log", "--format=%H%x00%aI%x00%s", range_spec],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            return GitCommandFailure(
+                message=stderr or "git log failed",
+                returncode=result.returncode,
+            )
+        return parse_log_range_output(result.stdout)
