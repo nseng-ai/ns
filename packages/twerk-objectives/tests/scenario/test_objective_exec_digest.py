@@ -22,7 +22,7 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
-from twerk_core.git.types import DetachedHead
+from twerk_core.git.types import CommitSummary, DetachedHead
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -59,12 +59,14 @@ def _make_obj(
     pr_gateway: PRGateway | None = None,
     file_last_touched: dict[tuple[str, str], str] | None = None,
     branch_head_iso: dict[str, str] | None = None,
+    commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
 ) -> ClinkrContextObject:
     if branch is None:
         git_gateway = FakeGitGateway(
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
             branch_head_iso_by_branch=branch_head_iso,
+            commits_by_range=commits_by_range,
         )
     else:
         git_gateway = FakeGitGateway(
@@ -72,6 +74,7 @@ def _make_obj(
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
             branch_head_iso_by_branch=branch_head_iso,
+            commits_by_range=commits_by_range,
         )
     ctx = ObjectiveCliContext(
         brmem_gateway=gateway,
@@ -638,6 +641,15 @@ def test_digest_obj_state_fresh_when_snapshot_at_or_after_branch_head(
         live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
         file_last_touched=file_last_touched,
         branch_head_iso={"widget-rewrite-layer-1": "2026-04-26T20:54:00+00:00"},
+        commits_by_range={
+            "master..widget-rewrite-layer-1": (
+                CommitSummary(
+                    sha="aaa111",
+                    author_iso="2026-04-26T20:54:00+00:00",
+                    subject="Port widget A to plugin",
+                ),
+            ),
+        },
     )
 
     result = CliRunner().invoke(
@@ -651,6 +663,9 @@ def test_digest_obj_state_fresh_when_snapshot_at_or_after_branch_head(
     by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
     assert by_branch["widget-rewrite-layer-1"]["obj_state"] == "fresh"
     assert by_branch["widget-rewrite-layer-1"]["branch_head_iso"] == ("2026-04-26T20:54:00+00:00")
+    assert by_branch["widget-rewrite-layer-1"]["branch_max_author_iso"] == (
+        "2026-04-26T20:54:00+00:00"
+    )
 
 
 def test_digest_obj_state_stale_when_branch_head_newer_than_snapshot(
@@ -668,6 +683,15 @@ def test_digest_obj_state_stale_when_branch_head_newer_than_snapshot(
         live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
         file_last_touched=file_last_touched,
         branch_head_iso={"widget-rewrite-layer-1": "2026-04-27T08:30:00+00:00"},
+        commits_by_range={
+            "master..widget-rewrite-layer-1": (
+                CommitSummary(
+                    sha="bbb222",
+                    author_iso="2026-04-27T08:30:00+00:00",
+                    subject="Tighten loader error path",
+                ),
+            ),
+        },
     )
 
     result = CliRunner().invoke(
@@ -680,6 +704,59 @@ def test_digest_obj_state_stale_when_branch_head_newer_than_snapshot(
     assert result.exit_code == 0, result.output
     by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
     assert by_branch["widget-rewrite-layer-1"]["obj_state"] == "stale"
+    assert by_branch["widget-rewrite-layer-1"]["branch_max_author_iso"] == (
+        "2026-04-27T08:30:00+00:00"
+    )
+
+
+def test_digest_obj_state_fresh_when_only_committer_time_advanced_after_restack(
+    cli_group: ClinkrGroup,
+) -> None:
+    """`gt restack` rewrites committer time without changing author time.
+
+    A branch whose only "change" was a no-op restack must classify as
+    ``fresh`` even though ``branch_head_iso`` (committer time) is newer
+    than the snapshot — author time is what drives the contract.
+    """
+
+    gateway = _seed_sole_objective_widget_rewrite()
+    file_last_touched = {
+        (
+            "refs/brmem/ns/objectives/widget-rewrite-layer-1",
+            "widget-rewrite/body.md",
+        ): "2026-04-26T20:54:00+00:00",
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        file_last_touched=file_last_touched,
+        # Committer time advanced (restack rewrote it) ...
+        branch_head_iso={"widget-rewrite-layer-1": "2026-04-27T09:00:00+00:00"},
+        # ... but author time on the only commit is still <= snapshot.
+        commits_by_range={
+            "master..widget-rewrite-layer-1": (
+                CommitSummary(
+                    sha="ccc333",
+                    author_iso="2026-04-26T20:54:00+00:00",
+                    subject="Port widget A to plugin",
+                ),
+            ),
+        },
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
+    layer_1 = by_branch["widget-rewrite-layer-1"]
+    assert layer_1["obj_state"] == "fresh"
+    assert layer_1["branch_head_iso"] == "2026-04-27T09:00:00+00:00"
+    assert layer_1["branch_max_author_iso"] == "2026-04-26T20:54:00+00:00"
 
 
 def test_digest_obj_state_fresh_for_deleted_branch_regardless_of_head(

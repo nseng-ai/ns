@@ -72,6 +72,7 @@ class BranchSnapshot(JsonSerializable):
     notes_md: str
     body_last_touched: str | None
     branch_head_iso: str | None
+    branch_max_author_iso: str | None
     obj_state: ObjectiveSnapshotState
     pr_number: int | None
     pr_state: str | None
@@ -234,10 +235,11 @@ def _read_branch_snapshot(
     snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
     branch_head_iso = git.branch_head_iso(branch) if alive else None
+    branch_max_author_iso = _max_author_iso(git, branch) if alive else None
     obj_state = _classify_obj_state(
         alive=alive,
         snapshot_iso=body_last_touched,
-        branch_head_iso=branch_head_iso,
+        branch_max_author_iso=branch_max_author_iso,
     )
     pr_number, pr_state, pr_title, pr_url, pr_error = _pr_fields(pr_result)
     return BranchSnapshot(
@@ -248,6 +250,7 @@ def _read_branch_snapshot(
         notes_md=notes_md,
         body_last_touched=body_last_touched,
         branch_head_iso=branch_head_iso,
+        branch_max_author_iso=branch_max_author_iso,
         obj_state=obj_state,
         pr_number=pr_number,
         pr_state=pr_state,
@@ -255,6 +258,20 @@ def _read_branch_snapshot(
         pr_url=pr_url,
         pr_error=pr_error,
     )
+
+
+def _max_author_iso(git: GitGateway, branch: str) -> str | None:
+    """Return the latest author timestamp on ``master..branch``, or ``None``.
+
+    Author time (``%aI``) is preserved by ``gt restack``; committer time
+    (``%cI``) is rewritten. Using author time keeps digest's freshness signal
+    aligned with ``objective exec update-precheck`` and resilient to no-op
+    restacks.
+    """
+    result = git.log_range(f"{MASTER_BRANCH}..{branch}")
+    if isinstance(result, GitCommandFailure):
+        return None
+    return max((c.author_iso for c in result), default=None)
 
 
 def _pr_fields(
@@ -272,21 +289,26 @@ def _classify_obj_state(
     *,
     alive: bool,
     snapshot_iso: str | None,
-    branch_head_iso: str | None,
+    branch_max_author_iso: str | None,
 ) -> ObjectiveSnapshotState:
     """Classify a snapshot as ``"fresh"`` or ``"stale"``.
 
     A deleted branch (post-merge) is fresh by definition: its history is
     frozen, so the snapshot can no longer drift. For live branches,
-    compare ISO-8601 committer timestamps lexically — stale only when
-    both timestamps are known and the branch HEAD is strictly newer than
-    the snapshot's last write.
+    compare the latest author timestamp on ``master..branch`` against the
+    snapshot's last-write timestamp lexically — stale only when both are
+    known and the newest author time is strictly newer than the snapshot.
+
+    Author time (``%aI``) is preserved by ``gt restack`` while committer
+    time (``%cI``) is rewritten, so this signal does not flap on restacks
+    that produce no net-new commits and stays aligned with
+    ``objective exec update-precheck``.
     """
     if not alive:
         return "fresh"
-    if snapshot_iso is None or branch_head_iso is None:
+    if snapshot_iso is None or branch_max_author_iso is None:
         return "fresh"
-    if branch_head_iso > snapshot_iso:
+    if branch_max_author_iso > snapshot_iso:
         return "stale"
     return "fresh"
 
