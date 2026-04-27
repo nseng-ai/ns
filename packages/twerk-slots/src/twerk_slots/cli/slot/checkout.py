@@ -36,6 +36,10 @@ def _complete_branch_name(ctx: click.Context, param: click.Parameter, incomplete
     try:
         branches = RealGitGateway(repo_root=repo_root).list_local_branches()
     except (subprocess.CalledProcessError, OSError):
+        # Shell completion callbacks must never raise — any exception that
+        # escapes here breaks the user's tab-completion in the shell. Swallow
+        # `git for-each-ref` failures (CalledProcessError) and missing/unrunnable
+        # git binaries (OSError) and degrade silently to "no completions".
         return []
     return [b for b in branches if b.startswith(incomplete)]
 
