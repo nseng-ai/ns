@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
 import click
@@ -10,6 +12,7 @@ from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 from twerk_slots.allocation import (
     DetachedHeadError,
     DirtyCurrentWorktreeError,
@@ -26,11 +29,31 @@ from twerk_slots.naming import extract_slot_number
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
 
 
+def _complete_branch_name(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[str]:
+    repo_root = resolve_repo_root(Path.cwd())
+    if repo_root is None:
+        return []
+    try:
+        branches = RealGitGateway(repo_root=repo_root).list_local_branches()
+    except (subprocess.CalledProcessError, OSError):
+        # Shell completion callbacks must never raise — any exception that
+        # escapes here breaks the user's tab-completion in the shell. Swallow
+        # `git for-each-ref` failures (CalledProcessError) and missing/unrunnable
+        # git binaries (OSError) and degrade silently to "no completions".
+        return []
+    return [b for b in branches if b.startswith(incomplete)]
+
+
 @dataclass(frozen=True)
 class SlotCheckoutRequest:
     branch_name: Annotated[
         str | None,
-        click.Argument(["branch_name"], required=False, default=None),
+        click.Argument(
+            ["branch_name"],
+            required=False,
+            default=None,
+            shell_complete=_complete_branch_name,
+        ),
     ] = None
     base: Annotated[
         str | None,

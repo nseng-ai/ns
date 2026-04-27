@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_slots.cli.slot.checkout import run_checkout_slot
+from twerk_slots.cli.slot.completion import build_completion_group
 from twerk_slots.cli.slot.free import run_free_slot
 from twerk_slots.cli.slot.gc import run_slot_gc
 from twerk_slots.cli.slot.goto import run_goto_slot
@@ -11,7 +12,7 @@ from twerk_slots.cli.slot.list import run_list_slots
 
 
 def build_slot_group() -> ClinkrGroup:
-    return ClinkrGroup(
+    group = ClinkrGroup(
         name="slot",
         help="Manage worktree pool slots.",
         operations=[
@@ -22,3 +23,5 @@ def build_slot_group() -> ClinkrGroup:
             run_list_slots,
         ],
     )
+    group.add_command(build_completion_group())
+    return group
