@@ -50,9 +50,10 @@ Surface the CLI's `error.message` verbatim if exit code is non-zero. The
 JSON payload contains: `metadata` (five pre-formatted lines), `thesis_inputs`
 (`description_md`, `out_of_scope_md`), `slices` (per-slice flags from
 master's roadmap, with per-branch checked overlay), `tree` (one row per
-branch + PR), `drift_open_prs` (open PRs whose titles match unchecked
-slices but aren't in `tree`), `findings_inputs.notes_by_branch`, and
-`warnings`.
+branch + PR with `pr_state`, `branch_head_iso`, `body_last_touched`, and
+a CLI-computed `memj_state`), `findings_inputs.notes_by_branch`, and
+`warnings` (advisory strings — drift / unclaimed-PR detection lives here,
+not as slice rows).
 
 ### 2. Distill the **Thesis** (judgment)
 
@@ -95,14 +96,15 @@ section headings are locked):
 
 ## Slices
 
-| #   | ✓ | Slice             | PR          | Branch     | Memj |
-| --- | - | ----------------- | ----------- | ---------- | ---- |
-| 1   | ✓ | <slices[0].title> | [#NNN](url) | `<branch>` | ✓    |
-| ... |   |                   |             |            |      |
+| #   | ✓ | Slice             | PR          | PR state | Branch     | Memj    |
+| --- | - | ----------------- | ----------- | -------- | ---------- | ------- |
+| 1   | ✓ | <slices[0].title> | [#NNN](url) | open     | `<branch>` | `fresh` |
+| ... |   |                   |             |          |            |         |
 
-**Memj legend:** ✓ snapshot fresh · ↻ branch + snapshot exist but branch
-deleted (merged) · ⚠ open PR matches an unchecked slice but no snapshot
-(run `dev-memjective-claim`) · — no associated branch.
+**Memj legend:** `fresh` snapshot pinned at branch HEAD (or branch deleted
+post-merge — pin can no longer drift) · `stale` branch advanced past
+snapshot pin, run `dev-memjective-update` · `—` no snapshot for this
+slice's origin branch.
 
 ## Key findings (binding for future work)
 
@@ -120,14 +122,35 @@ Slice-row attribution rules:
 - Slice rows come from `slices[]` in CLI-emitted order (which is master's
   roadmap order). Use `slices[i].title` for the Slice column.
 - Column 2 (✓): mark when `slices[i].checked_on_most_progressed` is true.
-- PR / Branch / Memj: pick the first branch in `slices[i].checked_by_branch`
-  whose value is true and whose entry exists in `tree`. Fill `pr_*` and
-  `deleted` from that tree entry. If no such branch exists but a
-  `drift_open_prs` entry's title contains words from the slice title, use
-  that PR with branch `—` and Memj `⚠`. Otherwise leave PR/Branch as `—`
-  and Memj as `—`.
-- Memj: `✓` when the chosen tree entry's `deleted` is false; `↻` when
-  `deleted` is true; `⚠` for drift; `—` when no association exists.
+- PR / PR state / Branch / Memj — origin-branch attribution. Each tree
+  entry was opened to land exactly one slice; identify that slice by the
+  strongest keyword overlap between `tree[].pr_title` and `slices[].title`,
+  treated as a 1:1 match across all tree entries and slices (do not assign
+  the same tree entry to multiple slices). The matched tree entry is the
+  slice's origin — fill PR from `pr_url`/`pr_number`, PR state from
+  `pr_state` lowercased (`open` / `merged` / `closed`), Branch from
+  `branch`, and Memj directly from `memj_state`.
+  - Do **not** use `checked_by_branch` ordering to pick the origin.
+    Once a slice lands on master, every open downstream branch inherits
+    its checkmark, so multiple branches will read as "checked" without
+    having authored the slice. `checked_by_branch` is only the in-flight
+    signal for column 2 (via `checked_on_most_progressed`); it is not
+    the authorship signal.
+  - Slices with no matching tree entry render PR / PR state / Branch / Memj
+    all as `—`. Heuristic drift signals never appear in the slice rows;
+    they live in `warnings` (see below).
+- Memj is taken verbatim from `tree[].memj_state` (`fresh` or `stale`); a
+  slice with no origin tree entry renders `—`.
+
+Drift / unclaimed-PR rendering:
+
+- The CLI emits unclaimed-PR advisories as strings in `warnings` (each
+  prefixed with `unclaimed_pr:`). They are heuristic — open PRs whose
+  titles overlap an unchecked slice but lack a snapshot. They are **not**
+  promoted to slice rows; the deterministic per-slice columns must reflect
+  only attached tree entries.
+- Render every `warnings` string verbatim under the trailing `> ⚠` block.
+  Omit the block when `warnings` is empty.
 
 Format invariants:
 

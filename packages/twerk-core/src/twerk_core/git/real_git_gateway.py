@@ -317,3 +317,14 @@ class RealGitGateway(GitGateway):
             return None
         stamp = result.stdout.strip()
         return stamp or None
+
+    def branch_head_iso(self, branch: str) -> str | None:
+        result = _run(
+            ["git", "log", "-1", "--format=%cI", branch],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        stamp = result.stdout.strip()
+        return stamp or None

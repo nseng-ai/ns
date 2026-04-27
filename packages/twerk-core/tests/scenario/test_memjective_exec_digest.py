@@ -58,17 +58,20 @@ def _make_obj(
     live_branches: tuple[str, ...] = (),
     pr_gateway: PRGateway | None = None,
     file_last_touched: dict[tuple[str, str], str] | None = None,
+    branch_head_iso: dict[str, str] | None = None,
 ) -> ClinkrContextObject:
     if branch is None:
         git_gateway = FakeGitGateway(
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
+            branch_head_iso_by_branch=branch_head_iso,
         )
     else:
         git_gateway = FakeGitGateway(
             current_branch_by_path={Path.cwd(): branch},
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
+            branch_head_iso_by_branch=branch_head_iso,
         )
     ctx = MemjectiveCliContext(
         brmem_gateway=gateway,
@@ -316,13 +319,18 @@ def test_digest_happy_path_emits_full_contract(cli_group: ClinkrGroup) -> None:
     assert by_branch["widget-rewrite-layer-1"]["pr_state"] == "OPEN"
     assert by_branch["widget-rewrite-layer-1"]["deleted"] is False
     assert by_branch["widget-rewrite-groundwork"]["pr_state"] == "MERGED"
+    # No branch_head_iso seeded on the FakeGitGateway → memj_state defaults
+    # to "fresh" (insufficient info to mark stale).
+    assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "fresh"
+    assert by_branch["widget-rewrite-layer-1"]["branch_head_iso"] is None
 
     notes = data["findings_inputs"]["notes_by_branch"]
     assert "widget-rewrite-layer-1" in notes
     assert "plugin loader" in notes["widget-rewrite-layer-1"]
 
-    # No drift configured on the FakePRGateway → empty list, no warnings.
-    assert data["drift_open_prs"] == []
+    # No drift configured on the FakePRGateway → no warnings; drift no
+    # longer appears as a top-level field.
+    assert "drift_open_prs" not in data
     assert data["warnings"] == []
 
 
@@ -519,7 +527,7 @@ def test_digest_marks_deleted_branch(cli_group: ClinkrGroup) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_digest_drift_detection_surfaces_unknown_open_pr(
+def test_digest_drift_detection_emits_unclaimed_pr_warning(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = _seed_widget_rewrite()
@@ -545,8 +553,12 @@ def test_digest_drift_detection_surfaces_unknown_open_pr(
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    drift = payload["data"]["drift_open_prs"]
-    assert any(entry["number"] == 999 for entry in drift)
+    assert "drift_open_prs" not in payload["data"]
+    warnings = payload["data"]["warnings"]
+    assert any(
+        w.startswith("unclaimed_pr: PR #999 ") and "someone-else/cleanup-legacy" in w
+        for w in warnings
+    ), warnings
 
 
 def test_digest_no_drift_flag_skips_search(cli_group: ClinkrGroup) -> None:
@@ -573,7 +585,7 @@ def test_digest_no_drift_flag_skips_search(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    assert payload["data"]["drift_open_prs"] == []
+    assert "drift_open_prs" not in payload["data"]
     assert payload["data"]["warnings"] == []
 
 
@@ -599,4 +611,105 @@ def test_digest_drift_failure_emits_warning_not_error(cli_group: ClinkrGroup) ->
     assert result.exit_code == 0, result.output
     warnings = payload["data"]["warnings"]
     assert any(w.startswith("drift_check_skipped:") for w in warnings)
-    assert payload["data"]["drift_open_prs"] == []
+    assert "drift_open_prs" not in payload["data"]
+
+
+# ---------------------------------------------------------------------------
+# memj_state — fresh / stale / merged
+# ---------------------------------------------------------------------------
+
+
+def test_digest_memj_state_fresh_when_snapshot_at_or_after_branch_head(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_widget_rewrite()
+    file_last_touched = {
+        (
+            "refs/brmem/ns/memjectives/widget-rewrite-layer-1",
+            "widget-rewrite/body.md",
+        ): "2026-04-26T20:54:00+00:00",
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        file_last_touched=file_last_touched,
+        branch_head_iso={"widget-rewrite-layer-1": "2026-04-26T20:54:00+00:00"},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    by_branch = {e["branch"]: e for e in payload["data"]["tree"]}
+    assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "fresh"
+    assert by_branch["widget-rewrite-layer-1"]["branch_head_iso"] == ("2026-04-26T20:54:00+00:00")
+
+
+def test_digest_memj_state_stale_when_branch_head_newer_than_snapshot(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_widget_rewrite()
+    file_last_touched = {
+        (
+            "refs/brmem/ns/memjectives/widget-rewrite-layer-1",
+            "widget-rewrite/body.md",
+        ): "2026-04-26T20:54:00+00:00",
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        file_last_touched=file_last_touched,
+        branch_head_iso={"widget-rewrite-layer-1": "2026-04-27T08:30:00+00:00"},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    by_branch = {e["branch"]: e for e in payload["data"]["tree"]}
+    assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "stale"
+
+
+def test_digest_memj_state_fresh_for_deleted_branch_regardless_of_head(
+    cli_group: ClinkrGroup,
+) -> None:
+    """A deleted branch's snapshot is fresh by definition — its history is frozen."""
+
+    gateway = _seed_widget_rewrite()
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master", "widget-rewrite-layer-1"),  # groundwork is gone
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "widget-rewrite-groundwork": _pr(
+                    number=812,
+                    title="Plugin contract scaffolding",
+                    url="https://example.com/pull/812",
+                    state="MERGED",
+                    head="widget-rewrite-groundwork",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    by_branch = {e["branch"]: e for e in payload["data"]["tree"]}
+    assert by_branch["widget-rewrite-groundwork"]["deleted"] is True
+    assert by_branch["widget-rewrite-groundwork"]["memj_state"] == "fresh"
+    assert by_branch["widget-rewrite-groundwork"]["branch_head_iso"] is None

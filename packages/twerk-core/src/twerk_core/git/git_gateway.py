@@ -100,3 +100,13 @@ class GitGateway(ABC):
         the underlying command fails. Useful for per-file timing on multi-file
         snapshot refs where the ref's head commit time would be misleading.
         """
+
+    @abstractmethod
+    def branch_head_iso(self, branch: str) -> str | None:
+        """Return ISO-8601 committer time of ``branch``'s HEAD commit.
+
+        Wraps ``git log -1 --format=%cI <branch>``. Returns ``None`` when the
+        branch does not exist or the underlying command fails. Used to compare
+        branch HEAD against snapshot last-touched timestamps for fresh / stale
+        memjective-snapshot detection.
+        """

@@ -119,7 +119,6 @@ class MemjectiveDigestResult(JsonSerializable):
     out_of_scope_md: str
     slices: tuple[dict[str, Any], ...]
     tree: tuple[dict[str, Any], ...]
-    drift_open_prs: tuple[dict[str, Any], ...]
     notes_by_branch: tuple[tuple[str, str], ...]
     warnings: tuple[str, ...]
 
@@ -133,7 +132,6 @@ class MemjectiveDigestResult(JsonSerializable):
             },
             "slices": [dict(item) for item in self.slices],
             "tree": [dict(item) for item in self.tree],
-            "drift_open_prs": [dict(item) for item in self.drift_open_prs],
             "findings_inputs": {"notes_by_branch": dict(self.notes_by_branch)},
             "warnings": list(self.warnings),
         }
@@ -245,14 +243,17 @@ def run_digest_memjective(
     slices_payload = _compose_slices(master_slices, branches_slices, most_progressed)
 
     tree_payload = tuple(
-        _compose_tree_entry(b, branch_alive[b.branch], pr_results[b.branch])
+        _compose_tree_entry(
+            b,
+            branch_alive[b.branch],
+            pr_results[b.branch],
+            git.branch_head_iso(b.branch) if branch_alive[b.branch] else None,
+        )
         for b in branch_snapshots
     )
 
-    if request.no_drift:
-        drift_payload: tuple[dict[str, Any], ...] = ()
-    else:
-        drift_payload, drift_warnings = _detect_drift(
+    if not request.no_drift:
+        drift_warnings = _detect_drift(
             pr_gateway,
             unchecked_slice_titles=tuple(
                 slice_.title for slice_ in master_slices if not slice_.fully_checked
@@ -273,7 +274,6 @@ def run_digest_memjective(
             out_of_scope_md=extract_section(master_snapshot.body_md, "Out of scope"),
             slices=slices_payload,
             tree=tree_payload,
-            drift_open_prs=drift_payload,
             notes_by_branch=notes_by_branch,
             warnings=tuple(warnings),
         )
@@ -500,8 +500,14 @@ def _compose_tree_entry(
     snapshot: _BranchSnapshot,
     alive: bool,
     pr_result: PRSummary | PRLookupError,
+    branch_head_iso: str | None,
 ) -> dict[str, Any]:
     deleted = not alive
+    memj_state = _classify_memj_state(
+        alive=alive,
+        snapshot_iso=snapshot.body_last_touched,
+        branch_head_iso=branch_head_iso,
+    )
     if isinstance(pr_result, PRSummary):
         return {
             "branch": snapshot.branch,
@@ -511,6 +517,8 @@ def _compose_tree_entry(
             "pr_title": pr_result.title,
             "pr_url": pr_result.url,
             "body_last_touched": snapshot.body_last_touched,
+            "branch_head_iso": branch_head_iso,
+            "memj_state": memj_state,
         }
     return {
         "branch": snapshot.branch,
@@ -520,8 +528,33 @@ def _compose_tree_entry(
         "pr_title": None,
         "pr_url": None,
         "body_last_touched": snapshot.body_last_touched,
+        "branch_head_iso": branch_head_iso,
+        "memj_state": memj_state,
         "pr_error": pr_result.stderr if pr_result.returncode != 1 else None,
     }
+
+
+def _classify_memj_state(
+    *,
+    alive: bool,
+    snapshot_iso: str | None,
+    branch_head_iso: str | None,
+) -> str:
+    """Classify a snapshot as ``"fresh"`` or ``"stale"``.
+
+    A deleted branch (post-merge) is fresh by definition: its history is
+    frozen, so the snapshot can no longer drift. For live branches, compare
+    ISO-8601 committer timestamps lexically — stale only when both
+    timestamps are known and the branch HEAD is strictly newer than the
+    snapshot's last write.
+    """
+    if not alive:
+        return "fresh"
+    if snapshot_iso is None or branch_head_iso is None:
+        return "fresh"
+    if branch_head_iso > snapshot_iso:
+        return "stale"
+    return "fresh"
 
 
 def _detect_drift(
@@ -529,27 +562,33 @@ def _detect_drift(
     *,
     unchecked_slice_titles: tuple[str, ...],
     known_branches: set[str],
-) -> tuple[tuple[dict[str, Any], ...], list[str]]:
+) -> list[str]:
+    """Return advisory warnings for open PRs that look unclaimed.
+
+    Each unclaimed PR (open, title overlaps an unchecked slice, branch not
+    already in the snapshot tree) becomes one ``unclaimed_pr:`` warning. The
+    digest skill renders these under the trailing ``> ⚠`` block — they are
+    heuristic and never feed the deterministic per-slice rows.
+    """
     if not unchecked_slice_titles:
-        return (), []
+        return []
     keywords = _drift_query_keywords(unchecked_slice_titles)
     if not keywords:
-        return (), []
+        return []
     query = " ".join(keywords)
     result = pr_gateway.search_open_prs(query)
     if isinstance(result, PRLookupError):
-        return (), [f"drift_check_skipped: {result.stderr or 'gh pr list failed'}"]
-    rows = tuple(
-        {
-            "number": pr.number,
-            "title": pr.title,
-            "url": pr.url,
-            "head_ref_name": pr.head_ref_name,
-        }
+        return [f"drift_check_skipped: {result.stderr or 'gh pr list failed'}"]
+    return [
+        (
+            f"unclaimed_pr: PR #{pr.number} {pr.title!r} on branch "
+            f"{pr.head_ref_name!r} matches an unchecked slice but has no "
+            f"snapshot. {pr.url} — run dev-memjective-claim if it belongs "
+            f"to this memjective."
+        )
         for pr in result
         if pr.head_ref_name not in known_branches
-    )
-    return rows, []
+    ]
 
 
 def _drift_query_keywords(titles: tuple[str, ...]) -> list[str]:
