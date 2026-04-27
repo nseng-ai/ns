@@ -18,6 +18,7 @@ Only `body.md` is required. `roadmap.md` and `notes.md` appear when useful.
 | --------------------- | ----------------------------------------- | ------------------------------ | ---------------------- |
 | `objective-create`    | Writes initial `body.md` and roadmap      | Never                          | Never                  |
 | `objective-next`      | Reads only                                | Reads only                     | Reads only             |
+| `objective-digest`    | Reads only                                | Reads only                     | Reads only             |
 | `objective-claim`     | May read as source                        | Writes verbatim copy to target | May read as source     |
 | `objective-update`    | Never                                     | Rewrites from branch work      | Never                  |
 | `objective-reconcile` | Rewrites from landed branch + PR evidence | Reads only as evidence         | Reads only as evidence |
@@ -182,6 +183,11 @@ Both rewrite modes follow the same shape:
 `next` writes nothing. It resolves the best source for a slug, reports status,
 flags stale non-canonical branch snapshots, and suggests a next-slice slug.
 It does not inspect source code to audit progress.
+
+### `objective-digest`
+
+`digest` writes nothing. It renders a one-page status digest from canonical
+and branch snapshots plus deterministic git/PR facts supplied by its CLI.
 
 ### `objective-claim`
 

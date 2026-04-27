@@ -1,6 +1,6 @@
 ---
 name: objective-digest
-description: Command
+description: "Command: objective-digest"
 allowed-tools:
   - "Bash(objective exec digest *)"
   - "Bash(objective list *)"

@@ -1,6 +1,6 @@
 ---
 name: objective-reconcile
-description: Command
+description: "Command: objective-reconcile"
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"
@@ -38,20 +38,12 @@ branch snapshots and never copies one snapshot verbatim onto canonical state.
 Open PRs and unmerged branches remain branch-local state for higher-level
 views; reconcile must not incorporate them into canonical state.
 
-## Objective Content
+## Content Files
 
-The canonical objective is stored under `<slug>/` in namespace
-`objectives` on `master`. Files:
-
-- `body.md` (required): stable workstream spine and progress guidance.
-- `roadmap.md` (optional): ordered slice plan and progress surface.
-- `notes.md` (optional): durable findings.
-
-`reconcile` reads every present canonical file and rewrites only files whose
-content changed. It also reads PR metadata for branch snapshots carrying the
-slug, then reads `<slug>/body.md`, `<slug>/roadmap.md`, and `<slug>/notes.md`
-only from branch snapshots whose associated PRs are merged. Branch snapshots
-and PRs are evidence only; reconcile never writes to them.
+Read every present canonical file under `<slug>/` on `master` (`body.md`
+required; `roadmap.md` / `notes.md` optional) and rewrite only files whose
+content changed. Read branch snapshot files only when their associated PRs
+are merged. Branch snapshots and PRs are evidence only; never write to them.
 
 ## Inputs
 

@@ -1,6 +1,6 @@
 ---
 name: objective-update
-description: Command
+description: "Command: objective-update"
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git log *)"
@@ -37,18 +37,12 @@ This is normally needed only for stacked PRs, when a later branch will claim
 from this branch before this branch lands. For a simple single-PR path, merge
 the PR and run `objective-reconcile` on `master` instead.
 
-## Objective Content
+## Content Files
 
-A branch snapshot is stored under `<slug>/` in namespace `objectives` on
-the current branch. Files:
-
-- `body.md` (required): stable workstream spine and progress guidance.
-- `roadmap.md` (optional): ordered slice plan and progress surface.
-- `notes.md` (optional): durable findings from this branch's work.
-
-`update` reads every present file under `<slug>/` on the current branch and
-rewrites only files whose content changed. It never reads or writes other
-branch snapshots and never touches canonical state.
+Read every present file under `<slug>/` on the current branch (`body.md`
+required; `roadmap.md` / `notes.md` optional). Rewrite only files whose
+content changed. Never read or write other branch snapshots or canonical
+state.
 
 ## Inputs
 

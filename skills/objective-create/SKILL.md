@@ -1,6 +1,6 @@
 ---
 name: objective-create
-description: Command
+description: "Command: objective-create"
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(brmem *)"
@@ -29,23 +29,11 @@ conversation already contains a concrete slice plan. It never writes
 `notes.md`, never attaches a branch snapshot, and never writes durable
 objective files into the working tree.
 
-## Objective Content
+## Content Files
 
-Until the stack has a repo-wide single source of truth for objective
-contents, this section is the only place in this skill that names the current
-content files.
-
-An objective snapshot is the content stored under `<slug>/` in namespace
-`objectives`. Current content files:
-
-- `body.md` (required): stable workstream spine and progress guidance.
-- `roadmap.md` (optional): ordered slice plan and progress surface.
-- `notes.md` (optional): durable findings.
-
-`create` may write only `body.md` and, when warranted, `roadmap.md`.
-`notes.md` appears later when `objective-update` records a branch
-finding or `objective-reconcile` folds durable evidence into canonical
-state.
+Snapshots store `<slug>/body.md` (required), with optional `roadmap.md` and
+`notes.md`. `create` may write only `body.md` and, when a concrete slice plan
+exists, `roadmap.md`; it never writes `notes.md`.
 
 ## Inputs
 

@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Conceptual reference for the twerk objective subsystem: local-first planning docs with a canonical objective plus branch-local snapshots. Covers storage, document anatomy, lifecycle, carry-forward, update vs reconcile, and shared mutation contracts. Fires on conceptual questions about objectives and alongside objective-create, objective-next, objective-claim, objective-update, and objective-reconcile. Read-only."
+description: "Use for conceptual questions about twerk objectives and as shared grounding with objective-create, objective-next, objective-claim, objective-update, objective-reconcile, or objective-digest. Read-only."
 allowed-tools: []
 ---
 
@@ -9,9 +9,9 @@ allowed-tools: []
 Conceptual reference for the objective subsystem. This skill does not
 perform operations. Use it as shared grounding alongside the operation skills
 (`objective-create`, `objective-next`, `objective-claim`,
-`objective-update`, `objective-reconcile`), and as a landing spot
-for ad-hoc questions about objectives that do not map cleanly to one
-operation.
+`objective-update`, `objective-reconcile`, `objective-digest`), and as a
+landing spot for ad-hoc questions about objectives that do not map cleanly to
+one operation.
 
 ## What an objective is
 
@@ -135,6 +135,8 @@ implement a slice on a branch
   Writes `body.md` and, when a concrete slice plan exists, `roadmap.md`.
 - **Next** (`objective-next`): read-only inspection and next-slice
   recommendation before branch claim. It writes nothing.
+- **Digest** (`objective-digest`): read-only one-page status digest from
+  canonical and branch snapshots. It writes nothing.
 - **Claim** (`objective-claim`): attach a branch snapshot by verbatim
   copy from an explicit source, nearest ancestor branch snapshot, or the
   canonical objective.
@@ -171,6 +173,7 @@ The full contract lives in `references/mutation-contract.md`. Summary:
 | --------------------- | -------------------------------------------- | ---------------------------------------- | ---------------------- |
 | `objective-create`    | Writes initial `body.md` and roadmap         | Never                                    | Never                  |
 | `objective-next`      | Reads only                                   | Reads only                               | Reads only             |
+| `objective-digest`    | Reads only                                   | Reads only                               | Reads only             |
 | `objective-claim`     | May read as source                           | Writes verbatim carry-forward to target  | May read as source     |
 | `objective-update`    | Never                                        | Rewrites conservatively from branch work | Never                  |
 | `objective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                   | Reads only as evidence |
