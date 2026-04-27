@@ -132,30 +132,39 @@ def test_slot_version(cli_group: ClinkrGroup) -> None:
 # -- list -------------------------------------------------------------------
 
 
+def _managed_wt(worktrees_dir: Path, n: int, branch: str | None) -> WorktreeInfo:
+    return WorktreeInfo(
+        path=worktrees_dir / f"slot-{n:02d}",
+        branch=branch,
+        is_bare=False,
+    )
+
+
+def _worktrees_dir(tmp_path: Path) -> Path:
+    return tmp_path / "slots" / "repos" / "repo" / "worktrees"
+
+
 def test_slot_list_empty_pool(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     ctx = _fake_for_repo(tmp_path)
 
     result = CliRunner().invoke(
         cli_group,
-        ["list"],
+        ["list", "--format", "json"],
         obj=_obj(ctx),
-        env={"COLUMNS": "200"},
     )
+    payload = _machine_data(result.output)
 
     assert result.exit_code == 0, result.output
-    assert "slot-01" in result.output
-    assert "slot-16" in result.output
-    assert "unallocated" in result.output
+    assert payload["pool_size"] == 0
+    assert payload["rows"] == []
 
 
-def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
-
-    # First checkout to seed pool state, then list.
-    CliRunner().invoke(
-        cli_group,
-        ["checkout", "feat/x"],
-        obj=_obj(ctx),
+def test_slot_list_with_assigned_slot(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    wt_dir = _worktrees_dir(tmp_path)
+    ctx = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x",),
+        worktrees=(_managed_wt(wt_dir, 1, "feat/x"),),
     )
 
     result = CliRunner().invoke(
@@ -169,23 +178,18 @@ def test_slot_list_with_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> No
     assert "feat/x" in result.output
     assert "assigned" in result.output
 
+    json_res = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    payload = _machine_data(json_res.output)
+    assert payload["rows"][0]["status"] == "assigned"
+    assert payload["rows"][0]["branch"] == "feat/x"
 
-def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
 
-    checkout_res = CliRunner().invoke(
-        cli_group,
-        ["checkout", "feat/x"],
-        obj=_obj(ctx),
+def test_slot_list_available_when_detached(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    wt_dir = _worktrees_dir(tmp_path)
+    ctx = _fake_for_repo(
+        tmp_path,
+        worktrees=(_managed_wt(wt_dir, 1, None),),
     )
-    assert checkout_res.exit_code == 0, checkout_res.output
-
-    free_res = CliRunner().invoke(
-        cli_group,
-        ["free", "--wt", "slot-01"],
-        obj=_obj(ctx),
-    )
-    assert free_res.exit_code == 0, free_res.output
 
     json_res = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
     payload = _machine_data(json_res.output)
@@ -193,18 +197,20 @@ def test_slot_list_available_after_free(cli_group: ClinkrGroup, tmp_path: Path) 
     assert json_res.exit_code == 0
     rows = payload["rows"]
     assert isinstance(rows, list)
-    slot_01 = next(r for r in rows if r["slot_name"] == "slot-01")
+    assert len(rows) == 1
+    slot_01 = rows[0]
+    assert slot_01["slot_name"] == "slot-01"
     assert slot_01["status"] == "available"
     assert slot_01["branch"] is None
-    assert slot_01["worktree_path"] is not None
-    assert "slot-01" in slot_01["worktree_path"]
-    # Other slots remain unallocated (no worktree on disk).
-    unallocated = [r for r in rows if r["status"] == "unallocated"]
-    assert len(unallocated) == 15
+    assert slot_01["worktree_path"].endswith("slot-01")
 
 
 def test_slot_ls_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _fake_for_repo(tmp_path)
+    wt_dir = _worktrees_dir(tmp_path)
+    ctx = _fake_for_repo(
+        tmp_path,
+        worktrees=(_managed_wt(wt_dir, 1, None),),
+    )
 
     list_res = CliRunner().invoke(
         cli_group,
@@ -233,23 +239,78 @@ def test_slot_list_schema(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_list_format_json_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _fake_for_repo(tmp_path, branches=("feat/x",))
-
-    CliRunner().invoke(cli_group, ["checkout", "feat/x"], obj=_obj(ctx))
+    wt_dir = _worktrees_dir(tmp_path)
+    ctx = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x",),
+        worktrees=(
+            _managed_wt(wt_dir, 1, "feat/x"),
+            _managed_wt(wt_dir, 2, None),
+        ),
+    )
 
     result = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
     payload = _machine_data(result.output)
 
     assert result.exit_code == 0
-    assert payload["pool_size"] == 16
+    assert payload["pool_size"] == 2
     assert payload["repo_name"] == "repo"
     rows = payload["rows"]
     assert isinstance(rows, list)
-    assigned_rows = [r for r in rows if r["status"] == "assigned"]
-    assert len(assigned_rows) == 1
-    assert assigned_rows[0]["branch"] == "feat/x"
-    unallocated_rows = [r for r in rows if r["status"] == "unallocated"]
-    assert len(unallocated_rows) == 15
+    assert len(rows) == 2
+    statuses = {r["slot_name"]: r["status"] for r in rows}
+    assert statuses == {"slot-01": "assigned", "slot-02": "available"}
+
+
+def test_slot_list_sorts_by_numeric_suffix(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    wt_dir = _worktrees_dir(tmp_path)
+    ctx = _fake_for_repo(
+        tmp_path,
+        branches=("feat/a", "feat/b", "feat/c"),
+        worktrees=(
+            _managed_wt(wt_dir, 3, "feat/c"),
+            _managed_wt(wt_dir, 1, "feat/a"),
+            _managed_wt(wt_dir, 2, "feat/b"),
+        ),
+    )
+
+    json_res = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    payload = _machine_data(json_res.output)
+
+    assert [r["slot_name"] for r in payload["rows"]] == ["slot-01", "slot-02", "slot-03"]
+
+
+def test_slot_list_surfaces_manual_gap(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    wt_dir = _worktrees_dir(tmp_path)
+    ctx = _fake_for_repo(
+        tmp_path,
+        branches=("feat/a", "feat/c"),
+        worktrees=(
+            _managed_wt(wt_dir, 1, "feat/a"),
+            _managed_wt(wt_dir, 3, "feat/c"),
+        ),
+    )
+
+    json_res = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    payload = _machine_data(json_res.output)
+
+    assert payload["pool_size"] == 2
+    assert [r["slot_name"] for r in payload["rows"]] == ["slot-01", "slot-03"]
+
+
+def test_slot_list_drops_assigned_at_field(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    wt_dir = _worktrees_dir(tmp_path)
+    ctx = _fake_for_repo(
+        tmp_path,
+        branches=("feat/x",),
+        worktrees=(_managed_wt(wt_dir, 1, "feat/x"),),
+    )
+
+    json_res = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(ctx))
+    payload = _machine_data(json_res.output)
+
+    for row in payload["rows"]:
+        assert "assigned_at" not in row
 
 
 def test_slot_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:

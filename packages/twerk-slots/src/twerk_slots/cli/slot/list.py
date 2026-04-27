@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
 import click
@@ -11,14 +10,10 @@ from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_core.format import format_relative_time
-from twerk_slots.allocation import sync_pool_assignments
 from twerk_slots.cli.slot.context import load_slots_context
-from twerk_slots.gateway.storage import SlotsStorageGateway
-from twerk_slots.naming import generate_slot_name
-from twerk_slots.pool_state import AssignmentFound, PoolState
+from twerk_slots.inventory import SlotInventory, build_slot_inventory
 
-SlotStatus = Literal["unallocated", "available", "assigned"]
+SlotStatus = Literal["assigned", "available"]
 
 
 @dataclass(frozen=True)
@@ -30,8 +25,7 @@ class SlotListRequest:
 class SlotRow:
     slot_name: str
     branch: str | None
-    assigned_at: str | None
-    worktree_path: str | None
+    worktree_path: str
     status: SlotStatus
 
 
@@ -47,7 +41,6 @@ def render_slot_list(result: SlotListResult) -> None:
     table.add_column("Slot", style="bold cyan", no_wrap=True)
     table.add_column("Status", no_wrap=True)
     table.add_column("Branch", no_wrap=True, overflow="ellipsis", ratio=1)
-    table.add_column("Assigned", no_wrap=True, style="dim", justify="right", min_width=7)
     table.add_column("Worktree", no_wrap=True, style="dim", overflow="ellipsis", ratio=1)
 
     for row in result.rows:
@@ -55,56 +48,22 @@ def render_slot_list(result: SlotListResult) -> None:
             row.slot_name,
             row.status,
             row.branch or "",
-            format_relative_time(row.assigned_at) if row.assigned_at else "",
-            row.worktree_path or "",
+            row.worktree_path,
         )
 
     get_console().print(table)
 
 
-def _compose_rows(
-    state: PoolState,
-    storage: SlotsStorageGateway,
-    worktrees_dir: Path,
-) -> tuple[SlotRow, ...]:
-    rows: list[SlotRow] = []
-    for slot_num in range(1, state.pool_size + 1):
-        slot_name = generate_slot_name(slot_num)
-        lookup = state.find_by_slot(slot_name)
-        if isinstance(lookup, AssignmentFound):
-            assignment = lookup.assignment
-            rows.append(
-                SlotRow(
-                    slot_name=slot_name,
-                    branch=assignment.branch_name,
-                    assigned_at=assignment.assigned_at,
-                    worktree_path=str(assignment.worktree_path),
-                    status="assigned",
-                )
-            )
-            continue
-        worktree_path = worktrees_dir / slot_name
-        if storage.path_exists(worktree_path):
-            rows.append(
-                SlotRow(
-                    slot_name=slot_name,
-                    branch=None,
-                    assigned_at=None,
-                    worktree_path=str(worktree_path),
-                    status="available",
-                )
-            )
-        else:
-            rows.append(
-                SlotRow(
-                    slot_name=slot_name,
-                    branch=None,
-                    assigned_at=None,
-                    worktree_path=None,
-                    status="unallocated",
-                )
-            )
-    return tuple(rows)
+def _compose_rows(inventory: SlotInventory) -> tuple[SlotRow, ...]:
+    return tuple(
+        SlotRow(
+            slot_name=record.slot_name,
+            branch=record.branch,
+            worktree_path=str(record.path),
+            status=record.status,
+        )
+        for record in inventory.records
+    )
 
 
 @clinkr_operation(
@@ -116,14 +75,11 @@ def _compose_rows(
 def run_list_slots(ctx: click.Context, request: SlotListRequest) -> ClinkrExit[SlotListResult]:
     slots_ctx = Ensure.ideal_state(load_slots_context(ctx))
 
-    state = slots_ctx.pool_state.load()
-    if slots_ctx.pool_state.exists():
-        state = sync_pool_assignments(state, slots_ctx.git, slots_ctx.storage, slots_ctx.pool_state)
-
+    inventory = build_slot_inventory(slots_ctx.git)
     return ClinkrExit.ok(
         SlotListResult(
-            pool_size=state.pool_size,
-            rows=_compose_rows(state, slots_ctx.storage, slots_ctx.repo.worktrees_dir),
+            pool_size=inventory.pool_size,
+            rows=_compose_rows(inventory),
             repo_name=slots_ctx.repo.repo_name,
         )
     )
