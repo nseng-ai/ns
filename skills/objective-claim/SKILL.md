@@ -1,6 +1,6 @@
 ---
 name: objective-claim
-description: Command
+description: "Command: objective-claim"
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"
@@ -33,22 +33,11 @@ verbatim to the target branch snapshot.
 summarizes objective content; reshaping belongs to `objective-update`
 on branch snapshots or `objective-reconcile` into canonical state.
 
-## Objective Content
+## Content Files
 
-Until the stack has a repo-wide single source of truth for objective
-contents, this section is the only place in this skill that names the current
-content files.
-
-An objective snapshot is the content stored under `<slug>/` in namespace
-`objectives`. Current content files:
-
-- `body.md` (required): stable workstream spine and progress guidance.
-- `roadmap.md` (optional): ordered slice plan and progress surface.
-- `notes.md` (optional): durable findings.
-
-Use `body.md` as the presence check when validating a source. For branch
-sources, carry the entire `<slug>/` directory with `brmem copy`; do not filter
-the copy to the current content inventory.
+Use `<slug>/body.md` as the source presence check. For branch sources, carry
+the entire `<slug>/` directory with `brmem copy`; do not filter the copy to
+the current `body.md` / `roadmap.md` / `notes.md` inventory.
 
 ## Inputs
 

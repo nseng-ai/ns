@@ -1,6 +1,6 @@
 ---
 name: objective-next
-description: Command
+description: "Command: objective-next"
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git for-each-ref *)"
@@ -16,7 +16,7 @@ allowed-tools:
 
 # objective-next
 
-Read-only status peek and next-slice recommendation for a objective.
+Read-only status peek and next-slice recommendation for an objective.
 
 > For shared concepts — vocabulary, storage model, content anatomy, lifecycle,
 > carry-forward semantics, and mutation contracts — see
@@ -34,22 +34,11 @@ no checkbox edits, and no working-tree changes. It is the normal planning
 step before `objective-claim`: choose the slice first, then create a
 branch and attach the objective snapshot to that branch.
 
-## Objective Content
+## Content Files
 
-Until the stack has a repo-wide single source of truth for objective
-contents, this section is the only place in this skill that names the current
-content files.
-
-A objective snapshot is the content stored under `<slug>/` in namespace
-`objectives`. Current content files:
-
-- `body.md` (required): stable workstream spine and progress guidance.
-- `roadmap.md` (optional): ordered slice plan and progress surface.
-- `notes.md` (optional): durable findings.
-
-When resolving a source, use the required content file from this inventory as
-the presence check. When loading, reporting, or checking freshness, discover
-which known content files exist under `<slug>/` and operate on that set.
+Use `<slug>/body.md` as the presence check. When loading, reporting, or
+checking freshness, discover which known files (`body.md`, `roadmap.md`,
+`notes.md`) exist under `<slug>/` and operate only on that set.
 
 ## Inputs
 
