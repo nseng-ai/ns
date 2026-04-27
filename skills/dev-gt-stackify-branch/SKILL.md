@@ -136,8 +136,8 @@ Naming convention:
 Examples:
 
 ```text
-objective-core/skills-migration
-objective-core/data-model
+feature-core/skills-migration
+feature-core/data-model
 ```
 
 If Graphite reports that the current branch is untracked, track or re-parent it before continuing.

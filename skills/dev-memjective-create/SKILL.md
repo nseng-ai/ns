@@ -113,7 +113,7 @@ fill.
 
 Ask a short follow-up when a critical piece is missing or when the proposed
 slug/scope would be ambiguous. Keep the document lighter than a full GitHub
-objective.
+issue.
 
 ### 3. Choose And Check The Slug
 

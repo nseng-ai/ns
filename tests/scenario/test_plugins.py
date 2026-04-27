@@ -15,7 +15,6 @@ from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.memjective.context import MemjectiveCliContext
-from twerk_objectives.cli.objective.context import ObjectivesCliContext
 from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.context import ReviewerCliContext
@@ -115,32 +114,6 @@ def test_memjective_plugin_integration() -> None:
     payload = json.loads(result.output)
     assert payload["exit_code"] == 0
     assert payload["data"]["entries"][0]["key"] == "clinkr-migration/body.md"
-
-
-def test_objective_plugin_integration() -> None:
-    parent = click.Group("test")
-    ep = FakePluginEntryPoint(
-        name="objectives",
-        value="twerk_objectives.cli.plugin:build_objective_plugin",
-    )
-
-    discover_plugins(parent, source=_entry_point_source(ep))
-
-    runner = CliRunner()
-    ctx = ObjectivesCliContext(gh_issue_gateway=FakeIssueGateway())
-    obj = build_clinkr_context_object(lambda: ctx)
-
-    result = runner.invoke(parent, ["objective", "list"], obj=obj)
-    assert result.exit_code == 0
-    assert "No objectives found." in result.output
-
-    result = runner.invoke(parent, ["objective", "ls"], obj=obj)
-    assert result.exit_code == 0
-    assert "No objectives found." in result.output
-
-    result = runner.invoke(parent, ["objective", "list", "--format", "json"], obj=obj)
-    assert result.exit_code == 0
-    assert '"exit_code": 0' in result.output
 
 
 def test_pr_address_plugin_integration() -> None:
