@@ -116,6 +116,11 @@
       "sourceType": "github",
       "computedHash": "92926014bf7d7aeaf48a08487602bbf98498be9c19197d263362db86e2b9d6fb"
     },
+    "ns-skill-audit": {
+      "source": "nseng-ai/nonslop",
+      "sourceType": "github",
+      "computedHash": "d3ad4ac6df5ecb291be458e85de227ca3cf43307b170cb1626087f28ba75801c"
+    },
     "ns-skill-management": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
