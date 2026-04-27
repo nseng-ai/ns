@@ -32,7 +32,6 @@ class SlotAllocationResult:
     branch_name: str
     worktree_path: Path
     already_assigned: bool
-    evicted_slot: str | None
 
 
 @dataclass(frozen=True)
@@ -241,7 +240,6 @@ def allocate_slot_for_branch(
     *,
     branch_name: str,
     now: str,
-    force: bool,
 ) -> SlotAllocationResult | PoolFullError:
     """Assign ``branch_name`` to a slot, creating or reusing worktrees.
 
@@ -253,8 +251,8 @@ def allocate_slot_for_branch(
     The algorithm: reconcile pool.json with git, short-circuit if the branch
     is already assigned (with a cleanup path for stale entries), otherwise
     try to reuse an existing inactive worktree before falling back to
-    on-demand slot creation. If the pool is full, ``--force`` evicts the
-    oldest assignment and reuses its slot.
+    on-demand slot creation. Returns :class:`PoolFullError` when no slot
+    can be allocated.
     """
     state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
@@ -274,7 +272,6 @@ def allocate_slot_for_branch(
                     branch_name=branch_name,
                     worktree_path=existing.worktree_path,
                     already_assigned=True,
-                    evicted_slot=None,
                 )
         # Stale assignment — drop and reallocate below.
         state = PoolState(
@@ -298,10 +295,8 @@ def allocate_slot_for_branch(
             branch_name=branch_name,
             worktree_path=ctx.repo.main_repo_root,
             already_assigned=True,
-            evicted_slot=None,
         )
 
-    evicted_slot: str | None = None
     slot_name: str
     worktree_path: Path
 
@@ -313,30 +308,14 @@ def allocate_slot_for_branch(
         slot_num = find_next_available_slot(state, ctx.storage, ctx.repo.worktrees_dir)
         if slot_num is None:
             oldest = find_oldest_assignment(state)
-            if oldest is None or not force:
-                # Pool is full and eviction not allowed (or nothing to evict).
-                return PoolFullError(
-                    oldest_slot=oldest.slot_name if oldest else "",
-                    oldest_branch=oldest.branch_name if oldest else "",
-                )
-
-            evicted_slot = oldest.slot_name
-            slot_name = oldest.slot_name
-            worktree_path = oldest.worktree_path
-            state = PoolState(
-                pool_size=state.pool_size,
-                assignments=tuple(a for a in state.assignments if a.slot_name != oldest.slot_name),
+            return PoolFullError(
+                oldest_slot=oldest.slot_name if oldest else "",
+                oldest_branch=oldest.branch_name if oldest else "",
             )
-            if ctx.storage.path_exists(worktree_path):
-                ctx.git.checkout_branch(worktree_path, branch_name)
-            else:
-                ctx.storage.ensure_dir(worktree_path.parent)
-                ctx.git.add_worktree(worktree_path, branch_name, create_branch=False)
-        else:
-            slot_name = generate_slot_name(slot_num)
-            worktree_path = ctx.repo.worktrees_dir / slot_name
-            ctx.storage.ensure_dir(worktree_path.parent)
-            ctx.git.add_worktree(worktree_path, branch_name, create_branch=False)
+        slot_name = generate_slot_name(slot_num)
+        worktree_path = ctx.repo.worktrees_dir / slot_name
+        ctx.storage.ensure_dir(worktree_path.parent)
+        ctx.git.add_worktree(worktree_path, branch_name, create_branch=False)
 
     new_state = state.with_assignment_added(
         SlotAssignment(
@@ -353,7 +332,6 @@ def allocate_slot_for_branch(
         branch_name=branch_name,
         worktree_path=worktree_path,
         already_assigned=False,
-        evicted_slot=evicted_slot,
     )
 
 
@@ -417,7 +395,6 @@ def allocate_slot_for_current_branch(
     *,
     cwd: Path,
     now: str,
-    force: bool,
 ) -> CurrentBranchAllocationResult | PoolFullError | DetachedHeadError | DirtyCurrentWorktreeError:
     """Assign the branch currently checked out at ``cwd`` to a slot.
 
@@ -443,7 +420,7 @@ def allocate_slot_for_current_branch(
             return DirtyCurrentWorktreeError(cwd=cwd)
         note = _resolve_current_wt_redirect(ctx, cwd=cwd, moving_branch=current_branch)
 
-    outcome = allocate_slot_for_branch(ctx, branch_name=current_branch, now=now, force=force)
+    outcome = allocate_slot_for_branch(ctx, branch_name=current_branch, now=now)
     if isinstance(outcome, PoolFullError):
         return outcome
     return CurrentBranchAllocationResult(allocation=outcome, current_wt_note=note)

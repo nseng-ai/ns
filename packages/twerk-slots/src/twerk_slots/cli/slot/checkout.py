@@ -55,7 +55,6 @@ class SlotCheckoutResult(JsonSerializable):
     cd_command: str
     already_assigned: bool
     created_branch: bool
-    evicted_slot: str | None
     current_wt_note: str | None
     clipboard_copied: bool
     clipboard_skipped: bool
@@ -65,10 +64,6 @@ class SlotCheckoutResult(JsonSerializable):
 
 def render_slot_checkout(result: SlotCheckoutResult) -> None:
     console = get_console()
-    if result.evicted_slot is not None:
-        console.print(
-            f"[yellow]Evicted {result.evicted_slot} to make room for {result.branch_name}[/yellow]"
-        )
     if result.current_wt_note is not None:
         console.print(f"[yellow]{result.current_wt_note}[/yellow]")
     if result.already_assigned:
@@ -134,7 +129,6 @@ def _build_result(
         cd_command=cd_command,
         already_assigned=allocation.already_assigned,
         created_branch=created_branch,
-        evicted_slot=allocation.evicted_slot,
         current_wt_note=current_wt_note,
         clipboard_copied=clipboard_copied,
         clipboard_skipped=no_clipboard,
@@ -184,7 +178,7 @@ def run_checkout_slot(
     if request.current:
         try:
             current_outcome = allocate_slot_for_current_branch(
-                slots_ctx, cwd=slots_ctx.repo.root, now=now, force=False
+                slots_ctx, cwd=slots_ctx.repo.root, now=now
             )
         except SlotAllocationError as exc:
             return ClinkrExit.failure(error_type="slot_allocation_error", message=str(exc))
@@ -250,7 +244,6 @@ def run_checkout_slot(
         slots_ctx,
         branch_name=branch_name,
         now=now,
-        force=False,
     )
     if isinstance(outcome, PoolFullError):
         return _pool_full_failure(outcome)
