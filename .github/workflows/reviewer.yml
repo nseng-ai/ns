@@ -64,12 +64,13 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REVIEW_KEY: ${{ matrix.review }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         shell: bash
         run: |
           set -euo pipefail
+
+          BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName --jq .baseRefName)
 
           status=0
           output=$(uv run reviewer review run "$REVIEW_KEY" \
