@@ -12,10 +12,19 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from twerk_core.gh.real_gateway_helpers import (
+    fetch_pr_details_for_branch,
     fetch_pr_summary_for_branch,
+    merge_pr,
     search_prs,
 )
-from twerk_core.gh.types import PRLookupError, PRStateFilter, PRSummary
+from twerk_core.gh.types import (
+    PRCommandError,
+    PRDetails,
+    PRLookupError,
+    PRMergeResult,
+    PRStateFilter,
+    PRSummary,
+)
 
 
 class PRGateway(ABC):
@@ -30,6 +39,10 @@ class PRGateway(ABC):
         """
 
     @abstractmethod
+    def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupError:
+        """Look up detailed PR metadata for guarded merge workflows."""
+
+    @abstractmethod
     def search_prs(
         self, query: str, *, state: PRStateFilter
     ) -> tuple[PRSummary, ...] | PRLookupError:
@@ -41,6 +54,17 @@ class PRGateway(ABC):
         ``PRLookupError`` when the underlying ``gh pr list`` call fails.
         """
 
+    @abstractmethod
+    def merge_pr(
+        self,
+        pr_number: int,
+        *,
+        match_head_commit: str,
+        admin: bool,
+        auto: bool,
+    ) -> PRMergeResult | PRCommandError:
+        """Squash-merge or enable auto-merge for ``pr_number`` with a head guard."""
+
 
 class RealPRGateway(PRGateway):
     """Real implementation backed by the `gh` CLI."""
@@ -48,7 +72,25 @@ class RealPRGateway(PRGateway):
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
         return fetch_pr_summary_for_branch(branch)
 
+    def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupError:
+        return fetch_pr_details_for_branch(branch)
+
     def search_prs(
         self, query: str, *, state: PRStateFilter
     ) -> tuple[PRSummary, ...] | PRLookupError:
         return search_prs(query, state=state)
+
+    def merge_pr(
+        self,
+        pr_number: int,
+        *,
+        match_head_commit: str,
+        admin: bool,
+        auto: bool,
+    ) -> PRMergeResult | PRCommandError:
+        return merge_pr(
+            pr_number,
+            match_head_commit=match_head_commit,
+            admin=admin,
+            auto=auto,
+        )

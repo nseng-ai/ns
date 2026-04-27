@@ -110,3 +110,29 @@ class GitGateway(ABC):
         branch HEAD against snapshot last-touched timestamps for fresh / stale
         objective-snapshot detection.
         """
+
+    @abstractmethod
+    def branch_head_oid(self, branch: str) -> str | GitCommandFailure:
+        """Return the full object ID for ``branch``'s HEAD commit."""
+
+    @abstractmethod
+    def fetch_remote_branch(
+        self,
+        cwd: Path,
+        remote: str,
+        branch: str,
+    ) -> GitCommandFailure | None:
+        """Fetch ``remote``/``branch`` from ``cwd``; return failure on non-zero exit."""
+
+    @abstractmethod
+    def pull_fast_forward(self, cwd: Path) -> GitCommandFailure | None:
+        """Run ``git pull --ff-only`` in ``cwd``; return failure on non-zero exit."""
+
+    @abstractmethod
+    def update_local_ref(
+        self,
+        cwd: Path,
+        ref: str,
+        source: str,
+    ) -> GitCommandFailure | None:
+        """Update ``ref`` to ``source`` via ``git update-ref``; failure on non-zero exit."""

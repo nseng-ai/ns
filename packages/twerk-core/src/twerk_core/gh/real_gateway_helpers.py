@@ -12,22 +12,44 @@ from __future__ import annotations
 import json
 import subprocess
 
-from twerk_core.gh.types import PRLookupError, PRState, PRStateFilter, PRSummary
+from twerk_core.gh.types import (
+    PRCommandError,
+    PRDetails,
+    PRLookupError,
+    PRMergeResult,
+    PRState,
+    PRStateFilter,
+    PRSummary,
+)
+
+
+def _run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
+    cmd = ["gh", *args]
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        return subprocess.CompletedProcess(
+            cmd,
+            127,
+            stdout="",
+            stderr=str(exc),
+        )
 
 
 def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
     """Shell out to ``gh pr view <branch>`` and return a ``PRSummary``."""
-    result = subprocess.run(
+    result = _run_gh(
         [
-            "gh",
             "pr",
             "view",
             branch,
             "--json",
             "number,title,url,headRefName,baseRefName,state",
         ],
-        capture_output=True,
-        text=True,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -46,11 +68,35 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
     )
 
 
+def fetch_pr_details_for_branch(branch: str) -> PRDetails | PRLookupError:
+    """Shell out to ``gh pr view <branch>`` and return guarded-merge metadata."""
+    result = _run_gh(
+        [
+            "pr",
+            "view",
+            branch,
+            "--json",
+            "number,headRefName,baseRefName,headRefOid",
+        ],
+    )
+    if result.returncode != 0:
+        return PRLookupError(
+            stderr=result.stderr.strip(),
+            returncode=result.returncode,
+        )
+    data = json.loads(result.stdout)
+    return PRDetails(
+        number=data["number"],
+        head_ref_name=data["headRefName"],
+        base_ref_name=data["baseRefName"],
+        head_ref_oid=data["headRefOid"],
+    )
+
+
 def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | PRLookupError:
     """Shell out to ``gh pr list --state <state> --search <query>``."""
-    result = subprocess.run(
+    result = _run_gh(
         [
-            "gh",
             "pr",
             "list",
             "--state",
@@ -60,8 +106,6 @@ def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | P
             "--json",
             "number,title,url,headRefName,baseRefName,state",
         ],
-        capture_output=True,
-        text=True,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -83,3 +127,37 @@ def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | P
             )
         )
     return tuple(summaries)
+
+
+def merge_pr(
+    pr_number: int,
+    *,
+    match_head_commit: str,
+    admin: bool,
+    auto: bool,
+) -> PRMergeResult | PRCommandError:
+    """Shell out to ``gh pr merge`` using squash merge and a head-commit guard."""
+    args = [
+        "pr",
+        "merge",
+        str(pr_number),
+        "-s",
+        "--match-head-commit",
+        match_head_commit,
+    ]
+    if admin:
+        args.append("--admin")
+    if auto:
+        args.append("--auto")
+    result = _run_gh(args)
+    if result.returncode != 0:
+        return PRCommandError(
+            stderr=result.stderr.strip(),
+            returncode=result.returncode,
+        )
+    return PRMergeResult(
+        number=pr_number,
+        auto=auto,
+        stdout=result.stdout.strip(),
+        stderr=result.stderr.strip(),
+    )

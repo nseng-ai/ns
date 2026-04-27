@@ -46,8 +46,17 @@ class ClinkrExit(Generic[T]):
         return cls(status=ExitStatus.NEGATIVE, data=data, message=message)
 
     @classmethod
-    def failure(cls, *, error_type: str, message: str) -> ClinkrExit[T]:
-        return cls(status=ExitStatus.FAILURE, error_type=error_type, message=message)
+    def failure(
+        cls,
+        *,
+        error_type: str,
+        message: str,
+    ) -> ClinkrExit[T]:
+        return cls(
+            status=ExitStatus.FAILURE,
+            error_type=error_type,
+            message=message,
+        )
 
     @property
     def exit_code(self) -> int:

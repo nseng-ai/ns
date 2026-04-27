@@ -97,9 +97,9 @@ def test_failure_rejects_data() -> None:
     with pytest.raises(ValueError, match="failure must not carry data"):
         ClinkrExit(
             status=ExitStatus.FAILURE,
-            data=SampleData(value="hi"),
             error_type="bad",
             message="m",
+            data=SampleData(value="detail"),
         )
 
 
