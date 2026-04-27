@@ -4,14 +4,14 @@
 putting that context in commits, PR comments, GitHub issues, or working-tree
 files. Use it when a branch needs durable memory that should stay attached to
 that branch until a tool deliberately reads, copies, updates, or deletes it.
+It is primarily a low-level primitive for higher-level skills and tools.
 
-It is useful for records such as:
+Use cases include:
 
 - a plan or handoff note created before implementation starts
 - a memjective snapshot attached to a branch (_memjective_ is a codename for
   the higher-level branch-planning system built on `brmem`)
-- a repo-specific prompt override used by a skill
-- an agent session summary captured for later harvesting
+- agent session summaries captured for later harvesting
 - "lessons learned" notes from an agent session, kept on the branch that
   produced them
 - codebase-centric experiment tracking — what was tried on a branch and how
@@ -21,11 +21,48 @@ It is useful for records such as:
 - small text state that should survive across sessions but not become source
   code
 
-`brmem` is still git-backed and inspectable. The point is not to hide state;
+`brmem` is still Git-backed and inspectable. The point is not to hide state;
 the point is to keep branch-scoped agent state out of the places humans use
 for code review and project history.
 
 Architecture and import rules for contributors live in [`AGENTS.md`](./AGENTS.md).
+
+## Built-in Workflow: `brmem-branch-create`
+
+`brmem` also includes one human-facing workflow that is useful on its own and
+serves as a worked example.
+
+It supports this pattern:
+
+1. Plan changes on a parent branch.
+2. Create the implementation branch.
+3. Store the plan in that branch's `brmem`.
+4. Implement in that branch, typically in its own worktree.
+
+This is useful when you want to plan several pieces of work from a parent
+branch, usually `main` or `master`, and then start independent implementation
+sessions in separate worktrees.
+
+`brmem-branch-create` stores session context for a newly created branch. It
+can also use the plan content to suggest a branch name. The memory behavior is
+the same in every repo: choose a bundle, store the selected files with
+`brmem`, and report what landed.
+
+Branch creation is repo-specific. One repo might use plain `git branch`;
+another might use Graphite, and another might require a naming prefix. That
+policy belongs in a prompt plugin.
+
+In this repo:
+
+- The packaged default at
+  [`skills/brmem-branch-create/default-prompt.md`](../../../../../skills/brmem-branch-create/default-prompt.md)
+  creates the branch with plain Git and does not check it out.
+- The repo-local override at
+  [`.brmem/prompts/brmem-branch-create.md`](../../../../../.brmem/prompts/brmem-branch-create.md)
+  also creates the branch without checking it out, then tracks it in Graphite.
+
+That split keeps the skill predictable while still letting the repo express
+its local branch workflow.
 
 ## Mental Model
 
@@ -51,7 +88,7 @@ The write boundary is explicit. `put` and `delete` change one entry on one
 branch. `copy` copies entries from one branch snapshot to another. `get`,
 `check`, `list`, and prompt resolution do not change stored branch memory.
 
-## Which Command To Use
+## Which Command to Use
 
 | You want to...                              | Use                         | Writes to |
 | ------------------------------------------- | --------------------------- | --------- |
@@ -63,9 +100,7 @@ branch. `copy` copies entries from one branch snapshot to another. `get`,
 | Copy a namespace from one branch to another | `brmem copy`                | Branch    |
 | Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing   |
 
-`brmem` is a low-level primitive, generally meant for consumption by
-higher-level tools and skills rather than by humans at the command line. The
-bundled `brmem-branch-create` and `brmem-branch-impl` skills are
+The bundled `brmem-branch-create` and `brmem-branch-impl` skills are
 independently useful and double as worked examples of how to use `brmem`.
 
 ## Normal Workflow
@@ -80,7 +115,7 @@ brmem put plan.md --file /tmp/plan.md
 ```
 
 `put` reads the file and stores its content under `plan.md` for the current
-branch. The command prints the git locator and commit for the branch-memory
+branch. The command prints the Git locator and commit for the branch-memory
 snapshot so the result is inspectable.
 
 For domain-owned state, use a namespace:
@@ -162,34 +197,12 @@ brmem exec resolve-prompt <name>
 ```
 
 The command prints the chosen path and reports whether it came from the
-project or global tier. It requires a git checkout so it can find the
+project or global tier. It requires a Git checkout so it can find the
 project-local prompt path.
 
 Packaged defaults live at `skills/<plugin-name>/default-prompt.md`.
 `just install-tools` seeds global defaults without overwriting existing global
 customizations.
-
-## Example: Branch Creation Policy
-
-`brmem-branch-create` stores session context for a newly created branch. The
-memory part is the same in every repo: choose a bundle, store the selected
-files with `brmem`, and report what landed.
-
-Branch creation is not the same in every repo. One repo might use plain
-`git branch`, another might use Graphite, and another might require a naming
-prefix. That single policy decision belongs in a prompt plugin.
-
-In this repo:
-
-- the packaged default at
-  [`skills/brmem-branch-create/default-prompt.md`](../../../../../skills/brmem-branch-create/default-prompt.md)
-  creates the branch with plain git and does not check it out
-- the repo-local override at
-  [`.brmem/prompts/brmem-branch-create.md`](../../../../../.brmem/prompts/brmem-branch-create.md)
-  also keeps no-checkout branch creation, then tracks the branch in Graphite
-
-That split keeps the skill predictable while still letting the repo express
-its local branch workflow.
 
 ## Rules Worth Remembering
 
@@ -206,16 +219,16 @@ its local branch workflow.
 
 ## Prior Art
 
-Using git refs as a side-channel store — separate from commits on a branch
+Using Git refs as a side-channel store — separate from commits on a branch
 but still part of the repository — is a well-trodden pattern:
 
-- **git itself** ships `git notes`, which attaches arbitrary text to commits
+- **Git itself** ships `git notes`, which attaches arbitrary text to commits
   via refs under `refs/notes/*` without rewriting history.
 - **Gerrit** stores code-review metadata (changes, patch sets, reviewer state)
   in refs such as `refs/changes/*` and `refs/meta/*` rather than in the
   branches under review.
 - **Graphite** historically stored stack metadata in refs under
-  `refs/branch-metadata/*`, so stack relationships travelled with the repo
+  `refs/branch-metadata/*`, so stack relationships traveled with the repo
   without polluting branch history. (Recent Graphite versions cache this
   metadata in a local SQLite database instead, but the original ref-based
   design is the relevant precedent here.)
