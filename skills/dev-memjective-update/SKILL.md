@@ -4,6 +4,7 @@ description: Command
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git log *)"
+  - "Bash(git show *)"
   - "Bash(brmem check *)"
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
@@ -67,8 +68,10 @@ branch snapshots and never touches canonical state.
 - **Slug always explicit.** No auto-pick from "the only slug on the branch."
 - **One slug per invocation.** Multiple slugs on the branch are fine; operate
   only on the explicit slug.
-- **No-op when in sync.** If the snapshot's max `head_date` is at-or-after
-  branch HEAD's commit time, report in sync and exit without writing.
+- **No-op when in sync.** If `master..HEAD` is empty, or evidence triage finds
+  every branch commit already documented, report in sync and exit without
+  writing. Use the date check as a staleness hint only; do not use it alone to
+  skip evidence triage.
 - **Conservative per-file rewrites.** Apply the shared rules in
   `../dev-memjective/references/mutation-contract.md`. Do not regenerate
   files from the original brief, rename sections, delete history, or rebuild
@@ -120,29 +123,34 @@ brmem check <slug>/notes.md --namespace memjectives --format json
 Only run checks for files that exist. Take the maximum `.data.head_date`
 across present files.
 
-Read the branch's latest author date since master:
+Read the branch commits and latest author time since master:
 
 ```bash
-git log --format=%aI master..HEAD | sort -r | head -1
+git log --format="%H %at %s" master..HEAD
+git log --format=%at master..HEAD | sort -nr | head -1
 ```
 
-Use **author** date over `master..HEAD`, not committer date over `HEAD`.
-`gt restack` and other pure rebases re-stamp committer time without moving
-author date, so this avoids false-stales after a restack. If `master..HEAD`
-is empty, treat the branch as in sync.
+Use numeric **author** time over `master..HEAD`, not committer time over
+`HEAD`. `gt restack` and other pure rebases re-stamp committer time without
+moving author time, so this avoids false-stales after a restack. Compare times
+as instants: convert `.data.head_date` to epoch seconds, or otherwise compare
+it as a timestamp, before comparing it with `%at`.
 
-Caveat: `git commit --amend --reset-author` does move author date. If this
-becomes a recurring source of false-stales, switch to patch-id bookkeeping
-(Change B, deferred).
-
-If the snapshot max `head_date` is at-or-after the branch's max author date,
-print:
+If `master..HEAD` is empty, treat the branch as in sync and exit without
+loading or writing files. Print:
 
 ```text
 memjective <slug> is in sync with HEAD on <branch> - no update needed
 ```
 
-Exit without loading or writing files.
+If the snapshot max `head_date` is at-or-after the branch's max author time,
+the snapshot is date-fresh, but this is not enough to skip evidence triage:
+cherry-picks, imported commits, and `git commit --amend --reset-author` can
+preserve or move author times in ways that hide net-new content. Continue to
+steps 4-5 and expect a no-op when the branch evidence is already documented.
+
+If false-stales or false-fresh results become common, switch to patch-id
+bookkeeping (Change B, deferred).
 
 ### 4. Load target files and collect evidence
 
@@ -167,10 +175,14 @@ Use the branch's own commits as evidence:
 ```bash
 git log --oneline master..HEAD
 git log --since=<snapshot-head-date> --oneline HEAD
+git show --stat --oneline <sha>
 ```
 
-The first command is usually enough; the second is useful when the snapshot
-was updated after the branch diverged.
+The first command is required for triage. Do not limit triage to
+`--since=<snapshot-head-date>`, because preserved old author dates can hide
+net-new cherry-picks. The second command is useful when the snapshot was
+updated after the branch diverged. Use `git show --stat` when a commit's
+subject alone is not enough to classify it.
 
 ### 5. Triage: net-new content?
 
