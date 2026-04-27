@@ -6,15 +6,15 @@ import click
 
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.objective.context import build_objective_context
-from twerk_core.objective.group import build_objective_group
+from twerk_objectives.context import build_objective_context
+from twerk_objectives.group import build_objective_group
 
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``objective`` CLI group."""
     group = build_objective_group()
     group.context_settings = {"help_option_names": ["-h", "--help"]}
-    click.version_option(package_name="twerk-core")(group)
+    click.version_option(package_name="twerk-objectives")(group)
     return group
 
 

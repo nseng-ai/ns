@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from typing import NamedTuple
 
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.objective.context import ObjectiveCliContext
-from twerk_core.objective.discovery import slug_for_key
-from twerk_core.objective.gateway_access import (
+from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.discovery import slug_for_key
+from twerk_objectives.gateway_access import (
     OBJECTIVE_NAMESPACE,
     resolve_current_objective_branch,
 )

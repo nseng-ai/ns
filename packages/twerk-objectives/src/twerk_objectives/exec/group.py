@@ -1,7 +1,7 @@
 """Explicit builder for the hidden ``objective exec`` CLI subgroup."""
 
 from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.objective.exec.digest import run_digest_objective
+from twerk_objectives.exec.digest import run_digest_objective
 
 
 def build_exec_group() -> ClinkrGroup:

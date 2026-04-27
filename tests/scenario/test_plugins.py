@@ -14,7 +14,7 @@ from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.git.testing import FakeGitGateway
-from twerk_core.objective.context import ObjectiveCliContext
+from twerk_objectives.context import ObjectiveCliContext
 from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.context import ReviewerCliContext
@@ -81,7 +81,7 @@ def test_objective_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="objective",
-        value="twerk_core.objective.plugin:build_objective_plugin",
+        value="twerk_objectives.plugin:build_objective_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
