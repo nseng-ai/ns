@@ -14,6 +14,8 @@ It is useful for records such as:
 - an agent session summary captured for later harvesting
 - "lessons learned" notes from an agent session, kept on the branch that
   produced them
+- codebase-centric experiment tracking — what was tried on a branch and how
+  it turned out, kept attached to that branch instead of in scratch files
 - context handed to a remote dispatch system, e.g. a GitHub Actions job that
   needs the same branch-scoped state the local agent had
 - small text state that should survive across sessions but not become source
@@ -31,17 +33,19 @@ There are three ideas to keep in mind:
 
 - **Entry**: a small UTF-8 text blob stored under a key, such as
   `plan.md` or `dashboard-revamp/body.md`.
-- **Namespace**: a domain-owned bucket for entries. `memjectives` is a
-  namespace. Omitting `--namespace` stores an ad-hoc base entry.
+- **Namespace**: a domain-owned bucket for entries. For example,
+  `memjectives` is a namespace where each branch entry has a well-defined
+  schema and is under tool control. Omitting `--namespace` stores an ad-hoc
+  base entry.
 - **Branch snapshot**: the set of entries for one namespace on one branch.
   Most commands target the current checked-out branch unless you pass
   `--branch`.
 
-This lets a branch carry context that is real, durable, and easy to inspect,
-but separate from the code being reviewed. A skill can save state on
-`feature/table-filtering`, another skill can read that same state later, and
-stacked work can copy a selected namespace into a child branch before the
-parent branch lands.
+This lets a branch carry context that spans sessions and tools — durable,
+inspectable, and separate from the code being reviewed. A skill can save
+state on `feature/table-filtering`, another skill can read that same state
+later, and stacked work can copy a selected namespace into a child branch
+before the parent branch lands.
 
 The write boundary is explicit. `put` and `delete` change one entry on one
 branch. `copy` copies entries from one branch snapshot to another. `get`,
@@ -59,8 +63,10 @@ branch. `copy` copies entries from one branch snapshot to another. `get`,
 | Copy a namespace from one branch to another | `brmem copy`                | Branch    |
 | Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing   |
 
-The `exec` subgroup is hidden from normal help because it is for skill/agent
-invocation. It remains callable when a skill needs it.
+`brmem` is a low-level primitive, generally meant for consumption by
+higher-level tools and skills rather than by humans at the command line. The
+bundled `brmem-branch-create` and `brmem-branch-impl` skills are
+independently useful and double as worked examples of how to use `brmem`.
 
 ## Normal Workflow
 
@@ -208,9 +214,11 @@ but still part of the repository — is a well-trodden pattern:
 - **Gerrit** stores code-review metadata (changes, patch sets, reviewer state)
   in refs such as `refs/changes/*` and `refs/meta/*` rather than in the
   branches under review.
-- **Graphite** keeps stack metadata in refs under `refs/branch-metadata/*` so
-  that stack relationships travel with the repo without polluting branch
-  history.
+- **Graphite** historically stored stack metadata in refs under
+  `refs/branch-metadata/*`, so stack relationships travelled with the repo
+  without polluting branch history. (Recent Graphite versions cache this
+  metadata in a local SQLite database instead, but the original ref-based
+  design is the relevant precedent here.)
 
 `brmem` applies the same idea to branch-scoped agent state: the storage lives
 in refs (under `refs/brmem/<namespace>/<encoded-branch>:<key>`) so it is
