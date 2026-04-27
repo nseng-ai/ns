@@ -2,13 +2,8 @@
 name: dev-memjective-digest
 description: Command
 allowed-tools:
-  - "Bash(git rev-parse *)"
-  - "Bash(memjective tree *)"
-  - "Bash(memjective show *)"
+  - "Bash(memjective exec digest *)"
   - "Bash(memjective list *)"
-  - "Bash(brmem check *)"
-  - "Bash(git log *)"
-  - "Bash(gh pr list *)"
 metadata:
   internal: true
 ---
@@ -17,258 +12,284 @@ metadata:
 
 # dev-memjective-digest
 
-Render a one-page digest of a memjective from its canonical master snapshot,
-every live branch snapshot, and the PRs associated with those branches.
+Render a one-page Markdown digest of a memjective from the raw snapshots
+emitted by `memjective exec digest`.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
-> rewrite rules, see `../dev-memjective/SKILL.md` and
-> `../dev-memjective/references/mutation-contract.md`.
+> rewrite rules, see `../dev-memjective/SKILL.md`.
 
 ## Goal
 
-Given a memjective slug, print one Markdown digest that briefs a new agent (or
-human) on the workstream in a single read: top-level metadata, the original
-thesis, a slice/PR table, and a short list of binding findings.
+Brief a new agent (or human) on a memjective in a single read: top-level
+metadata, the original thesis, a slice/PR table, and a short list of binding
+findings. The CLI hands over raw `body.md` / `roadmap.md` / `notes.md` blobs
+plus deterministic git/PR facts (timestamps, branch state, PR state). The
+skill owns every read of prose: distilling the **Thesis**, computing slice
+and checkbox counts, picking the most-progressed branch, judging which
+unclaimed PRs really belong to an unchecked slice, and selecting **Key
+findings**.
 
-`digest` is read-only. It never writes to `brmem`, never modifies canonical
-state, and never opens, closes, or comments on PRs. It is safe to run on any
+`digest` is read-only: it never writes to brmem, never modifies canonical
+state, and never opens, closes, or comments on PRs. Safe to run on any
 branch, including `master`.
-
-## Memjective Content
-
-The skill reads three files per memjective, both from canonical state on
-`master` and from each live branch snapshot:
-
-- `body.md` (required): stable workstream spine and progress guidance.
-- `roadmap.md` (optional): ordered slice plan and progress surface.
-- `notes.md` (optional): durable findings.
-
-`digest` reads every present file across every snapshot. It does not write
-back. See `../dev-memjective/SKILL.md` for the canonical-vs-branch model and
-file anatomy.
 
 ## Inputs
 
-- **Slug, optional.** When omitted, auto-resolve from the current branch when
-  exactly one slug is attached (matches `memjective show` / `memjective tree`
-  semantics). When the slug cannot be resolved — zero slugs on the branch, or
-  more than one — abort and direct the user to `memjective list` to choose
-  one explicitly.
+- **Slug, optional.** When omitted, the CLI auto-resolves from the current
+  branch when exactly one slug is attached. When the slug cannot be
+  resolved, the CLI surfaces `no_memjective_on_branch` or
+  `ambiguous_memjective` — surface the message and direct the user to
+  `memjective list`.
 
-## Core Rules
+## Workflow
 
-- **Read-only.** Never call `brmem put`, `dev-memjective-update`, or
-  `dev-memjective-reconcile`. Never call any mutating `memjective` or `gh`
-  command.
-- **`memjective tree --format json <slug>` is the structural spine.** Do not
-  re-derive the branch → PR mapping by hand from `git for-each-ref` and
-  `gh pr view`. The tree command already reports each branch carrying a
-  snapshot, its PR (number, state, title, URL), the seed-presence flag, and
-  the snapshot-stale flag.
-- **Per-file timing comes from `git log`, not `brmem check`.** For the
-  per-file last-touched timestamp on a multi-slug ref (especially `master`),
-  use `git log -1 --format=%cI refs/brmem/ns/memjectives/<branch> --
-  <slug>/body.md`. `brmem check`'s `head_date` reports the ref's head commit
-  time, not the slug's last-touched time, and is wrong here.
-- **Most-progressed branch.** The branch whose snapshot has the most checked
-  roadmap items (`[x]` in `roadmap.md`). Tiebreak by latest `body.md` commit
-  time from the `git log -1` query above.
-- **"Behind" reframe.** Master is "behind" only relative to **landed** PRs.
-  - If no PRs have merged: `<N> slices ahead on branches, but reconcile is a
-    no-op until PRs merge`.
-  - If PRs have merged but reconcile has not folded them in: `reconcile
-    pending — <K> merged PRs not yet folded in`.
-- **Drift detection.** After rendering the slices table, run one
-  `gh pr list --state open --search "<keywords from unchecked slice
-  titles>"` to find PRs whose intent matches an unchecked slice but whose
-  branch is **not** in `memjective tree` entries. Mark such rows with `⚠`
-  in the Memj column.
-- **Don't fabricate findings.** If `notes.md` is empty or absent on every
-  snapshot, render the Key findings section as a single line: `_No durable
-  findings recorded yet._` Do not invent durable contract decisions to fill
-  the section.
-- **Don't reshape the canonical slice list.** Slice rows come from
-  `master`'s `roadmap.md` ordering — not the most-progressed branch's. The
-  most-progressed branch only drives the ✓ column.
-- **Print only.** Do not write the digest to a file, do not stash it in
-  `brmem`, do not commit it. The user redirects output if they want it
-  saved.
+### 1. Fetch the facts
+
+```bash
+memjective exec digest <slug> --format json
+```
+
+Surface the CLI's `error.message` verbatim if exit code is non-zero.
+
+The JSON payload has this shape:
+
+```jsonc
+{
+  "slug": "<slug>",
+  "master": {
+    "body_md": "...",        // raw master body.md
+    "roadmap_md": "...",     // raw master roadmap.md (may be "")
+    "notes_md": "...",       // raw master notes.md (may be "")
+    "body_last_touched": "<ISO-8601 or null>"
+  },
+  "branches": [
+    {
+      "branch": "<name>",
+      "deleted": false,
+      "body_md": "...",      // raw branch body.md
+      "roadmap_md": "...",   // raw branch roadmap.md
+      "notes_md": "...",     // raw branch notes.md
+      "body_last_touched": "<ISO-8601 or null>",
+      "branch_head_iso": "<ISO-8601 or null>",
+      "memj_state": "fresh"|"stale",
+      "pr_number": 833 | null,
+      "pr_state": "OPEN"|"MERGED"|"CLOSED" | null,
+      "pr_title": "...",
+      "pr_url": "...",
+      "pr_error": null
+    }
+  ],
+  "unclaimed_pr_candidates": [
+    { "number": 999, "title": "...", "url": "...", "head_ref": "..." }
+  ],
+  "warnings": ["drift_check_skipped: ..."]
+}
+```
+
+The CLI never parses Markdown. Slice headings, status fields, completion
+criteria — all of those live in the raw blobs and are your job to read.
+
+### 2. Compute the deterministic facts
+
+Read these directly off the blobs. Treat them as mechanical extraction —
+no judgment.
+
+- **Status.** Find the first line in `master.body_md` that matches
+  `Status: <value>` (case-insensitive). The value is everything after the
+  colon, trimmed. If no such line exists, treat it as `unknown`.
+- **Slices on a snapshot.** Inside `roadmap_md`, every `##` heading is
+  one slice in source order. Strip a leading `Slice N —` (or `Slice N -`,
+  `Slice N:`) prefix from the heading text; what's left is the slice
+  title. Each slice owns the lines between its `##` heading and the next
+  `##` heading. A slice is **fully checked** when every `- [ ]` / `- [x]`
+  task-list item under it is `[x]` (case-insensitive `x`/`X`), and there
+  is at least one such item.
+- **Completion criteria counts.** Inside `master.body_md`, find the
+  `## Completion Criteria` section (everything from that heading up to
+  the next heading of the same level or higher). Count `- [x]` (checked)
+  and `- [ ]` (unchecked) task-list items in that section. Do the same on
+  the most-progressed branch's `body_md` for the in-flight count.
+- **Most-progressed branch.** Among `branches` where `deleted` is false,
+  pick the one with the most fully-checked slices. Tiebreak by
+  `body_last_touched` (later wins; missing/null sorts last). If there are
+  no live branches, there is no most-progressed branch — render the
+  affected metadata rows with `0 active` / no branch reference.
+- **Slice attribution.** Each branch is opened to land exactly one slice.
+  Identify a branch's origin slice by matching `pr_title` against master's
+  slice titles — strongest semantic match wins, treated as a 1:1
+  assignment across all branches and slices (do not assign one branch to
+  multiple slices). Use this for the slice table's PR / Branch / Memj
+  columns.
+
+### 3. Distill the **Thesis** (judgment)
+
+Inside `master.body_md`, locate the `## Description` section and the
+`## Out of scope` section (case-insensitive heading match; section runs
+until the next heading of equal or higher level). Use them as input — do
+**not** restate them.
+
+Write **two to four sentences** that answer, in this order:
+
+1. **Value.** What gets better when this workstream lands? (Easier to
+   read, fewer foot-guns, faster onboarding, smaller blast radius for a
+   future change, etc.) Lead with the outcome, not the mechanic.
+2. **Approach.** The _shape_ of the work in one sentence — the strategy
+   that ties the slices together (e.g. "behavior-preserving cleanup
+   slices, each consolidating duplicated logic onto the module that owns
+   the invariant").
+3. **Boundary.** Optional short clause naming what's deliberately out of
+   scope, only when it sharpens the reader's mental model. Skip when the
+   workstream's scope is already clear from value + approach.
+
+Anti-patterns:
+
+- **Do not enumerate slices or list every cleanup the workstream does.**
+  The slice table already covers that. If the thesis reads like a tour of
+  the roadmap, rewrite it.
+- **No module paths, class names, function names, or API surface
+  details.** Those are implementation; they belong in **Key findings**,
+  not the thesis.
+- **No bullet lists, no sub-headings, no restating the source section
+  names** (`Description`, `Out of scope`).
+
+A new reader should finish the thesis knowing _why this work exists_ and
+_how it's being approached_ — not what each slice changes.
+
+### 4. Compose **Key findings** (judgment)
+
+Read every non-empty `notes_md` in `branches` (and `master.notes_md` if
+non-empty). Select **at most five** durable contract decisions — module
+paths, behavior deletions, error-message lock-ins, API surface moves.
+Drop implementation trivia (test names, file:line citations, scope-choice
+asides). Tag a finding with the branch it originated on only when the
+reader needs to follow up there.
+
+If every notes blob is empty or absent, render the section as a single
+line: `_No durable findings recorded yet._` Do not invent findings to fill
+the section.
+
+### 5. Judge unclaimed PRs (judgment)
+
+`unclaimed_pr_candidates` lists every open PR in the repo whose `head_ref`
+is **not** attached to this memjective's snapshot tree. The CLI does not
+filter by relevance — that's your call. For each candidate, compare its
+`title` against master's unchecked slice titles. Promote a candidate to
+the trailing `> ⚠` block only when the title plausibly describes work on
+one of those slices. Drop candidates that are unrelated. Surface the
+remaining warnings (`drift_check_skipped`, etc.) verbatim.
 
 ## Output Format
 
-The skill MUST emit exactly this shape (verbatim contract — column order,
-row order, and section headings are locked):
+Emit exactly this shape (verbatim contract — column order, row order, and
+section headings are locked):
 
 ```markdown
 # `<slug>` — digest
 
-|                         |                                                                             |
-| ----------------------- | --------------------------------------------------------------------------- |
-| **Status**              | <body status> · <N PRs open, M merged>                                      |
-| **Roadmap**             | <X / Y> slices checked on branches · <X' / Y> on master                     |
-| **Completion criteria** | <X / Y> met on branches · <X' / Y> on master                                |
-| **Live branches**       | <count> — most-progressed: `<branch>` (updated <date>)                      |
-| **Master canonical**    | seeded <date>; last touched for this slug <date>; <reconcile-readiness cue> |
+|                         |                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| **Status**              | <status> · <N> PRs open, <M> merged                                                |
+| **Roadmap**             | <X> / <Y> slices checked on branches · <A> / <Y> on master                         |
+| **Completion criteria** | <P> / <T> met on branches · <Q> / <T> on master                                    |
+| **Live branches**       | <K> active[ (+<D> merged & deleted)] — most-progressed: `<branch>` (updated <ISO>) |
+| **Master canonical**    | last touched <ISO>; <readiness>                                                    |
 
 ## Thesis
 
-<one dense paragraph distilled from master `body.md` Description + Out of scope>
+<2–4 sentences distilled in step 3 — value first, then approach, optional boundary clause>
 
 ## Slices
 
-| #   | ✓ | Slice         | PR          | Branch     | Memj |
-| --- | - | ------------- | ----------- | ---------- | ---- |
-| 1   | ✓ | <slice title> | [#NNN](url) | `<branch>` | ✓    |
-| ... |   |               |             |            |      |
-| K   |   | <slice title> | [#NNN](url) | `<branch>` | ↻    |
-| K+1 |   | <slice title> | [#NNN](url) | `<branch>` | ⚠    |
-| K+2 |   | <slice title> | —           | —          | —    |
+| #   | ✓ | Slice         | PR          | PR state | Branch     | Memj    |
+| --- | - | ------------- | ----------- | -------- | ---------- | ------- |
+| 1   | ✓ | <slice title> | [#NNN](url) | open     | `<branch>` | `fresh` |
+| ... |   |               |             |          |            |         |
 
-**Memj legend:** ✓ snapshot fresh · ↻ snapshot stale (run
-`dev-memjective-update`) · ⚠ branch + PR exist but no snapshot (run
-`dev-memjective-claim`) · — no branch yet.
+**Memj legend:** `fresh` snapshot pinned at branch HEAD (or branch deleted
+post-merge — pin can no longer drift) · `stale` branch advanced past
+snapshot pin, run `dev-memjective-update` · `—` no snapshot for this
+slice's origin branch.
 
 ## Key findings (binding for future work)
 
 - **<short headline>.** <one or two sentences>
-- ... (3–5 bullets max; durable contract decisions only — module paths,
-  behavior deletions, error-message lock-ins, API surface moves)
+- ... (3–5 bullets max; durable contract decisions only)
+
+<!-- include only if you promoted any unclaimed PRs or `warnings` is non-empty -->
+
+> ⚠ <each rendered warning on its own line>
 ```
+
+Metadata-row composition rules:
+
+- **Status row.** `<status>` is the value extracted in step 2, or `unknown`.
+  `<N>` is the count of `branches` with `pr_state == "OPEN"`. `<M>` is the
+  count with `pr_state == "MERGED"`.
+- **Roadmap row.** `<Y>` is the slice count of `master.roadmap_md`. `<X>`
+  is the count of fully-checked slices on the most-progressed branch
+  (`0` when no live branch exists). `<A>` is the count of fully-checked
+  slices on `master.roadmap_md`.
+- **Completion criteria row.** `<T>` is the total checkbox count in
+  master's `## Completion Criteria` section. `<Q>` is the checked count
+  on master. `<P>` is the checked count on the most-progressed branch's
+  Completion Criteria section (`0` when no live branch).
+- **Live branches row.** `<K>` is the count of `branches` with
+  `deleted == false`. `<D>` is the count of `branches` with
+  `deleted == true` and `pr_state == "MERGED"` (omit the `(+<D> merged &
+  deleted)` clause when `<D>` is `0`). The most-progressed branch's
+  name and `body_last_touched` fill the suffix; when there is no live
+  branch, render `0 active — no branch snapshots`.
+- **Master canonical row.** ISO timestamp is `master.body_last_touched`
+  (or `unknown`). `<readiness>` is one of:
+  - `reconcile pending — <M> merged PRs not yet folded in` when the
+    merged-PR count exceeds master's fully-checked slice count.
+  - `<ahead> slices ahead on branches, but reconcile is a no-op until PRs
+    merge` when the most-progressed branch has more fully-checked slices
+    than master.
+  - `in sync with branch snapshots` otherwise.
+
+Slice-row attribution rules:
+
+- Slice rows come from `master.roadmap_md` in source order. `#` is the
+  1-based ordinal; **Slice** is the title with the `Slice N —` prefix
+  stripped (step 2).
+- Column 2 (✓): mark when the slice is fully checked on the
+  most-progressed branch. Match titles across branches by meaning
+  (lowercase + whitespace + minor wording variance — the same slice may
+  be reworded on a branch).
+- PR / PR state / Branch / Memj — origin-branch attribution by
+  `pr_title` ↔ slice-title semantic match (step 2). The matched branch is
+  the slice's origin: fill PR from `pr_url`/`pr_number`, PR state from
+  `pr_state` lowercased (`open` / `merged` / `closed`), Branch from
+  `branch`, and Memj directly from `memj_state`.
+  - Do **not** use per-branch checked overlays to pick the origin. Once a
+    slice lands on master, every open downstream branch inherits its
+    checkmark, so multiple branches may read as "checked" without having
+    authored the slice.
+  - Slices with no matching branch render PR / PR state / Branch / Memj
+    all as `—`. Heuristic drift signals never appear in the slice rows;
+    they live in the trailing `> ⚠` block.
+- Memj is taken verbatim from the matched branch's `memj_state` (`fresh`
+  or `stale`); a slice with no origin branch renders `—`.
+
+Drift / unclaimed-PR rendering:
+
+- For each `unclaimed_pr_candidates[i]`, decide whether `title` plausibly
+  matches one of master's **unchecked** slice titles. Promote the matches
+  to the trailing `> ⚠` block as one line each:
+  `unclaimed_pr: PR #<n> '<title>' on branch '<head_ref>' matches an
+  unchecked slice but has no snapshot. <url> — run dev-memjective-claim
+  if it belongs to this memjective.`
+- Render every `warnings` string verbatim under the same `> ⚠` block.
+- Omit the block when there are no promoted candidates and no warnings.
 
 Format invariants:
 
 - Slug in title, no other adornment.
-- Top metadata table is exactly 5 rows in the order shown.
-- Slice rows pulled from **master**'s `roadmap.md` ordering, not the
-  most-progressed branch's.
-- ✓ in column 2 = checked on the most-progressed branch's `roadmap.md`.
-- Memj column from `memjective tree --format json`'s `stale` field plus
-  drift detection:
-  - ✓ branch is in `tree` entries with `stale: false` (fresh)
-  - ↻ branch is in `tree` entries with `stale: true` (claim happened, but
-    branch has commits since the last `dev-memjective-update`)
-  - ⚠ a PR exists with branch matching this slice's intent but the branch
-    is **not** in `tree` entries (no claim has run)
-  - — no associated branch
-- Key findings are extracted from `notes.md` across all branch snapshots,
-  ruthlessly compressed to durable contract decisions. Skip implementation
-  trivia (test names, module-line numbers, scope-choice asides).
-- No "Slices in flight" / "Remaining" subheaders — the table's ✓ column is
-  the in-flight signal.
+- Metadata table is exactly five rows in the order shown.
+- No "Slices in flight" / "Remaining" subheaders — column 2 is the
+  in-flight signal.
 - No per-slice prose summary column.
-
-## Workflow
-
-### 1. Preflight
-
-```bash
-git rev-parse --show-toplevel
-```
-
-Abort if not in a git repo. Resolve the slug from the prompt; if absent,
-auto-resolve from the current branch when exactly one slug is attached.
-Abort with a pointer to `memjective list` when the slug cannot be resolved.
-
-### 2. Fetch the structural spine
-
-```bash
-memjective tree <slug> --format json
-```
-
-Fail with the same error `tree` returns when the slug is missing — do not
-catch and rephrase. Capture for each entry: branch, PR number, PR state, PR
-title, PR URL, `stale` flag, `seed_present` flag.
-
-### 3. Read canonical content
-
-```bash
-memjective show <slug>
-```
-
-This is master canonical. Capture `body.md`, `roadmap.md`, and `notes.md`
-rendered text.
-
-### 4. Read every branch snapshot
-
-For each entry returned by step 2:
-
-```bash
-memjective show <slug> --branch <entry.branch>
-```
-
-Capture `body.md`, `roadmap.md`, `notes.md` rendered text per snapshot.
-
-### 5. Per-file last-touched timestamps
-
-For master and each branch snapshot, get the per-file timestamp:
-
-```bash
-git log -1 --format=%cI refs/brmem/ns/memjectives/<branch> -- <slug>/body.md
-```
-
-**Do not** use `brmem check`'s `head_date` for this — on multi-slug refs
-(especially `master`) it reports the ref's head time, not the slug's
-last-touched time.
-
-Optional: a second `git log -1 ...` filtered to commits whose message
-starts with `brmem copy ...` gives the claim time, useful for distinguishing
-stale claims from active work.
-
-### 6. Compute the metadata table
-
-- **PR open/merged counts** from `tree` entries' PR state.
-- **Roadmap counts** by parsing `[x]` vs `[ ]` in the rendered roadmap of
-  the most-progressed branch (and `master` separately).
-- **Completion criteria counts** by parsing `[x]` vs `[ ]` in the
-  Completion Criteria section of `body.md`, branch-side and master-side.
-- **Most-progressed branch** by checked-roadmap-items count, tiebreak by
-  latest per-file `body.md` timestamp from step 5.
-- **Reconcile readiness cue** per the "Behind" reframe rule above.
-
-### 7. Drift detection
-
-Build a search query from the unchecked slice titles' keywords and run:
-
-```bash
-gh pr list --state open --search "<keywords>"
-```
-
-For each open PR returned whose branch is not in `tree` entries, mark the
-matching slice row's Memj column as `⚠`.
-
-If `gh pr list` fails (no auth, network), continue without drift detection
-and emit a one-line warning under the digest.
-
-### 8. Compose Key findings
-
-Read every snapshot's `notes.md` rendered text. Select **at most 5** durable
-contract decisions — module paths, behavior deletions, error-message
-lock-ins, API surface moves. Drop implementation trivia. Tag a finding with
-the branch it originated on only when the reader needs to follow up there.
-
-If every `notes.md` is empty or absent, render: `_No durable findings
-recorded yet._`
-
-### 9. Render the Markdown digest verbatim
-
-Print to stdout per the format spec above. Do not write a file. Do not
-modify any brmem ref. Do not commit.
-
-## Edge Cases and Anti-Patterns
-
-- **No live branches.** Skip the Slices table's PR / Branch / Memj columns;
-  fall back to `master`'s `roadmap.md` for the slice list and a `—` PR
-  column. Metadata reads `0 (only master)`.
-- **Slug not seeded on master.** Abort and direct the user to
-  `dev-memjective-create`.
-- **Branch snapshot exists but body has no roadmap section.** Render the
-  digest without the slice table; emit a warning line that `roadmap.md`
-  is missing and progress can't be quantified.
-- **All PRs merged but reconcile not run.** Metadata cue reads `reconcile
-  pending — K merged PRs not yet folded in`.
-- **`gh pr list` fails (no auth).** Continue without drift detection; emit
-  a one-line warning under the digest noting that drift was not checked.
-- Never call `brmem put`, `dev-memjective-update`, `dev-memjective-reconcile`,
-  or any other mutating command. Never write the digest to a file or commit
-  it. Never re-derive the branch → PR mapping by hand when `memjective tree`
-  is available.
+- Print to stdout only. Do not write the digest to a file, do not stash
+  it in brmem, do not commit it. The user redirects output if they want
+  it saved.

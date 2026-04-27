@@ -37,7 +37,6 @@ Do **not** use this for milestone commits, PR-ready commits, or anything that wi
 
 - `git diff HEAD` — tracked changes.
 - `git status --porcelain` — enumerates untracked files. `git add -A` will include them, but they will not appear in `git diff HEAD`, so you need the filenames separately for the message.
-- If the combined output is unusually large (>~50 KB), warn the user once and ask whether to continue. Checkpoint commits are for small diffs; large ones deserve a real message.
 
 ### 3. Draft the commit message
 

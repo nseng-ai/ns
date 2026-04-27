@@ -42,6 +42,8 @@ class FakeGitGateway(GitGateway):
         restructured_files_by_key: (
             dict[tuple[Path, str], tuple[RestructuredFile, ...] | GitCommandFailure] | None
         ) = None,
+        file_last_touched_by_ref_path: dict[tuple[str, str], str] | None = None,
+        branch_head_iso_by_branch: dict[str, str] | None = None,
         on_add_worktree: Callable[[Path], None] | None = None,
     ) -> None:
         self._repo_root = repo_root if repo_root is not None else Path("/repo")
@@ -58,6 +60,8 @@ class FakeGitGateway(GitGateway):
         self._existing_paths = set(existing_paths)
         self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
         self._restructured_files_by_key = dict(restructured_files_by_key or {})
+        self._file_last_touched_by_ref_path = dict(file_last_touched_by_ref_path or {})
+        self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
         self._on_add_worktree = on_add_worktree
 
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
@@ -155,3 +159,11 @@ class FakeGitGateway(GitGateway):
         return self._file_status_by_path.get(
             cwd, FileStatus(staged=False, modified=False, untracked=False)
         )
+
+    def file_last_touched_iso(self, ref: str, path: str) -> str | None:
+        return self._file_last_touched_by_ref_path.get((ref, path))
+
+    def branch_head_iso(self, branch: str) -> str | None:
+        if branch not in self._branches:
+            return None
+        return self._branch_head_iso_by_branch.get(branch)
