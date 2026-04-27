@@ -8,6 +8,7 @@ from typing import Final
 
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import (
+    CommitSummary,
     DetachedHead,
     FileStatus,
     GitCommandFailure,
@@ -48,6 +49,8 @@ class FakeGitGateway(GitGateway):
         fetch_failure_by_args: dict[tuple[Path, str, str], GitCommandFailure] | None = None,
         pull_failure_by_cwd: dict[Path, GitCommandFailure] | None = None,
         update_ref_failure_by_args: (dict[tuple[Path, str, str], GitCommandFailure] | None) = None,
+        commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
+        log_range_failure: GitCommandFailure | None = None,
         on_add_worktree: Callable[[Path], None] | None = None,
     ) -> None:
         self._repo_root = repo_root if repo_root is not None else Path("/repo")
@@ -70,6 +73,8 @@ class FakeGitGateway(GitGateway):
         self._fetch_failure_by_args = dict(fetch_failure_by_args or {})
         self._pull_failure_by_cwd = dict(pull_failure_by_cwd or {})
         self._update_ref_failure_by_args = dict(update_ref_failure_by_args or {})
+        self._commits_by_range = dict(commits_by_range or {})
+        self._log_range_failure = log_range_failure
         self._on_add_worktree = on_add_worktree
 
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
@@ -205,6 +210,11 @@ class FakeGitGateway(GitGateway):
     ) -> GitCommandFailure | None:
         self._update_ref_calls.append((cwd, ref, source))
         return self._update_ref_failure_by_args.get((cwd, ref, source))
+
+    def log_range(self, range_spec: str) -> tuple[CommitSummary, ...] | GitCommandFailure:
+        if self._log_range_failure is not None:
+            return self._log_range_failure
+        return self._commits_by_range.get(range_spec, ())
 
     @property
     def fetch_calls(self) -> tuple[tuple[Path, str, str], ...]:

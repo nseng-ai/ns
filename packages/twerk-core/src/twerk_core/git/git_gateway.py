@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from twerk_core.git.types import (
+    CommitSummary,
     DetachedHead,
     FileStatus,
     GitCommandFailure,
@@ -136,3 +137,13 @@ class GitGateway(ABC):
         source: str,
     ) -> GitCommandFailure | None:
         """Update ``ref`` to ``source`` via ``git update-ref``; failure on non-zero exit."""
+
+    @abstractmethod
+    def log_range(self, range_spec: str) -> tuple[CommitSummary, ...] | GitCommandFailure:
+        """Return commits in ``range_spec`` newest-first, or a command failure.
+
+        Wraps ``git log --format=%H%x00%aI%x00%s <range_spec>``. The NUL
+        delimiter keeps subjects with embedded spaces or tabs intact. Empty
+        output (no commits in range) returns an empty tuple; a non-zero exit
+        returns :class:`GitCommandFailure`.
+        """
