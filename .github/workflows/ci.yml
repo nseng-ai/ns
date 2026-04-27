@@ -22,9 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
-      - uses: extractions/setup-just@v4
-        with:
-          just-version: "1.50.0"
+      - name: Install just
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --tag 1.50.0 --to "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Ruff lint
         run: just lint
       - name: Ruff format check
@@ -37,9 +40,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
-      - uses: extractions/setup-just@v4
-        with:
-          just-version: "1.50.0"
+      - name: Install just
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --tag 1.50.0 --to "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run ty
         run: just ty
 
@@ -58,9 +64,12 @@ jobs:
       - uses: ./.github/actions/setup-python-uv
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: extractions/setup-just@v4
-        with:
-          just-version: "1.50.0"
+      - name: Install just
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --tag 1.50.0 --to "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run tests
         run: just test
 
@@ -71,8 +80,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
-      - uses: extractions/setup-just@v4
-        with:
-          just-version: "1.50.0"
+      - name: Install just
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --tag 1.50.0 --to "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run nonslop check
         run: just nonslop-check
