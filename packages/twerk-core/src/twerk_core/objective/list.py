@@ -1,0 +1,155 @@
+"""List objective snapshots across the repo or on a specific branch."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Literal
+
+import click
+
+from twerk_core.brmem.gateway import EntryRef, check_branch_name
+from twerk_core.brmem.validation import first_failure
+from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.git.types import DetachedHead, GitCommandFailure
+from twerk_core.objective.context import ObjectiveCliContext
+from twerk_core.objective.discovery import (
+    ObjectiveRepoEntry,
+    discover_objectives,
+    slug_for_key,
+)
+from twerk_core.objective.gateway_access import (
+    OBJECTIVE_NAMESPACE,
+    resolve_current_objective_branch,
+)
+
+
+@dataclass(frozen=True)
+class ObjectiveListRequest:
+    branch: str | None = None
+    here: bool = False
+
+
+@dataclass(frozen=True)
+class ObjectiveListResult(JsonSerializable):
+    scope: Literal["branch", "repo"]
+    branch: str | None = None
+    entries: tuple[EntryRef, ...] = ()
+    objectives: tuple[ObjectiveRepoEntry, ...] = ()
+
+    @property
+    def branch_slugs(self) -> tuple[str, ...]:
+        return tuple(sorted({slug_for_key(entry.key) for entry in self.entries}))
+
+    def to_json_dict(self) -> dict[str, Any]:
+        if self.scope == "branch":
+            return {
+                "branch": self.branch,
+                "slugs": list(self.branch_slugs),
+                "entries": [
+                    {
+                        "namespace": entry.namespace,
+                        "key": entry.key,
+                        "branch": entry.branch,
+                        "ref_name": entry.ref_name,
+                    }
+                    for entry in self.entries
+                ],
+            }
+        return {
+            "scope": "repo",
+            "objectives": [
+                {
+                    "slug": m.slug,
+                    "files": list(m.files),
+                    "canonical_present": m.canonical_present,
+                    "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in m.branches],
+                }
+                for m in self.objectives
+            ],
+        }
+
+
+def render_objective_list(result: ObjectiveListResult) -> None:
+    if result.scope == "branch":
+        for slug in result.branch_slugs:
+            click.echo(slug)
+        return
+
+    if not result.objectives:
+        return
+
+    slug_width = max(len("SLUG"), max(len(m.slug) for m in result.objectives))
+    header = f"{'SLUG'.ljust(slug_width)}  CANONICAL  BRANCHES"
+    click.echo(header)
+    for objective in result.objectives:
+        canonical_cell = ("yes" if objective.canonical_present else "no").ljust(len("CANONICAL"))
+        branches_cell = str(objective.live_branch_count)
+        if objective.deleted_branch_count:
+            branches_cell = f"{branches_cell} (+{objective.deleted_branch_count} deleted)"
+        click.echo(f"{objective.slug.ljust(slug_width)}  {canonical_cell}  {branches_cell}")
+
+
+@clinkr_operation(
+    name="list",
+    help=(
+        "List objective snapshots. Defaults to a repo-wide grouping by "
+        "slug; pass --here for the current branch's snapshots, or "
+        "--branch <name> to inspect a specific branch."
+    ),
+    aliases=("ls",),
+    human_renderer=render_objective_list,
+)
+def run_list_objectives(
+    ctx: click.Context,
+    request: ObjectiveListRequest,
+) -> ClinkrExit[ObjectiveListResult]:
+    if request.here and request.branch is not None:
+        return ClinkrExit.failure(
+            error_type="conflicting_flags",
+            message="--here cannot be combined with --branch.",
+        )
+
+    mctx = load_typed_context(ctx, ObjectiveCliContext)
+
+    if not request.here and request.branch is None:
+        objectives = discover_objectives(
+            mctx.brmem_gateway,
+            is_branch_alive=mctx.git_gateway.branch_exists,
+        )
+        return ClinkrExit.ok(
+            ObjectiveListResult(scope="repo", objectives=objectives),
+        )
+
+    validation_failure = first_failure(
+        (
+            "invalid_branch_name",
+            None if request.branch is None else check_branch_name(request.branch),
+        ),
+    )
+    if validation_failure is not None:
+        error_type, message = validation_failure
+        return ClinkrExit.failure(error_type=error_type, message=message)
+
+    match resolve_current_objective_branch(mctx.git_gateway, request.branch):
+        case GitCommandFailure() as failure:
+            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            return ClinkrExit.failure(
+                error_type="detached_head",
+                message="Detached HEAD: brmem requires a checked-out branch.",
+            )
+        case str() as branch:
+            pass
+
+    entries = mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
+
+    return ClinkrExit.ok(
+        ObjectiveListResult(
+            scope="branch",
+            branch=branch,
+            entries=tuple(entries),
+        ),
+    )

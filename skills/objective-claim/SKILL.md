@@ -1,0 +1,190 @@
+---
+name: objective-claim
+description: Command
+allowed-tools:
+  - "Bash(git rev-parse *)"
+  - "Bash(git for-each-ref *)"
+  - "Bash(git merge-base *)"
+  - "Bash(git rev-list *)"
+  - "Bash(brmem check *)"
+  - "Bash(brmem copy *)"
+  - "Bash(brmem put *)"
+  - "Bash(brmem list *)"
+  - "Read"
+---
+
+# objective-claim
+
+Carry-forward primitive for attaching an objective snapshot to a target
+branch.
+
+> For shared concepts — vocabulary, storage model, content anatomy, lifecycle,
+> carry-forward semantics, and mutation contracts — see
+> `../objective/SKILL.md` and
+> `../objective/references/mutation-contract.md`.
+
+## Goal
+
+Given an explicit objective slug, resolve one source and copy it verbatim to
+the target branch snapshot.
+
+`claim` only attaches existing workstream state. It never edits, merges, or
+summarizes objective content; reshaping belongs to `objective-update`
+on branch snapshots or `objective-reconcile` into canonical state.
+
+## Objective Content
+
+Until the stack has a repo-wide single source of truth for objective
+contents, this section is the only place in this skill that names the current
+content files.
+
+An objective snapshot is the content stored under `<slug>/` in namespace
+`objectives`. Current content files:
+
+- `body.md` (required): stable workstream spine and progress guidance.
+- `roadmap.md` (optional): ordered slice plan and progress surface.
+- `notes.md` (optional): durable findings.
+
+Use `body.md` as the presence check when validating a source. For branch
+sources, carry the entire `<slug>/` directory with `brmem copy`; do not filter
+the copy to the current content inventory.
+
+## Inputs
+
+- **Slug, required.** Parse the objective slug from the prompt. Never infer
+  it from "the only objective" on a branch; branches may carry multiple
+  slugs. If the prompt lacks a slug, ask which objective to attach.
+- **Target, optional.** `--target <branch>` overrides the write destination.
+  Otherwise use the current branch.
+- **Source, optional.** `--from <branch>` uses an explicit source branch.
+  `--from-file <path>` treats a local file as `<slug>/body.md`. These flags
+  are mutually exclusive. If an explicit source is invalid, stop and report
+  the problem instead of falling back to discovery.
+
+## Core Rules
+
+- **Verbatim carry-forward.** Copy exactly one source. No edits, section
+  rewrites, annotations, synthesis, or cross-snapshot fusion.
+- **One slug per invocation.** To attach two objectives, run `claim` twice.
+- **Write only to the target branch.** Never write to canonical storage or any
+  non-target branch.
+- **Target must be empty for this slug.** Abort if the target already carries
+  any key under `<slug>/`; use `objective-update` or
+  `objective-reconcile` to advance an attached snapshot.
+- **Prefer the nearest working snapshot.** Discovery order is nearest
+  ancestor branch snapshot, then canonical state. Explicit sources bypass
+  discovery.
+- **No Graphite dependency.** Use raw git and brmem only; never use `gt` for
+  source discovery.
+
+## Workflow
+
+### 1. Preflight
+
+Confirm the repo and current branch:
+
+```bash
+git rev-parse --show-toplevel
+git rev-parse --abbrev-ref HEAD
+```
+
+Resolve `<target>` from `--target` or the current branch. Abort if not in a
+git repo, missing the required slug, given both source flags, targeting
+`master`, or on detached `HEAD` without `--target`.
+
+Check the target collision precondition:
+
+```bash
+brmem list --namespace objectives --branch <target> --format json
+```
+
+Abort if any returned key starts with `<slug>/`. Other slugs on the target are
+fine.
+
+### 2. Resolve the Source
+
+Use the requested slug to choose which objective to attach, then resolve the
+copy to carry:
+
+1. **Local file**: if `--from-file <path>` is given, require the file to exist
+   and be readable. Carry it as `<slug>/body.md` only.
+2. **Explicit branch**: if `--from <branch>` is given, require
+   `<slug>/body.md` there with `brmem check`.
+3. **Ancestor branch**: enumerate `refs/brmem/ns/objectives/*`, decode
+   `---` to `/`, and keep only live non-master branches that are ancestors of
+   `HEAD`, are not `<target>`, and carry `<slug>/body.md`. Choose the
+   candidate with the smallest
+   `git rev-list --count refs/heads/<branch>..HEAD`; ask on ties.
+4. **Canonical record**: use current canonical storage (`master`) when
+   `brmem check` succeeds for `<slug>/body.md`.
+
+If no source contains the slug, ask the user to name `--from`, name
+`--from-file`, or run `objective-create` if the slug is new.
+
+Record the source label:
+
+- `local file <path>`
+- `branch <branch> (explicit --from)`
+- `ancestor branch <branch>`
+- `canonical objective`
+
+### 3. Carry Forward
+
+For branch sources, perform one atomic copy:
+
+```bash
+brmem copy --namespace objectives \
+  --from-branch <source> --to-branch <target> \
+  --key-glob '<slug>/*'
+```
+
+This carries every file present under `<slug>/` on the source.
+
+For local-file sources, perform one put:
+
+```bash
+brmem put <slug>/body.md --namespace objectives \
+  --branch <target> --file <path>
+```
+
+Do not synthesize `roadmap.md` or `notes.md` from a local file.
+
+Capture the destination ref and commit SHA from the brmem output.
+
+### 4. Final Output
+
+Return:
+
+- objective slug
+- source label
+- target branch
+- files carried
+- destination ref and commit SHA
+- next-step hint:
+
+```text
+This branch is ready for implementation. After implementing the slice, merge
+the PR and run objective-reconcile <slug> on master. Run
+objective-update <slug> only if another branch will claim from this
+branch before it lands.
+```
+
+## Edge Cases And Anti-Patterns
+
+- Detached `HEAD` without `--target`, missing slug, `--from` plus
+  `--from-file`, or `--target master`: abort and describe the issue.
+- Target already carries `<slug>/`: abort. The precondition is per-slug, so
+  other slugs on the target are not a conflict.
+- Explicit source lacks `<slug>/body.md`: abort instead of falling back to
+  discovery.
+- Stale brmem refs for deleted branches: ignore them during ancestor
+  discovery.
+- Multiple nearest ancestor candidates at the same distance: list the tied
+  branches and ask.
+- Slug exists only in canonical storage: use the canonical objective.
+- Slug exists nowhere: ask for an explicit source or create the objective
+  first.
+- Never auto-pick a slug, auto-resolve a source tie, write to canonical
+  storage, carry only `body.md` from a branch source, synthesize sibling files
+  from `--from-file`, fuse multiple snapshots, use Graphite for discovery,
+  run `update`, or implement work during `claim`.

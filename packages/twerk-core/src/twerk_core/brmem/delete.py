@@ -38,7 +38,7 @@ class DeleteRequest:
             ["--namespace"],
             type=click.STRING,
             default=None,
-            help=("Entry namespace (e.g. 'memjectives'). Omit for ad-hoc base entries."),
+            help=("Entry namespace (e.g. 'objectives'). Omit for ad-hoc base entries."),
         ),
     ] = None
     branch: str | None = None

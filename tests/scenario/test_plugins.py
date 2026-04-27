@@ -14,7 +14,7 @@ from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.git.testing import FakeGitGateway
-from twerk_core.memjective.context import MemjectiveCliContext
+from twerk_core.objective.context import ObjectiveCliContext
 from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.context import ReviewerCliContext
@@ -77,18 +77,18 @@ def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec()
     assert len(parent.commands) == 0
 
 
-def test_memjective_plugin_integration() -> None:
+def test_objective_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
-        name="memjective",
-        value="twerk_core.memjective.plugin:build_memjective_plugin",
+        name="objective",
+        value="twerk_core.objective.plugin:build_objective_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
 
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "clinkr-migration/body.md", "feat/x", "seed\n")
-    ctx = MemjectiveCliContext(
+    gateway.put("objectives", "clinkr-migration/body.md", "feat/x", "seed\n")
+    ctx = ObjectiveCliContext(
         brmem_gateway=gateway,
         git_gateway=FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
         pr_gateway=FakePRGateway(),
@@ -97,17 +97,17 @@ def test_memjective_plugin_integration() -> None:
 
     runner = CliRunner()
 
-    result = runner.invoke(parent, ["memjective", "--help"])
+    result = runner.invoke(parent, ["objective", "--help"])
     assert result.exit_code == 0
     assert "list" in result.output
 
-    result = runner.invoke(parent, ["memjective", "list", "--here"], obj=obj)
+    result = runner.invoke(parent, ["objective", "list", "--here"], obj=obj)
     assert result.exit_code == 0, result.output
     assert result.output.splitlines() == ["clinkr-migration"]
 
     result = runner.invoke(
         parent,
-        ["memjective", "list", "--here", "--format", "json"],
+        ["objective", "list", "--here", "--format", "json"],
         obj=obj,
     )
     assert result.exit_code == 0, result.output
@@ -116,10 +116,10 @@ def test_memjective_plugin_integration() -> None:
     assert payload["data"]["entries"][0]["key"] == "clinkr-migration/body.md"
 
     # The hidden ``exec`` subgroup must mount through plugin discovery.
-    result = runner.invoke(parent, ["memjective", "--help"])
+    result = runner.invoke(parent, ["objective", "--help"])
     assert result.exit_code == 0
     assert "exec" not in result.output
-    result = runner.invoke(parent, ["memjective", "exec", "digest", "--help"])
+    result = runner.invoke(parent, ["objective", "exec", "digest", "--help"])
     assert result.exit_code == 0, result.output
     assert "Emit raw digest facts" in result.output
 

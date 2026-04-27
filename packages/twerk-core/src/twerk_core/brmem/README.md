@@ -9,7 +9,7 @@ It is primarily a low-level primitive for higher-level skills and tools.
 Use cases include:
 
 - a plan or handoff note created before implementation starts
-- a memjective snapshot attached to a branch (_memjective_ is a codename for
+- an objective snapshot attached to a branch (_objective_ is a codename for
   the higher-level branch-planning system built on `brmem`)
 - agent session summaries captured for later harvesting
 - "lessons learned" notes from an agent session, kept on the branch that
@@ -71,7 +71,7 @@ There are three ideas to keep in mind:
 - **Entry**: a small UTF-8 text blob stored under a key, such as
   `plan.md` or `dashboard-revamp/body.md`.
 - **Namespace**: a domain-owned bucket for entries. For example,
-  `memjectives` is a namespace where each branch entry has a well-defined
+  `objectives` is a namespace where each branch entry has a well-defined
   schema and is under tool control. Omitting `--namespace` stores an ad-hoc
   base entry.
 - **Branch snapshot**: the set of entries for one namespace on one branch.
@@ -121,11 +121,11 @@ snapshot so the result is inspectable.
 For domain-owned state, use a namespace:
 
 ```text
-brmem put dashboard-revamp/body.md --namespace memjectives --file body.md
+brmem put dashboard-revamp/body.md --namespace objectives --file body.md
 ```
 
 Namespaces keep unrelated tools from colliding. A scratch `plan.md` entry and
-a `memjectives/dashboard-revamp/body.md` entry can coexist on the same branch
+an `objectives/dashboard-revamp/body.md` entry can coexist on the same branch
 without meaning the same thing.
 
 ### 2. Read it in a later session
@@ -142,7 +142,7 @@ To inspect without printing the whole content:
 ```text
 brmem check plan.md
 brmem list --base
-brmem list --namespace memjectives
+brmem list --namespace objectives
 ```
 
 `check` reports the locator, snapshot head, blob, and size. `list` shows the
@@ -153,7 +153,7 @@ a namespace.
 
 ```text
 brmem copy \
-  --namespace memjectives \
+  --namespace objectives \
   --from-branch master \
   --to-branch feature/table-filtering \
   --key-glob 'dashboard-revamp/*'
@@ -241,7 +241,7 @@ working tree.
 ## See Also
 
 - [`AGENTS.md`](./AGENTS.md): contributor rules for this package.
-- [`../memjective`](../memjective/): a higher-level branch-planning system
+- [`../objective`](../objective/): a higher-level branch-planning system
   built on `brmem`.
 - [`skills/brmem-branch-create`](../../../../../skills/brmem-branch-create/):
   an example skill that uses `brmem` for branch-local handoff state.

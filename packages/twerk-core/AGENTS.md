@@ -6,17 +6,17 @@
 
 Each in-incubation subpackage owns its own `AGENTS.md` codifying allowed imports and extractability rules. Layer ordering, bottom-up:
 
-| Subpackage   | Allowed `twerk_core` imports   |
-| ------------ | ------------------------------ |
-| `clinkr`     | (none — stdlib + click only)   |
-| `git`        | (none — stdlib only)           |
-| `gh`         | (none — stdlib only)           |
-| `brmem`      | `clinkr`, `git`                |
-| `memjective` | `clinkr`, `git`, `gh`, `brmem` |
+| Subpackage  | Allowed `twerk_core` imports   |
+| ----------- | ------------------------------ |
+| `clinkr`    | (none — stdlib + click only)   |
+| `git`       | (none — stdlib only)           |
+| `gh`        | (none — stdlib only)           |
+| `brmem`     | `clinkr`, `git`                |
+| `objective` | `clinkr`, `git`, `gh`, `brmem` |
 
 Dependencies are strictly one-way down the layer order; no upward or sideways imports.
 
-The graduation candidates are `clinkr`, `brmem`, and `memjective`. `gh` and `git` follow the same internal-discipline convention but are gateway modules with narrower graduation paths.
+The graduation candidates are `clinkr`, `brmem`, and `objective`. `gh` and `git` follow the same internal-discipline convention but are gateway modules with narrower graduation paths.
 
 ## Universal labs rules
 

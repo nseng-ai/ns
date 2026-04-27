@@ -234,12 +234,12 @@ def test_fake_brmem_base_and_namespaced_entries_do_not_collide() -> None:
 
 def test_fake_brmem_copy_entries_copies_every_key_without_prefix() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "foo/body.md", "master", "body\n")
-    gateway.put("memjectives", "foo/roadmap.md", "master", "road\n")
-    source_head = gateway.put("memjectives", "bar/body.md", "master", "other\n")
+    gateway.put("objectives", "foo/body.md", "master", "body\n")
+    gateway.put("objectives", "foo/roadmap.md", "master", "road\n")
+    source_head = gateway.put("objectives", "bar/body.md", "master", "other\n")
 
     copied = gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -254,7 +254,7 @@ def test_fake_brmem_copy_entries_copies_every_key_without_prefix() -> None:
     # Destination snapshot IS the source snapshot — every key on feat/x
     # resolves to the same commit as master.
     for key in ("bar/body.md", "foo/body.md", "foo/roadmap.md"):
-        diag = gateway.check("memjectives", key, "feat/x")
+        diag = gateway.check("objectives", key, "feat/x")
         assert diag is not None
         assert diag.head_sha == source_head
 
@@ -263,7 +263,7 @@ def test_fake_brmem_copy_entries_empty_source_returns_empty_tuple() -> None:
     gateway = FakeBranchMemoryGateway()
 
     copied = gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -275,12 +275,12 @@ def test_fake_brmem_copy_entries_empty_source_returns_empty_tuple() -> None:
 
 def test_fake_brmem_copy_entries_requires_overwrite_on_conflict() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "foo/body.md", "master", "source\n")
-    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+    gateway.put("objectives", "foo/body.md", "master", "source\n")
+    gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
 
     with pytest.raises(BrmemCopyConflictError) as excinfo:
         gateway.copy_entries(
-            namespace="memjectives",
+            namespace="objectives",
             from_branch="master",
             to_branch="feat/x",
             overwrite=False,
@@ -289,16 +289,16 @@ def test_fake_brmem_copy_entries_requires_overwrite_on_conflict() -> None:
 
     assert [entry.key for entry in excinfo.value.conflicts] == ["foo/body.md"]
     # Source content on feat/x must be untouched by the failed copy.
-    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "existing\n"
+    assert gateway.get("objectives", "foo/body.md", "feat/x") == "existing\n"
 
 
 def test_fake_brmem_copy_entries_overwrite_replaces_destination() -> None:
     gateway = FakeBranchMemoryGateway()
-    source_sha = gateway.put("memjectives", "foo/body.md", "master", "source\n")
-    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
+    source_sha = gateway.put("objectives", "foo/body.md", "master", "source\n")
+    gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
 
     copied = gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
@@ -306,7 +306,7 @@ def test_fake_brmem_copy_entries_overwrite_replaces_destination() -> None:
     )
 
     assert [e.key for e in copied] == ["foo/body.md"]
-    diag = gateway.check("memjectives", "foo/body.md", "feat/x")
+    diag = gateway.check("objectives", "foo/body.md", "feat/x")
     assert diag is not None
     assert diag.head_sha == source_sha
 
@@ -316,13 +316,13 @@ def test_fake_brmem_copy_entries_overwrite_drops_destination_only_keys() -> None
     exist only on the destination are dropped when the source snapshot wins.
     """
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "foo/body.md", "master", "source\n")
+    gateway.put("objectives", "foo/body.md", "master", "source\n")
     # Destination has an extra key that the source doesn't carry.
-    gateway.put("memjectives", "foo/body.md", "feat/x", "existing\n")
-    gateway.put("memjectives", "foo/notes.md", "feat/x", "dest-only\n")
+    gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
+    gateway.put("objectives", "foo/notes.md", "feat/x", "dest-only\n")
 
     gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
@@ -330,9 +330,9 @@ def test_fake_brmem_copy_entries_overwrite_drops_destination_only_keys() -> None
     )
 
     # Destination now matches master exactly — the dest-only key is gone.
-    keys = [e.key for e in gateway.list_entries(namespace="memjectives", branch="feat/x")]
+    keys = [e.key for e in gateway.list_entries(namespace="objectives", branch="feat/x")]
     assert keys == ["foo/body.md"]
-    assert gateway.check("memjectives", "foo/notes.md", "feat/x") is None
+    assert gateway.check("objectives", "foo/notes.md", "feat/x") is None
 
 
 def test_fake_brmem_delete_removes_existing_key() -> None:
@@ -399,7 +399,7 @@ def test_fake_brmem_copy_entries_validates_branch_names() -> None:
 
     with pytest.raises(InvalidBranchNameError):
         gateway.copy_entries(
-            namespace="memjectives",
+            namespace="objectives",
             from_branch="feat---x",
             to_branch="feat/y",
             overwrite=False,
@@ -407,7 +407,7 @@ def test_fake_brmem_copy_entries_validates_branch_names() -> None:
         )
     with pytest.raises(InvalidBranchNameError):
         gateway.copy_entries(
-            namespace="memjectives",
+            namespace="objectives",
             from_branch="feat/x",
             to_branch="feat---y",
             overwrite=False,
@@ -425,10 +425,10 @@ def test_fake_brmem_copy_entries_validates_branch_names() -> None:
 
 def _seed_glob_gateway() -> FakeBranchMemoryGateway:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("memjectives", "foo/body.md", "master", "foo-body\n")
-    gateway.put("memjectives", "foo/sub/x.md", "master", "foo-sub\n")
-    gateway.put("memjectives", "foobar/body.md", "master", "foobar-body\n")
-    gateway.put("memjectives", "bar/body.md", "master", "bar-body\n")
+    gateway.put("objectives", "foo/body.md", "master", "foo-body\n")
+    gateway.put("objectives", "foo/sub/x.md", "master", "foo-sub\n")
+    gateway.put("objectives", "foobar/body.md", "master", "foobar-body\n")
+    gateway.put("objectives", "bar/body.md", "master", "bar-body\n")
     return gateway
 
 
@@ -436,7 +436,7 @@ def test_fake_brmem_copy_entries_key_glob_filters_source() -> None:
     gateway = _seed_glob_gateway()
 
     copied = gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -444,9 +444,7 @@ def test_fake_brmem_copy_entries_key_glob_filters_source() -> None:
     )
 
     assert sorted(e.key for e in copied) == ["foo/body.md", "foo/sub/x.md"]
-    dest_keys = sorted(
-        e.key for e in gateway.list_entries(namespace="memjectives", branch="feat/x")
-    )
+    dest_keys = sorted(e.key for e in gateway.list_entries(namespace="objectives", branch="feat/x"))
     # foobar/body.md and bar/body.md are not copied — the trailing '/' in
     # the glob anchors the prefix segment.
     assert dest_keys == ["foo/body.md", "foo/sub/x.md"]
@@ -456,7 +454,7 @@ def test_fake_brmem_copy_entries_key_glob_zero_match_returns_empty() -> None:
     gateway = _seed_glob_gateway()
 
     copied = gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -464,30 +462,30 @@ def test_fake_brmem_copy_entries_key_glob_zero_match_returns_empty() -> None:
     )
 
     assert copied == ()
-    assert gateway.list_entries(namespace="memjectives", branch="feat/x") == []
+    assert gateway.list_entries(namespace="objectives", branch="feat/x") == []
 
 
 def test_fake_brmem_copy_entries_key_glob_does_not_match_sibling_prefix() -> None:
     gateway = _seed_glob_gateway()
 
     gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
         key_glob="foo/*",
     )
 
-    assert gateway.check("memjectives", "foobar/body.md", "feat/x") is None
+    assert gateway.check("objectives", "foobar/body.md", "feat/x") is None
 
 
 def test_fake_brmem_copy_entries_key_glob_overwrite_preserves_non_matching() -> None:
     gateway = _seed_glob_gateway()
-    gateway.put("memjectives", "foo/body.md", "feat/x", "existing-foo\n")
-    gateway.put("memjectives", "bar/body.md", "feat/x", "existing-bar\n")
+    gateway.put("objectives", "foo/body.md", "feat/x", "existing-foo\n")
+    gateway.put("objectives", "bar/body.md", "feat/x", "existing-bar\n")
 
     gateway.copy_entries(
-        namespace="memjectives",
+        namespace="objectives",
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
@@ -495,19 +493,19 @@ def test_fake_brmem_copy_entries_key_glob_overwrite_preserves_non_matching() -> 
     )
 
     # Matching dest key was replaced by the source entry.
-    assert gateway.get("memjectives", "foo/body.md", "feat/x") == "foo-body\n"
+    assert gateway.get("objectives", "foo/body.md", "feat/x") == "foo-body\n"
     # Non-matching dest key survived bit-for-bit.
-    assert gateway.get("memjectives", "bar/body.md", "feat/x") == "existing-bar\n"
+    assert gateway.get("objectives", "bar/body.md", "feat/x") == "existing-bar\n"
 
 
 def test_fake_brmem_copy_entries_key_glob_conflict_lists_only_matching_dest_keys() -> None:
     gateway = _seed_glob_gateway()
-    gateway.put("memjectives", "foo/body.md", "feat/x", "existing-foo\n")
-    gateway.put("memjectives", "bar/body.md", "feat/x", "existing-bar\n")
+    gateway.put("objectives", "foo/body.md", "feat/x", "existing-foo\n")
+    gateway.put("objectives", "bar/body.md", "feat/x", "existing-bar\n")
 
     with pytest.raises(BrmemCopyConflictError) as excinfo:
         gateway.copy_entries(
-            namespace="memjectives",
+            namespace="objectives",
             from_branch="master",
             to_branch="feat/x",
             overwrite=False,
@@ -516,7 +514,7 @@ def test_fake_brmem_copy_entries_key_glob_conflict_lists_only_matching_dest_keys
 
     assert [entry.key for entry in excinfo.value.conflicts] == ["foo/body.md"]
     # Non-matching dest content must survive the aborted copy.
-    assert gateway.get("memjectives", "bar/body.md", "feat/x") == "existing-bar\n"
+    assert gateway.get("objectives", "bar/body.md", "feat/x") == "existing-bar\n"
 
 
 def test_fake_brmem_copy_entries_rejects_empty_key_glob() -> None:
@@ -524,7 +522,7 @@ def test_fake_brmem_copy_entries_rejects_empty_key_glob() -> None:
 
     with pytest.raises(InvalidKeyGlobError):
         gateway.copy_entries(
-            namespace="memjectives",
+            namespace="objectives",
             from_branch="master",
             to_branch="feat/x",
             overwrite=False,
