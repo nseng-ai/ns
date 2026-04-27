@@ -506,6 +506,138 @@ def test_brmem_put_rejects_stdin_and_file_together(cli_group: ClinkrGroup, tmp_p
     assert "--stdin and --file are mutually exclusive." in result.output
 
 
+# ---------------------------------------------------------------------------
+# brmem put: size + binary guardrails
+# ---------------------------------------------------------------------------
+
+
+def test_brmem_put_rejects_oversized_file(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "big.md"
+    source_file.write_bytes(b"x" * ((1 << 20) + 1))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "plan/big.md", "--namespace", "scratch", "--file", str(source_file)],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "capped at 1 MiB" in result.output
+    assert "-f / --force" in result.output
+
+
+def test_brmem_put_force_accepts_oversized_file(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "big.md"
+    payload = ("y" * ((1 << 20) + 1)) + "\n"
+    source_file.write_text(payload, encoding="utf-8")
+    obj = _make_obj()
+
+    put_result = CliRunner().invoke(
+        cli_group,
+        ["put", "plan/big.md", "--namespace", "scratch", "--file", str(source_file), "-f"],
+        obj=obj,
+    )
+    get_result = CliRunner().invoke(
+        cli_group,
+        ["get", "plan/big.md", "--namespace", "scratch"],
+        obj=obj,
+    )
+
+    assert put_result.exit_code == 0, put_result.output
+    assert get_result.exit_code == 0, get_result.output
+    assert get_result.output == payload
+
+
+def test_brmem_put_rejects_binary_file(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "binary.dat"
+    source_file.write_bytes(b"hello\x00world")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "scratchpad", "--namespace", "scratch", "--file", str(source_file)],
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "binary" in result.output
+    assert "offset 5" in result.output
+    assert "-f / --force" in result.output
+
+
+def test_brmem_put_force_accepts_binary_file(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "binary.dat"
+    source_file.write_bytes(b"hello\x00world")
+    obj = _make_obj()
+
+    put_result = CliRunner().invoke(
+        cli_group,
+        ["put", "scratchpad", "--namespace", "scratch", "--file", str(source_file), "--force"],
+        obj=obj,
+    )
+    get_result = CliRunner().invoke(
+        cli_group,
+        ["get", "scratchpad", "--namespace", "scratch"],
+        obj=obj,
+    )
+
+    assert put_result.exit_code == 0, put_result.output
+    assert get_result.exit_code == 0, get_result.output
+    assert get_result.output == "hello\x00world\n"
+
+
+def test_brmem_put_stdin_rejects_oversized_input(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "scratchpad", "--namespace", "scratch", "--stdin"],
+        input="z" * ((1 << 20) + 1),
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "<stdin>" in result.output
+    assert "capped at 1 MiB" in result.output
+
+
+def test_brmem_put_stdin_rejects_binary_input(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        ["put", "scratchpad", "--namespace", "scratch", "--stdin"],
+        input=b"hi\x00there",
+        obj=_make_obj(),
+    )
+
+    assert result.exit_code == 2
+    assert "<stdin>" in result.output
+    assert "binary" in result.output
+    assert "offset 2" in result.output
+
+
+def test_brmem_put_format_json_reports_size_failure(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "big.md"
+    source_file.write_bytes(b"x" * ((1 << 20) + 1))
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "put",
+            "plan/big.md",
+            "--namespace",
+            "scratch",
+            "--file",
+            str(source_file),
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "entry_too_large"
+    assert "capped at 1 MiB" in payload["message"]
+
+
 def test_brmem_get_surfaces_git_failure_when_branch_omitted(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,

@@ -10,6 +10,10 @@ from typing import Annotated
 
 import click
 
+from twerk_core.brmem.content_limits import (
+    check_entry_not_binary,
+    check_entry_size,
+)
 from twerk_core.brmem.gateway import (
     EntryRef,
     check_branch_name,
@@ -49,6 +53,15 @@ class PutRequest:
     stdin: bool = False
     file: str | None = None
     branch: str | None = None
+    force: Annotated[
+        bool,
+        click.Option(
+            ["-f", "--force"],
+            is_flag=True,
+            default=False,
+            help="Bypass the 1 MiB size cap and binary-content check.",
+        ),
+    ] = False
 
 
 @dataclass(frozen=True)
@@ -104,7 +117,7 @@ def run_put(
         )
 
     if request.stdin:
-        content = sys.stdin.read()
+        raw = sys.stdin.buffer.read()
         source_file = "<stdin>"
     else:
         source_path = request.file if request.file is not None else _default_source(request.key)
@@ -117,7 +130,7 @@ def run_put(
                 ),
             )
         try:
-            content = Path(source_path).read_text(encoding="utf-8")
+            raw = Path(source_path).read_bytes()
         except FileNotFoundError:
             return ClinkrExit.failure(
                 error_type="source_file_missing",
@@ -129,6 +142,26 @@ def run_put(
                 message=f"Failed to read source file {source_path}: {exc}",
             )
         source_file = source_path
+
+    if not request.force:
+        if (size_msg := check_entry_size(raw)) is not None:
+            return ClinkrExit.failure(
+                error_type="entry_too_large",
+                message=f"{source_file} {size_msg}. Pass -f / --force to override.",
+            )
+        if (binary_msg := check_entry_not_binary(raw)) is not None:
+            return ClinkrExit.failure(
+                error_type="entry_appears_binary",
+                message=f"{source_file} {binary_msg}. Pass -f / --force to override.",
+            )
+
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        return ClinkrExit.failure(
+            error_type="entry_not_utf8",
+            message=f"{source_file} is not valid UTF-8: {exc}",
+        )
 
     match resolve_current_brmem_branch(ctx, request.branch):
         case ClinkrExit() as exit_:
