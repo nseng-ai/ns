@@ -1,5 +1,6 @@
 [tool.uv.workspace]
 members = [
+  "packages/brmem",
   "packages/twerk-core",
   "packages/twerk-dispatcher",
   "packages/twerk-objectives",
@@ -9,6 +10,7 @@ members = [
 ]
 
 [tool.uv.sources]
+brmem = { workspace = true }
 twerk-core = { workspace = true }
 twerk-dispatcher = { workspace = true }
 twerk-objectives = { workspace = true }
@@ -43,6 +45,7 @@ plugins = [
 
 [dependency-groups]
 dev = [
+  "brmem",
   "nonslop",
   "ruff>=0.5.0",
   "pytest>=8.0.0",
@@ -68,6 +71,7 @@ target-version = "py311"
 line-length = 100
 src = [
   "src",
+  "packages/brmem/src",
   "packages/twerk-core/src",
   "packages/twerk-dispatcher/src",
   "packages/twerk-objectives/src",
@@ -89,6 +93,7 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = [
+  "brmem",
   "twerk",
   "twerk_core",
   "twerk_dispatcher",
@@ -110,6 +115,7 @@ python = ".venv"
 addopts = "-q --import-mode=importlib"
 testpaths = [
   "tests",
+  "packages/brmem/tests",
   "packages/twerk-core/tests",
   "packages/twerk-dispatcher/tests",
   "packages/twerk-objectives/tests",

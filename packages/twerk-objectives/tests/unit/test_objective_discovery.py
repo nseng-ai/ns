@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from twerk_core.brmem.fake import FakeBranchMemoryGateway
+from brmem.fake import FakeBranchMemoryGateway
 from twerk_objectives.discovery import (
     BranchPresence,
     ObjectiveRepoEntry,

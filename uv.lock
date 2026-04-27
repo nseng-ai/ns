@@ -4,6 +4,7 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
+    "brmem",
     "twerk",
     "twerk-core",
     "twerk-dispatcher",
@@ -11,6 +12,21 @@ members = [
     "twerk-pr-address",
     "twerk-reviewer",
     "twerk-slots",
+]
+
+[[package]]
+name = "brmem"
+version = "0.1.0"
+source = { editable = "packages/brmem" }
+dependencies = [
+    { name = "click" },
+    { name = "twerk-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "twerk-core", editable = "packages/twerk-core" },
 ]
 
 [[package]]
@@ -253,6 +269,7 @@ plugins = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "brmem" },
     { name = "nonslop" },
     { name = "pytest" },
     { name = "pytest-xdist" },
@@ -279,6 +296,7 @@ provides-extras = ["plugins"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "brmem", editable = "packages/brmem" },
     { name = "nonslop" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
@@ -327,12 +345,14 @@ name = "twerk-objectives"
 version = "0.1.0"
 source = { editable = "packages/twerk-objectives" }
 dependencies = [
+    { name = "brmem" },
     { name = "click" },
     { name = "twerk-core" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "brmem", editable = "packages/brmem" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "twerk-core", editable = "packages/twerk-core" },
 ]

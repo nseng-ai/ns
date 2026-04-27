@@ -8,8 +8,8 @@ from typing import Annotated, Any
 import click
 from rich.markdown import Markdown
 
-from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef, check_branch_name
-from twerk_core.brmem.validation import first_failure
+from brmem.gateway import BranchMemoryGateway, EntryRef, check_branch_name
+from brmem.validation import first_failure
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit

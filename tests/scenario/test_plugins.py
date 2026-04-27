@@ -8,8 +8,8 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from brmem.fake import FakeBranchMemoryGateway
 from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
-from twerk_core.brmem.fake import FakeBranchMemoryGateway
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.testing import FakeIssueGateway
