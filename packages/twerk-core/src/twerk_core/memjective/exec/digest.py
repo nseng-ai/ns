@@ -11,7 +11,7 @@ This operation never parses Markdown.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Literal
 
 import click
 
@@ -44,6 +44,9 @@ from twerk_core.memjective.slug_resolution import (
 )
 
 
+MemjectiveSnapshotState = Literal["fresh", "stale"]
+
+
 @dataclass(frozen=True)
 class MemjectiveDigestRequest:
     slug: Annotated[
@@ -70,7 +73,7 @@ class BranchSnapshot(JsonSerializable):
     notes_md: str
     body_last_touched: str | None
     branch_head_iso: str | None
-    memj_state: str
+    memj_state: MemjectiveSnapshotState
     pr_number: int | None
     pr_state: str | None
     pr_title: str | None
@@ -271,7 +274,7 @@ def _classify_memj_state(
     alive: bool,
     snapshot_iso: str | None,
     branch_head_iso: str | None,
-) -> str:
+) -> MemjectiveSnapshotState:
     """Classify a snapshot as ``"fresh"`` or ``"stale"``.
 
     A deleted branch (post-merge) is fresh by definition: its history is
