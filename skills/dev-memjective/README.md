@@ -24,7 +24,7 @@ is the human walkthrough.
 There are two places a memjective can live:
 
 - **Canonical record**: The record of the memjective that lives on trunk/master/main. It
-  is the ground truth of how the objective is proceding from the point of view of the global
+  is the ground truth of how the memjective is proceeding from the point of view of the global
   system. As code lands and time progresses, a reconcilation process ensures that it is
   up-to-date with respect the code base and any relevant external state.
 

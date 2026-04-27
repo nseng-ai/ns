@@ -4,7 +4,7 @@
 
 Twerk is a composable toolkit for plan-oriented agentic engineering, rebuilt from the ground up from [erk](https://github.com/dagster-io/erk). Where erk grew organically into a monolith, twerk extracts its best ideas into well-separated, independently adoptable features.
 
-**The goal**: each feature (objectives, plans, worktrees, etc.) should be usable on its own, without buying into the entire system. A team should be able to adopt just the objective tracker, or just the plan workflow, without pulling in unrelated machinery.
+**The goal**: each feature (plans, worktrees, etc.) should be usable on its own, without buying into the entire system. A team should be able to adopt just the plan workflow, etc., without pulling in unrelated machinery.
 
 **Source repo**: `/Users/schrockn/code/erk` — we port features incrementally, rethinking and simplifying as we go. This is a "move into a new house" process: we bring over what works, leave behind what doesn't, and improve the architecture along the way.
 
@@ -44,7 +44,7 @@ twerk/
 ## Design Principles
 
 1. **Composability over integration** — each feature works standalone. No hidden coupling between subsystems.
-2. **GitHub as storage** — objectives, plans, and metadata live in GitHub issues and PRs, not local state. This makes the system distributed and transparent.
+2. **GitHub as storage** — plans and metadata live in GitHub issues and PRs, not local state. This makes the system distributed and transparent.
 3. **Small, testable units** — pure functions and data transformations over complex class hierarchies. Gateway interfaces for external I/O.
 4. **Port, don't copy** — when bringing code from erk, rethink the design. Simplify interfaces, remove unnecessary abstractions, and cut dependencies.
 

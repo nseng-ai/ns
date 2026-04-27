@@ -37,13 +37,13 @@ Example:
 {
   "schema": "stacker-slice-manifest/v1",
   "ordinal": 2,
-  "title": "PR 2 - add objective reconcile CLI",
+  "title": "PR 2 - add foo reconcile CLI",
   "scope": "Add the reconcile command and wire it through the CLI package.",
   "base": "previous_slice",
   "validate": {"command": "just"},
   "constraints": ["Do not touch vendored skill code."],
-  "suggested_branch_name": "objective-reconcile/add-cli",
-  "suggested_commit_subject": "Add objective reconcile CLI",
+  "suggested_branch_name": "feature-foo/add-cli",
+  "suggested_commit_subject": "Add foo reconcile CLI",
   "downstream_context": ["important for downstream: command group name is 'reconcile'"]
 }
 ```
@@ -91,12 +91,12 @@ Example success handoff:
 {
   "schema": "stacker-handoff/v1",
   "status": "ok",
-  "branch": "objective-reconcile/add-cli",
+  "branch": "feature-foo/add-cli",
   "head_sha": "abc123def456",
   "validation": {"command": "just", "exit_code": 0},
   "files_changed": [
-    "packages/twerk-objective/src/twerk_objective/cli.py",
-    "packages/twerk-objective/tests/scenario/test_cli.py"
+    "packages/twerk-foo/src/twerk_foo/cli.py",
+    "packages/twerk-foo/tests/scenario/test_cli.py"
   ],
   "deviations": [],
   "downstream_notes": [

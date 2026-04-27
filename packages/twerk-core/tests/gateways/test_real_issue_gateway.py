@@ -1,8 +1,6 @@
 """Tests for RealIssueGateway.
 
-Walks the production fallback path with `subprocess.run` monkeypatched out,
-mirroring the shape of
-`packages/twerk-objectives/tests/test_objective_cli.py::test_objective_list_falls_back_to_real_gateway`.
+Walks the production fallback path with `subprocess.run` monkeypatched out.
 Each push-down method that lands on `RealIssueGateway` should gain a test in
 this file so CI keeps exercising the real code path even though every other
 test in the tree injects `FakeIssueGateway` via Click context.
