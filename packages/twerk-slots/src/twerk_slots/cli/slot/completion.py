@@ -126,7 +126,7 @@ def run_completion_install(
         )
 
     rc_path = _rc_path_for_shell(shell)
-    existing = rc_path.read_text() if rc_path.exists() else ""
+    existing = rc_path.read_text(encoding="utf-8") if rc_path.exists() else ""
 
     if _MARKER_BEGIN in existing:
         return ClinkrExit.ok(

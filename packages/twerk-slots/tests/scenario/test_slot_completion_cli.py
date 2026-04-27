@@ -57,7 +57,7 @@ def test_completion_install_writes_marker_block(
     assert result.exit_code == 0, result.output
     rc_path = tmp_path / ".zshrc"
     assert rc_path.exists()
-    content = rc_path.read_text()
+    content = rc_path.read_text(encoding="utf-8")
     assert "# >>> slot completion >>>" in content
     assert "_SLOT_COMPLETE=zsh_source slot" in content
     assert "# <<< slot completion <<<" in content
@@ -71,7 +71,7 @@ def test_completion_install_is_idempotent(
 
     first = CliRunner().invoke(cli_group, ["completion", "install", "--shell", "zsh"], obj=_obj())
     assert first.exit_code == 0
-    first_content = rc_path.read_text()
+    first_content = rc_path.read_text(encoding="utf-8")
 
     second = CliRunner().invoke(
         cli_group,
@@ -82,7 +82,7 @@ def test_completion_install_is_idempotent(
 
     assert second.exit_code == 0
     assert payload["data"]["already_installed"] is True
-    assert rc_path.read_text() == first_content
+    assert rc_path.read_text(encoding="utf-8") == first_content
 
 
 def test_completion_install_unsupported_shell_fails(
@@ -107,12 +107,12 @@ def test_completion_install_appends_to_existing_rc(
 ) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     rc_path = tmp_path / ".zshrc"
-    rc_path.write_text("# existing content\nalias ll='ls -la'\n")
+    rc_path.write_text("# existing content\nalias ll='ls -la'\n", encoding="utf-8")
 
     result = CliRunner().invoke(cli_group, ["completion", "install", "--shell", "zsh"], obj=_obj())
 
     assert result.exit_code == 0, result.output
-    content = rc_path.read_text()
+    content = rc_path.read_text(encoding="utf-8")
     assert content.startswith("# existing content\n")
     assert "alias ll='ls -la'" in content
     assert "# >>> slot completion >>>" in content
