@@ -11,6 +11,11 @@
       "sourceType": "local",
       "computedHash": "926c73c4d36acb7c4676353140694b95035e28f024d0cb2c733c5fa87f3bb16e"
     },
+    "dev-checkpoint": {
+      "source": "skills/dev-checkpoint",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "dev-fix-just": {
       "source": "skills/dev-fix-just",
       "sourceType": "local",
@@ -65,11 +70,6 @@
       "source": "skills/dev-plan-to-branch",
       "sourceType": "local",
       "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
-    },
-    "dev-quick-commit": {
-      "source": "skills/dev-quick-commit",
-      "sourceType": "local",
-      "computedHash": "244542b3fa8a55dfe227338f75269eb99134ec8851a44a62ed7769d0dbac3ccb"
     },
     "dev-stacker-agent": {
       "source": "skills/dev-stacker-agent",
