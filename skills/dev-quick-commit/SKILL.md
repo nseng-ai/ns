@@ -41,7 +41,7 @@ Do **not** use this for milestone commits, PR-ready commits, or anything that wi
 
 ### 3. Draft the commit message
 
-Output exactly: one short subject line prefixed with `[quick-commit] ` (≤60 chars total, imperative mood, no trailing period), a blank line, then 1–3 bullets starting with `- `. No prose paragraphs, no markdown headers, no Co-Authored-By trailer, no closing remarks. Three bullets is the cap, not the floor — one bullet is fine for a small diff.
+Output exactly: one short subject line prefixed with `[quick-commit]` (≤60 chars total, imperative mood, no trailing period), a blank line, then 1–3 bullets starting with `-`. No prose paragraphs, no markdown headers, no Co-Authored-By trailer, no closing remarks. Three bullets is the cap, not the floor — one bullet is fine for a small diff.
 
 ### 4. Stage and commit
 
