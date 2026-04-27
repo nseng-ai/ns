@@ -90,3 +90,13 @@ class GitGateway(ABC):
     @abstractmethod
     def get_file_status(self, cwd: Path) -> FileStatus:
         """Return a ``FileStatus`` describing the worktree's dirty state."""
+
+    @abstractmethod
+    def file_last_touched_iso(self, ref: str, path: str) -> str | None:
+        """Return ISO-8601 commit time of the last commit touching ``path`` reachable from ``ref``.
+
+        Wraps ``git log -1 --format=%cI <ref> -- <path>``. Returns ``None``
+        when the ref does not exist, the file is not present at the ref, or
+        the underlying command fails. Useful for per-file timing on multi-file
+        snapshot refs where the ref's head commit time would be misleading.
+        """

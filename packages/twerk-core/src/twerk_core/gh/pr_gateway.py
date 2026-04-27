@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from twerk_core.gh.real_gateway_helpers import fetch_pr_summary_for_branch
+from twerk_core.gh.real_gateway_helpers import (
+    fetch_pr_summary_for_branch,
+    search_open_prs,
+)
 from twerk_core.gh.types import PRLookupError, PRSummary
 
 
@@ -26,9 +29,20 @@ class PRGateway(ABC):
         underlying ``gh pr view`` call fails (no PR, auth error, etc.).
         """
 
+    @abstractmethod
+    def search_open_prs(self, query: str) -> tuple[PRSummary, ...] | PRLookupError:
+        """Search open PRs by free-text query.
+
+        Returns the matched PRs (possibly empty) on success, or
+        ``PRLookupError`` when the underlying ``gh pr list`` call fails.
+        """
+
 
 class RealPRGateway(PRGateway):
     """Real implementation backed by the `gh` CLI."""
 
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
         return fetch_pr_summary_for_branch(branch)
+
+    def search_open_prs(self, query: str) -> tuple[PRSummary, ...] | PRLookupError:
+        return search_open_prs(query)

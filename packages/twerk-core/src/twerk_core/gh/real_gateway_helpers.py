@@ -44,3 +44,42 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
         base_ref_name=data["baseRefName"],
         state=state,
     )
+
+
+def search_open_prs(query: str) -> tuple[PRSummary, ...] | PRLookupError:
+    """Shell out to ``gh pr list --state open --search <query>``."""
+    result = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--search",
+            query,
+            "--json",
+            "number,title,url,headRefName,baseRefName,state",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return PRLookupError(
+            stderr=result.stderr.strip(),
+            returncode=result.returncode,
+        )
+    items = json.loads(result.stdout)
+    summaries: list[PRSummary] = []
+    for item in items:
+        state: PRState = item["state"]
+        summaries.append(
+            PRSummary(
+                number=item["number"],
+                title=item["title"],
+                url=item["url"],
+                head_ref_name=item["headRefName"],
+                base_ref_name=item["baseRefName"],
+                state=state,
+            )
+        )
+    return tuple(summaries)

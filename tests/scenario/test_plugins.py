@@ -115,6 +115,14 @@ def test_memjective_plugin_integration() -> None:
     assert payload["exit_code"] == 0
     assert payload["data"]["entries"][0]["key"] == "clinkr-migration/body.md"
 
+    # The hidden ``exec`` subgroup must mount through plugin discovery.
+    result = runner.invoke(parent, ["memjective", "--help"])
+    assert result.exit_code == 0
+    assert "exec" not in result.output
+    result = runner.invoke(parent, ["memjective", "exec", "digest", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "Emit structured digest facts" in result.output
+
 
 def test_pr_address_plugin_integration() -> None:
     parent = click.Group("test")

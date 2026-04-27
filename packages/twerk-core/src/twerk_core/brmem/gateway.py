@@ -206,6 +206,22 @@ class BranchMemoryGateway(ABC):
 # -- ref helpers --------------------------------------------------------------
 
 
+def snapshot_ref_name(namespace: str | None, branch: str) -> str:
+    """Return the snapshot ref for ``(namespace, branch)`` (no ``:key`` suffix).
+
+    Unlike :func:`ref_name_for_entry`, this is a real git ref usable with
+    ``git log``, ``git show <ref>``, etc. — useful when callers need to
+    inspect commit metadata of the snapshot itself rather than read a
+    specific key.
+    """
+    validate_branch_name(branch)
+    encoded_branch = encode_branch_segment(branch)
+    if namespace is None:
+        return f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/{encoded_branch}"
+    validate_namespace(namespace)
+    return f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/{encoded_branch}"
+
+
 def ref_name_for_entry(namespace: str | None, key: str, branch: str) -> str:
     """Return the ``git show`` locator for the entry ``(namespace, key, branch)``.
 
@@ -215,12 +231,7 @@ def ref_name_for_entry(namespace: str | None, key: str, branch: str) -> str:
     not a real git ref — it is a copy-pastable argument for ``git show``.
     """
     validate_key(key)
-    validate_branch_name(branch)
-    encoded_branch = encode_branch_segment(branch)
-    if namespace is None:
-        return f"{BRMEM_REF_PREFIX}/{BRMEM_BASE_SEGMENT}/{encoded_branch}:{key}"
-    validate_namespace(namespace)
-    return f"{BRMEM_REF_PREFIX}/{BRMEM_NS_SEGMENT}/{namespace}/{encoded_branch}:{key}"
+    return f"{snapshot_ref_name(namespace, branch)}:{key}"
 
 
 def parse_entry_ref(locator: str) -> EntryRef | None:

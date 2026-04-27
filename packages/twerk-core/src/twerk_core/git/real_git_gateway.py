@@ -306,3 +306,14 @@ class RealGitGateway(GitGateway):
     def get_file_status(self, cwd: Path) -> FileStatus:
         result = _run(["git", "status", "--porcelain"], cwd=cwd, check=True)
         return parse_porcelain_status(result.stdout)
+
+    def file_last_touched_iso(self, ref: str, path: str) -> str | None:
+        result = _run(
+            ["git", "log", "-1", "--format=%cI", ref, "--", path],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        stamp = result.stdout.strip()
+        return stamp or None

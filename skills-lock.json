@@ -51,6 +51,11 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
+    "dev-memjective-digest": {
+      "source": "skills/dev-memjective-digest",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "dev-memjective-next": {
       "source": "skills/dev-memjective-next",
       "sourceType": "local",
