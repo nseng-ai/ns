@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
         with:
           just-version: "1.50.0"
       - name: Ruff lint
@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
         with:
           just-version: "1.50.0"
       - name: Run ty
@@ -58,7 +58,7 @@ jobs:
       - uses: ./.github/actions/setup-python-uv
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
         with:
           just-version: "1.50.0"
       - name: Run tests
@@ -71,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-uv
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
         with:
           just-version: "1.50.0"
       - name: Run nonslop check
