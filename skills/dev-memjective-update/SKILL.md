@@ -56,16 +56,23 @@ branch snapshots and never touches canonical state.
 
 ## Inputs
 
-- **Slug, required.** The prompt must name the memjective slug. Do not infer
-  it from "the only memjective" on a branch; one branch may carry multiple
-  slugs. If the prompt does not name a slug, abort and ask which memjective
-  to update.
+- **Slug, usually required.** Parse the slug from the prompt and use it
+  directly. If the prompt names no slug, defer to Step 2 to enumerate slugs
+  attached to the current branch: a single slug auto-resolves, multiple
+  slugs still requires the user to choose, zero slugs aborts and points at
+  `dev-memjective-claim`. Never derive the slug from the branch name —
+  branches commonly carry a parent memjective whose slug differs from the
+  branch's slice slug.
 
 ## Core Rules
 
 - **Branch snapshots only.** `update` writes only to the current branch's
   `<slug>/` snapshot. Abort on `master` or detached `HEAD`.
-- **Slug always explicit.** No auto-pick from "the only slug on the branch."
+- **Slug auto-pick is single-slug only.** When the prompt names a slug, use
+  it. When it doesn't, auto-resolve only when the current branch carries
+  exactly one slug under namespace `memjectives`; surface that resolved
+  slug in the final report. Multiple attached slugs still require the user
+  to pick — never guess between slices that happen to coexist on a branch.
 - **One slug per invocation.** Multiple slugs on the branch are fine; operate
   only on the explicit slug.
 - **No-op when in sync.** If `master..HEAD` is empty, or evidence triage finds
@@ -91,24 +98,40 @@ git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-Abort if not in a git repo, on detached `HEAD`, on `master`, or missing the
-slug. On `master`, print:
+Abort if not in a git repo, on detached `HEAD`, or on `master`. Slug
+presence is checked in Step 2. On `master`, print:
 
 ```text
 dev-memjective-update runs on branch snapshots only. Use
 dev-memjective-reconcile <slug> to update canonical state.
 ```
 
-### 2. Confirm the branch snapshot exists
+### 2. Resolve the slug against branch snapshots
+
+List slugs attached to the current branch:
 
 ```bash
 brmem list --namespace memjectives
 ```
 
-Confirm at least one returned key starts with `<slug>/`. If not, abort and
-direct the user to run `dev-memjective-claim <slug>` on this branch first.
+Split each returned key on `/` and take the first segment. Deduplicate to
+get the set of attached slugs.
 
-Other slugs on the branch are ignored.
+- **Slug provided in the prompt**: confirm at least one returned key
+  starts with `<slug>/`. If not, abort and point the user at
+  `dev-memjective-claim <slug>` on this branch first.
+- **No slug in the prompt, single attached slug**: use it. Surface the
+  resolved slug name in the final report so a wrong-slug guess is visible.
+- **No slug in the prompt, multiple attached slugs**: list them with
+  one-line context (e.g., the title from each `body.md` if cheap to fetch)
+  and ask which to update. Never auto-pick; multiple slugs may be a parent
+  memjective plus an in-flight slice, and updating the wrong one is
+  destructive.
+- **No slug in the prompt, zero attached slugs**: abort and direct the
+  user to run `dev-memjective-claim <slug>` on this branch first. `update`
+  never attaches a missing snapshot.
+
+Other slugs on the branch beyond the resolved one are ignored.
 
 ### 3. Freshness check
 
@@ -253,7 +276,11 @@ When no files were rewritten, report:
 
 - Detached `HEAD`: abort.
 - Current branch is `master`: abort and point to `reconcile`.
-- Slug not attached: abort and point to `claim`.
+- Slug not attached: abort and point to `claim`. (Applies whether the
+  slug was named in the prompt or the current branch has zero attached
+  slugs at auto-resolve time.)
+- Multiple attached slugs with no slug in the prompt: ask the user to
+  choose. Never auto-pick to break the tie.
 - Snapshot fresh relative to HEAD: report in sync and write nothing.
 - Multiple slugs on the branch: fine; operate only on the explicit slug.
 - Never implement work, attach a snapshot, rewrite canonical state, delete

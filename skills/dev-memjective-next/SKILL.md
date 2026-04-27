@@ -28,9 +28,10 @@ Read-only status peek and next-slice recommendation for a memjective.
 
 ## Goal
 
-Given an explicit memjective slug, load the best matching source, summarize
-the content state, flag stale branch snapshots, and suggest a
-collision-checked kebab-case slug for the next PR-sized slice.
+Given a memjective slug — supplied directly or resolved from a branch-scoped
+question — load the best matching source, summarize the content state, flag
+stale branch snapshots, and suggest a collision-checked kebab-case slug for
+the next PR-sized slice.
 
 `next` writes nothing: no `brmem put`, no `brmem copy`, no branch creation,
 no checkbox edits, and no working-tree changes. It is the normal planning
@@ -56,9 +57,12 @@ which known content files exist under `<slug>/` and operate on that set.
 
 ## Inputs
 
-- **Slug, required.** Parse the memjective slug from the prompt. Never infer
-  it from "the only memjective" on a branch; branches may carry multiple
-  slugs. If the prompt lacks a slug, ask which memjective to inspect.
+- **Slug, usually required.** Parse the memjective slug from the prompt and
+  use it directly. When the prompt is a branch-scoped discovery question
+  (e.g., "what memjective is on this branch?") and names no slug, defer to
+  Step 2a to enumerate slugs on the target branch instead of asking up
+  front. Never infer a slug from the branch name; branches commonly carry a
+  parent memjective whose slug differs from the branch's slice slug.
 - **Source, optional.** The user may name a branch, a canonical memjective
   slug, or a local file path. Use an explicit source directly. If it is
   invalid, stop and report the problem instead of falling back to discovery.
@@ -91,12 +95,37 @@ git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-Abort if not in a git repo, on detached `HEAD`, or missing the required slug.
+Abort if not in a git repo or on detached `HEAD`. Defer slug presence to
+Step 2a; a missing slug is only fatal when no inverse-discovery path applies.
 
-### 2. Resolve the Source
+### 2. Resolve the Slug, Then the Source
 
-Use the requested slug to choose which memjective to inspect, then resolve the
-copy to read:
+#### 2a. Resolve the Slug
+
+When the prompt names a slug, use it and skip to 2b. Otherwise, the question
+must be branch-scoped (current branch by default, or an explicit branch the
+user named). Enumerate slugs on that branch:
+
+```bash
+brmem list --namespace memjectives --branch <branch> --format json
+```
+
+Split each returned key on `/` and take the first segment. Deduplicate.
+
+- **Single slug**: use it. Surface the resolved slug name in the final
+  report so a wrong-slug guess is visible.
+- **Multiple slugs**: list them with one-line context (e.g., the title from
+  each `body.md` if cheap to fetch) and ask which to inspect. Branches
+  routinely carry both a parent memjective and an in-flight slice doc;
+  never auto-pick.
+- **Zero slugs**: fall back to ancestor-branch enumeration as in 2b case #3,
+  collecting the slug set across live ancestor snapshots. If still empty,
+  ask the user to name a slug or source. Do not abort on bare slug absence.
+
+#### 2b. Resolve the Source
+
+Use the resolved slug to choose which memjective to inspect, then resolve
+the copy to read:
 
 1. **Explicit source from the user**
    - Branch: require the memjective's required content file in that branch's
@@ -206,9 +235,15 @@ branch before claiming a new slice.
 
 ## Edge Cases And Anti-Patterns
 
-- Missing slug or detached `HEAD`: abort and ask/describe the issue.
+- Detached `HEAD`: abort. Missing slug: only abort after Step 2a
+  inverse-discovery fails to resolve a unique slug.
 - Stale brmem refs for deleted branches: ignore them during ancestor
   discovery.
+- Branch name does not equal slug. A branch named after a slice (e.g.,
+  `pool-state-assignment-primitives`) commonly carries the parent
+  memjective's snapshot (e.g., `twerk-slots-cleanup`). Never derive the
+  slug from the branch name; enumerate `<slug>/` keys with `brmem list`
+  instead.
 - Multiple ancestor candidates at the same nearest distance: list the tied
   branches and ask.
 - Source has only the required content file: report that no optional progress
