@@ -16,7 +16,7 @@ def test_parse_real_dignified_python_review() -> None:
 
     assert definition.name == "dignified-python"
     assert definition.description.strip()
-    assert definition.default_model == "sonnet"
+    assert definition.default_model == "haiku"
     assert definition.instructions.strip()
 
 

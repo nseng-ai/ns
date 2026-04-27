@@ -6,7 +6,7 @@ description: |
   imports, no re-exports, modern type syntax, and other production-tested
   patterns. Intended for cheap, per-diff detection; resolution stays with
   the engineer in their normal higher-context workflow.
-default_model: sonnet
+default_model: haiku
 ---
 
 Review only the supplied diff. Ignore existing code that the diff does not
