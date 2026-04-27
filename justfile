@@ -51,7 +51,7 @@ refresh-nonslop:
 
 # Install slot and brmem as editable uv tools, and symlink affiliated skills
 # into ~/.claude/skills/ and ~/.codex/skills/ so both agents can discover them.
-# Note: brmem ships from twerk-core, which also installs the `memjective` binary.
+# Note: brmem ships from twerk-core, which also installs the `objective` binary.
 install-tools:
     uv tool install --force --editable {{justfile_directory()}}/packages/twerk-slots
     uv tool install --force --editable {{justfile_directory()}}/packages/twerk-core
@@ -63,7 +63,7 @@ install-tools:
     mkdir -p ~/.brmem/prompts
     ln -sfn {{justfile_directory()}}/.brmem/prompts/brmem-branch-create.md \
             ~/.brmem/prompts/brmem-branch-create.md
-    @echo "installed: slot, brmem, memjective"
+    @echo "installed: slot, brmem, objective"
     @echo "linked:    {{brmem_skills}} -> ~/.claude/skills, ~/.codex/skills"
     @echo "linked:    ~/.brmem/prompts/brmem-branch-create.md -> {{justfile_directory()}}/.brmem/prompts/brmem-branch-create.md"
 

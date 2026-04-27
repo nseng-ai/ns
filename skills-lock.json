@@ -36,38 +36,38 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
-    "dev-memjective": {
-      "source": "skills/dev-memjective",
+    "objective": {
+      "source": "skills/objective",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-memjective-claim": {
-      "source": "skills/dev-memjective-claim",
+    "objective-claim": {
+      "source": "skills/objective-claim",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-memjective-create": {
-      "source": "skills/dev-memjective-create",
+    "objective-create": {
+      "source": "skills/objective-create",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-memjective-digest": {
-      "source": "skills/dev-memjective-digest",
+    "objective-digest": {
+      "source": "skills/objective-digest",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-memjective-next": {
-      "source": "skills/dev-memjective-next",
+    "objective-next": {
+      "source": "skills/objective-next",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-memjective-reconcile": {
-      "source": "skills/dev-memjective-reconcile",
+    "objective-reconcile": {
+      "source": "skills/objective-reconcile",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-memjective-update": {
-      "source": "skills/dev-memjective-update",
+    "objective-update": {
+      "source": "skills/objective-update",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },

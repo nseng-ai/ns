@@ -31,7 +31,7 @@ class CopyRequest:
             ["--namespace"],
             required=True,
             type=click.STRING,
-            help="Entry namespace (e.g. 'memjectives').",
+            help="Entry namespace (e.g. 'objectives').",
         ),
     ]
     from_branch: Annotated[

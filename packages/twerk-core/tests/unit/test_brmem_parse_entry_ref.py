@@ -34,10 +34,10 @@ def test_parse_entry_ref_parses_namespaced_snapshot_locator() -> None:
 
 
 def test_parse_entry_ref_parses_namespaced_snapshot_with_nested_key() -> None:
-    entry = parse_entry_ref("refs/brmem/ns/memjectives/feat---x:slug/body.md")
+    entry = parse_entry_ref("refs/brmem/ns/objectives/feat---x:slug/body.md")
 
     assert entry is not None
-    assert entry.namespace == "memjectives"
+    assert entry.namespace == "objectives"
     assert entry.key == "slug/body.md"
     assert entry.branch == "feat/x"
 
