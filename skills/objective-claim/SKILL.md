@@ -25,8 +25,9 @@ branch.
 
 ## Goal
 
-Given an explicit objective slug, resolve one source and copy it verbatim to
-the target branch snapshot.
+Given an objective slug — supplied directly or resolved from the nearest
+ancestor branch's claimed objectives — resolve one source and copy it
+verbatim to the target branch snapshot.
 
 `claim` only attaches existing workstream state. It never edits, merges, or
 summarizes objective content; reshaping belongs to `objective-update`
@@ -51,15 +52,18 @@ the copy to the current content inventory.
 
 ## Inputs
 
-- **Slug, required.** Parse the objective slug from the prompt. Never infer
-  it from "the only objective" on a branch; branches may carry multiple
-  slugs. If the prompt lacks a slug, ask which objective to attach.
+- **Slug, optional.** Parse the objective slug from the prompt when present.
+  When the prompt lacks a slug, defer to Step 2a's no-slug resolution: walk
+  the nearest live ancestor that carries any objectives, prompt on
+  ambiguity, and fall through to canonical only when no ancestor does.
+  Never infer a slug from a branch name; branches may carry multiple slugs.
 - **Target, optional.** `--target <branch>` overrides the write destination.
   Otherwise use the current branch.
 - **Source, optional.** `--from <branch>` uses an explicit source branch.
   `--from-file <path>` treats a local file as `<slug>/body.md`. These flags
-  are mutually exclusive. If an explicit source is invalid, stop and report
-  the problem instead of falling back to discovery.
+  are mutually exclusive, both imply the caller already knows the slug, and
+  abort if no slug is supplied alongside either. If an explicit source is
+  invalid, stop and report the problem instead of falling back to discovery.
 
 ## Core Rules
 
@@ -89,21 +93,56 @@ git rev-parse --abbrev-ref HEAD
 ```
 
 Resolve `<target>` from `--target` or the current branch. Abort if not in a
-git repo, missing the required slug, given both source flags, targeting
-`master`, or on detached `HEAD` without `--target`.
+git repo, given both source flags, given `--from` or `--from-file` without a
+slug, targeting `master`, or on detached `HEAD` without `--target`. The
+target collision check moves to Step 2b once the slug is known.
 
-Check the target collision precondition:
+### 2a. Resolve the Slug (when not supplied)
+
+If the prompt named a slug, skip to Step 2b. Otherwise, find candidate slugs
+by walking ancestors nearest-first, then continue to Step 2b.
+
+1. Enumerate `refs/brmem/ns/objectives/*`, decode `---` to `/`, and keep
+   only live non-master branches that are ancestors of `HEAD` and are not
+   `<target>`. Order them nearest-first by
+   `git rev-list --count refs/heads/<branch>..HEAD`.
+2. Walk that list and stop at the **nearest** ancestor that carries any
+   objectives. Use _only_ that ancestor's slug set as candidates; do not
+   merge slugs across multiple ancestor levels. Enumerate slugs with:
+
+   ```bash
+   brmem list --namespace objectives --branch <ancestor> --format json
+   ```
+
+   Split each returned key on `/`, take the first segment, and deduplicate.
+3. If no live ancestor carries any objectives, fall through to canonical
+   storage (`master`) and use master's slug set as the candidate set.
+   Master typically carries many slugs, so the multi-pick prompt below
+   will be long — that is intentional friction signaling the user should
+   pass a slug explicitly.
+4. Apply selection:
+   - **Exactly one candidate**: use it; continue to Step 2b's collision
+     check, then Step 2c's source cascade unchanged.
+   - **Multiple candidates**: list each with a one-line context (the title
+     from `body.md` if cheap to fetch) and ask which to claim.
+   - **Zero candidates** (canonical also empty): abort with "no objectives
+     reachable; run `objective-create` to author one or pass `--from-file
+     <path>`."
+
+### 2b. Target Collision Check
+
+Now that the slug is known, ensure the target is free for it:
 
 ```bash
 brmem list --namespace objectives --branch <target> --format json
 ```
 
-Abort if any returned key starts with `<slug>/`. Other slugs on the target are
-fine.
+Abort if any returned key starts with `<slug>/`. Other slugs on the target
+are fine.
 
-### 2. Resolve the Source
+### 2c. Resolve the Source
 
-Use the requested slug to choose which objective to attach, then resolve the
+Use the resolved slug to choose which objective to attach, then resolve the
 copy to carry:
 
 1. **Local file**: if `--from-file <path>` is given, require the file to exist
@@ -171,8 +210,13 @@ branch before it lands.
 
 ## Edge Cases And Anti-Patterns
 
-- Detached `HEAD` without `--target`, missing slug, `--from` plus
-  `--from-file`, or `--target master`: abort and describe the issue.
+- Detached `HEAD` without `--target`, `--from` or `--from-file` without a
+  slug, `--from` plus `--from-file`, or `--target master`: abort and
+  describe the issue. The master-target guard exists because claim attaches
+  canonical objectives to feature branches; master is the canonical store.
+- No-slug invocation with no candidates anywhere (no live ancestor carries
+  objectives and canonical storage is empty): abort with the
+  `objective-create` / `--from-file` hint instead of guessing.
 - Target already carries `<slug>/`: abort. The precondition is per-slug, so
   other slugs on the target are not a conflict.
 - Explicit source lacks `<slug>/body.md`: abort instead of falling back to
@@ -184,7 +228,9 @@ branch before it lands.
 - Slug exists only in canonical storage: use the canonical objective.
 - Slug exists nowhere: ask for an explicit source or create the objective
   first.
-- Never auto-pick a slug, auto-resolve a source tie, write to canonical
-  storage, carry only `body.md` from a branch source, synthesize sibling files
-  from `--from-file`, fuse multiple snapshots, use Graphite for discovery,
-  run `update`, or implement work during `claim`.
+- Never auto-pick a slug from a branch name or from a multi-slug candidate
+  set (Step 2a's single-candidate branch is the only auto-resolution),
+  auto-resolve a source tie, write to canonical storage, carry only
+  `body.md` from a branch source, synthesize sibling files from
+  `--from-file`, fuse multiple snapshots, use Graphite for discovery, run
+  `update`, or implement work during `claim`.

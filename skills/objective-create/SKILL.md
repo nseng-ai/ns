@@ -176,10 +176,11 @@ Return:
 - next-step hint:
 
 ```text
-To attach this objective to a working branch, run
-objective-claim <slug>. To inspect it and choose a next slice, run
-objective-next <slug>. After implementing a slice, run
-objective-update <slug> to record progress.
+To attach this objective to a working branch, run objective-claim from
+inside the branch (the slug is inferred from the parent branch's claim
+when unambiguous). To inspect it and choose a next slice, run
+objective-next. After implementing a slice, run objective-update <slug>
+to record progress.
 ```
 
 ## Edge Cases And Anti-Patterns

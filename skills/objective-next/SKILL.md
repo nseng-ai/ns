@@ -24,10 +24,10 @@ Read-only status peek and next-slice recommendation for a objective.
 
 ## Goal
 
-Given a objective slug — supplied directly or resolved from a branch-scoped
-question — load the best matching source, summarize the content state, flag
-stale branch snapshots, and suggest a collision-checked kebab-case slug for
-the next PR-sized slice.
+Given an objective slug — supplied directly or resolved from the current
+branch's claimed objectives — load the snapshot from the current branch,
+summarize the content state, flag stale branch snapshots, and suggest a
+collision-checked kebab-case slug for the next PR-sized slice.
 
 `next` writes nothing: no `brmem put`, no `brmem copy`, no branch creation,
 no checkbox edits, and no working-tree changes. It is the normal planning
@@ -53,15 +53,15 @@ which known content files exist under `<slug>/` and operate on that set.
 
 ## Inputs
 
-- **Slug, usually required.** Parse the objective slug from the prompt and
-  use it directly. When the prompt is a branch-scoped discovery question
-  (e.g., "what objective is on this branch?") and names no slug, defer to
-  Step 2a to enumerate slugs on the target branch instead of asking up
-  front. Never infer a slug from the branch name; branches commonly carry a
-  parent objective whose slug differs from the branch's slice slug.
-- **Source, optional.** The user may name a branch, a canonical objective
-  slug, or a local file path. Use an explicit source directly. If it is
-  invalid, stop and report the problem instead of falling back to discovery.
+- **Slug, optional.** Parse the objective slug from the prompt when present.
+  Otherwise defer to Step 2's enumeration of slugs claimed on the current
+  branch. Never infer a slug from the branch name; a branch commonly
+  carries a parent objective whose slug differs from the branch's slice
+  slug.
+
+`next` plans against the current branch only. There is no `--from`,
+`--from-file`, or `--branch <other>` flag — to inspect a different branch,
+check it out first.
 
 ## Core Rules
 
@@ -69,13 +69,11 @@ which known content files exist under `<slug>/` and operate on that set.
   or the working tree.
 - **Content-only.** Do not inspect repo source files to audit progress.
   Implementation evidence is folded back later by `objective-update`.
-- **Source labels are mandatory.** Every report says whether content came
-  from the current-branch snapshot, an ancestor-branch snapshot, canonical
-  state, an explicit branch, or a local file.
-- **Prefer the nearest working snapshot.** Discovery order is current branch,
-  nearest ancestor branch snapshot, then canonical state.
-- **No Graphite dependency.** Use raw git and brmem only; never use `gt` for
-  source discovery.
+- **Current-branch-only source.** Always load the snapshot claimed on the
+  current branch. There is no source cascade and no ancestor walk; if the
+  current branch carries no claim, abort with the master-aware empty-branch
+  error in Step 2.
+- **No Graphite dependency.** Use raw git and brmem only.
 - **Collision-safe suggestion.** Check the suggested slice slug against local
   branches and canonical objective slugs. On collision, warn and ask;
   do not auto-resolve.
@@ -91,78 +89,67 @@ git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-Abort if not in a git repo or on detached `HEAD`. Defer slug presence to
-Step 2a; a missing slug is only fatal when no inverse-discovery path applies.
+Abort if not in a git repo or on detached `HEAD`. Slug presence is resolved
+in Step 2 from the current branch's claims.
 
-### 2. Resolve the Slug, Then the Source
+### 2. Resolve the Slug from the Current Branch
 
-#### 2a. Resolve the Slug
-
-When the prompt names a slug, use it and skip to 2b. Otherwise, the question
-must be branch-scoped (current branch by default, or an explicit branch the
-user named). Enumerate slugs on that branch:
+Enumerate slugs claimed on the current branch:
 
 ```bash
-brmem list --namespace objectives --branch <branch> --format json
+brmem list --namespace objectives --branch <current> --format json
 ```
 
-Split each returned key on `/` and take the first segment. Deduplicate.
+Split each returned key on `/`, take the first segment, and deduplicate.
+
+If the prompt named a slug, require it to be present in this set; otherwise
+abort with "slug `<requested>` not claimed on `<current>`; run
+`objective-claim <requested>` first."
+
+Otherwise resolve from the enumeration:
 
 - **Single slug**: use it. Surface the resolved slug name in the final
   report so a wrong-slug guess is visible.
-- **Multiple slugs**: list them with one-line context (e.g., the title from
-  each `body.md` if cheap to fetch) and ask which to inspect. Branches
-  routinely carry both a parent objective and an in-flight slice doc;
-  never auto-pick.
-- **Zero slugs**: fall back to ancestor-branch enumeration as in 2b case #3,
-  collecting the slug set across live ancestor snapshots. If still empty,
-  ask the user to name a slug or source. Do not abort on bare slug absence.
+- **Multiple slugs**: list them with one-line context (the title from each
+  `body.md` if cheap to fetch) and ask which to inspect. A branch may
+  legitimately carry two unrelated parent objectives; never auto-pick.
+- **Zero slugs**: emit the master-aware empty-branch error and abort.
 
-#### 2b. Resolve the Source
+#### Empty-branch error (master-aware)
 
-Use the resolved slug to choose which objective to inspect, then resolve
-the copy to read:
+- On `master` with zero canonicals: "no canonical objectives; run
+  `objective-create` to author one."
+- On `master` with N canonicals: "master holds N canonical objectives; pass
+  a slug to `objective-next <slug>` to plan against one." Do not surface
+  the multi-pick prompt on master — it is theater, and the user should
+  pick explicitly.
+- Off `master` with no claim: "no objective claimed on this branch; run
+  `objective-claim` to attach the parent's objective, or
+  `objective-create` to start a new one."
 
-1. **Explicit source from the user**
-   - Branch: require the objective's required content file in that branch's
-     snapshot.
-   - Canonical slug: require it in canonical storage (`master` today); if it
-     differs from the requested slug, surface the mismatch and ask.
-   - Local file: read it as the required content file and label the source
-     `local file`.
-2. **Current branch**: use it when
-   `brmem check` succeeds for the required content file.
-3. **Ancestor branch**: enumerate `refs/brmem/ns/objectives/*`, decode
-   `---` to `/`, and keep only live non-master branches that are ancestors of
-   `HEAD` and carry the required content file. Choose the candidate with the
-   smallest `git rev-list --count refs/heads/<branch>..HEAD`; ask on ties.
-4. **Canonical state**: use it when `brmem check` succeeds for the required
-   content file in canonical storage (`master` today).
-
-If no source contains the slug, ask the user to name a branch, canonical slug,
-or local file. Do not return an empty report.
-
-Record the source type, source branch when applicable, and which known content
-files are present under `<slug>/`.
+The source for loading is always the current branch's snapshot; record the
+source label `current branch <branch>` and which known content files are
+present under `<slug>/`.
 
 ### 3. Load the Content
 
 Read the resolved content files with
-`brmem get <slug>/<file> --namespace objectives --branch <source-branch>`, or
-read the explicit local file directly. Interpret them using this skill's
-content inventory and the anatomy in `../objective/SKILL.md`.
+`brmem get <slug>/<file> --namespace objectives --branch <current>`.
+Interpret them using this skill's content inventory and the anatomy in
+`../objective/SKILL.md`.
 
 ### 4. Check Freshness
 
-Run this only for branch snapshots: current branch, ancestor branch, or
-explicit branch. Skip canonical state and local files.
+When the current branch is `master`, skip the freshness check (canonical
+storage's lifecycle is `objective-reconcile`, not `objective-update`).
 
-Compare the newest `head_date` reported by `brmem check --format json` across
-the present files with the source branch's `git log -1 --format=%cI` time. If
-the branch HEAD is newer, include one advisory line:
+Otherwise, compare the newest `head_date` reported by
+`brmem check --format json` across the present files with the current
+branch's `git log -1 --format=%cI` time. If the branch HEAD is newer,
+include one advisory line:
 
 ```text
-Snapshot is behind HEAD on <source-branch> -- consider running
+Snapshot is behind HEAD on <current-branch> -- consider running
 objective-update <slug> on that branch first.
 ```
 
@@ -174,16 +161,13 @@ part.
 
 Keep the status report tight enough to verify at a glance:
 
-- source label and slug
+- source label (`current branch <branch>`) and slug
 - content files present
 - title and status from the required content file
 - completion/progress state from the loaded content, clearly marking open work
 - durable findings presence, summarized in one line when present
 - freshness advisory, if it fired
 - description/goals summary only when it adds signal
-
-If the user disagrees with the resolved source, ask which source to use and
-rerun source resolution.
 
 ### 6. Suggest the Next-Slice Slug
 
@@ -219,33 +203,33 @@ Return:
 - next-step hint:
 
 ```text
-To proceed: cut a branch (for example, gt create <suggested-slug>), then run
-objective-claim <slug> --target <suggested-slug> to attach the snapshot.
-After implementing the slice, merge the PR and run objective-reconcile
-<slug> on master. Run objective-update <slug> only if you are stacking a
-child branch before this branch lands.
+To proceed: write a plan file using <suggested-slug>, run
+brmem-create-branch, navigate to the new branch (your choice of tool),
+then run objective-claim. After implementing the slice, merge the PR and
+run objective-reconcile <slug> on master.
 ```
 
-If the freshness advisory fired, prepend a reminder to update the stale source
-branch before claiming a new slice.
+If the freshness advisory fired, prepend a reminder to update the stale
+current branch before creating the next slice branch.
 
 ## Edge Cases And Anti-Patterns
 
-- Detached `HEAD`: abort. Missing slug: only abort after Step 2a
-  inverse-discovery fails to resolve a unique slug.
-- Stale brmem refs for deleted branches: ignore them during ancestor
-  discovery.
+- Detached `HEAD`: abort. Missing slug: only abort after Step 2's
+  current-branch enumeration emits the master-aware empty-branch error.
 - Branch name does not equal slug. A branch named after a slice (e.g.,
   `pool-state-assignment-primitives`) commonly carries the parent
   objective's snapshot (e.g., `twerk-slots-cleanup`). Never derive the
   slug from the branch name; enumerate `<slug>/` keys with `brmem list`
-  instead.
-- Multiple ancestor candidates at the same nearest distance: list the tied
-  branches and ask.
-- Source has only the required content file: report that no optional progress
-  surface exists; fall back to progress guidance, or ask if the next slug is
-  ambiguous.
-- Canonical source: never run the freshness check; canonical rewrites go
-  through `objective-reconcile`, not `objective-update`.
-- Never auto-pick a slug, auto-resolve a collision, inspect source code for
-  drift, attach/carry forward a snapshot, or implement work during `next`.
+  on the current branch.
+- Multiple slugs on the current branch: legitimate when two unrelated
+  parent objectives are claimed on the same branch; list both and ask.
+- Source has only the required content file: report that no optional
+  progress surface exists; fall back to progress guidance, or ask if the
+  next slug is ambiguous.
+- Current branch is `master`: skip the freshness check; canonical rewrites
+  go through `objective-reconcile`, not `objective-update`. On master
+  with no slug, refuse to multi-pick — require an explicit slug.
+- Never auto-pick a slug from a multi-slug current branch, auto-resolve a
+  collision, inspect source code for drift, attach/carry forward a
+  snapshot, walk ancestors or canonical state outside the current branch,
+  or implement work during `next`.
