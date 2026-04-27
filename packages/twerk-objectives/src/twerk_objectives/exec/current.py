@@ -81,6 +81,7 @@ class _StackEntry:
     pr: _PRBlock | None
     pr_error: str | None
     deleted: bool
+    missing_on_master: bool = False
 
 
 def render_current_prompt(result: CurrentPrompt) -> None:
@@ -137,8 +138,17 @@ def run_current_objective(
         current_branch,
         trunk,
     )
+    in_scope_slug = current_block.objective.slug if current_block.objective is not None else None
     downstack = tuple(
-        _build_stack_entry(
+        _build_trunk_entry(
+            mctx.brmem_gateway,
+            mctx.git_gateway,
+            mctx.pr_gateway,
+            branch,
+            in_scope_slug,
+        )
+        if branch == trunk
+        else _build_stack_entry(
             mctx.brmem_gateway,
             mctx.git_gateway,
             mctx.pr_gateway,
@@ -269,6 +279,70 @@ def _build_stack_entry(
         pr=pr_block,
         pr_error=pr_error,
         deleted=not alive,
+    )
+
+
+def _build_trunk_entry(
+    gateway: BranchMemoryGateway,
+    git: GitGateway,
+    pr_gateway: PRGateway,
+    branch: str,
+    in_scope_slug: str | None,
+) -> _StackEntry:
+    """Trunk-row builder: filter to the current branch's in-scope objective.
+
+    Master is the canonical-objectives registry — every objective ever
+    created has its body/roadmap/notes blobs there — so the generic
+    "alphabetically-first slug" rule produces noise. From the trunk row
+    the user only cares about whether master's body for the slug they
+    are working on is fresh; any other slug stored on master is
+    irrelevant to the current orientation.
+    """
+    alive = git.branch_exists(branch)
+    pr_block, pr_error = _build_pr_block(pr_gateway.get_pr_for_branch(branch))
+
+    if in_scope_slug is None:
+        return _StackEntry(
+            branch=branch,
+            objective=None,
+            pr=pr_block,
+            pr_error=pr_error,
+            deleted=not alive,
+            missing_on_master=False,
+        )
+
+    body = gateway.get(OBJECTIVE_NAMESPACE, body_key(in_scope_slug), branch)
+    if body is None:
+        return _StackEntry(
+            branch=branch,
+            objective=_ObjectiveSummary(slug=in_scope_slug, obj_state="fresh"),
+            pr=pr_block,
+            pr_error=pr_error,
+            deleted=not alive,
+            missing_on_master=True,
+        )
+
+    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
+    body_last_touched = git.file_last_touched_iso(snapshot_ref, body_key(in_scope_slug))
+    # Trunk has no `master..master` range, so the patch-id signal is empty
+    # and `_max_author_iso` is always None. Use the trunk's head time as the
+    # freshness comparator instead — the question this row answers is
+    # "is master's body stale relative to master HEAD?".
+    branch_head_iso = git.branch_head_iso(branch) if alive else None
+    obj_state = classify_obj_state(
+        alive=alive,
+        snapshot_iso=body_last_touched,
+        branch_commit_pids=None,
+        absorbed_pids=None,
+        branch_max_author_iso=branch_head_iso,
+    )
+    return _StackEntry(
+        branch=branch,
+        objective=_ObjectiveSummary(slug=in_scope_slug, obj_state=obj_state),
+        pr=pr_block,
+        pr_error=pr_error,
+        deleted=not alive,
+        missing_on_master=False,
     )
 
 
@@ -410,6 +484,7 @@ def _format_stack_row(entry: _StackEntry, *, depth: int, is_trunk: bool) -> str:
         pr_error=entry.pr_error,
         objective=entry.objective,
         deleted=entry.deleted,
+        missing_on_master=entry.missing_on_master,
     )
     return f"{prefix}{label}"
 
@@ -458,9 +533,12 @@ def _stack_branch_label(
     pr_error: str | None,
     objective: _ObjectiveSummary | None,
     deleted: bool,
+    missing_on_master: bool = False,
 ) -> str:
     pr_part = _pr_label_part(pr, pr_error)
-    obj_part = _objective_label_part(objective, deleted=deleted)
+    obj_part = _objective_label_part(
+        objective, deleted=deleted, missing_on_master=missing_on_master
+    )
     return f"{branch}  {pr_part}  {obj_part}"
 
 
@@ -472,9 +550,16 @@ def _pr_label_part(pr: _PRBlock | None, pr_error: str | None) -> str:
     return "no PR"
 
 
-def _objective_label_part(objective: _ObjectiveSummary | None, *, deleted: bool) -> str:
+def _objective_label_part(
+    objective: _ObjectiveSummary | None,
+    *,
+    deleted: bool,
+    missing_on_master: bool = False,
+) -> str:
     if objective is None:
         return "no objective (deleted)" if deleted else "no objective"
+    if missing_on_master:
+        return f"{objective.slug} missing on master"
     freshness = "deleted" if deleted else objective.obj_state
     return f"{objective.slug} {freshness}"
 

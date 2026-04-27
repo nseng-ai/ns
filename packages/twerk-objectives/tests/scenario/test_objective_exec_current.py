@@ -346,3 +346,288 @@ def test_current_stack_map_shows_current_branch_only(cli_group: ClinkrGroup) -> 
         if line.strip() == "```"
     )
     assert fence_close_idx == current_line_idx + 1
+<<<<<<< HEAD
+=======
+
+
+def test_current_child_branch_deleted(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master",),
+                children=("feat/child-deleted",),
+                warnings=(),
+            )
+        },
+    )
+    obj = _make_obj(
+        branch="feat/current",
+        live_branches=("master", "feat/current"),  # feat/child-deleted not in branches
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "feat/child-deleted" in out
+    # Deleted branch carries the deleted marker in its label.
+    assert "feat/child-deleted  no PR  no objective (deleted)" in out
+
+
+def test_current_gt_failure_returns_warning_and_empty_stack(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={cwd: GtCommandFailure(message="not a gt repo", returncode=1)},
+    )
+    obj = _make_obj(
+        branch="feat/current",
+        live_branches=("feat/current",),
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "# On `feat/current`" in out
+    assert "> Warning: gt unavailable - stack walk skipped: `not a gt repo`" in out
+    # No downstack/upstack rows — only the current row in the tree.
+    assert "+- feat/parent" not in out
+
+
+def test_current_propagates_gt_log_warnings(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master",),
+                children=(),
+                warnings=("siblings off-column dropped",),
+            )
+        },
+    )
+    obj = _make_obj(
+        branch="feat/current",
+        live_branches=("master", "feat/current"),
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "> Warnings:" in out
+    assert "> - gt_log: siblings off-column dropped" in out
+
+
+def test_current_stack_entry_carries_objective_summary(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "feat/parent", "# Widget objective\n")
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master", "feat/parent"),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("master", "feat/parent", "feat/current"),
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "+- feat/parent  no PR  widget fresh" in out
+
+
+# ---------------------------------------------------------------------------
+# trunk-row in-scope filtering
+# ---------------------------------------------------------------------------
+#
+# Master is the canonical-objectives registry — every slug ever created has
+# its body/notes/roadmap stored under refs/brmem/ns/objectives/master/<slug>/.
+# The trunk row therefore reports the *current branch's claimed* slug as
+# seen on master, not whatever happens to sort first alphabetically among
+# master's accumulated registry entries.
+
+
+def test_current_trunk_row_shows_in_scope_objective(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    # Current claims widget; master also has widget's canonical body.
+    gateway.put("objectives", "widget/body.md", "feat/current", "# Widget\n")
+    gateway.put("objectives", "widget/body.md", "master", "# Widget canonical\n")
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master",),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    # Master's body is older than master HEAD → stale.
+    file_last_touched = {
+        ("refs/brmem/ns/objectives/master", "widget/body.md"): "2026-04-25T10:00:00+00:00",
+    }
+    branch_head_iso = {"master": "2026-04-26T10:00:00+00:00"}
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("master", "feat/current"),
+        gt_gateway=gt_gateway,
+        file_last_touched=file_last_touched,
+        branch_head_iso=branch_head_iso,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "\nmaster  no PR  widget stale\n" in out
+
+
+def test_current_trunk_row_in_scope_orphan_missing_on_master(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    # Current claims widget; master only has gizmo.
+    gateway.put("objectives", "widget/body.md", "feat/current", "# Widget\n")
+    gateway.put("objectives", "gizmo/body.md", "master", "# Gizmo canonical\n")
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master",),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("master", "feat/current"),
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "\nmaster  no PR  widget missing on master\n" in out
+    # Other master-side slugs must not leak through the trunk row.
+    assert "gizmo" not in out
+
+
+def test_current_trunk_row_filters_extras_when_master_has_many(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    # Current claims widget; master is the canonical registry for many.
+    gateway.put("objectives", "widget/body.md", "feat/current", "# Widget\n")
+    for slug in ("alpha", "bravo", "widget", "zulu"):
+        gateway.put("objectives", f"{slug}/body.md", "master", f"# {slug} canonical\n")
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master",),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("master", "feat/current"),
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "\nmaster  no PR  widget fresh\n" in out
+    # Other master-side slugs must NOT leak into the trunk row.
+    for extra in ("alpha", "bravo", "zulu"):
+        assert extra not in out
+
+
+def test_current_trunk_row_no_claim_shows_bare_trunk(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    # No claim on current; master is full of registry entries.
+    for slug in ("alpha", "bravo", "charlie"):
+        gateway.put("objectives", f"{slug}/body.md", "master", f"# {slug}\n")
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master",),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("master", "feat/current"),
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    # Bare trunk row: no slug surfaced — current claims nothing.
+    assert "\nmaster\n" in out
+    for slug in ("alpha", "bravo", "charlie"):
+        assert slug not in out
+
+
+def test_current_trunk_row_unaffected_by_intermediate_ancestors(cli_group: ClinkrGroup) -> None:
+    """Only the trunk row gets the in-scope filter; intermediate ancestors keep their own claims."""
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "feat/current", "# Widget\n")
+    # Intermediate parent claims a different slug; should still surface as
+    # parent's primary in the downstack row (not filtered to widget).
+    gateway.put("objectives", "gizmo/body.md", "feat/parent", "# Gizmo\n")
+    gateway.put("objectives", "widget/body.md", "master", "# Widget canonical\n")
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/current",
+                ancestors=("master", "feat/parent"),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("master", "feat/parent", "feat/current"),
+        gt_gateway=gt_gateway,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    assert "\nmaster  no PR  widget fresh\n" in out
+    assert "+- feat/parent  no PR  gizmo fresh" in out
+>>>>>>> d24c81c (Filter trunk row of `objective exec current` to the in-scope objective)
