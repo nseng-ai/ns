@@ -102,8 +102,9 @@ Evidence:
 
 Freshness rule:
 
-- If the maximum `head_date` across attached files is at-or-after branch
-  HEAD's commit time, print the in-sync message and do not write.
+- If the maximum `head_date` across attached files is at-or-after the
+  branch's max author date over `master..HEAD`, print the in-sync message
+  and do not write. Author date is rebase-stable; committer date is not.
 
 ### Canonical reconcile
 
@@ -162,7 +163,8 @@ Both rewrite modes follow the same shape:
 4. Load target files.
 5. Collect mode-specific evidence.
 6. Apply the shared conservative rewrite rules.
-7. `brmem put` only files that changed.
+7. `brmem put` only files that changed. "No rewrite" — every post-snapshot
+   commit is already documented — is a valid step-7 outcome.
 8. Report files touched, old SHA to new SHA, evidence consulted, and recovery
    commands.
 

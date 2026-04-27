@@ -120,13 +120,22 @@ brmem check <slug>/notes.md --namespace memjectives --format json
 Only run checks for files that exist. Take the maximum `.data.head_date`
 across present files.
 
-Read branch HEAD's commit time:
+Read the branch's latest author date since master:
 
 ```bash
-git log -1 --format=%cI HEAD
+git log --format=%aI master..HEAD | sort -r | head -1
 ```
 
-If the snapshot max `head_date` is at-or-after branch HEAD's commit time,
+Use **author** date over `master..HEAD`, not committer date over `HEAD`.
+`gt restack` and other pure rebases re-stamp committer time without moving
+author date, so this avoids false-stales after a restack. If `master..HEAD`
+is empty, treat the branch as in sync.
+
+Caveat: `git commit --amend --reset-author` does move author date. If this
+becomes a recurring source of false-stales, switch to patch-id bookkeeping
+(Change B, deferred).
+
+If the snapshot max `head_date` is at-or-after the branch's max author date,
 print:
 
 ```text
@@ -163,7 +172,21 @@ git log --since=<snapshot-head-date> --oneline HEAD
 The first command is usually enough; the second is useful when the snapshot
 was updated after the branch diverged.
 
-### 5. Rewrite conservatively
+### 5. Triage: net-new content?
+
+Before drafting edits, classify each commit collected in step 4:
+
+- **Already-documented** — subject and stat match a roadmap item that's
+  already checked off, or a `notes.md` section that already names the same
+  types/methods/tests. Typical causes: rebase with `--reset-author`, late
+  cherry-pick of an already-folded commit, squash-merge of a substack.
+- **Net-new** — introduces work not yet reflected in body/roadmap/notes.
+
+If every post-snapshot commit is already documented, skip steps 6–7 and
+report no-op at step 8. Do not draft "freshening" edits to a snapshot whose
+content already covers the work.
+
+### 6. Rewrite conservatively
 
 Apply the shared conservative rewrite rules in
 `../dev-memjective/references/mutation-contract.md`.
@@ -179,7 +202,7 @@ Typical update work:
 Do not regenerate files from the original brief, rename sections, delete
 history, or attach a missing snapshot.
 
-### 6. Persist changed files
+### 7. Persist changed files
 
 Write changed content to temporary files, then store only changed files back
 to the same branch snapshot:
@@ -192,7 +215,7 @@ brmem put <slug>/notes.md --namespace memjectives --file <temp-notes>
 
 Skip `brmem put` for unchanged files. Capture new commit SHAs.
 
-### 7. Report
+### 8. Report
 
 Include:
 
@@ -205,6 +228,14 @@ Include:
 ```text
 brmem get <slug>/<file> --namespace memjectives --at <old-sha>
 ```
+
+When no files were rewritten, report:
+
+- slug, branch
+- `snapshot already documents all post-snapshot commits`
+- the commit list checked, with a one-line rationale per commit (e.g.,
+  `<sha> <subject>` → matches Slice N already in `notes.md`)
+- the snapshot's current commit SHA so the user can audit / recover
 
 ## Edge Cases and Anti-Patterns
 
