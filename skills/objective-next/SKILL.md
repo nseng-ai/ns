@@ -12,6 +12,8 @@ allowed-tools:
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
   - "Read"
+  - "Write"           # session-plan stub for ExitPlanMode
+  - "ExitPlanMode"    # bounce out of plan mode before reporting
 ---
 
 # objective-next
@@ -43,7 +45,7 @@ checking freshness, discover which known files (`body.md`, `roadmap.md`,
 ## Inputs
 
 - **Slug, optional.** Parse the objective slug from the prompt when present.
-  Otherwise defer to Step 2's enumeration of slugs claimed on the current
+  Otherwise defer to Step 3's enumeration of slugs claimed on the current
   branch. Never infer a slug from the branch name; a branch commonly
   carries a parent objective whose slug differs from the branch's slice
   slug.
@@ -56,12 +58,16 @@ check it out first.
 
 - **Read-only.** Do not mutate brmem, git refs, branches, files, checkboxes,
   or the working tree.
+- **Plan-mode bypass.** When invoked inside the harness's plan mode,
+  exit plan mode first via the standard `ExitPlanMode` flow — this
+  skill is read-only and the plan-workflow ceremony has no payoff.
+  Details in Step 1 below.
 - **Content-only.** Do not inspect repo source files to audit progress.
   Implementation evidence is folded back later by `objective-update`.
 - **Current-branch-only source.** Always load the snapshot claimed on the
   current branch. There is no source cascade and no ancestor walk; if the
   current branch carries no claim, abort with the master-aware empty-branch
-  error in Step 2.
+  error in Step 3.
 - **No Graphite dependency.** Use raw git and brmem only.
 - **Collision-safe suggestion.** Check the suggested slice slug against local
   branches and canonical objective slugs. On collision, warn and ask;
@@ -69,7 +75,32 @@ check it out first.
 
 ## Workflow
 
-### 1. Preflight
+### 1. Plan-mode bypass (if active)
+
+If the current harness exposes plan mode and a writable session-plan
+path:
+
+1. Use `Write` to put a one-line session-plan at the harness-provided
+   session-plan path, e.g.:
+
+   ```
+   # /objective-next — read-only status peek
+   Run objective-next to inspect the current branch's objective
+   snapshot and suggest the next-slice slug. No mutations.
+   ```
+
+2. Call `ExitPlanMode`. The harness prompts the user for approval —
+   this is the "bounce out of plan mode" prompt.
+3. After approval, continue with Step 2 (Preflight). If the user
+   declines, abort the skill and tell the user to re-run
+   `/objective-next` outside plan mode (do not silently fall through
+   to the read-only flow inside plan mode — the user explicitly said
+   no, respect that).
+
+If plan mode is not active, skip this step entirely and start at
+Step 2.
+
+### 2. Preflight
 
 Confirm the repo and current branch:
 
@@ -79,9 +110,9 @@ git rev-parse --abbrev-ref HEAD
 ```
 
 Abort if not in a git repo or on detached `HEAD`. Slug presence is resolved
-in Step 2 from the current branch's claims.
+in Step 3 from the current branch's claims.
 
-### 2. Resolve the Slug from the Current Branch
+### 3. Resolve the Slug from the Current Branch
 
 Enumerate slugs claimed on the current branch:
 
@@ -120,14 +151,14 @@ The source for loading is always the current branch's snapshot; record the
 source label `current branch <branch>` and which known content files are
 present under `<slug>/`.
 
-### 3. Load the Content
+### 4. Load the Content
 
 Read the resolved content files with
 `brmem get <slug>/<file> --namespace objectives --branch <current>`.
 Interpret them using this skill's content inventory and the anatomy in
 `../objective/SKILL.md`.
 
-### 4. Check Freshness
+### 5. Check Freshness
 
 When the current branch is `master`, skip the freshness check (canonical
 storage's lifecycle is `objective-reconcile`, not `objective-update`).
@@ -146,7 +177,7 @@ If the relevant `head_sha` is reachable and cheap to compare, include the
 commit count behind; otherwise omit the count. The advisory is the important
 part.
 
-### 5. Report Status
+### 6. Report Status
 
 Keep the status report tight enough to verify at a glance:
 
@@ -158,7 +189,7 @@ Keep the status report tight enough to verify at a glance:
 - freshness advisory, if it fired
 - description/goals summary only when it adds signal
 
-### 6. Suggest the Next-Slice Slug
+### 7. Suggest the Next-Slice Slug
 
 Default to the first unchecked slice-like item that still fits the objective's
 progress guidance. If priority is non-obvious, present 2-3 candidate slugs with
@@ -182,7 +213,7 @@ brmem check <suggested-slug>/<required-content-file> --namespace objectives --br
 If either exists, warn and ask whether to pick another slug, append a suffix,
 or proceed anyway.
 
-### 7. Final Output
+### 8. Final Output
 
 Return:
 
@@ -203,7 +234,7 @@ current branch before creating the next slice branch.
 
 ## Edge Cases And Anti-Patterns
 
-- Detached `HEAD`: abort. Missing slug: only abort after Step 2's
+- Detached `HEAD`: abort. Missing slug: only abort after Step 3's
   current-branch enumeration emits the master-aware empty-branch error.
 - Branch name does not equal slug. A branch named after a slice (e.g.,
   `pool-state-assignment-primitives`) commonly carries the parent
