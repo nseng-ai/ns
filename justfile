@@ -51,10 +51,10 @@ refresh-nonslop:
 
 # Install slot, brmem, and objective as editable uv tools, and symlink affiliated
 # skills into ~/.claude/skills/ and ~/.codex/skills/ so both agents can discover them.
-# Note: brmem ships from twerk-core; objective ships from twerk-objectives.
+# Note: slot ships from twerk-slots; brmem ships from packages/brmem; objective ships from twerk-objectives.
 install-tools:
     uv tool install --force --editable {{justfile_directory()}}/packages/twerk-slots
-    uv tool install --force --editable {{justfile_directory()}}/packages/twerk-core
+    uv tool install --force --editable {{justfile_directory()}}/packages/brmem
     uv tool install --force --editable {{justfile_directory()}}/packages/twerk-objectives
     mkdir -p ~/.claude/skills ~/.codex/skills
     for skill in {{brmem_skills}}; do \
@@ -77,5 +77,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package twerk --package twerk-core --package twerk-dispatcher --package twerk-objectives --package twerk-pr-address --package twerk-reviewer --package twerk-slots
+    uv build --package twerk --package brmem --package twerk-core --package twerk-dispatcher --package twerk-objectives --package twerk-pr-address --package twerk-reviewer --package twerk-slots
     uv publish

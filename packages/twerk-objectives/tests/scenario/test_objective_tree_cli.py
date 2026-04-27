@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from twerk_core.brmem.fake import FakeBranchMemoryGateway
+from brmem.fake import FakeBranchMemoryGateway
 from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_gateway import PRGateway

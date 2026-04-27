@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
+from brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 
 MASTER_BRANCH = "master"

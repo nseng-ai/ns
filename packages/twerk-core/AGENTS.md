@@ -11,11 +11,10 @@ Each in-incubation subpackage owns its own `AGENTS.md` codifying allowed imports
 | `clinkr`   | (none — stdlib + click only) |
 | `git`      | (none — stdlib only)         |
 | `gh`       | (none — stdlib only)         |
-| `brmem`    | `clinkr`, `git`              |
 
 Dependencies are strictly one-way down the layer order; no upward or sideways imports.
 
-The graduation candidates are `clinkr` and `brmem`. `gh` and `git` follow the same internal-discipline convention but are gateway modules with narrower graduation paths.
+The graduation candidate is `clinkr`. `gh` and `git` follow the same internal-discipline convention but are gateway modules with narrower graduation paths.
 
 ## Universal labs rules
 

@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 import click
 
-from twerk_core.brmem.gateway import (
+from brmem.gateway import (
     BranchMemoryGateway,
     snapshot_ref_name,
 )
