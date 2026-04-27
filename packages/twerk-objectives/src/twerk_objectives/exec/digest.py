@@ -72,7 +72,7 @@ class BranchSnapshot(JsonSerializable):
     notes_md: str
     body_last_touched: str | None
     branch_head_iso: str | None
-    memj_state: ObjectiveSnapshotState
+    obj_state: ObjectiveSnapshotState
     pr_number: int | None
     pr_state: str | None
     pr_title: str | None
@@ -234,7 +234,7 @@ def _read_branch_snapshot(
     snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
     branch_head_iso = git.branch_head_iso(branch) if alive else None
-    memj_state = _classify_memj_state(
+    obj_state = _classify_obj_state(
         alive=alive,
         snapshot_iso=body_last_touched,
         branch_head_iso=branch_head_iso,
@@ -248,7 +248,7 @@ def _read_branch_snapshot(
         notes_md=notes_md,
         body_last_touched=body_last_touched,
         branch_head_iso=branch_head_iso,
-        memj_state=memj_state,
+        obj_state=obj_state,
         pr_number=pr_number,
         pr_state=pr_state,
         pr_title=pr_title,
@@ -268,7 +268,7 @@ def _pr_fields(
     return None, None, None, None, error
 
 
-def _classify_memj_state(
+def _classify_obj_state(
     *,
     alive: bool,
     snapshot_iso: str | None,

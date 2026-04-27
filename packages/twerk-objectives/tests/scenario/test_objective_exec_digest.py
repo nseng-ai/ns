@@ -300,8 +300,8 @@ def test_digest_happy_path_emits_raw_facts(cli_group: ClinkrGroup) -> None:
     assert layer_1["pr_title"] == "Migrate widget A to plugin"
     assert layer_1["pr_url"] == "https://example.com/pull/833"
     assert layer_1["pr_error"] is None
-    # No branch_head_iso seeded → memj_state defaults to "fresh".
-    assert layer_1["memj_state"] == "fresh"
+    # No branch_head_iso seeded → obj_state defaults to "fresh".
+    assert layer_1["obj_state"] == "fresh"
     assert layer_1["branch_head_iso"] is None
 
     groundwork = branches["widget-rewrite-groundwork"]
@@ -619,11 +619,11 @@ def test_digest_drift_failure_emits_warning_not_error(cli_group: ClinkrGroup) ->
 
 
 # ---------------------------------------------------------------------------
-# memj_state — fresh / stale / merged
+# obj_state — fresh / stale / merged
 # ---------------------------------------------------------------------------
 
 
-def test_digest_memj_state_fresh_when_snapshot_at_or_after_branch_head(
+def test_digest_obj_state_fresh_when_snapshot_at_or_after_branch_head(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = _seed_sole_objective_widget_rewrite()
@@ -649,11 +649,11 @@ def test_digest_memj_state_fresh_when_snapshot_at_or_after_branch_head(
 
     assert result.exit_code == 0, result.output
     by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
-    assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "fresh"
+    assert by_branch["widget-rewrite-layer-1"]["obj_state"] == "fresh"
     assert by_branch["widget-rewrite-layer-1"]["branch_head_iso"] == ("2026-04-26T20:54:00+00:00")
 
 
-def test_digest_memj_state_stale_when_branch_head_newer_than_snapshot(
+def test_digest_obj_state_stale_when_branch_head_newer_than_snapshot(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = _seed_sole_objective_widget_rewrite()
@@ -679,10 +679,10 @@ def test_digest_memj_state_stale_when_branch_head_newer_than_snapshot(
 
     assert result.exit_code == 0, result.output
     by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
-    assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "stale"
+    assert by_branch["widget-rewrite-layer-1"]["obj_state"] == "stale"
 
 
-def test_digest_memj_state_fresh_for_deleted_branch_regardless_of_head(
+def test_digest_obj_state_fresh_for_deleted_branch_regardless_of_head(
     cli_group: ClinkrGroup,
 ) -> None:
     """A deleted branch's snapshot is fresh by definition — its history is frozen."""
@@ -715,5 +715,5 @@ def test_digest_memj_state_fresh_for_deleted_branch_regardless_of_head(
     assert result.exit_code == 0, result.output
     by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
     assert by_branch["widget-rewrite-groundwork"]["deleted"] is True
-    assert by_branch["widget-rewrite-groundwork"]["memj_state"] == "fresh"
+    assert by_branch["widget-rewrite-groundwork"]["obj_state"] == "fresh"
     assert by_branch["widget-rewrite-groundwork"]["branch_head_iso"] is None
