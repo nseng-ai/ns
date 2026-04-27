@@ -125,9 +125,35 @@ no judgment.
 
 Inside `master.body_md`, locate the `## Description` section and the
 `## Out of scope` section (case-insensitive heading match; section runs
-until the next heading of equal or higher level). Compose one dense
-paragraph from those two sections. State the workstream's purpose and the
-boundary it sets. No bullet lists; no restating section headers.
+until the next heading of equal or higher level). Use them as input — do
+**not** restate them.
+
+Write **two to four sentences** that answer, in this order:
+
+1. **Value.** What gets better when this workstream lands? (Easier to
+   read, fewer foot-guns, faster onboarding, smaller blast radius for a
+   future change, etc.) Lead with the outcome, not the mechanic.
+2. **Approach.** The _shape_ of the work in one sentence — the strategy
+   that ties the slices together (e.g. "behavior-preserving cleanup
+   slices, each consolidating duplicated logic onto the module that owns
+   the invariant").
+3. **Boundary.** Optional short clause naming what's deliberately out of
+   scope, only when it sharpens the reader's mental model. Skip when the
+   workstream's scope is already clear from value + approach.
+
+Anti-patterns:
+
+- **Do not enumerate slices or list every cleanup the workstream does.**
+  The slice table already covers that. If the thesis reads like a tour of
+  the roadmap, rewrite it.
+- **No module paths, class names, function names, or API surface
+  details.** Those are implementation; they belong in **Key findings**,
+  not the thesis.
+- **No bullet lists, no sub-headings, no restating the source section
+  names** (`Description`, `Out of scope`).
+
+A new reader should finish the thesis knowing _why this work exists_ and
+_how it's being approached_ — not what each slice changes.
 
 ### 4. Compose **Key findings** (judgment)
 
@@ -170,7 +196,7 @@ section headings are locked):
 
 ## Thesis
 
-<one dense paragraph distilled in step 3>
+<2–4 sentences distilled in step 3 — value first, then approach, optional boundary clause>
 
 ## Slices
 
