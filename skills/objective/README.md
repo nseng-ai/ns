@@ -92,13 +92,17 @@ intend to implement.
 
 ```text
 gt create dashboard-revamp/data-layer
-objective-claim dashboard-revamp
+objective-claim
 ```
 
 `claim` attaches the objective to the new branch by copying an existing
-snapshot. For the first branch in this example, it copies the canonical
-record you just created. For a later branch in a stack, it copies from the
-nearest ancestor branch that already carries `dashboard-revamp`.
+snapshot. The slug is inferred from the parent branch's claimed objectives
+when unambiguous, so `objective-claim` with no argument is enough for the
+common case; pass `objective-claim <slug>` when the parent (or master, on
+fallback) carries multiple objectives. For the first branch in this
+example, the parent is `master` and it copies the canonical record you
+just created. For a later branch in a stack, it copies from the nearest
+ancestor branch that already carries `dashboard-revamp`.
 
 The copy is exact. On a newly created empty branch, no progress has been made
 yet toward the workstream, so there is nothing to summarize or merge. If the
@@ -137,7 +141,9 @@ from the right objective state.
 
 ## Rules Worth Remembering
 
-- Always name the slug explicitly. A branch can carry multiple objectives.
+- `claim` and `next` infer the slug when the parent or current branch
+  carries exactly one candidate. Pass `<slug>` explicitly when a branch
+  carries multiple objectives or master holds multiple canonicals.
 - `claim` copies exactly one source snapshot and does not edit while copying.
 - `update` is for stacked branch snapshots. `reconcile` is for `master`.
 - Branch snapshots are branch-local state, not shared truth.
