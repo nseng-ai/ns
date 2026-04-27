@@ -121,7 +121,7 @@ def test_memjective_plugin_integration() -> None:
     assert "exec" not in result.output
     result = runner.invoke(parent, ["memjective", "exec", "digest", "--help"])
     assert result.exit_code == 0, result.output
-    assert "Emit structured digest facts" in result.output
+    assert "Emit raw digest facts" in result.output
 
 
 def test_pr_address_plugin_integration() -> None:

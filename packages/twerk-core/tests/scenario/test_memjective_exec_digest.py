@@ -229,7 +229,7 @@ def test_digest_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_digest_happy_path_emits_full_contract(cli_group: ClinkrGroup) -> None:
+def test_digest_happy_path_emits_raw_facts(cli_group: ClinkrGroup) -> None:
     gateway = _seed_widget_rewrite()
     file_last_touched = {
         (
@@ -280,57 +280,35 @@ def test_digest_happy_path_emits_full_contract(cli_group: ClinkrGroup) -> None:
     data = payload["data"]
     assert data["slug"] == "widget-rewrite"
 
-    metadata = data["metadata"]
-    assert metadata["status_line"] == "in progress · 1 PRs open, 1 merged"
-    # Most-progressed (layer-1) has slice 1 fully checked; master has 0.
-    assert metadata["roadmap_line"] == "1 / 3 slices checked on branches · 0 / 3 on master"
-    assert metadata["completion_criteria_line"] == "0 / 3 met on branches · 0 / 3 on master"
-    assert "widget-rewrite-layer-1" in metadata["live_branches_line"]
-    assert "2026-04-26T20:54:00+00:00" in metadata["live_branches_line"]
-    assert "2026-04-26T06:52:00+00:00" in metadata["master_canonical_line"]
-    assert "reconcile pending — 1 merged PRs not yet folded in" in metadata["master_canonical_line"]
+    master = data["master"]
+    assert "Re-platform the widget pipeline" in master["body_md"]
+    assert "## Slice 1 — Plugin contract" in master["roadmap_md"]
+    assert master["notes_md"] == ""
+    assert master["body_last_touched"] == "2026-04-26T06:52:00+00:00"
 
-    thesis = data["thesis_inputs"]
-    assert "Re-platform the widget pipeline" in thesis["description_md"]
-    assert "legacy widget cache" in thesis["out_of_scope_md"]
+    branches = {b["branch"]: b for b in data["branches"]}
+    assert set(branches) == {"widget-rewrite-groundwork", "widget-rewrite-layer-1"}
 
-    slices = data["slices"]
-    assert [s["num"] for s in slices] == [1, 2, 3]
-    assert [s["title"] for s in slices] == [
-        "Plugin contract",
-        "Migrate built-in widgets",
-        "Drop legacy registry",
-    ]
-    assert slices[0]["checked_on_master"] is False
-    assert slices[0]["checked_on_most_progressed"] is True
-    assert slices[1]["checked_on_most_progressed"] is False
-    assert slices[0]["checked_by_branch"] == {
-        "widget-rewrite-groundwork": True,
-        "widget-rewrite-layer-1": True,
-    }
+    layer_1 = branches["widget-rewrite-layer-1"]
+    assert layer_1["deleted"] is False
+    assert "## Slice 2 — Migrate built-in widgets" in layer_1["roadmap_md"]
+    assert "- [x] Port widget A" in layer_1["roadmap_md"]
+    assert "plugin loader" in layer_1["notes_md"]
+    assert layer_1["body_last_touched"] == "2026-04-26T20:54:00+00:00"
+    assert layer_1["pr_number"] == 833
+    assert layer_1["pr_state"] == "OPEN"
+    assert layer_1["pr_title"] == "Migrate widget A to plugin"
+    assert layer_1["pr_url"] == "https://example.com/pull/833"
+    assert layer_1["pr_error"] is None
+    # No branch_head_iso seeded → memj_state defaults to "fresh".
+    assert layer_1["memj_state"] == "fresh"
+    assert layer_1["branch_head_iso"] is None
 
-    tree = data["tree"]
-    assert {entry["branch"] for entry in tree} == {
-        "widget-rewrite-groundwork",
-        "widget-rewrite-layer-1",
-    }
-    by_branch = {entry["branch"]: entry for entry in tree}
-    assert by_branch["widget-rewrite-layer-1"]["pr_number"] == 833
-    assert by_branch["widget-rewrite-layer-1"]["pr_state"] == "OPEN"
-    assert by_branch["widget-rewrite-layer-1"]["deleted"] is False
-    assert by_branch["widget-rewrite-groundwork"]["pr_state"] == "MERGED"
-    # No branch_head_iso seeded on the FakeGitGateway → memj_state defaults
-    # to "fresh" (insufficient info to mark stale).
-    assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "fresh"
-    assert by_branch["widget-rewrite-layer-1"]["branch_head_iso"] is None
+    groundwork = branches["widget-rewrite-groundwork"]
+    assert groundwork["pr_state"] == "MERGED"
+    assert groundwork["notes_md"] == ""
 
-    notes = data["findings_inputs"]["notes_by_branch"]
-    assert "widget-rewrite-layer-1" in notes
-    assert "plugin loader" in notes["widget-rewrite-layer-1"]
-
-    # No drift configured on the FakePRGateway → no warnings; drift no
-    # longer appears as a top-level field.
-    assert "drift_open_prs" not in data
+    assert data["unclaimed_pr_candidates"] == []
     assert data["warnings"] == []
 
 
@@ -447,19 +425,16 @@ def test_digest_seed_only_no_branches(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     data = payload["data"]
-    assert data["tree"] == []
-    assert "0 active" in data["metadata"]["live_branches_line"]
-    assert data["metadata"]["roadmap_line"] == (
-        "0 / 3 slices checked on branches · 0 / 3 on master"
-    )
+    assert data["branches"] == []
+    assert "Re-platform the widget pipeline" in data["master"]["body_md"]
 
 
 # ---------------------------------------------------------------------------
-# missing roadmap section on master
+# missing roadmap on master
 # ---------------------------------------------------------------------------
 
 
-def test_digest_missing_roadmap_warns(cli_group: ClinkrGroup) -> None:
+def test_digest_missing_roadmap_on_master_returns_empty_blob(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("memjectives", "no-roadmap/body.md", "master", _BODY_MASTER)
     # No roadmap.md on master.
@@ -479,8 +454,10 @@ def test_digest_missing_roadmap_warns(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     data = payload["data"]
-    assert data["slices"] == []
-    assert any(w.startswith("roadmap_missing_on_master") for w in data["warnings"])
+    # The skill decides what to render when roadmap is missing — the CLI
+    # just hands over the empty blob.
+    assert data["master"]["roadmap_md"] == ""
+    assert data["warnings"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -515,21 +492,17 @@ def test_digest_marks_deleted_branch(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    by_branch = {e["branch"]: e for e in payload["data"]["tree"]}
+    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
     assert by_branch["widget-rewrite-groundwork"]["deleted"] is True
     assert by_branch["widget-rewrite-layer-1"]["deleted"] is False
-    # +1 merged & deleted should appear in the live_branches_line.
-    assert "(+1 merged & deleted)" in payload["data"]["metadata"]["live_branches_line"]
 
 
 # ---------------------------------------------------------------------------
-# drift detection
+# unclaimed PR candidates (no markdown semantics)
 # ---------------------------------------------------------------------------
 
 
-def test_digest_drift_detection_emits_unclaimed_pr_warning(
-    cli_group: ClinkrGroup,
-) -> None:
+def test_digest_lists_open_prs_outside_snapshot_tree(cli_group: ClinkrGroup) -> None:
     gateway = _seed_widget_rewrite()
     drift_pr = _pr(
         number=999,
@@ -553,15 +526,46 @@ def test_digest_drift_detection_emits_unclaimed_pr_warning(
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    assert "drift_open_prs" not in payload["data"]
-    warnings = payload["data"]["warnings"]
-    assert any(
-        w.startswith("unclaimed_pr: PR #999 ") and "someone-else/cleanup-legacy" in w
-        for w in warnings
-    ), warnings
+    candidates = payload["data"]["unclaimed_pr_candidates"]
+    assert candidates == [
+        {
+            "number": 999,
+            "title": "WIP: drop legacy registry tests",
+            "url": "https://example.com/pull/999",
+            "head_ref": "someone-else/cleanup-legacy",
+        }
+    ]
+    assert payload["data"]["warnings"] == []
 
 
-def test_digest_no_drift_flag_skips_search(cli_group: ClinkrGroup) -> None:
+def test_digest_excludes_open_prs_already_in_snapshot_tree(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_widget_rewrite()
+    attached_pr = _pr(
+        number=833,
+        title="Migrate widget A to plugin",
+        url="https://example.com/pull/833",
+        state="OPEN",
+        head="widget-rewrite-layer-1",
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        pr_gateway=FakePRGateway(open_prs=(attached_pr,)),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["unclaimed_pr_candidates"] == []
+
+
+def test_digest_no_drift_flag_skips_unclaimed_lookup(cli_group: ClinkrGroup) -> None:
     gateway = _seed_widget_rewrite()
     drift_pr = _pr(
         number=999,
@@ -585,7 +589,7 @@ def test_digest_no_drift_flag_skips_search(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    assert "drift_open_prs" not in payload["data"]
+    assert payload["data"]["unclaimed_pr_candidates"] == []
     assert payload["data"]["warnings"] == []
 
 
@@ -611,7 +615,7 @@ def test_digest_drift_failure_emits_warning_not_error(cli_group: ClinkrGroup) ->
     assert result.exit_code == 0, result.output
     warnings = payload["data"]["warnings"]
     assert any(w.startswith("drift_check_skipped:") for w in warnings)
-    assert "drift_open_prs" not in payload["data"]
+    assert payload["data"]["unclaimed_pr_candidates"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -644,7 +648,7 @@ def test_digest_memj_state_fresh_when_snapshot_at_or_after_branch_head(
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    by_branch = {e["branch"]: e for e in payload["data"]["tree"]}
+    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
     assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "fresh"
     assert by_branch["widget-rewrite-layer-1"]["branch_head_iso"] == ("2026-04-26T20:54:00+00:00")
 
@@ -674,7 +678,7 @@ def test_digest_memj_state_stale_when_branch_head_newer_than_snapshot(
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    by_branch = {e["branch"]: e for e in payload["data"]["tree"]}
+    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
     assert by_branch["widget-rewrite-layer-1"]["memj_state"] == "stale"
 
 
@@ -709,7 +713,7 @@ def test_digest_memj_state_fresh_for_deleted_branch_regardless_of_head(
     payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    by_branch = {e["branch"]: e for e in payload["data"]["tree"]}
+    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
     assert by_branch["widget-rewrite-groundwork"]["deleted"] is True
     assert by_branch["widget-rewrite-groundwork"]["memj_state"] == "fresh"
     assert by_branch["widget-rewrite-groundwork"]["branch_head_iso"] is None
