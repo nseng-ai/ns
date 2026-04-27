@@ -74,8 +74,9 @@ Required fields:
 
 - `schema`: literal `stacker-handoff/v1`
 - `status`: one of `ok`, `failed`, or `question`
-- `branch`: branch or ref containing the slice result, or empty string
-  if no branch was created
+- `branch`: branch/ref containing the slice result; for commit series,
+  this is the target branch. Empty only for `failed`/`question` when no
+  result exists.
 - `head_sha`: resolved head SHA for `branch`, or empty string if none
 - `validation.command`
 - `validation.exit_code`
@@ -140,8 +141,8 @@ are true:
 - the resolved head equals `head_sha`,
 - the diff against the slice base passes a human diff skim.
 
-For commit-series runs, also confirm the reported `branch` is the run's
-target branch and the resolved head is a descendant of the slice base.
+For commit series, also confirm `branch` is the target branch and
+`head_sha` descends from the slice base.
 
 Optional constraints strengthen verification when present; they do not
 become mandatory plan-authoring requirements.

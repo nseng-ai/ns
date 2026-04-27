@@ -109,10 +109,8 @@ Use commits, not PR branches:
 - slice three: tighten error messages
 ```
 
-The same `stacker-slice-manifest/v1` shape is used. The coordinator
-records the run-level output shape as "commit series", resolves one
-target branch, and fills each slice's `base` with the target branch
-head before that slice starts. One normalized slice looks like:
+The coordinator records output shape `commit-series`, resolves one
+target branch, and uses the same manifest shape. Slice 1 might be:
 
 ```json
 {
@@ -127,7 +125,7 @@ head before that slice starts. One normalized slice looks like:
 }
 ```
 
-Later slices use the previous verified `head_sha` as their `base`.
+Later slices use the previous verified `head_sha` as `base`.
 
 ## Example 4: when to ask instead of default
 

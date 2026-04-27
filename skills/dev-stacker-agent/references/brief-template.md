@@ -22,23 +22,17 @@ is incomplete or contradictory, stop and report a blocking question.
 
 - Repo root: `[absolute-repo-root]`
 - Base ref resolved by coordinator: `[branch-or-ref-or-sha]`
-- Suggested branch name: `[suggested-branch-name or "not applicable"]`
-- Target branch: `[target-branch for commit series or "not applicable"]`
+- Branch/ref to report in handoff: `[new branch name | target branch]`
 - Suggested commit subject: `[suggested-commit-subject]`
 - Repo workflow notes: `[repo-specific workflow notes, such as Graphite
   conventions]`
 
-## Branch and commit instructions
+## Output Instructions
 
-Keep only the paragraph that matches the output shape.
-
-For a branch stack, create a fresh branch from the resolved base using
-the suggested branch name and commit subject.
-
-For a commit series, make sure the worktree is on the target branch and
-add one commit on top of the resolved base using the suggested commit
-subject. Do not create a per-slice branch and do not amend commits from
-earlier slices.
+`[Exact instruction from coordinator, including branch/ref name: create
+a fresh branch from the base, or stay on the target branch and add one
+new commit on top of the base. For commit series, do not create a
+per-slice branch or amend earlier slice commits.]`
 
 Use the repo's workflow conventions for branch creation, commit
 creation, and stack inspection. Do not push, submit, or open a PR.
