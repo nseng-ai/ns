@@ -110,6 +110,8 @@ def test_slot_help(cli_group: ClinkrGroup) -> None:
     assert "list" in result.output
     assert "checkout" in result.output
     assert "free" in result.output
+    assert "init" in result.output
+    assert "resize" in result.output
 
 
 def test_slot_list_help(cli_group: ClinkrGroup) -> None:

@@ -366,6 +366,21 @@ class RealGitGateway(GitGateway):
         _run(cmd, cwd=self._require_repo_root(), check=True)
         return WorktreeInfo(path=path, branch=branch, is_bare=False)
 
+    def add_detached_worktree(self, path: Path, ref: str) -> WorktreeInfo:
+        _run(
+            ["git", "worktree", "add", "--detach", str(path), ref],
+            cwd=self._require_repo_root(),
+            check=True,
+        )
+        return WorktreeInfo(path=path, branch=None, is_bare=False)
+
+    def remove_worktree(self, path: Path) -> None:
+        _run(
+            ["git", "worktree", "remove", str(path)],
+            cwd=self._require_repo_root(),
+            check=True,
+        )
+
     def checkout_branch(self, cwd: Path, branch: str) -> None:
         _run(["git", "checkout", branch], cwd=cwd, check=True)
 
