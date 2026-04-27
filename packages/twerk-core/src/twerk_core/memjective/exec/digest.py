@@ -43,7 +43,6 @@ from twerk_core.memjective.slug_resolution import (
     resolve_slug,
 )
 
-
 MemjectiveSnapshotState = Literal["fresh", "stale"]
 
 
@@ -302,7 +301,7 @@ def _collect_unclaimed_pr_candidates(
     Returns a ``drift_check_skipped:`` warning string on gateway failure;
     the caller routes either branch into the result.
     """
-    result = pr_gateway.search_open_prs("")
+    result = pr_gateway.search_prs("", state="open")
     if isinstance(result, PRLookupError):
         return f"drift_check_skipped: {result.stderr or 'gh pr list failed'}"
     return tuple(

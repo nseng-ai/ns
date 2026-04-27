@@ -515,7 +515,7 @@ def test_digest_lists_open_prs_outside_snapshot_tree(cli_group: ClinkrGroup) -> 
         gateway=gateway,
         branch="master",
         live_branches=("master", "widget-rewrite-layer-1"),
-        pr_gateway=FakePRGateway(open_prs=(drift_pr,)),
+        pr_gateway=FakePRGateway(prs=(drift_pr,)),
     )
 
     result = CliRunner().invoke(
@@ -551,7 +551,7 @@ def test_digest_excludes_open_prs_already_in_snapshot_tree(cli_group: ClinkrGrou
         gateway=gateway,
         branch="master",
         live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
-        pr_gateway=FakePRGateway(open_prs=(attached_pr,)),
+        pr_gateway=FakePRGateway(prs=(attached_pr,)),
     )
 
     result = CliRunner().invoke(
@@ -578,7 +578,7 @@ def test_digest_no_drift_flag_skips_unclaimed_lookup(cli_group: ClinkrGroup) -> 
         gateway=gateway,
         branch="master",
         live_branches=("master", "widget-rewrite-layer-1"),
-        pr_gateway=FakePRGateway(open_prs=(drift_pr,)),
+        pr_gateway=FakePRGateway(prs=(drift_pr,)),
     )
 
     result = CliRunner().invoke(

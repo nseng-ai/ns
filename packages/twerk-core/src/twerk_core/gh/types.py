@@ -13,6 +13,10 @@ PRReviewState = Literal["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED",
 # exactly one of these tokens.
 PRState = Literal["OPEN", "CLOSED", "MERGED"]
 
+# Filter value accepted by `gh pr list --state`. Lowercase, plus `all` which
+# isn't a real PR state but disables the filter.
+PRStateFilter = Literal["open", "closed", "merged", "all"]
+
 
 @dataclass(frozen=True)
 class PRReviewComment:

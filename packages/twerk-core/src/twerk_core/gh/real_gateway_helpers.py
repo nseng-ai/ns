@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import subprocess
 
-from twerk_core.gh.types import PRLookupError, PRState, PRSummary
+from twerk_core.gh.types import PRLookupError, PRState, PRStateFilter, PRSummary
 
 
 def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
@@ -46,15 +46,15 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
     )
 
 
-def search_open_prs(query: str) -> tuple[PRSummary, ...] | PRLookupError:
-    """Shell out to ``gh pr list --state open --search <query>``."""
+def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | PRLookupError:
+    """Shell out to ``gh pr list --state <state> --search <query>``."""
     result = subprocess.run(
         [
             "gh",
             "pr",
             "list",
             "--state",
-            "open",
+            state,
             "--search",
             query,
             "--json",
