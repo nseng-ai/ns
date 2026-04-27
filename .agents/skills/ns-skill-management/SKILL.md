@@ -106,24 +106,17 @@ GitHub-sourced skills do NOT get a `skills/<name>` entry.
 
 ### `skills-lock.json`
 
-Records one entry per installed skill:
+See `references/commands.md` § `skills-lock.json` schema for the full
+schema and example entries.
 
-```json
-{
-  "<name>": {
-    "source": "skills/<name>",
-    "sourceType": "local",
-    "computedHash": "<sha256>"
-  }
-}
-```
+nonslop-specific rules:
 
-`sourceType` is `"local"` for local skills and `"github"` for
-`<owner>/<repo>` sources. In nonslop, committed local entries always use
-the repo-relative `skills/<name>` form even if `npx skills add` wrote an
-absolute path during bootstrap. `computedHash` is captured at install
-time and is **not** auto-refreshed -- `npx skills check` only checks
-remote sources. A stale hash for a local skill is normal and harmless.
+- Committed local entries must use the repo-relative `skills/<name>`
+  form. If `npx skills add` captured an absolute path, normalize it
+  before commit.
+- `computedHash` is captured at install time and is not auto-refreshed
+  by `npx skills check`/`update` for local skills. A stale hash on a
+  local skill is harmless.
 
 ## Workflow
 
@@ -257,72 +250,28 @@ ls -la .agents/skills/           # local skills: symlinks; vendored: real dirs
 ls -la skills/                   # all local skills (real directories)
 ```
 
-**Known CLI quirk:** `npx skills check` and `npx skills update` do
-**not** detect stale local-skill state. Local skills are edited in-place
-and never need refreshing.
-
-**Known CLI quirk:** `npx skills add` without `-a` auto-detects every
-installed agent on the machine, including Windsurf (via
-`~/.codeium/windsurf`). Always pass `--agent codex claude-code -y`.
-
-**Known CLI quirk:** `npx skills add` is destructive on
-`.agents/skills/<name>` -- it calls `cleanAndCreateDirectory` then
-`copyDirectory` unconditionally. For local skills this replaces the
-symlink at `.agents/skills/<name>` with a real directory (a copy of the
-content from `skills/<name>/`). The canonical content in `skills/<name>/`
-is safe -- just re-create the symlink:
+See `references/commands.md` § Known CLI quirks for the full list.
+Recovery recipe for the destructive-`add` quirk (re-creates the symlink
+after `npx skills add` overwrites it with a copy):
 
 ```bash
 rm -rf .agents/skills/<name>
 ln -s ../../skills/<name> .agents/skills/<name>
 ```
 
-**Known CLI quirk:** `npx skills add` may also record an absolute local
-path in `skills-lock.json` for a local skill. In nonslop that value must
-be normalized back to `skills/<name>` before commit; `nonslop check`
-enforces the repo-relative form.
-
 ## Skill visibility
 
-All local skills live in `skills/` and are discoverable by external
-consumers via `npx skills add <owner>/<repo>`. To hide a skill from
-external discovery, add `metadata.internal: true` to the SKILL.md
-frontmatter:
-
-```yaml
----
-name: my-internal-skill
-description: An internal skill not shown by default
-metadata:
-  internal: true
----
-```
-
-Internal skills are hidden from `npx skills add --list` and the
-skills.sh leaderboard. Consumers must set `INSTALL_INTERNAL_SKILLS=1`
-to see and install them:
-
-```bash
-INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --list
-INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --skill <name> --agent codex claude-code -y
-```
-
-**Current classification:**
-
-| Skill                 | Visibility | `metadata.internal`? |
-| --------------------- | ---------- | -------------------- |
-| `ns-skill-management` | public     | no                   |
+To hide a local skill from external discovery, add
+`metadata.internal: true` to its `SKILL.md` frontmatter. See
+`references/commands.md` § Skill visibility for the frontmatter shape
+and the `INSTALL_INTERNAL_SKILLS=1` consumer flow.
 
 ## Anti-patterns
 
-- Passing `--copy` -- defeats the symlink flow entirely.
-- Passing `--agent claude-code` alone -- only creates the
-  `.claude/skills/` symlink without populating `.agents/skills/`,
-  breaking the universal-cache chain.
-- Omitting `-a` entirely -- installs `.windsurf/skills/<name>` as a
-  side effect, which you then have to clean up.
-- Maintaining a duplicate skill index in `AGENTS.md` -- installed
-  skills are discovered natively from on-disk state and frontmatter.
+The `## Core rules` section above is the primary do/don't list. The
+bullets below are failure modes specific to bootstrap and lifecycle
+operations, not covered by the core rules:
+
 - Leaving `.agents/skills/<name>` as a real directory for a local skill
   after bootstrap -- replace it with a symlink to `../../skills/<name>`.
 - Committing an absolute machine-specific local path in

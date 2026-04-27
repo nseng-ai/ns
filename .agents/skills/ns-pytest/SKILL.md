@@ -9,14 +9,6 @@ Low-level style guide for writing pytest tests. Covers the mechanics
 — fixtures, classes, markers, mocking, setup patterns — that sit underneath
 the architectural guidance in `ns-py-fake-driven-testing`.
 
-## Philosophy
-
-Tests are boring, explicit, and locally readable. If you have to trace
-through `conftest.py` files and fixtures to understand what a test does,
-you've gone wrong. A test should read top-to-bottom like a short story
-with no flashbacks: set up the scenario in the test body (or a helper
-called from the test body), do the thing, assert what you expected.
-
 ## Relationship to ns-py-fake-driven-testing
 
 `ns-py-fake-driven-testing` is the higher-level, more opinionated skill. It
@@ -27,12 +19,6 @@ the test_ once you've made those decisions. The two compose: use
 `ns-py-fake-driven-testing` to design the test, use `ns-pytest` to write
 the Python. When the two seem to conflict, `ns-py-fake-driven-testing` wins on
 architecture and `ns-pytest` wins on pytest mechanics.
-
-Some tests inside the ns-py-fake-driven-testing stack legitimately need
-`unittest.mock.patch` (e.g. the thin boundary tests that exercise a
-gateway's real implementation against the stdlib). The mocking section
-below is written for exactly those cases, not as a general license to
-reach for mocks.
 
 ## Style: functional only
 
@@ -55,12 +41,9 @@ def test_discover_group_errors_wrong_return_type() -> None:
     ...
 ```
 
-The class wrapper adds indentation, a useless `self` parameter, and a
-second naming layer, and it makes test discovery output harder to skim.
-If you find yourself wanting a class to group related tests, use a
-shared prefix in the function names instead (`test_discover_group_*`)
-and put them next to each other in the file. That's all the grouping
-you need.
+Class wrappers add indentation, a useless `self`, and clutter discovery
+output; group related tests with a shared name prefix
+(`test_discover_group_*`) and put them next to each other instead.
 
 ## The reliable subset
 
@@ -136,45 +119,16 @@ def test_discover_group_basic() -> None:
     ...
 ```
 
-This is the pattern to promote over yield fixtures.
-
 ### 3. Fixtures (only for expensive shared resources)
 
-Reach for `@pytest.fixture` only when **both** of these are true:
-
-1. The resource is genuinely expensive to construct (CLI discovery,
-   test database, large file).
-2. The resource is shared across many tests in the same module or session.
-
-When you do use a fixture, give it `scope="module"` or `scope="session"`.
-Never use function-scoped fixtures as a convenience wrapper around a
-helper function — that's anti-pattern (3) in the next section.
-
-Fixtures should not have a `yield` unless they actually need to tear
-down the resource at the end of the scope. If there's nothing to clean
-up, just `return`.
-
-```python
-@pytest.fixture(scope="module")
-def cli_group() -> CliGroup:
-    return discover_group("myapp.cli.commands")
-
-def test_command_list(cli_group: CliGroup) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli_group, ["list"])
-    assert result.exit_code == 0
-```
-
-This is the shape every fixture should have: one fixture, scoped to the
-module, shared across several tests, wrapping an expensive discovery
-call, no yield.
+Reach for `@pytest.fixture` only when the resource is genuinely
+expensive to construct AND shared across many tests in the same module
+or session. See `references/fixtures.md` for scope rules and the
+canonical fixture shape.
 
 ## Mocking best practice
 
-Mocking is allowed. Sometimes it is exactly what you need — thin boundary
-tests, stdlib seams, code where the gateway/fake approach from
-`ns-py-fake-driven-testing` is the wrong tool for the job. When you do reach
-for a mock, follow these rules.
+When you reach for a mock, follow these rules.
 
 ### Prefer `monkeypatch` for simple swaps
 
@@ -276,11 +230,9 @@ more `patch` calls.
 
 ### `pytest-mock` / `mocker` fixture
 
-The `pytest-mock` plugin provides a `mocker` fixture that is essentially
-`unittest.mock.patch` with automatic teardown. The context-manager form
-of `patch` is already clean and its scope is already visible, so
-`pytest-mock` is not required. If the project already uses it, fine;
-don't introduce it just for convenience.
+`pytest-mock` is not required; the context-manager `patch` form is
+already clean. If the project already uses it, fine; don't introduce it
+just for convenience.
 
 ## Anti-patterns
 

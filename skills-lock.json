@@ -36,41 +36,6 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
-    "objective": {
-      "source": "skills/objective",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-claim": {
-      "source": "skills/objective-claim",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-create": {
-      "source": "skills/objective-create",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-digest": {
-      "source": "skills/objective-digest",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-next": {
-      "source": "skills/objective-next",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-reconcile": {
-      "source": "skills/objective-reconcile",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-update": {
-      "source": "skills/objective-update",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
     "dev-plan-to-branch": {
       "source": "skills/dev-plan-to-branch",
       "sourceType": "local",
@@ -119,17 +84,17 @@
     "ns-py-fake-driven-testing": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "e04d19c1895942e6eea284289516f504125cb0773b8ce1adb1837df75ecb616a"
+      "computedHash": "668da2d7e3596c8759a5521ac88b4c079a13e54ca5effcd956c6bca10ce31788"
     },
     "ns-pytest": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "2147522e7381780d391ac8bb10922af6438d67a2dccb3f6b7b7683c362acf949"
+      "computedHash": "42447813df7ee7c740aa4062e0a290c639e1f9608280dd89fe93beae42f7a666"
     },
     "ns-refac-cli-push-down": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "af6cb6103f7f6c62784b633da4b806e4d83864efd7c81f06d8b66e0f3c4a993f"
+      "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
     },
     "ns-refactor-swarm": {
       "source": "nseng-ai/nonslop",
@@ -154,7 +119,7 @@
     "ns-skill-management": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
-      "computedHash": "716d8e0930b191fa14d83173dd4e9beacba4fe5c15252659f7d20dbef8a7b218"
+      "computedHash": "c742652d181932a368d08331686b4e28052a6b27ae7f12f2509e1118a56b8b99"
     },
     "ns-skillx": {
       "source": "nseng-ai/nonslop",
@@ -165,6 +130,41 @@
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
       "computedHash": "b46238d4c9f4f40df3781a4a9688b28ba0e17aece4f38b4c141e9c458ab33eae"
+    },
+    "objective": {
+      "source": "skills/objective",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "objective-claim": {
+      "source": "skills/objective-claim",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "objective-create": {
+      "source": "skills/objective-create",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "objective-digest": {
+      "source": "skills/objective-digest",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "objective-next": {
+      "source": "skills/objective-next",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "objective-reconcile": {
+      "source": "skills/objective-reconcile",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "objective-update": {
+      "source": "skills/objective-update",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
     },
     "pr-address": {
       "source": "skills/pr-address",
