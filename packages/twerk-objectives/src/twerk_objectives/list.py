@@ -14,13 +14,13 @@ from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.objective.context import ObjectiveCliContext
-from twerk_core.objective.discovery import (
+from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.discovery import (
     ObjectiveRepoEntry,
     discover_objectives,
     slug_for_key,
 )
-from twerk_core.objective.gateway_access import (
+from twerk_objectives.gateway_access import (
     OBJECTIVE_NAMESPACE,
     resolve_current_objective_branch,
 )

@@ -12,8 +12,8 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.objective.context import ObjectiveCliContext
-from twerk_core.objective.main import build_cli
+from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.main import build_cli
 
 
 @pytest.fixture(scope="module")

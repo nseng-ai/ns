@@ -16,16 +16,16 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.objective.context import ObjectiveCliContext
-from twerk_core.objective.discovery import (
+from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.discovery import (
     BODY_FILE,
     MASTER_BRANCH,
     NOTES_FILE,
     ROADMAP_FILE,
     BranchPresence,
 )
-from twerk_core.objective.gateway_access import OBJECTIVE_NAMESPACE
-from twerk_core.objective.slug_resolution import (
+from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
     SlugResolution,

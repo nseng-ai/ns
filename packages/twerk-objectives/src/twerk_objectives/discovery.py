@@ -14,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from twerk_core.brmem.gateway import BranchMemoryGateway, EntryRef
-from twerk_core.objective.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 
 MASTER_BRANCH = "master"
 

@@ -31,10 +31,10 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import PRLookupError, PRState
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.objective.context import ObjectiveCliContext
-from twerk_core.objective.discovery import MASTER_BRANCH
-from twerk_core.objective.gateway_access import OBJECTIVE_NAMESPACE
-from twerk_core.objective.slug_resolution import (
+from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.discovery import MASTER_BRANCH
+from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
     SlugResolution,
