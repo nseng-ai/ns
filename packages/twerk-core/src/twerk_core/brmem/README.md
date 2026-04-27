@@ -8,8 +8,14 @@ that branch until a tool deliberately reads, copies, updates, or deletes it.
 It is useful for records such as:
 
 - a plan or handoff note created before implementation starts
-- a memjective snapshot attached to a branch
+- a memjective snapshot attached to a branch (_memjective_ is a codename for
+  the higher-level branch-planning system built on `brmem`)
 - a repo-specific prompt override used by a skill
+- an agent session summary captured for later harvesting
+- "lessons learned" notes from an agent session, kept on the branch that
+  produced them
+- context handed to a remote dispatch system, e.g. a GitHub Actions job that
+  needs the same branch-scoped state the local agent had
 - small text state that should survive across sessions but not become source
   code
 
@@ -191,6 +197,25 @@ its local branch workflow.
   `--overwrite` deliberately.
 - Prompt plugins should customize one explicit repo-specific decision, not
   become a second skill.
+
+## Prior Art
+
+Using git refs as a side-channel store — separate from commits on a branch
+but still part of the repository — is a well-trodden pattern:
+
+- **git itself** ships `git notes`, which attaches arbitrary text to commits
+  via refs under `refs/notes/*` without rewriting history.
+- **Gerrit** stores code-review metadata (changes, patch sets, reviewer state)
+  in refs such as `refs/changes/*` and `refs/meta/*` rather than in the
+  branches under review.
+- **Graphite** keeps stack metadata in refs under `refs/branch-metadata/*` so
+  that stack relationships travel with the repo without polluting branch
+  history.
+
+`brmem` applies the same idea to branch-scoped agent state: the storage lives
+in refs (under `refs/brmem/<namespace>/<encoded-branch>:<key>`) so it is
+durable, inspectable, and pushable, but stays out of commits, PRs, and the
+working tree.
 
 ## See Also
 
