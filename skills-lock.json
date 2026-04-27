@@ -66,6 +66,11 @@
       "sourceType": "local",
       "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
     },
+    "dev-quick-commit": {
+      "source": "skills/dev-quick-commit",
+      "sourceType": "local",
+      "computedHash": "244542b3fa8a55dfe227338f75269eb99134ec8851a44a62ed7769d0dbac3ccb"
+    },
     "dev-stacker-agent": {
       "source": "skills/dev-stacker-agent",
       "sourceType": "local",

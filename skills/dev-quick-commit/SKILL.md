@@ -1,0 +1,94 @@
+---
+name: dev-quick-commit
+description: Command
+allowed-tools:
+  - "Bash(git status:*)"
+  - "Bash(git diff:*)"
+  - "Bash(git add:*)"
+  - "Bash(git commit:*)"
+  - "Bash(git rev-parse:*)"
+  - "Bash(git symbolic-ref:*)"
+  - "Bash(git log:*)"
+  - "Agent"
+metadata:
+  internal: true
+---
+
+<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+
+# dev-quick-commit
+
+Stage everything on the current branch and create a single new commit with a Haiku-generated three-bullet message. Replaces ad-hoc `git commit -a -m cp` checkpoints with something a later agent can scan in `git log` without reopening the diff.
+
+## When to use
+
+Quick checkpoints where you would otherwise type `git commit -a -m cp` (or similar throwaway message). The audience for the message is other agents reading `git log`, not humans reading PR descriptions — _minimally_ informative is the goal, not polished.
+
+Do **not** use this for milestone commits, PR-ready commits, or anything that will be the head of a submitted branch. Write those messages yourself.
+
+## Workflow
+
+### 1. Pre-flight
+
+- `git symbolic-ref --short HEAD` — refuse if the branch is `main` or `master`. Report the branch and stop.
+- `git status --porcelain` — refuse if the working tree is clean (nothing to commit).
+
+### 2. Capture pending state
+
+- `git diff HEAD` — tracked changes.
+- `git status --porcelain` — enumerates untracked files. `git add -A` will include them, but they will not appear in `git diff HEAD`, so the subagent needs the filenames separately.
+- If the combined output is unusually large (>~50 KB), warn the user once and ask whether to continue. Quick-commit is for small checkpoints; large ones deserve a real message.
+
+### 3. Generate message via Haiku subagent
+
+Spawn an `Agent` subagent with:
+
+- `subagent_type: "general-purpose"`
+- `model: "haiku"`
+
+Pass this prompt verbatim, substituting the captured diff and untracked-file list:
+
+```
+Summarize this git diff as a commit message. Output exactly: one short
+subject line (≤60 chars, imperative mood, no trailing period), a blank
+line, then 1–3 bullets starting with `- `. No prose paragraphs, no
+markdown headers, no Co-Authored-By trailer, no closing remarks.
+
+Diff:
+<git diff HEAD output>
+
+Untracked files to be added:
+<filenames from git status --porcelain>
+```
+
+Receive the returned message verbatim. The main session model does **not** paraphrase, reformat, or "improve" it — that defeats the purpose of dropping to Haiku.
+
+### 4. Stage and commit
+
+- `git add -A` to stage tracked + untracked changes.
+- Create the commit using the HEREDOC form so bullet formatting survives:
+
+  ```
+  git commit -m "$(cat <<'EOF'
+  <subject line>
+
+  - <bullet 1>
+  - <bullet 2>
+  - <bullet 3>
+  EOF
+  )"
+  ```
+
+- No `--amend`. No `--no-verify`. If a pre-commit hook fails, surface the hook output to the user and stop — do not retry, do not amend, do not bypass.
+
+### 5. Report
+
+Print `git log -1 --oneline` followed by the full commit message body. Nothing else.
+
+## Rules
+
+- Never run on `main` or `master`.
+- Never `--amend`. Never `--no-verify`.
+- Haiku writes the message; the main session model does not paraphrase or rewrite it.
+- Three bullets is the cap, not the floor — one bullet is fine for a small diff.
+- No `Co-Authored-By:` trailer. Quick-commits are kept terse for `git log` scanning; if a checkpoint needs attribution, write the commit by hand instead.
