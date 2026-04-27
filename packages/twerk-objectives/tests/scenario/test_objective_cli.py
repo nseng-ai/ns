@@ -12,6 +12,7 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
+from twerk_core.gt.testing import FakeGtGateway
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -39,6 +40,7 @@ def _make_obj(
         brmem_gateway=brmem_gateway,
         git_gateway=git_gateway,
         pr_gateway=FakePRGateway(),
+        gt_gateway=FakeGtGateway(),
     )
     return build_clinkr_context_object(lambda: ctx)
 

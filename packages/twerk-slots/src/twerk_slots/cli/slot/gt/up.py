@@ -9,6 +9,7 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead
 from twerk_core.git.types import GitCommandFailure as GitFailure
+from twerk_core.gt.types import GtCommandFailure, UntrackedBranch
 from twerk_slots.cli.slot.gt.context import SlotGtContext, load_slot_gt_context
 from twerk_slots.cli.slot.gt.navigation import (
     GtNavigationTarget,
@@ -16,7 +17,6 @@ from twerk_slots.cli.slot.gt.navigation import (
     find_worktree_for_branch,
     render_gt_navigation,
 )
-from twerk_slots.cli.slot.gt.types import GtCommandFailure, UntrackedBranch
 from twerk_slots.repo_context import NoRepoSentinel
 
 

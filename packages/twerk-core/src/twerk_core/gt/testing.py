@@ -2,20 +2,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from twerk_slots.cli.slot.gt.gateway import GtGateway
-from twerk_slots.cli.slot.gt.types import (
+from twerk_core.gt.gateway import GtGateway
+from twerk_core.gt.types import (
     GtBranchInfo,
     GtCommandFailure,
     NoParent,
+    StackInfo,
     UntrackedBranch,
 )
 
 ParentResult = str | NoParent | UntrackedBranch | GtCommandFailure
 ChildrenResult = tuple[str, ...] | UntrackedBranch | GtCommandFailure
+StackResult = StackInfo | GtCommandFailure
 
 
 class FakeGtGateway(GtGateway):
-    """Constructor-seeded fake for ``slot gt`` tests."""
+    """Constructor-seeded fake for Graphite-driven tests."""
 
     def __init__(
         self,
@@ -30,6 +32,8 @@ class FakeGtGateway(GtGateway):
         | None = None,
         restack_failure_by_branch: dict[str, GtCommandFailure] | None = None,
         sync_failure: GtCommandFailure | None = None,
+        stack_by_cwd: dict[Path, StackResult] | None = None,
+        stack_by_branch: dict[str, StackResult] | None = None,
     ) -> None:
         self._parent_by_cwd = dict(parent_by_cwd or {})
         self._parent_by_branch = dict(parent_by_branch or {})
@@ -40,12 +44,15 @@ class FakeGtGateway(GtGateway):
         self._branch_info_by_cwd = dict(branch_info_by_cwd or {})
         self._restack_failure_by_branch = dict(restack_failure_by_branch or {})
         self._sync_failure = sync_failure
+        self._stack_by_cwd = dict(stack_by_cwd or {})
+        self._stack_by_branch = dict(stack_by_branch or {})
         self._parent_calls: list[Path] = []
         self._children_calls: list[Path] = []
         self._trunk_calls: list[Path] = []
         self._branch_info_calls: list[Path] = []
         self._restack_calls: list[tuple[Path, str]] = []
         self._sync_calls: list[tuple[Path, bool]] = []
+        self._stack_calls: list[Path] = []
 
     def _branch_for_cwd(self, cwd: Path) -> str | None:
         return self._branch_by_cwd.get(cwd)
@@ -84,6 +91,22 @@ class FakeGtGateway(GtGateway):
         self._sync_calls.append((cwd, restack))
         return self._sync_failure
 
+    def stack(self, cwd: Path) -> StackInfo | GtCommandFailure:
+        self._stack_calls.append(cwd)
+        if cwd in self._stack_by_cwd:
+            return self._stack_by_cwd[cwd]
+        branch = self._branch_for_cwd(cwd)
+        if branch is not None and branch in self._stack_by_branch:
+            return self._stack_by_branch[branch]
+        trunk_name = self._trunk if isinstance(self._trunk, str) else "main"
+        return StackInfo(
+            trunk=trunk_name,
+            current=branch,
+            ancestors=(),
+            children=(),
+            warnings=(),
+        )
+
     @property
     def parent_calls(self) -> tuple[Path, ...]:
         return tuple(self._parent_calls)
@@ -99,3 +122,7 @@ class FakeGtGateway(GtGateway):
     @property
     def sync_calls(self) -> tuple[tuple[Path, bool], ...]:
         return tuple(self._sync_calls)
+
+    @property
+    def stack_calls(self) -> tuple[Path, ...]:
+        return tuple(self._stack_calls)

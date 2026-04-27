@@ -11,7 +11,7 @@ This operation never parses Markdown.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Literal
+from typing import Annotated
 
 import click
 
@@ -35,6 +35,7 @@ from twerk_objectives.discovery import (
     notes_key,
     roadmap_key,
 )
+from twerk_objectives.freshness import ObjectiveSnapshotState, classify_obj_state
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
@@ -42,8 +43,6 @@ from twerk_objectives.slug_resolution import (
     SlugResolution,
     resolve_slug,
 )
-
-ObjectiveSnapshotState = Literal["fresh", "stale"]
 
 
 @dataclass(frozen=True)
@@ -236,7 +235,7 @@ def _read_branch_snapshot(
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
     branch_head_iso = git.branch_head_iso(branch) if alive else None
     branch_max_author_iso = _max_author_iso(git, branch) if alive else None
-    obj_state = _classify_obj_state(
+    obj_state = classify_obj_state(
         alive=alive,
         snapshot_iso=body_last_touched,
         branch_max_author_iso=branch_max_author_iso,
@@ -283,34 +282,6 @@ def _pr_fields(
     # other codes are real failures worth surfacing.
     error = pr_result.stderr if pr_result.returncode != 1 else None
     return None, None, None, None, error
-
-
-def _classify_obj_state(
-    *,
-    alive: bool,
-    snapshot_iso: str | None,
-    branch_max_author_iso: str | None,
-) -> ObjectiveSnapshotState:
-    """Classify a snapshot as ``"fresh"`` or ``"stale"``.
-
-    A deleted branch (post-merge) is fresh by definition: its history is
-    frozen, so the snapshot can no longer drift. For live branches,
-    compare the latest author timestamp on ``master..branch`` against the
-    snapshot's last-write timestamp lexically — stale only when both are
-    known and the newest author time is strictly newer than the snapshot.
-
-    Author time (``%aI``) is preserved by ``gt restack`` while committer
-    time (``%cI``) is rewritten, so this signal does not flap on restacks
-    that produce no net-new commits and stays aligned with
-    ``objective exec update-precheck``.
-    """
-    if not alive:
-        return "fresh"
-    if snapshot_iso is None or branch_max_author_iso is None:
-        return "fresh"
-    if branch_max_author_iso > snapshot_iso:
-        return "stale"
-    return "fresh"
 
 
 def _collect_unclaimed_pr_candidates(
