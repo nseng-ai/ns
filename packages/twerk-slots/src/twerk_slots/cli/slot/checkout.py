@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,7 +35,7 @@ def _complete_branch_name(ctx: click.Context, param: click.Parameter, incomplete
         return []
     try:
         branches = RealGitGateway(repo_root=repo_root).list_local_branches()
-    except Exception:
+    except (subprocess.CalledProcessError, OSError):
         return []
     return [b for b in branches if b.startswith(incomplete)]
 
