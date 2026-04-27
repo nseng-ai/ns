@@ -118,19 +118,18 @@ def test_claude_code_build_argv_text_mode_omits_json_schema() -> None:
 
 
 @pytest.mark.parametrize("review_format", ["findings", "text"])
-def test_claude_code_build_argv_terminates_options_before_prompt(
+def test_claude_code_build_argv_omits_prompt_positional(
     review_format: ReviewFormat,
 ) -> None:
-    """Regression: `--tools` is variadic. Without a `--` separator the
-    variadic consumes the prompt positional and claude exits with
-    'Input must be provided either through stdin or as a prompt argument'.
+    """Regression: the user prompt must be fed via stdin, not argv. Inlining
+    a large diff into argv blows past the kernel's ARG_MAX (E2BIG).
     """
     argv = CLAUDE_CODE_ADAPTER.build_argv(
         _request(prompt="PROMPT_BODY", review_format=review_format)
     )
 
-    assert argv[-2] == "--"
-    assert argv[-1] == "PROMPT_BODY"
+    assert "PROMPT_BODY" not in argv
+    assert "--" not in argv
 
 
 @pytest.mark.parametrize("review_format", ["findings", "text"])
@@ -151,6 +150,15 @@ def test_claude_code_build_argv_no_positional_follows_tools_flag(
         f"Token after --tools <value> must start with `-` to terminate the "
         f"variadic. Got {next_token!r}."
     )
+
+
+@pytest.mark.parametrize("review_format", ["findings", "text"])
+def test_claude_code_build_stdin_returns_prompt(
+    review_format: ReviewFormat,
+) -> None:
+    request = _request(prompt="PROMPT_BODY", review_format=review_format)
+
+    assert CLAUDE_CODE_ADAPTER.build_stdin(request) == "PROMPT_BODY"
 
 
 @pytest.mark.parametrize(
