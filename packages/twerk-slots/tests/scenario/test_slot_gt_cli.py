@@ -10,13 +10,13 @@ from click.testing import CliRunner
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.gh.types import PRCheck, PRDetails
+from twerk_core.gh.types import PRCommandError, PRDetails
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
 from twerk_slots.cli.main import build_cli
 from twerk_slots.cli.slot.gt.context import SlotGtContext
 from twerk_slots.cli.slot.gt.testing import FakeGtGateway
-from twerk_slots.cli.slot.gt.types import GtCommandFailure, UntrackedBranch
+from twerk_slots.cli.slot.gt.types import UntrackedBranch
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,
@@ -298,65 +298,21 @@ def test_slot_gt_land_dry_run_plans_bottom_pr(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    main_path = (tmp_path / "repo").resolve()
-    base_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
-    child_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-02"
-    assignments = (
-        SlotAssignment("slot-01", "feat/base", "now", base_path),
-        SlotAssignment("slot-02", "feat/child", "now", child_path),
-    )
-    pr = PRDetails(
-        number=123,
-        url="https://github.example/pr/123",
-        head_ref_name="feat/base",
-        base_ref_name="main",
-        state="OPEN",
-        head_ref_oid="feat/base-oid",
-        mergeable="MERGEABLE",
-        merge_state_status="CLEAN",
-        is_draft=False,
-    )
-    pr_gateway = FakePRGateway(
-        pr_details_by_branch={"feat/base": pr},
-        required_checks_by_pr={
-            123: (PRCheck(name="ci", bucket="pass", state="SUCCESS", link=None),)
-        },
-    )
-    fakes = _make_fakes(
-        tmp_path,
-        current_path_name="slot-01",
-        current_branch="feat/base",
-        assignments=assignments,
-        worktrees=(
-            WorktreeInfo(path=main_path, branch="main", is_bare=False),
-            WorktreeInfo(path=base_path, branch="feat/base", is_bare=False),
-            WorktreeInfo(path=child_path, branch="feat/child", is_bare=False),
-        ),
-        current_branch_by_path={
-            main_path: "main",
-            base_path: "feat/base",
-            child_path: "feat/child",
-        },
-        gt=FakeGtGateway(
-            branch_by_cwd={base_path: "feat/base", child_path: "feat/child"},
-            parent_by_branch={"feat/base": "main", "feat/child": "feat/base"},
-            children_by_branch={"feat/base": ("feat/child",)},
-        ),
-        pr=pr_gateway,
-    )
+    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": _land_pr(number=123)})
+    fakes = _land_fakes_for_bottom_pr(tmp_path, pr_gateway=pr_gateway)
 
     result = CliRunner().invoke(
         cli_group,
-        ["gt", "land", "--dry-run", "--up"],
+        ["gt", "land", "--dry-run"],
         obj=_obj(fakes.ctx),
     )
 
     assert result.exit_code == 0, result.output
-    assert "would merge PR #123 from feat/base into main" in result.output
-    assert "would restack:" in result.output
-    assert "slot-02 feat/child" in result.output
-    assert f"final navigation: cd {child_path}" in result.output
+    assert "would request squash merge for PR #123 at feat/base-oid" in result.output
+    assert "branch feat/base -> main" in result.output
     assert pr_gateway.merge_calls == ()
+    assert fakes.gt.sync_calls == ()
+    assert fakes.gt.restack_calls == ()
 
 
 def test_slot_gt_land_refuses_mid_stack_branch(
@@ -384,102 +340,109 @@ def test_slot_gt_land_refuses_mid_stack_branch(
     assert "merge not attempted" in result.output
 
 
-def test_slot_gt_land_merges_and_repairs_over_fakes(
+def test_slot_gt_land_requests_merge_once_without_repair(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    main_path = (tmp_path / "repo").resolve()
-    base_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
-    assignments = (SlotAssignment("slot-01", "feat/base", "now", base_path),)
-    pr = PRDetails(
-        number=124,
-        url="https://github.example/pr/124",
-        head_ref_name="feat/base",
-        base_ref_name="main",
-        state="OPEN",
-        head_ref_oid="feat/base-oid",
-        mergeable="MERGEABLE",
-        merge_state_status="CLEAN",
-        is_draft=False,
-    )
-    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": pr})
-    gt_gateway = FakeGtGateway(
-        branch_by_cwd={base_path: "feat/base"},
-        parent_by_branch={"feat/base": "main"},
-        children_by_branch={"feat/base": ()},
-    )
-    fakes = _make_fakes(
-        tmp_path,
-        current_path_name="slot-01",
-        current_branch="feat/base",
-        assignments=assignments,
-        worktrees=(
-            WorktreeInfo(path=main_path, branch="main", is_bare=False),
-            WorktreeInfo(path=base_path, branch="feat/base", is_bare=False),
-        ),
-        current_branch_by_path={main_path: "main", base_path: "feat/base"},
-        gt=gt_gateway,
-        pr=pr_gateway,
-    )
+    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": _land_pr(number=124)})
+    fakes = _land_fakes_for_bottom_pr(tmp_path, pr_gateway=pr_gateway)
 
     result = CliRunner().invoke(
         cli_group,
-        ["gt", "land", "--no-checks", "--no-restack", "--no-free-slot"],
+        ["gt", "land"],
         obj=_obj(fakes.ctx),
     )
 
     assert result.exit_code == 0, result.output
     assert pr_gateway.merge_calls == ((124, "feat/base-oid", False, False),)
-    assert gt_gateway.sync_calls == ((base_path, False),)
-    assert "merged PR #124 with squash" in result.output
-    assert "updated local main" in result.output
-    assert "synced Graphite metadata" in result.output
-    assert "left current slot assigned" in result.output
+    assert fakes.gt.sync_calls == ()
+    assert fakes.gt.restack_calls == ()
+    assert fakes.git.fetch_calls == ()
+    assert fakes.git.pull_calls == ()
+    assert fakes.git.update_ref_calls == ()
+    assert "merge request completed for PR #124" in result.output
+    assert "merged PR" not in result.output
 
 
-def test_slot_gt_land_conflicting_navigation_flags(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gt", "land", "--up", "--down"])
+def test_slot_gt_land_admin_passes_admin_to_merge(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": _land_pr(number=125)})
+    fakes = _land_fakes_for_bottom_pr(tmp_path, pr_gateway=pr_gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "land", "--admin"],
+        obj=_obj(fakes.ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert pr_gateway.merge_calls == ((125, "feat/base-oid", True, False),)
+
+
+def test_slot_gt_land_auto_passes_auto_and_does_not_repair(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": _land_pr(number=126)})
+    fakes = _land_fakes_for_bottom_pr(tmp_path, pr_gateway=pr_gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "land", "--auto"],
+        obj=_obj(fakes.ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert pr_gateway.merge_calls == ((126, "feat/base-oid", False, True),)
+    assert fakes.gt.sync_calls == ()
+    assert fakes.gt.restack_calls == ()
+    assert "auto-merge request completed for PR #126" in result.output
+
+
+@pytest.mark.parametrize(
+    "flag",
+    ["--up", "--down", "--no-restack", "--no-free-slot", "--no-checks"],
+)
+def test_slot_gt_land_removed_flags_are_rejected_by_click(
+    cli_group: ClinkrGroup,
+    flag: str,
+) -> None:
+    result = CliRunner().invoke(cli_group, ["gt", "land", flag])
 
     assert result.exit_code == 2
-    assert "mutually exclusive" in result.output
-
-
-def test_slot_gt_land_no_checks_with_auto_is_conflicting(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gt", "land", "--no-checks", "--auto"])
-
-    assert result.exit_code == 2
-    assert "--no-checks" in result.output
-    assert "--auto" in result.output
+    assert f"No such option: {flag}" in result.output
 
 
 def _land_pr(
     *,
-    mergeable: str | None = "MERGEABLE",
-    merge_state_status: str | None = "CLEAN",
+    number: int = 200,
+    head_ref_name: str = "feat/base",
+    base_ref_name: str = "main",
+    head_ref_oid: str = "feat/base-oid",
 ) -> PRDetails:
     return PRDetails(
-        number=200,
-        url="https://github.example/pr/200",
-        head_ref_name="feat/base",
-        base_ref_name="main",
-        state="OPEN",
-        head_ref_oid="feat/base-oid",
-        mergeable=mergeable,
-        merge_state_status=merge_state_status,
-        is_draft=False,
+        number=number,
+        head_ref_name=head_ref_name,
+        base_ref_name=base_ref_name,
+        head_ref_oid=head_ref_oid,
     )
 
 
 def _land_fakes_for_bottom_pr(
     tmp_path: Path,
     *,
-    pr: PRDetails,
+    pr: PRDetails | None = None,
+    pr_gateway: FakePRGateway | None = None,
     gt: FakeGtGateway | None = None,
 ) -> _GtFakes:
     main_path = (tmp_path / "repo").resolve()
     base_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
     assignments = (SlotAssignment("slot-01", "feat/base", "now", base_path),)
-    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": pr})
+    resolved_pr_gateway = pr_gateway or FakePRGateway(
+        pr_details_by_branch={"feat/base": pr or _land_pr()}
+    )
     return _make_fakes(
         tmp_path,
         current_path_name="slot-01",
@@ -495,17 +458,40 @@ def _land_fakes_for_bottom_pr(
         else FakeGtGateway(
             branch_by_cwd={base_path: "feat/base"},
             parent_by_branch={"feat/base": "main"},
-            children_by_branch={"feat/base": ()},
         ),
+        pr=resolved_pr_gateway,
+    )
+
+
+def test_slot_gt_land_detached_head_is_refused_before_merge(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    repo_root = (tmp_path / "repo").resolve()
+    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": _land_pr()})
+    fakes = _make_fakes(
+        tmp_path,
+        current_branch_by_path={repo_root: DetachedHead()},
         pr=pr_gateway,
     )
 
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "land", "--dry-run"],
+        obj=_obj(fakes.ctx),
+    )
 
-def test_slot_gt_land_refuses_conflicting_mergeable(
+    assert result.exit_code == 2
+    assert "detached" in result.output
+    assert "merge not attempted" in result.output
+    assert pr_gateway.merge_calls == ()
+
+
+def test_slot_gt_land_pr_head_ref_mismatch_is_refused(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    pr = _land_pr(mergeable="CONFLICTING")
+    pr = _land_pr(head_ref_name="other-branch")
     fakes = _land_fakes_for_bottom_pr(tmp_path, pr=pr)
 
     result = CliRunner().invoke(
@@ -515,15 +501,15 @@ def test_slot_gt_land_refuses_conflicting_mergeable(
     )
 
     assert result.exit_code == 2
-    assert "merge conflicts" in result.output
+    assert "head ref is 'other-branch'" in result.output
     assert "merge not attempted" in result.output
 
 
-def test_slot_gt_land_refuses_dirty_merge_state(
+def test_slot_gt_land_pr_base_ref_mismatch_is_refused(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    pr = _land_pr(merge_state_status="DIRTY")
+    pr = _land_pr(base_ref_name="develop")
     fakes = _land_fakes_for_bottom_pr(tmp_path, pr=pr)
 
     result = CliRunner().invoke(
@@ -533,14 +519,15 @@ def test_slot_gt_land_refuses_dirty_merge_state(
     )
 
     assert result.exit_code == 2
-    assert "merge state is DIRTY" in result.output
+    assert "base ref is 'develop'" in result.output
+    assert "merge not attempted" in result.output
 
 
-def test_slot_gt_land_behind_refused_without_auto(
+def test_slot_gt_land_local_head_mismatch_is_refused(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    pr = _land_pr(merge_state_status="BEHIND")
+    pr = _land_pr(head_ref_oid="remote-head-oid")
     fakes = _land_fakes_for_bottom_pr(tmp_path, pr=pr)
 
     result = CliRunner().invoke(
@@ -550,130 +537,47 @@ def test_slot_gt_land_behind_refused_without_auto(
     )
 
     assert result.exit_code == 2
-    assert "BEHIND" in result.output
-    assert "--auto" in result.output
+    assert "local HEAD feat/base-oid does not match PR head remote-head-oid" in result.output
+    assert "merge not attempted" in result.output
 
 
-def test_slot_gt_land_behind_passes_with_auto(
+def test_slot_gt_land_merge_failure_returns_github_error(
     cli_group: ClinkrGroup,
     tmp_path: Path,
 ) -> None:
-    pr = _land_pr(merge_state_status="BEHIND")
-    fakes = _land_fakes_for_bottom_pr(tmp_path, pr=pr)
+    pr_gateway = FakePRGateway(
+        pr_details_by_branch={"feat/base": _land_pr(number=127)},
+        merge_failure=PRCommandError(stderr="required checks are failing", returncode=1),
+    )
+    fakes = _land_fakes_for_bottom_pr(tmp_path, pr_gateway=pr_gateway)
 
     result = CliRunner().invoke(
         cli_group,
-        ["gt", "land", "--dry-run", "--auto"],
+        ["gt", "land"],
+        obj=_obj(fakes.ctx),
+    )
+
+    assert result.exit_code == 2
+    assert "required checks are failing" in result.output
+    assert pr_gateway.merge_calls == ((127, "feat/base-oid", False, False),)
+
+
+def test_slot_gt_land_json_output_contains_merge_request_summary(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fakes = _land_fakes_for_bottom_pr(tmp_path, pr=_land_pr(number=128))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "land", "--dry-run", "--format", "json"],
         obj=_obj(fakes.ctx),
     )
 
     assert result.exit_code == 0, result.output
-    assert "would merge PR #200" in result.output
-
-
-def test_slot_gt_land_emits_repair_incomplete_when_restack_fails(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-) -> None:
-    main_path = (tmp_path / "repo").resolve()
-    base_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
-    child_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-02"
-    assignments = (
-        SlotAssignment("slot-01", "feat/base", "now", base_path),
-        SlotAssignment("slot-02", "feat/child", "now", child_path),
-    )
-    pr = _land_pr()
-    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": pr})
-    gt_gateway = FakeGtGateway(
-        branch_by_cwd={base_path: "feat/base", child_path: "feat/child"},
-        parent_by_branch={"feat/base": "main", "feat/child": "feat/base"},
-        children_by_branch={"feat/base": ("feat/child",)},
-        restack_failure_by_branch={
-            "feat/child": GtCommandFailure(message="conflict", returncode=1),
-        },
-    )
-    fakes = _make_fakes(
-        tmp_path,
-        current_path_name="slot-01",
-        current_branch="feat/base",
-        assignments=assignments,
-        worktrees=(
-            WorktreeInfo(path=main_path, branch="main", is_bare=False),
-            WorktreeInfo(path=base_path, branch="feat/base", is_bare=False),
-            WorktreeInfo(path=child_path, branch="feat/child", is_bare=False),
-        ),
-        current_branch_by_path={
-            main_path: "main",
-            base_path: "feat/base",
-            child_path: "feat/child",
-        },
-        gt=gt_gateway,
-        pr=pr_gateway,
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["gt", "land", "--no-checks", "--no-free-slot"],
-        obj=_obj(fakes.ctx),
-    )
-
-    assert result.exit_code == 2
-    assert "merge succeeded; repair incomplete" in result.output
-    assert "feat/child" in result.output
-
-
-def test_slot_gt_land_repair_incomplete_envelope_has_structured_data(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-) -> None:
-    main_path = (tmp_path / "repo").resolve()
-    base_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
-    child_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-02"
-    assignments = (
-        SlotAssignment("slot-01", "feat/base", "now", base_path),
-        SlotAssignment("slot-02", "feat/child", "now", child_path),
-    )
-    pr = _land_pr()
-    pr_gateway = FakePRGateway(pr_details_by_branch={"feat/base": pr})
-    gt_gateway = FakeGtGateway(
-        branch_by_cwd={base_path: "feat/base", child_path: "feat/child"},
-        parent_by_branch={"feat/base": "main", "feat/child": "feat/base"},
-        children_by_branch={"feat/base": ("feat/child",)},
-        restack_failure_by_branch={
-            "feat/child": GtCommandFailure(message="conflict", returncode=1),
-        },
-    )
-    fakes = _make_fakes(
-        tmp_path,
-        current_path_name="slot-01",
-        current_branch="feat/base",
-        assignments=assignments,
-        worktrees=(
-            WorktreeInfo(path=main_path, branch="main", is_bare=False),
-            WorktreeInfo(path=base_path, branch="feat/base", is_bare=False),
-            WorktreeInfo(path=child_path, branch="feat/child", is_bare=False),
-        ),
-        current_branch_by_path={
-            main_path: "main",
-            base_path: "feat/base",
-            child_path: "feat/child",
-        },
-        gt=gt_gateway,
-        pr=pr_gateway,
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["gt", "land", "--no-checks", "--no-free-slot", "--format", "json"],
-        obj=_obj(fakes.ctx),
-    )
-
-    assert result.exit_code == 2
-    payload = json.loads(result.output)
-    assert payload["exit_code"] == 2
-    assert payload["error_type"] == "repair_incomplete"
-    data = payload["data"]
-    assert isinstance(data, dict)
-    failures = data["failures"]
-    assert isinstance(failures, list)
-    assert any(failure["target"] == "slot-02 feat/child" for failure in failures), failures
+    data = _machine_data(result.output)
+    assert data["dry_run"] is True
+    assert data["pr_number"] == 128
+    assert data["current_branch"] == "feat/base"
+    assert data["trunk_branch"] == "main"
+    assert data["head_oid"] == "feat/base-oid"

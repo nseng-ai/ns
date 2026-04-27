@@ -93,32 +93,14 @@ def test_failure_rejects_missing_message() -> None:
         ClinkrExit(status=ExitStatus.FAILURE, error_type="bad")
 
 
-def test_failure_allows_optional_data() -> None:
-    exit_obj = ClinkrExit.failure(
-        error_type="bad",
-        message="m",
-        data=SampleData(value="detail"),
-    )
-
-    assert exit_obj.exit_code == 2
-    assert exit_obj.error_type == "bad"
-    assert exit_obj.message == "m"
-    assert exit_obj.data == SampleData(value="detail")
-
-
-def test_envelope_failure_includes_data_when_present() -> None:
-    exit_obj = ClinkrExit.failure(
-        error_type="bad",
-        message="m",
-        data=SampleData(value="detail"),
-    )
-
-    assert exit_obj.to_envelope_dict() == {
-        "exit_code": 2,
-        "error_type": "bad",
-        "message": "m",
-        "data": {"value": "detail"},
-    }
+def test_failure_rejects_data() -> None:
+    with pytest.raises(ValueError, match="failure must not carry data"):
+        ClinkrExit(
+            status=ExitStatus.FAILURE,
+            error_type="bad",
+            message="m",
+            data=SampleData(value="detail"),
+        )
 
 
 def test_envelope_ok_includes_data_only() -> None:

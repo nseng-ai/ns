@@ -151,24 +151,9 @@ class PRDetails:
     """Detailed PR metadata needed for guarded merge workflows."""
 
     number: int
-    url: str
     head_ref_name: str
     base_ref_name: str
-    state: PRState
     head_ref_oid: str
-    mergeable: str | None
-    merge_state_status: str | None
-    is_draft: bool
-
-
-@dataclass(frozen=True)
-class PRCheck:
-    """One required PR check reported by ``gh pr checks``."""
-
-    name: str
-    bucket: str
-    state: str
-    link: str | None
 
 
 @dataclass(frozen=True)
@@ -177,6 +162,8 @@ class PRMergeResult:
 
     number: int
     auto: bool
+    stdout: str = ""
+    stderr: str = ""
 
 
 @dataclass(frozen=True)

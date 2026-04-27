@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import (
-    PRCheck,
     PRCommandError,
     PRDetails,
     PRLookupError,
@@ -23,17 +22,13 @@ class FakePRGateway(PRGateway):
         prs_by_branch: dict[str, PRSummary] | None = None,
         pr_details_by_branch: dict[str, PRDetails] | None = None,
         prs: tuple[PRSummary, ...] = (),
-        required_checks_by_pr: dict[int, tuple[PRCheck, ...]] | None = None,
         search_failure: PRLookupError | None = None,
-        checks_failure: PRCommandError | None = None,
         merge_failure: PRCommandError | None = None,
     ) -> None:
         self._prs_by_branch = prs_by_branch or {}
         self._pr_details_by_branch = pr_details_by_branch or {}
         self._prs = prs
-        self._required_checks_by_pr = required_checks_by_pr or {}
         self._search_failure = search_failure
-        self._checks_failure = checks_failure
         self._merge_failure = merge_failure
         self._merge_calls: list[tuple[int, str, bool, bool]] = []
 
@@ -60,14 +55,9 @@ class FakePRGateway(PRGateway):
             return PRLookupError(stderr="no PR found", returncode=1)
         return PRDetails(
             number=summary.number,
-            url=summary.url,
             head_ref_name=summary.head_ref_name,
             base_ref_name=summary.base_ref_name,
-            state=summary.state,
             head_ref_oid="HEAD",
-            mergeable=None,
-            merge_state_status=None,
-            is_draft=False,
         )
 
     def search_prs(
@@ -85,11 +75,6 @@ class FakePRGateway(PRGateway):
         if not terms:
             return scoped
         return tuple(pr for pr in scoped if any(t in pr.title.lower() for t in terms))
-
-    def get_required_checks(self, pr_number: int) -> tuple[PRCheck, ...] | PRCommandError:
-        if self._checks_failure is not None:
-            return self._checks_failure
-        return self._required_checks_by_pr.get(pr_number, ())
 
     def merge_pr(
         self,

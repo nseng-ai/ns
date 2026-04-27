@@ -15,11 +15,9 @@ from twerk_core.gh.real_gateway_helpers import (
     fetch_pr_details_for_branch,
     fetch_pr_summary_for_branch,
     merge_pr,
-    required_checks,
     search_prs,
 )
 from twerk_core.gh.types import (
-    PRCheck,
     PRCommandError,
     PRDetails,
     PRLookupError,
@@ -57,10 +55,6 @@ class PRGateway(ABC):
         """
 
     @abstractmethod
-    def get_required_checks(self, pr_number: int) -> tuple[PRCheck, ...] | PRCommandError:
-        """Return required status checks for ``pr_number``."""
-
-    @abstractmethod
     def merge_pr(
         self,
         pr_number: int,
@@ -85,9 +79,6 @@ class RealPRGateway(PRGateway):
         self, query: str, *, state: PRStateFilter
     ) -> tuple[PRSummary, ...] | PRLookupError:
         return search_prs(query, state=state)
-
-    def get_required_checks(self, pr_number: int) -> tuple[PRCheck, ...] | PRCommandError:
-        return required_checks(pr_number)
 
     def merge_pr(
         self,

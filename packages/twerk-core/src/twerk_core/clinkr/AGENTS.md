@@ -15,7 +15,7 @@ Operations return `ClinkrExit[T]`. The exit tag determines the CLI exit code in 
 
 - `ClinkrExit.ok(data)` → exit 0; renderer runs in human mode; machine envelope is `{"exit_code": 0, "data": ...}`.
 - `ClinkrExit.negative(data, message=...)` → exit 1; `message` goes to stderr in human mode; machine envelope is `{"exit_code": 1, "message": ..., "data": ...}`. Use for "ran to completion, answered no" (not found, empty, false predicate).
-- `ClinkrExit.failure(error_type=..., message=..., data=...)` → exit 2; `error:` prefix on stderr in human mode; machine envelope is `{"exit_code": 2, "error_type": ..., "message": ..., "data": ...}` (data optional). Use for invalid input, gateway failure, or partial-success-with-structured-detail.
+- `ClinkrExit.failure(error_type=..., message=...)` → exit 2; `error:` prefix on stderr in human mode; machine envelope is `{"exit_code": 2, "error_type": ..., "message": ...}`. Use for invalid input, gateway failure, or other unrecoverable command errors.
 
 The `@clinkr_operation` decorator reads the return annotation and rejects anything that is not `ClinkrExit[T]`.
 

@@ -13,7 +13,6 @@ import json
 import subprocess
 
 from twerk_core.gh.types import (
-    PRCheck,
     PRCommandError,
     PRDetails,
     PRLookupError,
@@ -24,19 +23,33 @@ from twerk_core.gh.types import (
 )
 
 
+def _run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
+    cmd = ["gh", *args]
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        return subprocess.CompletedProcess(
+            cmd,
+            127,
+            stdout="",
+            stderr=str(exc),
+        )
+
+
 def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
     """Shell out to ``gh pr view <branch>`` and return a ``PRSummary``."""
-    result = subprocess.run(
+    result = _run_gh(
         [
-            "gh",
             "pr",
             "view",
             branch,
             "--json",
             "number,title,url,headRefName,baseRefName,state",
         ],
-        capture_output=True,
-        text=True,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -57,18 +70,14 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
 
 def fetch_pr_details_for_branch(branch: str) -> PRDetails | PRLookupError:
     """Shell out to ``gh pr view <branch>`` and return guarded-merge metadata."""
-    result = subprocess.run(
+    result = _run_gh(
         [
-            "gh",
             "pr",
             "view",
             branch,
             "--json",
-            "number,url,headRefName,baseRefName,state,headRefOid,mergeable,"
-            "mergeStateStatus,isDraft",
+            "number,headRefName,baseRefName,headRefOid",
         ],
-        capture_output=True,
-        text=True,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -76,25 +85,18 @@ def fetch_pr_details_for_branch(branch: str) -> PRDetails | PRLookupError:
             returncode=result.returncode,
         )
     data = json.loads(result.stdout)
-    state: PRState = data["state"]
     return PRDetails(
         number=data["number"],
-        url=data["url"],
         head_ref_name=data["headRefName"],
         base_ref_name=data["baseRefName"],
-        state=state,
         head_ref_oid=data["headRefOid"],
-        mergeable=data.get("mergeable"),
-        merge_state_status=data.get("mergeStateStatus"),
-        is_draft=data["isDraft"],
     )
 
 
 def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | PRLookupError:
     """Shell out to ``gh pr list --state <state> --search <query>``."""
-    result = subprocess.run(
+    result = _run_gh(
         [
-            "gh",
             "pr",
             "list",
             "--state",
@@ -104,8 +106,6 @@ def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | P
             "--json",
             "number,title,url,headRefName,baseRefName,state",
         ],
-        capture_output=True,
-        text=True,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -129,43 +129,6 @@ def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | P
     return tuple(summaries)
 
 
-def required_checks(pr_number: int) -> tuple[PRCheck, ...] | PRCommandError:
-    """Shell out to ``gh pr checks`` and return required checks.
-
-    ``gh pr checks`` may exit non-zero when checks are failing or pending while
-    still emitting useful JSON. Treat parseable stdout as the source of truth
-    and reserve ``PRCommandError`` for command failures without machine data.
-    """
-    result = subprocess.run(
-        [
-            "gh",
-            "pr",
-            "checks",
-            str(pr_number),
-            "--required",
-            "--json",
-            "name,bucket,state,link",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0 and not result.stdout.strip():
-        return PRCommandError(
-            stderr=result.stderr.strip(),
-            returncode=result.returncode,
-        )
-    items = json.loads(result.stdout or "[]")
-    return tuple(
-        PRCheck(
-            name=item["name"],
-            bucket=item["bucket"],
-            state=item["state"],
-            link=item.get("link"),
-        )
-        for item in items
-    )
-
-
 def merge_pr(
     pr_number: int,
     *,
@@ -174,8 +137,7 @@ def merge_pr(
     auto: bool,
 ) -> PRMergeResult | PRCommandError:
     """Shell out to ``gh pr merge`` using squash merge and a head-commit guard."""
-    cmd = [
-        "gh",
+    args = [
         "pr",
         "merge",
         str(pr_number),
@@ -184,13 +146,18 @@ def merge_pr(
         match_head_commit,
     ]
     if admin:
-        cmd.append("--admin")
+        args.append("--admin")
     if auto:
-        cmd.append("--auto")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+        args.append("--auto")
+    result = _run_gh(args)
     if result.returncode != 0:
         return PRCommandError(
             stderr=result.stderr.strip(),
             returncode=result.returncode,
         )
-    return PRMergeResult(number=pr_number, auto=auto)
+    return PRMergeResult(
+        number=pr_number,
+        auto=auto,
+        stdout=result.stdout.strip(),
+        stderr=result.stderr.strip(),
+    )

@@ -13,12 +13,21 @@ from twerk_slots.cli.slot.gt.types import (
 
 
 def _run_gt(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["gt", *args],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-    )
+    cmd = ["gt", *args]
+    try:
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        return subprocess.CompletedProcess(
+            cmd,
+            127,
+            stdout="",
+            stderr=str(exc),
+        )
 
 
 def _failure(result: subprocess.CompletedProcess[str]) -> GtCommandFailure:
