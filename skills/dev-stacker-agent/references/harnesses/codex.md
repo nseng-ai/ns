@@ -14,6 +14,9 @@ Use this adapter after reading `generic.md`.
   Codex, progress can be kept in coordinator notes or user updates.
 - Require the worker's final message to contain a
   `stacker-handoff/v1` JSON line plus short prose.
+- For commit-series runs, keep the target branch in coordinator notes
+  and fill the brief so the worker stays on that branch and creates one
+  commit for the slice.
 
 ## Important constraint
 

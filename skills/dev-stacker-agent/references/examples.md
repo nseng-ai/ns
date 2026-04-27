@@ -97,7 +97,37 @@ Normalized slices:
 ]
 ```
 
-## Example 3: when to ask instead of default
+## Example 3: commits without PRs
+
+Input plan:
+
+```md
+Use commits, not PR branches:
+
+- slice one: parser cleanup
+- slice two: wire the parser into the command
+- slice three: tighten error messages
+```
+
+The coordinator records output shape `commit-series`, resolves one
+target branch, and uses the same manifest shape. Slice 1 might be:
+
+```json
+{
+  "schema": "stacker-slice-manifest/v1",
+  "ordinal": 1,
+  "title": "Slice 1 - parser cleanup",
+  "scope": "Clean up the parser implementation.",
+  "base": "abc123",
+  "validate": {"command": "just"},
+  "constraints": [],
+  "suggested_commit_subject": "Clean up parser implementation"
+}
+```
+
+Later slices use the previous verified `head_sha` as `base`.
+
+## Example 4: when to ask instead of default
 
 Input plan:
 

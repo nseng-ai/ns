@@ -13,6 +13,7 @@ it does not apply, but do not rename the remaining sections.
 - Slice ordinal: `[1-based-index]`
 - Slice title: `[normalized title]`
 - Source excerpt: `[optional source text excerpt or "not provided"]`
+- Output shape: `[branch stack | commit series]`
 
 Implement only this slice. Do not move on to later slices. If the plan
 is incomplete or contradictory, stop and report a blocking question.
@@ -20,11 +21,18 @@ is incomplete or contradictory, stop and report a blocking question.
 ## Environment
 
 - Repo root: `[absolute-repo-root]`
-- Base ref resolved by coordinator: `[branch-or-ref]`
-- Suggested branch name: `[suggested-branch-name]`
+- Base ref resolved by coordinator: `[branch-or-ref-or-sha]`
+- Branch/ref to report in handoff: `[new branch name | target branch]`
 - Suggested commit subject: `[suggested-commit-subject]`
 - Repo workflow notes: `[repo-specific workflow notes, such as Graphite
   conventions]`
+
+## Output Instructions
+
+`[Exact instruction from coordinator, including branch/ref name: create
+a fresh branch from the base, or stay on the target branch and add one
+new commit on top of the base. For commit series, do not create a
+per-slice branch or amend earlier slice commits.]`
 
 Use the repo's workflow conventions for branch creation, commit
 creation, and stack inspection. Do not push, submit, or open a PR.

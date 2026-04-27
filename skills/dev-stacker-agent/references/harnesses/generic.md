@@ -33,7 +33,9 @@ execution model. This version of the skill does not do that.
 
 Map these abstract actions to the harness's native primitives:
 
-- **run worker**: the harness's one-worker delegation feature
+- **run worker**: the harness's one-worker delegation feature. The
+  same primitive is used for branch stacks and commit series; only the
+  brief content differs.
 - **retry worker once**: the harness's cleanest follow-up mechanism
 - **wait for completion**: the harness's normal blocking wait
 - **progress tracking**: optional; textual progress is enough

@@ -2,39 +2,35 @@
 name: dev-stacker-agent
 description: Command
 # Original description (preserved for reference):
-# Execute a multi-PR implementation plan as a serial local stack by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping at a reviewable local stack without pushing.
+# Execute a multi-slice implementation plan as a serial local branch stack or commit series by normalizing a freeform plan into ordered slices, coordinating one worker per slice, verifying each handoff, and stopping without pushing.
 metadata:
   internal: true
 ---
 
-<!-- INTERNAL SKILL: twerk-only. Coordinator for stacked-PR execution. -->
+<!-- INTERNAL SKILL: twerk-only. -->
 
 # dev-stacker-agent
 
-Use this skill when the user wants to implement a multi-PR plan as a
-local stack. The input plan may be freeform markdown, rough notes, or
-harness-native planner output. No author-facing plan schema is
-required.
+Use when the user wants a multi-slice plan implemented as a local
+branch stack, or explicitly wants the slices recorded as commits on one
+branch. The input may be freeform markdown, rough notes, or
+harness-native planner output; do not require a user-authored schema.
 
 The coordinator's job is to:
 
 1. Normalize the plan into an ordered list of slice manifests.
 2. Run one worker per slice in strict order.
 3. Verify each slice before allowing the next one to begin.
-4. Stop at a reviewable local stack without pushing or submitting.
+4. Stop at reviewable local branches or commits without pushing or
+   submitting.
 
 ## Read These References As Needed
 
-- `references/runtime-contract.md`:
-  the internal manifest and handoff schemas.
-- `references/brief-template.md`:
-  the worker brief filled from a normalized slice manifest.
-- `references/harnesses/generic.md` first, then the current harness
-  note (`codex.md`, `claude.md`, or another adapter):
-  how the current harness maps worker orchestration to the core
-  protocol.
-- `references/examples.md`:
-  examples of normalizing freeform plans into slice manifests.
+- `references/runtime-contract.md`: manifest and handoff schemas.
+- `references/brief-template.md`: worker brief template.
+- `references/harnesses/generic.md`, then the current harness note:
+  how to map worker orchestration to this protocol.
+- `references/examples.md`: normalization examples.
 
 ## Core Invariants
 
@@ -45,10 +41,12 @@ The coordinator's job is to:
   not silently absorb implementation work from the worker.
 - **Verification requires validation plus diff skim.** A worker saying
   "tests passed" is not enough.
-- **Never push, submit, or open PRs.** Stop at a reviewable local
-  stack. Submission is the user's call.
-- **No required user-facing plan schema.** The plan may be loose; the
-  coordinator normalizes it into the internal runtime contract.
+- **Never push, submit, or open PRs.** Stop at reviewable local
+  branches or commits. Submission is the user's call.
+- **Output shape follows the request.** Default to one branch per
+  slice. Use a commit series only when the user explicitly asks for
+  commits, no PRs, or one branch; the manifest, handoff, serial loop,
+  and verification bar stay the same.
 - **Use conservative defaults when risk is low; ask when ambiguity is
   material.** If title, scope, order, base, or validation is too
   ambiguous to normalize safely, stop and ask.
@@ -60,8 +58,7 @@ The coordinator's job is to:
 
 ## Harness Capability Gate
 
-This skill is only executable in a harness that can do all of the
-following:
+Only run in a harness that can:
 
 - delegate exactly one worker at a time and wait for completion,
 - pass a textual brief to that worker,
@@ -70,10 +67,9 @@ following:
 - either send one targeted follow-up to the worker or stop and surface
   the failure.
 
-The skill assumes the worker can participate in the live repo/worktree
-used for the local stack. If the current harness only supports isolated
-or forked workspaces, this skill is unsupported as written; do not fake
-support by treating advisory output as an implemented slice.
+The worker must share the repo/worktree the coordinator verifies. If
+the harness only supports isolated or forked workers, this skill is
+unsupported as written.
 
 ## Repo Workflow
 
@@ -88,8 +84,7 @@ Graphite conventions rather than inventing your own.
 
 ### 1. Preconditions
 
-Read the input plan once up front. Bail and surface to the user if any
-of these fail:
+Bail and surface to the user if any fail:
 
 - The working tree is dirty. Do not stash on the user's behalf.
 - The repo's branch workflow tool is unavailable. In this repo, that
@@ -104,30 +99,16 @@ of these fail:
 Convert the input plan into the internal `stacker-slice-manifest/v1`
 shape defined in `references/runtime-contract.md`.
 
-Required per slice:
+Record the run output shape too:
 
-- `title`
-- `scope`
-- `base`
-- `validate.command`
+- `branch-stack` default: one branch per slice.
+- `commit-series`: one target branch, one commit per slice. Use only
+  when explicitly requested. Prefer the current non-default branch; if
+  on the default branch and no target branch is named, ask or bail.
+  Create or check out the target before slice 1 when needed.
 
-Optional per slice:
-
-- `constraints`
-- `source_excerpt`
-- `suggested_branch_name`
-- `suggested_commit_subject`
-- `downstream_context`
-
-Defaulting rules:
-
-- First slice base defaults to the repo's default branch unless the plan
-  says otherwise.
-- Later slice bases default to `previous_slice`.
-- Validation defaults to the repo's standard green-bar command when the
-  plan does not supply one. In this repo, default to `just` at the repo
-  root.
-- Constraints default to an empty list.
+Use the defaults in `references/runtime-contract.md`. In this repo,
+`validate.command` defaults to `just` at the repo root.
 
 If the plan provides richer hints such as file lists, do-not-touch
 lists, or concrete identifiers, preserve them as optional constraints or
@@ -140,15 +121,22 @@ For each slice in order, do all of the following:
 
 **a. Prepare slice context.**
 
-- Resolve the concrete base ref for this slice.
-- Choose a suggested branch name and commit subject using repo
-  conventions.
+- Resolve the concrete base ref.
+- Choose a suggested branch name for branch-stack runs, or the single
+  target branch for commit-series runs.
+- Choose a suggested commit subject using repo conventions.
 - Carry forward any downstream notes from prior slices.
 
 **b. Compose the worker brief.**
 
 Fill `references/brief-template.md` from the normalized slice manifest
-plus the current base ref and downstream context.
+plus the current base ref, downstream context, and one exact output
+instruction:
+
+- Branch stack: create a fresh branch from the resolved base.
+- Commit series: stay on the target branch and add one new commit on
+  top of the resolved base; do not create a per-slice branch or amend
+  earlier slice commits.
 
 **c. Run one worker.**
 
@@ -166,13 +154,15 @@ as defined in `references/runtime-contract.md`.
 Do not skip any of these checks:
 
 1. `status == "ok"` and `validation.exit_code == 0`.
-2. The reported branch/ref resolves locally and its resolved head equals
-   the handoff's `head_sha`.
+2. The reported branch/ref resolves locally and its head equals
+   `head_sha`.
 3. `git diff <base>..<reported-branch> --stat` looks plausibly in
    scope.
 4. Skim the full diff for obvious scope drift.
-5. If optional constraints were supplied, check them now.
-6. Stash any `downstream_notes` for the next slice's brief.
+5. For commit series, confirm the reported branch is the target branch
+   and its head descends from the resolved base.
+6. If optional constraints were supplied, check them now.
+7. Stash any `downstream_notes` for the next slice's brief.
 
 Only after those checks pass may the coordinator continue to the next
 slice.
@@ -184,16 +174,17 @@ summary and stop.
 
 Include one line per slice with:
 
-- branch name,
+- branch name or commit subject,
 - head SHA,
 - validation command and exit code, and
 - a compact changed-files or shortstat summary.
 
-Optionally show the stack shape using the repo's normal workflow tool.
-In this repo, `gt ls` is the natural confirmation step.
+For branch stacks, optionally show the stack with the repo workflow
+tool (`gt ls` in this repo). For commit series, mention the target
+branch and commit range, e.g. `git log --oneline <start-sha>..HEAD`.
 
 End by telling the user to submit or push manually if they want to move
-the stack upstream.
+the work upstream.
 
 ## Failure / Retry Policy
 
@@ -219,6 +210,7 @@ the stack upstream.
 | Fewer than 2 slices after normalization                                          | Bail and tell the user to implement in-session.                   |
 | Repo workflow tool missing                                                       | Bail and point to the missing tool.                               |
 | Harness lacks required worker capabilities                                       | Bail and say the skill is unsupported in that harness as written. |
+| Commit-series target is the repo default branch                                  | Ask for a feature branch name or bail.                            |
 | Material ambiguity in slice title/scope/order/base/validate                      | Bail and ask only for the missing fact.                           |
 | Worker cannot produce a valid structured handoff                                 | Retry once, then surface and stop.                                |
 | Worker reveals a plan flaw that changes later slice ordering or base assumptions | Stop before the next slice and ask.                               |
