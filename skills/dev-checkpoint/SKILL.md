@@ -1,5 +1,5 @@
 ---
-name: dev-quick-commit
+name: dev-checkpoint
 description: Command
 model: claude-haiku-4-5
 allowed-tools:
@@ -16,7 +16,7 @@ metadata:
 
 <!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
 
-# dev-quick-commit
+# dev-checkpoint
 
 Stage everything on the current branch and create a single new commit. The whole skill runs on Haiku via the `model:` frontmatter override — no subagent indirection. Replaces ad-hoc `git commit -a -m cp` checkpoints with something a later agent can scan in `git log` without reopening the diff.
 
@@ -37,11 +37,11 @@ Do **not** use this for milestone commits, PR-ready commits, or anything that wi
 
 - `git diff HEAD` — tracked changes.
 - `git status --porcelain` — enumerates untracked files. `git add -A` will include them, but they will not appear in `git diff HEAD`, so you need the filenames separately for the message.
-- If the combined output is unusually large (>~50 KB), warn the user once and ask whether to continue. Quick-commit is for small checkpoints; large ones deserve a real message.
+- If the combined output is unusually large (>~50 KB), warn the user once and ask whether to continue. Checkpoint commits are for small diffs; large ones deserve a real message.
 
 ### 3. Draft the commit message
 
-Output exactly: one short subject line prefixed with `[quick-commit]` (≤60 chars total, imperative mood, no trailing period), a blank line, then 1–3 bullets starting with `-`. No prose paragraphs, no markdown headers, no Co-Authored-By trailer, no closing remarks. Three bullets is the cap, not the floor — one bullet is fine for a small diff.
+Output exactly: one short subject line prefixed with `[cp]` (≤60 chars total, imperative mood, no trailing period), a blank line, then 1–3 bullets starting with `-`. No prose paragraphs, no markdown headers, no Co-Authored-By trailer, no closing remarks. Three bullets is the cap, not the floor — one bullet is fine for a small diff.
 
 ### 4. Stage and commit
 
@@ -50,7 +50,7 @@ Output exactly: one short subject line prefixed with `[quick-commit]` (≤60 cha
 
   ```
   git commit -m "$(cat <<'EOF'
-  [quick-commit] <subject line>
+  [cp] <subject line>
 
   - <bullet 1>
   - <bullet 2>
@@ -71,4 +71,4 @@ Print `git log -1 --oneline` followed by the full commit message body. Nothing e
 - Never `--amend`. Never `--no-verify`.
 - The whole skill runs on Haiku via the `model:` frontmatter override; do not escalate to a larger model mid-skill.
 - Three bullets is the cap, not the floor — one bullet is fine for a small diff.
-- No `Co-Authored-By:` trailer. Quick-commits are kept terse for `git log` scanning; if a checkpoint needs attribution, write the commit by hand instead.
+- No `Co-Authored-By:` trailer. Checkpoint commits are kept terse for `git log` scanning; if a checkpoint needs attribution, write the commit by hand instead.
