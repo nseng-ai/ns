@@ -147,12 +147,40 @@ class PRSummary:
 
 
 @dataclass(frozen=True)
+class PRDetails:
+    """Detailed PR metadata needed for guarded merge workflows."""
+
+    number: int
+    head_ref_name: str
+    base_ref_name: str
+    head_ref_oid: str
+
+
+@dataclass(frozen=True)
+class PRMergeResult:
+    """Result of asking GitHub to merge or enable auto-merge for a PR."""
+
+    number: int
+    auto: bool
+    stdout: str = ""
+    stderr: str = ""
+
+
+@dataclass(frozen=True)
 class PRLookupError:
     """Error from looking up a PR for a branch.
 
     Returned when `gh pr view` fails — carries stderr and returncode so
     callers can distinguish "no PR found" from "gh CLI broken".
     """
+
+    stderr: str
+    returncode: int
+
+
+@dataclass(frozen=True)
+class PRCommandError:
+    """Error from a mutating or status-oriented PR command."""
 
     stderr: str
     returncode: int

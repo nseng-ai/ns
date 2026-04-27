@@ -9,7 +9,7 @@ import pytest
 
 from twerk_core.gh import real_gateway_helpers
 from twerk_core.gh.pr_gateway import RealPRGateway
-from twerk_core.gh.types import PRLookupError
+from twerk_core.gh.types import PRCommandError, PRLookupError
 
 
 def _make_fake_run(
@@ -69,3 +69,137 @@ def test_real_pr_gateway_returns_error_when_no_pr(monkeypatch: pytest.MonkeyPatc
     assert isinstance(result, PRLookupError)
     assert result.returncode == 1
     assert "no pull requests found" in result.stderr
+
+
+def test_real_pr_gateway_returns_details(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout=json.dumps(
+                {
+                    "number": 48,
+                    "headRefName": "feature",
+                    "baseRefName": "main",
+                    "headRefOid": "abc123",
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(real_gateway_helpers.subprocess, "run", fake_run)
+
+    result = RealPRGateway().get_pr_details_for_branch("feature")
+
+    assert not isinstance(result, PRLookupError)
+    assert result.number == 48
+    assert result.head_ref_name == "feature"
+    assert result.base_ref_name == "main"
+    assert result.head_ref_oid == "abc123"
+    assert seen == [
+        [
+            "gh",
+            "pr",
+            "view",
+            "feature",
+            "--json",
+            "number,headRefName,baseRefName,headRefOid",
+        ]
+    ]
+
+
+def test_real_pr_gateway_merge_pr_builds_expected_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout="enabled auto-merge\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(real_gateway_helpers.subprocess, "run", fake_run)
+
+    result = RealPRGateway().merge_pr(
+        48,
+        match_head_commit="abc123",
+        admin=True,
+        auto=True,
+    )
+
+    assert not isinstance(result, PRCommandError)
+    assert result.number == 48
+    assert result.auto is True
+    assert result.stdout == "enabled auto-merge"
+    assert seen == [
+        [
+            "gh",
+            "pr",
+            "merge",
+            "48",
+            "-s",
+            "--match-head-commit",
+            "abc123",
+            "--admin",
+            "--auto",
+        ]
+    ]
+
+
+def test_real_pr_gateway_merge_pr_returns_command_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_gateway_helpers.subprocess,
+        "run",
+        lambda cmd, **kwargs: subprocess.CompletedProcess(
+            cmd,
+            1,
+            stdout="",
+            stderr="head commit changed\n",
+        ),
+    )
+
+    result = RealPRGateway().merge_pr(
+        48,
+        match_head_commit="abc123",
+        admin=False,
+        auto=False,
+    )
+
+    assert isinstance(result, PRCommandError)
+    assert result.returncode == 1
+    assert result.stderr == "head commit changed"
+
+
+def test_real_pr_gateway_merge_pr_handles_missing_gh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("gh: not found")
+
+    monkeypatch.setattr(real_gateway_helpers.subprocess, "run", fake_run)
+
+    result = RealPRGateway().merge_pr(
+        48,
+        match_head_commit="abc123",
+        admin=False,
+        auto=False,
+    )
+
+    assert isinstance(result, PRCommandError)
+    assert result.returncode == 127
+    assert "gh: not found" in result.stderr

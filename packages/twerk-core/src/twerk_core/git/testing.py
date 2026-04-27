@@ -44,6 +44,10 @@ class FakeGitGateway(GitGateway):
         ) = None,
         file_last_touched_by_ref_path: dict[tuple[str, str], str] | None = None,
         branch_head_iso_by_branch: dict[str, str] | None = None,
+        branch_head_oid_by_branch: dict[str, str] | None = None,
+        fetch_failure_by_args: dict[tuple[Path, str, str], GitCommandFailure] | None = None,
+        pull_failure_by_cwd: dict[Path, GitCommandFailure] | None = None,
+        update_ref_failure_by_args: (dict[tuple[Path, str, str], GitCommandFailure] | None) = None,
         on_add_worktree: Callable[[Path], None] | None = None,
     ) -> None:
         self._repo_root = repo_root if repo_root is not None else Path("/repo")
@@ -62,12 +66,19 @@ class FakeGitGateway(GitGateway):
         self._restructured_files_by_key = dict(restructured_files_by_key or {})
         self._file_last_touched_by_ref_path = dict(file_last_touched_by_ref_path or {})
         self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
+        self._branch_head_oid_by_branch = dict(branch_head_oid_by_branch or {})
+        self._fetch_failure_by_args = dict(fetch_failure_by_args or {})
+        self._pull_failure_by_cwd = dict(pull_failure_by_cwd or {})
+        self._update_ref_failure_by_args = dict(update_ref_failure_by_args or {})
         self._on_add_worktree = on_add_worktree
 
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
         self._checkout_calls: list[tuple[Path, str]] = []
         self._create_branch_calls: list[tuple[str, str, bool]] = []
         self._detach_head_calls: list[tuple[Path, str]] = []
+        self._fetch_calls: list[tuple[Path, str, str]] = []
+        self._pull_calls: list[Path] = []
+        self._update_ref_calls: list[tuple[Path, str, str]] = []
 
     def path_exists(self, path: Path) -> bool:
         if path in self._existing_paths:
@@ -167,3 +178,42 @@ class FakeGitGateway(GitGateway):
         if branch not in self._branches:
             return None
         return self._branch_head_iso_by_branch.get(branch)
+
+    def branch_head_oid(self, branch: str) -> str | GitCommandFailure:
+        if branch not in self._branches:
+            return GitCommandFailure(message=f"unknown branch: {branch}", returncode=1)
+        return self._branch_head_oid_by_branch.get(branch, "HEAD")
+
+    def fetch_remote_branch(
+        self,
+        cwd: Path,
+        remote: str,
+        branch: str,
+    ) -> GitCommandFailure | None:
+        self._fetch_calls.append((cwd, remote, branch))
+        return self._fetch_failure_by_args.get((cwd, remote, branch))
+
+    def pull_fast_forward(self, cwd: Path) -> GitCommandFailure | None:
+        self._pull_calls.append(cwd)
+        return self._pull_failure_by_cwd.get(cwd)
+
+    def update_local_ref(
+        self,
+        cwd: Path,
+        ref: str,
+        source: str,
+    ) -> GitCommandFailure | None:
+        self._update_ref_calls.append((cwd, ref, source))
+        return self._update_ref_failure_by_args.get((cwd, ref, source))
+
+    @property
+    def fetch_calls(self) -> tuple[tuple[Path, str, str], ...]:
+        return tuple(self._fetch_calls)
+
+    @property
+    def pull_calls(self) -> tuple[Path, ...]:
+        return tuple(self._pull_calls)
+
+    @property
+    def update_ref_calls(self) -> tuple[tuple[Path, str, str], ...]:
+        return tuple(self._update_ref_calls)
