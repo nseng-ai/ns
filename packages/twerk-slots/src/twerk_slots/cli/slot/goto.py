@@ -11,7 +11,7 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import find_assignment_by_slot
 from twerk_slots.cli.slot.context import load_slots_context
-from twerk_slots.naming import extract_slot_number, generate_slot_name
+from twerk_slots.cli.slot.selectors import SelectorOk, resolve_num, resolve_wt
 from twerk_slots.repo_context import NoRepoSentinel
 
 
@@ -60,19 +60,15 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
             message="Pass exactly one of --num or --wt, not both.",
         )
     if request.num is not None:
-        if not (1 <= request.num <= state.pool_size):
-            return ClinkrExit.failure(
-                error_type="invalid_slot_num",
-                message=f"--num must be in 1..{state.pool_size} (got {request.num}).",
-            )
-        slot_name = generate_slot_name(request.num)
+        result = resolve_num(request.num, state.pool_size)
+        if not isinstance(result, SelectorOk):
+            return ClinkrExit.failure(error_type="invalid_slot_num", message=result.message)
+        slot_name = result.slot_name
     elif request.wt is not None:
-        if extract_slot_number(request.wt) is None:
-            return ClinkrExit.failure(
-                error_type="invalid_slot_wt",
-                message=f"--wt '{request.wt}' is not a valid slot name (e.g. 'slot-01').",
-            )
-        slot_name = request.wt
+        result = resolve_wt(request.wt)
+        if not isinstance(result, SelectorOk):
+            return ClinkrExit.failure(error_type="invalid_slot_wt", message=result.message)
+        slot_name = result.slot_name
     else:
         return ClinkrExit.failure(
             error_type="missing_slot_arg",
