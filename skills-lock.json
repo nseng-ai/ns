@@ -36,11 +36,6 @@
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
     },
-    "dev-plan-to-branch": {
-      "source": "skills/dev-plan-to-branch",
-      "sourceType": "local",
-      "computedHash": "10a1ac12a600bd905a0f9b74cfc19bf530fd38073c642c2af925fbaa9292d7de"
-    },
     "dev-stacker-agent": {
       "source": "skills/dev-stacker-agent",
       "sourceType": "local",
