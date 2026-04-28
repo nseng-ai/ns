@@ -17,11 +17,9 @@ from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardGateway
 from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
-from twerk_slots.gateway.testing import (
-    FakeClipboardGateway,
-    FakePoolStateGateway,
-    FakeSlotsStorageGateway,
-)
+from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import RepoContext
 
 

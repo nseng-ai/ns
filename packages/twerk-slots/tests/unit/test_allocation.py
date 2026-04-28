@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import (
     DetachedHead,
     FileStatus,
@@ -21,11 +22,8 @@ from twerk_slots.allocation import (
     sync_pool_assignments,
 )
 from twerk_slots.context_testing import build_test_slots_context
-from twerk_slots.gateway.testing import (
-    FakeGitGateway,
-    FakePoolStateGateway,
-    FakeSlotsStorageGateway,
-)
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import RepoContext
 

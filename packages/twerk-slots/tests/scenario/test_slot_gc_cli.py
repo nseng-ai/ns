@@ -14,15 +14,13 @@ from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRState, PRSummary
+from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import FileStatus, WorktreeInfo
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.context_testing import build_test_slots_context
-from twerk_slots.gateway.testing import (
-    FakeGitGateway,
-    FakePoolStateGateway,
-    FakeSlotsStorageGateway,
-)
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
 

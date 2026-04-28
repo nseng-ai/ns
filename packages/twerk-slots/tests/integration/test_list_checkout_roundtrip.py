@@ -16,11 +16,12 @@ from click.testing import CliRunner
 
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.pr_testing import FakePRGateway
+from twerk_core.git.testing import FakeGitGateway
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
-from twerk_slots.gateway.testing import FakeClipboardGateway, FakeGitGateway
+from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
 from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
 
 
