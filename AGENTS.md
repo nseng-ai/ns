@@ -33,7 +33,7 @@ Public skills (those with a `skills/<name>` symlink for external discoverability
 
 ### Dev Skill Naming Convention
 
-Skills prefixed with `dev-` are developer-only tooling — either pure contributor helpers (`dev-gh`, `dev-fix-just`) or prototype features being dogfooded before graduation (`dev-plan-to-branch`). Dev skills additionally carry `metadata.internal: true` in their `SKILL.md` frontmatter to hide them from external `npx skills add` discovery. A prototype graduates to a published feature by (1) dropping the `dev-` prefix in all three directory locations and every reference, and (2) removing the `internal: true` frontmatter flag.
+Skills prefixed with `dev-` are developer-only tooling — pure contributor helpers (`dev-gh`, `dev-fix-just`) and prototype features being dogfooded before graduation. Dev skills additionally carry `metadata.internal: true` in their `SKILL.md` frontmatter to hide them from external `npx skills add` discovery. A prototype graduates to a published feature by (1) dropping the `dev-` prefix in all three directory locations and every reference, and (2) removing the `internal: true` frontmatter flag.
 
 ### GitHub Backend Interactions
 
