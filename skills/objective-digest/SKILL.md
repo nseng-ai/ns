@@ -1,8 +1,7 @@
 ---
 name: objective-digest
-description: 'Read-only objective dossier. Summarizes one objective across canonical and branch snapshots, including thesis, slice progress, PR state, readiness, and key findings.'
+description: 'Read-only objective dossier. Summarizes one objective across canonical and branch snapshots, including thesis, remaining work, and key findings.'
 allowed-tools:
-  - "Task"
   - "Bash(objective exec digest *)"
   - "Bash(objective list *)"
 ---
@@ -10,8 +9,9 @@ allowed-tools:
 # objective-digest
 
 Render a one-page Markdown digest of an objective from canonical and branch
-snapshots. Keep the coordinator light; delegate dense reading when the current
-harness allows it.
+snapshots. The skill runs inline in the calling agent: the CLI does the
+deterministic work, so the model only needs to fill prose placeholders
+into a pre-built template.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
 > rewrite rules, see `../objective/SKILL.md`.
@@ -27,7 +27,7 @@ unless the user explicitly redirects output.
 
 - **Slug, optional.** If present, pass it through. If omitted, let
   `objective exec digest` resolve from the current branch. If resolution
-  fails, surface the CLI's `error.message` verbatim and direct the user to
+  fails, surface the CLI's error message verbatim and direct the user to
   `objective list`.
 
 ## Related Objective Views
@@ -38,78 +38,55 @@ unless the user explicitly redirects output.
 | "What is this objective trying to accomplish?" | `objective-digest <slug>` |
 | "What should I work on next?"                  | `objective-next <slug>`   |
 
-## Delegation
+## How it works
 
-Use one competent read-only worker when harness policy permits. Do not override
-local model/subagent policy just for this skill.
+`objective exec digest` does all the deterministic work and returns a
+self-contained brief: pre-computed metadata table, pre-rendered merged
+PR list (linkified), raw master body for the thesis, raw master roadmap
+for remaining work, raw per-snapshot notes for findings, and the
+literal output template. You only need to fill the prose placeholders.
 
-The worker may run:
+## Workflow
 
-```bash
-objective exec digest [slug] --format json
-```
+1. Run:
 
-- **Preferred:** worker reads `references/digest-worker.md`, runs the CLI,
-  and returns only the final digest or CLI error message.
-- **Worker lacks shell:** coordinator runs the CLI and passes the JSON payload;
-  worker must not run commands.
-- **No subagents allowed:** coordinator reads `references/digest-worker.md`
-  and executes the contract inline.
+   ```bash
+   objective exec digest [slug]
+   ```
 
-Do not load the worker reference in the coordinator when the worker can read
-it. Do not paste raw objective blobs into coordinator context unless the worker
-cannot run shell commands.
+   Pass the slug only when the user supplied one.
 
-## Worker Prompt
+2. **If the command exits non-zero**, surface its stderr message
+   verbatim. For `no_objective_on_branch` or `ambiguous_objective`,
+   tell the user to run `objective list`.
 
-Adapt this brief to the current harness:
+3. **If the command succeeds**, follow the brief on stdout: it walks
+   you through five steps (metadata, merged PRs, thesis, remaining
+   work, findings) plus the output template. Steps 1–2 are verbatim
+   blocks — copy them as-is. Steps 3–5 are prose: read the master
+   body, master roadmap, and notes blocks, then emit the filled
+   template.
 
-```text
-Read the bundled objective-digest reference at
-references/digest-worker.md and follow it.
-
-Inputs:
-- objective slug: <slug, or omitted/current branch resolution>
-- mode: run `objective exec digest [slug] --format json` yourself
-
-Return exactly one of:
-- the final Markdown digest
-- the CLI error message verbatim if the command fails
-
-Do not write files, mutate brmem/git/GitHub, or include process notes.
-```
-
-If the coordinator already ran the CLI because the worker cannot use shell
-tools, replace the mode line with:
-
-```text
-mode: use the JSON payload below; do not run any shell command
-```
-
-## Coordinator Workflow
-
-1. Choose the routing path above.
-2. Send the worker prompt. Include the slug only if the user supplied one.
-3. If the worker/CLI reports an error, surface `error.message` verbatim. For
-   `no_objective_on_branch` or `ambiguous_objective`, tell the user to run
-   `objective list`.
-4. Lightly sanity-check successful worker output against the public contract:
-   - title is `# \`<slug>\` — digest`
-   - includes `## Thesis` and `## Key findings (binding for future work)`
-   - contains the three metadata rows
-5. Print the digest as the answer. Do not add commentary above or below the
-   digest when the user asked for the digest itself.
+4. Print the filled digest as the answer. Do not add commentary above
+   or below the digest when the user asked for the digest itself.
 
 ## Public Invariants
 
-The worker contract lives in `references/digest-worker.md`. The coordinator
-preserves only these externally visible invariants:
+The brief enforces these externally visible invariants:
 
 - Title: `# \`<slug>\` — digest`
 - Exactly three metadata rows: Associated PRs, Branch snapshots, Master
-  canonical.
-- Sections in order: Thesis, Key findings, optional warning block.
+  canonical — already pre-rendered by the CLI.
+- Sections in order: Thesis, Merged PRs, Remaining work, Key findings.
+- Merged PRs is a linkified bullet list (`- [#N](url) — title`) sorted
+  by PR number, pre-rendered by the CLI; render `_No merged PRs yet._`
+  when none exist.
+- Remaining work is one bullet per unfinished roadmap slice
+  (`- **<slice headline>.** <one short sentence>`).
+- Key findings bullets are each one short sentence after the headline —
+  no semicolons, no compound clauses.
 - No slice table, Markdown-derived progress counts, or prose-derived
-  attribution.
-- Warnings include only raw CLI warnings.
+  attribution. The CLI computes counts, the latest-snapshot pick, and
+  the merged-PR list; you supply only prose for thesis, remaining work,
+  and findings.
 - Print to stdout only.
