@@ -136,6 +136,7 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
         current_branch="widget-rewrite-layer-1",
         branches=("master", "widget-rewrite-layer-1"),
         commits_by_range={"master..HEAD": commits},
+        patch_ids_by_range={"master..HEAD": (("sha-2", "pid-2"), ("sha-1", "pid-1"))},
     )
 
     result = CliRunner().invoke(
@@ -149,7 +150,9 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
     data = payload["data"]
     assert data["slug"] == "widget-rewrite"
     assert data["branch"] == "widget-rewrite-layer-1"
+    assert data["branch_head_sha"] == "HEAD"
     assert data["in_sync"] is False
+    assert data["freshness"] == "stale"
 
     assert data["body"]["key"] == "widget-rewrite/body.md"
     assert data["body"]["present"] is True
@@ -167,16 +170,20 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
             "sha": "sha-2",
             "author_iso": "2026-04-26T19:00:00+00:00",
             "subject": "Second",
-            "patch_id": None,
+            "patch_id": "pid-2",
         },
         {
             "sha": "sha-1",
             "author_iso": "2026-04-26T18:00:00+00:00",
             "subject": "First",
-            "patch_id": None,
+            "patch_id": "pid-1",
         },
     ]
     assert data["branch_max_author_iso"] == "2026-04-26T19:00:00+00:00"
+    assert data["downstack_absorbed_patch_ids"] == []
+    assert data["snapshot_absorbed_patch_ids"] == []
+    assert data["absorbed_marker_diagnostics"] == []
+    assert data["absorbed_patch_ids"] == []
 
 
 def test_precheck_only_body_present(cli_group: ClinkrGroup) -> None:
@@ -194,6 +201,7 @@ def test_precheck_only_body_present(cli_group: ClinkrGroup) -> None:
                 ),
             )
         },
+        patch_ids_by_range={"master..HEAD": (("sha-1", "pid-1"),)},
     )
 
     result = CliRunner().invoke(
@@ -290,6 +298,7 @@ def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None
     assert result.exit_code == 0, result.output
     data = payload["data"]
     assert data["in_sync"] is True
+    assert data["freshness"] == "fresh"
     assert len(data["branch_commits"]) == 2
     assert {c["patch_id"] for c in data["branch_commits"]} == {"pid-1", "pid-2"}
     assert set(data["absorbed_patch_ids"]) == {"pid-1", "pid-2"}
@@ -339,7 +348,7 @@ def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> Non
     assert set(data["absorbed_patch_ids"]) == {"pid-1"}
 
 
-def test_precheck_not_in_sync_when_pid_is_null(cli_group: ClinkrGroup) -> None:
+def test_precheck_ignores_null_pid_for_freshness(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
     cwd = Path.cwd()
     gt_gateway = FakeGtGateway(
@@ -379,7 +388,90 @@ def test_precheck_not_in_sync_when_pid_is_null(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     data = payload["data"]
+    assert data["in_sync"] is True
+    assert data["freshness"] == "fresh"
+
+
+def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_objective("widget-rewrite-layer-1")
+    gateway.put(
+        "objectives",
+        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite-layer-1",
+        (
+            '{"schema":1,"sha":"sha-2","patch_id":"pid-novel",'
+            '"author_iso":"2026-04-26T19:00:00+00:00","subject":"Second"}\n'
+        ),
+    )
+    cwd = Path.cwd()
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="widget-rewrite-layer-1",
+                ancestors=("master",),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    commits = (
+        CommitSummary(sha="sha-2", author_iso="2026-04-26T19:00:00+00:00", subject="Second"),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        current_branch="widget-rewrite-layer-1",
+        branches=("master", "widget-rewrite-layer-1"),
+        commits_by_range={"master..HEAD": commits},
+        patch_ids_by_range={"master..HEAD": (("sha-2", "pid-novel"),)},
+        gt_gateway=gt_gateway,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "update-precheck", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    data = payload["data"]
+    assert data["in_sync"] is True
+    assert data["freshness"] == "fresh"
+    assert data["snapshot_absorbed_patch_ids"] == ["pid-novel"]
+    assert data["absorbed_patch_ids"] == ["pid-novel"]
+
+
+def test_precheck_malformed_marker_is_stale(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_objective("widget-rewrite-layer-1")
+    gateway.put(
+        "objectives",
+        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite-layer-1",
+        "not-json\n",
+    )
+    commits = (CommitSummary(sha="sha-1", author_iso="2026-04-26T18:00:00+00:00", subject="First"),)
+    obj = _make_obj(
+        gateway=gateway,
+        current_branch="widget-rewrite-layer-1",
+        branches=("master", "widget-rewrite-layer-1"),
+        commits_by_range={"master..HEAD": commits},
+        patch_ids_by_range={"master..HEAD": (("sha-1", "pid-1"),)},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "update-precheck", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    data = payload["data"]
+    assert data["freshness"] == "stale"
     assert data["in_sync"] is False
+    assert data["absorbed_marker_diagnostics"] == ["line 1: invalid JSON: Expecting value"]
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +494,7 @@ def test_precheck_auto_resolves_sole_slug(cli_group: ClinkrGroup) -> None:
                 ),
             )
         },
+        patch_ids_by_range={"master..HEAD": (("sha-1", "pid-1"),)},
     )
 
     result = CliRunner().invoke(

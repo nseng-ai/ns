@@ -200,6 +200,15 @@ def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
     cwd = Path.cwd()
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
+    gateway.put(
+        "objectives",
+        "widget/.absorbed.jsonl",
+        "feat/current",
+        (
+            '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T07:30:00+00:00","subject":"Wire widget"}\n'
+        ),
+    )
     gt_gateway = FakeGtGateway(
         trunk="master",
         stack_by_cwd={
@@ -225,6 +234,9 @@ def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
             ),
         ),
     }
+    patch_ids_by_range = {
+        "master..feat/current": (("aaa111", "pid-1"),),
+    }
     obj = _make_obj(
         gateway=gateway,
         branch="feat/current",
@@ -233,6 +245,7 @@ def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
         file_last_touched=file_last_touched,
         branch_head_iso=branch_head_iso,
         commits_by_range=commits_by_range,
+        patch_ids_by_range=patch_ids_by_range,
     )
 
     out = _invoke_current(cli_group, obj)

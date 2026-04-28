@@ -2,7 +2,7 @@
 
 Collapses the deterministic round-trips at the top of the
 ``objective-update`` skill (preflight, slug resolution, freshness probe, old
-SHA capture, master..HEAD enumeration) into a single JSON envelope. The skill
+SHA capture, trunk..HEAD enumeration) into a single JSON envelope. The skill
 keeps file content load, per-commit triage, the LLM judgment, and the
 rewrite/persist steps; this operation just hands it the facts.
 """
@@ -28,6 +28,7 @@ from twerk_core.git.types import (
 )
 from twerk_core.gt.gateway import GtGateway
 from twerk_core.gt.types import GtCommandFailure
+from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     MASTER_BRANCH,
@@ -39,6 +40,11 @@ from twerk_objectives.discovery import (
 from twerk_objectives.exec.absorbed import (
     AbsorbedSetUnavailable,
     absorbed_patch_ids_for_branch,
+)
+from twerk_objectives.freshness import (
+    ObjectiveSnapshotState,
+    classify_obj_state,
+    effective_absorbed_patch_ids,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
@@ -71,7 +77,7 @@ class FilePrecheck(JsonSerializable):
 
 @dataclass(frozen=True)
 class BranchCommit(JsonSerializable):
-    """One ``master..HEAD`` commit, newest-first."""
+    """One ``trunk..HEAD`` commit, newest-first."""
 
     sha: str
     author_iso: str
@@ -83,13 +89,18 @@ class BranchCommit(JsonSerializable):
 class ObjectiveUpdatePrecheckResult(JsonSerializable):
     slug: str
     branch: str
+    branch_head_sha: str
     body: FilePrecheck
     roadmap: FilePrecheck
     notes: FilePrecheck
     snapshot_max_head_date: str | None
     branch_commits: tuple[BranchCommit, ...]
     branch_max_author_iso: str | None
+    downstack_absorbed_patch_ids: tuple[str, ...]
+    snapshot_absorbed_patch_ids: tuple[str, ...]
+    absorbed_marker_diagnostics: tuple[str, ...]
     absorbed_patch_ids: tuple[str, ...]
+    freshness: ObjectiveSnapshotState
     in_sync: bool
 
 
@@ -98,7 +109,7 @@ class ObjectiveUpdatePrecheckResult(JsonSerializable):
     help=(
         "Emit raw preflight facts for `objective-update`. Resolves the "
         "current branch, validates the SLUG is attached, probes head SHAs for "
-        "body/roadmap/notes, and lists `master..HEAD` commits — all in one "
+        "body/roadmap/notes, and lists `trunk..HEAD` commits — all in one "
         "round-trip. Skill consumes the JSON envelope to decide whether to "
         "skip (in_sync) or proceed to evidence triage. SLUG auto-resolves "
         "from the current branch when exactly one objective is attached."
@@ -131,6 +142,10 @@ def run_update_precheck_objective(
                 "Use objective-reconcile <slug> to update canonical state."
             ),
         )
+
+    head_result = git.branch_head_oid(current_branch)
+    if isinstance(head_result, GitCommandFailure):
+        return ClinkrExit.failure(error_type="git_failed", message=head_result.message)
 
     if request.slug is None:
         match resolve_slug(mctx, None, requested_branch=current_branch):
@@ -196,27 +211,46 @@ def run_update_precheck_objective(
     branch_max_author_iso = _max_iso(c.author_iso for c in branch_commits)
 
     absorbed = absorbed_patch_ids_for_branch(git, mctx.gt_gateway, cwd, current_branch, trunk=trunk)
-    if isinstance(absorbed, AbsorbedSetUnavailable) or pid_by_sha is None:
-        absorbed_pids: tuple[str, ...] = ()
-        in_sync = not branch_commits
+    if isinstance(absorbed, AbsorbedSetUnavailable):
+        downstack_pids = frozenset()
     else:
-        absorbed_pids = tuple(sorted(absorbed))
-        if not branch_commits:
-            in_sync = True
-        else:
-            in_sync = all(c.patch_id is not None and c.patch_id in absorbed for c in branch_commits)
+        downstack_pids = absorbed
+
+    marker = load_absorbed_marker(gateway, slug=slug, branch=current_branch)
+    effective_pids = effective_absorbed_patch_ids(
+        marker=marker,
+        downstack_pids=downstack_pids,
+    )
+    if pid_by_sha is None:
+        branch_commit_pids = () if not branch_commits else None
+    else:
+        branch_commit_pids = tuple(c.patch_id for c in branch_commits)
+    freshness = classify_obj_state(
+        alive=True,
+        branch_commit_pids=branch_commit_pids,
+        absorbed_pids=effective_pids,
+    )
+    absorbed_pids = tuple(sorted(effective_pids or ()))
+    in_sync = freshness == "fresh"
 
     return ClinkrExit.ok(
         ObjectiveUpdatePrecheckResult(
             slug=slug,
             branch=current_branch,
+            branch_head_sha=head_result,
             body=body,
             roadmap=roadmap,
             notes=notes,
             snapshot_max_head_date=snapshot_max_head_date,
             branch_commits=branch_commits,
             branch_max_author_iso=branch_max_author_iso,
+            downstack_absorbed_patch_ids=tuple(sorted(downstack_pids)),
+            snapshot_absorbed_patch_ids=tuple(sorted(marker.patch_ids)),
+            absorbed_marker_diagnostics=tuple(
+                f"line {d.line}: {d.message}" for d in marker.diagnostics
+            ),
             absorbed_patch_ids=absorbed_pids,
+            freshness=freshness,
             in_sync=in_sync,
         )
     )

@@ -1,4 +1,26 @@
-"""Snapshot-freshness classifier shared by ``objective exec`` digest emitters."""
+"""Snapshot-freshness classifier shared by objective commands.
+
+Objective freshness is deterministic and patch-id based for live branch
+snapshots. A branch snapshot is fresh when every content patch in
+``trunk..branch`` is present in the effective absorbed set:
+
+``downstack_absorbed_patch_ids ∪ snapshot_absorbed_patch_ids``.
+
+The downstack side is computed from strict Graphite ancestors. It covers the
+normal stacked-PR case where restacking has rolled ancestor work into the
+current branch. The snapshot side comes from ``<slug>/.absorbed.jsonl``, a
+machine-owned JSONL marker written by ``objective-update`` after its evidence
+triage confirms that the branch snapshot covers the current branch work.
+
+Only non-null ``git patch-id`` values participate in classification. Commits
+without content patch IDs are ignored for freshness and retained only as
+diagnostic marker records. If patch-id facts or marker parsing are
+unavailable for a live branch with content patches, the branch is stale. This
+keeps ``objective tree``, ``objective current``, and
+``objective exec update-precheck`` on one source of truth instead of falling
+back to timestamps. The only timestamp classifier left here is for the
+canonical trunk row, which has no meaningful ``trunk..trunk`` patch range.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +31,7 @@ from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import GitCommandFailure
 from twerk_core.gt.gateway import GtGateway
+from twerk_objectives.absorbed_marker import AbsorbedMarker, load_absorbed_marker
 from twerk_objectives.discovery import body_key
 from twerk_objectives.exec.absorbed import (
     AbsorbedSetUnavailable,
@@ -22,41 +45,45 @@ ObjectiveSnapshotState = Literal["fresh", "stale"]
 def classify_obj_state(
     *,
     alive: bool,
-    snapshot_iso: str | None,
     branch_commit_pids: tuple[str | None, ...] | None,
     absorbed_pids: frozenset[str] | None,
-    branch_max_author_iso: str | None,
 ) -> ObjectiveSnapshotState:
     """Classify a snapshot as ``"fresh"`` or ``"stale"``.
 
-    A deleted branch (post-merge) is fresh by definition: its history is
-    frozen, so the snapshot can no longer drift. For live branches, prefer
-    a patch-id absorption check: when both ``branch_commit_pids`` and
-    ``absorbed_pids`` are available, the branch is fresh iff every
-    ``master..branch`` commit's patch-id is present in ``absorbed_pids``.
-    A ``None`` patch-id (merge or empty/whitespace-only commit) cannot be
-    proven absorbed, so it forces stale.
-
-    When the patch-id inputs are unavailable (``gt`` failure, untracked
-    branch, ``git patch-id`` failure), fall back to the date-based
-    comparator: stale only when both ``snapshot_iso`` and
-    ``branch_max_author_iso`` are known and the latter is strictly newer.
-    Author time (``%aI``) is preserved by ``gt restack`` while committer
-    time (``%cI``) is rewritten, so this signal does not flap on restacks
-    that produce no net-new commits.
+    A deleted branch is fresh by definition: its history is frozen, so the
+    snapshot can no longer drift. For live branches, freshness is purely
+    patch-id based. The branch is fresh iff every content patch-id in
+    ``trunk..branch`` is present in the effective absorbed set. ``None``
+    patch-ids represent merge, empty, or otherwise non-content-changing
+    commits; they are ignored for freshness and recorded only as diagnostics
+    in ``.absorbed.jsonl``.
     """
     if not alive:
         return "fresh"
-    if branch_commit_pids is not None and absorbed_pids is not None:
-        if not branch_commit_pids:
+    if branch_commit_pids is not None:
+        content_pids = tuple(pid for pid in branch_commit_pids if pid is not None)
+        if not content_pids:
             return "fresh"
-        for pid in branch_commit_pids:
-            if pid is None or pid not in absorbed_pids:
-                return "stale"
+        if absorbed_pids is None:
+            return "stale"
+        if all(pid in absorbed_pids for pid in content_pids):
+            return "fresh"
+        return "stale"
+    return "stale"
+
+
+def classify_timestamp_state(
+    *,
+    alive: bool,
+    snapshot_iso: str | None,
+    branch_head_iso: str | None,
+) -> ObjectiveSnapshotState:
+    """Classify timestamp-only canonical rows that have no branch patch range."""
+    if not alive:
         return "fresh"
-    if snapshot_iso is None or branch_max_author_iso is None:
+    if snapshot_iso is None or branch_head_iso is None:
         return "fresh"
-    if branch_max_author_iso > snapshot_iso:
+    if branch_head_iso > snapshot_iso:
         return "stale"
     return "fresh"
 
@@ -74,61 +101,59 @@ def classify_branch_snapshot(
 ) -> ObjectiveSnapshotState:
     """Classify the snapshot freshness for ``branch``'s claim of ``slug``.
 
-    Gathers the snapshot timestamp, branch tip's max author iso, branch
-    commit patch-ids, and absorbed patch-ids, then defers to
-    :func:`classify_obj_state`. Always returns ``"fresh"`` or ``"stale"``;
-    callers map ``alive=False`` to a UI ``"deleted"`` label themselves.
+    Gathers branch commit patch-ids plus both absorption sources, then
+    defers to :func:`classify_obj_state`. Always returns ``"fresh"`` or
+    ``"stale"``; callers map ``alive=False`` to a UI ``"deleted"`` label
+    themselves.
     """
-    del gateway  # snapshot timestamp comes from git via the snapshot ref
-    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
-    body_last_touched = git.file_last_touched_iso(snapshot_ref, body_key(slug))
-    branch_max_author_iso = _max_author_iso(git, branch, trunk) if alive else None
     branch_commit_pids, absorbed_pids = _patch_id_inputs(
-        git, gt, cwd, branch, trunk=trunk, alive=alive
+        gateway, git, gt, cwd, branch, slug=slug, trunk=trunk, alive=alive
     )
     return classify_obj_state(
         alive=alive,
-        snapshot_iso=body_last_touched,
         branch_commit_pids=branch_commit_pids,
         absorbed_pids=absorbed_pids,
-        branch_max_author_iso=branch_max_author_iso,
     )
 
 
-def _max_author_iso(git: GitGateway, branch: str, trunk: str) -> str | None:
-    """Return the latest author timestamp on ``trunk..branch``, or ``None``.
-
-    Author time (``%aI``) is preserved by ``gt restack``; committer time
-    (``%cI``) is rewritten. Using author time keeps the freshness signal
-    aligned with digest and resilient to no-op restacks.
-    """
-    result = git.log_range(f"{trunk}..{branch}")
-    if isinstance(result, GitCommandFailure):
-        return None
-    return max((c.author_iso for c in result), default=None)
+def snapshot_last_touched_iso(git: GitGateway, branch: str, slug: str) -> str | None:
+    """Return the last-touched timestamp for ``slug``'s ``body.md``."""
+    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
+    return git.file_last_touched_iso(snapshot_ref, body_key(slug))
 
 
 def _patch_id_inputs(
+    gateway: BranchMemoryGateway,
     git: GitGateway,
     gt: GtGateway,
     cwd: Path,
     branch: str,
     *,
+    slug: str,
     trunk: str,
     alive: bool,
 ) -> tuple[tuple[str | None, ...] | None, frozenset[str] | None]:
-    """Return ``(branch_commit_pids, absorbed_pids)`` for ``branch``.
-
-    ``(None, None)`` means the patch-id signal is unavailable and the caller
-    should fall back to the date comparator. Both inputs collapse together
-    so the freshness classifier never sees a partial signal.
-    """
+    """Return ``(branch_commit_pids, effective_absorbed_pids)`` for ``branch``."""
     if not alive:
         return None, None
     pid_result = git.patch_ids_for_range(f"{trunk}..{branch}")
     if isinstance(pid_result, GitCommandFailure):
         return None, None
+    marker = load_absorbed_marker(gateway, slug=slug, branch=branch)
+    if not marker.ok:
+        return tuple(pid for _sha, pid in pid_result), None
     absorbed = absorbed_patch_ids_for_branch(git, gt, cwd, branch, trunk=trunk)
     if isinstance(absorbed, AbsorbedSetUnavailable):
-        return None, None
-    return tuple(pid for _sha, pid in pid_result), absorbed
+        absorbed = frozenset()
+    return tuple(pid for _sha, pid in pid_result), absorbed | marker.patch_ids
+
+
+def effective_absorbed_patch_ids(
+    *,
+    marker: AbsorbedMarker,
+    downstack_pids: frozenset[str] | None,
+) -> frozenset[str] | None:
+    """Combine marker and downstack absorption, or return ``None`` if unsafe."""
+    if not marker.ok:
+        return None
+    return marker.patch_ids | (downstack_pids or frozenset())

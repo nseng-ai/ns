@@ -9,16 +9,18 @@ from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import CommitSummary, GitCommandFailure
 from twerk_core.gt.testing import FakeGtGateway
 from twerk_core.gt.types import StackInfo
-from twerk_objectives.freshness import classify_branch_snapshot, classify_obj_state
+from twerk_objectives.freshness import (
+    classify_branch_snapshot,
+    classify_obj_state,
+    classify_timestamp_state,
+)
 
 
 def test_deleted_branch_is_fresh() -> None:
     state = classify_obj_state(
         alive=False,
-        snapshot_iso="2026-04-26T07:00:00+00:00",
         branch_commit_pids=("p1",),
         absorbed_pids=frozenset(),
-        branch_max_author_iso="2026-04-26T08:00:00+00:00",
     )
     assert state == "fresh"
 
@@ -26,10 +28,8 @@ def test_deleted_branch_is_fresh() -> None:
 def test_all_pids_absorbed_is_fresh() -> None:
     state = classify_obj_state(
         alive=True,
-        snapshot_iso=None,
         branch_commit_pids=("p1", "p2"),
         absorbed_pids=frozenset({"p1", "p2", "p3"}),
-        branch_max_author_iso=None,
     )
     assert state == "fresh"
 
@@ -37,76 +37,62 @@ def test_all_pids_absorbed_is_fresh() -> None:
 def test_one_novel_pid_is_stale() -> None:
     state = classify_obj_state(
         alive=True,
-        snapshot_iso=None,
         branch_commit_pids=("p1", "p_novel"),
         absorbed_pids=frozenset({"p1"}),
-        branch_max_author_iso=None,
     )
     assert state == "stale"
 
 
-def test_null_pid_forces_stale() -> None:
+def test_null_pid_is_ignored() -> None:
     state = classify_obj_state(
         alive=True,
-        snapshot_iso=None,
         branch_commit_pids=("p1", None),
         absorbed_pids=frozenset({"p1"}),
-        branch_max_author_iso=None,
     )
-    assert state == "stale"
+    assert state == "fresh"
 
 
 def test_empty_branch_commit_pids_is_fresh() -> None:
     state = classify_obj_state(
         alive=True,
-        snapshot_iso=None,
         branch_commit_pids=(),
         absorbed_pids=frozenset(),
-        branch_max_author_iso=None,
     )
     assert state == "fresh"
 
 
-def test_date_fallback_stale_when_branch_newer() -> None:
+def test_unavailable_patch_ids_are_stale() -> None:
     state = classify_obj_state(
         alive=True,
-        snapshot_iso="2026-04-26T07:00:00+00:00",
         branch_commit_pids=None,
         absorbed_pids=None,
-        branch_max_author_iso="2026-04-26T08:00:00+00:00",
     )
     assert state == "stale"
 
 
-def test_date_fallback_fresh_when_snapshot_at_or_after_branch() -> None:
-    state = classify_obj_state(
+def test_timestamp_state_stale_when_branch_newer() -> None:
+    state = classify_timestamp_state(
         alive=True,
         snapshot_iso="2026-04-26T08:00:00+00:00",
-        branch_commit_pids=None,
-        absorbed_pids=None,
-        branch_max_author_iso="2026-04-26T08:00:00+00:00",
+        branch_head_iso="2026-04-26T09:00:00+00:00",
+    )
+    assert state == "stale"
+
+
+def test_timestamp_state_fresh_when_snapshot_at_or_after_branch() -> None:
+    state = classify_timestamp_state(
+        alive=True,
+        snapshot_iso="2026-04-26T08:00:00+00:00",
+        branch_head_iso="2026-04-26T08:00:00+00:00",
     )
     assert state == "fresh"
 
 
-def test_date_fallback_fresh_when_isos_missing() -> None:
-    state = classify_obj_state(
+def test_timestamp_state_fresh_when_isos_missing() -> None:
+    state = classify_timestamp_state(
         alive=True,
         snapshot_iso=None,
-        branch_commit_pids=None,
-        absorbed_pids=None,
-        branch_max_author_iso=None,
-    )
-    assert state == "fresh"
-
-
-def test_partial_pid_signal_falls_back_to_dates() -> None:
-    state = classify_obj_state(
-        alive=True,
-        snapshot_iso="2026-04-26T08:00:00+00:00",
-        branch_commit_pids=("p1",),
-        absorbed_pids=None,
-        branch_max_author_iso="2026-04-26T07:00:00+00:00",
+        branch_head_iso=None,
     )
     assert state == "fresh"
 
@@ -132,9 +118,20 @@ def _make_gt(*, ancestors: tuple[str, ...] = ()) -> FakeGtGateway:
     )
 
 
-def test_classify_branch_snapshot_alive_with_unavailable_inputs_is_fresh() -> None:
+def test_classify_branch_snapshot_alive_with_unavailable_inputs_is_stale() -> None:
     gateway = FakeBranchMemoryGateway()
-    git = FakeGitGateway()
+    git = FakeGitGateway(
+        commits_by_range={
+            "master..feat/widget": (
+                CommitSummary(
+                    sha="bbb222",
+                    author_iso="2026-04-26T08:00:00+00:00",
+                    subject="Wire widget",
+                ),
+            ),
+        },
+        patch_ids_failure=GitCommandFailure(message="boom", returncode=1),
+    )
     gt = _make_gt()
 
     state = classify_branch_snapshot(
@@ -148,7 +145,7 @@ def test_classify_branch_snapshot_alive_with_unavailable_inputs_is_fresh() -> No
         alive=True,
     )
 
-    assert state == "fresh"
+    assert state == "stale"
 
 
 def test_classify_branch_snapshot_alive_with_unabsorbed_pid_is_stale() -> None:
@@ -183,13 +180,18 @@ def test_classify_branch_snapshot_alive_with_unabsorbed_pid_is_stale() -> None:
     assert state == "stale"
 
 
-def test_classify_branch_snapshot_alive_falls_back_to_date_signal() -> None:
-    snapshot_ref = "refs/brmem/ns/objectives/feat---widget"
+def test_classify_branch_snapshot_marker_absorbs_branch_pid() -> None:
     gateway = FakeBranchMemoryGateway()
+    gateway.put(
+        "objectives",
+        "widget/.absorbed.jsonl",
+        "feat/widget",
+        (
+            '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T08:00:00+00:00","subject":"Wire widget"}\n'
+        ),
+    )
     git = FakeGitGateway(
-        file_last_touched_by_ref_path={
-            (snapshot_ref, "widget/body.md"): "2026-04-26T07:00:00+00:00",
-        },
         commits_by_range={
             "master..feat/widget": (
                 CommitSummary(
@@ -199,8 +201,7 @@ def test_classify_branch_snapshot_alive_falls_back_to_date_signal() -> None:
                 ),
             ),
         },
-        # Force the date fallback by marking patch-id lookup as failed.
-        patch_ids_failure=GitCommandFailure(message="boom", returncode=1),
+        patch_ids_by_range={"master..feat/widget": (("aaa111", "pid-1"),)},
     )
     gt = _make_gt(ancestors=("master",))
 
@@ -215,7 +216,7 @@ def test_classify_branch_snapshot_alive_falls_back_to_date_signal() -> None:
         alive=True,
     )
 
-    assert state == "stale"
+    assert state == "fresh"
 
 
 def test_classify_branch_snapshot_dead_branch_is_fresh() -> None:

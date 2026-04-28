@@ -6,6 +6,7 @@ allowed-tools:
   - "Bash(git log *)"
   - "Bash(git show *)"
   - "Bash(objective exec update-precheck *)"
+  - "Bash(objective exec absorb-patches *)"
   - "Bash(brmem get *)"
   - "Bash(brmem put *)"
   - "Read"
@@ -24,9 +25,11 @@ from it.
 ## Goal
 
 Given an explicit objective slug, update the branch-local snapshot under
-`<slug>/` to reflect commits on the current branch. Write only changed files
-back to `brmem`, and report old/new commit SHAs so prior snapshots are
-recoverable.
+`<slug>/` to reflect commits on the current branch. Write only changed
+content files back to `brmem`, then advance the machine-owned
+`<slug>/.absorbed.jsonl` marker so deterministic freshness checks know
+which branch patches this snapshot covers. Report old/new commit SHAs so
+prior snapshots are recoverable.
 
 `update` mutates a **branch snapshot**, not the canonical objective. In the
 current implementation, canonical state is stored on `master`, so `update`
@@ -36,12 +39,16 @@ This is normally needed only for stacked PRs, when a later branch will claim
 from this branch before this branch lands. For a simple single-PR path, merge
 the PR and run `objective-reconcile` on `master` instead.
 
-## Content Files
+## Content Files And Marker
 
 Read every present file under `<slug>/` on the current branch (`body.md`
 required; `roadmap.md` / `notes.md` optional). Rewrite only files whose
 content changed. Never read or write other branch snapshots or canonical
 state.
+
+The `.absorbed.jsonl` file is not prose. Never hand-author it. It is written
+only by `objective exec absorb-patches` after evidence triage confirms the
+snapshot covers the current branch work.
 
 ## Inputs
 
@@ -65,10 +72,13 @@ state.
   to pick — never guess between slices that happen to coexist on a branch.
 - **One slug per invocation.** Multiple slugs on the branch are fine; operate
   only on the explicit slug.
-- **No-op when in sync.** If `master..HEAD` is empty, or evidence triage finds
-  every branch commit already documented, report in sync and exit without
-  writing. Use the date check as a staleness hint only; do not use it alone to
-  skip evidence triage.
+- **No-op only when structurally fresh.** If precheck reports
+  `data.freshness == "fresh"`, report in sync and exit without loading or
+  writing files. If freshness is stale, always triage the branch commits.
+- **Advance the marker after successful triage.** If evidence triage finds
+  every branch commit already documented, skip Markdown rewrites but still
+  run `objective exec absorb-patches` to record that the snapshot covers the
+  current branch patch IDs.
 - **Conservative per-file rewrites.** Apply the shared rules in
   `../objective/references/mutation-contract.md`. Do not regenerate
   files from the original brief, rename sections, delete history, or rebuild
@@ -90,7 +100,7 @@ objective exec update-precheck [<slug>] --format json
 ```
 
 The envelope handles preflight (current branch, master refusal, detached
-HEAD), slug resolution, file presence + old SHAs, and the `master..HEAD`
+HEAD), slug resolution, file presence + old SHAs, and the `trunk..HEAD`
 commit list in one round-trip.
 
 Handle the result:
@@ -107,33 +117,27 @@ Handle the result:
   - `slug_not_attached` — the named slug has no snapshot on this
     branch; direct the user to `objective-claim <slug>` first.
   - `git_failed` — surface the underlying git error verbatim.
-- **`data.in_sync == true`**: report and exit without loading or writing
-  files:
+- **`data.freshness == "fresh"`**: report and exit without loading or
+  writing files:
 
   ```text
   objective <data.slug> is in sync with HEAD on <data.branch> - no update needed
   ```
 
-  `in_sync` is true when every `master..HEAD` commit's `git patch-id`
-  appears on a downstack ancestor's `trunk..ancestor` patch-id set —
-  i.e., the branch's net-new content is already absorbed by an ancestor.
-  When the absorbed-set lookup is unavailable (`gt` failure, untracked
-  branch, `git patch-id` failure), the precheck silently degrades to the
-  legacy "empty `master..HEAD`" rule.
+  `freshness` is true when every content patch ID in `trunk..HEAD` is
+  already absorbed by either a downstack ancestor or the branch snapshot's
+  `.absorbed.jsonl` marker. `data.in_sync` is a compatibility alias for
+  `data.freshness == "fresh"`.
 
 - **Otherwise**: carry forward `data.slug`, `data.branch`, the three
   `FilePrecheck` records (`body`, `roadmap`, `notes` — `present` flags
   drive "only run for present files" gating; `head_sha` values are the
-  old SHAs for the recovery hint), `data.snapshot_max_head_date` (date-
-  fresh hint input), and `data.branch_commits` (evidence list for
-  triage). Continue to step 2.
+  old SHAs for the recovery hint), `data.branch_head_sha` (the exact HEAD
+  reviewed by this run), `data.branch_commits` (evidence list for triage),
+  and any `data.absorbed_marker_diagnostics`. Continue to step 2.
 
-The snapshot date-fresh hint is the comparison `snapshot_max_head_date >=
-branch_max_author_iso`. Use this as a hint only — cherry-picks, imported
-commits, and `git commit --amend --reset-author` can preserve or move
-author times in ways that hide net-new content, so always proceed to
-evidence triage and expect a no-op when the branch evidence is already
-documented.
+If `data.absorbed_marker_diagnostics` is non-empty, mention that the marker is
+malformed and will be rewritten if triage succeeds.
 
 ### 2. Load target files
 
@@ -166,7 +170,7 @@ git show --stat --oneline <sha>
 ```
 
 If every post-snapshot commit is already documented, skip steps 4–5 and
-report no-op at step 6. Do not draft "freshening" edits to a snapshot whose
+continue to step 6. Do not draft "freshening" edits to a snapshot whose
 content already covers the work.
 
 ### 4. Rewrite conservatively
@@ -198,13 +202,33 @@ brmem put <slug>/notes.md --namespace objectives --file <temp-notes>
 
 Skip `brmem put` for unchanged files. Capture new commit SHAs.
 
-### 6. Report
+### 6. Advance absorbed marker
+
+After content has been confirmed covered — either by existing prose or by
+the rewrites from steps 4–5 — write the deterministic marker:
+
+```bash
+objective exec absorb-patches <slug> --expected-head <data.branch_head_sha> --format json
+```
+
+Handle failures:
+
+- `head_moved` — stop and tell the user to rerun `objective-update`; a new
+  commit landed after triage and must be reviewed before absorption.
+- `git_failed`, `detached_head`, `on_master_branch`, `slug_not_attached` —
+  surface the message and stop.
+
+Capture the marker's `old_head_sha`, `new_head_sha`, and record count for the
+final report.
+
+### 7. Report
 
 Include:
 
 - slug and branch
 - files touched with one-line notes
 - old SHA to new SHA for each changed file
+- `.absorbed.jsonl` old SHA to new SHA, or `created` when no old marker existed
 - branch evidence used
 - recovery hint:
 
@@ -216,9 +240,10 @@ When no files were rewritten, report:
 
 - slug, branch
 - `snapshot already documents all post-snapshot commits`
+- `.absorbed.jsonl` marker advanced
 - the commit list checked, with a one-line rationale per commit (e.g.,
   `<sha> <subject>` → matches Slice N already in `notes.md`)
-- the snapshot's current commit SHA so the user can audit / recover
+- the marker commit SHA so the user can audit / recover
 
 ## Edge Cases and Anti-Patterns
 
@@ -230,6 +255,9 @@ When no files were rewritten, report:
 - Multiple attached slugs with no slug in the prompt: ask the user to
   choose. Never auto-pick to break the tie.
 - Snapshot fresh relative to HEAD: report in sync and write nothing.
+- HEAD changed after precheck: stop on `head_moved`; do not absorb untriaged
+  commits.
 - Multiple slugs on the branch: fine; operate only on the explicit slug.
 - Never implement work, attach a snapshot, rewrite canonical state, delete
-  completed roadmap items, or rebuild files wholesale during `update`.
+  completed roadmap items, hand-edit `.absorbed.jsonl`, or rebuild files
+  wholesale during `update`.
