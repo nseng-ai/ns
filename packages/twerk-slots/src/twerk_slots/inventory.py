@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from twerk_core.git.git_gateway import GitGateway
+from twerk_core.git.types import WorktreeInfo
 from twerk_slots.naming import extract_slot_number
 
 InventoryStatus = Literal["assigned", "available"]
@@ -25,17 +26,57 @@ class SlotRecord:
 
 
 @dataclass(frozen=True)
+class SlotMatch:
+    """Result of ``find_by_branch`` when the branch lives in a managed slot."""
+
+    record: SlotRecord
+
+
+@dataclass(frozen=True)
+class MainWorktreeMatch:
+    """Result of ``find_by_branch`` when the branch lives in the main worktree."""
+
+    worktree: WorktreeInfo
+
+
+@dataclass(frozen=True)
 class SlotInventory:
     records: tuple[SlotRecord, ...]
+    main_worktree: WorktreeInfo | None = None
 
     @property
     def pool_size(self) -> int:
         return len(self.records)
 
+    def find_by_branch(self, branch_name: str) -> SlotMatch | MainWorktreeMatch | None:
+        for record in self.records:
+            if record.branch == branch_name:
+                return SlotMatch(record=record)
+        if self.main_worktree is not None and self.main_worktree.branch == branch_name:
+            return MainWorktreeMatch(worktree=self.main_worktree)
+        return None
 
-def build_slot_inventory(git: GitGateway) -> SlotInventory:
+    def lowest_available(self, git: GitGateway) -> SlotRecord | None:
+        for record in self.records:
+            if record.branch is not None:
+                continue
+            if git.has_uncommitted_changes(record.path):
+                continue
+            return record
+        return None
+
+
+def build_slot_inventory(
+    git: GitGateway,
+    *,
+    main_repo_root: Path | None = None,
+) -> SlotInventory:
     records: list[SlotRecord] = []
+    main_worktree: WorktreeInfo | None = None
     for wt in git.list_worktrees():
+        if main_repo_root is not None and wt.path == main_repo_root:
+            main_worktree = wt
+            continue
         suffix = extract_slot_number(wt.path.name)
         if suffix is None:
             continue
@@ -48,4 +89,4 @@ def build_slot_inventory(git: GitGateway) -> SlotInventory:
             )
         )
     records.sort(key=lambda r: r.slot_number)
-    return SlotInventory(records=tuple(records))
+    return SlotInventory(records=tuple(records), main_worktree=main_worktree)

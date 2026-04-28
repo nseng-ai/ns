@@ -551,8 +551,7 @@ def test_allocate_pool_full_returns_error() -> None:
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW)
 
     assert isinstance(result, PoolFullError)
-    assert result.oldest_slot == "slot-01"
-    assert result.oldest_branch == "feat/a"
+    assert result.assigned == (("slot-01", "feat/a"), ("slot-02", "feat/b"))
 
 
 def test_allocate_branch_in_main_worktree_returns_already_assigned() -> None:

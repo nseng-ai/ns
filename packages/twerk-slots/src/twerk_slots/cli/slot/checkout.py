@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, NoReturn
+from typing import Annotated
 
 import click
 
@@ -15,18 +14,22 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
-from twerk_slots.allocation import (
+from twerk_slots.checkout_planning import (
+    AssignToSlot,
+    BranchInMainWorktree,
+    CurrentCheckoutPlan,
     DetachedHeadError,
     DirtyCurrentWorktreeError,
-    PoolFullError,
+    PoolFull,
+    ReuseAssignment,
     SlotAllocationError,
-    SlotAllocationResult,
-    allocate_slot_for_branch,
-    allocate_slot_for_current_branch,
+    plan_checkout,
+    plan_current_checkout,
 )
 from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopySuccess
+from twerk_slots.inventory import build_slot_inventory
 from twerk_slots.naming import extract_slot_number
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
 
@@ -117,25 +120,69 @@ def render_slot_checkout(result: SlotCheckoutResult) -> None:
         console.print(f"[dim]Clipboard unavailable ({detail})[/dim]")
 
 
-def _pool_full_failure(outcome: PoolFullError) -> NoReturn:
-    Ensure.fail(
-        error_type="pool_full",
-        message=(
-            f"Pool is full. Oldest slot {outcome.oldest_slot} holds "
-            f"'{outcome.oldest_branch}'. Free a slot before checking out a new branch."
-        ),
+def _pool_full_failure(outcome: PoolFull) -> ClinkrExit[SlotCheckoutResult]:
+    if outcome.assigned:
+        details = "\n".join(
+            f"  {record.slot_name} -> {record.branch}" for record in outcome.assigned
+        )
+        message = (
+            f"Pool is full. Currently assigned:\n{details}\n"
+            f"Free a slot before checking out a new branch."
+        )
+    else:
+        message = (
+            "Pool is full (no slots available). "
+            "Run `slot init` or `slot resize` before checking out a new branch."
+        )
+    return ClinkrExit.failure(error_type="pool_full", message=message)
+
+
+@dataclass(frozen=True)
+class _ExecutedCheckout:
+    slot_name: str
+    branch_name: str
+    worktree_path: Path
+    already_assigned: bool
+
+
+def _execute_plan(
+    plan: ReuseAssignment | BranchInMainWorktree | AssignToSlot,
+    *,
+    ctx: SlotsCliContext,
+    branch_name: str,
+) -> _ExecutedCheckout:
+    if isinstance(plan, ReuseAssignment):
+        return _ExecutedCheckout(
+            slot_name=plan.record.slot_name,
+            branch_name=branch_name,
+            worktree_path=plan.record.path,
+            already_assigned=True,
+        )
+    if isinstance(plan, BranchInMainWorktree):
+        return _ExecutedCheckout(
+            slot_name="",
+            branch_name=branch_name,
+            worktree_path=plan.main_path,
+            already_assigned=True,
+        )
+    ctx.git.checkout_branch(plan.record.path, branch_name)
+    return _ExecutedCheckout(
+        slot_name=plan.record.slot_name,
+        branch_name=branch_name,
+        worktree_path=plan.record.path,
+        already_assigned=False,
     )
 
 
 def _build_result(
     ctx: SlotsCliContext,
-    allocation: SlotAllocationResult,
+    executed: _ExecutedCheckout,
     *,
     created_branch: bool,
     current_wt_note: str | None,
     no_clipboard: bool,
 ) -> SlotCheckoutResult:
-    worktree_path = str(allocation.worktree_path)
+    worktree_path = str(executed.worktree_path)
     cd_command = f"cd {worktree_path}"
     clipboard_copied = False
     clipboard_failure_reason: str | None = None
@@ -148,11 +195,11 @@ def _build_result(
             clipboard_failure_reason = outcome.reason
             clipboard_failure_detail = outcome.detail
     return SlotCheckoutResult(
-        slot_name=allocation.slot_name,
-        branch_name=allocation.branch_name,
+        slot_name=executed.slot_name,
+        branch_name=executed.branch_name,
         worktree_path=worktree_path,
         cd_command=cd_command,
-        already_assigned=allocation.already_assigned,
+        already_assigned=executed.already_assigned,
         created_branch=created_branch,
         current_wt_note=current_wt_note,
         clipboard_copied=clipboard_copied,
@@ -199,42 +246,9 @@ def run_checkout_slot(
     slots_ctx = slots_ctx_result
 
     ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
-    now = datetime.now(UTC).isoformat()
 
     if request.current:
-        try:
-            current_outcome = allocate_slot_for_current_branch(
-                slots_ctx, cwd=slots_ctx.repo.root, now=now
-            )
-        except SlotAllocationError as exc:
-            raise ClinkrFailure(error_type="slot_allocation_error", message=str(exc)) from exc
-        if isinstance(current_outcome, DetachedHeadError):
-            Ensure.fail(
-                error_type="detached_head",
-                message=(
-                    f"HEAD at {current_outcome.cwd} is detached. Check out a branch "
-                    f"before running `slot checkout --current`."
-                ),
-            )
-        if isinstance(current_outcome, DirtyCurrentWorktreeError):
-            Ensure.fail(
-                error_type="dirty_worktree",
-                message=(
-                    f"Current worktree at {current_outcome.cwd} has uncommitted changes. "
-                    f"Commit or stash before running `slot checkout --current`."
-                ),
-            )
-        if isinstance(current_outcome, PoolFullError):
-            _pool_full_failure(current_outcome)
-        return ClinkrExit.ok(
-            _build_result(
-                slots_ctx,
-                current_outcome.allocation,
-                created_branch=False,
-                current_wt_note=current_outcome.current_wt_note,
-                no_clipboard=request.no_clipboard,
-            )
-        )
+        return _run_current_checkout(slots_ctx, no_clipboard=request.no_clipboard)
 
     assert request.branch_name is not None  # validated above
     branch_name = request.branch_name
@@ -266,19 +280,64 @@ def run_checkout_slot(
             ),
         )
 
-    outcome = allocate_slot_for_branch(
-        slots_ctx,
-        branch_name=branch_name,
-        now=now,
+    inventory = build_slot_inventory(
+        slots_ctx.git,
+        main_repo_root=slots_ctx.repo.main_repo_root,
     )
-    if isinstance(outcome, PoolFullError):
-        _pool_full_failure(outcome)
+    plan = plan_checkout(inventory, slots_ctx.git, branch_name)
+    if isinstance(plan, PoolFull):
+        return _pool_full_failure(plan)
+
+    executed = _execute_plan(plan, ctx=slots_ctx, branch_name=branch_name)
     return ClinkrExit.ok(
         _build_result(
             slots_ctx,
-            outcome,
+            executed,
             created_branch=created_branch,
             current_wt_note=None,
             no_clipboard=request.no_clipboard,
+        )
+    )
+
+
+def _run_current_checkout(
+    slots_ctx: SlotsCliContext, *, no_clipboard: bool
+) -> ClinkrExit[SlotCheckoutResult]:
+    inventory = build_slot_inventory(
+        slots_ctx.git,
+        main_repo_root=slots_ctx.repo.main_repo_root,
+    )
+    try:
+        outcome = plan_current_checkout(inventory, slots_ctx.git, cwd=slots_ctx.repo.root)
+    except SlotAllocationError as exc:
+        return ClinkrExit.failure(error_type="slot_allocation_error", message=str(exc))
+    if isinstance(outcome, DetachedHeadError):
+        return ClinkrExit.failure(
+            error_type="detached_head",
+            message=(
+                f"HEAD at {outcome.cwd} is detached. Check out a branch "
+                f"before running `slot checkout --current`."
+            ),
+        )
+    if isinstance(outcome, DirtyCurrentWorktreeError):
+        return ClinkrExit.failure(
+            error_type="dirty_worktree",
+            message=(
+                f"Current worktree at {outcome.cwd} has uncommitted changes. "
+                f"Commit or stash before running `slot checkout --current`."
+            ),
+        )
+    assert isinstance(outcome, CurrentCheckoutPlan)
+    if isinstance(outcome.plan, PoolFull):
+        return _pool_full_failure(outcome.plan)
+
+    executed = _execute_plan(outcome.plan, ctx=slots_ctx, branch_name=outcome.branch_name)
+    return ClinkrExit.ok(
+        _build_result(
+            slots_ctx,
+            executed,
+            created_branch=False,
+            current_wt_note=outcome.current_wt_note,
+            no_clipboard=no_clipboard,
         )
     )

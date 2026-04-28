@@ -43,8 +43,7 @@ class SlotAllocationResult:
 class PoolFullError:
     """Signals that allocation failed because the pool is at capacity."""
 
-    oldest_slot: str
-    oldest_branch: str
+    assigned: tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True)
@@ -303,10 +302,11 @@ def allocate_slot_for_branch(
     else:
         slot_num = find_next_available_slot(state, ctx.storage, ctx.repo.worktrees_dir)
         if slot_num is None:
-            oldest = find_oldest_assignment(state)
             return PoolFullError(
-                oldest_slot=oldest.slot_name if oldest else "",
-                oldest_branch=oldest.branch_name if oldest else "",
+                assigned=tuple(
+                    (a.slot_name, a.branch_name)
+                    for a in sorted(state.assignments, key=lambda a: a.slot_name)
+                ),
             )
         slot_name = generate_slot_name(slot_num)
         worktree_path = ctx.repo.worktrees_dir / slot_name
