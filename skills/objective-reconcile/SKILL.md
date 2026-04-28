@@ -6,6 +6,7 @@ allowed-tools:
   - "Bash(git for-each-ref *)"
   - "Bash(git ls-tree *)"
   - "Bash(git log *)"
+  - "Bash(objective list *)"
   - "Bash(objective tree *)"
   - "Bash(gh pr view *)"
   - "Bash(brmem check *)"
@@ -27,10 +28,14 @@ PRs associated with those branches.
 
 ## Goal
 
-Given an explicit objective slug, rewrite the canonical objective
-conservatively by exploring branch snapshots that carry `<slug>/`,
+Sweep every canonical objective on `master` and rewrite each one
+conservatively by exploring the branch snapshots that carry `<slug>/`,
 cross-referencing their associated PRs, and folding only landed evidence into
 canonical `body.md`, `roadmap.md`, and `notes.md`.
+
+The default scope is **all** canonical objectives on `master`. An optional
+slug or comma-separated slug list narrows the sweep to one or a few
+objectives without otherwise changing the per-slug procedure.
 
 In the current implementation, canonical state is stored in `brmem` on
 branch `master`, so `reconcile` runs only on `master`. It never writes to
@@ -47,9 +52,11 @@ are merged. Branch snapshots and PRs are evidence only; never write to them.
 
 ## Inputs
 
-- **Slug, required.** The prompt must name the objective slug. Do not infer
-  it from "the only objective" in canonical storage. If the prompt does not
-  name a slug, abort and ask which objective to reconcile.
+- **Slug or slug list, optional.** When omitted, the sweep covers every
+  canonical objective on `master`. When provided as a single slug or a
+  comma-separated list, the sweep is narrowed to those slugs. Each
+  operator-supplied slug must already exist canonically; unknown slugs are
+  recorded as a per-slug gap and skipped.
 
 ## Core Rules
 
@@ -57,7 +64,14 @@ are merged. Branch snapshots and PRs are evidence only; never write to them.
   `<slug>/` on `master`; never to branch snapshots, other branches, or PRs.
 - **Off-master aborts.** Run only on `master`; abort on detached `HEAD` or
   any other branch.
-- **Slug always explicit.** No auto-pick from "the only canonical slug."
+- **Slug optional; sweep by default.** With no slug argument, reconcile
+  every canonical objective on `master`. Narrow only when the operator
+  passes explicit slugs.
+- **Per-objective issues are gaps, not aborts.** When one slug hits a
+  problem (missing canonical `body.md`, PR lookup error, contradictory
+  evidence), record the gap for that slug and continue with the next one.
+  The sweep aborts only on whole-run preconditions (off `master`, detached
+  `HEAD`).
 - **Only landed work enters canonical state.** Use merged PR-backed branch
   snapshots to inform the rewrite. Do not fold open PRs, closed-unmerged PRs,
   no-PR branches, or orphaned snapshots into canonical state.
@@ -85,24 +99,48 @@ git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-Abort if not in a git repo, on detached `HEAD`, off `master`, or missing the
-slug. Off `master`, print:
+Abort if not in a git repo, on detached `HEAD`, or off `master`. Off
+`master`, print:
 
 ```text
 objective-reconcile updates canonical state. Use
 objective-update <slug> to record progress on a branch snapshot.
 ```
 
-### 2. Confirm canonical state exists
+### 2. Resolve the target slug set
+
+If the operator passed a slug or comma-separated slug list, use that list
+deduplicated and in operator-supplied order. Otherwise enumerate every
+canonical objective on `master`:
+
+```bash
+objective list --format json
+```
+
+Collect every `objectives[].slug` whose `canonical_present` is `true`, then
+sort the resulting set alphabetically so the sweep is reproducible.
+
+If the resolved set is empty, print a one-line "no canonical objectives on
+master" report and exit cleanly without writing anything.
+
+### 3. Per-slug reconcile loop
+
+For each slug in the resolved set, run the steps below. On any caught
+exception, record the slug-level gap and continue with the next slug — never
+abort the sweep.
+
+#### 3a. Confirm canonical state exists
 
 ```bash
 brmem check <slug>/body.md --namespace objectives --branch master
 ```
 
-If canonical `body.md` is missing, abort and point the user at
-`objective-create`.
+If canonical `body.md` is missing, record a gap for this slug — "slug
+requested but no canonical body.md; use `objective-create` first" for an
+operator-supplied slug, or treat as a sweep enumeration anomaly otherwise —
+and `continue` with the next slug.
 
-Capture old SHAs and load present canonical files:
+#### 3b. Capture old SHAs and load canonical files
 
 ```bash
 brmem check <slug>/body.md --namespace objectives --branch master
@@ -119,7 +157,7 @@ brmem get <slug>/notes.md --namespace objectives --branch master \
 
 Only run commands for files that exist.
 
-### 3. Enumerate branch snapshots and PRs
+#### 3c. Enumerate branch snapshots and PRs
 
 Prefer the purpose-built tree command:
 
@@ -135,8 +173,9 @@ Use it to identify:
 - branches with no PR
 - PR lookup errors
 
-If no branch snapshots carry the slug, report that there is no evidence to
-fold in and write nothing.
+If no branch snapshots carry the slug, record a per-slug "no evidence to
+fold in" gap and skip directly to the next slug — do not write any files
+for this slug.
 
 If the tree command is unavailable or insufficient, fall back to local refs
 plus direct PR lookup:
@@ -147,11 +186,9 @@ git ls-tree -r <refname>
 gh pr view <branch> --json number,title,url,headRefName,baseRefName,state,mergedAt
 ```
 
-PR lookup failures should become evidence gaps in the report, not hard
-failures, unless every PR lookup needed for the requested reconciliation is
-unavailable.
+PR lookup failures become per-slug evidence gaps, not hard failures.
 
-### 4. Load branch snapshot evidence
+#### 3d. Load branch snapshot evidence
 
 For each branch snapshot whose associated PR is merged, read present files:
 
@@ -179,7 +216,7 @@ gh pr view <number-or-branch> \
 
 Use PR metadata to ground the rewrite, not as text to copy wholesale.
 
-### 5. Gate evidence
+#### 3e. Gate evidence and rewrite canonical files conservatively
 
 Use the inclusion rules from
 `../objective/references/mutation-contract.md`:
@@ -193,13 +230,10 @@ Use the inclusion rules from
   landed work
 
 Prefer corroborated signals when multiple landed branch snapshots disagree.
-Surface contradictions in the report instead of forcing a confident rewrite.
+Surface contradictions in the per-slug section of the report instead of
+forcing a confident rewrite.
 
-### 6. Rewrite canonical files conservatively
-
-Apply the shared conservative rewrite rules in
-`../objective/references/mutation-contract.md`.
-
+Then apply the shared conservative rewrite rules in the mutation contract.
 Typical reconcile work:
 
 - check canonical roadmap items supported by merged branch/PR evidence
@@ -211,7 +245,7 @@ Typical reconcile work:
 Do not paste a branch snapshot over canonical state. Do not write to branch
 snapshots.
 
-### 7. Persist changed canonical files
+#### 3f. Persist changed canonical files
 
 Write changed content to temporary files, then store only changed files back
 to canonical storage:
@@ -224,9 +258,13 @@ brmem put <slug>/notes.md --namespace objectives --branch master --file <temp-no
 
 Skip `brmem put` for unchanged files. Capture new commit SHAs.
 
-### 8. Report
+### 4. Aggregate report
 
-Include:
+Lead with a header line that reports counts: slugs swept, slugs rewritten,
+slugs unchanged, slugs with gaps.
+
+Then, for every slug that was either rewritten or had a gap, emit a
+sub-section containing:
 
 - slug and canonical target (`master` in current storage)
 - files touched with one-line notes
@@ -241,16 +279,28 @@ Include:
 brmem get <slug>/<file> --namespace objectives --branch master --at <old-sha>
 ```
 
+Slugs that produced no changes and no gaps may collapse into a single
+"Unchanged" group listing those slugs by name.
+
 ## Edge Cases and Anti-Patterns
 
-- Off `master`: abort and point to `update`.
-- No canonical `body.md`: abort and point to `create`.
-- No branch snapshots carry the slug: report no evidence and write nothing.
-- No merged PR-backed branch snapshots carry the slug: report no landed
-  evidence and write nothing.
-- PR lookup errors: continue when possible and report the gap.
-- Contradictory branch/PR evidence: keep canonical state conservative and
-  surface the conflict.
+- Off `master`: abort the whole sweep and point to `update`.
+- Empty target set (no canonical objectives, or operator-supplied list
+  filtered down to nothing): clean exit with a single-line report; no
+  writes.
+- Operator-supplied unknown slug (no canonical entry): record a per-slug gap
+  and continue with the next slug.
+- No canonical `body.md` for a slug in the resolved set: record a per-slug
+  gap (point at `objective-create` for operator-supplied slugs) and
+  continue.
+- No branch snapshots carry a slug: record a "no evidence to fold in" gap
+  for that slug and write nothing for it.
+- No merged PR-backed branch snapshots carry a slug: record a "no landed
+  evidence" gap for that slug and write nothing for it.
+- PR lookup errors for a slug: record per-slug evidence gaps and continue.
+- Contradictory branch/PR evidence for a slug: keep that slug's canonical
+  state conservative and surface the conflict in its sub-section of the
+  report.
 - Never copy a branch snapshot verbatim, write to branch snapshots,
   incorporate open PR or unmerged branch state into canonical, add a HEAD
   freshness shortcut, or rebuild canonical files wholesale.
