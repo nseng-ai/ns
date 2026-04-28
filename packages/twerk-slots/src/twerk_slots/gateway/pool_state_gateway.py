@@ -29,12 +29,10 @@ class PoolStateGateway(ABC):
         """
 
     @abstractmethod
-    def exists(self) -> bool:
-        """Return whether persisted pool state is present at the bound path."""
+    def exists(self) -> bool: ...
 
     @abstractmethod
-    def save(self, state: PoolState) -> None:
-        """Persist ``state`` at the bound path."""
+    def save(self, state: PoolState) -> None: ...
 
 
 class RealPoolStateGateway(PoolStateGateway):
