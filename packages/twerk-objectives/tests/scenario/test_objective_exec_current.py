@@ -1,8 +1,10 @@
 """Scenario tests for ``objective exec current``.
 
-These exercise the JSON contract end-to-end through ``build_cli()`` with the
-fake gateway stack (`brmem`, git, gh, gt) the rest of the objective scenario
-suite uses.
+These exercise the rendered Markdown contract end-to-end through
+``build_cli()`` with the fake gateway stack (`brmem`, git, gh, gt) the
+rest of the objective scenario suite uses. The skill `objective-current`
+prints this output verbatim, so substring assertions on
+``result.output`` cover the user-facing surface.
 """
 
 from __future__ import annotations
@@ -87,16 +89,10 @@ def _make_obj(
     return build_clinkr_context_object(lambda: ctx)
 
 
-def _invoke_current(cli_group: ClinkrGroup, obj: ClinkrContextObject) -> dict:
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "current", "--format", "json"],
-        obj=obj,
-    )
+def _invoke_current(cli_group: ClinkrGroup, obj: ClinkrContextObject) -> str:
+    result = CliRunner().invoke(cli_group, ["exec", "current"], obj=obj)
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
-    assert payload["exit_code"] == 0
-    return payload["data"]
+    return result.output
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +105,7 @@ def test_current_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: objective exec current" in result.output
-    assert "stack map facts" in result.output
+    assert "orientation brief" in result.output
 
 
 def test_current_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
@@ -118,6 +114,7 @@ def test_current_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert set(payload) == {"input_schema", "output_schema"}
+    assert payload["output_schema"]["properties"]["prompt"]["type"] == "string"
 
 
 # ---------------------------------------------------------------------------
@@ -128,15 +125,12 @@ def test_current_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 def test_current_detached_head(cli_group: ClinkrGroup) -> None:
     obj = _make_obj(branch=DetachedHead(), gt_gateway=FakeGtGateway(trunk="master"))
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert data["detached_head"] is True
-    assert data["current_branch"] is None
-    assert data["current"] is None
-    assert data["downstack"] == []
-    assert data["upstack"] == []
-    assert data["trunk"] == "master"
-    assert data["is_trunk"] is False
+    assert "# Detached HEAD" in out
+    assert "Trunk is `master`." in out
+    assert "## Stack Map" not in out
+    assert "## Current Branch Context" not in out
 
 
 def test_current_on_trunk(cli_group: ClinkrGroup) -> None:
@@ -159,16 +153,16 @@ def test_current_on_trunk(cli_group: ClinkrGroup) -> None:
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert data["current_branch"] == "master"
-    assert data["is_trunk"] is True
-    assert data["downstack"] == []
-    assert [e["branch"] for e in data["upstack"]] == ["feat/child"]
+    assert "# On `master`" in out
+    assert "## Stack Map" in out
+    assert "master  <- current" in out
+    assert "+- feat/child" in out
 
 
 # ---------------------------------------------------------------------------
-# current-branch block
+# current-branch header
 # ---------------------------------------------------------------------------
 
 
@@ -188,16 +182,15 @@ def test_current_no_objective_claimed_no_pr(cli_group: ClinkrGroup) -> None:
     )
     obj = _make_obj(branch="feat/current", gt_gateway=gt_gateway)
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    current_block = data["current"]
-    assert current_block is not None
-    assert current_block["branch"] == "feat/current"
-    assert current_block["objective"] is None
-    assert current_block["objectives_extra"] == []
-    assert current_block["pr"] is None
-    assert current_block["pr_error"] is None
-    assert current_block["brmem"] == []
+    assert "# On `feat/current`" in out
+    assert "**Objective:** _none claimed_" in out
+    assert "**Snapshot:**" not in out
+    assert "**PR:** _no PR_" in out
+    assert "**brmem:** _none_" in out
+    assert "## Current Branch Context" not in out
+    assert "## Next Orientation Step" not in out
 
 
 def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
@@ -239,14 +232,12 @@ def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
         commits_by_range=commits_by_range,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    objective = data["current"]["objective"]
-    assert objective["slug"] == "widget"
-    assert objective["obj_state"] == "fresh"
-    assert objective["body_last_touched"] == "2026-04-26T08:00:00+00:00"
-    assert objective["branch_head_iso"] == "2026-04-26T07:00:00+00:00"
-    assert objective["branch_max_author_iso"] == "2026-04-26T07:30:00+00:00"
+    assert "**Objective:** `widget`" in out
+    assert "**Snapshot:** fresh" in out
+    assert "## Next Orientation Step" in out
+    assert "`objective-digest widget`" in out
 
 
 def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
@@ -289,10 +280,9 @@ def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
         commits_by_range=commits_by_range,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert data["current"]["objective"]["obj_state"] == "stale"
-    assert data["current"]["objective"]["branch_max_author_iso"] == "2026-04-26T08:00:00+00:00"
+    assert "**Snapshot:** stale - run `objective-update widget` to refresh" in out
 
 
 def test_current_multiple_claims_on_branch(cli_group: ClinkrGroup) -> None:
@@ -320,10 +310,10 @@ def test_current_multiple_claims_on_branch(cli_group: ClinkrGroup) -> None:
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert data["current"]["objective"]["slug"] == "alpha"
-    assert list(data["current"]["objectives_extra"]) == ["bravo", "charlie"]
+    assert "**Objective:** `alpha`" in out
+    assert "_also claimed: bravo, charlie_" in out
 
 
 def test_current_brmem_listing_includes_multiple_namespaces(cli_group: ClinkrGroup) -> None:
@@ -350,15 +340,12 @@ def test_current_brmem_listing_includes_multiple_namespaces(cli_group: ClinkrGro
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    listing = data["current"]["brmem"]
-    by_key = {(e["namespace"], e["key"]): e for e in listing}
-    assert (None, "plans/feat-plan.md") in by_key
-    assert ("objectives", "widget/body.md") in by_key
-    base_entry = by_key[(None, "plans/feat-plan.md")]
-    assert base_entry["preview"] == "# Plan"
-    assert base_entry["size"] == len("# Plan\n\nstep 1")
+    assert "**brmem:** 2 entries" in out
+    assert "## Current Branch Context" in out
+    assert "- `base` `plans/feat-plan.md` (14 bytes) - # Plan" in out
+    assert "- `objectives` `widget/body.md`" in out
 
 
 def test_current_pr_present(cli_group: ClinkrGroup) -> None:
@@ -393,16 +380,9 @@ def test_current_pr_present(cli_group: ClinkrGroup) -> None:
         pr_gateway=pr_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    pr = data["current"]["pr"]
-    assert pr == {
-        "number": 42,
-        "state": "OPEN",
-        "title": "Wire feat",
-        "url": "https://example.com/pull/42",
-    }
-    assert data["current"]["pr_error"] is None
+    assert "**PR:** [#42](https://example.com/pull/42) OPEN - Wire feat" in out
 
 
 class _BrokenPRGateway(FakePRGateway):
@@ -431,10 +411,9 @@ def test_current_pr_gateway_failure_surfaces_error(cli_group: ClinkrGroup) -> No
         pr_gateway=_BrokenPRGateway(),
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert data["current"]["pr"] is None
-    assert data["current"]["pr_error"] == "auth failed"
+    assert "**PR:** _lookup failed: auth failed_" in out
 
 
 # ---------------------------------------------------------------------------
@@ -468,12 +447,14 @@ def test_current_mid_stack_with_downstack_and_children(cli_group: ClinkrGroup) -
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert [e["branch"] for e in data["downstack"]] == ["master", "feat/parent"]
-    assert [e["branch"] for e in data["upstack"]] == ["feat/child-a", "feat/child-b"]
-    for entry in data["downstack"] + data["upstack"]:
-        assert entry["deleted"] is False
+    assert "## Stack Map" in out
+    assert "```text\nmaster\n" in out
+    assert "+- feat/parent  no PR  no objective" in out
+    assert "   +- feat/current  no PR  no objective  <- current" in out
+    assert "      +- feat/child-a  no PR  no objective" in out
+    assert "      +- feat/child-b  no PR  no objective" in out
 
 
 def test_current_leaf_with_no_children(cli_group: ClinkrGroup) -> None:
@@ -496,10 +477,19 @@ def test_current_leaf_with_no_children(cli_group: ClinkrGroup) -> None:
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert [e["branch"] for e in data["downstack"]] == ["master"]
-    assert data["upstack"] == []
+    assert "+- feat/current" in out
+    assert "<- current" in out
+    # No upstack rows after the current row.
+    stack_lines = out.split("## Stack Map", 1)[1].splitlines()
+    current_line_idx = next(i for i, line in enumerate(stack_lines) if "<- current" in line)
+    fence_close_idx = next(
+        i
+        for i, line in enumerate(stack_lines[current_line_idx + 1 :], start=current_line_idx + 1)
+        if line.strip() == "```"
+    )
+    assert fence_close_idx == current_line_idx + 1
 
 
 def test_current_child_branch_deleted(cli_group: ClinkrGroup) -> None:
@@ -522,10 +512,11 @@ def test_current_child_branch_deleted(cli_group: ClinkrGroup) -> None:
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert data["upstack"][0]["branch"] == "feat/child-deleted"
-    assert data["upstack"][0]["deleted"] is True
+    assert "feat/child-deleted" in out
+    # Deleted branch carries the deleted marker in its label.
+    assert "feat/child-deleted  no PR  no objective (deleted)" in out
 
 
 def test_current_gt_failure_returns_warning_and_empty_stack(cli_group: ClinkrGroup) -> None:
@@ -540,13 +531,12 @@ def test_current_gt_failure_returns_warning_and_empty_stack(cli_group: ClinkrGro
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert data["downstack"] == []
-    assert data["upstack"] == []
-    assert any("gt_failed" in w for w in data["warnings"])
-    assert data["current"]["branch"] == "feat/current"
-    assert data["trunk"] == "master"
+    assert "# On `feat/current`" in out
+    assert "> Warning: gt unavailable - stack walk skipped: `not a gt repo`" in out
+    # No downstack/upstack rows — only the current row in the tree.
+    assert "+- feat/parent" not in out
 
 
 def test_current_propagates_gt_log_warnings(cli_group: ClinkrGroup) -> None:
@@ -569,9 +559,10 @@ def test_current_propagates_gt_log_warnings(cli_group: ClinkrGroup) -> None:
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    assert any("siblings off-column dropped" in w for w in data["warnings"])
+    assert "> Warnings:" in out
+    assert "> - gt_log: siblings off-column dropped" in out
 
 
 def test_current_stack_entry_carries_objective_summary(cli_group: ClinkrGroup) -> None:
@@ -597,8 +588,6 @@ def test_current_stack_entry_carries_objective_summary(cli_group: ClinkrGroup) -
         gt_gateway=gt_gateway,
     )
 
-    data = _invoke_current(cli_group, obj)
+    out = _invoke_current(cli_group, obj)
 
-    parent_entry = next(e for e in data["downstack"] if e["branch"] == "feat/parent")
-    assert parent_entry["objective"] is not None
-    assert parent_entry["objective"]["slug"] == "widget"
+    assert "+- feat/parent  no PR  widget fresh" in out
