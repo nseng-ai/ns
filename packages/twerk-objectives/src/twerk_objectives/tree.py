@@ -18,10 +18,12 @@ of aborting the whole command.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import click
 
+from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
@@ -31,8 +33,11 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import PRLookupError, PRState
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
+from twerk_core.gt.gateway import GtGateway
+from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import MASTER_BRANCH
+from twerk_objectives.freshness import classify_branch_snapshot
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
@@ -42,6 +47,7 @@ from twerk_objectives.slug_resolution import (
 )
 
 BranchPrAction = Literal["open", "merged", "closed", "no_pr", "error"]
+ObjectiveSnapshotUiState = Literal["fresh", "stale", "deleted"]
 
 _STATE_GROUP_ORDER: tuple[BranchPrAction, ...] = ("merged", "open", "closed", "no_pr", "error")
 _STATE_TO_ACTION: dict[PRState, BranchPrAction] = {
@@ -54,7 +60,7 @@ _STATE_TO_ACTION: dict[PRState, BranchPrAction] = {
 @dataclass(frozen=True)
 class BranchPrEntry:
     branch: str
-    stale: bool
+    obj_state: ObjectiveSnapshotUiState
     action: BranchPrAction
     pr_number: int | None
     pr_state: PRState | None
@@ -84,7 +90,7 @@ class ObjectiveTreeResult(JsonSerializable):
             "entries": [
                 {
                     "branch": e.branch,
-                    "stale": e.stale,
+                    "obj_state": e.obj_state,
                     "action": e.action,
                     "pr_number": e.pr_number,
                     "pr_state": e.pr_state,
@@ -105,6 +111,12 @@ _STATE_BADGES: dict[BranchPrAction, str] = {
     "error": "[yellow]⚠ error[/yellow]",
 }
 
+_SNAP_BADGES: dict[ObjectiveSnapshotUiState, str] = {
+    "fresh": "[green]● fresh[/green]",
+    "stale": "[yellow]● stale[/yellow]",
+    "deleted": "[dim]○ deleted[/dim]",
+}
+
 
 def render_objective_tree(result: ObjectiveTreeResult) -> None:
     click.echo(f"slug: {result.slug}")
@@ -116,13 +128,15 @@ def render_objective_tree(result: ObjectiveTreeResult) -> None:
 
     table = make_table()
     table.add_column("BRANCH", style="cyan", no_wrap=True)
-    table.add_column("STATE", no_wrap=True, min_width=8)
+    table.add_column("SNAP", no_wrap=True, min_width=9)
+    table.add_column("PR STATE", no_wrap=True, min_width=8)
     table.add_column("PR", no_wrap=True, justify="right", min_width=5)
     table.add_column("TITLE", no_wrap=True, overflow="ellipsis", ratio=1)
 
     for entry in result.entries:
         table.add_row(
             entry.branch,
+            _SNAP_BADGES[entry.obj_state],
             _STATE_BADGES[entry.action],
             _pr_cell(entry),
             _title_cell(entry),
@@ -148,14 +162,38 @@ def _title_cell(entry: BranchPrEntry) -> str:
     return "-"
 
 
-def _classify_branch(branch: str, git: GitGateway, pr: PRGateway) -> BranchPrEntry:
-    stale = not git.branch_exists(branch)
+def _resolve_trunk(gt: GtGateway, cwd: Path) -> str:
+    """Return graphite's trunk; fall back to ``MASTER_BRANCH`` on failure."""
+    result = gt.trunk(cwd)
+    if isinstance(result, GtCommandFailure):
+        return MASTER_BRANCH
+    return result
+
+
+def _classify_branch(
+    branch: str,
+    *,
+    slug: str,
+    gateway: BranchMemoryGateway,
+    git: GitGateway,
+    gt: GtGateway,
+    pr: PRGateway,
+    cwd: Path,
+    trunk: str,
+) -> BranchPrEntry:
+    alive = git.branch_exists(branch)
+    if alive:
+        obj_state: ObjectiveSnapshotUiState = classify_branch_snapshot(
+            gateway, git, gt, branch, slug, cwd=cwd, trunk=trunk, alive=True
+        )
+    else:
+        obj_state = "deleted"
     result = pr.get_pr_for_branch(branch)
     if isinstance(result, PRLookupError):
         if result.returncode == 1:
             return BranchPrEntry(
                 branch=branch,
-                stale=stale,
+                obj_state=obj_state,
                 action="no_pr",
                 pr_number=None,
                 pr_state=None,
@@ -165,7 +203,7 @@ def _classify_branch(branch: str, git: GitGateway, pr: PRGateway) -> BranchPrEnt
             )
         return BranchPrEntry(
             branch=branch,
-            stale=stale,
+            obj_state=obj_state,
             action="error",
             pr_number=None,
             pr_state=None,
@@ -175,7 +213,7 @@ def _classify_branch(branch: str, git: GitGateway, pr: PRGateway) -> BranchPrEnt
         )
     return BranchPrEntry(
         branch=branch,
-        stale=stale,
+        obj_state=obj_state,
         action=_STATE_TO_ACTION[result.state],
         pr_number=result.number,
         pr_state=result.state,
@@ -209,6 +247,7 @@ def run_tree_objective(
     mctx = load_typed_context(ctx, ObjectiveCliContext)
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
+    gt = mctx.gt_gateway
     pr = mctx.pr_gateway
 
     match resolve_slug(mctx, request.slug):
@@ -244,7 +283,23 @@ def run_tree_objective(
 
     canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
     branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
-    rows = tuple(_classify_branch(b, git, pr) for b in branch_names)
+
+    cwd = Path.cwd()
+    trunk = _resolve_trunk(gt, cwd)
+
+    rows = tuple(
+        _classify_branch(
+            b,
+            slug=slug,
+            gateway=gateway,
+            git=git,
+            gt=gt,
+            pr=pr,
+            cwd=cwd,
+            trunk=trunk,
+        )
+        for b in branch_names
+    )
     rows = _sort_by_state_group(rows)
     return ClinkrExit.ok(
         ObjectiveTreeResult(slug=slug, canonical_present=canonical_present, entries=rows),
