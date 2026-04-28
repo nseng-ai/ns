@@ -1,9 +1,9 @@
-"""``objective exec current`` — branch + stack orientation digest.
+"""``objective exec current`` - current-branch stack map facts.
 
-Read-only ``where am I?`` snapshot for the ``objective-current`` skill: the
-current branch (claimed objective + freshness, PR, brmem entries), the
-graphite downstack walk to trunk (parents only), and the immediate upstack
-children. Pure facts; the skill owns rendering and any judgment.
+Read-only fact payload for the ``objective-current`` skill: the current branch
+(claimed objective + freshness, PR, brmem entries), the graphite downstack walk
+to trunk (parents only), and the immediate upstack children. Pure facts; the
+skill owns stack-map rendering.
 """
 
 from __future__ import annotations
@@ -97,9 +97,9 @@ class ObjectiveCurrentResult(JsonSerializable):
 @clinkr_operation(
     name="current",
     help=(
-        "Emit a JSON ``where am I?`` digest for the ``objective-current`` "
-        "skill. Reports the current branch's claimed objective + freshness, "
-        "PR, brmem entries, the trunk-first downstack walk to trunk, and "
+        "Emit JSON stack map facts for the ``objective-current`` skill. "
+        "Reports the current branch's claimed objective + freshness, PR, "
+        "brmem entries, the trunk-first downstack walk to trunk, and "
         "immediate upstack children. Pure facts; the skill owns rendering."
     ),
 )

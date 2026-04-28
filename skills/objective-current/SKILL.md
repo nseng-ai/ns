@@ -1,13 +1,13 @@
 ---
 name: objective-current
-description: 'Read-only "where am I?" digest for the current branch and its graphite stack. Renders the current branch''s claimed objective + freshness, PR, brmem entries, the trunk-first downstack walk, and immediate upstack children. Use after returning to a session to gain bearings without running six commands and stitching the output together.'
+description: 'Read-only stack map for the current branch. Shows the claimed objective, PR, branch snapshot freshness, brmem entries, downstack ancestry, and immediate upstack children.'
 allowed-tools:
   - "Bash(objective exec current *)"
 ---
 
 # objective-current
 
-Read-only orientation digest for the branch you just landed on.
+Read-only current stack map for the branch you just landed on.
 
 > For shared concepts — vocabulary, storage model, content anatomy, lifecycle,
 > carry-forward semantics, and mutation contracts — see
@@ -18,10 +18,18 @@ Read-only orientation digest for the branch you just landed on.
 After stepping away from a branch for a while, returning means re-deriving
 which branch you're on, what objective is claimed there, whether the
 snapshot is stale, what brmem context has been parked, whether there's a
-PR, and what the rest of the stack looks like. `objective-current` answers
-all of that in one shot. It is the orientation sibling of `objective-next`
-(slice planning for one objective on the current branch) and
-`objective-digest` (cross-branch digest of one objective).
+PR, and what the surrounding stack looks like. `objective-current` answers
+that operational reentry question in one shot. It is the orientation sibling
+of `objective-next` (slice planning for one objective on the current branch)
+and `objective-digest` (objective-level dossier for one workstream).
+
+## Related Objective Views
+
+| Need                                           | Use                       |
+| ---------------------------------------------- | ------------------------- |
+| "What branch am I on and what is around me?"   | `objective-current`       |
+| "What is this objective trying to accomplish?" | `objective-digest <slug>` |
+| "What should I work on next?"                  | `objective-next <slug>`   |
 
 ## Inputs
 
@@ -34,10 +42,13 @@ None. The skill operates on the current working directory only.
 - **Single command.** Call `objective exec current --format json` once and
   render the locked Markdown below from its output. Do not run `gt`,
   `git`, `gh`, or `brmem` directly.
-- **No semantic judgment.** Do not summarize objective prose
-  (`objective-digest` does that), do not pick a "next" slice
-  (`objective-next` does that), and do not interpret obj_state beyond
-  surfacing the value.
+- **No objective-content analysis.** Do not summarize objective prose,
+  compute roadmap or completion-criteria progress, select findings, judge
+  unclaimed PR relevance, identify the most-progressed branch, or recommend
+  the next slice. `objective-digest` owns dossier context;
+  `objective-next` owns next-slice recommendation.
+- **Freshness is branch health only.** Render `obj_state` as snapshot health.
+  Do not treat it as progress analysis.
 
 ## Workflow
 
@@ -83,76 +94,107 @@ branch but the local ref is gone).
 
 ### 2. Render
 
-Output exactly the following Markdown structure. Headers, table columns,
-and ordering are locked — do not re-order or add sections.
+Output exactly the following Markdown structure. Headers and ordering are
+locked - do not re-order or add sections.
 
-```markdown
+````markdown
 # On `<current_branch>`
 
-**Objective:** `<slug>` — <obj_state> · body last touched <ISO>
-**PR:** [#<n>](url) <state> — <title>
-**brmem (current branch):** <count> entries
+**Objective:** `<slug>`
+**Snapshot:** fresh
+**PR:** [#<n>](url) <state> - <title>
+**brmem:** <count> entries
 
-- `<ns>` `<key>` (<size> bytes) — <preview>
+_also claimed: <slug2>, <slug3>_
+
+## Current Branch Context
+
+- `<ns>` `<key>` (<size> bytes) - <preview>
 - ...
 
-## Downstack (parents → trunk)
+## Stack Map
 
-| Branch     | Objective | Obj               | PR       | State                      |
-| ---------- | --------- | ----------------- | -------- | -------------------------- |
-| `<branch>` | `<slug>`  | fresh / stale / — | #<n> / — | OPEN / MERGED / CLOSED / — |
-
-## Upstack (immediate children)
-
-| Branch     | Objective | Obj               | PR       | State                      |
-| ---------- | --------- | ----------------- | -------- | -------------------------- |
-| `<branch>` | `<slug>`  | fresh / stale / — | #<n> / — | OPEN / MERGED / CLOSED / — |
+```text
+master
++- parent-branch  #123 MERGED  objective-slug fresh
+   +- current-branch  #124 OPEN  objective-slug fresh  <- current
+      +- child-a  #125 OPEN  objective-slug stale
+      +- child-b  no PR  other-objective fresh
 ```
 
-Render the **Downstack** rows in reverse JSON order — parent of current
-first, trunk last. Render **Upstack** rows in JSON order.
+## Next Orientation Step
+
+For objective thesis, slices, and findings, run `objective-digest <slug>`.
+````
+
+Do not render `body_last_touched`; it remains in the JSON payload for
+compatibility but is not part of this skill's output contract.
+
+### Current Branch Header Rules
+
+- **Objective with claim.** Render `**Objective:**` followed by the claimed
+  slug in backticks.
+- **No claim.** Render `**Objective:** _none claimed_`.
+- **Multiple claims.** Keep the primary slug on the objective line and add
+  `_also claimed: <slug2>, <slug3>_`.
+- **Fresh snapshot.** Render `**Snapshot:** fresh`.
+- **Stale snapshot.** Render the Snapshot line as stale and include
+  `objective-update <slug>` as the refresh command.
+- **No objective.** Omit the Snapshot line.
+- **PR present.** Render `**PR:** [#<n>](url) <state> - <title>`.
+- **No PR.** Render `**PR:** _no PR_`.
+- **PR lookup error.** Render `**PR:** _lookup failed: <pr_error>_`.
+- **brmem entries.** Render `**brmem:** <count> entries`, then list the
+  entries under `## Current Branch Context`.
+- **No brmem entries.** Render `**brmem:** _none_` and omit the branch
+  context bullets.
+
+### Stack Map Rules
+
+- Always include trunk as the root when stack data is available.
+- Render downstack ancestry from trunk to current.
+- Mark the current branch with `<- current`.
+- Render only immediate children of current. Do not recursively render
+  grandchildren.
+- Include each branch's PR state, objective slug, and snapshot state as
+  compact labels.
+- Use `no PR` when no PR exists.
+- Use `lookup failed` only when the PR error is attached to that branch and
+  no reliable PR state is available.
+- Use `no objective` when no objective is claimed.
+- Use `deleted` for deleted child branches.
+
+Branch label shape:
+
+```text
+branch-name  #309 OPEN  objective-current-stack-map fresh
+branch-name  no PR  no objective
+branch-name  #310 MERGED  objective-current-stack-map deleted
+```
 
 ## Empty And Degraded Cases
 
-- **No claim on current branch.** Render `**Objective:** _none claimed_`
-  in place of the slug line. Drop the `body last touched` clause.
-- **Multiple claims on current branch.** Render the primary
-  (`current.objective.slug`) on the slug line, then add a separate line:
-  `_also claimed: <slug2>, <slug3>_` from `objectives_extra`.
-- **No PR.** Render `**PR:** _no PR_`.
-- **PR lookup error.** Render
-  `**PR:** _lookup failed: <pr_error>_`.
-- **No brmem entries.** Render `**brmem (current branch):** _none_` and
-  drop the bullet list.
 - **Detached HEAD.** Render only:
   ```markdown
   # Detached HEAD
 
   Trunk is `<trunk>`. Check out a feature branch to see objective context.
   ```
-  Skip both stack tables.
-- **On trunk** (`is_trunk: true`). Skip the **Downstack** table entirely
-  (trunk has no ancestors). Render the **Upstack** table as usual.
-- **No children.** Render `_no upstack children_` in place of the
-  Upstack table body.
+  Skip the stack map.
+- **On trunk** (`is_trunk: true`). Keep the current header. The stack map
+  root is trunk/current. Render immediate children if present.
+- **No children.** Render current branch in the tree with no child rows. Add
+  `_no upstack children_` below the tree only if it improves clarity.
 - **`gt` unavailable.** Append a single block at the end:
   ```markdown
-  > ⚠ gt unavailable — stack walk skipped: `<warning>`
+  > Warning: gt unavailable - stack walk skipped: `<warning>`
   ```
-- **Stale snapshot.** After the objective slug line, append the
-  following italicized line literally:
-
-  ```text
-  _run `objective-update <slug>` to refresh._
-  ```
-- **Deleted child branch.** Mark the row's State column with
-  `deleted` and italicize the row's branch name: `_<branch>_`.
 
 If the JSON contains additional `warnings` not covered by the cases
 above, append a fenced block at the bottom:
 
 ```markdown
-> ⚠ warnings:
+> Warnings:
 >
 > - <warning 1>
 > - <warning 2>
@@ -166,6 +208,7 @@ above, append a fenced block at the bottom:
   `objective-digest`.
 - Do not propose a "next slice"; defer to `objective-next`.
 - Do not mutate brmem, git refs, branches, files, or the working tree.
-- Do not reorder downstack rows or interpret stack entries beyond
-  rendering the JSON in reverse. Trunk is always at the bottom of the
-  Downstack table.
+- Do not render `body_last_touched`; it is an internal compatibility field
+  for callers that still consume the JSON payload.
+- Do not turn the stack map into a recursive tree. Only current ancestry and
+  immediate children belong here.

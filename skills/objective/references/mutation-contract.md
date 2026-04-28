@@ -18,6 +18,7 @@ Only `body.md` is required. `roadmap.md` and `notes.md` appear when useful.
 | --------------------- | ----------------------------------------- | ------------------------------ | ---------------------- |
 | `objective-create`    | Writes initial `body.md` and roadmap      | Never                          | Never                  |
 | `objective-next`      | Reads only                                | Reads only                     | Reads only             |
+| `objective-current`   | Reads only                                | Reads only                     | Reads only             |
 | `objective-digest`    | Reads only                                | Reads only                     | Reads only             |
 | `objective-claim`     | May read as source                        | Writes verbatim copy to target | May read as source     |
 | `objective-update`    | Never                                     | Rewrites from branch work      | Never                  |
@@ -184,10 +185,17 @@ Both rewrite modes follow the same shape:
 flags stale non-canonical branch snapshots, and suggests a next-slice slug.
 It does not inspect source code to audit progress.
 
+### `objective-current`
+
+`current` writes nothing. It renders a current-branch stack map from
+deterministic branch facts: claimed objective, PR, branch snapshot freshness,
+brmem entries, downstack ancestry, and immediate upstack children. It does not
+summarize objective prose or compute workstream progress.
+
 ### `objective-digest`
 
-`digest` writes nothing. It renders a one-page status digest from canonical
-and branch snapshots plus deterministic git/PR facts supplied by its CLI.
+`digest` writes nothing. It renders an objective dossier from canonical and
+branch snapshots plus deterministic git/PR facts supplied by its CLI.
 
 ### `objective-claim`
 
