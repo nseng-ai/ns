@@ -3,9 +3,8 @@
 Harvests the structured facts the ``objective-digest`` skill needs
 to render its locked Markdown output: per-branch raw snapshots, git
 timestamps, PR state, and a list of unclaimed-PR candidates. The skill
-owns every judgment that requires reading prose — slice extraction,
-status parsing, completion-criteria counts, semantic drift matching.
-This operation never parses Markdown.
+owns prose summary and finding selection. This operation never parses
+Markdown.
 """
 
 from __future__ import annotations
@@ -103,10 +102,10 @@ class ObjectiveDigestResult(JsonSerializable):
         "Emit raw digest facts for `objective-digest`. Reads the "
         "master seed, every branch snapshot, and the PRs attached to each "
         "branch. Returns body/roadmap/notes Markdown unparsed — the skill "
-        "owns slice extraction, status parsing, and any semantic judgment. "
+        "owns prose summary and finding selection. "
         "Unless --no-drift, also lists open PRs not attached to any "
-        "snapshot in the tree (the skill matches them to unchecked "
-        "slices). SLUG auto-resolves from the current branch when exactly "
+        "snapshot in the tree for optional review. "
+        "SLUG auto-resolves from the current branch when exactly "
         "one objective is attached."
     ),
 )
