@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import NamedTuple
 
 from twerk_core.gt.gateway import GtGateway
 from twerk_core.gt.types import (
@@ -11,6 +12,13 @@ from twerk_core.gt.types import (
     StackInfo,
     UntrackedBranch,
 )
+
+
+class _StackEntry(NamedTuple):
+    line_idx: int
+    col: int
+    marker: str
+    branch: str
 
 
 def _run_gt(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -90,7 +98,7 @@ def parse_stack_output(stdout: str) -> StackInfo | None:
     warning. Returns ``None`` if no current marker is present.
     """
     raw_lines = [line for line in stdout.splitlines() if line.strip()]
-    entries: list[tuple[int, int, str, str]] = []  # (line_idx, col, marker, branch)
+    entries: list[_StackEntry] = []
     for idx, line in enumerate(raw_lines):
         position = _marker_position(line)
         if position is None:
@@ -99,27 +107,35 @@ def parse_stack_output(stdout: str) -> StackInfo | None:
         branch = _branch_name_from_line(line, col)
         if not branch:
             continue
-        entries.append((idx, col, marker, branch))
+        entries.append(_StackEntry(line_idx=idx, col=col, marker=marker, branch=branch))
 
-    current_entries = [e for e in entries if e[2] == _CURRENT_MARKER]
+    current_entries = [e for e in entries if e.marker == _CURRENT_MARKER]
     if not current_entries:
         return None
-    current_idx, current_col, _, current_name = current_entries[0]
+    current = current_entries[0]
+    current_idx = current.line_idx
+    current_col = current.col
+    current_name = current.branch
 
     warnings: list[str] = []
     if len(current_entries) > 1:
         warnings.append("multiple current markers found in gt log output")
 
-    off_column = sum(1 for e in entries if e[1] != current_col)
+    off_column = sum(1 for e in entries if e.col != current_col)
     if off_column:
         warnings.append(
             f"{off_column} branch(es) in gt log output sit outside the current "
             "branch's column and were not included in the stack walk"
         )
 
-    aligned = [e for e in entries if e[1] == current_col]
-    ancestors = tuple(e[3] for e in aligned if e[0] < current_idx)
-    children = tuple(e[3] for e in aligned if e[0] > current_idx)
+    aligned = [e for e in entries if e.col == current_col]
+    ancestors = tuple(e.branch for e in aligned if e.line_idx < current_idx)
+    descendants = tuple(e.branch for e in aligned if e.line_idx > current_idx)
+    # `children` here is the parser's view of immediate children: every
+    # aligned branch below current. The `gt children` cross-check in
+    # `RealGtGateway.stack` overrides this with the authoritative immediate
+    # set.
+    children = descendants
 
     if not ancestors:
         return StackInfo(
@@ -128,6 +144,7 @@ def parse_stack_output(stdout: str) -> StackInfo | None:
             ancestors=(),
             children=children,
             warnings=tuple(warnings),
+            descendants=descendants,
         )
     return StackInfo(
         trunk=ancestors[0],
@@ -135,6 +152,7 @@ def parse_stack_output(stdout: str) -> StackInfo | None:
         ancestors=ancestors,
         children=children,
         warnings=tuple(warnings),
+        descendants=descendants,
     )
 
 
@@ -226,6 +244,7 @@ class RealGtGateway(GtGateway):
                 ancestors=parsed.ancestors,
                 children=authoritative_children,
                 warnings=warnings,
+                descendants=parsed.descendants,
             )
         # `gt children` failed; return parser output with a warning.
         return StackInfo(
@@ -237,4 +256,5 @@ class RealGtGateway(GtGateway):
                 *parsed.warnings,
                 "gt children unavailable; falling back to gt log parse",
             ),
+            descendants=parsed.descendants,
         )
