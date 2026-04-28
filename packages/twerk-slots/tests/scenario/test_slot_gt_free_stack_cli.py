@@ -44,6 +44,15 @@ def _obj(context: object) -> object:
     return build_clinkr_context_object(lambda: context)
 
 
+def _assigned_worktrees(fakes: _StackFakes) -> dict[str, str]:
+    """Return slot_name -> branch for every still-assigned managed worktree."""
+    return {
+        wt.path.name: wt.branch
+        for wt in fakes.git.list_worktrees()
+        if wt.path.name.startswith("slot-") and wt.branch is not None
+    }
+
+
 def _build_stack_fakes(
     tmp_path: Path,
     *,
@@ -254,10 +263,8 @@ def test_free_stack_frees_ancestors_and_descendants(cli_group: ClinkrGroup, tmp_
     assert payload["data"]["noop_reason"] is None
     freed_names = [f["slot_name"] for f in payload["data"]["freed"]]
     assert freed_names == ["slot-01", "slot-02", "slot-03"]
-    saved = fakes.pool_state.load()
-    assert saved is not None
-    # All three slots removed; current branch was not assigned to a slot.
-    assert saved.assignments == ()
+    # All three slots detached; current branch was not assigned to a slot.
+    assert _assigned_worktrees(fakes) == {}
     assert fakes.git._detach_head_calls == [
         (fakes.paths_by_slot["slot-01"], "main"),
         (fakes.paths_by_slot["slot-02"], "main"),
@@ -291,9 +298,7 @@ def test_free_stack_keeps_current_branch_slot_untouched(
     payload = json.loads(result.stdout)
     freed_names = [f["slot_name"] for f in payload["data"]["freed"]]
     assert freed_names == ["slot-01", "slot-03"]
-    saved = fakes.pool_state.load()
-    assert saved is not None
-    assert {a.slot_name for a in saved.assignments} == {"slot-02"}
+    assert _assigned_worktrees(fakes) == {"slot-02": "feat/B"}
 
 
 # -- preflight failures -----------------------------------------------------
@@ -390,7 +395,7 @@ def test_free_stack_pool_not_initialized(cli_group: ClinkrGroup, tmp_path: Path)
     )
 
     assert result.exit_code == 2
-    assert "No pool configured" in result.output
+    assert "No managed slots configured" in result.output
 
 
 # -- machine mode -----------------------------------------------------------
