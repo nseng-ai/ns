@@ -1,9 +1,9 @@
 """Scenario tests for ``objective exec digest``.
 
-The skill `objective-digest` consumes this command's JSON output to
-build the locked Markdown digest. These tests exercise the contract end
-to end through `build_cli()` with the standard fake gateways used across
-objective scenario tests.
+The skill `objective-digest` runs this command and prints its output
+verbatim. These tests smoke-check the rendered brief through
+`build_cli()`: that the CLI computes metadata facts correctly, embeds
+the raw prose blocks, and emits the literal output template.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
-from twerk_core.git.types import CommitSummary, DetachedHead
+from twerk_core.git.types import DetachedHead
 from twerk_core.gt.testing import FakeGtGateway
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
@@ -59,23 +59,17 @@ def _make_obj(
     live_branches: tuple[str, ...] = (),
     pr_gateway: PRGateway | None = None,
     file_last_touched: dict[tuple[str, str], str] | None = None,
-    branch_head_iso: dict[str, str] | None = None,
-    commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
 ) -> ClinkrContextObject:
     if branch is None:
         git_gateway = FakeGitGateway(
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
-            branch_head_iso_by_branch=branch_head_iso,
-            commits_by_range=commits_by_range,
         )
     else:
         git_gateway = FakeGitGateway(
             current_branch_by_path={Path.cwd(): branch},
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
-            branch_head_iso_by_branch=branch_head_iso,
-            commits_by_range=commits_by_range,
         )
     ctx = ObjectiveCliContext(
         brmem_gateway=gateway,
@@ -105,107 +99,31 @@ _BODY_MASTER = textwrap.dedent(
     ## Out of scope
 
     Migrating the legacy widget cache; that's a separate workstream.
-
-    ## Completion Criteria
-
-    - [ ] Plugins can register without core changes
-    - [ ] Old widget cache deprecated
-    - [ ] Docs updated
     """
 )
 
-_ROADMAP_MASTER = textwrap.dedent(
-    """\
-    # Roadmap
-
-    ## Slice 1 — Plugin contract
-
-    - [ ] Define plugin entry point ABC
-    - [ ] Wire plugin loader
-
-    ## Slice 2 — Migrate built-in widgets
-
-    - [ ] Port widget A
-    - [ ] Port widget B
-
-    ## Slice 3 — Drop legacy registry
-
-    - [ ] Delete legacy registry module
-    """
-)
-
-_ROADMAP_GROUNDWORK_DONE = textwrap.dedent(
-    """\
-    # Roadmap
-
-    ## Slice 1 — Plugin contract
-
-    - [x] Define plugin entry point ABC
-    - [x] Wire plugin loader
-
-    ## Slice 2 — Migrate built-in widgets
-
-    - [ ] Port widget A
-    - [ ] Port widget B
-
-    ## Slice 3 — Drop legacy registry
-
-    - [ ] Delete legacy registry module
-    """
-)
-
-_ROADMAP_LAYER1 = textwrap.dedent(
-    """\
-    # Roadmap
-
-    ## Slice 1 — Plugin contract
-
-    - [x] Define plugin entry point ABC
-    - [x] Wire plugin loader
-
-    ## Slice 2 — Migrate built-in widgets
-
-    - [x] Port widget A
-    - [ ] Port widget B
-
-    ## Slice 3 — Drop legacy registry
-
-    - [ ] Delete legacy registry module
-    """
-)
+_NOTES_LAYER_1 = "- The plugin loader must be importable without optional deps.\n"
 
 
-def _seed_sole_objective_widget_rewrite(
-    *,
-    extra_branches: tuple[str, ...] = (),
-) -> FakeBranchMemoryGateway:
+def _seed_widget_rewrite() -> FakeBranchMemoryGateway:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", _BODY_MASTER)
-    gateway.put("objectives", "widget-rewrite/roadmap.md", "master", _ROADMAP_MASTER)
     gateway.put("objectives", "widget-rewrite/body.md", "widget-rewrite-groundwork", _BODY_MASTER)
-    gateway.put(
-        "objectives",
-        "widget-rewrite/roadmap.md",
-        "widget-rewrite-groundwork",
-        _ROADMAP_GROUNDWORK_DONE,
-    )
     gateway.put("objectives", "widget-rewrite/body.md", "widget-rewrite-layer-1", _BODY_MASTER)
-    gateway.put(
-        "objectives",
-        "widget-rewrite/roadmap.md",
-        "widget-rewrite-layer-1",
-        _ROADMAP_LAYER1,
-    )
     gateway.put(
         "objectives",
         "widget-rewrite/notes.md",
         "widget-rewrite-layer-1",
-        "- The plugin loader must be importable without optional deps.\n",
+        _NOTES_LAYER_1,
     )
-    for branch in extra_branches:
-        gateway.put("objectives", "widget-rewrite/body.md", branch, _BODY_MASTER)
-        gateway.put("objectives", "widget-rewrite/roadmap.md", branch, _ROADMAP_MASTER)
     return gateway
+
+
+class _BrokenPRGateway(FakePRGateway):
+    """PR gateway whose every lookup fails with a non-1 return code."""
+
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+        return PRLookupError(stderr="auth failed", returncode=4)
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +136,6 @@ def test_digest_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: objective exec digest" in result.output
-    assert "--no-drift" in result.output
 
 
 def test_digest_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
@@ -227,15 +144,16 @@ def test_digest_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert set(payload) == {"input_schema", "output_schema"}
+    assert payload["output_schema"]["properties"]["prompt"]["type"] == "string"
 
 
 # ---------------------------------------------------------------------------
-# happy path
+# happy path — smoke check on rendered brief
 # ---------------------------------------------------------------------------
 
 
-def test_digest_happy_path_emits_raw_facts(cli_group: ClinkrGroup) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
+def test_digest_emits_brief_with_facts_prose_and_template(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_widget_rewrite()
     file_last_touched = {
         (
             "refs/brmem/ns/objectives/master",
@@ -276,45 +194,173 @@ def test_digest_happy_path_emits_raw_facts(cli_group: ClinkrGroup) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
+        ["exec", "digest", "widget-rewrite"],
         obj=obj,
     )
-    payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    data = payload["data"]
-    assert data["slug"] == "widget-rewrite"
+    out = result.output
 
-    master = data["master"]
-    assert "Re-platform the widget pipeline" in master["body_md"]
-    assert "## Slice 1 — Plugin contract" in master["roadmap_md"]
-    assert master["notes_md"] == ""
-    assert master["body_last_touched"] == "2026-04-26T06:52:00+00:00"
+    # Pre-computed metadata.
+    assert "| **Associated PRs**   | 1 open, 1 merged |" in out
+    assert (
+        "| **Branch snapshots** | 2 active · latest: `widget-rewrite-layer-1` "
+        "(updated 2026-04-26T20:54:00+00:00) |"
+    ) in out
+    assert "| **Master canonical** | last touched 2026-04-26T06:52:00+00:00 |" in out
 
-    branches = {b["branch"]: b for b in data["branches"]}
-    assert set(branches) == {"widget-rewrite-groundwork", "widget-rewrite-layer-1"}
+    # Master body is embedded verbatim for thesis prose.
+    assert "Re-platform the widget pipeline" in out
+    assert "<<<\n# Widget Rewrite" in out
 
-    layer_1 = branches["widget-rewrite-layer-1"]
-    assert layer_1["deleted"] is False
-    assert "## Slice 2 — Migrate built-in widgets" in layer_1["roadmap_md"]
-    assert "- [x] Port widget A" in layer_1["roadmap_md"]
-    assert "plugin loader" in layer_1["notes_md"]
-    assert layer_1["body_last_touched"] == "2026-04-26T20:54:00+00:00"
-    assert layer_1["pr_number"] == 833
-    assert layer_1["pr_state"] == "OPEN"
-    assert layer_1["pr_title"] == "Migrate widget A to plugin"
-    assert layer_1["pr_url"] == "https://example.com/pull/833"
-    assert layer_1["pr_error"] is None
-    # No branch_head_iso seeded → obj_state defaults to "fresh".
-    assert layer_1["obj_state"] == "fresh"
-    assert layer_1["branch_head_iso"] is None
+    # Per-snapshot notes block carries the branch label and PR state.
+    assert "[branch: widget-rewrite-layer-1 — PR #833 OPEN]" in out
+    assert "plugin loader must be importable" in out
 
-    groundwork = branches["widget-rewrite-groundwork"]
-    assert groundwork["pr_state"] == "MERGED"
-    assert groundwork["notes_md"] == ""
+    # Branches without notes are not given an empty block.
+    assert "[branch: widget-rewrite-groundwork" not in out
 
-    assert data["unclaimed_pr_candidates"] == []
-    assert data["warnings"] == []
+    # Merged PRs are pre-rendered as a linkified bullet list.
+    assert "- [#812](https://example.com/pull/812) — Plugin contract scaffolding" in out
+
+    # Empty roadmap renders the placeholder for the remaining-work step.
+    assert "no roadmap recorded" in out
+    assert "body shown in Step 3" in out
+
+    # Output template is present.
+    assert "# `widget-rewrite` — digest" in out
+    assert "## Thesis" in out
+    assert "## Merged PRs" in out
+    assert "## Remaining work" in out
+    assert "## Key findings (binding for future work)" in out
+    assert "<METADATA TABLE FROM STEP 1, VERBATIM>" in out
+    assert "<MERGED PRS FROM STEP 2, VERBATIM>" in out
+
+
+def test_digest_emits_empty_findings_marker_when_no_notes(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget-rewrite/body.md", "master", _BODY_MASTER)
+    gateway.put("objectives", "widget-rewrite/body.md", "widget-rewrite-layer-1", _BODY_MASTER)
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "widget-rewrite-layer-1"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "no notes recorded across any snapshot" in result.output
+    assert "_No durable findings recorded yet._" in result.output
+    assert "_No merged PRs yet._" in result.output
+
+
+def test_digest_marks_deleted_branch_in_metadata_and_notes_label(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = _seed_widget_rewrite()
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master", "widget-rewrite-layer-1"),  # groundwork is gone
+        pr_gateway=FakePRGateway(
+            prs_by_branch={
+                "widget-rewrite-groundwork": _pr(
+                    number=812,
+                    title="Plugin contract scaffolding",
+                    url="https://example.com/pull/812",
+                    state="MERGED",
+                    head="widget-rewrite-groundwork",
+                ),
+            },
+        ),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "1 active (+1 merged & deleted)" in result.output
+
+
+def test_digest_embeds_master_roadmap_for_remaining_work(cli_group: ClinkrGroup) -> None:
+    roadmap = textwrap.dedent(
+        """\
+        # Roadmap
+
+        ## Slice 1 — Plugin contract
+
+        - [x] Define plugin entry point ABC
+        - [ ] Wire plugin loader
+        """
+    )
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget-rewrite/body.md", "master", _BODY_MASTER)
+    gateway.put("objectives", "widget-rewrite/roadmap.md", "master", roadmap)
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master",),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Source — master roadmap:" in result.output
+    assert "## Slice 1 — Plugin contract" in result.output
+    assert "no roadmap recorded" not in result.output
+
+
+def test_digest_emits_no_branch_snapshots_row_when_seed_only(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget-rewrite/body.md", "master", _BODY_MASTER)
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master",),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "0 active — no branch snapshots" in result.output
+
+
+def test_digest_surfaces_pr_lookup_failures_in_metadata(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_widget_rewrite()
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        pr_gateway=_BrokenPRGateway(),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "| **Associated PRs**   | 0 open, 0 merged "
+        "(lookup failed: `widget-rewrite-groundwork`: auth failed, "
+        "`widget-rewrite-layer-1`: auth failed) |"
+    ) in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -322,10 +368,8 @@ def test_digest_happy_path_emits_raw_facts(cli_group: ClinkrGroup) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_digest_auto_resolves_sole_objective_on_current_branch(
-    cli_group: ClinkrGroup,
-) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
+def test_digest_auto_resolves_sole_objective_on_current_branch(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_widget_rewrite()
     obj = _make_obj(
         gateway=gateway,
         branch="widget-rewrite-layer-1",
@@ -334,13 +378,12 @@ def test_digest_auto_resolves_sole_objective_on_current_branch(
 
     result = CliRunner().invoke(
         cli_group,
-        ["exec", "digest", "--format", "json"],
+        ["exec", "digest"],
         obj=obj,
     )
-    payload = json.loads(result.output)
 
     assert result.exit_code == 0, result.output
-    assert payload["data"]["slug"] == "widget-rewrite"
+    assert "# `widget-rewrite` — digest" in result.output
 
 
 def test_digest_no_objective_on_branch_fails(cli_group: ClinkrGroup) -> None:
@@ -368,7 +411,7 @@ def test_digest_no_objective_on_branch_fails(cli_group: ClinkrGroup) -> None:
 
 def test_digest_slug_not_seeded_anywhere_fails(cli_group: ClinkrGroup) -> None:
     obj = _make_obj(
-        gateway=_seed_sole_objective_widget_rewrite(),
+        gateway=_seed_widget_rewrite(),
         branch="master",
         live_branches=("master",),
     )
@@ -404,395 +447,3 @@ def test_digest_slug_branch_only_no_master_seed_fails(cli_group: ClinkrGroup) ->
     assert result.exit_code == 2
     assert payload["error_type"] == "slug_not_seeded"
     assert "no master seed" in payload["message"]
-
-
-# ---------------------------------------------------------------------------
-# no live branches
-# ---------------------------------------------------------------------------
-
-
-def test_digest_seed_only_no_branches(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("objectives", "widget-rewrite/body.md", "master", _BODY_MASTER)
-    gateway.put("objectives", "widget-rewrite/roadmap.md", "master", _ROADMAP_MASTER)
-    obj = _make_obj(
-        gateway=gateway,
-        branch="master",
-        live_branches=("master",),
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    data = payload["data"]
-    assert data["branches"] == []
-    assert "Re-platform the widget pipeline" in data["master"]["body_md"]
-
-
-# ---------------------------------------------------------------------------
-# missing roadmap on master
-# ---------------------------------------------------------------------------
-
-
-def test_digest_missing_roadmap_on_master_returns_empty_blob(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("objectives", "no-roadmap/body.md", "master", _BODY_MASTER)
-    # No roadmap.md on master.
-    gateway.put("objectives", "no-roadmap/body.md", "feat/x", _BODY_MASTER)
-    obj = _make_obj(
-        gateway=gateway,
-        branch="feat/x",
-        live_branches=("master", "feat/x"),
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "no-roadmap", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    data = payload["data"]
-    # The skill decides what to render when roadmap is missing — the CLI
-    # just hands over the empty blob.
-    assert data["master"]["roadmap_md"] == ""
-    assert data["warnings"] == []
-
-
-# ---------------------------------------------------------------------------
-# branch deleted (merged & gone)
-# ---------------------------------------------------------------------------
-
-
-def test_digest_marks_deleted_branch(cli_group: ClinkrGroup) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
-    obj = _make_obj(
-        gateway=gateway,
-        branch="master",
-        live_branches=("master", "widget-rewrite-layer-1"),  # groundwork is gone
-        pr_gateway=FakePRGateway(
-            prs_by_branch={
-                "widget-rewrite-groundwork": _pr(
-                    number=812,
-                    title="Plugin contract scaffolding",
-                    url="https://example.com/pull/812",
-                    state="MERGED",
-                    head="widget-rewrite-groundwork",
-                ),
-            },
-        ),
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
-    assert by_branch["widget-rewrite-groundwork"]["deleted"] is True
-    assert by_branch["widget-rewrite-layer-1"]["deleted"] is False
-
-
-# ---------------------------------------------------------------------------
-# unclaimed PR candidates (no markdown semantics)
-# ---------------------------------------------------------------------------
-
-
-def test_digest_lists_open_prs_outside_snapshot_tree(cli_group: ClinkrGroup) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
-    drift_pr = _pr(
-        number=999,
-        title="WIP: drop legacy registry tests",
-        url="https://example.com/pull/999",
-        state="OPEN",
-        head="someone-else/cleanup-legacy",
-    )
-    obj = _make_obj(
-        gateway=gateway,
-        branch="master",
-        live_branches=("master", "widget-rewrite-layer-1"),
-        pr_gateway=FakePRGateway(prs=(drift_pr,)),
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    candidates = payload["data"]["unclaimed_pr_candidates"]
-    assert candidates == [
-        {
-            "number": 999,
-            "title": "WIP: drop legacy registry tests",
-            "url": "https://example.com/pull/999",
-            "head_ref": "someone-else/cleanup-legacy",
-        }
-    ]
-    assert payload["data"]["warnings"] == []
-
-
-def test_digest_excludes_open_prs_already_in_snapshot_tree(cli_group: ClinkrGroup) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
-    attached_pr = _pr(
-        number=833,
-        title="Migrate widget A to plugin",
-        url="https://example.com/pull/833",
-        state="OPEN",
-        head="widget-rewrite-layer-1",
-    )
-    obj = _make_obj(
-        gateway=gateway,
-        branch="master",
-        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
-        pr_gateway=FakePRGateway(prs=(attached_pr,)),
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    assert payload["data"]["unclaimed_pr_candidates"] == []
-
-
-def test_digest_no_drift_flag_skips_unclaimed_lookup(cli_group: ClinkrGroup) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
-    drift_pr = _pr(
-        number=999,
-        title="legacy registry cleanup",
-        url="https://example.com/pull/999",
-        state="OPEN",
-        head="other/cleanup",
-    )
-    obj = _make_obj(
-        gateway=gateway,
-        branch="master",
-        live_branches=("master", "widget-rewrite-layer-1"),
-        pr_gateway=FakePRGateway(prs=(drift_pr,)),
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--no-drift", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    assert payload["data"]["unclaimed_pr_candidates"] == []
-    assert payload["data"]["warnings"] == []
-
-
-def test_digest_drift_failure_emits_warning_not_error(cli_group: ClinkrGroup) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
-    failing_pr_gateway = FakePRGateway(
-        search_failure=PRLookupError(stderr="auth failed", returncode=4),
-    )
-    obj = _make_obj(
-        gateway=gateway,
-        branch="master",
-        live_branches=("master", "widget-rewrite-layer-1"),
-        pr_gateway=failing_pr_gateway,
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    warnings = payload["data"]["warnings"]
-    assert any(w.startswith("drift_check_skipped:") for w in warnings)
-    assert payload["data"]["unclaimed_pr_candidates"] == []
-
-
-# ---------------------------------------------------------------------------
-# obj_state — fresh / stale / merged
-# ---------------------------------------------------------------------------
-
-
-def test_digest_obj_state_fresh_when_snapshot_at_or_after_branch_head(
-    cli_group: ClinkrGroup,
-) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
-    file_last_touched = {
-        (
-            "refs/brmem/ns/objectives/widget-rewrite-layer-1",
-            "widget-rewrite/body.md",
-        ): "2026-04-26T20:54:00+00:00",
-    }
-    obj = _make_obj(
-        gateway=gateway,
-        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
-        file_last_touched=file_last_touched,
-        branch_head_iso={"widget-rewrite-layer-1": "2026-04-26T20:54:00+00:00"},
-        commits_by_range={
-            "master..widget-rewrite-layer-1": (
-                CommitSummary(
-                    sha="aaa111",
-                    author_iso="2026-04-26T20:54:00+00:00",
-                    subject="Port widget A to plugin",
-                ),
-            ),
-        },
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
-    assert by_branch["widget-rewrite-layer-1"]["obj_state"] == "fresh"
-    assert by_branch["widget-rewrite-layer-1"]["branch_head_iso"] == ("2026-04-26T20:54:00+00:00")
-    assert by_branch["widget-rewrite-layer-1"]["branch_max_author_iso"] == (
-        "2026-04-26T20:54:00+00:00"
-    )
-
-
-def test_digest_obj_state_stale_when_branch_head_newer_than_snapshot(
-    cli_group: ClinkrGroup,
-) -> None:
-    gateway = _seed_sole_objective_widget_rewrite()
-    file_last_touched = {
-        (
-            "refs/brmem/ns/objectives/widget-rewrite-layer-1",
-            "widget-rewrite/body.md",
-        ): "2026-04-26T20:54:00+00:00",
-    }
-    obj = _make_obj(
-        gateway=gateway,
-        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
-        file_last_touched=file_last_touched,
-        branch_head_iso={"widget-rewrite-layer-1": "2026-04-27T08:30:00+00:00"},
-        commits_by_range={
-            "master..widget-rewrite-layer-1": (
-                CommitSummary(
-                    sha="bbb222",
-                    author_iso="2026-04-27T08:30:00+00:00",
-                    subject="Tighten loader error path",
-                ),
-            ),
-        },
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
-    assert by_branch["widget-rewrite-layer-1"]["obj_state"] == "stale"
-    assert by_branch["widget-rewrite-layer-1"]["branch_max_author_iso"] == (
-        "2026-04-27T08:30:00+00:00"
-    )
-
-
-def test_digest_obj_state_fresh_when_only_committer_time_advanced_after_restack(
-    cli_group: ClinkrGroup,
-) -> None:
-    """`gt restack` rewrites committer time without changing author time.
-
-    A branch whose only "change" was a no-op restack must classify as
-    ``fresh`` even though ``branch_head_iso`` (committer time) is newer
-    than the snapshot — author time is what drives the contract.
-    """
-
-    gateway = _seed_sole_objective_widget_rewrite()
-    file_last_touched = {
-        (
-            "refs/brmem/ns/objectives/widget-rewrite-layer-1",
-            "widget-rewrite/body.md",
-        ): "2026-04-26T20:54:00+00:00",
-    }
-    obj = _make_obj(
-        gateway=gateway,
-        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
-        file_last_touched=file_last_touched,
-        # Committer time advanced (restack rewrote it) ...
-        branch_head_iso={"widget-rewrite-layer-1": "2026-04-27T09:00:00+00:00"},
-        # ... but author time on the only commit is still <= snapshot.
-        commits_by_range={
-            "master..widget-rewrite-layer-1": (
-                CommitSummary(
-                    sha="ccc333",
-                    author_iso="2026-04-26T20:54:00+00:00",
-                    subject="Port widget A to plugin",
-                ),
-            ),
-        },
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
-    layer_1 = by_branch["widget-rewrite-layer-1"]
-    assert layer_1["obj_state"] == "fresh"
-    assert layer_1["branch_head_iso"] == "2026-04-27T09:00:00+00:00"
-    assert layer_1["branch_max_author_iso"] == "2026-04-26T20:54:00+00:00"
-
-
-def test_digest_obj_state_fresh_for_deleted_branch_regardless_of_head(
-    cli_group: ClinkrGroup,
-) -> None:
-    """A deleted branch's snapshot is fresh by definition — its history is frozen."""
-
-    gateway = _seed_sole_objective_widget_rewrite()
-    obj = _make_obj(
-        gateway=gateway,
-        branch="master",
-        live_branches=("master", "widget-rewrite-layer-1"),  # groundwork is gone
-        pr_gateway=FakePRGateway(
-            prs_by_branch={
-                "widget-rewrite-groundwork": _pr(
-                    number=812,
-                    title="Plugin contract scaffolding",
-                    url="https://example.com/pull/812",
-                    state="MERGED",
-                    head="widget-rewrite-groundwork",
-                ),
-            },
-        ),
-    )
-
-    result = CliRunner().invoke(
-        cli_group,
-        ["exec", "digest", "widget-rewrite", "--format", "json"],
-        obj=obj,
-    )
-    payload = json.loads(result.output)
-
-    assert result.exit_code == 0, result.output
-    by_branch = {b["branch"]: b for b in payload["data"]["branches"]}
-    assert by_branch["widget-rewrite-groundwork"]["deleted"] is True
-    assert by_branch["widget-rewrite-groundwork"]["obj_state"] == "fresh"
-    assert by_branch["widget-rewrite-groundwork"]["branch_head_iso"] is None
