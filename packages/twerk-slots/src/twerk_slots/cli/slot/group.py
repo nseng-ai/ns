@@ -1,5 +1,3 @@
-"""Explicit builder for the `slot` CLI group."""
-
 from __future__ import annotations
 
 from twerk_core.clinkr.group import ClinkrGroup
