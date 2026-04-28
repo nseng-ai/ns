@@ -22,6 +22,7 @@ from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import CommitSummary, DetachedHead, GitCommandFailure
 from twerk_core.gt.testing import FakeGtGateway
+from twerk_core.gt.types import StackInfo
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -63,18 +64,21 @@ def _make_obj(
     branches: tuple[str, ...] = (),
     commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
     log_range_failure: GitCommandFailure | None = None,
+    patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
+    gt_gateway: FakeGtGateway | None = None,
 ) -> ClinkrContextObject:
     git_gateway = FakeGitGateway(
         current_branch_by_path={Path.cwd(): current_branch},
         branches=branches,
         commits_by_range=commits_by_range,
         log_range_failure=log_range_failure,
+        patch_ids_by_range=patch_ids_by_range,
     )
     ctx = ObjectiveCliContext(
         brmem_gateway=gateway,
         git_gateway=git_gateway,
         pr_gateway=FakePRGateway(),
-        gt_gateway=FakeGtGateway(),
+        gt_gateway=gt_gateway if gt_gateway is not None else FakeGtGateway(trunk="master"),
     )
     return build_clinkr_context_object(lambda: ctx)
 
@@ -159,8 +163,18 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
 
     assert data["snapshot_max_head_date"] == data["notes"]["head_date"]
     assert data["branch_commits"] == [
-        {"sha": "sha-2", "author_iso": "2026-04-26T19:00:00+00:00", "subject": "Second"},
-        {"sha": "sha-1", "author_iso": "2026-04-26T18:00:00+00:00", "subject": "First"},
+        {
+            "sha": "sha-2",
+            "author_iso": "2026-04-26T19:00:00+00:00",
+            "subject": "Second",
+            "patch_id": None,
+        },
+        {
+            "sha": "sha-1",
+            "author_iso": "2026-04-26T18:00:00+00:00",
+            "subject": "First",
+            "patch_id": None,
+        },
     ]
     assert data["branch_max_author_iso"] == "2026-04-26T19:00:00+00:00"
 
@@ -225,6 +239,147 @@ def test_precheck_in_sync_when_no_branch_commits(cli_group: ClinkrGroup) -> None
     assert data["in_sync"] is True
     assert data["branch_commits"] == []
     assert data["branch_max_author_iso"] is None
+
+
+# ---------------------------------------------------------------------------
+# patch-id absorbed-set
+# ---------------------------------------------------------------------------
+
+
+def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_objective("widget-rewrite-layer-1")
+    cwd = Path.cwd()
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="widget-rewrite-layer-1",
+                ancestors=("master", "widget-rewrite-groundwork"),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    commits = (
+        CommitSummary(sha="sha-2", author_iso="2026-04-26T19:00:00+00:00", subject="Second"),
+        CommitSummary(sha="sha-1", author_iso="2026-04-26T18:00:00+00:00", subject="First"),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        current_branch="widget-rewrite-layer-1",
+        branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        commits_by_range={"master..HEAD": commits},
+        patch_ids_by_range={
+            "master..HEAD": (("sha-2", "pid-2"), ("sha-1", "pid-1")),
+            "master..widget-rewrite-groundwork": (
+                ("sha-2", "pid-2"),
+                ("sha-1", "pid-1"),
+            ),
+        },
+        gt_gateway=gt_gateway,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "update-precheck", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    data = payload["data"]
+    assert data["in_sync"] is True
+    assert len(data["branch_commits"]) == 2
+    assert {c["patch_id"] for c in data["branch_commits"]} == {"pid-1", "pid-2"}
+    assert set(data["absorbed_patch_ids"]) == {"pid-1", "pid-2"}
+
+
+def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_objective("widget-rewrite-layer-1")
+    cwd = Path.cwd()
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="widget-rewrite-layer-1",
+                ancestors=("master", "widget-rewrite-groundwork"),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    commits = (
+        CommitSummary(sha="sha-2", author_iso="2026-04-26T19:00:00+00:00", subject="Second"),
+        CommitSummary(sha="sha-1", author_iso="2026-04-26T18:00:00+00:00", subject="First"),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        current_branch="widget-rewrite-layer-1",
+        branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        commits_by_range={"master..HEAD": commits},
+        patch_ids_by_range={
+            "master..HEAD": (("sha-2", "pid-novel"), ("sha-1", "pid-1")),
+            "master..widget-rewrite-groundwork": (("sha-1", "pid-1"),),
+        },
+        gt_gateway=gt_gateway,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "update-precheck", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    data = payload["data"]
+    assert data["in_sync"] is False
+    assert set(data["absorbed_patch_ids"]) == {"pid-1"}
+
+
+def test_precheck_not_in_sync_when_pid_is_null(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_objective("widget-rewrite-layer-1")
+    cwd = Path.cwd()
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="widget-rewrite-layer-1",
+                ancestors=("master", "widget-rewrite-groundwork"),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    commits = (
+        CommitSummary(sha="sha-merge", author_iso="2026-04-26T19:00:00+00:00", subject="Merge"),
+        CommitSummary(sha="sha-1", author_iso="2026-04-26T18:00:00+00:00", subject="First"),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        current_branch="widget-rewrite-layer-1",
+        branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        commits_by_range={"master..HEAD": commits},
+        patch_ids_by_range={
+            "master..HEAD": (("sha-merge", None), ("sha-1", "pid-1")),
+            "master..widget-rewrite-groundwork": (("sha-1", "pid-1"),),
+        },
+        gt_gateway=gt_gateway,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "update-precheck", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    data = payload["data"]
+    assert data["in_sync"] is False
 
 
 # ---------------------------------------------------------------------------

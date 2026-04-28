@@ -51,6 +51,8 @@ class FakeGitGateway(GitGateway):
         update_ref_failure_by_args: (dict[tuple[Path, str, str], GitCommandFailure] | None) = None,
         commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
         log_range_failure: GitCommandFailure | None = None,
+        patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
+        patch_ids_failure: GitCommandFailure | None = None,
         on_add_worktree: Callable[[Path], None] | None = None,
     ) -> None:
         self._repo_root = repo_root if repo_root is not None else Path("/repo")
@@ -75,6 +77,8 @@ class FakeGitGateway(GitGateway):
         self._update_ref_failure_by_args = dict(update_ref_failure_by_args or {})
         self._commits_by_range = dict(commits_by_range or {})
         self._log_range_failure = log_range_failure
+        self._patch_ids_by_range = dict(patch_ids_by_range or {})
+        self._patch_ids_failure = patch_ids_failure
         self._on_add_worktree = on_add_worktree
 
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
@@ -215,6 +219,13 @@ class FakeGitGateway(GitGateway):
         if self._log_range_failure is not None:
             return self._log_range_failure
         return self._commits_by_range.get(range_spec, ())
+
+    def patch_ids_for_range(
+        self, range_spec: str
+    ) -> tuple[tuple[str, str | None], ...] | GitCommandFailure:
+        if self._patch_ids_failure is not None:
+            return self._patch_ids_failure
+        return self._patch_ids_by_range.get(range_spec, ())
 
     @property
     def fetch_calls(self) -> tuple[tuple[Path, str, str], ...]:

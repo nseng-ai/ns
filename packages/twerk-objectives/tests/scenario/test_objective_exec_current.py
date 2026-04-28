@@ -63,6 +63,7 @@ def _make_obj(
     file_last_touched: dict[tuple[str, str], str] | None = None,
     branch_head_iso: dict[str, str] | None = None,
     commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
+    patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
 ) -> ClinkrContextObject:
     brmem_gateway = gateway if gateway is not None else FakeBranchMemoryGateway()
     if branch is None:
@@ -71,6 +72,7 @@ def _make_obj(
             file_last_touched_by_ref_path=file_last_touched,
             branch_head_iso_by_branch=branch_head_iso,
             commits_by_range=commits_by_range,
+            patch_ids_by_range=patch_ids_by_range,
         )
     else:
         git_gateway = FakeGitGateway(
@@ -79,6 +81,7 @@ def _make_obj(
             file_last_touched_by_ref_path=file_last_touched,
             branch_head_iso_by_branch=branch_head_iso,
             commits_by_range=commits_by_range,
+            patch_ids_by_range=patch_ids_by_range,
         )
     ctx = ObjectiveCliContext(
         brmem_gateway=brmem_gateway,
@@ -270,6 +273,10 @@ def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
             ),
         ),
     }
+    # Branch carries a novel patch-id not absorbed by any ancestor.
+    patch_ids_by_range = {
+        "master..feat/current": (("bbb222", "pid-novel"),),
+    }
     obj = _make_obj(
         gateway=gateway,
         branch="feat/current",
@@ -278,6 +285,7 @@ def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
         file_last_touched=file_last_touched,
         branch_head_iso=branch_head_iso,
         commits_by_range=commits_by_range,
+        patch_ids_by_range=patch_ids_by_range,
     )
 
     out = _invoke_current(cli_group, obj)

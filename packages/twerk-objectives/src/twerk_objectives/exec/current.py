@@ -28,6 +28,10 @@ from twerk_core.gt.gateway import GtGateway
 from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import MASTER_BRANCH, body_key, slug_for_key
+from twerk_objectives.exec.absorbed import (
+    AbsorbedSetUnavailable,
+    absorbed_patch_ids_for_branch,
+)
 from twerk_objectives.freshness import ObjectiveSnapshotState, classify_obj_state
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 
@@ -145,15 +149,34 @@ def run_current_objective(
     current_block = _build_current_block(
         mctx.brmem_gateway,
         mctx.git_gateway,
+        mctx.gt_gateway,
         mctx.pr_gateway,
         current_branch,
+        cwd,
+        trunk,
     )
     downstack = tuple(
-        _build_stack_entry(mctx.brmem_gateway, mctx.git_gateway, mctx.pr_gateway, branch)
+        _build_stack_entry(
+            mctx.brmem_gateway,
+            mctx.git_gateway,
+            mctx.gt_gateway,
+            mctx.pr_gateway,
+            branch,
+            cwd,
+            trunk,
+        )
         for branch in ancestors
     )
     upstack = tuple(
-        _build_stack_entry(mctx.brmem_gateway, mctx.git_gateway, mctx.pr_gateway, branch)
+        _build_stack_entry(
+            mctx.brmem_gateway,
+            mctx.git_gateway,
+            mctx.gt_gateway,
+            mctx.pr_gateway,
+            branch,
+            cwd,
+            trunk,
+        )
         for branch in children
     )
 
@@ -180,7 +203,10 @@ def _resolve_trunk(gt: GtGateway, cwd: Path, warnings: list[str]) -> str:
 def _build_objective_summary(
     gateway: BranchMemoryGateway,
     git: GitGateway,
+    gt: GtGateway,
     branch: str,
+    cwd: Path,
+    trunk: str,
     *,
     alive: bool,
 ) -> tuple[_ObjectiveSummary | None, tuple[str, ...]]:
@@ -195,27 +221,58 @@ def _build_objective_summary(
     primary, *extras = slugs
     snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, body_key(primary))
-    branch_max_author_iso = _max_author_iso(git, branch) if alive else None
+    branch_max_author_iso = _max_author_iso(git, branch, trunk) if alive else None
+    branch_commit_pids, absorbed_pids = _patch_id_inputs(
+        git, gt, cwd, branch, trunk=trunk, alive=alive
+    )
     obj_state = classify_obj_state(
         alive=alive,
         snapshot_iso=body_last_touched,
+        branch_commit_pids=branch_commit_pids,
+        absorbed_pids=absorbed_pids,
         branch_max_author_iso=branch_max_author_iso,
     )
     summary = _ObjectiveSummary(slug=primary, obj_state=obj_state)
     return summary, tuple(extras)
 
 
-def _max_author_iso(git: GitGateway, branch: str) -> str | None:
-    """Return the latest author timestamp on ``master..branch``, or ``None``.
+def _max_author_iso(git: GitGateway, branch: str, trunk: str) -> str | None:
+    """Return the latest author timestamp on ``trunk..branch``, or ``None``.
 
     Author time (``%aI``) is preserved by ``gt restack``; committer time
     (``%cI``) is rewritten. Using author time keeps current's freshness
     signal aligned with digest and resilient to no-op restacks.
     """
-    result = git.log_range(f"{MASTER_BRANCH}..{branch}")
+    result = git.log_range(f"{trunk}..{branch}")
     if isinstance(result, GitCommandFailure):
         return None
     return max((c.author_iso for c in result), default=None)
+
+
+def _patch_id_inputs(
+    git: GitGateway,
+    gt: GtGateway,
+    cwd: Path,
+    branch: str,
+    *,
+    trunk: str,
+    alive: bool,
+) -> tuple[tuple[str | None, ...] | None, frozenset[str] | None]:
+    """Return ``(branch_commit_pids, absorbed_pids)`` for ``branch``.
+
+    ``(None, None)`` means the patch-id signal is unavailable and the caller
+    should fall back to the date comparator. Both inputs collapse together
+    so the freshness classifier never sees a partial signal.
+    """
+    if not alive:
+        return None, None
+    pid_result = git.patch_ids_for_range(f"{trunk}..{branch}")
+    if isinstance(pid_result, GitCommandFailure):
+        return None, None
+    absorbed = absorbed_patch_ids_for_branch(git, gt, cwd, branch, trunk=trunk)
+    if isinstance(absorbed, AbsorbedSetUnavailable):
+        return None, None
+    return tuple(pid for _sha, pid in pid_result), absorbed
 
 
 def _build_pr_block(
@@ -263,10 +320,13 @@ def _build_brmem_listing(gateway: BranchMemoryGateway, branch: str) -> tuple[_Br
 def _build_current_block(
     gateway: BranchMemoryGateway,
     git: GitGateway,
+    gt: GtGateway,
     pr_gateway: PRGateway,
     branch: str,
+    cwd: Path,
+    trunk: str,
 ) -> _CurrentBranchBlock:
-    objective, extras = _build_objective_summary(gateway, git, branch, alive=True)
+    objective, extras = _build_objective_summary(gateway, git, gt, branch, cwd, trunk, alive=True)
     pr_block, pr_error = _build_pr_block(pr_gateway.get_pr_for_branch(branch))
     brmem_listing = _build_brmem_listing(gateway, branch)
     return _CurrentBranchBlock(
@@ -282,11 +342,14 @@ def _build_current_block(
 def _build_stack_entry(
     gateway: BranchMemoryGateway,
     git: GitGateway,
+    gt: GtGateway,
     pr_gateway: PRGateway,
     branch: str,
+    cwd: Path,
+    trunk: str,
 ) -> _StackEntry:
     alive = git.branch_exists(branch)
-    objective, _extras = _build_objective_summary(gateway, git, branch, alive=alive)
+    objective, _extras = _build_objective_summary(gateway, git, gt, branch, cwd, trunk, alive=alive)
     pr_block, pr_error = _build_pr_block(pr_gateway.get_pr_for_branch(branch))
     return _StackEntry(
         branch=branch,

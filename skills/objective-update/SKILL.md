@@ -114,6 +114,13 @@ Handle the result:
   objective <data.slug> is in sync with HEAD on <data.branch> - no update needed
   ```
 
+  `in_sync` is true when every `master..HEAD` commit's `git patch-id`
+  appears on a downstack ancestor's `trunk..ancestor` patch-id set —
+  i.e., the branch's net-new content is already absorbed by an ancestor.
+  When the absorbed-set lookup is unavailable (`gt` failure, untracked
+  branch, `git patch-id` failure), the precheck silently degrades to the
+  legacy "empty `master..HEAD`" rule.
+
 - **Otherwise**: carry forward `data.slug`, `data.branch`, the three
   `FilePrecheck` records (`body`, `roadmap`, `notes` — `present` flags
   drive "only run for present files" gating; `head_sha` values are the
@@ -126,8 +133,7 @@ branch_max_author_iso`. Use this as a hint only — cherry-picks, imported
 commits, and `git commit --amend --reset-author` can preserve or move
 author times in ways that hide net-new content, so always proceed to
 evidence triage and expect a no-op when the branch evidence is already
-documented. If false-stales or false-fresh results become common, switch
-to patch-id bookkeeping (Change B, deferred).
+documented.
 
 ### 2. Load target files
 

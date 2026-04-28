@@ -147,3 +147,15 @@ class GitGateway(ABC):
         output (no commits in range) returns an empty tuple; a non-zero exit
         returns :class:`GitCommandFailure`.
         """
+
+    @abstractmethod
+    def patch_ids_for_range(
+        self, range_spec: str
+    ) -> tuple[tuple[str, str | None], ...] | GitCommandFailure:
+        """Return ``(sha, patch_id)`` pairs for ``range_spec``, newest-first.
+
+        ``patch_id`` is ``None`` for merge or empty/whitespace-only commits
+        (where ``git patch-id --stable`` produces no output). A non-zero exit
+        from either the underlying ``git log`` or ``git patch-id`` returns
+        :class:`GitCommandFailure`.
+        """
