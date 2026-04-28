@@ -6,7 +6,7 @@ This package is a `twerk` plugin discovered via the `twerk.plugins` entry-point 
 
 ## Rules
 
-- **Allowed `twerk-core` imports**: `twerk_core.clinkr`, `twerk_core.git`, `twerk_core.gh`, plus the shared utilities `twerk_core.console` (rich tables / consoles for CLI output) and `twerk_core.plugin` (`TwerkPluginSpec` for the plugin entry point). New imports from `twerk_core.format` / `twerk_core.click_utils` / etc. should be justified.
+- **Allowed `twerk-core` imports**: `twerk_core.clinkr`, `twerk_core.git`, `twerk_core.gh`, `twerk_core.gt`, plus the shared utilities `twerk_core.console` (rich tables / consoles for CLI output) and `twerk_core.plugin` (`TwerkPluginSpec` for the plugin entry point). New imports from `twerk_core.format` / `twerk_core.click_utils` / etc. should be justified.
 - **`brmem` is a hard runtime dependency** declared in `pyproject.toml`. Import storage primitives from `brmem.*` (e.g. `brmem.gateway`, `brmem.fake`); never reach into `twerk_core.brmem` (that path no longer exists).
 - **`brmem` must never import from `twerk_objectives`**. If `brmem` ever needs an objective-specific concept, that concept belongs here, not there.
 - **Self-contained tests**. Tests for `twerk_objectives` must not depend on `twerk_core` subpackages outside the allowed import set above.

@@ -151,6 +151,11 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
+    "objective-current": {
+      "source": "skills/objective-current",
+      "sourceType": "local",
+      "computedHash": "9b618536779843d0ed0a6b77b796290ae712c9f564d39bfda3b3544d07b123a4"
+    },
     "objective-digest": {
       "source": "skills/objective-digest",
       "sourceType": "local",

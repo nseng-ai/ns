@@ -5,9 +5,9 @@ from dataclasses import dataclass
 import click
 
 from twerk_core.clinkr.context import load_clinkr_context_object
+from twerk_core.gt.gateway import GtGateway
+from twerk_core.gt.real_gateway import RealGtGateway
 from twerk_slots.cli.slot.context import build_slots_context
-from twerk_slots.cli.slot.gt.gateway import GtGateway
-from twerk_slots.cli.slot.gt.real_gateway import RealGtGateway
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.repo_context import NoRepoSentinel
 

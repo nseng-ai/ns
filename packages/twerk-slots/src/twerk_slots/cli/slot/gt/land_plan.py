@@ -8,8 +8,8 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.gh.types import PRDetails, PRLookupError
 from twerk_core.git.types import DetachedHead
 from twerk_core.git.types import GitCommandFailure as GitFailure
+from twerk_core.gt.types import GtCommandFailure, NoParent, UntrackedBranch
 from twerk_slots.cli.slot.gt.context import SlotGtContext
-from twerk_slots.cli.slot.gt.types import GtCommandFailure, NoParent, UntrackedBranch
 
 if TYPE_CHECKING:
     from twerk_slots.cli.slot.gt.land import SlotGtLandResult

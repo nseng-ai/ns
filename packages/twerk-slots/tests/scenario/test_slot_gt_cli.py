@@ -13,10 +13,10 @@ from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRCommandError, PRDetails
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
+from twerk_core.gt.testing import FakeGtGateway
+from twerk_core.gt.types import UntrackedBranch
 from twerk_slots.cli.main import build_cli
 from twerk_slots.cli.slot.gt.context import SlotGtContext
-from twerk_slots.cli.slot.gt.testing import FakeGtGateway
-from twerk_slots.cli.slot.gt.types import UntrackedBranch
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing import (
     FakeClipboardGateway,

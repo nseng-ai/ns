@@ -14,6 +14,7 @@ from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.testing import FakeIssueGateway
 from twerk_core.git.testing import FakeGitGateway
+from twerk_core.gt.testing import FakeGtGateway
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
 from twerk_reviewer import git_toplevel as git_toplevel_module
@@ -92,6 +93,7 @@ def test_objective_plugin_integration() -> None:
         brmem_gateway=gateway,
         git_gateway=FakeGitGateway(current_branch_by_path={Path.cwd(): "feat/x"}),
         pr_gateway=FakePRGateway(),
+        gt_gateway=FakeGtGateway(),
     )
     obj = build_clinkr_context_object(lambda: ctx)
 

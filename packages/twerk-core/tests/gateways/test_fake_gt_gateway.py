@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from twerk_slots.cli.slot.gt.testing import FakeGtGateway
-from twerk_slots.cli.slot.gt.types import GtCommandFailure, NoParent, UntrackedBranch
+from twerk_core.gt.testing import FakeGtGateway
+from twerk_core.gt.types import (
+    GtCommandFailure,
+    NoParent,
+    StackInfo,
+    UntrackedBranch,
+)
 
 
 def test_fake_gt_gateway_parent_by_cwd() -> None:
@@ -62,3 +67,40 @@ def test_fake_gt_gateway_configured_failures() -> None:
     assert gateway.parent_of(Path("/repo")) == UntrackedBranch(message="untracked")
     assert gateway.restack_upstack(Path("/wt"), "feat/child") == restack_failure
     assert gateway.sync(Path("/wt"), restack=True) == sync_failure
+
+
+def test_fake_gt_gateway_stack_default_is_branchless_trunk() -> None:
+    gateway = FakeGtGateway(trunk="main")
+
+    result = gateway.stack(Path("/repo"))
+
+    assert result == StackInfo(
+        trunk="main",
+        current=None,
+        ancestors=(),
+        children=(),
+        warnings=(),
+    )
+    assert gateway.stack_calls == (Path("/repo"),)
+
+
+def test_fake_gt_gateway_stack_by_cwd_overrides() -> None:
+    cwd = Path("/wt/slot-01")
+    snapshot = StackInfo(
+        trunk="master",
+        current="feat/child",
+        ancestors=("master", "feat/base"),
+        children=(),
+        warnings=(),
+    )
+    gateway = FakeGtGateway(stack_by_cwd={cwd: snapshot})
+
+    assert gateway.stack(cwd) == snapshot
+
+
+def test_fake_gt_gateway_stack_failure_passthrough() -> None:
+    cwd = Path("/repo")
+    failure = GtCommandFailure(message="gt: not found", returncode=127)
+    gateway = FakeGtGateway(stack_by_cwd={cwd: failure})
+
+    assert gateway.stack(cwd) == failure

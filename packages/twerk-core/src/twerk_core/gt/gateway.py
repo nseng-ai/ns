@@ -3,16 +3,17 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from twerk_slots.cli.slot.gt.types import (
+from twerk_core.gt.types import (
     GtBranchInfo,
     GtCommandFailure,
     NoParent,
+    StackInfo,
     UntrackedBranch,
 )
 
 
 class GtGateway(ABC):
-    """Graphite operations used by ``slot gt`` commands."""
+    """Graphite operations shared across twerk packages."""
 
     @abstractmethod
     def parent_of(self, cwd: Path) -> str | NoParent | UntrackedBranch | GtCommandFailure:
@@ -37,3 +38,7 @@ class GtGateway(ABC):
     @abstractmethod
     def sync(self, cwd: Path, *, restack: bool) -> GtCommandFailure | None:
         """Sync Graphite metadata."""
+
+    @abstractmethod
+    def stack(self, cwd: Path) -> StackInfo | GtCommandFailure:
+        """Return the stack snapshot around the branch checked out at ``cwd``."""

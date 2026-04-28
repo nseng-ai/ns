@@ -13,8 +13,6 @@ from twerk_core.git.real_git_gateway import (
     parse_worktree_list_output,
 )
 from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
-from twerk_slots.cli.slot.gt.real_gateway import RealGtGateway
-from twerk_slots.cli.slot.gt.types import GtCommandFailure
 from twerk_slots.gateway import real_git
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_git import build_real_slots_git_gateway
@@ -67,21 +65,6 @@ def test_build_real_slots_git_gateway_raises_on_missing_git(
 
     with pytest.raises(SlotAllocationError, match="git"):
         build_real_slots_git_gateway(repo_root=Path("/r"))
-
-
-def test_real_gt_gateway_missing_gt_returns_command_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise FileNotFoundError("gt: not found")
-
-    monkeypatch.setattr("twerk_slots.cli.slot.gt.real_gateway.subprocess.run", fake_run)
-
-    result = RealGtGateway().trunk(Path("/repo"))
-
-    assert isinstance(result, GtCommandFailure)
-    assert result.returncode == 127
-    assert "gt: not found" in result.message
 
 
 def test_list_worktrees_parses_porcelain(monkeypatch: pytest.MonkeyPatch) -> None:
