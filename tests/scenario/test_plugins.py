@@ -29,11 +29,9 @@ from twerk_reviewer.models import (
     ReviewFinding,
 )
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.testing import (
-    FakeClipboardGateway,
-    FakePoolStateGateway,
-    FakeSlotsStorageGateway,
-)
+from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
 
 
