@@ -59,7 +59,7 @@ is no JSON to parse, no template to fill, and no prose to write.
 
 ## Public Invariants
 
-- Single header `# On \`<branch>\`` (or `# Detached HEAD` for detached
+- Single header `# On \`<branch>\``(or`# Detached HEAD` for detached
   HEAD).
 - Sections in order: header rows, optional `## Current Branch Context`,
   `## Stack Map`, optional `## Next Orientation Step`, optional

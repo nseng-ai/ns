@@ -243,9 +243,7 @@ def _preview(content: str) -> str:
     return ""
 
 
-def _build_brmem_listing(
-    gateway: BranchMemoryGateway, branch: str
-) -> tuple[_BrmemEntryBlock, ...]:
+def _build_brmem_listing(gateway: BranchMemoryGateway, branch: str) -> tuple[_BrmemEntryBlock, ...]:
     entries = gateway.list_entries(branch=branch)
     blocks: list[_BrmemEntryBlock] = []
     for entry in entries:
@@ -323,9 +321,7 @@ def _build_current_prompt(
     if brmem_section:
         sections.append(brmem_section)
     sections.append(
-        _render_stack_map(
-            trunk=trunk, downstack=downstack, current=current, upstack=upstack
-        )
+        _render_stack_map(trunk=trunk, downstack=downstack, current=current, upstack=upstack)
     )
     next_step = _render_next_orientation_step(current)
     if next_step:
@@ -417,9 +413,7 @@ def _render_stack_map(
         current_depth = len(downstack)
         rows.append(_format_current_row(current, depth=current_depth, is_trunk=False))
         for entry in upstack:
-            rows.append(
-                _format_stack_row(entry, depth=current_depth + 1, is_trunk=False)
-            )
+            rows.append(_format_stack_row(entry, depth=current_depth + 1, is_trunk=False))
 
     body = "\n".join(rows)
     return f"## Stack Map\n\n```text\n{body}\n```"
@@ -445,9 +439,7 @@ def _format_stack_row(entry: _StackEntry, *, depth: int, is_trunk: bool) -> str:
     return f"{prefix}{label}"
 
 
-def _format_current_row(
-    current: _CurrentBranchBlock, *, depth: int, is_trunk: bool
-) -> str:
+def _format_current_row(current: _CurrentBranchBlock, *, depth: int, is_trunk: bool) -> str:
     prefix = _row_prefix(depth)
     if _is_bare_trunk(
         is_trunk,
@@ -505,9 +497,7 @@ def _pr_label_part(pr: _PRBlock | None, pr_error: str | None) -> str:
     return "no PR"
 
 
-def _objective_label_part(
-    objective: _ObjectiveSummary | None, *, deleted: bool
-) -> str:
+def _objective_label_part(objective: _ObjectiveSummary | None, *, deleted: bool) -> str:
     if objective is None:
         return "no objective (deleted)" if deleted else "no objective"
     freshness = "deleted" if deleted else objective.obj_state

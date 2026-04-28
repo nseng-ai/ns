@@ -485,7 +485,8 @@ def test_current_leaf_with_no_children(cli_group: ClinkrGroup) -> None:
     stack_lines = out.split("## Stack Map", 1)[1].splitlines()
     current_line_idx = next(i for i, line in enumerate(stack_lines) if "<- current" in line)
     fence_close_idx = next(
-        i for i, line in enumerate(stack_lines[current_line_idx + 1 :], start=current_line_idx + 1)
+        i
+        for i, line in enumerate(stack_lines[current_line_idx + 1 :], start=current_line_idx + 1)
         if line.strip() == "```"
     )
     assert fence_close_idx == current_line_idx + 1
