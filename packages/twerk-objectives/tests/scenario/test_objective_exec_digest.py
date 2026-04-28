@@ -20,7 +20,7 @@ from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.gh.types import PRSummary
+from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead
 from twerk_core.gt.testing import FakeGtGateway
@@ -117,6 +117,13 @@ def _seed_widget_rewrite() -> FakeBranchMemoryGateway:
         _NOTES_LAYER_1,
     )
     return gateway
+
+
+class _BrokenPRGateway(FakePRGateway):
+    """PR gateway whose every lookup fails with a non-1 return code."""
+
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+        return PRLookupError(stderr="auth failed", returncode=4)
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +225,7 @@ def test_digest_emits_brief_with_facts_prose_and_template(cli_group: ClinkrGroup
 
     # Empty roadmap renders the placeholder for the remaining-work step.
     assert "no roadmap recorded" in out
+    assert "body shown in Step 3" in out
 
     # Output template is present.
     assert "# `widget-rewrite` — digest" in out
@@ -330,6 +338,29 @@ def test_digest_emits_no_branch_snapshots_row_when_seed_only(cli_group: ClinkrGr
 
     assert result.exit_code == 0, result.output
     assert "0 active — no branch snapshots" in result.output
+
+
+def test_digest_surfaces_pr_lookup_failures_in_metadata(cli_group: ClinkrGroup) -> None:
+    gateway = _seed_widget_rewrite()
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+        pr_gateway=_BrokenPRGateway(),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "| **Associated PRs**   | 0 open, 0 merged "
+        "(lookup failed: `widget-rewrite-groundwork`: auth failed, "
+        "`widget-rewrite-layer-1`: auth failed) |"
+    ) in result.output
 
 
 # ---------------------------------------------------------------------------

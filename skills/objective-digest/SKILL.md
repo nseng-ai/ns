@@ -8,20 +8,19 @@ allowed-tools:
 
 # objective-digest
 
-Render a one-page Markdown digest of an objective from canonical and branch
-snapshots. The skill runs inline in the calling agent: the CLI does the
-deterministic work, so the model only needs to fill prose placeholders
-into a pre-built template.
+Render a one-page objective dossier from canonical and branch snapshots. The
+CLI computes deterministic facts; the agent only fills prose placeholders in
+the emitted template.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
 > rewrite rules, see `../objective/SKILL.md`.
 
 ## Goal
 
-Brief a new agent or human on an objective in a single read: top-level
-metadata, a distilled thesis, and durable findings. The operation is
-read-only: do not write to brmem, mutate git, modify PRs, or save the digest
-unless the user explicitly redirects output.
+Brief a new agent or human on one objective: metadata, thesis, merged PRs,
+remaining work, and durable findings. Read-only: do not write to brmem, mutate
+git, modify PRs, or save the digest unless the user explicitly redirects
+output.
 
 ## Inputs
 
@@ -34,17 +33,20 @@ unless the user explicitly redirects output.
 
 | Need                                           | Use                       |
 | ---------------------------------------------- | ------------------------- |
-| "What branch am I on and what is around me?"   | `objective-current`       |
+| "where am I in the current stack?"             | `objective-current`       |
 | "What is this objective trying to accomplish?" | `objective-digest <slug>` |
 | "What should I work on next?"                  | `objective-next <slug>`   |
 
-## How it works
+## CLI Contract
 
 `objective exec digest` does all the deterministic work and returns a
-self-contained brief: pre-computed metadata table, pre-rendered merged
-PR list (linkified), raw master body for the thesis, raw master roadmap
-for remaining work, raw per-snapshot notes for findings, and the
-literal output template. You only need to fill the prose placeholders.
+self-contained brief:
+
+- pre-rendered metadata table and merged-PR list;
+- raw master body for thesis;
+- raw master roadmap for remaining work;
+- raw per-snapshot notes for findings;
+- literal output template.
 
 ## Workflow
 
@@ -60,12 +62,8 @@ literal output template. You only need to fill the prose placeholders.
    verbatim. For `no_objective_on_branch` or `ambiguous_objective`,
    tell the user to run `objective list`.
 
-3. **If the command succeeds**, follow the brief on stdout: it walks
-   you through five steps (metadata, merged PRs, thesis, remaining
-   work, findings) plus the output template. Steps 1–2 are verbatim
-   blocks — copy them as-is. Steps 3–5 are prose: read the master
-   body, master roadmap, and notes blocks, then emit the filled
-   template.
+3. **If the command succeeds**, follow stdout. Copy Steps 1-2 verbatim.
+   Fill Steps 3-5 from the master body, master roadmap, and notes blocks.
 
 4. Print the filled digest as the answer. Do not add commentary above
    or below the digest when the user asked for the digest itself.
@@ -87,6 +85,5 @@ The brief enforces these externally visible invariants:
   no semicolons, no compound clauses.
 - No slice table, Markdown-derived progress counts, or prose-derived
   attribution. The CLI computes counts, the latest-snapshot pick, and
-  the merged-PR list; you supply only prose for thesis, remaining work,
-  and findings.
+  the merged-PR list.
 - Print to stdout only.

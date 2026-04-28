@@ -1,11 +1,10 @@
 """``objective exec digest`` — render the digest brief for ``objective-digest``.
 
 Tightly coupled to the ``objective-digest`` skill: emits a single
-natural-language prompt that contains every precise fact pre-computed
-(metadata table, PR counts, latest snapshot pick) plus the raw master
-body and per-snapshot notes the skill needs as prose. The skill simply
-runs this command and surfaces the output verbatim — no JSON parsing,
-no Markdown structure inference, no jq.
+natural-language prompt containing pre-computed facts (metadata table, PR
+counts, latest snapshot pick), raw source prose, and the output template the
+skill fills. The skill does no JSON parsing, Markdown structure inference, or
+jq work.
 """
 
 from __future__ import annotations
@@ -65,8 +64,6 @@ class _MasterSnapshot:
 class _BranchSnapshot:
     branch: str
     deleted: bool
-    body_md: str
-    roadmap_md: str
     notes_md: str
     body_last_touched: str | None
     pr_number: int | None
@@ -86,7 +83,7 @@ def render_digest_prompt(result: DigestPrompt) -> None:
         "Render the digest brief for `objective-digest`. The CLI "
         "pre-computes every precise fact (PR counts, latest snapshot, "
         "metadata rows) and embeds raw master body and per-snapshot "
-        "notes as prose. The skill prints the output verbatim. "
+        "notes as prose for the skill to summarize. "
         "SLUG auto-resolves from the current branch when exactly one "
         "objective is attached."
     ),
@@ -189,8 +186,6 @@ def _read_branch_snapshot(
     alive: bool,
     pr_result: PRSummary | PRLookupError,
 ) -> _BranchSnapshot:
-    body_md = gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), branch) or ""
-    roadmap_md = gateway.get(OBJECTIVE_NAMESPACE, roadmap_key(slug), branch) or ""
     notes_md = gateway.get(OBJECTIVE_NAMESPACE, notes_key(slug), branch) or ""
     snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
@@ -198,8 +193,6 @@ def _read_branch_snapshot(
     return _BranchSnapshot(
         branch=branch,
         deleted=not alive,
-        body_md=body_md,
-        roadmap_md=roadmap_md,
         notes_md=notes_md,
         body_last_touched=body_last_touched,
         pr_number=pr_number,
@@ -224,8 +217,6 @@ def _build_digest_prompt(
     master: _MasterSnapshot,
     branches: tuple[_BranchSnapshot, ...],
 ) -> str:
-    open_count = sum(1 for b in branches if b.pr_state == "OPEN")
-    merged_count = sum(1 for b in branches if b.pr_state == "MERGED")
     snapshots_row = _branch_snapshots_row(branches)
     master_ts = master.body_last_touched or "unknown"
 
@@ -234,7 +225,7 @@ def _build_digest_prompt(
     metadata_table = (
         "|   |   |\n"
         "| --- | --- |\n"
-        f"| **Associated PRs**   | {open_count} open, {merged_count} merged |\n"
+        f"| **Associated PRs**   | {_associated_prs_cell(branches)} |\n"
         f"| **Branch snapshots** | {snapshots_row} |\n"
         f"| **Master canonical** | last touched {master_ts} |"
     )
@@ -339,6 +330,17 @@ def _branch_snapshots_row(branches: tuple[_BranchSnapshot, ...]) -> str:
     return row
 
 
+def _associated_prs_cell(branches: tuple[_BranchSnapshot, ...]) -> str:
+    open_count = sum(1 for b in branches if b.pr_state == "OPEN")
+    merged_count = sum(1 for b in branches if b.pr_state == "MERGED")
+    cell = f"{open_count} open, {merged_count} merged"
+    errors = tuple(b for b in branches if b.pr_error is not None)
+    if errors:
+        details = ", ".join(f"`{b.branch}`: {b.pr_error}" for b in errors)
+        cell += f" (lookup failed: {details})"
+    return cell
+
+
 def _merged_prs_block(branches: tuple[_BranchSnapshot, ...]) -> str:
     merged = sorted(
         (b for b in branches if b.pr_state == "MERGED" and b.pr_number is not None),
@@ -358,7 +360,7 @@ def _remaining_work_section(master: _MasterSnapshot) -> str:
     if not master.roadmap_md.strip():
         return (
             "Source — master roadmap: (no roadmap recorded — use the master\n"
-            "body shown in Step 2 as the only source)"
+            "body shown in Step 3 as the only source)"
         )
     return f"Source — master roadmap:\n\n<<<\n{_strip_trailing(master.roadmap_md)}\n>>>"
 
