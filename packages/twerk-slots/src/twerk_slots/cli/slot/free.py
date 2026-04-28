@@ -13,7 +13,6 @@ from twerk_slots.allocation import (
     DirtyWorktreeError,
     SlotAllocationError,
     SlotNotAssignedError,
-    find_assignment_by_slot,
     free_slot_assignment,
 )
 from twerk_slots.cli.slot.context import load_slots_context
@@ -25,7 +24,7 @@ from twerk_slots.cli.slot.selectors import (
     resolve_wt,
 )
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.pool_state import PoolState
+from twerk_slots.pool_state import AssignmentMissing, PoolState
 from twerk_slots.repo_context import NoRepoSentinel
 
 
@@ -110,12 +109,13 @@ def _validate_assigned_and_clean(
     """For each resolved slot, check it is assigned and the worktree is clean."""
     errors: list[str] = []
     for slot_name in targets:
-        assignment = find_assignment_by_slot(state, slot_name)
-        if assignment is None:
+        lookup = state.find_by_slot(slot_name)
+        if isinstance(lookup, AssignmentMissing):
             errors.append(
                 f"{slot_name} is not currently assigned. Run `slot list` to see the pool."
             )
             continue
+        assignment = lookup.assignment
         if slots_ctx.git.has_uncommitted_changes(assignment.worktree_path):
             errors.append(
                 f"{slot_name} has uncommitted changes at {assignment.worktree_path}. "
