@@ -303,12 +303,12 @@ def run_checkout_slot(
 def _run_current_checkout(
     slots_ctx: SlotsCliContext, *, no_clipboard: bool
 ) -> ClinkrExit[SlotCheckoutResult]:
-    inventory = build_slot_inventory(
-        slots_ctx.git,
-        main_repo_root=slots_ctx.repo.main_repo_root,
-    )
     try:
-        outcome = plan_current_checkout(inventory, slots_ctx.git, cwd=slots_ctx.repo.root)
+        outcome = plan_current_checkout(
+            slots_ctx.git,
+            cwd=slots_ctx.repo.root,
+            main_repo_root=slots_ctx.repo.main_repo_root,
+        )
     except SlotAllocationError as exc:
         return ClinkrExit.failure(error_type="slot_allocation_error", message=str(exc))
     if isinstance(outcome, DetachedHeadError):

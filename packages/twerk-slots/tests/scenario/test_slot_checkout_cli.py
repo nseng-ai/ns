@@ -411,9 +411,7 @@ def test_slot_checkout_b_mutually_exclusive_with_current(
     assert fakes.git._create_branch_calls == []
 
 
-def test_slot_checkout_dirty_available_slot_skipped(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
+def test_slot_checkout_dirty_available_slot_skipped(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     slot_01 = _slot_path(slots_root, "slot-01")
     slot_02 = _slot_path(slots_root, "slot-02")
