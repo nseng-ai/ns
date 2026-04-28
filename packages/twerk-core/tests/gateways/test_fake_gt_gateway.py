@@ -104,3 +104,21 @@ def test_fake_gt_gateway_stack_failure_passthrough() -> None:
     gateway = FakeGtGateway(stack_by_cwd={cwd: failure})
 
     assert gateway.stack(cwd) == failure
+
+
+def test_fake_gt_gateway_stack_plumbs_descendants() -> None:
+    cwd = Path("/wt/slot-01")
+    snapshot = StackInfo(
+        trunk="master",
+        current="feat/middle",
+        ancestors=("master", "feat/base"),
+        children=("feat/child",),
+        warnings=(),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+    gateway = FakeGtGateway(stack_by_cwd={cwd: snapshot})
+
+    result = gateway.stack(cwd)
+
+    assert isinstance(result, StackInfo)
+    assert result.descendants == ("feat/child", "feat/grandchild")

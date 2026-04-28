@@ -37,7 +37,10 @@ class StackInfo:
     ``ancestors`` is the linear chain of parents from trunk down to (and
     including) the immediate parent of ``current``. It is ordered trunk-first
     and excludes ``current``. ``children`` lists the immediate children of
-    ``current`` only (no recursion into grandchildren).
+    ``current`` only (no recursion into grandchildren). ``descendants`` lists
+    every aligned branch strictly below ``current`` in the gt log column,
+    ordered top-to-bottom; for a linear stack ``master → A → B(current) → C →
+    D`` it is ``("C", "D")``.
     """
 
     trunk: str
@@ -45,3 +48,4 @@ class StackInfo:
     ancestors: tuple[str, ...]
     children: tuple[str, ...]
     warnings: tuple[str, ...]
+    descendants: tuple[str, ...] = ()

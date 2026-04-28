@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, TypeVar
 
 import click
 
@@ -101,7 +101,7 @@ def _resolve_targets(
     return tuple(resolved), tuple(errors)
 
 
-def _validate_assigned_and_clean(
+def validate_assigned_and_clean(
     slots_ctx: SlotsCliContext,
     state: PoolState,
     targets: tuple[str, ...],
@@ -148,7 +148,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
         )
 
     targets, shape_errors = _resolve_targets(slots_ctx, request, state)
-    state_errors = _validate_assigned_and_clean(slots_ctx, state, targets)
+    state_errors = validate_assigned_and_clean(slots_ctx, state, targets)
     all_errors = (*shape_errors, *state_errors)
     if all_errors:
         return ClinkrExit.failure(
@@ -161,15 +161,15 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
         try:
             outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
         except SlotAllocationError as exc:
-            return _partial_failure(freed, error_type="slot_allocation_error", message=str(exc))
+            return partial_failure(freed, error_type="slot_allocation_error", message=str(exc))
         if isinstance(outcome, SlotNotAssignedError):
-            return _partial_failure(
+            return partial_failure(
                 freed,
                 error_type="slot_not_assigned",
                 message=f"{slot_name} is not currently assigned (state changed during free).",
             )
         if isinstance(outcome, DirtyWorktreeError):
-            return _partial_failure(
+            return partial_failure(
                 freed,
                 error_type="dirty_worktree",
                 message=(
@@ -188,12 +188,22 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
     return ClinkrExit.ok(SlotFreeResult(freed=tuple(freed)))
 
 
-def _partial_failure(
+_PartialT = TypeVar("_PartialT", bound=JsonSerializable)
+
+
+def partial_failure(
     freed: list[FreedSlot],
     *,
     error_type: str,
     message: str,
-) -> ClinkrExit[SlotFreeResult]:
+) -> ClinkrExit[_PartialT]:
+    """Build a `ClinkrExit.failure` that lists already-freed slots if any.
+
+    Generic so callers in different commands (with different result types)
+    can reuse the same wording. Only constructs failure exits, which carry
+    no `data`, so the result type parameter is purely for type narrowing at
+    the call site.
+    """
     if not freed:
         return ClinkrExit.failure(error_type=error_type, message=message)
     already = ", ".join(f.slot_name for f in freed)

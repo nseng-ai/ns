@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+from twerk_core.gt.types import StackInfo
+from twerk_slots.cli.slot.gt.stack_walk import collect_stack_branches
+
+
+def _stack(
+    *,
+    ancestors: tuple[str, ...] = (),
+    descendants: tuple[str, ...] = (),
+    current: str = "feat/middle",
+    trunk: str = "master",
+) -> StackInfo:
+    return StackInfo(
+        trunk=trunk,
+        current=current,
+        ancestors=ancestors,
+        children=(),
+        warnings=(),
+        descendants=descendants,
+    )
+
+
+def test_linear_stack_returns_ancestors_then_descendants() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+
+    assert collect_stack_branches(stack, current="feat/middle", trunk="master") == (
+        "feat/base",
+        "feat/child",
+        "feat/grandchild",
+    )
+
+
+def test_excludes_current_and_trunk() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/middle"),
+        descendants=("feat/middle", "feat/child"),
+    )
+
+    assert collect_stack_branches(stack, current="feat/middle", trunk="master") == ("feat/child",)
+
+
+def test_dedupes_when_ancestors_and_descendants_overlap() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/base", "feat/child"),
+    )
+
+    assert collect_stack_branches(stack, current="feat/middle", trunk="master") == (
+        "feat/base",
+        "feat/child",
+    )
+
+
+def test_empty_stack_returns_empty() -> None:
+    stack = _stack(ancestors=(), descendants=())
+
+    assert collect_stack_branches(stack, current="feat/middle", trunk="master") == ()
+
+
+def test_only_trunk_in_ancestors_yields_empty() -> None:
+    stack = _stack(ancestors=("master",), descendants=())
+
+    assert collect_stack_branches(stack, current="feat/middle", trunk="master") == ()
