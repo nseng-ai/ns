@@ -25,7 +25,6 @@ from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
-    FALLBACK_TRUNK_BRANCH,
     body_key,
     notes_key,
     roadmap_key,
@@ -53,7 +52,7 @@ class DigestPrompt(JsonSerializable):
 
 
 @dataclass(frozen=True)
-class _MasterSnapshot:
+class _CanonicalSnapshot:
     body_md: str
     roadmap_md: str
     notes_md: str
@@ -82,7 +81,7 @@ def render_digest_prompt(result: DigestPrompt) -> None:
     help=(
         "Render the digest brief for `objective-digest`. The CLI "
         "pre-computes every precise fact (PR counts, latest snapshot, "
-        "metadata rows) and embeds raw master body and per-snapshot "
+        "metadata rows) and embeds raw canonical body and per-snapshot "
         "notes as prose for the skill to summarize. "
         "SLUG auto-resolves from the current branch when exactly one "
         "objective is attached."
@@ -127,21 +126,22 @@ def run_digest_objective(
             error_type="slug_not_seeded",
             message=(
                 f"No objective found for slug {slug!r}. "
-                "Run `objective-create` to seed it on master."
+                "Run `objective-create` to seed it on trunk."
             ),
         )
-    seed_present = any(e.branch == FALLBACK_TRUNK_BRANCH for e in slug_entries)
+    trunk_branch = git.get_trunk_branch()
+    seed_present = any(e.branch == trunk_branch for e in slug_entries)
     if not seed_present:
         raise ClinkrExit.failure(
             error_type="slug_not_seeded",
             message=(
-                f"Objective {slug!r} has branch snapshots but no master seed. "
-                "Run `objective-create` (or reconcile) to seed master."
+                f"Objective {slug!r} has branch snapshots but no canonical seed on "
+                f"{trunk_branch!r}. Run `objective-create` (or reconcile) to seed it."
             ),
         )
 
-    branch_names = sorted({e.branch for e in slug_entries if e.branch != FALLBACK_TRUNK_BRANCH})
-    master = _read_master_snapshot(gateway, git, slug)
+    branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
+    canonical = _read_canonical_snapshot(gateway, git, slug, trunk_branch=trunk_branch)
     branch_alive = {b: git.branch_exists(b) for b in branch_names}
     pr_results = {b: mctx.pr_gateway.get_pr_for_branch(b) for b in branch_names}
     branches = tuple(
@@ -156,21 +156,23 @@ def run_digest_objective(
         for branch in branch_names
     )
 
-    prompt = _build_digest_prompt(slug, master, branches)
+    prompt = _build_digest_prompt(slug, canonical, branches)
     return ClinkrExit.ok(DigestPrompt(prompt=prompt))
 
 
-def _read_master_snapshot(
+def _read_canonical_snapshot(
     gateway: BranchMemoryGateway,
     git: GitGateway,
     slug: str,
-) -> _MasterSnapshot:
-    body_md = gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), FALLBACK_TRUNK_BRANCH) or ""
-    roadmap_md = gateway.get(OBJECTIVE_NAMESPACE, roadmap_key(slug), FALLBACK_TRUNK_BRANCH) or ""
-    notes_md = gateway.get(OBJECTIVE_NAMESPACE, notes_key(slug), FALLBACK_TRUNK_BRANCH) or ""
-    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, FALLBACK_TRUNK_BRANCH)
+    *,
+    trunk_branch: str,
+) -> _CanonicalSnapshot:
+    body_md = gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), trunk_branch) or ""
+    roadmap_md = gateway.get(OBJECTIVE_NAMESPACE, roadmap_key(slug), trunk_branch) or ""
+    notes_md = gateway.get(OBJECTIVE_NAMESPACE, notes_key(slug), trunk_branch) or ""
+    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, trunk_branch)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
-    return _MasterSnapshot(
+    return _CanonicalSnapshot(
         body_md=body_md,
         roadmap_md=roadmap_md,
         notes_md=notes_md,
@@ -215,24 +217,24 @@ def _pr_fields(
 
 def _build_digest_prompt(
     slug: str,
-    master: _MasterSnapshot,
+    canonical: _CanonicalSnapshot,
     branches: tuple[_BranchSnapshot, ...],
 ) -> str:
     snapshots_row = _branch_snapshots_row(branches)
-    master_ts = master.body_last_touched or "unknown"
+    canonical_ts = canonical.body_last_touched or "unknown"
 
-    notes_section = _notes_section(master, branches)
+    notes_section = _notes_section(canonical, branches)
 
     metadata_table = (
         "|   |   |\n"
         "| --- | --- |\n"
         f"| **Associated PRs**   | {_associated_prs_cell(branches)} |\n"
         f"| **Branch snapshots** | {snapshots_row} |\n"
-        f"| **Master canonical** | last touched {master_ts} |"
+        f"| **Canonical (trunk)** | last touched {canonical_ts} |"
     )
 
     merged_prs_block = _merged_prs_block(branches)
-    remaining_work_section = _remaining_work_section(master)
+    remaining_work_section = _remaining_work_section(canonical)
 
     return (
         f"You are producing the final Markdown digest for objective `{slug}`.\n"
@@ -250,7 +252,7 @@ def _build_digest_prompt(
         "\n"
         "# Step 3 — Thesis (write 2–4 sentences)\n"
         "\n"
-        "Read the master body below as prose. Cover:\n"
+        "Read the canonical body below as prose. Cover:\n"
         "- Value: what gets better when this workstream lands.\n"
         "- Approach: the strategy tying the work together.\n"
         "- Boundary (optional): a short out-of-scope clause when it sharpens\n"
@@ -259,15 +261,15 @@ def _build_digest_prompt(
         "Avoid module paths, class/function/API names, bullet lists,\n"
         "subheadings, and restating source section names.\n"
         "\n"
-        "Source — master body:\n"
+        "Source — canonical body:\n"
         "\n"
         "<<<\n"
-        f"{_strip_trailing(master.body_md)}\n"
+        f"{_strip_trailing(canonical.body_md)}\n"
         ">>>\n"
         "\n"
         "# Step 4 — Remaining work (one bullet per unfinished roadmap slice)\n"
         "\n"
-        "Render one bullet per remaining (unfinished) slice in the master\n"
+        "Render one bullet per remaining (unfinished) slice in the canonical\n"
         "roadmap below. Bullet shape:\n"
         "`- **<slice headline>.** <one short sentence>`. The headline copies\n"
         "the slice title (e.g. `Slice 3.5 — Inline line-level comments`); the\n"
@@ -357,17 +359,17 @@ def _merged_prs_block(branches: tuple[_BranchSnapshot, ...]) -> str:
     return "\n".join(lines)
 
 
-def _remaining_work_section(master: _MasterSnapshot) -> str:
-    if not master.roadmap_md.strip():
+def _remaining_work_section(canonical: _CanonicalSnapshot) -> str:
+    if not canonical.roadmap_md.strip():
         return (
-            "Source — master roadmap: (no roadmap recorded — use the master\n"
+            "Source — canonical roadmap: (no roadmap recorded — use the canonical\n"
             "body shown in Step 3 as the only source)"
         )
-    return f"Source — master roadmap:\n\n<<<\n{_strip_trailing(master.roadmap_md)}\n>>>"
+    return f"Source — canonical roadmap:\n\n<<<\n{_strip_trailing(canonical.roadmap_md)}\n>>>"
 
 
 def _notes_section(
-    master: _MasterSnapshot,
+    canonical: _CanonicalSnapshot,
     branches: tuple[_BranchSnapshot, ...],
 ) -> str:
     blocks: list[str] = []
@@ -375,8 +377,8 @@ def _notes_section(
         if not b.notes_md.strip():
             continue
         blocks.append(_branch_notes_block(b))
-    if master.notes_md.strip():
-        blocks.append("[master canonical]\n<<<\n" + _strip_trailing(master.notes_md) + "\n>>>")
+    if canonical.notes_md.strip():
+        blocks.append("[canonical]\n<<<\n" + _strip_trailing(canonical.notes_md) + "\n>>>")
 
     if not blocks:
         return (

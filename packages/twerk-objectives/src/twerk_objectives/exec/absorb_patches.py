@@ -19,7 +19,7 @@ from twerk_objectives.absorbed_marker import (
     serialize_absorbed_marker,
 )
 from twerk_objectives.context import ObjectiveCliContext
-from twerk_objectives.discovery import FALLBACK_TRUNK_BRANCH, absorbed_patches_key, body_key, slug_for_key
+from twerk_objectives.discovery import absorbed_patches_key, body_key, slug_for_key
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.patch_facts import load_branch_patch_facts
 from twerk_objectives.trunk_resolution import resolve_trunk
@@ -103,9 +103,9 @@ def run_absorb_patches_objective(
         case str() as current_branch:
             pass
 
-    if current_branch == FALLBACK_TRUNK_BRANCH:
+    if current_branch == git.get_trunk_branch():
         raise ClinkrExit.failure(
-            error_type="on_master_branch",
+            error_type="on_trunk_branch",
             message=(
                 "objective-update runs on branch snapshots only. "
                 "Use objective-reconcile <slug> to update canonical state."

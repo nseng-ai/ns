@@ -28,7 +28,7 @@ from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 # branches against this literal in production code is a smell. See
 # "Authority Boundaries" / "Canonical Storage Branch" in
 # ``packages/twerk-objectives/AGENTS.md``.
-FALLBACK_TRUNK_BRANCH = "master"
+FALLBACK_TRUNK_BRANCH = "main"
 
 BODY_FILE = "body.md"
 ROADMAP_FILE = "roadmap.md"
@@ -96,19 +96,30 @@ def absorbed_patches_key(slug: str) -> str:
 def discover_objectives(
     gateway: BranchMemoryGateway,
     *,
+    trunk_branch: str,
     is_branch_alive: Callable[[str], bool] | None = None,
 ) -> tuple[ObjectiveRepoEntry, ...]:
     """List every objective slug in the repo, grouped across branches."""
     entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
-    return group_objective_entries(entries, is_branch_alive=is_branch_alive)
+    return group_objective_entries(
+        entries,
+        trunk_branch=trunk_branch,
+        is_branch_alive=is_branch_alive,
+    )
 
 
 def group_objective_entries(
     entries: list[EntryRef] | tuple[EntryRef, ...],
     *,
+    trunk_branch: str,
     is_branch_alive: Callable[[str], bool] | None = None,
 ) -> tuple[ObjectiveRepoEntry, ...]:
-    """Group ``entries`` (already filtered to the objectives namespace) by slug."""
+    """Group ``entries`` (already filtered to the objectives namespace) by slug.
+
+    ``trunk_branch`` is the canonical-storage branch for this repo (typically
+    ``master`` or ``main``); branches matching it are treated as canonical
+    rather than as a snapshot.
+    """
     by_slug: dict[str, list[EntryRef]] = {}
     for entry in entries:
         by_slug.setdefault(slug_for_key(entry.key), []).append(entry)
@@ -116,8 +127,8 @@ def group_objective_entries(
     result: list[ObjectiveRepoEntry] = []
     for slug in sorted(by_slug):
         slug_entries = by_slug[slug]
-        canonical_present = any(e.branch == FALLBACK_TRUNK_BRANCH for e in slug_entries)
-        branch_names = sorted({e.branch for e in slug_entries if e.branch != FALLBACK_TRUNK_BRANCH})
+        canonical_present = any(e.branch == trunk_branch for e in slug_entries)
+        branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
         presences = tuple(
             BranchPresence(
                 branch=branch,
