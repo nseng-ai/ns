@@ -147,9 +147,11 @@ implement a slice on a branch
   Writes `body.md` and, when a concrete slice plan exists, `roadmap.md`.
 - **Next** (`objective-next`): read-only inspection and next-slice
   recommendation before branch claim. It writes nothing.
-- **Current** (`objective-current`): read-only current-branch stack map. It
-  shows the claimed objective, PR, branch snapshot freshness, brmem entries,
-  downstack ancestry, and immediate upstack children. It writes nothing.
+- **Current** (`objective-current`): read-only current-branch orientation
+  view. It shows the claimed objective, PR, branch snapshot freshness,
+  brmem entries, and the trunk-relation row. It is scoped to the current
+  branch only — it does not walk downstack ancestry or upstack children.
+  It writes nothing.
 - **Digest** (`objective-digest`): read-only objective dossier from canonical
   and branch snapshots. It summarizes thesis, slice progress, PR state,
   readiness, and durable findings. It writes nothing.

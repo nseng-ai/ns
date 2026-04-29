@@ -7,6 +7,7 @@ from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import CommitSummary, GitCommandFailure
 from twerk_objectives.freshness import (
     classify_branch_snapshot,
+    classify_canonical_freshness,
     classify_obj_state,
     classify_timestamp_state,
 )
@@ -284,3 +285,46 @@ def test_classify_branch_snapshot_malformed_marker_is_stale() -> None:
     )
 
     assert state == "stale"
+
+
+def test_classify_canonical_freshness_stale_when_trunk_advanced_past_body() -> None:
+    """Master-vs-master: trunk HEAD newer than canonical body.md → stale.
+
+    "Stale" on the trunk row answers "should I reconcile?" — newer trunk
+    work has landed without rewriting the canonical objective.
+    """
+    git = FakeGitGateway(
+        branches=("master",),
+        branch_head_iso_by_branch={"master": "2026-04-26T09:00:00+00:00"},
+        file_last_touched_by_ref_path={
+            ("refs/brmem/ns/objectives/master", "widget/body.md"): "2026-04-26T08:00:00+00:00",
+        },
+    )
+
+    state = classify_canonical_freshness(git, trunk="master", slug="widget")
+
+    assert state == "stale"
+
+
+def test_classify_canonical_freshness_fresh_when_body_matches_trunk_head() -> None:
+    """Canonical body.md last-touch equal to trunk HEAD → fresh."""
+    git = FakeGitGateway(
+        branches=("master",),
+        branch_head_iso_by_branch={"master": "2026-04-26T08:00:00+00:00"},
+        file_last_touched_by_ref_path={
+            ("refs/brmem/ns/objectives/master", "widget/body.md"): "2026-04-26T08:00:00+00:00",
+        },
+    )
+
+    state = classify_canonical_freshness(git, trunk="master", slug="widget")
+
+    assert state == "fresh"
+
+
+def test_classify_canonical_freshness_fresh_when_isos_missing() -> None:
+    """Missing trunk/snapshot timestamps are treated as fresh by `classify_timestamp_state`."""
+    git = FakeGitGateway(branches=("master",))
+
+    state = classify_canonical_freshness(git, trunk="master", slug="widget")
+
+    assert state == "fresh"

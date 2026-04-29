@@ -111,6 +111,27 @@ def snapshot_last_touched_iso(git: GitGateway, branch: str, slug: str) -> str | 
     return git.file_last_touched_iso(snapshot_ref, body_key(slug))
 
 
+def classify_canonical_freshness(
+    git: GitGateway, *, trunk: str, slug: str
+) -> ObjectiveSnapshotState:
+    """Classify the canonical objective row on ``trunk`` for ``slug``.
+
+    The canonical (master-vs-master) row has no ``trunk..trunk`` patch range,
+    so freshness reduces to a timestamp comparison: when the canonical
+    ``<slug>/body.md`` was last touched on ``trunk`` versus the trunk HEAD
+    timestamp. This answers "should I reconcile?" — the canonical record
+    has fallen behind trunk's tip when newer work has landed on trunk
+    without rewriting the objective.
+    """
+    snapshot_iso = snapshot_last_touched_iso(git, trunk, slug)
+    branch_head_iso = git.branch_head_iso(trunk)
+    return classify_timestamp_state(
+        alive=True,
+        snapshot_iso=snapshot_iso,
+        branch_head_iso=branch_head_iso,
+    )
+
+
 def _patch_id_inputs(
     gateway: BranchMemoryGateway,
     git: GitGateway,

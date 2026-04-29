@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import click
 
@@ -24,12 +25,18 @@ from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
-from twerk_objectives.discovery import slug_for_key
-from twerk_objectives.freshness import ObjectiveSnapshotState, classify_branch_snapshot
+from twerk_objectives.discovery import body_key, slug_for_key
+from twerk_objectives.freshness import (
+    ObjectiveSnapshotState,
+    classify_branch_snapshot,
+    classify_canonical_freshness,
+)
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.trunk_resolution import resolve_trunk
 
 _PREVIEW_CHAR_LIMIT = 80
+
+TrunkRowState = Literal["fresh", "stale", "missing_on_master"]
 
 
 @dataclass(frozen=True)
@@ -46,6 +53,20 @@ class CurrentPrompt(JsonSerializable):
 class _ObjectiveSummary:
     slug: str
     obj_state: ObjectiveSnapshotState
+
+
+@dataclass(frozen=True)
+class _TrunkObjectiveSummary:
+    """Trunk-row label for the current branch's in-scope slug.
+
+    Distinct from :class:`_ObjectiveSummary` because the trunk row carries a
+    third state — ``missing_on_master`` — that does not exist for live branch
+    snapshots, and its ``fresh``/``stale`` labels reflect master-vs-master
+    canonical freshness rather than ``trunk..branch`` patch coverage.
+    """
+
+    slug: str
+    state: TrunkRowState
 
 
 @dataclass(frozen=True)
@@ -81,6 +102,25 @@ class _StackEntry:
     pr: _PRBlock | None
     pr_error: str | None
     deleted: bool
+
+
+@dataclass(frozen=True)
+class _TrunkRow:
+    """Trunk row in the stack map (always at depth 0).
+
+    Rendered with the current branch's in-scope slug rather than master's
+    full canonical registry, so an agent reading the stack map is not
+    walked toward maintenance work on slugs it is not engaged with. When
+    the current branch claims no slug (or is itself the trunk), the trunk
+    row is bare. When the current branch claims slug ``X``, the trunk row
+    is labeled with ``X`` and either master-vs-master canonical freshness
+    or ``missing on master``.
+    """
+
+    branch: str
+    pr: _PRBlock | None
+    pr_error: str | None
+    in_scope: _TrunkObjectiveSummary | None
 
 
 def render_current_prompt(result: CurrentPrompt) -> None:
@@ -119,6 +159,7 @@ def run_current_objective(
             detached_head=True,
             trunk=trunk,
             current=None,
+            trunk_row=None,
             downstack=(),
             upstack=(),
             warnings=tuple(warnings),
@@ -127,6 +168,9 @@ def run_current_objective(
 
     current_branch = branch_or_failure
     trunk = resolve_trunk(mctx.git_gateway).trunk
+    # A3 / objective-current scope: current-branch orientation only. The
+    # downstack ancestor / upstack children walk is not implemented; leave
+    # these tuples empty until a true stack walker is reintroduced.
     ancestors: tuple[str, ...] = ()
     children: tuple[str, ...] = ()
 
@@ -136,6 +180,15 @@ def run_current_objective(
         mctx.pr_gateway,
         current_branch,
         trunk,
+    )
+    in_scope_slug = _resolve_in_scope_slug(current_block, trunk=trunk)
+    trunk_row = _build_trunk_row(
+        mctx.brmem_gateway,
+        mctx.git_gateway,
+        mctx.pr_gateway,
+        trunk=trunk,
+        in_scope_slug=in_scope_slug,
+        current_block=current_block,
     )
     downstack = tuple(
         _build_stack_entry(
@@ -162,6 +215,7 @@ def run_current_objective(
         detached_head=False,
         trunk=trunk,
         current=current_block,
+        trunk_row=trunk_row,
         downstack=downstack,
         upstack=upstack,
         warnings=tuple(warnings),
@@ -189,6 +243,64 @@ def _build_objective_summary(
     obj_state = classify_branch_snapshot(gateway, git, branch, primary, trunk=trunk, alive=alive)
     summary = _ObjectiveSummary(slug=primary, obj_state=obj_state)
     return summary, tuple(extras)
+
+
+def _resolve_in_scope_slug(
+    current_block: _CurrentBranchBlock,
+    *,
+    trunk: str,
+) -> str | None:
+    """Return the current branch's single claimed slug, or ``None``.
+
+    A "claim" means the current branch carries exactly one slug. Multiple
+    slugs on the current branch are registry-shaped (master's full
+    canonical set, or a rare multi-claim feature branch) and yield
+    ``None`` so the trunk row stays bare instead of being labeled with an
+    arbitrary alphabetical-first slug. ``trunk`` is unused today — it is
+    accepted so future stack-walking changes can refine the rule without
+    a signature churn.
+    """
+    del trunk  # reserved for future stack-walking refinements
+    if current_block.objective is None:
+        return None
+    if current_block.objectives_extra:
+        return None
+    return current_block.objective.slug
+
+
+def _build_trunk_row(
+    gateway: BranchMemoryGateway,
+    git: GitGateway,
+    pr_gateway: PRGateway,
+    *,
+    trunk: str,
+    in_scope_slug: str | None,
+    current_block: _CurrentBranchBlock | None,
+) -> _TrunkRow:
+    """Build the trunk row using ``in_scope_slug`` for its label.
+
+    The trunk row label reflects the current branch's claim — not master's
+    full registry — so an agent reading the stack map is not walked toward
+    maintenance work on slugs it is not working on. When the current
+    branch is itself the trunk we reuse ``current_block``'s PR lookup to
+    avoid a redundant gateway round-trip.
+    """
+    if current_block is not None and current_block.branch == trunk:
+        pr_block = current_block.pr
+        pr_error = current_block.pr_error
+    else:
+        pr_block, pr_error = _build_pr_block(pr_gateway.get_pr_for_branch(trunk))
+
+    if in_scope_slug is None:
+        return _TrunkRow(branch=trunk, pr=pr_block, pr_error=pr_error, in_scope=None)
+
+    canonical_body = gateway.get(OBJECTIVE_NAMESPACE, body_key(in_scope_slug), trunk)
+    if canonical_body is None:
+        in_scope = _TrunkObjectiveSummary(slug=in_scope_slug, state="missing_on_master")
+    else:
+        canonical_state = classify_canonical_freshness(git, trunk=trunk, slug=in_scope_slug)
+        in_scope = _TrunkObjectiveSummary(slug=in_scope_slug, state=canonical_state)
+    return _TrunkRow(branch=trunk, pr=pr_block, pr_error=pr_error, in_scope=in_scope)
 
 
 def _build_pr_block(
@@ -282,6 +394,7 @@ def _build_current_prompt(
     detached_head: bool,
     trunk: str,
     current: _CurrentBranchBlock | None,
+    trunk_row: _TrunkRow | None,
     downstack: tuple[_StackEntry, ...],
     upstack: tuple[_StackEntry, ...],
     warnings: tuple[str, ...],
@@ -290,13 +403,20 @@ def _build_current_prompt(
         return _render_detached_head(trunk, warnings)
 
     assert current is not None  # guaranteed by caller when not detached
+    assert trunk_row is not None  # built alongside current when not detached
 
     sections: list[str] = [_render_header(current)]
     brmem_section = _render_brmem_section(current.brmem)
     if brmem_section:
         sections.append(brmem_section)
     sections.append(
-        _render_stack_map(trunk=trunk, downstack=downstack, current=current, upstack=upstack)
+        _render_stack_map(
+            trunk=trunk,
+            trunk_row=trunk_row,
+            downstack=downstack,
+            current=current,
+            upstack=upstack,
+        )
     )
     next_step = _render_next_orientation_step(current)
     if next_step:
@@ -371,6 +491,7 @@ def _render_brmem_section(entries: tuple[_BrmemEntryBlock, ...]) -> str:
 def _render_stack_map(
     *,
     trunk: str,
+    trunk_row: _TrunkRow,
     downstack: tuple[_StackEntry, ...],
     current: _CurrentBranchBlock,
     upstack: tuple[_StackEntry, ...],
@@ -379,14 +500,25 @@ def _render_stack_map(
     on_trunk = current.branch == trunk
 
     if on_trunk:
-        rows.append(_format_current_row(current, depth=0, is_trunk=True))
+        rows.append(_format_trunk_row(trunk_row, depth=0, is_current=True))
         for entry in upstack:
             rows.append(_format_stack_row(entry, depth=1, is_trunk=False))
     else:
-        for depth, entry in enumerate(downstack):
-            rows.append(_format_stack_row(entry, depth=depth, is_trunk=(depth == 0)))
-        current_depth = len(downstack)
-        rows.append(_format_current_row(current, depth=current_depth, is_trunk=False))
+        # When stack walking returns, ``downstack`` carries non-trunk
+        # ancestors (trunk → ... → current's parent). The trunk row is
+        # rendered separately at depth 0 so it can use the current
+        # branch's in-scope slug instead of master's alphabetical-first
+        # registry slug. With ``downstack`` empty (today's contract,
+        # documented in `objective-current/SKILL.md`), neither the trunk
+        # row nor any ancestor row appears in the stack map.
+        if downstack:
+            rows.append(_format_trunk_row(trunk_row, depth=0, is_current=False))
+            for offset, entry in enumerate(downstack, start=1):
+                rows.append(_format_stack_row(entry, depth=offset, is_trunk=False))
+            current_depth = 1 + len(downstack)
+        else:
+            current_depth = 0
+        rows.append(_format_current_row(current, depth=current_depth))
         for entry in upstack:
             rows.append(_format_stack_row(entry, depth=current_depth + 1, is_trunk=False))
 
@@ -394,9 +526,26 @@ def _render_stack_map(
     return f"## Stack Map\n\n```text\n{body}\n```"
 
 
+def _format_trunk_row(trunk_row: _TrunkRow, *, depth: int, is_current: bool) -> str:
+    """Render the trunk row, in-scope-slug aware.
+
+    The trunk row uses the current branch's in-scope slug rather than
+    master's alphabetical-first registry slug, so an agent reading the
+    stack map is not walked toward maintenance work on slugs it is not
+    engaged with.
+    """
+    prefix = _row_prefix(depth)
+    suffix = "  <- current" if is_current else ""
+    if _is_bare_trunk_row(trunk_row):
+        return f"{prefix}{trunk_row.branch}{suffix}"
+    pr_part = _pr_label_part(trunk_row.pr, trunk_row.pr_error)
+    obj_part = _trunk_objective_label_part(trunk_row.in_scope)
+    return f"{prefix}{trunk_row.branch}  {pr_part}  {obj_part}{suffix}"
+
+
 def _format_stack_row(entry: _StackEntry, *, depth: int, is_trunk: bool) -> str:
     prefix = _row_prefix(depth)
-    if _is_bare_trunk(
+    if _is_bare_branch(
         is_trunk,
         objective=entry.objective,
         pr=entry.pr,
@@ -414,16 +563,8 @@ def _format_stack_row(entry: _StackEntry, *, depth: int, is_trunk: bool) -> str:
     return f"{prefix}{label}"
 
 
-def _format_current_row(current: _CurrentBranchBlock, *, depth: int, is_trunk: bool) -> str:
+def _format_current_row(current: _CurrentBranchBlock, *, depth: int) -> str:
     prefix = _row_prefix(depth)
-    if _is_bare_trunk(
-        is_trunk,
-        objective=current.objective,
-        pr=current.pr,
-        pr_error=current.pr_error,
-        deleted=False,
-    ):
-        return f"{prefix}{current.branch}  <- current"
     label = _stack_branch_label(
         branch=current.branch,
         pr=current.pr,
@@ -434,7 +575,12 @@ def _format_current_row(current: _CurrentBranchBlock, *, depth: int, is_trunk: b
     return f"{prefix}{label}  <- current"
 
 
-def _is_bare_trunk(
+def _is_bare_trunk_row(trunk_row: _TrunkRow) -> bool:
+    """A trunk row is bare when neither PR, PR error, nor in-scope label apply."""
+    return trunk_row.in_scope is None and trunk_row.pr is None and trunk_row.pr_error is None
+
+
+def _is_bare_branch(
     is_trunk: bool,
     *,
     objective: _ObjectiveSummary | None,
@@ -477,6 +623,14 @@ def _objective_label_part(objective: _ObjectiveSummary | None, *, deleted: bool)
         return "no objective (deleted)" if deleted else "no objective"
     freshness = "deleted" if deleted else objective.obj_state
     return f"{objective.slug} {freshness}"
+
+
+def _trunk_objective_label_part(in_scope: _TrunkObjectiveSummary | None) -> str:
+    if in_scope is None:
+        return "no objective"
+    if in_scope.state == "missing_on_master":
+        return f"{in_scope.slug} missing on master"
+    return f"{in_scope.slug} {in_scope.state}"
 
 
 def _render_next_orientation_step(current: _CurrentBranchBlock) -> str:
