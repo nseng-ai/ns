@@ -2,15 +2,10 @@
 name: objective-claim
 description: "Command: objective-claim"
 allowed-tools:
-  - "Bash(git rev-parse *)"
-  - "Bash(git for-each-ref *)"
-  - "Bash(git merge-base *)"
-  - "Bash(git rev-list *)"
-  - "Bash(brmem check *)"
-  - "Bash(brmem copy *)"
-  - "Bash(brmem put *)"
-  - "Bash(brmem list *)"
+  - "Bash(objective exec claim-plan *)"
+  - "Bash(objective exec claim-apply *)"
   - "Read"
+  - "Write"
 ---
 
 # objective-claim
@@ -33,166 +28,95 @@ verbatim to the target branch snapshot.
 summarizes objective content; reshaping belongs to `objective-update`
 on branch snapshots or `objective-reconcile` into canonical state.
 
-## Content Files
-
-Use `<slug>/body.md` as the source presence check. For branch sources, carry
-the entire `<slug>/` directory with `brmem copy`; do not filter the copy to
-the current `body.md` / `roadmap.md` / `notes.md` inventory.
-
 ## Inputs
 
 - **Slug, optional.** Parse the objective slug from the prompt when present.
-  When the prompt lacks a slug, defer to Step 2a's no-slug resolution: walk
-  the nearest live ancestor that carries any objectives, prompt on
-  ambiguity, and fall through to canonical only when no ancestor does.
-  Never infer a slug from a branch name; branches may carry multiple slugs.
+  When the prompt lacks a slug, `claim-plan` walks the nearest live ancestor
+  that carries any objectives and either returns a unique plan or surfaces
+  the candidate set as a structured ambiguity for the user to resolve.
 - **Target, optional.** `--target <branch>` overrides the write destination.
-  Otherwise use the current branch.
+  Otherwise `claim-plan` defaults to the current branch.
 - **Source, optional.** `--from <branch>` uses an explicit source branch.
   `--from-file <path>` treats a local file as `<slug>/body.md`. These flags
-  are mutually exclusive, both imply the caller already knows the slug, and
-  abort if no slug is supplied alongside either. If an explicit source is
-  invalid, stop and report the problem instead of falling back to discovery.
-
-## Core Rules
-
-- **Verbatim carry-forward.** Copy exactly one source. No edits, section
-  rewrites, annotations, synthesis, or cross-snapshot fusion.
-- **One slug per invocation.** To attach two objectives, run `claim` twice.
-- **Write only to the target branch.** Never write to canonical storage or any
-  non-target branch.
-- **Target must be empty for this slug.** Abort if the target already carries
-  any key under `<slug>/`; use `objective-update` or
-  `objective-reconcile` to advance an attached snapshot.
-- **Prefer the nearest working snapshot.** Discovery order is nearest
-  ancestor branch snapshot, then canonical state. Explicit sources bypass
-  discovery.
-- **No Graphite dependency.** Use raw git and brmem only; never use `gt` for
-  source discovery.
+  are mutually exclusive, both require an explicit slug, and `claim-plan`
+  fails hard when either is supplied without a slug.
 
 ## Workflow
 
-### 1. Preflight
+### 1. Plan the claim
 
-Confirm the repo and current branch:
-
-```bash
-git rev-parse --show-toplevel
-git rev-parse --abbrev-ref HEAD
-```
-
-Resolve `<target>` from `--target` or the current branch. Abort if not in a
-git repo, given both source flags, given `--from` or `--from-file` without a
-slug, targeting the trunk branch, or on detached `HEAD` without `--target`. The
-target collision check moves to Step 2b once the slug is known.
-
-### 2a. Resolve the Slug (when not supplied)
-
-If the prompt named a slug, skip to Step 2b. Otherwise, find candidate slugs
-by walking ancestors nearest-first, then continue to Step 2b.
-
-1. Enumerate `refs/brmem/ns/objectives/*`, decode `---` to `/`, and keep
-   only live non-trunk branches that are ancestors of `HEAD` and are not
-   `<target>`. Order them nearest-first by
-   `git rev-list --count refs/heads/<branch>..HEAD`.
-2. Walk that list and stop at the **nearest** ancestor that carries any
-   objectives. Use _only_ that ancestor's slug set as candidates; do not
-   merge slugs across multiple ancestor levels. Enumerate slugs with:
-
-   ```bash
-   brmem list --namespace objectives --branch <ancestor> --format json
-   ```
-
-   Split each returned key on `/`, take the first segment, and deduplicate.
-3. If no live ancestor carries any objectives, fall through to canonical
-   storage (the trunk branch) and use trunk's slug set as the candidate set.
-   The trunk branch typically carries many slugs, so the multi-pick prompt below
-   will be long — that is intentional friction signaling the user should
-   pass a slug explicitly.
-4. Apply selection:
-   - **Exactly one candidate**: use it; continue to Step 2b's collision
-     check, then Step 2c's source cascade unchanged.
-   - **Multiple candidates**: list each with a one-line context (the title
-     from `body.md` if cheap to fetch) and ask which to claim.
-   - **Zero candidates** (canonical also empty): abort with "no objectives
-     reachable; run `objective-create` to author one or pass `--from-file
-     <path>`."
-
-### 2b. Target Collision Check
-
-Now that the slug is known, ensure the target is free for it:
+Run `claim-plan` with whatever the user supplied:
 
 ```bash
-brmem list --namespace objectives --branch <target> --format json
+objective exec claim-plan [slug] [--target <branch>] [--from <branch>] \
+  [--from-file <path>] --format json
 ```
 
-Abort if any returned key starts with `<slug>/`. Other slugs on the target
-are fine.
+The CLI:
 
-### 2c. Resolve the Source
+- Validates hard preconditions (in a git repo, target ≠ `master`, no
+  detached `HEAD` without `--target`, `--from` and `--from-file` not
+  together, `--from`/`--from-file` not without an explicit slug). These
+  surface as exit-2 failures.
+- Resolves the target branch.
+- When no slug is supplied, walks brmem ancestor branches nearest-first and
+  uses the slug set on the **nearest** ancestor (or canonical `master` when
+  no ancestor carries objectives).
+- Runs the source cascade for the resolved slug: `--from-file` →
+  `--from <branch>` → nearest live ancestor branch carrying
+  `<slug>/body.md` → canonical `master`.
+- Checks whether the target already carries any key under `<slug>/`.
 
-Use the resolved slug to choose which objective to attach, then resolve the
-copy to carry:
+The JSON envelope's top-level `status` is one of:
 
-1. **Local file**: if `--from-file <path>` is given, require the file to exist
-   and be readable. Carry it as `<slug>/body.md` only.
-2. **Explicit branch**: if `--from <branch>` is given, require
-   `<slug>/body.md` there with `brmem check`.
-3. **Ancestor branch**: enumerate `refs/brmem/ns/objectives/*`, decode
-   `---` to `/`, and keep only live non-trunk branches that are ancestors of
-   `HEAD`, are not `<target>`, and carry `<slug>/body.md`. Choose the
-   candidate with the smallest
-   `git rev-list --count refs/heads/<branch>..HEAD`; ask on ties.
-4. **Canonical record**: use canonical storage (the trunk branch, the permanent
-   canonical branch) when `brmem check` succeeds for `<slug>/body.md`.
+- `"plan"` — `plan` is populated with the unique deterministic plan.
+- `"ambiguous"` — `ambiguity` is populated. Reason codes:
+  - `ambiguous_slug_candidates` — multiple slugs reachable; surface the
+    `slug_alternatives` list to the user and re-run with an explicit slug.
+  - `ambiguous_source_branches` — multiple ancestor branches tie for
+    nearest; surface the `branch_alternatives` list and re-run with
+    `--from <branch>`.
+  - `no_slug_no_candidates` — nothing reachable anywhere; tell the user to
+    pass `--from-file` or run `objective-create`.
+- `"error"` — `error` is populated. Reason codes include
+  `target_collision`, `explicit_slug_not_found`, `from_missing_slug`, and
+  `from_file_unreadable`. Surface the message; the user resolves the
+  underlying issue before re-running `claim-plan`.
 
-If no source contains the slug, ask the user to name `--from`, name
-`--from-file`, or run `objective-create` if the slug is new.
+### 2. Apply the plan
 
-Record the source label:
-
-- `local file <path>`
-- `branch <branch> (explicit --from)`
-- `ancestor branch <branch>`
-- `canonical objective`
-
-### 3. Carry Forward
-
-For branch sources, perform one atomic copy:
+When status is `"plan"`, persist the envelope and run apply:
 
 ```bash
-brmem copy --namespace objectives \
-  --from-branch <source> --to-branch <target> \
-  --key-glob '<slug>/*'
+PLAN=/tmp/objective-claim-plan-<slug>.json
+objective exec claim-apply --plan-file "$PLAN" --format json
 ```
 
-This carries every file present under `<slug>/` on the source.
+`claim-apply`:
 
-For local-file sources, perform one put:
+- Re-validates the plan (target still empty for the slug, source still
+  carries `<slug>/body.md`, local file still readable) and fails hard if
+  drift has happened since plan time.
+- For branch sources, runs `brmem copy --key-glob '<slug>/*'` and carries
+  every file under `<slug>/` verbatim.
+- For local-file sources, runs `brmem put` for `<slug>/body.md` only.
+- Returns the destination ref, commit SHA, and the actual files carried.
 
-```bash
-brmem put <slug>/body.md --namespace objectives \
-  --branch <target> --file <path>
-```
+### 3. Final Output
 
-Do not synthesize `roadmap.md` or `notes.md` from a local file.
-
-Capture the destination ref and commit SHA from the brmem output.
-
-### 4. Final Output
-
-Return:
+Render from the apply JSON:
 
 - objective slug
-- source label
-- target branch
-- files carried
-- destination ref and commit SHA
+- source label (`source_label`)
+- target branch (`target_branch`)
+- files carried (`files_carried[]`)
+- destination ref (`destination_ref`)
+- commit SHA (`destination_commit_sha`)
 - next-step hint:
 
 ```text
 This branch is ready for implementation. After implementing the slice, merge
-the PR and run objective-reconcile <slug> on the trunk branch. Run
+the PR and run objective-reconcile <slug> on master. Run
 objective-update <slug> only if another branch will claim from this
 branch before it lands.
 ```
@@ -200,26 +124,29 @@ branch before it lands.
 ## Edge Cases And Anti-Patterns
 
 - Detached `HEAD` without `--target`, `--from` or `--from-file` without a
-  slug, `--from` plus `--from-file`, or `--target <trunk>`: abort and
-  describe the issue. The trunk-target guard exists because claim attaches
-  canonical objectives to feature branches; the trunk branch is the canonical store.
-- No-slug invocation with no candidates anywhere (no live ancestor carries
-  objectives and canonical storage is empty): abort with the
-  `objective-create` / `--from-file` hint instead of guessing.
-- Target already carries `<slug>/`: abort. The precondition is per-slug, so
-  other slugs on the target are not a conflict.
-- Explicit source lacks `<slug>/body.md`: abort instead of falling back to
-  discovery.
-- Stale brmem refs for deleted branches: ignore them during ancestor
-  discovery.
-- Multiple nearest ancestor candidates at the same distance: list the tied
-  branches and ask.
-- Slug exists only in canonical storage: use the canonical objective.
-- Slug exists nowhere: ask for an explicit source or create the objective
-  first.
-- Never auto-pick a slug from a branch name or from a multi-slug candidate
-  set (Step 2a's single-candidate branch is the only auto-resolution),
-  auto-resolve a source tie, write to canonical storage, carry only
-  `body.md` from a branch source, synthesize sibling files from
-  `--from-file`, fuse multiple snapshots, use Graphite for discovery, run
-  `update`, or implement work during `claim`.
+  slug, `--from` plus `--from-file`, or `--target master`: `claim-plan`
+  fails hard (exit 2). The master-target guard exists because claim
+  attaches canonical objectives to feature branches; master is the
+  canonical store.
+- No-slug invocation with no candidates anywhere: surface the
+  `no_slug_no_candidates` ambiguity and tell the user to pass `--from-file`
+  or run `objective-create`.
+- Target already carries `<slug>/`: `claim-plan` surfaces a
+  `target_collision` error. `claim-apply` re-checks this immediately
+  before mutating and fails the same way if the state has drifted.
+- Explicit source lacks `<slug>/body.md`: `claim-plan` returns a
+  `from_missing_slug` error; do not fall back to discovery.
+- Source no longer carries `<slug>/body.md` between plan and apply (e.g.
+  the snapshot was deleted): `claim-apply` fails with
+  `source_missing_slug`.
+- Multiple nearest ancestor candidates at the same distance: `claim-plan`
+  returns an `ambiguous_source_branches` ambiguity. Re-run with
+  `--from <branch>` once the user picks.
+- Slug exists only in canonical storage: `claim-plan` selects the
+  canonical objective.
+- Slug exists nowhere: `claim-plan` returns `explicit_slug_not_found`. Ask
+  the user for an explicit source or create the objective first.
+- Never auto-pick a slug from a branch name, fuse multiple snapshots,
+  carry only `body.md` from a branch source, synthesize sibling files from
+  `--from-file`, write to canonical storage, run `update`, or implement
+  work during `claim`. The CLI enforces all of these.
