@@ -13,8 +13,9 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
-from twerk_core.git.types import DetachedHead
+from twerk_core.git.types import CommitSummary, DetachedHead
 from twerk_core.gt.testing import FakeGtGateway
+from twerk_core.gt.types import StackInfo
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -49,20 +50,32 @@ def _make_obj(
     branch: str | DetachedHead | None = "feat/x",
     live_branches: tuple[str, ...] = (),
     pr_gateway: PRGateway | None = None,
+    gt_gateway: FakeGtGateway | None = None,
+    file_last_touched: dict[tuple[str, str], str] | None = None,
+    commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
+    patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
 ) -> ClinkrContextObject:
     brmem_gateway = gateway if gateway is not None else FakeBranchMemoryGateway()
     if branch is None:
-        git_gateway = FakeGitGateway(branches=live_branches)
+        git_gateway = FakeGitGateway(
+            branches=live_branches,
+            file_last_touched_by_ref_path=file_last_touched,
+            commits_by_range=commits_by_range,
+            patch_ids_by_range=patch_ids_by_range,
+        )
     else:
         git_gateway = FakeGitGateway(
             current_branch_by_path={Path.cwd(): branch},
             branches=live_branches,
+            file_last_touched_by_ref_path=file_last_touched,
+            commits_by_range=commits_by_range,
+            patch_ids_by_range=patch_ids_by_range,
         )
     ctx = ObjectiveCliContext(
         brmem_gateway=brmem_gateway,
         git_gateway=git_gateway,
         pr_gateway=pr_gateway if pr_gateway is not None else FakePRGateway(),
-        gt_gateway=FakeGtGateway(),
+        gt_gateway=gt_gateway if gt_gateway is not None else FakeGtGateway(),
     )
     return build_clinkr_context_object(lambda: ctx)
 
@@ -200,7 +213,8 @@ def test_tree_explicit_slug_happy_path(cli_group: ClinkrGroup) -> None:
     assert "widget-rewrite-layer-1" in result.output
     assert "open" in result.output
     assert "#833" in result.output
-    assert "Widget rewrite: layer 1" in result.output
+    # Title may be truncated by the rich table — assert on a stable prefix.
+    assert "Widget rewrite" in result.output
 
 
 def test_tree_unknown_slug_is_negative(cli_group: ClinkrGroup) -> None:
@@ -343,34 +357,34 @@ def test_tree_mixed_rows_json(cli_group: ClinkrGroup) -> None:
     assert merged["pr_title"] == "Scaffold widget rewrite"
     assert merged["pr_url"] == "https://example.com/pull/812"
     assert merged["pr_error_stderr"] is None
-    assert merged["stale"] is False
+    assert merged["obj_state"] == "fresh"
 
     no_pr = entries[3]
     assert no_pr["pr_number"] is None
     assert no_pr["pr_error_stderr"] is None
-    assert no_pr["stale"] is True  # not in live_branches
+    assert no_pr["obj_state"] == "deleted"  # not in live_branches
 
     error = entries[4]
     assert error["pr_number"] is None
     assert error["pr_error_stderr"] == "auth failed"
-    assert error["stale"] is True
+    assert error["obj_state"] == "deleted"
 
 
-def test_tree_human_output_omits_stale_marker(cli_group: ClinkrGroup) -> None:
+def test_tree_human_output_renders_snap_badges(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", "seed\n")
-    gateway.put("objectives", "widget-rewrite/body.md", "widget-rewrite-stale", "snap\n")
+    gateway.put("objectives", "widget-rewrite/body.md", "widget-rewrite-deleted", "snap\n")
     obj = _make_obj(
         gateway=gateway,
-        live_branches=("master",),  # the snapshot branch is stale
+        live_branches=("master",),  # the snapshot branch is deleted
         pr_gateway=FakePRGateway(
             prs_by_branch={
-                "widget-rewrite-stale": _pr(
+                "widget-rewrite-deleted": _pr(
                     number=900,
-                    title="Stale merged",
+                    title="Deleted merged",
                     url="https://example.com/pull/900",
                     state="MERGED",
-                    head="widget-rewrite-stale",
+                    head="widget-rewrite-deleted",
                 ),
             },
         ),
@@ -379,8 +393,8 @@ def test_tree_human_output_omits_stale_marker(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["tree", "widget-rewrite"], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert "widget-rewrite-stale" in result.output
-    assert "[stale]" not in result.output
+    assert "widget-rewrite-deleted" in result.output
+    assert "deleted" in result.output
     assert "merged" in result.output
     assert "#900" in result.output
 
@@ -431,3 +445,180 @@ def test_tree_all_broken_gh_becomes_error_rows(cli_group: ClinkrGroup) -> None:
     entries = payload["data"]["entries"]
     assert [e["action"] for e in entries] == ["error"]
     assert entries[0]["pr_error_stderr"] == "auth failed"
+
+
+# ---------------------------------------------------------------------------
+# snapshot freshness classification on live branches
+# ---------------------------------------------------------------------------
+
+
+def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "master", "seed\n")
+    gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/widget",
+                ancestors=("master",),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    file_last_touched = {
+        ("refs/brmem/ns/objectives/feat---widget", "widget/body.md"): "2026-04-26T07:00:00+00:00",
+    }
+    commits_by_range = {
+        "master..feat/widget": (
+            CommitSummary(
+                sha="bbb222",
+                author_iso="2026-04-26T08:00:00+00:00",
+                subject="Wire widget",
+            ),
+        ),
+    }
+    # The branch carries a novel patch-id not absorbed by any ancestor.
+    patch_ids_by_range = {
+        "master..feat/widget": (("bbb222", "pid-novel"),),
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/widget",
+        live_branches=("master", "feat/widget"),
+        gt_gateway=gt_gateway,
+        file_last_touched=file_last_touched,
+        commits_by_range=commits_by_range,
+        patch_ids_by_range=patch_ids_by_range,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["tree", "widget", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    entries = payload["data"]["entries"]
+    assert len(entries) == 1
+    assert entries[0]["branch"] == "feat/widget"
+    assert entries[0]["obj_state"] == "stale"
+
+
+def test_tree_reports_fresh_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "master", "seed\n")
+    gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
+    # An ancestor branch absorbs the feature branch's patch-id.
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/widget",
+                ancestors=("master", "feat/groundwork"),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    commits_by_range = {
+        "master..feat/widget": (
+            CommitSummary(
+                sha="aaa111",
+                author_iso="2026-04-26T07:30:00+00:00",
+                subject="Wire widget",
+            ),
+        ),
+    }
+    patch_ids_by_range = {
+        "master..feat/widget": (("aaa111", "pid-1"),),
+        "master..feat/groundwork": (("aaa111", "pid-1"),),
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/widget",
+        live_branches=("master", "feat/widget", "feat/groundwork"),
+        gt_gateway=gt_gateway,
+        commits_by_range=commits_by_range,
+        patch_ids_by_range=patch_ids_by_range,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["tree", "widget", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    entries = payload["data"]["entries"]
+    assert len(entries) == 1
+    assert entries[0]["branch"] == "feat/widget"
+    assert entries[0]["obj_state"] == "fresh"
+
+
+def test_tree_reports_fresh_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
+    cwd = Path.cwd()
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "master", "seed\n")
+    gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
+    gateway.put(
+        "objectives",
+        "widget/.absorbed.jsonl",
+        "feat/widget",
+        (
+            '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T07:30:00+00:00","subject":"Wire widget"}\n'
+        ),
+    )
+    gt_gateway = FakeGtGateway(
+        trunk="master",
+        stack_by_cwd={
+            cwd: StackInfo(
+                trunk="master",
+                current="feat/widget",
+                ancestors=("master",),
+                children=(),
+                warnings=(),
+            )
+        },
+    )
+    commits_by_range = {
+        "master..feat/widget": (
+            CommitSummary(
+                sha="aaa111",
+                author_iso="2026-04-26T07:30:00+00:00",
+                subject="Wire widget",
+            ),
+        ),
+    }
+    patch_ids_by_range = {
+        "master..feat/widget": (("aaa111", "pid-1"),),
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/widget",
+        live_branches=("master", "feat/widget"),
+        gt_gateway=gt_gateway,
+        commits_by_range=commits_by_range,
+        patch_ids_by_range=patch_ids_by_range,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["tree", "widget", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    entries = payload["data"]["entries"]
+    assert len(entries) == 1
+    assert entries[0]["branch"] == "feat/widget"
+    assert entries[0]["obj_state"] == "fresh"

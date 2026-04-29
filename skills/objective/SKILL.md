@@ -41,6 +41,7 @@ Objectives live in `brmem` under namespace `objectives`, keyed by
 - `body.md` - required stable spine
 - `roadmap.md` - optional progress surface
 - `notes.md` - optional durable findings
+- `.absorbed.jsonl` - optional machine-owned branch snapshot marker
 
 Current storage is snapshot-shaped: a single ref per `(namespace, branch)`
 holds a commit whose tree is the namespace filesystem for that branch.
@@ -50,6 +51,7 @@ refs/brmem/ns/objectives/<encoded-branch>
 refs/brmem/ns/objectives/<encoded-branch>:<slug>/body.md
 refs/brmem/ns/objectives/<encoded-branch>:<slug>/roadmap.md
 refs/brmem/ns/objectives/<encoded-branch>:<slug>/notes.md
+refs/brmem/ns/objectives/<encoded-branch>:<slug>/.absorbed.jsonl
 ```
 
 Branch names are encoded by replacing `/` with `---`. The slug is the path
@@ -72,7 +74,8 @@ A branch snapshot is the `<slug>/` directory stored on a working branch. It
 is a local checkpoint, not shared ground truth.
 
 - `objective-claim` attaches one by copying from a source snapshot.
-- `objective-update` refreshes it after branch work lands.
+- `objective-update` refreshes it after branch work lands and records the
+  branch content patches covered by the snapshot.
 - `objective-reconcile` reads branch snapshots as evidence, but never
   writes back to them.
 
@@ -111,6 +114,15 @@ Append-only in spirit. Use it for constraints, collisions, pointers, and
 non-obvious findings discovered during implementation. When a note becomes
 obsolete, annotate it in place instead of deleting it.
 
+### `.absorbed.jsonl` - freshness marker
+
+Machine-owned metadata for branch snapshots. Each JSONL record describes one
+commit observed in the branch's `trunk..HEAD` range when `objective-update`
+confirmed the snapshot covered that work. Humans may read this file for
+debugging, but should not hand-edit it. The freshness classifier uses only
+non-null patch IDs from the marker; commit SHA, subject, and author time are
+diagnostic.
+
 ## Lifecycle
 
 ```text
@@ -147,7 +159,8 @@ implement a slice on a branch
 - **Update** (`objective-update`): refresh the current branch snapshot
   from commits on that branch when another branch will claim from it before it
   lands. It is normally only needed for stacked PRs. It is a no-op when the
-  snapshot is already fresh relative to branch HEAD.
+  snapshot is already fresh relative to branch HEAD. When branch work is
+  stale but already documented, `update` may only advance `.absorbed.jsonl`.
 - **Reconcile** (`objective-reconcile`): rewrite the canonical
   objective by exploring branch snapshots that carry the slug,
   cross-referencing their associated PRs, and folding only landed evidence
@@ -169,6 +182,10 @@ Carry-forward never edits, merges, summarizes, or synthesizes. Any reshaping
 belongs to `update` after work lands on a branch, or `reconcile` when landed
 branch evidence is folded into canonical state.
 
+Because `.absorbed.jsonl` is patch-id based, carrying it forward is safe:
+inherited patches remain absorbed on child branches, while new child patches
+remain stale until `objective-update` runs on the child.
+
 ## Mutation contracts
 
 The full contract lives in `references/mutation-contract.md`. Summary:
@@ -183,10 +200,11 @@ The full contract lives in `references/mutation-contract.md`. Summary:
 | `objective-update`    | Never                                        | Rewrites conservatively from branch work | Never                  |
 | `objective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                   | Reads only as evidence |
 
-`update` and `reconcile` share the same conservative per-file rewrite rules.
+`update` and `reconcile` share the same conservative prose rewrite rules.
 They differ in authority and evidence:
 
 - `update` mutates a branch snapshot, using that branch's work as evidence.
+  It also advances `.absorbed.jsonl` after successful triage.
 - `reconcile` mutates the canonical objective, using landed branch snapshots
   plus associated merged PR state/metadata as evidence. Open PRs and unmerged
   branches are left to higher-level views across canonical state and branch

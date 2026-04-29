@@ -147,6 +147,66 @@ def parse_log_range_output(stdout: str) -> tuple[CommitSummary, ...]:
     return tuple(commits)
 
 
+def parse_patch_id_output(stdout: str) -> tuple[tuple[str, str], ...]:
+    """Parse ``git patch-id --stable`` output into ``(sha, patch_id)`` pairs.
+
+    Each non-empty line is ``<patch_id> <sha>``; commits with empty diffs
+    produce no line at all. Lines that do not match are skipped defensively.
+    """
+    pairs: list[tuple[str, str]] = []
+    for raw_line in stdout.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        patch_id, sha = parts[0], parts[1]
+        pairs.append((sha, patch_id))
+    return tuple(pairs)
+
+
+def _patch_id_pairs(
+    repo_root: Path, range_spec: str
+) -> tuple[tuple[tuple[str, str], ...], GitCommandFailure | None]:
+    """Run ``git log -p ... | git patch-id --stable``; return pairs or failure."""
+
+    log_proc = subprocess.Popen(
+        ["git", "log", "-p", "--no-merges", "--format=%H", range_spec],
+        cwd=repo_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    patch_proc = subprocess.Popen(
+        ["git", "patch-id", "--stable"],
+        cwd=repo_root,
+        stdin=log_proc.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if log_proc.stdout is not None:
+        log_proc.stdout.close()
+    patch_stdout, patch_stderr = patch_proc.communicate()
+    log_proc.wait()
+    log_stderr = log_proc.stderr.read() if log_proc.stderr is not None else ""
+    if log_proc.stderr is not None:
+        log_proc.stderr.close()
+
+    if log_proc.returncode != 0:
+        return (), GitCommandFailure(
+            message=log_stderr.strip() or "git log failed",
+            returncode=log_proc.returncode,
+        )
+    if patch_proc.returncode != 0:
+        return (), GitCommandFailure(
+            message=patch_stderr.strip() or "git patch-id failed",
+            returncode=patch_proc.returncode,
+        )
+    return parse_patch_id_output(patch_stdout), None
+
+
 def parse_name_status_output(stdout: str) -> tuple[RestructuredFile, ...]:
     """Parse ``git diff --name-status -M -C`` output into structured records."""
 
@@ -412,3 +472,26 @@ class RealGitGateway(GitGateway):
                 returncode=result.returncode,
             )
         return parse_log_range_output(result.stdout)
+
+    def patch_ids_for_range(
+        self, range_spec: str
+    ) -> tuple[tuple[str, str | None], ...] | GitCommandFailure:
+        repo_root = self._require_repo_root()
+        sha_result = _run(
+            ["git", "log", "--no-merges", "--format=%H", range_spec],
+            cwd=repo_root,
+            check=False,
+        )
+        if sha_result.returncode != 0:
+            stderr = sha_result.stderr.strip()
+            return GitCommandFailure(
+                message=stderr or "git log failed",
+                returncode=sha_result.returncode,
+            )
+        shas = tuple(line for line in sha_result.stdout.splitlines() if line)
+
+        pid_pairs, failure = _patch_id_pairs(repo_root, range_spec)
+        if failure is not None:
+            return failure
+        pid_by_sha = dict(pid_pairs)
+        return tuple((sha, pid_by_sha.get(sha)) for sha in shas)

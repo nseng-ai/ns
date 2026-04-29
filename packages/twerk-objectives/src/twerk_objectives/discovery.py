@@ -21,6 +21,7 @@ MASTER_BRANCH = "master"
 BODY_FILE = "body.md"
 ROADMAP_FILE = "roadmap.md"
 NOTES_FILE = "notes.md"
+ABSORBED_PATCHES_FILE = ".absorbed.jsonl"
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,11 @@ def roadmap_key(slug: str) -> str:
 def notes_key(slug: str) -> str:
     """Return the brmem key for the ``notes.md`` file of ``slug``."""
     return f"{slug}/{NOTES_FILE}"
+
+
+def absorbed_patches_key(slug: str) -> str:
+    """Return the brmem key for the machine-owned absorbed-patches marker."""
+    return f"{slug}/{ABSORBED_PATCHES_FILE}"
 
 
 def discover_objectives(
