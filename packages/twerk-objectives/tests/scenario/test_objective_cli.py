@@ -195,12 +195,14 @@ def test_objective_list_format_json(cli_group: ClinkrGroup) -> None:
                 "slug": "clinkr-migration",
                 "files": ["body.md"],
                 "canonical_present": True,
+                "state": "open",
                 "branches": [],
             },
             {
                 "slug": "objective-cli",
                 "files": ["body.md"],
                 "canonical_present": True,
+                "state": "open",
                 "branches": [
                     {"branch": "mem-deleted-branch", "deleted": True},
                     {"branch": "mem-scaffold-list", "deleted": False},
@@ -210,6 +212,7 @@ def test_objective_list_format_json(cli_group: ClinkrGroup) -> None:
                 "slug": "twerk-reviewer",
                 "files": ["body.md"],
                 "canonical_present": False,
+                "state": "open",
                 "branches": [
                     {"branch": "feat/reviewer", "deleted": False},
                 ],
@@ -423,6 +426,9 @@ def test_objective_show_format_json(cli_group: ClinkrGroup) -> None:
         "slug": "objective-cli",
         "canonical_present": True,
         "canonical_trunk": "master",
+        "state": "open",
+        "closed_at": None,
+        "closed_reason": None,
         "branches": [
             {"branch": "mem-deleted-branch", "deleted": True},
             {"branch": "mem-scaffold-list", "deleted": False},
@@ -451,6 +457,9 @@ def test_objective_show_missing_slug_json(cli_group: ClinkrGroup) -> None:
         "slug": "does-not-exist",
         "canonical_present": False,
         "canonical_trunk": "master",
+        "state": "open",
+        "closed_at": None,
+        "closed_reason": None,
         "branches": [],
         "files": [],
         "body": None,
@@ -506,6 +515,9 @@ def test_objective_show_no_slug_defaults_json(cli_group: ClinkrGroup) -> None:
         "slug": "objective-cli",
         "canonical_present": True,
         "canonical_trunk": "master",
+        "state": "open",
+        "closed_at": None,
+        "closed_reason": None,
         "branches": [{"branch": "feat/x", "deleted": False}],
         "files": ["body.md"],
         "body": {"source_branch": "feat/x", "content": "snap\n"},
@@ -965,6 +977,7 @@ def test_objective_list_groups_multiple_files_under_one_slug(
             "slug": "objective-cli",
             "files": ["body.md", "notes.md", "roadmap.md"],
             "canonical_present": True,
+            "state": "open",
             "branches": [],
         }
     ]

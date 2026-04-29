@@ -240,6 +240,7 @@ def test_tree_unknown_slug_json(cli_group: ClinkrGroup) -> None:
     assert payload["data"] == {
         "slug": "does-not-exist",
         "canonical_present": False,
+        "state": "open",
         "entries": [],
     }
 
@@ -413,6 +414,7 @@ def test_tree_seed_only_has_empty_rows(cli_group: ClinkrGroup) -> None:
     assert payload["data"] == {
         "slug": "clinkr-migration",
         "canonical_present": True,
+        "state": "open",
         "entries": [],
     }
 

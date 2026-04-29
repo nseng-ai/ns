@@ -37,6 +37,8 @@ Only `body.md` is required. `roadmap.md` and `notes.md` appear when useful.
 | `objective-claim`     | May read as source                        | Writes verbatim copy to target | May read as source     |
 | `objective-update`    | Never                                     | Rewrites from branch work      | Never                  |
 | `objective-reconcile` | Rewrites from landed branch + PR evidence | Reads only as evidence         | Reads only as evidence |
+| `objective close`     | Writes `<slug>/.closed` marker            | Never                          | Never                  |
+| `objective reopen`    | Deletes `<slug>/.closed` marker           | Never                          | Never                  |
 
 Carry-forward is exclusively `objective-claim`'s job. It copies one
 source snapshot exactly; it never merges or summarizes.
@@ -230,6 +232,17 @@ Source resolution:
 
 `create` drafts the canonical objective. It writes `body.md`, optionally
 `roadmap.md`, and never writes `notes.md`.
+
+### `objective close` / `objective reopen`
+
+`close` writes a single canonical marker file `<slug>/.closed` on the trunk
+branch carrying a JSON envelope (`schema`, `closed_at`, `reason`). `reopen`
+deletes it. Neither touches `body.md`, `roadmap.md`, `notes.md`, or any
+branch snapshot. Closure is recorded only on the canonical record; branch
+snapshots remain whatever the workstream last wrote. Closure is never
+inferred — `reconcile` does not auto-close on completion-criteria checkmarks
+or PR merges, and `update` never closes anything. The closed/open state is
+surfaced to listings as `state` (one of `open`, `closed`).
 
 ## Anti-patterns
 

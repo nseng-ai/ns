@@ -16,12 +16,15 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console
 from twerk_core.git.types import DetachedHead, GitCommandFailure
+from twerk_objectives.closed_marker import ClosedMarker, load_closed_marker
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
     NOTES_FILE,
     ROADMAP_FILE,
     BranchPresence,
+    ObjectiveState,
+    closed_key,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
@@ -53,6 +56,9 @@ class ObjectiveShowResult(JsonSerializable):
     slug: str
     canonical_present: bool
     canonical_trunk: str
+    state: ObjectiveState
+    closed_at: str | None
+    closed_reason: str | None
     branches: tuple[BranchPresence, ...]
     files: tuple[str, ...]
     body: ObjectiveFile | None
@@ -64,6 +70,9 @@ class ObjectiveShowResult(JsonSerializable):
             "slug": self.slug,
             "canonical_present": self.canonical_present,
             "canonical_trunk": self.canonical_trunk,
+            "state": self.state,
+            "closed_at": self.closed_at,
+            "closed_reason": self.closed_reason,
             "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in self.branches],
             "files": list(self.files),
             "body": _file_to_json(self.body),
@@ -82,6 +91,13 @@ def render_objective_show(result: ObjectiveShowResult) -> None:
     click.echo(f"slug: {result.slug}")
     canonical_str = f"present ({result.canonical_trunk})" if result.canonical_present else "absent"
     click.echo(f"canonical: {canonical_str}")
+    state_line = f"state: {result.state}"
+    if result.state == "closed" and result.closed_at is not None:
+        state_line = f"{state_line} (closed_at={result.closed_at}"
+        if result.closed_reason is not None:
+            state_line = f"{state_line}, reason={result.closed_reason!r}"
+        state_line = f"{state_line})"
+    click.echo(state_line)
     if result.branches:
         click.echo("branches:")
         for bp in result.branches:
@@ -214,6 +230,9 @@ def run_show_objective(
             slug=requested_slug,
             canonical_present=False,
             canonical_trunk=trunk_branch,
+            state="open",
+            closed_at=None,
+            closed_reason=None,
             branches=(),
             files=(),
             body=None,
@@ -226,7 +245,18 @@ def run_show_objective(
         )
 
     files = tuple(sorted({e.key[len(requested_slug) + 1 :] for e in slug_entries}))
-    canonical_present = any(e.branch == trunk_branch for e in slug_entries)
+    canonical_present = any(
+        e.branch == trunk_branch and e.key != closed_key(requested_slug) for e in slug_entries
+    )
+    closed_present = any(
+        e.branch == trunk_branch and e.key == closed_key(requested_slug) for e in slug_entries
+    )
+    state: ObjectiveState = "closed" if closed_present else "open"
+    closed_marker: ClosedMarker = (
+        load_closed_marker(gateway, slug=requested_slug, trunk_branch=trunk_branch)
+        if closed_present
+        else ClosedMarker(present=False, closed_at=None, reason=None, diagnostics=())
+    )
     branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
     branches = tuple(
         BranchPresence(branch=name, deleted=not git_gateway.branch_exists(name))
@@ -265,6 +295,9 @@ def run_show_objective(
             slug=requested_slug,
             canonical_present=canonical_present,
             canonical_trunk=trunk_branch,
+            state=state,
+            closed_at=closed_marker.closed_at,
+            closed_reason=closed_marker.reason,
             branches=branches,
             files=files,
             body=body,

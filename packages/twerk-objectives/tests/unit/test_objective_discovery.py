@@ -79,6 +79,7 @@ def test_seed_only_objective_has_no_branches() -> None:
             slug="orphan",
             files=("body.md",),
             canonical_present=True,
+            state="open",
             branches=(),
         ),
     )

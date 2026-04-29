@@ -12,9 +12,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+
+ObjectiveState = Literal["open", "closed"]
+OBJECTIVE_STATES: frozenset[ObjectiveState] = frozenset(("open", "closed"))
 
 # Canonical objective storage lives on the repo's trunk branch (whatever
 # ``git symbolic-ref refs/remotes/origin/HEAD`` resolves to: typically
@@ -34,6 +38,7 @@ BODY_FILE = "body.md"
 ROADMAP_FILE = "roadmap.md"
 NOTES_FILE = "notes.md"
 ABSORBED_PATCHES_FILE = ".absorbed.jsonl"
+CLOSED_FILE = ".closed"
 
 
 @dataclass(frozen=True)
@@ -51,6 +56,7 @@ class ObjectiveRepoEntry:
     slug: str
     files: tuple[str, ...]
     canonical_present: bool
+    state: ObjectiveState
     branches: tuple[BranchPresence, ...]
 
     @property
@@ -93,6 +99,11 @@ def absorbed_patches_key(slug: str) -> str:
     return f"{slug}/{ABSORBED_PATCHES_FILE}"
 
 
+def closed_key(slug: str) -> str:
+    """Return the brmem key for the canonical ``.closed`` marker."""
+    return f"{slug}/{CLOSED_FILE}"
+
+
 def discover_objectives(
     gateway: BranchMemoryGateway,
     *,
@@ -127,7 +138,14 @@ def group_objective_entries(
     result: list[ObjectiveRepoEntry] = []
     for slug in sorted(by_slug):
         slug_entries = by_slug[slug]
-        canonical_present = any(e.branch == trunk_branch for e in slug_entries)
+        canonical_present = any(
+            e.branch == trunk_branch and e.key != closed_key(slug) for e in slug_entries
+        )
+        state: ObjectiveState = (
+            "closed"
+            if any(e.branch == trunk_branch and e.key == closed_key(slug) for e in slug_entries)
+            else "open"
+        )
         branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
         presences = tuple(
             BranchPresence(
@@ -142,6 +160,7 @@ def group_objective_entries(
                 slug=slug,
                 files=files,
                 canonical_present=canonical_present,
+                state=state,
                 branches=presences,
             )
         )

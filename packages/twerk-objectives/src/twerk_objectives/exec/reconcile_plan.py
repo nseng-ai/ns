@@ -183,7 +183,7 @@ def _pr_to_json(pr: BranchSnapshotPr) -> dict[str, Any]:
 
 def render_reconcile_plan(result: ReconcilePlanResult) -> None:
     if not result.slugs:
-        click.echo("no canonical objectives on master")
+        click.echo(f"no canonical objectives on {result.canonical_branch}")
         return
     click.echo(f"reconcile plan ({result.schema}): {len(result.slugs)} slug(s)")
     for item in result.slugs:
