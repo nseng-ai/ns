@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import NoReturn
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
@@ -22,6 +23,13 @@ class LandPlan(JsonSerializable):
     pr_head_oid: str
     pr_head_ref_name: str
     pr_base_ref_name: str
+
+
+def _guardrail_failure(message: str) -> NoReturn:
+    Ensure.fail(
+        error_type="guardrail_failed",
+        message=f"{message}\nmerge not attempted",
+    )
 
 
 def _validate_pr_identity(
@@ -47,27 +55,15 @@ def build_land_plan(gt_ctx: SlotGtContext) -> LandPlan:
     slots_ctx = gt_ctx.slots
     match slots_ctx.git.get_current_branch(slots_ctx.repo.root):
         case GitFailure(message=message):
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=f"failed to determine current branch: {message}\nmerge not attempted",
-            )
+            _guardrail_failure(f"failed to determine current branch: {message}")
         case DetachedHead():
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=f"HEAD at {slots_ctx.repo.root} is detached\nmerge not attempted",
-            )
+            _guardrail_failure(f"HEAD at {slots_ctx.repo.root} is detached")
         case str() as current:
             pass
 
     match gt_ctx.gt.trunk(slots_ctx.repo.root):
         case GtCommandFailure(message=message):
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=f"failed to determine Graphite trunk: {message}\nmerge not attempted",
-            )
+            _guardrail_failure(f"failed to determine Graphite trunk: {message}")
         case str() as trunk:
             pass
     Ensure.true(
@@ -78,25 +74,11 @@ def build_land_plan(gt_ctx: SlotGtContext) -> LandPlan:
 
     match gt_ctx.gt.parent_of(slots_ctx.repo.root):
         case UntrackedBranch():
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=(
-                    f"current branch '{current}' is not tracked by Graphite\nmerge not attempted"
-                ),
-            )
+            _guardrail_failure(f"current branch '{current}' is not tracked by Graphite")
         case GtCommandFailure(message=message):
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=f"failed to determine Graphite parent: {message}\nmerge not attempted",
-            )
+            _guardrail_failure(f"failed to determine Graphite parent: {message}")
         case NoParent():
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=f"current branch '{current}' has no Graphite parent\nmerge not attempted",
-            )
+            _guardrail_failure(f"current branch '{current}' has no Graphite parent")
         case str() as parent:
             pass
     Ensure.true(
@@ -110,14 +92,7 @@ def build_land_plan(gt_ctx: SlotGtContext) -> LandPlan:
 
     match slots_ctx.pr.get_pr_details_for_branch(current):
         case PRLookupError(stderr=stderr):
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=(
-                    f"{stderr or f'no pull request found for branch {current!r}'}"
-                    "\nmerge not attempted"
-                ),
-            )
+            _guardrail_failure(stderr or f"no pull request found for branch {current!r}")
         case PRDetails() as details:
             pass
     pr_failure = _validate_pr_identity(
@@ -133,14 +108,7 @@ def build_land_plan(gt_ctx: SlotGtContext) -> LandPlan:
 
     match slots_ctx.git.branch_head_oid(current):
         case GitFailure(message=message):
-            Ensure.true(
-                False,
-                error_type="guardrail_failed",
-                message=(
-                    f"failed to determine local HEAD for '{current}': {message}"
-                    "\nmerge not attempted"
-                ),
-            )
+            _guardrail_failure(f"failed to determine local HEAD for '{current}': {message}")
         case str() as local_head:
             pass
     Ensure.true(
