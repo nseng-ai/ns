@@ -18,12 +18,9 @@ import click
 from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_core.git.types import (
-    DetachedHead,
-    GitCommandFailure,
-)
 from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
@@ -39,8 +36,6 @@ from twerk_objectives.freshness import (
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.patch_facts import load_branch_patch_facts
 from twerk_objectives.slug_resolution import (
-    AmbiguousObjective,
-    NoObjectiveOnBranch,
     resolve_slug,
 )
 from twerk_objectives.trunk_resolution import resolve_trunk
@@ -112,66 +107,33 @@ def run_update_precheck_objective(
     git = mctx.git_gateway
 
     current_branch_result = git.get_current_branch(Path.cwd())
-    if isinstance(current_branch_result, DetachedHead):
-        raise ClinkrExit.failure(
-            error_type="detached_head",
-            message="Detached HEAD: objective-update requires a checked-out branch.",
-        )
-    if isinstance(current_branch_result, GitCommandFailure):
-        raise ClinkrExit.failure(error_type="git_failed", message=current_branch_result.message)
-    current_branch = current_branch_result
+    current_branch = Ensure.ideal_state(current_branch_result)
 
-    if current_branch == git.get_trunk_branch():
-        raise ClinkrExit.failure(
-            error_type="on_trunk_branch",
-            message=(
-                "objective-update runs on branch snapshots only. "
-                "Use objective-reconcile <slug> to update canonical state."
-            ),
-        )
+    Ensure.true(
+        current_branch != git.get_trunk_branch(),
+        error_type="on_trunk_branch",
+        message=(
+            "objective-update runs on branch snapshots only. "
+            "Use objective-reconcile <slug> to update canonical state."
+        ),
+    )
 
-    head_result = git.branch_head_oid(current_branch)
-    if isinstance(head_result, GitCommandFailure):
-        raise ClinkrExit.failure(error_type="git_failed", message=head_result.message)
+    head_result = Ensure.ideal_state(git.branch_head_oid(current_branch))
 
     if request.slug is None:
         slug_result = resolve_slug(mctx, None, requested_branch=current_branch)
-        if isinstance(slug_result, GitCommandFailure):
-            raise ClinkrExit.failure(error_type="git_failed", message=slug_result.message)
-        if isinstance(slug_result, DetachedHead):
-            raise ClinkrExit.failure(
-                error_type="detached_head",
-                message="Detached HEAD: objective-update requires a checked-out branch.",
-            )
-        if isinstance(slug_result, NoObjectiveOnBranch):
-            raise ClinkrExit.failure(
-                error_type="no_objective_on_branch",
-                message=(
-                    f"No objective on branch {slug_result.branch!r}. "
-                    f"Run `objective-claim <slug>` on this branch first."
-                ),
-            )
-        if isinstance(slug_result, AmbiguousObjective):
-            names = ", ".join(slug_result.slugs)
-            raise ClinkrExit.failure(
-                error_type="ambiguous_objective",
-                message=(
-                    f"Multiple objectives on branch {slug_result.branch!r}: {names}. "
-                    f"Specify a SLUG."
-                ),
-            )
-        slug = slug_result.slug
+        slug = Ensure.ideal_state(slug_result).slug
     else:
         slug = slug_for_key(request.slug)
         branch_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=current_branch)
-        if not any(entry.key.startswith(f"{slug}/") for entry in branch_entries):
-            raise ClinkrExit.failure(
-                error_type="slug_not_attached",
-                message=(
-                    f"Objective {slug!r} is not attached to branch {current_branch!r}. "
-                    f"Run `objective-claim {slug}` on this branch first."
-                ),
-            )
+        Ensure.truthy(
+            [e for e in branch_entries if e.key.startswith(f"{slug}/")],
+            error_type="slug_not_attached",
+            message=(
+                f"Objective {slug!r} is not attached to branch {current_branch!r}. "
+                f"Run `objective-claim {slug}` on this branch first."
+            ),
+        )
 
     body = _file_precheck(gateway, body_key(slug), current_branch)
     roadmap = _file_precheck(gateway, roadmap_key(slug), current_branch)
@@ -179,9 +141,9 @@ def run_update_precheck_objective(
 
     trunk = resolve_trunk(git).trunk
 
-    facts = load_branch_patch_facts(git, f"{trunk}..HEAD", require_patch_ids=False)
-    if isinstance(facts, GitCommandFailure):
-        raise ClinkrExit.failure(error_type="git_failed", message=facts.message)
+    facts = Ensure.ideal_state(
+        load_branch_patch_facts(git, f"{trunk}..HEAD", require_patch_ids=False)
+    )
     pid_by_sha = facts.pid_by_sha
     branch_commits = tuple(
         BranchCommit(

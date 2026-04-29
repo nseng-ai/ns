@@ -23,22 +23,18 @@ import click
 from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console, make_table
 from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import PRLookupError, PRState
 from twerk_core.git.git_gateway import GitGateway
-from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import ObjectiveState, closed_key
 from twerk_objectives.freshness import classify_branch_snapshot
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
-from twerk_objectives.slug_resolution import (
-    AmbiguousObjective,
-    NoObjectiveOnBranch,
-    resolve_slug,
-)
+from twerk_objectives.slug_resolution import resolve_slug
 from twerk_objectives.trunk_resolution import resolve_trunk
 
 BranchPrAction = Literal["open", "merged", "closed", "no_pr", "error"]
@@ -236,27 +232,7 @@ def run_tree_objective(
     git = mctx.git_gateway
     pr = mctx.pr_gateway
 
-    slug_result = resolve_slug(mctx, request.slug)
-    if isinstance(slug_result, GitCommandFailure):
-        raise ClinkrExit.failure(error_type="git_failed", message=slug_result.message)
-    if isinstance(slug_result, DetachedHead):
-        raise ClinkrExit.failure(
-            error_type="detached_head",
-            message="Detached HEAD: brmem requires a checked-out branch.",
-        )
-    if isinstance(slug_result, NoObjectiveOnBranch):
-        raise ClinkrExit.failure(
-            error_type="no_objective_on_branch",
-            message=f"No objective on branch {slug_result.branch!r}.",
-        )
-    if isinstance(slug_result, AmbiguousObjective):
-        names = ", ".join(slug_result.slugs)
-        raise ClinkrExit.failure(
-            error_type="ambiguous_objective",
-            message=(
-                f"Multiple objectives on branch {slug_result.branch!r}: {names}. Specify a SLUG."
-            ),
-        )
+    slug_result = Ensure.ideal_state(resolve_slug(mctx, request.slug))
     slug = slug_result.slug
 
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)

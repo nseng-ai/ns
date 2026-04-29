@@ -17,11 +17,11 @@ import click
 from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.git_gateway import GitGateway
-from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
@@ -30,12 +30,7 @@ from twerk_objectives.discovery import (
     roadmap_key,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
-from twerk_objectives.slug_resolution import (
-    AmbiguousObjective,
-    NoObjectiveOnBranch,
-    SlugResolution,
-    resolve_slug,
-)
+from twerk_objectives.slug_resolution import resolve_slug
 
 
 @dataclass(frozen=True)
@@ -96,48 +91,26 @@ def run_digest_objective(
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
 
-    slug_result = resolve_slug(mctx, request.slug)
-    match slug_result:
-        case GitCommandFailure() as failure:
-            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
-        case DetachedHead():
-            raise ClinkrExit.failure(
-                error_type="detached_head",
-                message="Detached HEAD: brmem requires a checked-out branch.",
-            )
-        case NoObjectiveOnBranch(branch=branch):
-            raise ClinkrExit.failure(
-                error_type="no_objective_on_branch",
-                message=f"No objective on branch {branch!r}.",
-            )
-        case AmbiguousObjective(branch=branch, slugs=slugs):
-            names = ", ".join(slugs)
-            raise ClinkrExit.failure(
-                error_type="ambiguous_objective",
-                message=f"Multiple objectives on branch {branch!r}: {names}. Specify a SLUG.",
-            )
-        case SlugResolution(slug=slug):
-            pass
+    slug_resolution = Ensure.ideal_state(resolve_slug(mctx, request.slug))
+    slug = slug_resolution.slug
 
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
-    slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
-    if not slug_entries:
-        raise ClinkrExit.failure(
-            error_type="slug_not_seeded",
-            message=(
-                f"No objective found for slug {slug!r}. Run `objective-create` to seed it on trunk."
-            ),
-        )
+    slug_entries = Ensure.truthy(
+        [e for e in all_entries if e.key.startswith(f"{slug}/")],
+        error_type="slug_not_seeded",
+        message=(
+            f"No objective found for slug {slug!r}. Run `objective-create` to seed it on trunk."
+        ),
+    )
     trunk_branch = git.get_trunk_branch()
-    seed_present = any(e.branch == trunk_branch for e in slug_entries)
-    if not seed_present:
-        raise ClinkrExit.failure(
-            error_type="slug_not_seeded",
-            message=(
-                f"Objective {slug!r} has branch snapshots but no canonical seed on "
-                f"{trunk_branch!r}. Run `objective-create` (or reconcile) to seed it."
-            ),
-        )
+    Ensure.true(
+        any(e.branch == trunk_branch for e in slug_entries),
+        error_type="slug_not_seeded",
+        message=(
+            f"Objective {slug!r} has branch snapshots but no canonical seed on "
+            f"{trunk_branch!r}. Run `objective-create` (or reconcile) to seed it."
+        ),
+    )
 
     branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
     canonical = _read_canonical_snapshot(gateway, git, slug, trunk_branch=trunk_branch)

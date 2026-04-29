@@ -9,15 +9,34 @@ from typing import NamedTuple
 
 @dataclass(frozen=True)
 class DetachedHead:
-    """Sentinel returned when HEAD is not currently on a branch."""
+    """Sentinel returned when HEAD is not currently on a branch.
+
+    Conforms to `twerk_core.clinkr.non_ideal_state.NonIdealState` so CLI
+    callers can collapse the failure arm with `Ensure.ideal_state`.
+    """
+
+    @property
+    def error_type(self) -> str:
+        return "detached_head"
+
+    @property
+    def message(self) -> str:
+        return "Detached HEAD: requires a checked-out branch."
 
 
 @dataclass(frozen=True)
 class GitCommandFailure:
-    """Failure result from a git subprocess invocation."""
+    """Failure result from a git subprocess invocation.
+
+    Conforms to `twerk_core.clinkr.non_ideal_state.NonIdealState`. The
+    `error_type` field carries the CLI translation tag and defaults to
+    `"git_failed"`; resolvers may override at construction time when a
+    more specific tag is appropriate (e.g. `"git_current_branch_failed"`).
+    """
 
     message: str
     returncode: int | None
+    error_type: str = "git_failed"
 
 
 @dataclass(frozen=True)

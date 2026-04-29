@@ -7,6 +7,7 @@ import click
 
 from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import (
@@ -132,29 +133,29 @@ def validate_assigned_and_clean(
 def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[SlotFreeResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        raise ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
+        Ensure.fail(error_type="not_in_repo", message=slots_ctx.message)
 
-    if not slots_ctx.pool_state.exists():
-        raise ClinkrExit.failure(
-            error_type="pool_empty",
-            message="No pool configured. Run `slot checkout` first.",
-        )
+    Ensure.true(
+        slots_ctx.pool_state.exists(),
+        error_type="pool_empty",
+        message="No pool configured. Run `slot checkout` first.",
+    )
     state = slots_ctx.pool_state.load()
 
-    if not request.num and not request.wt and not request.current:
-        raise ClinkrExit.failure(
-            error_type="missing_slot_arg",
-            message="Pass one of -n/--num, -w/--wt, or -c/--current to identify the slot.",
-        )
+    Ensure.true(
+        bool(request.num or request.wt or request.current),
+        error_type="missing_slot_arg",
+        message="Pass one of -n/--num, -w/--wt, or -c/--current to identify the slot.",
+    )
 
     targets, shape_errors = _resolve_targets(slots_ctx, request, state)
     state_errors = validate_assigned_and_clean(slots_ctx, state, targets)
     all_errors = (*shape_errors, *state_errors)
-    if all_errors:
-        raise ClinkrExit.failure(
-            error_type="invalid_slot_args",
-            message="\n".join(all_errors),
-        )
+    Ensure.true(
+        not all_errors,
+        error_type="invalid_slot_args",
+        message="\n".join(all_errors),
+    )
 
     freed: list[FreedSlot] = []
     for slot_name in targets:
@@ -194,11 +195,11 @@ def partial_failure(
     error_type: str,
     message: str,
 ) -> NoReturn:
-    """Raise a `ClinkrExit.failure` that lists already-freed slots if any."""
+    """Raise a `ClinkrFailure` that lists already-freed slots if any."""
     if not freed:
-        raise ClinkrExit.failure(error_type=error_type, message=message)
+        Ensure.fail(error_type=error_type, message=message)
     already = ", ".join(f.slot_name for f in freed)
-    raise ClinkrExit.failure(
+    Ensure.fail(
         error_type=error_type,
         message=f"{message} Already freed: {already}.",
     )

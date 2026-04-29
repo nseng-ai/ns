@@ -9,6 +9,7 @@ import click
 from twerk_core.clinkr.command import emit_machine_envelope
 from twerk_core.clinkr.context import MACHINE_FORMAT_PARAM_NAME, set_machine_mode
 from twerk_core.clinkr.exit import ClinkrExit, ExitStatus
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.json_schema import build_json_schema_document
 from twerk_core.clinkr.operation import ClinkrOperationMeta, get_operation_meta
 from twerk_core.clinkr.params import build_request_from_click_params, extract_click_params
@@ -98,6 +99,8 @@ def _register_operation(
             set_machine_mode(ctx)
             try:
                 result = operation(ctx, request)
+            except ClinkrFailure as fail:
+                result = ClinkrExit.failure(error_type=fail.error_type, message=fail.message)
             except ClinkrExit as exit_result:
                 result = exit_result
             emit_machine_envelope(result)
@@ -105,6 +108,8 @@ def _register_operation(
 
         try:
             result = operation(ctx, request)
+        except ClinkrFailure as fail:
+            result = ClinkrExit.failure(error_type=fail.error_type, message=fail.message)
         except ClinkrExit as exit_result:
             result = exit_result
         if not isinstance(result, ClinkrExit):

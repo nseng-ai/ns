@@ -28,7 +28,9 @@ from brmem.key_validation import check_key
 from brmem.validation import first_failure
 from twerk_core.clinkr.context import is_machine_mode
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -101,64 +103,64 @@ def run_put(
     ctx: click.Context,
     request: PutRequest,
 ) -> ClinkrExit[PutResult]:
-    if request.stdin and is_machine_mode(ctx):
-        raise ClinkrExit.failure(
-            error_type="stdin_unsupported_in_json_mode",
-            message=(
-                "brmem put --stdin is only supported in the human CLI; JSON mode already "
-                "uses stdin for the request body."
-            ),
-        )
+    Ensure.true(
+        not (request.stdin and is_machine_mode(ctx)),
+        error_type="stdin_unsupported_in_json_mode",
+        message=(
+            "brmem put --stdin is only supported in the human CLI; JSON mode already "
+            "uses stdin for the request body."
+        ),
+    )
 
-    if request.stdin and request.file is not None:
-        raise ClinkrExit.failure(
-            error_type="stdin_and_file_conflict",
-            message="--stdin and --file are mutually exclusive.",
-        )
+    Ensure.true(
+        not (request.stdin and request.file is not None),
+        error_type="stdin_and_file_conflict",
+        message="--stdin and --file are mutually exclusive.",
+    )
 
     if request.stdin:
         raw = sys.stdin.buffer.read()
         source_file = "<stdin>"
     else:
-        source_path = request.file if request.file is not None else _default_source(request.key)
-        if source_path is None:
-            raise ClinkrExit.failure(
-                error_type="source_file_missing",
-                message=(
-                    f"Cannot infer a default --file for key {request.key!r}; "
-                    "provide --file or --stdin."
-                ),
-            )
+        source_path = Ensure.not_none(
+            request.file if request.file is not None else _default_source(request.key),
+            error_type="source_file_missing",
+            message=(
+                f"Cannot infer a default --file for key {request.key!r}; provide --file or --stdin."
+            ),
+        )
         try:
             raw = Path(source_path).read_bytes()
         except FileNotFoundError as exc:
-            raise ClinkrExit.failure(
+            raise ClinkrFailure(
                 error_type="source_file_missing",
                 message=f"Source file not found: {source_path}",
             ) from exc
         except OSError as exc:
-            raise ClinkrExit.failure(
+            raise ClinkrFailure(
                 error_type="source_file_unreadable",
                 message=f"Failed to read source file {source_path}: {exc}",
             ) from exc
         source_file = source_path
 
     if not request.force:
-        if (size_msg := check_entry_size(raw)) is not None:
-            raise ClinkrExit.failure(
-                error_type="entry_too_large",
-                message=f"{source_file} {size_msg}. Pass -f / --force to override.",
-            )
-        if (binary_msg := check_entry_not_binary(raw)) is not None:
-            raise ClinkrExit.failure(
-                error_type="entry_appears_binary",
-                message=f"{source_file} {binary_msg}. Pass -f / --force to override.",
-            )
+        size_msg = check_entry_size(raw)
+        Ensure.true(
+            size_msg is None,
+            error_type="entry_too_large",
+            message=f"{source_file} {size_msg}. Pass -f / --force to override.",
+        )
+        binary_msg = check_entry_not_binary(raw)
+        Ensure.true(
+            binary_msg is None,
+            error_type="entry_appears_binary",
+            message=f"{source_file} {binary_msg}. Pass -f / --force to override.",
+        )
 
     try:
         content = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise ClinkrExit.failure(
+        raise ClinkrFailure(
             error_type="entry_not_utf8",
             message=f"{source_file} is not valid UTF-8: {exc}",
         ) from exc
@@ -173,9 +175,12 @@ def run_put(
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
-    if validation_failure is not None:
-        error_type, message = validation_failure
-        raise ClinkrExit.failure(error_type=error_type, message=message)
+    error_type, message = validation_failure or ("", "")
+    Ensure.true(
+        validation_failure is None,
+        error_type=error_type,
+        message=message,
+    )
 
     entry_ref = EntryRef(
         namespace=request.namespace,
@@ -195,7 +200,7 @@ def run_put(
         )
     except subprocess.CalledProcessError as exc:
         details = exc.stderr.strip() or str(exc)
-        raise ClinkrExit.failure(
+        raise ClinkrFailure(
             error_type="git_failure",
             message=f"Failed to write branch memory: {details}",
         ) from exc
