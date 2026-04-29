@@ -2,8 +2,8 @@
 name: objective-create
 description: "Command: objective-create"
 allowed-tools:
-  - "Bash(git rev-parse *)"
-  - "Bash(brmem *)"
+  - "Bash(objective exec create-precheck *)"
+  - "Bash(objective exec create-write *)"
   - "Read"
   - "Write"
 ---
@@ -52,15 +52,13 @@ exists, `roadmap.md`; it never writes `notes.md`.
 
 ## Core Rules
 
-- **Canonical only.** In the current brmem-backed implementation, write to
-  `--branch <trunk>`; do not attach to the current branch. Users run
-  `objective-claim <slug>` to attach a branch snapshot.
+- **Canonical only.** Both helpers write to canonical `<trunk>`; do not
+  attach to the current branch. Users run `objective-claim <slug>` to
+  attach a branch snapshot. The current branch is irrelevant — the helpers
+  only require it to be a normal (non-detached) branch.
 - **Use canonical templates.** Draft `body.md` from
   `../objective/templates/body-template.md` and `roadmap.md` from
   `../objective/templates/roadmap-template.md` when a roadmap is needed.
-- **Keys carry the slug.** Write `<slug>/body.md` and optionally
-  `<slug>/roadmap.md`; never use bare filenames or another namespace.
-- **Do not overwrite.** Abort if the trunk branch already has any key under `<slug>/`.
 - **Stable spine, not a task dump.** Keep `body.md` durable and
   end-state-oriented. Put slice sequencing in `roadmap.md`, not in
   `Description`, `Goals`, or `Status:`.
@@ -70,18 +68,12 @@ exists, `roadmap.md`; it never writes `notes.md`.
 
 ## Workflow
 
-### 1. Preflight
+The two `objective exec` helpers below own the deterministic mechanics
+(repo + branch checks, slug-format validation, collision check on trunk,
+and the canonical `brmem put` writes). Skill prose is reserved for the
+collaborative pieces: framing, slug naming, and template drafting.
 
-Confirm the repo and current branch:
-
-```bash
-git rev-parse --show-toplevel
-git rev-parse --abbrev-ref HEAD
-```
-
-Abort if not in a git repo or on detached `HEAD`.
-
-### 2. Frame The Workstream With The User
+### 1. Frame The Workstream With The User
 
 Gather enough context to draft the stable `body.md` spine and identify the
 slug. Treat this as a brief collaborative framing pass, not a mechanical form
@@ -99,29 +91,47 @@ Ask a short follow-up when a critical piece is missing or when the proposed
 slug/scope would be ambiguous. Keep the document lighter than a full GitHub
 issue.
 
-### 3. Choose And Check The Slug
+### 2. Pick The Slug
 
 Use the explicit slug if provided; otherwise generate one that is lowercase
 ASCII, hyphen-separated, concise, stable, descriptive of the workstream,
-usually 50 characters or fewer, and has no `/body.md` suffix or redundant
+usually 50 characters or fewer, with no `/body.md` suffix or redundant
 `objective-` prefix.
 
 When generating the slug, surface it as the proposed identifier for the
 objective. If the user asked only for creation and the slug is obvious,
-proceed after checking for collisions. If multiple reasonable slugs imply
-different scopes, ask the user to choose before writing.
+proceed. If multiple reasonable slugs imply different scopes, ask the user
+to choose before drafting.
 
-Before writing, check the trunk branch for an existing snapshot:
+### 3. Validate The Slug
+
+Run the precheck before drafting prose so an invalid or already-taken slug
+does not waste effort:
 
 ```bash
-brmem list --namespace objectives --branch <trunk>
+objective exec create-precheck <slug> --format json
 ```
 
-Abort if any returned key starts with `<slug>/`.
+Read the returned envelope's `status` field:
+
+- `status="ok"` — slug is well-formed and unused on canonical `<trunk>`.
+  Proceed to drafting.
+- `status="error"` with `reason="invalid_slug_format"` — message names the
+  exact rule violated; pick a different slug and re-run.
+- `status="error"` with `reason="slug_collision"` — canonical `<trunk>`
+  already carries an objective under this slug. Pick a different slug, or
+  if the user wants to advance the existing objective, route to
+  `objective-update <slug>` instead.
+
+Hard failures (`exit_code=2` with `error_type` of `not_in_repo` or
+`detached_head`) mean the run cannot continue regardless of the slug;
+report and stop.
 
 ### 4. Draft The Files
 
-Read the templates, delete their instructional comments, and fill them in.
+Read the templates, delete their instructional comments, and fill them in to
+temporary files (e.g. under `tmp_path` or `/tmp`). Do not write durable
+objective files into the working tree.
 
 For `body.md`:
 
@@ -141,26 +151,43 @@ For `roadmap.md`, when drafted:
 
 ### 5. Write The Canonical Record
 
-Write drafts to temporary files, then store them in brmem:
+Run the write helper. It re-validates the slug (catching any race since
+precheck), reads the temp files, and performs the canonical `brmem put`
+writes — `body.md` first, then `roadmap.md` if supplied:
 
 ```bash
-brmem put <slug>/body.md --namespace objectives --branch <trunk> --file <temp-body>
-brmem put <slug>/roadmap.md --namespace objectives --branch <trunk> --file <temp-roadmap>
+objective exec create-write <slug> \
+  --body-file <temp-body> \
+  [--roadmap-file <temp-roadmap>] \
+  --format json
 ```
 
-Run the second command only when `roadmap.md` was drafted. Capture the brmem
-commit SHA from each write.
+Read the envelope:
+
+- `status="ok"` — every requested file landed. `files_written` carries each
+  file's brmem commit SHA in stable order (body.md first).
+- `status="error"` with `reason="slug_collision"` — a race against another
+  caller occupied the slug after precheck. Pick a different slug and re-run
+  step 3 onward, or route the user to `objective-update`.
+- `status="error"` with `reason="body_file_unreadable"` or
+  `roadmap_file_unreadable"` — the temp file vanished or is not UTF-8
+  readable. Re-write the temp file and re-run.
+- `status="error"` with `reason="partial_write"` — `body.md` landed
+  (commit SHA in `files_written`) but `roadmap.md` failed afterward. Brmem
+  is append-only; do not retry blindly. Surface the body's commit SHA, the
+  failing message, and recommend the user either run
+  `brmem put <slug>/roadmap.md --namespace objectives --branch <trunk> --file <temp-roadmap>`
+  manually or run `objective-update <slug>` to advance the snapshot.
 
 ### 6. Final Output
 
-Return:
+From the `create-write` JSON envelope, render:
 
-- objective title
+- objective title (from the conversation, not the JSON)
 - slug
-- files written
+- files written (with brmem commit SHAs)
 - canonical location: namespace `objectives`, branch `<trunk>`, key prefix
   `<slug>/`
-- brmem commit SHA or SHAs
 - next-step hint:
 
 ```text
@@ -173,9 +200,10 @@ to record progress.
 
 ## Edge Cases And Anti-Patterns
 
-- Detached `HEAD` or missing critical brief details: abort and describe/ask
-  briefly.
-- Canonical storage already carries `<slug>/`: abort instead of overwriting.
+- Detached `HEAD` or not in a git repo: `create-precheck` exits with the
+  `detached_head` or `not_in_repo` error; abort and describe briefly.
+- Canonical storage already carries `<slug>/`: `create-precheck` returns
+  `slug_collision`; pick a different slug or hand off to `objective-update`.
 - Vague slice plan: write only `body.md`; do not invent `roadmap.md`
   filler.
 - Current branch already carries one or more objective slugs: not a create
