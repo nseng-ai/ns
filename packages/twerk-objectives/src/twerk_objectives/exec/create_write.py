@@ -34,12 +34,11 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.create_validation import (
-    slug_collides_on_master,
+    slug_collides_on_trunk,
     validate_slug_format,
 )
 from twerk_objectives.discovery import (
     BODY_FILE,
-    MASTER_BRANCH,
     ROADMAP_FILE,
     body_key,
     roadmap_key,
@@ -191,9 +190,11 @@ def run_create_write_objective(
             error_type="not_in_repo",
             message=(
                 "Not inside a git repository. Run objective-create from a checked-out "
-                "repo with canonical state on master."
+                "repo with canonical state on the trunk branch."
             ),
         )
+
+    trunk_branch = git.get_trunk_branch()
 
     match git.get_current_branch(cwd):
         case DetachedHead():
@@ -211,18 +212,20 @@ def run_create_write_objective(
         return ClinkrExit.ok(
             _envelope_error(
                 requested_slug=request.slug,
+                trunk_branch=trunk_branch,
                 reason="invalid_slug_format",
                 message=invalid.message,
             )
         )
 
-    if slug_collides_on_master(gateway, slug=request.slug):
+    if slug_collides_on_trunk(gateway, slug=request.slug, trunk_branch=trunk_branch):
         return ClinkrExit.ok(
             _envelope_error(
                 requested_slug=request.slug,
+                trunk_branch=trunk_branch,
                 reason="slug_collision",
                 message=(
-                    f"Canonical state on {MASTER_BRANCH!r} already carries an "
+                    f"Canonical state on {trunk_branch!r} already carries an "
                     f"objective under {request.slug!r}/. Pick a different slug or "
                     f"run `objective-update {request.slug}` to advance it."
                 ),
@@ -236,6 +239,7 @@ def run_create_write_objective(
         return ClinkrExit.ok(
             _envelope_error(
                 requested_slug=request.slug,
+                trunk_branch=trunk_branch,
                 reason="body_file_unreadable",
                 message=(
                     f"--body-file is not readable: {request.body_file}: {body_content.message}"
@@ -250,6 +254,7 @@ def run_create_write_objective(
             return ClinkrExit.ok(
                 _envelope_error(
                     requested_slug=request.slug,
+                    trunk_branch=trunk_branch,
                     reason="roadmap_file_unreadable",
                     message=(
                         f"--roadmap-file is not readable: {request.roadmap_file}: {result.message}"
@@ -259,7 +264,7 @@ def run_create_write_objective(
         roadmap_content = result
 
     body_key_value = body_key(request.slug)
-    body_sha = gateway.put(OBJECTIVE_NAMESPACE, body_key_value, MASTER_BRANCH, body_content)
+    body_sha = gateway.put(OBJECTIVE_NAMESPACE, body_key_value, trunk_branch, body_content)
     files_written: list[WrittenFile] = [
         WrittenFile(file=BODY_FILE, key=body_key_value, commit_sha=body_sha),
     ]
@@ -270,18 +275,18 @@ def run_create_write_objective(
             roadmap_sha = gateway.put(
                 OBJECTIVE_NAMESPACE,
                 roadmap_key_value,
-                MASTER_BRANCH,
+                trunk_branch,
                 roadmap_content,
             )
         except Exception as exc:  # noqa: BLE001 - surface any brmem failure as partial write
             return ClinkrExit.ok(
                 CreateWriteResult(
                     schema=WRITE_SCHEMA,
-                    canonical_branch=MASTER_BRANCH,
+                    canonical_branch=trunk_branch,
                     requested_slug=request.slug,
                     status="error",
                     slug=request.slug,
-                    target_branch=MASTER_BRANCH,
+                    target_branch=trunk_branch,
                     files_written=tuple(files_written),
                     error=CreateWriteError(
                         reason="partial_write",
@@ -304,11 +309,11 @@ def run_create_write_objective(
     return ClinkrExit.ok(
         CreateWriteResult(
             schema=WRITE_SCHEMA,
-            canonical_branch=MASTER_BRANCH,
+            canonical_branch=trunk_branch,
             requested_slug=request.slug,
             status="ok",
             slug=request.slug,
-            target_branch=MASTER_BRANCH,
+            target_branch=trunk_branch,
             files_written=tuple(files_written),
             error=None,
         )
@@ -318,16 +323,17 @@ def run_create_write_objective(
 def _envelope_error(
     *,
     requested_slug: str,
+    trunk_branch: str,
     reason: WriteErrorReason,
     message: str,
 ) -> CreateWriteResult:
     return CreateWriteResult(
         schema=WRITE_SCHEMA,
-        canonical_branch=MASTER_BRANCH,
+        canonical_branch=trunk_branch,
         requested_slug=requested_slug,
         status="error",
         slug=None,
-        target_branch=MASTER_BRANCH,
+        target_branch=trunk_branch,
         files_written=(),
         error=CreateWriteError(reason=reason, message=message, files_written=()),
     )

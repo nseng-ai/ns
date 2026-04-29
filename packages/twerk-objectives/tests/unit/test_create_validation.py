@@ -14,7 +14,7 @@ from brmem.fake import FakeBranchMemoryGateway
 from twerk_objectives.create_validation import (
     SLUG_MAX_LENGTH,
     InvalidSlug,
-    slug_collides_on_master,
+    slug_collides_on_trunk,
     validate_slug_format,
 )
 
@@ -119,40 +119,41 @@ def test_validate_slug_format_rejects_too_long() -> None:
 
 
 # ---------------------------------------------------------------------------
-# slug_collides_on_master
+# slug_collides_on_trunk
 # ---------------------------------------------------------------------------
 
 
-def test_slug_collides_on_master_empty_gateway() -> None:
-    assert slug_collides_on_master(FakeBranchMemoryGateway(), slug="widget") is False
+def test_slug_collides_on_trunk_empty_gateway() -> None:
+    gateway = FakeBranchMemoryGateway()
+    assert slug_collides_on_trunk(gateway, slug="widget", trunk_branch="master") is False
 
 
-def test_slug_collides_on_master_when_body_present() -> None:
+def test_slug_collides_on_trunk_when_body_present() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "# body\n")
-    assert slug_collides_on_master(gateway, slug="widget") is True
+    assert slug_collides_on_trunk(gateway, slug="widget", trunk_branch="master") is True
 
 
-def test_slug_collides_on_master_when_only_roadmap_present() -> None:
+def test_slug_collides_on_trunk_when_only_roadmap_present() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/roadmap.md", "master", "# r\n")
-    assert slug_collides_on_master(gateway, slug="widget") is True
+    assert slug_collides_on_trunk(gateway, slug="widget", trunk_branch="master") is True
 
 
-def test_slug_collides_on_master_ignores_other_branches() -> None:
+def test_slug_collides_on_trunk_ignores_other_branches() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/x", "# branch\n")
-    assert slug_collides_on_master(gateway, slug="widget") is False
+    assert slug_collides_on_trunk(gateway, slug="widget", trunk_branch="master") is False
 
 
-def test_slug_collides_on_master_ignores_other_slugs() -> None:
+def test_slug_collides_on_trunk_ignores_other_slugs() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "alpha/body.md", "master", "# a\n")
-    assert slug_collides_on_master(gateway, slug="beta") is False
+    assert slug_collides_on_trunk(gateway, slug="beta", trunk_branch="master") is False
 
 
-def test_slug_collides_on_master_does_not_match_prefix_substring() -> None:
+def test_slug_collides_on_trunk_does_not_match_prefix_substring() -> None:
     """``widget`` must not collide with ``widget-rewrite/body.md``."""
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", "# wr\n")
-    assert slug_collides_on_master(gateway, slug="widget") is False
+    assert slug_collides_on_trunk(gateway, slug="widget", trunk_branch="master") is False

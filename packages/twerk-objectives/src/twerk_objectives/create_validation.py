@@ -4,9 +4,9 @@ The agent owns slug *naming* (proposing a candidate from the workstream
 brief). This module owns slug *format validation* (rejecting candidates that
 violate the lowercase-ASCII / hyphen-separated / no-``objective-``-prefix /
 no-``body.md``-suffix / 50-char-limit rules) and the canonical-collision
-check on ``master``. Both are pure data transforms — no Markdown parsing,
-no template loading, no prose synthesis. See "Markdown prose is not
-schema" in ``docs/objective-system-canonicalization-plan.md``.
+check on the repo's trunk branch. Both are pure data transforms — no
+Markdown parsing, no template loading, no prose synthesis. See "Markdown
+prose is not schema" in ``docs/objective-system-canonicalization-plan.md``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from brmem.gateway import BranchMemoryGateway
-from twerk_objectives.discovery import BODY_FILE, MASTER_BRANCH
+from twerk_objectives.discovery import BODY_FILE
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 
 SLUG_MAX_LENGTH = 50
@@ -115,8 +115,8 @@ def validate_slug_format(raw: str) -> InvalidSlug | None:
     return None
 
 
-def slug_collides_on_master(gateway: BranchMemoryGateway, *, slug: str) -> bool:
-    """Return True when ``master`` already carries any key under ``<slug>/``."""
-    entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=MASTER_BRANCH)
+def slug_collides_on_trunk(gateway: BranchMemoryGateway, *, slug: str, trunk_branch: str) -> bool:
+    """Return True when ``trunk_branch`` already carries any key under ``<slug>/``."""
+    entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=trunk_branch)
     prefix = f"{slug}/"
     return any(entry.key.startswith(prefix) for entry in entries)

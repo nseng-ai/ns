@@ -1,7 +1,7 @@
 """``objective exec create-precheck`` — read-only validation for ``objective-create``.
 
 Confirms that the agent's chosen slug is well-formed and does not collide
-with an existing canonical objective on ``master`` before the agent invests
+with an existing canonical objective on the repo's trunk branch before the agent invests
 effort in drafting ``body.md`` / ``roadmap.md`` from the templates. Hard
 preconditions (not in a git repo, detached HEAD) translate to
 :class:`ClinkrExit.failure`; recoverable conditions (slug-format invalid,
@@ -29,10 +29,9 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.create_validation import (
-    slug_collides_on_master,
+    slug_collides_on_trunk,
     validate_slug_format,
 )
-from twerk_objectives.discovery import MASTER_BRANCH
 
 PRECHECK_SCHEMA = "create-precheck/v1"
 
@@ -98,7 +97,7 @@ def render_create_precheck(result: CreatePrecheckResult) -> None:
         "Confirms repo + non-detached-HEAD, slug format (lowercase ASCII, "
         "hyphen-separated, <=50 chars, no 'objective-' prefix, no 'body.md' "
         "suffix), and absence of an existing canonical snapshot under <slug>/ "
-        "on master. Returns status='ok' (slug echoed) or status='error' "
+        "on the trunk branch. Returns status='ok' (slug echoed) or status='error' "
         "(skill picks a different slug or routes to objective-update). "
         "No template loading, no prose synthesis."
     ),
@@ -118,9 +117,11 @@ def run_create_precheck_objective(
             error_type="not_in_repo",
             message=(
                 "Not inside a git repository. Run objective-create from a checked-out "
-                "repo with canonical state on master."
+                "repo with canonical state on the trunk branch."
             ),
         )
+
+    trunk_branch = git.get_trunk_branch()
 
     match git.get_current_branch(cwd):
         case DetachedHead():
@@ -129,7 +130,7 @@ def run_create_precheck_objective(
                 message=(
                     "Detached HEAD: objective-create requires a checked-out branch "
                     "so the agent has stable context. Canonical writes always go to "
-                    f"{MASTER_BRANCH!r} regardless of the current branch."
+                    f"{trunk_branch!r} regardless of the current branch."
                 ),
             )
         case GitCommandFailure() as failure:
@@ -142,7 +143,7 @@ def run_create_precheck_objective(
         return ClinkrExit.ok(
             CreatePrecheckResult(
                 schema=PRECHECK_SCHEMA,
-                canonical_branch=MASTER_BRANCH,
+                canonical_branch=trunk_branch,
                 requested_slug=request.slug,
                 status="error",
                 slug=None,
@@ -153,18 +154,18 @@ def run_create_precheck_objective(
             )
         )
 
-    if slug_collides_on_master(gateway, slug=request.slug):
+    if slug_collides_on_trunk(gateway, slug=request.slug, trunk_branch=trunk_branch):
         return ClinkrExit.ok(
             CreatePrecheckResult(
                 schema=PRECHECK_SCHEMA,
-                canonical_branch=MASTER_BRANCH,
+                canonical_branch=trunk_branch,
                 requested_slug=request.slug,
                 status="error",
                 slug=None,
                 error=CreatePrecheckError(
                     reason="slug_collision",
                     message=(
-                        f"Canonical state on {MASTER_BRANCH!r} already carries an "
+                        f"Canonical state on {trunk_branch!r} already carries an "
                         f"objective under {request.slug!r}/. Pick a different slug or "
                         f"run `objective-update {request.slug}` to advance the existing one."
                     ),
@@ -175,7 +176,7 @@ def run_create_precheck_objective(
     return ClinkrExit.ok(
         CreatePrecheckResult(
             schema=PRECHECK_SCHEMA,
-            canonical_branch=MASTER_BRANCH,
+            canonical_branch=trunk_branch,
             requested_slug=request.slug,
             status="ok",
             slug=request.slug,
