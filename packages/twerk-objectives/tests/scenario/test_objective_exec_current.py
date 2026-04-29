@@ -24,6 +24,14 @@ from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import CommitSummary, DetachedHead
 from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.exec.current import (
+    _build_current_prompt,
+    _CurrentBranchBlock,
+    _ObjectiveSummary,
+    _StackEntry,
+    _TrunkObjectiveSummary,
+    _TrunkRow,
+)
 from twerk_objectives.main import build_cli
 
 
@@ -135,6 +143,7 @@ def test_current_detached_head(cli_group: ClinkrGroup) -> None:
 
 
 def test_current_on_trunk(cli_group: ClinkrGroup) -> None:
+    """Sitting on master with an empty registry renders a bare trunk row."""
     obj = _make_obj(
         branch="master",
         live_branches=("master",),
@@ -145,6 +154,41 @@ def test_current_on_trunk(cli_group: ClinkrGroup) -> None:
     assert "# On `master`" in out
     assert "## Stack Map" in out
     assert "master  <- current" in out
+    # current-branch-only orientation: no downstack ancestors, no upstack
+    # children — only the trunk row (which is also the current row when on
+    # master) appears in the stack map.
+    stack_block = out.split("## Stack Map", 1)[1]
+    fence_open, _, after_open = stack_block.partition("```text\n")
+    fence_body, _, _ = after_open.partition("\n```")
+    rows = [line for line in fence_body.splitlines() if line.strip()]
+    assert rows == ["master  <- current"], rows
+
+
+def test_current_on_trunk_with_n_canonicals_renders_bare_row(cli_group: ClinkrGroup) -> None:
+    """Master holding multiple canonical slugs must not be labeled with one."""
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "alpha/body.md", "master", "alpha body")
+    gateway.put("objectives", "bravo/body.md", "master", "bravo body")
+    gateway.put("objectives", "charlie/body.md", "master", "charlie body")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master",),
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    # Header still surfaces the multi-claim list (master IS the registry),
+    # but the stack-map trunk row must be bare — never labeled with the
+    # alphabetical-first slug, which would walk an agent toward maintenance
+    # work on a slug it is not engaged with.
+    stack_block = out.split("## Stack Map", 1)[1]
+    fence_open, _, after_open = stack_block.partition("```text\n")
+    fence_body, _, _ = after_open.partition("\n```")
+    rows = [line for line in fence_body.splitlines() if line.strip()]
+    assert rows == ["master  <- current"], rows
+    assert "alpha fresh" not in fence_body
+    assert "alpha stale" not in fence_body
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +373,12 @@ def test_current_pr_gateway_failure_surfaces_error(cli_group: ClinkrGroup) -> No
 
 
 def test_current_stack_map_shows_current_branch_only(cli_group: ClinkrGroup) -> None:
+    """A3: `objective-current` is current-branch orientation only.
+
+    No downstack ancestor row, no upstack child row, and (today) no trunk
+    row above the current branch. The stack map renders exactly one line:
+    the current branch.
+    """
     obj = _make_obj(
         branch="feat/current",
         live_branches=("master", "feat/current"),
@@ -337,12 +387,242 @@ def test_current_stack_map_shows_current_branch_only(cli_group: ClinkrGroup) -> 
     out = _invoke_current(cli_group, obj)
 
     assert "feat/current  no PR  no objective  <- current" in out
-    assert "<- current" in out
-    stack_lines = out.split("## Stack Map", 1)[1].splitlines()
-    current_line_idx = next(i for i, line in enumerate(stack_lines) if "<- current" in line)
-    fence_close_idx = next(
-        i
-        for i, line in enumerate(stack_lines[current_line_idx + 1 :], start=current_line_idx + 1)
-        if line.strip() == "```"
+    stack_block = out.split("## Stack Map", 1)[1]
+    _, _, after_open = stack_block.partition("```text\n")
+    fence_body, _, _ = after_open.partition("\n```")
+    rows = [line for line in fence_body.splitlines() if line.strip()]
+    assert rows == ["feat/current  no PR  no objective  <- current"], rows
+
+
+def test_current_stack_map_no_trunk_row_when_no_downstack(cli_group: ClinkrGroup) -> None:
+    """Even with master holding canonical slugs, the trunk row stays out.
+
+    A3 locks `objective-current` to current-branch-only orientation. Until
+    a stack walker returns non-empty downstack, the trunk row must not
+    appear above the current branch — otherwise master's canonical
+    registry would label every feature-branch invocation.
+    """
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "alpha/body.md", "master", "alpha body")
+    gateway.put("objectives", "bravo/body.md", "master", "bravo body")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("master", "feat/current"),
     )
-    assert fence_close_idx == current_line_idx + 1
+
+    out = _invoke_current(cli_group, obj)
+
+    stack_block = out.split("## Stack Map", 1)[1]
+    _, _, after_open = stack_block.partition("```text\n")
+    fence_body, _, _ = after_open.partition("\n```")
+    rows = [line for line in fence_body.splitlines() if line.strip()]
+    assert rows == ["feat/current  no PR  no objective  <- current"], rows
+    assert "master" not in fence_body
+
+
+def test_current_on_trunk_with_orphan_claim_renders_missing_on_master(
+    cli_group: ClinkrGroup,
+) -> None:
+    """A5 case 3: current branch claims X but master lacks body.md → orphan.
+
+    Sitting on master with slug ``widget`` listed (e.g. via a stray
+    roadmap blob) but no canonical ``widget/body.md`` is the orphan case.
+    The trunk row labels the row ``X missing on master`` so a reconcile
+    candidate is not silently mistaken for a fresh canonical record.
+    """
+    gateway = FakeBranchMemoryGateway()
+    # Orphan: roadmap exists, body.md does not — slug is listed but
+    # canonical body is missing.
+    gateway.put("objectives", "widget/roadmap.md", "master", "stray roadmap")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master",),
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    stack_block = out.split("## Stack Map", 1)[1]
+    _, _, after_open = stack_block.partition("```text\n")
+    fence_body, _, _ = after_open.partition("\n```")
+    rows = [line for line in fence_body.splitlines() if line.strip()]
+    assert rows == ["master  no PR  widget missing on master  <- current"], rows
+
+
+def test_current_on_trunk_single_canonical_uses_master_vs_master_freshness(
+    cli_group: ClinkrGroup,
+) -> None:
+    """A5 case 2: current branch claims X and master holds X → fresh|stale.
+
+    Master-vs-master freshness compares ``<X>/body.md`` last-touch on
+    master to master HEAD. Newer trunk HEAD than canonical body.md means
+    the canonical record has fallen behind — answer to "should I
+    reconcile?" — and the row is ``stale``.
+    """
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "master", "# Widget")
+    file_last_touched = {
+        ("refs/brmem/ns/objectives/master", "widget/body.md"): "2026-04-26T07:00:00+00:00",
+    }
+    branch_head_iso = {"master": "2026-04-26T08:00:00+00:00"}
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master",),
+        file_last_touched=file_last_touched,
+        branch_head_iso=branch_head_iso,
+    )
+
+    out = _invoke_current(cli_group, obj)
+
+    stack_block = out.split("## Stack Map", 1)[1]
+    _, _, after_open = stack_block.partition("```text\n")
+    fence_body, _, _ = after_open.partition("\n```")
+    rows = [line for line in fence_body.splitlines() if line.strip()]
+    assert rows == ["master  no PR  widget stale  <- current"], rows
+
+
+def _trunk_row(
+    *,
+    branch: str = "master",
+    in_scope: _TrunkObjectiveSummary | None = None,
+) -> _TrunkRow:
+    return _TrunkRow(branch=branch, pr=None, pr_error=None, in_scope=in_scope)
+
+
+def _current_block(
+    *,
+    branch: str,
+    objective: _ObjectiveSummary | None = None,
+    objectives_extra: tuple[str, ...] = (),
+) -> _CurrentBranchBlock:
+    return _CurrentBranchBlock(
+        branch=branch,
+        objective=objective,
+        objectives_extra=objectives_extra,
+        pr=None,
+        pr_error=None,
+        brmem=(),
+    )
+
+
+def _stack_entry(
+    *,
+    branch: str,
+    objective: _ObjectiveSummary | None = None,
+    deleted: bool = False,
+) -> _StackEntry:
+    return _StackEntry(
+        branch=branch,
+        objective=objective,
+        pr=None,
+        pr_error=None,
+        deleted=deleted,
+    )
+
+
+def _stack_rows(prompt: str) -> list[str]:
+    block = prompt.split("## Stack Map", 1)[1]
+    _, _, after_open = block.partition("```text\n")
+    fence_body, _, _ = after_open.partition("\n```")
+    return [line for line in fence_body.splitlines() if line.strip()]
+
+
+# ---------------------------------------------------------------------------
+# future-proof: stack map rendering with injected non-empty downstack
+# ---------------------------------------------------------------------------
+#
+# `objective exec current` hardcodes empty `ancestors` / `children` today
+# (A3 — current-branch-only orientation). When stack walking returns, the
+# trunk row will appear at the bottom of every non-trunk stack. The tests
+# below drive the rendering pipeline directly with synthetic stack entries
+# to lock the in-scope-slug rule for that future case without waiting for
+# the walker to land. The seam is the module-level `_build_current_prompt`,
+# which already takes typed stack inputs.
+
+
+def test_render_with_downstack_uses_in_scope_slug_for_trunk_row() -> None:
+    """A5 case 2 under stack walking: trunk row adopts current's claim."""
+    current = _current_block(
+        branch="feat/widget",
+        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+    )
+    trunk_row = _trunk_row(in_scope=_TrunkObjectiveSummary(slug="widget", state="fresh"))
+    parent = _stack_entry(
+        branch="feat/parent",
+        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+    )
+
+    prompt = _build_current_prompt(
+        detached_head=False,
+        trunk="master",
+        current=current,
+        trunk_row=trunk_row,
+        downstack=(parent,),
+        upstack=(),
+        warnings=(),
+    )
+
+    rows = _stack_rows(prompt)
+    assert rows == [
+        "master  no PR  widget fresh",
+        "+- feat/parent  no PR  widget fresh",
+        "   +- feat/widget  no PR  widget fresh  <- current",
+    ], rows
+
+
+def test_render_with_downstack_orphan_claim_labels_missing_on_master() -> None:
+    """A5 case 3 under stack walking: trunk row says ``missing on master``."""
+    current = _current_block(
+        branch="feat/widget",
+        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+    )
+    trunk_row = _trunk_row(
+        in_scope=_TrunkObjectiveSummary(slug="widget", state="missing_on_master"),
+    )
+    parent = _stack_entry(
+        branch="feat/parent",
+        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+    )
+
+    prompt = _build_current_prompt(
+        detached_head=False,
+        trunk="master",
+        current=current,
+        trunk_row=trunk_row,
+        downstack=(parent,),
+        upstack=(),
+        warnings=(),
+    )
+
+    rows = _stack_rows(prompt)
+    assert "master  no PR  widget missing on master" in rows[0], rows
+
+
+def test_render_with_downstack_no_claim_renders_bare_trunk_row() -> None:
+    """Non-trunk current with no claim → trunk row stays bare even with downstack.
+
+    Locks the in-scope-slug rule against accidentally falling back to
+    master's canonical registry when the current branch claims nothing.
+    """
+    current = _current_block(branch="feat/widget", objective=None)
+    trunk_row = _trunk_row(in_scope=None)
+    parent = _stack_entry(branch="feat/parent", objective=None)
+
+    prompt = _build_current_prompt(
+        detached_head=False,
+        trunk="master",
+        current=current,
+        trunk_row=trunk_row,
+        downstack=(parent,),
+        upstack=(),
+        warnings=(),
+    )
+
+    rows = _stack_rows(prompt)
+    assert rows == [
+        "master",
+        "+- feat/parent  no PR  no objective",
+        "   +- feat/widget  no PR  no objective  <- current",
+    ], rows
