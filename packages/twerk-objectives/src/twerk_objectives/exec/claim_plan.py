@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 import click
 
@@ -36,6 +36,7 @@ from twerk_objectives.discovery import (
     slug_for_key,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 PLAN_SCHEMA = "claim-plan/v1"
 
@@ -179,53 +180,6 @@ class ClaimPlanResult(JsonSerializable):
     ambiguity: ClaimPlanAmbiguity | None
     error: ClaimPlanError | None
 
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "schema": self.schema,
-            "canonical_branch": self.canonical_branch,
-            "requested_slug": self.requested_slug,
-            "requested_target": self.requested_target,
-            "requested_from_branch": self.requested_from_branch,
-            "requested_from_file": self.requested_from_file,
-            "status": self.status,
-            "plan": _plan_to_json(self.plan) if self.plan is not None else None,
-            "ambiguity": (
-                _ambiguity_to_json(self.ambiguity) if self.ambiguity is not None else None
-            ),
-            "error": _error_to_json(self.error) if self.error is not None else None,
-        }
-
-
-def _plan_to_json(plan: ClaimPlan) -> dict[str, Any]:
-    return {
-        "slug": plan.slug,
-        "target_branch": plan.target_branch,
-        "source": {
-            "kind": plan.source.kind,
-            "branch": plan.source.branch,
-            "from_file_path": plan.source.from_file_path,
-            "label": plan.source.label,
-        },
-    }
-
-
-def _ambiguity_to_json(amb: ClaimPlanAmbiguity) -> dict[str, Any]:
-    return {
-        "reason": amb.reason,
-        "message": amb.message,
-        "slug_alternatives": [
-            {"slug": s.slug, "available_on_branch": s.available_on_branch}
-            for s in amb.slug_alternatives
-        ],
-        "branch_alternatives": [
-            {"branch": b.branch, "distance": b.distance} for b in amb.branch_alternatives
-        ],
-    }
-
-
-def _error_to_json(err: ClaimPlanError) -> dict[str, Any]:
-    return {"reason": err.reason, "message": err.message}
-
 
 def render_claim_plan(result: ClaimPlanResult) -> None:
     click.echo(f"claim-plan ({result.schema}): status={result.status}")
@@ -267,9 +221,8 @@ def run_claim_plan_objective(
     mctx = load_typed_context(ctx, ObjectiveCliContext)
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
-    trunk_branch = git.get_trunk_branch()
+    trunk_branch = resolve_trunk(git).trunk
 
-    # Hard precondition: --from + --from-file are mutually exclusive.
     if request.from_branch is not None and request.from_file is not None:
         return ClinkrExit.failure(
             error_type="conflicting_source_flags",
@@ -278,7 +231,6 @@ def run_claim_plan_objective(
 
     requested_slug = _normalize_slug(request.slug)
 
-    # Hard precondition: --from / --from-file require an explicit slug.
     if (request.from_branch is not None or request.from_file is not None) and (
         requested_slug is None
     ):
@@ -290,16 +242,14 @@ def run_claim_plan_objective(
             ),
         )
 
-    # Resolve target. If --target is supplied, use it; else use the current branch.
     target_resolution = _resolve_target_branch(git, request.target)
-    if isinstance(target_resolution, _HardFailure):
+    if isinstance(target_resolution, HardFailure):
         return ClinkrExit.failure(
             error_type=target_resolution.error_type,
             message=target_resolution.message,
         )
     target_branch = target_resolution
 
-    # Hard precondition: target must not be canonical storage.
     if target_branch == trunk_branch:
         return ClinkrExit.failure(
             error_type="target_is_trunk",
@@ -309,7 +259,6 @@ def run_claim_plan_objective(
             ),
         )
 
-    # Slug resolution: explicit, or walk ancestors (with structured ambiguity).
     if requested_slug is None:
         outcome = _resolve_slug_from_ancestors(
             gateway=gateway,
@@ -332,8 +281,7 @@ def run_claim_plan_objective(
     else:
         slug = requested_slug
 
-    # Target collision check.
-    if _target_carries_slug(gateway, slug=slug, branch=target_branch):
+    if target_carries_slug(gateway, slug=slug, branch=target_branch):
         return ClinkrExit.ok(
             _envelope_for_request(
                 request=request,
@@ -352,7 +300,6 @@ def run_claim_plan_objective(
             )
         )
 
-    # Source cascade: local file -> --from branch -> ancestor branch -> canonical.
     source_outcome = _resolve_source(
         gateway=gateway,
         git=git,
@@ -437,7 +384,7 @@ def _normalize_slug(raw: str | None) -> str | None:
 
 
 @dataclass(frozen=True)
-class _HardFailure:
+class HardFailure:
     """Domain-side sentinel for "this run cannot produce a structured envelope."
 
     Translated into :class:`ClinkrExit.failure` at the CLI entry point. Keeping
@@ -453,24 +400,24 @@ class _HardFailure:
 def _resolve_target_branch(
     git: GitGateway,
     requested_target: str | None,
-) -> str | _HardFailure:
+) -> str | HardFailure:
     if requested_target is not None:
         return requested_target
     match git.get_current_branch(Path.cwd()):
         case DetachedHead():
-            return _HardFailure(
+            return HardFailure(
                 error_type="detached_head",
                 message=(
                     "Detached HEAD: claim requires a checked-out branch or an explicit --target."
                 ),
             )
         case GitCommandFailure() as failure:
-            return _HardFailure(error_type="git_failed", message=failure.message)
+            return HardFailure(error_type="git_failed", message=failure.message)
         case str() as branch:
             return branch
 
 
-def _target_carries_slug(
+def target_carries_slug(
     gateway: BranchMemoryGateway,
     *,
     slug: str,
@@ -524,7 +471,6 @@ def _resolve_slug_from_ancestors(
             available_on_branch=nearest_ancestor,
         )
 
-    # Fall through to canonical.
     canonical_slugs = _slugs_on_branch(gateway, trunk_branch)
     if not canonical_slugs:
         return _AmbiguityOutcome(
@@ -646,8 +592,6 @@ def _resolve_source(
                 reason="from_file_unreadable",
                 message=f"--from-file path does not exist or is not a file: {from_file}",
             )
-        # is_file already implies basic readability; explicit OSError check defends
-        # against permission-blocked files which is_file would call readable.
         try:
             with path.open("rb"):
                 pass
@@ -659,7 +603,7 @@ def _resolve_source(
         return PlanSource(
             kind="local_file",
             branch=None,
-            from_file_path=str(path),
+            from_file_path=from_file,
             label=f"local file {from_file}",
         )
 
@@ -681,7 +625,6 @@ def _resolve_source(
             label=f"branch {from_branch} (explicit --from)",
         )
 
-    # Nearest ancestor that carries the slug's body.md.
     candidates = _ancestor_branches_carrying_slug(
         gateway=gateway,
         git=git,
@@ -711,7 +654,6 @@ def _resolve_source(
             label=f"ancestor branch {chosen.branch}",
         )
 
-    # Canonical fallback.
     diagnostic = gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), trunk_branch)
     if diagnostic is not None:
         return PlanSource(
