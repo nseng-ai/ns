@@ -155,3 +155,13 @@ report's per-slug `conflicts` line — do not force a confident rewrite.
 - **Drift between plan and apply.** `reconcile-apply` skips that file
   with a drift reason; re-run plan to refresh, or manually inspect the
   recovery command.
+
+## Closing an objective after reconcile
+
+`reconcile` never auto-closes an objective. After a successful reconcile,
+if every Completion Criterion in the canonical `body.md` is satisfied and
+the operator agrees the work is done, run `objective close <slug>`
+(optionally with `--reason "<short note>"`) to write the canonical
+`<slug>/.closed` marker on trunk. Closure is an explicit human/skill
+action, parallel to reconcile itself; do not infer it from PR state or
+checkbox completion.

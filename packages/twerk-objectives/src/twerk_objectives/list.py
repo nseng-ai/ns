@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import click
 
@@ -16,7 +16,9 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
+    OBJECTIVE_STATES,
     ObjectiveRepoEntry,
+    ObjectiveState,
     discover_objectives,
     slug_for_key,
 )
@@ -30,6 +32,24 @@ from twerk_objectives.gateway_access import (
 class ObjectiveListRequest:
     branch: str | None = None
     here: bool = False
+    include_closed: Annotated[
+        bool,
+        click.Option(
+            ["--all"],
+            is_flag=True,
+            default=False,
+            help="Include closed objectives in the listing.",
+        ),
+    ] = False
+    closed_only: Annotated[
+        bool,
+        click.Option(
+            ["--closed"],
+            is_flag=True,
+            default=False,
+            help="Show only closed objectives.",
+        ),
+    ] = False
 
 
 @dataclass(frozen=True)
@@ -65,11 +85,32 @@ class ObjectiveListResult(JsonSerializable):
                     "slug": m.slug,
                     "files": list(m.files),
                     "canonical_present": m.canonical_present,
+                    "state": m.state,
                     "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in m.branches],
                 }
                 for m in self.objectives
             ],
         }
+
+
+def filter_by_state(
+    objectives: tuple[ObjectiveRepoEntry, ...],
+    allowed_states: frozenset[ObjectiveState],
+) -> tuple[ObjectiveRepoEntry, ...]:
+    """Return objectives whose ``state`` is in ``allowed_states``."""
+    return tuple(m for m in objectives if m.state in allowed_states)
+
+
+def _resolve_allowed_states(
+    *,
+    include_closed: bool,
+    closed_only: bool,
+) -> frozenset[ObjectiveState]:
+    if closed_only:
+        return frozenset(("closed",))
+    if include_closed:
+        return OBJECTIVE_STATES
+    return frozenset(("open",))
 
 
 def render_objective_list(result: ObjectiveListResult) -> None:
@@ -82,14 +123,23 @@ def render_objective_list(result: ObjectiveListResult) -> None:
         return
 
     slug_width = max(len("SLUG"), max(len(m.slug) for m in result.objectives))
-    header = f"{'SLUG'.ljust(slug_width)}  CANONICAL  BRANCHES"
+    states_present = {m.state for m in result.objectives}
+    show_state_column = states_present != {"open"}
+    state_width = max(len("STATE"), max(len(m.state) for m in result.objectives))
+    state_header = f"  {'STATE'.ljust(state_width)}" if show_state_column else ""
+    header = f"{'SLUG'.ljust(slug_width)}  CANONICAL{state_header}  BRANCHES"
     click.echo(header)
     for objective in result.objectives:
         canonical_cell = ("yes" if objective.canonical_present else "no").ljust(len("CANONICAL"))
         branches_cell = str(objective.live_branch_count)
         if objective.deleted_branch_count:
             branches_cell = f"{branches_cell} (+{objective.deleted_branch_count} deleted)"
-        click.echo(f"{objective.slug.ljust(slug_width)}  {canonical_cell}  {branches_cell}")
+        slug_cell = objective.slug.ljust(slug_width)
+        if show_state_column:
+            state_cell = objective.state.ljust(state_width)
+            click.echo(f"{slug_cell}  {canonical_cell}  {state_cell}  {branches_cell}")
+        else:
+            click.echo(f"{slug_cell}  {canonical_cell}  {branches_cell}")
 
 
 @clinkr_operation(
@@ -111,6 +161,11 @@ def run_list_objectives(
             error_type="conflicting_flags",
             message="--here cannot be combined with --branch.",
         )
+    if request.include_closed and request.closed_only:
+        raise ClinkrExit.failure(
+            error_type="conflicting_flags",
+            message="--all cannot be combined with --closed.",
+        )
 
     mctx = load_typed_context(ctx, ObjectiveCliContext)
 
@@ -119,6 +174,13 @@ def run_list_objectives(
             mctx.brmem_gateway,
             trunk_branch=mctx.git_gateway.get_trunk_branch(),
             is_branch_alive=mctx.git_gateway.branch_exists,
+        )
+        objectives = filter_by_state(
+            objectives,
+            _resolve_allowed_states(
+                include_closed=request.include_closed,
+                closed_only=request.closed_only,
+            ),
         )
         return ClinkrExit.ok(
             ObjectiveListResult(scope="repo", objectives=objectives),

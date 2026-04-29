@@ -31,6 +31,7 @@ from twerk_core.gh.types import PRLookupError, PRState
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.discovery import ObjectiveState, closed_key
 from twerk_objectives.freshness import classify_branch_snapshot
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
@@ -75,12 +76,14 @@ class ObjectiveTreeRequest:
 class ObjectiveTreeResult(JsonSerializable):
     slug: str
     canonical_present: bool
+    state: ObjectiveState
     entries: tuple[BranchPrEntry, ...]
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "slug": self.slug,
             "canonical_present": self.canonical_present,
+            "state": self.state,
             "entries": [
                 {
                     "branch": e.branch,
@@ -115,6 +118,7 @@ _SNAP_BADGES: dict[ObjectiveSnapshotUiState, str] = {
 def render_objective_tree(result: ObjectiveTreeResult) -> None:
     click.echo(f"slug: {result.slug}")
     click.echo(f"canonical: {'present (master)' if result.canonical_present else 'absent'}")
+    click.echo(f"state: {result.state}")
 
     if not result.entries:
         click.echo("(no branches)")
@@ -258,14 +262,19 @@ def run_tree_objective(
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
     slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
     if not slug_entries:
-        empty = ObjectiveTreeResult(slug=slug, canonical_present=False, entries=())
+        empty = ObjectiveTreeResult(slug=slug, canonical_present=False, state="open", entries=())
         raise ClinkrExit.negative(
             empty,
             message=f"No objective found for slug {slug!r}.",
         )
 
     trunk = resolve_trunk(git).trunk
-    canonical_present = any(e.branch == trunk for e in slug_entries)
+    canonical_present = any(e.branch == trunk and e.key != closed_key(slug) for e in slug_entries)
+    state: ObjectiveState = (
+        "closed"
+        if any(e.branch == trunk and e.key == closed_key(slug) for e in slug_entries)
+        else "open"
+    )
     branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk})
 
     rows = tuple(
@@ -281,5 +290,10 @@ def run_tree_objective(
     )
     rows = _sort_by_state_group(rows)
     return ClinkrExit.ok(
-        ObjectiveTreeResult(slug=slug, canonical_present=canonical_present, entries=rows),
+        ObjectiveTreeResult(
+            slug=slug,
+            canonical_present=canonical_present,
+            state=state,
+            entries=rows,
+        ),
     )

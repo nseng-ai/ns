@@ -82,7 +82,10 @@ self-contained brief:
 
 2. **If the command exits non-zero**, surface its stderr message
    verbatim. For `no_objective_on_branch` or `ambiguous_objective`,
-   tell the user to run `objective list`.
+   tell the user to run `objective list` (which hides closed
+   objectives by default; `objective list --all` includes closed and
+   `objective list --closed` shows only closed). `objective show
+   <slug>` works regardless of state.
 
 3. **If the command succeeds**, follow stdout. Copy Steps 1-2 verbatim.
    Fill Steps 3-5 from the canonical body, canonical roadmap, and notes blocks.
