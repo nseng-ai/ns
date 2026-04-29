@@ -19,9 +19,11 @@ from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.git_gateway import GitGateway
+from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
@@ -30,7 +32,12 @@ from twerk_objectives.discovery import (
     roadmap_key,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
-from twerk_objectives.slug_resolution import resolve_slug
+from twerk_objectives.slug_resolution import (
+    AmbiguousObjective,
+    NoObjectiveOnBranch,
+    SlugResolution,
+    resolve_slug,
+)
 
 
 @dataclass(frozen=True)
@@ -91,8 +98,29 @@ def run_digest_objective(
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
 
-    slug_resolution = Ensure.ideal_state(resolve_slug(mctx, request.slug))
-    slug = slug_resolution.slug
+    match resolve_slug(mctx, request.slug):
+        case GitCommandFailure() as failure:
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            raise ClinkrFailure(
+                error_type="detached_head",
+                message="Detached HEAD: brmem requires a checked-out branch.",
+            )
+        case NoObjectiveOnBranch() as missing:
+            raise ClinkrFailure(
+                error_type="no_objective_on_branch",
+                message=f"No objective on branch {missing.branch!r}.",
+            )
+        case AmbiguousObjective() as ambiguity:
+            names = ", ".join(ambiguity.slugs)
+            raise ClinkrFailure(
+                error_type="ambiguous_objective",
+                message=(
+                    f"Multiple objectives on branch {ambiguity.branch!r}: {names}. Specify a SLUG."
+                ),
+            )
+        case SlugResolution() as slug_resolution:
+            slug = slug_resolution.slug
 
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
     slug_entries = Ensure.truthy(

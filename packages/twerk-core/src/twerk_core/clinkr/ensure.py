@@ -89,7 +89,10 @@ class Ensure:
 
         Use this to collapse domain-failure match blocks at the CLI
         boundary when every failure arm of the union implements
-        `NonIdealState`.
+        `NonIdealState` and owns the default CLI wording. If the caller
+        needs context-specific wording, keep an explicit `match` /
+        `isinstance` block at the call site and raise `ClinkrFailure`
+        with that message instead.
         """
         if isinstance(value, NonIdealState):
             raise ClinkrFailure(error_type=value.error_type, message=value.message)

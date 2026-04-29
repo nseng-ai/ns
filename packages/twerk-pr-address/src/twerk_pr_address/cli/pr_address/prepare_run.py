@@ -10,8 +10,8 @@ from typing import Any
 import click
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import (
     IssueComment,
@@ -20,7 +20,7 @@ from twerk_core.gh.types import (
     PRReviewThread,
     PRState,
 )
-from twerk_core.git.types import GitCommandFailure, RestructuredFile
+from twerk_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
 from twerk_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway, get_git_gateway
 from twerk_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
 from twerk_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
@@ -144,7 +144,16 @@ def run_prepare_run(
 ) -> ClinkrExit[PrepareRunResult]:
     git_gateway = get_git_gateway(ctx)
     branch_result = git_gateway.get_current_branch(Path.cwd())
-    current_branch = Ensure.ideal_state(branch_result)
+    match branch_result:
+        case GitCommandFailure() as failure:
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            raise ClinkrFailure(
+                error_type="detached_head",
+                message="Detached HEAD: prepare-run requires a checked-out branch.",
+            )
+        case str() as current_branch:
+            pass
 
     gateway = get_gh_issue_gateway(ctx)
     pr = gateway.get_pr_for_branch(current_branch)

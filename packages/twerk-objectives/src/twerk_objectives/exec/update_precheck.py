@@ -20,7 +20,9 @@ from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
@@ -36,6 +38,9 @@ from twerk_objectives.freshness import (
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.patch_facts import load_branch_patch_facts
 from twerk_objectives.slug_resolution import (
+    AmbiguousObjective,
+    NoObjectiveOnBranch,
+    SlugResolution,
     resolve_slug,
 )
 from twerk_objectives.trunk_resolution import resolve_trunk
@@ -107,7 +112,16 @@ def run_update_precheck_objective(
     git = mctx.git_gateway
 
     current_branch_result = git.get_current_branch(Path.cwd())
-    current_branch = Ensure.ideal_state(current_branch_result)
+    match current_branch_result:
+        case GitCommandFailure() as failure:
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            raise ClinkrFailure(
+                error_type="detached_head",
+                message="Detached HEAD: objective-update requires a checked-out branch.",
+            )
+        case str() as current_branch:
+            pass
 
     Ensure.true(
         current_branch != git.get_trunk_branch(),
@@ -122,7 +136,33 @@ def run_update_precheck_objective(
 
     if request.slug is None:
         slug_result = resolve_slug(mctx, None, requested_branch=current_branch)
-        slug = Ensure.ideal_state(slug_result).slug
+        match slug_result:
+            case GitCommandFailure() as failure:
+                raise ClinkrFailure(error_type="git_failed", message=failure.message)
+            case DetachedHead():
+                raise ClinkrFailure(
+                    error_type="detached_head",
+                    message="Detached HEAD: objective-update requires a checked-out branch.",
+                )
+            case NoObjectiveOnBranch() as missing:
+                raise ClinkrFailure(
+                    error_type="no_objective_on_branch",
+                    message=(
+                        f"No objective on branch {missing.branch!r}. "
+                        "Run `objective-claim <slug>` on this branch first."
+                    ),
+                )
+            case AmbiguousObjective() as ambiguity:
+                names = ", ".join(ambiguity.slugs)
+                raise ClinkrFailure(
+                    error_type="ambiguous_objective",
+                    message=(
+                        f"Multiple objectives on branch {ambiguity.branch!r}: {names}. "
+                        "Specify a SLUG."
+                    ),
+                )
+            case SlugResolution() as resolution:
+                slug = resolution.slug
     else:
         slug = slug_for_key(request.slug)
         branch_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=current_branch)

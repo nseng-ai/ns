@@ -13,7 +13,9 @@ from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     OBJECTIVE_STATES,
@@ -199,9 +201,16 @@ def run_list_objectives(
         message=message,
     )
 
-    branch = Ensure.ideal_state(
-        resolve_current_objective_branch(mctx.git_gateway, request.branch),
-    )
+    match resolve_current_objective_branch(mctx.git_gateway, request.branch):
+        case GitCommandFailure() as failure:
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            raise ClinkrFailure(
+                error_type="detached_head",
+                message="Detached HEAD: brmem requires a checked-out branch.",
+            )
+        case str() as branch:
+            pass
 
     entries = mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
 

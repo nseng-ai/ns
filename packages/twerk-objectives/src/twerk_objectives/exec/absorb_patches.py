@@ -12,7 +12,9 @@ from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
+from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.absorbed_marker import (
     AbsorbedPatchRecord,
     records_from_commits,
@@ -92,7 +94,16 @@ def run_absorb_patches_objective(
     git = mctx.git_gateway
     cwd = Path.cwd()
 
-    current_branch = Ensure.ideal_state(git.get_current_branch(cwd))
+    match git.get_current_branch(cwd):
+        case GitCommandFailure() as failure:
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            raise ClinkrFailure(
+                error_type="detached_head",
+                message="Detached HEAD: objective-update requires a checked-out branch.",
+            )
+        case str() as current_branch:
+            pass
 
     Ensure.true(
         current_branch != git.get_trunk_branch(),

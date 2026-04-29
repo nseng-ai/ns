@@ -43,7 +43,7 @@ def test_resolve_maps_detached_head_to_failure_exit() -> None:
         resolve_current_brmem_branch(ctx, None)
 
     assert exc_info.value.error_type == "detached_head"
-    assert exc_info.value.message == "Detached HEAD: requires a checked-out branch."
+    assert exc_info.value.message == "Detached HEAD: brmem requires a checked-out branch."
 
 
 def test_resolve_maps_git_command_failure_to_failure_exit() -> None:
