@@ -200,3 +200,87 @@ def test_classify_branch_snapshot_dead_branch_is_fresh() -> None:
     )
 
     assert state == "fresh"
+
+
+def test_classify_branch_snapshot_ignores_timestamps_when_pids_absorbed() -> None:
+    """Patch-id absorption is authoritative — a stale-looking last-touch timestamp
+    must not override a marker that already covers every branch patch ID.
+    """
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(
+        "objectives",
+        "widget/.absorbed.jsonl",
+        "feat/widget",
+        (
+            '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T08:00:00+00:00","subject":"Wire widget"}\n'
+        ),
+    )
+    git = FakeGitGateway(
+        commits_by_range={
+            "master..feat/widget": (
+                CommitSummary(
+                    sha="aaa111",
+                    # Author time is much newer than any plausible snapshot
+                    # last-touch — under a timestamp contract this would be
+                    # flagged as stale. Patch-id freshness ignores it.
+                    author_iso="2099-01-01T00:00:00+00:00",
+                    subject="Wire widget",
+                ),
+            ),
+        },
+        patch_ids_by_range={"master..feat/widget": (("aaa111", "pid-1"),)},
+        file_last_touched_by_ref_path={
+            (
+                "refs/brmem/ns/objectives/feat---widget",
+                "widget/body.md",
+            ): "1970-01-01T00:00:00+00:00",
+        },
+    )
+
+    state = classify_branch_snapshot(
+        gateway,
+        git,
+        "feat/widget",
+        "widget",
+        trunk="master",
+        alive=True,
+    )
+
+    assert state == "fresh"
+
+
+def test_classify_branch_snapshot_malformed_marker_is_stale() -> None:
+    """Malformed `.absorbed.jsonl` is treated as missing — the snapshot is stale
+    when there are content patch IDs to cover.
+    """
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(
+        "objectives",
+        "widget/.absorbed.jsonl",
+        "feat/widget",
+        "this-is-not-json\n",
+    )
+    git = FakeGitGateway(
+        commits_by_range={
+            "master..feat/widget": (
+                CommitSummary(
+                    sha="aaa111",
+                    author_iso="2026-04-26T08:00:00+00:00",
+                    subject="Wire widget",
+                ),
+            ),
+        },
+        patch_ids_by_range={"master..feat/widget": (("aaa111", "pid-1"),)},
+    )
+
+    state = classify_branch_snapshot(
+        gateway,
+        git,
+        "feat/widget",
+        "widget",
+        trunk="master",
+        alive=True,
+    )
+
+    assert state == "stale"

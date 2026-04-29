@@ -9,7 +9,6 @@ rewrite/persist steps; this operation just hands it the facts.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -87,10 +86,7 @@ class ObjectiveUpdatePrecheckResult(JsonSerializable):
     body: FilePrecheck
     roadmap: FilePrecheck
     notes: FilePrecheck
-    snapshot_max_head_date: str | None
     branch_commits: tuple[BranchCommit, ...]
-    branch_max_author_iso: str | None
-    downstack_absorbed_patch_ids: tuple[str, ...]
     snapshot_absorbed_patch_ids: tuple[str, ...]
     absorbed_marker_diagnostics: tuple[str, ...]
     absorbed_patch_ids: tuple[str, ...]
@@ -181,9 +177,6 @@ def run_update_precheck_objective(
     body = _file_precheck(gateway, body_key(slug), current_branch)
     roadmap = _file_precheck(gateway, roadmap_key(slug), current_branch)
     notes = _file_precheck(gateway, notes_key(slug), current_branch)
-    snapshot_max_head_date = _max_iso(
-        f.head_date for f in (body, roadmap, notes) if f.head_date is not None
-    )
 
     trunk = resolve_trunk(git).trunk
 
@@ -200,7 +193,6 @@ def run_update_precheck_objective(
         )
         for c in facts.commits
     )
-    branch_max_author_iso = _max_iso(c.author_iso for c in branch_commits)
 
     marker = load_absorbed_marker(gateway, slug=slug, branch=current_branch)
     effective_pids = marker.patch_ids if marker.ok else None
@@ -220,10 +212,7 @@ def run_update_precheck_objective(
             body=body,
             roadmap=roadmap,
             notes=notes,
-            snapshot_max_head_date=snapshot_max_head_date,
             branch_commits=branch_commits,
-            branch_max_author_iso=branch_max_author_iso,
-            downstack_absorbed_patch_ids=(),
             snapshot_absorbed_patch_ids=tuple(sorted(marker.patch_ids)),
             absorbed_marker_diagnostics=tuple(
                 f"line {d.line}: {d.message}" for d in marker.diagnostics
@@ -258,10 +247,3 @@ def _file_precheck(
         blob_sha=diagnostic.blob_sha,
         size_bytes=diagnostic.size_bytes,
     )
-
-
-def _max_iso(values: Iterable[str]) -> str | None:
-    items = list(values)
-    if not items:
-        return None
-    return max(items)

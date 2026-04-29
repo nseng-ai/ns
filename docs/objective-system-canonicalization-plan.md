@@ -444,7 +444,7 @@ Goal: README and skill describe the same workflow.
 
 Decision (locked): current-branch-only. No source cascade, no `--source`
 flag. The README's "step 2 before step 3" example assumes the user is still
-on master at step 2 — at that point the current branch *is* canonical
+on master at step 2 — at that point the current branch _is_ canonical
 storage, and the skill's master-aware empty-branch behavior already handles
 that path. To peek at canonical state from a feature branch, use
 `objective show <slug>` rather than overloading `next`.

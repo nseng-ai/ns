@@ -82,10 +82,10 @@ Forbidden:
 
 ## Rewrite modes
 
-| Mode                   | Skill                 | Target              | Evidence                                                  | No-op rule                              |
-| ---------------------- | --------------------- | ------------------- | --------------------------------------------------------- | --------------------------------------- |
-| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot freshness                   | Snapshot fresh relative to HEAD         |
-| Canonical reconcile    | `objective-reconcile` | Canonical objective | Landed branch snapshots plus associated PR state/metadata | No landed branch/PR evidence to fold in |
+| Mode                   | Skill                 | Target              | Evidence                                                  | No-op rule                                      |
+| ---------------------- | --------------------- | ------------------- | --------------------------------------------------------- | ----------------------------------------------- |
+| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot freshness                   | Snapshot covers every `trunk..HEAD` content PID |
+| Canonical reconcile    | `objective-reconcile` | Canonical objective | Landed branch snapshots plus associated PR state/metadata | No landed branch/PR evidence to fold in         |
 
 ### Branch snapshot update
 
@@ -99,21 +99,25 @@ instead. `update` aborts on `master` in the current implementation because
 Evidence:
 
 - files currently attached under `<slug>/` on the branch
-- `head_date` metadata for those files
-- all commits on `master..HEAD`, plus any date-filtered commit view needed
-  to understand work since the snapshot
+- the machine-owned `<slug>/.absorbed.jsonl` marker recording which patch IDs
+  the snapshot has absorbed
+- all commits on `master..HEAD` and their `git patch-id` values
 
 Freshness rule:
 
-- If `master..HEAD` is empty, print the in-sync message and do not write.
-- Otherwise, use the maximum `head_date` across attached files and the
-  branch's max numeric author time over `master..HEAD` as a rebase-stable
-  staleness check. Compare them as timestamps, not lexicographic strings.
-  Author time is rebase-stable; committer time is not.
-- Do not use a date-fresh result as the sole reason to skip evidence triage.
-  Cherry-picks and imported commits can preserve old author times, and
-  `git commit --amend --reset-author` can move them. Triage `master..HEAD`
-  commits before deciding that no rewrite is needed.
+- Freshness is patch-id based. The snapshot is fresh when every non-null
+  content `patch-id` in `master..HEAD` is present in the
+  `<slug>/.absorbed.jsonl` marker. Commits with `None` patch IDs (merges,
+  empty commits) are ignored for freshness; commit SHA, subject, and author
+  time are diagnostic only.
+- If `master..HEAD` is empty, the snapshot is fresh by definition; print the
+  in-sync message and do not write.
+- A malformed `.absorbed.jsonl` marker renders the snapshot stale.
+- Do not use timestamps (snapshot file `head_date`, commit author time, or
+  committer time) as a reason to skip evidence triage. Author times survive
+  some rebases but `git commit --amend --reset-author` can move them, and
+  cherry-picks routinely preserve old author times; only the patch-id
+  marker is authoritative.
 
 ### Canonical reconcile
 

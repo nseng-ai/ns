@@ -125,9 +125,8 @@ Handle the result:
   ```
 
   `freshness` is true when every content patch ID in `trunk..HEAD` is
-  already absorbed by either a downstack ancestor or the branch snapshot's
-  `.absorbed.jsonl` marker. `data.in_sync` is a compatibility alias for
-  `data.freshness == "fresh"`.
+  already absorbed by the branch snapshot's `.absorbed.jsonl` marker.
+  `data.in_sync` is a compatibility alias for `data.freshness == "fresh"`.
 
 - **Otherwise**: carry forward `data.slug`, `data.branch`, the three
   `FilePrecheck` records (`body`, `roadmap`, `notes` — `present` flags
