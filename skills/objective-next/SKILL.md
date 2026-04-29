@@ -11,6 +11,7 @@ allowed-tools:
   - "Bash(brmem check *)"
   - "Bash(brmem get *)"
   - "Bash(brmem list *)"
+  - "Bash(objective exec update-precheck *)"
   - "Read"
   - "Write"           # session-plan stub for ExitPlanMode
   - "ExitPlanMode"    # bounce out of plan mode before reporting
@@ -163,19 +164,26 @@ Interpret them using this skill's content inventory and the anatomy in
 When the current branch is `master`, skip the freshness check (canonical
 storage's lifecycle is `objective-reconcile`, not `objective-update`).
 
-Otherwise, compare the newest `head_date` reported by
-`brmem check --format json` across the present files with the current
-branch's `git log -1 --format=%cI` time. If the branch HEAD is newer,
-include one advisory line:
+Otherwise, run the deterministic precheck and read its `freshness` field:
+
+```bash
+objective exec update-precheck <slug> --format json
+```
+
+If `data.freshness == "stale"` (or the precheck reports a malformed
+`.absorbed.jsonl` marker via `data.absorbed_marker_diagnostics`), include
+one advisory line:
 
 ```text
 Snapshot is behind HEAD on <current-branch> -- consider running
 objective-update <slug> on that branch first.
 ```
 
-If the relevant `head_sha` is reachable and cheap to compare, include the
-commit count behind; otherwise omit the count. The advisory is the important
-part.
+Do not compare `brmem check` `head_date` values to the branch HEAD time as a
+freshness shortcut. Patch-id absorption recorded in `<slug>/.absorbed.jsonl`
+is the authoritative freshness source — timestamps drift across rebases and
+cherry-picks. If the precheck fails for an unrelated reason, surface the
+error and continue without an advisory.
 
 ### 6. Report Status
 

@@ -540,6 +540,34 @@ def test_tree_reports_fresh_when_all_pids_absorbed(cli_group: ClinkrGroup) -> No
     assert entries[0]["obj_state"] == "fresh"
 
 
+def test_tree_reports_deleted_for_orphaned_branch_snapshot(cli_group: ClinkrGroup) -> None:
+    """An entry whose branch is no longer live must render as ``deleted`` —
+    callers are responsible for the deletion label even though the underlying
+    classifier returns ``fresh`` for dead branches.
+    """
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "master", "seed\n")
+    gateway.put("objectives", "widget/body.md", "feat/widget-orphan", "snap\n")
+    obj = _make_obj(
+        gateway=gateway,
+        # The snapshot branch is missing from live_branches: orphaned.
+        live_branches=("master",),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["tree", "widget", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    entries = payload["data"]["entries"]
+    assert len(entries) == 1
+    assert entries[0]["branch"] == "feat/widget-orphan"
+    assert entries[0]["obj_state"] == "deleted"
+
+
 def test_tree_reports_fresh_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")

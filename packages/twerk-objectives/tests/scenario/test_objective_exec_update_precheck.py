@@ -161,7 +161,6 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
     assert data["roadmap"]["present"] is True
     assert data["notes"]["present"] is True
 
-    assert data["snapshot_max_head_date"] == data["notes"]["head_date"]
     assert data["branch_commits"] == [
         {
             "sha": "sha-2",
@@ -176,11 +175,14 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
             "patch_id": "pid-1",
         },
     ]
-    assert data["branch_max_author_iso"] == "2026-04-26T19:00:00+00:00"
-    assert data["downstack_absorbed_patch_ids"] == []
     assert data["snapshot_absorbed_patch_ids"] == []
     assert data["absorbed_marker_diagnostics"] == []
     assert data["absorbed_patch_ids"] == []
+    # Timestamp aggregates and downstack absorption are not part of the
+    # patch-id freshness contract.
+    assert "snapshot_max_head_date" not in data
+    assert "branch_max_author_iso" not in data
+    assert "downstack_absorbed_patch_ids" not in data
 
 
 def test_precheck_only_body_present(cli_group: ClinkrGroup) -> None:
@@ -220,7 +222,6 @@ def test_precheck_only_body_present(cli_group: ClinkrGroup) -> None:
         "size_bytes": None,
     }
     assert data["notes"]["present"] is False
-    assert data["snapshot_max_head_date"] == data["body"]["head_date"]
 
 
 def test_precheck_in_sync_when_no_branch_commits(cli_group: ClinkrGroup) -> None:
@@ -243,7 +244,6 @@ def test_precheck_in_sync_when_no_branch_commits(cli_group: ClinkrGroup) -> None
     data = payload["data"]
     assert data["in_sync"] is True
     assert data["branch_commits"] == []
-    assert data["branch_max_author_iso"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +405,49 @@ def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGrou
     assert data["freshness"] == "fresh"
     assert data["snapshot_absorbed_patch_ids"] == ["pid-novel"]
     assert data["absorbed_patch_ids"] == ["pid-novel"]
+
+
+def test_precheck_freshness_ignores_branch_author_time(cli_group: ClinkrGroup) -> None:
+    """Patch-id absorption alone determines freshness — a much-newer commit author
+    time on the branch must not flip the verdict to stale.
+    """
+    gateway = _seed_objective("widget-rewrite-layer-1")
+    gateway.put(
+        "objectives",
+        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite-layer-1",
+        (
+            '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n'
+        ),
+    )
+    commits = (
+        CommitSummary(
+            sha="sha-1",
+            # Far in the future — under a timestamp contract this would look stale.
+            author_iso="2099-01-01T00:00:00+00:00",
+            subject="First",
+        ),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        current_branch="widget-rewrite-layer-1",
+        branches=("master", "widget-rewrite-layer-1"),
+        commits_by_range={"master..HEAD": commits},
+        patch_ids_by_range={"master..HEAD": (("sha-1", "pid-1"),)},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "update-precheck", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    data = payload["data"]
+    assert data["freshness"] == "fresh"
+    assert data["in_sync"] is True
 
 
 def test_precheck_malformed_marker_is_stale(cli_group: ClinkrGroup) -> None:
