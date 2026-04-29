@@ -1,4 +1,4 @@
-"""Unit tests for ``absorbed_patch_ids_for_branch``."""
+"""Unit tests for patch absorption helpers."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import GitCommandFailure
 from twerk_core.gt.testing import FakeGtGateway
 from twerk_core.gt.types import GtCommandFailure, StackInfo
-from twerk_objectives.exec.absorbed import (
+from twerk_objectives.patch_absorption import (
     AbsorbedSetUnavailable,
     absorbed_patch_ids_for_branch,
 )

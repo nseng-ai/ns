@@ -34,7 +34,6 @@ from twerk_core.gh.types import PRLookupError, PRState
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_core.gt.gateway import GtGateway
-from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import MASTER_BRANCH
 from twerk_objectives.freshness import classify_branch_snapshot
@@ -45,6 +44,7 @@ from twerk_objectives.slug_resolution import (
     SlugResolution,
     resolve_slug,
 )
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 BranchPrAction = Literal["open", "merged", "closed", "no_pr", "error"]
 ObjectiveSnapshotUiState = Literal["fresh", "stale", "deleted"]
@@ -162,14 +162,6 @@ def _title_cell(entry: BranchPrEntry) -> str:
     return "-"
 
 
-def _resolve_trunk(gt: GtGateway, cwd: Path) -> str:
-    """Return graphite's trunk; fall back to ``MASTER_BRANCH`` on failure."""
-    result = gt.trunk(cwd)
-    if isinstance(result, GtCommandFailure):
-        return MASTER_BRANCH
-    return result
-
-
 def _classify_branch(
     branch: str,
     *,
@@ -285,7 +277,7 @@ def run_tree_objective(
     branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
 
     cwd = Path.cwd()
-    trunk = _resolve_trunk(gt, cwd)
+    trunk = resolve_trunk(gt, cwd).trunk
 
     rows = tuple(
         _classify_branch(
