@@ -30,8 +30,8 @@ def run_probe(ctx: click.Context, request: ProbeRequest) -> ClinkrExit[ProbeResu
     if request.mode == "ok":
         return ClinkrExit.ok(ProbeResult(value="found"))
     if request.mode == "negative":
-        return ClinkrExit.negative(ProbeResult(value="partial"), message="nothing here")
-    return ClinkrExit.failure(error_type="bad_mode", message="boom")
+        raise ClinkrExit.negative(ProbeResult(value="partial"), message="nothing here")
+    raise ClinkrExit.failure(error_type="bad_mode", message="boom")
 
 
 def _make_group() -> ClinkrGroup:

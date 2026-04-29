@@ -96,16 +96,23 @@ def _register_operation(
 
         if format_mode == "json":
             set_machine_mode(ctx)
-            result = operation(ctx, request)
+            try:
+                result = operation(ctx, request)
+            except ClinkrExit as exit_result:
+                result = exit_result
             emit_machine_envelope(result)
             return
 
-        result = operation(ctx, request)
+        try:
+            result = operation(ctx, request)
+        except ClinkrExit as exit_result:
+            result = exit_result
         if not isinstance(result, ClinkrExit):
             raise click.ClickException(
                 f"operation '{meta.name}' did not return a ClinkrExit; got {type(result).__name__}"
             )
         if result.status is ExitStatus.OK:
+            assert result.data is not None
             renderer(result.data)
             return
         if result.status is ExitStatus.NEGATIVE:

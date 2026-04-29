@@ -94,14 +94,14 @@ def run_review_list_command(
     try:
         repo_root = git_toplevel(cwd=reviewer_context.cwd)
     except RepoRootUnavailableError as exc:
-        return ClinkrExit.failure(error_type="repo_root_unavailable", message=str(exc))
+        raise ClinkrExit.failure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except GitInvocationFailedError as exc:
-        return ClinkrExit.failure(error_type="git_invocation_failed", message=str(exc))
+        raise ClinkrExit.failure(error_type="git_invocation_failed", message=str(exc)) from exc
 
     reviews_dir = repo_root / REVIEWS_DIRNAME
 
     keys = reviewer_context.review_definition.list_reviews(reviews_dir)
     if isinstance(keys, ReviewerFailure):
-        return ClinkrExit.failure(error_type=keys.error_type, message=keys.message)
+        raise ClinkrExit.failure(error_type=keys.error_type, message=keys.message)
 
     return ClinkrExit.ok(ReviewListResult(keys=keys, reviews_dir=str(reviews_dir)))

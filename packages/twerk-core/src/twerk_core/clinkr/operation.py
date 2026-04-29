@@ -35,10 +35,12 @@ def clinkr_operation(
     """Decorator that marks a function as a clinkr operation.
 
     The decorated function must accept exactly two parameters:
-    ``(ctx: click.Context, request: <RequestType>)`` and return
-    ``ClinkrExit[T]``. Clinkr threads the active Click context in;
-    operations must never fetch it from globals. ``request_type`` and
-    ``result_types`` are inferred from the function's type annotations.
+    ``(ctx: click.Context, request: <RequestType>)`` and be annotated as
+    returning ``ClinkrExit[T]``. Successful operations return
+    ``ClinkrExit.ok(...)``; non-success exits may be raised as ``ClinkrExit``
+    exceptions. Clinkr threads the active Click context in; operations must
+    never fetch it from globals. ``request_type`` and ``result_types`` are
+    inferred from the function's type annotations.
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -71,7 +73,8 @@ def _extract_types_from_hints(
     """Infer ``(request_type, result_types)`` from a function's type annotations.
 
     The function must accept exactly two parameters — ``ctx: click.Context``
-    followed by the request dataclass — and return ``ClinkrExit[T]``.
+    followed by the request dataclass — and be annotated as returning
+    ``ClinkrExit[T]``.
     """
     fn_name = getattr(fn, "__qualname__", repr(fn))
     hints = get_type_hints(fn)

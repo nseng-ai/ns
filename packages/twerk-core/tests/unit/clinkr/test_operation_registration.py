@@ -91,7 +91,7 @@ def test_custom_renderer() -> None:
 def test_error_handling_human() -> None:
     @clinkr_operation(name="fail", help="Always fails.")
     def failing_op(ctx: click.Context, request: GreetRequest) -> ClinkrExit[GreetResult]:
-        return ClinkrExit.failure(error_type="boom", message="it broke")
+        raise ClinkrExit.failure(error_type="boom", message="it broke")
 
     group = ClinkrGroup("test", help="Test.", operations=[failing_op])
 

@@ -55,7 +55,7 @@ def run_resolve_prompt(
     cwd = Path.cwd()
 
     if git_gateway.get_git_common_dir(cwd) is None:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="not-a-git-repo",
             message=(
                 f"Not inside a git repository: {cwd}. "
@@ -75,7 +75,7 @@ def run_resolve_prompt(
     if global_path.exists():
         return ClinkrExit.ok(ResolvePromptResult(path=global_path, tier="global"))
 
-    return ClinkrExit.failure(
+    raise ClinkrExit.failure(
         error_type="prompt-not-found",
         message=(
             f"No prompt named {request.name!r} found. Checked:\n"

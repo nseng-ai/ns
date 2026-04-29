@@ -41,18 +41,18 @@ def run_resolve_thread_with_reply(
 ) -> ClinkrExit[ResolveThreadWithReplyResult]:
     if request.mode == "fixed":
         if request.message is None or not request.message.strip():
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="invalid_request",
                 message="mode='fixed' requires a non-empty message",
             )
         if request.commit_sha is None or not request.commit_sha.strip():
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="invalid_request",
                 message="mode='fixed' requires a non-empty commit_sha",
             )
     elif request.mode == "explained":
         if request.message is None or not request.message.strip():
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="invalid_request",
                 message="mode='explained' requires a non-empty message",
             )

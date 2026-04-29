@@ -125,7 +125,7 @@ def run_copy(
     )
     if validation_failure is not None:
         error_type, message = validation_failure
-        return ClinkrExit.failure(error_type=error_type, message=message)
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
     gateway = get_branch_memory_gateway(ctx)
 
@@ -156,7 +156,7 @@ def run_copy(
                 f"No entries found on branch {request.from_branch} in namespace "
                 f"{request.namespace}."
             )
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="no_matching_entries",
             message=message,
         )
@@ -177,7 +177,7 @@ def run_copy(
     conflicting_keys = sorted({entry.key for entry in source_entries} & existing_dest_keys)
     if conflicting_keys and not request.overwrite:
         joined = ", ".join(conflicting_keys)
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="destination_conflict",
             message=(
                 f"Destination branch {request.to_branch} already has entries for: "
@@ -191,7 +191,7 @@ def run_copy(
     }
     missing = [key for key, sha in source_shas.items() if sha is None]
     if missing:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="source_sha_unavailable",
             message=f"Could not resolve source commit for keys: {', '.join(missing)}",
         )
@@ -216,16 +216,16 @@ def run_copy(
             key_glob=request.key_glob,
         )
     except BrmemCopyConflictError as exc:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="destination_conflict",
             message=str(exc),
-        )
+        ) from exc
     except subprocess.CalledProcessError as exc:
         details = (exc.stderr or "").strip() or str(exc)
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="git_failure",
             message=f"Failed to copy branch memory: {details}",
-        )
+        ) from exc
 
     return ClinkrExit.ok(_result(request, plan))
 

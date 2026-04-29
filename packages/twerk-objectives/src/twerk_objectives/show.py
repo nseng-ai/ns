@@ -161,24 +161,25 @@ def run_show_objective(
     )
     if validation_failure is not None:
         error_type, message = validation_failure
-        return ClinkrExit.failure(error_type=error_type, message=message)
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
-    match resolve_slug(mctx, request.slug, requested_branch=request.branch):
+    resolution = resolve_slug(mctx, request.slug, requested_branch=request.branch)
+    match resolution:
         case GitCommandFailure() as failure:
-            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
+            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
         case DetachedHead():
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="detached_head",
                 message="Detached HEAD: brmem requires a checked-out branch.",
             )
         case NoObjectiveOnBranch(branch=branch):
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="no_objective_on_branch",
                 message=f"No objective on branch {branch!r}.",
             )
         case AmbiguousObjective(branch=branch, slugs=slugs):
             names = ", ".join(slugs)
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="ambiguous_objective",
                 message=f"Multiple objectives on branch {branch!r}: {names}. Specify a SLUG.",
             )
@@ -197,7 +198,7 @@ def run_show_objective(
             roadmap=None,
             notes=None,
         )
-        return ClinkrExit.negative(
+        raise ClinkrExit.negative(
             empty,
             message=f"No objective found for slug {requested_slug!r}.",
         )

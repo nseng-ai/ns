@@ -95,15 +95,11 @@ def _result_from_plan(
 def run_gt_land(ctx: click.Context, request: SlotGtLandRequest) -> ClinkrExit[SlotGtLandResult]:
     match load_slot_gt_context(ctx):
         case NoRepoSentinel(message=message):
-            return ClinkrExit.failure(error_type="not_in_repo", message=message)
+            raise ClinkrExit.failure(error_type="not_in_repo", message=message)
         case SlotGtContext() as gt_ctx:
             pass
 
-    match build_land_plan(gt_ctx):
-        case ClinkrExit() as exit_result:
-            return exit_result
-        case LandPlan() as plan:
-            pass
+    plan = build_land_plan(gt_ctx)
 
     if request.dry_run:
         return ClinkrExit.ok(
@@ -114,19 +110,17 @@ def run_gt_land(ctx: click.Context, request: SlotGtLandRequest) -> ClinkrExit[Sl
             )
         )
 
-    match gt_ctx.slots.pr.merge_pr(
+    merge_result = gt_ctx.slots.pr.merge_pr(
         plan.pr_number,
         match_head_commit=plan.pr_head_oid,
         admin=request.admin,
         auto=request.auto,
-    ):
-        case PRCommandError(stderr=stderr, returncode=returncode):
-            return ClinkrExit.failure(
-                error_type="merge_failed",
-                message=stderr or f"gh pr merge exited {returncode}",
-            )
-        case PRMergeResult() as merge_result:
-            pass
+    )
+    if isinstance(merge_result, PRCommandError):
+        raise ClinkrExit.failure(
+            error_type="merge_failed",
+            message=merge_result.stderr or f"gh pr merge exited {merge_result.returncode}",
+        )
 
     return ClinkrExit.ok(
         _result_from_plan(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
@@ -15,27 +14,34 @@ class ExitStatus(Enum):
     FAILURE = 2
 
 
-@dataclass(frozen=True)
-class ClinkrExit(Generic[T]):
-    status: ExitStatus
-    data: T | None = None
-    message: str | None = None
-    error_type: str | None = None
-
-    def __post_init__(self) -> None:
-        if self.status is ExitStatus.OK:
-            if self.message is not None or self.error_type is not None:
+class ClinkrExit(Exception, Generic[T]):
+    def __init__(
+        self,
+        *,
+        status: ExitStatus,
+        data: T | None = None,
+        message: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        if status is ExitStatus.OK:
+            if message is not None or error_type is not None:
                 raise ValueError("ClinkrExit.ok must not carry message or error_type")
-        elif self.status is ExitStatus.NEGATIVE:
-            if self.message is None:
+        elif status is ExitStatus.NEGATIVE:
+            if message is None:
                 raise ValueError("ClinkrExit.negative requires a message")
-            if self.error_type is not None:
+            if error_type is not None:
                 raise ValueError("ClinkrExit.negative must not carry an error_type")
-        elif self.status is ExitStatus.FAILURE:
-            if self.message is None or self.error_type is None:
+        elif status is ExitStatus.FAILURE:
+            if message is None or error_type is None:
                 raise ValueError("ClinkrExit.failure requires both error_type and message")
-            if self.data is not None:
+            if data is not None:
                 raise ValueError("ClinkrExit.failure must not carry data")
+
+        super().__init__(message or error_type or "")
+        self.status = status
+        self.data = data
+        self.message = message
+        self.error_type = error_type
 
     @classmethod
     def ok(cls, data: T) -> ClinkrExit[T]:

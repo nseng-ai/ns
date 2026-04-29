@@ -42,7 +42,6 @@ from twerk_objectives.patch_facts import load_branch_patch_facts
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
-    SlugResolution,
     resolve_slug,
 )
 from twerk_objectives.trunk_resolution import resolve_trunk
@@ -113,19 +112,18 @@ def run_update_precheck_objective(
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
 
-    match git.get_current_branch(Path.cwd()):
-        case DetachedHead():
-            return ClinkrExit.failure(
-                error_type="detached_head",
-                message="Detached HEAD: objective-update requires a checked-out branch.",
-            )
-        case GitCommandFailure() as failure:
-            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
-        case str() as current_branch:
-            pass
+    current_branch_result = git.get_current_branch(Path.cwd())
+    if isinstance(current_branch_result, DetachedHead):
+        raise ClinkrExit.failure(
+            error_type="detached_head",
+            message="Detached HEAD: objective-update requires a checked-out branch.",
+        )
+    if isinstance(current_branch_result, GitCommandFailure):
+        raise ClinkrExit.failure(error_type="git_failed", message=current_branch_result.message)
+    current_branch = current_branch_result
 
     if current_branch == MASTER_BRANCH:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="on_master_branch",
             message=(
                 "objective-update runs on branch snapshots only. "
@@ -135,38 +133,40 @@ def run_update_precheck_objective(
 
     head_result = git.branch_head_oid(current_branch)
     if isinstance(head_result, GitCommandFailure):
-        return ClinkrExit.failure(error_type="git_failed", message=head_result.message)
+        raise ClinkrExit.failure(error_type="git_failed", message=head_result.message)
 
     if request.slug is None:
-        match resolve_slug(mctx, None, requested_branch=current_branch):
-            case GitCommandFailure() as failure:
-                return ClinkrExit.failure(error_type="git_failed", message=failure.message)
-            case DetachedHead():
-                return ClinkrExit.failure(
-                    error_type="detached_head",
-                    message="Detached HEAD: objective-update requires a checked-out branch.",
-                )
-            case NoObjectiveOnBranch(branch=branch):
-                return ClinkrExit.failure(
-                    error_type="no_objective_on_branch",
-                    message=(
-                        f"No objective on branch {branch!r}. "
-                        f"Run `objective-claim <slug>` on this branch first."
-                    ),
-                )
-            case AmbiguousObjective(branch=branch, slugs=slugs):
-                names = ", ".join(slugs)
-                return ClinkrExit.failure(
-                    error_type="ambiguous_objective",
-                    message=(f"Multiple objectives on branch {branch!r}: {names}. Specify a SLUG."),
-                )
-            case SlugResolution(slug=resolved_slug):
-                slug = resolved_slug
+        slug_result = resolve_slug(mctx, None, requested_branch=current_branch)
+        if isinstance(slug_result, GitCommandFailure):
+            raise ClinkrExit.failure(error_type="git_failed", message=slug_result.message)
+        if isinstance(slug_result, DetachedHead):
+            raise ClinkrExit.failure(
+                error_type="detached_head",
+                message="Detached HEAD: objective-update requires a checked-out branch.",
+            )
+        if isinstance(slug_result, NoObjectiveOnBranch):
+            raise ClinkrExit.failure(
+                error_type="no_objective_on_branch",
+                message=(
+                    f"No objective on branch {slug_result.branch!r}. "
+                    f"Run `objective-claim <slug>` on this branch first."
+                ),
+            )
+        if isinstance(slug_result, AmbiguousObjective):
+            names = ", ".join(slug_result.slugs)
+            raise ClinkrExit.failure(
+                error_type="ambiguous_objective",
+                message=(
+                    f"Multiple objectives on branch {slug_result.branch!r}: {names}. "
+                    f"Specify a SLUG."
+                ),
+            )
+        slug = slug_result.slug
     else:
         slug = slug_for_key(request.slug)
         branch_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=current_branch)
         if not any(entry.key.startswith(f"{slug}/") for entry in branch_entries):
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="slug_not_attached",
                 message=(
                     f"Objective {slug!r} is not attached to branch {current_branch!r}. "
@@ -182,7 +182,7 @@ def run_update_precheck_objective(
 
     facts = load_branch_patch_facts(git, f"{trunk}..HEAD", require_patch_ids=False)
     if isinstance(facts, GitCommandFailure):
-        return ClinkrExit.failure(error_type="git_failed", message=facts.message)
+        raise ClinkrExit.failure(error_type="git_failed", message=facts.message)
     pid_by_sha = facts.pid_by_sha
     branch_commits = tuple(
         BranchCommit(

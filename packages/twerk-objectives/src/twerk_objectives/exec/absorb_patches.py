@@ -94,17 +94,17 @@ def run_absorb_patches_objective(
 
     match git.get_current_branch(cwd):
         case DetachedHead():
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="detached_head",
                 message="Detached HEAD: objective-update requires a checked-out branch.",
             )
         case GitCommandFailure() as failure:
-            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
+            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
         case str() as current_branch:
             pass
 
     if current_branch == MASTER_BRANCH:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="on_master_branch",
             message=(
                 "objective-update runs on branch snapshots only. "
@@ -114,9 +114,9 @@ def run_absorb_patches_objective(
 
     head_result = git.branch_head_oid(current_branch)
     if isinstance(head_result, GitCommandFailure):
-        return ClinkrExit.failure(error_type="git_failed", message=head_result.message)
+        raise ClinkrExit.failure(error_type="git_failed", message=head_result.message)
     if head_result != request.expected_head:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="head_moved",
             message=(
                 f"HEAD moved while updating {current_branch!r}: expected "
@@ -127,7 +127,7 @@ def run_absorb_patches_objective(
     slug = slug_for_key(request.slug)
     body_diagnostic = mctx.brmem_gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), current_branch)
     if body_diagnostic is None:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="slug_not_attached",
             message=(
                 f"Objective {slug!r} is not attached to branch {current_branch!r}. "
@@ -139,11 +139,11 @@ def run_absorb_patches_objective(
     range_spec = f"{trunk}..HEAD"
     facts = load_branch_patch_facts(git, range_spec, require_patch_ids=True)
     if isinstance(facts, GitCommandFailure):
-        return ClinkrExit.failure(error_type="git_failed", message=facts.message)
+        raise ClinkrExit.failure(error_type="git_failed", message=facts.message)
 
     pid_by_sha = facts.pid_by_sha
     if pid_by_sha is None:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="git_failed",
             message="git patch-id failed",
         )

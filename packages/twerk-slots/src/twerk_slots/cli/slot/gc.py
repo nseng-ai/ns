@@ -124,16 +124,16 @@ def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> 
 def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGcResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
+        raise ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     if not slots_ctx.pool_state.exists():
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",
         )
 
     if request.dry_run and request.force:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="conflicting_flags",
             message="--dry-run and --force are mutually exclusive.",
         )

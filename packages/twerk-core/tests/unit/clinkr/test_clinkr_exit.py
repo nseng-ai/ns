@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError, dataclass
+from dataclasses import dataclass
 
 import pytest
 
@@ -49,13 +49,6 @@ def test_failure_has_exit_code_two() -> None:
     assert exit_obj.data is None
     assert exit_obj.message == "detached head"
     assert exit_obj.error_type == "git_failed"
-
-
-def test_frozen_cannot_mutate() -> None:
-    exit_obj = ClinkrExit.ok(SampleData(value="hi"))
-
-    with pytest.raises(FrozenInstanceError):
-        exit_obj.message = "tamper"  # type: ignore[misc]
 
 
 def test_ok_rejects_message() -> None:
