@@ -99,11 +99,7 @@ def run_gt_land(ctx: click.Context, request: SlotGtLandRequest) -> ClinkrExit[Sl
         case SlotGtContext() as gt_ctx:
             pass
 
-    match build_land_plan(gt_ctx):
-        case ClinkrExit() as exit_result:
-            return exit_result
-        case LandPlan() as plan:
-            pass
+    plan = build_land_plan(gt_ctx)
 
     if request.dry_run:
         return ClinkrExit.ok(

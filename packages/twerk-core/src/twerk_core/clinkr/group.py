@@ -96,11 +96,10 @@ def _register_operation(
 
         if format_mode == "json":
             set_machine_mode(ctx)
-            result = operation(ctx, request)
-            emit_machine_envelope(result)
+            emit_machine_envelope(_invoke(operation, ctx, request))
             return
 
-        result = operation(ctx, request)
+        result = _invoke(operation, ctx, request)
         if not isinstance(result, ClinkrExit):
             raise click.ClickException(
                 f"operation '{meta.name}' did not return a ClinkrExit; got {type(result).__name__}"
@@ -131,6 +130,18 @@ def _register_operation(
     group.add_command(human_cmd, meta.name)
     for alias in meta.aliases:
         group._aliases[alias] = meta.name
+
+
+def _invoke(
+    operation: Callable[..., Any],
+    ctx: click.Context,
+    request: Any,
+) -> Any:
+    """Invoke a clinkr operation, catching `ClinkrExit` raised from CLI helpers."""
+    try:
+        return operation(ctx, request)
+    except ClinkrExit as exit_result:
+        return exit_result
 
 
 def _has_option(params: list[click.Parameter], flag: str) -> bool:
