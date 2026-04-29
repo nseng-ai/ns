@@ -782,3 +782,73 @@ Tier D since it carries the riskiest invariant. A1 within PR1 is the
 natural starting point — narrowest blast radius, existing test coverage,
 and it establishes the pattern for the rest of Tier A: pick one slice of
 drift, make docs/code/tests agree, and lock it with a test.
+
+## Progress
+
+PR1, PR2, and PR3 are landed as a local branch stack on top of
+`audit-obj-duplication`. Nothing is pushed and no PRs are open. Each
+slice was implemented serially with `just` exiting 0 before the next was
+started.
+
+- **PR1 — Freshness contract alignment** (A1 + A2 + freshness slice of
+  C9). Branch `obj-canonicalize/01-freshness-alignment` at `2db4c0a`.
+  8 files; 1170 tests pass.
+- **PR2 — `objective-current` scope + trunk-row bug** (A3 + A5 +
+  scenario slice of C9). Branch
+  `obj-canonicalize/02-current-scope-trunk-row` at `c910dd6`. 6 files;
+  1180 tests pass.
+- **PR3 — Skill / doc alignment sweep** (A4 + B5 + B6 + B7 + B8 +
+  remaining C9). Branch `obj-canonicalize/03-doc-alignment-sweep` at
+  `d48c984`. 15 files; 1200 tests pass.
+
+All Tier A items are landed. Tier B is landed (B7 chose permanent
+`master`; B8 chose mixed fallback with per-file source labels). C9 is
+interleaved across the three PRs as planned. Tier D remains opt-in:
+PR4 (D10 reconcile pushdown), PR5 (D11 claim pushdown), and PR6 (D13
+`objective-create`). D12 is dropped per A4.
+
+## Lessons Learned
+
+- **A1 demote-vs-remove was a clean remove.** `snapshot_max_head_date`,
+  `branch_max_author_iso`, and the always-empty
+  `downstack_absorbed_patch_ids` had zero readers outside their own
+  tests. Carrying dead schema "for diagnostics" wasn't worth the API
+  surface; if a future consumer needs them, reintroduce with an
+  explicit non-authoritative comment.
+- **A5 was silent on multi-claim feature branches.** The
+  trunk-row builder treats a current branch with zero or more than one
+  claimed slug as having no in-scope slug, so it renders a bare row
+  rather than reaching back to the alphabetical-first rule we were
+  fixing. Defensible default; revisit if multi-claim feature branches
+  ever become common.
+- **A3 + A5 interaction**: the trunk row only renders when the current
+  branch is on trunk or when downstack is non-empty. Because A3 keeps
+  downstack hardcoded empty, today the trunk row appears only on
+  on-trunk invocations. Cases 2 and 3 of the in-scope-slug rule are
+  exercised by the on-trunk single-canonical / orphan-claim tests plus
+  the injected-non-empty-downstack tests; whenever stack walking
+  returns the rule already applies.
+- **B7 keyword rename was deliberately deferred.** Locking canonical
+  storage to literal `master` is a doc/comment decision; the
+  `trunk` keyword on
+  `freshness.classify_canonical_freshness(git, *, trunk, slug)` was
+  left unchanged because renaming would ripple through call sites and
+  test fixtures for no semantic gain. The B7 contract is still locked
+  via prose.
+- **B8 label format is the contract.** File source labels in
+  `objective show` (without `--branch`) are `(canonical: master)` and
+  `(branch: <name>)`. Single source of truth is `_format_file_header`
+  in `twerk_objectives.show`; downstream renderers and tests must use
+  these exact labels.
+- **Authority Boundaries section is the right home for cross-layer
+  rules.** New contracts spanning `twerk_objectives` /
+  `skills/objective` / `brmem` / `mutation-contract.md` should extend
+  the "Authority Boundaries" section in
+  `packages/twerk-objectives/AGENTS.md` rather than duplicating prose
+  across skills. Tier D pushdowns should add their rules there too.
+- **The base ref needs to be green before slice 1.** This plan file
+  itself was failing `dprint check` at the base ref (`*is*` →
+  `_is_`); slice 1's worker correctly refused to modify the plan, so
+  the coordinator folded a `dprint fmt` of this file into slice 1's
+  commit. Future stacker runs should verify `just` exits 0 on the base
+  before launching slice 1.
