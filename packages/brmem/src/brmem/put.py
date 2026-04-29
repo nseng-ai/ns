@@ -102,7 +102,7 @@ def run_put(
     request: PutRequest,
 ) -> ClinkrExit[PutResult]:
     if request.stdin and is_machine_mode(ctx):
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="stdin_unsupported_in_json_mode",
             message=(
                 "brmem put --stdin is only supported in the human CLI; JSON mode already "
@@ -111,7 +111,7 @@ def run_put(
         )
 
     if request.stdin and request.file is not None:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="stdin_and_file_conflict",
             message="--stdin and --file are mutually exclusive.",
         )
@@ -122,7 +122,7 @@ def run_put(
     else:
         source_path = request.file if request.file is not None else _default_source(request.key)
         if source_path is None:
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="source_file_missing",
                 message=(
                     f"Cannot infer a default --file for key {request.key!r}; "
@@ -131,26 +131,26 @@ def run_put(
             )
         try:
             raw = Path(source_path).read_bytes()
-        except FileNotFoundError:
-            return ClinkrExit.failure(
+        except FileNotFoundError as exc:
+            raise ClinkrExit.failure(
                 error_type="source_file_missing",
                 message=f"Source file not found: {source_path}",
-            )
+            ) from exc
         except OSError as exc:
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="source_file_unreadable",
                 message=f"Failed to read source file {source_path}: {exc}",
-            )
+            ) from exc
         source_file = source_path
 
     if not request.force:
         if (size_msg := check_entry_size(raw)) is not None:
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="entry_too_large",
                 message=f"{source_file} {size_msg}. Pass -f / --force to override.",
             )
         if (binary_msg := check_entry_not_binary(raw)) is not None:
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="entry_appears_binary",
                 message=f"{source_file} {binary_msg}. Pass -f / --force to override.",
             )
@@ -158,16 +158,12 @@ def run_put(
     try:
         content = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="entry_not_utf8",
             message=f"{source_file} is not valid UTF-8: {exc}",
-        )
+        ) from exc
 
-    match resolve_current_brmem_branch(ctx, request.branch):
-        case ClinkrExit() as exit_:
-            return exit_
-        case str() as branch:
-            pass
+    branch = resolve_current_brmem_branch(ctx, request.branch)
 
     validation_failure = first_failure(
         (
@@ -179,7 +175,7 @@ def run_put(
     )
     if validation_failure is not None:
         error_type, message = validation_failure
-        return ClinkrExit.failure(error_type=error_type, message=message)
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
     entry_ref = EntryRef(
         namespace=request.namespace,
@@ -199,10 +195,10 @@ def run_put(
         )
     except subprocess.CalledProcessError as exc:
         details = exc.stderr.strip() or str(exc)
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="git_failure",
             message=f"Failed to write branch memory: {details}",
-        )
+        ) from exc
 
     return ClinkrExit.ok(
         PutResult(

@@ -42,6 +42,6 @@ def run_harness_show_command(
         harness_detection_gateway=reviewer_context.harness_detection,
     )
     if not isinstance(resolved, str):
-        return ClinkrExit.failure(error_type=resolved.error_type, message=resolved.message)
+        raise ClinkrExit.failure(error_type=resolved.error_type, message=resolved.message)
 
     return ClinkrExit.ok(HarnessShowResult(harness_name=resolved))

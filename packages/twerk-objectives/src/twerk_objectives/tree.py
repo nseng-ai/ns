@@ -37,7 +37,6 @@ from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
-    SlugResolution,
     resolve_slug,
 )
 from twerk_objectives.trunk_resolution import resolve_trunk
@@ -234,33 +233,34 @@ def run_tree_objective(
     git = mctx.git_gateway
     pr = mctx.pr_gateway
 
-    match resolve_slug(mctx, request.slug):
-        case GitCommandFailure() as failure:
-            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
-        case DetachedHead():
-            return ClinkrExit.failure(
-                error_type="detached_head",
-                message="Detached HEAD: brmem requires a checked-out branch.",
-            )
-        case NoObjectiveOnBranch(branch=branch):
-            return ClinkrExit.failure(
-                error_type="no_objective_on_branch",
-                message=f"No objective on branch {branch!r}.",
-            )
-        case AmbiguousObjective(branch=branch, slugs=slugs):
-            names = ", ".join(slugs)
-            return ClinkrExit.failure(
-                error_type="ambiguous_objective",
-                message=f"Multiple objectives on branch {branch!r}: {names}. Specify a SLUG.",
-            )
-        case SlugResolution(slug=slug):
-            pass
+    slug_result = resolve_slug(mctx, request.slug)
+    if isinstance(slug_result, GitCommandFailure):
+        raise ClinkrExit.failure(error_type="git_failed", message=slug_result.message)
+    if isinstance(slug_result, DetachedHead):
+        raise ClinkrExit.failure(
+            error_type="detached_head",
+            message="Detached HEAD: brmem requires a checked-out branch.",
+        )
+    if isinstance(slug_result, NoObjectiveOnBranch):
+        raise ClinkrExit.failure(
+            error_type="no_objective_on_branch",
+            message=f"No objective on branch {slug_result.branch!r}.",
+        )
+    if isinstance(slug_result, AmbiguousObjective):
+        names = ", ".join(slug_result.slugs)
+        raise ClinkrExit.failure(
+            error_type="ambiguous_objective",
+            message=(
+                f"Multiple objectives on branch {slug_result.branch!r}: {names}. Specify a SLUG."
+            ),
+        )
+    slug = slug_result.slug
 
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
     slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
     if not slug_entries:
         empty = ObjectiveTreeResult(slug=slug, canonical_present=False, entries=())
-        return ClinkrExit.negative(
+        raise ClinkrExit.negative(
             empty,
             message=f"No objective found for slug {slug!r}.",
         )

@@ -142,19 +142,18 @@ def run_prepare_run(
     request: PrepareRunRequest,
 ) -> ClinkrExit[PrepareRunResult]:
     git_gateway = get_git_gateway(ctx)
-    match git_gateway.get_current_branch(Path.cwd()):
-        case GitCommandFailure() as failure:
-            return ClinkrExit.failure(
-                error_type="git_failed",
-                message=failure.message,
-            )
-        case DetachedHead():
-            return ClinkrExit.failure(
-                error_type="detached_head",
-                message="Detached HEAD: prepare-run requires a checked-out branch.",
-            )
-        case str() as current_branch:
-            pass
+    branch_result = git_gateway.get_current_branch(Path.cwd())
+    if isinstance(branch_result, GitCommandFailure):
+        raise ClinkrExit.failure(
+            error_type="git_failed",
+            message=branch_result.message,
+        )
+    if isinstance(branch_result, DetachedHead):
+        raise ClinkrExit.failure(
+            error_type="detached_head",
+            message="Detached HEAD: prepare-run requires a checked-out branch.",
+        )
+    current_branch = branch_result
 
     gateway = get_gh_issue_gateway(ctx)
     pr = gateway.get_pr_for_branch(current_branch)
@@ -167,6 +166,7 @@ def run_prepare_run(
                 returncode=pr.returncode,
             )
         )
+    # pr is now guaranteed to be a PR object, not PRLookupError
 
     raw_reviews = gateway.get_reviews(pr.number)
     reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
@@ -190,12 +190,12 @@ def run_prepare_run(
     )
 
     restructured_files: RestructuredFiles
-    match git_gateway.get_restructured_files(Path.cwd(), pr.base_ref_name):
-        case GitCommandFailure() as failure:
-            warnings.append(failure.message)
-            restructured_files = ()
-        case tuple() as files:
-            restructured_files = files
+    files_result = git_gateway.get_restructured_files(Path.cwd(), pr.base_ref_name)
+    if isinstance(files_result, GitCommandFailure):
+        warnings.append(files_result.message)
+        restructured_files = ()
+    else:
+        restructured_files = files_result
 
     return ClinkrExit.ok(
         PrepareRunResult(

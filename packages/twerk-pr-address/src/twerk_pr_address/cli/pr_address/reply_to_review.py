@@ -37,7 +37,7 @@ def run_reply_to_review(
 ) -> ClinkrExit[ReplyToReviewResult]:
     normalized_summary = request.summary_markdown.strip()
     if not normalized_summary:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="invalid_request",
             message="summary_markdown must not be empty",
         )

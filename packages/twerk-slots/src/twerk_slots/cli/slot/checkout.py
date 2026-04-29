@@ -4,7 +4,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 import click
 
@@ -115,8 +115,8 @@ def render_slot_checkout(result: SlotCheckoutResult) -> None:
         console.print(f"[dim]Clipboard unavailable ({detail})[/dim]")
 
 
-def _pool_full_failure(outcome: PoolFullError) -> ClinkrExit[SlotCheckoutResult]:
-    return ClinkrExit.failure(
+def _pool_full_failure(outcome: PoolFullError) -> NoReturn:
+    raise ClinkrExit.failure(
         error_type="pool_full",
         message=(
             f"Pool is full. Oldest slot {outcome.oldest_slot} holds "
@@ -171,29 +171,29 @@ def run_checkout_slot(
 ) -> ClinkrExit[SlotCheckoutResult]:
     inputs_provided = sum((request.branch_name is not None, request.current))
     if inputs_provided > 1:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="mutually_exclusive_args",
             message="Pass exactly one of BRANCH_NAME or --current.",
         )
     if inputs_provided == 0:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="missing_arg",
             message="Pass BRANCH_NAME or --current to identify the branch.",
         )
     if request.current and request.new_branch:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="mutually_exclusive_args",
             message="-b/--new cannot be combined with --current.",
         )
     if request.base is not None and not request.new_branch:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="base_without_new",
             message="BASE is only valid with -b/--new.",
         )
 
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
+        raise ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
     now = datetime.now(UTC).isoformat()
@@ -204,9 +204,9 @@ def run_checkout_slot(
                 slots_ctx, cwd=slots_ctx.repo.root, now=now
             )
         except SlotAllocationError as exc:
-            return ClinkrExit.failure(error_type="slot_allocation_error", message=str(exc))
+            raise ClinkrExit.failure(error_type="slot_allocation_error", message=str(exc)) from exc
         if isinstance(current_outcome, DetachedHeadError):
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="detached_head",
                 message=(
                     f"HEAD at {current_outcome.cwd} is detached. Check out a branch "
@@ -214,7 +214,7 @@ def run_checkout_slot(
                 ),
             )
         if isinstance(current_outcome, DirtyCurrentWorktreeError):
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="dirty_worktree",
                 message=(
                     f"Current worktree at {current_outcome.cwd} has uncommitted changes. "
@@ -222,7 +222,7 @@ def run_checkout_slot(
                 ),
             )
         if isinstance(current_outcome, PoolFullError):
-            return _pool_full_failure(current_outcome)
+            _pool_full_failure(current_outcome)
         return ClinkrExit.ok(
             _build_result(
                 slots_ctx,
@@ -240,7 +240,7 @@ def run_checkout_slot(
 
     if request.new_branch:
         if branch_exists:
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="branch_exists",
                 message=(
                     f"Branch '{branch_name}' already exists. "
@@ -248,7 +248,7 @@ def run_checkout_slot(
                 ),
             )
         if request.base is not None and not slots_ctx.git.branch_exists(request.base):
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="base_missing",
                 message=f"Base branch '{request.base}' does not exist.",
             )
@@ -256,7 +256,7 @@ def run_checkout_slot(
         slots_ctx.git.create_branch(branch_name, start_point, force=False)
         created_branch = True
     elif not branch_exists:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="branch_missing",
             message=(
                 f"Branch '{branch_name}' does not exist. Pass -b/--new to create it from HEAD."
@@ -269,7 +269,7 @@ def run_checkout_slot(
         now=now,
     )
     if isinstance(outcome, PoolFullError):
-        return _pool_full_failure(outcome)
+        _pool_full_failure(outcome)
     return ClinkrExit.ok(
         _build_result(
             slots_ctx,

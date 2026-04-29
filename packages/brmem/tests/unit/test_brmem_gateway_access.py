@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
+import pytest
 
 from brmem.context import BrmemCliContext
 from brmem.fake import FakeBranchMemoryGateway
@@ -38,12 +39,12 @@ def test_resolve_returns_current_branch_when_requested_is_none() -> None:
 def test_resolve_maps_detached_head_to_failure_exit() -> None:
     ctx = _ctx_with_git(FakeGitGateway(current_branch_by_path={Path.cwd(): DetachedHead()}))
 
-    result = resolve_current_brmem_branch(ctx, None)
+    with pytest.raises(ClinkrExit) as exc_info:
+        resolve_current_brmem_branch(ctx, None)
 
-    assert isinstance(result, ClinkrExit)
-    assert result.status is ExitStatus.FAILURE
-    assert result.error_type == "detached_head"
-    assert result.message == "Detached HEAD: brmem requires a checked-out branch."
+    assert exc_info.value.status is ExitStatus.FAILURE
+    assert exc_info.value.error_type == "detached_head"
+    assert exc_info.value.message == "Detached HEAD: brmem requires a checked-out branch."
 
 
 def test_resolve_maps_git_command_failure_to_failure_exit() -> None:
@@ -55,9 +56,9 @@ def test_resolve_maps_git_command_failure_to_failure_exit() -> None:
         ),
     )
 
-    result = resolve_current_brmem_branch(ctx, None)
+    with pytest.raises(ClinkrExit) as exc_info:
+        resolve_current_brmem_branch(ctx, None)
 
-    assert isinstance(result, ClinkrExit)
-    assert result.status is ExitStatus.FAILURE
-    assert result.error_type == "git_failed"
-    assert result.message == "boom"
+    assert exc_info.value.status is ExitStatus.FAILURE
+    assert exc_info.value.error_type == "git_failed"
+    assert exc_info.value.message == "boom"

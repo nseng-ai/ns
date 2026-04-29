@@ -57,7 +57,7 @@ def run_reply_to_discussion(
 ) -> ClinkrExit[ReplyToDiscussionResult]:
     normalized_response = request.response.strip()
     if not normalized_response:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="invalid_request",
             message="response must not be empty",
         )

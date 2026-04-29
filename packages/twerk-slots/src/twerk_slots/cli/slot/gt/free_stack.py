@@ -11,7 +11,7 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead
 from twerk_core.git.types import GitCommandFailure as GitFailure
-from twerk_core.gt.types import GtCommandFailure, StackInfo
+from twerk_core.gt.types import GtCommandFailure
 from twerk_slots.allocation import (
     DirtyWorktreeError,
     SlotAllocationError,
@@ -23,7 +23,7 @@ from twerk_slots.cli.slot.free import (
     partial_failure,
     validate_assigned_and_clean,
 )
-from twerk_slots.cli.slot.gt.context import SlotGtContext, load_slot_gt_context
+from twerk_slots.cli.slot.gt.context import load_slot_gt_context
 from twerk_slots.cli.slot.gt.stack_walk import collect_stack_branches
 from twerk_slots.repo_context import NoRepoSentinel
 
@@ -71,32 +71,28 @@ def render_slot_gt_free_stack(result: SlotGtFreeStackResult) -> None:
 def run_gt_free_stack(
     ctx: click.Context, request: SlotGtFreeStackRequest
 ) -> ClinkrExit[SlotGtFreeStackResult]:
-    match load_slot_gt_context(ctx):
-        case NoRepoSentinel(message=message):
-            return ClinkrExit.failure(error_type="not_in_repo", message=message)
-        case SlotGtContext() as gt_ctx:
-            pass
+    gt_ctx = load_slot_gt_context(ctx)
+    if isinstance(gt_ctx, NoRepoSentinel):
+        raise ClinkrExit.failure(error_type="not_in_repo", message=gt_ctx.message)
 
     slots_ctx = gt_ctx.slots
-    match slots_ctx.git.get_current_branch(slots_ctx.repo.root):
-        case GitFailure(message=message):
-            return ClinkrExit.failure(
-                error_type="git_current_branch_failed",
-                message=message,
-            )
-        case DetachedHead():
-            return ClinkrExit.failure(
-                error_type="detached_head",
-                message=f"HEAD at {slots_ctx.repo.root} is detached. Check out a branch first.",
-            )
-        case str() as current:
-            pass
+    current_result = slots_ctx.git.get_current_branch(slots_ctx.repo.root)
+    if isinstance(current_result, GitFailure):
+        raise ClinkrExit.failure(
+            error_type="git_current_branch_failed",
+            message=current_result.message,
+        )
+    if isinstance(current_result, DetachedHead):
+        raise ClinkrExit.failure(
+            error_type="detached_head",
+            message=f"HEAD at {slots_ctx.repo.root} is detached. Check out a branch first.",
+        )
+    current = current_result
 
-    match gt_ctx.gt.trunk(slots_ctx.repo.root):
-        case GtCommandFailure(message=message):
-            return ClinkrExit.failure(error_type="gt_trunk_failed", message=message)
-        case str() as trunk:
-            pass
+    trunk_result = gt_ctx.gt.trunk(slots_ctx.repo.root)
+    if isinstance(trunk_result, GtCommandFailure):
+        raise ClinkrExit.failure(error_type="gt_trunk_failed", message=trunk_result.message)
+    trunk = trunk_result
 
     if current == trunk:
         return ClinkrExit.ok(
@@ -109,17 +105,16 @@ def run_gt_free_stack(
         )
 
     if not slots_ctx.pool_state.exists():
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="pool_empty",
             message="No pool configured. Run `slot checkout` first.",
         )
     state = slots_ctx.pool_state.load()
 
-    match gt_ctx.gt.stack(slots_ctx.repo.root):
-        case GtCommandFailure(message=message):
-            return ClinkrExit.failure(error_type="gt_stack_failed", message=message)
-        case StackInfo() as stack:
-            pass
+    stack_result = gt_ctx.gt.stack(slots_ctx.repo.root)
+    if isinstance(stack_result, GtCommandFailure):
+        raise ClinkrExit.failure(error_type="gt_stack_failed", message=stack_result.message)
+    stack = stack_result
 
     stack_branches = collect_stack_branches(stack, current=current, trunk=trunk)
 
@@ -153,7 +148,7 @@ def run_gt_free_stack(
     targets_tuple = tuple(targets)
     preflight_errors = validate_assigned_and_clean(slots_ctx, state, targets_tuple)
     if preflight_errors:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="invalid_slot_args",
             message="\n".join(preflight_errors),
         )
@@ -163,15 +158,15 @@ def run_gt_free_stack(
         try:
             outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
         except SlotAllocationError as exc:
-            return partial_failure(freed, error_type="slot_allocation_error", message=str(exc))
+            partial_failure(freed, error_type="slot_allocation_error", message=str(exc))
         if isinstance(outcome, SlotNotAssignedError):
-            return partial_failure(
+            partial_failure(
                 freed,
                 error_type="slot_not_assigned",
                 message=f"{slot_name} is not currently assigned (state changed during free).",
             )
         if isinstance(outcome, DirtyWorktreeError):
-            return partial_failure(
+            partial_failure(
                 freed,
                 error_type="dirty_worktree",
                 message=(

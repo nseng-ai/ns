@@ -97,22 +97,23 @@ def run_digest_objective(
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
 
-    match resolve_slug(mctx, request.slug):
+    slug_result = resolve_slug(mctx, request.slug)
+    match slug_result:
         case GitCommandFailure() as failure:
-            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
+            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
         case DetachedHead():
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="detached_head",
                 message="Detached HEAD: brmem requires a checked-out branch.",
             )
         case NoObjectiveOnBranch(branch=branch):
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="no_objective_on_branch",
                 message=f"No objective on branch {branch!r}.",
             )
         case AmbiguousObjective(branch=branch, slugs=slugs):
             names = ", ".join(slugs)
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="ambiguous_objective",
                 message=f"Multiple objectives on branch {branch!r}: {names}. Specify a SLUG.",
             )
@@ -122,7 +123,7 @@ def run_digest_objective(
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
     slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
     if not slug_entries:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="slug_not_seeded",
             message=(
                 f"No objective found for slug {slug!r}. "
@@ -131,7 +132,7 @@ def run_digest_objective(
         )
     seed_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
     if not seed_present:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="slug_not_seeded",
             message=(
                 f"Objective {slug!r} has branch snapshots but no master seed. "

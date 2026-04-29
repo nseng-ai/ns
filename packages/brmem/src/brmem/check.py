@@ -81,11 +81,7 @@ def run_check(
     ctx: click.Context,
     request: CheckRequest,
 ) -> ClinkrExit[CheckResult]:
-    match resolve_current_brmem_branch(ctx, request.branch):
-        case ClinkrExit() as exit_:
-            return exit_
-        case str() as branch:
-            pass
+    branch = resolve_current_brmem_branch(ctx, request.branch)
 
     failure = first_failure(
         (
@@ -97,7 +93,7 @@ def run_check(
     )
     if failure is not None:
         error_type, message = failure
-        return ClinkrExit.failure(error_type=error_type, message=message)
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
     entry_ref = EntryRef(
         namespace=request.namespace,
@@ -130,7 +126,7 @@ def run_check(
             size_bytes=None,
         )
         namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
-        return ClinkrExit.negative(
+        raise ClinkrExit.negative(
             absent,
             message=(
                 f"not found: key={entry_ref.key} namespace={namespace_label} "

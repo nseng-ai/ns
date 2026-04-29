@@ -119,16 +119,20 @@ def run_review_command(
             harness_detection_gateway=reviewer_context.harness_detection,
         )
     except ReviewDefinitionReadError as exc:
-        return ClinkrExit.failure(error_type="review_definition_read_failed", message=str(exc))
+        raise ClinkrExit.failure(
+            error_type="review_definition_read_failed", message=str(exc)
+        ) from exc
     except ReviewExecutorInvocationError as exc:
-        return ClinkrExit.failure(error_type="review_execution_invocation_failed", message=str(exc))
+        raise ClinkrExit.failure(
+            error_type="review_execution_invocation_failed", message=str(exc)
+        ) from exc
     except RepoRootUnavailableError as exc:
-        return ClinkrExit.failure(error_type="repo_root_unavailable", message=str(exc))
+        raise ClinkrExit.failure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except GitInvocationFailedError as exc:
-        return ClinkrExit.failure(error_type="git_invocation_failed", message=str(exc))
+        raise ClinkrExit.failure(error_type="git_invocation_failed", message=str(exc)) from exc
     except GitDiffFailedError as exc:
-        return ClinkrExit.failure(error_type="git_diff_failed", message=str(exc))
+        raise ClinkrExit.failure(error_type="git_diff_failed", message=str(exc)) from exc
 
     if isinstance(result, LocalReviewResult):
         return ClinkrExit.ok(result)
-    return ClinkrExit.failure(error_type=result.error_type, message=result.message)
+    raise ClinkrExit.failure(error_type=result.error_type, message=result.message)

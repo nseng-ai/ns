@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import click
 
@@ -33,21 +32,23 @@ def get_home_root(ctx: click.Context) -> Path:
 def resolve_current_brmem_branch(
     ctx: click.Context,
     requested_branch: str | None,
-) -> str | ClinkrExit[Any]:
+) -> str:
     """Return ``requested_branch`` when set, else the current HEAD branch.
 
     Translates ``DetachedHead`` and ``GitCommandFailure`` from the git gateway
-    into the standard brmem ``ClinkrExit.failure`` payloads so callers can
-    propagate the exit directly.
+    into ClinkrExit exceptions, raising on error.
+
+    Raises:
+        ClinkrExit: On git command failure or detached HEAD.
     """
     if requested_branch is not None:
         return requested_branch
 
     match get_git_gateway(ctx).get_current_branch(Path.cwd()):
         case GitCommandFailure() as failure:
-            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
+            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
         case DetachedHead():
-            return ClinkrExit.failure(
+            raise ClinkrExit.failure(
                 error_type="detached_head",
                 message="Detached HEAD: brmem requires a checked-out branch.",
             )

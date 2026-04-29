@@ -108,7 +108,7 @@ def run_current_objective(
 
     branch_or_failure = mctx.git_gateway.get_current_branch(cwd)
     if isinstance(branch_or_failure, GitCommandFailure):
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="git_failed",
             message=branch_or_failure.message,
         )

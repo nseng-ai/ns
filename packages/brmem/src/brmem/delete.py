@@ -75,11 +75,7 @@ def run_delete(
     ctx: click.Context,
     request: DeleteRequest,
 ) -> ClinkrExit[DeleteResult]:
-    match resolve_current_brmem_branch(ctx, request.branch):
-        case ClinkrExit() as exit_:
-            return exit_
-        case str() as branch:
-            pass
+    branch = resolve_current_brmem_branch(ctx, request.branch)
 
     failure = first_failure(
         (
@@ -91,7 +87,7 @@ def run_delete(
     )
     if failure is not None:
         error_type, message = failure
-        return ClinkrExit.failure(error_type=error_type, message=message)
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
     entry_ref = EntryRef(
         namespace=request.namespace,
@@ -110,20 +106,20 @@ def run_delete(
         )
     except KeyNotFoundError as exc:
         namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="key_not_found",
             message=(
                 f"No entry to delete: key={entry_ref.key} namespace={namespace_label} "
                 f"branch={entry_ref.branch} at {entry_ref.ref_name}. "
                 f"Underlying error: {exc}"
             ),
-        )
+        ) from exc
     except subprocess.CalledProcessError as exc:
         details = (exc.stderr or "").strip() or str(exc)
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="git_failure",
             message=f"Failed to delete branch memory: {details}",
-        )
+        ) from exc
 
     return ClinkrExit.ok(
         DeleteResult(

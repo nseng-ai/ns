@@ -107,7 +107,7 @@ def run_list_objectives(
     request: ObjectiveListRequest,
 ) -> ClinkrExit[ObjectiveListResult]:
     if request.here and request.branch is not None:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="conflicting_flags",
             message="--here cannot be combined with --branch.",
         )
@@ -131,18 +131,16 @@ def run_list_objectives(
     )
     if validation_failure is not None:
         error_type, message = validation_failure
-        return ClinkrExit.failure(error_type=error_type, message=message)
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
-    match resolve_current_objective_branch(mctx.git_gateway, request.branch):
-        case GitCommandFailure() as failure:
-            return ClinkrExit.failure(error_type="git_failed", message=failure.message)
-        case DetachedHead():
-            return ClinkrExit.failure(
-                error_type="detached_head",
-                message="Detached HEAD: brmem requires a checked-out branch.",
-            )
-        case str() as branch:
-            pass
+    branch = resolve_current_objective_branch(mctx.git_gateway, request.branch)
+    if isinstance(branch, GitCommandFailure):
+        raise ClinkrExit.failure(error_type="git_failed", message=branch.message)
+    if isinstance(branch, DetachedHead):
+        raise ClinkrExit.failure(
+            error_type="detached_head",
+            message="Detached HEAD: brmem requires a checked-out branch.",
+        )
 
     entries = mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
 

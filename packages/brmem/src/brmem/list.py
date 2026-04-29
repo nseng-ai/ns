@@ -57,7 +57,7 @@ def run_list_entries(
     request: ListEntriesRequest,
 ) -> ClinkrExit[ListEntriesResult]:
     if request.base and request.namespace is not None:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="base_and_namespace_conflict",
             message="--base and --namespace are mutually exclusive.",
         )
@@ -75,13 +75,9 @@ def run_list_entries(
     )
     if validation_failure is not None:
         error_type, message = validation_failure
-        return ClinkrExit.failure(error_type=error_type, message=message)
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
-    match resolve_current_brmem_branch(ctx, request.branch):
-        case ClinkrExit() as exit_:
-            return exit_
-        case str() as branch:
-            pass
+    branch = resolve_current_brmem_branch(ctx, request.branch)
 
     gateway = get_branch_memory_gateway(ctx)
     entries = gateway.list_entries(

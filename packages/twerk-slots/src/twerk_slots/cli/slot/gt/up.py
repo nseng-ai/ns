@@ -10,7 +10,7 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead
 from twerk_core.git.types import GitCommandFailure as GitFailure
 from twerk_core.gt.types import GtCommandFailure, UntrackedBranch
-from twerk_slots.cli.slot.gt.context import SlotGtContext, load_slot_gt_context
+from twerk_slots.cli.slot.gt.context import load_slot_gt_context
 from twerk_slots.cli.slot.gt.navigation import (
     GtNavigationTarget,
     build_navigation_result,
@@ -34,51 +34,48 @@ class SlotGtUpRequest:
     human_renderer=render_gt_navigation,
 )
 def run_gt_up(ctx: click.Context, request: SlotGtUpRequest) -> ClinkrExit[GtNavigationTarget]:
-    match load_slot_gt_context(ctx):
-        case NoRepoSentinel(message=message):
-            return ClinkrExit.failure(error_type="not_in_repo", message=message)
-        case SlotGtContext() as gt_ctx:
-            pass
+    gt_ctx = load_slot_gt_context(ctx)
+    if isinstance(gt_ctx, NoRepoSentinel):
+        raise ClinkrExit.failure(error_type="not_in_repo", message=gt_ctx.message)
 
     slots_ctx = gt_ctx.slots
-    match slots_ctx.git.get_current_branch(slots_ctx.repo.root):
-        case GitFailure(message=message):
-            return ClinkrExit.failure(
-                error_type="git_current_branch_failed",
-                message=message,
-            )
-        case DetachedHead():
-            return ClinkrExit.failure(
-                error_type="detached_head",
-                message=f"HEAD at {slots_ctx.repo.root} is detached. Check out a branch first.",
-            )
-        case str() as current:
-            pass
+    current_branch = slots_ctx.git.get_current_branch(slots_ctx.repo.root)
+    if isinstance(current_branch, GitFailure):
+        raise ClinkrExit.failure(
+            error_type="git_current_branch_failed",
+            message=current_branch.message,
+        )
+    if isinstance(current_branch, DetachedHead):
+        raise ClinkrExit.failure(
+            error_type="detached_head",
+            message=f"HEAD at {slots_ctx.repo.root} is detached. Check out a branch first.",
+        )
+    current = current_branch
 
-    match gt_ctx.gt.children_of(slots_ctx.repo.root):
-        case UntrackedBranch(message=message):
-            return ClinkrExit.failure(
-                error_type="untracked_branch",
-                message=f"Current branch '{current}' is not tracked by Graphite. {message}",
+    children = gt_ctx.gt.children_of(slots_ctx.repo.root)
+    if isinstance(children, UntrackedBranch):
+        raise ClinkrExit.failure(
+            error_type="untracked_branch",
+            message=f"Current branch '{current}' is not tracked by Graphite. {children.message}",
+        )
+    if isinstance(children, GtCommandFailure):
+        raise ClinkrExit.failure(error_type="gt_children_failed", message=children.message)
+    if isinstance(children, tuple) and len(children) == 0:
+        raise ClinkrExit.negative(message=f"No upstack branch for '{current}'.")
+    if isinstance(children, tuple) and len(children) > 1:
+        candidates = ", ".join(children)
+        raise ClinkrExit.negative(
+            message=(
+                f"Multiple upstack branches for '{current}': {candidates}. "
+                "Run `slot checkout <branch>` for the branch you want."
             )
-        case GtCommandFailure(message=message):
-            return ClinkrExit.failure(error_type="gt_children_failed", message=message)
-        case ():
-            return ClinkrExit.negative(message=f"No upstack branch for '{current}'.")
-        case (child,):
-            pass
-        case children:
-            candidates = ", ".join(children)
-            return ClinkrExit.negative(
-                message=(
-                    f"Multiple upstack branches for '{current}': {candidates}. "
-                    "Run `slot checkout <branch>` for the branch you want."
-                )
-            )
+        )
+
+    (child,) = children
 
     target = find_worktree_for_branch(slots_ctx, child)
     if target is None:
-        return ClinkrExit.negative(
+        raise ClinkrExit.negative(
             message=(
                 f"Upstack branch '{child}' is not checked out in any worktree. "
                 f"Run `slot checkout {child}`."

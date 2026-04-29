@@ -72,7 +72,7 @@ def run_completion_show(
 ) -> ClinkrExit[CompletionShowResult]:
     shell = request.shell or _detect_shell()
     if shell not in _SUPPORTED_SHELLS:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="unsupported_shell",
             message=_unsupported_shell_message(shell),
         )
@@ -120,7 +120,7 @@ def run_completion_install(
 ) -> ClinkrExit[CompletionInstallResult]:
     shell = request.shell or _detect_shell()
     if shell not in _SUPPORTED_SHELLS:
-        return ClinkrExit.failure(
+        raise ClinkrExit.failure(
             error_type="unsupported_shell",
             message=_unsupported_shell_message(shell),
         )
