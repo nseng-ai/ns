@@ -4,6 +4,8 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_objectives.exec.absorb_patches import run_absorb_patches_objective
 from twerk_objectives.exec.current import run_current_objective
 from twerk_objectives.exec.digest import run_digest_objective
+from twerk_objectives.exec.reconcile_apply import run_reconcile_apply_objective
+from twerk_objectives.exec.reconcile_plan import run_reconcile_plan_objective
 from twerk_objectives.exec.update_precheck import run_update_precheck_objective
 
 
@@ -16,6 +18,8 @@ def build_exec_group() -> ClinkrGroup:
             run_current_objective,
             run_update_precheck_objective,
             run_absorb_patches_objective,
+            run_reconcile_plan_objective,
+            run_reconcile_apply_objective,
         ],
         hidden=True,
     )

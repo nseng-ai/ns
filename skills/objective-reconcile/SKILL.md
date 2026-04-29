@@ -2,27 +2,21 @@
 name: objective-reconcile
 description: "Command: objective-reconcile"
 allowed-tools:
-  - "Bash(git rev-parse *)"
-  - "Bash(git for-each-ref *)"
-  - "Bash(git ls-tree *)"
-  - "Bash(git log *)"
-  - "Bash(objective list *)"
-  - "Bash(objective tree *)"
-  - "Bash(gh pr view *)"
-  - "Bash(brmem check *)"
-  - "Bash(brmem get *)"
-  - "Bash(brmem list *)"
-  - "Bash(brmem put *)"
-  - "Agent"
-  - "Task"
+  - "Bash(objective exec reconcile-plan *)"
+  - "Bash(objective exec reconcile-apply *)"
   - "Read"
   - "Write"
 ---
 
 # objective-reconcile
 
-Refresh the canonical objective from landed branch snapshots and the merged
-PRs associated with those branches.
+Refresh canonical objectives on `master` from landed branch snapshots and
+their merged PRs. The deterministic mechanics — slug-set resolution,
+canonical-presence checks, branch-snapshot enumeration, PR-state gating,
+old-SHA capture, and serial canonical writes — live in
+`objective exec reconcile-plan` / `objective exec reconcile-apply`. This
+skill is a thin workflow that drives those commands and performs the
+conservative semantic rewrite over raw Markdown.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
 > rewrite rules, see `../objective/SKILL.md` and
@@ -30,383 +24,134 @@ PRs associated with those branches.
 
 ## Goal
 
-Sweep every canonical objective on the trunk branch and rewrite each one
-conservatively by exploring the branch snapshots that carry `<slug>/`,
-cross-referencing their associated PRs, and folding only landed evidence into
-canonical `body.md`, `roadmap.md`, and `notes.md`.
+Sweep every canonical objective on `master` and rewrite each one
+conservatively, folding only landed branch evidence (merged PRs) into
+canonical `body.md`, `roadmap.md`, and `notes.md`. The default scope is
+**all** canonical objectives on `master`. An optional slug or
+comma-separated slug list narrows the sweep without otherwise changing
+the per-slug procedure.
 
-The default scope is **all** canonical objectives on trunk. An optional
-slug or comma-separated slug list narrows the sweep to one or a few
-objectives without otherwise changing the per-slug procedure.
+## Core invariants enforced by code (not prose)
 
-Canonical state is stored in `brmem` on the repo's trunk branch.
-`reconcile` always targets canonical state on the trunk branch,
-regardless of the operator's working-tree branch — `brmem` ref operations
-are branch-independent, so the command can be invoked from any branch
-(including a feature branch) and still reads/writes only the trunk's
-canonical objectives. It never writes to branch snapshots and never copies
-one snapshot verbatim onto canonical state. Open PRs and unmerged branches
-remain branch-local state for higher-level views; reconcile must not
-incorporate them into canonical state.
+These are guaranteed by `objective exec reconcile-plan` and
+`objective exec reconcile-apply`; you do not need to re-implement them:
 
-## Content Files
-
-Read every present canonical file under `<slug>/` on the trunk branch (`body.md`
-required; `roadmap.md` / `notes.md` optional) and rewrite only files whose
-content changed. Read branch snapshot files only when their associated PRs
-are merged. Branch snapshots and PRs are evidence only; never write to them.
-
-## Inputs
-
-- **Slug or slug list, optional.** When omitted, the sweep covers every
-  canonical objective on the trunk branch. When provided as a single slug or a
-  comma-separated list, the sweep is narrowed to those slugs. Each
-  operator-supplied slug must already exist canonically; unknown slugs are
-  recorded as a per-slug gap and skipped.
-
-## Core Rules
-
-- **Canonical state only.** `reconcile` writes only to the canonical
-  `<slug>/` on the trunk branch; never to branch snapshots, other branches, or PRs.
-- **Always targets trunk.** `reconcile` always reads and writes
-  canonical state on the trunk branch regardless of the operator's working-tree
-  branch. The current branch is never consulted; the command runs from
-  any branch (or detached `HEAD`) without changing scope.
-- **Slug optional; sweep by default.** With no slug argument, reconcile
-  every canonical objective on the trunk branch. Narrow only when the operator
-  passes explicit slugs.
-- **Per-slug work runs in subagents.** Parent spawns one subagent per slug
-  resolved in step 2; the subagent owns 3a–3e for that slug and returns a
-  handoff document. The parent must not run any per-slug evidence-gathering
-  command itself.
-- **Parent owns canonical writes.** All `brmem put` calls happen in the
-  parent after subagents return, dispatched serially in slug order.
-  Concurrent `brmem put` against the shared
-  `refs/brmem/ns/objectives/<encoded-trunk>` snapshot ref clobber each
-  other even when writes target disjoint key paths, so this serialization
-  is required.
-- **Per-objective issues are gaps, not aborts.** When one slug hits a
-  problem (missing canonical `body.md`, PR lookup error, contradictory
-  evidence), record the gap for that slug and continue with the next one.
-  The sweep aborts only on whole-run preconditions (not in a git repo).
-- **Only landed work enters canonical state.** Use merged PR-backed branch
-  snapshots to inform the rewrite. Do not fold open PRs, closed-unmerged PRs,
-  no-PR branches, or orphaned snapshots into canonical state.
-- **Verbatim copy forbidden.** Sibling text is evidence, not source. Fuse
-  evidence under the per-file mutation contract.
-- **No freshness shortcut.** Always evaluate available branch/PR state, but
-  fold only landed evidence. Sibling changes do not bump canonical HEAD, so
-  HEAD-vs-snapshot checks are invalid here.
-- **In-repo enumeration only.** Discover branch snapshots from local
-  `refs/brmem/ns/objectives/` (or the `objective tree` helper). Do not
-  fetch from remotes during reconcile.
-- **PR errors are gaps, not failures.** A failed PR lookup becomes an
-  evidence gap in the report unless every PR lookup needed for the
-  requested reconciliation is unavailable.
-- **Conservative per-file rewrites.** Apply the shared rules in
-  `../objective/references/mutation-contract.md`. Do not rebuild
-  canonical files wholesale, delete completed history, or rename sections.
+- **Parent-only serial canonical writes.** All `brmem put` calls run
+  serially inside `reconcile-apply`. There is no parallel write path. All
+  canonical objective files share the
+  `refs/brmem/ns/objectives/<encoded-master>` snapshot ref, so this
+  serialization is required to avoid silent clobbering.
+- **PR-state gating.** Only branch snapshots whose PR is `MERGED` are
+  eligible evidence. `OPEN`, `CLOSED` (unmerged), no-PR, and
+  PR-lookup-error snapshots are recorded as evidence skips with a stable
+  reason, never folded into canonical state.
+- **Canonical drift detection.** `reconcile-apply` rejects any file whose
+  per-file content blob has changed since the plan was generated, with
+  `expected_old_blob_sha`. The recovery hint uses
+  `expected_old_head_sha` for `brmem get ... --at <sha>`.
+- **Per-slug isolation.** A failure on one slug or one file does not
+  block the others; it surfaces as a skip with reason. Whole-run aborts
+  are reserved for missing/malformed plan-files and schema mismatches.
 
 ## Workflow
 
-### 1. Preflight
+### 1. Generate the plan
 
 ```bash
-git rev-parse --show-toplevel
+objective exec reconcile-plan [slug-or-comma-separated-list] --format json > /tmp/objective-reconcile/plan.json
 ```
 
-Abort only if not in a git repo. The operator's working-tree branch is
-not consulted; reconcile runs from any branch (including detached `HEAD`)
-because every `brmem` and `objective` operation in this workflow targets
-the trunk branch explicitly via ref reads/writes.
+The JSON envelope (`schema: "reconcile-plan/v1"`) has one entry per
+target slug. For each slug it carries:
 
-### 2. Resolve the target slug set
+- `canonical_present`, `canonical_files` (raw Markdown +
+  `expected_old_blob_sha` + `expected_old_head_sha`),
+- `included_snapshots`: branch snapshots whose PR is `MERGED`, with their
+  raw Markdown files,
+- `skipped_snapshots`: with `reason` ∈ `open` / `closed_unmerged` /
+  `no_pr` / `lookup_error`,
+- `gaps`, `conflicts` (e.g. canonical `body.md` missing).
 
-If the operator passed a slug or comma-separated slug list, use that list
-deduplicated and in operator-supplied order. Otherwise enumerate every
-canonical objective on the trunk branch:
+### 2. Conservatively rewrite per slug
+
+For each slug with at least one `included_snapshots` entry:
+
+1. Read the raw Markdown blocks for canonical and each merged-PR-backed
+   branch snapshot.
+2. Apply the rules in
+   `../objective/references/mutation-contract.md`:
+   check landed roadmap items, append durable findings to `notes.md`,
+   move `Status:` only when the end-state changed categorically, do not
+   paste branch text wholesale, do not delete completed history, do not
+   rename sections.
+3. Write the proposed new file contents to disk under
+   `/tmp/objective-reconcile/<slug>/<file>.proposed`.
+4. Extend the plan envelope's `slugs[i].proposed_writes` array with one
+   entry per file you rewrote:
+
+   ```json
+   {"file": "body.md", "proposed_path": "/tmp/objective-reconcile/<slug>/body.md.proposed"}
+   ```
+
+Skip slugs that have no eligible evidence (the plan flags them with a
+gap) — there is nothing to fold in.
+
+### 3. Apply the plan
 
 ```bash
-objective list --format json
+objective exec reconcile-apply --plan-file /tmp/objective-reconcile/plan.json --format json
 ```
 
-Collect every `objectives[].slug` whose `canonical_present` is `true`, then
-sort the resulting set alphabetically so the sweep is reproducible.
+Output is a `reconcile-plan/v1` envelope with `slugs[i].writes`
+(successful applies, with `old_blob_sha` / `old_head_sha` /
+`new_head_sha` / `recovery_command`), `slugs[i].skipped` (drift, missing
+file), and `slugs[i].gaps`.
 
-If the resolved set is empty, print a one-line "no canonical objectives on
-trunk" report and exit cleanly without writing anything.
+### 4. Render the report
 
-### 3. Fan out per-slug subagents
+Lead with a header line that reports counts: slugs swept, slugs
+rewritten, slugs unchanged, slugs with gaps. For every slug that was
+either rewritten or had a gap, emit a sub-section containing:
 
-Spawn one Agent per slug in the resolved set. **All Agent calls must be
-issued in a single message** so they run concurrently. Use:
+- slug and canonical target (`master`, the permanent canonical branch),
+- per-file `<old_head_sha> -> <new_head_sha>`,
+- branch snapshots consulted (from the plan), with PR state, and
+  one-line contributions you used,
+- any `skipped_snapshots` from the plan (open / closed / no-PR / lookup
+  error),
+- conflicts and evidence gaps verbatim from both envelopes,
+- recovery hint: copy `recovery_command` from each successful write.
 
-- `subagent_type: general-purpose`
-- `model: sonnet`
+Slugs with no rewrite and no gap may collapse into a single "Unchanged"
+group listing names.
 
-Use the brief template below for each Agent's prompt, substituting `<slug>`
-and `<repo-root>`:
+## Conservative rewrite rules (summary)
 
-> You are reconciling one canonical objective for the twerk
-> `objective-reconcile` skill. Slug: `<slug>`. Working directory:
-> `<repo-root>`. Canonical branch: the repo's trunk (resolve via `git symbolic-ref --short refs/remotes/origin/HEAD`).
->
-> Read `skills/objective-reconcile/SKILL.md` ("Per-slug subagent
-> procedure" and "Handoff contract" sections) and
-> `skills/objective/references/mutation-contract.md`. Follow the
-> per-slug procedure for `<slug>` only.
->
-> You MUST NOT call `brmem put`, write to branch snapshots, or touch any
-> slug other than `<slug>`. Write proposed canonical file rewrites to
-> `/tmp/objective-reconcile/<slug>/<file>.proposed` and reference those
-> paths in your handoff. Return a single fenced JSON code block (with the
-> `json` info string) matching the handoff schema. No prose outside the
-> fenced block.
+The full rules live in `../objective/references/mutation-contract.md`.
+Typical reconcile work over the raw Markdown:
 
-The parent must not run any per-slug 3a–3f command itself. Wait for all
-subagents to return their handoffs before proceeding to step 4.
+- **`body.md`**: quietest file. Only move `Status:` categorically and
+  apply small factual clarifications. Do not rebuild wholesale, do not
+  delete completed history, do not rename sections.
+- **`roadmap.md`**: check items only when corroborated by merged PR
+  evidence. Add nearby follow-ups discovered during landed branch work.
+- **`notes.md`**: append durable findings from landed branch `notes.md`
+  or merged PR context. Never copy raw branch text verbatim.
 
-### 4. Apply rewrites serially
+When merged branch snapshots disagree, prefer the corroborated signal,
+keep canonical conservative, and surface the contradiction in the
+report's per-slug `conflicts` line — do not force a confident rewrite.
 
-Iterate the returned handoffs in the same order as the resolved slug set.
-For each handoff:
+## Edge cases
 
-- If `status` is `"unchanged"` or `"gap"` (no `proposed_writes`), record
-  the slug's report data and move on.
-- If `proposed_writes` is non-empty, for each entry call:
-
-  ```bash
-  brmem put <slug>/<file> --namespace objectives \
-    --branch <trunk> --file <subagent-temp-path>
-  ```
-
-  one file at a time. Capture the new SHA from each call and merge it into
-  the per-slug report data alongside the `old_shas` reported by the
-  subagent.
-
-Surface every handoff's `gaps` and `conflicts` verbatim in the report. A
-malformed or missing handoff (timeout, tool denial, schema mismatch)
-becomes a per-slug "subagent failure" gap; the parent continues with the
-remaining handoffs.
-
-All `brmem put` calls are issued by the parent, one at a time. Do not
-parallelize this step.
-
-### 5. Aggregate report
-
-Lead with a header line that reports counts: slugs swept, slugs rewritten,
-slugs unchanged, slugs with gaps.
-
-Then, for every slug that was either rewritten or had a gap, emit a
-sub-section containing:
-
-- slug and canonical target (the trunk branch, the permanent canonical branch)
-- files touched with one-line notes
-- old SHA to new SHA for each changed file
-- branch snapshots consulted, including skipped unmerged snapshots
-- PR evidence consulted: branch, liveness, PR number/state/URL/title, and
-  one-line contribution
-- conflicts or evidence gaps
-- recovery hint:
-
-```text
-brmem get <slug>/<file> --namespace objectives --branch <trunk> --at <old-sha>
-```
-
-Slugs that produced no changes and no gaps may collapse into a single
-"Unchanged" group listing those slugs by name.
-
-## Per-slug subagent procedure
-
-Each subagent runs the steps below for its assigned slug. On any caught
-exception, record the slug-level gap and return a `status: "gap"` handoff
-— never raise out to the parent.
-
-#### 3a. Confirm canonical state exists
-
-```bash
-brmem check <slug>/body.md --namespace objectives --branch <trunk>
-```
-
-If canonical `body.md` is missing, record a gap for this slug — "slug
-requested but no canonical body.md; use `objective-create` first" for an
-operator-supplied slug, or treat as a sweep enumeration anomaly otherwise —
-and return a `status: "gap"` handoff.
-
-#### 3b. Capture old SHAs and load canonical files
-
-```bash
-brmem check <slug>/body.md --namespace objectives --branch <trunk>
-brmem check <slug>/roadmap.md --namespace objectives --branch <trunk>
-brmem check <slug>/notes.md --namespace objectives --branch <trunk>
-
-brmem get <slug>/body.md --namespace objectives --branch <trunk> \
-  > /tmp/<slug>-canonical-body.md
-brmem get <slug>/roadmap.md --namespace objectives --branch <trunk> \
-  > /tmp/<slug>-canonical-roadmap.md
-brmem get <slug>/notes.md --namespace objectives --branch <trunk> \
-  > /tmp/<slug>-canonical-notes.md
-```
-
-Only run commands for files that exist.
-
-#### 3c. Enumerate branch snapshots and PRs
-
-Prefer the purpose-built tree command:
-
-```bash
-objective tree <slug> --format json
-```
-
-Use it to identify:
-
-- branch snapshots carrying `<slug>/`
-- live vs stale/orphaned branches
-- associated PR number, URL, title, and state
-- branches with no PR
-- PR lookup errors
-
-If no branch snapshots carry the slug, record a per-slug "no evidence to
-fold in" gap and return a `status: "gap"` handoff — do not write any
-proposed files for this slug.
-
-If the tree command is unavailable or insufficient, fall back to local refs
-plus direct PR lookup:
-
-```bash
-git for-each-ref --format='%(refname)' refs/brmem/ns/objectives/
-git ls-tree -r <refname>
-gh pr view <branch> --json number,title,url,headRefName,baseRefName,state,mergedAt
-```
-
-PR lookup failures become per-slug evidence gaps, not hard failures.
-
-#### 3d. Load branch snapshot evidence
-
-For each branch snapshot whose associated PR is merged, read present files:
-
-```bash
-brmem get <slug>/body.md --namespace objectives --branch <branch> \
-  > /tmp/<slug>-<branch>-body.md
-brmem get <slug>/roadmap.md --namespace objectives --branch <branch> \
-  > /tmp/<slug>-<branch>-roadmap.md
-brmem get <slug>/notes.md --namespace objectives --branch <branch> \
-  > /tmp/<slug>-<branch>-notes.md
-```
-
-Capture per-file metadata when useful:
-
-```bash
-brmem check <slug>/<file> --namespace objectives --branch <branch> --format json
-```
-
-When landed branch snapshot text is ambiguous, enrich the associated PR:
-
-```bash
-gh pr view <number-or-branch> \
-  --json number,title,url,headRefName,baseRefName,state,mergedAt,commits,body
-```
-
-Use PR metadata to ground the rewrite, not as text to copy wholesale.
-
-#### 3e. Gate evidence and propose canonical rewrites conservatively
-
-Use the inclusion rules from
-`../objective/references/mutation-contract.md`:
-
-- merged PR-backed branch snapshots are eligible evidence
-- open PRs are not folded into canonical state
-- closed-unmerged PRs are not folded into canonical state
-- no-PR branches are local-only state and are not folded into canonical state
-- PR lookup errors are evidence gaps
-- stale/orphaned snapshots are not folded into canonical state unless tied to
-  landed work
-
-Prefer corroborated signals when multiple landed branch snapshots disagree.
-Surface contradictions in the handoff's `conflicts` array instead of
-forcing a confident rewrite.
-
-Then apply the shared conservative rewrite rules in the mutation contract.
-Typical reconcile work:
-
-- check canonical roadmap items supported by merged branch/PR evidence
-- check canonical completion criteria when the end-state is actually true
-- append durable findings from landed branch `notes.md` or merged PR context
-- split or add nearby roadmap follow-ups discovered during branch work
-- move `Status:` only when canonical state changed categorically
-
-Do not paste a branch snapshot over canonical state. Do not write to branch
-snapshots.
-
-Write each proposed canonical file rewrite to
-`/tmp/objective-reconcile/<slug>/<file>.proposed` and reference those paths
-in the handoff. Return a handoff document (schema below) instead of writing
-to canonical state.
-
-## Handoff contract
-
-Each subagent returns a single fenced JSON code block (with the `json`
-info string) — and nothing else — matching the schema below.
-
-```json
-{
-  "slug": "<slug>",
-  "status": "rewritten" | "unchanged" | "gap",
-  "old_shas": {
-    "body.md": "<sha-or-null>",
-    "roadmap.md": "<sha-or-null>",
-    "notes.md": "<sha-or-null>"
-  },
-  "proposed_writes": [
-    {
-      "file": "body.md",
-      "path": "/tmp/objective-reconcile/<slug>/body.md.proposed",
-      "summary": "<one-line>"
-    }
-  ],
-  "evidence": {
-    "branches_consulted": [
-      {
-        "branch": "...",
-        "live": true,
-        "pr": {"number": 123, "state": "MERGED", "url": "...", "title": "..."},
-        "contribution": "<one-line>"
-      }
-    ],
-    "branches_skipped": [
-      {"branch": "...", "reason": "open|closed-unmerged|no-pr|orphan|lookup-error"}
-    ]
-  },
-  "conflicts": ["<one-line>", "..."],
-  "gaps": ["<one-line>", "..."]
-}
-```
-
-The parent fills in `new_shas` per file after running `brmem put` and
-includes them in the aggregate report's per-slug sub-section.
-
-## Edge Cases and Anti-Patterns
-
-- Empty target set (no canonical objectives, or operator-supplied list
-  filtered down to nothing): clean exit with a single-line report; no
-  writes.
-- Operator-supplied unknown slug (no canonical entry): record a per-slug gap
-  and continue with the next slug.
-- No canonical `body.md` for a slug in the resolved set: record a per-slug
-  gap (point at `objective-create` for operator-supplied slugs) and
-  continue.
-- No branch snapshots carry a slug: record a "no evidence to fold in" gap
-  for that slug and write nothing for it.
-- No merged PR-backed branch snapshots carry a slug: record a "no landed
-  evidence" gap for that slug and write nothing for it.
-- PR lookup errors for a slug: record per-slug evidence gaps and continue.
-- Contradictory branch/PR evidence for a slug: keep that slug's canonical
-  state conservative and surface the conflict in its sub-section of the
-  report.
-- Subagent failure (timeout, tool denial, malformed handoff, missing
-  proposed-writes file): record a per-slug "subagent failure" gap and
-  continue with the remaining handoffs. Do not re-run the failed
-  subagent's 3a–3e in the parent.
-- Never copy a branch snapshot verbatim, write to branch snapshots,
-  incorporate open PR or unmerged branch state into canonical, add a HEAD
-  freshness shortcut, or rebuild canonical files wholesale.
+- **Empty target set.** `reconcile-plan` returns `slugs: []`. Print one
+  line ("no canonical objectives on master") and stop.
+- **Operator-supplied unknown slug.** Plan emits a gap for that slug;
+  skip in step 2; surface in the report.
+- **Canonical `body.md` missing.** Plan emits a `conflicts` entry;
+  surface and skip.
+- **No merged-PR-backed branch snapshots for a slug.** Plan emits a
+  `gaps` entry; nothing to fold; surface as Unchanged.
+- **Drift between plan and apply.** `reconcile-apply` skips that file
+  with a drift reason; re-run plan to refresh, or manually inspect the
+  recovery command.
