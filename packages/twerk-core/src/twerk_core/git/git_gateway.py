@@ -159,3 +159,26 @@ class GitGateway(ABC):
         from either the underlying ``git log`` or ``git patch-id`` returns
         :class:`GitCommandFailure`.
         """
+
+    @abstractmethod
+    def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
+        """Return True when ``maybe_ancestor`` is reachable from ``descendant``.
+
+        Wraps ``git merge-base --is-ancestor <maybe_ancestor> <descendant>``,
+        which exits ``0`` for true, ``1`` for false, and other non-zero codes
+        for command errors. Implementations treat any non-zero return as
+        ``False`` (the typical "not a known ref" case) — callers that need to
+        distinguish "not an ancestor" from "command failed" should validate
+        ref existence separately first.
+        """
+
+    @abstractmethod
+    def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
+        """Return the commit count for ``range_spec`` (``git rev-list --count``).
+
+        Used to measure how many commits separate two refs (e.g.
+        ``branch..HEAD``) when ranking ancestor candidates by nearness. A
+        non-zero exit returns :class:`GitCommandFailure`; callers ranking many
+        candidates typically translate that into a sentinel "skip" rather
+        than abort the whole walk.
+        """

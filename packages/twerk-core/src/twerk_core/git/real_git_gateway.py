@@ -495,3 +495,34 @@ class RealGitGateway(GitGateway):
             return failure
         pid_by_sha = dict(pid_pairs)
         return tuple((sha, pid_by_sha.get(sha)) for sha in shas)
+
+    def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
+        result = _run(
+            ["git", "merge-base", "--is-ancestor", maybe_ancestor, descendant],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        return result.returncode == 0
+
+    def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
+        result = _run(
+            ["git", "rev-list", "--count", range_spec],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            return GitCommandFailure(
+                message=stderr or "git rev-list failed",
+                returncode=result.returncode,
+            )
+        raw = result.stdout.strip()
+        if not raw:
+            return 0
+        try:
+            return int(raw)
+        except ValueError:
+            return GitCommandFailure(
+                message=f"git rev-list returned non-integer count: {raw!r}",
+                returncode=0,
+            )

@@ -53,6 +53,8 @@ class FakeGitGateway(GitGateway):
         log_range_failure: GitCommandFailure | None = None,
         patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
         patch_ids_failure: GitCommandFailure | None = None,
+        ancestors: Iterable[tuple[str, str]] = (),
+        commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
         on_add_worktree: Callable[[Path], None] | None = None,
     ) -> None:
         self._repo_root = repo_root if repo_root is not None else Path("/repo")
@@ -79,6 +81,10 @@ class FakeGitGateway(GitGateway):
         self._log_range_failure = log_range_failure
         self._patch_ids_by_range = dict(patch_ids_by_range or {})
         self._patch_ids_failure = patch_ids_failure
+        self._ancestors = {(maybe_ancestor, descendant) for maybe_ancestor, descendant in ancestors}
+        self._commit_count_by_range: dict[str, int | GitCommandFailure] = dict(
+            commit_count_by_range or {}
+        )
         self._on_add_worktree = on_add_worktree
 
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
@@ -226,6 +232,14 @@ class FakeGitGateway(GitGateway):
         if self._patch_ids_failure is not None:
             return self._patch_ids_failure
         return self._patch_ids_by_range.get(range_spec, ())
+
+    def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
+        return (maybe_ancestor, descendant) in self._ancestors
+
+    def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
+        if range_spec not in self._commit_count_by_range:
+            return 0
+        return self._commit_count_by_range[range_spec]
 
     @property
     def fetch_calls(self) -> tuple[tuple[Path, str, str], ...]:
