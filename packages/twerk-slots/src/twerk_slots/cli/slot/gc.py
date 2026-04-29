@@ -21,6 +21,7 @@ from twerk_slots.gc import (
     outcome_from_plan,
     plan_gc,
 )
+from twerk_slots.inventory import build_slot_inventory
 from twerk_slots.repo_context import NoRepoSentinel
 
 
@@ -127,10 +128,14 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
     if isinstance(slots_ctx, NoRepoSentinel):
         Ensure.fail(error_type="not_in_repo", message=slots_ctx.message)
 
+    inventory = build_slot_inventory(
+        slots_ctx.git,
+        main_repo_root=slots_ctx.repo.main_repo_root,
+    )
     Ensure.true(
-        slots_ctx.pool_state.exists(),
+        inventory.pool_size > 0,
         error_type="pool_empty",
-        message="No pool configured. Run `slot checkout` first.",
+        message="No managed slots configured. Run `slot init --size N` first.",
     )
 
     Ensure.true(

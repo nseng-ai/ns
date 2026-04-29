@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import dataclasses
 import json
-from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
-from twerk_core.clinkr.context import build_clinkr_context_object
+from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRState, PRSummary
@@ -18,10 +17,9 @@ from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import FileStatus, WorktreeInfo
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.context_testing import build_test_slots_context
+from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
 from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
 
 
@@ -30,86 +28,125 @@ def cli_group() -> ClinkrGroup:
     return build_cli()
 
 
-def _obj(context: object) -> object:
+@dataclass
+class _SlotFakes:
+    git: FakeGitGateway
+    storage: FakeSlotsStorageGateway
+    pool_state: FakePoolStateGateway
+    clipboard: FakeClipboardGateway
+    repo_root: Path
+
+
+def _make_obj(
+    fakes: _SlotFakes,
+    slots_root: Path,
+    *,
+    pr: FakePRGateway | None = None,
+) -> ClinkrContextObject:
+    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
+    assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
+    ctx = SlotsCliContext(
+        repo=repo,
+        git=fakes.git,
+        storage=fakes.storage,
+        pool_state=fakes.pool_state,
+        clipboard=fakes.clipboard,
+        pr=pr or FakePRGateway(),
+        slots_root=slots_root,
+    )
+    return build_clinkr_context_object(lambda: ctx)
+
+
+def _obj(context: object) -> ClinkrContextObject:
     return build_clinkr_context_object(lambda: context)
 
 
-def _build_ctx_for_repo(
-    tmp_path: Path,
-    *,
-    extra_existing: Iterable[Path] = (),
-    pr: FakePRGateway | None = None,
-) -> SlotsCliContext:
+def _fake_for_repo(tmp_path: Path) -> _SlotFakes:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
     pool_json_path = tmp_path / "slots" / "repos" / "repo" / "pool.json"
-    slots_root = tmp_path / "slots"
     storage = FakeSlotsStorageGateway(
-        existing_paths={repo_root, Path.cwd(), *extra_existing},
+        existing_paths={repo_root, Path.cwd()},
     )
     git = FakeGitGateway(
         repo_root=repo_root,
         git_common_dir=repo_root / ".git",
-        existing_paths={repo_root, Path.cwd(), *extra_existing},
+        existing_paths={repo_root, Path.cwd()},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
     )
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
-    assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
-    return build_test_slots_context(
-        repo=repo,
-        slots_root=slots_root,
+    return _SlotFakes(
         git=git,
         storage=storage,
         pool_state=FakePoolStateGateway(pool_json_path),
-        pr=pr,
+        clipboard=FakeClipboardGateway(),
+        repo_root=repo_root,
     )
 
 
-def _fakes(
-    ctx: SlotsCliContext,
-) -> tuple[FakeGitGateway, FakeSlotsStorageGateway, FakePoolStateGateway]:
-    assert isinstance(ctx.git, FakeGitGateway)
-    assert isinstance(ctx.storage, FakeSlotsStorageGateway)
-    assert isinstance(ctx.pool_state, FakePoolStateGateway)
-    return ctx.git, ctx.storage, ctx.pool_state
+def _slot_path(slots_root: Path, slot_name: str) -> Path:
+    return slots_root / "repos" / "repo" / "worktrees" / slot_name
+
+
+def _seed_pool(
+    fakes: _SlotFakes,
+    slots_root: Path,
+    *,
+    assignments: tuple[tuple[str, str], ...],
+    pool_size: int = 4,
+    file_status_by_slot: dict[str, FileStatus] | None = None,
+) -> dict[str, Path]:
+    """Seed a managed slot pool of size ``pool_size`` into the FakeGitGateway."""
+    file_status_by_slot = file_status_by_slot or {}
+    assigned_branch_by_slot = {slot_name: branch for slot_name, branch in assignments}
+    paths: dict[str, Path] = {}
+
+    for slot_num in range(1, pool_size + 1):
+        slot_name = f"slot-{slot_num:02d}"
+        worktree_path = _slot_path(slots_root, slot_name)
+        fakes.storage._existing_paths.add(worktree_path)
+        fakes.git._existing_paths.add(worktree_path)
+        if slot_name in assigned_branch_by_slot:
+            branch = assigned_branch_by_slot[slot_name]
+            fakes.git._branches.add(branch)
+            fakes.git._worktrees.append(
+                WorktreeInfo(path=worktree_path, branch=branch, is_bare=False),
+            )
+            fakes.git._current_branch_by_path[worktree_path] = branch
+            if slot_name in file_status_by_slot:
+                fakes.git._file_status_by_path[worktree_path] = file_status_by_slot[slot_name]
+            paths[slot_name] = worktree_path
+        else:
+            fakes.git._worktrees.append(
+                WorktreeInfo(path=worktree_path, branch=None, is_bare=False),
+            )
+    return paths
 
 
 def _seed_assigned(
-    ctx: SlotsCliContext,
+    fakes: _SlotFakes,
+    slots_root: Path,
     *,
-    slot_name: str,
-    branch: str,
+    slot_name: str = "slot-01",
+    branch: str = "feat/x",
     pool_size: int = 4,
     file_status: FileStatus | None = None,
 ) -> Path:
-    git, storage, pool_state = _fakes(ctx)
-    worktree_path = ctx.slots_root / "repos" / "repo" / "worktrees" / slot_name
-    storage._existing_paths.add(worktree_path)
-    git._existing_paths.add(worktree_path)
-    git._branches.add(branch)
-    git._worktrees.append(
-        WorktreeInfo(path=worktree_path, branch=branch, is_bare=False),
-    )
-    git._current_branch_by_path[worktree_path] = branch
-    if file_status is not None:
-        git._file_status_by_path[worktree_path] = file_status
-    existing = pool_state.load().assignments
-    pool_state.save(
-        PoolState(
-            pool_size=pool_size,
-            assignments=(
-                *existing,
-                SlotAssignment(
-                    slot_name=slot_name,
-                    branch_name=branch,
-                    assigned_at="2026-04-01T00:00:00+00:00",
-                    worktree_path=worktree_path,
-                ),
-            ),
-        ),
-    )
-    return worktree_path
+    return _seed_pool(
+        fakes,
+        slots_root,
+        assignments=((slot_name, branch),),
+        pool_size=pool_size,
+        file_status_by_slot={slot_name: file_status} if file_status is not None else None,
+    )[slot_name]
+
+
+def _assigned_worktrees(fakes: _SlotFakes) -> dict[str, str]:
+    return {
+        wt.path.name: wt.branch
+        for wt in fakes.git.list_worktrees()
+        if wt.path.name.startswith("slot-") and wt.branch is not None
+    }
 
 
 def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
@@ -156,27 +193,30 @@ def test_slot_gc_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_gc_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    # No `save` — pool_state.exists() is False.
+    fakes = _fake_for_repo(tmp_path)
+    # No managed slot worktrees → inventory.pool_size == 0.
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx))
+    result = CliRunner().invoke(cli_group, ["gc"], obj=_make_obj(fakes, tmp_path / "slots"))
 
     assert result.exit_code == 2
-    assert "No pool configured" in result.output
+    assert "No managed slots configured" in result.output
+    assert "slot init --size N" in result.output
 
 
 # -- happy paths ------------------------------------------------------------
 
 
 def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    worktree_path = _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
-    )
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
 
-    result = CliRunner().invoke(cli_group, ["gc", "-f"], obj=_obj(ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "-f"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
 
     assert result.exit_code == 0, result.output
     assert "freed" in result.output.lower()
@@ -184,120 +224,125 @@ def test_slot_gc_force_frees_merged_assignment(cli_group: ClinkrGroup, tmp_path:
     assert "feat/done" in result.output
     # No prompt was shown.
     assert "Free 1 slot" not in result.output
-    # Pool state drained.
-    git, _, pool_state = _fakes(ctx)
-    assert pool_state.load().assignments == ()
-    # Worktree detached at trunk.
-    assert git._detach_head_calls == [(worktree_path, "main")]
+    # Worktree detached at trunk; assigned-slot inventory drained.
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert _assigned_worktrees(fakes) == {}
 
 
 def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+        input="y\n",
     )
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx), input="y\n")
-
     assert result.exit_code == 0, result.output
-    # Preview shown before prompt.
     assert "would free" in result.output.lower()
-    # Final state rendered after execution.
     assert "freed" in result.output.lower()
     assert "Free 1 slot" in result.output
-    # Pool actually drained.
-    _, _, pool_state = _fakes(ctx)
-    assert pool_state.load().assignments == ()
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
 
 
 def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
-    )
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx), input="n\n")
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+        input="n\n",
+    )
 
     assert result.exit_code == 0, result.output
     assert "would free" in result.output.lower()
     assert "Cancelled" in result.output
-    # Pool unchanged.
-    git, _, pool_state = _fakes(ctx)
-    assert len(pool_state.load().assignments) == 1
-    assert git._checkout_calls == []
+    # No mutation: assigned slot still present, no detach called.
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
+    assert fakes.git._detach_head_calls == []
 
 
 def test_slot_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/wip")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(prs_by_branch={"feat/wip": _make_pr(9, "OPEN", "feat/wip")}),
-    )
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/wip")
+    pr = FakePRGateway(prs_by_branch={"feat/wip": _make_pr(9, "OPEN", "feat/wip")})
 
-    result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
 
     assert result.exit_code == 0, result.output
     assert "Free 1 slot" not in result.output
     assert "Cancelled" not in result.output
-    # Open-PR slot remains.
-    _, _, pool_state = _fakes(ctx)
-    assert len(pool_state.load().assignments) == 1
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/wip"}
 
 
 def test_slot_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
 
-    result = CliRunner().invoke(cli_group, ["gc", "--dry-run", "-f"], obj=_obj(ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--dry-run", "-f"],
+        obj=_make_obj(fakes, slots_root),
+    )
 
     assert result.exit_code == 2
     assert "mutually exclusive" in result.output.lower()
 
 
 def test_slot_gc_dry_run_preserves_state(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
-    )
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
 
-    result = CliRunner().invoke(cli_group, ["gc", "--dry-run"], obj=_obj(ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--dry-run"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
 
     assert result.exit_code == 0, result.output
     assert "would free" in result.output.lower()
-    # Pool unchanged.
-    git, _, pool_state = _fakes(ctx)
-    assert len(pool_state.load().assignments) == 1
-    assert git._checkout_calls == []
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
+    assert fakes.git._detach_head_calls == []
 
 
 # -- machine mode -----------------------------------------------------------
 
 
 def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
-    _seed_assigned(ctx, slot_name="slot-02", branch="feat/wip")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(
-            prs_by_branch={
-                "feat/done": _make_pr(7, "MERGED", "feat/done"),
-                "feat/wip": _make_pr(8, "OPEN", "feat/wip"),
-            },
-        ),
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_pool(
+        fakes,
+        slots_root,
+        assignments=(("slot-01", "feat/done"), ("slot-02", "feat/wip")),
+    )
+    pr = FakePRGateway(
+        prs_by_branch={
+            "feat/done": _make_pr(7, "MERGED", "feat/done"),
+            "feat/wip": _make_pr(8, "OPEN", "feat/wip"),
+        },
     )
 
     result = CliRunner().invoke(
         cli_group,
         ["gc", "-f", "--format", "json"],
-        obj=_obj(ctx),
+        obj=_make_obj(fakes, slots_root, pr=pr),
     )
 
     assert result.exit_code == 0, result.output
@@ -315,21 +360,21 @@ def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> 
 
 
 def test_slot_gc_format_json_without_force_aborts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
-    )
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
 
     # Machine mode still reaches the interactive confirm path without `-f`,
     # so the prompt aborts when no stdin answer is provided.
-    result = CliRunner().invoke(cli_group, ["gc", "--format", "json"], obj=_obj(ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
 
     assert result.exit_code != 0
-    # Pool unchanged.
-    _, _, pool_state = _fakes(ctx)
-    assert len(pool_state.load().assignments) == 1
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
 
 
 def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:
@@ -344,30 +389,34 @@ def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_gc_format_json_dry_run_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    _seed_assigned(ctx, slot_name="slot-01", branch="feat/done")
-    ctx = dataclasses.replace(
-        ctx,
-        pr=FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")}),
-    )
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
 
-    result = CliRunner().invoke(cli_group, ["gc", "--dry-run", "--format", "json"], obj=_obj(ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--dry-run", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+    )
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
     assert payload["exit_code"] == 0
     data = payload["data"]
     assert data["dry_run"] is True
-    # Pool unchanged.
-    _, _, pool_state = _fakes(ctx)
-    assert len(pool_state.load().assignments) == 1
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
 
 
 def test_slot_gc_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    ctx = _build_ctx_for_repo(tmp_path)
-    # No `save` — pool_state.exists() is False.
+    fakes = _fake_for_repo(tmp_path)
+    # No managed slots → inventory.pool_size == 0.
 
-    result = CliRunner().invoke(cli_group, ["gc", "--format", "json"], obj=_obj(ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--format", "json"],
+        obj=_make_obj(fakes, tmp_path / "slots"),
+    )
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 2
