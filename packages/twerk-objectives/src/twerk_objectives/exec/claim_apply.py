@@ -26,23 +26,31 @@ from typing import Annotated, Any
 
 import click
 
-from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
+from brmem.gateway import snapshot_ref_name
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import body_key, slug_for_key
-from twerk_objectives.exec.claim_plan import PLAN_SCHEMA
+from twerk_objectives.exec.claim_plan import (
+    PLAN_SCHEMA,
+    SourceKind,
+    _HardFailure,
+    _target_carries_slug,
+)
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 
 @dataclass(frozen=True)
-class _HardFailure:
-    """Domain-side sentinel translated to ``ClinkrExit.failure`` at the entry point."""
-
-    error_type: str
-    message: str
+class _ParsedPlan:
+    slug: str
+    target_branch: str
+    source_kind: SourceKind
+    source_branch: str | None
+    source_label: str
+    from_file_path: str | None
 
 
 @dataclass(frozen=True)
@@ -80,19 +88,6 @@ class ClaimApplyResult(JsonSerializable):
     destination_ref: str
     destination_commit_sha: str
 
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "schema": self.schema,
-            "slug": self.slug,
-            "target_branch": self.target_branch,
-            "source_kind": self.source_kind,
-            "source_branch": self.source_branch,
-            "source_label": self.source_label,
-            "files_carried": [{"file": f.file, "key": f.key} for f in self.files_carried],
-            "destination_ref": self.destination_ref,
-            "destination_commit_sha": self.destination_commit_sha,
-        }
-
 
 def render_claim_apply(result: ClaimApplyResult) -> None:
     click.echo(f"claim-apply ({result.schema})")
@@ -121,7 +116,7 @@ def run_claim_apply_objective(
 ) -> ClinkrExit[ClaimApplyResult]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
     gateway = mctx.brmem_gateway
-    trunk_branch = mctx.git_gateway.get_trunk_branch()
+    trunk_branch = resolve_trunk(mctx.git_gateway).trunk
 
     raw = request.plan_file.read_text(encoding="utf-8")
     try:
@@ -175,9 +170,13 @@ def run_claim_apply_objective(
     parsed = _parse_plan_block(plan)
     if isinstance(parsed, _HardFailure):
         return ClinkrExit.failure(error_type=parsed.error_type, message=parsed.message)
-    slug, target_branch, source_kind, source_branch, source_label, from_file_path = parsed
+    slug = parsed.slug
+    target_branch = parsed.target_branch
+    source_kind = parsed.source_kind
+    source_branch = parsed.source_branch
+    source_label = parsed.source_label
+    from_file_path = parsed.from_file_path
 
-    # Re-validate: target free for slug.
     if _target_carries_slug(gateway, slug=slug, branch=target_branch):
         return ClinkrExit.failure(
             error_type="target_collision",
@@ -226,14 +225,12 @@ def run_claim_apply_objective(
             )
         )
 
-    # Branch source (kind in {"branch", "canonical"}).
     if source_branch is None:
         return ClinkrExit.failure(
             error_type="malformed_plan_file",
             message="Branch-source plan must carry 'plan.source.branch'.",
         )
 
-    # Re-validate: source still carries <slug>/body.md.
     diagnostic = gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), source_branch)
     if diagnostic is None:
         return ClinkrExit.failure(
@@ -283,10 +280,7 @@ def run_claim_apply_objective(
     )
 
 
-def _parse_plan_block(
-    plan: dict[str, Any],
-) -> tuple[str, str, str, str | None, str, str | None] | _HardFailure:
-    """Extract ``(slug, target_branch, kind, branch, label, from_file_path)`` from the plan dict."""
+def _parse_plan_block(plan: dict[str, Any]) -> _ParsedPlan | _HardFailure:
     slug = plan.get("slug")
     target_branch = plan.get("target_branch")
     source = plan.get("source")
@@ -334,17 +328,14 @@ def _parse_plan_block(
             message="Plan source.from_file_path must be a string or null.",
         )
 
-    return slug_for_key(slug), target_branch, kind, branch, label, from_file_path
-
-
-def _target_carries_slug(
-    gateway: BranchMemoryGateway,
-    *,
-    slug: str,
-    branch: str,
-) -> bool:
-    entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
-    return any(slug_for_key(entry.key) == slug for entry in entries)
+    return _ParsedPlan(
+        slug=slug_for_key(slug),
+        target_branch=target_branch,
+        source_kind=kind,
+        source_branch=branch,
+        source_label=label,
+        from_file_path=from_file_path,
+    )
 
 
 def _filename_for_key(key: str, slug: str) -> str:
@@ -355,11 +346,4 @@ def _filename_for_key(key: str, slug: str) -> str:
 
 
 def _ref_name(branch: str) -> str:
-    """Return the brmem snapshot ref for the target branch.
-
-    Branch encoding is owned by brmem; we delegate to
-    :func:`brmem.gateway.snapshot_ref_name` instead of formatting the string
-    locally so the encoding stays consistent if brmem ever changes the ref
-    shape.
-    """
     return snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
