@@ -2,10 +2,9 @@
 
 Tightly coupled to the ``objective-current`` skill: emits a single
 self-contained Markdown brief covering the current branch's claimed
-objective + freshness, PR, brmem entries, the trunk-first downstack
-walk, and immediate upstack children. The skill simply runs this
-command and prints the output verbatim — no JSON parsing, no Markdown
-structure inference.
+objective + freshness, PR, brmem entries, and trunk relation. The skill
+simply runs this command and prints the output verbatim — no JSON
+parsing, no Markdown structure inference.
 """
 
 from __future__ import annotations
@@ -24,12 +23,11 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.gt.gateway import GtGateway
-from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
-from twerk_objectives.discovery import MASTER_BRANCH, slug_for_key
+from twerk_objectives.discovery import slug_for_key
 from twerk_objectives.freshness import ObjectiveSnapshotState, classify_branch_snapshot
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 _PREVIEW_CHAR_LIMIT = 80
 
@@ -94,9 +92,8 @@ def render_current_prompt(result: CurrentPrompt) -> None:
     help=(
         "Render the orientation brief for `objective-current`. The CLI "
         "pre-computes every fact about the current branch (objective + "
-        "freshness, PR, brmem entries, downstack ancestry, and immediate "
-        "upstack children) and emits the final Markdown directly. The "
-        "skill prints the output verbatim."
+        "freshness, PR, brmem entries, and trunk relation) and emits the "
+        "final Markdown directly. The skill prints the output verbatim."
     ),
     human_renderer=render_current_prompt,
 )
@@ -106,8 +103,8 @@ def run_current_objective(
 ) -> ClinkrExit[CurrentPrompt]:
     del request
     mctx = load_typed_context(ctx, ObjectiveCliContext)
-    cwd = Path.cwd()
     warnings: list[str] = []
+    cwd = Path.cwd()
 
     branch_or_failure = mctx.git_gateway.get_current_branch(cwd)
     if isinstance(branch_or_failure, GitCommandFailure):
@@ -117,7 +114,7 @@ def run_current_objective(
         )
 
     if isinstance(branch_or_failure, DetachedHead):
-        trunk = _resolve_trunk(mctx.gt_gateway, cwd, warnings)
+        trunk = resolve_trunk(mctx.git_gateway).trunk
         prompt = _build_current_prompt(
             detached_head=True,
             trunk=trunk,
@@ -129,36 +126,23 @@ def run_current_objective(
         return ClinkrExit.ok(CurrentPrompt(prompt=prompt))
 
     current_branch = branch_or_failure
-    stack_result = mctx.gt_gateway.stack(cwd)
-    if isinstance(stack_result, GtCommandFailure):
-        warnings.append(f"gt_failed: {stack_result.message}")
-        trunk = _resolve_trunk(mctx.gt_gateway, cwd, warnings)
-        ancestors: tuple[str, ...] = ()
-        children: tuple[str, ...] = ()
-    else:
-        trunk = stack_result.trunk
-        ancestors = stack_result.ancestors
-        children = stack_result.children
-        for warning in stack_result.warnings:
-            warnings.append(f"gt_log: {warning}")
+    trunk = resolve_trunk(mctx.git_gateway).trunk
+    ancestors: tuple[str, ...] = ()
+    children: tuple[str, ...] = ()
 
     current_block = _build_current_block(
         mctx.brmem_gateway,
         mctx.git_gateway,
-        mctx.gt_gateway,
         mctx.pr_gateway,
         current_branch,
-        cwd,
         trunk,
     )
     downstack = tuple(
         _build_stack_entry(
             mctx.brmem_gateway,
             mctx.git_gateway,
-            mctx.gt_gateway,
             mctx.pr_gateway,
             branch,
-            cwd,
             trunk,
         )
         for branch in ancestors
@@ -167,10 +151,8 @@ def run_current_objective(
         _build_stack_entry(
             mctx.brmem_gateway,
             mctx.git_gateway,
-            mctx.gt_gateway,
             mctx.pr_gateway,
             branch,
-            cwd,
             trunk,
         )
         for branch in children
@@ -187,21 +169,10 @@ def run_current_objective(
     return ClinkrExit.ok(CurrentPrompt(prompt=prompt))
 
 
-def _resolve_trunk(gt: GtGateway, cwd: Path, warnings: list[str]) -> str:
-    """Return graphite's trunk; fall back to ``MASTER_BRANCH`` on failure."""
-    result = gt.trunk(cwd)
-    if isinstance(result, GtCommandFailure):
-        warnings.append(f"gt_trunk_failed: {result.message}")
-        return MASTER_BRANCH
-    return result
-
-
 def _build_objective_summary(
     gateway: BranchMemoryGateway,
     git: GitGateway,
-    gt: GtGateway,
     branch: str,
-    cwd: Path,
     trunk: str,
     *,
     alive: bool,
@@ -215,9 +186,7 @@ def _build_objective_summary(
     if not slugs:
         return None, ()
     primary, *extras = slugs
-    obj_state = classify_branch_snapshot(
-        gateway, git, gt, branch, primary, cwd=cwd, trunk=trunk, alive=alive
-    )
+    obj_state = classify_branch_snapshot(gateway, git, branch, primary, trunk=trunk, alive=alive)
     summary = _ObjectiveSummary(slug=primary, obj_state=obj_state)
     return summary, tuple(extras)
 
@@ -267,13 +236,11 @@ def _build_brmem_listing(gateway: BranchMemoryGateway, branch: str) -> tuple[_Br
 def _build_current_block(
     gateway: BranchMemoryGateway,
     git: GitGateway,
-    gt: GtGateway,
     pr_gateway: PRGateway,
     branch: str,
-    cwd: Path,
     trunk: str,
 ) -> _CurrentBranchBlock:
-    objective, extras = _build_objective_summary(gateway, git, gt, branch, cwd, trunk, alive=True)
+    objective, extras = _build_objective_summary(gateway, git, branch, trunk, alive=True)
     pr_block, pr_error = _build_pr_block(pr_gateway.get_pr_for_branch(branch))
     brmem_listing = _build_brmem_listing(gateway, branch)
     return _CurrentBranchBlock(
@@ -289,14 +256,12 @@ def _build_current_block(
 def _build_stack_entry(
     gateway: BranchMemoryGateway,
     git: GitGateway,
-    gt: GtGateway,
     pr_gateway: PRGateway,
     branch: str,
-    cwd: Path,
     trunk: str,
 ) -> _StackEntry:
     alive = git.branch_exists(branch)
-    objective, _extras = _build_objective_summary(gateway, git, gt, branch, cwd, trunk, alive=alive)
+    objective, _extras = _build_objective_summary(gateway, git, branch, trunk, alive=alive)
     pr_block, pr_error = _build_pr_block(pr_gateway.get_pr_for_branch(branch))
     return _StackEntry(
         branch=branch,
@@ -528,19 +493,7 @@ def _render_next_orientation_step(current: _CurrentBranchBlock) -> str:
 def _render_warnings(warnings: tuple[str, ...]) -> str:
     if not warnings:
         return ""
-    gt_prefixes = ("gt_failed:", "gt_trunk_failed:")
-    gt_warnings = [w for w in warnings if w.startswith(gt_prefixes)]
-    other_warnings = [w for w in warnings if w not in gt_warnings]
-
-    blocks: list[str] = []
-    for w in gt_warnings:
-        _, _, rest = w.partition(": ")
-        blocks.append(f"> Warning: gt unavailable - stack walk skipped: `{rest}`")
-
-    if other_warnings:
-        body_lines = ["> Warnings:", ">"]
-        for w in other_warnings:
-            body_lines.append(f"> - {w}")
-        blocks.append("\n".join(body_lines))
-
-    return "\n\n".join(blocks)
+    body_lines = ["> Warnings:", ">"]
+    for warning in warnings:
+        body_lines.append(f"> - {warning}")
+    return "\n".join(body_lines)

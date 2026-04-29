@@ -50,6 +50,15 @@ This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. W
 
 Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the `graphite` skill's "Surgical Rebasing" section).
 
+### Runtime Graphite Dependency Boundary
+
+Graphite is the contributor workflow tool for this repo, but runtime package code must not depend on Graphite by default. Before importing `twerk_core.gt`, accepting a `GtGateway`, constructing `RealGtGateway`, shelling out to `gt`, or adding Graphite to a CLI context, first check whether the same behavior can be satisfied through the git gateway.
+
+- Use `GitGateway` for ordinary repository facts: current branch, trunk/base branch, local branch existence, refs, commit ranges, patch IDs, and worktrees.
+- A command or command group may depend on Graphite only when Graphite is part of its explicit user-facing contract: the command path, help text, and docs should name Graphite or `gt`, and the behavior should require Graphite stack metadata rather than plain git history.
+- `slot gt` is the canonical opt-in Graphite command group and should be excluded from Graphite-boundary audits. Its name is the contract.
+- Do not introduce Graphite dependencies into generic workflows, package contexts, or skill `exec` helpers as a convenience for stack discovery. If a workflow needs Graphite-specific stack semantics, put that behavior behind an explicit Graphite-named command or command group.
+
 ### CLI Scenario Testing Convention
 
 Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) built by `build_cli()` in `<package>.cli.main`, and a twerk plugin subgroup discovered via `twerk.plugins` entry points. Test them separately:

@@ -13,8 +13,6 @@ from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.gt.gateway import GtGateway
-from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.absorbed_marker import (
     AbsorbedPatchRecord,
     records_from_commits,
@@ -23,6 +21,8 @@ from twerk_objectives.absorbed_marker import (
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import MASTER_BRANCH, absorbed_patches_key, body_key, slug_for_key
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.patch_facts import load_branch_patch_facts
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 
 @dataclass(frozen=True)
@@ -135,16 +135,19 @@ def run_absorb_patches_objective(
             ),
         )
 
-    trunk = _resolve_trunk(mctx.gt_gateway, cwd)
+    trunk = resolve_trunk(git).trunk
     range_spec = f"{trunk}..HEAD"
-    log_result = git.log_range(range_spec)
-    if isinstance(log_result, GitCommandFailure):
-        return ClinkrExit.failure(error_type="git_failed", message=log_result.message)
-    pid_result = git.patch_ids_for_range(range_spec)
-    if isinstance(pid_result, GitCommandFailure):
-        return ClinkrExit.failure(error_type="git_failed", message=pid_result.message)
+    facts = load_branch_patch_facts(git, range_spec, require_patch_ids=True)
+    if isinstance(facts, GitCommandFailure):
+        return ClinkrExit.failure(error_type="git_failed", message=facts.message)
 
-    records = records_from_commits(log_result, pid_by_sha=dict(pid_result))
+    pid_by_sha = facts.pid_by_sha
+    if pid_by_sha is None:
+        return ClinkrExit.failure(
+            error_type="git_failed",
+            message="git patch-id failed",
+        )
+    records = records_from_commits(facts.commits, pid_by_sha=pid_by_sha)
     marker_key = absorbed_patches_key(slug)
     old_diagnostic = mctx.brmem_gateway.check(OBJECTIVE_NAMESPACE, marker_key, current_branch)
     new_head_sha = mctx.brmem_gateway.put(
@@ -165,10 +168,3 @@ def run_absorb_patches_objective(
             records=records,
         )
     )
-
-
-def _resolve_trunk(gt: GtGateway, cwd: Path) -> str:
-    result = gt.trunk(cwd)
-    if isinstance(result, GtCommandFailure):
-        return MASTER_BRANCH
-    return result

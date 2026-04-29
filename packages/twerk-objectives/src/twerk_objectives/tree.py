@@ -1,12 +1,10 @@
-"""Display the tree of branches carrying a objective snapshot + their PRs.
+"""Display branches carrying an objective snapshot plus their PRs.
 
 Given a slug (explicit or inferred from the current branch), list every
 branch that carries a objective snapshot alongside the PR attached to that
-branch - number, title, URL, and lifecycle state. The "tree" is typically a
-Graphite stack rooted off the objective's base branch; the listing is flat
-but the underlying shape is a tree. The canonical objective is reported
-separately via ``canonical_present`` because it is a record on ``master``,
-not a PR-bearing workstream.
+branch - number, title, URL, and lifecycle state. The canonical objective is
+reported separately via ``canonical_present`` because it is a record on
+``master``, not a PR-bearing workstream.
 
 The primary consumer is ``objective-reconcile``, an LLM scanning stdout
 while folding branch snapshots into canonical objective state: rows are
@@ -18,7 +16,6 @@ of aborting the whole command.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import click
@@ -33,8 +30,6 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.types import PRLookupError, PRState
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_core.gt.gateway import GtGateway
-from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import MASTER_BRANCH
 from twerk_objectives.freshness import classify_branch_snapshot
@@ -45,6 +40,7 @@ from twerk_objectives.slug_resolution import (
     SlugResolution,
     resolve_slug,
 )
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 BranchPrAction = Literal["open", "merged", "closed", "no_pr", "error"]
 ObjectiveSnapshotUiState = Literal["fresh", "stale", "deleted"]
@@ -162,29 +158,19 @@ def _title_cell(entry: BranchPrEntry) -> str:
     return "-"
 
 
-def _resolve_trunk(gt: GtGateway, cwd: Path) -> str:
-    """Return graphite's trunk; fall back to ``MASTER_BRANCH`` on failure."""
-    result = gt.trunk(cwd)
-    if isinstance(result, GtCommandFailure):
-        return MASTER_BRANCH
-    return result
-
-
 def _classify_branch(
     branch: str,
     *,
     slug: str,
     gateway: BranchMemoryGateway,
     git: GitGateway,
-    gt: GtGateway,
     pr: PRGateway,
-    cwd: Path,
     trunk: str,
 ) -> BranchPrEntry:
     alive = git.branch_exists(branch)
     if alive:
         obj_state: ObjectiveSnapshotUiState = classify_branch_snapshot(
-            gateway, git, gt, branch, slug, cwd=cwd, trunk=trunk, alive=True
+            gateway, git, branch, slug, trunk=trunk, alive=True
         )
     else:
         obj_state = "deleted"
@@ -232,11 +218,10 @@ def _sort_by_state_group(rows: tuple[BranchPrEntry, ...]) -> tuple[BranchPrEntry
     name="tree",
     help=(
         "Display the tree of branches carrying a objective snapshot with "
-        "their associated PRs (number, URL, state). The tree is typically "
-        "a Graphite stack. If SLUG is omitted and exactly one objective "
-        "is attached to the current branch, it is selected automatically. "
-        "The canonical record is reported via `canonical_present`, not as "
-        "a row."
+        "their associated PRs (number, URL, state). If SLUG is omitted and "
+        "exactly one objective is attached to the current branch, it is "
+        "selected automatically. The canonical record is reported via "
+        "`canonical_present`, not as a row."
     ),
     human_renderer=render_objective_tree,
 )
@@ -247,7 +232,6 @@ def run_tree_objective(
     mctx = load_typed_context(ctx, ObjectiveCliContext)
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
-    gt = mctx.gt_gateway
     pr = mctx.pr_gateway
 
     match resolve_slug(mctx, request.slug):
@@ -284,8 +268,7 @@ def run_tree_objective(
     canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
     branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
 
-    cwd = Path.cwd()
-    trunk = _resolve_trunk(gt, cwd)
+    trunk = resolve_trunk(git).trunk
 
     rows = tuple(
         _classify_branch(
@@ -293,9 +276,7 @@ def run_tree_objective(
             slug=slug,
             gateway=gateway,
             git=git,
-            gt=gt,
             pr=pr,
-            cwd=cwd,
             trunk=trunk,
         )
         for b in branch_names

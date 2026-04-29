@@ -21,13 +21,10 @@ from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
-from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import (
     DetachedHead,
     GitCommandFailure,
 )
-from twerk_core.gt.gateway import GtGateway
-from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
@@ -37,22 +34,19 @@ from twerk_objectives.discovery import (
     roadmap_key,
     slug_for_key,
 )
-from twerk_objectives.exec.absorbed import (
-    AbsorbedSetUnavailable,
-    absorbed_patch_ids_for_branch,
-)
 from twerk_objectives.freshness import (
     ObjectiveSnapshotState,
     classify_obj_state,
-    effective_absorbed_patch_ids,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.patch_facts import load_branch_patch_facts
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
     SlugResolution,
     resolve_slug,
 )
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 
 @dataclass(frozen=True)
@@ -191,14 +185,12 @@ def run_update_precheck_objective(
         f.head_date for f in (body, roadmap, notes) if f.head_date is not None
     )
 
-    cwd = Path.cwd()
-    trunk = _resolve_trunk(mctx.gt_gateway, cwd)
+    trunk = resolve_trunk(git).trunk
 
-    log_result = git.log_range(f"{trunk}..HEAD")
-    if isinstance(log_result, GitCommandFailure):
-        return ClinkrExit.failure(error_type="git_failed", message=log_result.message)
-
-    pid_by_sha = _pid_by_sha(git, f"{trunk}..HEAD")
+    facts = load_branch_patch_facts(git, f"{trunk}..HEAD", require_patch_ids=False)
+    if isinstance(facts, GitCommandFailure):
+        return ClinkrExit.failure(error_type="git_failed", message=facts.message)
+    pid_by_sha = facts.pid_by_sha
     branch_commits = tuple(
         BranchCommit(
             sha=c.sha,
@@ -206,28 +198,15 @@ def run_update_precheck_objective(
             subject=c.subject,
             patch_id=pid_by_sha.get(c.sha) if pid_by_sha is not None else None,
         )
-        for c in log_result
+        for c in facts.commits
     )
     branch_max_author_iso = _max_iso(c.author_iso for c in branch_commits)
 
-    absorbed = absorbed_patch_ids_for_branch(git, mctx.gt_gateway, cwd, current_branch, trunk=trunk)
-    if isinstance(absorbed, AbsorbedSetUnavailable):
-        downstack_pids = frozenset()
-    else:
-        downstack_pids = absorbed
-
     marker = load_absorbed_marker(gateway, slug=slug, branch=current_branch)
-    effective_pids = effective_absorbed_patch_ids(
-        marker=marker,
-        downstack_pids=downstack_pids,
-    )
-    if pid_by_sha is None:
-        branch_commit_pids = () if not branch_commits else None
-    else:
-        branch_commit_pids = tuple(c.patch_id for c in branch_commits)
+    effective_pids = marker.patch_ids if marker.ok else None
     freshness = classify_obj_state(
         alive=True,
-        branch_commit_pids=branch_commit_pids,
+        branch_commit_pids=facts.commit_patch_ids,
         absorbed_pids=effective_pids,
     )
     absorbed_pids = tuple(sorted(effective_pids or ()))
@@ -244,7 +223,7 @@ def run_update_precheck_objective(
             snapshot_max_head_date=snapshot_max_head_date,
             branch_commits=branch_commits,
             branch_max_author_iso=branch_max_author_iso,
-            downstack_absorbed_patch_ids=tuple(sorted(downstack_pids)),
+            downstack_absorbed_patch_ids=(),
             snapshot_absorbed_patch_ids=tuple(sorted(marker.patch_ids)),
             absorbed_marker_diagnostics=tuple(
                 f"line {d.line}: {d.message}" for d in marker.diagnostics
@@ -286,19 +265,3 @@ def _max_iso(values: Iterable[str]) -> str | None:
     if not items:
         return None
     return max(items)
-
-
-def _resolve_trunk(gt: GtGateway, cwd: Path) -> str:
-    """Return graphite's trunk; fall back to ``MASTER_BRANCH`` on failure."""
-    result = gt.trunk(cwd)
-    if isinstance(result, GtCommandFailure):
-        return MASTER_BRANCH
-    return result
-
-
-def _pid_by_sha(git: GitGateway, range_spec: str) -> dict[str, str | None] | None:
-    """Map sha -> patch_id for ``range_spec``; ``None`` on git failure."""
-    result = git.patch_ids_for_range(range_spec)
-    if isinstance(result, GitCommandFailure):
-        return None
-    return {sha: pid for sha, pid in result}

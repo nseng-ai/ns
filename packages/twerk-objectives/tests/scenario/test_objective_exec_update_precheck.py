@@ -21,8 +21,6 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import CommitSummary, DetachedHead, GitCommandFailure
-from twerk_core.gt.testing import FakeGtGateway
-from twerk_core.gt.types import StackInfo
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -65,7 +63,6 @@ def _make_obj(
     commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
     log_range_failure: GitCommandFailure | None = None,
     patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
-    gt_gateway: FakeGtGateway | None = None,
 ) -> ClinkrContextObject:
     git_gateway = FakeGitGateway(
         current_branch_by_path={Path.cwd(): current_branch},
@@ -73,12 +70,12 @@ def _make_obj(
         commits_by_range=commits_by_range,
         log_range_failure=log_range_failure,
         patch_ids_by_range=patch_ids_by_range,
+        trunk_branch="master",
     )
     ctx = ObjectiveCliContext(
         brmem_gateway=gateway,
         git_gateway=git_gateway,
         pr_gateway=FakePRGateway(),
-        gt_gateway=gt_gateway if gt_gateway is not None else FakeGtGateway(trunk="master"),
     )
     return build_clinkr_context_object(lambda: ctx)
 
@@ -256,18 +253,16 @@ def test_precheck_in_sync_when_no_branch_commits(cli_group: ClinkrGroup) -> None
 
 def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
-    cwd = Path.cwd()
-    gt_gateway = FakeGtGateway(
-        trunk="master",
-        stack_by_cwd={
-            cwd: StackInfo(
-                trunk="master",
-                current="widget-rewrite-layer-1",
-                ancestors=("master", "widget-rewrite-groundwork"),
-                children=(),
-                warnings=(),
-            )
-        },
+    gateway.put(
+        "objectives",
+        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite-layer-1",
+        (
+            '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n'
+            '{"schema":1,"sha":"sha-2","patch_id":"pid-2",'
+            '"author_iso":"2026-04-26T19:00:00+00:00","subject":"Second"}\n'
+        ),
     )
     commits = (
         CommitSummary(sha="sha-2", author_iso="2026-04-26T19:00:00+00:00", subject="Second"),
@@ -280,12 +275,7 @@ def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None
         commits_by_range={"master..HEAD": commits},
         patch_ids_by_range={
             "master..HEAD": (("sha-2", "pid-2"), ("sha-1", "pid-1")),
-            "master..widget-rewrite-groundwork": (
-                ("sha-2", "pid-2"),
-                ("sha-1", "pid-1"),
-            ),
         },
-        gt_gateway=gt_gateway,
     )
 
     result = CliRunner().invoke(
@@ -306,18 +296,14 @@ def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None
 
 def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
-    cwd = Path.cwd()
-    gt_gateway = FakeGtGateway(
-        trunk="master",
-        stack_by_cwd={
-            cwd: StackInfo(
-                trunk="master",
-                current="widget-rewrite-layer-1",
-                ancestors=("master", "widget-rewrite-groundwork"),
-                children=(),
-                warnings=(),
-            )
-        },
+    gateway.put(
+        "objectives",
+        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite-layer-1",
+        (
+            '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n'
+        ),
     )
     commits = (
         CommitSummary(sha="sha-2", author_iso="2026-04-26T19:00:00+00:00", subject="Second"),
@@ -330,9 +316,7 @@ def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> Non
         commits_by_range={"master..HEAD": commits},
         patch_ids_by_range={
             "master..HEAD": (("sha-2", "pid-novel"), ("sha-1", "pid-1")),
-            "master..widget-rewrite-groundwork": (("sha-1", "pid-1"),),
         },
-        gt_gateway=gt_gateway,
     )
 
     result = CliRunner().invoke(
@@ -350,18 +334,14 @@ def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> Non
 
 def test_precheck_ignores_null_pid_for_freshness(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
-    cwd = Path.cwd()
-    gt_gateway = FakeGtGateway(
-        trunk="master",
-        stack_by_cwd={
-            cwd: StackInfo(
-                trunk="master",
-                current="widget-rewrite-layer-1",
-                ancestors=("master", "widget-rewrite-groundwork"),
-                children=(),
-                warnings=(),
-            )
-        },
+    gateway.put(
+        "objectives",
+        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite-layer-1",
+        (
+            '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n'
+        ),
     )
     commits = (
         CommitSummary(sha="sha-merge", author_iso="2026-04-26T19:00:00+00:00", subject="Merge"),
@@ -374,9 +354,7 @@ def test_precheck_ignores_null_pid_for_freshness(cli_group: ClinkrGroup) -> None
         commits_by_range={"master..HEAD": commits},
         patch_ids_by_range={
             "master..HEAD": (("sha-merge", None), ("sha-1", "pid-1")),
-            "master..widget-rewrite-groundwork": (("sha-1", "pid-1"),),
         },
-        gt_gateway=gt_gateway,
     )
 
     result = CliRunner().invoke(
@@ -403,19 +381,6 @@ def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGrou
             '"author_iso":"2026-04-26T19:00:00+00:00","subject":"Second"}\n'
         ),
     )
-    cwd = Path.cwd()
-    gt_gateway = FakeGtGateway(
-        trunk="master",
-        stack_by_cwd={
-            cwd: StackInfo(
-                trunk="master",
-                current="widget-rewrite-layer-1",
-                ancestors=("master",),
-                children=(),
-                warnings=(),
-            )
-        },
-    )
     commits = (
         CommitSummary(sha="sha-2", author_iso="2026-04-26T19:00:00+00:00", subject="Second"),
     )
@@ -425,7 +390,6 @@ def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGrou
         branches=("master", "widget-rewrite-layer-1"),
         commits_by_range={"master..HEAD": commits},
         patch_ids_by_range={"master..HEAD": (("sha-2", "pid-novel"),)},
-        gt_gateway=gt_gateway,
     )
 
     result = CliRunner().invoke(
