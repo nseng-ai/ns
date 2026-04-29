@@ -125,8 +125,7 @@ def run_digest_objective(
         raise ClinkrExit.failure(
             error_type="slug_not_seeded",
             message=(
-                f"No objective found for slug {slug!r}. "
-                "Run `objective-create` to seed it on trunk."
+                f"No objective found for slug {slug!r}. Run `objective-create` to seed it on trunk."
             ),
         )
     trunk_branch = git.get_trunk_branch()

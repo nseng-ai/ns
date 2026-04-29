@@ -99,7 +99,11 @@ def test_deleted_branches_marked_when_branch_validator_provided() -> None:
     gateway.put("objectives", "s/body.md", "live", "x")
     gateway.put("objectives", "s/body.md", "dead", "x")
 
-    result = discover_objectives(gateway, trunk_branch="master", is_branch_alive={"live"}.__contains__)
+    result = discover_objectives(
+        gateway,
+        trunk_branch="master",
+        is_branch_alive={"live"}.__contains__,
+    )
 
     assert result[0].branches == (
         BranchPresence(branch="dead", deleted=True),

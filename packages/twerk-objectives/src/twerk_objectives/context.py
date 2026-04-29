@@ -37,6 +37,9 @@ def build_objective_context() -> ObjectiveCliContext:
     trunk = resolve_trunk_branch(repo_root) if repo_root is not None else None
     return ObjectiveCliContext(
         brmem_gateway=brmem_ctx.brmem_gateway,
-        git_gateway=RealGitGateway(repo_root=repo_root, trunk_branch=trunk or FALLBACK_TRUNK_BRANCH),
+        git_gateway=RealGitGateway(
+            repo_root=repo_root,
+            trunk_branch=trunk or FALLBACK_TRUNK_BRANCH,
+        ),
         pr_gateway=RealPRGateway(),
     )

@@ -80,9 +80,7 @@ def _file_to_json(file: ObjectiveFile | None) -> dict[str, str] | None:
 
 def render_objective_show(result: ObjectiveShowResult) -> None:
     click.echo(f"slug: {result.slug}")
-    canonical_str = (
-        f"present ({result.canonical_trunk})" if result.canonical_present else "absent"
-    )
+    canonical_str = f"present ({result.canonical_trunk})" if result.canonical_present else "absent"
     click.echo(f"canonical: {canonical_str}")
     if result.branches:
         click.echo("branches:")
