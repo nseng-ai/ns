@@ -35,7 +35,7 @@ def test_file_key_helpers() -> None:
 def test_empty_repo_produces_empty_result() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    assert discover_objectives(gateway) == ()
+    assert discover_objectives(gateway, trunk_branch="master") == ()
 
 
 def test_groups_duplicate_snapshots_by_slug() -> None:
@@ -44,7 +44,7 @@ def test_groups_duplicate_snapshots_by_slug() -> None:
     gateway.put("objectives", "a/body.md", "b2", "x")
     gateway.put("objectives", "a/body.md", "b3", "x")
 
-    result = discover_objectives(gateway)
+    result = discover_objectives(gateway, trunk_branch="master")
 
     assert len(result) == 1
     assert result[0].slug == "a"
@@ -59,7 +59,7 @@ def test_groups_multiple_files_under_one_slug() -> None:
     gateway.put("objectives", "a/roadmap.md", "master", "roadmap")
     gateway.put("objectives", "a/notes.md", "feat/x", "notes")
 
-    result = discover_objectives(gateway)
+    result = discover_objectives(gateway, trunk_branch="master")
 
     assert len(result) == 1
     assert result[0].slug == "a"
@@ -72,7 +72,7 @@ def test_seed_only_objective_has_no_branches() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "orphan/body.md", "master", "x")
 
-    result = discover_objectives(gateway)
+    result = discover_objectives(gateway, trunk_branch="master")
 
     assert result == (
         ObjectiveRepoEntry(
@@ -88,7 +88,7 @@ def test_snapshot_only_objective_has_no_seed() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "detached/body.md", "feat/x", "x")
 
-    result = discover_objectives(gateway)
+    result = discover_objectives(gateway, trunk_branch="master")
 
     assert result[0].canonical_present is False
     assert [bp.branch for bp in result[0].branches] == ["feat/x"]
@@ -99,7 +99,7 @@ def test_deleted_branches_marked_when_branch_validator_provided() -> None:
     gateway.put("objectives", "s/body.md", "live", "x")
     gateway.put("objectives", "s/body.md", "dead", "x")
 
-    result = discover_objectives(gateway, is_branch_alive={"live"}.__contains__)
+    result = discover_objectives(gateway, trunk_branch="master", is_branch_alive={"live"}.__contains__)
 
     assert result[0].branches == (
         BranchPresence(branch="dead", deleted=True),
@@ -113,7 +113,7 @@ def test_deleted_is_never_true_when_validator_omitted() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "s/body.md", "anywhere", "x")
 
-    result = discover_objectives(gateway)
+    result = discover_objectives(gateway, trunk_branch="master")
 
     assert result[0].branches == (BranchPresence(branch="anywhere", deleted=False),)
 
@@ -124,7 +124,7 @@ def test_results_sorted_by_slug() -> None:
     gateway.put("objectives", "a/body.md", "master", "x")
     gateway.put("objectives", "m/body.md", "master", "x")
 
-    result = discover_objectives(gateway)
+    result = discover_objectives(gateway, trunk_branch="master")
 
     assert [m.slug for m in result] == ["a", "m", "z"]
 
@@ -137,6 +137,7 @@ def test_group_objective_entries_accepts_preloaded_entries() -> None:
 
     grouped = group_objective_entries(
         _entries(gateway),
+        trunk_branch="master",
         is_branch_alive={"master", "feat/live"}.__contains__,
     )
 

@@ -207,9 +207,9 @@ def test_digest_emits_brief_with_facts_prose_and_template(cli_group: ClinkrGroup
         "| **Branch snapshots** | 2 active · latest: `widget-rewrite-layer-1` "
         "(updated 2026-04-26T20:54:00+00:00) |"
     ) in out
-    assert "| **Master canonical** | last touched 2026-04-26T06:52:00+00:00 |" in out
+    assert "| **Canonical (trunk)** | last touched 2026-04-26T06:52:00+00:00 |" in out
 
-    # Master body is embedded verbatim for thesis prose.
+    # Canonical body is embedded verbatim for thesis prose.
     assert "Re-platform the widget pipeline" in out
     assert "<<<\n# Widget Rewrite" in out
 
@@ -368,7 +368,7 @@ def test_digest_embeds_master_roadmap_for_remaining_work(cli_group: ClinkrGroup)
     )
 
     assert result.exit_code == 0, result.output
-    assert "Source — master roadmap:" in result.output
+    assert "Source — canonical roadmap:" in result.output
     assert "## Slice 1 — Plugin contract" in result.output
     assert "no roadmap recorded" not in result.output
 
@@ -498,4 +498,4 @@ def test_digest_slug_branch_only_no_master_seed_fails(cli_group: ClinkrGroup) ->
 
     assert result.exit_code == 2
     assert payload["error_type"] == "slug_not_seeded"
-    assert "no master seed" in payload["message"]
+    assert "no canonical seed on 'master'" in payload["message"]

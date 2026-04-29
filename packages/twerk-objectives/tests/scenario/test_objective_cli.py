@@ -422,6 +422,7 @@ def test_objective_show_format_json(cli_group: ClinkrGroup) -> None:
     assert payload["data"] == {
         "slug": "objective-cli",
         "canonical_present": True,
+        "canonical_trunk": "master",
         "branches": [
             {"branch": "mem-deleted-branch", "deleted": True},
             {"branch": "mem-scaffold-list", "deleted": False},
@@ -449,6 +450,7 @@ def test_objective_show_missing_slug_json(cli_group: ClinkrGroup) -> None:
     assert payload["data"] == {
         "slug": "does-not-exist",
         "canonical_present": False,
+        "canonical_trunk": "master",
         "branches": [],
         "files": [],
         "body": None,
@@ -503,6 +505,7 @@ def test_objective_show_no_slug_defaults_json(cli_group: ClinkrGroup) -> None:
     assert payload["data"] == {
         "slug": "objective-cli",
         "canonical_present": True,
+        "canonical_trunk": "master",
         "branches": [{"branch": "feat/x", "deleted": False}],
         "files": ["body.md"],
         "body": {"source_branch": "feat/x", "content": "snap\n"},
