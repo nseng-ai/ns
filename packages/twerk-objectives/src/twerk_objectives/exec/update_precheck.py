@@ -27,7 +27,6 @@ from twerk_core.git.types import (
 from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
-    MASTER_BRANCH,
     body_key,
     notes_key,
     roadmap_key,
@@ -122,9 +121,9 @@ def run_update_precheck_objective(
         raise ClinkrExit.failure(error_type="git_failed", message=current_branch_result.message)
     current_branch = current_branch_result
 
-    if current_branch == MASTER_BRANCH:
+    if current_branch == git.get_trunk_branch():
         raise ClinkrExit.failure(
-            error_type="on_master_branch",
+            error_type="on_trunk_branch",
             message=(
                 "objective-update runs on branch snapshots only. "
                 "Use objective-reconcile <slug> to update canonical state."

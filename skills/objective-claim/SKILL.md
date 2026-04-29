@@ -83,7 +83,7 @@ git rev-parse --abbrev-ref HEAD
 
 Resolve `<target>` from `--target` or the current branch. Abort if not in a
 git repo, given both source flags, given `--from` or `--from-file` without a
-slug, targeting `master`, or on detached `HEAD` without `--target`. The
+slug, targeting the trunk branch, or on detached `HEAD` without `--target`. The
 target collision check moves to Step 2b once the slug is known.
 
 ### 2a. Resolve the Slug (when not supplied)
@@ -92,7 +92,7 @@ If the prompt named a slug, skip to Step 2b. Otherwise, find candidate slugs
 by walking ancestors nearest-first, then continue to Step 2b.
 
 1. Enumerate `refs/brmem/ns/objectives/*`, decode `---` to `/`, and keep
-   only live non-master branches that are ancestors of `HEAD` and are not
+   only live non-trunk branches that are ancestors of `HEAD` and are not
    `<target>`. Order them nearest-first by
    `git rev-list --count refs/heads/<branch>..HEAD`.
 2. Walk that list and stop at the **nearest** ancestor that carries any
@@ -105,8 +105,8 @@ by walking ancestors nearest-first, then continue to Step 2b.
 
    Split each returned key on `/`, take the first segment, and deduplicate.
 3. If no live ancestor carries any objectives, fall through to canonical
-   storage (`master`) and use master's slug set as the candidate set.
-   Master typically carries many slugs, so the multi-pick prompt below
+   storage (the trunk branch) and use trunk's slug set as the candidate set.
+   The trunk branch typically carries many slugs, so the multi-pick prompt below
    will be long — that is intentional friction signaling the user should
    pass a slug explicitly.
 4. Apply selection:
@@ -139,12 +139,12 @@ copy to carry:
 2. **Explicit branch**: if `--from <branch>` is given, require
    `<slug>/body.md` there with `brmem check`.
 3. **Ancestor branch**: enumerate `refs/brmem/ns/objectives/*`, decode
-   `---` to `/`, and keep only live non-master branches that are ancestors of
+   `---` to `/`, and keep only live non-trunk branches that are ancestors of
    `HEAD`, are not `<target>`, and carry `<slug>/body.md`. Choose the
    candidate with the smallest
    `git rev-list --count refs/heads/<branch>..HEAD`; ask on ties.
-4. **Canonical record**: use current canonical storage (`master`) when
-   `brmem check` succeeds for `<slug>/body.md`.
+4. **Canonical record**: use canonical storage (the trunk branch, the permanent
+   canonical branch) when `brmem check` succeeds for `<slug>/body.md`.
 
 If no source contains the slug, ask the user to name `--from`, name
 `--from-file`, or run `objective-create` if the slug is new.
@@ -192,7 +192,7 @@ Return:
 
 ```text
 This branch is ready for implementation. After implementing the slice, merge
-the PR and run objective-reconcile <slug> on master. Run
+the PR and run objective-reconcile <slug> on the trunk branch. Run
 objective-update <slug> only if another branch will claim from this
 branch before it lands.
 ```
@@ -200,9 +200,9 @@ branch before it lands.
 ## Edge Cases And Anti-Patterns
 
 - Detached `HEAD` without `--target`, `--from` or `--from-file` without a
-  slug, `--from` plus `--from-file`, or `--target master`: abort and
-  describe the issue. The master-target guard exists because claim attaches
-  canonical objectives to feature branches; master is the canonical store.
+  slug, `--from` plus `--from-file`, or `--target <trunk>`: abort and
+  describe the issue. The trunk-target guard exists because claim attaches
+  canonical objectives to feature branches; the trunk branch is the canonical store.
 - No-slug invocation with no candidates anywhere (no live ancestor carries
   objectives and canonical storage is empty): abort with the
   `objective-create` / `--from-file` hint instead of guessing.

@@ -117,6 +117,7 @@ def run_list_objectives(
     if not request.here and request.branch is None:
         objectives = discover_objectives(
             mctx.brmem_gateway,
+            trunk_branch=mctx.git_gateway.get_trunk_branch(),
             is_branch_alive=mctx.git_gateway.branch_exists,
         )
         return ClinkrExit.ok(

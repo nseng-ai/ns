@@ -582,7 +582,7 @@ def test_precheck_slug_not_attached_fails(cli_group: ClinkrGroup) -> None:
     assert "widget-rewrite-layer-1" in payload["message"]
 
 
-def test_precheck_on_master_branch_fails(cli_group: ClinkrGroup) -> None:
+def test_precheck_on_trunk_branch_fails(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("master")
     obj = _make_obj(
         gateway=gateway,
@@ -598,7 +598,7 @@ def test_precheck_on_master_branch_fails(cli_group: ClinkrGroup) -> None:
     payload = json.loads(result.output)
 
     assert result.exit_code == 2
-    assert payload["error_type"] == "on_master_branch"
+    assert payload["error_type"] == "on_trunk_branch"
     assert "objective-reconcile" in payload["message"]
 
 

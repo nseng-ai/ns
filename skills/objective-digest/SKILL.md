@@ -22,6 +22,28 @@ remaining work, and durable findings. Read-only: do not write to brmem, mutate
 git, modify PRs, or save the digest unless the user explicitly redirects
 output.
 
+## Ownership Boundary
+
+The final digest is **agent-authored prose over CLI-provided facts**. The
+boundary is explicit:
+
+- **CLI (`objective exec digest`)** computes deterministic facts
+  (associated PRs, branch snapshot count, canonical metadata,
+  merged-PR linkified bullet list, latest-snapshot pick) and emits raw
+  Markdown blocks (canonical `body.md`, canonical `roadmap.md`, per-snapshot
+  `notes.md` blocks) plus a literal output template. It does not summarize
+  prose.
+- **Agent (this skill)** copies the pre-rendered metadata and merged-PR
+  list verbatim, and writes the Thesis, Remaining work, and Key findings
+  sections by reading the embedded raw Markdown.
+
+This is a deliberate boundary, not a half-finished pushdown. Promoting the
+final prose into Python would require Markdown parsing and summarization,
+which the canonicalization plan defers. Tests for `objective exec digest`
+assert the prompt/template contract — presence of metadata rows, raw
+Markdown blocks, and template scaffolding — not final digest prose
+wording.
+
 ## Inputs
 
 - **Slug, optional.** If present, pass it through. If omitted, let
@@ -43,8 +65,8 @@ output.
 self-contained brief:
 
 - pre-rendered metadata table and merged-PR list;
-- raw master body for thesis;
-- raw master roadmap for remaining work;
+- raw canonical body for thesis;
+- raw canonical roadmap for remaining work;
 - raw per-snapshot notes for findings;
 - literal output template.
 
@@ -63,7 +85,7 @@ self-contained brief:
    tell the user to run `objective list`.
 
 3. **If the command succeeds**, follow stdout. Copy Steps 1-2 verbatim.
-   Fill Steps 3-5 from the master body, master roadmap, and notes blocks.
+   Fill Steps 3-5 from the canonical body, canonical roadmap, and notes blocks.
 
 4. Print the filled digest as the answer. Do not add commentary above
    or below the digest when the user asked for the digest itself.
@@ -73,8 +95,8 @@ self-contained brief:
 The brief enforces these externally visible invariants:
 
 - Title: `# \`<slug>\` — digest`
-- Exactly three metadata rows: Associated PRs, Branch snapshots, Master
-  canonical — already pre-rendered by the CLI.
+- Exactly three metadata rows: Associated PRs, Branch snapshots, Canonical
+  (trunk) — already pre-rendered by the CLI.
 - Sections in order: Thesis, Merged PRs, Remaining work, Key findings.
 - Merged PRs is a linkified bullet list (`- [#N](url) — title`) sorted
   by PR number, pre-rendered by the CLI; render `_No merged PRs yet._`

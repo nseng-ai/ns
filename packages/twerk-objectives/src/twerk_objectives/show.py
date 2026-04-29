@@ -19,7 +19,6 @@ from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
-    MASTER_BRANCH,
     NOTES_FILE,
     ROADMAP_FILE,
     BranchPresence,
@@ -53,6 +52,7 @@ class ObjectiveFile:
 class ObjectiveShowResult(JsonSerializable):
     slug: str
     canonical_present: bool
+    canonical_trunk: str
     branches: tuple[BranchPresence, ...]
     files: tuple[str, ...]
     body: ObjectiveFile | None
@@ -63,6 +63,7 @@ class ObjectiveShowResult(JsonSerializable):
         return {
             "slug": self.slug,
             "canonical_present": self.canonical_present,
+            "canonical_trunk": self.canonical_trunk,
             "branches": [{"branch": bp.branch, "deleted": bp.deleted} for bp in self.branches],
             "files": list(self.files),
             "body": _file_to_json(self.body),
@@ -79,7 +80,8 @@ def _file_to_json(file: ObjectiveFile | None) -> dict[str, str] | None:
 
 def render_objective_show(result: ObjectiveShowResult) -> None:
     click.echo(f"slug: {result.slug}")
-    click.echo(f"canonical: {'present (master)' if result.canonical_present else 'absent'}")
+    canonical_str = f"present ({result.canonical_trunk})" if result.canonical_present else "absent"
+    click.echo(f"canonical: {canonical_str}")
     if result.branches:
         click.echo("branches:")
         for bp in result.branches:
@@ -97,8 +99,25 @@ def render_objective_show(result: ObjectiveShowResult) -> None:
         if file is None:
             continue
         console.print()
-        console.rule(f"{file.filename} ({file.source_branch})")
+        console.rule(_format_file_header(file, trunk_branch=result.canonical_trunk))
         console.print(Markdown(file.content))
+
+
+def _format_file_header(file: ObjectiveFile, *, trunk_branch: str) -> str:
+    """Label each file with its source so the mixed-fallback view is unambiguous.
+
+    Without ``--branch``, ``objective show`` resolves each file
+    independently (current branch first, canonical trunk fallback), so a
+    single render may combine sources. The label distinguishes canonical
+    storage from a branch snapshot in both human and JSON callers, matching
+    the documented "Effective view" boundary in
+    ``packages/twerk-objectives/AGENTS.md``.
+    """
+    if file.source_branch == trunk_branch:
+        source = f"canonical: {trunk_branch}"
+    else:
+        source = f"branch: {file.source_branch}"
+    return f"{file.filename} ({source})"
 
 
 def _read_file(
@@ -109,6 +128,7 @@ def _read_file(
     current_branch: str | None,
     canonical_present: bool,
     requested_branch: str | None,
+    trunk_branch: str,
 ) -> ObjectiveFile | None:
     key = f"{slug}/{filename}"
     if requested_branch is not None:
@@ -116,14 +136,14 @@ def _read_file(
         if content is None:
             return None
         return ObjectiveFile(filename=filename, source_branch=requested_branch, content=content)
-    if current_branch is not None and current_branch != MASTER_BRANCH:
+    if current_branch is not None and current_branch != trunk_branch:
         content = gateway.get(OBJECTIVE_NAMESPACE, key, current_branch)
         if content is not None:
             return ObjectiveFile(filename=filename, source_branch=current_branch, content=content)
     if canonical_present:
-        content = gateway.get(OBJECTIVE_NAMESPACE, key, MASTER_BRANCH)
+        content = gateway.get(OBJECTIVE_NAMESPACE, key, trunk_branch)
         if content is not None:
-            return ObjectiveFile(filename=filename, source_branch=MASTER_BRANCH, content=content)
+            return ObjectiveFile(filename=filename, source_branch=trunk_branch, content=content)
     return None
 
 
@@ -186,12 +206,14 @@ def run_show_objective(
         case SlugResolution(slug=requested_slug, current_branch=current_branch):
             pass
 
+    trunk_branch = git_gateway.get_trunk_branch()
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
     slug_entries = _slug_entries(all_entries, requested_slug)
     if not slug_entries:
         empty = ObjectiveShowResult(
             slug=requested_slug,
             canonical_present=False,
+            canonical_trunk=trunk_branch,
             branches=(),
             files=(),
             body=None,
@@ -204,8 +226,8 @@ def run_show_objective(
         )
 
     files = tuple(sorted({e.key[len(requested_slug) + 1 :] for e in slug_entries}))
-    canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
-    branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
+    canonical_present = any(e.branch == trunk_branch for e in slug_entries)
+    branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
     branches = tuple(
         BranchPresence(branch=name, deleted=not git_gateway.branch_exists(name))
         for name in branch_names
@@ -217,6 +239,7 @@ def run_show_objective(
         current_branch=current_branch,
         canonical_present=canonical_present,
         requested_branch=request.branch,
+        trunk_branch=trunk_branch,
     )
     roadmap = _read_file(
         gateway,
@@ -225,6 +248,7 @@ def run_show_objective(
         current_branch=current_branch,
         canonical_present=canonical_present,
         requested_branch=request.branch,
+        trunk_branch=trunk_branch,
     )
     notes = _read_file(
         gateway,
@@ -233,12 +257,14 @@ def run_show_objective(
         current_branch=current_branch,
         canonical_present=canonical_present,
         requested_branch=request.branch,
+        trunk_branch=trunk_branch,
     )
 
     return ClinkrExit.ok(
         ObjectiveShowResult(
             slug=requested_slug,
             canonical_present=canonical_present,
+            canonical_trunk=trunk_branch,
             branches=branches,
             files=files,
             body=body,

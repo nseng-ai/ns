@@ -13,6 +13,16 @@ perform operations. Use it as shared grounding alongside the operation skills
 `objective-digest`), and as a landing spot for ad-hoc questions about
 objectives that do not map cleanly to one operation.
 
+> **Authority.** This skill is **conceptual behavior reference** for the
+> objective subsystem, not an independent implementation authority.
+> Deterministic mechanics (slug rules, freshness classification, namespace
+> constants, the `objective` CLI surface) live in the `twerk_objectives`
+> Python package; ref encoding and branch-name validation live in `brmem`.
+> When this skill's prose and the implementing package disagree, the package
+> wins and the prose here is migration debt to be reconciled. New rules
+> belong in the lowest layer that owns them — see the "Authority Boundaries"
+> section in `packages/twerk-objectives/AGENTS.md`.
+
 ## What an objective is
 
 An **objective** is a local-first planning document for a multi-session
@@ -20,10 +30,12 @@ workstream. The workstream has one authoritative record and zero or more
 branch-local working copies:
 
 - **Canonical objective**: the shared ground truth for the workstream.
-  Today it is stored in `brmem` under branch `master`; that storage choice
-  is an implementation detail. A future implementation could store canonical
-  objectives in a shared database without changing the branch-snapshot
-  model.
+  Stored in `brmem` under the repo's trunk branch (typically `master` on
+  legacy repos, `main` on greenfield ones). The brmem ref shape
+  (`refs/brmem/ns/objectives/<encoded-branch>`) records the trunk branch
+  name as part of the storage key, so canonical state is anchored to
+  whichever branch `git symbolic-ref refs/remotes/origin/HEAD` resolves to
+  on a given repo.
 - **Branch snapshot**: a local working copy/checkpoint attached to a branch.
   It can drift while slice work is in flight and accumulate notes. It serves
   as evidence during reconciliation only after the branch's work has landed.
@@ -60,8 +72,23 @@ segment before the filename.
 ### Canonical record
 
 The canonical objective is the authoritative record. In the current
-brmem-backed implementation, it is the `<slug>/` directory stored on branch
-`master`.
+brmem-backed implementation, it is the `<slug>/` directory stored on the
+repo's trunk branch.
+
+> **Detect trunk before invoking operations.** When an operation skill
+> needs the trunk branch name (e.g. for a `<trunk>..HEAD` range or to
+> decide whether the current branch _is_ canonical), resolve it from git
+> first:
+>
+> ```bash
+> trunk=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
+>     | sed 's@^origin/@@')
+> [ -z "$trunk" ] && trunk=$(git rev-parse --verify --quiet main >/dev/null && echo main || echo master)
+> ```
+>
+> The objective CLI itself resolves trunk through its `git_gateway`, so
+> commands such as `objective list` / `show` / `tree` / `exec digest` do
+> not require a `--trunk` flag.
 
 - `objective-create` writes the canonical objective.
 - `objective-reconcile` is the normal lifecycle path that rewrites it.

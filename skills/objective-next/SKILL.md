@@ -67,8 +67,16 @@ check it out first.
   Implementation evidence is folded back later by `objective-update`.
 - **Current-branch-only source.** Always load the snapshot claimed on the
   current branch. There is no source cascade and no ancestor walk; if the
-  current branch carries no claim, abort with the master-aware empty-branch
+  current branch carries no claim, abort with the trunk-aware empty-branch
   error in Step 3.
+- **No source cascade, no `--source` flag.** `objective-next` does not accept
+  `--from`, `--from-file`, `--branch`, `--source`, or any other flag that
+  would point it at a snapshot off the current branch. To inspect canonical
+  state or another branch's snapshot, use `objective show <slug>` instead;
+  `next` is symmetric with its siblings (`update` is current-branch-only,
+  `reconcile` is canonical-only, `claim` is the explicit cross-source
+  operation), and overloading it with a source flag would re-introduce the
+  drift this skill is locked against.
 - **No Graphite dependency.** Use raw git and brmem only.
 - **Collision-safe suggestion.** Check the suggested slice slug against local
   branches and canonical objective slugs. On collision, warn and ask;
@@ -134,17 +142,17 @@ Otherwise resolve from the enumeration:
 - **Multiple slugs**: list them with one-line context (the title from each
   `body.md` if cheap to fetch) and ask which to inspect. A branch may
   legitimately carry two unrelated parent objectives; never auto-pick.
-- **Zero slugs**: emit the master-aware empty-branch error and abort.
+- **Zero slugs**: emit the trunk-aware empty-branch error and abort.
 
-#### Empty-branch error (master-aware)
+#### Empty-branch error (trunk-aware)
 
-- On `master` with zero canonicals: "no canonical objectives; run
+- On the trunk branch with zero canonicals: "no canonical objectives; run
   `objective-create` to author one."
-- On `master` with N canonicals: "master holds N canonical objectives; pass
+- On the trunk branch with N canonicals: "trunk holds N canonical objectives; pass
   a slug to `objective-next <slug>` to plan against one." Do not surface
-  the multi-pick prompt on master — it is theater, and the user should
+  the multi-pick prompt on the trunk branch — it is theater, and the user should
   pick explicitly.
-- Off `master` with no claim: "no objective claimed on this branch; run
+- Off the trunk branch with no claim: "no objective claimed on this branch; run
   `objective-claim` to attach the parent's objective, or
   `objective-create` to start a new one."
 
@@ -161,7 +169,7 @@ Interpret them using this skill's content inventory and the anatomy in
 
 ### 5. Check Freshness
 
-When the current branch is `master`, skip the freshness check (canonical
+When the current branch is the trunk branch, skip the freshness check (canonical
 storage's lifecycle is `objective-reconcile`, not `objective-update`).
 
 Otherwise, run the deterministic precheck and read its `freshness` field:
@@ -215,7 +223,7 @@ Collision check before finalizing:
 
 ```bash
 git rev-parse --verify --quiet refs/heads/<suggested-slug>
-brmem check <suggested-slug>/<required-content-file> --namespace objectives --branch master
+brmem check <suggested-slug>/<required-content-file> --namespace objectives --branch <trunk>
 ```
 
 If either exists, warn and ask whether to pick another slug, append a suffix,
@@ -234,7 +242,7 @@ Return:
 To proceed: write a plan file using <suggested-slug>, run
 brmem-create-branch, navigate to the new branch (your choice of tool),
 then run objective-claim. After implementing the slice, merge the PR and
-run objective-reconcile <slug> on master.
+run objective-reconcile <slug> on the trunk branch.
 ```
 
 If the freshness advisory fired, prepend a reminder to update the stale
@@ -243,7 +251,7 @@ current branch before creating the next slice branch.
 ## Edge Cases And Anti-Patterns
 
 - Detached `HEAD`: abort. Missing slug: only abort after Step 3's
-  current-branch enumeration emits the master-aware empty-branch error.
+  current-branch enumeration emits the trunk-aware empty-branch error.
 - Branch name does not equal slug. A branch named after a slice (e.g.,
   `pool-state-assignment-primitives`) commonly carries the parent
   objective's snapshot (e.g., `twerk-slots-cleanup`). Never derive the
@@ -254,8 +262,8 @@ current branch before creating the next slice branch.
 - Source has only the required content file: report that no optional
   progress surface exists; fall back to progress guidance, or ask if the
   next slug is ambiguous.
-- Current branch is `master`: skip the freshness check; canonical rewrites
-  go through `objective-reconcile`, not `objective-update`. On master
+- Current branch is the trunk branch: skip the freshness check; canonical rewrites
+  go through `objective-reconcile`, not `objective-update`. On the trunk branch
   with no slug, refuse to multi-pick — require an explicit slug.
 - Never auto-pick a slug from a multi-slug current branch, auto-resolve a
   collision, inspect source code for drift, attach/carry forward a

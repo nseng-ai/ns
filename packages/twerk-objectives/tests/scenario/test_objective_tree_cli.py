@@ -450,6 +450,96 @@ def test_tree_all_broken_gh_becomes_error_rows(cli_group: ClinkrGroup) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_tree_classifies_all_five_pr_states(cli_group: ClinkrGroup) -> None:
+    """``objective tree`` classifies every entry into exactly one of the
+    five documented PR states: ``merged`` / ``open`` / ``closed`` /
+    ``no_pr`` / ``error``. This locks the public PR-state contract from
+    the canonicalization plan (C9): each state is reachable, and no
+    drift is silently introduced via a sixth state.
+
+    ``test_tree_mixed_rows_json`` exercises the same five states alongside
+    ordering and snapshot freshness; this test isolates the PR-state
+    classification so a regression that drops one state still fails
+    loudly even if ordering or freshness is reshuffled.
+    """
+    gateway = FakeBranchMemoryGateway()
+    slug = "widget-rewrite"
+    gateway.put("objectives", f"{slug}/body.md", "master", "seed\n")
+    for branch in (
+        "branch-merged",
+        "branch-open",
+        "branch-closed",
+        "branch-no-pr",
+        "branch-error",
+    ):
+        gateway.put("objectives", f"{slug}/body.md", branch, "snap\n")
+
+    pr_gateway = _PartialBrokenPRGateway(
+        prs_by_branch={
+            "branch-merged": _pr(
+                number=1,
+                title="merged work",
+                url="https://example.com/pull/1",
+                state="MERGED",
+                head="branch-merged",
+            ),
+            "branch-open": _pr(
+                number=2,
+                title="open work",
+                url="https://example.com/pull/2",
+                state="OPEN",
+                head="branch-open",
+            ),
+            "branch-closed": _pr(
+                number=3,
+                title="closed work",
+                url="https://example.com/pull/3",
+                state="CLOSED",
+                head="branch-closed",
+            ),
+        },
+        broken_branches=("branch-error",),
+    )
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=(
+            "master",
+            "branch-merged",
+            "branch-open",
+            "branch-closed",
+            "branch-no-pr",
+            "branch-error",
+        ),
+        pr_gateway=pr_gateway,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["tree", slug, "--format", "json"],
+        obj=obj,
+    )
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 0, result.output
+    entries = payload["data"]["entries"]
+    actions_by_branch = {e["branch"]: e["action"] for e in entries}
+    assert actions_by_branch == {
+        "branch-merged": "merged",
+        "branch-open": "open",
+        "branch-closed": "closed",
+        "branch-no-pr": "no_pr",
+        "branch-error": "error",
+    }
+    # All five documented PR states are reachable from a single fixture.
+    assert {e["action"] for e in entries} == {
+        "merged",
+        "open",
+        "closed",
+        "no_pr",
+        "error",
+    }
+
+
 def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")

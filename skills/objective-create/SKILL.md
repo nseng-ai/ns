@@ -53,14 +53,14 @@ exists, `roadmap.md`; it never writes `notes.md`.
 ## Core Rules
 
 - **Canonical only.** In the current brmem-backed implementation, write to
-  `--branch master`; do not attach to the current branch. Users run
+  `--branch <trunk>`; do not attach to the current branch. Users run
   `objective-claim <slug>` to attach a branch snapshot.
 - **Use canonical templates.** Draft `body.md` from
   `../objective/templates/body-template.md` and `roadmap.md` from
   `../objective/templates/roadmap-template.md` when a roadmap is needed.
 - **Keys carry the slug.** Write `<slug>/body.md` and optionally
   `<slug>/roadmap.md`; never use bare filenames or another namespace.
-- **Do not overwrite.** Abort if master already has any key under `<slug>/`.
+- **Do not overwrite.** Abort if the trunk branch already has any key under `<slug>/`.
 - **Stable spine, not a task dump.** Keep `body.md` durable and
   end-state-oriented. Put slice sequencing in `roadmap.md`, not in
   `Description`, `Goals`, or `Status:`.
@@ -111,10 +111,10 @@ objective. If the user asked only for creation and the slug is obvious,
 proceed after checking for collisions. If multiple reasonable slugs imply
 different scopes, ask the user to choose before writing.
 
-Before writing, check master for an existing snapshot:
+Before writing, check the trunk branch for an existing snapshot:
 
 ```bash
-brmem list --namespace objectives --branch master
+brmem list --namespace objectives --branch <trunk>
 ```
 
 Abort if any returned key starts with `<slug>/`.
@@ -144,8 +144,8 @@ For `roadmap.md`, when drafted:
 Write drafts to temporary files, then store them in brmem:
 
 ```bash
-brmem put <slug>/body.md --namespace objectives --branch master --file <temp-body>
-brmem put <slug>/roadmap.md --namespace objectives --branch master --file <temp-roadmap>
+brmem put <slug>/body.md --namespace objectives --branch <trunk> --file <temp-body>
+brmem put <slug>/roadmap.md --namespace objectives --branch <trunk> --file <temp-roadmap>
 ```
 
 Run the second command only when `roadmap.md` was drafted. Capture the brmem
@@ -158,7 +158,7 @@ Return:
 - objective title
 - slug
 - files written
-- canonical location: namespace `objectives`, branch `master`, key prefix
+- canonical location: namespace `objectives`, branch `<trunk>`, key prefix
   `<slug>/`
 - brmem commit SHA or SHAs
 - next-step hint:
