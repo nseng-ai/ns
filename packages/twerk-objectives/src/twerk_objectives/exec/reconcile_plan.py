@@ -31,7 +31,6 @@ from twerk_core.gh.types import PRLookupError, PRState, PRSummary
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
-    MASTER_BRANCH,
     NOTES_FILE,
     ROADMAP_FILE,
     body_key,
@@ -40,6 +39,7 @@ from twerk_objectives.discovery import (
     slug_for_key,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 PLAN_SCHEMA = "reconcile-plan/v1"
 
@@ -219,13 +219,12 @@ def run_reconcile_plan_objective(
     mctx = load_typed_context(ctx, ObjectiveCliContext)
     gateway = mctx.brmem_gateway
     pr_gateway = mctx.pr_gateway
+    trunk = resolve_trunk(mctx.git_gateway).trunk
 
     requested_slugs = _parse_slug_argument(request.slugs)
 
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
-    canonical_slugs = sorted(
-        {slug_for_key(e.key) for e in all_entries if e.branch == MASTER_BRANCH}
-    )
+    canonical_slugs = sorted({slug_for_key(e.key) for e in all_entries if e.branch == trunk})
 
     if requested_slugs is None:
         target_slugs = tuple(canonical_slugs)
@@ -236,7 +235,7 @@ def run_reconcile_plan_objective(
         return ClinkrExit.ok(
             ReconcilePlanResult(
                 schema=PLAN_SCHEMA,
-                canonical_branch=MASTER_BRANCH,
+                canonical_branch=trunk,
                 requested_slugs=requested_slugs or (),
                 slugs=(),
             )
@@ -252,13 +251,14 @@ def run_reconcile_plan_objective(
                 slug=slug,
                 canonical_set=canonical_set,
                 all_entries_keys=all_entries,
+                trunk=trunk,
             )
         )
 
     return ClinkrExit.ok(
         ReconcilePlanResult(
             schema=PLAN_SCHEMA,
-            canonical_branch=MASTER_BRANCH,
+            canonical_branch=trunk,
             requested_slugs=requested_slugs or (),
             slugs=tuple(items),
         )
@@ -294,6 +294,7 @@ def _build_slug_plan(
     slug: str,
     canonical_set: set[str],
     all_entries_keys: list[Any],
+    trunk: str,
 ) -> SlugPlanItem:
     if slug not in canonical_set:
         # Operator-supplied unknown slug — record gap, emit nothing else.
@@ -306,11 +307,11 @@ def _build_slug_plan(
             conflicts=(),
             gaps=(
                 f"slug {slug!r} requested but no canonical body.md on "
-                f"{MASTER_BRANCH}; use objective-create first",
+                f"{trunk}; use objective-create first",
             ),
         )
 
-    canonical_files = _read_canonical_files(gateway, slug)
+    canonical_files = _read_canonical_files(gateway, slug, trunk=trunk)
     body_present = any(f.file == BODY_FILE and f.present for f in canonical_files)
 
     conflicts: list[str] = []
@@ -318,7 +319,7 @@ def _build_slug_plan(
     if not body_present:
         # Sweep enumeration anomaly: slug appeared in the canonical set but
         # body.md is gone. Surface as a conflict and skip evidence-gathering.
-        conflicts.append(f"canonical body.md missing for slug {slug!r} on {MASTER_BRANCH}")
+        conflicts.append(f"canonical body.md missing for slug {slug!r} on {trunk}")
         return SlugPlanItem(
             slug=slug,
             canonical_present=True,
@@ -333,7 +334,7 @@ def _build_slug_plan(
         {
             entry.branch
             for entry in all_entries_keys
-            if entry.branch != MASTER_BRANCH and slug_for_key(entry.key) == slug
+            if entry.branch != trunk and slug_for_key(entry.key) == slug
         }
     )
 
@@ -369,6 +370,8 @@ def _build_slug_plan(
 def _read_canonical_files(
     gateway: BranchMemoryGateway,
     slug: str,
+    *,
+    trunk: str,
 ) -> tuple[CanonicalFile, ...]:
     """Read raw Markdown + capture SHA for every canonical file under ``slug``.
 
@@ -382,7 +385,7 @@ def _read_canonical_files(
         (ROADMAP_FILE, roadmap_key(slug)),
         (NOTES_FILE, notes_key(slug)),
     ):
-        diagnostic = gateway.check(OBJECTIVE_NAMESPACE, key, MASTER_BRANCH)
+        diagnostic = gateway.check(OBJECTIVE_NAMESPACE, key, trunk)
         if diagnostic is None:
             files.append(
                 CanonicalFile(
@@ -395,7 +398,7 @@ def _read_canonical_files(
                 )
             )
             continue
-        content = gateway.get(OBJECTIVE_NAMESPACE, key, MASTER_BRANCH) or ""
+        content = gateway.get(OBJECTIVE_NAMESPACE, key, trunk) or ""
         files.append(
             CanonicalFile(
                 file=filename,

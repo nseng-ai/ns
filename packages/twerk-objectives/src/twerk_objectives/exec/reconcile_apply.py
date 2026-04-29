@@ -33,9 +33,9 @@ from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_objectives.context import ObjectiveCliContext
-from twerk_objectives.discovery import MASTER_BRANCH
 from twerk_objectives.exec.reconcile_plan import PLAN_SCHEMA
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 
 @dataclass(frozen=True)
@@ -157,6 +157,7 @@ def run_reconcile_apply_objective(
 ) -> ClinkrExit[ReconcileApplyResult]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
     gateway = mctx.brmem_gateway
+    trunk = resolve_trunk(mctx.git_gateway).trunk
 
     raw = request.plan_file.read_text(encoding="utf-8")
     try:
@@ -181,12 +182,12 @@ def run_reconcile_apply_objective(
         )
 
     canonical_branch = envelope.get("canonical_branch")
-    if canonical_branch != MASTER_BRANCH:
+    if canonical_branch != trunk:
         return ClinkrExit.failure(
             error_type="schema_mismatch",
             message=(
                 f"Plan-file canonical_branch {canonical_branch!r} does not match "
-                f"expected {MASTER_BRANCH!r}."
+                f"expected {trunk!r}."
             ),
         )
 
@@ -209,12 +210,12 @@ def run_reconcile_apply_objective(
                 )
             )
             continue
-        slug_results.append(_apply_slug_plan(gateway=gateway, raw_slug=raw_slug))
+        slug_results.append(_apply_slug_plan(gateway=gateway, raw_slug=raw_slug, trunk=trunk))
 
     return ClinkrExit.ok(
         ReconcileApplyResult(
             schema=PLAN_SCHEMA,
-            canonical_branch=MASTER_BRANCH,
+            canonical_branch=trunk,
             slugs=tuple(slug_results),
         )
     )
@@ -224,6 +225,7 @@ def _apply_slug_plan(
     *,
     gateway: BranchMemoryGateway,
     raw_slug: dict[str, Any],
+    trunk: str,
 ) -> SlugApplyResult:
     slug = raw_slug.get("slug")
     if not isinstance(slug, str) or not slug:
@@ -282,6 +284,7 @@ def _apply_slug_plan(
             slug=slug,
             entry=entry,
             expected_by_file=expected_by_file,
+            trunk=trunk,
         )
         if write_result is not None:
             writes.append(write_result)
@@ -311,6 +314,7 @@ def _apply_one_write(
     slug: str,
     entry: Any,
     expected_by_file: dict[str, _CanonicalFileExpectation],
+    trunk: str,
 ) -> tuple[FileWriteResult | None, FileWriteSkip | None, str | None]:
     """Apply a single proposed write. Returns (write, skip, gap) — at most one set.
 
@@ -368,7 +372,7 @@ def _apply_one_write(
     # Drift detection runs on the per-file blob sha so that a previous
     # within-slug write (which advanced the snapshot ref) does not look
     # like external drift on a sibling file.
-    diagnostic = gateway.check(OBJECTIVE_NAMESPACE, expectation.key, MASTER_BRANCH)
+    diagnostic = gateway.check(OBJECTIVE_NAMESPACE, expectation.key, trunk)
     actual_blob_sha = diagnostic.blob_sha if diagnostic is not None else None
     actual_head_sha = diagnostic.head_sha if diagnostic is not None else None
     if actual_blob_sha != expectation.expected_old_blob_sha:
@@ -386,10 +390,11 @@ def _apply_one_write(
             None,
         )
 
-    new_head_sha = gateway.put(OBJECTIVE_NAMESPACE, expectation.key, MASTER_BRANCH, new_content)
+    new_head_sha = gateway.put(OBJECTIVE_NAMESPACE, expectation.key, trunk, new_content)
     recovery = _recovery_command(
         key=expectation.key,
         old_head_sha=actual_head_sha,
+        trunk=trunk,
     )
     return (
         FileWriteResult(
@@ -405,11 +410,8 @@ def _apply_one_write(
     )
 
 
-def _recovery_command(*, key: str, old_head_sha: str | None) -> str:
+def _recovery_command(*, key: str, old_head_sha: str | None, trunk: str) -> str:
     """Mirror the existing reconcile skill's recovery hint format."""
     if old_head_sha is None:
         return f"# nothing to recover: {key} had no prior canonical content"
-    return (
-        f"brmem get {key} --namespace {OBJECTIVE_NAMESPACE} "
-        f"--branch {MASTER_BRANCH} --at {old_head_sha}"
-    )
+    return f"brmem get {key} --namespace {OBJECTIVE_NAMESPACE} --branch {trunk} --at {old_head_sha}"
