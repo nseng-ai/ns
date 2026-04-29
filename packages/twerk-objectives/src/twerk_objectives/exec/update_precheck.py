@@ -39,11 +39,6 @@ from twerk_objectives.freshness import (
     classify_obj_state,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
-from twerk_objectives.patch_absorption import (
-    AbsorbedSetUnavailable,
-    absorbed_patch_ids_for_branch,
-    effective_absorbed_patch_ids,
-)
 from twerk_objectives.patch_facts import load_branch_patch_facts
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
@@ -190,8 +185,7 @@ def run_update_precheck_objective(
         f.head_date for f in (body, roadmap, notes) if f.head_date is not None
     )
 
-    cwd = Path.cwd()
-    trunk = resolve_trunk(mctx.gt_gateway, cwd).trunk
+    trunk = resolve_trunk(git).trunk
 
     facts = load_branch_patch_facts(git, f"{trunk}..HEAD", require_patch_ids=False)
     if isinstance(facts, GitCommandFailure):
@@ -208,17 +202,8 @@ def run_update_precheck_objective(
     )
     branch_max_author_iso = _max_iso(c.author_iso for c in branch_commits)
 
-    absorbed = absorbed_patch_ids_for_branch(git, mctx.gt_gateway, cwd, current_branch, trunk=trunk)
-    if isinstance(absorbed, AbsorbedSetUnavailable):
-        downstack_pids = frozenset()
-    else:
-        downstack_pids = absorbed
-
     marker = load_absorbed_marker(gateway, slug=slug, branch=current_branch)
-    effective_pids = effective_absorbed_patch_ids(
-        marker=marker,
-        downstack_pids=downstack_pids,
-    )
+    effective_pids = marker.patch_ids if marker.ok else None
     freshness = classify_obj_state(
         alive=True,
         branch_commit_pids=facts.commit_patch_ids,
@@ -238,7 +223,7 @@ def run_update_precheck_objective(
             snapshot_max_head_date=snapshot_max_head_date,
             branch_commits=branch_commits,
             branch_max_author_iso=branch_max_author_iso,
-            downstack_absorbed_patch_ids=tuple(sorted(downstack_pids)),
+            downstack_absorbed_patch_ids=(),
             snapshot_absorbed_patch_ids=tuple(sorted(marker.patch_ids)),
             absorbed_marker_diagnostics=tuple(
                 f"line {d.line}: {d.message}" for d in marker.diagnostics

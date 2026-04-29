@@ -14,7 +14,6 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import CommitSummary, DetachedHead
-from twerk_core.gt.testing import FakeGtGateway
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -41,9 +40,9 @@ def _make_obj(
             branch_head_oid_by_branch=branch_head_oid_by_branch,
             commits_by_range=commits_by_range,
             patch_ids_by_range=patch_ids_by_range,
+            trunk_branch="master",
         ),
         pr_gateway=FakePRGateway(),
-        gt_gateway=FakeGtGateway(trunk="master"),
     )
     return build_clinkr_context_object(lambda: ctx)
 

@@ -14,8 +14,6 @@ from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import CommitSummary, DetachedHead
-from twerk_core.gt.testing import FakeGtGateway
-from twerk_core.gt.types import StackInfo
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -50,7 +48,6 @@ def _make_obj(
     branch: str | DetachedHead | None = "feat/x",
     live_branches: tuple[str, ...] = (),
     pr_gateway: PRGateway | None = None,
-    gt_gateway: FakeGtGateway | None = None,
     file_last_touched: dict[tuple[str, str], str] | None = None,
     commits_by_range: dict[str, tuple[CommitSummary, ...]] | None = None,
     patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
@@ -62,6 +59,7 @@ def _make_obj(
             file_last_touched_by_ref_path=file_last_touched,
             commits_by_range=commits_by_range,
             patch_ids_by_range=patch_ids_by_range,
+            trunk_branch="master",
         )
     else:
         git_gateway = FakeGitGateway(
@@ -70,12 +68,12 @@ def _make_obj(
             file_last_touched_by_ref_path=file_last_touched,
             commits_by_range=commits_by_range,
             patch_ids_by_range=patch_ids_by_range,
+            trunk_branch="master",
         )
     ctx = ObjectiveCliContext(
         brmem_gateway=brmem_gateway,
         git_gateway=git_gateway,
         pr_gateway=pr_gateway if pr_gateway is not None else FakePRGateway(),
-        gt_gateway=gt_gateway if gt_gateway is not None else FakeGtGateway(),
     )
     return build_clinkr_context_object(lambda: ctx)
 
@@ -453,22 +451,9 @@ def test_tree_all_broken_gh_becomes_error_rows(cli_group: ClinkrGroup) -> None:
 
 
 def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGroup) -> None:
-    cwd = Path.cwd()
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
-    gt_gateway = FakeGtGateway(
-        trunk="master",
-        stack_by_cwd={
-            cwd: StackInfo(
-                trunk="master",
-                current="feat/widget",
-                ancestors=("master",),
-                children=(),
-                warnings=(),
-            )
-        },
-    )
     file_last_touched = {
         ("refs/brmem/ns/objectives/feat---widget", "widget/body.md"): "2026-04-26T07:00:00+00:00",
     }
@@ -481,7 +466,7 @@ def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGrou
             ),
         ),
     }
-    # The branch carries a novel patch-id not absorbed by any ancestor.
+    # The branch carries a novel patch-id not recorded in its snapshot marker.
     patch_ids_by_range = {
         "master..feat/widget": (("bbb222", "pid-novel"),),
     }
@@ -489,7 +474,6 @@ def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGrou
         gateway=gateway,
         branch="feat/widget",
         live_branches=("master", "feat/widget"),
-        gt_gateway=gt_gateway,
         file_last_touched=file_last_touched,
         commits_by_range=commits_by_range,
         patch_ids_by_range=patch_ids_by_range,
@@ -510,22 +494,17 @@ def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGrou
 
 
 def test_tree_reports_fresh_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
-    cwd = Path.cwd()
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
-    # An ancestor branch absorbs the feature branch's patch-id.
-    gt_gateway = FakeGtGateway(
-        trunk="master",
-        stack_by_cwd={
-            cwd: StackInfo(
-                trunk="master",
-                current="feat/widget",
-                ancestors=("master", "feat/groundwork"),
-                children=(),
-                warnings=(),
-            )
-        },
+    gateway.put(
+        "objectives",
+        "widget/.absorbed.jsonl",
+        "feat/widget",
+        (
+            '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T07:30:00+00:00","subject":"Wire widget"}\n'
+        ),
     )
     commits_by_range = {
         "master..feat/widget": (
@@ -538,13 +517,11 @@ def test_tree_reports_fresh_when_all_pids_absorbed(cli_group: ClinkrGroup) -> No
     }
     patch_ids_by_range = {
         "master..feat/widget": (("aaa111", "pid-1"),),
-        "master..feat/groundwork": (("aaa111", "pid-1"),),
     }
     obj = _make_obj(
         gateway=gateway,
         branch="feat/widget",
         live_branches=("master", "feat/widget", "feat/groundwork"),
-        gt_gateway=gt_gateway,
         commits_by_range=commits_by_range,
         patch_ids_by_range=patch_ids_by_range,
     )
@@ -564,7 +541,6 @@ def test_tree_reports_fresh_when_all_pids_absorbed(cli_group: ClinkrGroup) -> No
 
 
 def test_tree_reports_fresh_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
-    cwd = Path.cwd()
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
@@ -576,18 +552,6 @@ def test_tree_reports_fresh_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> N
             '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
             '"author_iso":"2026-04-26T07:30:00+00:00","subject":"Wire widget"}\n'
         ),
-    )
-    gt_gateway = FakeGtGateway(
-        trunk="master",
-        stack_by_cwd={
-            cwd: StackInfo(
-                trunk="master",
-                current="feat/widget",
-                ancestors=("master",),
-                children=(),
-                warnings=(),
-            )
-        },
     )
     commits_by_range = {
         "master..feat/widget": (
@@ -605,7 +569,6 @@ def test_tree_reports_fresh_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> N
         gateway=gateway,
         branch="feat/widget",
         live_branches=("master", "feat/widget"),
-        gt_gateway=gt_gateway,
         commits_by_range=commits_by_range,
         patch_ids_by_range=patch_ids_by_range,
     )
