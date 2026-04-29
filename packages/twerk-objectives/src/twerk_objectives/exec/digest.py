@@ -25,7 +25,7 @@ from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
-    TRUNK_BRANCH,
+    FALLBACK_TRUNK_BRANCH,
     body_key,
     notes_key,
     roadmap_key,
@@ -130,7 +130,7 @@ def run_digest_objective(
                 "Run `objective-create` to seed it on master."
             ),
         )
-    seed_present = any(e.branch == TRUNK_BRANCH for e in slug_entries)
+    seed_present = any(e.branch == FALLBACK_TRUNK_BRANCH for e in slug_entries)
     if not seed_present:
         raise ClinkrExit.failure(
             error_type="slug_not_seeded",
@@ -140,7 +140,7 @@ def run_digest_objective(
             ),
         )
 
-    branch_names = sorted({e.branch for e in slug_entries if e.branch != TRUNK_BRANCH})
+    branch_names = sorted({e.branch for e in slug_entries if e.branch != FALLBACK_TRUNK_BRANCH})
     master = _read_master_snapshot(gateway, git, slug)
     branch_alive = {b: git.branch_exists(b) for b in branch_names}
     pr_results = {b: mctx.pr_gateway.get_pr_for_branch(b) for b in branch_names}
@@ -165,10 +165,10 @@ def _read_master_snapshot(
     git: GitGateway,
     slug: str,
 ) -> _MasterSnapshot:
-    body_md = gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), TRUNK_BRANCH) or ""
-    roadmap_md = gateway.get(OBJECTIVE_NAMESPACE, roadmap_key(slug), TRUNK_BRANCH) or ""
-    notes_md = gateway.get(OBJECTIVE_NAMESPACE, notes_key(slug), TRUNK_BRANCH) or ""
-    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, TRUNK_BRANCH)
+    body_md = gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), FALLBACK_TRUNK_BRANCH) or ""
+    roadmap_md = gateway.get(OBJECTIVE_NAMESPACE, roadmap_key(slug), FALLBACK_TRUNK_BRANCH) or ""
+    notes_md = gateway.get(OBJECTIVE_NAMESPACE, notes_key(slug), FALLBACK_TRUNK_BRANCH) or ""
+    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, FALLBACK_TRUNK_BRANCH)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
     return _MasterSnapshot(
         body_md=body_md,

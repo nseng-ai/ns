@@ -17,7 +17,7 @@ from brmem.gateway import BranchMemoryGateway
 from twerk_core.gh.pr_gateway import PRGateway, RealPRGateway
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.real_git_gateway import RealGitGateway, resolve_repo_root, resolve_trunk_branch
-from twerk_objectives.discovery import TRUNK_BRANCH
+from twerk_objectives.discovery import FALLBACK_TRUNK_BRANCH
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,6 @@ def build_objective_context() -> ObjectiveCliContext:
     trunk = resolve_trunk_branch(repo_root) if repo_root is not None else None
     return ObjectiveCliContext(
         brmem_gateway=brmem_ctx.brmem_gateway,
-        git_gateway=RealGitGateway(repo_root=repo_root, trunk_branch=trunk or TRUNK_BRANCH),
+        git_gateway=RealGitGateway(repo_root=repo_root, trunk_branch=trunk or FALLBACK_TRUNK_BRANCH),
         pr_gateway=RealPRGateway(),
     )

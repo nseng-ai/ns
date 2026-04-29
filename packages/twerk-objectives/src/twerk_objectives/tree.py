@@ -31,7 +31,7 @@ from twerk_core.gh.types import PRLookupError, PRState
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
-from twerk_objectives.discovery import TRUNK_BRANCH
+from twerk_objectives.discovery import FALLBACK_TRUNK_BRANCH
 from twerk_objectives.freshness import classify_branch_snapshot
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
@@ -265,8 +265,8 @@ def run_tree_objective(
             message=f"No objective found for slug {slug!r}.",
         )
 
-    canonical_present = any(e.branch == TRUNK_BRANCH for e in slug_entries)
-    branch_names = sorted({e.branch for e in slug_entries if e.branch != TRUNK_BRANCH})
+    canonical_present = any(e.branch == FALLBACK_TRUNK_BRANCH for e in slug_entries)
+    branch_names = sorted({e.branch for e in slug_entries if e.branch != FALLBACK_TRUNK_BRANCH})
 
     trunk = resolve_trunk(git).trunk
 

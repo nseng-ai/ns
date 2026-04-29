@@ -19,14 +19,16 @@ from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 # Canonical objective storage lives on the repo's trunk branch (whatever
 # ``git symbolic-ref refs/remotes/origin/HEAD`` resolves to: typically
 # ``master`` on legacy repos, ``main`` on greenfield ones). Production
-# callers should resolve the trunk through ``GitGateway.get_trunk_branch()``
+# callers must resolve the trunk through ``GitGateway.get_trunk_branch()``
 # (already plumbed onto :class:`ObjectiveCliContext.git_gateway` via
 # :func:`twerk_core.git.real_git_gateway.resolve_trunk_branch`) rather than
-# reading this constant. ``TRUNK_BRANCH`` is only a last-resort fallback for
-# code paths that have no gateway in scope; comparing branches against this
-# literal in production code is a smell. See "Authority Boundaries" /
-# "Canonical Storage Branch" in ``packages/twerk-objectives/AGENTS.md``.
-TRUNK_BRANCH = "master"
+# reading the constant below. ``FALLBACK_TRUNK_BRANCH`` is a last-resort
+# default for code paths that have no gateway in scope and no other way to
+# resolve trunk (e.g. context construction outside a git repo). Comparing
+# branches against this literal in production code is a smell. See
+# "Authority Boundaries" / "Canonical Storage Branch" in
+# ``packages/twerk-objectives/AGENTS.md``.
+FALLBACK_TRUNK_BRANCH = "master"
 
 BODY_FILE = "body.md"
 ROADMAP_FILE = "roadmap.md"
@@ -114,8 +116,8 @@ def group_objective_entries(
     result: list[ObjectiveRepoEntry] = []
     for slug in sorted(by_slug):
         slug_entries = by_slug[slug]
-        canonical_present = any(e.branch == TRUNK_BRANCH for e in slug_entries)
-        branch_names = sorted({e.branch for e in slug_entries if e.branch != TRUNK_BRANCH})
+        canonical_present = any(e.branch == FALLBACK_TRUNK_BRANCH for e in slug_entries)
+        branch_names = sorted({e.branch for e in slug_entries if e.branch != FALLBACK_TRUNK_BRANCH})
         presences = tuple(
             BranchPresence(
                 branch=branch,
