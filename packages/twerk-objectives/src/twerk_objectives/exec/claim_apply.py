@@ -35,9 +35,9 @@ from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import body_key, slug_for_key
 from twerk_objectives.exec.claim_plan import (
     PLAN_SCHEMA,
+    HardFailure,
     SourceKind,
-    _HardFailure,
-    _target_carries_slug,
+    target_carries_slug,
 )
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.trunk_resolution import resolve_trunk
@@ -168,7 +168,7 @@ def run_claim_apply_objective(
         )
 
     parsed = _parse_plan_block(plan)
-    if isinstance(parsed, _HardFailure):
+    if isinstance(parsed, HardFailure):
         return ClinkrExit.failure(error_type=parsed.error_type, message=parsed.message)
     slug = parsed.slug
     target_branch = parsed.target_branch
@@ -177,7 +177,7 @@ def run_claim_apply_objective(
     source_label = parsed.source_label
     from_file_path = parsed.from_file_path
 
-    if _target_carries_slug(gateway, slug=slug, branch=target_branch):
+    if target_carries_slug(gateway, slug=slug, branch=target_branch):
         return ClinkrExit.failure(
             error_type="target_collision",
             message=(
@@ -280,50 +280,50 @@ def run_claim_apply_objective(
     )
 
 
-def _parse_plan_block(plan: dict[str, Any]) -> _ParsedPlan | _HardFailure:
+def _parse_plan_block(plan: dict[str, Any]) -> _ParsedPlan | HardFailure:
     slug = plan.get("slug")
     target_branch = plan.get("target_branch")
     source = plan.get("source")
     if not isinstance(slug, str) or not slug:
-        return _HardFailure(
+        return HardFailure(
             error_type="malformed_plan_file",
             message="Plan 'slug' must be a non-empty string.",
         )
     if not isinstance(target_branch, str) or not target_branch:
-        return _HardFailure(
+        return HardFailure(
             error_type="malformed_plan_file",
             message="Plan 'target_branch' must be a non-empty string.",
         )
     if not isinstance(source, dict):
-        return _HardFailure(
+        return HardFailure(
             error_type="malformed_plan_file",
             message="Plan 'source' must be a JSON object.",
         )
 
     kind = source.get("kind")
     if kind not in ("local_file", "branch", "canonical"):
-        return _HardFailure(
+        return HardFailure(
             error_type="malformed_plan_file",
             message=f"Plan source.kind {kind!r} is not a recognized SourceKind.",
         )
 
     label = source.get("label")
     if not isinstance(label, str):
-        return _HardFailure(
+        return HardFailure(
             error_type="malformed_plan_file",
             message="Plan source.label must be a string.",
         )
 
     branch = source.get("branch")
     if branch is not None and not isinstance(branch, str):
-        return _HardFailure(
+        return HardFailure(
             error_type="malformed_plan_file",
             message="Plan source.branch must be a string or null.",
         )
 
     from_file_path = source.get("from_file_path")
     if from_file_path is not None and not isinstance(from_file_path, str):
-        return _HardFailure(
+        return HardFailure(
             error_type="malformed_plan_file",
             message="Plan source.from_file_path must be a string or null.",
         )

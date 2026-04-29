@@ -243,7 +243,7 @@ def run_claim_plan_objective(
         )
 
     target_resolution = _resolve_target_branch(git, request.target)
-    if isinstance(target_resolution, _HardFailure):
+    if isinstance(target_resolution, HardFailure):
         return ClinkrExit.failure(
             error_type=target_resolution.error_type,
             message=target_resolution.message,
@@ -281,7 +281,7 @@ def run_claim_plan_objective(
     else:
         slug = requested_slug
 
-    if _target_carries_slug(gateway, slug=slug, branch=target_branch):
+    if target_carries_slug(gateway, slug=slug, branch=target_branch):
         return ClinkrExit.ok(
             _envelope_for_request(
                 request=request,
@@ -384,7 +384,7 @@ def _normalize_slug(raw: str | None) -> str | None:
 
 
 @dataclass(frozen=True)
-class _HardFailure:
+class HardFailure:
     """Domain-side sentinel for "this run cannot produce a structured envelope."
 
     Translated into :class:`ClinkrExit.failure` at the CLI entry point. Keeping
@@ -400,24 +400,24 @@ class _HardFailure:
 def _resolve_target_branch(
     git: GitGateway,
     requested_target: str | None,
-) -> str | _HardFailure:
+) -> str | HardFailure:
     if requested_target is not None:
         return requested_target
     match git.get_current_branch(Path.cwd()):
         case DetachedHead():
-            return _HardFailure(
+            return HardFailure(
                 error_type="detached_head",
                 message=(
                     "Detached HEAD: claim requires a checked-out branch or an explicit --target."
                 ),
             )
         case GitCommandFailure() as failure:
-            return _HardFailure(error_type="git_failed", message=failure.message)
+            return HardFailure(error_type="git_failed", message=failure.message)
         case str() as branch:
             return branch
 
 
-def _target_carries_slug(
+def target_carries_slug(
     gateway: BranchMemoryGateway,
     *,
     slug: str,
