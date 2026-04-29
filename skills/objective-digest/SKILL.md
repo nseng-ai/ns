@@ -22,6 +22,28 @@ remaining work, and durable findings. Read-only: do not write to brmem, mutate
 git, modify PRs, or save the digest unless the user explicitly redirects
 output.
 
+## Ownership Boundary
+
+The final digest is **agent-authored prose over CLI-provided facts**. The
+boundary is explicit:
+
+- **CLI (`objective exec digest`)** computes deterministic facts
+  (associated PRs, branch snapshot count, master canonical metadata,
+  merged-PR linkified bullet list, latest-snapshot pick) and emits raw
+  Markdown blocks (master `body.md`, master `roadmap.md`, per-snapshot
+  `notes.md` blocks) plus a literal output template. It does not summarize
+  prose.
+- **Agent (this skill)** copies the pre-rendered metadata and merged-PR
+  list verbatim, and writes the Thesis, Remaining work, and Key findings
+  sections by reading the embedded raw Markdown.
+
+This is a deliberate boundary, not a half-finished pushdown. Promoting the
+final prose into Python would require Markdown parsing and summarization,
+which the canonicalization plan defers. Tests for `objective exec digest`
+assert the prompt/template contract — presence of metadata rows, raw
+Markdown blocks, and template scaffolding — not final digest prose
+wording.
+
 ## Inputs
 
 - **Slug, optional.** If present, pass it through. If omitted, let

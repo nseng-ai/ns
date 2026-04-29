@@ -31,9 +31,10 @@ content files back to `brmem`, then advance the machine-owned
 which branch patches this snapshot covers. Report old/new commit SHAs so
 prior snapshots are recoverable.
 
-`update` mutates a **branch snapshot**, not the canonical objective. In the
-current implementation, canonical state is stored on `master`, so `update`
-aborts on `master` and points to `objective-reconcile`.
+`update` mutates a **branch snapshot**, not the canonical objective.
+Canonical state is stored on `master` (permanently — see
+`../objective/SKILL.md`), so `update` aborts on `master` and points to
+`objective-reconcile`.
 
 This is normally needed only for stacked PRs, when a later branch will claim
 from this branch before this branch lands. For a simple single-PR path, merge

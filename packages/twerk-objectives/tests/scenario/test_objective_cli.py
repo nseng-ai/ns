@@ -531,6 +531,57 @@ def test_objective_show_no_slug_errors_when_branch_empty(
     assert payload["message"] == "No objective on branch 'feat/x'."
 
 
+def test_objective_show_with_multiple_slugs_on_branch_uses_explicit_slug(
+    cli_group: ClinkrGroup,
+) -> None:
+    """A branch may legitimately carry multiple objective slugs (e.g. a
+    parent objective plus an unrelated co-claim). Passing an explicit
+    SLUG resolves correctly without auto-picking; both slugs are
+    independently inspectable from the same branch.
+
+    Locks the multi-slug invariant of the objective tree / show / current
+    path: claims are per-slug, never per-branch. Exercises the C9 multi-
+    slug-on-one-branch case from the canonicalization plan.
+    """
+    gateway = FakeBranchMemoryGateway()
+    # Two unrelated objectives both claimed on feat/x.
+    gateway.put("objectives", "parent-objective/body.md", "feat/x", "parent-snap\n")
+    gateway.put("objectives", "co-claimed-objective/body.md", "feat/x", "co-snap\n")
+    obj = _make_obj(gateway=gateway, live_branches=("feat/x",))
+
+    parent = CliRunner().invoke(
+        cli_group,
+        ["show", "parent-objective", "--format", "json"],
+        obj=obj,
+    )
+    co = CliRunner().invoke(
+        cli_group,
+        ["show", "co-claimed-objective", "--format", "json"],
+        obj=obj,
+    )
+
+    assert parent.exit_code == 0, parent.output
+    assert co.exit_code == 0, co.output
+    parent_data = json.loads(parent.output)["data"]
+    co_data = json.loads(co.output)["data"]
+    # Each slug renders independently with its own body content.
+    assert parent_data["slug"] == "parent-objective"
+    assert parent_data["body"] == {"source_branch": "feat/x", "content": "parent-snap\n"}
+    assert co_data["slug"] == "co-claimed-objective"
+    assert co_data["body"] == {"source_branch": "feat/x", "content": "co-snap\n"}
+    # The co-claim does not leak into the other slug's branches list.
+    assert parent_data["branches"] == [{"branch": "feat/x", "deleted": False}]
+    assert co_data["branches"] == [{"branch": "feat/x", "deleted": False}]
+
+    # ``list --here`` reports both slugs.
+    listed = CliRunner().invoke(cli_group, ["list", "--here"], obj=obj)
+    assert listed.exit_code == 0, listed.output
+    assert listed.output.splitlines() == [
+        "co-claimed-objective",
+        "parent-objective",
+    ]
+
+
 def test_objective_show_no_slug_errors_when_ambiguous(cli_group: ClinkrGroup) -> None:
     # _seed() puts two objective snapshots on feat/x (the default branch):
     # clinkr-migration.md and objective-cli.md.
@@ -586,8 +637,8 @@ def test_objective_show_lists_multiple_files_under_slug(cli_group: ClinkrGroup) 
     assert "- notes.md" in result.output
     assert "body seed" in result.output
     assert "notes seed" in result.output
-    assert "body.md (master)" in result.output
-    assert "notes.md (master)" in result.output
+    assert "body.md (canonical: master)" in result.output
+    assert "notes.md (canonical: master)" in result.output
 
 
 def test_objective_show_lists_multiple_files_json(cli_group: ClinkrGroup) -> None:
@@ -622,7 +673,7 @@ def test_objective_show_renders_body_markdown(cli_group: ClinkrGroup) -> None:
     assert "Heading" in result.output
     assert "distinctive-item" in result.output
     assert "Paragraph text." in result.output
-    assert "body.md (master)" in result.output
+    assert "body.md (canonical: master)" in result.output
 
 
 def test_objective_show_prefers_current_branch_body(cli_group: ClinkrGroup) -> None:
@@ -646,7 +697,7 @@ def test_objective_show_prefers_current_branch_body(cli_group: ClinkrGroup) -> N
     assert result.exit_code == 0, result.output
     assert "branch-only-sentinel" in result.output
     assert "master-only-sentinel" not in result.output
-    assert "body.md (feat/x)" in result.output
+    assert "body.md (branch: feat/x)" in result.output
 
 
 def test_objective_show_omits_body_when_only_non_body_files_present(
@@ -662,7 +713,7 @@ def test_objective_show_omits_body_when_only_non_body_files_present(
     assert "files:" in result.output
     assert "- notes.md" in result.output
     assert "notes only" in result.output
-    assert "notes.md (master)" in result.output
+    assert "notes.md (canonical: master)" in result.output
     assert "body.md (" not in result.output
 
     json_result = CliRunner().invoke(
@@ -701,9 +752,9 @@ def test_objective_show_renders_body_roadmap_and_notes_markdown(
     assert "body-sentinel" in result.output
     assert "roadmap-sentinel" in result.output
     assert "notes-sentinel" in result.output
-    assert "body.md (master)" in result.output
-    assert "roadmap.md (master)" in result.output
-    assert "notes.md (master)" in result.output
+    assert "body.md (canonical: master)" in result.output
+    assert "roadmap.md (canonical: master)" in result.output
+    assert "notes.md (canonical: master)" in result.output
 
 
 def test_objective_show_prefers_current_branch_per_file(cli_group: ClinkrGroup) -> None:
@@ -728,6 +779,42 @@ def test_objective_show_prefers_current_branch_per_file(cli_group: ClinkrGroup) 
         "content": "master-roadmap\n",
     }
     assert payload["data"]["notes"] == {"source_branch": "feat/x", "content": "branch-notes\n"}
+
+
+def test_objective_show_labels_per_file_source_in_mixed_render(
+    cli_group: ClinkrGroup,
+) -> None:
+    """A mixed-source render labels each file with ``canonical: master``
+    or ``branch: <name>`` so the effective view is unambiguous.
+
+    Without ``--branch``, ``objective show`` resolves each file
+    independently (current-branch first, canonical fallback). The
+    rendered output must distinguish canonical files from branch-snapshot
+    files so a reader cannot mistake the mixed view for a single
+    snapshot. Exercises B8 of the canonicalization plan.
+    """
+    gateway = FakeBranchMemoryGateway()
+    # Mixed sources within a single render: body from the current branch,
+    # roadmap from canonical master, notes from the current branch.
+    gateway.put("objectives", "objective-cli/body.md", "master", "master-body\n")
+    gateway.put("objectives", "objective-cli/body.md", "feat/x", "branch-body\n")
+    gateway.put("objectives", "objective-cli/roadmap.md", "master", "master-roadmap\n")
+    gateway.put("objectives", "objective-cli/notes.md", "feat/x", "branch-notes\n")
+    obj = _make_obj(gateway=gateway, live_branches=("master", "feat/x"))
+
+    result = CliRunner().invoke(cli_group, ["show", "objective-cli"], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    # Branch snapshot files use the ``branch: <name>`` label.
+    assert "body.md (branch: feat/x)" in result.output
+    assert "notes.md (branch: feat/x)" in result.output
+    # Canonical fallback uses the explicit ``canonical: master`` label.
+    assert "roadmap.md (canonical: master)" in result.output
+    # The mixed view never renders an ambiguous "feat/x" or "master" header
+    # without the source qualifier — the qualifier is what makes the
+    # mixed-fallback contract legible.
+    assert "body.md (master)" not in result.output
+    assert "roadmap.md (feat/x)" not in result.output
 
 
 def test_objective_show_branch_reads_from_requested_branch(cli_group: ClinkrGroup) -> None:

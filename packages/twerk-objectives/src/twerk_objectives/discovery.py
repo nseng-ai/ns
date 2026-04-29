@@ -16,6 +16,18 @@ from dataclasses import dataclass
 from brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 
+# Canonical objective storage is permanently the literal branch name
+# ``master``. The brmem ref shape
+# (``refs/brmem/ns/objectives/<encoded-branch>``) makes the storage branch
+# part of the schema rather than a configurable trunk, and migrating
+# canonical state to a different branch would require coordinated rewrites
+# of every existing canonical objective. ``MASTER_BRANCH`` is therefore a
+# constant, not a placeholder for repo trunk: do not parametrize it on
+# ``git_gateway.get_trunk_branch()``. Trunk resolution remains in use for
+# branch-snapshot freshness (``trunk..HEAD`` patch-id ranges in
+# ``freshness.py``), but canonical reads and writes always target
+# ``master``. See "Authority Boundaries" / "Canonical Storage Branch" in
+# ``packages/twerk-objectives/AGENTS.md``.
 MASTER_BRANCH = "master"
 
 BODY_FILE = "body.md"

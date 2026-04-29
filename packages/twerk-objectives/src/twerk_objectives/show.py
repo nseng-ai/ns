@@ -97,8 +97,25 @@ def render_objective_show(result: ObjectiveShowResult) -> None:
         if file is None:
             continue
         console.print()
-        console.rule(f"{file.filename} ({file.source_branch})")
+        console.rule(_format_file_header(file))
         console.print(Markdown(file.content))
+
+
+def _format_file_header(file: ObjectiveFile) -> str:
+    """Label each file with its source so the mixed-fallback view is unambiguous.
+
+    Without ``--branch``, ``objective show`` resolves each file
+    independently (current branch first, canonical ``master`` fallback), so
+    a single render may combine sources. The label distinguishes canonical
+    storage from a branch snapshot in both human and JSON callers, matching
+    the documented "Effective view" boundary in
+    ``packages/twerk-objectives/AGENTS.md``.
+    """
+    if file.source_branch == MASTER_BRANCH:
+        source = f"canonical: {MASTER_BRANCH}"
+    else:
+        source = f"branch: {file.source_branch}"
+    return f"{file.filename} ({source})"
 
 
 def _read_file(

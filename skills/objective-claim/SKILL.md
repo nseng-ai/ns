@@ -143,8 +143,8 @@ copy to carry:
    `HEAD`, are not `<target>`, and carry `<slug>/body.md`. Choose the
    candidate with the smallest
    `git rev-list --count refs/heads/<branch>..HEAD`; ask on ties.
-4. **Canonical record**: use current canonical storage (`master`) when
-   `brmem check` succeeds for `<slug>/body.md`.
+4. **Canonical record**: use canonical storage (`master`, the permanent
+   canonical branch) when `brmem check` succeeds for `<slug>/body.md`.
 
 If no source contains the slug, ask the user to name `--from`, name
 `--from-file`, or run `objective-create` if the slug is new.

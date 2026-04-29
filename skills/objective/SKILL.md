@@ -13,6 +13,16 @@ perform operations. Use it as shared grounding alongside the operation skills
 `objective-digest`), and as a landing spot for ad-hoc questions about
 objectives that do not map cleanly to one operation.
 
+> **Authority.** This skill is **conceptual behavior reference** for the
+> objective subsystem, not an independent implementation authority.
+> Deterministic mechanics (slug rules, freshness classification, namespace
+> constants, the `objective` CLI surface) live in the `twerk_objectives`
+> Python package; ref encoding and branch-name validation live in `brmem`.
+> When this skill's prose and the implementing package disagree, the package
+> wins and the prose here is migration debt to be reconciled. New rules
+> belong in the lowest layer that owns them — see the "Authority Boundaries"
+> section in `packages/twerk-objectives/AGENTS.md`.
+
 ## What an objective is
 
 An **objective** is a local-first planning document for a multi-session
@@ -20,10 +30,12 @@ workstream. The workstream has one authoritative record and zero or more
 branch-local working copies:
 
 - **Canonical objective**: the shared ground truth for the workstream.
-  Today it is stored in `brmem` under branch `master`; that storage choice
-  is an implementation detail. A future implementation could store canonical
-  objectives in a shared database without changing the branch-snapshot
-  model.
+  Stored in `brmem` under branch `master`. Canonical storage is permanently
+  on `master` — the brmem ref shape
+  (`refs/brmem/ns/objectives/<encoded-branch>`) makes the storage branch
+  part of the schema, not a configurable trunk. A future implementation
+  could swap the storage backend wholesale, but within the current
+  brmem-backed implementation `master` is a constant, not a parameter.
 - **Branch snapshot**: a local working copy/checkpoint attached to a branch.
   It can drift while slice work is in flight and accumulate notes. It serves
   as evidence during reconciliation only after the branch's work has landed.

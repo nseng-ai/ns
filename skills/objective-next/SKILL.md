@@ -69,6 +69,14 @@ check it out first.
   current branch. There is no source cascade and no ancestor walk; if the
   current branch carries no claim, abort with the master-aware empty-branch
   error in Step 3.
+- **No source cascade, no `--source` flag.** `objective-next` does not accept
+  `--from`, `--from-file`, `--branch`, `--source`, or any other flag that
+  would point it at a snapshot off the current branch. To inspect canonical
+  state or another branch's snapshot, use `objective show <slug>` instead;
+  `next` is symmetric with its siblings (`update` is current-branch-only,
+  `reconcile` is canonical-only, `claim` is the explicit cross-source
+  operation), and overloading it with a source flag would re-introduce the
+  drift this skill is locked against.
 - **No Graphite dependency.** Use raw git and brmem only.
 - **Collision-safe suggestion.** Check the suggested slice slug against local
   branches and canonical objective slugs. On collision, warn and ask;

@@ -23,10 +23,15 @@ is the human walkthrough.
 
 There are two places an objective can live:
 
-- **Canonical record**: The record of the objective that lives on trunk/master/main. It
+- **Canonical record**: The record of the objective that lives on `master`. It
   is the ground truth of how the objective is proceeding from the point of view of the global
   system. As code lands and time progresses, a reconcilation process ensures that it is
   up-to-date with respect the code base and any relevant external state.
+
+  Canonical objective storage is permanently on `master` (the brmem ref shape
+  `refs/brmem/ns/objectives/<encoded-branch>` makes the storage branch part of
+  the schema, not a configurable trunk). Treat `master` as a constant whenever
+  you read or write canonical objectives.
 
 - **Branch snapshot**: a working copy attached to a feature branch. This represents
   the state of the objective IF branch were the ground truth of the system. Objectives
@@ -77,16 +82,23 @@ Once the shape is clear, the skill writes the shared record on `master`. It
 writes `body.md` and, when there is already a concrete slice plan,
 `roadmap.md`. It does not attach anything to a feature branch.
 
-### 2. Choose the next slice
+### 2. Choose the next slice (still on `master`)
 
 ```text
 objective-next dashboard-revamp
 ```
 
-`next` is read-only. It inspects the canonical record and recommends the next
-PR-sized slice, including a branch slug such as `dashboard-revamp/data-layer`.
-This happens before `claim` so the branch you create is tied to the slice you
-intend to implement.
+Run this **while still on `master`**, before creating the slice branch.
+`objective-next` plans against the current branch only — there is no source
+cascade and no `--source` flag. On `master` the current branch _is_ canonical
+storage, so `next` reads the canonical record you just created and recommends
+the next PR-sized slice, including a branch slug such as
+`dashboard-revamp/data-layer`. This happens before `claim` so the branch you
+create is tied to the slice you intend to implement.
+
+To peek at canonical state from a feature branch later, use
+`objective show <slug>`; do not overload `objective-next` with a cross-branch
+read.
 
 ### 3. Create a branch for that slice and claim the snapshot
 

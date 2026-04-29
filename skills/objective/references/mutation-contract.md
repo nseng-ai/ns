@@ -3,10 +3,23 @@
 Single source of truth for what objective operations may mutate, how shared
 rewrite logic works, and how `update` and `reconcile` differ.
 
+> **Authority.** This document is **mutation policy**, not low-level
+> mechanics. Ref encoding (`refs/brmem/ns/<namespace>/<encoded-branch>`),
+> branch-name validation (rejection of names containing `---`), key
+> validation, and the snapshot-shaped storage model are owned by `brmem`.
+> Slug rules, file constants, the patch-id freshness classifier, and the
+> `objective` CLI surface are owned by the `twerk_objectives` Python
+> package. This contract layers on top of those — it specifies which
+> operation may write where and how the conservative rewrite rules apply.
+> When prose here disagrees with the implementing package, the package
+> wins. See "Authority Boundaries" in
+> `packages/twerk-objectives/AGENTS.md`.
+
 ## Data model
 
-- **Canonical objective**: shared ground truth for a slug. In the current
-  implementation this is stored in `brmem` on branch `master`.
+- **Canonical objective**: shared ground truth for a slug. Stored in `brmem`
+  on the literal branch `master` — canonical storage is permanently on
+  `master`, not a configurable trunk.
 - **Branch snapshot**: local working copy/checkpoint for a slug on a working
   branch.
 
@@ -93,8 +106,8 @@ Forbidden:
 same branch. It is for stacked PRs: use it when another branch will claim
 from the current branch before the current branch lands. For a simple
 single-PR path, merge the PR and run `objective-reconcile` on `master`
-instead. `update` aborts on `master` in the current implementation because
-`master` is the canonical storage branch.
+instead. `update` aborts on `master` because `master` is the canonical storage
+branch.
 
 Evidence:
 

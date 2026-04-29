@@ -237,6 +237,58 @@ def test_digest_emits_brief_with_facts_prose_and_template(cli_group: ClinkrGroup
     assert "<MERGED PRS FROM STEP 2, VERBATIM>" in out
 
 
+def test_digest_prompt_template_contract(cli_group: ClinkrGroup) -> None:
+    """Lock the agent-vs-CLI boundary: the CLI emits facts + raw Markdown +
+    a literal output template; the final digest prose is agent-authored.
+
+    The prompt must always contain the five labeled steps and the output
+    template scaffolding. This regression-locks the prompt/template
+    contract documented in `objective-digest/SKILL.md` and in the
+    "Authority Boundaries" section of `packages/twerk-objectives/AGENTS.md`.
+    Tests in this file assert prompt/template structure — not final digest
+    prose wording, which is agent-authored.
+    """
+    gateway = _seed_widget_rewrite()
+    obj = _make_obj(
+        gateway=gateway,
+        live_branches=("master", "widget-rewrite-groundwork", "widget-rewrite-layer-1"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "digest", "widget-rewrite"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    out = result.output
+
+    # The five labeled steps are all present in order.
+    expected_steps = (
+        "# Step 1 — Metadata table (copy this block verbatim)",
+        "# Step 2 — Merged PRs (copy this block verbatim)",
+        "# Step 3 — Thesis",
+        "# Step 4 — Remaining work",
+        "# Step 5 — Key findings",
+    )
+    indices = [out.index(step) for step in expected_steps]
+    assert indices == sorted(indices), "step labels must appear in order 1..5"
+
+    # The output template scaffolds agent-filled prose with VERBATIM
+    # placeholders for the pre-rendered metadata and merged-PR blocks.
+    assert "# Output template — fill `<...>` placeholders" in out
+    assert "<METADATA TABLE FROM STEP 1, VERBATIM>" in out
+    assert "<MERGED PRS FROM STEP 2, VERBATIM>" in out
+    assert "<YOUR THESIS FROM STEP 3>" in out
+    assert "<YOUR REMAINING WORK FROM STEP 4>" in out
+    assert "<YOUR BULLETS FROM STEP 5>" in out
+
+    # Raw Markdown blocks for the agent to read live inside `<<<` / `>>>`
+    # fences so that fenced source prose is unambiguous.
+    assert "<<<\n# Widget Rewrite" in out
+    assert ">>>" in out
+
+
 def test_digest_emits_empty_findings_marker_when_no_notes(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", _BODY_MASTER)

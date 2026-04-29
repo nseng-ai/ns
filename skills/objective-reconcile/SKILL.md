@@ -200,7 +200,7 @@ slugs unchanged, slugs with gaps.
 Then, for every slug that was either rewritten or had a gap, emit a
 sub-section containing:
 
-- slug and canonical target (`master` in current storage)
+- slug and canonical target (`master`, the permanent canonical branch)
 - files touched with one-line notes
 - old SHA to new SHA for each changed file
 - branch snapshots consulted, including skipped unmerged snapshots
