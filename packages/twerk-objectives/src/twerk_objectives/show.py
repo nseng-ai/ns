@@ -19,7 +19,7 @@ from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
     BODY_FILE,
-    MASTER_BRANCH,
+    TRUNK_BRANCH,
     NOTES_FILE,
     ROADMAP_FILE,
     BranchPresence,
@@ -111,8 +111,8 @@ def _format_file_header(file: ObjectiveFile) -> str:
     the documented "Effective view" boundary in
     ``packages/twerk-objectives/AGENTS.md``.
     """
-    if file.source_branch == MASTER_BRANCH:
-        source = f"canonical: {MASTER_BRANCH}"
+    if file.source_branch == TRUNK_BRANCH:
+        source = f"canonical: {TRUNK_BRANCH}"
     else:
         source = f"branch: {file.source_branch}"
     return f"{file.filename} ({source})"
@@ -133,14 +133,14 @@ def _read_file(
         if content is None:
             return None
         return ObjectiveFile(filename=filename, source_branch=requested_branch, content=content)
-    if current_branch is not None and current_branch != MASTER_BRANCH:
+    if current_branch is not None and current_branch != TRUNK_BRANCH:
         content = gateway.get(OBJECTIVE_NAMESPACE, key, current_branch)
         if content is not None:
             return ObjectiveFile(filename=filename, source_branch=current_branch, content=content)
     if canonical_present:
-        content = gateway.get(OBJECTIVE_NAMESPACE, key, MASTER_BRANCH)
+        content = gateway.get(OBJECTIVE_NAMESPACE, key, TRUNK_BRANCH)
         if content is not None:
-            return ObjectiveFile(filename=filename, source_branch=MASTER_BRANCH, content=content)
+            return ObjectiveFile(filename=filename, source_branch=TRUNK_BRANCH, content=content)
     return None
 
 
@@ -221,8 +221,8 @@ def run_show_objective(
         )
 
     files = tuple(sorted({e.key[len(requested_slug) + 1 :] for e in slug_entries}))
-    canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
-    branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
+    canonical_present = any(e.branch == TRUNK_BRANCH for e in slug_entries)
+    branch_names = sorted({e.branch for e in slug_entries if e.branch != TRUNK_BRANCH})
     branches = tuple(
         BranchPresence(branch=name, deleted=not git_gateway.branch_exists(name))
         for name in branch_names

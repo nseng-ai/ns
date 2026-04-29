@@ -16,19 +16,17 @@ from dataclasses import dataclass
 from brmem.gateway import BranchMemoryGateway, EntryRef
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 
-# Canonical objective storage is permanently the literal branch name
-# ``master``. The brmem ref shape
-# (``refs/brmem/ns/objectives/<encoded-branch>``) makes the storage branch
-# part of the schema rather than a configurable trunk, and migrating
-# canonical state to a different branch would require coordinated rewrites
-# of every existing canonical objective. ``MASTER_BRANCH`` is therefore a
-# constant, not a placeholder for repo trunk: do not parametrize it on
-# ``git_gateway.get_trunk_branch()``. Trunk resolution remains in use for
-# branch-snapshot freshness (``trunk..HEAD`` patch-id ranges in
-# ``freshness.py``), but canonical reads and writes always target
-# ``master``. See "Authority Boundaries" / "Canonical Storage Branch" in
-# ``packages/twerk-objectives/AGENTS.md``.
-MASTER_BRANCH = "master"
+# Canonical objective storage lives on the repo's trunk branch (whatever
+# ``git symbolic-ref refs/remotes/origin/HEAD`` resolves to: typically
+# ``master`` on legacy repos, ``main`` on greenfield ones). Production
+# callers should resolve the trunk through ``GitGateway.get_trunk_branch()``
+# (already plumbed onto :class:`ObjectiveCliContext.git_gateway` via
+# :func:`twerk_core.git.real_git_gateway.resolve_trunk_branch`) rather than
+# reading this constant. ``TRUNK_BRANCH`` is only a last-resort fallback for
+# code paths that have no gateway in scope; comparing branches against this
+# literal in production code is a smell. See "Authority Boundaries" /
+# "Canonical Storage Branch" in ``packages/twerk-objectives/AGENTS.md``.
+TRUNK_BRANCH = "master"
 
 BODY_FILE = "body.md"
 ROADMAP_FILE = "roadmap.md"
@@ -116,8 +114,8 @@ def group_objective_entries(
     result: list[ObjectiveRepoEntry] = []
     for slug in sorted(by_slug):
         slug_entries = by_slug[slug]
-        canonical_present = any(e.branch == MASTER_BRANCH for e in slug_entries)
-        branch_names = sorted({e.branch for e in slug_entries if e.branch != MASTER_BRANCH})
+        canonical_present = any(e.branch == TRUNK_BRANCH for e in slug_entries)
+        branch_names = sorted({e.branch for e in slug_entries if e.branch != TRUNK_BRANCH})
         presences = tuple(
             BranchPresence(
                 branch=branch,

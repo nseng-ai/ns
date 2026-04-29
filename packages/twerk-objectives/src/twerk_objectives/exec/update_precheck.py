@@ -27,7 +27,7 @@ from twerk_core.git.types import (
 from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import (
-    MASTER_BRANCH,
+    TRUNK_BRANCH,
     body_key,
     notes_key,
     roadmap_key,
@@ -122,7 +122,7 @@ def run_update_precheck_objective(
         raise ClinkrExit.failure(error_type="git_failed", message=current_branch_result.message)
     current_branch = current_branch_result
 
-    if current_branch == MASTER_BRANCH:
+    if current_branch == TRUNK_BRANCH:
         raise ClinkrExit.failure(
             error_type="on_master_branch",
             message=(
