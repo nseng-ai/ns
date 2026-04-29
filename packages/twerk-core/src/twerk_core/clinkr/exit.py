@@ -16,7 +16,7 @@ class ExitStatus(Enum):
 
 
 @dataclass(frozen=True)
-class ClinkrExit(Generic[T]):
+class ClinkrExit(Exception, Generic[T]):
     status: ExitStatus
     data: T | None = None
     message: str | None = None
