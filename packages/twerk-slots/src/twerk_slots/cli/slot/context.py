@@ -14,13 +14,13 @@ from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_clipboard import RealClipboardGateway
 from twerk_slots.gateway.real_git import build_real_slots_git_gateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
-from twerk_slots.repo_context import SLOTS_ROOT, NoRepoSentinel, discover_repo_or_sentinel
+from twerk_slots.repo_context import SLOTS_ROOT, NoGitRepo, discover_repo
 
 
-def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
+def build_slots_context() -> SlotsCliContext | NoGitRepo:
     """Assemble a :class:`SlotsCliContext` from real gateways and the cwd.
 
-    Returns a :class:`NoRepoSentinel` when ``cwd`` is outside a git repo or
+    Returns a :class:`NoGitRepo` when ``cwd`` is outside a git repo or
     when the repo has no resolvable trunk branch, so callers can surface a
     ``ClinkrFailure`` without another branch.
     """
@@ -30,9 +30,9 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
     try:
         discovery_git = build_real_slots_git_gateway(repo_root=cwd)
     except SlotAllocationError as exc:
-        return NoRepoSentinel(message=str(exc))
-    repo = discover_repo_or_sentinel(cwd, slots_root=slots_root, git=discovery_git)
-    if isinstance(repo, NoRepoSentinel):
+        return NoGitRepo(message=str(exc))
+    repo = discover_repo(cwd, slots_root=slots_root, git=discovery_git)
+    if isinstance(repo, NoGitRepo):
         return repo
     return SlotsCliContext(
         repo=repo,
@@ -45,12 +45,12 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
     )
 
 
-def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoRepoSentinel:
+def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoGitRepo:
     """Unpack the typed slots context from the given Click context.
 
     ``ctx.obj`` must be a :class:`twerk_core.clinkr.context.ClinkrContextObject`
     whose ``context_factory`` returns a :class:`SlotsCliContext` or a
-    :class:`NoRepoSentinel`. The CLI entry point installs
+    :class:`NoGitRepo`. The CLI entry point installs
     ``build_clinkr_context_object(build_slots_context)``; tests do the same
     around pre-built fake contexts.
 
@@ -58,9 +58,9 @@ def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoRepoSentinel:
     never reach this function, so the factory is not invoked for them.
     """
     result = load_clinkr_context_object(ctx).context_factory()
-    if not isinstance(result, SlotsCliContext | NoRepoSentinel):
+    if not isinstance(result, SlotsCliContext | NoGitRepo):
         raise RuntimeError(
             "context_factory returned "
-            f"{type(result).__name__}, expected SlotsCliContext or NoRepoSentinel."
+            f"{type(result).__name__}, expected SlotsCliContext or NoGitRepo."
         )
     return result

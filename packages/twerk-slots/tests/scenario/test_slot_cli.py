@@ -22,7 +22,7 @@ from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
 from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
+from twerk_slots.repo_context import NoGitRepo, RepoContext, discover_repo
 
 
 @pytest.fixture(scope="module")
@@ -72,7 +72,7 @@ def _fake_for_repo(
         repository_root_by_cwd=root_map,
         on_add_worktree=storage.ensure_dir,
     )
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=resolved_slots_root, git=git)
+    repo = discover_repo(Path.cwd(), slots_root=resolved_slots_root, git=git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
     return SlotsCliContext(
         repo=repo,
@@ -264,7 +264,7 @@ def test_slot_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_list_surfaces_no_repo_sentinel(cli_group: ClinkrGroup) -> None:
-    sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
+    sentinel = NoGitRepo(message="Not inside a git repository (no .git found up the tree)")
 
     result = CliRunner().invoke(cli_group, ["list"], obj=_obj(sentinel))
 
@@ -273,7 +273,7 @@ def test_slot_list_surfaces_no_repo_sentinel(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_list_no_repo_format_json_envelope(cli_group: ClinkrGroup) -> None:
-    sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
+    sentinel = NoGitRepo(message="Not inside a git repository (no .git found up the tree)")
 
     result = CliRunner().invoke(cli_group, ["list", "--format", "json"], obj=_obj(sentinel))
     payload = _json_output(result.stdout)

@@ -33,28 +33,28 @@ class RepoContext:
 
 
 @dataclass(frozen=True)
-class NoRepoSentinel:
+class NoGitRepo:
     """Returned when ``cwd`` is not inside a git repository."""
 
     message: str
     error_type: str = "not_in_repo"
 
 
-def discover_repo_or_sentinel(
+def discover_repo(
     cwd: Path,
     *,
     slots_root: Path,
     git: GitGateway,
-) -> RepoContext | NoRepoSentinel:
+) -> RepoContext | NoGitRepo:
     """Locate the git repository containing ``cwd`` and build a RepoContext."""
     if not git.path_exists(cwd):
-        return NoRepoSentinel(message=f"Start path '{cwd}' does not exist")
+        return NoGitRepo(message=f"Start path '{cwd}' does not exist")
 
     cur = cwd.resolve()
 
     git_common_dir = git.get_git_common_dir(cur)
     if git_common_dir is None:
-        return NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
+        return NoGitRepo(message="Not inside a git repository (no .git found up the tree)")
 
     main_repo_root = git_common_dir.parent.resolve()
     root = git.get_repository_root(cur)

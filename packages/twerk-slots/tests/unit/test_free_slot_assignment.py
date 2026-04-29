@@ -6,9 +6,9 @@ from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import FileStatus, WorktreeInfo
 from twerk_slots.allocation import (
-    DirtyWorktreeError,
+    DirtyWorktree,
     SlotFreeOutcome,
-    SlotNotAssignedError,
+    SlotNotAssigned,
     free_slot_assignment,
 )
 from twerk_slots.context import SlotsCliContext
@@ -162,7 +162,7 @@ def test_free_slot_unknown_slot_returns_not_assigned_error() -> None:
     )
     outcome = free_slot_assignment(ctx, slot_name="slot-07")
 
-    assert isinstance(outcome, SlotNotAssignedError)
+    assert isinstance(outcome, SlotNotAssigned)
     assert outcome.slot_name == "slot-07"
     # No state mutation.
     assert git._create_branch_calls == []
@@ -196,7 +196,7 @@ def test_free_slot_dirty_worktree_returns_dirty_error() -> None:
     )
     outcome = free_slot_assignment(ctx, slot_name="slot-01")
 
-    assert isinstance(outcome, DirtyWorktreeError)
+    assert isinstance(outcome, DirtyWorktree)
     assert outcome.slot_name == "slot-01"
     assert outcome.worktree_path == slot_path
     # No state mutation on dirty refusal.

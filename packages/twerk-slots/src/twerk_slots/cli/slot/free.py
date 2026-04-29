@@ -11,9 +11,9 @@ from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.allocation import (
-    DirtyWorktreeError,
+    DirtyWorktree,
     SlotAllocationError,
-    SlotNotAssignedError,
+    SlotNotAssigned,
     free_slot_assignment,
 )
 from twerk_slots.cli.slot.context import load_slots_context
@@ -26,7 +26,7 @@ from twerk_slots.cli.slot.selectors import (
 )
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.pool_state import AssignmentMissing, PoolState
-from twerk_slots.repo_context import NoRepoSentinel
+from twerk_slots.repo_context import NoGitRepo
 
 
 @dataclass(frozen=True)
@@ -132,7 +132,7 @@ def validate_assigned_and_clean(
 )
 def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[SlotFreeResult]:
     slots_ctx = load_slots_context(ctx)
-    if isinstance(slots_ctx, NoRepoSentinel):
+    if isinstance(slots_ctx, NoGitRepo):
         Ensure.fail(error_type="not_in_repo", message=slots_ctx.message)
 
     Ensure.true(
@@ -163,13 +163,13 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
         except SlotAllocationError as exc:
             partial_failure(freed, error_type="slot_allocation_error", message=str(exc))
-        if isinstance(outcome, SlotNotAssignedError):
+        if isinstance(outcome, SlotNotAssigned):
             partial_failure(
                 freed,
                 error_type="slot_not_assigned",
                 message=f"{slot_name} is not currently assigned (state changed during free).",
             )
-        if isinstance(outcome, DirtyWorktreeError):
+        if isinstance(outcome, DirtyWorktree):
             partial_failure(
                 freed,
                 error_type="dirty_worktree",

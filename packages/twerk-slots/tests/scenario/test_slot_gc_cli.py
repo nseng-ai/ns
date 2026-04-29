@@ -22,7 +22,7 @@ from twerk_slots.context_testing import build_test_slots_context
 from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
-from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
+from twerk_slots.repo_context import NoGitRepo, RepoContext, discover_repo
 
 
 @pytest.fixture(scope="module")
@@ -54,7 +54,7 @@ def _build_ctx_for_repo(
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
     )
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
+    repo = discover_repo(Path.cwd(), slots_root=slots_root, git=git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
     return build_test_slots_context(
         repo=repo,
@@ -147,7 +147,7 @@ def test_slot_gc_appears_in_group_help(cli_group: ClinkrGroup) -> None:
 
 
 def test_slot_gc_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
-    sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
+    sentinel = NoGitRepo(message="Not inside a git repository (no .git found up the tree)")
 
     result = CliRunner().invoke(cli_group, ["gc"], obj=_obj(sentinel))
 

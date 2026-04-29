@@ -13,7 +13,7 @@ from twerk_core.clinkr.operation import clinkr_operation
 from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.cli.slot.selectors import SelectorOk, resolve_num, resolve_wt
 from twerk_slots.pool_state import AssignmentMissing
-from twerk_slots.repo_context import NoRepoSentinel
+from twerk_slots.repo_context import NoGitRepo
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ def render_slot_goto(result: SlotGotoResult) -> None:
 )
 def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[SlotGotoResult]:
     slots_ctx = load_slots_context(ctx)
-    if isinstance(slots_ctx, NoRepoSentinel):
+    if isinstance(slots_ctx, NoGitRepo):
         Ensure.fail(error_type="not_in_repo", message=slots_ctx.message)
 
     Ensure.true(

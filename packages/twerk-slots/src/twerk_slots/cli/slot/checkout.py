@@ -16,9 +16,9 @@ from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 from twerk_slots.allocation import (
-    DetachedHeadError,
-    DirtyCurrentWorktreeError,
-    PoolFullError,
+    DetachedWorktreeHead,
+    DirtyCurrentWorktree,
+    PoolFull,
     SlotAllocationError,
     SlotAllocationResult,
     allocate_slot_for_branch,
@@ -28,7 +28,7 @@ from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopySuccess
 from twerk_slots.naming import extract_slot_number
-from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
+from twerk_slots.repo_context import NoGitRepo, ensure_slots_metadata_dir
 
 
 def _complete_branch_name(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[str]:
@@ -117,7 +117,7 @@ def render_slot_checkout(result: SlotCheckoutResult) -> None:
         console.print(f"[dim]Clipboard unavailable ({detail})[/dim]")
 
 
-def _pool_full_failure(outcome: PoolFullError) -> NoReturn:
+def _pool_full_failure(outcome: PoolFull) -> NoReturn:
     Ensure.fail(
         error_type="pool_full",
         message=(
@@ -194,7 +194,7 @@ def run_checkout_slot(
     )
 
     slots_ctx_result = load_slots_context(ctx)
-    if isinstance(slots_ctx_result, NoRepoSentinel):
+    if isinstance(slots_ctx_result, NoGitRepo):
         Ensure.fail(error_type="not_in_repo", message=slots_ctx_result.message)
     slots_ctx = slots_ctx_result
 
@@ -208,7 +208,7 @@ def run_checkout_slot(
             )
         except SlotAllocationError as exc:
             raise ClinkrFailure(error_type="slot_allocation_error", message=str(exc)) from exc
-        if isinstance(current_outcome, DetachedHeadError):
+        if isinstance(current_outcome, DetachedWorktreeHead):
             Ensure.fail(
                 error_type="detached_head",
                 message=(
@@ -216,7 +216,7 @@ def run_checkout_slot(
                     f"before running `slot checkout --current`."
                 ),
             )
-        if isinstance(current_outcome, DirtyCurrentWorktreeError):
+        if isinstance(current_outcome, DirtyCurrentWorktree):
             Ensure.fail(
                 error_type="dirty_worktree",
                 message=(
@@ -224,7 +224,7 @@ def run_checkout_slot(
                     f"Commit or stash before running `slot checkout --current`."
                 ),
             )
-        if isinstance(current_outcome, PoolFullError):
+        if isinstance(current_outcome, PoolFull):
             _pool_full_failure(current_outcome)
         return ClinkrExit.ok(
             _build_result(
@@ -271,7 +271,7 @@ def run_checkout_slot(
         branch_name=branch_name,
         now=now,
     )
-    if isinstance(outcome, PoolFullError):
+    if isinstance(outcome, PoolFull):
         _pool_full_failure(outcome)
     return ClinkrExit.ok(
         _build_result(

@@ -5,7 +5,7 @@ from click.testing import CliRunner
 
 from twerk.cli.cli import build_cli
 from twerk.cli.plugins import PluginEntryPointSource
-from twerk_slots.repo_context import NoRepoSentinel
+from twerk_slots.repo_context import NoGitRepo
 
 
 class FakePluginEntryPoint:
@@ -50,7 +50,7 @@ def test_top_level_cli_installs_plugin_context_for_slot_commands(
     )
     monkeypatch.setattr(
         "twerk_slots.cli.plugin.build_slots_context",
-        lambda: NoRepoSentinel(message="Not inside a git repository"),
+        lambda: NoGitRepo(message="Not inside a git repository"),
     )
     cli = build_cli(source=_entry_point_source(slot_plugin))
 

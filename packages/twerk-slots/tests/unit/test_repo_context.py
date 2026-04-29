@@ -6,9 +6,9 @@ from twerk_core.git.testing import FakeGitGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import (
     SLOTS_ROOT,
-    NoRepoSentinel,
+    NoGitRepo,
     RepoContext,
-    discover_repo_or_sentinel,
+    discover_repo,
     ensure_slots_metadata_dir,
 )
 
@@ -21,9 +21,9 @@ def test_discover_returns_sentinel_when_cwd_missing(tmp_path: Path) -> None:
     missing = tmp_path / "does" / "not" / "exist"
     git = FakeGitGateway(repo_root=tmp_path)
 
-    result = discover_repo_or_sentinel(missing, slots_root=tmp_path / "slots", git=git)
+    result = discover_repo(missing, slots_root=tmp_path / "slots", git=git)
 
-    assert isinstance(result, NoRepoSentinel)
+    assert isinstance(result, NoGitRepo)
     assert "does not exist" in result.message
 
 
@@ -36,9 +36,9 @@ def test_discover_returns_sentinel_outside_repo(tmp_path: Path) -> None:
         existing_paths={outside},
     )
 
-    result = discover_repo_or_sentinel(outside, slots_root=tmp_path / "slots", git=git)
+    result = discover_repo(outside, slots_root=tmp_path / "slots", git=git)
 
-    assert isinstance(result, NoRepoSentinel)
+    assert isinstance(result, NoGitRepo)
     assert "Not inside a git repository" in result.message
 
 
@@ -54,7 +54,7 @@ def test_discover_main_repo(tmp_path: Path) -> None:
         repository_root_by_cwd={repo.resolve(): repo},
     )
 
-    result = discover_repo_or_sentinel(repo, slots_root=slots_root, git=git)
+    result = discover_repo(repo, slots_root=slots_root, git=git)
 
     assert isinstance(result, RepoContext)
     assert result.repo_name == "myrepo"
@@ -80,7 +80,7 @@ def test_discover_from_worktree_uses_main_repo_name_for_metadata(tmp_path: Path)
         repository_root_by_cwd={worktree.resolve(): worktree},
     )
 
-    result = discover_repo_or_sentinel(worktree, slots_root=slots_root, git=git)
+    result = discover_repo(worktree, slots_root=slots_root, git=git)
 
     assert isinstance(result, RepoContext)
     assert result.repo_name == "myrepo"

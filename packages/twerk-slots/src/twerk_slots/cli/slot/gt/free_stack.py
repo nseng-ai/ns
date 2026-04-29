@@ -14,9 +14,9 @@ from twerk_core.git.types import DetachedHead
 from twerk_core.git.types import GitCommandFailure as GitFailure
 from twerk_core.gt.types import GtCommandFailure
 from twerk_slots.allocation import (
-    DirtyWorktreeError,
+    DirtyWorktree,
     SlotAllocationError,
-    SlotNotAssignedError,
+    SlotNotAssigned,
     free_slot_assignment,
 )
 from twerk_slots.cli.slot.free import (
@@ -26,7 +26,7 @@ from twerk_slots.cli.slot.free import (
 )
 from twerk_slots.cli.slot.gt.context import load_slot_gt_context
 from twerk_slots.cli.slot.gt.stack_walk import collect_stack_branches
-from twerk_slots.repo_context import NoRepoSentinel
+from twerk_slots.repo_context import NoGitRepo
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,7 @@ def run_gt_free_stack(
     ctx: click.Context, request: SlotGtFreeStackRequest
 ) -> ClinkrExit[SlotGtFreeStackResult]:
     gt_ctx_result = load_slot_gt_context(ctx)
-    if isinstance(gt_ctx_result, NoRepoSentinel):
+    if isinstance(gt_ctx_result, NoGitRepo):
         Ensure.fail(error_type="not_in_repo", message=gt_ctx_result.message)
     gt_ctx = gt_ctx_result
 
@@ -161,13 +161,13 @@ def run_gt_free_stack(
             outcome = free_slot_assignment(slots_ctx, slot_name=slot_name)
         except SlotAllocationError as exc:
             partial_failure(freed, error_type="slot_allocation_error", message=str(exc))
-        if isinstance(outcome, SlotNotAssignedError):
+        if isinstance(outcome, SlotNotAssigned):
             partial_failure(
                 freed,
                 error_type="slot_not_assigned",
                 message=f"{slot_name} is not currently assigned (state changed during free).",
             )
-        if isinstance(outcome, DirtyWorktreeError):
+        if isinstance(outcome, DirtyWorktree):
             partial_failure(
                 freed,
                 error_type="dirty_worktree",

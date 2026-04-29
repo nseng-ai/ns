@@ -25,7 +25,7 @@ from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
 from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
-from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
+from twerk_slots.repo_context import NoGitRepo, RepoContext, discover_repo
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +43,7 @@ class _SlotFakes:
 
 
 def _make_obj(fakes: _SlotFakes, slots_root: Path) -> ClinkrContextObject:
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
+    repo = discover_repo(Path.cwd(), slots_root=slots_root, git=fakes.git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
     ctx = SlotsCliContext(
         repo=repo,
@@ -670,7 +670,7 @@ def test_slot_free_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> 
 
 
 def test_slot_free_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
-    sentinel = NoRepoSentinel(message="Not inside a git repository (no .git found up the tree)")
+    sentinel = NoGitRepo(message="Not inside a git repository (no .git found up the tree)")
 
     result = CliRunner().invoke(
         cli_group,

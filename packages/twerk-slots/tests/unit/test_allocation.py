@@ -12,7 +12,7 @@ from twerk_core.git.types import (
     WorktreeInfo,
 )
 from twerk_slots.allocation import (
-    PoolFullError,
+    PoolFull,
     SlotAllocationError,
     SlotAllocationResult,
     allocate_slot_for_branch,
@@ -550,7 +550,7 @@ def test_allocate_pool_full_returns_error() -> None:
     )
     result = allocate_slot_for_branch(ctx, branch_name="feat/c", now=NOW)
 
-    assert isinstance(result, PoolFullError)
+    assert isinstance(result, PoolFull)
     assert result.oldest_slot == "slot-01"
     assert result.oldest_branch == "feat/a"
 

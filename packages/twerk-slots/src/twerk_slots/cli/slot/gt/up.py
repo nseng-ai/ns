@@ -18,7 +18,7 @@ from twerk_slots.cli.slot.gt.navigation import (
     find_worktree_for_branch,
     render_gt_navigation,
 )
-from twerk_slots.repo_context import NoRepoSentinel
+from twerk_slots.repo_context import NoGitRepo
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class SlotGtUpRequest:
 )
 def run_gt_up(ctx: click.Context, request: SlotGtUpRequest) -> ClinkrExit[GtNavigationTarget]:
     gt_ctx = load_slot_gt_context(ctx)
-    if isinstance(gt_ctx, NoRepoSentinel):
+    if isinstance(gt_ctx, NoGitRepo):
         Ensure.fail(error_type="not_in_repo", message=gt_ctx.message)
 
     slots_ctx = gt_ctx.slots

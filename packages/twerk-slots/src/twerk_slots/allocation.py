@@ -40,11 +40,19 @@ class SlotAllocationResult:
 
 
 @dataclass(frozen=True)
-class PoolFullError:
+class PoolFull:
     """Signals that allocation failed because the pool is at capacity."""
 
     oldest_slot: str
     oldest_branch: str
+    error_type: str = "pool_full"
+
+    @property
+    def message(self) -> str:
+        return (
+            f"Pool is full. Oldest slot {self.oldest_slot} holds "
+            f"'{self.oldest_branch}'. Free a slot before checking out a new branch."
+        )
 
 
 @dataclass(frozen=True)
@@ -57,32 +65,52 @@ class SlotFreeOutcome:
 
 
 @dataclass(frozen=True)
-class SlotNotAssignedError:
+class SlotNotAssigned:
     """Signals that the requested slot has no current assignment."""
 
     slot_name: str
+    error_type: str = "slot_not_assigned"
+
+    @property
+    def message(self) -> str:
+        return f"Slot {self.slot_name} is not currently assigned."
 
 
 @dataclass(frozen=True)
-class DirtyWorktreeError:
+class DirtyWorktree:
     """Signals that the slot's worktree has uncommitted changes."""
 
     slot_name: str
     worktree_path: Path
+    error_type: str = "dirty_worktree"
+
+    @property
+    def message(self) -> str:
+        return f"Slot {self.slot_name} has uncommitted changes at {self.worktree_path}."
 
 
 @dataclass(frozen=True)
-class DetachedHeadError:
+class DetachedWorktreeHead:
     """Signals that the current worktree is on a detached HEAD."""
 
     cwd: Path
+    error_type: str = "detached_head"
+
+    @property
+    def message(self) -> str:
+        return f"HEAD at {self.cwd} is detached. Check out a branch first."
 
 
 @dataclass(frozen=True)
-class DirtyCurrentWorktreeError:
+class DirtyCurrentWorktree:
     """Signals that the current worktree has uncommitted changes."""
 
     cwd: Path
+    error_type: str = "dirty_worktree"
+
+    @property
+    def message(self) -> str:
+        return f"Worktree at {self.cwd} has uncommitted changes. Commit or stash before continuing."
 
 
 class SlotAllocationError(Exception):
@@ -238,7 +266,7 @@ def allocate_slot_for_branch(
     *,
     branch_name: str,
     now: str,
-) -> SlotAllocationResult | PoolFullError:
+) -> SlotAllocationResult | PoolFull:
     """Assign ``branch_name`` to a slot, creating or reusing worktrees.
 
     Preconditions:
@@ -249,7 +277,7 @@ def allocate_slot_for_branch(
     The algorithm: reconcile pool.json with git, short-circuit if the branch
     is already assigned (with a cleanup path for stale entries), otherwise
     try to reuse an existing inactive worktree before falling back to
-    on-demand slot creation. Returns :class:`PoolFullError` when no slot
+    on-demand slot creation. Returns :class:`PoolFull` when no slot
     can be allocated.
     """
     state = ctx.pool_state.load()
@@ -304,7 +332,7 @@ def allocate_slot_for_branch(
         slot_num = find_next_available_slot(state, ctx.storage, ctx.repo.worktrees_dir)
         if slot_num is None:
             oldest = find_oldest_assignment(state)
-            return PoolFullError(
+            return PoolFull(
                 oldest_slot=oldest.slot_name if oldest else "",
                 oldest_branch=oldest.branch_name if oldest else "",
             )
@@ -391,7 +419,7 @@ def allocate_slot_for_current_branch(
     *,
     cwd: Path,
     now: str,
-) -> CurrentBranchAllocationResult | PoolFullError | DetachedHeadError | DirtyCurrentWorktreeError:
+) -> CurrentBranchAllocationResult | PoolFull | DetachedWorktreeHead | DirtyCurrentWorktree:
     """Assign the branch currently checked out at ``cwd`` to a slot.
 
     Redirects the current wt to a safe HEAD (previous branch / trunk /
@@ -404,7 +432,7 @@ def allocate_slot_for_current_branch(
             f"Failed to determine current branch at {cwd}: {current_branch.message}"
         )
     if isinstance(current_branch, DetachedHead):
-        return DetachedHeadError(cwd=cwd)
+        return DetachedWorktreeHead(cwd=cwd)
 
     state = ctx.pool_state.load()
     state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
@@ -413,11 +441,11 @@ def allocate_slot_for_current_branch(
     note: str | None = None
     if not already_in_slot:
         if ctx.git.has_uncommitted_changes(cwd):
-            return DirtyCurrentWorktreeError(cwd=cwd)
+            return DirtyCurrentWorktree(cwd=cwd)
         note = _resolve_current_wt_redirect(ctx, cwd=cwd, moving_branch=current_branch)
 
     outcome = allocate_slot_for_branch(ctx, branch_name=current_branch, now=now)
-    if isinstance(outcome, PoolFullError):
+    if isinstance(outcome, PoolFull):
         return outcome
     return CurrentBranchAllocationResult(allocation=outcome, current_wt_note=note)
 
@@ -426,7 +454,7 @@ def free_slot_assignment(
     ctx: SlotsCliContext,
     *,
     slot_name: str,
-) -> SlotFreeOutcome | SlotNotAssignedError | DirtyWorktreeError:
+) -> SlotFreeOutcome | SlotNotAssigned | DirtyWorktree:
     """Release ``slot_name``'s assignment while keeping its worktree.
 
     The worktree directory is preserved — only the branch assignment is
@@ -435,7 +463,7 @@ def free_slot_assignment(
     checkout elsewhere).
 
     Returns a :class:`SlotFreeOutcome` on success, or a
-    :class:`SlotNotAssignedError` / :class:`DirtyWorktreeError` sentinel
+    :class:`SlotNotAssigned` / :class:`DirtyWorktree` sentinel
     when the slot cannot be freed.
     """
     state = ctx.pool_state.load()
@@ -443,11 +471,11 @@ def free_slot_assignment(
 
     lookup = state.find_by_slot(slot_name)
     if isinstance(lookup, AssignmentMissing):
-        return SlotNotAssignedError(slot_name=slot_name)
+        return SlotNotAssigned(slot_name=slot_name)
     assignment = lookup.assignment
 
     if ctx.git.has_uncommitted_changes(assignment.worktree_path):
-        return DirtyWorktreeError(
+        return DirtyWorktree(
             slot_name=slot_name,
             worktree_path=assignment.worktree_path,
         )

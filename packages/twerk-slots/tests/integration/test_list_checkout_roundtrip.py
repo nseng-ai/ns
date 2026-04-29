@@ -1,6 +1,6 @@
 """End-to-end round trip: `slot checkout <br>` then `slot list` against a
 FakeGitGateway with a tmp_path slots_root. Exercises the real CLI wiring
-(discover_repo_or_sentinel, allocation, persistence, rendering) against the
+(discover_repo, allocation, persistence, rendering) against the
 real ``RealSlotsStorageGateway`` and real ``RealPoolStateGateway``.
 
 FakeGit is wired to the same real storage gateway so ``add_worktree`` also
@@ -22,7 +22,7 @@ from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from twerk_slots.repo_context import RepoContext, discover_repo
 
 
 def _build_ctx(
@@ -32,7 +32,7 @@ def _build_ctx(
     pool_state_gw: RealPoolStateGateway,
     slots_root: Path,
 ) -> SlotsCliContext:
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
+    repo = discover_repo(Path.cwd(), slots_root=slots_root, git=git)
     assert isinstance(repo, RepoContext)
     return SlotsCliContext(
         repo=repo,

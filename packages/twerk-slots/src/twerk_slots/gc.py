@@ -28,9 +28,9 @@ from typing import Literal
 
 from twerk_core.gh.types import PRLookupError, PRState, PRSummary
 from twerk_slots.allocation import (
-    DirtyWorktreeError,
+    DirtyWorktree,
     SlotFreeOutcome,
-    SlotNotAssignedError,
+    SlotNotAssigned,
     free_slot_assignment,
     sync_pool_assignments,
 )
@@ -194,7 +194,7 @@ def execute_gc_plan(ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutcome:
         if isinstance(free_result, SlotFreeOutcome):
             entries.append(_with_action(entry, "freed"))
             continue
-        if isinstance(free_result, DirtyWorktreeError):
+        if isinstance(free_result, DirtyWorktree):
             entries.append(
                 _with_action(
                     entry,
@@ -203,9 +203,9 @@ def execute_gc_plan(ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutcome:
                 )
             )
             continue
-        # SlotNotAssignedError shouldn't happen — we iterate live assignments —
+        # SlotNotAssigned shouldn't happen — we iterate live assignments —
         # but handle defensively so a transient race doesn't abort the sweep.
-        assert isinstance(free_result, SlotNotAssignedError)
+        assert isinstance(free_result, SlotNotAssigned)
         entries.append(
             _with_action(
                 entry,

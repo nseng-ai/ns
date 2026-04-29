@@ -21,7 +21,7 @@ from twerk_slots.gc import (
     outcome_from_plan,
     plan_gc,
 )
-from twerk_slots.repo_context import NoRepoSentinel
+from twerk_slots.repo_context import NoGitRepo
 
 
 @dataclass(frozen=True)
@@ -124,7 +124,7 @@ def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> 
 )
 def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGcResult]:
     slots_ctx = load_slots_context(ctx)
-    if isinstance(slots_ctx, NoRepoSentinel):
+    if isinstance(slots_ctx, NoGitRepo):
         Ensure.fail(error_type="not_in_repo", message=slots_ctx.message)
 
     Ensure.true(

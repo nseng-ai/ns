@@ -24,7 +24,7 @@ from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
 from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.pool_state import PoolState, SlotAssignment
-from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from twerk_slots.repo_context import RepoContext, discover_repo
 
 
 @pytest.fixture(scope="module")
@@ -42,7 +42,7 @@ class _SlotFakes:
 
 
 def _make_obj(fakes: _SlotFakes, slots_root: Path) -> ClinkrContextObject:
-    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=fakes.git)
+    repo = discover_repo(Path.cwd(), slots_root=slots_root, git=fakes.git)
     assert isinstance(repo, RepoContext), f"expected RepoContext, got {repo!r}"
     ctx = SlotsCliContext(
         repo=repo,
