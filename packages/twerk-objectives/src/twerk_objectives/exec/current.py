@@ -27,9 +27,10 @@ from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_core.gt.gateway import GtGateway
 from twerk_core.gt.types import GtCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
-from twerk_objectives.discovery import MASTER_BRANCH, slug_for_key
+from twerk_objectives.discovery import slug_for_key
 from twerk_objectives.freshness import ObjectiveSnapshotState, classify_branch_snapshot
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.trunk_resolution import resolve_trunk
 
 _PREVIEW_CHAR_LIMIT = 80
 
@@ -117,7 +118,7 @@ def run_current_objective(
         )
 
     if isinstance(branch_or_failure, DetachedHead):
-        trunk = _resolve_trunk(mctx.gt_gateway, cwd, warnings)
+        trunk = _resolve_trunk_with_warning(mctx.gt_gateway, cwd, warnings)
         prompt = _build_current_prompt(
             detached_head=True,
             trunk=trunk,
@@ -132,7 +133,7 @@ def run_current_objective(
     stack_result = mctx.gt_gateway.stack(cwd)
     if isinstance(stack_result, GtCommandFailure):
         warnings.append(f"gt_failed: {stack_result.message}")
-        trunk = _resolve_trunk(mctx.gt_gateway, cwd, warnings)
+        trunk = _resolve_trunk_with_warning(mctx.gt_gateway, cwd, warnings)
         ancestors: tuple[str, ...] = ()
         children: tuple[str, ...] = ()
     else:
@@ -187,13 +188,11 @@ def run_current_objective(
     return ClinkrExit.ok(CurrentPrompt(prompt=prompt))
 
 
-def _resolve_trunk(gt: GtGateway, cwd: Path, warnings: list[str]) -> str:
-    """Return graphite's trunk; fall back to ``MASTER_BRANCH`` on failure."""
-    result = gt.trunk(cwd)
-    if isinstance(result, GtCommandFailure):
-        warnings.append(f"gt_trunk_failed: {result.message}")
-        return MASTER_BRANCH
-    return result
+def _resolve_trunk_with_warning(gt: GtGateway, cwd: Path, warnings: list[str]) -> str:
+    resolution = resolve_trunk(gt, cwd)
+    if resolution.failure is not None:
+        warnings.append(f"gt_trunk_failed: {resolution.failure.message}")
+    return resolution.trunk
 
 
 def _build_objective_summary(

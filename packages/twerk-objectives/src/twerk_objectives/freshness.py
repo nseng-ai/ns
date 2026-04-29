@@ -31,13 +31,13 @@ from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import GitCommandFailure
 from twerk_core.gt.gateway import GtGateway
-from twerk_objectives.absorbed_marker import AbsorbedMarker, load_absorbed_marker
+from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.discovery import body_key
-from twerk_objectives.exec.absorbed import (
+from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.patch_absorption import (
     AbsorbedSetUnavailable,
     absorbed_patch_ids_for_branch,
 )
-from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 
 ObjectiveSnapshotState = Literal["fresh", "stale"]
 
@@ -146,14 +146,3 @@ def _patch_id_inputs(
     if isinstance(absorbed, AbsorbedSetUnavailable):
         absorbed = frozenset()
     return tuple(pid for _sha, pid in pid_result), absorbed | marker.patch_ids
-
-
-def effective_absorbed_patch_ids(
-    *,
-    marker: AbsorbedMarker,
-    downstack_pids: frozenset[str] | None,
-) -> frozenset[str] | None:
-    """Combine marker and downstack absorption, or return ``None`` if unsafe."""
-    if not marker.ok:
-        return None
-    return marker.patch_ids | (downstack_pids or frozenset())
