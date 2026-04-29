@@ -23,7 +23,6 @@ from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead
-from twerk_core.gt.testing import FakeGtGateway
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.main import build_cli
 
@@ -64,18 +63,19 @@ def _make_obj(
         git_gateway = FakeGitGateway(
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
+            trunk_branch="master",
         )
     else:
         git_gateway = FakeGitGateway(
             current_branch_by_path={Path.cwd(): branch},
             branches=live_branches,
             file_last_touched_by_ref_path=file_last_touched,
+            trunk_branch="master",
         )
     ctx = ObjectiveCliContext(
         brmem_gateway=gateway,
         git_gateway=git_gateway,
         pr_gateway=pr_gateway if pr_gateway is not None else FakePRGateway(),
-        gt_gateway=FakeGtGateway(),
     )
     return build_clinkr_context_object(lambda: ctx)
 

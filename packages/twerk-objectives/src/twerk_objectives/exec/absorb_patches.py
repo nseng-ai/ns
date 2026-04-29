@@ -135,7 +135,7 @@ def run_absorb_patches_objective(
             ),
         )
 
-    trunk = resolve_trunk(mctx.gt_gateway, cwd).trunk
+    trunk = resolve_trunk(git).trunk
     range_spec = f"{trunk}..HEAD"
     facts = load_branch_patch_facts(git, range_spec, require_patch_ids=True)
     if isinstance(facts, GitCommandFailure):

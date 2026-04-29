@@ -4,40 +4,32 @@ Objective freshness is deterministic and patch-id based for live branch
 snapshots. A branch snapshot is fresh when every content patch in
 ``trunk..branch`` is present in the effective absorbed set:
 
-``downstack_absorbed_patch_ids ∪ snapshot_absorbed_patch_ids``.
+``snapshot_absorbed_patch_ids``.
 
-The downstack side is computed from strict Graphite ancestors. It covers the
-normal stacked-PR case where restacking has rolled ancestor work into the
-current branch. The snapshot side comes from ``<slug>/.absorbed.jsonl``, a
-machine-owned JSONL marker written by ``objective-update`` after its evidence
-triage confirms that the branch snapshot covers the current branch work.
+The absorbed set comes from ``<slug>/.absorbed.jsonl``, a machine-owned JSONL
+marker written by ``objective-update`` after its evidence triage confirms
+that the branch snapshot covers the current branch work. The marker is
+cumulative for ``trunk..branch`` and is copied with branch snapshots, so it is
+the single source of truth for freshness.
 
 Only non-null ``git patch-id`` values participate in classification. Commits
 without content patch IDs are ignored for freshness and retained only as
 diagnostic marker records. If patch-id facts or marker parsing are
-unavailable for a live branch with content patches, the branch is stale. This
-keeps ``objective tree``, ``objective current``, and
-``objective exec update-precheck`` on one source of truth instead of falling
-back to timestamps. The only timestamp classifier left here is for the
-canonical trunk row, which has no meaningful ``trunk..trunk`` patch range.
+unavailable for a live branch with content patches, the branch is stale. The
+only timestamp classifier left here is for the canonical trunk row, which has
+no meaningful ``trunk..trunk`` patch range.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Literal
 
 from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import GitCommandFailure
-from twerk_core.gt.gateway import GtGateway
 from twerk_objectives.absorbed_marker import load_absorbed_marker
 from twerk_objectives.discovery import body_key
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
-from twerk_objectives.patch_absorption import (
-    AbsorbedSetUnavailable,
-    absorbed_patch_ids_for_branch,
-)
 
 ObjectiveSnapshotState = Literal["fresh", "stale"]
 
@@ -91,23 +83,20 @@ def classify_timestamp_state(
 def classify_branch_snapshot(
     gateway: BranchMemoryGateway,
     git: GitGateway,
-    gt: GtGateway,
     branch: str,
     slug: str,
     *,
-    cwd: Path,
     trunk: str,
     alive: bool,
 ) -> ObjectiveSnapshotState:
     """Classify the snapshot freshness for ``branch``'s claim of ``slug``.
 
-    Gathers branch commit patch-ids plus both absorption sources, then
-    defers to :func:`classify_obj_state`. Always returns ``"fresh"`` or
-    ``"stale"``; callers map ``alive=False`` to a UI ``"deleted"`` label
-    themselves.
+    Gathers branch commit patch-ids plus the snapshot marker, then defers to
+    :func:`classify_obj_state`. Always returns ``"fresh"`` or ``"stale"``;
+    callers map ``alive=False`` to a UI ``"deleted"`` label themselves.
     """
     branch_commit_pids, absorbed_pids = _patch_id_inputs(
-        gateway, git, gt, cwd, branch, slug=slug, trunk=trunk, alive=alive
+        gateway, git, branch, slug=slug, trunk=trunk, alive=alive
     )
     return classify_obj_state(
         alive=alive,
@@ -125,8 +114,6 @@ def snapshot_last_touched_iso(git: GitGateway, branch: str, slug: str) -> str | 
 def _patch_id_inputs(
     gateway: BranchMemoryGateway,
     git: GitGateway,
-    gt: GtGateway,
-    cwd: Path,
     branch: str,
     *,
     slug: str,
@@ -142,7 +129,4 @@ def _patch_id_inputs(
     marker = load_absorbed_marker(gateway, slug=slug, branch=branch)
     if not marker.ok:
         return tuple(pid for _sha, pid in pid_result), None
-    absorbed = absorbed_patch_ids_for_branch(git, gt, cwd, branch, trunk=trunk)
-    if isinstance(absorbed, AbsorbedSetUnavailable):
-        absorbed = frozenset()
-    return tuple(pid for _sha, pid in pid_result), absorbed | marker.patch_ids
+    return tuple(pid for _sha, pid in pid_result), marker.patch_ids
