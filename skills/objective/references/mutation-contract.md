@@ -18,8 +18,9 @@ rewrite logic works, and how `update` and `reconcile` differ.
 ## Data model
 
 - **Canonical objective**: shared ground truth for a slug. Stored in `brmem`
-  on the literal branch `master` — canonical storage is permanently on
-  `master`, not a configurable trunk.
+  on the repo's trunk branch (typically `master` on legacy repos, `main` on
+  greenfield ones). The trunk name is recorded as part of the brmem ref
+  shape, not configurable per-slug.
 - **Branch snapshot**: local working copy/checkpoint for a slug on a working
   branch.
 
@@ -95,35 +96,35 @@ Forbidden:
 
 ## Rewrite modes
 
-| Mode                   | Skill                 | Target              | Evidence                                                  | No-op rule                                      |
-| ---------------------- | --------------------- | ------------------- | --------------------------------------------------------- | ----------------------------------------------- |
-| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot freshness                   | Snapshot covers every `trunk..HEAD` content PID |
-| Canonical reconcile    | `objective-reconcile` | Canonical objective | Landed branch snapshots plus associated PR state/metadata | No landed branch/PR evidence to fold in         |
+| Mode                   | Skill                 | Target              | Evidence                                                  | No-op rule                                        |
+| ---------------------- | --------------------- | ------------------- | --------------------------------------------------------- | ------------------------------------------------- |
+| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot freshness                   | Snapshot covers every `<trunk>..HEAD` content PID |
+| Canonical reconcile    | `objective-reconcile` | Canonical objective | Landed branch snapshots plus associated PR state/metadata | No landed branch/PR evidence to fold in           |
 
 ### Branch snapshot update
 
 `update` refreshes the current branch snapshot from work committed on the
 same branch. It is for stacked PRs: use it when another branch will claim
 from the current branch before the current branch lands. For a simple
-single-PR path, merge the PR and run `objective-reconcile` on `master`
-instead. `update` aborts on `master` because `master` is the canonical storage
-branch.
+single-PR path, merge the PR and run `objective-reconcile` on the trunk
+branch instead. `update` aborts when run on trunk (error type
+`on_trunk_branch`) because trunk is the canonical storage branch.
 
 Evidence:
 
 - files currently attached under `<slug>/` on the branch
 - the machine-owned `<slug>/.absorbed.jsonl` marker recording which patch IDs
   the snapshot has absorbed
-- all commits on `master..HEAD` and their `git patch-id` values
+- all commits on `<trunk>..HEAD` and their `git patch-id` values
 
 Freshness rule:
 
 - Freshness is patch-id based. The snapshot is fresh when every non-null
-  content `patch-id` in `master..HEAD` is present in the
+  content `patch-id` in `<trunk>..HEAD` is present in the
   `<slug>/.absorbed.jsonl` marker. Commits with `None` patch IDs (merges,
   empty commits) are ignored for freshness; commit SHA, subject, and author
   time are diagnostic only.
-- If `master..HEAD` is empty, the snapshot is fresh by definition; print the
+- If `<trunk>..HEAD` is empty, the snapshot is fresh by definition; print the
   in-sync message and do not write.
 - A malformed `.absorbed.jsonl` marker renders the snapshot stale.
 - Do not use timestamps (snapshot file `head_date`, commit author time, or

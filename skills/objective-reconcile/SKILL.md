@@ -30,20 +30,20 @@ PRs associated with those branches.
 
 ## Goal
 
-Sweep every canonical objective on `master` and rewrite each one
+Sweep every canonical objective on the trunk branch and rewrite each one
 conservatively by exploring the branch snapshots that carry `<slug>/`,
 cross-referencing their associated PRs, and folding only landed evidence into
 canonical `body.md`, `roadmap.md`, and `notes.md`.
 
-The default scope is **all** canonical objectives on `master`. An optional
+The default scope is **all** canonical objectives on trunk. An optional
 slug or comma-separated slug list narrows the sweep to one or a few
 objectives without otherwise changing the per-slug procedure.
 
-In the current implementation, canonical state is stored in `brmem` on
-branch `master`. `reconcile` always targets canonical state on `master`,
+Canonical state is stored in `brmem` on the repo's trunk branch.
+`reconcile` always targets canonical state on the trunk branch,
 regardless of the operator's working-tree branch — `brmem` ref operations
 are branch-independent, so the command can be invoked from any branch
-(including a feature branch) and still reads/writes only `master`'s
+(including a feature branch) and still reads/writes only the trunk's
 canonical objectives. It never writes to branch snapshots and never copies
 one snapshot verbatim onto canonical state. Open PRs and unmerged branches
 remain branch-local state for higher-level views; reconcile must not
@@ -51,7 +51,7 @@ incorporate them into canonical state.
 
 ## Content Files
 
-Read every present canonical file under `<slug>/` on `master` (`body.md`
+Read every present canonical file under `<slug>/` on the trunk branch (`body.md`
 required; `roadmap.md` / `notes.md` optional) and rewrite only files whose
 content changed. Read branch snapshot files only when their associated PRs
 are merged. Branch snapshots and PRs are evidence only; never write to them.
@@ -59,7 +59,7 @@ are merged. Branch snapshots and PRs are evidence only; never write to them.
 ## Inputs
 
 - **Slug or slug list, optional.** When omitted, the sweep covers every
-  canonical objective on `master`. When provided as a single slug or a
+  canonical objective on the trunk branch. When provided as a single slug or a
   comma-separated list, the sweep is narrowed to those slugs. Each
   operator-supplied slug must already exist canonically; unknown slugs are
   recorded as a per-slug gap and skipped.
@@ -67,13 +67,13 @@ are merged. Branch snapshots and PRs are evidence only; never write to them.
 ## Core Rules
 
 - **Canonical state only.** `reconcile` writes only to the canonical
-  `<slug>/` on `master`; never to branch snapshots, other branches, or PRs.
-- **Always targets `master`.** `reconcile` always reads and writes
-  canonical state on `master` regardless of the operator's working-tree
+  `<slug>/` on the trunk branch; never to branch snapshots, other branches, or PRs.
+- **Always targets trunk.** `reconcile` always reads and writes
+  canonical state on the trunk branch regardless of the operator's working-tree
   branch. The current branch is never consulted; the command runs from
   any branch (or detached `HEAD`) without changing scope.
 - **Slug optional; sweep by default.** With no slug argument, reconcile
-  every canonical objective on `master`. Narrow only when the operator
+  every canonical objective on the trunk branch. Narrow only when the operator
   passes explicit slugs.
 - **Per-slug work runs in subagents.** Parent spawns one subagent per slug
   resolved in step 2; the subagent owns 3a–3e for that slug and returns a
@@ -82,7 +82,7 @@ are merged. Branch snapshots and PRs are evidence only; never write to them.
 - **Parent owns canonical writes.** All `brmem put` calls happen in the
   parent after subagents return, dispatched serially in slug order.
   Concurrent `brmem put` against the shared
-  `refs/brmem/ns/objectives/<encoded-master>` snapshot ref clobber each
+  `refs/brmem/ns/objectives/<encoded-trunk>` snapshot ref clobber each
   other even when writes target disjoint key paths, so this serialization
   is required.
 - **Per-objective issues are gaps, not aborts.** When one slug hits a
@@ -118,13 +118,13 @@ git rev-parse --show-toplevel
 Abort only if not in a git repo. The operator's working-tree branch is
 not consulted; reconcile runs from any branch (including detached `HEAD`)
 because every `brmem` and `objective` operation in this workflow targets
-`master` explicitly via ref reads/writes.
+the trunk branch explicitly via ref reads/writes.
 
 ### 2. Resolve the target slug set
 
 If the operator passed a slug or comma-separated slug list, use that list
 deduplicated and in operator-supplied order. Otherwise enumerate every
-canonical objective on `master`:
+canonical objective on the trunk branch:
 
 ```bash
 objective list --format json
@@ -134,7 +134,7 @@ Collect every `objectives[].slug` whose `canonical_present` is `true`, then
 sort the resulting set alphabetically so the sweep is reproducible.
 
 If the resolved set is empty, print a one-line "no canonical objectives on
-master" report and exit cleanly without writing anything.
+trunk" report and exit cleanly without writing anything.
 
 ### 3. Fan out per-slug subagents
 
@@ -149,7 +149,7 @@ and `<repo-root>`:
 
 > You are reconciling one canonical objective for the twerk
 > `objective-reconcile` skill. Slug: `<slug>`. Working directory:
-> `<repo-root>`. Canonical branch: `master`.
+> `<repo-root>`. Canonical branch: the repo's trunk (resolve via `git symbolic-ref --short refs/remotes/origin/HEAD`).
 >
 > Read `skills/objective-reconcile/SKILL.md` ("Per-slug subagent
 > procedure" and "Handoff contract" sections) and
@@ -177,7 +177,7 @@ For each handoff:
 
   ```bash
   brmem put <slug>/<file> --namespace objectives \
-    --branch master --file <subagent-temp-path>
+    --branch <trunk> --file <subagent-temp-path>
   ```
 
   one file at a time. Capture the new SHA from each call and merge it into
@@ -200,7 +200,7 @@ slugs unchanged, slugs with gaps.
 Then, for every slug that was either rewritten or had a gap, emit a
 sub-section containing:
 
-- slug and canonical target (`master`, the permanent canonical branch)
+- slug and canonical target (the trunk branch, the permanent canonical branch)
 - files touched with one-line notes
 - old SHA to new SHA for each changed file
 - branch snapshots consulted, including skipped unmerged snapshots
@@ -210,7 +210,7 @@ sub-section containing:
 - recovery hint:
 
 ```text
-brmem get <slug>/<file> --namespace objectives --branch master --at <old-sha>
+brmem get <slug>/<file> --namespace objectives --branch <trunk> --at <old-sha>
 ```
 
 Slugs that produced no changes and no gaps may collapse into a single
@@ -225,7 +225,7 @@ exception, record the slug-level gap and return a `status: "gap"` handoff
 #### 3a. Confirm canonical state exists
 
 ```bash
-brmem check <slug>/body.md --namespace objectives --branch master
+brmem check <slug>/body.md --namespace objectives --branch <trunk>
 ```
 
 If canonical `body.md` is missing, record a gap for this slug — "slug
@@ -236,15 +236,15 @@ and return a `status: "gap"` handoff.
 #### 3b. Capture old SHAs and load canonical files
 
 ```bash
-brmem check <slug>/body.md --namespace objectives --branch master
-brmem check <slug>/roadmap.md --namespace objectives --branch master
-brmem check <slug>/notes.md --namespace objectives --branch master
+brmem check <slug>/body.md --namespace objectives --branch <trunk>
+brmem check <slug>/roadmap.md --namespace objectives --branch <trunk>
+brmem check <slug>/notes.md --namespace objectives --branch <trunk>
 
-brmem get <slug>/body.md --namespace objectives --branch master \
+brmem get <slug>/body.md --namespace objectives --branch <trunk> \
   > /tmp/<slug>-canonical-body.md
-brmem get <slug>/roadmap.md --namespace objectives --branch master \
+brmem get <slug>/roadmap.md --namespace objectives --branch <trunk> \
   > /tmp/<slug>-canonical-roadmap.md
-brmem get <slug>/notes.md --namespace objectives --branch master \
+brmem get <slug>/notes.md --namespace objectives --branch <trunk> \
   > /tmp/<slug>-canonical-notes.md
 ```
 

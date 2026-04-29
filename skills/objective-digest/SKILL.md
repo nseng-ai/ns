@@ -28,9 +28,9 @@ The final digest is **agent-authored prose over CLI-provided facts**. The
 boundary is explicit:
 
 - **CLI (`objective exec digest`)** computes deterministic facts
-  (associated PRs, branch snapshot count, master canonical metadata,
+  (associated PRs, branch snapshot count, canonical metadata,
   merged-PR linkified bullet list, latest-snapshot pick) and emits raw
-  Markdown blocks (master `body.md`, master `roadmap.md`, per-snapshot
+  Markdown blocks (canonical `body.md`, canonical `roadmap.md`, per-snapshot
   `notes.md` blocks) plus a literal output template. It does not summarize
   prose.
 - **Agent (this skill)** copies the pre-rendered metadata and merged-PR
@@ -65,8 +65,8 @@ wording.
 self-contained brief:
 
 - pre-rendered metadata table and merged-PR list;
-- raw master body for thesis;
-- raw master roadmap for remaining work;
+- raw canonical body for thesis;
+- raw canonical roadmap for remaining work;
 - raw per-snapshot notes for findings;
 - literal output template.
 
@@ -85,7 +85,7 @@ self-contained brief:
    tell the user to run `objective list`.
 
 3. **If the command succeeds**, follow stdout. Copy Steps 1-2 verbatim.
-   Fill Steps 3-5 from the master body, master roadmap, and notes blocks.
+   Fill Steps 3-5 from the canonical body, canonical roadmap, and notes blocks.
 
 4. Print the filled digest as the answer. Do not add commentary above
    or below the digest when the user asked for the digest itself.
@@ -95,8 +95,8 @@ self-contained brief:
 The brief enforces these externally visible invariants:
 
 - Title: `# \`<slug>\` — digest`
-- Exactly three metadata rows: Associated PRs, Branch snapshots, Master
-  canonical — already pre-rendered by the CLI.
+- Exactly three metadata rows: Associated PRs, Branch snapshots, Canonical
+  (trunk) — already pre-rendered by the CLI.
 - Sections in order: Thesis, Merged PRs, Remaining work, Key findings.
 - Merged PRs is a linkified bullet list (`- [#N](url) — title`) sorted
   by PR number, pre-rendered by the CLI; render `_No merged PRs yet._`

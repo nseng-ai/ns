@@ -30,12 +30,12 @@ workstream. The workstream has one authoritative record and zero or more
 branch-local working copies:
 
 - **Canonical objective**: the shared ground truth for the workstream.
-  Stored in `brmem` under branch `master`. Canonical storage is permanently
-  on `master` — the brmem ref shape
-  (`refs/brmem/ns/objectives/<encoded-branch>`) makes the storage branch
-  part of the schema, not a configurable trunk. A future implementation
-  could swap the storage backend wholesale, but within the current
-  brmem-backed implementation `master` is a constant, not a parameter.
+  Stored in `brmem` under the repo's trunk branch (typically `master` on
+  legacy repos, `main` on greenfield ones). The brmem ref shape
+  (`refs/brmem/ns/objectives/<encoded-branch>`) records the trunk branch
+  name as part of the storage key, so canonical state is anchored to
+  whichever branch `git symbolic-ref refs/remotes/origin/HEAD` resolves to
+  on a given repo.
 - **Branch snapshot**: a local working copy/checkpoint attached to a branch.
   It can drift while slice work is in flight and accumulate notes. It serves
   as evidence during reconciliation only after the branch's work has landed.
@@ -72,8 +72,23 @@ segment before the filename.
 ### Canonical record
 
 The canonical objective is the authoritative record. In the current
-brmem-backed implementation, it is the `<slug>/` directory stored on branch
-`master`.
+brmem-backed implementation, it is the `<slug>/` directory stored on the
+repo's trunk branch.
+
+> **Detect trunk before invoking operations.** When an operation skill
+> needs the trunk branch name (e.g. for a `<trunk>..HEAD` range or to
+> decide whether the current branch _is_ canonical), resolve it from git
+> first:
+>
+> ```bash
+> trunk=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
+>     | sed 's@^origin/@@')
+> [ -z "$trunk" ] && trunk=$(git rev-parse --verify --quiet main >/dev/null && echo main || echo master)
+> ```
+>
+> The objective CLI itself resolves trunk through its `git_gateway`, so
+> commands such as `objective list` / `show` / `tree` / `exec digest` do
+> not require a `--trunk` flag.
 
 - `objective-create` writes the canonical objective.
 - `objective-reconcile` is the normal lifecycle path that rewrites it.

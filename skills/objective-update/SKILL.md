@@ -32,13 +32,13 @@ which branch patches this snapshot covers. Report old/new commit SHAs so
 prior snapshots are recoverable.
 
 `update` mutates a **branch snapshot**, not the canonical objective.
-Canonical state is stored on `master` (permanently — see
-`../objective/SKILL.md`), so `update` aborts on `master` and points to
+Canonical state is stored on the repo's trunk branch (see
+`../objective/SKILL.md`), so `update` aborts on the trunk branch and points to
 `objective-reconcile`.
 
 This is normally needed only for stacked PRs, when a later branch will claim
 from this branch before this branch lands. For a simple single-PR path, merge
-the PR and run `objective-reconcile` on `master` instead.
+the PR and run `objective-reconcile` on the trunk branch instead.
 
 ## Content Files And Marker
 
@@ -65,7 +65,7 @@ snapshot covers the current branch work.
 ## Core Rules
 
 - **Branch snapshots only.** `update` writes only to the current branch's
-  `<slug>/` snapshot. Abort on `master` or detached `HEAD`.
+  `<slug>/` snapshot. Abort on the trunk branch or detached `HEAD`.
 - **Slug auto-pick is single-slug only.** When the prompt names a slug, use
   it. When it doesn't, auto-resolve only when the current branch carries
   exactly one slug under namespace `objectives`; surface that resolved
@@ -100,7 +100,7 @@ Run the precheck CLI and parse the JSON envelope:
 objective exec update-precheck [<slug>] --format json
 ```
 
-The envelope handles preflight (current branch, master refusal, detached
+The envelope handles preflight (current branch, trunk refusal, detached
 HEAD), slug resolution, file presence + old SHAs, and the `trunk..HEAD`
 commit list in one round-trip.
 
@@ -109,7 +109,7 @@ Handle the result:
 - **`error_type` set**: surface the message and stop. The possible values
   and what they mean:
   - `detached_head` — not on a branch; user must check out a branch.
-  - `on_master_branch` — `update` operates on branch snapshots only;
+  - `on_trunk_branch` — `update` operates on branch snapshots only;
     direct the user to `objective-reconcile`.
   - `no_objective_on_branch` — no slugs attached on this branch; direct
     the user to `objective-claim <slug>` first.
@@ -215,7 +215,7 @@ Handle failures:
 
 - `head_moved` — stop and tell the user to rerun `objective-update`; a new
   commit landed after triage and must be reviewed before absorption.
-- `git_failed`, `detached_head`, `on_master_branch`, `slug_not_attached` —
+- `git_failed`, `detached_head`, `on_trunk_branch`, `slug_not_attached` —
   surface the message and stop.
 
 Capture the marker's `old_head_sha`, `new_head_sha`, and record count for the
@@ -248,7 +248,7 @@ When no files were rewritten, report:
 ## Edge Cases and Anti-Patterns
 
 - Detached `HEAD`: abort.
-- Current branch is `master`: abort and point to `objective-reconcile`.
+- Current branch is the trunk branch: abort and point to `objective-reconcile`.
 - Slug not attached: abort and point to `objective-claim`. (Applies whether the
   slug was named in the prompt or the current branch has zero attached
   slugs at auto-resolve time.)

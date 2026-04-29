@@ -23,15 +23,19 @@ is the human walkthrough.
 
 There are two places an objective can live:
 
-- **Canonical record**: The record of the objective that lives on `master`. It
-  is the ground truth of how the objective is proceeding from the point of view of the global
-  system. As code lands and time progresses, a reconcilation process ensures that it is
-  up-to-date with respect the code base and any relevant external state.
+- **Canonical record**: The record of the objective that lives on the
+  repo's trunk branch. It is the ground truth of how the objective is
+  proceeding from the point of view of the global system. As code lands
+  and time progresses, a reconciliation process ensures that it is
+  up-to-date with respect to the code base and any relevant external
+  state.
 
-  Canonical objective storage is permanently on `master` (the brmem ref shape
-  `refs/brmem/ns/objectives/<encoded-branch>` makes the storage branch part of
-  the schema, not a configurable trunk). Treat `master` as a constant whenever
-  you read or write canonical objectives.
+  Canonical objective storage lives on the repo's trunk — typically
+  `master` on legacy repos, `main` on greenfield ones. The brmem ref shape
+  (`refs/brmem/ns/objectives/<encoded-branch>`) records the trunk branch
+  name as part of the storage key. Detect the trunk for your repo with
+  `git symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@'`
+  and use that name wherever this README writes `<trunk>`.
 
 - **Branch snapshot**: a working copy attached to a feature branch. This represents
   the state of the objective IF branch were the ground truth of the system. Objectives
@@ -63,7 +67,7 @@ Full write rules live in
 Assume you want to track a dashboard revamp across several branches. You do
 not need to know the final objective shape or slug before you start.
 
-### 1. Create the canonical record on `master`
+### 1. Create the canonical record on `<trunk>`
 
 ```text
 Use objective-create to set up an objective for revamping the dashboard.
@@ -78,19 +82,19 @@ structure for a PR-sized roadmap. It proposes a stable slug, such as
 `dashboard-revamp`, and asks a short follow-up if the scope or slug would
 otherwise be ambiguous.
 
-Once the shape is clear, the skill writes the shared record on `master`. It
+Once the shape is clear, the skill writes the shared record on `<trunk>`. It
 writes `body.md` and, when there is already a concrete slice plan,
 `roadmap.md`. It does not attach anything to a feature branch.
 
-### 2. Choose the next slice (still on `master`)
+### 2. Choose the next slice (still on `<trunk>`)
 
 ```text
 objective-next dashboard-revamp
 ```
 
-Run this **while still on `master`**, before creating the slice branch.
+Run this **while still on `<trunk>`**, before creating the slice branch.
 `objective-next` plans against the current branch only — there is no source
-cascade and no `--source` flag. On `master` the current branch _is_ canonical
+cascade and no `--source` flag. On `<trunk>` the current branch _is_ canonical
 storage, so `next` reads the canonical record you just created and recommends
 the next PR-sized slice, including a branch slug such as
 `dashboard-revamp/data-layer`. This happens before `claim` so the branch you
@@ -110,9 +114,9 @@ objective-claim
 `claim` attaches the objective to the new branch by copying an existing
 snapshot. The slug is inferred from the parent branch's claimed objectives
 when unambiguous, so `objective-claim` with no argument is enough for the
-common case; pass `objective-claim <slug>` when the parent (or master, on
+common case; pass `objective-claim <slug>` when the parent (or trunk, on
 fallback) carries multiple objectives. For the first branch in this
-example, the parent is `master` and it copies the canonical record you
+example, the parent is `<trunk>` and it copies the canonical record you
 just created. For a later branch in a stack, it copies from the nearest
 ancestor branch that already carries `dashboard-revamp`.
 
@@ -127,7 +131,7 @@ Write code, land commits, open and merge a PR. For this simple path, do not
 run `objective-update`: no later branch needs to inherit progress from
 this branch snapshot.
 
-### 5. Reconcile canonical state on `master`
+### 5. Reconcile canonical state on `<trunk>`
 
 ```text
 objective-reconcile dashboard-revamp
@@ -155,9 +159,9 @@ from the right objective state.
 
 - `claim` and `next` infer the slug when the parent or current branch
   carries exactly one candidate. Pass `<slug>` explicitly when a branch
-  carries multiple objectives or master holds multiple canonicals.
+  carries multiple objectives or trunk holds multiple canonicals.
 - `claim` copies exactly one source snapshot and does not edit while copying.
-- `update` is for stacked branch snapshots. `reconcile` is for `master`.
+- `update` is for stacked branch snapshots. `reconcile` is for `<trunk>`.
 - Branch snapshots are branch-local state, not shared truth.
 - Canonical state incorporates landed work, not open PRs or unmerged branches.
 
