@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from typing import Annotated
 
 import click
-import pytest
 from click.testing import CliRunner
 
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.group import ClinkrGroup
@@ -25,38 +25,6 @@ def test_failure_init_sets_error_type_and_message() -> None:
     assert fail.message == "it broke"
     assert str(fail) == "it broke"
     assert isinstance(fail, Exception)
-
-
-def test_ensure_true_is_a_noop() -> None:
-    ClinkrExit.ensure(True, error_type="bad_thing", message="should not raise")
-
-
-def test_ensure_false_raises_clinkr_failure_with_fields() -> None:
-    with pytest.raises(ClinkrFailure) as excinfo:
-        ClinkrExit.ensure(False, error_type="bad_thing", message="boom")
-
-    assert excinfo.value.error_type == "bad_thing"
-    assert excinfo.value.message == "boom"
-
-
-def test_ensure_not_none_returns_value_when_set() -> None:
-    value: str | None = "hello"
-
-    result = ClinkrExit.ensure_not_none(
-        value, error_type="missing_value", message="should not raise"
-    )
-
-    assert result == "hello"
-
-
-def test_ensure_not_none_raises_clinkr_failure_when_none() -> None:
-    value: str | None = None
-
-    with pytest.raises(ClinkrFailure) as excinfo:
-        ClinkrExit.ensure_not_none(value, error_type="missing_value", message="boom")
-
-    assert excinfo.value.error_type == "missing_value"
-    assert excinfo.value.message == "boom"
 
 
 # -- Dispatcher conversion ---------------------------------------------------
@@ -78,7 +46,7 @@ def _run_probe(ctx: click.Context, request: _Request) -> ClinkrExit[_Result]:
     if request.mode == "raise-failure":
         raise ClinkrFailure(error_type="bad_mode", message="boom")
     if request.mode == "ensure":
-        ClinkrExit.ensure(False, error_type="precondition", message="nope")
+        Ensure.true(False, error_type="precondition", message="nope")
     return ClinkrExit.ok(_Result(value="found"))
 
 

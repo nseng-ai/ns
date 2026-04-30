@@ -179,27 +179,45 @@ The universal operation return contract. An operation returns one of three const
 
 Use `negative` for "ran to completion, answered no" (not found, empty, false predicate). Use `failure` for invalid input, gateway failure, and anything else that warrants a non-zero exit caused by an error.
 
-### `ClinkrFailure`
+### `ClinkrFailure` and `Ensure`
 
 Signal failures from operation bodies and CLI-layer helpers by raising `ClinkrFailure(error_type=..., message=...)` rather than constructing `ClinkrExit.failure(...)` directly. The dispatcher catches `ClinkrFailure` at the CLI boundary and converts it into a `ClinkrExit.failure` envelope (exit code 2, matching `error_type` and `message`).
 
-For precondition checks, use the `.ensure` / `.ensure_not_none` helpers on `ClinkrExit` — they live there so a single import covers both the return contract and the precondition idiom, and they raise `ClinkrFailure` under the hood.
+For precondition guards, use the `Ensure` helpers — they raise `ClinkrFailure` under the hood:
 
 ```python
-from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.ensure import Ensure
 
-ClinkrExit.ensure(
+Ensure.true(
     request.file is not None,
     error_type="file_required",
     message="Pass --file or --stdin.",
 )
 
-# Type-narrowing variant for `T | None` guards.
-source_path = ClinkrExit.ensure_not_none(
+# Truthy guard; returns the value for downstream use.
+keys = Ensure.truthy(result.keys, error_type="empty", message="No keys.")
+
+# Optional → T narrowing.
+source_path = Ensure.not_none(
     request.file or _default_source(request.key),
     error_type="source_file_missing",
     message="Cannot infer a default --file; provide --file or --stdin.",
 )
+
+# Sum-type → concrete type narrowing.
+envelope = Ensure.inst(
+    parsed, dict, error_type="malformed", message="Must be a JSON object."
+)
+```
+
+When a domain helper returns a sum type whose error arms each carry a CLI-ready `error_type` and `message` (i.e. each conforms to the `NonIdealState` Protocol), collapse the match block at the CLI boundary with `Ensure.ideal_state`:
+
+```python
+# resolve_slug returns SlugResolution | NoObjectiveOnBranch | AmbiguousObjective
+# | DetachedHead | GitCommandFailure — the failure arms all expose
+# error_type/message, so the union conforms structurally to NonIdealState.
+slug_resolution = Ensure.ideal_state(resolve_slug(mctx, request.slug))
+slug = slug_resolution.slug
 ```
 
 Construct `ClinkrExit.failure(...)` only inside the dispatcher itself.
@@ -236,14 +254,16 @@ Pass a `human_renderer` to `@clinkr_operation` to control how `ClinkrExit.ok` re
 
 ## Modules
 
-| Module           | Purpose                                                 |
-| ---------------- | ------------------------------------------------------- |
-| `operation`      | `@clinkr_operation` decorator and metadata              |
-| `exit`           | `ClinkrExit` return contract and exit-code table        |
-| `failure`        | `ClinkrFailure` exception raised by operation bodies    |
-| `group`          | `ClinkrGroup`                                           |
-| `command`        | JSON stdin/stdout wiring and `--schema` flag            |
-| `json_schema`    | JSON Schema generation from dataclasses                 |
-| `params`         | Dataclass-to-Click parameter extraction                 |
-| `rendering`      | Default human output renderer                           |
-| `dataclass_json` | JSON serialization, deserialization, and schema helpers |
+| Module            | Purpose                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `operation`       | `@clinkr_operation` decorator and metadata                                          |
+| `exit`            | `ClinkrExit` return contract and exit-code table                                    |
+| `failure`         | `ClinkrFailure` exception raised by operation bodies                                |
+| `ensure`          | `Ensure` precondition helpers (`true`, `truthy`, `not_none`, `inst`, `ideal_state`) |
+| `non_ideal_state` | `NonIdealState` Protocol for failure types that pre-name their CLI translation      |
+| `group`           | `ClinkrGroup`                                                                       |
+| `command`         | JSON stdin/stdout wiring and `--schema` flag                                        |
+| `json_schema`     | JSON Schema generation from dataclasses                                             |
+| `params`          | Dataclass-to-Click parameter extraction                                             |
+| `rendering`       | Default human output renderer                                                       |
+| `dataclass_json`  | JSON serialization, deserialization, and schema helpers                             |

@@ -29,7 +29,9 @@ import click
 from brmem.gateway import snapshot_ref_name
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.discovery import body_key, slug_for_key
@@ -122,54 +124,54 @@ def run_claim_apply_objective(
     try:
         envelope = json.loads(raw)
     except json.JSONDecodeError as exc:
-        return ClinkrExit.failure(
+        raise ClinkrFailure(
             error_type="malformed_plan_file",
             message=f"Plan file is not valid JSON: {exc}",
-        )
+        ) from exc
 
-    if not isinstance(envelope, dict):
-        return ClinkrExit.failure(
-            error_type="malformed_plan_file",
-            message="Plan file must be a JSON object envelope.",
-        )
+    envelope = Ensure.inst(
+        envelope,
+        dict,
+        error_type="malformed_plan_file",
+        message="Plan file must be a JSON object envelope.",
+    )
 
     schema = envelope.get("schema")
-    if schema != PLAN_SCHEMA:
-        return ClinkrExit.failure(
-            error_type="schema_mismatch",
-            message=f"Plan-file schema {schema!r} does not match expected {PLAN_SCHEMA!r}.",
-        )
+    Ensure.true(
+        schema == PLAN_SCHEMA,
+        error_type="schema_mismatch",
+        message=f"Plan-file schema {schema!r} does not match expected {PLAN_SCHEMA!r}.",
+    )
 
     canonical_branch = envelope.get("canonical_branch")
-    if canonical_branch != trunk_branch:
-        return ClinkrExit.failure(
-            error_type="schema_mismatch",
-            message=(
-                f"Plan-file canonical_branch {canonical_branch!r} does not match "
-                f"expected {trunk_branch!r}."
-            ),
-        )
+    Ensure.true(
+        canonical_branch == trunk_branch,
+        error_type="schema_mismatch",
+        message=(
+            f"Plan-file canonical_branch {canonical_branch!r} does not match "
+            f"expected {trunk_branch!r}."
+        ),
+    )
 
     status = envelope.get("status")
-    if status != "plan":
-        return ClinkrExit.failure(
-            error_type="not_a_plan",
-            message=(
-                f"Plan-file status is {status!r}; claim-apply requires status='plan'. "
-                f"Resolve the ambiguity or error first via claim-plan."
-            ),
-        )
+    Ensure.true(
+        status == "plan",
+        error_type="not_a_plan",
+        message=(
+            f"Plan-file status is {status!r}; claim-apply requires status='plan'. "
+            f"Resolve the ambiguity or error first via claim-plan."
+        ),
+    )
 
     plan = envelope.get("plan")
-    if not isinstance(plan, dict):
-        return ClinkrExit.failure(
-            error_type="malformed_plan_file",
-            message="Plan-file 'plan' field must be a JSON object.",
-        )
+    plan = Ensure.inst(
+        plan,
+        dict,
+        error_type="malformed_plan_file",
+        message="Plan-file 'plan' field must be a JSON object.",
+    )
 
-    parsed = _parse_plan_block(plan)
-    if isinstance(parsed, HardFailure):
-        return ClinkrExit.failure(error_type=parsed.error_type, message=parsed.message)
+    parsed = Ensure.ideal_state(_parse_plan_block(plan))
     slug = parsed.slug
     target_branch = parsed.target_branch
     source_kind = parsed.source_kind
@@ -177,37 +179,35 @@ def run_claim_apply_objective(
     source_label = parsed.source_label
     from_file_path = parsed.from_file_path
 
-    if target_carries_slug(gateway, slug=slug, branch=target_branch):
-        return ClinkrExit.failure(
-            error_type="target_collision",
-            message=(
-                f"Target branch {target_branch!r} now carries keys under "
-                f"{slug!r}/. Use objective-update or objective-reconcile to "
-                f"advance the existing snapshot, or claim a different target."
-            ),
-        )
+    Ensure.true(
+        not target_carries_slug(gateway, slug=slug, branch=target_branch),
+        error_type="target_collision",
+        message=(
+            f"Target branch {target_branch!r} now carries keys under "
+            f"{slug!r}/. Use objective-update or objective-reconcile to "
+            f"advance the existing snapshot, or claim a different target."
+        ),
+    )
 
     if source_kind == "local_file":
-        if from_file_path is None:
-            return ClinkrExit.failure(
-                error_type="malformed_plan_file",
-                message="Local-file plan must carry 'plan.source.from_file_path'.",
-            )
+        from_file_path = Ensure.not_none(
+            from_file_path,
+            error_type="malformed_plan_file",
+            message="Local-file plan must carry 'plan.source.from_file_path'.",
+        )
         path = Path(from_file_path)
-        if not path.exists() or not path.is_file():
-            return ClinkrExit.failure(
-                error_type="from_file_unreadable",
-                message=(
-                    f"Local-file source path no longer exists or is not a file: {from_file_path}"
-                ),
-            )
+        Ensure.true(
+            path.exists() and path.is_file(),
+            error_type="from_file_unreadable",
+            message=(f"Local-file source path no longer exists or is not a file: {from_file_path}"),
+        )
         try:
             content = path.read_text(encoding="utf-8")
         except OSError as exc:
-            return ClinkrExit.failure(
+            raise ClinkrFailure(
                 error_type="from_file_unreadable",
                 message=f"Local-file source is not readable: {from_file_path}: {exc}",
-            )
+            ) from exc
         body_key_value = body_key(slug)
         commit_sha = gateway.put(OBJECTIVE_NAMESPACE, body_key_value, target_branch, content)
         ref_name = _ref_name(target_branch)
@@ -225,38 +225,36 @@ def run_claim_apply_objective(
             )
         )
 
-    if source_branch is None:
-        return ClinkrExit.failure(
-            error_type="malformed_plan_file",
-            message="Branch-source plan must carry 'plan.source.branch'.",
-        )
-
-    diagnostic = gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), source_branch)
-    if diagnostic is None:
-        return ClinkrExit.failure(
-            error_type="source_missing_slug",
-            message=(
-                f"Source branch {source_branch!r} no longer carries "
-                f"{body_key(slug)!r}; the snapshot may have been deleted "
-                f"since plan time."
-            ),
-        )
-
-    copied = gateway.copy_entries(
-        namespace=OBJECTIVE_NAMESPACE,
-        from_branch=source_branch,
-        to_branch=target_branch,
-        overwrite=False,
-        key_glob=f"{slug}/*",
+    source_branch = Ensure.not_none(
+        source_branch,
+        error_type="malformed_plan_file",
+        message="Branch-source plan must carry 'plan.source.branch'.",
     )
-    if not copied:
-        return ClinkrExit.failure(
-            error_type="source_missing_slug",
-            message=(
-                f"Source branch {source_branch!r} produced no files matching "
-                f"{slug!r}/* — the snapshot may have been deleted since plan time."
-            ),
-        )
+
+    Ensure.not_none(
+        gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), source_branch),
+        error_type="source_missing_slug",
+        message=(
+            f"Source branch {source_branch!r} no longer carries "
+            f"{body_key(slug)!r}; the snapshot may have been deleted "
+            f"since plan time."
+        ),
+    )
+
+    copied = Ensure.truthy(
+        gateway.copy_entries(
+            namespace=OBJECTIVE_NAMESPACE,
+            from_branch=source_branch,
+            to_branch=target_branch,
+            overwrite=False,
+            key_glob=f"{slug}/*",
+        ),
+        error_type="source_missing_slug",
+        message=(
+            f"Source branch {source_branch!r} produced no files matching "
+            f"{slug!r}/* — the snapshot may have been deleted since plan time."
+        ),
+    )
 
     files_carried = tuple(
         CarriedFile(file=_filename_for_key(entry.key, slug), key=entry.key) for entry in copied

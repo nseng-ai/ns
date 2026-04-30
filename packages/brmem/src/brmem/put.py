@@ -28,6 +28,7 @@ from brmem.key_validation import check_key
 from brmem.validation import first_failure
 from twerk_core.clinkr.context import is_machine_mode
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
@@ -102,26 +103,26 @@ def run_put(
     ctx: click.Context,
     request: PutRequest,
 ) -> ClinkrExit[PutResult]:
-    if request.stdin and is_machine_mode(ctx):
-        raise ClinkrFailure(
-            error_type="stdin_unsupported_in_json_mode",
-            message=(
-                "brmem put --stdin is only supported in the human CLI; JSON mode already "
-                "uses stdin for the request body."
-            ),
-        )
+    Ensure.true(
+        not (request.stdin and is_machine_mode(ctx)),
+        error_type="stdin_unsupported_in_json_mode",
+        message=(
+            "brmem put --stdin is only supported in the human CLI; JSON mode already "
+            "uses stdin for the request body."
+        ),
+    )
 
-    if request.stdin and request.file is not None:
-        raise ClinkrFailure(
-            error_type="stdin_and_file_conflict",
-            message="--stdin and --file are mutually exclusive.",
-        )
+    Ensure.true(
+        not (request.stdin and request.file is not None),
+        error_type="stdin_and_file_conflict",
+        message="--stdin and --file are mutually exclusive.",
+    )
 
     if request.stdin:
         raw = sys.stdin.buffer.read()
         source_file = "<stdin>"
     else:
-        source_path = ClinkrExit.ensure_not_none(
+        source_path = Ensure.not_none(
             request.file if request.file is not None else _default_source(request.key),
             error_type="source_file_missing",
             message=(
@@ -144,13 +145,13 @@ def run_put(
 
     if not request.force:
         size_msg = check_entry_size(raw)
-        ClinkrExit.ensure(
+        Ensure.true(
             size_msg is None,
             error_type="entry_too_large",
             message=f"{source_file} {size_msg}. Pass -f / --force to override.",
         )
         binary_msg = check_entry_not_binary(raw)
-        ClinkrExit.ensure(
+        Ensure.true(
             binary_msg is None,
             error_type="entry_appears_binary",
             message=f"{source_file} {binary_msg}. Pass -f / --force to override.",
@@ -175,7 +176,7 @@ def run_put(
         ("invalid_branch_name", check_branch_name(branch)),
     )
     error_type, message = validation_failure or ("", "")
-    ClinkrExit.ensure(
+    Ensure.true(
         validation_failure is None,
         error_type=error_type,
         message=message,

@@ -37,6 +37,7 @@ class NoRepoSentinel:
     """Returned when ``cwd`` is not inside a git repository."""
 
     message: str
+    error_type: str = "not_in_repo"
 
 
 def discover_repo_or_sentinel(

@@ -14,6 +14,7 @@ from brmem.gateway_access import (
 from brmem.key_validation import check_key
 from brmem.validation import first_failure
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -56,11 +57,11 @@ def run_list_entries(
     ctx: click.Context,
     request: ListEntriesRequest,
 ) -> ClinkrExit[ListEntriesResult]:
-    if request.base and request.namespace is not None:
-        raise ClinkrExit.failure(
-            error_type="base_and_namespace_conflict",
-            message="--base and --namespace are mutually exclusive.",
-        )
+    Ensure.true(
+        not (request.base and request.namespace is not None),
+        error_type="base_and_namespace_conflict",
+        message="--base and --namespace are mutually exclusive.",
+    )
 
     validation_failure = first_failure(
         (
@@ -73,9 +74,12 @@ def run_list_entries(
             None if request.branch is None else check_branch_name(request.branch),
         ),
     )
-    if validation_failure is not None:
-        error_type, message = validation_failure
-        raise ClinkrExit.failure(error_type=error_type, message=message)
+    error_type, message = validation_failure or ("", "")
+    Ensure.true(
+        validation_failure is None,
+        error_type=error_type,
+        message=message,
+    )
 
     branch = resolve_current_brmem_branch(ctx, request.branch)
 
