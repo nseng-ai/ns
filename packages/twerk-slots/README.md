@@ -1,27 +1,13 @@
 # twerk-slots
 
-A worktree pool manager built on top of `git worktree`. `twerk-slots`
-keeps a small, fixed pool of pre-created worktrees under
-`~/.slots/repos/<repo>/worktrees/` and assigns branches into them with
-`slot checkout`, so switching between in-flight branches is `cd
-slot-XX/` instead of stash-juggling the main worktree.
+Work on multiple branches in parallel without stashing, losing your
+place, or waiting for a clean working tree. `twerk-slots` gives each
+in-flight branch its own dedicated directory, so switching contexts is
+just `cd` — your editor, terminal, running processes, and uncommitted
+changes all stay exactly where you left them on every other branch.
+Pick up a code review, jump on a hotfix, or revisit yesterday's WIP
+without disturbing what you're doing now.
 
-## Mental model
-
-Git worktrees are the only source of truth.
-
-- A managed slot is a Git worktree at
-  `~/.slots/repos/<repo>/worktrees/slot-XX/`.
-- A slot is **assigned** when its worktree has a branch checked out, and
-  **available** when the worktree is detached.
-- The pool size is the number of managed `slot-XX` worktrees on disk.
-  Capacity is physical: there is no separate "configured size" stored
-  anywhere.
-- Inspect the underlying state at any time with `git worktree list`.
-
-There is no `pool.json`, no persisted branch-to-slot mapping, no
-`assigned_at` timestamp, and no reconciliation layer. Every `slot`
-command derives the pool's state by listing Git worktrees.
 
 ## Quick start
 
@@ -164,6 +150,23 @@ This package provides:
 
 Run `slot --help` for the full command list and `slot <cmd> --help` for
 per-command flags.
+
+## How it works
+
+Git worktrees are the only source of truth.
+
+- A managed slot is a Git worktree at
+  `~/.slots/repos/<repo>/worktrees/slot-XX/`.
+- A slot is **assigned** when its worktree has a branch checked out, and
+  **available** when the worktree is detached.kkkk
+- The pool size is the number of managed `slot-XX` worktrees on disk.
+  Capacity is physical: there is no separate "configured size" stored
+  anywhere.
+- Inspect the underlying state at any time with `git worktree list`.
+
+There is no `pool.json`, no persisted branch-to-slot mapping, no
+`assigned_at` timestamp, and no reconciliation layer. Every `slot`
+command derives the pool's state by listing Git worktrees.
 
 ## See also
 
