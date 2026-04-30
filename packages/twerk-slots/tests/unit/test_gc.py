@@ -10,7 +10,6 @@ from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import FileStatus, WorktreeInfo
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.gc import execute_gc_plan, plan_gc, run_gc
 from twerk_slots.repo_context import RepoContext
@@ -28,7 +27,6 @@ def _make_repo() -> RepoContext:
         repo_name="repo",
         repo_dir=repo_dir,
         worktrees_dir=worktrees_dir,
-        pool_json_path=repo_dir / "pool.json",
     )
 
 
@@ -77,13 +75,11 @@ def _build_ctx(
         *(_slot_path(s) for s, _ in slots),
     }
     storage = FakeSlotsStorageGateway(existing_paths=existing_paths)
-    pool_state_gw = FakePoolStateGateway(repo.pool_json_path)
     pr = pr_gateway or FakePRGateway(prs_by_branch=prs_by_branch or {})
     ctx = SlotsCliContext(
         repo=repo,
         git=git,
         storage=storage,
-        pool_state=pool_state_gw,
         clipboard=FakeClipboardGateway(),
         pr=pr,
         slots_root=ROOT / "slots",

@@ -21,7 +21,6 @@ from twerk_core.git.types import (
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
 
@@ -35,7 +34,6 @@ def cli_group() -> ClinkrGroup:
 class _SlotFakes:
     git: FakeGitGateway
     storage: FakeSlotsStorageGateway
-    pool_state: FakePoolStateGateway
     clipboard: FakeClipboardGateway
     repo_root: Path
     slots_root: Path
@@ -48,7 +46,6 @@ def _make_obj(fakes: _SlotFakes) -> ClinkrContextObject:
         repo=repo,
         git=fakes.git,
         storage=fakes.storage,
-        pool_state=fakes.pool_state,
         clipboard=fakes.clipboard,
         pr=FakePRGateway(),
         slots_root=fakes.slots_root,
@@ -98,7 +95,6 @@ def _fake_for_repo(
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
     slots_root = tmp_path / "slots"
-    pool_json_path = slots_root / "repos" / "repo" / "pool.json"
 
     main_wt: tuple[WorktreeInfo, ...] = ()
     if main_branch is not None:
@@ -138,7 +134,6 @@ def _fake_for_repo(
     return _SlotFakes(
         git=git,
         storage=storage,
-        pool_state=FakePoolStateGateway(pool_json_path),
         clipboard=FakeClipboardGateway(should_succeed=clipboard_should_succeed),
         repo_root=repo_root,
         slots_root=slots_root,

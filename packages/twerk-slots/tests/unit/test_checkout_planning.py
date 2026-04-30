@@ -4,10 +4,6 @@ from pathlib import Path
 
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
-from twerk_slots.allocation import (
-    DetachedHeadError,
-    DirtyCurrentWorktreeError,
-)
 from twerk_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
@@ -16,6 +12,10 @@ from twerk_slots.checkout_planning import (
     ReuseAssignment,
     plan_checkout,
     plan_current_checkout,
+)
+from twerk_slots.errors import (
+    DetachedHeadError,
+    DirtyCurrentWorktreeError,
 )
 from twerk_slots.inventory import SlotInventory, SlotRecord
 

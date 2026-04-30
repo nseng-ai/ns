@@ -15,10 +15,8 @@ from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardGateway
-from twerk_slots.gateway.pool_state_gateway import PoolStateGateway
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import RepoContext
 
@@ -29,7 +27,6 @@ def build_test_slots_context(
     slots_root: Path,
     git: GitGateway | None = None,
     storage: SlotsStorageGateway | None = None,
-    pool_state: PoolStateGateway | None = None,
     clipboard: ClipboardGateway | None = None,
     pr: PRGateway | None = None,
 ) -> SlotsCliContext:
@@ -56,9 +53,6 @@ def build_test_slots_context(
             on_add_worktree=resolved_storage.ensure_dir,
         ),
         storage=resolved_storage,
-        pool_state=pool_state
-        if pool_state is not None
-        else FakePoolStateGateway(repo.pool_json_path),
         clipboard=clipboard if clipboard is not None else FakeClipboardGateway(),
         pr=pr if pr is not None else FakePRGateway(),
         slots_root=slots_root,

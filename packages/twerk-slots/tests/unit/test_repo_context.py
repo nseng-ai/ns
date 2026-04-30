@@ -62,7 +62,6 @@ def test_discover_main_repo(tmp_path: Path) -> None:
     assert result.main_repo_root == repo.resolve()
     assert result.repo_dir == slots_root / "repos" / "myrepo"
     assert result.worktrees_dir == slots_root / "repos" / "myrepo" / "worktrees"
-    assert result.pool_json_path == slots_root / "repos" / "myrepo" / "pool.json"
 
 
 def test_discover_from_worktree_uses_main_repo_name_for_metadata(tmp_path: Path) -> None:
@@ -99,7 +98,6 @@ def test_ensure_slots_metadata_dir_delegates_to_storage() -> None:
         repo_name="myrepo",
         repo_dir=repo_dir,
         worktrees_dir=worktrees_dir,
-        pool_json_path=repo_dir / "pool.json",
     )
     storage = FakeSlotsStorageGateway()
 

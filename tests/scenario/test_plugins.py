@@ -30,7 +30,6 @@ from twerk_reviewer.models import (
 )
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
 
@@ -174,7 +173,6 @@ def test_slots_plugin_integration(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir()
-    pool_json_path = slots_root / "repos" / "repo" / "pool.json"
     storage = FakeSlotsStorageGateway(existing_paths={repo_root, Path.cwd()})
     git = FakeGitGateway(
         repo_root=repo_root,
@@ -190,7 +188,6 @@ def test_slots_plugin_integration(tmp_path: Path) -> None:
         repo=repo,
         git=git,
         storage=storage,
-        pool_state=FakePoolStateGateway(pool_json_path),
         clipboard=FakeClipboardGateway(),
         pr=FakePRGateway(),
         slots_root=slots_root,

@@ -13,9 +13,7 @@ from twerk_slots.cli.slot.gt.navigation import (
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopyFailure
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import RepoContext
 
 
@@ -24,7 +22,6 @@ def _slots_ctx(
     *,
     git: FakeGitGateway,
     storage: FakeSlotsStorageGateway,
-    pool_state: FakePoolStateGateway,
     clipboard: FakeClipboardGateway | None = None,
 ) -> SlotsCliContext:
     slots_root = tmp_path / "slots"
@@ -34,39 +31,32 @@ def _slots_ctx(
         repo_name="repo",
         repo_dir=slots_root / "repos" / "repo",
         worktrees_dir=slots_root / "repos" / "repo" / "worktrees",
-        pool_json_path=slots_root / "repos" / "repo" / "pool.json",
     )
     return SlotsCliContext(
         repo=repo,
         git=git,
         storage=storage,
-        pool_state=pool_state,
         clipboard=clipboard if clipboard is not None else FakeClipboardGateway(),
         pr=FakePRGateway(),
         slots_root=slots_root,
     )
 
 
-def test_find_worktree_for_branch_prefers_pool_assignment(tmp_path: Path) -> None:
+def test_find_worktree_for_branch_returns_managed_slot(tmp_path: Path) -> None:
     slot_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
     repo_path = tmp_path / "repo"
-    state = PoolState(
-        pool_size=4,
-        assignments=(SlotAssignment("slot-01", "feat/child", "now", slot_path),),
-    )
     git = FakeGitGateway(
         repo_root=repo_path,
         worktrees=(
-            WorktreeInfo(path=repo_path, branch="feat/child", is_bare=False),
+            WorktreeInfo(path=repo_path, branch="main", is_bare=False),
             WorktreeInfo(path=slot_path, branch="feat/child", is_bare=False),
         ),
-        current_branch_by_path={slot_path: "feat/child", repo_path: "feat/child"},
+        current_branch_by_path={slot_path: "feat/child", repo_path: "main"},
     )
     ctx = _slots_ctx(
         tmp_path,
         git=git,
         storage=FakeSlotsStorageGateway(existing_paths={slot_path, repo_path}),
-        pool_state=FakePoolStateGateway(tmp_path / "pool.json", initial_state=state),
     )
 
     assert find_worktree_for_branch(ctx, "feat/child") == WorktreeTarget(
@@ -76,7 +66,7 @@ def test_find_worktree_for_branch_prefers_pool_assignment(tmp_path: Path) -> Non
     )
 
 
-def test_find_worktree_for_branch_falls_back_to_git_worktrees(tmp_path: Path) -> None:
+def test_find_worktree_for_branch_returns_generic_worktree(tmp_path: Path) -> None:
     repo_path = tmp_path / "repo"
     git = FakeGitGateway(
         repo_root=repo_path,
@@ -87,7 +77,6 @@ def test_find_worktree_for_branch_falls_back_to_git_worktrees(tmp_path: Path) ->
         tmp_path,
         git=git,
         storage=FakeSlotsStorageGateway(existing_paths={repo_path}),
-        pool_state=FakePoolStateGateway(tmp_path / "pool.json"),
     )
 
     assert find_worktree_for_branch(ctx, "main") == WorktreeTarget(
@@ -97,6 +86,22 @@ def test_find_worktree_for_branch_falls_back_to_git_worktrees(tmp_path: Path) ->
     )
 
 
+def test_find_worktree_for_branch_missing_returns_none(tmp_path: Path) -> None:
+    repo_path = tmp_path / "repo"
+    git = FakeGitGateway(
+        repo_root=repo_path,
+        worktrees=(WorktreeInfo(path=repo_path, branch="main", is_bare=False),),
+        current_branch_by_path={repo_path: "main"},
+    )
+    ctx = _slots_ctx(
+        tmp_path,
+        git=git,
+        storage=FakeSlotsStorageGateway(existing_paths={repo_path}),
+    )
+
+    assert find_worktree_for_branch(ctx, "feat/missing") is None
+
+
 def test_build_navigation_result_copies_cd_command(tmp_path: Path) -> None:
     repo_path = tmp_path / "repo"
     clipboard = FakeClipboardGateway()
@@ -104,7 +109,6 @@ def test_build_navigation_result_copies_cd_command(tmp_path: Path) -> None:
         tmp_path,
         git=FakeGitGateway(repo_root=repo_path),
         storage=FakeSlotsStorageGateway(existing_paths={repo_path}),
-        pool_state=FakePoolStateGateway(tmp_path / "pool.json"),
         clipboard=clipboard,
     )
 
@@ -126,7 +130,6 @@ def test_build_navigation_result_surfaces_clipboard_failure(tmp_path: Path) -> N
         tmp_path,
         git=FakeGitGateway(repo_root=repo_path),
         storage=FakeSlotsStorageGateway(existing_paths={repo_path}),
-        pool_state=FakePoolStateGateway(tmp_path / "pool.json"),
         clipboard=FakeClipboardGateway(should_succeed=False, failure=failure),
     )
 

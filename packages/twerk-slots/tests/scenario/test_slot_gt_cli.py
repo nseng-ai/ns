@@ -19,9 +19,7 @@ from twerk_slots.cli.main import build_cli
 from twerk_slots.cli.slot.gt.context import SlotGtContext
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import RepoContext
 
 
@@ -60,7 +58,6 @@ def _make_fakes(
     current_branch: str = "feat/base",
     branches: tuple[str, ...] = ("main", "feat/base", "feat/child"),
     worktrees: tuple[WorktreeInfo, ...] | None = None,
-    assignments: tuple[SlotAssignment, ...] = (),
     gt: FakeGtGateway | None = None,
     pr: FakePRGateway | None = None,
     current_branch_by_path: dict[Path, str | DetachedHead] | None = None,
@@ -73,14 +70,12 @@ def _make_fakes(
         current_root = repo_root
     else:
         current_root = slots_root / "repos" / "repo" / "worktrees" / current_path_name
-    pool_json_path = slots_root / "repos" / "repo" / "pool.json"
     repo = RepoContext(
         root=current_root,
         main_repo_root=repo_root,
         repo_name="repo",
         repo_dir=slots_root / "repos" / "repo",
         worktrees_dir=slots_root / "repos" / "repo" / "worktrees",
-        pool_json_path=pool_json_path,
     )
     resolved_worktrees = (
         worktrees
@@ -95,7 +90,7 @@ def _make_fakes(
     existing_paths = {
         repo_root,
         current_root,
-        *(assignment.worktree_path for assignment in assignments),
+        *(wt.path for wt in resolved_worktrees),
     }
     git = FakeGitGateway(
         repo_root=repo_root,
@@ -108,17 +103,12 @@ def _make_fakes(
         repository_root_by_cwd={current_root: current_root},
     )
     storage = FakeSlotsStorageGateway(existing_paths=existing_paths)
-    pool_state = FakePoolStateGateway(
-        pool_json_path,
-        initial_state=PoolState(pool_size=4, assignments=assignments) if assignments else None,
-    )
     clipboard = FakeClipboardGateway()
     pr_gateway = pr if pr is not None else FakePRGateway()
     slots_ctx = SlotsCliContext(
         repo=repo,
         git=git,
         storage=storage,
-        pool_state=pool_state,
         clipboard=clipboard,
         pr=pr_gateway,
         slots_root=slots_root,
@@ -159,10 +149,8 @@ def test_slot_gt_up_navigates_to_single_child_slot(
     tmp_path: Path,
 ) -> None:
     slot_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-02"
-    assignment = SlotAssignment("slot-02", "feat/child", "now", slot_path)
     fakes = _make_fakes(
         tmp_path,
-        assignments=(assignment,),
         worktrees=(
             WorktreeInfo(path=tmp_path / "repo", branch="feat/base", is_bare=False),
             WorktreeInfo(path=slot_path, branch="feat/child", is_bare=False),
@@ -437,7 +425,6 @@ def _land_fakes_for_bottom_pr(
 ) -> _GtFakes:
     main_path = (tmp_path / "repo").resolve()
     base_path = tmp_path / "slots" / "repos" / "repo" / "worktrees" / "slot-01"
-    assignments = (SlotAssignment("slot-01", "feat/base", "now", base_path),)
     resolved_pr_gateway = pr_gateway or FakePRGateway(
         pr_details_by_branch={"feat/base": pr or _land_pr()}
     )
@@ -445,7 +432,6 @@ def _land_fakes_for_bottom_pr(
         tmp_path,
         current_path_name="slot-01",
         current_branch="feat/base",
-        assignments=assignments,
         worktrees=(
             WorktreeInfo(path=main_path, branch="main", is_bare=False),
             WorktreeInfo(path=base_path, branch="feat/base", is_bare=False),
