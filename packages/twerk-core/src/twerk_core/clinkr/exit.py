@@ -15,6 +15,15 @@ class ExitStatus(Enum):
 
 
 class ClinkrExit(Exception, Generic[T]):
+    """CLI exit envelope returned by `@clinkr_operation` functions.
+
+    Construct only inside the dispatcher and on the `ok` / `negative` return
+    paths inside operation bodies. For failures, raise `ClinkrFailure` instead
+    of constructing `ClinkrExit.failure(...)` directly — the dispatcher
+    converts the raised `ClinkrFailure` into the failure envelope at the CLI
+    boundary. For precondition guards, use the helpers on `Ensure`.
+    """
+
     def __init__(
         self,
         *,

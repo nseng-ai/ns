@@ -26,6 +26,7 @@ import click
 from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.git_gateway import GitGateway
@@ -223,41 +224,36 @@ def run_claim_plan_objective(
     git = mctx.git_gateway
     trunk_branch = resolve_trunk(git).trunk
 
-    if request.from_branch is not None and request.from_file is not None:
-        return ClinkrExit.failure(
-            error_type="conflicting_source_flags",
-            message="--from and --from-file are mutually exclusive.",
-        )
+    Ensure.true(
+        not (request.from_branch is not None and request.from_file is not None),
+        error_type="conflicting_source_flags",
+        message="--from and --from-file are mutually exclusive.",
+    )
 
     requested_slug = _normalize_slug(request.slug)
 
-    if (request.from_branch is not None or request.from_file is not None) and (
-        requested_slug is None
-    ):
-        return ClinkrExit.failure(
-            error_type="source_flag_without_slug",
-            message=(
-                "--from and --from-file require an explicit SLUG; "
-                "neither auto-resolves the objective name."
-            ),
-        )
+    Ensure.true(
+        not (
+            (request.from_branch is not None or request.from_file is not None)
+            and requested_slug is None
+        ),
+        error_type="source_flag_without_slug",
+        message=(
+            "--from and --from-file require an explicit SLUG; "
+            "neither auto-resolves the objective name."
+        ),
+    )
 
-    target_resolution = _resolve_target_branch(git, request.target)
-    if isinstance(target_resolution, HardFailure):
-        return ClinkrExit.failure(
-            error_type=target_resolution.error_type,
-            message=target_resolution.message,
-        )
-    target_branch = target_resolution
+    target_branch = Ensure.ideal_state(_resolve_target_branch(git, request.target))
 
-    if target_branch == trunk_branch:
-        return ClinkrExit.failure(
-            error_type="target_is_trunk",
-            message=(
-                f"--target must not be {trunk_branch!r}: claim attaches "
-                f"objectives to feature branches; canonical state is immutable here."
-            ),
-        )
+    Ensure.true(
+        target_branch != trunk_branch,
+        error_type="target_is_trunk",
+        message=(
+            f"--target must not be {trunk_branch!r}: claim attaches "
+            f"objectives to feature branches; canonical state is immutable here."
+        ),
+    )
 
     if requested_slug is None:
         outcome = _resolve_slug_from_ancestors(
@@ -387,7 +383,7 @@ def _normalize_slug(raw: str | None) -> str | None:
 class HardFailure:
     """Domain-side sentinel for "this run cannot produce a structured envelope."
 
-    Translated into :class:`ClinkrExit.failure` at the CLI entry point. Keeping
+    Translated into :class:`ClinkrFailure` at the CLI entry point. Keeping
     the helper return as a frozen dataclass rather than ``ClinkrExit`` keeps
     helpers reusable and avoids ``ty`` narrowing pain across generic envelope
     types.

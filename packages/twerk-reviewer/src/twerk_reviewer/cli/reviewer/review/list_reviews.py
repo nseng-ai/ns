@@ -7,7 +7,9 @@ import click
 
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.gateways.review_definition.gateway import REVIEWS_DIRNAME
@@ -15,7 +17,6 @@ from twerk_reviewer.git_toplevel import git_toplevel
 from twerk_reviewer.models import (
     GitInvocationFailedError,
     RepoRootUnavailableError,
-    ReviewerFailure,
 )
 
 
@@ -94,14 +95,12 @@ def run_review_list_command(
     try:
         repo_root = git_toplevel(cwd=reviewer_context.cwd)
     except RepoRootUnavailableError as exc:
-        raise ClinkrExit.failure(error_type="repo_root_unavailable", message=str(exc)) from exc
+        raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except GitInvocationFailedError as exc:
-        raise ClinkrExit.failure(error_type="git_invocation_failed", message=str(exc)) from exc
+        raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
 
     reviews_dir = repo_root / REVIEWS_DIRNAME
 
-    keys = reviewer_context.review_definition.list_reviews(reviews_dir)
-    if isinstance(keys, ReviewerFailure):
-        raise ClinkrExit.failure(error_type=keys.error_type, message=keys.message)
+    keys = Ensure.ideal_state(reviewer_context.review_definition.list_reviews(reviews_dir))
 
     return ClinkrExit.ok(ReviewListResult(keys=keys, reviews_dir=str(reviews_dir)))

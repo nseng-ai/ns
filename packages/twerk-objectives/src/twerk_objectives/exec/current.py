@@ -18,6 +18,7 @@ import click
 from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.pr_gateway import PRGateway
@@ -148,7 +149,7 @@ def run_current_objective(
 
     branch_or_failure = mctx.git_gateway.get_current_branch(cwd)
     if isinstance(branch_or_failure, GitCommandFailure):
-        raise ClinkrExit.failure(
+        Ensure.fail(
             error_type="git_failed",
             message=branch_or_failure.message,
         )

@@ -12,7 +12,9 @@ from brmem.gateway import BranchMemoryGateway, EntryRef, check_branch_name
 from brmem.validation import first_failure
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.console import get_console
 from twerk_core.git.types import DetachedHead, GitCommandFailure
@@ -195,32 +197,37 @@ def run_show_objective(
             None if request.branch is None else check_branch_name(request.branch),
         ),
     )
-    if validation_failure is not None:
-        error_type, message = validation_failure
-        raise ClinkrExit.failure(error_type=error_type, message=message)
+    error_type, message = validation_failure or ("", "")
+    Ensure.true(
+        validation_failure is None,
+        error_type=error_type,
+        message=message,
+    )
 
-    resolution = resolve_slug(mctx, request.slug, requested_branch=request.branch)
-    match resolution:
+    match resolve_slug(mctx, request.slug, requested_branch=request.branch):
         case GitCommandFailure() as failure:
-            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
         case DetachedHead():
-            raise ClinkrExit.failure(
+            raise ClinkrFailure(
                 error_type="detached_head",
                 message="Detached HEAD: brmem requires a checked-out branch.",
             )
-        case NoObjectiveOnBranch(branch=branch):
-            raise ClinkrExit.failure(
+        case NoObjectiveOnBranch() as missing:
+            raise ClinkrFailure(
                 error_type="no_objective_on_branch",
-                message=f"No objective on branch {branch!r}.",
+                message=f"No objective on branch {missing.branch!r}.",
             )
-        case AmbiguousObjective(branch=branch, slugs=slugs):
-            names = ", ".join(slugs)
-            raise ClinkrExit.failure(
+        case AmbiguousObjective() as ambiguity:
+            names = ", ".join(ambiguity.slugs)
+            raise ClinkrFailure(
                 error_type="ambiguous_objective",
-                message=f"Multiple objectives on branch {branch!r}: {names}. Specify a SLUG.",
+                message=(
+                    f"Multiple objectives on branch {ambiguity.branch!r}: {names}. Specify a SLUG."
+                ),
             )
-        case SlugResolution(slug=requested_slug, current_branch=current_branch):
-            pass
+        case SlugResolution() as resolution:
+            requested_slug = resolution.slug
+            current_branch = resolution.current_branch
 
     trunk_branch = git_gateway.get_trunk_branch()
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
