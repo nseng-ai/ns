@@ -37,10 +37,6 @@ class NoObjectiveOnBranch:
     branch: str
 
     @property
-    def error_type(self) -> str:
-        return "no_objective_on_branch"
-
-    @property
     def message(self) -> str:
         return f"No objective on branch {self.branch!r}."
 
@@ -54,10 +50,6 @@ class AmbiguousObjective:
 
     branch: str
     slugs: tuple[str, ...]
-
-    @property
-    def error_type(self) -> str:
-        return "ambiguous_objective"
 
     @property
     def message(self) -> str:

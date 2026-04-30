@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 
@@ -15,223 +15,187 @@ _VALID_SEVERITIES = {"info", "warning", "error"}
 ReviewFormat = Literal["findings", "text"]
 
 
-class _HasErrorType:
-    """Mixin exposing the class-level ``ERROR_TYPE`` as an ``error_type`` property."""
-
-    ERROR_TYPE: ClassVar[str]
-
-    @property
-    def error_type(self) -> str:
-        return type(self).ERROR_TYPE
-
-
 @dataclass(frozen=True)
-class InvalidReviewDefinition(_HasErrorType):
+class InvalidReviewDefinition:
     """The markdown review definition failed validation."""
 
-    ERROR_TYPE: ClassVar[str] = "invalid_review_definition"
     message: str
 
 
 @dataclass(frozen=True)
-class ModelNotProvided(_HasErrorType):
+class ModelNotProvided:
     """No executor model was provided and the definition has no default."""
 
-    ERROR_TYPE: ClassVar[str] = "model_not_provided"
     message: str
 
 
 @dataclass(frozen=True)
-class ExecutorCommandMissing(_HasErrorType):
+class ExecutorCommandMissing:
     """The executor command was empty after shell-parsing."""
 
-    ERROR_TYPE: ClassVar[str] = "executor_command_missing"
     message: str
 
 
 @dataclass(frozen=True)
-class ExecutorCommandInvalid(_HasErrorType):
+class ExecutorCommandInvalid:
     """The executor command could not be shell-parsed."""
 
-    ERROR_TYPE: ClassVar[str] = "executor_command_invalid"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewExecutionFailed(_HasErrorType):
+class ReviewExecutionFailed:
     """The executor ran but exited with a non-zero status."""
 
-    ERROR_TYPE: ClassVar[str] = "review_execution_failed"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewExecutionInvalidResponse(_HasErrorType):
+class ReviewExecutionInvalidResponse:
     """The executor output was structurally invalid."""
 
-    ERROR_TYPE: ClassVar[str] = "review_execution_invalid_response"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewExecutionInvalidJson(_HasErrorType):
+class ReviewExecutionInvalidJson:
     """The executor output was not valid JSON."""
 
-    ERROR_TYPE: ClassVar[str] = "review_execution_invalid_json"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewDefinitionNotFound(_HasErrorType):
+class ReviewDefinitionNotFound:
     """The review-definition path does not exist on disk."""
 
-    ERROR_TYPE: ClassVar[str] = "review_definition_not_found"
     path: Path
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewDefinitionNotAFile(_HasErrorType):
+class ReviewDefinitionNotAFile:
     """The review-definition path exists but is not a regular file."""
 
-    ERROR_TYPE: ClassVar[str] = "review_definition_not_a_file"
     path: Path
     message: str
 
 
 @dataclass(frozen=True)
-class BaseRefUnavailable(_HasErrorType):
+class BaseRefUnavailable:
     """A base git ref was not provided and could not be resolved."""
 
-    ERROR_TYPE: ClassVar[str] = "base_ref_unavailable"
     message: str
 
 
 @dataclass(frozen=True)
-class HarnessNotConfigured(_HasErrorType):
+class HarnessNotConfigured:
     """No harness could be resolved via flag, env var, or auto-detection on PATH."""
 
-    ERROR_TYPE: ClassVar[str] = "harness_not_configured"
     message: str
 
 
 @dataclass(frozen=True)
-class HarnessUnknown(_HasErrorType):
+class HarnessUnknown:
     """The requested harness name is not registered."""
 
-    ERROR_TYPE: ClassVar[str] = "harness_unknown"
     message: str
 
 
 @dataclass(frozen=True)
-class HarnessBinaryMissing(_HasErrorType):
+class HarnessBinaryMissing:
     """The harness binary is not on ``PATH``."""
 
-    ERROR_TYPE: ClassVar[str] = "harness_binary_missing"
     message: str
 
 
 @dataclass(frozen=True)
-class HarnessInvocationFailed(_HasErrorType):
+class HarnessInvocationFailed:
     """Invoking the harness subprocess failed with an OS error."""
 
-    ERROR_TYPE: ClassVar[str] = "harness_invocation_failed"
     message: str
 
 
 @dataclass(frozen=True)
-class HarnessExecutionFailed(_HasErrorType):
+class HarnessExecutionFailed:
     """The harness subprocess ran but exited non-zero."""
 
-    ERROR_TYPE: ClassVar[str] = "harness_execution_failed"
     message: str
 
 
 @dataclass(frozen=True)
-class ModelNotSupportedByHarness(_HasErrorType):
+class ModelNotSupportedByHarness:
     """The requested model is not supported by the selected harness."""
 
-    ERROR_TYPE: ClassVar[str] = "model_not_supported_by_harness"
     message: str
 
 
 @dataclass(frozen=True)
-class ClaudeCodeEmptyOutput(_HasErrorType):
+class ClaudeCodeEmptyOutput:
     """Claude Code returned no stdout."""
 
-    ERROR_TYPE: ClassVar[str] = "claude_code_empty_output"
     message: str
 
 
 @dataclass(frozen=True)
-class ClaudeCodeInvalidJson(_HasErrorType):
+class ClaudeCodeInvalidJson:
     """Claude Code stdout was not valid JSON."""
 
-    ERROR_TYPE: ClassVar[str] = "claude_code_invalid_json"
     message: str
 
 
 @dataclass(frozen=True)
-class ClaudeCodeInvalidResponse(_HasErrorType):
+class ClaudeCodeInvalidResponse:
     """Claude Code JSON response was missing required fields."""
 
-    ERROR_TYPE: ClassVar[str] = "claude_code_invalid_response"
     message: str
 
 
 @dataclass(frozen=True)
-class ClaudeCodeMissingResultEvent(_HasErrorType):
+class ClaudeCodeMissingResultEvent:
     """Claude Code stream-json output did not include a terminal ``result`` event."""
 
-    ERROR_TYPE: ClassVar[str] = "claude_code_missing_result_event"
     message: str
 
 
 @dataclass(frozen=True)
-class ClaudeCodeNonJsonResult(_HasErrorType):
+class ClaudeCodeNonJsonResult:
     """Claude Code's ``result`` field was prose rather than JSON."""
 
-    ERROR_TYPE: ClassVar[str] = "claude_code_non_json_result"
     message: str
 
 
 @dataclass(frozen=True)
-class ClaudeCodeInvalidFindings(_HasErrorType):
+class ClaudeCodeInvalidFindings:
     """Claude Code's parsed findings payload was malformed."""
 
-    ERROR_TYPE: ClassVar[str] = "claude_code_invalid_findings"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewsDirMissing(_HasErrorType):
+class ReviewsDirMissing:
     """The ``reviews/`` directory does not exist at the repo root."""
 
-    ERROR_TYPE: ClassVar[str] = "reviews_dir_missing"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewsDirNotADirectory(_HasErrorType):
+class ReviewsDirNotADirectory:
     """The ``reviews`` path exists but is not a directory."""
 
-    ERROR_TYPE: ClassVar[str] = "reviews_dir_not_a_directory"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewKeyInvalid(_HasErrorType):
+class ReviewKeyInvalid:
     """The review key is empty, absolute, or contains traversal segments."""
 
-    ERROR_TYPE: ClassVar[str] = "review_key_invalid"
     message: str
 
 
 @dataclass(frozen=True)
-class ReviewKeyResolutionFailed(_HasErrorType):
+class ReviewKeyResolutionFailed:
     """Resolving the review key to an absolute path failed with an OS error."""
 
-    ERROR_TYPE: ClassVar[str] = "review_key_resolution_failed"
     message: str
 
 

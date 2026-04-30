@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import NoReturn, TypeVar, cast
 
 from twerk_core.clinkr.failure import ClinkrFailure
-from twerk_core.clinkr.non_ideal_state import NonIdealState
+from twerk_core.clinkr.non_ideal_state import NonIdealState, error_type_for
 
 T = TypeVar("T")
 
@@ -95,5 +95,5 @@ class Ensure:
         with that message instead.
         """
         if isinstance(value, NonIdealState):
-            raise ClinkrFailure(error_type=value.error_type, message=value.message)
+            raise ClinkrFailure(error_type=error_type_for(value), message=value.message)
         return cast(T, value)

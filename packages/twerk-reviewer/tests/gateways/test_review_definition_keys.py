@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from twerk_core.clinkr.non_ideal_state import error_type_for
 from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
 from twerk_reviewer.gateways.review_definition.real import RealReviewDefinitionGateway
 from twerk_reviewer.models import ReviewerFailure, ReviewsDirMissing
@@ -37,7 +38,7 @@ def test_real_list_reviews_fails_when_dir_missing(tmp_path: Path) -> None:
     result = RealReviewDefinitionGateway().list_reviews(tmp_path / "reviews")
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "reviews_dir_missing"
+    assert error_type_for(result) == "reviews_dir_missing"
 
 
 def test_real_list_reviews_fails_when_path_is_a_file(tmp_path: Path) -> None:
@@ -47,7 +48,7 @@ def test_real_list_reviews_fails_when_path_is_a_file(tmp_path: Path) -> None:
     result = RealReviewDefinitionGateway().list_reviews(weird)
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "reviews_dir_not_a_directory"
+    assert error_type_for(result) == "reviews_dir_not_a_directory"
 
 
 def test_real_resolve_key_returns_path(tmp_path: Path) -> None:
@@ -66,7 +67,7 @@ def test_real_resolve_key_returns_failure_for_missing_key(tmp_path: Path) -> Non
     result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "nope")
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_definition_not_found"
+    assert error_type_for(result) == "review_definition_not_found"
 
 
 def test_real_resolve_key_rejects_empty_key(tmp_path: Path) -> None:
@@ -76,7 +77,7 @@ def test_real_resolve_key_rejects_empty_key(tmp_path: Path) -> None:
     result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "  ")
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_key_invalid"
+    assert error_type_for(result) == "review_key_invalid"
 
 
 def test_real_resolve_key_rejects_traversal(tmp_path: Path) -> None:
@@ -86,7 +87,7 @@ def test_real_resolve_key_rejects_traversal(tmp_path: Path) -> None:
     result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "../outside")
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_key_invalid"
+    assert error_type_for(result) == "review_key_invalid"
 
 
 def test_real_resolve_key_rejects_absolute_path(tmp_path: Path) -> None:
@@ -96,7 +97,7 @@ def test_real_resolve_key_rejects_absolute_path(tmp_path: Path) -> None:
     result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "/etc/passwd")
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_key_invalid"
+    assert error_type_for(result) == "review_key_invalid"
 
 
 def test_fake_list_reviews_infers_from_sources() -> None:
@@ -136,4 +137,4 @@ def test_fake_resolve_key_returns_failure_for_unknown_key() -> None:
     result = gateway.resolve_key(reviews_dir, "nope")
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_definition_not_found"
+    assert error_type_for(result) == "review_definition_not_found"
