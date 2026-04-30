@@ -122,13 +122,8 @@ same `find_by_slot` resolution and dirty/assignment checks as
 - Does not create slots on demand during checkout — full pool means run
   `slot resize` or `slot free` first.
 - Does not persist any assignment metadata. The pool is always derived
-  from `git worktree list`.
-- Does not carry an `assigned_at` timestamp or any other freshness data.
-  If you need to know when a branch was assigned, use Git history.
-- Does not clean up legacy `pool.json` files. Earlier versions of this
-  package kept a `pool.json` under `~/.slots/repos/<repo>/`; any
-  leftover files are inert and left untouched. Delete them by hand if
-  they bother you.
+  from `git worktree list`. If you need to know when a branch was
+  assigned, use Git history.
 
 ## Where state lives
 
@@ -166,9 +161,9 @@ Git worktrees are the only source of truth.
   anywhere.
 - Inspect the underlying state at any time with `git worktree list`.
 
-There is no `pool.json`, no persisted branch-to-slot mapping, no
-`assigned_at` timestamp, and no reconciliation layer. Every `slot`
-command derives the pool's state by listing Git worktrees.
+There is no persisted branch-to-slot mapping and no reconciliation
+layer. Every `slot` command derives the pool's state by listing Git
+worktrees.
 
 ## See also
 
