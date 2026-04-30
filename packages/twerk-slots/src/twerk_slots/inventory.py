@@ -56,6 +56,12 @@ class SlotInventory:
             return MainWorktreeMatch(worktree=self.main_worktree)
         return None
 
+    def find_by_slot(self, slot_name: str) -> SlotRecord | None:
+        for record in self.records:
+            if record.slot_name == slot_name:
+                return record
+        return None
+
     def lowest_available(self, git: GitGateway) -> SlotRecord | None:
         for record in self.records:
             if record.branch is not None:

@@ -23,7 +23,6 @@ from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
 from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
 
 
@@ -91,6 +90,46 @@ def _fake_for_repo(
     )
 
 
+def _slot_path(slots_root: Path, slot_name: str) -> Path:
+    return slots_root / "repos" / "repo" / "worktrees" / slot_name
+
+
+def _seed_pool(
+    fakes: _SlotFakes,
+    slots_root: Path,
+    *,
+    assignments: tuple[tuple[str, str], ...],
+    pool_size: int = 4,
+) -> dict[str, Path]:
+    """Seed a managed slot pool of size ``pool_size`` into the FakeGitGateway.
+
+    Each entry in ``assignments`` becomes an assigned slot worktree (branch
+    set). Remaining slots up to ``pool_size`` are seeded as detached
+    worktrees (branch ``None``) so ``inventory.pool_size`` matches.
+    """
+    assigned_branch_by_slot = {slot_name: branch for slot_name, branch in assignments}
+    paths: dict[str, Path] = {}
+
+    for slot_num in range(1, pool_size + 1):
+        slot_name = f"slot-{slot_num:02d}"
+        worktree_path = _slot_path(slots_root, slot_name)
+        fakes.storage._existing_paths.add(worktree_path)
+        fakes.git._existing_paths.add(worktree_path)
+        if slot_name in assigned_branch_by_slot:
+            branch = assigned_branch_by_slot[slot_name]
+            fakes.git._branches.add(branch)
+            fakes.git._worktrees.append(
+                WorktreeInfo(path=worktree_path, branch=branch, is_bare=False),
+            )
+            fakes.git._current_branch_by_path[worktree_path] = branch
+            paths[slot_name] = worktree_path
+        else:
+            fakes.git._worktrees.append(
+                WorktreeInfo(path=worktree_path, branch=None, is_bare=False),
+            )
+    return paths
+
+
 def _seed_assigned(
     fakes: _SlotFakes,
     slots_root: Path,
@@ -99,29 +138,13 @@ def _seed_assigned(
     branch: str = "feat/x",
     pool_size: int = 4,
 ) -> Path:
-    """Seed pool state + fakes so ``slot_name`` holds ``branch``. Returns worktree path."""
-    worktree_path = slots_root / "repos" / "repo" / "worktrees" / slot_name
-    fakes.storage._existing_paths.add(worktree_path)
-    fakes.git._existing_paths.add(worktree_path)
-    fakes.git._branches.add(branch)
-    fakes.git._worktrees.append(
-        WorktreeInfo(path=worktree_path, branch=branch, is_bare=False),
-    )
-    fakes.git._current_branch_by_path[worktree_path] = branch
-    fakes.pool_state.save(
-        PoolState(
-            pool_size=pool_size,
-            assignments=(
-                SlotAssignment(
-                    slot_name=slot_name,
-                    branch_name=branch,
-                    assigned_at="2026-04-01T00:00:00+00:00",
-                    worktree_path=worktree_path,
-                ),
-            ),
-        ),
-    )
-    return worktree_path
+    """Seed pool worktrees so ``slot_name`` holds ``branch``. Returns worktree path."""
+    return _seed_pool(
+        fakes,
+        slots_root,
+        assignments=((slot_name, branch),),
+        pool_size=pool_size,
+    )[slot_name]
 
 
 # -- help / shape -----------------------------------------------------------
@@ -221,8 +244,8 @@ def test_slot_goto_schema(cli_group: ClinkrGroup) -> None:
 def test_slot_goto_slot_not_assigned_is_negative(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    # Seed an empty pool (load returns non-None but no assignments).
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    # Pool exists (4 detached slots) but slot-02 is unassigned.
+    _seed_pool(fakes, slots_root, assignments=())
 
     result = CliRunner().invoke(
         cli_group,
@@ -239,7 +262,7 @@ def test_slot_goto_slot_not_assigned_is_negative(cli_group: ClinkrGroup, tmp_pat
 def test_slot_goto_invalid_slot_num_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    _seed_pool(fakes, slots_root, assignments=())
 
     result = CliRunner().invoke(
         cli_group,
@@ -254,7 +277,7 @@ def test_slot_goto_invalid_slot_num_errors(cli_group: ClinkrGroup, tmp_path: Pat
 def test_slot_goto_invalid_slot_wt_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    _seed_pool(fakes, slots_root, assignments=())
 
     result = CliRunner().invoke(
         cli_group,
@@ -269,7 +292,7 @@ def test_slot_goto_invalid_slot_wt_errors(cli_group: ClinkrGroup, tmp_path: Path
 def test_slot_goto_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    _seed_pool(fakes, slots_root, assignments=())
 
     result = CliRunner().invoke(
         cli_group,
@@ -284,7 +307,7 @@ def test_slot_goto_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -
 def test_slot_goto_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    _seed_pool(fakes, slots_root, assignments=())
 
     result = CliRunner().invoke(
         cli_group,
@@ -299,7 +322,7 @@ def test_slot_goto_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Pa
 def test_slot_goto_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    # No prior `save` — pool_state.exists() is False.
+    # No managed slot worktrees seeded — inventory.pool_size == 0.
 
     result = CliRunner().invoke(
         cli_group,
@@ -308,14 +331,16 @@ def test_slot_goto_pool_empty_errors(cli_group: ClinkrGroup, tmp_path: Path) -> 
     )
 
     assert result.exit_code == 2
-    assert "No pool configured" in result.output
+    assert "No managed slots configured" in result.output
+    assert "slot init" in result.output
 
 
 def test_slot_goto_worktree_missing_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root)
-    # Pool.json references the worktree but it's gone from disk.
+    # Inventory still reports the assignment (worktree present in git's view) but
+    # the directory is gone from disk.
     fakes.storage._existing_paths.discard(worktree_path)
 
     result = CliRunner().invoke(
@@ -368,7 +393,7 @@ def test_slot_goto_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Pat
 def test_slot_goto_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
-    fakes.pool_state.save(PoolState(pool_size=4, assignments=()))
+    _seed_pool(fakes, slots_root, assignments=())
 
     result = CliRunner().invoke(
         cli_group,
