@@ -95,17 +95,17 @@ async function resolveTrunk(pi: ExtensionAPI, ctx: ExtensionContext): Promise<st
 
 function renderObjective(ctx: ExtensionContext, state: ObjectiveState): void {
 	if (state.kind === "objective") {
-		ctx.ui.setStatus(UI_KEY, `objective: ${state.slug}`);
+		ctx.ui.setStatus(UI_KEY, ctx.ui.theme.fg("dim", `obj: ${state.slug}`));
 		ctx.ui.setWidget(UI_KEY, [`Objective: ${state.slug}`]);
 		return;
 	}
 
 	if (state.kind === "none") {
-		ctx.ui.setStatus(UI_KEY, "objective: none");
+		ctx.ui.setStatus(UI_KEY, undefined);
 		ctx.ui.setWidget(UI_KEY, undefined);
 		return;
 	}
 
-	ctx.ui.setStatus(UI_KEY, "objective: unavailable");
+	ctx.ui.setStatus(UI_KEY, ctx.ui.theme.fg("dim", "obj: unavailable"));
 	ctx.ui.setWidget(UI_KEY, undefined);
 }
