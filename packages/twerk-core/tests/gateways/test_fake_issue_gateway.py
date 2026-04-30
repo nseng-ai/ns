@@ -3,7 +3,13 @@
 import pytest
 
 from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.gh.types import Issue, IssueComment, PRChangedFile
+from twerk_core.gh.types import (
+    Issue,
+    IssueComment,
+    PRChangedFile,
+    PRInlineCommentInput,
+    PRReviewComment,
+)
 
 
 def _make_issue(number: int, *, state: str = "open") -> Issue:
@@ -161,3 +167,43 @@ def test_get_pr_changed_files_returns_seeded_files_by_pr_number() -> None:
 
     assert fake.get_pr_changed_files(47) == changed
     assert fake.get_pr_changed_files(99) == ()
+
+
+def test_get_pr_review_comments_returns_seeded_comments_by_pr_number() -> None:
+    comments = (
+        PRReviewComment(
+            id=1,
+            body="body",
+            author=_BOT,
+            path="app.py",
+            line=2,
+            created_at="2026-04-30T00:00:00Z",
+        ),
+    )
+    fake = FakeIssueGateway(pr_review_comments={47: comments})
+
+    assert fake.get_pr_review_comments(47) == comments
+    assert fake.get_pr_review_comments(99) == ()
+
+
+def test_create_pr_review_tracks_and_round_trips_inline_comments() -> None:
+    fake = FakeIssueGateway()
+    comments = (
+        PRInlineCommentInput(path="app.py", line=2, body="inline body"),
+        PRInlineCommentInput(path="other.py", line=3, body="other body"),
+    )
+
+    result = fake.create_pr_review(47, comments)
+
+    assert result.state == "COMMENTED"
+    assert fake._created_reviews == [(47, comments)]
+    stored = fake.get_pr_review_comments(47)
+    assert [comment.body for comment in stored] == ["inline body", "other body"]
+    assert [comment.author for comment in stored] == [_BOT, _BOT]
+
+
+def test_create_pr_review_supports_error_injection() -> None:
+    fake = FakeIssueGateway(raise_on={"create_pr_review": RuntimeError("boom")})
+
+    with pytest.raises(RuntimeError, match="boom"):
+        fake.create_pr_review(47, (PRInlineCommentInput(path="app.py", line=2, body="body"),))

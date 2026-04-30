@@ -12,6 +12,9 @@ from twerk_reviewer.cli.reviewer.exec.format_findings_comment import (
 from twerk_reviewer.cli.reviewer.exec.post_findings_comment import (
     post_findings_comment_command,
 )
+from twerk_reviewer.cli.reviewer.exec.post_inline_findings import (
+    post_inline_findings_command,
+)
 
 
 def build_exec_group() -> ClinkrGroup:
@@ -19,7 +22,7 @@ def build_exec_group() -> ClinkrGroup:
         name="exec",
         help="Commands used by reviewer CI automation.",
         hidden=True,
-        operations=[classify_inline_findings_command],
+        operations=[classify_inline_findings_command, post_inline_findings_command],
     )
     group.add_command(format_findings_comment_command)
     group.add_command(post_findings_comment_command)

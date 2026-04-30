@@ -12,9 +12,11 @@ from twerk_core.gh.types import (
     Issue,
     IssueComment,
     PRChangedFile,
+    PRInlineCommentInput,
     PRLookupError,
     PRReview,
     PRReviewComment,
+    PRReviewSubmission,
     PRReviewThread,
     PRSummary,
     Reaction,
@@ -273,6 +275,34 @@ class RealIssueGateway(IssueGateway):
             for file in raw_files
         )
 
+    def get_pr_review_comments(self, pr_number: int) -> tuple[PRReviewComment, ...]:
+        owner, repo = _get_owner_repo()
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{owner}/{repo}/pulls/{pr_number}/comments",
+                "--paginate",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        raw_comments = _load_paginated_array_output(result.stdout)
+        return tuple(
+            PRReviewComment(
+                id=comment["id"],
+                body=comment["body"],
+                # user can be null when the GitHub account is deleted.
+                author=comment["user"]["login"] if comment["user"] else "",
+                path=comment["path"],
+                line=comment.get("line"),
+                start_line=comment.get("start_line"),
+                created_at=comment["created_at"],
+            )
+            for comment in raw_comments
+        )
+
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         owner, repo = _get_owner_repo()
         result = subprocess.run(
@@ -356,6 +386,41 @@ class RealIssueGateway(IssueGateway):
             line=comment.get("line"),
             start_line=comment.get("startLine"),
             created_at=comment["createdAt"],
+        )
+
+    def create_pr_review(
+        self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
+    ) -> PRReviewSubmission:
+        owner, repo = _get_owner_repo()
+        body = {
+            "event": "COMMENT",
+            "comments": [
+                {"path": comment.path, "line": comment.line, "body": comment.body}
+                for comment in comments
+            ],
+        }
+        cmd = [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
+            "--input",
+            "-",
+        ]
+        result = subprocess.run(
+            cmd,
+            input=json.dumps(body),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        review = json.loads(result.stdout)
+        return PRReviewSubmission(
+            id=review["node_id"],
+            state=review["state"],
+            body=review.get("body") or "",
+            submitted_at=review.get("submitted_at") or "",
         )
 
     def add_comment(self, pr_number: int, body: str) -> IssueComment:

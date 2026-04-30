@@ -106,6 +106,25 @@ class PRReview:
 
 
 @dataclass(frozen=True)
+class PRInlineCommentInput:
+    """One inline comment to submit as part of a PR review."""
+
+    path: str
+    line: int
+    body: str
+
+
+@dataclass(frozen=True)
+class PRReviewSubmission:
+    """Result of creating a PR review."""
+
+    id: str
+    state: PRReviewState
+    body: str
+    submitted_at: str
+
+
+@dataclass(frozen=True)
 class IssueComment:
     """A comment on a GitHub issue or PR discussion thread."""
 
