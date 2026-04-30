@@ -88,18 +88,19 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     # Worktree directory was created on disk via RealSlotsStorageGateway.
     assert (slots_root / "repos" / "repo" / "worktrees" / "slot-01").is_dir()
 
-    # `list` reflects the assignment in its JSON output.
+    # `list` reflects the assignment in its JSON output. Inventory is derived
+    # from Git worktree state, so the only row is the one `checkout` created.
     json_list = runner.invoke(cli, ["list", "--format", "json"], obj=_obj(ctx))
     assert json_list.exit_code == 0, json_list.output
     payload = json.loads(json_list.output)
     assert payload["exit_code"] == 0
     data = payload["data"]
+    assert data["pool_size"] == 1
+    assert len(data["rows"]) == 1
     assigned = [r for r in data["rows"] if r["status"] == "assigned"]
     assert len(assigned) == 1
     assert assigned[0]["branch"] == "feat/one"
     assert assigned[0]["slot_name"] == "slot-01"
-    unallocated = [r for r in data["rows"] if r["status"] == "unallocated"]
-    assert len(unallocated) == 15
 
     # Human table also shows the branch.
     human_list = runner.invoke(
