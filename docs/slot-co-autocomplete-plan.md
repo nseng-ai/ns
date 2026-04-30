@@ -33,7 +33,7 @@ What is missing:
 
 ### Primary behavior
 
-When the user types `/slot-co `, Pi should offer branch suggestions.
+When the user types `/slot-co`, Pi should offer branch suggestions.
 
 When the user types `/slot-co fo`, Pi should narrow suggestions to matching branches, and Tab should complete from that list.
 
@@ -62,7 +62,7 @@ Modify the existing command registration block to include a `getArgumentCompleti
 
 Planned shape:
 
-- Input: the current argument prefix typed after `/slot-co `
+- Input: the current argument prefix typed after `/slot-co`
 - Output: a list of completion items or `null`
 
 This keeps the existing `handler` unchanged.
