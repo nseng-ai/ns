@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { AutocompleteItem } from "@mariozechner/pi-tui";
 
 type SlotCheckoutData = {
 	slot_name: string;
@@ -23,10 +24,27 @@ type SlotCheckoutEnvelope =
 	  };
 
 const COMMAND_NAME = "slot-co";
+const MAX_COMPLETIONS = 30;
+const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
+
+type BranchCandidate = {
+	name: string;
+	scope: "local" | "remote";
+};
 
 export default function slotCoExtension(pi: ExtensionAPI) {
+	let currentCwd = process.cwd();
+
+	pi.on("session_start", async (_event, ctx) => {
+		currentCwd = ctx.cwd;
+	});
+
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Check out a branch into a slot worktree and switch Pi to a fresh session there",
+		getArgumentCompletions: async (argumentPrefix) => {
+			const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
+			return completions.length > 0 ? completions : null;
+		},
 		handler: async (args, ctx) => {
 			const branch = args.trim();
 			if (branch.length === 0) {
@@ -95,6 +113,93 @@ async function checkoutSlot(
 		worktreePath: parsed.data.worktree_path,
 		alreadyAssigned: parsed.data.already_assigned,
 	};
+}
+
+async function getBranchCompletions(
+	pi: ExtensionAPI,
+	cwd: string,
+	argumentPrefix: string,
+): Promise<AutocompleteItem[]> {
+	const trimmedPrefix = argumentPrefix.trim();
+	if (/\s/.test(trimmedPrefix)) {
+		return [];
+	}
+
+	const candidates = await listBranchCandidates(pi, cwd);
+	if (!candidates) {
+		return [];
+	}
+
+	return filterBranchCandidates(candidates, trimmedPrefix)
+		.slice(0, MAX_COMPLETIONS)
+		.map((candidate) => ({
+			value: candidate.name,
+			label: candidate.name,
+			description: candidate.scope,
+		}));
+}
+
+async function listBranchCandidates(pi: ExtensionAPI, cwd: string): Promise<BranchCandidate[] | undefined> {
+	const result = await pi.exec(
+		"git",
+		["for-each-ref", `--format=${BRANCH_FORMAT}`, "refs/heads", "refs/remotes"],
+		{ cwd, timeout: 5_000 },
+	);
+	if (result.code !== 0) {
+		return undefined;
+	}
+
+	const seen = new Set<string>();
+	const candidates: BranchCandidate[] = [];
+	for (const line of result.stdout.split("\n")) {
+		const trimmedLine = line.trim();
+		if (trimmedLine.length === 0) {
+			continue;
+		}
+
+		const [name, ref] = trimmedLine.split("\t");
+		if (!name || !ref || name.endsWith("/HEAD")) {
+			continue;
+		}
+		if (seen.has(name)) {
+			continue;
+		}
+
+		seen.add(name);
+		candidates.push({
+			name,
+			scope: ref.startsWith("refs/heads/") ? "local" : "remote",
+		});
+	}
+
+	return candidates;
+}
+
+function filterBranchCandidates(candidates: BranchCandidate[], prefix: string): BranchCandidate[] {
+	if (prefix.length === 0) {
+		return sortBranchCandidates(candidates);
+	}
+
+	const exactMatches = candidates.filter((candidate) => candidate.name === prefix);
+	if (exactMatches.length > 0) {
+		return sortBranchCandidates(exactMatches);
+	}
+
+	const prefixMatches = candidates.filter((candidate) => candidate.name.startsWith(prefix));
+	if (prefixMatches.length > 0) {
+		return sortBranchCandidates(prefixMatches);
+	}
+
+	return sortBranchCandidates(candidates.filter((candidate) => candidate.name.includes(prefix)));
+}
+
+function sortBranchCandidates(candidates: BranchCandidate[]): BranchCandidate[] {
+	return [...candidates].sort((left, right) => {
+		if (left.scope !== right.scope) {
+			return left.scope === "local" ? -1 : 1;
+		}
+		return left.name.localeCompare(right.name);
+	});
 }
 
 function parseSlotCheckoutEnvelope(stdout: string): SlotCheckoutEnvelope | undefined {
