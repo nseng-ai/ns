@@ -1,10 +1,12 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 
 const COMMAND_NAME = "cp";
 const MODEL = "claude-haiku-4-5";
+const SPINNER_STATUS_KEY = "cp";
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SYSTEM_PROMPT = `You write terse checkpoint commit messages for coding agents.
 
 Given git status and diff, output exactly one git commit message:
@@ -42,7 +44,7 @@ export default function checkpointExtension(pi: ExtensionAPI) {
 
 			ctx.ui.notify("Drafting checkpoint commit message with Haiku…", "info");
 
-			const draft = await draftCommitMessage(pi, ctx.cwd, preflight.status, preflight.diff);
+			const draft = await draftCommitMessage(pi, ctx, preflight.status, preflight.diff);
 			if ("error" in draft) {
 				ctx.ui.notify(draft.error, "error");
 				return;
@@ -91,7 +93,7 @@ async function checkPreflight(
 
 async function draftCommitMessage(
 	pi: ExtensionAPI,
-	cwd: string,
+	ctx: ExtensionCommandContext,
 	status: string,
 	diff: string,
 ): Promise<{ message: string } | { error: string }> {
@@ -102,19 +104,21 @@ async function draftCommitMessage(
 		await writeFile(systemPromptPath, SYSTEM_PROMPT, "utf8");
 		await writeFile(userPromptPath, buildUserPrompt(status, diff), "utf8");
 
-		const result = await exec(
-			pi,
-			"bash",
-			[
-				"-lc",
-				'env -u CLAUDECODE claude -p --model "$1" --output-format text --system-prompt "$(cat \"$2\")" < "$3"',
+		const result = await withSpinner(ctx, "Drafting checkpoint message with Claude…", () =>
+			exec(
+				pi,
 				"bash",
-				MODEL,
-				systemPromptPath,
-				userPromptPath,
-			],
-			cwd,
-			120_000,
+				[
+					"-lc",
+					'env -u CLAUDECODE claude -p --model "$1" --output-format text --system-prompt "$(cat \"$2\")" < "$3"',
+					"bash",
+					MODEL,
+					systemPromptPath,
+					userPromptPath,
+				],
+				ctx.cwd,
+				120_000,
+			),
 		);
 		if (result.code !== 0) {
 			return { error: formatCommandError("Claude failed to draft a checkpoint message.", result) };
@@ -210,6 +214,28 @@ function stripCodeFence(text: string): string {
 		.replace(/^```[a-zA-Z0-9_-]*\n?/, "")
 		.replace(/\n?```$/, "")
 		.trim();
+}
+
+async function withSpinner<T>(
+	ctx: ExtensionCommandContext,
+	message: string,
+	operation: () => Promise<T>,
+): Promise<T> {
+	let frameIndex = 0;
+	const render = () => {
+		const frame = SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length];
+		frameIndex += 1;
+		ctx.ui.setStatus(SPINNER_STATUS_KEY, ctx.ui.theme.fg("accent", `${frame} ${message}`));
+	};
+
+	render();
+	const timer = setInterval(render, 120);
+	try {
+		return await operation();
+	} finally {
+		clearInterval(timer);
+		ctx.ui.setStatus(SPINNER_STATUS_KEY, undefined);
+	}
 }
 
 async function exec(
