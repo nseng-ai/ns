@@ -1,12 +1,11 @@
-"""Scenario tests for ``objective exec create-write``.
+"""Scenario tests for ``objective exec create``.
 
-The skill ``objective-create`` writes the agent's drafted ``body.md`` (and
-optionally ``roadmap.md``) to temp files and runs this command to perform
-the canonical writes. These tests exercise the contract end to end via
-``build_cli()``: the atomic re-validate-then-write semantics, the partial-
-write surface when a second write fails after the first has landed, the
-file-readability checks (caught before any write), and the same hard
-preconditions as ``create-precheck``.
+The skill ``objective-create`` calls this single command to validate a slug
+(via ``--dry-run``) before drafting prose, and again — without
+``--dry-run`` — to land the canonical ``body.md`` (and optional
+``roadmap.md``) once the prose is ready. These tests exercise the contract
+end to end via ``build_cli()`` with the standard fake gateways used across
+objective scenario tests.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead
 from twerk_objectives.context import ObjectiveCliContext
-from twerk_objectives.exec.create_write import WRITE_SCHEMA
+from twerk_objectives.exec.create import CREATE_SCHEMA
 from twerk_objectives.main import build_cli
 
 
@@ -66,15 +65,15 @@ def _write(tmp: Path, name: str, content: str) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def test_create_write_help(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "create-write", "-h"])
+def test_create_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "create", "-h"])
 
     assert result.exit_code == 0
-    assert "Usage: objective exec create-write" in result.output
+    assert "Usage: objective exec create" in result.output
 
 
-def test_create_write_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "create-write", "--schema"])
+def test_create_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "create", "--schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
@@ -82,11 +81,11 @@ def test_create_write_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
 
 
 # ---------------------------------------------------------------------------
-# happy path: body only
+# happy paths: write
 # ---------------------------------------------------------------------------
 
 
-def test_create_write_body_only(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_create_body_only(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     body = _write(tmp_path, "body.md", "# Widget Rewrite\n\nStatus: planning\n")
     obj = _make_obj(gateway=gateway)
@@ -95,7 +94,7 @@ def test_create_write_body_only(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -107,30 +106,24 @@ def test_create_write_body_only(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["schema"] == WRITE_SCHEMA
+    assert data["schema"] == CREATE_SCHEMA
+    assert data["canonical_branch"] == "master"
+    assert data["dry_run"] is False
     assert data["status"] == "ok"
     assert data["slug"] == "widget-rewrite"
-    assert data["target_branch"] == "master"
     files = data["files_written"]
     assert [f["file"] for f in files] == ["body.md"]
     assert files[0]["key"] == "widget-rewrite/body.md"
     assert files[0]["commit_sha"]
     assert data["error"] is None
-    # Actually landed.
     assert (
         gateway.get("objectives", "widget-rewrite/body.md", "master")
         == "# Widget Rewrite\n\nStatus: planning\n"
     )
-    # No roadmap synthesized.
     assert gateway.get("objectives", "widget-rewrite/roadmap.md", "master") is None
 
 
-# ---------------------------------------------------------------------------
-# happy path: body + roadmap, fixed write order
-# ---------------------------------------------------------------------------
-
-
-def test_create_write_body_and_roadmap(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_create_body_and_roadmap(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     body = _write(tmp_path, "body.md", "# body\n")
     roadmap = _write(tmp_path, "roadmap.md", "# roadmap\n")
@@ -140,7 +133,7 @@ def test_create_write_body_and_roadmap(cli_group: ClinkrGroup, tmp_path: Path) -
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -166,14 +159,59 @@ def test_create_write_body_and_roadmap(cli_group: ClinkrGroup, tmp_path: Path) -
 
 
 # ---------------------------------------------------------------------------
-# slug collision re-check at write time
+# happy paths: dry-run
 # ---------------------------------------------------------------------------
 
 
-def test_create_write_refuses_when_slug_now_collides(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
-    """A slug that became occupied between precheck and write must not write."""
+def test_create_dry_run_ok_for_fresh_slug(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "create", "widget-rewrite", "--dry-run", "--format", "json"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["schema"] == CREATE_SCHEMA
+    assert data["dry_run"] is True
+    assert data["status"] == "ok"
+    assert data["slug"] == "widget-rewrite"
+    assert data["files_written"] == []
+    # Critically, no write happened.
+    assert gateway.get("objectives", "widget-rewrite/body.md", "master") is None
+
+
+# ---------------------------------------------------------------------------
+# slug collision
+# ---------------------------------------------------------------------------
+
+
+def test_create_dry_run_slug_collision(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget-rewrite/body.md", "master", "# canonical\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "create", "widget-rewrite", "--dry-run", "--format", "json"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["status"] == "error"
+    err = data["error"]
+    assert err["reason"] == "slug_collision"
+    assert "widget-rewrite" in err["message"]
+    assert "objective-update" in err["message"]
+    assert data["slug"] is None
+
+
+def test_create_refuses_when_slug_now_collides(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    """A slug that became occupied between dry-run and write must not write."""
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", "# already there\n")
     body = _write(tmp_path, "body.md", "# body\n")
@@ -183,7 +221,7 @@ def test_create_write_refuses_when_slug_now_collides(
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -196,19 +234,18 @@ def test_create_write_refuses_when_slug_now_collides(
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
     assert data["status"] == "error"
-    err = data["error"]
-    assert err["reason"] == "slug_collision"
-    assert err["files_written"] == []
-    # The pre-existing content was not touched.
+    assert data["error"]["reason"] == "slug_collision"
+    assert data["files_written"] == []
     assert gateway.get("objectives", "widget-rewrite/body.md", "master") == "# already there\n"
 
 
 # ---------------------------------------------------------------------------
-# slug-format invalid -> structured error
+# slug-format validation
 # ---------------------------------------------------------------------------
 
 
-def test_create_write_invalid_slug_format(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_create_invalid_slug_format(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    """One representative case — full rule coverage lives in unit tests."""
     body = _write(tmp_path, "body.md", "# body\n")
     obj = _make_obj(gateway=FakeBranchMemoryGateway())
 
@@ -216,7 +253,7 @@ def test_create_write_invalid_slug_format(cli_group: ClinkrGroup, tmp_path: Path
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "Widget-Rewrite",
             "--body-file",
             str(body),
@@ -233,68 +270,13 @@ def test_create_write_invalid_slug_format(cli_group: ClinkrGroup, tmp_path: Path
 
 
 # ---------------------------------------------------------------------------
-# missing / unreadable files
+# unreadable input files (after click parse)
 # ---------------------------------------------------------------------------
 
 
-def test_create_write_body_file_missing_at_parse_time(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
-    """``click.Path(exists=True)`` rejects the missing path before our code runs."""
-    obj = _make_obj(gateway=FakeBranchMemoryGateway())
-
-    result = CliRunner().invoke(
-        cli_group,
-        [
-            "exec",
-            "create-write",
-            "widget-rewrite",
-            "--body-file",
-            str(tmp_path / "missing.md"),
-            "--format",
-            "json",
-        ],
-        obj=obj,
-    )
-
-    # click parsing rejection -> non-zero exit, no JSON envelope.
-    assert result.exit_code != 0
-
-
-def test_create_write_roadmap_file_missing_caught_before_body_write(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
-    """Roadmap missing must be caught before body.md is committed."""
-    gateway = FakeBranchMemoryGateway()
-    body = _write(tmp_path, "body.md", "# body\n")
-    obj = _make_obj(gateway=gateway)
-
-    result = CliRunner().invoke(
-        cli_group,
-        [
-            "exec",
-            "create-write",
-            "widget-rewrite",
-            "--body-file",
-            str(body),
-            "--roadmap-file",
-            str(tmp_path / "missing-roadmap.md"),
-            "--format",
-            "json",
-        ],
-        obj=obj,
-    )
-
-    # click parsing rejects the missing roadmap path before our code runs;
-    # critically, body.md must not have been written.
-    assert result.exit_code != 0
-    assert gateway.get("objectives", "widget-rewrite/body.md", "master") is None
-
-
-def test_create_write_body_file_unreadable_after_parse(
+def test_create_body_file_unreadable_after_parse(
     cli_group: ClinkrGroup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A file that exists at parse time but fails to read produces a structured error."""
     gateway = FakeBranchMemoryGateway()
     body = _write(tmp_path, "body.md", "# body\n")
     obj = _make_obj(gateway=gateway)
@@ -312,7 +294,7 @@ def test_create_write_body_file_unreadable_after_parse(
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -328,12 +310,11 @@ def test_create_write_body_file_unreadable_after_parse(
     err = data["error"]
     assert err["reason"] == "body_file_unreadable"
     assert "permission denied" in err["message"]
-    # No write happened.
     assert gateway.get("objectives", "widget-rewrite/body.md", "master") is None
-    assert err["files_written"] == []
+    assert data["files_written"] == []
 
 
-def test_create_write_roadmap_file_unreadable_caught_before_body_write(
+def test_create_roadmap_file_unreadable_caught_before_body_write(
     cli_group: ClinkrGroup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Roadmap unreadable must be caught BEFORE body.md is written."""
@@ -355,7 +336,7 @@ def test_create_write_roadmap_file_unreadable_caught_before_body_write(
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -371,22 +352,26 @@ def test_create_write_roadmap_file_unreadable_caught_before_body_write(
     data = json.loads(result.output)["data"]
     assert data["status"] == "error"
     assert data["error"]["reason"] == "roadmap_file_unreadable"
-    # Critically, body.md was NOT written.
+    # body.md was NOT written.
     assert gateway.get("objectives", "widget-rewrite/body.md", "master") is None
     assert gateway.get("objectives", "widget-rewrite/roadmap.md", "master") is None
 
 
-def test_create_write_partial_write_when_roadmap_put_fails(
+# ---------------------------------------------------------------------------
+# roadmap put fails after body succeeds → hard failure carrying body SHA
+# ---------------------------------------------------------------------------
+
+
+def test_create_roadmap_put_failure_surfaces_body_sha(
     cli_group: ClinkrGroup, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """If body.md write succeeds but roadmap.md ``brmem put`` raises, surface partial_write."""
     gateway = FakeBranchMemoryGateway()
     body = _write(tmp_path, "body.md", "# body\n")
     roadmap = _write(tmp_path, "roadmap.md", "# roadmap\n")
     obj = _make_obj(gateway=gateway)
 
     original_put = gateway.put
-    call_count = {"n": 0}
+    state: dict[str, Any] = {"calls": 0, "body_sha": None}
 
     def flaky_put(
         namespace: str | None,
@@ -394,9 +379,11 @@ def test_create_write_partial_write_when_roadmap_put_fails(
         branch: str,
         content: str,
     ) -> str:
-        call_count["n"] += 1
-        if call_count["n"] == 1:
-            return original_put(namespace, key, branch, content)
+        state["calls"] += 1
+        if state["calls"] == 1:
+            sha = original_put(namespace, key, branch, content)
+            state["body_sha"] = sha
+            return sha
         raise RuntimeError("simulated brmem failure")
 
     monkeypatch.setattr(gateway, "put", flaky_put)
@@ -405,7 +392,7 @@ def test_create_write_partial_write_when_roadmap_put_fails(
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -417,21 +404,37 @@ def test_create_write_partial_write_when_roadmap_put_fails(
         obj=obj,
     )
 
-    assert result.exit_code == 0, result.output
-    data = json.loads(result.output)["data"]
-    assert data["status"] == "error"
-    err = data["error"]
-    assert err["reason"] == "partial_write"
-    # body.md SHA carried in the failure payload for the recovery hint.
-    assert len(err["files_written"]) == 1
-    assert err["files_written"][0]["file"] == "body.md"
-    assert err["files_written"][0]["commit_sha"]
-    # body.md is permanent; roadmap.md never landed.
+    assert result.exit_code == 2, result.output
+    payload = json.loads(result.output)
+    assert payload["error_type"] == "roadmap_write_failed"
+    # The failure message carries the body.md commit SHA so the skill can
+    # render a recovery hint without a separate envelope branch.
     assert gateway.get("objectives", "widget-rewrite/body.md", "master") == "# body\n"
+    body_sha = state["body_sha"]
+    assert body_sha is not None
+    assert body_sha in payload["message"]
+    assert "objective-update widget-rewrite" in payload["message"]
+    # Roadmap never landed.
     assert gateway.get("objectives", "widget-rewrite/roadmap.md", "master") is None
-    # The top-level files_written reflects what actually persisted (body only).
-    assert [f["file"] for f in data["files_written"]] == ["body.md"]
-    assert data["files_written"][0]["commit_sha"] == err["files_written"][0]["commit_sha"]
+
+
+# ---------------------------------------------------------------------------
+# guard: --body-file required unless --dry-run
+# ---------------------------------------------------------------------------
+
+
+def test_create_requires_body_file_when_not_dry_run(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(gateway=FakeBranchMemoryGateway())
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "create", "widget-rewrite", "--format", "json"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 2, result.output
+    payload = json.loads(result.output)
+    assert payload["error_type"] == "body_file_required"
 
 
 # ---------------------------------------------------------------------------
@@ -439,7 +442,7 @@ def test_create_write_partial_write_when_roadmap_put_fails(
 # ---------------------------------------------------------------------------
 
 
-def test_create_write_detached_head_fails_hard(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_create_detached_head_fails_hard(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     body = _write(tmp_path, "body.md", "# body\n")
     obj = _make_obj(
         gateway=FakeBranchMemoryGateway(),
@@ -451,7 +454,7 @@ def test_create_write_detached_head_fails_hard(cli_group: ClinkrGroup, tmp_path:
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -466,7 +469,7 @@ def test_create_write_detached_head_fails_hard(cli_group: ClinkrGroup, tmp_path:
     assert payload["error_type"] == "detached_head"
 
 
-def test_create_write_not_in_repo_fails_hard(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_create_not_in_repo_fails_hard(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     body = _write(tmp_path, "body.md", "# body\n")
     obj = _make_obj(
         gateway=FakeBranchMemoryGateway(),
@@ -477,7 +480,7 @@ def test_create_write_not_in_repo_fails_hard(cli_group: ClinkrGroup, tmp_path: P
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -497,9 +500,7 @@ def test_create_write_not_in_repo_fails_hard(cli_group: ClinkrGroup, tmp_path: P
 # ---------------------------------------------------------------------------
 
 
-def test_create_write_envelope_shape_is_deterministic(
-    cli_group: ClinkrGroup, tmp_path: Path
-) -> None:
+def test_create_envelope_shape_is_deterministic(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     body = _write(tmp_path, "body.md", "# body\n")
     obj = _make_obj(gateway=FakeBranchMemoryGateway())
 
@@ -507,7 +508,7 @@ def test_create_write_envelope_shape_is_deterministic(
         cli_group,
         [
             "exec",
-            "create-write",
+            "create",
             "widget-rewrite",
             "--body-file",
             str(body),
@@ -522,12 +523,11 @@ def test_create_write_envelope_shape_is_deterministic(
         "schema",
         "canonical_branch",
         "requested_slug",
+        "dry_run",
         "status",
         "slug",
-        "target_branch",
         "files_written",
         "error",
     }
-    assert data["schema"] == WRITE_SCHEMA
+    assert data["schema"] == CREATE_SCHEMA
     assert data["canonical_branch"] == "master"
-    assert data["target_branch"] == "master"

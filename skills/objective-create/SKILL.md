@@ -2,8 +2,7 @@
 name: objective-create
 description: "Command: objective-create"
 allowed-tools:
-  - "Bash(objective exec create-precheck *)"
-  - "Bash(objective exec create-write *)"
+  - "Bash(objective exec create *)"
   - "Read"
   - "Write"
 ---
@@ -52,10 +51,10 @@ exists, `roadmap.md`; it never writes `notes.md`.
 
 ## Core Rules
 
-- **Canonical only.** Both helpers write to canonical `<trunk>`; do not
+- **Canonical only.** The helper writes to canonical `<trunk>`; do not
   attach to the current branch. Users run `objective-claim <slug>` to
-  attach a branch snapshot. The current branch is irrelevant — the helpers
-  only require it to be a normal (non-detached) branch.
+  attach a branch snapshot. The current branch is irrelevant — the helper
+  only requires it to be a normal (non-detached) branch.
 - **Use canonical templates.** Draft `body.md` from
   `../objective/templates/body-template.md` and `roadmap.md` from
   `../objective/templates/roadmap-template.md` when a roadmap is needed.
@@ -68,7 +67,7 @@ exists, `roadmap.md`; it never writes `notes.md`.
 
 ## Workflow
 
-The two `objective exec` helpers below own the deterministic mechanics
+The single `objective exec create` helper owns the deterministic mechanics
 (repo + branch checks, slug-format validation, collision check on trunk,
 and the canonical `brmem put` writes). Skill prose is reserved for the
 collaborative pieces: framing, slug naming, and template drafting.
@@ -103,16 +102,16 @@ objective. If the user asked only for creation and the slug is obvious,
 proceed. If multiple reasonable slugs imply different scopes, ask the user
 to choose before drafting.
 
-### 3. Validate The Slug
+### 3. (Optional) Validate The Slug Before Drafting
 
-Run the precheck before drafting prose so an invalid or already-taken slug
-does not waste effort:
+When the slug is uncertain or expensive prose would otherwise be wasted on a
+collision, run validation in dry-run mode first:
 
 ```bash
-objective exec create-precheck <slug> --format json
+objective exec create <slug> --dry-run --format json
 ```
 
-Read the returned envelope's `status` field:
+The envelope shape matches the write call below. Read `status`:
 
 - `status="ok"` — slug is well-formed and unused on canonical `<trunk>`.
   Proceed to drafting.
@@ -123,9 +122,8 @@ Read the returned envelope's `status` field:
   if the user wants to advance the existing objective, route to
   `objective-update <slug>` instead.
 
-Hard failures (`exit_code=2` with `error_type` of `not_in_repo` or
-`detached_head`) mean the run cannot continue regardless of the slug;
-report and stop.
+When the slug is obvious and the prose cost is low, skip `--dry-run` and let
+step 5 do the same validation as part of the write call.
 
 ### 4. Draft The Files
 
@@ -151,12 +149,12 @@ For `roadmap.md`, when drafted:
 
 ### 5. Write The Canonical Record
 
-Run the write helper. It re-validates the slug (catching any race since
-precheck), reads the temp files, and performs the canonical `brmem put`
-writes — `body.md` first, then `roadmap.md` if supplied:
+Run the create command. It validates the slug (catching any race with
+another caller) and performs the canonical `brmem put` writes — `body.md`
+first, then `roadmap.md` if supplied:
 
 ```bash
-objective exec create-write <slug> \
+objective exec create <slug> \
   --body-file <temp-body> \
   [--roadmap-file <temp-roadmap>] \
   --format json
@@ -167,21 +165,23 @@ Read the envelope:
 - `status="ok"` — every requested file landed. `files_written` carries each
   file's brmem commit SHA in stable order (body.md first).
 - `status="error"` with `reason="slug_collision"` — a race against another
-  caller occupied the slug after precheck. Pick a different slug and re-run
+  caller occupied the slug after step 3. Pick a different slug and re-run
   step 3 onward, or route the user to `objective-update`.
+- `status="error"` with `reason="invalid_slug_format"` — pick a different
+  slug and re-run.
 - `status="error"` with `reason="body_file_unreadable"` or
-  `roadmap_file_unreadable"` — the temp file vanished or is not UTF-8
-  readable. Re-write the temp file and re-run.
-- `status="error"` with `reason="partial_write"` — `body.md` landed
-  (commit SHA in `files_written`) but `roadmap.md` failed afterward. Brmem
-  is append-only; do not retry blindly. Surface the body's commit SHA, the
-  failing message, and recommend the user either run
-  `brmem put <slug>/roadmap.md --namespace objectives --branch <trunk> --file <temp-roadmap>`
-  manually or run `objective-update <slug>` to advance the snapshot.
+  `reason="roadmap_file_unreadable"` — the temp file vanished or is not
+  UTF-8 readable. Re-write the temp file and re-run.
+
+If the command exits with `error_type="roadmap_write_failed"` (exit code
+2), `body.md` already landed but the roadmap write failed afterward. The
+failure message contains the body's commit SHA. Brmem is append-only — do
+not retry blindly. Surface the SHA and the failing message and route the
+user to `objective-update <slug>` to advance the snapshot from there.
 
 ### 6. Final Output
 
-From the `create-write` JSON envelope, render:
+From the create JSON envelope, render:
 
 - objective title (from the conversation, not the JSON)
 - slug
@@ -200,9 +200,9 @@ to record progress.
 
 ## Edge Cases And Anti-Patterns
 
-- Detached `HEAD` or not in a git repo: `create-precheck` exits with the
+- Detached `HEAD` or not in a git repo: `create` exits with the
   `detached_head` or `not_in_repo` error; abort and describe briefly.
-- Canonical storage already carries `<slug>/`: `create-precheck` returns
+- Canonical storage already carries `<slug>/`: `create` returns
   `slug_collision`; pick a different slug or hand off to `objective-update`.
 - Vague slice plan: write only `body.md`; do not invent `roadmap.md`
   filler.
