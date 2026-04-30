@@ -15,7 +15,7 @@ from twerk_slots.cli.slot.resize import run_resize_slots
 def build_slot_group() -> ClinkrGroup:
     group = ClinkrGroup(
         name="slot",
-        help="Manage worktree pool slots.",
+        help="Manage the pool of Git-worktree-backed slots.",
         operations=[
             run_checkout_slot,
             run_free_slot,

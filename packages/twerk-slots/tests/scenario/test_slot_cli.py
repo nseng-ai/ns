@@ -102,7 +102,7 @@ def test_slot_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: slot" in result.output
-    assert "Manage worktree pool slots." in result.output
+    assert "Manage the pool of Git-worktree-backed slots." in result.output
     assert "--version" in result.output
     assert "list" in result.output
     assert "checkout" in result.output
@@ -116,7 +116,7 @@ def test_slot_list_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: slot list" in result.output
-    assert "List worktree pool slots." in result.output
+    assert "List worktree pool slots derived from Git worktree state." in result.output
     assert "--format" in result.output
     assert "--schema" in result.output
 

@@ -170,7 +170,7 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: slot free" in result.output
-    assert "Release one or more slot assignments" in result.output
+    assert "Detach one or more assigned managed slots at trunk" in result.output
     assert "--format" in result.output
     assert "--schema" in result.output
     # Short flags advertised in help.

@@ -120,7 +120,10 @@ def validate_assigned_and_clean(
 
 @clinkr_operation(
     name="free",
-    help="Release one or more slot assignments; keep the worktree directories for reuse.",
+    help=(
+        "Detach one or more assigned managed slots at trunk; "
+        "keep the worktree directories for reuse."
+    ),
     human_renderer=render_slot_free,
 )
 def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[SlotFreeResult]:
