@@ -4,6 +4,7 @@ from twerk_core.clinkr.group import ClinkrGroup
 from twerk_objectives.exec.absorb_patches import run_absorb_patches_objective
 from twerk_objectives.exec.claim_apply import run_claim_apply_objective
 from twerk_objectives.exec.claim_plan import run_claim_plan_objective
+from twerk_objectives.exec.create import run_create_objective
 from twerk_objectives.exec.current import run_current_objective
 from twerk_objectives.exec.digest import run_digest_objective
 from twerk_objectives.exec.reconcile_apply import run_reconcile_apply_objective
@@ -24,6 +25,7 @@ def build_exec_group() -> ClinkrGroup:
             run_reconcile_apply_objective,
             run_claim_plan_objective,
             run_claim_apply_objective,
+            run_create_objective,
         ],
         hidden=True,
     )
