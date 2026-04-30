@@ -9,6 +9,7 @@ import click
 
 from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRState
@@ -124,19 +125,19 @@ def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> 
 def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGcResult]:
     slots_ctx = load_slots_context(ctx)
     if isinstance(slots_ctx, NoRepoSentinel):
-        raise ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
+        Ensure.fail(error_type="not_in_repo", message=slots_ctx.message)
 
-    if not slots_ctx.pool_state.exists():
-        raise ClinkrExit.failure(
-            error_type="pool_empty",
-            message="No pool configured. Run `slot checkout` first.",
-        )
+    Ensure.true(
+        slots_ctx.pool_state.exists(),
+        error_type="pool_empty",
+        message="No pool configured. Run `slot checkout` first.",
+    )
 
-    if request.dry_run and request.force:
-        raise ClinkrExit.failure(
-            error_type="conflicting_flags",
-            message="--dry-run and --force are mutually exclusive.",
-        )
+    Ensure.true(
+        not (request.dry_run and request.force),
+        error_type="conflicting_flags",
+        message="--dry-run and --force are mutually exclusive.",
+    )
 
     plan = plan_gc(slots_ctx)
 

@@ -19,7 +19,9 @@ from brmem.gateway import (
 from brmem.gateway_access import get_branch_memory_gateway
 from brmem.validation import check_key_glob, first_failure
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -123,9 +125,12 @@ def run_copy(
         ("invalid_to_branch", check_branch_name(request.to_branch)),
         ("invalid_key_glob", key_glob_message),
     )
-    if validation_failure is not None:
-        error_type, message = validation_failure
-        raise ClinkrExit.failure(error_type=error_type, message=message)
+    error_type, message = validation_failure or ("", "")
+    Ensure.true(
+        validation_failure is None,
+        error_type=error_type,
+        message=message,
+    )
 
     gateway = get_branch_memory_gateway(ctx)
 
@@ -145,21 +150,20 @@ def run_copy(
     else:
         source_entries = all_source_entries
 
-    if not source_entries:
-        if request.key_glob is not None:
-            message = (
-                f"No entries on branch {request.from_branch} in namespace "
-                f"{request.namespace} match --key-glob {request.key_glob!r}."
-            )
-        else:
-            message = (
-                f"No entries found on branch {request.from_branch} in namespace "
-                f"{request.namespace}."
-            )
-        raise ClinkrExit.failure(
-            error_type="no_matching_entries",
-            message=message,
+    if request.key_glob is not None:
+        message = (
+            f"No entries on branch {request.from_branch} in namespace "
+            f"{request.namespace} match --key-glob {request.key_glob!r}."
         )
+    else:
+        message = (
+            f"No entries found on branch {request.from_branch} in namespace {request.namespace}."
+        )
+    source_entries = Ensure.truthy(
+        source_entries,
+        error_type="no_matching_entries",
+        message=message,
+    )
 
     all_dest_entries = gateway.list_entries(
         namespace=request.namespace,
@@ -175,26 +179,25 @@ def run_copy(
     else:
         existing_dest_keys = {entry.key for entry in all_dest_entries}
     conflicting_keys = sorted({entry.key for entry in source_entries} & existing_dest_keys)
-    if conflicting_keys and not request.overwrite:
-        joined = ", ".join(conflicting_keys)
-        raise ClinkrExit.failure(
-            error_type="destination_conflict",
-            message=(
-                f"Destination branch {request.to_branch} already has entries for: "
-                f"{joined}. Pass --overwrite to replace them."
-            ),
-        )
+    Ensure.true(
+        not conflicting_keys or request.overwrite,
+        error_type="destination_conflict",
+        message=(
+            f"Destination branch {request.to_branch} already has entries for: "
+            f"{', '.join(conflicting_keys)}. Pass --overwrite to replace them."
+        ),
+    )
 
     source_shas = {
         entry.key: _source_sha(gateway, request.namespace, entry.key, request.from_branch)
         for entry in source_entries
     }
     missing = [key for key, sha in source_shas.items() if sha is None]
-    if missing:
-        raise ClinkrExit.failure(
-            error_type="source_sha_unavailable",
-            message=f"Could not resolve source commit for keys: {', '.join(missing)}",
-        )
+    Ensure.true(
+        not missing,
+        error_type="source_sha_unavailable",
+        message=f"Could not resolve source commit for keys: {', '.join(missing)}",
+    )
 
     plan = _build_plan(
         request.namespace,
@@ -216,13 +219,13 @@ def run_copy(
             key_glob=request.key_glob,
         )
     except BrmemCopyConflictError as exc:
-        raise ClinkrExit.failure(
+        raise ClinkrFailure(
             error_type="destination_conflict",
             message=str(exc),
         ) from exc
     except subprocess.CalledProcessError as exc:
         details = (exc.stderr or "").strip() or str(exc)
-        raise ClinkrExit.failure(
+        raise ClinkrFailure(
             error_type="git_failure",
             message=f"Failed to copy branch memory: {details}",
         ) from exc

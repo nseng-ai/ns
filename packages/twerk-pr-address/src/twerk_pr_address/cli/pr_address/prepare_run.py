@@ -11,6 +11,7 @@ import click
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import (
     IssueComment,
@@ -56,7 +57,7 @@ class PrepareRunResult(JsonSerializable):
     Attributes:
         found: Whether a PR was resolved for the current branch.
         current_branch: The branch the helper was invoked on (None means
-            detached HEAD, surfaced as a `ClinkrExit.failure` before this
+            detached HEAD, surfaced as a `ClinkrFailure` before this
             result is constructed).
         number: PR number on the host repository.
         title: PR title at the time of the snapshot.
@@ -143,17 +144,16 @@ def run_prepare_run(
 ) -> ClinkrExit[PrepareRunResult]:
     git_gateway = get_git_gateway(ctx)
     branch_result = git_gateway.get_current_branch(Path.cwd())
-    if isinstance(branch_result, GitCommandFailure):
-        raise ClinkrExit.failure(
-            error_type="git_failed",
-            message=branch_result.message,
-        )
-    if isinstance(branch_result, DetachedHead):
-        raise ClinkrExit.failure(
-            error_type="detached_head",
-            message="Detached HEAD: prepare-run requires a checked-out branch.",
-        )
-    current_branch = branch_result
+    match branch_result:
+        case GitCommandFailure() as failure:
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
+        case DetachedHead():
+            raise ClinkrFailure(
+                error_type="detached_head",
+                message="Detached HEAD: prepare-run requires a checked-out branch.",
+            )
+        case str() as current_branch:
+            pass
 
     gateway = get_gh_issue_gateway(ctx)
     pr = gateway.get_pr_for_branch(current_branch)

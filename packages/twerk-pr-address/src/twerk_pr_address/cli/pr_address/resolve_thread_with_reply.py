@@ -8,6 +8,7 @@ from typing import Literal
 import click
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRReviewComment
@@ -40,22 +41,22 @@ def run_resolve_thread_with_reply(
     request: ResolveThreadWithReplyRequest,
 ) -> ClinkrExit[ResolveThreadWithReplyResult]:
     if request.mode == "fixed":
-        if request.message is None or not request.message.strip():
-            raise ClinkrExit.failure(
-                error_type="invalid_request",
-                message="mode='fixed' requires a non-empty message",
-            )
-        if request.commit_sha is None or not request.commit_sha.strip():
-            raise ClinkrExit.failure(
-                error_type="invalid_request",
-                message="mode='fixed' requires a non-empty commit_sha",
-            )
+        Ensure.truthy(
+            request.message and request.message.strip(),
+            error_type="invalid_request",
+            message="mode='fixed' requires a non-empty message",
+        )
+        Ensure.truthy(
+            request.commit_sha and request.commit_sha.strip(),
+            error_type="invalid_request",
+            message="mode='fixed' requires a non-empty commit_sha",
+        )
     elif request.mode == "explained":
-        if request.message is None or not request.message.strip():
-            raise ClinkrExit.failure(
-                error_type="invalid_request",
-                message="mode='explained' requires a non-empty message",
-            )
+        Ensure.truthy(
+            request.message and request.message.strip(),
+            error_type="invalid_request",
+            message="mode='explained' requires a non-empty message",
+        )
 
     normalized_message = request.message.strip() if request.message is not None else None
     normalized_sha = request.commit_sha.strip() if request.commit_sha is not None else None

@@ -6,7 +6,9 @@ from typing import Annotated, Literal
 import click
 
 from twerk_core.clinkr.context import load_typed_context
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.models import (
@@ -119,20 +121,17 @@ def run_review_command(
             harness_detection_gateway=reviewer_context.harness_detection,
         )
     except ReviewDefinitionReadError as exc:
-        raise ClinkrExit.failure(
-            error_type="review_definition_read_failed", message=str(exc)
-        ) from exc
+        raise ClinkrFailure(error_type="review_definition_read_failed", message=str(exc)) from exc
     except ReviewExecutorInvocationError as exc:
-        raise ClinkrExit.failure(
+        raise ClinkrFailure(
             error_type="review_execution_invocation_failed", message=str(exc)
         ) from exc
     except RepoRootUnavailableError as exc:
-        raise ClinkrExit.failure(error_type="repo_root_unavailable", message=str(exc)) from exc
+        raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except GitInvocationFailedError as exc:
-        raise ClinkrExit.failure(error_type="git_invocation_failed", message=str(exc)) from exc
+        raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
     except GitDiffFailedError as exc:
-        raise ClinkrExit.failure(error_type="git_diff_failed", message=str(exc)) from exc
+        raise ClinkrFailure(error_type="git_diff_failed", message=str(exc)) from exc
 
-    if isinstance(result, LocalReviewResult):
-        return ClinkrExit.ok(result)
-    raise ClinkrExit.failure(error_type=result.error_type, message=result.message)
+    result = Ensure.ideal_state(result)
+    return ClinkrExit.ok(result)

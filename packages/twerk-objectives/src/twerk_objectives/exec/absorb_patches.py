@@ -10,7 +10,9 @@ import click
 
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
+from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.absorbed_marker import (
@@ -93,60 +95,56 @@ def run_absorb_patches_objective(
     cwd = Path.cwd()
 
     match git.get_current_branch(cwd):
+        case GitCommandFailure() as failure:
+            raise ClinkrFailure(error_type="git_failed", message=failure.message)
         case DetachedHead():
-            raise ClinkrExit.failure(
+            raise ClinkrFailure(
                 error_type="detached_head",
                 message="Detached HEAD: objective-update requires a checked-out branch.",
             )
-        case GitCommandFailure() as failure:
-            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
         case str() as current_branch:
             pass
 
-    if current_branch == git.get_trunk_branch():
-        raise ClinkrExit.failure(
-            error_type="on_trunk_branch",
-            message=(
-                "objective-update runs on branch snapshots only. "
-                "Use objective-reconcile <slug> to update canonical state."
-            ),
-        )
+    Ensure.true(
+        current_branch != git.get_trunk_branch(),
+        error_type="on_trunk_branch",
+        message=(
+            "objective-update runs on branch snapshots only. "
+            "Use objective-reconcile <slug> to update canonical state."
+        ),
+    )
 
-    head_result = git.branch_head_oid(current_branch)
-    if isinstance(head_result, GitCommandFailure):
-        raise ClinkrExit.failure(error_type="git_failed", message=head_result.message)
-    if head_result != request.expected_head:
-        raise ClinkrExit.failure(
-            error_type="head_moved",
-            message=(
-                f"HEAD moved while updating {current_branch!r}: expected "
-                f"{request.expected_head}, found {head_result}. Re-run objective-update."
-            ),
-        )
+    head_result = Ensure.ideal_state(git.branch_head_oid(current_branch))
+    Ensure.true(
+        head_result == request.expected_head,
+        error_type="head_moved",
+        message=(
+            f"HEAD moved while updating {current_branch!r}: expected "
+            f"{request.expected_head}, found {head_result}. Re-run objective-update."
+        ),
+    )
 
     slug = slug_for_key(request.slug)
-    body_diagnostic = mctx.brmem_gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), current_branch)
-    if body_diagnostic is None:
-        raise ClinkrExit.failure(
-            error_type="slug_not_attached",
-            message=(
-                f"Objective {slug!r} is not attached to branch {current_branch!r}. "
-                f"Run `objective-claim {slug}` on this branch first."
-            ),
-        )
+    Ensure.not_none(
+        mctx.brmem_gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), current_branch),
+        error_type="slug_not_attached",
+        message=(
+            f"Objective {slug!r} is not attached to branch {current_branch!r}. "
+            f"Run `objective-claim {slug}` on this branch first."
+        ),
+    )
 
     trunk = resolve_trunk(git).trunk
     range_spec = f"{trunk}..HEAD"
-    facts = load_branch_patch_facts(git, range_spec, require_patch_ids=True)
-    if isinstance(facts, GitCommandFailure):
-        raise ClinkrExit.failure(error_type="git_failed", message=facts.message)
+    facts = Ensure.ideal_state(
+        load_branch_patch_facts(git, range_spec, require_patch_ids=True),
+    )
 
-    pid_by_sha = facts.pid_by_sha
-    if pid_by_sha is None:
-        raise ClinkrExit.failure(
-            error_type="git_failed",
-            message="git patch-id failed",
-        )
+    pid_by_sha = Ensure.not_none(
+        facts.pid_by_sha,
+        error_type="git_failed",
+        message="git patch-id failed",
+    )
     records = records_from_commits(facts.commits, pid_by_sha=pid_by_sha)
     marker_key = absorbed_patches_key(slug)
     old_diagnostic = mctx.brmem_gateway.check(OBJECTIVE_NAMESPACE, marker_key, current_branch)

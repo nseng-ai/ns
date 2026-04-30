@@ -9,6 +9,7 @@ import click
 
 from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
+from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.clinkr.operation import clinkr_operation
@@ -71,11 +72,11 @@ def run_completion_show(
     ctx: click.Context, request: CompletionShowRequest
 ) -> ClinkrExit[CompletionShowResult]:
     shell = request.shell or _detect_shell()
-    if shell not in _SUPPORTED_SHELLS:
-        raise ClinkrExit.failure(
-            error_type="unsupported_shell",
-            message=_unsupported_shell_message(shell),
-        )
+    Ensure.true(
+        shell in _SUPPORTED_SHELLS,
+        error_type="unsupported_shell",
+        message=_unsupported_shell_message(shell),
+    )
     return ClinkrExit.ok(CompletionShowResult(shell=shell, script=_activation_line(shell)))
 
 
@@ -119,11 +120,11 @@ def run_completion_install(
     ctx: click.Context, request: CompletionInstallRequest
 ) -> ClinkrExit[CompletionInstallResult]:
     shell = request.shell or _detect_shell()
-    if shell not in _SUPPORTED_SHELLS:
-        raise ClinkrExit.failure(
-            error_type="unsupported_shell",
-            message=_unsupported_shell_message(shell),
-        )
+    Ensure.true(
+        shell in _SUPPORTED_SHELLS,
+        error_type="unsupported_shell",
+        message=_unsupported_shell_message(shell),
+    )
 
     rc_path = _rc_path_for_shell(shell)
     existing = rc_path.read_text(encoding="utf-8") if rc_path.exists() else ""
