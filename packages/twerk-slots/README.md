@@ -35,7 +35,7 @@ slot-03  available              ~/.slots/repos/myrepo/worktrees/slot-03
 worktrees at trunk. It refuses to run if any managed `slot-XX` worktree
 already exists.
 
-`slot resize --size N` grows or shrinks the pool to N slots.
+`slot resize --size N` grows or shrinks the pool to N total slots.
 
 - **Grow** fills numbering gaps first (e.g. a missing `slot-02` between
   `slot-01` and `slot-03`), then extends past the highest existing
@@ -53,8 +53,8 @@ creates or removes slots on demand.
 ### `slot checkout BRANCH` / `slot checkout -b NEW [BASE]` / `slot checkout --current`
 
 Checks a branch out into the lowest-numbered clean detached managed
-slot, including the main worktree case (already-checked-out branches
-report their existing location instead of being moved).
+slot. Branches already checked out elsewhere (including in the main
+worktree) report their existing location instead of being moved.
 
 - `-b NEW [BASE]` creates `NEW` from `BASE` (or `HEAD` if omitted) before
   allocation.
@@ -65,8 +65,8 @@ report their existing location instead of being moved).
 
 If the pool is full or has no clean detached slot, checkout fails with
 a `pool_full` error that lists the current assignments. Run
-`slot free` to release a slot, or `slot resize --size N+1` to grow the
-pool.
+`slot free` to release a slot, or increase `--size` via `slot resize`
+to grow the pool.
 
 ### `slot list`
 
@@ -92,8 +92,8 @@ Refuses if the slot is detached, missing, or out of range.
 
 Detaches one or more assigned managed slots back to trunk and keeps the
 worktree directories for reuse. Targets are passed via `-n/--num`,
-`-w/--wt`, or `-c/--current`, and may be combined; targets are
-deduplicated and processed in first-seen order.
+`-w/--wt`, or `-c/--current`, and may be combined; duplicates are
+removed and the rest are processed in first-seen order.
 
 `slot free` refuses dirty worktrees and unassigned slots up front, then
 rechecks each target immediately before detach so a concurrent change
@@ -112,7 +112,8 @@ interactive confirmation.
 ### `slot gt free-stack`
 
 Graphite-aware. Releases every slot in the current Graphite stack
-_except_ the slot at the current branch and the slot at trunk. Uses the
+_except_ the slot holding the current branch and the slot holding
+trunk. Uses the
 same `find_by_slot` resolution and dirty/assignment checks as
 `slot free`.
 
@@ -125,8 +126,9 @@ same `find_by_slot` resolution and dirty/assignment checks as
 - Does not carry an `assigned_at` timestamp or any other freshness data.
   If you need to know when a branch was assigned, use Git history.
 - Does not clean up legacy `pool.json` files. Earlier versions of this
-  package kept a `pool.json` under `~/.slots/repos/<repo>/`; orphans
-  are inert and left untouched. Delete them by hand if they bother you.
+  package kept a `pool.json` under `~/.slots/repos/<repo>/`; any
+  leftover files are inert and left untouched. Delete them by hand if
+  they bother you.
 
 ## Where state lives
 
@@ -158,7 +160,7 @@ Git worktrees are the only source of truth.
 - A managed slot is a Git worktree at
   `~/.slots/repos/<repo>/worktrees/slot-XX/`.
 - A slot is **assigned** when its worktree has a branch checked out, and
-  **available** when the worktree is detached.kkkk
+  **available** when the worktree is detached.
 - The pool size is the number of managed `slot-XX` worktrees on disk.
   Capacity is physical: there is no separate "configured size" stored
   anywhere.
