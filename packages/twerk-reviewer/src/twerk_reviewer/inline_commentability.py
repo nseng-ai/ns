@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.gh.types import PRChangedFile
 from twerk_reviewer.cli.reviewer.exec.format_findings_comment import FindingRow
 
@@ -45,9 +46,12 @@ class FallbackOnlyFinding:
 
 
 @dataclass(frozen=True)
-class InlineCommentabilityResult:
+class InlineCommentabilityResult(JsonSerializable):
     inlineable: tuple[InlineableFinding, ...]
     fallback_only: tuple[FallbackOnlyFinding, ...]
+
+    def to_json_dict(self) -> dict[str, object]:
+        return result_to_json_dict(self)
 
 
 def commentable_right_side_lines(patch: str | None) -> frozenset[int]:

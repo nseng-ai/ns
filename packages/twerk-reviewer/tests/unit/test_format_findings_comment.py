@@ -6,9 +6,9 @@ import pytest
 
 from twerk_reviewer.cli.reviewer.exec.format_findings_comment import (
     FindingRow,
-    FindingsParseError,
     FindingsPayload,
-    parse_findings_payload,
+    FindingsPayloadParseError,
+    parse_findings_payload_result,
     render_findings_comment,
 )
 
@@ -38,6 +38,18 @@ def _payload(
         count=len(findings) if count is None else count,
         findings=findings,
     )
+
+
+def _parse_payload(raw: str) -> FindingsPayload:
+    result = parse_findings_payload_result(raw)
+    assert isinstance(result, FindingsPayload)
+    return result
+
+
+def _parse_error(raw: str) -> FindingsPayloadParseError:
+    result = parse_findings_payload_result(raw)
+    assert isinstance(result, FindingsPayloadParseError)
+    return result
 
 
 # -- render_findings_comment ------------------------------------------------
@@ -164,7 +176,7 @@ def test_parse_success_wrapped_payload() -> None:
         }
     )
 
-    payload = parse_findings_payload(raw)
+    payload = _parse_payload(raw)
 
     assert payload.review_name == "dignified-python"
     assert payload.base_ref == "master"
@@ -176,7 +188,7 @@ def test_parse_success_wrapped_payload() -> None:
 
 
 def test_parse_missing_optional_fields_uses_defaults() -> None:
-    payload = parse_findings_payload(json.dumps({"exit_code": 0, "data": {}}))
+    payload = _parse_payload(json.dumps({"exit_code": 0, "data": {}}))
 
     assert payload.review_name == "unknown"
     assert payload.base_ref == "unknown"
@@ -202,7 +214,7 @@ def test_parse_count_derives_from_findings_when_absent() -> None:
         }
     )
 
-    payload = parse_findings_payload(raw)
+    payload = _parse_payload(raw)
 
     assert payload.count == 1
 
@@ -216,26 +228,30 @@ def test_parse_error_shape_produces_error_payload() -> None:
         }
     )
 
-    payload = parse_findings_payload(raw)
+    payload = _parse_payload(raw)
 
     assert payload.is_error is True
     assert payload.error_type == "harness_binary_missing"
     assert payload.error_message == "claude not on PATH"
 
 
-def test_parse_rejects_non_json() -> None:
-    with pytest.raises(FindingsParseError, match="valid JSON"):
-        parse_findings_payload("not json")
+def test_parse_result_returns_error_object_for_non_json() -> None:
+    result = _parse_error("not json")
+
+    assert result.error_type == "findings_parse_failed"
+    assert "valid JSON" in result.message
 
 
-def test_parse_rejects_non_object_root() -> None:
-    with pytest.raises(FindingsParseError, match="JSON object"):
-        parse_findings_payload("[]")
+def test_parse_result_returns_error_object_for_non_object_root() -> None:
+    result = _parse_error("[]")
+
+    assert "JSON object" in result.message
 
 
-def test_parse_rejects_non_list_findings() -> None:
-    with pytest.raises(FindingsParseError, match="findings"):
-        parse_findings_payload(json.dumps({"exit_code": 0, "data": {"findings": "oops"}}))
+def test_parse_result_returns_error_object_for_non_list_findings() -> None:
+    result = _parse_error(json.dumps({"exit_code": 0, "data": {"findings": "oops"}}))
+
+    assert "findings" in result.message
 
 
 def test_parse_rejects_finding_missing_required_field() -> None:
@@ -254,19 +270,21 @@ def test_parse_rejects_finding_missing_required_field() -> None:
             },
         }
     )
-    with pytest.raises(FindingsParseError, match="finding #0"):
-        parse_findings_payload(raw)
+    result = _parse_error(raw)
+
+    assert "finding #0" in result.message
 
 
-def test_parse_rejects_envelope_without_exit_code() -> None:
-    with pytest.raises(FindingsParseError, match="exit_code"):
-        parse_findings_payload(json.dumps({"data": {}}))
+def test_parse_result_returns_error_object_for_envelope_without_exit_code() -> None:
+    result = _parse_error(json.dumps({"data": {}}))
+
+    assert "exit_code" in result.message
 
 
 def test_parse_negative_envelope_renders_as_error() -> None:
     raw = json.dumps({"exit_code": 1, "message": "boom"})
 
-    payload = parse_findings_payload(raw)
+    payload = _parse_payload(raw)
 
     assert payload.is_error is True
     assert payload.error_type == "unknown"

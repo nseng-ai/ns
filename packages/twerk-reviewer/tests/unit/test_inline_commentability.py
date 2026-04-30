@@ -30,19 +30,85 @@ def _finding(path: str, line: int | None) -> FindingRow:
     )
 
 
-@pytest.mark.parametrize(
-    ("line", "expected"),
-    [
-        (11, True),  # added line
-        (10, True),  # context line
-        (12, True),  # context after deletion/addition
-        (32, True),  # second hunk added line
-        (30, False),  # deleted line is left-side-only
-        (99, False),
-    ],
-)
-def test_commentable_right_side_lines_handles_hunks(line: int, expected: bool) -> None:
-    assert (line in commentable_right_side_lines(_PATCH)) is expected
+def test_commentable_right_side_lines_includes_added_and_context_lines() -> None:
+    patch = """@@ -10,3 +20,4 @@ def main():
+ context before
+-old
++new
+ context after
+"""
+
+    assert commentable_right_side_lines(patch) == frozenset({20, 21, 22})
+
+
+def test_commentable_right_side_lines_excludes_deleted_lines_without_advancing_right_side() -> None:
+    patch = """@@ -10,5 +30,3 @@ def main():
+ context before
+-deleted one
+-deleted two
+ context after
++added after deletions
+"""
+
+    assert commentable_right_side_lines(patch) == frozenset({30, 31, 32})
+
+
+def test_commentable_right_side_lines_handles_new_file_hunk_starting_at_one() -> None:
+    patch = """@@ -0,0 +1,3 @@
++first
++second
++third
+"""
+
+    assert commentable_right_side_lines(patch) == frozenset({1, 2, 3})
+
+
+def test_commentable_right_side_lines_deleted_file_has_no_right_side_lines() -> None:
+    patch = """@@ -1,3 +0,0 @@
+-first
+-second
+-third
+"""
+
+    assert commentable_right_side_lines(patch) == frozenset()
+
+
+def test_commentable_right_side_lines_handles_single_line_hunk_header_without_counts() -> None:
+    patch = """@@ -7 +8 @@
+-old
++new
+"""
+
+    assert commentable_right_side_lines(patch) == frozenset({8})
+
+
+def test_commentable_right_side_lines_handles_multiple_hunks_exactly() -> None:
+    assert commentable_right_side_lines(_PATCH) == frozenset({10, 11, 12, 31, 32})
+
+
+def test_commentable_right_side_lines_ignores_no_newline_marker() -> None:
+    patch = """@@ -1 +1 @@
+-old
+\\ No newline at end of file
++new
+\\ No newline at end of file
+"""
+
+    assert commentable_right_side_lines(patch) == frozenset({1})
+
+
+def test_commentable_right_side_lines_ignores_text_before_first_hunk() -> None:
+    patch = """diff --git a/app.py b/app.py
+index 111..222 100644
+--- a/app.py
++++ b/app.py
++not actually a hunk line
+@@ -4,1 +4,2 @@
+ context
++added
+"""
+
+    assert commentable_right_side_lines(patch) == frozenset({4, 5})
 
 
 def test_commentable_right_side_lines_missing_patch_is_empty() -> None:
