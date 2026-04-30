@@ -90,6 +90,9 @@ any), and the worktree path. Aliased as `slot ls`.
 
 ### `slot goto --num N` / `slot goto --wt slot-XX`
 
+TODO: Change `slot goto` to copy the resolved worktree path to the
+clipboard, matching the other navigation commands.
+
 Prints the worktree path for an assigned slot. Use shell substitution to
 `cd` into it:
 
