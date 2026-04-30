@@ -16,10 +16,6 @@ class DetachedHead:
     """
 
     @property
-    def error_type(self) -> str:
-        return "detached_head"
-
-    @property
     def message(self) -> str:
         return "Detached HEAD: requires a checked-out branch."
 

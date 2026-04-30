@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from twerk_core.clinkr.non_ideal_state import error_type_for
 from twerk_reviewer.gateways.local_diff import real as local_diff_real
 from twerk_reviewer.gateways.local_diff.real import RealLocalDiffGateway
 from twerk_reviewer.gateways.review_definition.real import RealReviewDefinitionGateway
@@ -261,14 +262,14 @@ def test_real_review_execution_gateway_rejects_unknown_harness() -> None:
     result = gateway.run_review(_sample_request(adapter_name="banana"))
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_unknown"
+    assert error_type_for(result) == "harness_unknown"
 
 
 def test_real_review_execution_gateway_rejects_unsupported_model() -> None:
     result = RealReviewExecutionGateway().run_review(_sample_request(model="gpt-5-mini"))
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "model_not_supported_by_harness"
+    assert error_type_for(result) == "model_not_supported_by_harness"
 
 
 def test_real_review_execution_gateway_reports_missing_binary(
@@ -282,7 +283,7 @@ def test_real_review_execution_gateway_reports_missing_binary(
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_binary_missing"
+    assert error_type_for(result) == "harness_binary_missing"
 
 
 def test_real_review_execution_gateway_reports_non_zero_exit(
@@ -296,7 +297,7 @@ def test_real_review_execution_gateway_reports_non_zero_exit(
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_execution_failed"
+    assert error_type_for(result) == "harness_execution_failed"
     assert "model unavailable" in result.message
 
 
@@ -316,7 +317,7 @@ def test_real_review_execution_gateway_surfaces_missing_result_event(
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_missing_result_event"
+    assert error_type_for(result) == "claude_code_missing_result_event"
 
 
 def test_real_review_execution_gateway_uses_injected_registry(

@@ -92,9 +92,11 @@ except FileNotFoundError as exc:
 
 ## `NonIdealState`: collapse domain-failure match blocks
 
-When a domain helper returns a sum type whose error arms each carry a CLI-ready `error_type` and `message`, the failure-narrowing match block at the CLI boundary collapses to a single `Ensure.ideal_state(...)` call.
+When a domain helper returns a sum type whose error arms each carry a CLI-ready `message`, the failure-narrowing match block at the CLI boundary collapses to a single `Ensure.ideal_state(...)` call.
 
-`NonIdealState` is a `@runtime_checkable` Protocol in `twerk_core.clinkr.non_ideal_state`. A failure type qualifies by exposing `error_type: str` and `message: str` (as fields or `@property` methods); structural conformance is enough — no inheritance required.
+`NonIdealState` is a `@runtime_checkable` Protocol in `twerk_core.clinkr.non_ideal_state`. A failure type qualifies structurally by exposing a `message: str` (as a field or `@property` method); no inheritance required. The Protocol's runtime discriminator is therefore "has a `message` attribute" — this is acceptable because every call site passes an explicit union (`Slug | NoObjectiveOnBranch | …`) into `Ensure.ideal_state`, and success arms in those unions do not expose `message`.
+
+The CLI translation tag (`error_type`) is derived from the class name by `error_type_for`: `ClaudeCodeInvalidJson` → `"claude_code_invalid_json"`, `DetachedHead` → `"detached_head"`. A failure type that needs a different tag (e.g. an entrenched CLI string, or a context-overridable field) can expose an `error_type: str` attribute as an override; `error_type_for` honors that attribute when present.
 
 ```python
 # Domain layer (twerk_core.git.types):
@@ -102,14 +104,14 @@ When a domain helper returns a sum type whose error arms each carry a CLI-ready 
 class GitCommandFailure:
     message: str
     returncode: int | None
-    error_type: str = "git_failed"  # caller can override per context.
+    # Override-via-field: pins the CLI tag at "git_failed" instead of the
+    # derived "git_command_failure"; callers may also pass a per-context
+    # tag at construction time.
+    error_type: str = "git_failed"
 
 @dataclass(frozen=True)
 class DetachedHead:
-    @property
-    def error_type(self) -> str:
-        return "detached_head"
-
+    # No `error_type`; derived as "detached_head" from the class name.
     @property
     def message(self) -> str:
         return "Detached HEAD: requires a checked-out branch."
@@ -119,6 +121,6 @@ slug_resolution = Ensure.ideal_state(resolve_slug(mctx, request.slug))
 slug = slug_resolution.slug
 ```
 
-`error_type` is documented as a CLI concern, but a domain failure type pre-naming its own `error_type` is a deliberate, narrow concession: it lets one helper translate without callbacks or message-builder lambdas. Domain code still does not import `ClinkrExit` or construct CLI envelopes — `NonIdealState` is just a shape contract for translation. Failure types reused across operations with context-specific `error_type` strings should keep `error_type` as a constructor field with a sensible default (see `GitCommandFailure` above).
+`error_type` is fundamentally a CLI concern; derivation from the class name keeps domain failure types free of CLI boilerplate. Domain code still does not import `ClinkrExit` or construct CLI envelopes — `NonIdealState` is just a shape contract for translation. Failure types that need an entrenched or context-specific tag use the `error_type` field as an override (see `GitCommandFailure` above).
 
 When wording is genuinely caller-specific (e.g. a `DetachedHead` arm with a per-operation suffix), keep the explicit `if isinstance(...): raise ClinkrFailure(...)` block at the call site — `Ensure.ideal_state` is the right tool only when the failure type owns canonical wording.

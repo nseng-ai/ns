@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from twerk_core.clinkr.non_ideal_state import error_type_for
 from twerk_reviewer.harness.claude.adapter import CLAUDE_CODE_ADAPTER, CLAUDE_CODE_NAME
 from twerk_reviewer.harness_registry import HARNESS_ADAPTERS, resolve_adapter
 from twerk_reviewer.models import ReviewerFailure
@@ -19,7 +20,7 @@ def test_resolve_adapter_returns_registered_adapter() -> None:
 def test_resolve_adapter_returns_failure_for_unknown_name() -> None:
     result = resolve_adapter("banana")
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_unknown"
+    assert error_type_for(result) == "harness_unknown"
     assert "claude-code" in result.message
 
 

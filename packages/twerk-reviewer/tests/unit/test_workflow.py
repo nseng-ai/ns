@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from twerk_core.clinkr.non_ideal_state import error_type_for
 from twerk_reviewer import git_toplevel as git_toplevel_module
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
 from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
@@ -173,7 +174,7 @@ def test_unknown_harness_is_rejected(
     )
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_unknown"
+    assert error_type_for(result) == "harness_unknown"
 
 
 def test_no_harness_detected_surfaces_install_hint(
@@ -189,7 +190,7 @@ def test_no_harness_detected_surfaces_install_hint(
     )
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_not_configured"
+    assert error_type_for(result) == "harness_not_configured"
     assert "No harness detected" in result.message
 
 
@@ -207,7 +208,7 @@ def test_unknown_key_returns_failure_before_execution(
     )
 
     assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_definition_not_found"
+    assert error_type_for(result) == "review_definition_not_found"
     assert review_execution.executed_requests == ()
 
 
