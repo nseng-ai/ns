@@ -5,49 +5,22 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class NoParent:
-    """The current Graphite branch has no parent.
-
-    Conforms to `twerk_core.clinkr.non_ideal_state.NonIdealState` so CLI
-    callers can collapse the failure arm with `Ensure.ideal_state`.
-    """
-
-    @property
-    def error_type(self) -> str:
-        return "no_parent"
-
-    @property
-    def message(self) -> str:
-        return "Branch has no Graphite parent."
+    """The current Graphite branch has no parent."""
 
 
 @dataclass(frozen=True)
 class UntrackedBranch:
-    """Graphite does not track the current branch.
-
-    Conforms to `twerk_core.clinkr.non_ideal_state.NonIdealState` so CLI
-    callers can collapse the failure arm with `Ensure.ideal_state`.
-    """
+    """Graphite does not track the current branch."""
 
     message: str
-
-    @property
-    def error_type(self) -> str:
-        return "untracked_branch"
 
 
 @dataclass(frozen=True)
 class GtCommandFailure:
-    """A ``gt`` command failed.
-
-    Conforms to `twerk_core.clinkr.non_ideal_state.NonIdealState`. The
-    `error_type` field carries the CLI translation tag and defaults to
-    `"gt_failed"`; resolvers may override at construction time when a
-    more specific tag is appropriate.
-    """
+    """A ``gt`` command failed."""
 
     message: str
     returncode: int | None
-    error_type: str = "gt_failed"
 
 
 @dataclass(frozen=True)

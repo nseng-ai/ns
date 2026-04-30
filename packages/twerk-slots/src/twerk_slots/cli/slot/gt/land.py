@@ -6,12 +6,12 @@ from typing import Annotated
 import click
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import PRCommandError, PRMergeResult
-from twerk_slots.cli.slot.gt.context import load_slot_gt_context
+from twerk_slots.cli.slot.gt.context import SlotGtContext, load_slot_gt_context
 from twerk_slots.cli.slot.gt.land_plan import LandPlan, build_land_plan
+from twerk_slots.repo_context import NoRepoSentinel
 
 
 @dataclass(frozen=True)
@@ -93,7 +93,11 @@ def _result_from_plan(
     human_renderer=render_slot_gt_land,
 )
 def run_gt_land(ctx: click.Context, request: SlotGtLandRequest) -> ClinkrExit[SlotGtLandResult]:
-    gt_ctx = Ensure.ideal_state(load_slot_gt_context(ctx))
+    match load_slot_gt_context(ctx):
+        case NoRepoSentinel(message=message):
+            raise ClinkrExit.failure(error_type="not_in_repo", message=message)
+        case SlotGtContext() as gt_ctx:
+            pass
 
     plan = build_land_plan(gt_ctx)
 
@@ -113,7 +117,7 @@ def run_gt_land(ctx: click.Context, request: SlotGtLandRequest) -> ClinkrExit[Sl
         auto=request.auto,
     )
     if isinstance(merge_result, PRCommandError):
-        Ensure.fail(
+        raise ClinkrExit.failure(
             error_type="merge_failed",
             message=merge_result.stderr or f"gh pr merge exited {merge_result.returncode}",
         )

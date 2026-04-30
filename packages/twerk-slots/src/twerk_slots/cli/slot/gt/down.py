@@ -5,7 +5,6 @@ from typing import Annotated
 
 import click
 
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead
@@ -37,18 +36,18 @@ class SlotGtDownRequest:
 def run_gt_down(ctx: click.Context, request: SlotGtDownRequest) -> ClinkrExit[GtNavigationTarget]:
     gt_ctx_result = load_slot_gt_context(ctx)
     if isinstance(gt_ctx_result, NoRepoSentinel):
-        Ensure.fail(error_type="not_in_repo", message=gt_ctx_result.message)
+        raise ClinkrExit.failure(error_type="not_in_repo", message=gt_ctx_result.message)
     gt_ctx = gt_ctx_result
 
     slots_ctx = gt_ctx.slots
     branch_result = slots_ctx.git.get_current_branch(slots_ctx.repo.root)
     if isinstance(branch_result, GitFailure):
-        Ensure.fail(
+        raise ClinkrExit.failure(
             error_type="git_current_branch_failed",
             message=branch_result.message,
         )
     if isinstance(branch_result, DetachedHead):
-        Ensure.fail(
+        raise ClinkrExit.failure(
             error_type="detached_head",
             message=f"HEAD at {slots_ctx.repo.root} is detached. Check out a branch first.",
         )
@@ -56,14 +55,14 @@ def run_gt_down(ctx: click.Context, request: SlotGtDownRequest) -> ClinkrExit[Gt
 
     parent_result = gt_ctx.gt.parent_of(slots_ctx.repo.root)
     if isinstance(parent_result, UntrackedBranch):
-        Ensure.fail(
+        raise ClinkrExit.failure(
             error_type="untracked_branch",
             message=(
                 f"Current branch '{current}' is not tracked by Graphite. {parent_result.message}"
             ),
         )
     if isinstance(parent_result, GtCommandFailure):
-        Ensure.fail(error_type="gt_parent_failed", message=parent_result.message)
+        raise ClinkrExit.failure(error_type="gt_parent_failed", message=parent_result.message)
     if isinstance(parent_result, NoParent):
         raise ClinkrExit.negative(message=f"No downstack branch for '{current}'.")
     parent = parent_result

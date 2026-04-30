@@ -30,9 +30,7 @@ import click
 from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
-from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.exec.reconcile_plan import PLAN_SCHEMA
@@ -163,42 +161,42 @@ def run_reconcile_apply_objective(
 
     raw = request.plan_file.read_text(encoding="utf-8")
     try:
-        parsed = json.loads(raw)
+        envelope = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ClinkrFailure(
+        return ClinkrExit.failure(
             error_type="malformed_plan_file",
             message=f"Plan file is not valid JSON: {exc}",
-        ) from exc
+        )
 
-    envelope = Ensure.inst(
-        parsed,
-        dict,
-        error_type="malformed_plan_file",
-        message="Plan file must be a JSON object envelope.",
-    )
+    if not isinstance(envelope, dict):
+        return ClinkrExit.failure(
+            error_type="malformed_plan_file",
+            message="Plan file must be a JSON object envelope.",
+        )
 
     schema = envelope.get("schema")
-    Ensure.true(
-        schema == PLAN_SCHEMA,
-        error_type="schema_mismatch",
-        message=f"Plan-file schema {schema!r} does not match expected {PLAN_SCHEMA!r}.",
-    )
+    if schema != PLAN_SCHEMA:
+        return ClinkrExit.failure(
+            error_type="schema_mismatch",
+            message=(f"Plan-file schema {schema!r} does not match expected {PLAN_SCHEMA!r}."),
+        )
 
     canonical_branch = envelope.get("canonical_branch")
-    Ensure.true(
-        canonical_branch == trunk,
-        error_type="schema_mismatch",
-        message=(
-            f"Plan-file canonical_branch {canonical_branch!r} does not match expected {trunk!r}."
-        ),
-    )
+    if canonical_branch != trunk:
+        return ClinkrExit.failure(
+            error_type="schema_mismatch",
+            message=(
+                f"Plan-file canonical_branch {canonical_branch!r} does not match "
+                f"expected {trunk!r}."
+            ),
+        )
 
-    raw_slugs = Ensure.inst(
-        envelope.get("slugs", []),
-        list,
-        error_type="malformed_plan_file",
-        message="Plan-file 'slugs' must be a JSON array.",
-    )
+    raw_slugs = envelope.get("slugs", [])
+    if not isinstance(raw_slugs, list):
+        return ClinkrExit.failure(
+            error_type="malformed_plan_file",
+            message="Plan-file 'slugs' must be a JSON array.",
+        )
 
     slug_results: list[SlugApplyResult] = []
     for raw_slug in raw_slugs:

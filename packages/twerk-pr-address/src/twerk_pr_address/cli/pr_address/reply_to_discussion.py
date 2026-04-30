@@ -10,7 +10,6 @@ from typing import Any
 import click
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment, Reaction
@@ -56,11 +55,12 @@ def run_reply_to_discussion(
     ctx: click.Context,
     request: ReplyToDiscussionRequest,
 ) -> ClinkrExit[ReplyToDiscussionResult]:
-    normalized_response = Ensure.truthy(
-        request.response.strip(),
-        error_type="invalid_request",
-        message="response must not be empty",
-    )
+    normalized_response = request.response.strip()
+    if not normalized_response:
+        raise ClinkrExit.failure(
+            error_type="invalid_request",
+            message="response must not be empty",
+        )
 
     body = format_discussion_reply(
         comment_author=request.comment_author,

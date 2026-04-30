@@ -10,10 +10,10 @@ class ClinkrFailure(Exception):
     failure paths; only the dispatcher and the `ok` / `negative` return paths
     should build `ClinkrExit` directly.
 
-    Use `Ensure.true(...)` / `Ensure.truthy(...)` / `Ensure.not_none(...)` /
-    `Ensure.inst(...)` / `Ensure.ideal_state(...)` for precondition guards
-    instead of raising this directly when convenient — every helper raises
-    `ClinkrFailure` under the hood.
+    Use `ClinkrExit.ensure(...)` / `ClinkrExit.ensure_not_none(...)` for
+    precondition guards instead of raising this directly when convenient — the
+    helpers live on `ClinkrExit` so a single import covers both the return
+    contract and the failure path.
     """
 
     def __init__(self, *, error_type: str, message: str) -> None:

@@ -20,7 +20,6 @@ from brmem.gateway_access import (
 from brmem.key_validation import check_key
 from brmem.validation import first_failure
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -78,12 +77,9 @@ def run_get(
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
-    error_type, message = failure or ("", "")
-    Ensure.true(
-        failure is None,
-        error_type=error_type,
-        message=message,
-    )
+    if failure is not None:
+        error_type, message = failure
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
     entry_ref = EntryRef(
         namespace=request.namespace,
@@ -104,16 +100,16 @@ def run_get(
         at=request.at,
     )
 
-    namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
-    content = Ensure.not_none(
-        content,
-        error_type="branch_memory_missing",
-        message=(
-            f"No content for key {request.key} in namespace {namespace_label} "
-            f"on branch {entry_ref.branch} at {target}. "
-            f"Inspect with: git show {inspect_locator}"
-        ),
-    )
+    if content is None:
+        namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
+        raise ClinkrExit.failure(
+            error_type="branch_memory_missing",
+            message=(
+                f"No content for key {request.key} in namespace {namespace_label} "
+                f"on branch {entry_ref.branch} at {target}. "
+                f"Inspect with: git show {inspect_locator}"
+            ),
+        )
 
     return ClinkrExit.ok(
         GetResult(

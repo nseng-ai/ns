@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import NoReturn
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.gh.types import PRDetails, PRLookupError
 from twerk_core.git.types import DetachedHead
 from twerk_core.git.types import GitCommandFailure as GitFailure
@@ -25,8 +25,8 @@ class LandPlan(JsonSerializable):
     pr_base_ref_name: str
 
 
-def _guardrail_failure(message: str) -> NoReturn:
-    Ensure.fail(
+def _raise_guardrail(message: str) -> NoReturn:
+    raise ClinkrExit.failure(
         error_type="guardrail_failed",
         message=f"{message}\nmerge not attempted",
     )
@@ -55,44 +55,35 @@ def build_land_plan(gt_ctx: SlotGtContext) -> LandPlan:
     slots_ctx = gt_ctx.slots
     match slots_ctx.git.get_current_branch(slots_ctx.repo.root):
         case GitFailure(message=message):
-            _guardrail_failure(f"failed to determine current branch: {message}")
+            _raise_guardrail(f"failed to determine current branch: {message}")
         case DetachedHead():
-            _guardrail_failure(f"HEAD at {slots_ctx.repo.root} is detached")
+            _raise_guardrail(f"HEAD at {slots_ctx.repo.root} is detached")
         case str() as current:
             pass
 
     match gt_ctx.gt.trunk(slots_ctx.repo.root):
         case GtCommandFailure(message=message):
-            _guardrail_failure(f"failed to determine Graphite trunk: {message}")
+            _raise_guardrail(f"failed to determine Graphite trunk: {message}")
         case str() as trunk:
             pass
-    Ensure.true(
-        current != trunk,
-        error_type="guardrail_failed",
-        message=f"current branch '{current}' is trunk\nmerge not attempted",
-    )
+    if current == trunk:
+        _raise_guardrail(f"current branch '{current}' is trunk")
 
     match gt_ctx.gt.parent_of(slots_ctx.repo.root):
         case UntrackedBranch():
-            _guardrail_failure(f"current branch '{current}' is not tracked by Graphite")
+            _raise_guardrail(f"current branch '{current}' is not tracked by Graphite")
         case GtCommandFailure(message=message):
-            _guardrail_failure(f"failed to determine Graphite parent: {message}")
+            _raise_guardrail(f"failed to determine Graphite parent: {message}")
         case NoParent():
-            _guardrail_failure(f"current branch '{current}' has no Graphite parent")
+            _raise_guardrail(f"current branch '{current}' has no Graphite parent")
         case str() as parent:
             pass
-    Ensure.true(
-        parent == trunk,
-        error_type="guardrail_failed",
-        message=(
-            f"current branch '{current}' is not bottom-of-stack; parent is '{parent}'"
-            "\nmerge not attempted"
-        ),
-    )
+    if parent != trunk:
+        _raise_guardrail(f"current branch '{current}' is not bottom-of-stack; parent is '{parent}'")
 
     match slots_ctx.pr.get_pr_details_for_branch(current):
         case PRLookupError(stderr=stderr):
-            _guardrail_failure(stderr or f"no pull request found for branch {current!r}")
+            _raise_guardrail(stderr or f"no pull request found for branch '{current}'")
         case PRDetails() as details:
             pass
     pr_failure = _validate_pr_identity(
@@ -100,25 +91,16 @@ def build_land_plan(gt_ctx: SlotGtContext) -> LandPlan:
         current_branch=current,
         trunk_branch=trunk,
     )
-    Ensure.true(
-        pr_failure is None,
-        error_type="guardrail_failed",
-        message=f"{pr_failure}\nmerge not attempted",
-    )
+    if pr_failure is not None:
+        _raise_guardrail(pr_failure)
 
     match slots_ctx.git.branch_head_oid(current):
         case GitFailure(message=message):
-            _guardrail_failure(f"failed to determine local HEAD for '{current}': {message}")
+            _raise_guardrail(f"failed to determine local HEAD for '{current}': {message}")
         case str() as local_head:
             pass
-    Ensure.true(
-        local_head == details.head_ref_oid,
-        error_type="guardrail_failed",
-        message=(
-            f"local HEAD {local_head} does not match PR head {details.head_ref_oid}"
-            "\nmerge not attempted"
-        ),
-    )
+    if local_head != details.head_ref_oid:
+        _raise_guardrail(f"local HEAD {local_head} does not match PR head {details.head_ref_oid}")
 
     return LandPlan(
         repo_root=str(slots_ctx.repo.main_repo_root),

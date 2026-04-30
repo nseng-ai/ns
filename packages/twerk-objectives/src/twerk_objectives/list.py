@@ -11,9 +11,7 @@ from brmem.gateway import EntryRef, check_branch_name
 from brmem.validation import first_failure
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
-from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
@@ -158,16 +156,16 @@ def run_list_objectives(
     ctx: click.Context,
     request: ObjectiveListRequest,
 ) -> ClinkrExit[ObjectiveListResult]:
-    Ensure.true(
-        not (request.here and request.branch is not None),
-        error_type="conflicting_flags",
-        message="--here cannot be combined with --branch.",
-    )
-    Ensure.true(
-        not (request.include_closed and request.closed_only),
-        error_type="conflicting_flags",
-        message="--all cannot be combined with --closed.",
-    )
+    if request.here and request.branch is not None:
+        raise ClinkrExit.failure(
+            error_type="conflicting_flags",
+            message="--here cannot be combined with --branch.",
+        )
+    if request.include_closed and request.closed_only:
+        raise ClinkrExit.failure(
+            error_type="conflicting_flags",
+            message="--all cannot be combined with --closed.",
+        )
 
     mctx = load_typed_context(ctx, ObjectiveCliContext)
 
@@ -194,23 +192,18 @@ def run_list_objectives(
             None if request.branch is None else check_branch_name(request.branch),
         ),
     )
-    error_type, message = validation_failure or ("", "")
-    Ensure.true(
-        validation_failure is None,
-        error_type=error_type,
-        message=message,
-    )
+    if validation_failure is not None:
+        error_type, message = validation_failure
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
-    match resolve_current_objective_branch(mctx.git_gateway, request.branch):
-        case GitCommandFailure() as failure:
-            raise ClinkrFailure(error_type="git_failed", message=failure.message)
-        case DetachedHead():
-            raise ClinkrFailure(
-                error_type="detached_head",
-                message="Detached HEAD: brmem requires a checked-out branch.",
-            )
-        case str() as branch:
-            pass
+    branch = resolve_current_objective_branch(mctx.git_gateway, request.branch)
+    if isinstance(branch, GitCommandFailure):
+        raise ClinkrExit.failure(error_type="git_failed", message=branch.message)
+    if isinstance(branch, DetachedHead):
+        raise ClinkrExit.failure(
+            error_type="detached_head",
+            message="Detached HEAD: brmem requires a checked-out branch.",
+        )
 
     entries = mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
 

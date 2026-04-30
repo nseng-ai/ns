@@ -10,9 +10,7 @@ import click
 
 from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
-from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 from twerk_slots.allocation import (
@@ -118,7 +116,7 @@ def render_slot_checkout(result: SlotCheckoutResult) -> None:
 
 
 def _pool_full_failure(outcome: PoolFullError) -> NoReturn:
-    Ensure.fail(
+    raise ClinkrExit.failure(
         error_type="pool_full",
         message=(
             f"Pool is full. Oldest slot {outcome.oldest_slot} holds "
@@ -172,31 +170,30 @@ def run_checkout_slot(
     ctx: click.Context, request: SlotCheckoutRequest
 ) -> ClinkrExit[SlotCheckoutResult]:
     inputs_provided = sum((request.branch_name is not None, request.current))
-    Ensure.true(
-        inputs_provided <= 1,
-        error_type="mutually_exclusive_args",
-        message="Pass exactly one of BRANCH_NAME or --current.",
-    )
-    Ensure.true(
-        inputs_provided > 0,
-        error_type="missing_arg",
-        message="Pass BRANCH_NAME or --current to identify the branch.",
-    )
-    Ensure.true(
-        not (request.current and request.new_branch),
-        error_type="mutually_exclusive_args",
-        message="-b/--new cannot be combined with --current.",
-    )
-    Ensure.true(
-        not (request.base is not None and not request.new_branch),
-        error_type="base_without_new",
-        message="BASE is only valid with -b/--new.",
-    )
+    if inputs_provided > 1:
+        raise ClinkrExit.failure(
+            error_type="mutually_exclusive_args",
+            message="Pass exactly one of BRANCH_NAME or --current.",
+        )
+    if inputs_provided == 0:
+        raise ClinkrExit.failure(
+            error_type="missing_arg",
+            message="Pass BRANCH_NAME or --current to identify the branch.",
+        )
+    if request.current and request.new_branch:
+        raise ClinkrExit.failure(
+            error_type="mutually_exclusive_args",
+            message="-b/--new cannot be combined with --current.",
+        )
+    if request.base is not None and not request.new_branch:
+        raise ClinkrExit.failure(
+            error_type="base_without_new",
+            message="BASE is only valid with -b/--new.",
+        )
 
-    slots_ctx_result = load_slots_context(ctx)
-    if isinstance(slots_ctx_result, NoRepoSentinel):
-        Ensure.fail(error_type="not_in_repo", message=slots_ctx_result.message)
-    slots_ctx = slots_ctx_result
+    slots_ctx = load_slots_context(ctx)
+    if isinstance(slots_ctx, NoRepoSentinel):
+        raise ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
     now = datetime.now(UTC).isoformat()
@@ -207,9 +204,9 @@ def run_checkout_slot(
                 slots_ctx, cwd=slots_ctx.repo.root, now=now
             )
         except SlotAllocationError as exc:
-            raise ClinkrFailure(error_type="slot_allocation_error", message=str(exc)) from exc
+            raise ClinkrExit.failure(error_type="slot_allocation_error", message=str(exc)) from exc
         if isinstance(current_outcome, DetachedHeadError):
-            Ensure.fail(
+            raise ClinkrExit.failure(
                 error_type="detached_head",
                 message=(
                     f"HEAD at {current_outcome.cwd} is detached. Check out a branch "
@@ -217,7 +214,7 @@ def run_checkout_slot(
                 ),
             )
         if isinstance(current_outcome, DirtyCurrentWorktreeError):
-            Ensure.fail(
+            raise ClinkrExit.failure(
                 error_type="dirty_worktree",
                 message=(
                     f"Current worktree at {current_outcome.cwd} has uncommitted changes. "
@@ -242,24 +239,24 @@ def run_checkout_slot(
     created_branch = False
 
     if request.new_branch:
-        Ensure.true(
-            not branch_exists,
-            error_type="branch_exists",
-            message=(
-                f"Branch '{branch_name}' already exists. Drop -b to check out the existing branch."
-            ),
-        )
-        Ensure.true(
-            request.base is None or slots_ctx.git.branch_exists(request.base),
-            error_type="base_missing",
-            message=f"Base branch '{request.base}' does not exist.",
-        )
+        if branch_exists:
+            raise ClinkrExit.failure(
+                error_type="branch_exists",
+                message=(
+                    f"Branch '{branch_name}' already exists. "
+                    f"Drop -b to check out the existing branch."
+                ),
+            )
+        if request.base is not None and not slots_ctx.git.branch_exists(request.base):
+            raise ClinkrExit.failure(
+                error_type="base_missing",
+                message=f"Base branch '{request.base}' does not exist.",
+            )
         start_point = request.base if request.base is not None else "HEAD"
         slots_ctx.git.create_branch(branch_name, start_point, force=False)
         created_branch = True
-    else:
-        Ensure.true(
-            branch_exists,
+    elif not branch_exists:
+        raise ClinkrExit.failure(
             error_type="branch_missing",
             message=(
                 f"Branch '{branch_name}' does not exist. Pass -b/--new to create it from HEAD."
