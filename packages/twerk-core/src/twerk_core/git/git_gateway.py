@@ -73,6 +73,14 @@ class GitGateway(ABC):
         """Add a worktree for ``branch`` at ``path`` and return its info."""
 
     @abstractmethod
+    def add_detached_worktree(self, path: Path, ref: str) -> WorktreeInfo:
+        """Add a detached worktree at ``path`` pointing at ``ref``."""
+
+    @abstractmethod
+    def remove_worktree(self, path: Path) -> None:
+        """Remove the worktree rooted at ``path``."""
+
+    @abstractmethod
     def checkout_branch(self, cwd: Path, branch: str) -> None:
         """Check out ``branch`` in the worktree rooted at ``cwd``."""
 

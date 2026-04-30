@@ -7,7 +7,9 @@ from twerk_slots.cli.slot.free import run_free_slot
 from twerk_slots.cli.slot.gc import run_slot_gc
 from twerk_slots.cli.slot.goto import run_goto_slot
 from twerk_slots.cli.slot.gt.group import build_gt_group
+from twerk_slots.cli.slot.init import run_init_slots
 from twerk_slots.cli.slot.list import run_list_slots
+from twerk_slots.cli.slot.resize import run_resize_slots
 
 
 def build_slot_group() -> ClinkrGroup:
@@ -19,7 +21,9 @@ def build_slot_group() -> ClinkrGroup:
             run_free_slot,
             run_slot_gc,
             run_goto_slot,
+            run_init_slots,
             run_list_slots,
+            run_resize_slots,
         ],
     )
     group.add_command(build_completion_group())

@@ -88,6 +88,8 @@ class FakeGitGateway(GitGateway):
         self._on_add_worktree = on_add_worktree
 
         self._add_worktree_calls: list[tuple[Path, Path, str, bool]] = []
+        self._add_detached_worktree_calls: list[tuple[Path, Path, str]] = []
+        self._remove_worktree_calls: list[tuple[Path, Path]] = []
         self._checkout_calls: list[tuple[Path, str]] = []
         self._create_branch_calls: list[tuple[str, str, bool]] = []
         self._detach_head_calls: list[tuple[Path, str]] = []
@@ -154,6 +156,23 @@ class FakeGitGateway(GitGateway):
         if self._on_add_worktree is not None:
             self._on_add_worktree(path)
         return info
+
+    def add_detached_worktree(self, path: Path, ref: str) -> WorktreeInfo:
+        self._add_detached_worktree_calls.append((self._repo_root, path, ref))
+        info = WorktreeInfo(path=path, branch=None, is_bare=False)
+        self._worktrees.append(info)
+        self._existing_paths.add(path)
+        self._current_branch_by_path[path] = DetachedHead()
+        if self._on_add_worktree is not None:
+            self._on_add_worktree(path)
+        return info
+
+    def remove_worktree(self, path: Path) -> None:
+        self._remove_worktree_calls.append((self._repo_root, path))
+        self._worktrees = [wt for wt in self._worktrees if wt.path != path]
+        self._existing_paths.discard(path)
+        self._current_branch_by_path.pop(path, None)
+        self._file_status_by_path.pop(path, None)
 
     def checkout_branch(self, cwd: Path, branch: str) -> None:
         self._checkout_calls.append((cwd, branch))

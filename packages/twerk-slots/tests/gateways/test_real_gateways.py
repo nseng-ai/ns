@@ -262,6 +262,67 @@ def test_get_file_status_delegates_to_parser(monkeypatch: pytest.MonkeyPatch) ->
     ) == FileStatus(True, True, True)
 
 
+def test_add_detached_worktree_invokes_correct_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    target = Path("/wt/slot-01")
+    info = RealGitGateway(repo_root=Path("/r"), trunk_branch="main").add_detached_worktree(
+        target, "main"
+    )
+
+    assert captured == [["git", "worktree", "add", "--detach", str(target), "main"]]
+    assert info == WorktreeInfo(path=target, branch=None, is_bare=False)
+
+
+def test_add_detached_worktree_propagates_check_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(returncode=128, cmd=cmd, output="", stderr="boom")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        RealGitGateway(repo_root=Path("/r"), trunk_branch="main").add_detached_worktree(
+            Path("/wt/slot-01"), "main"
+        )
+
+
+def test_remove_worktree_invokes_correct_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    target = Path("/wt/slot-01")
+    RealGitGateway(repo_root=Path("/r"), trunk_branch="main").remove_worktree(target)
+
+    assert captured == [["git", "worktree", "remove", str(target)]]
+
+
+def test_remove_worktree_propagates_check_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(returncode=128, cmd=cmd, output="", stderr="boom")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        RealGitGateway(repo_root=Path("/r"), trunk_branch="main").remove_worktree(
+            Path("/wt/slot-01")
+        )
+
+
 def test_create_branch_without_force(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: list[list[str]] = []
 

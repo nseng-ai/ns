@@ -28,6 +28,11 @@ from twerk_reviewer.models import (
     ReviewExecutionResponse,
     ReviewFinding,
 )
+from twerk_slots.context import SlotsCliContext
+from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
+from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
+from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
+from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
 
 
 class FakePluginEntryPoint:
@@ -155,6 +160,71 @@ def test_pr_address_plugin_integration() -> None:
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["count"] == 0
+
+
+def test_slots_plugin_integration(tmp_path: Path) -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="slot",
+        value="twerk_slots.cli.plugin:build_slot_plugin",
+    )
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    slots_root = tmp_path / "slots"
+    repo_root = (tmp_path / "repo").resolve()
+    repo_root.mkdir()
+    pool_json_path = slots_root / "repos" / "repo" / "pool.json"
+    storage = FakeSlotsStorageGateway(existing_paths={repo_root, Path.cwd()})
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        git_common_dir=repo_root / ".git",
+        trunk_branch="main",
+        existing_paths={repo_root, Path.cwd()},
+        repository_root_by_cwd={Path.cwd().resolve(): repo_root},
+        on_add_worktree=storage.ensure_dir,
+    )
+    repo = discover_repo_or_sentinel(Path.cwd(), slots_root=slots_root, git=git)
+    assert isinstance(repo, RepoContext)
+    ctx = SlotsCliContext(
+        repo=repo,
+        git=git,
+        storage=storage,
+        pool_state=FakePoolStateGateway(pool_json_path),
+        clipboard=FakeClipboardGateway(),
+        pr=FakePRGateway(),
+        slots_root=slots_root,
+    )
+    obj = build_clinkr_context_object(lambda: ctx)
+
+    runner = CliRunner()
+
+    result = runner.invoke(parent, ["slot", "--help"])
+    assert result.exit_code == 0
+    for cmd in ("init", "resize", "list"):
+        assert cmd in result.output
+
+    result = runner.invoke(parent, ["slot", "init", "--size", "2", "--format", "json"], obj=obj)
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"]["pool_size"] == 2
+
+    result = runner.invoke(parent, ["slot", "resize", "--size", "4", "--format", "json"], obj=obj)
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"]["created"] == ["slot-03", "slot-04"]
+
+    result = runner.invoke(parent, ["slot", "list", "--format", "json"], obj=obj)
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    rows = payload["data"]["rows"]
+    assert [row["slot_name"] for row in rows] == [
+        "slot-01",
+        "slot-02",
+        "slot-03",
+        "slot-04",
+    ]
+    assert all(row["status"] == "available" for row in rows)
 
 
 def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:

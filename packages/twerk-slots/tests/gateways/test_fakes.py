@@ -56,6 +56,52 @@ def test_fake_add_worktree_records_mutation_and_exposes_new_worktree() -> None:
     assert gateway.get_current_branch(target) == "feat/x"
 
 
+def test_fake_add_detached_worktree_records_and_marks_existing() -> None:
+    repo_root = Path("/r")
+    ensured: list[Path] = []
+    gateway = FakeGitGateway(repo_root=repo_root, on_add_worktree=ensured.append)
+    target = Path("/wt/slot-01")
+
+    info = gateway.add_detached_worktree(target, "main")
+
+    assert info == WorktreeInfo(path=target, branch=None, is_bare=False)
+    assert gateway._add_detached_worktree_calls == [(repo_root, target, "main")]
+    assert gateway.path_exists(target)
+    worktrees = gateway.list_worktrees()
+    assert worktrees[0].path == target
+    assert worktrees[0].branch is None
+    assert ensured == [target]
+
+
+def test_fake_add_detached_worktree_returns_detached_head() -> None:
+    gateway = FakeGitGateway(repo_root=Path("/r"))
+    target = Path("/wt/slot-01")
+
+    gateway.add_detached_worktree(target, "main")
+
+    assert gateway.get_current_branch(target) == DetachedHead()
+
+
+def test_fake_remove_worktree_records_and_drops_state() -> None:
+    repo_root = Path("/r")
+    target = Path("/wt/slot-01")
+    gateway = FakeGitGateway(
+        repo_root=repo_root,
+        worktrees=(WorktreeInfo(path=target, branch=None, is_bare=False),),
+        existing_paths={target},
+        current_branch_by_path={target: DetachedHead()},
+        file_status_by_path={target: FileStatus(False, True, False)},
+    )
+
+    gateway.remove_worktree(target)
+
+    assert gateway._remove_worktree_calls == [(repo_root, target)]
+    assert gateway.list_worktrees() == ()
+    assert not gateway.path_exists(target)
+    assert target not in gateway._current_branch_by_path
+    assert target not in gateway._file_status_by_path
+
+
 def test_fake_git_create_branch_records_call() -> None:
     gateway = FakeGitGateway(repo_root=Path("/r"), branches={"main"})
 
