@@ -34,51 +34,25 @@ The same principle applies to other context-specific error shapes (HTTP response
 
 Operation bodies and the CLI-layer helpers they call must signal failures by raising `ClinkrFailure` rather than constructing `ClinkrExit.failure(...)`. The dispatcher catches `ClinkrFailure` at the CLI boundary and converts it into the `ClinkrExit.failure` envelope (exit code 2, matching `error_type` and `message`). Constructing `ClinkrExit.failure(...)` directly inside operation code leaks the CLI envelope shape into places that should only know about "this failed."
 
-## Precondition idiom: `Ensure`
-
-The canonical guard-clause idiom is the `Ensure` helper namespace. Every helper raises `ClinkrFailure` on violation; the dispatcher converts that into `ClinkrExit.failure(...)` at the CLI boundary.
-
 ```python
-from twerk_core.clinkr.ensure import Ensure
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.failure import ClinkrFailure
 
-# Boolean precondition.
-Ensure.true(
+# Precondition idiom: prefer ClinkrExit.ensure for guard clauses.
+ClinkrExit.ensure(
     request.file is not None,
     error_type="file_required",
     message="Pass --file or --stdin.",
 )
 
-# Truthy precondition; returns the value for chaining.
-slug_entries = Ensure.truthy(
-    [e for e in entries if e.key.startswith(prefix)],
-    error_type="slug_not_seeded",
-    message=f"No entries for {slug!r}.",
-)
-
-# Optional → T narrowing.
-source_path = Ensure.not_none(
+# Type-narrowing variant for `T | None` guards — assigns a `T` back.
+source_path = ClinkrExit.ensure_not_none(
     request.file or _default_source(request.key),
     error_type="source_file_missing",
     message="Cannot infer a default --file; provide --file or --stdin.",
 )
 
-# Sum-type → concrete type narrowing.
-envelope = Ensure.inst(
-    parsed,
-    dict,
-    error_type="malformed_plan_file",
-    message="Plan file must be a JSON object envelope.",
-)
-
-# Unconditional fail (NoReturn). Use after an isinstance/match guard has
-# already narrowed onto a failure arm, or as the terminator of an
-# exhaustive guard chain. Type checkers narrow past this call.
-if isinstance(result, SelectorError):
-    Ensure.fail(error_type="invalid_slot_num", message=result.message)
-
-# Explicit raise in an except arm — `Ensure.fail` does not chain causes,
-# so keep `raise ClinkrFailure(...) from exc` when you need `from exc`.
+# Explicit raise in nontrivial control flow (e.g. an except arm).
 try:
     raw = Path(source_path).read_bytes()
 except FileNotFoundError as exc:
@@ -88,37 +62,4 @@ except FileNotFoundError as exc:
     ) from exc
 ```
 
-`ClinkrExit.ok(...)` and `ClinkrExit.negative(...)` continue to be returned (or, for `negative`, raised) from operation bodies as before — only the `failure` constructor moves behind `ClinkrFailure` and the `Ensure` helpers.
-
-## `NonIdealState`: collapse domain-failure match blocks
-
-When a domain helper returns a sum type whose error arms each carry a CLI-ready `error_type` and `message`, the failure-narrowing match block at the CLI boundary collapses to a single `Ensure.ideal_state(...)` call.
-
-`NonIdealState` is a `@runtime_checkable` Protocol in `twerk_core.clinkr.non_ideal_state`. A failure type qualifies by exposing `error_type: str` and `message: str` (as fields or `@property` methods); structural conformance is enough — no inheritance required.
-
-```python
-# Domain layer (twerk_core.git.types):
-@dataclass(frozen=True)
-class GitCommandFailure:
-    message: str
-    returncode: int | None
-    error_type: str = "git_failed"  # caller can override per context.
-
-@dataclass(frozen=True)
-class DetachedHead:
-    @property
-    def error_type(self) -> str:
-        return "detached_head"
-
-    @property
-    def message(self) -> str:
-        return "Detached HEAD: requires a checked-out branch."
-
-# CLI layer:
-slug_resolution = Ensure.ideal_state(resolve_slug(mctx, request.slug))
-slug = slug_resolution.slug
-```
-
-`error_type` is documented as a CLI concern, but a domain failure type pre-naming its own `error_type` is a deliberate, narrow concession: it lets one helper translate without callbacks or message-builder lambdas. Domain code still does not import `ClinkrExit` or construct CLI envelopes — `NonIdealState` is just a shape contract for translation. Failure types reused across operations with context-specific `error_type` strings should keep `error_type` as a constructor field with a sensible default (see `GitCommandFailure` above).
-
-When wording is genuinely caller-specific (e.g. a `DetachedHead` arm with a per-operation suffix), keep the explicit `if isinstance(...): raise ClinkrFailure(...)` block at the call site — `Ensure.ideal_state` is the right tool only when the failure type owns canonical wording.
+The `.ensure` / `.ensure_not_none` helpers live on `ClinkrExit` so a single import covers the return contract and the precondition idiom; both raise `ClinkrFailure` under the hood. `ClinkrExit.ok(...)` and `ClinkrExit.negative(...)` continue to be returned (or, for `negative`, raised) from operation bodies as before — only the `failure` constructor moves behind `ClinkrFailure`.

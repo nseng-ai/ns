@@ -29,40 +29,17 @@ class SlugResolution(NamedTuple):
 
 @dataclass(frozen=True)
 class NoObjectiveOnBranch:
-    """No objective snapshots are stored on ``branch``.
-
-    Conforms to `twerk_core.clinkr.non_ideal_state.NonIdealState`.
-    """
+    """No objective snapshots are stored on ``branch``."""
 
     branch: str
-
-    @property
-    def error_type(self) -> str:
-        return "no_objective_on_branch"
-
-    @property
-    def message(self) -> str:
-        return f"No objective on branch {self.branch!r}."
 
 
 @dataclass(frozen=True)
 class AmbiguousObjective:
-    """More than one objective slug is stored on ``branch``.
-
-    Conforms to `twerk_core.clinkr.non_ideal_state.NonIdealState`.
-    """
+    """More than one objective slug is stored on ``branch``."""
 
     branch: str
     slugs: tuple[str, ...]
-
-    @property
-    def error_type(self) -> str:
-        return "ambiguous_objective"
-
-    @property
-    def message(self) -> str:
-        names = ", ".join(self.slugs)
-        return f"Multiple objectives on branch {self.branch!r}: {names}. Specify a SLUG."
 
 
 SlugResolutionError = NoObjectiveOnBranch | AmbiguousObjective | DetachedHead | GitCommandFailure

@@ -7,7 +7,6 @@ from dataclasses import dataclass
 import click
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.gh.types import IssueComment
@@ -36,11 +35,12 @@ def run_reply_to_review(
     ctx: click.Context,
     request: ReplyToReviewRequest,
 ) -> ClinkrExit[ReplyToReviewResult]:
-    normalized_summary = Ensure.truthy(
-        request.summary_markdown.strip(),
-        error_type="invalid_request",
-        message="summary_markdown must not be empty",
-    )
+    normalized_summary = request.summary_markdown.strip()
+    if not normalized_summary:
+        raise ClinkrExit.failure(
+            error_type="invalid_request",
+            message="summary_markdown must not be empty",
+        )
 
     body = format_review_reply(
         review_author=request.review_author,

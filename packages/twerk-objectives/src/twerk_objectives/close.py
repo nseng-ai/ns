@@ -10,7 +10,6 @@ import click
 
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_objectives.closed_marker import load_closed_marker, serialize_closed_marker
@@ -82,14 +81,14 @@ def run_close_objective(
     trunk = resolve_trunk(mctx.git_gateway).trunk
 
     body_diagnostic = gateway.check(OBJECTIVE_NAMESPACE, body_key(request.slug), trunk)
-    Ensure.true(
-        body_diagnostic is not None,
-        error_type="unknown_slug",
-        message=(
-            f"No canonical objective for slug {request.slug!r} on {trunk!r}. "
-            "Run `objective reconcile` to land it before closing."
-        ),
-    )
+    if body_diagnostic is None:
+        raise ClinkrExit.failure(
+            error_type="unknown_slug",
+            message=(
+                f"No canonical objective for slug {request.slug!r} on {trunk!r}. "
+                "Run `objective reconcile` to land it before closing."
+            ),
+        )
 
     existing = load_closed_marker(gateway, slug=request.slug, trunk_branch=trunk)
     if existing.present and existing.closed_at is not None:

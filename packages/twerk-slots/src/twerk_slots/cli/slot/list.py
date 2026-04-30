@@ -8,7 +8,6 @@ import click
 
 from twerk_core import get_console, make_table
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.format import format_relative_time
@@ -17,6 +16,7 @@ from twerk_slots.cli.slot.context import load_slots_context
 from twerk_slots.gateway.storage import SlotsStorageGateway
 from twerk_slots.naming import generate_slot_name
 from twerk_slots.pool_state import AssignmentFound, PoolState
+from twerk_slots.repo_context import NoRepoSentinel
 
 SlotStatus = Literal["unallocated", "available", "assigned"]
 
@@ -114,7 +114,9 @@ def _compose_rows(
     human_renderer=render_slot_list,
 )
 def run_list_slots(ctx: click.Context, request: SlotListRequest) -> ClinkrExit[SlotListResult]:
-    slots_ctx = Ensure.ideal_state(load_slots_context(ctx))
+    slots_ctx = load_slots_context(ctx)
+    if isinstance(slots_ctx, NoRepoSentinel):
+        raise ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
 
     state = slots_ctx.pool_state.load()
     if slots_ctx.pool_state.exists():

@@ -22,9 +22,7 @@ from brmem.gateway_access import (
 from brmem.key_validation import check_key
 from brmem.validation import first_failure
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
-from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 
 
@@ -79,7 +77,7 @@ def run_delete(
 ) -> ClinkrExit[DeleteResult]:
     branch = resolve_current_brmem_branch(ctx, request.branch)
 
-    validation_failure = first_failure(
+    failure = first_failure(
         (
             "invalid_namespace",
             None if request.namespace is None else check_namespace(request.namespace),
@@ -87,12 +85,9 @@ def run_delete(
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
-    error_type, message = validation_failure or ("", "")
-    Ensure.true(
-        validation_failure is None,
-        error_type=error_type,
-        message=message,
-    )
+    if failure is not None:
+        error_type, message = failure
+        raise ClinkrExit.failure(error_type=error_type, message=message)
 
     entry_ref = EntryRef(
         namespace=request.namespace,
@@ -111,7 +106,7 @@ def run_delete(
         )
     except KeyNotFoundError as exc:
         namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
-        raise ClinkrFailure(
+        raise ClinkrExit.failure(
             error_type="key_not_found",
             message=(
                 f"No entry to delete: key={entry_ref.key} namespace={namespace_label} "
@@ -121,7 +116,7 @@ def run_delete(
         ) from exc
     except subprocess.CalledProcessError as exc:
         details = (exc.stderr or "").strip() or str(exc)
-        raise ClinkrFailure(
+        raise ClinkrExit.failure(
             error_type="git_failure",
             message=f"Failed to delete branch memory: {details}",
         ) from exc

@@ -9,7 +9,7 @@ import click
 from brmem.context import BrmemCliContext
 from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
-from twerk_core.clinkr.failure import ClinkrFailure
+from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 
@@ -36,19 +36,19 @@ def resolve_current_brmem_branch(
     """Return ``requested_branch`` when set, else the current HEAD branch.
 
     Translates ``DetachedHead`` and ``GitCommandFailure`` from the git gateway
-    into ClinkrFailure exceptions, raising on error.
+    into ClinkrExit exceptions, raising on error.
 
     Raises:
-        ClinkrFailure: On git command failure or detached HEAD.
+        ClinkrExit: On git command failure or detached HEAD.
     """
     if requested_branch is not None:
         return requested_branch
 
     match get_git_gateway(ctx).get_current_branch(Path.cwd()):
         case GitCommandFailure() as failure:
-            raise ClinkrFailure(error_type="git_failed", message=failure.message)
+            raise ClinkrExit.failure(error_type="git_failed", message=failure.message)
         case DetachedHead():
-            raise ClinkrFailure(
+            raise ClinkrExit.failure(
                 error_type="detached_head",
                 message="Detached HEAD: brmem requires a checked-out branch.",
             )

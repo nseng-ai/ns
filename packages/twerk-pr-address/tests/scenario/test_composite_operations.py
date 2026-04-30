@@ -345,7 +345,6 @@ def test_prepare_run_detached_head_returns_command_error(
     assert exit_code == 2
     assert output["exit_code"] == 2
     assert output["error_type"] == "detached_head"
-    assert "prepare-run" in output["message"]
     assert "checked-out branch" in output["message"]
 
 

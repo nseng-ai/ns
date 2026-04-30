@@ -5,7 +5,6 @@ from typing import Annotated
 
 import click
 
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.types import DetachedHead
@@ -37,17 +36,17 @@ class SlotGtUpRequest:
 def run_gt_up(ctx: click.Context, request: SlotGtUpRequest) -> ClinkrExit[GtNavigationTarget]:
     gt_ctx = load_slot_gt_context(ctx)
     if isinstance(gt_ctx, NoRepoSentinel):
-        Ensure.fail(error_type="not_in_repo", message=gt_ctx.message)
+        raise ClinkrExit.failure(error_type="not_in_repo", message=gt_ctx.message)
 
     slots_ctx = gt_ctx.slots
     current_branch = slots_ctx.git.get_current_branch(slots_ctx.repo.root)
     if isinstance(current_branch, GitFailure):
-        Ensure.fail(
+        raise ClinkrExit.failure(
             error_type="git_current_branch_failed",
             message=current_branch.message,
         )
     if isinstance(current_branch, DetachedHead):
-        Ensure.fail(
+        raise ClinkrExit.failure(
             error_type="detached_head",
             message=f"HEAD at {slots_ctx.repo.root} is detached. Check out a branch first.",
         )
@@ -55,12 +54,12 @@ def run_gt_up(ctx: click.Context, request: SlotGtUpRequest) -> ClinkrExit[GtNavi
 
     children = gt_ctx.gt.children_of(slots_ctx.repo.root)
     if isinstance(children, UntrackedBranch):
-        Ensure.fail(
+        raise ClinkrExit.failure(
             error_type="untracked_branch",
             message=f"Current branch '{current}' is not tracked by Graphite. {children.message}",
         )
     if isinstance(children, GtCommandFailure):
-        Ensure.fail(error_type="gt_children_failed", message=children.message)
+        raise ClinkrExit.failure(error_type="gt_children_failed", message=children.message)
     if isinstance(children, tuple) and len(children) == 0:
         raise ClinkrExit.negative(message=f"No upstack branch for '{current}'.")
     if isinstance(children, tuple) and len(children) > 1:

@@ -10,7 +10,6 @@ import click
 
 from brmem.gateway_access import get_git_gateway, get_home_root
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 
@@ -55,15 +54,15 @@ def run_resolve_prompt(
     git_gateway = get_git_gateway(ctx)
     cwd = Path.cwd()
 
-    Ensure.true(
-        git_gateway.get_git_common_dir(cwd) is not None,
-        error_type="not-a-git-repo",
-        message=(
-            f"Not inside a git repository: {cwd}. "
-            "`brmem exec resolve-prompt` requires a git repo to resolve the project-local "
-            "prompt path; run it from inside a checkout."
-        ),
-    )
+    if git_gateway.get_git_common_dir(cwd) is None:
+        raise ClinkrExit.failure(
+            error_type="not-a-git-repo",
+            message=(
+                f"Not inside a git repository: {cwd}. "
+                "`brmem exec resolve-prompt` requires a git repo to resolve the project-local "
+                "prompt path; run it from inside a checkout."
+            ),
+        )
 
     repo_root = git_gateway.get_repository_root(cwd)
     home_root = get_home_root(ctx)
@@ -76,7 +75,7 @@ def run_resolve_prompt(
     if global_path.exists():
         return ClinkrExit.ok(ResolvePromptResult(path=global_path, tier="global"))
 
-    Ensure.fail(
+    raise ClinkrExit.failure(
         error_type="prompt-not-found",
         message=(
             f"No prompt named {request.name!r} found. Checked:\n"

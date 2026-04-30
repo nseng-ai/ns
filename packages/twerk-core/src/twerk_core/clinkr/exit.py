@@ -4,8 +4,10 @@ from enum import Enum
 from typing import Any, Generic, TypeVar
 
 from twerk_core.clinkr.dataclass_json import JsonSerializable, serialize_to_json_dict
+from twerk_core.clinkr.failure import ClinkrFailure
 
 T = TypeVar("T", bound=JsonSerializable)
+V = TypeVar("V")
 
 
 class ExitStatus(Enum):
@@ -21,7 +23,7 @@ class ClinkrExit(Exception, Generic[T]):
     paths inside operation bodies. For failures, raise `ClinkrFailure` instead
     of constructing `ClinkrExit.failure(...)` directly — the dispatcher
     converts the raised `ClinkrFailure` into the failure envelope at the CLI
-    boundary. For precondition guards, use the helpers on `Ensure`.
+    boundary.
     """
 
     def __init__(
@@ -76,6 +78,28 @@ class ClinkrExit(Exception, Generic[T]):
     @property
     def exit_code(self) -> int:
         return self.status.value
+
+    @staticmethod
+    def ensure(condition: bool, *, error_type: str, message: str) -> None:
+        """Raise `ClinkrFailure(error_type=..., message=...)` unless `condition` holds.
+
+        The dispatcher converts the raised `ClinkrFailure` into a
+        `ClinkrExit.failure(...)` envelope at the CLI boundary.
+        """
+        if not condition:
+            raise ClinkrFailure(error_type=error_type, message=message)
+
+    @staticmethod
+    def ensure_not_none(value: V | None, *, error_type: str, message: str) -> V:
+        """Return `value` if non-None; otherwise raise `ClinkrFailure`.
+
+        Type-narrowing variant of `.ensure` for `T | None` guards: assigning
+        the return value back to the binding gives type checkers a `T` rather
+        than `T | None`, so no follow-up `assert` is needed.
+        """
+        if value is None:
+            raise ClinkrFailure(error_type=error_type, message=message)
+        return value
 
     def to_envelope_dict(self) -> dict[str, Any]:
         envelope: dict[str, Any] = {"exit_code": self.exit_code}
