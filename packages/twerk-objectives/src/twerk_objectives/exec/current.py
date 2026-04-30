@@ -3,8 +3,9 @@
 Tightly coupled to the ``objective-current`` skill: emits a single
 self-contained Markdown brief covering the current branch's claimed
 objective + freshness, PR, brmem entries, and trunk relation. The skill
-simply runs this command and prints the output verbatim — no JSON
-parsing, no Markdown structure inference.
+simply runs this command and prints the output verbatim. The machine JSON
+contract also exposes structured branch/objective fields so extensions do
+not need to infer status from rendered Markdown.
 """
 
 from __future__ import annotations
@@ -45,9 +46,81 @@ class ObjectiveCurrentRequest:
     pass
 
 
+ObjectiveKind = Literal["claimed", "none"]
+StatusBadgeKind = Literal["objective", "none"]
+
+
+@dataclass(frozen=True)
+class CurrentObjectiveStatus:
+    kind: ObjectiveKind
+    slug: str | None = None
+    state: ObjectiveSnapshotState | None = None
+
+
+@dataclass(frozen=True)
+class CurrentStatusBadge:
+    kind: StatusBadgeKind
+    slug: str | None = None
+
+
 @dataclass(frozen=True)
 class CurrentPrompt(JsonSerializable):
     prompt: str
+    current_branch: str | None
+    trunk_branch: str
+    objective: CurrentObjectiveStatus
+    status_badge: CurrentStatusBadge
+
+    def to_json_dict(self) -> dict[str, object | None]:
+        return {
+            "prompt": self.prompt,
+            "current_branch": self.current_branch,
+            "trunk_branch": self.trunk_branch,
+            "objective": {
+                "kind": self.objective.kind,
+                "slug": self.objective.slug,
+                "state": self.objective.state,
+            },
+            "status_badge": {
+                "kind": self.status_badge.kind,
+                "slug": self.status_badge.slug,
+            },
+        }
+
+    @classmethod
+    def json_schema(cls) -> dict[str, object]:
+        return {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "current_branch": {"type": ["string", "null"]},
+                "trunk_branch": {"type": "string"},
+                "objective": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["claimed", "none"]},
+                        "slug": {"type": ["string", "null"]},
+                        "state": {"type": ["string", "null"], "enum": ["fresh", "stale", None]},
+                    },
+                    "required": ["kind", "slug", "state"],
+                },
+                "status_badge": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["objective", "none"]},
+                        "slug": {"type": ["string", "null"]},
+                    },
+                    "required": ["kind", "slug"],
+                },
+            },
+            "required": [
+                "current_branch",
+                "objective",
+                "prompt",
+                "status_badge",
+                "trunk_branch",
+            ],
+        }
 
 
 @dataclass(frozen=True)
@@ -165,7 +238,15 @@ def run_current_objective(
             upstack=(),
             warnings=tuple(warnings),
         )
-        return ClinkrExit.ok(CurrentPrompt(prompt=prompt))
+        return ClinkrExit.ok(
+            CurrentPrompt(
+                prompt=prompt,
+                current_branch=None,
+                trunk_branch=trunk,
+                objective=CurrentObjectiveStatus(kind="none"),
+                status_badge=CurrentStatusBadge(kind="none"),
+            )
+        )
 
     current_branch = branch_or_failure
     trunk = resolve_trunk(mctx.git_gateway).trunk
@@ -221,7 +302,15 @@ def run_current_objective(
         upstack=upstack,
         warnings=tuple(warnings),
     )
-    return ClinkrExit.ok(CurrentPrompt(prompt=prompt))
+    return ClinkrExit.ok(
+        CurrentPrompt(
+            prompt=prompt,
+            current_branch=current_branch,
+            trunk_branch=trunk,
+            objective=_build_current_objective_status(current_block, trunk=trunk),
+            status_badge=_build_current_status_badge(current_block, trunk=trunk),
+        )
+    )
 
 
 def _build_objective_summary(
@@ -267,6 +356,32 @@ def _resolve_in_scope_slug(
     if current_block.objectives_extra:
         return None
     return current_block.objective.slug
+
+
+def _build_current_objective_status(
+    current_block: _CurrentBranchBlock,
+    *,
+    trunk: str,
+) -> CurrentObjectiveStatus:
+    slug = _resolve_in_scope_slug(current_block, trunk=trunk)
+    if slug is None or current_block.objective is None:
+        return CurrentObjectiveStatus(kind="none")
+    return CurrentObjectiveStatus(
+        kind="claimed",
+        slug=slug,
+        state=current_block.objective.obj_state,
+    )
+
+
+def _build_current_status_badge(
+    current_block: _CurrentBranchBlock,
+    *,
+    trunk: str,
+) -> CurrentStatusBadge:
+    slug = _resolve_in_scope_slug(current_block, trunk=trunk)
+    if slug is None:
+        return CurrentStatusBadge(kind="none")
+    return CurrentStatusBadge(kind="objective", slug=slug)
 
 
 def _build_trunk_row(
