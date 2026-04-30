@@ -8,7 +8,6 @@ changes all stay exactly where you left them on every other branch.
 Pick up a code review, jump on a hotfix, or revisit yesterday's WIP
 without disturbing what you're doing now.
 
-
 ## Quick start
 
 ```
