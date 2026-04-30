@@ -68,7 +68,7 @@ def _compose_rows(inventory: SlotInventory) -> tuple[SlotRow, ...]:
 
 @clinkr_operation(
     name="list",
-    help="List worktree pool slots.",
+    help="List worktree pool slots derived from Git worktree state.",
     aliases=("ls",),
     human_renderer=render_slot_list,
 )

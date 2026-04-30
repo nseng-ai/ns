@@ -76,7 +76,9 @@ def _validate_removals(
 
 @clinkr_operation(
     name="resize",
-    help="Grow or shrink the worktree pool to --size slots.",
+    help=(
+        "Grow or shrink the worktree pool to --size slots (shrink refuses assigned or dirty slots)."
+    ),
     human_renderer=render_slot_resize,
 )
 def run_resize_slots(
