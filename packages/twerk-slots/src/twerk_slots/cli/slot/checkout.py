@@ -11,7 +11,6 @@ from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
-from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 from twerk_slots.checkout_planning import (
