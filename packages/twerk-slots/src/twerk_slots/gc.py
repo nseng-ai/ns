@@ -1,18 +1,17 @@
 """Slot garbage collection: free slots whose PR has merged or closed.
 
-``run_gc`` sweeps every assignment in the pool, classifies it via
-``ctx.pr.get_pr_for_branch``, and for MERGED/CLOSED PRs delegates to
-``free_slot_assignment`` so the slot returns to the free state
-(no assignment, worktree retained on a detached HEAD at trunk).
+``run_gc`` sweeps every assigned record in the slot inventory, classifies
+it via ``ctx.pr.get_pr_for_branch``, and for MERGED/CLOSED PRs detaches
+the worktree at trunk so the slot returns to the available state.
 
 The sweep is split into two phases:
 
-* :func:`plan_gc` classifies every assignment and returns a
+* :func:`plan_gc` classifies every assigned record and returns a
   :class:`SlotGcPlan` without mutating state. This lets callers preview
   the proposed actions before committing to them.
 * :func:`execute_gc_plan` takes a plan and frees every ``would_free``
-  entry, translating ``free_slot_assignment`` outcomes into terminal
-  actions (``freed``/``skipped_dirty``/``error``).
+  entry, translating per-slot outcomes into terminal actions
+  (``freed``/``skipped_dirty``/``error``).
 
 :func:`run_gc` remains as a thin wrapper that plans and (unless
 ``dry_run`` is true) executes.
@@ -21,21 +20,15 @@ The sweep is split into two phases:
 from __future__ import annotations
 
 import dataclasses
+import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from twerk_core.gh.types import PRLookupError, PRState, PRSummary
-from twerk_slots.allocation import (
-    DirtyWorktreeError,
-    SlotFreeOutcome,
-    SlotNotAssignedError,
-    free_slot_assignment,
-    sync_pool_assignments,
-)
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.pool_state import SlotAssignment
+from twerk_slots.inventory import SlotRecord, build_slot_inventory
 
 SlotGcAction = Literal[
     "freed",
@@ -89,17 +82,18 @@ class _GcCounts:
     error_count: int
 
 
-def _entry_from_assignment(
-    assignment: SlotAssignment,
+def _entry_from_record(
+    record: SlotRecord,
     action: SlotGcAction,
     *,
     pr_result: PRSummary | None = None,
     message: str | None = None,
 ) -> SlotGcEntry:
+    assert record.branch is not None
     return SlotGcEntry(
-        slot_name=assignment.slot_name,
-        branch_name=assignment.branch_name,
-        worktree_path=assignment.worktree_path,
+        slot_name=record.slot_name,
+        branch_name=record.branch,
+        worktree_path=record.path,
         action=action,
         pr_number=pr_result.number if pr_result is not None else None,
         pr_state=pr_result.state if pr_result is not None else None,
@@ -143,28 +137,29 @@ def _count_actions(entries: Sequence[SlotGcEntry]) -> _GcCounts:
 
 
 def plan_gc(ctx: SlotsCliContext) -> SlotGcPlan:
-    """Classify every assignment without mutating slot state.
+    """Classify every assigned slot without mutating slot state.
 
     MERGED/CLOSED PRs become ``would_free`` entries. Everything else is
     classified with its terminal action (``kept_open_pr``/``kept_no_pr``/
     ``error``) since those branches never mutate state anyway.
     """
-    state = ctx.pool_state.load()
-    state = sync_pool_assignments(state, ctx.git, ctx.storage, ctx.pool_state)
+    inventory = build_slot_inventory(ctx.git, main_repo_root=ctx.repo.main_repo_root)
 
     entries: list[SlotGcEntry] = []
     would_free_count = 0
 
-    for assignment in state.assignments:
-        pr_result = ctx.pr.get_pr_for_branch(assignment.branch_name)
+    for record in inventory.records:
+        if record.branch is None:
+            continue
+        pr_result = ctx.pr.get_pr_for_branch(record.branch)
 
         if isinstance(pr_result, PRLookupError):
             if pr_result.returncode == 1:
-                entries.append(_entry_from_assignment(assignment, "kept_no_pr"))
+                entries.append(_entry_from_record(record, "kept_no_pr"))
                 continue
             entries.append(
-                _entry_from_assignment(
-                    assignment,
+                _entry_from_record(
+                    record,
                     "error",
                     message=pr_result.stderr or f"gh pr view exited {pr_result.returncode}",
                 )
@@ -172,10 +167,10 @@ def plan_gc(ctx: SlotsCliContext) -> SlotGcPlan:
             continue
 
         if pr_result.state == "OPEN":
-            entries.append(_entry_from_assignment(assignment, "kept_open_pr", pr_result=pr_result))
+            entries.append(_entry_from_record(record, "kept_open_pr", pr_result=pr_result))
             continue
 
-        entries.append(_entry_from_assignment(assignment, "would_free", pr_result=pr_result))
+        entries.append(_entry_from_record(record, "would_free", pr_result=pr_result))
         would_free_count += 1
 
     return SlotGcPlan(entries=tuple(entries), would_free_count=would_free_count)
@@ -183,6 +178,8 @@ def plan_gc(ctx: SlotsCliContext) -> SlotGcPlan:
 
 def execute_gc_plan(ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutcome:
     """Free every ``would_free`` entry in ``plan``; passthrough the rest."""
+    inventory = build_slot_inventory(ctx.git, main_repo_root=ctx.repo.main_repo_root)
+    trunk = ctx.git.get_trunk_branch()
     entries: list[SlotGcEntry] = []
 
     for entry in plan.entries:
@@ -190,29 +187,46 @@ def execute_gc_plan(ctx: SlotsCliContext, plan: SlotGcPlan) -> SlotGcOutcome:
             entries.append(entry)
             continue
 
-        free_result = free_slot_assignment(ctx, slot_name=entry.slot_name)
-        if isinstance(free_result, SlotFreeOutcome):
-            entries.append(_with_action(entry, "freed"))
+        record = inventory.find_by_slot(entry.slot_name)
+        if record is None or record.branch is None:
+            entries.append(
+                _with_action(
+                    entry,
+                    "error",
+                    message=(
+                        f"slot {entry.slot_name} was not assigned during free "
+                        f"(state changed between plan and execute)."
+                    ),
+                )
+            )
             continue
-        if isinstance(free_result, DirtyWorktreeError):
+
+        if ctx.git.has_uncommitted_changes(record.path):
             entries.append(
                 _with_action(
                     entry,
                     "skipped_dirty",
-                    message=(f"worktree has uncommitted changes at {free_result.worktree_path}"),
+                    message=f"worktree has uncommitted changes at {record.path}",
                 )
             )
             continue
-        # SlotNotAssignedError shouldn't happen — we iterate live assignments —
-        # but handle defensively so a transient race doesn't abort the sweep.
-        assert isinstance(free_result, SlotNotAssignedError)
-        entries.append(
-            _with_action(
-                entry,
-                "error",
-                message=f"slot {entry.slot_name} was not assigned during free",
+
+        try:
+            ctx.git.detach_head(record.path, trunk)
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.strip() if exc.stderr else str(exc)
+            entries.append(
+                _with_action(
+                    entry,
+                    "error",
+                    message=(
+                        f"Failed to detach {entry.slot_name} at {record.path} to {trunk}: {stderr}"
+                    ),
+                )
             )
-        )
+            continue
+
+        entries.append(_with_action(entry, "freed"))
 
     counts = _count_actions(entries)
     return SlotGcOutcome(
