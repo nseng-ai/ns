@@ -1,11 +1,12 @@
 """End-to-end round trip: `slot checkout <br>` then `slot list` against a
 FakeGitGateway with a tmp_path slots_root. Exercises the real CLI wiring
-(discover_repo_or_sentinel, allocation, persistence, rendering) against the
-real ``RealSlotsStorageGateway`` and real ``RealPoolStateGateway``.
+(discover_repo_or_sentinel, planner, rendering) against the real
+``RealSlotsStorageGateway``.
 
-FakeGit is wired to the same real storage gateway so ``add_worktree`` also
-creates the worktree directory on disk — mirroring what ``git worktree add``
-does for real."""
+The new inventory-driven checkout requires a pre-seeded managed slot
+worktree, mirroring what `slot init` would have produced. We seed it
+directly in the FakeGitGateway and on disk so checkout can allocate into
+the existing detached slot rather than creating a worktree on demand."""
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from click.testing import CliRunner
 from twerk_core.clinkr.context import build_clinkr_context_object
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.git.testing import FakeGitGateway
+from twerk_core.git.types import WorktreeInfo
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
@@ -49,6 +51,12 @@ def _obj(context: object) -> object:
     return build_clinkr_context_object(lambda: context)
 
 
+def _seed_slot_dir(slots_root: Path, n: int) -> Path:
+    path = slots_root / "repos" / "repo" / "worktrees" / f"slot-{n:02d}"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir()
@@ -57,11 +65,13 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     storage = RealSlotsStorageGateway()
     pool_state_gw = RealPoolStateGateway(pool_json_path=pool_json)
 
+    slot_01 = _seed_slot_dir(slots_root, 1)
     git = FakeGitGateway(
         repo_root=repo_root,
         git_common_dir=repo_root / ".git",
         branches={"feat/one", "feat/two"},
-        existing_paths={repo_root, Path.cwd()},
+        worktrees=(WorktreeInfo(path=slot_01, branch=None, is_bare=False),),
+        existing_paths={repo_root, Path.cwd(), slot_01},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
     )
@@ -77,19 +87,9 @@ def test_checkout_then_list_reflects_state(tmp_path: Path) -> None:
     checkout = runner.invoke(cli, ["checkout", "feat/one"], obj=_obj(ctx))
     assert checkout.exit_code == 0, checkout.output
 
-    # pool.json persisted with the new assignment.
-    assert pool_json.exists()
-    state = pool_state_gw.load()
-    assert state is not None
-    assert len(state.assignments) == 1
-    assert state.assignments[0].branch_name == "feat/one"
-    assert state.assignments[0].slot_name == "slot-01"
-
-    # Worktree directory was created on disk via RealSlotsStorageGateway.
-    assert (slots_root / "repos" / "repo" / "worktrees" / "slot-01").is_dir()
-
     # `list` reflects the assignment in its JSON output. Inventory is derived
-    # from Git worktree state, so the only row is the one `checkout` created.
+    # from Git worktree state, so the only row is the seeded slot now bound
+    # to feat/one.
     json_list = runner.invoke(cli, ["list", "--format", "json"], obj=_obj(ctx))
     assert json_list.exit_code == 0, json_list.output
     payload = json.loads(json_list.output)
@@ -121,11 +121,13 @@ def test_checkout_twice_reuses_existing(tmp_path: Path) -> None:
     pool_json = slots_root / "repos" / "repo" / "pool.json"
     storage = RealSlotsStorageGateway()
     pool_state_gw = RealPoolStateGateway(pool_json_path=pool_json)
+    slot_01 = _seed_slot_dir(slots_root, 1)
     git = FakeGitGateway(
         repo_root=repo_root,
         git_common_dir=repo_root / ".git",
         branches={"feat/one"},
-        existing_paths={repo_root, Path.cwd()},
+        worktrees=(WorktreeInfo(path=slot_01, branch=None, is_bare=False),),
+        existing_paths={repo_root, Path.cwd(), slot_01},
         repository_root_by_cwd={Path.cwd().resolve(): repo_root},
         on_add_worktree=storage.ensure_dir,
     )
@@ -144,4 +146,5 @@ def test_checkout_twice_reuses_existing(tmp_path: Path) -> None:
     assert first.exit_code == 0
     assert second.exit_code == 0
     assert "already assigned" in second.output
-    assert len(git._add_worktree_calls) == 1
+    # Only one git checkout into the slot — the second invocation reuses.
+    assert git._checkout_calls == [(slot_01, "feat/one")]
