@@ -22,7 +22,7 @@ from twerk_core.gh.pr_gateway import PRGateway
 from twerk_core.gh.pr_testing import FakePRGateway
 from twerk_core.gh.types import PRLookupError, PRSummary
 from twerk_core.git.testing import FakeGitGateway
-from twerk_core.git.types import CommitSummary, DetachedHead
+from twerk_core.git.types import CommitSummary, DetachedHead, GitCommandFailure
 from twerk_objectives.context import ObjectiveCliContext
 from twerk_objectives.exec.current import (
     _build_current_prompt,
@@ -62,7 +62,7 @@ def _pr(
 def _make_obj(
     *,
     gateway: FakeBranchMemoryGateway | None = None,
-    branch: str | DetachedHead | None = "feat/current",
+    branch: str | DetachedHead | GitCommandFailure | None = "feat/current",
     live_branches: tuple[str, ...] = (),
     pr_gateway: PRGateway | None = None,
     file_last_touched: dict[tuple[str, str], str] | None = None,
@@ -104,6 +104,12 @@ def _invoke_current(cli_group: ClinkrGroup, obj: ClinkrContextObject) -> str:
     return result.output
 
 
+def _invoke_current_json(cli_group: ClinkrGroup, obj: ClinkrContextObject) -> dict[str, object]:
+    result = CliRunner().invoke(cli_group, ["exec", "current", "--format", "json"], obj=obj)
+    assert result.exit_code == 0, result.output
+    return json.loads(result.output)
+
+
 # ---------------------------------------------------------------------------
 # help / schema
 # ---------------------------------------------------------------------------
@@ -123,7 +129,18 @@ def test_current_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert set(payload) == {"input_schema", "output_schema"}
-    assert payload["output_schema"]["properties"]["prompt"]["type"] == "string"
+    output_schema = payload["output_schema"]
+    assert output_schema["properties"]["prompt"]["type"] == "string"
+    assert output_schema["properties"]["current_branch"]["type"] == ["string", "null"]
+    assert output_schema["properties"]["trunk_branch"]["type"] == "string"
+    assert output_schema["properties"]["objective"]["properties"]["kind"]["enum"] == [
+        "claimed",
+        "none",
+    ]
+    assert output_schema["properties"]["status_badge"]["properties"]["kind"]["enum"] == [
+        "objective",
+        "none",
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +157,34 @@ def test_current_detached_head(cli_group: ClinkrGroup) -> None:
     assert "Trunk is `master`." in out
     assert "## Stack Map" not in out
     assert "## Current Branch Context" not in out
+
+
+def test_current_detached_head_json_shape(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(branch=DetachedHead())
+
+    payload = _invoke_current_json(cli_group, obj)
+
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "prompt": (
+            "# Detached HEAD\n\n"
+            "Trunk is `master`. Check out a feature branch to see objective context.\n"
+        ),
+        "current_branch": None,
+        "trunk_branch": "master",
+        "objective": {"kind": "none", "slug": None, "state": None},
+        "status_badge": {"kind": "none", "slug": None},
+    }
+
+
+def test_current_git_failure_json_envelope(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(branch=GitCommandFailure(message="git broke", returncode=1))
+
+    result = CliRunner().invoke(cli_group, ["exec", "current", "--format", "json"], obj=obj)
+    payload = json.loads(result.output)
+
+    assert result.exit_code == 2
+    assert payload == {"exit_code": 2, "error_type": "git_failed", "message": "git broke"}
 
 
 def test_current_on_trunk(cli_group: ClinkrGroup) -> None:
@@ -162,6 +207,29 @@ def test_current_on_trunk(cli_group: ClinkrGroup) -> None:
     fence_body, _, _ = after_open.partition("\n```")
     rows = [line for line in fence_body.splitlines() if line.strip()]
     assert rows == ["master  <- current"], rows
+
+
+def test_current_on_trunk_with_n_canonicals_json_shape(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "alpha/body.md", "master", "alpha body")
+    gateway.put("objectives", "bravo/body.md", "master", "bravo body")
+    gateway.put("objectives", "charlie/body.md", "master", "charlie body")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="master",
+        live_branches=("master",),
+    )
+
+    payload = _invoke_current_json(cli_group, obj)
+
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "prompt": _invoke_current(cli_group, obj),
+        "current_branch": "master",
+        "trunk_branch": "master",
+        "objective": {"kind": "none", "slug": None, "state": None},
+        "status_badge": {"kind": "none", "slug": None},
+    }
 
 
 def test_current_on_trunk_with_n_canonicals_renders_bare_row(cli_group: ClinkrGroup) -> None:
@@ -210,6 +278,21 @@ def test_current_no_objective_claimed_no_pr(cli_group: ClinkrGroup) -> None:
     assert "## Next Orientation Step" not in out
 
 
+def test_current_no_objective_claimed_json_shape(cli_group: ClinkrGroup) -> None:
+    obj = _make_obj(branch="feat/current")
+
+    payload = _invoke_current_json(cli_group, obj)
+
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "prompt": _invoke_current(cli_group, obj),
+        "current_branch": "feat/current",
+        "trunk_branch": "master",
+        "objective": {"kind": "none", "slug": None, "state": None},
+        "status_badge": {"kind": "none", "slug": None},
+    }
+
+
 def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
@@ -256,6 +339,56 @@ def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
     assert "`objective-digest widget`" in out
 
 
+def test_current_single_claim_fresh_json_shape(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
+    gateway.put(
+        "objectives",
+        "widget/.absorbed.jsonl",
+        "feat/current",
+        (
+            '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
+            '"author_iso":"2026-04-26T07:30:00+00:00","subject":"Wire widget"}\n'
+        ),
+    )
+    file_last_touched = {
+        ("refs/brmem/ns/objectives/feat---current", "widget/body.md"): "2026-04-26T08:00:00+00:00",
+    }
+    branch_head_iso = {"feat/current": "2026-04-26T07:00:00+00:00"}
+    commits_by_range = {
+        "master..feat/current": (
+            CommitSummary(
+                sha="aaa111",
+                author_iso="2026-04-26T07:30:00+00:00",
+                subject="Wire widget",
+            ),
+        ),
+    }
+    patch_ids_by_range = {
+        "master..feat/current": (("aaa111", "pid-1"),),
+    }
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("feat/current",),
+        file_last_touched=file_last_touched,
+        branch_head_iso=branch_head_iso,
+        commits_by_range=commits_by_range,
+        patch_ids_by_range=patch_ids_by_range,
+    )
+
+    payload = _invoke_current_json(cli_group, obj)
+
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "prompt": _invoke_current(cli_group, obj),
+        "current_branch": "feat/current",
+        "trunk_branch": "master",
+        "objective": {"kind": "claimed", "slug": "widget", "state": "fresh"},
+        "status_badge": {"kind": "objective", "slug": "widget"},
+    }
+
+
 def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
@@ -290,6 +423,29 @@ def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
     out = _invoke_current(cli_group, obj)
 
     assert "**Snapshot:** stale - run `objective-update widget` to refresh" in out
+
+
+def test_current_multiple_claims_on_branch_json_shape(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "alpha/body.md", "feat/current", "alpha")
+    gateway.put("objectives", "bravo/body.md", "feat/current", "bravo")
+    gateway.put("objectives", "charlie/body.md", "feat/current", "charlie")
+    obj = _make_obj(
+        gateway=gateway,
+        branch="feat/current",
+        live_branches=("feat/current",),
+    )
+
+    payload = _invoke_current_json(cli_group, obj)
+
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "prompt": _invoke_current(cli_group, obj),
+        "current_branch": "feat/current",
+        "trunk_branch": "master",
+        "objective": {"kind": "none", "slug": None, "state": None},
+        "status_badge": {"kind": "none", "slug": None},
+    }
 
 
 def test_current_multiple_claims_on_branch(cli_group: ClinkrGroup) -> None:

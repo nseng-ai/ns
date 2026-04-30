@@ -7,10 +7,14 @@ type ObjectiveState =
 	| { kind: "none" }
 	| { kind: "unavailable" };
 
+type StatusBadge =
+	| { kind: "objective"; slug: string | null }
+	| { kind: "none"; slug: string | null };
+
 type CurrentObjectiveEnvelope = {
 	exit_code?: number;
 	data?: {
-		prompt?: unknown;
+		status_badge?: StatusBadge;
 	};
 };
 
@@ -46,19 +50,11 @@ async function loadCurrentObjective(pi: ExtensionAPI, ctx: ExtensionContext): Pr
 		if (result.code !== 0) return { kind: "unavailable" };
 
 		const parsed = JSON.parse(result.stdout) as CurrentObjectiveEnvelope;
-		const prompt = parsed.data?.prompt;
-		if (typeof prompt !== "string") return { kind: "unavailable" };
-
-		const branch = parseCurrentBranch(prompt);
-		const trunk = await resolveTrunk(pi, ctx);
-		if (branch !== undefined && trunk !== undefined && branch === trunk) {
-			return { kind: "none" };
+		const statusBadge = parsed.data?.status_badge;
+		if (statusBadge?.kind === "objective" && typeof statusBadge.slug === "string") {
+			return { kind: "objective", slug: statusBadge.slug };
 		}
-
-		const objectiveMatch = /^\*\*Objective:\*\* `([^`]+)`$/m.exec(prompt);
-		if (objectiveMatch) return { kind: "objective", slug: objectiveMatch[1] ?? "" };
-
-		if (/^\*\*Objective:\*\* _none claimed_$/m.test(prompt)) {
+		if (statusBadge?.kind === "none") {
 			return { kind: "none" };
 		}
 
@@ -66,31 +62,6 @@ async function loadCurrentObjective(pi: ExtensionAPI, ctx: ExtensionContext): Pr
 	} catch {
 		return { kind: "unavailable" };
 	}
-}
-
-function parseCurrentBranch(prompt: string): string | undefined {
-	return /^# On `([^`]+)`$/m.exec(prompt)?.[1];
-}
-
-async function resolveTrunk(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string | undefined> {
-	const originHead = await pi.exec("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
-		cwd: ctx.cwd,
-		timeout: 5000,
-	});
-	if (originHead.code === 0) {
-		const trunk = originHead.stdout.trim().replace(/^origin\//, "");
-		if (trunk.length > 0) return trunk;
-	}
-
-	for (const candidate of ["main", "master"]) {
-		const result = await pi.exec("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${candidate}`], {
-			cwd: ctx.cwd,
-			timeout: 5000,
-		});
-		if (result.code === 0) return candidate;
-	}
-
-	return undefined;
 }
 
 function renderObjective(ctx: ExtensionContext, state: ObjectiveState): void {
