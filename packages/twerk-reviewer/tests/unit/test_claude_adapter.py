@@ -10,9 +10,13 @@ from twerk_reviewer.harness.claude.adapter import (
     FINDINGS_JSON_SCHEMA,
 )
 from twerk_reviewer.models import (
+    ClaudeCodeEmptyOutput,
+    ClaudeCodeInvalidFindings,
+    ClaudeCodeInvalidJson,
+    ClaudeCodeMissingResultEvent,
+    ClaudeCodeNonJsonResult,
     FindingsReview,
     ProseReview,
-    ReviewerFailure,
     ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFormat,
@@ -238,22 +242,22 @@ def test_claude_code_parse_stdout_text_format_ignores_structured_output() -> Non
 def test_claude_code_parse_stdout_fails_on_empty_output() -> None:
     result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), "   ")
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_empty_output"
+    assert isinstance(result, ClaudeCodeEmptyOutput)
+    assert result.message == "Claude Code returned no output."
 
 
 def test_claude_code_parse_stdout_fails_on_non_json_line() -> None:
     result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), "not json at all\n")
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_invalid_json"
+    assert isinstance(result, ClaudeCodeInvalidJson)
+    assert "Unable to parse" in result.message
 
 
 def test_claude_code_parse_stdout_fails_on_missing_result_event() -> None:
     result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), _stream_lines(include_result=False))
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_missing_result_event"
+    assert isinstance(result, ClaudeCodeMissingResultEvent)
+    assert "result" in result.message
 
 
 def test_claude_code_parse_stdout_fails_when_structured_output_missing_in_findings_mode() -> None:
@@ -262,8 +266,7 @@ def test_claude_code_parse_stdout_fails_when_structured_output_missing_in_findin
 
     result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_non_json_result"
+    assert isinstance(result, ClaudeCodeNonJsonResult)
     assert "Model response:" in result.message
     assert "I thought about it and here is a prose answer." in result.message
 
@@ -274,8 +277,7 @@ def test_claude_code_parse_stdout_truncates_long_prose_in_error() -> None:
 
     result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_non_json_result"
+    assert isinstance(result, ClaudeCodeNonJsonResult)
     assert "ALPHA-" in result.message
     assert "…" in result.message
     assert prose not in result.message
@@ -286,8 +288,8 @@ def test_claude_code_parse_stdout_fails_on_missing_findings_key() -> None:
 
     result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_invalid_findings"
+    assert isinstance(result, ClaudeCodeInvalidFindings)
+    assert "`findings` array" in result.message
 
 
 def test_claude_code_parse_stdout_fails_on_malformed_finding() -> None:
@@ -295,8 +297,8 @@ def test_claude_code_parse_stdout_fails_on_malformed_finding() -> None:
 
     result = CLAUDE_CODE_ADAPTER.parse_stdout(_request(), stdout)
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_invalid_findings"
+    assert isinstance(result, ClaudeCodeInvalidFindings)
+    assert "Missing review-finding fields" in result.message
 
 
 def test_claude_code_parse_stdout_extracts_usage_in_findings_mode() -> None:

@@ -6,9 +6,9 @@ import click
 
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
+from twerk_reviewer.cli.reviewer.failure_codes import error_type_for_reviewer_failure
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.workflow import resolve_harness
 
@@ -42,6 +42,10 @@ def run_harness_show_command(
         requested_harness=None,
         harness_detection_gateway=reviewer_context.harness_detection,
     )
-    harness_name = Ensure.ideal_state(resolved)
+    if not isinstance(resolved, str):
+        raise ClinkrExit.failure(
+            error_type=error_type_for_reviewer_failure(resolved),
+            message=resolved.message,
+        )
 
-    return ClinkrExit.ok(HarnessShowResult(harness_name=harness_name))
+    return ClinkrExit.ok(HarnessShowResult(harness_name=resolved))

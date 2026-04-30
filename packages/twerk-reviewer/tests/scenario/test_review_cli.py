@@ -478,7 +478,7 @@ def test_review_run_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 2
     assert payload["exit_code"] == 2
-    assert "error_type" in payload
+    assert payload["error_type"] == "harness_not_configured"
     assert "message" in payload
 
 

@@ -45,7 +45,6 @@ class PoolFull:
 
     oldest_slot: str
     oldest_branch: str
-    error_type: str = "pool_full"
 
     @property
     def message(self) -> str:
@@ -69,7 +68,6 @@ class SlotNotAssigned:
     """Signals that the requested slot has no current assignment."""
 
     slot_name: str
-    error_type: str = "slot_not_assigned"
 
     @property
     def message(self) -> str:
@@ -82,7 +80,6 @@ class DirtyWorktree:
 
     slot_name: str
     worktree_path: Path
-    error_type: str = "dirty_worktree"
 
     @property
     def message(self) -> str:
@@ -94,7 +91,6 @@ class DetachedWorktreeHead:
     """Signals that the current worktree is on a detached HEAD."""
 
     cwd: Path
-    error_type: str = "detached_head"
 
     @property
     def message(self) -> str:
@@ -106,7 +102,6 @@ class DirtyCurrentWorktree:
     """Signals that the current worktree has uncommitted changes."""
 
     cwd: Path
-    error_type: str = "dirty_worktree"
 
     @property
     def message(self) -> str:

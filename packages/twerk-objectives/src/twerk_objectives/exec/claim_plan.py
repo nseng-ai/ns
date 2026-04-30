@@ -26,7 +26,6 @@ import click
 from brmem.gateway import BranchMemoryGateway
 from twerk_core.clinkr.context import load_typed_context
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_core.git.git_gateway import GitGateway
@@ -224,36 +223,41 @@ def run_claim_plan_objective(
     git = mctx.git_gateway
     trunk_branch = resolve_trunk(git).trunk
 
-    Ensure.true(
-        not (request.from_branch is not None and request.from_file is not None),
-        error_type="conflicting_source_flags",
-        message="--from and --from-file are mutually exclusive.",
-    )
+    if request.from_branch is not None and request.from_file is not None:
+        return ClinkrExit.failure(
+            error_type="conflicting_source_flags",
+            message="--from and --from-file are mutually exclusive.",
+        )
 
     requested_slug = _normalize_slug(request.slug)
 
-    Ensure.true(
-        not (
-            (request.from_branch is not None or request.from_file is not None)
-            and requested_slug is None
-        ),
-        error_type="source_flag_without_slug",
-        message=(
-            "--from and --from-file require an explicit SLUG; "
-            "neither auto-resolves the objective name."
-        ),
-    )
+    if (request.from_branch is not None or request.from_file is not None) and (
+        requested_slug is None
+    ):
+        return ClinkrExit.failure(
+            error_type="source_flag_without_slug",
+            message=(
+                "--from and --from-file require an explicit SLUG; "
+                "neither auto-resolves the objective name."
+            ),
+        )
 
-    target_branch = Ensure.ideal_state(_resolve_target_branch(git, request.target))
+    target_resolution = _resolve_target_branch(git, request.target)
+    if isinstance(target_resolution, TargetBranchResolutionFailure):
+        return ClinkrExit.failure(
+            error_type=_target_branch_resolution_error_type(target_resolution),
+            message=target_resolution.message,
+        )
+    target_branch = target_resolution
 
-    Ensure.true(
-        target_branch != trunk_branch,
-        error_type="target_is_trunk",
-        message=(
-            f"--target must not be {trunk_branch!r}: claim attaches "
-            f"objectives to feature branches; canonical state is immutable here."
-        ),
-    )
+    if target_branch == trunk_branch:
+        return ClinkrExit.failure(
+            error_type="target_is_trunk",
+            message=(
+                f"--target must not be {trunk_branch!r}: claim attaches "
+                f"objectives to feature branches; canonical state is immutable here."
+            ),
+        )
 
     if requested_slug is None:
         outcome = _resolve_slug_from_ancestors(
@@ -380,35 +384,45 @@ def _normalize_slug(raw: str | None) -> str | None:
 
 
 @dataclass(frozen=True)
-class HardFailure:
-    """Domain-side sentinel for "this run cannot produce a structured envelope."
+class DetachedTargetHead:
+    """Target defaulting failed because the current worktree is detached."""
 
-    Translated into :class:`ClinkrFailure` at the CLI entry point. Keeping
-    the helper return as a frozen dataclass rather than ``ClinkrExit`` keeps
-    helpers reusable and avoids ``ty`` narrowing pain across generic envelope
-    types.
-    """
-
-    error_type: str
     message: str
+
+
+@dataclass(frozen=True)
+class TargetBranchGitFailure:
+    """Target defaulting failed because git could not report the current branch."""
+
+    message: str
+
+
+TargetBranchResolutionFailure = DetachedTargetHead | TargetBranchGitFailure
+
+
+def _target_branch_resolution_error_type(failure: TargetBranchResolutionFailure) -> str:
+    match failure:
+        case DetachedTargetHead():
+            return "detached_head"
+        case TargetBranchGitFailure():
+            return "git_failed"
 
 
 def _resolve_target_branch(
     git: GitGateway,
     requested_target: str | None,
-) -> str | HardFailure:
+) -> str | TargetBranchResolutionFailure:
     if requested_target is not None:
         return requested_target
     match git.get_current_branch(Path.cwd()):
         case DetachedHead():
-            return HardFailure(
-                error_type="detached_head",
+            return DetachedTargetHead(
                 message=(
                     "Detached HEAD: claim requires a checked-out branch or an explicit --target."
                 ),
             )
         case GitCommandFailure() as failure:
-            return HardFailure(error_type="git_failed", message=failure.message)
+            return TargetBranchGitFailure(message=failure.message)
         case str() as branch:
             return branch
 

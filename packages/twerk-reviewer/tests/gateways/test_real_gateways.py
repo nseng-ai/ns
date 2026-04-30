@@ -16,7 +16,12 @@ from twerk_reviewer.gateways.review_execution import real as review_execution_re
 from twerk_reviewer.gateways.review_execution.real import RealReviewExecutionGateway
 from twerk_reviewer.harness_adapter import HarnessAdapter
 from twerk_reviewer.models import (
+    ClaudeCodeMissingResultEvent,
     FindingsReview,
+    HarnessBinaryMissing,
+    HarnessExecutionFailed,
+    HarnessUnknown,
+    ModelNotSupportedByHarness,
     ProseReview,
     ReviewerFailure,
     ReviewExecutionRequest,
@@ -260,15 +265,15 @@ def test_real_review_execution_gateway_rejects_unknown_harness() -> None:
 
     result = gateway.run_review(_sample_request(adapter_name="banana"))
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_unknown"
+    assert isinstance(result, HarnessUnknown)
+    assert "banana" in result.message
 
 
 def test_real_review_execution_gateway_rejects_unsupported_model() -> None:
     result = RealReviewExecutionGateway().run_review(_sample_request(model="gpt-5-mini"))
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "model_not_supported_by_harness"
+    assert isinstance(result, ModelNotSupportedByHarness)
+    assert "gpt-5-mini" in result.message
 
 
 def test_real_review_execution_gateway_reports_missing_binary(
@@ -281,8 +286,8 @@ def test_real_review_execution_gateway_reports_missing_binary(
 
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_binary_missing"
+    assert isinstance(result, HarnessBinaryMissing)
+    assert "not on PATH" in result.message
 
 
 def test_real_review_execution_gateway_reports_non_zero_exit(
@@ -295,8 +300,7 @@ def test_real_review_execution_gateway_reports_non_zero_exit(
 
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_execution_failed"
+    assert isinstance(result, HarnessExecutionFailed)
     assert "model unavailable" in result.message
 
 
@@ -315,8 +319,8 @@ def test_real_review_execution_gateway_surfaces_missing_result_event(
 
     result = RealReviewExecutionGateway().run_review(_sample_request())
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "claude_code_missing_result_event"
+    assert isinstance(result, ClaudeCodeMissingResultEvent)
+    assert "result" in result.message
 
 
 def test_real_review_execution_gateway_uses_injected_registry(

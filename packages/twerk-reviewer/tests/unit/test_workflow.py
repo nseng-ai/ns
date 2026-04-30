@@ -12,8 +12,11 @@ from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionG
 from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
 from twerk_reviewer.models import (
     FindingsReview,
+    HarnessNotConfigured,
+    HarnessUnknown,
     LocalDiff,
     LocalReviewResult,
+    ReviewDefinitionNotFound,
     ReviewerFailure,
     ReviewExecutionResponse,
 )
@@ -172,8 +175,8 @@ def test_unknown_harness_is_rejected(
         harness_detection_gateway=FakeHarnessDetectionGateway(),
     )
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_unknown"
+    assert isinstance(result, HarnessUnknown)
+    assert "banana" in result.message
 
 
 def test_no_harness_detected_surfaces_install_hint(
@@ -188,8 +191,7 @@ def test_no_harness_detected_surfaces_install_hint(
         harness_detection_gateway=FakeHarnessDetectionGateway(),
     )
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "harness_not_configured"
+    assert isinstance(result, HarnessNotConfigured)
     assert "No harness detected" in result.message
 
 
@@ -206,8 +208,8 @@ def test_unknown_key_returns_failure_before_execution(
         harness_detection_gateway=harness_detection,
     )
 
-    assert isinstance(result, ReviewerFailure)
-    assert result.error_type == "review_definition_not_found"
+    assert isinstance(result, ReviewDefinitionNotFound)
+    assert result.path == REVIEWS_DIR / "nope.md"
     assert review_execution.executed_requests == ()
 
 
