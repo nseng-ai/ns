@@ -60,6 +60,7 @@ def _make_fake_run(
     threads: list[dict[str, object]] | None = None,
     reviews: list[dict[str, object]] | None = None,
     discussion_comment_pages: list[list[dict[str, object]]] | None = None,
+    changed_file_pages: list[list[dict[str, object]]] | None = None,
     resolve_response: dict[str, object] | None = None,
     unresolve_response: dict[str, object] | None = None,
     reply_response: dict[str, object] | None = None,
@@ -94,6 +95,7 @@ def _make_fake_run(
     discussion_comments_payload = "".join(
         json.dumps(page) for page in (discussion_comment_pages or [])
     )
+    changed_files_payload = "".join(json.dumps(page) for page in (changed_file_pages or []))
     resolve_payload = json.dumps({"data": {"resolveReviewThread": resolve_response or {}}})
     unresolve_payload = json.dumps({"data": {"unresolveReviewThread": unresolve_response or {}}})
     reply_payload = json.dumps({"data": {"addPullRequestReviewThreadReply": reply_response or {}}})
@@ -136,6 +138,9 @@ def _make_fake_run(
             return subprocess.CompletedProcess(
                 cmd, 0, stdout=discussion_comments_payload, stderr=""
             )
+        if cmd[:2] == ["gh", "api"] and cmd[2] == "repos/dagster-io/twerk/pulls/47/files":
+            assert "--paginate" in cmd
+            return subprocess.CompletedProcess(cmd, 0, stdout=changed_files_payload, stderr="")
         if cmd[:3] == ["gh", "pr", "view"]:
             return subprocess.CompletedProcess(
                 cmd, pr_view_returncode, stdout=pr_view_payload, stderr=""
@@ -852,3 +857,37 @@ def test_update_comment_preserves_body_newlines(
     assert body_arg == f"body={body}"
     assert "\n" in body_arg
     assert "\\n" not in body_arg
+
+
+def test_get_pr_changed_files_fetches_paginated_rest_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            changed_file_pages=[
+                [
+                    {
+                        "filename": "app.py",
+                        "status": "modified",
+                        "patch": "@@ -1 +1 @@\n-old\n+new",
+                    }
+                ],
+                [{"filename": "image.png", "status": "added"}],
+            ],
+            calls=calls,
+        ),
+    )
+
+    result = RealIssueGateway().get_pr_changed_files(47)
+
+    assert len(result) == 2
+    assert result[0].path == "app.py"
+    assert result[0].status == "modified"
+    assert result[0].patch == "@@ -1 +1 @@\n-old\n+new"
+    assert result[1].path == "image.png"
+    assert result[1].patch is None
+    file_calls = [c for c in calls if c[:2] == ["gh", "api"] and c[2].endswith("/files")]
+    assert file_calls == [["gh", "api", "repos/dagster-io/twerk/pulls/47/files", "--paginate"]]

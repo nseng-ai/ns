@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRChangedFile,
     PRLookupError,
     PRReview,
     PRReviewComment,
@@ -60,6 +61,10 @@ class IssueGateway(ABC):
     @abstractmethod
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
         """Fetch PR-level review submissions (approve, request changes, comment)."""
+
+    @abstractmethod
+    def get_pr_changed_files(self, pr_number: int) -> tuple[PRChangedFile, ...]:
+        """Fetch file-level diff metadata for a PR."""
 
     @abstractmethod
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
