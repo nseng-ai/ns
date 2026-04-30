@@ -18,9 +18,7 @@ from twerk_slots.cli.main import build_cli
 from twerk_slots.cli.slot.gt.context import SlotGtContext
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.pool_state import PoolState, SlotAssignment
 from twerk_slots.repo_context import RepoContext
 
 
@@ -34,7 +32,6 @@ class _StackFakes:
     ctx: SlotGtContext
     git: FakeGitGateway
     gt: FakeGtGateway
-    pool_state: FakePoolStateGateway
     repo_root: Path
     slots_root: Path
     paths_by_slot: dict[str, Path]
@@ -75,12 +72,10 @@ def _build_stack_fakes(
     repo_root.mkdir(exist_ok=True)
     repo_root = repo_root.resolve()
     slots_root = tmp_path / "slots"
-    pool_json_path = slots_root / "repos" / "repo" / "pool.json"
 
     file_status_by_slot = file_status_by_slot or {}
 
     paths_by_slot: dict[str, Path] = {}
-    pool_assignments: list[SlotAssignment] = []
     worktrees: list[WorktreeInfo] = [
         WorktreeInfo(path=repo_root, branch=current_branch, is_bare=False)
     ]
@@ -97,14 +92,6 @@ def _build_stack_fakes(
         branch_by_path[wt_path] = branch
         if slot_name in file_status_by_slot:
             file_status_by_path[wt_path] = file_status_by_slot[slot_name]
-        pool_assignments.append(
-            SlotAssignment(
-                slot_name=slot_name,
-                branch_name=branch,
-                assigned_at="2026-04-01T00:00:00+00:00",
-                worktree_path=wt_path,
-            )
-        )
 
     repo = RepoContext(
         root=repo_root,
@@ -112,7 +99,6 @@ def _build_stack_fakes(
         repo_name="repo",
         repo_dir=slots_root / "repos" / "repo",
         worktrees_dir=slots_root / "repos" / "repo" / "worktrees",
-        pool_json_path=pool_json_path,
     )
     git = FakeGitGateway(
         repo_root=repo_root,
@@ -126,15 +112,10 @@ def _build_stack_fakes(
         trunk_branch=trunk,
     )
     storage = FakeSlotsStorageGateway(existing_paths=existing_paths)
-    initial_state = (
-        PoolState(pool_size=4, assignments=tuple(pool_assignments)) if pool_assignments else None
-    )
-    pool_state = FakePoolStateGateway(pool_json_path, initial_state=initial_state)
     slots_ctx = SlotsCliContext(
         repo=repo,
         git=git,
         storage=storage,
-        pool_state=pool_state,
         clipboard=FakeClipboardGateway(),
         pr=FakePRGateway(),
         slots_root=slots_root,
@@ -161,7 +142,6 @@ def _build_stack_fakes(
         ctx=SlotGtContext(slots=slots_ctx, gt=gt),
         git=git,
         gt=gt,
-        pool_state=pool_state,
         repo_root=repo_root,
         slots_root=slots_root,
         paths_by_slot=paths_by_slot,
@@ -209,9 +189,7 @@ def test_free_stack_on_trunk_is_noop(cli_group: ClinkrGroup, tmp_path: Path) -> 
     assert payload["data"]["noop_reason"] == "on_trunk"
     assert payload["data"]["freed"] == []
     # Pool unchanged.
-    saved = fakes.pool_state.load()
-    assert saved is not None
-    assert {a.slot_name for a in saved.assignments} == {"slot-01"}
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/a"}
     assert fakes.git._detach_head_calls == []
 
 
@@ -324,10 +302,8 @@ def test_free_stack_preflight_dirty_blocks_all(cli_group: ClinkrGroup, tmp_path:
 
     assert result.exit_code == 2
     assert "uncommitted changes" in result.output
-    saved = fakes.pool_state.load()
-    assert saved is not None
     # Both still assigned — fail-fast on preflight.
-    assert {a.slot_name for a in saved.assignments} == {"slot-01", "slot-02"}
+    assert set(_assigned_worktrees(fakes)) == {"slot-01", "slot-02"}
     assert fakes.git._detach_head_calls == []
 
 
@@ -352,9 +328,7 @@ def test_free_stack_gt_stack_failure_surfaces(cli_group: ClinkrGroup, tmp_path: 
 
     assert result.exit_code == 2
     assert "not a gt repo" in result.output
-    saved = fakes.pool_state.load()
-    assert saved is not None
-    assert {a.slot_name for a in saved.assignments} == {"slot-01"}
+    assert set(_assigned_worktrees(fakes)) == {"slot-01"}
     assert fakes.git._detach_head_calls == []
 
 

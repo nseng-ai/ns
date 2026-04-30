@@ -20,7 +20,6 @@ from twerk_core.git.types import (
 from twerk_slots.cli.main import build_cli
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
 
@@ -48,7 +47,6 @@ def _fake_for_repo(
     resolved_slots_root = slots_root if slots_root is not None else (tmp_path / "slots")
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
-    pool_json_path = resolved_slots_root / "repos" / "repo" / "pool.json"
     storage = FakeSlotsStorageGateway(
         existing_paths={repo_root, Path.cwd(), *extra_existing},
     )
@@ -70,7 +68,6 @@ def _fake_for_repo(
         repo=repo,
         git=git,
         storage=storage,
-        pool_state=FakePoolStateGateway(pool_json_path),
         clipboard=FakeClipboardGateway(),
         pr=FakePRGateway(),
         slots_root=resolved_slots_root,

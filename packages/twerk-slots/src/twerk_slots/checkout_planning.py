@@ -2,7 +2,7 @@
 
 Mirrors the `lifecycle.py` shape: pure functions over a :class:`SlotInventory`
 and the :class:`GitGateway`, returning a tagged-union plan that the CLI
-executes. Inventory-only — no `PoolState` / `pool.json` involvement.
+executes. Inventory-only — no persisted pool state involvement.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
-from twerk_slots.allocation import (
+from twerk_slots.errors import (
     DetachedHeadError,
     DirtyCurrentWorktreeError,
     SlotAllocationError,

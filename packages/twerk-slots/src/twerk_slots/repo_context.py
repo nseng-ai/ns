@@ -29,7 +29,6 @@ class RepoContext:
     repo_name: str
     repo_dir: Path
     worktrees_dir: Path
-    pool_json_path: Path
 
 
 @dataclass(frozen=True)
@@ -62,7 +61,6 @@ def discover_repo_or_sentinel(
     repo_name = main_repo_root.name
     repo_dir = slots_root / "repos" / repo_name
     worktrees_dir = repo_dir / "worktrees"
-    pool_json_path = repo_dir / "pool.json"
 
     return RepoContext(
         root=root,
@@ -70,7 +68,6 @@ def discover_repo_or_sentinel(
         repo_name=repo_name,
         repo_dir=repo_dir,
         worktrees_dir=worktrees_dir,
-        pool_json_path=pool_json_path,
     )
 
 

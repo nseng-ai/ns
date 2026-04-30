@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 
@@ -14,10 +13,8 @@ from twerk_core.git.real_git_gateway import (
 )
 from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
 from twerk_slots.gateway import real_git
-from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
 from twerk_slots.gateway.real_git import build_real_slots_git_gateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
-from twerk_slots.pool_state import DEFAULT_POOL_SIZE, PoolState, SlotAssignment
 
 
 def test_real_gateway_instantiates() -> None:
@@ -45,7 +42,7 @@ def test_build_real_slots_git_gateway_resolves_trunk(monkeypatch: pytest.MonkeyP
 def test_build_real_slots_git_gateway_raises_when_trunk_unresolvable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from twerk_slots.allocation import SlotAllocationError
+    from twerk_slots.errors import SlotAllocationError
 
     monkeypatch.setattr(real_git, "_resolve_trunk_branch", lambda _repo_root: None)
 
@@ -56,7 +53,7 @@ def test_build_real_slots_git_gateway_raises_when_trunk_unresolvable(
 def test_build_real_slots_git_gateway_raises_on_missing_git(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from twerk_slots.allocation import SlotAllocationError
+    from twerk_slots.errors import SlotAllocationError
 
     def raise_missing(_repo_root: Path) -> str:
         raise FileNotFoundError("git: not found")
@@ -424,74 +421,3 @@ def test_real_storage_ensure_dir_is_idempotent(tmp_path: Path) -> None:
     gateway.ensure_dir(target)
 
     assert target.is_dir()
-
-
-# -- RealPoolStateGateway ---------------------------------------------------
-
-
-def test_real_pool_state_load_missing_returns_default(tmp_path: Path) -> None:
-    gateway = RealPoolStateGateway(pool_json_path=tmp_path / "missing.json")
-
-    assert gateway.load() == PoolState(pool_size=DEFAULT_POOL_SIZE, assignments=())
-    assert gateway.exists() is False
-
-
-def test_real_pool_state_exists_after_save(tmp_path: Path) -> None:
-    gateway = RealPoolStateGateway(pool_json_path=tmp_path / "pool.json")
-
-    assert gateway.exists() is False
-    gateway.save(PoolState(pool_size=8, assignments=()))
-    assert gateway.exists() is True
-
-
-def test_real_pool_state_save_creates_parent_directories(tmp_path: Path) -> None:
-    pool_json = tmp_path / "nested" / "deep" / "pool.json"
-    gateway = RealPoolStateGateway(pool_json_path=pool_json)
-
-    gateway.save(PoolState(pool_size=16, assignments=()))
-
-    assert pool_json.exists()
-    assert json.loads(pool_json.read_text()) == {"pool_size": 16, "assignments": []}
-
-
-def test_real_pool_state_round_trip_empty(tmp_path: Path) -> None:
-    pool_json = tmp_path / "pool.json"
-    gateway = RealPoolStateGateway(pool_json_path=pool_json)
-    state = PoolState(pool_size=16, assignments=())
-
-    gateway.save(state)
-
-    assert gateway.load() == state
-
-
-def test_real_pool_state_round_trip_preserves_assignments(tmp_path: Path) -> None:
-    pool_json = tmp_path / "pool.json"
-    gateway = RealPoolStateGateway(pool_json_path=pool_json)
-    worktree = tmp_path / "worktrees" / "slot-01"
-    state = PoolState(
-        pool_size=8,
-        assignments=(
-            SlotAssignment(
-                slot_name="slot-01",
-                branch_name="feat/x",
-                assigned_at="2026-04-12T00:00:00+00:00",
-                worktree_path=worktree,
-            ),
-        ),
-    )
-
-    gateway.save(state)
-    loaded = gateway.load()
-
-    assert loaded == state
-    assert loaded.assignments[0].worktree_path == worktree
-
-
-def test_real_pool_state_load_missing_pool_size_falls_back_to_default(tmp_path: Path) -> None:
-    pool_json = tmp_path / "pool.json"
-    pool_json.write_text(json.dumps({"assignments": []}))
-    gateway = RealPoolStateGateway(pool_json_path=pool_json)
-
-    loaded = gateway.load()
-
-    assert loaded.pool_size == DEFAULT_POOL_SIZE

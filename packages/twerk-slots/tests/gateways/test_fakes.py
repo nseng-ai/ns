@@ -4,9 +4,7 @@ from pathlib import Path
 
 from twerk_core.git.testing import FakeGitGateway
 from twerk_core.git.types import DetachedHead, FileStatus, WorktreeInfo
-from twerk_slots.gateway.testing.pool_state import FakePoolStateGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.pool_state import PoolState, SlotAssignment
 
 
 def test_fake_returns_seeded_repo_root() -> None:
@@ -200,58 +198,3 @@ def test_fake_storage_ensure_dir_idempotent() -> None:
 
     assert storage._ensured_dirs == [target, target]
     assert storage.path_exists(target)
-
-
-# -- FakePoolStateGateway ---------------------------------------------------
-
-
-def test_fake_pool_state_load_returns_default_when_absent() -> None:
-    gateway = FakePoolStateGateway(Path("/nowhere/pool.json"))
-
-    assert gateway.load() == PoolState(pool_size=16, assignments=())
-    assert gateway.exists() is False
-
-
-def test_fake_pool_state_exists_true_when_seeded() -> None:
-    path = Path("/slots/repos/r/pool.json")
-    state = PoolState(pool_size=4, assignments=())
-    gateway = FakePoolStateGateway(path, initial_state=state)
-
-    assert gateway.exists() is True
-
-
-def test_fake_pool_state_load_returns_seeded_state() -> None:
-    path = Path("/slots/repos/r/pool.json")
-    state = PoolState(
-        pool_size=4,
-        assignments=(SlotAssignment("slot-01", "feat/x", "t", Path("/wt/slot-01")),),
-    )
-    gateway = FakePoolStateGateway(path, initial_state=state)
-
-    assert gateway.load() == state
-
-
-def test_fake_pool_state_save_records_and_round_trips() -> None:
-    path = Path("/slots/repos/r/pool.json")
-    gateway = FakePoolStateGateway(path)
-    state = PoolState(pool_size=8, assignments=())
-
-    gateway.save(state)
-
-    assert gateway._save_calls == [state]
-    assert gateway.load() == state
-
-
-def test_fake_pool_state_save_overwrites_prior_state() -> None:
-    path = Path("/slots/repos/r/pool.json")
-    first = PoolState(pool_size=4, assignments=())
-    second = PoolState(
-        pool_size=4,
-        assignments=(SlotAssignment("slot-01", "feat/x", "t", Path("/wt/slot-01")),),
-    )
-    gateway = FakePoolStateGateway(path, initial_state=first)
-
-    gateway.save(second)
-
-    assert gateway.load() == second
-    assert gateway._save_calls == [second]

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from twerk_core.git.real_git_gateway import RealGitGateway, resolve_trunk_branch
-from twerk_slots.allocation import SlotAllocationError
+from twerk_slots.errors import SlotAllocationError
 
 _resolve_trunk_branch = resolve_trunk_branch
 

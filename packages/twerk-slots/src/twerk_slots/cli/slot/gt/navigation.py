@@ -7,9 +7,9 @@ import click
 
 from twerk_core import get_console
 from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_slots.allocation import sync_pool_assignments
 from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.clipboard import ClipboardCopyFailure, ClipboardCopySuccess
+from twerk_slots.naming import extract_slot_number
 
 
 @dataclass(frozen=True)
@@ -32,31 +32,15 @@ class GtNavigationTarget(JsonSerializable):
 
 
 def find_worktree_for_branch(slots_ctx: SlotsCliContext, branch: str) -> WorktreeTarget | None:
-    if slots_ctx.pool_state.exists():
-        state = slots_ctx.pool_state.load()
-        state = sync_pool_assignments(
-            state,
-            slots_ctx.git,
-            slots_ctx.storage,
-            slots_ctx.pool_state,
-        )
-        for assignment in state.assignments:
-            if assignment.branch_name == branch and slots_ctx.storage.path_exists(
-                assignment.worktree_path
-            ):
-                return WorktreeTarget(
-                    slot_name=assignment.slot_name,
-                    branch_name=branch,
-                    worktree_path=assignment.worktree_path,
-                )
-
     for worktree in slots_ctx.git.list_worktrees():
-        if worktree.branch == branch:
-            return WorktreeTarget(
-                slot_name=None,
-                branch_name=branch,
-                worktree_path=worktree.path,
-            )
+        if worktree.branch != branch:
+            continue
+        slot_name = worktree.path.name if extract_slot_number(worktree.path.name) else None
+        return WorktreeTarget(
+            slot_name=slot_name,
+            branch_name=branch,
+            worktree_path=worktree.path,
+        )
     return None
 
 

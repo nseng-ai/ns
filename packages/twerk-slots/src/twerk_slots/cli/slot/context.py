@@ -8,9 +8,8 @@ import click
 
 from twerk_core.clinkr.context import load_clinkr_context_object
 from twerk_core.gh.pr_gateway import RealPRGateway
-from twerk_slots.allocation import SlotAllocationError
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.pool_state_gateway import RealPoolStateGateway
+from twerk_slots.errors import SlotAllocationError
 from twerk_slots.gateway.real_clipboard import RealClipboardGateway
 from twerk_slots.gateway.real_git import build_real_slots_git_gateway
 from twerk_slots.gateway.real_storage import RealSlotsStorageGateway
@@ -38,7 +37,6 @@ def build_slots_context() -> SlotsCliContext | NoRepoSentinel:
         repo=repo,
         git=build_real_slots_git_gateway(repo_root=repo.root),
         storage=storage,
-        pool_state=RealPoolStateGateway(pool_json_path=repo.pool_json_path),
         clipboard=RealClipboardGateway(),
         pr=RealPRGateway(),
         slots_root=slots_root,
