@@ -60,6 +60,7 @@ def _fake_for_repo(
     current_branch_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None,
     file_status_by_path: dict[Path, FileStatus] | None = None,
     extra_existing: Iterable[Path] = (),
+    clipboard_should_succeed: bool = True,
 ) -> _SlotFakes:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
@@ -80,7 +81,7 @@ def _fake_for_repo(
     return _SlotFakes(
         git=git,
         storage=storage,
-        clipboard=FakeClipboardGateway(),
+        clipboard=FakeClipboardGateway(should_succeed=clipboard_should_succeed),
         repo_root=repo_root,
     )
 
@@ -150,7 +151,12 @@ def test_slot_goto_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: slot goto" in result.output
-    assert "worktree path" in result.output
+    assert "cd command" in result.output
+    assert "-n" in result.output
+    assert "--num" in result.output
+    assert "-w" in result.output
+    assert "--wt" in result.output
+    assert "--no-clipboard" in result.output
     assert "--format" in result.output
     assert "--schema" in result.output
 
@@ -177,29 +183,83 @@ def test_slot_goto_by_slot_name(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    # Header mentions slot name + branch; last non-empty line is pipeable path.
     assert "slot-01" in result.output
     assert "feat/x" in result.output
-    last_line = result.output.strip().splitlines()[-1]
-    assert last_line == str(worktree_path)
+    assert f"cd {worktree_path}" in result.output
+    assert "Copied cd command to clipboard." in result.output
+    assert fakes.clipboard.last_copied == f"cd {worktree_path}"
 
 
-def test_slot_goto_by_slot_number(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_goto_by_slot_number_short_flag(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root, slot_name="slot-03", branch="feat/three")
 
     result = CliRunner().invoke(
         cli_group,
-        ["goto", "--num", "3"],
+        ["goto", "-n", "3"],
         obj=_make_obj(fakes, slots_root),
     )
 
     assert result.exit_code == 0, result.output
     assert "slot-03" in result.output
     assert "feat/three" in result.output
-    last_line = result.output.strip().splitlines()[-1]
-    assert last_line == str(worktree_path)
+    assert f"cd {worktree_path}" in result.output
+    assert fakes.clipboard.last_copied == f"cd {worktree_path}"
+
+
+def test_slot_goto_by_slot_name_short_flag(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["goto", "-w", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"cd {worktree_path}" in result.output
+    assert fakes.clipboard.last_copied == f"cd {worktree_path}"
+
+
+def test_slot_goto_no_clipboard_flag_skips_copy(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["goto", "--wt", "slot-01", "--no-clipboard"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"cd {worktree_path}" in result.output
+    assert "Copied cd command" not in result.output
+    assert "Clipboard unavailable" not in result.output
+    assert fakes.clipboard.copy_calls == 0
+
+
+def test_slot_goto_clipboard_failure_warns_but_succeeds(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path, clipboard_should_succeed=False)
+    worktree_path = _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["goto", "--wt", "slot-01"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"cd {worktree_path}" in result.output
+    assert "Clipboard unavailable" in result.output
+    assert fakes.clipboard.copy_calls == 1
+    assert fakes.clipboard.last_copied is None
 
 
 # -- machine mode -----------------------------------------------------------
@@ -223,6 +283,11 @@ def test_slot_goto_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path:
     assert data["slot_name"] == "slot-01"
     assert data["branch_name"] == "feat/x"
     assert data["worktree_path"] == str(worktree_path)
+    assert data["cd_command"] == f"cd {worktree_path}"
+    assert data["clipboard_copied"] is True
+    assert data["clipboard_skipped"] is False
+    assert data["clipboard_failure_reason"] is None
+    assert data["clipboard_failure_detail"] is None
 
 
 def test_slot_goto_schema(cli_group: ClinkrGroup) -> None:
@@ -296,7 +361,7 @@ def test_slot_goto_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -
     )
 
     assert result.exit_code == 2
-    assert "--num or --wt" in result.output
+    assert "-n/--num or -w/--wt" in result.output
 
 
 def test_slot_goto_conflicting_flags_errors(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -383,6 +448,11 @@ def test_slot_goto_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Pat
     assert data["slot_name"] == "slot-01"
     assert data["branch_name"] == "feat/x"
     assert data["worktree_path"] == str(worktree_path)
+    assert data["cd_command"] == f"cd {worktree_path}"
+    assert data["clipboard_copied"] is True
+    assert data["clipboard_skipped"] is False
+    assert data["clipboard_failure_reason"] is None
+    assert data["clipboard_failure_detail"] is None
 
 
 def test_slot_goto_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
