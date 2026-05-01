@@ -14,9 +14,11 @@ from twerk_core.gh.types import (
     Issue,
     IssueComment,
     PRChangedFile,
+    PRInlineCommentInput,
     PRLookupError,
     PRReview,
     PRReviewComment,
+    PRReviewSubmission,
     PRReviewThread,
     PRSummary,
     Reaction,
@@ -67,6 +69,10 @@ class IssueGateway(ABC):
         """Fetch file-level diff metadata for a PR."""
 
     @abstractmethod
+    def get_pr_review_comments(self, pr_number: int) -> tuple[PRReviewComment, ...]:
+        """Fetch inline review comments on a PR."""
+
+    @abstractmethod
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         """Fetch discussion comments on a PR (not inline review comments)."""
 
@@ -100,6 +106,12 @@ class IssueGateway(ABC):
     @abstractmethod
     def add_review_thread_reply(self, thread_id: str, body: str) -> PRReviewComment:
         """Add a reply to a review thread. Returns the new reply comment."""
+
+    @abstractmethod
+    def create_pr_review(
+        self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
+    ) -> PRReviewSubmission:
+        """Submit one PR review containing multiple inline comments."""
 
     @abstractmethod
     def add_comment(self, pr_number: int, body: str) -> IssueComment:

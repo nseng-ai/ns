@@ -9,9 +9,11 @@ from twerk_core.gh.types import (
     Issue,
     IssueComment,
     PRChangedFile,
+    PRInlineCommentInput,
     PRLookupError,
     PRReview,
     PRReviewComment,
+    PRReviewSubmission,
     PRReviewThread,
     PRSummary,
     Reaction,
@@ -39,6 +41,7 @@ class FakeIssueGateway(IssueGateway):
         reviews: dict[int, Sequence[PRReview]] | None = None,
         discussion_comments: dict[int, Sequence[IssueComment]] | None = None,
         pr_changed_files: dict[int, Sequence[PRChangedFile]] | None = None,
+        pr_review_comments: dict[int, Sequence[PRReviewComment]] | None = None,
         prs_by_branch: dict[str, PRSummary] | None = None,
         raise_on: dict[str, BaseException] | None = None,
     ) -> None:
@@ -51,6 +54,9 @@ class FakeIssueGateway(IssueGateway):
             pr_number: list(entries) for pr_number, entries in (discussion_comments or {}).items()
         }
         self._pr_changed_files = pr_changed_files or {}
+        self._pr_review_comments: dict[int, list[PRReviewComment]] = {
+            pr_number: list(entries) for pr_number, entries in (pr_review_comments or {}).items()
+        }
         self._prs_by_branch = prs_by_branch or {}
         self._raise_on = dict(raise_on or {})
         self._next_comment_id = 1
@@ -61,6 +67,7 @@ class FakeIssueGateway(IssueGateway):
         self._unresolved_thread_ids: list[str] = []
         self._thread_replies: list[tuple[str, str]] = []
         self._comments: list[tuple[int, str]] = []
+        self._created_reviews: list[tuple[int, tuple[PRInlineCommentInput, ...]]] = []
         self._updated_comments: list[tuple[int, str]] = []
         self._reactions: list[tuple[int, str]] = []
 
@@ -88,6 +95,9 @@ class FakeIssueGateway(IssueGateway):
 
     def get_pr_changed_files(self, pr_number: int) -> tuple[PRChangedFile, ...]:
         return tuple(self._pr_changed_files.get(pr_number, []))
+
+    def get_pr_review_comments(self, pr_number: int) -> tuple[PRReviewComment, ...]:
+        return tuple(self._pr_review_comments.get(pr_number, []))
 
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         return tuple(self._discussion_comments.get(pr_number, []))
@@ -127,6 +137,33 @@ class FakeIssueGateway(IssueGateway):
             path="",
             line=None,
             created_at="",
+        )
+
+    def create_pr_review(
+        self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
+    ) -> PRReviewSubmission:
+        if exc := self._raise_on.get("create_pr_review"):
+            raise exc
+        self._created_reviews.append((pr_number, comments))
+        existing = self._pr_review_comments.setdefault(pr_number, [])
+        for comment in comments:
+            comment_id = self._next_comment_id
+            self._next_comment_id += 1
+            existing.append(
+                PRReviewComment(
+                    id=comment_id,
+                    body=comment.body,
+                    author="github-actions[bot]",
+                    path=comment.path,
+                    line=comment.line,
+                    created_at="",
+                )
+            )
+        return PRReviewSubmission(
+            id=f"fake-review-{len(self._created_reviews)}",
+            state="COMMENTED",
+            body="",
+            submitted_at="",
         )
 
     def add_comment(self, pr_number: int, body: str) -> IssueComment:

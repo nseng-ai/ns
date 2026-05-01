@@ -15,7 +15,7 @@ import pytest
 
 from twerk_core.gh import real_gateway_helpers, real_issue_gateway
 from twerk_core.gh.real_issue_gateway import RealIssueGateway
-from twerk_core.gh.types import PRLookupError
+from twerk_core.gh.types import PRInlineCommentInput, PRLookupError
 
 _OWNER_REPO_OUTPUT = json.dumps({"owner": {"login": "dagster-io"}, "name": "twerk"})
 
@@ -61,6 +61,8 @@ def _make_fake_run(
     reviews: list[dict[str, object]] | None = None,
     discussion_comment_pages: list[list[dict[str, object]]] | None = None,
     changed_file_pages: list[list[dict[str, object]]] | None = None,
+    review_comment_pages: list[list[dict[str, object]]] | None = None,
+    create_review_response: dict[str, object] | None = None,
     resolve_response: dict[str, object] | None = None,
     unresolve_response: dict[str, object] | None = None,
     reply_response: dict[str, object] | None = None,
@@ -96,6 +98,8 @@ def _make_fake_run(
         json.dumps(page) for page in (discussion_comment_pages or [])
     )
     changed_files_payload = "".join(json.dumps(page) for page in (changed_file_pages or []))
+    review_comments_payload = "".join(json.dumps(page) for page in (review_comment_pages or []))
+    create_review_payload = json.dumps(create_review_response or {})
     resolve_payload = json.dumps({"data": {"resolveReviewThread": resolve_response or {}}})
     unresolve_payload = json.dumps({"data": {"unresolveReviewThread": unresolve_response or {}}})
     reply_payload = json.dumps({"data": {"addPullRequestReviewThreadReply": reply_response or {}}})
@@ -133,6 +137,9 @@ def _make_fake_run(
         if cmd[:2] == ["gh", "api"] and cmd[2].endswith("/reviews"):
             assert "--paginate" in cmd
             return subprocess.CompletedProcess(cmd, 0, stdout=reviews_payload, stderr="")
+        if cmd[:2] == ["gh", "api"] and cmd[2] == "repos/dagster-io/twerk/pulls/47/comments":
+            assert "--paginate" in cmd
+            return subprocess.CompletedProcess(cmd, 0, stdout=review_comments_payload, stderr="")
         if cmd[:2] == ["gh", "api"] and cmd[2] == "repos/dagster-io/twerk/issues/47/comments":
             assert "--paginate" in cmd
             return subprocess.CompletedProcess(
@@ -152,6 +159,8 @@ def _make_fake_run(
             path = cmd[4]
             if path.endswith("/reactions"):
                 return subprocess.CompletedProcess(cmd, 0, stdout=add_reaction_payload, stderr="")
+            if path.endswith("/reviews"):
+                return subprocess.CompletedProcess(cmd, 0, stdout=create_review_payload, stderr="")
             if path.startswith("repos/") and path.endswith("/comments"):
                 return subprocess.CompletedProcess(cmd, 0, stdout=add_comment_payload, stderr="")
         if cmd[:4] == ["gh", "api", "--method", "PATCH"]:
@@ -891,3 +900,86 @@ def test_get_pr_changed_files_fetches_paginated_rest_files(
     assert result[1].patch is None
     file_calls = [c for c in calls if c[:2] == ["gh", "api"] and c[2].endswith("/files")]
     assert file_calls == [["gh", "api", "repos/dagster-io/twerk/pulls/47/files", "--paginate"]]
+
+
+def test_get_pr_review_comments_fetches_paginated_rest_comments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            review_comment_pages=[
+                [
+                    {
+                        "id": 101,
+                        "body": "inline body",
+                        "user": {"login": "github-actions[bot]"},
+                        "path": "app.py",
+                        "line": 7,
+                        "start_line": None,
+                        "created_at": "2026-04-30T00:00:00Z",
+                    }
+                ]
+            ],
+            calls=calls,
+        ),
+    )
+
+    result = RealIssueGateway().get_pr_review_comments(47)
+
+    assert len(result) == 1
+    assert result[0].id == 101
+    assert result[0].body == "inline body"
+    assert result[0].author == "github-actions[bot]"
+    assert result[0].path == "app.py"
+    assert result[0].line == 7
+    comment_calls = [c for c in calls if c[:2] == ["gh", "api"] and c[2].endswith("/comments")]
+    assert comment_calls == [
+        ["gh", "api", "repos/dagster-io/twerk/pulls/47/comments", "--paginate"]
+    ]
+
+
+def test_create_pr_review_posts_batched_inline_comments_with_json_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_issue_gateway.subprocess,
+        "run",
+        _make_fake_run(
+            create_review_response={
+                "node_id": "PRR_abc",
+                "state": "COMMENTED",
+                "body": "",
+                "submitted_at": "2026-04-30T00:00:00Z",
+            },
+            calls=calls,
+        ),
+    )
+
+    result = RealIssueGateway().create_pr_review(
+        47,
+        (
+            PRInlineCommentInput(path="app.py", line=7, body="first"),
+            PRInlineCommentInput(path="other.py", line=9, body="second"),
+        ),
+    )
+
+    assert result.id == "PRR_abc"
+    assert result.state == "COMMENTED"
+    review_calls = [
+        c for c in calls if c[:4] == ["gh", "api", "--method", "POST"] and c[4].endswith("/reviews")
+    ]
+    assert review_calls == [
+        [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            "repos/dagster-io/twerk/pulls/47/reviews",
+            "--input",
+            "-",
+        ]
+    ]

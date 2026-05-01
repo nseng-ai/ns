@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.gh.types import IssueComment, PRChangedFile
+from twerk_core.gh.types import IssueComment, PRChangedFile, PRReviewComment
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
@@ -181,6 +181,13 @@ def test_exec_help_lists_classify_inline_findings(cli_group: ClinkrGroup) -> Non
     assert "classify-inline-findings" in result.output
 
 
+def test_exec_help_lists_post_inline_findings(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["exec", "-h"])
+    assert result.exit_code == 0
+    assert "post-inline-findings" in result.output
+
+
 def test_classify_inline_findings_groups_findings_by_commentability(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -238,6 +245,232 @@ def test_classify_inline_findings_groups_findings_by_commentability(
         }
     ]
     assert data["fallback_only"][0]["reason"] == "missing_line"
+
+
+def _findings_payload(findings: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "exit_code": 0,
+        "data": {
+            "review_name": "dignified-python",
+            "base_ref": "master",
+            "format": "findings",
+            "count": len(findings),
+            "findings": findings,
+        },
+    }
+
+
+def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        }
+    )
+    payload = _findings_payload(
+        [
+            {
+                "path": "app.py",
+                "line": 1,
+                "severity": "warning",
+                "summary": "Inline this",
+                "details": "This line is in the PR diff.",
+            }
+        ]
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(payload),
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["posted_count"] == 1
+    assert data["skipped_duplicate_count"] == 0
+    assert data["fallback_only_count"] == 0
+    assert len(fake._created_reviews) == 1
+    pr_number, comments = fake._created_reviews[0]
+    assert pr_number == 47
+    assert len(comments) == 1
+    assert comments[0].path == "app.py"
+    assert comments[0].line == 1
+    assert "<!-- twerk-reviewer-inline:dignified-python:" in comments[0].body
+    assert "Inline this" in comments[0].body
+
+
+def test_post_inline_findings_skips_existing_marker_duplicates(
+    cli_group: ClinkrGroup,
+) -> None:
+    finding = {
+        "path": "app.py",
+        "line": 1,
+        "severity": "warning",
+        "summary": "Inline this",
+        "details": "This line is in the PR diff.",
+    }
+    first_fake = FakeIssueGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        }
+    )
+    runner = CliRunner()
+    first = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(_findings_payload([finding])),
+        obj=_context_with_issue_gateway(first_fake),
+    )
+    assert first.exit_code == 0, first.output
+    marker_body = first_fake._created_reviews[0][1][0].body
+
+    fake = FakeIssueGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        },
+        pr_review_comments={
+            47: [
+                PRReviewComment(
+                    id=10,
+                    body=marker_body,
+                    author=_BOT,
+                    path="app.py",
+                    line=1,
+                    created_at="2026-04-30T00:00:00Z",
+                )
+            ]
+        },
+    )
+
+    result = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(_findings_payload([finding])),
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["posted_count"] == 0
+    assert data["skipped_duplicate_count"] == 1
+    assert fake._created_reviews == []
+
+
+def test_post_inline_findings_reports_fallback_only_findings(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        }
+    )
+    payload = _findings_payload(
+        [
+            {
+                "path": "app.py",
+                "line": None,
+                "severity": "info",
+                "summary": "Fallback this",
+                "details": "No concrete line was provided.",
+            },
+            {
+                "path": "other.py",
+                "line": 10,
+                "severity": "warning",
+                "summary": "Not changed",
+                "details": "File is not in the PR diff.",
+            },
+        ]
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(payload),
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["posted_count"] == 0
+    assert data["fallback_only_count"] == 2
+    assert [item["reason"] for item in data["fallback_only"]] == [
+        "missing_line",
+        "file_not_changed",
+    ]
+    assert fake._created_reviews == []
+
+
+def test_post_inline_findings_handles_empty_findings_as_noop(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway()
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(_findings_payload([])),
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["posted_count"] == 0
+    assert data["fallback_only_count"] == 0
+    assert fake._created_reviews == []
+
+
+def test_post_inline_findings_reports_api_rejection_without_losing_fallback_accounting(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FakeIssueGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        },
+        raise_on={"create_pr_review": RuntimeError("validation failed")},
+    )
+    payload = _findings_payload(
+        [
+            {
+                "path": "app.py",
+                "line": 1,
+                "severity": "warning",
+                "summary": "Inline this",
+                "details": "This line is in the PR diff.",
+            },
+            {
+                "path": "app.py",
+                "line": None,
+                "severity": "info",
+                "summary": "Fallback this",
+                "details": "No concrete line was provided.",
+            },
+        ]
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(payload),
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["posted_count"] == 0
+    assert data["fallback_only_count"] == 1
+    assert data["fallback_only"][0]["reason"] == "missing_line"
+    assert data["api_error"] == "validation failed"
+
+
+# -- post-findings-comment --
 
 
 def test_post_findings_comment_creates_comment_when_none_exists(
