@@ -9,12 +9,15 @@ branches, PRs, or sessions. Use one when you need a durable answer to:
 - What branch-local context should stay with in-flight work until it lands?
 
 Objectives are stored in `brmem`, not in GitHub issues, PR comments, or files
-in the working tree. Each objective is keyed by a slug, such as
-`dashboard-revamp`, and stores a small directory of markdown files:
+in the working tree. Open objectives live in the `objectives` namespace;
+closed objectives live in `objectives-archive`. Each objective is keyed by a
+slug, such as `dashboard-revamp`, and stores a small directory of markdown
+files:
 
 - `body.md`: required, stable description of the workstream.
 - `roadmap.md`: optional, ordered PR-sized slices.
 - `notes.md`: optional, durable findings discovered while implementing.
+- `.closed`: archive-only closure metadata written by `objective close`.
 
 The full conceptual reference lives in [`SKILL.md`](./SKILL.md). This README
 is the human walkthrough.
@@ -32,8 +35,9 @@ There are two places an objective can live:
 
   Canonical objective storage lives on the repo's trunk — typically
   `master` on legacy repos, `main` on greenfield ones. The brmem ref shape
-  (`refs/brmem/ns/objectives/<encoded-branch>`) records the trunk branch
-  name as part of the storage key. Detect the trunk for your repo with
+  (`refs/brmem/ns/objectives/<encoded-branch>` while open,
+  `refs/brmem/ns/objectives-archive/<encoded-branch>` when closed) records
+  the trunk branch name as part of the storage key. Detect the trunk for your repo with
   `git symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@'`
   and use that name wherever this README writes `<trunk>`.
 
@@ -58,6 +62,8 @@ place to another, and it copies verbatim.
 | Attach the workstream to a branch             | `objective-claim`     | Branch    |
 | Refresh a snapshot before stacking on it      | `objective-update`    | Branch    |
 | Refresh canonical state after PRs merge       | `objective-reconcile` | Canonical |
+| Close a completed workstream                  | `objective close`     | Archive   |
+| Reopen an archived workstream                 | `objective reopen`    | Active    |
 
 Full write rules live in
 [`references/mutation-contract.md`](./references/mutation-contract.md).

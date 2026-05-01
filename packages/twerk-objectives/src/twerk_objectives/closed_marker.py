@@ -9,7 +9,7 @@ from typing import Any
 
 from brmem.gateway import BranchMemoryGateway
 from twerk_objectives.discovery import closed_key
-from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE
 
 CLOSED_MARKER_SCHEMA = 1
 
@@ -40,9 +40,10 @@ def load_closed_marker(
     *,
     slug: str,
     trunk_branch: str,
+    namespace: str = OBJECTIVE_ARCHIVE_NAMESPACE,
 ) -> ClosedMarker:
     """Read and parse ``<slug>/.closed`` from the canonical trunk branch."""
-    content = gateway.get(OBJECTIVE_NAMESPACE, closed_key(slug), trunk_branch)
+    content = gateway.get(namespace, closed_key(slug), trunk_branch)
     if content is None:
         return ClosedMarker(present=False, closed_at=None, reason=None, diagnostics=())
     return parse_closed_marker(content)

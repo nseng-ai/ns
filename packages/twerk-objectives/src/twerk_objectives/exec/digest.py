@@ -31,7 +31,7 @@ from twerk_objectives.discovery import (
     notes_key,
     roadmap_key,
 )
-from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE, OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
@@ -122,14 +122,19 @@ def run_digest_objective(
         case SlugResolution() as slug_resolution:
             slug = slug_resolution.slug
 
+    namespace = OBJECTIVE_NAMESPACE
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
-    slug_entries = Ensure.truthy(
-        [e for e in all_entries if e.key.startswith(f"{slug}/")],
-        error_type="slug_not_seeded",
-        message=(
-            f"No objective found for slug {slug!r}. Run `objective-create` to seed it on trunk."
-        ),
-    )
+    slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
+    if not slug_entries:
+        namespace = OBJECTIVE_ARCHIVE_NAMESPACE
+        all_entries = gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE)
+        slug_entries = Ensure.truthy(
+            [e for e in all_entries if e.key.startswith(f"{slug}/")],
+            error_type="slug_not_seeded",
+            message=(
+                f"No objective found for slug {slug!r}. Run `objective-create` to seed it on trunk."
+            ),
+        )
     trunk_branch = git.get_trunk_branch()
     Ensure.true(
         any(e.branch == trunk_branch for e in slug_entries),
@@ -141,7 +146,13 @@ def run_digest_objective(
     )
 
     branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
-    canonical = _read_canonical_snapshot(gateway, git, slug, trunk_branch=trunk_branch)
+    canonical = _read_canonical_snapshot(
+        gateway,
+        git,
+        slug,
+        trunk_branch=trunk_branch,
+        namespace=namespace,
+    )
     branch_alive = {b: git.branch_exists(b) for b in branch_names}
     pr_results = {b: mctx.pr_gateway.get_pr_for_branch(b) for b in branch_names}
     branches = tuple(
@@ -152,6 +163,7 @@ def run_digest_objective(
             branch,
             alive=branch_alive[branch],
             pr_result=pr_results[branch],
+            namespace=namespace,
         )
         for branch in branch_names
     )
@@ -166,11 +178,12 @@ def _read_canonical_snapshot(
     slug: str,
     *,
     trunk_branch: str,
+    namespace: str,
 ) -> _CanonicalSnapshot:
-    body_md = gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), trunk_branch) or ""
-    roadmap_md = gateway.get(OBJECTIVE_NAMESPACE, roadmap_key(slug), trunk_branch) or ""
-    notes_md = gateway.get(OBJECTIVE_NAMESPACE, notes_key(slug), trunk_branch) or ""
-    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, trunk_branch)
+    body_md = gateway.get(namespace, body_key(slug), trunk_branch) or ""
+    roadmap_md = gateway.get(namespace, roadmap_key(slug), trunk_branch) or ""
+    notes_md = gateway.get(namespace, notes_key(slug), trunk_branch) or ""
+    snapshot_ref = snapshot_ref_name(namespace, trunk_branch)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
     return _CanonicalSnapshot(
         body_md=body_md,
@@ -188,9 +201,10 @@ def _read_branch_snapshot(
     *,
     alive: bool,
     pr_result: PRSummary | PRLookupError,
+    namespace: str,
 ) -> _BranchSnapshot:
-    notes_md = gateway.get(OBJECTIVE_NAMESPACE, notes_key(slug), branch) or ""
-    snapshot_ref = snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
+    notes_md = gateway.get(namespace, notes_key(slug), branch) or ""
+    snapshot_ref = snapshot_ref_name(namespace, branch)
     body_last_touched = git.file_last_touched_iso(snapshot_ref, f"{slug}/{BODY_FILE}")
     pr_number, pr_state, pr_title, pr_url, pr_error = _pr_fields(pr_result)
     return _BranchSnapshot(

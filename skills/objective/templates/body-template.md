@@ -8,7 +8,7 @@ For architectural redesigns and other multi-PR work:
 - use `## Goals` for the value or outcome this work should deliver
 - use `## Completion Criteria` to describe the end state
 - keep `Status:` terse and categorical rather than a progress narrative
-- the `Status:` line is for human reading only; canonical "open"/"closed" state is signaled by the `.closed` marker via `objective close` / `objective reopen`, not by this prose
+- the `Status:` line is for human reading only; canonical "open"/"closed" state is signaled by whether the objective lives in active storage or the closed archive via `objective close` / `objective reopen`, not by this prose
 
 The roadmap lives in the sibling `roadmap.md`; durable findings live in the
 sibling `notes.md`. Do not fold either back into this file.

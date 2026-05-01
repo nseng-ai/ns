@@ -47,13 +47,15 @@ progress. The subsystem stays local-first: objective content is stored in
 
 ## Storage model
 
-Objectives live in `brmem` under namespace `objectives`, keyed by
+Open objectives live in `brmem` under namespace `objectives`; closed
+objectives live under namespace `objectives-archive`. Entries are keyed by
 `<slug>/<filename>`. An objective is a directory of files:
 
 - `body.md` - required stable spine
 - `roadmap.md` - optional progress surface
 - `notes.md` - optional durable findings
 - `.absorbed.jsonl` - optional machine-owned branch snapshot marker
+- `.closed` - archive-only closure metadata on the trunk snapshot
 
 Current storage is snapshot-shaped: a single ref per `(namespace, branch)`
 holds a commit whose tree is the namespace filesystem for that branch.
@@ -61,9 +63,9 @@ holds a commit whose tree is the namespace filesystem for that branch.
 ```text
 refs/brmem/ns/objectives/<encoded-branch>
 refs/brmem/ns/objectives/<encoded-branch>:<slug>/body.md
-refs/brmem/ns/objectives/<encoded-branch>:<slug>/roadmap.md
-refs/brmem/ns/objectives/<encoded-branch>:<slug>/notes.md
-refs/brmem/ns/objectives/<encoded-branch>:<slug>/.absorbed.jsonl
+refs/brmem/ns/objectives-archive/<encoded-branch>
+refs/brmem/ns/objectives-archive/<encoded-branch>:<slug>/body.md
+refs/brmem/ns/objectives-archive/<encoded-branch>:<slug>/.closed
 ```
 
 Branch names are encoded by replacing `/` with `---`. The slug is the path
@@ -195,6 +197,12 @@ implement a slice on a branch
   cross-referencing their associated PRs, and folding only landed evidence
   into a conservative canonical update. Open PRs and unmerged branches stay
   outside canonical state.
+- **Close** (`objective close`): move all active refs for the slug from
+  `objectives` to `objectives-archive` and write `<slug>/.closed` on the
+  archived trunk snapshot. Default `objective list` output shows only open
+  objectives; use `objective list --closed` or `--all` for archived ones.
+- **Reopen** (`objective reopen`): move archived refs for the slug back to
+  `objectives`, omitting `.closed`, then remove the archived refs.
 
 ## Carry-forward semantics
 
@@ -228,6 +236,8 @@ The full contract lives in `references/mutation-contract.md`. Summary:
 | `objective-claim`     | May read as source                           | Writes verbatim carry-forward to target  | May read as source     |
 | `objective-update`    | Never                                        | Rewrites conservatively from branch work | Never                  |
 | `objective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                   | Reads only as evidence |
+| `objective close`     | Moves active refs into closed archive        | Moves matching refs into closed archive  | Moves matching refs    |
+| `objective reopen`    | Moves archive refs back to active storage    | Moves matching refs back                 | Moves matching refs    |
 
 `update` and `reconcile` share the same conservative prose rewrite rules.
 They differ in authority and evidence:
