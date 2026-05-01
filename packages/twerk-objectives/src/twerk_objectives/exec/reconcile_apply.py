@@ -35,6 +35,7 @@ from twerk_core.clinkr.exit import ClinkrExit
 from twerk_core.clinkr.failure import ClinkrFailure
 from twerk_core.clinkr.operation import clinkr_operation
 from twerk_objectives.context import ObjectiveCliContext
+from twerk_objectives.discovery import BODY_FILE, NOTES_FILE, ROADMAP_FILE
 from twerk_objectives.exec.reconcile_plan import PLAN_SCHEMA
 from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from twerk_objectives.trunk_resolution import resolve_trunk
@@ -48,10 +49,22 @@ class ReconcileApplyRequest:
             ["--plan-file"],
             type=click.Path(exists=True, dir_okay=False, path_type=Path),
             required=True,
-            help="Path to the JSON envelope emitted by `objective exec reconcile-plan`, "
-            "extended in-place by the agent with `proposed_writes` per slug.",
+            help="Path to the JSON envelope emitted by `objective exec reconcile-plan`.",
         ),
     ]
+    proposed_dir: Annotated[
+        Path | None,
+        click.Option(
+            ["--proposed-dir"],
+            type=click.Path(file_okay=False, path_type=Path),
+            required=False,
+            default=None,
+            help=(
+                "Directory containing <slug>/<file>.proposed files. Mutually exclusive "
+                "with plan-file proposed_writes."
+            ),
+        ),
+    ] = None
 
 
 @dataclass(frozen=True)
@@ -146,8 +159,8 @@ def render_reconcile_apply(result: ReconcileApplyResult) -> None:
     name="reconcile-apply",
     help=(
         "Apply a reconcile plan-file serially to canonical `master`. "
-        "Reads each slug's `proposed_writes` (paths added to the envelope "
-        "by the agent), verifies `expected_old_sha` against canonical, "
+        "Reads each slug's `proposed_writes` or discovers <slug>/<file>.proposed "
+        "under --proposed-dir, verifies `expected_old_sha` against canonical, "
         "then runs `brmem put` one file at a time. Per-slug failures are "
         "gaps; only schema or plan-file shape errors are hard failures."
     ),
@@ -170,19 +183,13 @@ def run_reconcile_apply_objective(
             message=f"Plan file is not valid JSON: {exc}",
         ) from exc
 
-    envelope = Ensure.inst(
+    raw_envelope = Ensure.inst(
         parsed,
         dict,
         error_type="malformed_plan_file",
         message="Plan file must be a JSON object envelope.",
     )
-
-    schema = envelope.get("schema")
-    Ensure.true(
-        schema == PLAN_SCHEMA,
-        error_type="schema_mismatch",
-        message=f"Plan-file schema {schema!r} does not match expected {PLAN_SCHEMA!r}.",
-    )
+    envelope = _extract_plan_envelope(raw_envelope)
 
     canonical_branch = envelope.get("canonical_branch")
     Ensure.true(
@@ -199,6 +206,9 @@ def run_reconcile_apply_objective(
         error_type="malformed_plan_file",
         message="Plan-file 'slugs' must be a JSON array.",
     )
+
+    if request.proposed_dir is not None:
+        raw_slugs = _slugs_with_proposed_dir(raw_slugs, proposed_dir=request.proposed_dir)
 
     slug_results: list[SlugApplyResult] = []
     for raw_slug in raw_slugs:
@@ -221,6 +231,113 @@ def run_reconcile_apply_objective(
             slugs=tuple(slug_results),
         )
     )
+
+
+def _extract_plan_envelope(raw_envelope: dict[str, Any]) -> dict[str, Any]:
+    if raw_envelope.get("schema") == PLAN_SCHEMA:
+        return raw_envelope
+
+    data = raw_envelope.get("data")
+    if isinstance(data, dict) and data.get("schema") == PLAN_SCHEMA:
+        return data
+
+    found_schema = raw_envelope.get("schema")
+    if found_schema is None and isinstance(data, dict):
+        found_schema = data.get("schema")
+    raise ClinkrFailure(
+        error_type="schema_mismatch",
+        message=(
+            "Plan file must contain schema 'reconcile-plan/v1' either as the raw "
+            "plan object or as a clinkr JSON envelope at data.schema; "
+            f"found {found_schema!r}."
+        ),
+    )
+
+
+def _slugs_with_proposed_dir(
+    raw_slugs: list[Any],
+    *,
+    proposed_dir: Path,
+) -> list[Any]:
+    if not proposed_dir.exists() or not proposed_dir.is_dir():
+        raise ClinkrFailure(
+            error_type="proposed_dir_missing",
+            message=f"Proposed directory does not exist or is not a directory: {proposed_dir}",
+        )
+
+    slug_names = {raw_slug.get("slug") for raw_slug in raw_slugs if isinstance(raw_slug, dict)}
+    for raw_slug in raw_slugs:
+        if not isinstance(raw_slug, dict):
+            continue
+        proposed_writes = raw_slug.get("proposed_writes", [])
+        if proposed_writes:
+            raise ClinkrFailure(
+                error_type="ambiguous_proposed_writes",
+                message=(
+                    "Do not combine --proposed-dir with plan-file proposed_writes; "
+                    "remove one input source."
+                ),
+            )
+
+    discovered = _discover_proposed_writes(proposed_dir, slug_names=slug_names)
+    enriched: list[Any] = []
+    for raw_slug in raw_slugs:
+        if not isinstance(raw_slug, dict):
+            enriched.append(raw_slug)
+            continue
+        slug = raw_slug.get("slug")
+        if not isinstance(slug, str):
+            enriched.append(raw_slug)
+            continue
+        copied = dict(raw_slug)
+        copied["proposed_writes"] = discovered.get(slug, [])
+        enriched.append(copied)
+    return enriched
+
+
+_KNOWN_OBJECTIVE_FILES = (BODY_FILE, ROADMAP_FILE, NOTES_FILE)
+
+
+def _discover_proposed_writes(
+    proposed_dir: Path,
+    *,
+    slug_names: set[Any],
+) -> dict[str, list[dict[str, str]]]:
+    by_slug: dict[str, dict[str, Path]] = {}
+    for path in sorted(proposed_dir.rglob("*.proposed")):
+        relative = path.relative_to(proposed_dir)
+        if len(relative.parts) != 2:
+            raise ClinkrFailure(
+                error_type="unknown_proposed_file",
+                message=(
+                    f"Proposed files must use <slug>/<file>.proposed layout; found {relative}"
+                ),
+            )
+        slug, proposed_name = relative.parts
+        if slug not in slug_names:
+            raise ClinkrFailure(
+                error_type="unknown_proposed_file",
+                message=f"Proposed file {relative} references slug {slug!r} not present in plan.",
+            )
+        file = proposed_name.removesuffix(".proposed")
+        if file not in _KNOWN_OBJECTIVE_FILES:
+            raise ClinkrFailure(
+                error_type="unknown_proposed_file",
+                message=(
+                    f"Unknown proposed objective file {relative}; expected one of "
+                    f"{', '.join(_KNOWN_OBJECTIVE_FILES)}."
+                ),
+            )
+        by_slug.setdefault(slug, {})[file] = path
+
+    discovered: dict[str, list[dict[str, str]]] = {}
+    for slug, paths_by_file in by_slug.items():
+        discovered[slug] = [
+            {"file": file, "proposed_path": str(paths_by_file[file])}
+            for file in _KNOWN_OBJECTIVE_FILES
+            if file in paths_by_file
+        ]
+    return discovered
 
 
 def _apply_slug_plan(

@@ -217,11 +217,18 @@ def run_reconcile_plan_objective(
     request: ReconcilePlanRequest,
 ) -> ClinkrExit[ReconcilePlanResult]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
+    return ClinkrExit.ok(build_reconcile_plan(mctx, request.slugs))
+
+
+def build_reconcile_plan(
+    mctx: ObjectiveCliContext,
+    raw_slugs: str | None,
+) -> ReconcilePlanResult:
     gateway = mctx.brmem_gateway
     pr_gateway = mctx.pr_gateway
     trunk = resolve_trunk(mctx.git_gateway).trunk
 
-    requested_slugs = _parse_slug_argument(request.slugs)
+    requested_slugs = _parse_slug_argument(raw_slugs)
 
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
     canonical_slugs = sorted({slug_for_key(e.key) for e in all_entries if e.branch == trunk})
@@ -232,13 +239,11 @@ def run_reconcile_plan_objective(
         target_slugs = requested_slugs
 
     if not target_slugs:
-        return ClinkrExit.ok(
-            ReconcilePlanResult(
-                schema=PLAN_SCHEMA,
-                canonical_branch=trunk,
-                requested_slugs=requested_slugs or (),
-                slugs=(),
-            )
+        return ReconcilePlanResult(
+            schema=PLAN_SCHEMA,
+            canonical_branch=trunk,
+            requested_slugs=requested_slugs or (),
+            slugs=(),
         )
 
     canonical_set = set(canonical_slugs)
@@ -255,13 +260,11 @@ def run_reconcile_plan_objective(
             )
         )
 
-    return ClinkrExit.ok(
-        ReconcilePlanResult(
-            schema=PLAN_SCHEMA,
-            canonical_branch=trunk,
-            requested_slugs=requested_slugs or (),
-            slugs=tuple(items),
-        )
+    return ReconcilePlanResult(
+        schema=PLAN_SCHEMA,
+        canonical_branch=trunk,
+        requested_slugs=requested_slugs or (),
+        slugs=tuple(items),
     )
 
 
