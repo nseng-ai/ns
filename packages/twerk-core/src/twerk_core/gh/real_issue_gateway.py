@@ -11,6 +11,7 @@ from twerk_core.gh.real_gateway_helpers import fetch_pr_summary_for_branch
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRChangedFile,
     PRLookupError,
     PRReview,
     PRReviewComment,
@@ -247,6 +248,29 @@ class RealIssueGateway(IssueGateway):
             )
             for review in raw_reviews
             if review["state"] in _REVIEW_STATES_TO_INCLUDE
+        )
+
+    def get_pr_changed_files(self, pr_number: int) -> tuple[PRChangedFile, ...]:
+        owner, repo = _get_owner_repo()
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{owner}/{repo}/pulls/{pr_number}/files",
+                "--paginate",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        raw_files = _load_paginated_array_output(result.stdout)
+        return tuple(
+            PRChangedFile(
+                path=file["filename"],
+                status=file["status"],
+                patch=file.get("patch"),
+            )
+            for file in raw_files
         )
 
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:

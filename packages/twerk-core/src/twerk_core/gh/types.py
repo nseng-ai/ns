@@ -19,6 +19,22 @@ PRStateFilter = Literal["open", "closed", "merged", "all"]
 
 
 @dataclass(frozen=True)
+class PRChangedFile:
+    """A file changed in a PR, as returned by the GitHub pulls files endpoint.
+
+    Attributes:
+        path: Repository-relative file path (`filename` in the REST payload).
+        status: GitHub file status such as `added`, `modified`, `removed`, or `renamed`.
+        patch: Unified diff patch for text files. GitHub omits this for binary
+            files and files whose patch is too large.
+    """
+
+    path: str
+    status: str
+    patch: str | None
+
+
+@dataclass(frozen=True)
 class PRReviewComment:
     """A single comment within a PR review thread.
 

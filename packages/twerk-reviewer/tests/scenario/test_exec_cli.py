@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from twerk_core.clinkr.group import ClinkrGroup
 from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.gh.types import IssueComment
+from twerk_core.gh.types import IssueComment, PRChangedFile
 from twerk_reviewer.cli.main import build_cli
 from twerk_reviewer.context import ReviewerCliContext
 from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
@@ -172,6 +172,72 @@ def test_exec_help_lists_post_findings_comment(cli_group: ClinkrGroup) -> None:
     result = runner.invoke(cli_group, ["exec", "-h"])
     assert result.exit_code == 0
     assert "post-findings-comment" in result.output
+
+
+def test_exec_help_lists_classify_inline_findings(cli_group: ClinkrGroup) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli_group, ["exec", "-h"])
+    assert result.exit_code == 0
+    assert "classify-inline-findings" in result.output
+
+
+def test_classify_inline_findings_groups_findings_by_commentability(
+    cli_group: ClinkrGroup,
+) -> None:
+    payload = {
+        "exit_code": 0,
+        "data": {
+            "review_name": "dignified-python",
+            "base_ref": "master",
+            "format": "findings",
+            "count": 2,
+            "findings": [
+                {
+                    "path": "app.py",
+                    "line": 1,
+                    "severity": "warning",
+                    "summary": "Inline this",
+                    "details": "This line is in the PR diff.",
+                },
+                {
+                    "path": "app.py",
+                    "line": None,
+                    "severity": "info",
+                    "summary": "Fallback this",
+                    "details": "No concrete line was provided.",
+                },
+            ],
+        },
+    }
+    fake = FakeIssueGateway(
+        pr_changed_files={
+            47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
+        }
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "classify-inline-findings", "--pr-number", "47"],
+        input=json.dumps(payload),
+        obj=_context_with_issue_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["inlineable"] == [
+        {
+            "finding": {
+                "path": "app.py",
+                "line": 1,
+                "severity": "warning",
+                "summary": "Inline this",
+                "details": "This line is in the PR diff.",
+            },
+            "target": {"path": "app.py", "line": 1},
+        }
+    ]
+    assert data["fallback_only"][0]["reason"] == "missing_line"
 
 
 def test_post_findings_comment_creates_comment_when_none_exists(

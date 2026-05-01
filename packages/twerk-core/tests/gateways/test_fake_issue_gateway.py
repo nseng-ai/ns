@@ -3,7 +3,7 @@
 import pytest
 
 from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.gh.types import Issue, IssueComment
+from twerk_core.gh.types import Issue, IssueComment, PRChangedFile
 
 
 def _make_issue(number: int, *, state: str = "open") -> Issue:
@@ -153,3 +153,11 @@ def test_add_comment_appends_to_discussion_comments_for_round_trip() -> None:
     # should seed the comment via `discussion_comments=` rather than relying on
     # `add_comment`'s placeholder author.
     assert fake.find_comment_by_marker(47, _MARKER, author_login=new_comment.author) is not None
+
+
+def test_get_pr_changed_files_returns_seeded_files_by_pr_number() -> None:
+    changed = (PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n-old\n+new"),)
+    fake = FakeIssueGateway(pr_changed_files={47: changed})
+
+    assert fake.get_pr_changed_files(47) == changed
+    assert fake.get_pr_changed_files(99) == ()

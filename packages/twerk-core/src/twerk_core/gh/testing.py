@@ -8,6 +8,7 @@ from twerk_core.gh.issue_gateway import IssueGateway
 from twerk_core.gh.types import (
     Issue,
     IssueComment,
+    PRChangedFile,
     PRLookupError,
     PRReview,
     PRReviewComment,
@@ -37,6 +38,7 @@ class FakeIssueGateway(IssueGateway):
         review_threads: dict[int, Sequence[PRReviewThread]] | None = None,
         reviews: dict[int, Sequence[PRReview]] | None = None,
         discussion_comments: dict[int, Sequence[IssueComment]] | None = None,
+        pr_changed_files: dict[int, Sequence[PRChangedFile]] | None = None,
         prs_by_branch: dict[str, PRSummary] | None = None,
         raise_on: dict[str, BaseException] | None = None,
     ) -> None:
@@ -48,6 +50,7 @@ class FakeIssueGateway(IssueGateway):
         self._discussion_comments: dict[int, list[IssueComment]] = {
             pr_number: list(entries) for pr_number, entries in (discussion_comments or {}).items()
         }
+        self._pr_changed_files = pr_changed_files or {}
         self._prs_by_branch = prs_by_branch or {}
         self._raise_on = dict(raise_on or {})
         self._next_comment_id = 1
@@ -82,6 +85,9 @@ class FakeIssueGateway(IssueGateway):
 
     def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
         return tuple(self._reviews.get(pr_number, []))
+
+    def get_pr_changed_files(self, pr_number: int) -> tuple[PRChangedFile, ...]:
+        return tuple(self._pr_changed_files.get(pr_number, []))
 
     def get_discussion_comments(self, pr_number: int) -> tuple[IssueComment, ...]:
         return tuple(self._discussion_comments.get(pr_number, []))
