@@ -73,16 +73,14 @@ Renders the pool from `git worktree list`. One row per managed `slot-XX`
 worktree, showing slot name, `assigned`/`available`, the branch (if
 any), and the worktree path. Aliased as `slot ls`.
 
-### `slot goto --num N` / `slot goto --wt slot-XX`
+### `slot goto -n N` / `slot goto -w slot-XX`
 
-TODO: Change `slot goto` to copy the resolved worktree path to the
-clipboard, matching the other navigation commands.
-
-Prints the worktree path for an assigned slot. Use shell substitution to
-`cd` into it:
+Prints and copies a `cd` command for an assigned slot, matching
+`slot checkout` / `slot co` navigation behavior. Pass `--no-clipboard`
+to print the command without writing the system clipboard.
 
 ```
-cd "$(slot goto --num 1)"
+slot goto -n 1
 ```
 
 Refuses if the slot is detached, missing, or out of range.
