@@ -88,6 +88,20 @@ def _file_block(
     }
 
 
+def _plan_payload(
+    *,
+    slugs: list[dict],
+    schema: str = PLAN_SCHEMA,
+    canonical_branch: str = "master",
+) -> dict:
+    return {
+        "schema": schema,
+        "canonical_branch": canonical_branch,
+        "requested_slugs": [],
+        "slugs": slugs,
+    }
+
+
 def _write_plan_file(
     tmp_path: Path,
     *,
@@ -95,19 +109,29 @@ def _write_plan_file(
     schema: str = PLAN_SCHEMA,
     canonical_branch: str = "master",
 ) -> Path:
-    plan = {
-        "schema": schema,
-        "canonical_branch": canonical_branch,
-        "requested_slugs": [],
-        "slugs": slugs,
-    }
     plan_path = tmp_path / "plan.json"
-    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    plan_path.write_text(
+        json.dumps(_plan_payload(slugs=slugs, schema=schema, canonical_branch=canonical_branch)),
+        encoding="utf-8",
+    )
     return plan_path
 
 
 def _write_proposed(tmp_path: Path, name: str, content: str) -> Path:
     path = tmp_path / name
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _write_proposed_dir_file(
+    tmp_path: Path,
+    *,
+    slug: str,
+    filename: str,
+    content: str,
+) -> Path:
+    path = tmp_path / slug / f"{filename}.proposed"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return path
 
@@ -193,6 +217,51 @@ def test_reconcile_apply_writes_proposed_file(cli_group: ClinkrGroup, tmp_path: 
         f"--branch master --at {shas['body.md']['head_sha']}"
     )
     # The new content actually landed.
+    assert gateway.get("objectives", "widget-rewrite/body.md", "master") == "# rewritten body\n"
+
+
+def test_reconcile_apply_accepts_clinkr_plan_envelope(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    shas = _seed_canonical(gateway, "widget-rewrite", body="# old body\n")
+    body_proposed = _write_proposed(tmp_path, "body.md.proposed", "# rewritten body\n")
+    plan_data = _plan_payload(
+        slugs=[
+            {
+                "slug": "widget-rewrite",
+                "canonical_present": True,
+                "canonical_files": [
+                    _file_block(
+                        file="body.md",
+                        key="widget-rewrite/body.md",
+                        blob_sha=shas["body.md"]["blob_sha"],
+                        head_sha=shas["body.md"]["head_sha"],
+                    ),
+                ],
+                "included_snapshots": [],
+                "skipped_snapshots": [],
+                "conflicts": [],
+                "gaps": [],
+                "proposed_writes": [
+                    {"file": "body.md", "proposed_path": str(body_proposed)},
+                ],
+            }
+        ],
+    )
+    plan = tmp_path / "plan-envelope.json"
+    plan.write_text(json.dumps({"exit_code": 0, "data": plan_data}), encoding="utf-8")
+    obj = _make_obj(gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "reconcile-apply", "--plan-file", str(plan), "--format", "json"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    slug_result = json.loads(result.output)["data"]["slugs"][0]
+    assert [write["file"] for write in slug_result["writes"]] == ["body.md"]
     assert gateway.get("objectives", "widget-rewrite/body.md", "master") == "# rewritten body\n"
 
 
@@ -288,6 +357,28 @@ def test_reconcile_apply_rejects_schema_mismatch(cli_group: ClinkrGroup, tmp_pat
     assert "reconcile-plan/v0" in payload["message"]
 
 
+def test_reconcile_apply_rejects_plan_without_reconcile_schema(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    plan_path = tmp_path / "bad-shape.json"
+    plan_path.write_text(
+        json.dumps({"exit_code": 0, "data": {"schema": "other/v1"}}),
+        encoding="utf-8",
+    )
+    obj = _make_obj(FakeBranchMemoryGateway())
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "reconcile-apply", "--plan-file", str(plan_path), "--format", "json"],
+        obj=obj,
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 2
+    assert payload["error_type"] == "schema_mismatch"
+    assert "data.schema" in payload["message"]
+
+
 def test_reconcile_apply_rejects_wrong_canonical_branch(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
@@ -375,6 +466,297 @@ def test_reconcile_apply_missing_proposed_file_is_skip(
     assert slug_result["writes"] == []
     assert len(slug_result["skipped"]) == 1
     assert "not found on disk" in slug_result["skipped"][0]["reason"]
+
+
+# ---------------------------------------------------------------------------
+# proposed-dir staging
+# ---------------------------------------------------------------------------
+
+
+def test_reconcile_apply_proposed_dir_writes_one_file(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    shas = _seed_canonical(gateway, "widget-rewrite", body="# old\n")
+    proposed_dir = tmp_path / "proposed"
+    _write_proposed_dir_file(
+        proposed_dir,
+        slug="widget-rewrite",
+        filename="body.md",
+        content="# new\n",
+    )
+    plan = _write_plan_file(
+        tmp_path,
+        slugs=[
+            {
+                "slug": "widget-rewrite",
+                "canonical_present": True,
+                "canonical_files": [
+                    _file_block(
+                        file="body.md",
+                        key="widget-rewrite/body.md",
+                        blob_sha=shas["body.md"]["blob_sha"],
+                        head_sha=shas["body.md"]["head_sha"],
+                    ),
+                ],
+                "included_snapshots": [],
+                "skipped_snapshots": [],
+                "conflicts": [],
+                "gaps": [],
+            }
+        ],
+    )
+    obj = _make_obj(gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "reconcile-apply",
+            "--plan-file",
+            str(plan),
+            "--proposed-dir",
+            str(proposed_dir),
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    slug_result = json.loads(result.output)["data"]["slugs"][0]
+    assert [write["file"] for write in slug_result["writes"]] == ["body.md"]
+    assert gateway.get("objectives", "widget-rewrite/body.md", "master") == "# new\n"
+
+
+def test_reconcile_apply_proposed_dir_writes_all_known_files(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    shas = _seed_canonical(
+        gateway,
+        "widget-rewrite",
+        body="# old\n",
+        roadmap="# old roadmap\n",
+        notes="# old notes\n",
+    )
+    proposed_dir = tmp_path / "proposed"
+    _write_proposed_dir_file(
+        proposed_dir,
+        slug="widget-rewrite",
+        filename="body.md",
+        content="# new\n",
+    )
+    _write_proposed_dir_file(
+        proposed_dir,
+        slug="widget-rewrite",
+        filename="roadmap.md",
+        content="# new roadmap\n",
+    )
+    _write_proposed_dir_file(
+        proposed_dir,
+        slug="widget-rewrite",
+        filename="notes.md",
+        content="# new notes\n",
+    )
+    plan = _write_plan_file(
+        tmp_path,
+        slugs=[
+            {
+                "slug": "widget-rewrite",
+                "canonical_present": True,
+                "canonical_files": [
+                    _file_block(
+                        file="body.md",
+                        key="widget-rewrite/body.md",
+                        blob_sha=shas["body.md"]["blob_sha"],
+                        head_sha=shas["body.md"]["head_sha"],
+                    ),
+                    _file_block(
+                        file="roadmap.md",
+                        key="widget-rewrite/roadmap.md",
+                        blob_sha=shas["roadmap.md"]["blob_sha"],
+                        head_sha=shas["roadmap.md"]["head_sha"],
+                    ),
+                    _file_block(
+                        file="notes.md",
+                        key="widget-rewrite/notes.md",
+                        blob_sha=shas["notes.md"]["blob_sha"],
+                        head_sha=shas["notes.md"]["head_sha"],
+                    ),
+                ],
+                "included_snapshots": [],
+                "skipped_snapshots": [],
+                "conflicts": [],
+                "gaps": [],
+            }
+        ],
+    )
+    obj = _make_obj(gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "reconcile-apply",
+            "--plan-file",
+            str(plan),
+            "--proposed-dir",
+            str(proposed_dir),
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    slug_result = json.loads(result.output)["data"]["slugs"][0]
+    assert [write["file"] for write in slug_result["writes"]] == [
+        "body.md",
+        "roadmap.md",
+        "notes.md",
+    ]
+
+
+def test_reconcile_apply_rejects_missing_proposed_dir(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    plan = _write_plan_file(tmp_path, slugs=[])
+    obj = _make_obj(FakeBranchMemoryGateway())
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "reconcile-apply",
+            "--plan-file",
+            str(plan),
+            "--proposed-dir",
+            str(tmp_path / "missing"),
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 2
+    assert payload["error_type"] == "proposed_dir_missing"
+
+
+def test_reconcile_apply_rejects_unknown_proposed_file(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    shas = _seed_canonical(gateway, "widget-rewrite", body="# old\n")
+    proposed_dir = tmp_path / "proposed"
+    _write_proposed_dir_file(
+        proposed_dir,
+        slug="widget-rewrite",
+        filename="extra.md",
+        content="# extra\n",
+    )
+    plan = _write_plan_file(
+        tmp_path,
+        slugs=[
+            {
+                "slug": "widget-rewrite",
+                "canonical_present": True,
+                "canonical_files": [
+                    _file_block(
+                        file="body.md",
+                        key="widget-rewrite/body.md",
+                        blob_sha=shas["body.md"]["blob_sha"],
+                        head_sha=shas["body.md"]["head_sha"],
+                    ),
+                ],
+                "included_snapshots": [],
+                "skipped_snapshots": [],
+                "conflicts": [],
+                "gaps": [],
+            }
+        ],
+    )
+    obj = _make_obj(gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "reconcile-apply",
+            "--plan-file",
+            str(plan),
+            "--proposed-dir",
+            str(proposed_dir),
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 2
+    assert payload["error_type"] == "unknown_proposed_file"
+    assert "extra.md" in payload["message"]
+
+
+def test_reconcile_apply_rejects_proposed_dir_with_explicit_proposed_writes(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    shas = _seed_canonical(gateway, "widget-rewrite", body="# old\n")
+    proposed_dir = tmp_path / "proposed"
+    _write_proposed_dir_file(
+        proposed_dir,
+        slug="widget-rewrite",
+        filename="body.md",
+        content="# new\n",
+    )
+    explicit = _write_proposed(tmp_path, "explicit.md", "# explicit\n")
+    plan = _write_plan_file(
+        tmp_path,
+        slugs=[
+            {
+                "slug": "widget-rewrite",
+                "canonical_present": True,
+                "canonical_files": [
+                    _file_block(
+                        file="body.md",
+                        key="widget-rewrite/body.md",
+                        blob_sha=shas["body.md"]["blob_sha"],
+                        head_sha=shas["body.md"]["head_sha"],
+                    ),
+                ],
+                "included_snapshots": [],
+                "skipped_snapshots": [],
+                "conflicts": [],
+                "gaps": [],
+                "proposed_writes": [
+                    {"file": "body.md", "proposed_path": str(explicit)},
+                ],
+            }
+        ],
+    )
+    obj = _make_obj(gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "reconcile-apply",
+            "--plan-file",
+            str(plan),
+            "--proposed-dir",
+            str(proposed_dir),
+            "--format",
+            "json",
+        ],
+        obj=obj,
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 2
+    assert payload["error_type"] == "ambiguous_proposed_writes"
 
 
 # ---------------------------------------------------------------------------
