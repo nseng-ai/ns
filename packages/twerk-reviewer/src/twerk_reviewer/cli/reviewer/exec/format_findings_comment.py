@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, TypeAlias
 
 import click
@@ -29,6 +30,14 @@ class FindingsPayloadParseError:
 
     message: str
     error_type: str = "findings_parse_failed"
+
+
+@dataclass(frozen=True)
+class InlinePostingStatusParseError:
+    """Non-ideal parse result for malformed inline-posting JSON input."""
+
+    message: str
+    error_type: str = "inline_posting_parse_failed"
 
 
 @dataclass(frozen=True)
@@ -54,7 +63,16 @@ class FindingsPayload:
         return self.error_type is not None
 
 
+@dataclass(frozen=True)
+class InlinePostingStatus:
+    posted_count: int
+    skipped_duplicate_count: int
+    fallback_only_count: int
+    api_error: str | None = None
+
+
 FindingsPayloadParseResult: TypeAlias = FindingsPayload | FindingsPayloadParseError
+InlinePostingStatusParseResult: TypeAlias = InlinePostingStatus | InlinePostingStatusParseError
 
 
 def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
@@ -115,11 +133,40 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
     )
 
 
-def render_findings_comment(payload: FindingsPayload) -> str:
+def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResult:
+    """Parse JSON emitted by ``reviewer exec post-inline-findings``."""
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return InlinePostingStatusParseError(message=f"inline result is not valid JSON: {exc}")
+
+    if not isinstance(data, dict):
+        return InlinePostingStatusParseError(
+            message=f"expected inline result JSON object, got {type(data).__name__}"
+        )
+
+    status_data: Any = data
+    if "data" in data:
+        status_data = data["data"]
+        if not isinstance(status_data, dict):
+            return InlinePostingStatusParseError(message="inline result `data` must be an object")
+
+    return _parse_inline_posting_status_object(status_data)
+
+
+def render_findings_comment(
+    payload: FindingsPayload,
+    *,
+    inline_status: InlinePostingStatus | None = None,
+) -> str:
     """Render the payload as a Markdown comment body."""
     marker = f"<!-- twerk-reviewer:{payload.review_name} -->"
     heading = f"## twerk-reviewer · `{payload.review_name}`"
     lines: list[str] = [marker, heading, ""]
+
+    if inline_status is not None:
+        lines.extend(_render_inline_posting_status(inline_status))
+        lines.append("")
 
     if payload.is_error:
         lines.extend(_render_error_body(payload))
@@ -129,6 +176,19 @@ def render_findings_comment(payload: FindingsPayload) -> str:
         lines.extend(_render_findings_body(payload))
 
     return "\n".join(lines)
+
+
+def _render_inline_posting_status(status: InlinePostingStatus) -> list[str]:
+    lines = [
+        "### Inline posting",
+        "",
+        f"- **Inline comments posted:** {status.posted_count}",
+        f"- **Duplicate inline comments skipped:** {status.skipped_duplicate_count}",
+        f"- **Summary-only findings:** {status.fallback_only_count}",
+    ]
+    if status.api_error is not None:
+        lines.append(f"- **API error:** {status.api_error}")
+    return lines
 
 
 def _render_error_body(payload: FindingsPayload) -> list[str]:
@@ -182,6 +242,35 @@ def _coerce_str(value: Any, *, default: str) -> str:
     return default
 
 
+def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingStatusParseResult:
+    posted_count = data.get("posted_count")
+    skipped_duplicate_count = data.get("skipped_duplicate_count")
+    fallback_only_count = data.get("fallback_only_count")
+    api_error = data.get("api_error")
+
+    if not isinstance(posted_count, int):
+        return InlinePostingStatusParseError(message="inline result missing integer `posted_count`")
+    if not isinstance(skipped_duplicate_count, int):
+        return InlinePostingStatusParseError(
+            message="inline result missing integer `skipped_duplicate_count`"
+        )
+    if not isinstance(fallback_only_count, int):
+        return InlinePostingStatusParseError(
+            message="inline result missing integer `fallback_only_count`"
+        )
+    if api_error is not None and not isinstance(api_error, str):
+        return InlinePostingStatusParseError(
+            message="inline result `api_error` must be a string or null"
+        )
+
+    return InlinePostingStatus(
+        posted_count=posted_count,
+        skipped_duplicate_count=skipped_duplicate_count,
+        fallback_only_count=fallback_only_count,
+        api_error=api_error,
+    )
+
+
 def _parse_finding_result(item: Any, *, index: int) -> FindingRow | FindingsPayloadParseError:
     if not isinstance(item, dict):
         return FindingsPayloadParseError(message=f"finding #{index} is not an object")
@@ -219,10 +308,26 @@ def _parse_finding_result(item: Any, *, index: int) -> FindingRow | FindingsPayl
         "Markdown comment on stdout."
     ),
 )
-def format_findings_comment_command() -> None:
+@click.option(
+    "--inline-result-file",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False, readable=True),
+    help="JSON result file from reviewer exec post-inline-findings.",
+)
+def format_findings_comment_command(inline_result_file: Path | None) -> None:
     raw = sys.stdin.read()
     payload = parse_findings_payload_result(raw)
     if isinstance(payload, FindingsPayloadParseError):
         click.echo(f"format-findings-comment: {payload.message}", err=True)
         sys.exit(1)
-    click.echo(render_findings_comment(payload))
+
+    inline_status: InlinePostingStatus | None = None
+    if inline_result_file is not None:
+        inline_result = parse_inline_posting_status_result(
+            inline_result_file.read_text(encoding="utf-8")
+        )
+        if isinstance(inline_result, InlinePostingStatusParseError):
+            click.echo(f"format-findings-comment: {inline_result.message}", err=True)
+            sys.exit(1)
+        inline_status = inline_result
+
+    click.echo(render_findings_comment(payload, inline_status=inline_status))
