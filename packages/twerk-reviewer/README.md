@@ -38,6 +38,48 @@ reviewer review run dignified-python --format json
 reviewer harness list --format json
 ```
 
+## Execution, models, and cost
+
+Local runs execute one review definition by key:
+
+```bash
+reviewer review run dignified-python
+reviewer review run dignified-python --model sonnet
+```
+
+CI discovers `reviews/**/*.md`, fans out one job per discovered reviewer key,
+runs each reviewer against the PR diff, and posts the resulting findings back to
+the PR. The workflow does not pass `--model`; it relies on each markdown review
+definition's `default_model`. Adding more reviewer files therefore increases the
+number of CI jobs and the potential model-provider cost for each PR run.
+
+Model selection is intentionally explicit:
+
+1. `reviewer review run <key> --model <model>`.
+2. The review definition's `default_model` frontmatter field.
+3. Failure asking the caller to pass `--model` or add `default_model`.
+
+There is no package-wide fallback model. The current Claude Code adapter accepts
+short aliases (`haiku`, `sonnet`, `opus`) plus full `claude-*` model names
+supported by the installed Claude Code CLI. The shipped
+`reviews/dignified-python.md` reviewer uses `default_model: haiku` as the cheap
+CI dogfood default: it is intended for per-diff detection, with engineers doing
+resolution in their normal higher-context workflow. Callers can opt into a
+larger supported Claude model with `--model` for local runs or by changing a
+review definition's `default_model`.
+
+`twerk-reviewer` itself does not charge for execution; cost is charged by the
+selected harness/model provider. When Claude Code reports usage,
+`reviewer review run` prints token counts, total USD cost, duration, and turn
+count in human output. `--format json` includes the same data under `usage`.
+Costs scale with diff size, reviewer prompt length, model choice, cache
+behavior, and the number of reviewers run in CI.
+
+`twerk-reviewer` is detection-only. Reviewers inspect the supplied diff and emit
+findings; they do not edit the repository. The Claude Code adapter is constrained
+to read-only tools, and PR summary/inline comments are feedback surfaces rather
+than automated remediation.
+
 ## Harness selection
 
 `twerk-reviewer` does not know how to call an LLM directly. Each harness
@@ -53,16 +95,17 @@ Resolution order for which harness a review uses:
 4. Failure — either no harness is on `PATH`, or more than one is and the
    choice is ambiguous.
 
-The Claude Code adapter shells out to:
+The Claude Code adapter shells out in read-only review mode:
 
 ```
-claude -p --output-format json --bare --model <model> "<prompt>"
+claude -p --output-format stream-json --verbose --bare --tools Bash,Read --model <model> --system-prompt ...
 ```
 
-`--bare` skips hooks, plugins, and CLAUDE.md auto-discovery so reviews are
-fast and deterministic. `-p --output-format json` returns the model's
-response as JSON; the adapter then parses the model's text as
-`{"findings": [...]}`.
+The review prompt is passed on stdin. `--bare` skips hooks, plugins, and
+CLAUDE.md auto-discovery so reviews are fast and deterministic. The adapter uses
+`--json-schema` for findings-mode runs so Claude Code returns structured
+findings; it also reads Claude Code's terminal result event for usage/cost data
+when that data is present.
 
 ## Review definition format
 
@@ -89,7 +132,9 @@ Required frontmatter fields:
 
 Optional frontmatter fields:
 
-- `default_model` — used when the `--model` flag is not passed.
+- `default_model` — used when the `--model` flag is not passed. If neither
+  `--model` nor `default_model` is present, `reviewer review run` fails and asks
+  for an explicit model.
 
 The markdown body (after the closing fence) is required and becomes the
 reviewer's `instructions`.
