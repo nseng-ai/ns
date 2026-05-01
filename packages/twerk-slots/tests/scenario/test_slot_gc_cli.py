@@ -244,6 +244,25 @@ def test_slot_gc_prompts_and_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> 
     assert fakes.git._detach_head_calls == [(worktree_path, "main")]
 
 
+def test_slot_gc_prompt_default_accepts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+        input="\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "[Y/n]" in result.output
+    assert "freed" in result.output.lower()
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+
+
 def test_slot_gc_prompts_and_declines(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
