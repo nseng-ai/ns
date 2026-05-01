@@ -49,10 +49,12 @@ Run `brmem exec resolve-prompt brmem-branch-create --format json` and parse the 
 Prefer a minimal, explicit bundle. For the common plan-stashing case, resolve the source plan file in this order:
 
 1. **Explicit argument** — user passed a file path.
-2. **Conversation context** — recent context names exactly one plan file.
-3. **Concrete plan-directory fallback** — recent context named a plan directory; list its markdown files newest-first and take the first.
+2. **Saved-plan receipt** — recent context contains a saved-plan receipt or `Path: .../name.md` line; read that exact file.
+3. **Current-branch saved-plan directory** — if the harness stores saved plans under a per-branch directory (for example `~/.pi/plans/<current-branch>/`), use an exact slug match when one is available; otherwise use the newest markdown file in that current-branch directory and report that choice.
+4. **Conversation context** — recent context names exactly one plan file, or contains a high-confidence assistant-authored plan with clear plan headings.
+5. **Concrete plan-directory fallback** — recent context named a plan directory; list its markdown files newest-first and take the first.
 
-If several distinct plan paths appear in recent context, pick the most recent reference and name that choice in the final report. **If no clear source file can be resolved, abort** with a short explanation of what you tried.
+If several distinct plan paths appear in recent context, pick the most recent reference and name that choice in the final report. **If no clear source file can be resolved, abort** with a short explanation of what you tried, including whether saved-plan receipts and current-branch saved-plan directories were checked.
 
 Default bundle:
 
