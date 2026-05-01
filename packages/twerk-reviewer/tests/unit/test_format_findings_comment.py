@@ -8,7 +8,10 @@ from twerk_reviewer.cli.reviewer.exec.format_findings_comment import (
     FindingRow,
     FindingsPayload,
     FindingsPayloadParseError,
+    InlinePostingStatus,
+    InlinePostingStatusParseError,
     parse_findings_payload_result,
+    parse_inline_posting_status_result,
     render_findings_comment,
 )
 
@@ -49,6 +52,18 @@ def _parse_payload(raw: str) -> FindingsPayload:
 def _parse_error(raw: str) -> FindingsPayloadParseError:
     result = parse_findings_payload_result(raw)
     assert isinstance(result, FindingsPayloadParseError)
+    return result
+
+
+def _parse_inline_status(raw: str) -> InlinePostingStatus:
+    result = parse_inline_posting_status_result(raw)
+    assert isinstance(result, InlinePostingStatus)
+    return result
+
+
+def _parse_inline_error(raw: str) -> InlinePostingStatusParseError:
+    result = parse_inline_posting_status_result(raw)
+    assert isinstance(result, InlinePostingStatusParseError)
     return result
 
 
@@ -149,6 +164,38 @@ def test_render_error_payload_flags_failure_without_footer() -> None:
     assert "- **Error type:** `harness_binary_missing`" in body
     assert "- **Message:** claude not on PATH" in body
     assert "Post-only steelthread" not in body
+
+
+def test_render_inline_posting_status_before_complete_findings_body() -> None:
+    finding = _single_finding()
+    inline_status = InlinePostingStatus(
+        posted_count=2,
+        skipped_duplicate_count=1,
+        fallback_only_count=3,
+    )
+
+    body = render_findings_comment(_payload(findings=(finding,)), inline_status=inline_status)
+
+    assert "### Inline posting" in body
+    assert "- **Inline comments posted:** 2" in body
+    assert "- **Duplicate inline comments skipped:** 1" in body
+    assert "- **Summary-only findings:** 3" in body
+    assert "| ⚠️ warning | `app.py` | 1 | Avoid print |" in body
+    assert "### `app.py:1` — warning" in body
+
+
+def test_render_inline_posting_status_includes_api_error() -> None:
+    inline_status = InlinePostingStatus(
+        posted_count=0,
+        skipped_duplicate_count=0,
+        fallback_only_count=1,
+        api_error="Validation Failed",
+    )
+
+    body = render_findings_comment(_payload(), inline_status=inline_status)
+
+    assert "- **API error:** Validation Failed" in body
+    assert "**No findings** against base `master`. ✅" in body
 
 
 # -- parse_findings_payload -------------------------------------------------
@@ -289,3 +336,58 @@ def test_parse_negative_envelope_renders_as_error() -> None:
     assert payload.is_error is True
     assert payload.error_type == "unknown"
     assert payload.error_message == "boom"
+
+
+# -- parse_inline_posting_status -------------------------------------------
+
+
+def test_parse_inline_status_from_post_inline_findings_json() -> None:
+    status = _parse_inline_status(
+        json.dumps(
+            {
+                "posted_count": 2,
+                "skipped_duplicate_count": 1,
+                "fallback_only_count": 3,
+                "api_error": None,
+            }
+        )
+    )
+
+    assert status == InlinePostingStatus(
+        posted_count=2,
+        skipped_duplicate_count=1,
+        fallback_only_count=3,
+        api_error=None,
+    )
+
+
+def test_parse_inline_status_accepts_clinkr_data_envelope() -> None:
+    status = _parse_inline_status(
+        json.dumps(
+            {
+                "exit_code": 0,
+                "data": {
+                    "posted_count": 0,
+                    "skipped_duplicate_count": 4,
+                    "fallback_only_count": 5,
+                    "api_error": "validation failed",
+                },
+            }
+        )
+    )
+
+    assert status.api_error == "validation failed"
+    assert status.skipped_duplicate_count == 4
+
+
+def test_parse_inline_status_reports_malformed_json() -> None:
+    result = _parse_inline_error("not json")
+
+    assert result.error_type == "inline_posting_parse_failed"
+    assert "valid JSON" in result.message
+
+
+def test_parse_inline_status_rejects_missing_counts() -> None:
+    result = _parse_inline_error(json.dumps({"posted_count": 1}))
+
+    assert "skipped_duplicate_count" in result.message

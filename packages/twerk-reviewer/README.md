@@ -115,3 +115,25 @@ Every review executor must emit JSON of this shape on stdout:
 `line` may be `null` for file-level findings. `severity` is one of
 `info`, `warning`, `error`. An empty `findings` array means the review
 passed.
+
+## PR comments in CI
+
+The reviewer CI workflow keeps the summary comment as the complete aggregate
+record for every finding. When GitHub can place a finding on a concrete PR diff
+line, CI also attempts to post an inline review comment for that finding.
+
+Inline comments require both a concrete `path` + `line` and GitHub acceptance
+for that location in the PR diff. Some findings are therefore summary-only but
+still valid, including:
+
+- `line: null` file-level findings.
+- Findings in files unchanged by the PR.
+- Findings on lines outside the changed diff hunk.
+- Binary or large files where GitHub omits patch metadata.
+- Any finding from a run where GitHub rejects inline comment posting.
+
+The summary comment includes an inline-posting status section with counts for
+posted inline comments, duplicate inline comments skipped, summary-only
+findings, and any inline-posting API error. Force-pushes can orphan or outdate
+inline comments; stable inline markers reduce duplicate reposting, but they do
+not fully solve that GitHub limitation.

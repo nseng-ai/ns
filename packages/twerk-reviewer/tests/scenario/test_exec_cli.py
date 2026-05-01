@@ -95,6 +95,50 @@ def test_format_findings_comment_renders_findings_from_stdin(
     assert "_Post-only steelthread: this comment never blocks the check._" in result.output
 
 
+def test_format_findings_comment_renders_inline_result_file_status(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    payload = _findings_payload(
+        [
+            {
+                "path": "app.py",
+                "line": 42,
+                "severity": "warning",
+                "summary": "Avoid print",
+                "details": "Use click.echo() instead.",
+            }
+        ]
+    )
+    inline_result_file = tmp_path / "inline-result.json"
+    inline_result_file.write_text(
+        json.dumps(
+            {
+                "posted_count": 1,
+                "skipped_duplicate_count": 2,
+                "fallback_only_count": 3,
+                "api_error": "validation failed",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "format-findings-comment", "--inline-result-file", str(inline_result_file)],
+        input=json.dumps(payload),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "### Inline posting" in result.output
+    assert "- **Inline comments posted:** 1" in result.output
+    assert "- **Duplicate inline comments skipped:** 2" in result.output
+    assert "- **Summary-only findings:** 3" in result.output
+    assert "- **API error:** validation failed" in result.output
+    assert "| ⚠️ warning | `app.py` | 42 | Avoid print |" in result.output
+
+
 def test_format_findings_comment_renders_empty_findings(cli_group: ClinkrGroup) -> None:
     payload = {
         "exit_code": 0,
