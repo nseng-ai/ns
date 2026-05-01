@@ -159,7 +159,7 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
     render_slot_gc(preview)
     proceed = click.confirm(
         f"Free {plan.would_free_count} slot(s)?",
-        default=False,
+        default=True,
     )
     if proceed:
         return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
