@@ -34,7 +34,7 @@ checkpoint ID written into the user's commit message as a trailer
 detail lives on parallel refs that travel through the same `git
 push`/`fetch`/`clone` plumbing as the code.
 
-The product is ambitious; the parts of it that are interesting *to us* are
+The product is ambitious; the parts of it that are interesting _to us_ are
 the storage layer and the hook integration. The rest (cloud dispatch,
 multi-agent translation, signing UX) is incidental for our purposes.
 
@@ -89,7 +89,7 @@ session and is **deleted** after condensation into Tier 3 on user commit.
   the shadow ref to grow forever.
 
 **Relevance to brmem:** low — we don't snapshot the working tree. But the
-*pattern* of "ref name encodes the context it's valid for, and migrate it
+_pattern_ of "ref name encodes the context it's valid for, and migrate it
 when the context changes" is generalizable. If we ever add per-commit
 memory, we'd want similar migration logic.
 
@@ -97,7 +97,7 @@ memory, we'd want similar migration logic.
 
 Ref: `refs/heads/entire/checkpoints/v1`
 
-A single orphan branch. The tree at HEAD contains *all* checkpoints ever
+A single orphan branch. The tree at HEAD contains _all_ checkpoints ever
 made, sharded by ID:
 
 ```
@@ -127,26 +127,26 @@ Entire-Checkpoint: a3b2c4d5e6f7
 
 added by the `prepare-commit-msg` hook. Bidirectional lookup:
 
-- *commit → metadata*: parse the trailer, read the path
+- _commit → metadata_: parse the trailer, read the path
   `<id[:2]>/<id[2:]>/` from the tree at `entire/checkpoints/v1`.
-- *metadata → commit(s)*: `git log --grep='Entire-Checkpoint: <id>' --all`.
+- _metadata → commit(s)_: `git log --grep='Entire-Checkpoint: <id>' --all`.
 
 **This is the most interesting pattern for us.** It is a clean
 alternative to brmem's "one ref per `(namespace, branch)`" model, with
 different tradeoffs:
 
-|                          | brmem (one ref per slot)              | Entire (one orphan branch + content addressing) |
-|--------------------------|---------------------------------------|-------------------------------------------------|
-| Mutability               | Mutable per slot (puts/deletes)        | Append-only                                     |
-| Survives branch delete   | No — ref is keyed on branch name       | Yes — records keyed on random ID                |
-| Linkage to commits       | Implicit (branch name)                 | Explicit (commit trailer)                       |
-| Number of refs to manage | One per `(ns, branch)`                 | Exactly one                                     |
-| Fetch / push             | Need ref glob `refs/brmem/*`           | Single ref                                      |
-| Discovery                | `for-each-ref` glob                    | `git log` on the orphan branch                  |
-| Sharding                 | N/A (one ref per slot)                 | Required; uses `<id[:2]>/<id[2:]>/`             |
+|                          | brmem (one ref per slot)         | Entire (one orphan branch + content addressing) |
+| ------------------------ | -------------------------------- | ----------------------------------------------- |
+| Mutability               | Mutable per slot (puts/deletes)  | Append-only                                     |
+| Survives branch delete   | No — ref is keyed on branch name | Yes — records keyed on random ID                |
+| Linkage to commits       | Implicit (branch name)           | Explicit (commit trailer)                       |
+| Number of refs to manage | One per `(ns, branch)`           | Exactly one                                     |
+| Fetch / push             | Need ref glob `refs/brmem/*`     | Single ref                                      |
+| Discovery                | `for-each-ref` glob              | `git log` on the orphan branch                  |
+| Sharding                 | N/A (one ref per slot)           | Required; uses `<id[:2]>/<id[2:]>/`             |
 
-Both are legitimate. brmem's model is better for *mutable, branch-scoped*
-memory; Entire's is better for *append-only, commit-linked* records. If
+Both are legitimate. brmem's model is better for _mutable, branch-scoped_
+memory; Entire's is better for _append-only, commit-linked_ records. If
 brmem ever wants to add a second storage mode for things like
 "lessons-learned that should outlive the branch," we should adopt
 Entire's pattern rather than stretching our current one.
@@ -165,7 +165,7 @@ push. Critical for UX: a server that doesn't allow the metadata refs
 shouldn't break the developer's workflow.
 
 There's a separate `checkpoint_remote` config and `ENTIRE_CHECKPOINT_TOKEN`
-env var, so metadata can target a *different* remote than `origin` (e.g. a
+env var, so metadata can target a _different_ remote than `origin` (e.g. a
 dedicated lineage server).
 
 **For brmem:** this is the single highest-value adoption. Today, brmem
@@ -183,7 +183,7 @@ core is that one line.
 
 ### 3.2 Partial-clone filters on metadata fetches
 
-Changelog entry: *"Filtered fetches for checkpoint refs to reduce clone/fetch size."*
+Changelog entry: _"Filtered fetches for checkpoint refs to reduce clone/fetch size."_
 
 When metadata blobs get large (transcripts, large notes), unconditional
 fetch of every blob on every pull is painful. Entire uses
@@ -208,7 +208,7 @@ for scale.
 
 brmem's `_build_tree_from_entries` uses a temporary `GIT_INDEX_FILE`,
 calls `git update-index --add --cacheinfo` per entry, then `git
-write-tree`. This is the *correct* way to do it via subprocess, and it
+write-tree`. This is the _correct_ way to do it via subprocess, and it
 handles nested paths automatically. But it's also 2 + N subprocesses per
 put.
 
@@ -317,7 +317,7 @@ commit SHA. But two cases would benefit from `post-rewrite` awareness:
 2. **Branch rename via `git branch -m`:** there's no specific git hook for
    this. The pragmatic options are (a) ship a `brmem rename --from --to`
    wrapper and document it as the supported way, or (b) reaper logic that
-   prunes brmem refs whose branch no longer exists locally *and* on the
+   prunes brmem refs whose branch no longer exists locally _and_ on the
    configured remote. Entire does the latter via retention-based cleanup
    in `entire clean`.
 
@@ -338,7 +338,7 @@ Quote from their `CLAUDE.md`:
 > they're listed in `.gitignore`.
 
 **For brmem:** we don't (and shouldn't) touch the working tree, so this is
-a non-issue *today*. But if we ever add a "rewind to this snapshot"
+a non-issue _today_. But if we ever add a "rewind to this snapshot"
 feature: prefer the git CLI for any operation that mutates the working
 tree, and reserve plumbing libraries (pygit2/dulwich) for object-database
 work only.
@@ -412,13 +412,13 @@ explicitly so users with existing hook chains aren't surprised.
 
 ## 5. Library landscape
 
-| Library                  | Language | Used by Entire? | Suitable for brmem?                                      |
-|--------------------------|----------|-----------------|----------------------------------------------------------|
-| `go-git/go-git`          | Go       | Yes             | N/A                                                      |
-| `libgit2` / `pygit2`     | C / Py   | No (Go shop)    | **Yes** — fastest in-process plumbing                    |
-| `dulwich`                | Python   | No              | **Yes** — pure-Python, no native dep, slower than pygit2 |
-| `GitPython`              | Python   | No              | Avoid for plumbing — wraps the CLI, no perf win          |
-| Direct `subprocess` + git| Any      | Some            | **What brmem uses** — portable, debuggable, slow         |
+| Library                   | Language | Used by Entire? | Suitable for brmem?                                      |
+| ------------------------- | -------- | --------------- | -------------------------------------------------------- |
+| `go-git/go-git`           | Go       | Yes             | N/A                                                      |
+| `libgit2` / `pygit2`      | C / Py   | No (Go shop)    | **Yes** — fastest in-process plumbing                    |
+| `dulwich`                 | Python   | No              | **Yes** — pure-Python, no native dep, slower than pygit2 |
+| `GitPython`               | Python   | No              | Avoid for plumbing — wraps the CLI, no perf win          |
+| Direct `subprocess` + git | Any      | Some            | **What brmem uses** — portable, debuggable, slow         |
 
 Recommendation for brmem: keep the subprocess gateway as the reference
 implementation and the supported install path. Add an optional
@@ -428,7 +428,7 @@ selection a single config knob.
 
 ---
 
-## 6. Things in Entire we explicitly do *not* want
+## 6. Things in Entire we explicitly do _not_ want
 
 For completeness — these are Entire features that are **not** lessons for
 brmem, in case anyone is tempted:
@@ -457,7 +457,7 @@ brmem, in case anyone is tempted:
 2. **Document and implement branch-rename / branch-delete reaping.**
    Either a `brmem rename --from --to` command, or a `brmem clean`
    command that prunes refs for branches that no longer exist locally
-   *and* on the configured remote. Today these orphan silently.
+   _and_ on the configured remote. Today these orphan silently.
 
 3. **Add `--filter=blob:none` to any future `brmem pull`/`brmem sync`.**
    Trivial change, big lever for scale.
