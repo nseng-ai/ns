@@ -23,6 +23,7 @@ from twerk_slots.context import SlotsCliContext
 from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
 from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from twerk_slots.shell_integration import SLOT_CD_DIRECTIVE_FILE
 
 
 @pytest.fixture(scope="module")
@@ -188,11 +189,13 @@ def test_slot_checkout_existing_branch(cli_group: ClinkrGroup, tmp_path: Path) -
         branches=("feat/x",),
         pool_worktrees=(_detached_slot(tmp_path / "slots", 1),),
     )
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x"],
         obj=_make_obj(fakes),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
@@ -203,6 +206,7 @@ def test_slot_checkout_existing_branch(cli_group: ClinkrGroup, tmp_path: Path) -
     assert f"cd {worktree_path}" in result.output
     assert "Copied cd command to clipboard." in result.output
     assert fakes.clipboard.last_copied == f"cd {worktree_path}"
+    assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
     _assert_assigned_slot_state(fakes, slot_name="slot-01", branch_name="feat/x")
 
 
@@ -444,18 +448,21 @@ def test_slot_checkout_current_uses_previous_branch(cli_group: ClinkrGroup, tmp_
         main_branch="feat/x",
         previous_branch_by_path={(tmp_path / "repo").resolve(): "some-other-feat"},
     )
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["checkout", "--current"],
         obj=_make_obj(fakes),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
     assert "slot-01" in result.output
     assert "feat/x" in result.output
     assert fakes.git.get_current_branch(fakes.repo_root) == "some-other-feat"
-    _assert_assigned_slot_state(fakes, slot_name="slot-01", branch_name="feat/x")
+    worktree_path = _assert_assigned_slot_state(fakes, slot_name="slot-01", branch_name="feat/x")
+    assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
 
 
 def test_slot_checkout_current_falls_back_to_trunk_when_no_previous(
@@ -724,11 +731,13 @@ def test_slot_checkout_format_json_returns_exit_envelope(
         branches=("feat/x",),
         pool_worktrees=(_detached_slot(tmp_path / "slots", 1),),
     )
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x", "--format", "json"],
         obj=_make_obj(fakes),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
@@ -738,14 +747,23 @@ def test_slot_checkout_format_json_returns_exit_envelope(
     assert data["slot_name"] == "slot-01"
     assert data["branch_name"] == "feat/x"
     assert data["already_assigned"] is False
+    assert data["cd_command"] == f"cd {_slot_path(fakes.slots_root, 'slot-01')}"
+    assert not directive_path.exists()
 
 
-def test_slot_checkout_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["checkout", "--schema"])
+def test_slot_checkout_schema(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    directive_path = tmp_path / "cd-directive"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["checkout", "--schema"],
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
+    )
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert set(payload) == {"input_schema", "output_schema"}
+    assert not directive_path.exists()
 
 
 # -- clipboard behavior -----------------------------------------------------
@@ -757,11 +775,13 @@ def test_slot_checkout_no_clipboard_flag_skips_copy(cli_group: ClinkrGroup, tmp_
         branches=("feat/x",),
         pool_worktrees=(_detached_slot(tmp_path / "slots", 1),),
     )
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["checkout", "feat/x", "--no-clipboard"],
         obj=_make_obj(fakes),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
@@ -770,6 +790,7 @@ def test_slot_checkout_no_clipboard_flag_skips_copy(cli_group: ClinkrGroup, tmp_
     assert "Copied cd command" not in result.output
     assert "Clipboard unavailable" not in result.output
     assert fakes.clipboard.copy_calls == 0
+    assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
 
 
 def test_slot_checkout_clipboard_failure_warns_but_succeeds(
@@ -832,18 +853,21 @@ def test_slot_co_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
         branches=("feat/x",),
         pool_worktrees=(_detached_slot(tmp_path / "slots", 1),),
     )
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["co", "feat/x"],
         obj=_make_obj(fakes),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
     assert "Checked out" in result.output
     assert "slot-01" in result.output
     assert "feat/x" in result.output
-    _assert_assigned_slot_state(fakes, slot_name="slot-01", branch_name="feat/x")
+    worktree_path = _assert_assigned_slot_state(fakes, slot_name="slot-01", branch_name="feat/x")
+    assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
 
 
 # -- --format json + --schema -----------------------------------------------
