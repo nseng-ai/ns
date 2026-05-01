@@ -28,7 +28,7 @@ from twerk_objectives.discovery import (
     ObjectiveState,
     closed_key,
 )
-from twerk_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from twerk_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE, OBJECTIVE_NAMESPACE
 from twerk_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
@@ -147,19 +147,20 @@ def _read_file(
     canonical_present: bool,
     requested_branch: str | None,
     trunk_branch: str,
+    namespace: str,
 ) -> ObjectiveFile | None:
     key = f"{slug}/{filename}"
     if requested_branch is not None:
-        content = gateway.get(OBJECTIVE_NAMESPACE, key, requested_branch)
+        content = gateway.get(namespace, key, requested_branch)
         if content is None:
             return None
         return ObjectiveFile(filename=filename, source_branch=requested_branch, content=content)
     if current_branch is not None and current_branch != trunk_branch:
-        content = gateway.get(OBJECTIVE_NAMESPACE, key, current_branch)
+        content = gateway.get(namespace, key, current_branch)
         if content is not None:
             return ObjectiveFile(filename=filename, source_branch=current_branch, content=content)
     if canonical_present:
-        content = gateway.get(OBJECTIVE_NAMESPACE, key, trunk_branch)
+        content = gateway.get(namespace, key, trunk_branch)
         if content is not None:
             return ObjectiveFile(filename=filename, source_branch=trunk_branch, content=content)
     return None
@@ -230,8 +231,13 @@ def run_show_objective(
             current_branch = resolution.current_branch
 
     trunk_branch = git_gateway.get_trunk_branch()
-    all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
-    slug_entries = _slug_entries(all_entries, requested_slug)
+    active_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
+    slug_entries = _slug_entries(active_entries, requested_slug)
+    namespace = OBJECTIVE_NAMESPACE
+    if not slug_entries:
+        archive_entries = gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE)
+        slug_entries = _slug_entries(archive_entries, requested_slug)
+        namespace = OBJECTIVE_ARCHIVE_NAMESPACE
     if not slug_entries:
         empty = ObjectiveShowResult(
             slug=requested_slug,
@@ -258,10 +264,15 @@ def run_show_objective(
     closed_present = any(
         e.branch == trunk_branch and e.key == closed_key(requested_slug) for e in slug_entries
     )
-    state: ObjectiveState = "closed" if closed_present else "open"
+    state: ObjectiveState = "closed" if namespace == OBJECTIVE_ARCHIVE_NAMESPACE else "open"
     closed_marker: ClosedMarker = (
-        load_closed_marker(gateway, slug=requested_slug, trunk_branch=trunk_branch)
-        if closed_present
+        load_closed_marker(
+            gateway,
+            slug=requested_slug,
+            trunk_branch=trunk_branch,
+            namespace=OBJECTIVE_ARCHIVE_NAMESPACE,
+        )
+        if state == "closed" and closed_present
         else ClosedMarker(present=False, closed_at=None, reason=None, diagnostics=())
     )
     branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
@@ -277,6 +288,7 @@ def run_show_objective(
         canonical_present=canonical_present,
         requested_branch=request.branch,
         trunk_branch=trunk_branch,
+        namespace=namespace,
     )
     roadmap = _read_file(
         gateway,
@@ -286,6 +298,7 @@ def run_show_objective(
         canonical_present=canonical_present,
         requested_branch=request.branch,
         trunk_branch=trunk_branch,
+        namespace=namespace,
     )
     notes = _read_file(
         gateway,
@@ -295,6 +308,7 @@ def run_show_objective(
         canonical_present=canonical_present,
         requested_branch=request.branch,
         trunk_branch=trunk_branch,
+        namespace=namespace,
     )
 
     return ClinkrExit.ok(

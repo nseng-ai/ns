@@ -17,28 +17,31 @@ rewrite logic works, and how `update` and `reconcile` differ.
 
 ## Data model
 
-- **Canonical objective**: shared ground truth for a slug. Stored in `brmem`
-  on the repo's trunk branch (typically `master` on legacy repos, `main` on
-  greenfield ones). The trunk name is recorded as part of the brmem ref
-  shape, not configurable per-slug.
+- **Canonical objective**: shared ground truth for a slug. Open canonical
+  records live in the `objectives` namespace on the repo's trunk branch
+  (typically `master` on legacy repos, `main` on greenfield ones). Closed
+  canonical records live in the `objectives-archive` namespace on that same
+  trunk branch with `<slug>/.closed` metadata.
 - **Branch snapshot**: local working copy/checkpoint for a slug on a working
-  branch.
+  branch. Open snapshots live in `objectives`; closed snapshots live in
+  `objectives-archive`.
 
-Only `body.md` is required. `roadmap.md` and `notes.md` appear when useful.
+Only `body.md` is required for an objective. `roadmap.md` and `notes.md`
+appear when useful. `.closed` appears only in the archive namespace.
 
 ## Operation table
 
-| Operation             | Canonical objective                       | Current branch snapshot        | Other branch snapshots |
-| --------------------- | ----------------------------------------- | ------------------------------ | ---------------------- |
-| `objective-create`    | Writes initial `body.md` and roadmap      | Never                          | Never                  |
-| `objective-next`      | Reads only                                | Reads only                     | Reads only             |
-| `objective-current`   | Reads only                                | Reads only                     | Reads only             |
-| `objective-digest`    | Reads only                                | Reads only                     | Reads only             |
-| `objective-claim`     | May read as source                        | Writes verbatim copy to target | May read as source     |
-| `objective-update`    | Never                                     | Rewrites from branch work      | Never                  |
-| `objective-reconcile` | Rewrites from landed branch + PR evidence | Reads only as evidence         | Reads only as evidence |
-| `objective close`     | Writes `<slug>/.closed` marker            | Never                          | Never                  |
-| `objective reopen`    | Deletes `<slug>/.closed` marker           | Never                          | Never                  |
+| Operation             | Canonical objective                         | Current branch snapshot        | Other branch snapshots |
+| --------------------- | ------------------------------------------- | ------------------------------ | ---------------------- |
+| `objective-create`    | Writes initial `body.md` and roadmap        | Never                          | Never                  |
+| `objective-next`      | Reads only                                  | Reads only                     | Reads only             |
+| `objective-current`   | Reads only                                  | Reads only                     | Reads only             |
+| `objective-digest`    | Reads only                                  | Reads only                     | Reads only             |
+| `objective-claim`     | May read as source                          | Writes verbatim copy to target | May read as source     |
+| `objective-update`    | Never                                       | Rewrites from branch work      | Never                  |
+| `objective-reconcile` | Rewrites from landed branch + PR evidence   | Reads only as evidence         | Reads only as evidence |
+| `objective close`     | Moves active refs into archive + `.closed`  | Moves matching refs to archive | Moves matching refs    |
+| `objective reopen`    | Moves archive refs back, omitting `.closed` | Moves matching refs back       | Moves matching refs    |
 
 Carry-forward is exclusively `objective-claim`'s job. It copies one
 source snapshot exactly; it never merges or summarizes.
@@ -235,14 +238,23 @@ Source resolution:
 
 ### `objective close` / `objective reopen`
 
-`close` writes a single canonical marker file `<slug>/.closed` on the trunk
-branch carrying a JSON envelope (`schema`, `closed_at`, `reason`). `reopen`
-deletes it. Neither touches `body.md`, `roadmap.md`, `notes.md`, or any
-branch snapshot. Closure is recorded only on the canonical record; branch
-snapshots remain whatever the workstream last wrote. Closure is never
-inferred — `reconcile` does not auto-close on completion-criteria checkmarks
-or PR merges, and `update` never closes anything. The closed/open state is
-surfaced to listings as `state` (one of `open`, `closed`).
+`close` moves every active ref for the slug from `objectives` to
+`objectives-archive`, preserving branch and key, then writes a canonical
+archive marker file `<slug>/.closed` on the archived trunk snapshot carrying a
+JSON envelope (`schema`, `closed_at`, `reason`). After a successful close,
+the slug no longer exists in the active namespace. Re-running close is a
+no-op when the archived canonical body and `.closed` marker already exist.
+
+`reopen` is the inverse move: it copies archived refs back to `objectives`,
+omits `<slug>/.closed`, verifies the active copies, then deletes the archive
+refs. Re-running reopen is a no-op when the active canonical body exists and
+no archive remains.
+
+Closure is never inferred — `reconcile` does not auto-close on
+completion-criteria checkmarks or PR merges, and `update` never closes
+anything. Default listings show open objectives only; `objective list
+--closed` reads the archive namespace and `objective list --all` merges open
+and archived discovery.
 
 ## Anti-patterns
 

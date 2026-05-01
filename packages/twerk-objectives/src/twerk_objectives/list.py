@@ -25,6 +25,7 @@ from twerk_objectives.discovery import (
     slug_for_key,
 )
 from twerk_objectives.gateway_access import (
+    OBJECTIVE_ARCHIVE_NAMESPACE,
     OBJECTIVE_NAMESPACE,
     resolve_current_objective_branch,
 )
@@ -172,13 +173,27 @@ def run_list_objectives(
     mctx = load_typed_context(ctx, ObjectiveCliContext)
 
     if not request.here and request.branch is None:
-        objectives = discover_objectives(
-            mctx.brmem_gateway,
-            trunk_branch=mctx.git_gateway.get_trunk_branch(),
-            is_branch_alive=mctx.git_gateway.branch_exists,
-        )
+        trunk_branch = mctx.git_gateway.get_trunk_branch()
+        active_objectives: tuple[ObjectiveRepoEntry, ...] = ()
+        archived_objectives: tuple[ObjectiveRepoEntry, ...] = ()
+        if not request.closed_only:
+            active_objectives = discover_objectives(
+                mctx.brmem_gateway,
+                trunk_branch=trunk_branch,
+                is_branch_alive=mctx.git_gateway.branch_exists,
+                namespace=OBJECTIVE_NAMESPACE,
+                state="open",
+            )
+        if request.include_closed or request.closed_only:
+            archived_objectives = discover_objectives(
+                mctx.brmem_gateway,
+                trunk_branch=trunk_branch,
+                is_branch_alive=mctx.git_gateway.branch_exists,
+                namespace=OBJECTIVE_ARCHIVE_NAMESPACE,
+                state="closed",
+            )
         objectives = filter_by_state(
-            objectives,
+            active_objectives + archived_objectives,
             _resolve_allowed_states(
                 include_closed=request.include_closed,
                 closed_only=request.closed_only,
@@ -212,7 +227,15 @@ def run_list_objectives(
         case str() as branch:
             pass
 
-    entries = mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
+    entries: list[EntryRef] = []
+    if not request.closed_only:
+        entries.extend(
+            mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
+        )
+    if request.include_closed or request.closed_only:
+        entries.extend(
+            mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE, branch=branch)
+        )
 
     return ClinkrExit.ok(
         ObjectiveListResult(

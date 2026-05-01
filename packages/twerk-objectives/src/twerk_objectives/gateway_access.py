@@ -8,6 +8,7 @@ from twerk_core.git.git_gateway import GitGateway
 from twerk_core.git.types import DetachedHead, GitCommandFailure
 
 OBJECTIVE_NAMESPACE = "objectives"
+OBJECTIVE_ARCHIVE_NAMESPACE = "objectives-archive"
 
 
 def resolve_current_objective_branch(

@@ -109,13 +109,16 @@ def discover_objectives(
     *,
     trunk_branch: str,
     is_branch_alive: Callable[[str], bool] | None = None,
+    namespace: str = OBJECTIVE_NAMESPACE,
+    state: ObjectiveState = "open",
 ) -> tuple[ObjectiveRepoEntry, ...]:
     """List every objective slug in the repo, grouped across branches."""
-    entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
+    entries = gateway.list_entries(namespace=namespace)
     return group_objective_entries(
         entries,
         trunk_branch=trunk_branch,
         is_branch_alive=is_branch_alive,
+        state=state,
     )
 
 
@@ -124,6 +127,7 @@ def group_objective_entries(
     *,
     trunk_branch: str,
     is_branch_alive: Callable[[str], bool] | None = None,
+    state: ObjectiveState = "open",
 ) -> tuple[ObjectiveRepoEntry, ...]:
     """Group ``entries`` (already filtered to the objectives namespace) by slug.
 
@@ -140,11 +144,6 @@ def group_objective_entries(
         slug_entries = by_slug[slug]
         canonical_present = any(
             e.branch == trunk_branch and e.key != closed_key(slug) for e in slug_entries
-        )
-        state: ObjectiveState = (
-            "closed"
-            if any(e.branch == trunk_branch and e.key == closed_key(slug) for e in slug_entries)
-            else "open"
         )
         branch_names = sorted({e.branch for e in slug_entries if e.branch != trunk_branch})
         presences = tuple(
