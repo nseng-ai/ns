@@ -1,0 +1,42 @@
+{
+  "name": "twerk-pi-objectives",
+  "version": "0.1.0",
+  "description": "Pi extension package for twerk objective workflows",
+  "private": true,
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "twerk",
+    "objectives"
+  ],
+  "files": [
+    "src/**/*.ts",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "npm run test:unit",
+    "test:unit": "node --experimental-strip-types --test test/unit/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./src/extension/index.ts"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    },
+    "@mariozechner/pi-tui": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
+  }
+}
