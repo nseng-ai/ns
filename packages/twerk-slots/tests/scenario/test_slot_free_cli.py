@@ -176,6 +176,8 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
     # Short flags advertised in help.
     assert "-n" in result.output
     assert "-w" in result.output
+    assert "-b" in result.output
+    assert "--branch" in result.output
     assert "-c" in result.output
 
 
@@ -254,6 +256,100 @@ def test_slot_free_short_flag_w(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "slot-01" in result.output
     assert "feat/x" in result.output
+
+
+def test_slot_free_by_branch(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, slot_name="slot-02", branch="feat/y")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--branch", "feat/y"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Freed" in result.output
+    assert "slot-02" in result.output
+    assert "feat/y" in result.output
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert _assigned_worktrees(fakes) == {}
+
+
+def test_slot_free_short_flag_b(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root, slot_name="slot-03", branch="feat/z")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "-b", "feat/z"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "slot-03" in result.output
+    assert "feat/z" in result.output
+
+
+def test_slot_free_branch_not_in_slot_is_noop(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_pool(fakes, slots_root, assignments=(("slot-01", "feat/x"),))
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--branch", "feat/missing"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "not checked out in a managed slot" in result.output
+    assert "feat/missing" in result.output
+    assert fakes.git._detach_head_calls == []
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/x"}
+
+
+def test_slot_free_branch_in_main_worktree_is_noop(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_pool(fakes, slots_root, assignments=(("slot-01", "feat/x"),))
+    fakes.git._worktrees.append(
+        WorktreeInfo(path=fakes.repo_root, branch="feat/main", is_bare=False),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--branch", "feat/main"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "main worktree" in result.output
+    assert "feat/main" in result.output
+    assert fakes.git._detach_head_calls == []
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/x"}
+
+
+def test_slot_free_branch_noop_is_in_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_pool(fakes, slots_root, assignments=())
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--branch", "feat/missing", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"]["freed"] == []
+    assert payload["data"]["skipped"] == [
+        "Branch feat/missing is not checked out in a managed slot; nothing to free."
+    ]
 
 
 def test_slot_free_current_happy_path(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -544,6 +640,7 @@ def test_slot_free_missing_flag_errors(cli_group: ClinkrGroup, tmp_path: Path) -
     # Message advertises every selector form, including the new short flags.
     assert "-n/--num" in result.output
     assert "-w/--wt" in result.output
+    assert "-b/--branch" in result.output
     assert "-c/--current" in result.output
 
 

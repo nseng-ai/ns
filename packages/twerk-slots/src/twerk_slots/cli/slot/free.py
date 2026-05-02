@@ -19,7 +19,7 @@ from twerk_slots.cli.slot.selectors import (
     resolve_wt,
 )
 from twerk_slots.context import SlotsCliContext
-from twerk_slots.inventory import SlotInventory, build_slot_inventory
+from twerk_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch, build_slot_inventory
 from twerk_slots.repo_context import NoRepoSentinel
 
 
@@ -32,6 +32,10 @@ class SlotFreeRequest:
     wt: Annotated[
         tuple[str, ...],
         click.Option(["-w", "--wt"], type=click.STRING, multiple=True),
+    ] = ()
+    branch: Annotated[
+        tuple[str, ...],
+        click.Option(["-b", "--branch"], type=click.STRING, multiple=True),
     ] = ()
     current: Annotated[bool, click.Option(["-c", "--current"], is_flag=True, default=False)] = False
 
@@ -46,10 +50,13 @@ class FreedSlot:
 @dataclass(frozen=True)
 class SlotFreeResult(JsonSerializable):
     freed: tuple[FreedSlot, ...]
+    skipped: tuple[str, ...] = ()
 
 
 def render_slot_free(result: SlotFreeResult) -> None:
     console = get_console()
+    for message in result.skipped:
+        console.print(f"[dim]{message}[/dim]")
     for entry in result.freed:
         console.print(
             f"[green]✓[/green] Freed [bold cyan]{entry.slot_name}[/bold cyan] "
@@ -64,16 +71,17 @@ def _resolve_targets(
     slots_ctx: SlotsCliContext,
     request: SlotFreeRequest,
     inventory: SlotInventory,
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     """Resolve every selector to a slot name.
 
-    Returns (resolved_in_order, errors). ``resolved_in_order`` preserves
-    first-seen order across ``--num`` → ``--wt`` → ``--current`` and is
-    deduped. ``errors`` collects every shape-level problem so the caller
-    can surface them in a single combined message.
+    Returns (resolved_in_order, skipped, errors). ``resolved_in_order``
+    preserves first-seen order across ``--num`` → ``--wt`` → ``--branch``
+    → ``--current`` and is deduped. ``errors`` collects every shape-level
+    problem so the caller can surface them in a single combined message.
     """
     resolved: list[str] = []
     seen: set[str] = set()
+    skipped: list[str] = []
     errors: list[str] = []
 
     def absorb(result: SelectorResult) -> None:
@@ -90,10 +98,24 @@ def _resolve_targets(
     for value in request.wt:
         absorb(resolve_wt(value))
 
+    for branch_name in request.branch:
+        match = inventory.find_by_branch(branch_name)
+        if isinstance(match, SlotMatch):
+            absorb(SelectorOk(slot_name=match.record.slot_name))
+        elif isinstance(match, MainWorktreeMatch):
+            skipped.append(
+                f"Branch {branch_name} is checked out in the main worktree, "
+                "not a managed slot; nothing to free."
+            )
+        else:
+            skipped.append(
+                f"Branch {branch_name} is not checked out in a managed slot; nothing to free."
+            )
+
     if request.current:
         absorb(resolve_current(slots_ctx.repo.root))
 
-    return tuple(resolved), tuple(errors)
+    return tuple(resolved), tuple(skipped), tuple(errors)
 
 
 def validate_assigned_and_clean(
@@ -141,13 +163,15 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             message="No managed slots configured. Run `slot init --size N` first.",
         )
 
-    if not request.num and not request.wt and not request.current:
+    if not request.num and not request.wt and not request.branch and not request.current:
         raise ClinkrExit.failure(
             error_type="missing_slot_arg",
-            message="Pass one of -n/--num, -w/--wt, or -c/--current to identify the slot.",
+            message=(
+                "Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot."
+            ),
         )
 
-    targets, shape_errors = _resolve_targets(slots_ctx, request, inventory)
+    targets, skipped, shape_errors = _resolve_targets(slots_ctx, request, inventory)
     state_errors = validate_assigned_and_clean(slots_ctx, inventory, targets)
     all_errors = (*shape_errors, *state_errors)
     if all_errors:
@@ -192,7 +216,7 @@ def run_free_slot(ctx: click.Context, request: SlotFreeRequest) -> ClinkrExit[Sl
             )
         )
 
-    return ClinkrExit.ok(SlotFreeResult(freed=tuple(freed)))
+    return ClinkrExit.ok(SlotFreeResult(freed=tuple(freed), skipped=skipped))
 
 
 def partial_failure(
