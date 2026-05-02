@@ -77,7 +77,7 @@ type UpdatePrecheckResult = {
 };
 
 type ParsedArgs = {
-	slug?: string | undefined;
+	slug?: string;
 };
 
 type GitContext = {
@@ -90,7 +90,7 @@ type GitContext = {
 type ChecklistItem = {
 	checked: boolean;
 	text: string;
-	section?: string | undefined;
+	section?: string;
 };
 
 type NextWork = {
@@ -102,10 +102,10 @@ type NextWork = {
 type ParsedContent = {
 	title: string;
 	status: string;
-	descriptionSummary?: string | undefined;
+	descriptionSummary?: string;
 	roadmapChecked: number;
 	roadmapUnchecked: number;
-	nextWork?: NextWork | undefined;
+	nextWork?: NextWork;
 };
 
 type CollisionResult = {
@@ -286,7 +286,7 @@ function parseArgs(argsText: string): ParsedArgs {
 		slug = token;
 	}
 
-	return { slug };
+	return slug === undefined ? {} : { slug };
 }
 
 async function runGit(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -625,7 +625,7 @@ function parseChecklistItems(markdown: string): ChecklistItem[] {
 			items.push({
 				checked: item[1].toLowerCase() === "x",
 				text: cleanupInlineMarkdown(item[2]),
-				section: currentSection,
+				...(currentSection !== undefined ? { section: currentSection } : {}),
 			});
 		}
 	}
@@ -678,13 +678,15 @@ function parseContent(show: ObjectiveShowResult): ParsedContent {
 	const roadmapItems = roadmap ? parseChecklistItems(roadmap) : [];
 	const nextWork = findNextRoadmapWork(roadmap) ?? findBodyCompletionWork(body);
 
+	const descriptionSummary = firstParagraph(extractSection(body, "Description"));
+
 	return {
 		title: firstHeading(body) ?? show.slug,
 		status: statusLine(body) ?? show.state,
-		descriptionSummary: firstParagraph(extractSection(body, "Description")),
+		...(descriptionSummary !== undefined ? { descriptionSummary } : {}),
 		roadmapChecked: roadmapItems.filter((item) => item.checked).length,
 		roadmapUnchecked: roadmapItems.filter((item) => !item.checked).length,
-		nextWork,
+		...(nextWork !== undefined ? { nextWork } : {}),
 	};
 }
 
@@ -814,8 +816,8 @@ function buildReport(input: {
 	content: ParsedContent;
 	advisories: string[];
 	stale: boolean;
-	suggestedSlug?: string | undefined;
-	collision?: CollisionResult | undefined;
+	suggestedSlug?: string;
+	collision?: CollisionResult;
 }): string {
 	const files = presentFiles(input.show);
 	const notesState = input.show.notes && input.show.notes.content.trim().length > 0 ? "present" : "none";
@@ -909,17 +911,17 @@ export function registerObjectiveNext(pi: ExtensionAPI): void {
 					content,
 					advisories: freshness.advisories,
 					stale: freshness.stale,
-					suggestedSlug,
-					collision,
+					...(suggestedSlug !== undefined ? { suggestedSlug } : {}),
+					...(collision !== undefined ? { collision } : {}),
 				});
 
 				emitMessage(pi, report, {
 					status: "ok",
 					slug,
-					suggestedSlug,
+					...(suggestedSlug !== undefined ? { suggestedSlug } : {}),
 					branch: git.currentBranch,
 					trunk: git.trunkBranch,
-					collision,
+					...(collision !== undefined ? { collision } : {}),
 				});
 				if (ctx.hasUI) {
 					ctx.ui.notify(`Objective next: ${slug}`, "info");

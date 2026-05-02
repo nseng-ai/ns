@@ -332,13 +332,21 @@ function isClaimPlanResult(value: unknown): value is ClaimPlanResult {
 	);
 }
 
+function isCarriedFile(value: unknown): value is CarriedFile {
+	return isRecord(value) && typeof value.file === "string" && isOptionalString(value.key);
+}
+
 function isClaimApplyResult(value: unknown): value is ClaimApplyResult {
 	return (
 		isRecord(value) &&
+		isOptionalString(value.schema) &&
 		typeof value.slug === "string" &&
 		typeof value.target_branch === "string" &&
+		isOptionalString(value.source_kind) &&
+		isOptionalNullableString(value.source_branch) &&
 		typeof value.source_label === "string" &&
 		Array.isArray(value.files_carried) &&
+		value.files_carried.every(isCarriedFile) &&
 		typeof value.destination_ref === "string" &&
 		typeof value.destination_commit_sha === "string"
 	);

@@ -37,7 +37,7 @@ ty:
     uv run ty check
 
 ts-check:
-    npm --prefix ts install
+    npm --prefix ts ci
     npm --prefix ts run check
 
 test:
