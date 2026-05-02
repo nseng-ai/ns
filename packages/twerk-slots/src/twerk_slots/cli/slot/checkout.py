@@ -8,6 +8,7 @@ from typing import Annotated
 import click
 
 from twerk_core import get_console
+from twerk_core.clinkr.context import is_machine_mode
 from twerk_core.clinkr.dataclass_json import JsonSerializable
 from twerk_core.clinkr.ensure import Ensure
 from twerk_core.clinkr.exit import ClinkrExit
@@ -31,6 +32,7 @@ from twerk_slots.gateway.clipboard import ClipboardCopySuccess
 from twerk_slots.inventory import build_slot_inventory
 from twerk_slots.naming import extract_slot_number
 from twerk_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
+from twerk_slots.shell_integration import write_cd_directive_if_active
 
 
 def _complete_branch_name(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[str]:
@@ -180,8 +182,10 @@ def _build_result(
     created_branch: bool,
     current_wt_note: str | None,
     no_clipboard: bool,
+    write_cd_directive: bool,
 ) -> SlotCheckoutResult:
     worktree_path = str(executed.worktree_path)
+    write_cd_directive_if_active(worktree_path, enabled=write_cd_directive)
     cd_command = f"cd {worktree_path}"
     clipboard_copied = False
     clipboard_failure_reason: str | None = None
@@ -249,8 +253,14 @@ def run_checkout_slot(
 
     ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
 
+    write_cd_directive = not is_machine_mode(ctx)
+
     if request.current:
-        return _run_current_checkout(slots_ctx, no_clipboard=request.no_clipboard)
+        return _run_current_checkout(
+            slots_ctx,
+            no_clipboard=request.no_clipboard,
+            write_cd_directive=write_cd_directive,
+        )
 
     assert request.branch_name is not None  # validated above
     branch_name = request.branch_name
@@ -298,12 +308,13 @@ def run_checkout_slot(
             created_branch=created_branch,
             current_wt_note=None,
             no_clipboard=request.no_clipboard,
+            write_cd_directive=write_cd_directive,
         )
     )
 
 
 def _run_current_checkout(
-    slots_ctx: SlotsCliContext, *, no_clipboard: bool
+    slots_ctx: SlotsCliContext, *, no_clipboard: bool, write_cd_directive: bool
 ) -> ClinkrExit[SlotCheckoutResult]:
     try:
         outcome = plan_current_checkout(
@@ -341,5 +352,6 @@ def _run_current_checkout(
             created_branch=False,
             current_wt_note=outcome.current_wt_note,
             no_clipboard=no_clipboard,
+            write_cd_directive=write_cd_directive,
         )
     )
