@@ -61,19 +61,29 @@ jobs:
       - name: Run tests
         run: just test
 
-  typescript:
+  ts-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - name: Install TypeScript dependencies
-        run: bun install --cwd ts --frozen-lockfile
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
       - name: Run TypeScript typecheck
-        run: bun run --cwd ts check
+        run: just ts-check
+
+  ts-test:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
       - name: Run TypeScript tests
-        run: bun run --cwd ts test
+        run: just ts-test
 
   nonslop-check:
     if: github.event.pull_request.draft != true
