@@ -21,7 +21,7 @@ activate.sh
 .dprint/
 
 # Node
-node_modules/
+**/node_modules/
 
 # Local
 .env
