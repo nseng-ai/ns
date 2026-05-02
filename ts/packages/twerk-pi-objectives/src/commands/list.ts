@@ -55,13 +55,13 @@ type ParsedObjectiveList =
 type ObjectiveListMessageDetails = {
 	mode: "repo" | "branch";
 	objectives: RepoObjective[];
-	branchName?: string | undefined;
+	branchName?: string;
 	slugs: string[];
 	entries: BranchEntry[];
 	fetchedAt: number;
 	command: string;
-	error?: string | undefined;
-	errorType?: string | undefined;
+	error?: string;
+	errorType?: string;
 };
 
 type ObjectiveCommandCandidate = {
@@ -478,7 +478,7 @@ export function registerObjectiveList(pi: ExtensionAPI): void {
 				const baseDetails: ObjectiveListMessageDetails = {
 					mode: parsed.kind === "branch" ? "branch" : "repo",
 					objectives: parsed.kind === "repo" ? parsed.objectives : [],
-					branchName: parsed.kind === "branch" ? parsed.branch : undefined,
+					...(parsed.kind === "branch" ? { branchName: parsed.branch } : {}),
 					slugs: parsed.kind === "branch" ? parsed.slugs : [],
 					entries: parsed.kind === "branch" ? parsed.entries : [],
 					fetchedAt: Date.now(),
@@ -490,7 +490,7 @@ export function registerObjectiveList(pi: ExtensionAPI): void {
 						? {
 							...baseDetails,
 							error: parsed.error,
-							errorType: parsed.errorType,
+							...(parsed.errorType !== undefined ? { errorType: parsed.errorType } : {}),
 						}
 						: baseDetails;
 
