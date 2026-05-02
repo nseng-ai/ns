@@ -121,6 +121,9 @@ function parseArgs(argsText: string): ParsedArgs {
 
 	for (let index = 0; index < tokens.length; index += 1) {
 		const token = tokens[index];
+		if (token === undefined) {
+			break;
+		}
 		if (token === "--format" || token.startsWith("--format=")) {
 			throw new Error("/objective-claim always uses JSON internally. Omit --format.");
 		}
@@ -158,7 +161,9 @@ function parseArgs(argsText: string): ParsedArgs {
 		slug = token;
 	}
 
-	parsed.slug = slug;
+	if (slug !== undefined) {
+		parsed.slug = slug;
+	}
 	return parsed;
 }
 
@@ -267,8 +272,64 @@ function requireSuccessfulEnvelope<T>(run: ObjectiveRun, label: string): T {
 	return envelope.data;
 }
 
+function isOptionalString(value: unknown): value is string | undefined {
+	return value === undefined || typeof value === "string";
+}
+
+function isOptionalNullableString(value: unknown): value is string | null | undefined {
+	return value === undefined || value === null || typeof value === "string";
+}
+
+function isPlanSource(value: unknown): value is PlanSource {
+	return (
+		isRecord(value) &&
+		isOptionalString(value.kind) &&
+		isOptionalNullableString(value.branch) &&
+		isOptionalNullableString(value.from_file_path) &&
+		isOptionalString(value.label)
+	);
+}
+
+function isClaimPlan(value: unknown): value is ClaimPlan {
+	return isRecord(value) && typeof value.slug === "string" && typeof value.target_branch === "string" && isPlanSource(value.source);
+}
+
+function isSlugAlternative(value: unknown): value is SlugAlternative {
+	return isRecord(value) && typeof value.slug === "string" && isOptionalString(value.available_on_branch);
+}
+
+function isBranchAlternative(value: unknown): value is BranchAlternative {
+	return isRecord(value) && typeof value.branch === "string" && (value.distance === undefined || typeof value.distance === "number");
+}
+
+function isClaimPlanAmbiguity(value: unknown): value is ClaimPlanAmbiguity {
+	return (
+		isRecord(value) &&
+		typeof value.reason === "string" &&
+		typeof value.message === "string" &&
+		(value.slug_alternatives === undefined || (Array.isArray(value.slug_alternatives) && value.slug_alternatives.every(isSlugAlternative))) &&
+		(value.branch_alternatives === undefined || (Array.isArray(value.branch_alternatives) && value.branch_alternatives.every(isBranchAlternative)))
+	);
+}
+
+function isClaimPlanError(value: unknown): value is ClaimPlanError {
+	return isRecord(value) && typeof value.reason === "string" && typeof value.message === "string";
+}
+
 function isClaimPlanResult(value: unknown): value is ClaimPlanResult {
-	return isRecord(value) && typeof value.status === "string";
+	return (
+		isRecord(value) &&
+		typeof value.schema === "string" &&
+		isOptionalString(value.canonical_branch) &&
+		isOptionalNullableString(value.requested_slug) &&
+		isOptionalNullableString(value.requested_target) &&
+		isOptionalNullableString(value.requested_from_branch) &&
+		isOptionalNullableString(value.requested_from_file) &&
+		typeof value.status === "string" &&
+		(value.plan === undefined || value.plan === null || isClaimPlan(value.plan)) &&
+		(value.ambiguity === undefined || value.ambiguity === null || isClaimPlanAmbiguity(value.ambiguity)) &&
+		(value.error === undefined || value.error === null || isClaimPlanError(value.error))
+	);
 }
 
 function isClaimApplyResult(value: unknown): value is ClaimApplyResult {
@@ -442,7 +503,7 @@ export function registerObjectiveClaim(pi: ExtensionAPI): void {
 				const message = renderSuccess(applyResult);
 				emitMessage(pi, message, { status: "claimed", result: applyResult });
 				if (ctx.hasUI) {
-					ctx.ui.notify(`Claimed objective: ${applyResult.slug}`, "success");
+					ctx.ui.notify(`Claimed objective: ${applyResult.slug}`, "info");
 				}
 			} catch (error) {
 				const message = `Objective claim failed: ${messageFromUnknown(error)}`;

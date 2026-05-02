@@ -10,6 +10,9 @@ wheels/
 .pytest_cache
 .coverage
 
+# JavaScript/TypeScript dependencies
+node_modules/
+
 # Virtual environments
 .venv
 activate.sh

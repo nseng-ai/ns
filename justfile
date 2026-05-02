@@ -13,9 +13,9 @@ pbcopy-source-activate:
     @printf 'source %s/.venv/bin/activate' "{{justfile_directory()}}" | pbcopy
     @echo "Copied to clipboard — paste and press enter to activate."
 
-check: lint format-check dprint-check ty test
+check: lint format-check dprint-check ty ts-check test
 
-ci: lint format-check dprint-check ty test-all
+ci: lint format-check dprint-check ty ts-check test-all
 
 lint:
     uv run ruff check
@@ -35,6 +35,10 @@ fix:
 
 ty:
     uv run ty check
+
+ts-check:
+    npm --prefix ts install
+    npm --prefix ts run check
 
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'

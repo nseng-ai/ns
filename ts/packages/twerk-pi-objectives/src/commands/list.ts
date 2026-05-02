@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { Box, Text } from "@mariozechner/pi-tui";
 
 type BranchPresence = {
@@ -55,13 +55,13 @@ type ParsedObjectiveList =
 type ObjectiveListMessageDetails = {
 	mode: "repo" | "branch";
 	objectives: RepoObjective[];
-	branchName?: string;
+	branchName?: string | undefined;
 	slugs: string[];
 	entries: BranchEntry[];
 	fetchedAt: number;
 	command: string;
-	error?: string;
-	errorType?: string;
+	error?: string | undefined;
+	errorType?: string | undefined;
 };
 
 type ObjectiveCommandCandidate = {
@@ -241,7 +241,7 @@ function parseObjectiveListEnvelope(stdout: string): ParsedObjectiveList {
 		return {
 			kind: "error",
 			error: typeof payload.message === "string" ? payload.message : `Command exited with code ${payload.exit_code}.`,
-			errorType: typeof payload.error_type === "string" ? payload.error_type : undefined,
+			...(typeof payload.error_type === "string" ? { errorType: payload.error_type } : {}),
 		};
 	}
 
@@ -307,7 +307,7 @@ function buildSummary(details: ObjectiveListMessageDetails): string {
 	return `Loaded ${pluralize(details.objectives.length, "objective")}.`;
 }
 
-function renderStateBadge(state: string, theme: any): string {
+function renderStateBadge(state: string, theme: Theme): string {
 	const normalized = normalizeState(state);
 	if (normalized === "open") {
 		return theme.fg("success", "● open");
@@ -318,11 +318,11 @@ function renderStateBadge(state: string, theme: any): string {
 	return theme.fg("warning", `• ${normalized}`);
 }
 
-function renderCanonicalBadge(canonicalPresent: boolean, theme: any): string {
+function renderCanonicalBadge(canonicalPresent: boolean, theme: Theme): string {
 	return canonicalPresent ? theme.fg("success", "canonical") : theme.fg("warning", "snapshot-only");
 }
 
-function renderRepoObjective(objective: RepoObjective, expanded: boolean, theme: any): string {
+function renderRepoObjective(objective: RepoObjective, expanded: boolean, theme: Theme): string {
 	const liveBranches = objective.branches.filter((branch) => !branch.deleted).map((branch) => branch.branch);
 	const deletedBranches = objective.branches.filter((branch) => branch.deleted).map((branch) => branch.branch);
 	const branchSummary = theme.fg(
@@ -377,7 +377,7 @@ function renderBranchObjective(
 	refNames: string[],
 	branchName: string | undefined,
 	expanded: boolean,
-	theme: any,
+	theme: Theme,
 ): string {
 	let text = `${theme.fg("accent", slug)} ${theme.fg("success", "branch snapshot")}`;
 	text += `\n${theme.fg("muted", "files ")}${files.join(", ") || "—"}`;
@@ -396,7 +396,7 @@ export function registerObjectiveList(pi: ExtensionAPI): void {
 		const box = new Box(1, 1, (text) => theme.bg("customMessageBg", text));
 
 		if (!details) {
-			box.addChild(new Text(message.content || "Objective list", 0, 0));
+			box.addChild(new Text(typeof message.content === "string" ? message.content : "Objective list", 0, 0));
 			return box;
 		}
 
