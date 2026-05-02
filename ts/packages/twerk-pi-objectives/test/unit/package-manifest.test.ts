@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import test from "node:test";
+
+import { describe, expect, test } from "vitest";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as {
@@ -10,10 +10,12 @@ const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "u
 	pi?: { extensions?: string[] };
 };
 
-test("package manifest is discoverable as a Pi package", () => {
-	assert.ok(manifest.keywords?.includes("pi-package"));
-});
+describe("package manifest", () => {
+	test("is discoverable as a Pi package", () => {
+		expect(manifest.keywords).toContain("pi-package");
+	});
 
-test("package manifest points at the extension entrypoint", () => {
-	assert.deepEqual(manifest.pi?.extensions, ["./src/extension/index.ts"]);
+	test("points at the extension entrypoint", () => {
+		expect(manifest.pi?.extensions).toEqual(["./src/extension/index.ts"]);
+	});
 });

@@ -465,57 +465,59 @@ function emitMessage(pi: ExtensionAPI, content: string, details: Record<string, 
 	});
 }
 
+export async function runObjectiveClaim(pi: ExtensionAPI, ctx: ExtensionCommandContext, argsText: string): Promise<void> {
+	if (ctx.hasUI) {
+		ctx.ui.setStatus(STATUS_KEY, "Claiming objective…");
+	}
+
+	try {
+		let currentArgs = parseArgs(argsText);
+		let planResult = await loadClaimPlan(pi, ctx, currentArgs);
+
+		for (let attempts = 0; planResult.status === "ambiguous" && attempts < 3; attempts += 1) {
+			const resolved = await resolveAmbiguity(pi, ctx, currentArgs, planResult);
+			if (typeof resolved === "string") {
+				emitMessage(pi, resolved, { status: "ambiguous" });
+				if (ctx.hasUI) ctx.ui.notify(resolved.split("\n")[0] ?? resolved, "warning");
+				return;
+			}
+			currentArgs = resolved.args;
+			planResult = resolved.planResult;
+		}
+
+		if (planResult.status === "error") {
+			const message = formatPlanError(planResult.error);
+			emitMessage(pi, message, { status: "error", error: planResult.error });
+			if (ctx.hasUI) ctx.ui.notify(message.split("\n")[0] ?? message, "error");
+			return;
+		}
+
+		if (planResult.status !== "plan" || !planResult.plan) {
+			throw new Error(`claim-plan returned unsupported status: ${planResult.status}`);
+		}
+
+		const applyResult = await applyPlan(pi, ctx, planResult);
+		const message = renderSuccess(applyResult);
+		emitMessage(pi, message, { status: "claimed", result: applyResult });
+		if (ctx.hasUI) {
+			ctx.ui.notify(`Claimed objective: ${applyResult.slug}`, "info");
+		}
+	} catch (error) {
+		const message = `Objective claim failed: ${messageFromUnknown(error)}`;
+		emitMessage(pi, message, { status: "failed" });
+		if (ctx.hasUI) {
+			ctx.ui.notify(message, "error");
+		}
+	} finally {
+		if (ctx.hasUI) {
+			ctx.ui.setStatus(STATUS_KEY, undefined);
+		}
+	}
+}
+
 export function registerObjectiveClaim(pi: ExtensionAPI): void {
 	pi.registerCommand("objective-claim", {
 		description: "Claim an objective snapshot onto the current branch",
-		handler: async (argsText, ctx) => {
-			if (ctx.hasUI) {
-				ctx.ui.setStatus(STATUS_KEY, "Claiming objective…");
-			}
-
-			try {
-				let currentArgs = parseArgs(argsText);
-				let planResult = await loadClaimPlan(pi, ctx, currentArgs);
-
-				for (let attempts = 0; planResult.status === "ambiguous" && attempts < 3; attempts += 1) {
-					const resolved = await resolveAmbiguity(pi, ctx, currentArgs, planResult);
-					if (typeof resolved === "string") {
-						emitMessage(pi, resolved, { status: "ambiguous" });
-						if (ctx.hasUI) ctx.ui.notify(resolved.split("\n")[0] ?? resolved, "warning");
-						return;
-					}
-					currentArgs = resolved.args;
-					planResult = resolved.planResult;
-				}
-
-				if (planResult.status === "error") {
-					const message = formatPlanError(planResult.error);
-					emitMessage(pi, message, { status: "error", error: planResult.error });
-					if (ctx.hasUI) ctx.ui.notify(message.split("\n")[0] ?? message, "error");
-					return;
-				}
-
-				if (planResult.status !== "plan" || !planResult.plan) {
-					throw new Error(`claim-plan returned unsupported status: ${planResult.status}`);
-				}
-
-				const applyResult = await applyPlan(pi, ctx, planResult);
-				const message = renderSuccess(applyResult);
-				emitMessage(pi, message, { status: "claimed", result: applyResult });
-				if (ctx.hasUI) {
-					ctx.ui.notify(`Claimed objective: ${applyResult.slug}`, "info");
-				}
-			} catch (error) {
-				const message = `Objective claim failed: ${messageFromUnknown(error)}`;
-				emitMessage(pi, message, { status: "failed" });
-				if (ctx.hasUI) {
-					ctx.ui.notify(message, "error");
-				}
-			} finally {
-				if (ctx.hasUI) {
-					ctx.ui.setStatus(STATUS_KEY, undefined);
-				}
-			}
-		},
+		handler: (argsText, ctx) => runObjectiveClaim(pi, ctx, argsText),
 	});
 }
