@@ -881,60 +881,62 @@ function emitMessage(pi: ExtensionAPI, content: string, details: Record<string, 
 	});
 }
 
+export async function runObjectiveNext(pi: ExtensionAPI, ctx: ExtensionCommandContext, argsText: string): Promise<void> {
+	if (ctx.hasUI) {
+		ctx.ui.setStatus(STATUS_KEY, "Inspecting objective…");
+	}
+
+	try {
+		const args = parseArgs(argsText);
+		const git = await resolveGitContext(pi, ctx);
+		const slug = await chooseSlug(pi, ctx, git, args.slug);
+		if (!slug) {
+			return;
+		}
+
+		const show = await loadObjectiveShow(pi, ctx, git, slug);
+		const freshness = await loadFreshnessAdvisories(pi, ctx, git, slug);
+		const content = parseContent(show);
+		const suggestedSlug = generateSuggestedSlug(slug, content);
+		const collision = suggestedSlug ? await checkCollisions(pi, ctx, git, suggestedSlug) : undefined;
+		const report = buildReport({
+			slug,
+			git,
+			show,
+			content,
+			advisories: freshness.advisories,
+			stale: freshness.stale,
+			suggestedSlug,
+			collision,
+		});
+
+		emitMessage(pi, report, {
+			status: "ok",
+			slug,
+			suggestedSlug,
+			branch: git.currentBranch,
+			trunk: git.trunkBranch,
+			collision,
+		});
+		if (ctx.hasUI) {
+			ctx.ui.notify(`Objective next: ${slug}`, "info");
+		}
+	} catch (error) {
+		const message = `Objective next failed: ${messageFromUnknown(error)}`;
+		emitMessage(pi, message, { status: "failed" });
+		if (ctx.hasUI) {
+			ctx.ui.notify(message, "error");
+		}
+	} finally {
+		if (ctx.hasUI) {
+			ctx.ui.setStatus(STATUS_KEY, undefined);
+		}
+	}
+}
+
 export function registerObjectiveNext(pi: ExtensionAPI): void {
 	pi.registerCommand("objective-next", {
 		description: "Inspect an objective and suggest the next PR-sized slice",
-		handler: async (argsText, ctx) => {
-			if (ctx.hasUI) {
-				ctx.ui.setStatus(STATUS_KEY, "Inspecting objective…");
-			}
-
-			try {
-				const args = parseArgs(argsText);
-				const git = await resolveGitContext(pi, ctx);
-				const slug = await chooseSlug(pi, ctx, git, args.slug);
-				if (!slug) {
-					return;
-				}
-
-				const show = await loadObjectiveShow(pi, ctx, git, slug);
-				const freshness = await loadFreshnessAdvisories(pi, ctx, git, slug);
-				const content = parseContent(show);
-				const suggestedSlug = generateSuggestedSlug(slug, content);
-				const collision = suggestedSlug ? await checkCollisions(pi, ctx, git, suggestedSlug) : undefined;
-				const report = buildReport({
-					slug,
-					git,
-					show,
-					content,
-					advisories: freshness.advisories,
-					stale: freshness.stale,
-					suggestedSlug,
-					collision,
-				});
-
-				emitMessage(pi, report, {
-					status: "ok",
-					slug,
-					suggestedSlug,
-					branch: git.currentBranch,
-					trunk: git.trunkBranch,
-					collision,
-				});
-				if (ctx.hasUI) {
-					ctx.ui.notify(`Objective next: ${slug}`, "info");
-				}
-			} catch (error) {
-				const message = `Objective next failed: ${messageFromUnknown(error)}`;
-				emitMessage(pi, message, { status: "failed" });
-				if (ctx.hasUI) {
-					ctx.ui.notify(message, "error");
-				}
-			} finally {
-				if (ctx.hasUI) {
-					ctx.ui.setStatus(STATUS_KEY, undefined);
-				}
-			}
-		},
+		handler: (argsText, ctx) => runObjectiveNext(pi, ctx, argsText),
 	});
 }

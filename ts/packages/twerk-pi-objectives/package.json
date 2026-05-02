@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "node --experimental-strip-types --test test/unit/*.test.ts",
+    "test:unit": "vitest --run test/unit/*.test.ts",
     "check": "tsc --noEmit -p ../../tsconfig.json"
   },
   "pi": {
@@ -38,6 +38,7 @@
   },
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*"
+    "@mariozechner/pi-tui": "*",
+    "vitest": "^3.2.4"
   }
 }

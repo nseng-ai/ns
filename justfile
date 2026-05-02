@@ -43,6 +43,10 @@ ts-check:
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'
 
+js-test:
+    npm --prefix ts install --package-lock=false
+    npm --prefix ts test || (rm -rf ts/node_modules ts/packages/*/node_modules ts/package-lock.json && npm --prefix ts install --package-lock=false && npm --prefix ts test)
+
 test-all:
     uv run pytest -n auto
 
