@@ -37,15 +37,15 @@ ty:
     uv run ty check
 
 ts-check:
-    npm --prefix ts install
-    npm --prefix ts run check
+    bun install --cwd ts
+    bun run --cwd ts check
 
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'
 
 ts-test:
-    npm --prefix ts install --package-lock=false
-    npm --prefix ts test || (rm -rf ts/node_modules ts/packages/*/node_modules ts/package-lock.json && npm --prefix ts install --package-lock=false && npm --prefix ts test)
+    bun install --cwd ts
+    bun run --cwd ts test || (rm -rf ts/node_modules ts/packages/*/node_modules && bun install --cwd ts && bun run --cwd ts test)
 
 test-all:
     uv run pytest -n auto

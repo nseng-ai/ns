@@ -4,8 +4,8 @@
   "type": "module",
   "workspaces": ["packages/*"],
   "scripts": {
-    "test": "npm run test --workspaces --if-present",
-    "check": "npm run check --workspaces --if-present"
+    "test": "bun run --filter './packages/*' test",
+    "check": "bun run --filter './packages/*' check"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
