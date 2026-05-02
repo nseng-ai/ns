@@ -15,7 +15,7 @@ pbcopy-source-activate:
 
 check: lint format-check dprint-check ty ts-check test
 
-ci: lint format-check dprint-check ty ts-check test-all
+ci: lint format-check dprint-check ty ts-check test-all js-test
 
 lint:
     uv run ruff check

@@ -72,12 +72,12 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: ts/package-lock.json
-      - name: Install TypeScript dependencies
-        run: npm ci --prefix ts
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
       - name: Run TypeScript typecheck
-        run: npm --prefix ts run check
+        run: just ts-check
       - name: Run TypeScript tests
-        run: npm --prefix ts test
+        run: just js-test
 
   nonslop-check:
     if: github.event.pull_request.draft != true
