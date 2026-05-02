@@ -61,6 +61,24 @@ jobs:
       - name: Run tests
         run: just test
 
+  typescript:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Install TypeScript dependencies
+        run: npm ci --prefix ts
+      - name: Run TypeScript typecheck
+        run: npm --prefix ts run check
+      - name: Run TypeScript tests
+        run: npm --prefix ts test
+
   nonslop-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest

@@ -18,7 +18,8 @@
   ],
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "node --experimental-strip-types --test test/unit/*.test.ts"
+    "test:unit": "node --experimental-strip-types --test test/unit/*.test.ts",
+    "check": "tsc --noEmit -p ../../tsconfig.json"
   },
   "pi": {
     "extensions": ["./src/extension/index.ts"]

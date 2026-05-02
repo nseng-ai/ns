@@ -77,7 +77,7 @@ type UpdatePrecheckResult = {
 };
 
 type ParsedArgs = {
-	slug?: string;
+	slug?: string | undefined;
 };
 
 type GitContext = {
@@ -90,7 +90,7 @@ type GitContext = {
 type ChecklistItem = {
 	checked: boolean;
 	text: string;
-	section?: string;
+	section?: string | undefined;
 };
 
 type NextWork = {
@@ -102,10 +102,10 @@ type NextWork = {
 type ParsedContent = {
 	title: string;
 	status: string;
-	descriptionSummary?: string;
+	descriptionSummary?: string | undefined;
 	roadmapChecked: number;
 	roadmapUnchecked: number;
-	nextWork?: NextWork;
+	nextWork?: NextWork | undefined;
 };
 
 type CollisionResult = {
@@ -814,8 +814,8 @@ function buildReport(input: {
 	content: ParsedContent;
 	advisories: string[];
 	stale: boolean;
-	suggestedSlug?: string;
-	collision?: CollisionResult;
+	suggestedSlug?: string | undefined;
+	collision?: CollisionResult | undefined;
 }): string {
 	const files = presentFiles(input.show);
 	const notesState = input.show.notes && input.show.notes.content.trim().length > 0 ? "present" : "none";
