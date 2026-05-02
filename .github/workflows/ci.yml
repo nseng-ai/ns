@@ -67,17 +67,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: ts/package-lock.json
+      - uses: oven-sh/setup-bun@v2
       - name: Install TypeScript dependencies
-        run: npm ci --prefix ts
+        run: bun install --cwd ts --frozen-lockfile
       - name: Run TypeScript typecheck
-        run: npm --prefix ts run check
+        run: bun run --cwd ts check
       - name: Run TypeScript tests
-        run: npm --prefix ts test
+        run: bun run --cwd ts test
 
   nonslop-check:
     if: github.event.pull_request.draft != true
