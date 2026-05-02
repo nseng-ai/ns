@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@mariozechner/pi-coding-agent";
 import { Box, Text } from "@mariozechner/pi-tui";
 
 type BranchPresence = {
@@ -390,6 +390,75 @@ function renderBranchObjective(
 	return text;
 }
 
+export async function runObjectiveList(pi: ExtensionAPI, ctx: ExtensionCommandContext, argsText: string): Promise<void> {
+	if (ctx.hasUI) {
+		ctx.ui.setStatus(STATUS_KEY, "Loading objectives…");
+	}
+
+	try {
+		const forwardedArgs = sanitizeArgs(argsText);
+		const { commandText, parsed } = await executeObjectiveList(pi, ctx.cwd, forwardedArgs);
+		const baseDetails: ObjectiveListMessageDetails = {
+			mode: parsed.kind === "branch" ? "branch" : "repo",
+			objectives: parsed.kind === "repo" ? parsed.objectives : [],
+			branchName: parsed.kind === "branch" ? parsed.branch : undefined,
+			slugs: parsed.kind === "branch" ? parsed.slugs : [],
+			entries: parsed.kind === "branch" ? parsed.entries : [],
+			fetchedAt: Date.now(),
+			command: commandText,
+		};
+
+		const details: ObjectiveListMessageDetails =
+			parsed.kind === "error"
+				? {
+					...baseDetails,
+					error: parsed.error,
+					errorType: parsed.errorType,
+				}
+				: baseDetails;
+
+		pi.sendMessage({
+			customType: CUSTOM_TYPE,
+			content: buildSummary(details),
+			display: true,
+			details,
+		});
+
+		if (ctx.hasUI) {
+			ctx.ui.notify(
+				details.error ? `Failed to load objectives: ${details.error}` : buildSummary(details),
+				details.error ? "error" : "info",
+			);
+		}
+	} catch (error) {
+		const message = messageFromUnknown(error);
+		const details: ObjectiveListMessageDetails = {
+			mode: "repo",
+			objectives: [],
+			slugs: [],
+			entries: [],
+			fetchedAt: Date.now(),
+			command: "objective list --format json",
+			error: message,
+		};
+
+		pi.sendMessage({
+			customType: CUSTOM_TYPE,
+			content: buildSummary(details),
+			display: true,
+			details,
+		});
+
+		if (ctx.hasUI) {
+			ctx.ui.notify(`Failed to load objectives: ${message}`, "error");
+		}
+	} finally {
+		if (ctx.hasUI) {
+			ctx.ui.setStatus(STATUS_KEY, undefined);
+		}
+	}
+}
+
 export function registerObjectiveList(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer(CUSTOM_TYPE, (message, { expanded }, theme) => {
 		const details = message.details as ObjectiveListMessageDetails | undefined;
@@ -467,73 +536,6 @@ export function registerObjectiveList(pi: ExtensionAPI): void {
 			const filtered = items.filter((item) => item.value.startsWith(prefix));
 			return filtered.length > 0 ? filtered : prefix.length === 0 ? items : null;
 		},
-		handler: async (argsText, ctx) => {
-			if (ctx.hasUI) {
-				ctx.ui.setStatus(STATUS_KEY, "Loading objectives…");
-			}
-
-			try {
-				const forwardedArgs = sanitizeArgs(argsText);
-				const { commandText, parsed } = await executeObjectiveList(pi, ctx.cwd, forwardedArgs);
-				const baseDetails: ObjectiveListMessageDetails = {
-					mode: parsed.kind === "branch" ? "branch" : "repo",
-					objectives: parsed.kind === "repo" ? parsed.objectives : [],
-					branchName: parsed.kind === "branch" ? parsed.branch : undefined,
-					slugs: parsed.kind === "branch" ? parsed.slugs : [],
-					entries: parsed.kind === "branch" ? parsed.entries : [],
-					fetchedAt: Date.now(),
-					command: commandText,
-				};
-
-				const details: ObjectiveListMessageDetails =
-					parsed.kind === "error"
-						? {
-							...baseDetails,
-							error: parsed.error,
-							errorType: parsed.errorType,
-						}
-						: baseDetails;
-
-				pi.sendMessage({
-					customType: CUSTOM_TYPE,
-					content: buildSummary(details),
-					display: true,
-					details,
-				});
-
-				if (ctx.hasUI) {
-					ctx.ui.notify(
-						details.error ? `Failed to load objectives: ${details.error}` : buildSummary(details),
-						details.error ? "error" : "info",
-					);
-				}
-			} catch (error) {
-				const message = messageFromUnknown(error);
-				const details: ObjectiveListMessageDetails = {
-					mode: "repo",
-					objectives: [],
-					slugs: [],
-					entries: [],
-					fetchedAt: Date.now(),
-					command: "objective list --format json",
-					error: message,
-				};
-
-				pi.sendMessage({
-					customType: CUSTOM_TYPE,
-					content: buildSummary(details),
-					display: true,
-					details,
-				});
-
-				if (ctx.hasUI) {
-					ctx.ui.notify(`Failed to load objectives: ${message}`, "error");
-				}
-			} finally {
-				if (ctx.hasUI) {
-					ctx.ui.setStatus(STATUS_KEY, undefined);
-				}
-			}
-		},
+		handler: (argsText, ctx) => runObjectiveList(pi, ctx, argsText),
 	});
 }
