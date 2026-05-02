@@ -15,7 +15,7 @@ pbcopy-source-activate:
 
 check: lint format-check dprint-check ty ts-check test
 
-ci: lint format-check dprint-check ty ts-check test-all js-test
+ci: lint format-check dprint-check ty ts-check test-all ts-test
 
 lint:
     uv run ruff check
@@ -43,7 +43,7 @@ ts-check:
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'
 
-js-test:
+ts-test:
     npm --prefix ts install --package-lock=false
     npm --prefix ts test || (rm -rf ts/node_modules ts/packages/*/node_modules ts/package-lock.json && npm --prefix ts install --package-lock=false && npm --prefix ts test)
 

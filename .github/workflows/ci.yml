@@ -61,7 +61,7 @@ jobs:
       - name: Run tests
         run: just test
 
-  typescript:
+  ts-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -76,8 +76,22 @@ jobs:
         run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
       - name: Run TypeScript typecheck
         run: just ts-check
+
+  ts-test:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
       - name: Run TypeScript tests
-        run: just js-test
+        run: just ts-test
 
   nonslop-check:
     if: github.event.pull_request.draft != true
