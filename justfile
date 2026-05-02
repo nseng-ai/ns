@@ -36,9 +36,16 @@ fix:
 ty:
     uv run ty check
 
-ts-check:
-    npm --prefix ts install
-    npm --prefix ts run check
+ts-install:
+    bun install --cwd ts
+
+ts-check: ts-install
+    bun run --cwd ts check
+
+ts-test: ts-install
+    bun run --cwd ts test
+
+js-test: ts-test
 
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'
