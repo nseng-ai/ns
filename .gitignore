@@ -20,6 +20,9 @@ activate.sh
 # Formatting
 .dprint/
 
+# Node
+node_modules/
+
 # Local
 .env
 CLAUDE.local.md
