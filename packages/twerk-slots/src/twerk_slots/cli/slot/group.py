@@ -10,6 +10,7 @@ from twerk_slots.cli.slot.gt.group import build_gt_group
 from twerk_slots.cli.slot.init import run_init_slots
 from twerk_slots.cli.slot.list import run_list_slots
 from twerk_slots.cli.slot.resize import run_resize_slots
+from twerk_slots.cli.slot.shell import build_shell_group
 
 
 def build_slot_group() -> ClinkrGroup:
@@ -28,4 +29,5 @@ def build_slot_group() -> ClinkrGroup:
     )
     group.add_command(build_completion_group())
     group.add_command(build_gt_group())
+    group.add_command(build_shell_group())
     return group
