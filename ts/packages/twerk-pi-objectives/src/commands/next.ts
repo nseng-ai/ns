@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 
@@ -7,7 +7,6 @@ const STATUS_KEY = "objective-next";
 const CUSTOM_TYPE = "objective-next";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_SLUG_LENGTH = 50;
-const KNOWN_FILES = ["body.md", "roadmap.md", "notes.md"] as const;
 
 type CommandCandidate = {
 	command: string;
@@ -21,70 +20,24 @@ type ClinkrEnvelope<T> = {
 	message?: string;
 };
 
-type BranchPresence = {
-	branch: string;
-	deleted: boolean;
-};
+type FreshnessState = "fresh" | "stale";
 
-type RepoObjective = {
+type NextContextResult = {
+	current_branch: string;
+	trunk_branch: string;
+	on_trunk: boolean;
 	slug: string;
-	files: string[];
-	canonical_present: boolean;
-	state: string;
-	branches: BranchPresence[];
-};
-
-type BranchEntry = {
-	namespace: string;
-	key: string;
-	branch: string;
-	ref_name: string;
-};
-
-type RepoListData = {
-	scope: "repo";
-	objectives: RepoObjective[];
-};
-
-type BranchListData = {
-	branch: string;
-	slugs: string[];
-	entries: BranchEntry[];
-};
-
-type ObjectiveFile = {
-	source_branch: string;
-	content: string;
-};
-
-type ObjectiveShowResult = {
-	slug: string;
-	canonical_present: boolean;
-	canonical_trunk: string;
-	state: string;
-	closed_at: string | null;
-	closed_reason: string | null;
-	branches: BranchPresence[];
-	files: string[];
-	body: ObjectiveFile | null;
-	roadmap: ObjectiveFile | null;
-	notes: ObjectiveFile | null;
-};
-
-type UpdatePrecheckResult = {
-	freshness?: string;
-	absorbed_marker_diagnostics?: string[];
+	files_present: string[];
+	freshness: FreshnessState | null;
+	freshness_advisory: string | null;
+	notes_present: boolean;
+	body_content: string;
+	roadmap_content: string | null;
+	notes_content: string | null;
 };
 
 type ParsedArgs = {
 	slug?: string | undefined;
-};
-
-type GitContext = {
-	repoRoot: string;
-	currentBranch: string;
-	trunkBranch: string;
-	onTrunk: boolean;
 };
 
 type ChecklistItem = {
@@ -106,6 +59,10 @@ type ParsedContent = {
 	roadmapChecked: number;
 	roadmapUnchecked: number;
 	nextWork?: NextWork | undefined;
+};
+
+type CollisionContext = {
+	trunkBranch: string;
 };
 
 type CollisionResult = {
@@ -143,6 +100,20 @@ function summarizeOutput(value: string): string {
 	return trimmed.length > 220 ? `${trimmed.slice(0, 217)}...` : trimmed;
 }
 
+function findAncestorContaining(startDir: string, relativePath: string): string | undefined {
+	let current = resolve(startDir);
+	for (;;) {
+		if (existsSync(join(current, relativePath))) {
+			return current;
+		}
+		const parent = dirname(current);
+		if (parent === current) {
+			return undefined;
+		}
+		current = parent;
+	}
+}
+
 function parseClinkrEnvelope(stdout: string): ClinkrEnvelope<unknown> {
 	const trimmed = stdout.trim();
 	if (trimmed.length === 0) {
@@ -167,7 +138,7 @@ function requireSuccessfulEnvelope<T>(envelope: ClinkrEnvelope<unknown>, label: 
 	return envelope.data as T;
 }
 
-function resolveCommandCandidates(commandName: string, repoRoot: string): CommandCandidate[] {
+function resolveCommandCandidates(commandName: string, cwd: string): CommandCandidate[] {
 	const candidates: CommandCandidate[] = [];
 	const seen = new Set<string>();
 
@@ -179,15 +150,16 @@ function resolveCommandCandidates(commandName: string, repoRoot: string): Comman
 		}
 	};
 
-	const venvCommand = join(repoRoot, ".venv", "bin", commandName);
-	if (existsSync(venvCommand)) {
-		add({ command: venvCommand, prefixArgs: [] });
+	const venvRoot = findAncestorContaining(cwd, join(".venv", "bin", commandName));
+	if (venvRoot) {
+		add({ command: join(venvRoot, ".venv", "bin", commandName), prefixArgs: [] });
 	}
 
 	add({ command: commandName, prefixArgs: [] });
 
-	if (existsSync(join(repoRoot, "pyproject.toml"))) {
-		add({ command: "uv", prefixArgs: ["run", "--directory", repoRoot, commandName] });
+	const projectRoot = findAncestorContaining(cwd, "pyproject.toml");
+	if (projectRoot) {
+		add({ command: "uv", prefixArgs: ["run", "--directory", projectRoot, commandName] });
 	}
 
 	return candidates;
@@ -199,11 +171,10 @@ async function runJson<T>(
 	command: string,
 	args: string[],
 	label: string,
-	repoRoot: string,
 ): Promise<T> {
 	const failures: string[] = [];
 
-	for (const candidate of resolveCommandCandidates(command, repoRoot)) {
+	for (const candidate of resolveCommandCandidates(command, ctx.cwd)) {
 		const finalArgs = [...candidate.prefixArgs, ...args];
 		const commandText = formatCommand([candidate.command, ...finalArgs]);
 		let result: { stdout: string; stderr: string; code: number };
@@ -238,11 +209,10 @@ async function runCommandFirstAvailable(
 	ctx: ExtensionCommandContext,
 	command: string,
 	args: string[],
-	repoRoot: string,
 ): Promise<{ code: number; stdout: string; stderr: string; commandText: string }> {
 	const failures: string[] = [];
 
-	for (const candidate of resolveCommandCandidates(command, repoRoot)) {
+	for (const candidate of resolveCommandCandidates(command, ctx.cwd)) {
 		const finalArgs = [...candidate.prefixArgs, ...args];
 		const commandText = formatCommand([candidate.command, ...finalArgs]);
 		try {
@@ -289,269 +259,48 @@ function parseArgs(argsText: string): ParsedArgs {
 	return { slug };
 }
 
-async function runGit(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
-	return pi.exec("git", args, { cwd: ctx.cwd, timeout: DEFAULT_TIMEOUT_MS });
+function isFreshnessState(value: unknown): value is FreshnessState {
+	return value === "fresh" || value === "stale";
 }
 
-async function requireGitStdout(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: string[], label: string): Promise<string> {
-	const result = await runGit(pi, ctx, args);
-	if (result.code !== 0) {
-		throw new Error(`${label} failed: ${result.stderr.trim() || result.stdout.trim() || `git exited ${result.code}`}`);
-	}
-	return result.stdout.trim();
+function isNullableString(value: unknown): value is string | null {
+	return value === null || typeof value === "string";
 }
 
-async function resolveGitContext(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promise<GitContext> {
-	let repoRoot: string;
-	try {
-		repoRoot = await requireGitStdout(pi, ctx, ["rev-parse", "--show-toplevel"], "git repo preflight");
-	} catch (error) {
-		throw new Error(`Not in a git repository: ${messageFromUnknown(error)}`);
-	}
-
-	const currentBranch = await requireGitStdout(pi, ctx, ["rev-parse", "--abbrev-ref", "HEAD"], "current branch preflight");
-	if (currentBranch === "HEAD") {
-		throw new Error("Detached HEAD: /objective-next requires a checked-out branch.");
-	}
-
-	const originHead = await runGit(pi, ctx, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
-	let trunkBranch = originHead.code === 0 ? originHead.stdout.trim().replace(/^origin\//, "") : "";
-	if (!trunkBranch) {
-		const main = await runGit(pi, ctx, ["rev-parse", "--verify", "--quiet", "refs/heads/main"]);
-		if (main.code === 0) {
-			trunkBranch = "main";
-		} else {
-			const master = await runGit(pi, ctx, ["rev-parse", "--verify", "--quiet", "refs/heads/master"]);
-			trunkBranch = master.code === 0 ? "master" : "master";
-		}
-	}
-
-	return {
-		repoRoot,
-		currentBranch,
-		trunkBranch,
-		onTrunk: currentBranch === trunkBranch,
-	};
-}
-
-function isBranchPresence(value: unknown): value is BranchPresence {
-	return isRecord(value) && typeof value.branch === "string" && typeof value.deleted === "boolean";
-}
-
-function isRepoObjective(value: unknown): value is RepoObjective {
+function isNextContextResult(value: unknown): value is NextContextResult {
 	return (
 		isRecord(value) &&
+		typeof value.current_branch === "string" &&
+		typeof value.trunk_branch === "string" &&
+		typeof value.on_trunk === "boolean" &&
 		typeof value.slug === "string" &&
-		Array.isArray(value.files) &&
-		value.files.every((file) => typeof file === "string") &&
-		typeof value.canonical_present === "boolean" &&
-		typeof value.state === "string" &&
-		Array.isArray(value.branches) &&
-		value.branches.every(isBranchPresence)
+		Array.isArray(value.files_present) &&
+		value.files_present.every((file) => typeof file === "string") &&
+		(value.freshness === null || isFreshnessState(value.freshness)) &&
+		isNullableString(value.freshness_advisory) &&
+		typeof value.notes_present === "boolean" &&
+		typeof value.body_content === "string" &&
+		isNullableString(value.roadmap_content) &&
+		isNullableString(value.notes_content)
 	);
 }
 
-function isBranchEntry(value: unknown): value is BranchEntry {
-	return (
-		isRecord(value) &&
-		typeof value.namespace === "string" &&
-		typeof value.key === "string" &&
-		typeof value.branch === "string" &&
-		typeof value.ref_name === "string"
-	);
-}
-
-function isRepoListData(value: unknown): value is RepoListData {
-	return isRecord(value) && value.scope === "repo" && Array.isArray(value.objectives) && value.objectives.every(isRepoObjective);
-}
-
-function isBranchListData(value: unknown): value is BranchListData {
-	return (
-		isRecord(value) &&
-		typeof value.branch === "string" &&
-		Array.isArray(value.slugs) &&
-		value.slugs.every((slug) => typeof slug === "string") &&
-		Array.isArray(value.entries) &&
-		value.entries.every(isBranchEntry)
-	);
-}
-
-function isObjectiveFile(value: unknown): value is ObjectiveFile {
-	return isRecord(value) && typeof value.source_branch === "string" && typeof value.content === "string";
-}
-
-function isObjectiveShowResult(value: unknown): value is ObjectiveShowResult {
-	return (
-		isRecord(value) &&
-		typeof value.slug === "string" &&
-		typeof value.canonical_present === "boolean" &&
-		typeof value.canonical_trunk === "string" &&
-		typeof value.state === "string" &&
-		(value.closed_at === null || typeof value.closed_at === "string") &&
-		(value.closed_reason === null || typeof value.closed_reason === "string") &&
-		Array.isArray(value.branches) &&
-		value.branches.every(isBranchPresence) &&
-		Array.isArray(value.files) &&
-		value.files.every((file) => typeof file === "string") &&
-		(value.body === null || isObjectiveFile(value.body)) &&
-		(value.roadmap === null || isObjectiveFile(value.roadmap)) &&
-		(value.notes === null || isObjectiveFile(value.notes))
-	);
-}
-
-function isUpdatePrecheckResult(value: unknown): value is UpdatePrecheckResult {
-	return (
-		isRecord(value) &&
-		(value.freshness === undefined || typeof value.freshness === "string") &&
-		(value.absorbed_marker_diagnostics === undefined ||
-			(Array.isArray(value.absorbed_marker_diagnostics) && value.absorbed_marker_diagnostics.every((entry) => typeof entry === "string")))
-	);
-}
-
-async function loadRepoObjectives(pi: ExtensionAPI, ctx: ExtensionCommandContext, git: GitContext): Promise<RepoObjective[]> {
-	const data = await runJson<unknown>(pi, ctx, "objective", ["list", "--format", "json"], "objective list", git.repoRoot);
-	if (!isRepoListData(data)) {
-		throw new Error("objective list returned data that does not match the repo-list schema.");
-	}
-	return data.objectives;
-}
-
-async function loadBranchList(pi: ExtensionAPI, ctx: ExtensionCommandContext, git: GitContext): Promise<BranchListData> {
-	const data = await runJson<unknown>(pi, ctx, "objective", ["list", "--here", "--format", "json"], "objective list --here", git.repoRoot);
-	if (!isBranchListData(data)) {
-		throw new Error("objective list --here returned data that does not match the branch-list schema.");
-	}
-	return data;
-}
-
-function canonicalOpenObjectives(objectives: RepoObjective[]): RepoObjective[] {
-	return objectives.filter(
-		(objective) => objective.state.trim().toLowerCase() === "open" && objective.canonical_present && objective.files.includes("body.md"),
-	);
-}
-
-function branchSlugsWithBody(listData: BranchListData): string[] {
-	const slugs = new Set<string>();
-	for (const entry of listData.entries) {
-		const slashIndex = entry.key.indexOf("/");
-		if (slashIndex === -1) continue;
-		const slug = entry.key.slice(0, slashIndex);
-		const file = entry.key.slice(slashIndex + 1);
-		if (file === "body.md") {
-			slugs.add(slug);
-		}
-	}
-	return [...slugs].sort();
-}
-
-async function chooseSlug(pi: ExtensionAPI, ctx: ExtensionCommandContext, git: GitContext, requestedSlug?: string): Promise<string | undefined> {
-	if (git.onTrunk) {
-		const objectives = canonicalOpenObjectives(await loadRepoObjectives(pi, ctx, git));
-		const slugs = objectives.map((objective) => objective.slug).sort();
-		if (requestedSlug) {
-			if (!slugs.includes(requestedSlug)) {
-				throw new Error(`objective ${requestedSlug} not canonical on ${git.trunkBranch}`);
-			}
-			return requestedSlug;
-		}
-		if (slugs.length === 0) {
-			throw new Error("no canonical objectives; run objective-create to author one.");
-		}
-		if (slugs.length === 1) {
-			return slugs[0];
-		}
-		if (!ctx.hasUI) {
-			emitMessage(pi, `Multiple objectives available: ${slugs.join(", ")}.\nRun /objective-next <slug>.`, { status: "needs-selection", slugs });
-			return undefined;
-		}
-		const selected = await ctx.ui.select("Choose objective", slugs);
-		if (!selected) {
-			emitMessage(pi, "Objective selection cancelled.", { status: "cancelled" });
-			return undefined;
-		}
-		return selected;
-	}
-
-	const listData = await loadBranchList(pi, ctx, git);
-	const slugs = branchSlugsWithBody(listData);
-	if (requestedSlug) {
-		if (!slugs.includes(requestedSlug)) {
-			throw new Error(`slug ${requestedSlug} not claimed on ${git.currentBranch}; run objective-claim ${requestedSlug} first`);
-		}
-		return requestedSlug;
-	}
-	if (slugs.length === 0) {
-		throw new Error("no objective claimed on this branch; run objective-claim to attach the parent's objective, or objective-create to start a new one.");
-	}
-	if (slugs.length === 1) {
-		return slugs[0];
-	}
-	if (!ctx.hasUI) {
-		emitMessage(pi, `Multiple objectives available: ${slugs.join(", ")}.\nRun /objective-next <slug>.`, { status: "needs-selection", slugs });
-		return undefined;
-	}
-	const selected = await ctx.ui.select("Choose objective", slugs);
-	if (!selected) {
-		emitMessage(pi, "Objective selection cancelled.", { status: "cancelled" });
-		return undefined;
-	}
-	return selected;
-}
-
-async function loadObjectiveShow(pi: ExtensionAPI, ctx: ExtensionCommandContext, git: GitContext, slug: string): Promise<ObjectiveShowResult> {
+async function loadNextContext(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: ParsedArgs): Promise<NextContextResult> {
 	const data = await runJson<unknown>(
 		pi,
 		ctx,
 		"objective",
-		["show", slug, "--branch", git.currentBranch, "--format", "json"],
-		"objective show",
-		git.repoRoot,
+		["exec", "next-context", ...(args.slug ? [args.slug] : []), "--format", "json"],
+		"objective exec next-context",
 	);
-	if (!isObjectiveShowResult(data)) {
-		throw new Error("objective show returned data that does not match the expected schema.");
-	}
-	if (!data.body || data.body.content.trim().length === 0) {
-		throw new Error(`objective ${slug} on ${git.currentBranch} has no nonempty body.md`);
+	if (!isNextContextResult(data)) {
+		throw new Error("objective exec next-context returned data that does not match the expected schema.");
 	}
 	return data;
 }
 
-async function loadFreshnessAdvisories(
-	pi: ExtensionAPI,
-	ctx: ExtensionCommandContext,
-	git: GitContext,
-	slug: string,
-): Promise<{ advisories: string[]; stale: boolean }> {
-	if (git.onTrunk) {
-		return { advisories: [], stale: false };
-	}
-
-	try {
-		const data = await runJson<unknown>(
-			pi,
-			ctx,
-			"objective",
-			["exec", "update-precheck", slug, "--format", "json"],
-			"objective update-precheck",
-			git.repoRoot,
-		);
-		if (!isUpdatePrecheckResult(data)) {
-			return { advisories: ["Freshness precheck returned an unexpected schema; continuing without freshness classification."], stale: false };
-		}
-
-		const diagnostics = data.absorbed_marker_diagnostics ?? [];
-		const advisories: string[] = [];
-		const stale = data.freshness === "stale";
-		if (stale) {
-			advisories.push(`Snapshot is behind HEAD on ${git.currentBranch} — consider running objective-update ${slug} first.`);
-		}
-		if (diagnostics.length > 0) {
-			advisories.push(`Absorbed marker has ${diagnostics.length} diagnostic${diagnostics.length === 1 ? "" : "s"}; consider running objective-update ${slug} first.`);
-		}
-		return { advisories, stale: stale || diagnostics.length > 0 };
-	} catch (error) {
-		return { advisories: [`Freshness precheck failed: ${messageFromUnknown(error)}`], stale: false };
-	}
+async function runGit(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+	return pi.exec("git", args, { cwd: ctx.cwd, timeout: DEFAULT_TIMEOUT_MS });
 }
 
 function firstHeading(markdown: string): string | undefined {
@@ -672,15 +421,15 @@ function findBodyCompletionWork(body: string): NextWork | undefined {
 	};
 }
 
-function parseContent(show: ObjectiveShowResult): ParsedContent {
-	const body = show.body?.content ?? "";
-	const roadmap = show.roadmap?.content;
+function parseContent(context: NextContextResult): ParsedContent {
+	const body = context.body_content;
+	const roadmap = context.roadmap_content ?? undefined;
 	const roadmapItems = roadmap ? parseChecklistItems(roadmap) : [];
 	const nextWork = findNextRoadmapWork(roadmap) ?? findBodyCompletionWork(body);
 
 	return {
-		title: firstHeading(body) ?? show.slug,
-		status: statusLine(body) ?? show.state,
+		title: firstHeading(body) ?? context.slug,
+		status: statusLine(body) ?? "unknown",
 		descriptionSummary: firstParagraph(extractSection(body, "Description")),
 		roadmapChecked: roadmapItems.filter((item) => item.checked).length,
 		roadmapUnchecked: roadmapItems.filter((item) => !item.checked).length,
@@ -742,7 +491,7 @@ function generateSuggestedSlug(parentSlug: string, content: ParsedContent): stri
 async function checkCollisions(
 	pi: ExtensionAPI,
 	ctx: ExtensionCommandContext,
-	git: GitContext,
+	context: CollisionContext,
 	suggestedSlug: string,
 ): Promise<CollisionResult> {
 	const warnings: string[] = [];
@@ -751,13 +500,16 @@ async function checkCollisions(
 
 	let canonicalExists = false;
 	try {
-		const check = await runCommandFirstAvailable(
-			pi,
-			ctx,
-			"brmem",
-			["check", `${suggestedSlug}/body.md`, "--namespace", "objectives", "--branch", git.trunkBranch, "--format", "json"],
-			git.repoRoot,
-		);
+		const check = await runCommandFirstAvailable(pi, ctx, "brmem", [
+			"check",
+			`${suggestedSlug}/body.md`,
+			"--namespace",
+			"objectives",
+			"--branch",
+			context.trunkBranch,
+			"--format",
+			"json",
+		]);
 		let exitCode = check.code;
 		if (check.stdout.trim().length > 0) {
 			try {
@@ -776,15 +528,6 @@ async function checkCollisions(
 	}
 
 	return { branchExists, canonicalExists, warnings };
-}
-
-function presentFiles(show: ObjectiveShowResult): string[] {
-	return KNOWN_FILES.filter((file) => {
-		if (file === "body.md") return show.body !== null;
-		if (file === "roadmap.md") return show.roadmap !== null;
-		if (file === "notes.md") return show.notes !== null;
-		return false;
-	});
 }
 
 function formatCollision(collision: CollisionResult | undefined): string {
@@ -807,30 +550,35 @@ function formatCollision(collision: CollisionResult | undefined): string {
 	return lines.join("\n");
 }
 
+function formatFreshness(context: NextContextResult): string {
+	return context.freshness ?? "skipped";
+}
+
 function buildReport(input: {
-	slug: string;
-	git: GitContext;
-	show: ObjectiveShowResult;
+	context: NextContextResult;
 	content: ParsedContent;
-	advisories: string[];
-	stale: boolean;
 	suggestedSlug?: string | undefined;
 	collision?: CollisionResult | undefined;
 }): string {
-	const files = presentFiles(input.show);
-	const notesState = input.show.notes && input.show.notes.content.trim().length > 0 ? "present" : "none";
+	const files = input.context.files_present;
+	const notesState = input.context.notes_present ? "present" : "none";
 	const basis = input.content.nextWork?.basis ?? "no obvious open roadmap item";
 	const suggested = input.suggestedSlug ? `\`${input.suggestedSlug}\`` : "unable to generate a safe slug";
 	const lines: string[] = [];
 
-	if (input.stale) {
-		lines.push(`> Snapshot is stale. Consider running \`objective-update ${input.slug}\` before creating the next slice branch.`, "");
+	if (input.context.freshness === "stale") {
+		lines.push(
+			`> ${input.context.freshness_advisory ?? `Snapshot is stale. Consider running \`objective-update ${input.context.slug}\` before creating the next slice branch.`}`,
+			"",
+		);
 	}
 
 	lines.push(
-		`# Objective next: \`${input.slug}\``,
+		`# Objective next: \`${input.context.slug}\``,
 		"",
-		`Source: current branch \`${input.git.currentBranch}\``,
+		`Source: current branch \`${input.context.current_branch}\``,
+		`Trunk: \`${input.context.trunk_branch}\``,
+		`On trunk: ${input.context.on_trunk ? "yes" : "no"}`,
 		`Files: ${files.join(", ") || "none"}`,
 		"",
 		"## Status",
@@ -839,12 +587,13 @@ function buildReport(input: {
 		`Status: ${input.content.status}`,
 		`Progress: ${input.content.roadmapChecked} checked, ${input.content.roadmapUnchecked} open`,
 		`Notes: ${notesState}`,
+		`Freshness: ${formatFreshness(input.context)}`,
 	);
 	if (input.content.descriptionSummary) {
 		lines.push(`Description: ${input.content.descriptionSummary}`);
 	}
-	for (const advisory of input.advisories) {
-		lines.push(`Advisory: ${advisory}`);
+	if (input.context.freshness_advisory) {
+		lines.push(`Advisory: ${input.context.freshness_advisory}`);
 	}
 
 	lines.push(
@@ -862,12 +611,12 @@ function buildReport(input: {
 
 	if (input.suggestedSlug) {
 		lines.push(
-			`To proceed: write a plan file using \`${input.suggestedSlug}\`, run \`brmem-branch-create\`, navigate to the new branch, then run \`objective-claim ${input.slug}\`.`,
+			`To proceed: write a plan file using \`${input.suggestedSlug}\`, run \`brmem-branch-create\`, navigate to the new branch, then run \`objective-claim ${input.context.slug}\`.`,
 		);
 	} else {
 		lines.push("To proceed: choose a PR-sized slice manually, then write a plan file for it before creating a branch.");
 	}
-	lines.push(`After implementing the slice, merge the PR and run \`objective-reconcile ${input.slug}\` on \`${input.git.trunkBranch}\`.`);
+	lines.push(`After implementing the slice, merge the PR and run \`objective-reconcile ${input.context.slug}\` on \`${input.context.trunk_branch}\`.`);
 
 	return lines.join("\n");
 }
@@ -888,38 +637,28 @@ export async function runObjectiveNext(pi: ExtensionAPI, ctx: ExtensionCommandCo
 
 	try {
 		const args = parseArgs(argsText);
-		const git = await resolveGitContext(pi, ctx);
-		const slug = await chooseSlug(pi, ctx, git, args.slug);
-		if (!slug) {
-			return;
-		}
-
-		const show = await loadObjectiveShow(pi, ctx, git, slug);
-		const freshness = await loadFreshnessAdvisories(pi, ctx, git, slug);
-		const content = parseContent(show);
-		const suggestedSlug = generateSuggestedSlug(slug, content);
-		const collision = suggestedSlug ? await checkCollisions(pi, ctx, git, suggestedSlug) : undefined;
+		const context = await loadNextContext(pi, ctx, args);
+		const content = parseContent(context);
+		const suggestedSlug = generateSuggestedSlug(context.slug, content);
+		const collision = suggestedSlug ? await checkCollisions(pi, ctx, { trunkBranch: context.trunk_branch }, suggestedSlug) : undefined;
 		const report = buildReport({
-			slug,
-			git,
-			show,
+			context,
 			content,
-			advisories: freshness.advisories,
-			stale: freshness.stale,
 			suggestedSlug,
 			collision,
 		});
 
 		emitMessage(pi, report, {
 			status: "ok",
-			slug,
+			slug: context.slug,
 			suggestedSlug,
-			branch: git.currentBranch,
-			trunk: git.trunkBranch,
+			branch: context.current_branch,
+			trunk: context.trunk_branch,
+			freshness: context.freshness,
 			collision,
 		});
 		if (ctx.hasUI) {
-			ctx.ui.notify(`Objective next: ${slug}`, "info");
+			ctx.ui.notify(`Objective next: ${context.slug}`, "info");
 		}
 	} catch (error) {
 		const message = `Objective next failed: ${messageFromUnknown(error)}`;
