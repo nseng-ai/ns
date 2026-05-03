@@ -7,6 +7,8 @@ from asdl_objectives.exec.claim_plan import run_claim_plan_objective
 from asdl_objectives.exec.create import run_create_objective
 from asdl_objectives.exec.current import run_current_objective
 from asdl_objectives.exec.digest import run_digest_objective
+from asdl_objectives.exec.next_collision import run_next_collision_objective
+from asdl_objectives.exec.next_context import run_next_context_objective
 from asdl_objectives.exec.reconcile_apply import run_reconcile_apply_objective
 from asdl_objectives.exec.reconcile_diff import run_reconcile_diff_objective
 from asdl_objectives.exec.reconcile_plan import run_reconcile_plan_objective
@@ -22,6 +24,8 @@ def build_exec_group() -> ClinkrGroup:
             run_digest_objective,
             run_current_objective,
             run_update_precheck_objective,
+            run_next_context_objective,
+            run_next_collision_objective,
             run_absorb_patches_objective,
             run_reconcile_plan_objective,
             run_reconcile_summary_objective,
