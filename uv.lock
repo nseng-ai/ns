@@ -4,74 +4,14 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
-    "asdl",
     "asdl-core",
     "asdl-dispatcher",
     "asdl-objectives",
     "asdl-pr-address",
     "asdl-reviewer",
     "asdl-slots",
+    "asdl-tools",
     "brmem",
-]
-
-[[package]]
-name = "asdl"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "asdl-core" },
-    { name = "click" },
-]
-
-[package.optional-dependencies]
-plugins = [
-    { name = "asdl-dispatcher" },
-    { name = "asdl-objectives" },
-    { name = "asdl-pr-address" },
-    { name = "asdl-slots" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "asdl-core" },
-    { name = "asdl-dispatcher" },
-    { name = "asdl-objectives" },
-    { name = "asdl-pr-address" },
-    { name = "asdl-reviewer" },
-    { name = "asdl-slots" },
-    { name = "brmem" },
-    { name = "nonslop" },
-    { name = "pytest" },
-    { name = "pytest-xdist" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "asdl-core", editable = "packages/asdl-core" },
-    { name = "asdl-dispatcher", marker = "extra == 'plugins'", editable = "packages/asdl-dispatcher" },
-    { name = "asdl-objectives", marker = "extra == 'plugins'", editable = "packages/asdl-objectives" },
-    { name = "asdl-pr-address", marker = "extra == 'plugins'", editable = "packages/asdl-pr-address" },
-    { name = "asdl-slots", marker = "extra == 'plugins'", editable = "packages/asdl-slots" },
-    { name = "click", specifier = ">=8.1.7" },
-]
-provides-extras = ["plugins"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "asdl-core", editable = "packages/asdl-core" },
-    { name = "asdl-dispatcher", editable = "packages/asdl-dispatcher" },
-    { name = "asdl-objectives", editable = "packages/asdl-objectives" },
-    { name = "asdl-pr-address", editable = "packages/asdl-pr-address" },
-    { name = "asdl-reviewer", editable = "packages/asdl-reviewer" },
-    { name = "asdl-slots", editable = "packages/asdl-slots" },
-    { name = "brmem", editable = "packages/brmem" },
-    { name = "nonslop" },
-    { name = "pytest", specifier = ">=8.0.0" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "ruff", specifier = ">=0.5.0" },
-    { name = "ty", specifier = ">=0.0.1a7" },
 ]
 
 [[package]]
@@ -166,6 +106,66 @@ dependencies = [
 requires-dist = [
     { name = "asdl-core", editable = "packages/asdl-core" },
     { name = "click", specifier = ">=8.1.7" },
+]
+
+[[package]]
+name = "asdl-tools"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "asdl-core" },
+    { name = "click" },
+]
+
+[package.optional-dependencies]
+plugins = [
+    { name = "asdl-dispatcher" },
+    { name = "asdl-objectives" },
+    { name = "asdl-pr-address" },
+    { name = "asdl-slots" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "asdl-core" },
+    { name = "asdl-dispatcher" },
+    { name = "asdl-objectives" },
+    { name = "asdl-pr-address" },
+    { name = "asdl-reviewer" },
+    { name = "asdl-slots" },
+    { name = "brmem" },
+    { name = "nonslop" },
+    { name = "pytest" },
+    { name = "pytest-xdist" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "asdl-dispatcher", marker = "extra == 'plugins'", editable = "packages/asdl-dispatcher" },
+    { name = "asdl-objectives", marker = "extra == 'plugins'", editable = "packages/asdl-objectives" },
+    { name = "asdl-pr-address", marker = "extra == 'plugins'", editable = "packages/asdl-pr-address" },
+    { name = "asdl-slots", marker = "extra == 'plugins'", editable = "packages/asdl-slots" },
+    { name = "click", specifier = ">=8.1.7" },
+]
+provides-extras = ["plugins"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "asdl-dispatcher", editable = "packages/asdl-dispatcher" },
+    { name = "asdl-objectives", editable = "packages/asdl-objectives" },
+    { name = "asdl-pr-address", editable = "packages/asdl-pr-address" },
+    { name = "asdl-reviewer", editable = "packages/asdl-reviewer" },
+    { name = "asdl-slots", editable = "packages/asdl-slots" },
+    { name = "brmem", editable = "packages/brmem" },
+    { name = "nonslop" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "ruff", specifier = ">=0.5.0" },
+    { name = "ty", specifier = ">=0.0.1a7" },
 ]
 
 [[package]]

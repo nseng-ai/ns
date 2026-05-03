@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from asdl.cli.plugins import (
+from asdl_tools.cli.plugins import (
     InstalledPluginEntryPointSource,
     PluginEntryPointSource,
     discover_plugins,
@@ -14,7 +14,7 @@ def build_cli(
     source: PluginEntryPointSource,
 ) -> click.Group:
     @click.group(context_settings={"help_option_names": ["-h", "--help"]})
-    @click.version_option(package_name="asdl")
+    @click.version_option(package_name="asdl-tools")
     @click.pass_context
     def cli(ctx: click.Context) -> None:
         """asdl CLI."""
