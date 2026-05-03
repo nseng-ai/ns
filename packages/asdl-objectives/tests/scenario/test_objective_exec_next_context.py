@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from brmem.fake import FakeBranchMemoryGateway
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
@@ -17,6 +16,7 @@ from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.main import build_cli
+from brmem.fake import FakeBranchMemoryGateway
 
 
 @pytest.fixture(scope="module")
