@@ -48,7 +48,7 @@ argv shape and stdout contract. The first-class adapter today is
 Resolution order for which harness a review uses:
 
 1. `--harness <name>` on the `review run` command.
-2. `TWERK_REVIEWER_HARNESS` environment variable.
+2. `ASDL_REVIEWER_HARNESS` environment variable.
 3. The single harness detected on `PATH`, if exactly one is available.
 4. Failure — either no harness is on `PATH`, or more than one is and the
    choice is ambiguous.

@@ -80,7 +80,7 @@ substitute `<pr-address-runner>`. For example:
 echo '{}' | <pr-address-runner> exec prepare-run --format json
 ```
 
-`TWERK_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
+`ASDL_PR_ADDRESS_MODE=local|prod` overrides the auto-detection if needed.
 
 ## Prerequisites
 
