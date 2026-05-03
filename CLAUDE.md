@@ -1,8 +1,8 @@
-# Twerk
+# ASDL
 
-## What is Twerk?
+## What is ASDL?
 
-Twerk is a composable toolkit for plan-oriented agentic engineering, rebuilt from the ground up from [erk](https://github.com/dagster-io/erk). Where erk grew organically into a monolith, twerk extracts its best ideas into well-separated, independently adoptable features.
+ASDL is a composable toolkit for plan-oriented agentic engineering, rebuilt from the ground up from [erk](https://github.com/dagster-io/erk). Where erk grew organically into a monolith, asdl extracts its best ideas into well-separated, independently adoptable features.
 
 **The goal**: each feature (plans, worktrees, etc.) should be usable on its own, without buying into the entire system. A team should be able to adopt just the plan workflow, etc., without pulling in unrelated machinery.
 
@@ -24,8 +24,8 @@ Unreleased, private software. We can break backwards compatibility freely.
 ## Project Structure
 
 ```
-twerk/
-├── src/twerk/          # Main package
+asdl/
+├── src/asdl/          # Main package
 │   └── cli/            # Click CLI entry point
 ├── tests/              # Test suite
 ├── pyproject.toml      # UV project config

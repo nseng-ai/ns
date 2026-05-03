@@ -7,7 +7,7 @@ metadata:
   internal: true
 ---
 
-<!-- INTERNAL SKILL: twerk-only. -->
+<!-- INTERNAL SKILL: asdl-only. -->
 
 # dev-stacker-agent
 

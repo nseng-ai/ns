@@ -8,12 +8,12 @@ rewrite logic works, and how `update` and `reconcile` differ.
 > branch-name validation (rejection of names containing `---`), key
 > validation, and the snapshot-shaped storage model are owned by `brmem`.
 > Slug rules, file constants, the patch-id freshness classifier, and the
-> `objective` CLI surface are owned by the `twerk_objectives` Python
+> `objective` CLI surface are owned by the `asdl_objectives` Python
 > package. This contract layers on top of those — it specifies which
 > operation may write where and how the conservative rewrite rules apply.
 > When prose here disagrees with the implementing package, the package
 > wins. See "Authority Boundaries" in
-> `packages/twerk-objectives/AGENTS.md`.
+> `packages/asdl-objectives/AGENTS.md`.
 
 ## Data model
 

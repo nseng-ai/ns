@@ -1,6 +1,6 @@
 # Pi in This Repo
 
-Repo-specific notes for using and extending Pi in `twerk`.
+Repo-specific notes for using and extending Pi in `asdl`.
 
 ## Project-local Pi extensions
 

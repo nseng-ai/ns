@@ -1,7 +1,7 @@
 <!--
-REPO-LOCAL CUSTOMIZATION (twerk): this plugin has been adapted from the
+REPO-LOCAL CUSTOMIZATION (asdl): this plugin has been adapted from the
 packaged default (`skills/brmem-branch-create/default-prompt.md`) to
-register the new branch with Graphite without checking it out. Twerk uses
+register the new branch with Graphite without checking it out. ASDL uses
 `gt` as the default branching tool — see AGENTS.md § "Branch Creation and
 PR Submission (Graphite)". Consequence: the new branch is created at HEAD
 and tracked in the Graphite stack with the current branch as its parent;

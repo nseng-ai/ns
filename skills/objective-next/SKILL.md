@@ -254,7 +254,7 @@ current branch before creating the next slice branch.
   current-branch enumeration emits the trunk-aware empty-branch error.
 - Branch name does not equal slug. A branch named after a slice (e.g.,
   `pool-state-assignment-primitives`) commonly carries the parent
-  objective's snapshot (e.g., `twerk-slots-cleanup`). Never derive the
+  objective's snapshot (e.g., `asdl-slots-cleanup`). Never derive the
   slug from the branch name; enumerate `<slug>/` keys with `brmem list`
   on the current branch.
 - Multiple slugs on the current branch: legitimate when two unrelated

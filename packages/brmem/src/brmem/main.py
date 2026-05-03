@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import click
 
+from asdl_core.clinkr.context import build_clinkr_context_object
+from asdl_core.clinkr.group import ClinkrGroup
 from brmem.context import build_brmem_context
 from brmem.group import build_brmem_group
-from twerk_core.clinkr.context import build_clinkr_context_object
-from twerk_core.clinkr.group import ClinkrGroup
 
 
 def build_cli() -> ClinkrGroup:
     """Build the standalone ``brmem`` CLI group."""
     group = build_brmem_group()
     group.context_settings = {"help_option_names": ["-h", "--help"]}
-    click.version_option(package_name="twerk-core")(group)
+    click.version_option(package_name="asdl-core")(group)
     return group
 
 

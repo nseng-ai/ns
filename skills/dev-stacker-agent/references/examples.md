@@ -11,7 +11,7 @@ Input plan:
 ```md
 # Objective reconcile stack
 
-1. First add the shared reconciliation primitives in twerk-core.
+1. First add the shared reconciliation primitives in asdl-core.
 2. Then add the objective CLI command that consumes them.
 3. Finish with scenario tests and docs.
 
@@ -27,7 +27,7 @@ Normalized slices:
     "schema": "stacker-slice-manifest/v1",
     "ordinal": 1,
     "title": "PR 1 - reconciliation primitives",
-    "scope": "Add the shared reconciliation primitives in twerk-core.",
+    "scope": "Add the shared reconciliation primitives in asdl-core.",
     "base": "default_branch",
     "validate": {"command": "just"},
     "constraints": ["Do not touch vendored skills."]

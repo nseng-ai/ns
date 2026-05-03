@@ -1,0 +1,44 @@
+{
+  "name": "asdl-pi-objectives",
+  "version": "0.1.0",
+  "description": "Pi extension package for asdl objective workflows",
+  "private": true,
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "asdl",
+    "objectives"
+  ],
+  "files": [
+    "src/**/*.ts",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "bun run test:unit",
+    "test:unit": "vitest --run test/unit/*.test.ts",
+    "check": "tsc --noEmit -p ../../tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./src/extension/index.ts"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    },
+    "@mariozechner/pi-tui": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "vitest": "^3.2.4"
+  }
+}

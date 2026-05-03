@@ -31,8 +31,8 @@ def _init_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
     _run_git(repo, "init")
-    _run_git(repo, "config", "user.name", "Twerk Tests")
-    _run_git(repo, "config", "user.email", "twerk@example.com")
+    _run_git(repo, "config", "user.name", "Asdl Tests")
+    _run_git(repo, "config", "user.email", "asdl@example.com")
     (repo / "README.md").write_text("hello\n", encoding="utf-8")
     _run_git(repo, "add", "README.md")
     _run_git(repo, "commit", "-m", "initial")

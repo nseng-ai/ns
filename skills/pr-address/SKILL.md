@@ -27,7 +27,7 @@ allowed-tools:
   - "Glob"
 ---
 
-<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md section "Public Skill Authoring". -->
+<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md section "Public Skill Authoring". -->
 
 # pr-address
 
@@ -59,8 +59,8 @@ edit code, commit, or mutate GitHub.
 
 This skill bundles a wrapper at
 `scripts/pr-address-run` that dispatches to either `uv run pr-address`
-(when the current working directory is inside a twerk checkout) or
-`uvx --from twerk-pr-address pr-address`
+(when the current working directory is inside an asdl checkout) or
+`uvx --from asdl-pr-address pr-address`
 (otherwise), so the skill works without a local clone.
 
 Resolve the wrapper from this skill's own directory, not from a
@@ -70,7 +70,7 @@ where `<skill-dir>` is the directory containing this `SKILL.md`.
 
 Common locations are:
 
-- `skills/pr-address/scripts/pr-address-run` in a twerk checkout
+- `skills/pr-address/scripts/pr-address-run` in an asdl checkout
 - `.agents/skills/pr-address/scripts/pr-address-run` in an installed skill mirror
 
 Wherever this skill or `references/cli-reference.md` shows `pr-address ...`,
