@@ -30,7 +30,7 @@ from asdl_reviewer.models import (
 from asdl_reviewer.prompting import build_review_prompt, build_review_system_prompt
 from asdl_reviewer.review_definition import parse_review_definition
 
-ENV_HARNESS = "TWERK_REVIEWER_HARNESS"
+ENV_HARNESS = "ASDL_REVIEWER_HARNESS"
 
 
 def run_review_by_key(
@@ -138,7 +138,7 @@ def resolve_harness(
 ) -> str | ReviewerFailure:
     """Resolve which harness to dispatch through.
 
-    Order: explicit ``--harness`` flag → ``TWERK_REVIEWER_HARNESS`` env var →
+    Order: explicit ``--harness`` flag → ``ASDL_REVIEWER_HARNESS`` env var →
     the single detected harness on PATH. Errors if zero or 2+ harnesses are
     detected and no explicit choice was made.
     """

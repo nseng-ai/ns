@@ -18,7 +18,7 @@ checkout and `.agents/skills/pr-address/` in an installed skill mirror.
 uv caches the resolved PyPI wheel, so the first call downloads and subsequent
 calls are near-instant.
 
-Override with `TWERK_PR_ADDRESS_MODE=local` or `TWERK_PR_ADDRESS_MODE=prod`
+Override with `ASDL_PR_ADDRESS_MODE=local` or `ASDL_PR_ADDRESS_MODE=prod`
 when you want to force a specific path.
 
 ## Updating the pinned version
