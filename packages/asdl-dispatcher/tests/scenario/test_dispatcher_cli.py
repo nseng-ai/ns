@@ -4,9 +4,9 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from asdl.cli.plugins import PluginEntryPointSource, discover_plugins
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_dispatcher.cli.main import build_cli
+from asdl_tools.cli.plugins import PluginEntryPointSource, discover_plugins
 
 
 @pytest.fixture(scope="module")

@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from click.testing import CliRunner
 
-from asdl.cli.cli import build_cli
-from asdl.cli.plugins import PluginEntryPointSource
 from asdl_slots.repo_context import NoRepoSentinel
+from asdl_tools.cli.cli import build_cli
+from asdl_tools.cli.plugins import PluginEntryPointSource
 
 
 class FakePluginEntryPoint:

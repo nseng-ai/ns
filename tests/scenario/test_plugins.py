@@ -8,7 +8,6 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from asdl.cli.plugins import PluginEntryPointSource, discover_plugins
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.testing import FakeIssueGateway
@@ -31,6 +30,7 @@ from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from asdl_tools.cli.plugins import PluginEntryPointSource, discover_plugins
 from brmem.fake import FakeBranchMemoryGateway
 
 
