@@ -6,13 +6,13 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
+from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.git.testing import FakeGitGateway
+from asdl_core.git.types import DetachedHead, GitCommandFailure
 from brmem.context import BrmemCliContext
 from brmem.fake import FakeBranchMemoryGateway
 from brmem.main import build_cli
-from twerk_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
-from twerk_core.clinkr.group import ClinkrGroup
-from twerk_core.git.testing import FakeGitGateway
-from twerk_core.git.types import DetachedHead, GitCommandFailure
 
 
 @pytest.fixture(scope="module")

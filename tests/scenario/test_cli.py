@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from click.testing import CliRunner
 
-from twerk.cli.cli import build_cli
-from twerk.cli.plugins import PluginEntryPointSource
-from twerk_slots.repo_context import NoRepoSentinel
+from asdl.cli.cli import build_cli
+from asdl.cli.plugins import PluginEntryPointSource
+from asdl_slots.repo_context import NoRepoSentinel
 
 
 class FakePluginEntryPoint:
@@ -30,7 +30,7 @@ def test_cli_help():
     runner = CliRunner()
     result = runner.invoke(build_cli(source=_entry_point_source()), ["--help"])
     assert result.exit_code == 0
-    assert "twerk CLI" in result.output
+    assert "asdl CLI" in result.output
 
 
 def test_cli_version():
@@ -46,10 +46,10 @@ def test_top_level_cli_installs_plugin_context_for_slot_commands(
     runner = CliRunner()
     slot_plugin = FakePluginEntryPoint(
         name="slots",
-        value="twerk_slots.cli.plugin:build_slot_plugin",
+        value="asdl_slots.cli.plugin:build_slot_plugin",
     )
     monkeypatch.setattr(
-        "twerk_slots.cli.plugin.build_slots_context",
+        "asdl_slots.cli.plugin.build_slots_context",
         lambda: NoRepoSentinel(message="Not inside a git repository"),
     )
     cli = build_cli(source=_entry_point_source(slot_plugin))

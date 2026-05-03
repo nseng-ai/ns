@@ -8,11 +8,11 @@ from typing import Annotated, Any, Literal
 
 import click
 
+from asdl_core.clinkr.dataclass_json import JsonSerializable
+from asdl_core.clinkr.ensure import Ensure
+from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.operation import clinkr_operation
 from brmem.gateway_access import get_git_gateway, get_home_root
-from twerk_core.clinkr.dataclass_json import JsonSerializable
-from twerk_core.clinkr.ensure import Ensure
-from twerk_core.clinkr.exit import ClinkrExit
-from twerk_core.clinkr.operation import clinkr_operation
 
 
 @dataclass(frozen=True)
@@ -82,7 +82,7 @@ def run_resolve_prompt(
             f"No prompt named {request.name!r} found. Checked:\n"
             f"  - {project_path} (project-local)\n"
             f"  - {global_path} (global)\n"
-            "Initialize the global default by running `just install-tools` from a twerk checkout, "
+            "Initialize the global default by running `just install-tools` from a asdl checkout, "
             "or copy a packaged `default-prompt.md` to one of the paths above."
         ),
     )

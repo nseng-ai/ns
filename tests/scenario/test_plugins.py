@@ -8,30 +8,30 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from brmem.fake import FakeBranchMemoryGateway
-from twerk.cli.plugins import PluginEntryPointSource, discover_plugins
-from twerk_core.clinkr.context import build_clinkr_context_object
-from twerk_core.gh.pr_testing import FakePRGateway
-from twerk_core.gh.testing import FakeIssueGateway
-from twerk_core.git.testing import FakeGitGateway
-from twerk_objectives.context import ObjectiveCliContext
-from twerk_pr_address.cli.pr_address.context import PrAddressCliContext
-from twerk_reviewer import git_toplevel as git_toplevel_module
-from twerk_reviewer.context import ReviewerCliContext
-from twerk_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
-from twerk_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from twerk_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
-from twerk_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
-from twerk_reviewer.models import (
+from asdl.cli.plugins import PluginEntryPointSource, discover_plugins
+from asdl_core.clinkr.context import build_clinkr_context_object
+from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.testing import FakeIssueGateway
+from asdl_core.git.testing import FakeGitGateway
+from asdl_objectives.context import ObjectiveCliContext
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
+from asdl_reviewer import git_toplevel as git_toplevel_module
+from asdl_reviewer.context import ReviewerCliContext
+from asdl_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
+from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
+from asdl_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
+from asdl_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
+from asdl_reviewer.models import (
     FindingsReview,
     LocalDiff,
     ReviewExecutionResponse,
     ReviewFinding,
 )
-from twerk_slots.context import SlotsCliContext
-from twerk_slots.gateway.testing.clipboard import FakeClipboardGateway
-from twerk_slots.gateway.testing.storage import FakeSlotsStorageGateway
-from twerk_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from asdl_slots.context import SlotsCliContext
+from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
+from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
+from asdl_slots.repo_context import RepoContext, discover_repo_or_sentinel
+from brmem.fake import FakeBranchMemoryGateway
 
 
 class FakePluginEntryPoint:
@@ -73,7 +73,7 @@ def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec()
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="legacy_slots",
-        value="twerk_slots.cli.slot.group:build_slot_group",
+        value="asdl_slots.cli.slot.group:build_slot_group",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
@@ -85,7 +85,7 @@ def test_objective_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="objective",
-        value="twerk_objectives.plugin:build_objective_plugin",
+        value="asdl_objectives.plugin:build_objective_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
@@ -135,7 +135,7 @@ def test_pr_address_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="pr_address",
-        value="twerk_pr_address.cli.plugin:build_pr_address_plugin",
+        value="asdl_pr_address.cli.plugin:build_pr_address_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
@@ -165,7 +165,7 @@ def test_slots_plugin_integration(tmp_path: Path) -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="slot",
-        value="twerk_slots.cli.plugin:build_slot_plugin",
+        value="asdl_slots.cli.plugin:build_slot_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
@@ -228,7 +228,7 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="reviewer",
-        value="twerk_reviewer.cli.plugin:build_reviewer_plugin",
+        value="asdl_reviewer.cli.plugin:build_reviewer_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))

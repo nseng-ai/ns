@@ -15,7 +15,7 @@ metadata:
   internal: true
 ---
 
-<!-- PUBLIC SKILL: Do not reference twerk-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
 
 # dev-fix-just
 
@@ -61,7 +61,7 @@ Print a numbered log line to the user after each iteration so they can follow al
 ```
 Iteration 1: Running `just` — found 3 lint errors, 2 format issues
 Iteration 2: Ran `just fix` + `just dprint-fix` — lint/format clean, 1 ty error remains
-Iteration 3: Fixed type error in src/twerk/cli/main.py — all checks pass
+Iteration 3: Fixed type error in src/asdl/cli/main.py — all checks pass
 ```
 
 ## Reporting Formats

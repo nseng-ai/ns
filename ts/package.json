@@ -1,5 +1,5 @@
 {
-  "name": "twerk-ts-workspace",
+  "name": "asdl-ts-workspace",
   "private": true,
   "type": "module",
   "workspaces": ["packages/*"],

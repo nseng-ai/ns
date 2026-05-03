@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from asdl_core.git.git_gateway import GitGateway
+from asdl_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 from brmem.gateway import BranchMemoryGateway
 from brmem.real import RealBranchMemoryGateway
-from twerk_core.git.git_gateway import GitGateway
-from twerk_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 
 
 @dataclass(frozen=True)

@@ -12,14 +12,14 @@ The objective system currently has multiple competing sources of truth:
 
 - repo-local skills under `skills/objective*`;
 - objective reference docs under `skills/objective/`;
-- executable Python in `packages/twerk-objectives`;
+- executable Python in `packages/asdl-objectives`;
 - generic storage behavior in `packages/brmem`;
 - tests that sometimes lock in behavior not reflected in the conceptual docs.
 
 Canonicalization should make docs, code, and tests describe the same system.
 Live contradictions — freshness contract drift, dead schema fields,
 unimplemented stack-map promises — should be resolved first. Pushing
-deterministic mechanics from skill prose into `twerk_objectives` is an
+deterministic mechanics from skill prose into `asdl_objectives` is an
 optional follow-on that further reduces drift surface; it is not required to
 resolve current contradictions.
 
@@ -54,7 +54,7 @@ Markdown to the agent when semantic rewriting is required.
 
 ### Python Package
 
-`packages/twerk-objectives/AGENTS.md` says the package owns schema, slug
+`packages/asdl-objectives/AGENTS.md` says the package owns schema, slug
 rules, canonical-record semantics, and the `objective` CLI surface. The actual
 CLI currently exposes:
 
@@ -107,14 +107,14 @@ Storage:
 Python source:
 
 - `OBJECTIVE_NAMESPACE` is in
-  `packages/twerk-objectives/src/twerk_objectives/gateway_access.py`.
+  `packages/asdl-objectives/src/asdl_objectives/gateway_access.py`.
 - `MASTER_BRANCH`, file constants, key helpers, slug grouping, and repo-wide
   discovery are in
-  `packages/twerk-objectives/src/twerk_objectives/discovery.py`.
+  `packages/asdl-objectives/src/asdl_objectives/discovery.py`.
 - current-branch slug auto-resolution is in
-  `packages/twerk-objectives/src/twerk_objectives/slug_resolution.py`.
+  `packages/asdl-objectives/src/asdl_objectives/slug_resolution.py`.
 - trunk lookup delegates to the bound git gateway in
-  `packages/twerk-objectives/src/twerk_objectives/trunk_resolution.py`.
+  `packages/asdl-objectives/src/asdl_objectives/trunk_resolution.py`.
 
 Freshness:
 
@@ -406,10 +406,10 @@ ancestor semantics.
 Tasks:
 
 - Remove `downstack_absorbed_patch_ids` from `ObjectiveUpdatePrecheckResult`
-  in `packages/twerk-objectives/src/twerk_objectives/exec/update_precheck.py`
+  in `packages/asdl-objectives/src/asdl_objectives/exec/update_precheck.py`
   (field at line 93, `()` assignment at line 226).
 - Drop the empty-tuple assertion in
-  `packages/twerk-objectives/tests/scenario/test_objective_exec_update_precheck.py:180`.
+  `packages/asdl-objectives/tests/scenario/test_objective_exec_update_precheck.py:180`.
 - Drop the "downstack ancestor or" clause from the freshness rule in
   `skills/objective-update/SKILL.md` (line 128).
 
@@ -427,7 +427,7 @@ Tasks:
 - Update `skills/objective-current/SKILL.md` to describe current-branch
   orientation, not a stack map.
 - Update `skills/objective/SKILL.md` to match.
-- Update the scenario test in `packages/twerk-objectives/tests/scenario/` to
+- Update the scenario test in `packages/asdl-objectives/tests/scenario/` to
   assert current-branch-only output as the documented contract.
 - Leave `exec/current.py` empty-tuple defaults as-is.
 
@@ -533,8 +533,8 @@ Goal: contributors can tell which layer owns which rule.
 
 Tasks:
 
-- Add a short architecture note (in `packages/twerk-objectives/AGENTS.md` or
-  a sibling) stating that `twerk_objectives` owns the deterministic objective
+- Add a short architecture note (in `packages/asdl-objectives/AGENTS.md` or
+  a sibling) stating that `asdl_objectives` owns the deterministic objective
   mechanics it currently implements.
 - Mark `skills/objective/SKILL.md` as conceptual behavior reference, not
   independent implementation authority.
@@ -724,7 +724,7 @@ Bundles A1 + A2 + freshness slice of C9.
 - Docs: `mutation-contract.md`, `objective-next/SKILL.md` (drop timestamp
   freshness Step 5), `objective-update/SKILL.md` (drop "downstack ancestor
   or" clause).
-- Code: `packages/twerk-objectives/src/twerk_objectives/exec/update_precheck.py`
+- Code: `packages/asdl-objectives/src/asdl_objectives/exec/update_precheck.py`
   — demote or remove `snapshot_max_head_date` and `branch_max_author_iso`;
   delete `downstack_absorbed_patch_ids` field and its `()` assignment.
 - Tests: drop the empty-tuple assertion in
@@ -738,7 +738,7 @@ Bundles A3 + A5 + scenario slice of C9.
 - Docs (A3): `objective-current/SKILL.md` and `objective/SKILL.md` describe
   current-branch orientation, not stack map.
 - Code (A5): carve trunk-row builder out of `_build_objective_summary` in
-  `packages/twerk-objectives/src/twerk_objectives/exec/current.py`; add
+  `packages/asdl-objectives/src/asdl_objectives/exec/current.py`; add
   master-vs-master freshness classifier; add `missing_on_master` state on
   the trunk row.
 - Tests: lock current-branch-only output as the documented contract; add
@@ -753,7 +753,7 @@ Bundles A4 + B5 + B6 + B7 + B8 + remaining C9.
 
 - A4: README step 2 clarifies "still on master"; skill confirms current-
   branch-only with explicit no-cascade no-flag note.
-- B5: authority-boundaries note in `packages/twerk-objectives/AGENTS.md`.
+- B5: authority-boundaries note in `packages/asdl-objectives/AGENTS.md`.
 - B6: document `objective exec digest` as facts + raw Markdown + template;
   tests assert prompt/template, not final prose.
 - B7: lock canonical objective storage to `master` permanently; remove
@@ -838,13 +838,13 @@ PR4 (D10 reconcile pushdown), PR5 (D11 claim pushdown), and PR6 (D13
 - **B8 label format is the contract.** File source labels in
   `objective show` (without `--branch`) are `(canonical: master)` and
   `(branch: <name>)`. Single source of truth is `_format_file_header`
-  in `twerk_objectives.show`; downstream renderers and tests must use
+  in `asdl_objectives.show`; downstream renderers and tests must use
   these exact labels.
 - **Authority Boundaries section is the right home for cross-layer
-  rules.** New contracts spanning `twerk_objectives` /
+  rules.** New contracts spanning `asdl_objectives` /
   `skills/objective` / `brmem` / `mutation-contract.md` should extend
   the "Authority Boundaries" section in
-  `packages/twerk-objectives/AGENTS.md` rather than duplicating prose
+  `packages/asdl-objectives/AGENTS.md` rather than duplicating prose
   across skills. Tier D pushdowns should add their rules there too.
 - **The base ref needs to be green before slice 1.** This plan file
   itself was failing `dprint check` at the base ref (`*is*` →

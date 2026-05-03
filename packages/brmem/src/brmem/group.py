@@ -1,5 +1,6 @@
 """Explicit builder for the `brmem` CLI group."""
 
+from asdl_core.clinkr.group import ClinkrGroup
 from brmem.check import run_check
 from brmem.copy import run_copy
 from brmem.delete import run_delete
@@ -7,7 +8,6 @@ from brmem.exec.resolve_prompt import run_resolve_prompt
 from brmem.get import run_get
 from brmem.list import run_list_entries
 from brmem.put import run_put
-from twerk_core.clinkr.group import ClinkrGroup
 
 
 def build_brmem_group() -> ClinkrGroup:

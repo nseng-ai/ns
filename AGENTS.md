@@ -5,7 +5,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 ### Package Import Rules
 
 - Packages in this repo do **not** publicly re-export symbols from `__init__.py`. Package `__init__.py` files should be empty or contain only a docstring.
-- Consumers must import from the canonical source module (e.g., `from twerk_core.clinkr.group import ClinkrGroup`, not `from twerk_core.clinkr import ClinkrGroup`).
+- Consumers must import from the canonical source module (e.g., `from asdl_core.clinkr.group import ClinkrGroup`, not `from asdl_core.clinkr import ClinkrGroup`).
 - Do not use `__all__` or `import X as X` re-export patterns in `__init__.py` files.
 - Do not prefix module filenames with a leading underscore (e.g., `_gateway_access.py`). Because `__init__.py` files are empty, every module's canonical path is already its public path — there is nothing to mark "package-private." `__init__.py` itself is exempt; the rule is about regular `.py` modules.
 
@@ -21,11 +21,11 @@ After autofixing, re-run `just` to confirm the suite is green. Only edit files b
 
 ### Public Skill Authoring — No Internal References
 
-Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference twerk-internal module paths, class names, or implementation details (e.g., `twerk_core.gh.IssueGateway`, `RealIssueGateway.get_reviews`) in their `SKILL.md` files or frontmatter descriptions. Describe _what_ CLI operations to call (e.g., `pr-address exec get-reviews`), not _how_ they are implemented. Implementation details belong in Python source, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
+Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference asdl-internal module paths, class names, or implementation details (e.g., `asdl_core.gh.IssueGateway`, `RealIssueGateway.get_reviews`) in their `SKILL.md` files or frontmatter descriptions. Describe _what_ CLI operations to call (e.g., `pr-address exec get-reviews`), not _how_ they are implemented. Implementation details belong in Python source, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
 
 ### Vendored Skill Code
 
-- `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party twerk work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
+- `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party asdl work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`; the vendored-vs-first-party distinction follows through the chain to the underlying directory.
 - For repo-local skills, `skills/<name>/` is the canonical source — edit files there directly. `.agents/skills/<name>` is a symlink back to that source, and editing through either path is equivalent.
 - Do not apply first-party Python standards or refactoring skills such as `ns-dignified-python`, `ns-py-fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files inside vendored (real-directory) entries under `.agents/skills/` unless the user explicitly asks to modify the vendored dependency itself.
@@ -37,7 +37,7 @@ Skills prefixed with `dev-` are developer-only tooling — pure contributor help
 
 ### GitHub Backend Interactions
 
-When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `dev-gh` skill (`.claude/skills/dev-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `twerk-core`.
+When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `dev-gh` skill (`.claude/skills/dev-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `asdl-core`.
 
 ### Branch Creation and PR Submission (Graphite)
 
@@ -52,7 +52,7 @@ Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgic
 
 ### Runtime Graphite Dependency Boundary
 
-Graphite is the contributor workflow tool for this repo, but runtime package code must not depend on Graphite by default. Before importing `twerk_core.gt`, accepting a `GtGateway`, constructing `RealGtGateway`, shelling out to `gt`, or adding Graphite to a CLI context, first check whether the same behavior can be satisfied through the git gateway.
+Graphite is the contributor workflow tool for this repo, but runtime package code must not depend on Graphite by default. Before importing `asdl_core.gt`, accepting a `GtGateway`, constructing `RealGtGateway`, shelling out to `gt`, or adding Graphite to a CLI context, first check whether the same behavior can be satisfied through the git gateway.
 
 - Use `GitGateway` for ordinary repository facts: current branch, trunk/base branch, local branch existence, refs, commit ranges, patch IDs, and worktrees.
 - A command or command group may depend on Graphite only when Graphite is part of its explicit user-facing contract: the command path, help text, and docs should name Graphite or `gt`, and the behavior should require Graphite stack metadata rather than plain git history.
@@ -61,11 +61,11 @@ Graphite is the contributor workflow tool for this repo, but runtime package cod
 
 ### CLI Scenario Testing Convention
 
-Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) built by `build_cli()` in `<package>.cli.main`, and a twerk plugin subgroup discovered via `twerk.plugins` entry points. Test them separately:
+Each CLI package has two entry points: a standalone CLI (e.g., `pr-address`) built by `build_cli()` in `<package>.cli.main`, and an asdl plugin subgroup discovered via `asdl.plugins` entry points. Test them separately:
 
-**Scenario tests** live in their home package (e.g., `packages/twerk-pr-address/tests/scenario/`) and should exhaustively cover every user-facing scenario for that package's standalone CLI via `build_cli()`. This is the user-facing entry point and the right level to test. The fixture should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file.
+**Scenario tests** live in their home package (e.g., `packages/asdl-pr-address/tests/scenario/`) and should exhaustively cover every user-facing scenario for that package's standalone CLI via `build_cli()`. This is the user-facing entry point and the right level to test. The fixture should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file.
 
-**Plugin smoke tests** (`tests/scenario/test_plugins.py` in the top-level twerk package): Verify that each plugin's entry point wires up correctly through `discover_plugins`. One test per plugin that mounts the subgroup and invokes a representative command. These live at the twerk scope because they test the plugin discovery contract.
+**Plugin smoke tests** (`tests/scenario/test_plugins.py` in the top-level asdl package): Verify that each plugin's entry point wires up correctly through `discover_plugins`. One test per plugin that mounts the subgroup and invokes a representative command. These live at the asdl scope because they test the plugin discovery contract.
 
 ### Skill-Invoked CLI Commands (exec Subgroups)
 
@@ -74,7 +74,7 @@ CLI commands intended for skill/agent invocation rather than interactive humans 
 - **Visibility:** the `exec` subgroup MUST be `hidden = True`. Users do not discover these commands by reading top-level `--help`; they discover them by reading the skill that drives them. Pass `hidden=True` as a kwarg to the `ClinkrGroup` constructor — by convention `ClinkrGroup` is treated as immutable after construction, so do not mutate `.hidden` afterward. Hiding only affects help-text rendering, not invocability — `pkg exec <op>` continues to work.
 - **Layout:** operation files for exec commands live in `<package>/exec/`, with `exec/group.py` exposing a `build_exec_group()` (or equivalent) that the package's outer `group.py` mounts via `outer.add_command(exec_group)`. `exec/__init__.py` follows the repo's empty-init rule (docstring only, no re-exports).
 - **Naming:** prefer noun-or-verb-phrase command names (`resolve-prompt`, `get-reviews`) — the `exec` namespace already implies the actor, so the verb does not need to.
-- **Canonical examples:** `packages/twerk-pr-address/src/twerk_pr_address/cli/pr_address/group.py`, `packages/twerk-reviewer/src/twerk_reviewer/cli/reviewer/exec/group.py`, `packages/twerk-core/src/twerk_core/brmem/group.py`.
+- **Canonical examples:** `packages/asdl-pr-address/src/asdl_pr_address/cli/pr_address/group.py`, `packages/asdl-reviewer/src/asdl_reviewer/cli/reviewer/exec/group.py`, `packages/asdl-core/src/asdl_core/brmem/group.py`.
 
 ### How to use skills
 
@@ -99,4 +99,4 @@ CLI commands intended for skill/agent invocation rather than interactive humans 
 
 ### Managing Skills With `npx skills`
 
-All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill at `.agents/skills/skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical twerk install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`.
+All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill at `.agents/skills/skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical asdl install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`.

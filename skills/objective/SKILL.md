@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Use for conceptual questions about twerk objectives and as shared grounding with objective-create, objective-current, objective-next, objective-claim, objective-update, objective-reconcile, or objective-digest. Read-only."
+description: "Use for conceptual questions about asdl objectives and as shared grounding with objective-create, objective-current, objective-next, objective-claim, objective-update, objective-reconcile, or objective-digest. Read-only."
 allowed-tools: []
 ---
 
@@ -16,12 +16,12 @@ objectives that do not map cleanly to one operation.
 > **Authority.** This skill is **conceptual behavior reference** for the
 > objective subsystem, not an independent implementation authority.
 > Deterministic mechanics (slug rules, freshness classification, namespace
-> constants, the `objective` CLI surface) live in the `twerk_objectives`
+> constants, the `objective` CLI surface) live in the `asdl_objectives`
 > Python package; ref encoding and branch-name validation live in `brmem`.
 > When this skill's prose and the implementing package disagree, the package
 > wins and the prose here is migration debt to be reconciled. New rules
 > belong in the lowest layer that owns them — see the "Authority Boundaries"
-> section in `packages/twerk-objectives/AGENTS.md`.
+> section in `packages/asdl-objectives/AGENTS.md`.
 
 ## What an objective is
 

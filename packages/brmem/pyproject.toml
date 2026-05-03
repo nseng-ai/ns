@@ -5,7 +5,7 @@ description = "Branch-scoped key/value storage backed by git refs"
 requires-python = ">=3.11"
 dependencies = [
   "click>=8.1.7",
-  "twerk-core",
+  "asdl-core",
 ]
 
 [project.scripts]

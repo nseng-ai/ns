@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
-# Dispatch `pr-address` to either a local twerk checkout (`uv run`) or an
-# ephemeral install from PyPI (`uvx`). See packages/twerk-pr-address/README.md.
+# Dispatch `pr-address` to either a local asdl checkout (`uv run`) or an
+# ephemeral install from PyPI (`uvx`). See packages/asdl-pr-address/README.md.
 set -euo pipefail
 
-# Bump TWERK_VERSION to roll out a new twerk-pr-address release to skill consumers.
-# Procedure: see packages/twerk-pr-address/docs/development.md → "Updating the pinned version".
-TWERK_VERSION="0.1.0"
+# Bump ASDL_VERSION to roll out a new asdl-pr-address release to skill consumers.
+# Procedure: see packages/asdl-pr-address/docs/development.md → "Updating the pinned version".
+ASDL_VERSION="0.1.0"
 
 prod_uvx() {
-  exec uvx --from "twerk-pr-address==${TWERK_VERSION}" pr-address "$@"
+  exec uvx --from "asdl-pr-address==${ASDL_VERSION}" pr-address "$@"
 }
 
-case "${TWERK_PR_ADDRESS_MODE:-}" in
+case "${ASDL_PR_ADDRESS_MODE:-}" in
   local) exec uv run pr-address "$@" ;;
   prod)  prod_uvx "$@" ;;
   "") ;;
   *)
-    echo "pr-address-run: unknown TWERK_PR_ADDRESS_MODE='${TWERK_PR_ADDRESS_MODE}' (expected 'local' or 'prod')" >&2
+    echo "pr-address-run: unknown ASDL_PR_ADDRESS_MODE='${ASDL_PR_ADDRESS_MODE}' (expected 'local' or 'prod')" >&2
     exit 2
     ;;
 esac
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [[ -n "$repo_root" && -f "$repo_root/packages/twerk-pr-address/pyproject.toml" ]]; then
+if [[ -n "$repo_root" && -f "$repo_root/packages/asdl-pr-address/pyproject.toml" ]]; then
   exec uv run --project "$repo_root" pr-address "$@"
 fi
 

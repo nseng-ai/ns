@@ -241,7 +241,7 @@ working tree.
 ## See Also
 
 - [`AGENTS.md`](./AGENTS.md): contributor rules for this package.
-- [`../twerk-objectives`](../twerk-objectives/): a higher-level branch-planning
+- [`../asdl-objectives`](../asdl-objectives/): a higher-level branch-planning
   system built on `brmem`.
 - [`skills/brmem-branch-create`](../../skills/brmem-branch-create/):
   an example skill that uses `brmem` for branch-local handoff state.
