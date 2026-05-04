@@ -57,7 +57,10 @@ def render_slot_goto(result: SlotGotoResult) -> None:
 
 @clinkr_operation(
     name="goto",
-    help="Print and copy a cd command for an assigned slot.",
+    help=(
+        "Print/copy a cd command for an assigned slot; active shell integration can cd "
+        "the parent shell."
+    ),
     human_renderer=render_slot_goto,
 )
 def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[SlotGotoResult]:

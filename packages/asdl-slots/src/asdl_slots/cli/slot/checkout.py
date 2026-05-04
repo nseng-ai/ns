@@ -216,7 +216,9 @@ def _build_result(
     name="checkout",
     help=(
         "Check out a branch into an available pool slot worktree "
-        "(like `git checkout [-b] [<base>]`); requires a clean detached managed slot."
+        "(like `git checkout [-b] [<base>]`). Prints/copies a cd command; "
+        "active shell integration can cd the parent shell. Requires a clean detached "
+        "managed slot."
     ),
     aliases=("co",),
     human_renderer=render_slot_checkout,

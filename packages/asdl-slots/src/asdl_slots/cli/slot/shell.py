@@ -15,6 +15,7 @@ from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.clinkr.operation import clinkr_operation
 
 _SUPPORTED_SHELLS = ("zsh", "bash")
+_SUPPORTED_SHELL_NAMES = ", ".join(_SUPPORTED_SHELLS)
 _MARKER_BEGIN = "# >>> slot shell integration >>>"
 _MARKER_END = "# <<< slot shell integration <<<"
 
@@ -34,7 +35,7 @@ def _rc_path_for_shell(shell: str) -> Path:
 
 
 def _unsupported_shell_message(shell: str) -> str:
-    return f"Shell '{shell}' is not supported. Supported shells: {', '.join(_SUPPORTED_SHELLS)}."
+    return f"Shell '{shell}' is not supported. Supported shells: {_SUPPORTED_SHELL_NAMES}."
 
 
 def _render_wrapper_script(shell: str) -> str:
@@ -70,7 +71,10 @@ class ShellShowRequest:
         click.Option(
             ["--shell"],
             default=None,
-            help="Shell to render integration for (default: detect from $SHELL).",
+            help=(
+                "Shell to render integration for "
+                f"(supported: {_SUPPORTED_SHELL_NAMES}; default: detect from $SHELL)."
+            ),
         ),
     ] = None
 
@@ -87,7 +91,10 @@ def render_shell_show(result: ShellShowResult) -> None:
 
 @clinkr_operation(
     name="show",
-    help="Print the parent-shell integration wrapper for slot.",
+    help=(
+        "Print the opt-in zsh/bash parent-shell wrapper for slot navigation. "
+        "Inspect this before installing or redirecting it."
+    ),
     human_renderer=render_shell_show,
 )
 def run_shell_show(ctx: click.Context, request: ShellShowRequest) -> ClinkrExit[ShellShowResult]:
@@ -107,7 +114,10 @@ class ShellInstallRequest:
         click.Option(
             ["--shell"],
             default=None,
-            help="Shell to install integration for (default: detect from $SHELL).",
+            help=(
+                "Shell to install integration for "
+                f"(supported: {_SUPPORTED_SHELL_NAMES}; default: detect from $SHELL)."
+            ),
         ),
     ] = None
 
@@ -133,7 +143,10 @@ def render_shell_install(result: ShellInstallResult) -> None:
 
 @clinkr_operation(
     name="install",
-    help="Append slot's parent-shell integration wrapper to the user's shell rc file.",
+    help=(
+        "Append the opt-in zsh/bash parent-shell wrapper to the user's shell rc file. "
+        "Source the file or open a new shell to activate it."
+    ),
     human_renderer=render_shell_install,
 )
 def run_shell_install(
@@ -177,6 +190,14 @@ def run_shell_install(
 def build_shell_group() -> ClinkrGroup:
     return ClinkrGroup(
         name="shell",
-        help="Manage parent-shell directory-changing integration for slot.",
+        help=(
+            "Manage parent-shell directory-changing integration for slot.\n\n"
+            "Supported shells: zsh and bash. Installation is opt-in: without the wrapper, "
+            "navigation commands keep printing/copying `cd <path>`. The wrapper is intended "
+            "for interactive shells; scripts can call `command slot ...`, and `--format json` "
+            "/ `--schema` never trigger a parent-shell cd. Troubleshooting: if the shell "
+            "still only prints cd, run `type slot` and source your rc file; use "
+            "`command slot ...` to bypass the wrapper."
+        ),
         operations=[run_shell_show, run_shell_install],
     )

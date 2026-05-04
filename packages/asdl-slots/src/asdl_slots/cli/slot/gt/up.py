@@ -32,7 +32,10 @@ class SlotGtUpRequest:
 
 @clinkr_operation(
     name="up",
-    help="Print the worktree for the immediate upstack Graphite branch.",
+    help=(
+        "Print/copy a cd command for the immediate upstack Graphite branch; active shell "
+        "integration can cd the parent shell."
+    ),
     human_renderer=render_gt_navigation,
 )
 def run_gt_up(ctx: click.Context, request: SlotGtUpRequest) -> ClinkrExit[GtNavigationTarget]:

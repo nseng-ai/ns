@@ -10,7 +10,11 @@ from asdl_slots.cli.slot.gt.up import run_gt_up
 def build_gt_group() -> ClinkrGroup:
     return ClinkrGroup(
         name="gt",
-        help="Graphite-aware slot commands.",
+        help=(
+            "Graphite-aware slot commands.\n\n"
+            "`slot gt up` and `slot gt down` print/copy cd commands and honor the "
+            "opt-in shell integration wrapper."
+        ),
         operations=[
             run_gt_up,
             run_gt_down,
