@@ -155,22 +155,7 @@ function requireSuccessfulEnvelope<T>(envelope: ClinkrEnvelope<unknown>, label: 
 }
 
 function isNextContextResult(value: unknown): value is NextContextResult {
-	return (
-		isRecord(value) &&
-		value.kind === NEXT_CONTEXT_KIND &&
-		typeof value.current_branch === "string" &&
-		typeof value.trunk_branch === "string" &&
-		typeof value.on_trunk === "boolean" &&
-		typeof value.slug === "string" &&
-		Array.isArray(value.files_present) &&
-		value.files_present.every((file) => typeof file === "string") &&
-		(value.freshness === null || typeof value.freshness === "string") &&
-		(value.freshness_advisory === null || typeof value.freshness_advisory === "string") &&
-		typeof value.notes_present === "boolean" &&
-		typeof value.body_content === "string" &&
-		(value.roadmap_content === null || typeof value.roadmap_content === "string") &&
-		(value.notes_content === null || typeof value.notes_content === "string")
-	);
+	return isRecord(value) && value.kind === NEXT_CONTEXT_KIND;
 }
 
 async function loadNextContext(pi: ExtensionAPI, ctx: ExtensionCommandContext, slug: string | undefined): Promise<NextContextResult> {
