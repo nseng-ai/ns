@@ -1,6 +1,4 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
@@ -21,52 +19,27 @@ type ClinkrEnvelope<T> = {
 	message?: string;
 };
 
-type PlanSource = {
-	kind?: string;
-	branch?: string | null;
-	from_file_path?: string | null;
-	label?: string;
+type ObjectiveRun = {
+	commandText: string;
+	envelope: ClinkrEnvelope<unknown>;
 };
 
-type ClaimPlan = {
-	slug: string;
-	target_branch: string;
-	source: PlanSource;
+type ClaimSelectionOption = {
+	label: string;
+	value: string;
+	description?: string | null;
+	rerun_args: string[];
 };
 
-type SlugAlternative = {
-	slug: string;
-	available_on_branch?: string;
+type ClaimSelection = {
+	kind: string;
+	prompt: string;
+	options: ClaimSelectionOption[];
 };
 
-type BranchAlternative = {
-	branch: string;
-	distance?: number;
-};
-
-type ClaimPlanAmbiguity = {
+type ClaimBlock = {
 	reason: string;
 	message: string;
-	slug_alternatives?: SlugAlternative[];
-	branch_alternatives?: BranchAlternative[];
-};
-
-type ClaimPlanError = {
-	reason: string;
-	message: string;
-};
-
-type ClaimPlanResult = {
-	schema: string;
-	canonical_branch?: string;
-	requested_slug?: string | null;
-	requested_target?: string | null;
-	requested_from_branch?: string | null;
-	requested_from_file?: string | null;
-	status: "plan" | "ambiguous" | "error" | string;
-	plan?: ClaimPlan | null;
-	ambiguity?: ClaimPlanAmbiguity | null;
-	error?: ClaimPlanError | null;
 };
 
 type CarriedFile = {
@@ -86,16 +59,13 @@ type ClaimApplyResult = {
 	destination_commit_sha: string;
 };
 
-type ParsedArgs = {
-	slug?: string;
-	target?: string;
-	fromBranch?: string;
-	fromFile?: string;
-};
-
-type ObjectiveRun = {
-	commandText: string;
-	envelope: ClinkrEnvelope<unknown>;
+type ClaimCommandResult = {
+	schema: string;
+	status: "claimed" | "needs_selection" | "blocked" | string;
+	message: string;
+	result?: ClaimApplyResult | null;
+	selection?: ClaimSelection | null;
+	block?: ClaimBlock | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -114,57 +84,20 @@ function splitArgs(argsText: string): string[] {
 		.filter((part) => part.length > 0);
 }
 
-function parseArgs(argsText: string): ParsedArgs {
+function sanitizeArgs(argsText: string): string[] {
 	const tokens = splitArgs(argsText);
-	const parsed: ParsedArgs = {};
-	let slug: string | undefined;
-
-	for (let index = 0; index < tokens.length; index += 1) {
-		const token = tokens[index];
-		if (token === undefined) {
-			break;
-		}
+	for (const token of tokens) {
 		if (token === "--format" || token.startsWith("--format=")) {
 			throw new Error("/objective-claim always uses JSON internally. Omit --format.");
 		}
 		if (token === "--schema" || token.startsWith("--schema=")) {
-			throw new Error("/objective-claim does not support --schema. Run `objective exec claim-plan --schema` in a shell instead.");
+			throw new Error("/objective-claim does not support --schema. Run `objective exec claim --schema` in a shell instead.");
 		}
 		if (token === "-h" || token === "--help") {
 			throw new Error("Usage: /objective-claim [slug] [--target <branch>] [--from <branch>] [--from-file <path>]");
 		}
-		if (token.startsWith("--")) {
-			const equalsIndex = token.indexOf("=");
-			const flag = equalsIndex === -1 ? token : token.slice(0, equalsIndex);
-			let value = equalsIndex === -1 ? undefined : token.slice(equalsIndex + 1);
-
-			if (flag !== "--target" && flag !== "--from" && flag !== "--from-file") {
-				throw new Error(`Unsupported flag for /objective-claim: ${flag}`);
-			}
-			if (value === undefined) {
-				index += 1;
-				value = tokens[index];
-			}
-			if (!value || value.startsWith("--")) {
-				throw new Error(`Missing value for ${flag}.`);
-			}
-
-			if (flag === "--target") parsed.target = value;
-			if (flag === "--from") parsed.fromBranch = value;
-			if (flag === "--from-file") parsed.fromFile = value;
-			continue;
-		}
-
-		if (slug !== undefined) {
-			throw new Error("/objective-claim accepts at most one slug positional.");
-		}
-		slug = token;
 	}
-
-	if (slug !== undefined) {
-		parsed.slug = slug;
-	}
-	return parsed;
+	return tokens;
 }
 
 function shellQuote(part: string): string {
@@ -272,64 +205,12 @@ function requireSuccessfulEnvelope<T>(run: ObjectiveRun, label: string): T {
 	return envelope.data;
 }
 
-function isOptionalString(value: unknown): value is string | undefined {
-	return value === undefined || typeof value === "string";
-}
-
 function isOptionalNullableString(value: unknown): value is string | null | undefined {
 	return value === undefined || value === null || typeof value === "string";
 }
 
-function isPlanSource(value: unknown): value is PlanSource {
-	return (
-		isRecord(value) &&
-		isOptionalString(value.kind) &&
-		isOptionalNullableString(value.branch) &&
-		isOptionalNullableString(value.from_file_path) &&
-		isOptionalString(value.label)
-	);
-}
-
-function isClaimPlan(value: unknown): value is ClaimPlan {
-	return isRecord(value) && typeof value.slug === "string" && typeof value.target_branch === "string" && isPlanSource(value.source);
-}
-
-function isSlugAlternative(value: unknown): value is SlugAlternative {
-	return isRecord(value) && typeof value.slug === "string" && isOptionalString(value.available_on_branch);
-}
-
-function isBranchAlternative(value: unknown): value is BranchAlternative {
-	return isRecord(value) && typeof value.branch === "string" && (value.distance === undefined || typeof value.distance === "number");
-}
-
-function isClaimPlanAmbiguity(value: unknown): value is ClaimPlanAmbiguity {
-	return (
-		isRecord(value) &&
-		typeof value.reason === "string" &&
-		typeof value.message === "string" &&
-		(value.slug_alternatives === undefined || (Array.isArray(value.slug_alternatives) && value.slug_alternatives.every(isSlugAlternative))) &&
-		(value.branch_alternatives === undefined || (Array.isArray(value.branch_alternatives) && value.branch_alternatives.every(isBranchAlternative)))
-	);
-}
-
-function isClaimPlanError(value: unknown): value is ClaimPlanError {
-	return isRecord(value) && typeof value.reason === "string" && typeof value.message === "string";
-}
-
-function isClaimPlanResult(value: unknown): value is ClaimPlanResult {
-	return (
-		isRecord(value) &&
-		typeof value.schema === "string" &&
-		isOptionalString(value.canonical_branch) &&
-		isOptionalNullableString(value.requested_slug) &&
-		isOptionalNullableString(value.requested_target) &&
-		isOptionalNullableString(value.requested_from_branch) &&
-		isOptionalNullableString(value.requested_from_file) &&
-		typeof value.status === "string" &&
-		(value.plan === undefined || value.plan === null || isClaimPlan(value.plan)) &&
-		(value.ambiguity === undefined || value.ambiguity === null || isClaimPlanAmbiguity(value.ambiguity)) &&
-		(value.error === undefined || value.error === null || isClaimPlanError(value.error))
-	);
+function isCarriedFile(value: unknown): value is CarriedFile {
+	return isRecord(value) && typeof value.file === "string" && (value.key === undefined || typeof value.key === "string");
 }
 
 function isClaimApplyResult(value: unknown): value is ClaimApplyResult {
@@ -337,123 +218,59 @@ function isClaimApplyResult(value: unknown): value is ClaimApplyResult {
 		isRecord(value) &&
 		typeof value.slug === "string" &&
 		typeof value.target_branch === "string" &&
+		isOptionalNullableString(value.source_branch) &&
 		typeof value.source_label === "string" &&
 		Array.isArray(value.files_carried) &&
+		value.files_carried.every(isCarriedFile) &&
 		typeof value.destination_ref === "string" &&
 		typeof value.destination_commit_sha === "string"
 	);
 }
 
-function buildPlanArgs(args: ParsedArgs): string[] {
-	return [
-		"exec",
-		"claim-plan",
-		...(args.slug ? [args.slug] : []),
-		...(args.target ? ["--target", args.target] : []),
-		...(args.fromBranch ? ["--from", args.fromBranch] : []),
-		...(args.fromFile ? ["--from-file", args.fromFile] : []),
-		"--format",
-		"json",
-	];
+function isClaimSelectionOption(value: unknown): value is ClaimSelectionOption {
+	return (
+		isRecord(value) &&
+		typeof value.label === "string" &&
+		typeof value.value === "string" &&
+		isOptionalNullableString(value.description) &&
+		Array.isArray(value.rerun_args) &&
+		value.rerun_args.every((arg) => typeof arg === "string")
+	);
 }
 
-async function loadClaimPlan(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: ParsedArgs): Promise<ClaimPlanResult> {
-	const run = await runObjectiveJson(pi, ctx, buildPlanArgs(args));
-	const data = requireSuccessfulEnvelope<unknown>(run, "claim-plan");
-	if (!isClaimPlanResult(data)) {
-		throw new Error("claim-plan returned data that does not match the expected shape.");
+function isClaimSelection(value: unknown): value is ClaimSelection {
+	return (
+		isRecord(value) &&
+		typeof value.kind === "string" &&
+		typeof value.prompt === "string" &&
+		Array.isArray(value.options) &&
+		value.options.every(isClaimSelectionOption)
+	);
+}
+
+function isClaimBlock(value: unknown): value is ClaimBlock {
+	return isRecord(value) && typeof value.reason === "string" && typeof value.message === "string";
+}
+
+function isClaimCommandResult(value: unknown): value is ClaimCommandResult {
+	return (
+		isRecord(value) &&
+		typeof value.schema === "string" &&
+		typeof value.status === "string" &&
+		typeof value.message === "string" &&
+		(value.result === undefined || value.result === null || isClaimApplyResult(value.result)) &&
+		(value.selection === undefined || value.selection === null || isClaimSelection(value.selection)) &&
+		(value.block === undefined || value.block === null || isClaimBlock(value.block))
+	);
+}
+
+async function loadClaim(pi: ExtensionAPI, ctx: ExtensionCommandContext, args: string[]): Promise<ClaimCommandResult> {
+	const run = await runObjectiveJson(pi, ctx, ["exec", "claim", ...args, "--format", "json"]);
+	const data = requireSuccessfulEnvelope<unknown>(run, "claim");
+	if (!isClaimCommandResult(data)) {
+		throw new Error("claim returned data that does not match the expected shape.");
 	}
 	return data;
-}
-
-function formatPlanError(error: ClaimPlanError | null | undefined): string {
-	const reason = error?.reason ?? "error";
-	const message = error?.message ?? "The objective could not be claimed.";
-	return `Cannot claim objective:\n${reason}: ${message}`;
-}
-
-function formatAmbiguousSlugMessage(ambiguity: ClaimPlanAmbiguity): string {
-	const alternatives = ambiguity.slug_alternatives ?? [];
-	if (alternatives.length === 0) {
-		return `Cannot claim objective:\n${ambiguity.reason}: ${ambiguity.message}`;
-	}
-	return `Multiple objectives are reachable. Re-run with one:\n${alternatives.map((alt) => `/objective-claim ${alt.slug}`).join("\n")}`;
-}
-
-function formatAmbiguousBranchMessage(slug: string | undefined, ambiguity: ClaimPlanAmbiguity): string {
-	const alternatives = ambiguity.branch_alternatives ?? [];
-	if (alternatives.length === 0) {
-		return `Cannot claim objective:\n${ambiguity.reason}: ${ambiguity.message}`;
-	}
-	const prefix = `/objective-claim${slug ? ` ${slug}` : ""}`;
-	return `Multiple source branches are reachable. Re-run with one:\n${alternatives.map((alt) => `${prefix} --from ${alt.branch}`).join("\n")}`;
-}
-
-async function resolveAmbiguity(
-	pi: ExtensionAPI,
-	ctx: ExtensionCommandContext,
-	args: ParsedArgs,
-	planResult: ClaimPlanResult,
-): Promise<{ args: ParsedArgs; planResult: ClaimPlanResult } | string> {
-	const ambiguity = planResult.ambiguity;
-	if (!ambiguity) {
-		return "Cannot claim objective:\nambiguous: claim-plan did not include ambiguity details.";
-	}
-
-	if (ambiguity.reason === "no_slug_no_candidates") {
-		return "No objective candidates found. Pass /objective-claim <slug> --from-file <path> or run objective-create.";
-	}
-
-	if (ambiguity.reason === "ambiguous_slug_candidates") {
-		const alternatives = ambiguity.slug_alternatives ?? [];
-		if (ctx.hasUI && alternatives.length > 0) {
-			const selected = await ctx.ui.select(
-				"Multiple objectives are reachable. Choose one to claim:",
-				alternatives.map((alt) => alt.slug),
-			);
-			if (!selected) return "Objective claim cancelled.";
-			const nextArgs = { ...args, slug: selected };
-			return { args: nextArgs, planResult: await loadClaimPlan(pi, ctx, nextArgs) };
-		}
-		return formatAmbiguousSlugMessage(ambiguity);
-	}
-
-	if (ambiguity.reason === "ambiguous_source_branches") {
-		const alternatives = ambiguity.branch_alternatives ?? [];
-		if (ctx.hasUI && alternatives.length > 0) {
-			const selected = await ctx.ui.select(
-				"Multiple source branches are reachable. Choose one:",
-				alternatives.map((alt) => alt.branch),
-			);
-			if (!selected) return "Objective claim cancelled.";
-			const nextArgs = { ...args, fromBranch: selected };
-			return { args: nextArgs, planResult: await loadClaimPlan(pi, ctx, nextArgs) };
-		}
-		return formatAmbiguousBranchMessage(args.slug ?? planResult.requested_slug ?? undefined, ambiguity);
-	}
-
-	return `Cannot claim objective:\n${ambiguity.reason}: ${ambiguity.message}`;
-}
-
-async function applyPlan(pi: ExtensionAPI, ctx: ExtensionCommandContext, planResult: ClaimPlanResult): Promise<ClaimApplyResult> {
-	const dir = await mkdtemp(join(tmpdir(), "objective-claim-"));
-	try {
-		const planPath = join(dir, "claim-plan.json");
-		await writeFile(planPath, `${JSON.stringify(planResult, null, 2)}\n`, "utf8");
-		const run = await runObjectiveJson(pi, ctx, ["exec", "claim-apply", "--plan-file", planPath, "--format", "json"]);
-		const data = requireSuccessfulEnvelope<unknown>(run, "claim-apply");
-		if (!isClaimApplyResult(data)) {
-			throw new Error("claim-apply returned data that does not match the expected shape.");
-		}
-		return data;
-	} finally {
-		await rm(dir, { recursive: true, force: true });
-	}
-}
-
-function renderSuccess(result: ClaimApplyResult): string {
-	const files = result.files_carried.map((file) => `- ${file.file}`).join("\n") || "- none";
-	return `Claimed objective: ${result.slug}\nSource: ${result.source_label}\nTarget: ${result.target_branch}\n\nFiles carried:\n${files}\n\nDestination ref: ${result.destination_ref}\nCommit: ${result.destination_commit_sha}\n\nNext:\nThis branch is ready for implementation. After implementing the slice, merge\nthe PR and run objective-reconcile ${result.slug} on master. Run objective-update\n${result.slug} only if another branch will claim from this branch before it lands.`;
 }
 
 function emitMessage(pi: ExtensionAPI, content: string, details: Record<string, unknown> = {}): void {
@@ -465,42 +282,79 @@ function emitMessage(pi: ExtensionAPI, content: string, details: Record<string, 
 	});
 }
 
+async function resolveSelection(
+	pi: ExtensionAPI,
+	ctx: ExtensionCommandContext,
+	result: ClaimCommandResult,
+): Promise<{ args: string[]; result: ClaimCommandResult } | string> {
+	const selection = result.selection;
+	if (!selection || selection.options.length === 0) {
+		return result.message;
+	}
+
+	if (!ctx.hasUI) {
+		return result.message;
+	}
+
+	const selected = await ctx.ui.select(
+		selection.prompt,
+		selection.options.map((option) => option.label),
+	);
+	if (!selected) {
+		return "Objective claim cancelled.";
+	}
+
+	const option = selection.options.find((candidate) => candidate.label === selected);
+	if (!option) {
+		return "Objective claim cancelled.";
+	}
+
+	return { args: option.rerun_args, result: await loadClaim(pi, ctx, option.rerun_args) };
+}
+
 export async function runObjectiveClaim(pi: ExtensionAPI, ctx: ExtensionCommandContext, argsText: string): Promise<void> {
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(STATUS_KEY, "Claiming objective…");
 	}
 
 	try {
-		let currentArgs = parseArgs(argsText);
-		let planResult = await loadClaimPlan(pi, ctx, currentArgs);
+		let args = sanitizeArgs(argsText);
+		let result = await loadClaim(pi, ctx, args);
 
-		for (let attempts = 0; planResult.status === "ambiguous" && attempts < 3; attempts += 1) {
-			const resolved = await resolveAmbiguity(pi, ctx, currentArgs, planResult);
+		for (let attempts = 0; result.status === "needs_selection" && attempts < 3; attempts += 1) {
+			const resolved = await resolveSelection(pi, ctx, result);
 			if (typeof resolved === "string") {
-				emitMessage(pi, resolved, { status: "ambiguous" });
+				emitMessage(pi, resolved, { status: "needs_selection", selection: result.selection });
 				if (ctx.hasUI) ctx.ui.notify(resolved.split("\n")[0] ?? resolved, "warning");
 				return;
 			}
-			currentArgs = resolved.args;
-			planResult = resolved.planResult;
+			args = resolved.args;
+			result = resolved.result;
 		}
 
-		if (planResult.status === "error") {
-			const message = formatPlanError(planResult.error);
-			emitMessage(pi, message, { status: "error", error: planResult.error });
-			if (ctx.hasUI) ctx.ui.notify(message.split("\n")[0] ?? message, "error");
+		if (result.status === "needs_selection") {
+			emitMessage(pi, result.message, { status: "needs_selection", selection: result.selection });
+			if (ctx.hasUI) ctx.ui.notify(result.message.split("\n")[0] ?? result.message, "warning");
 			return;
 		}
 
-		if (planResult.status !== "plan" || !planResult.plan) {
-			throw new Error(`claim-plan returned unsupported status: ${planResult.status}`);
+		if (result.status === "blocked") {
+			emitMessage(pi, result.message, { status: "blocked", block: result.block });
+			if (ctx.hasUI) ctx.ui.notify(result.message.split("\n")[0] ?? result.message, "error");
+			return;
 		}
 
-		const applyResult = await applyPlan(pi, ctx, planResult);
-		const message = renderSuccess(applyResult);
-		emitMessage(pi, message, { status: "claimed", result: applyResult });
+		if (result.status !== "claimed") {
+			throw new Error(`claim returned unsupported status: ${result.status}`);
+		}
+
+		if (!result.result) {
+			throw new Error("claim returned status='claimed' without result details.");
+		}
+
+		emitMessage(pi, result.message, { status: "claimed", result: result.result, args });
 		if (ctx.hasUI) {
-			ctx.ui.notify(`Claimed objective: ${applyResult.slug}`, "info");
+			ctx.ui.notify(`Claimed objective: ${result.result.slug}`, "info");
 		}
 	} catch (error) {
 		const message = `Objective claim failed: ${messageFromUnknown(error)}`;

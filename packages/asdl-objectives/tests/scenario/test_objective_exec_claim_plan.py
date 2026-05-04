@@ -1,10 +1,10 @@
 """Scenario tests for ``objective exec claim-plan``.
 
-The skill ``objective-claim`` runs this command to plan a one-slug
-carry-forward deterministically. These tests exercise the contract end to
-end via ``build_cli()`` with the standard fake gateways used across
-objective scenario tests, focusing on the structured envelope shape
-(plan / ambiguity / error), the source cascade, and the hard preconditions.
+The lower-level plan primitive resolves a one-slug carry-forward
+deterministically. These tests exercise the contract end to end via
+``build_cli()`` with the standard fake gateways used across objective
+scenario tests, focusing on the structured envelope shape (plan / ambiguity /
+error), the source cascade, and the hard preconditions.
 """
 
 from __future__ import annotations
@@ -534,6 +534,7 @@ def test_claim_plan_envelope_shape_is_deterministic(cli_group: ClinkrGroup, tmp_
         "schema",
         "canonical_branch",
         "requested_slug",
+        "resolved_slug",
         "requested_target",
         "requested_from_branch",
         "requested_from_file",
@@ -545,6 +546,7 @@ def test_claim_plan_envelope_shape_is_deterministic(cli_group: ClinkrGroup, tmp_
     assert data["schema"] == PLAN_SCHEMA
     assert data["canonical_branch"] == "master"
     assert data["requested_slug"] == "widget-rewrite"
+    assert data["resolved_slug"] == "widget-rewrite"
     assert data["requested_target"] is None
     assert data["requested_from_branch"] is None
     assert data["requested_from_file"] == str(body_path)

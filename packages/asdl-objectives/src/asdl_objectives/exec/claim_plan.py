@@ -4,15 +4,14 @@ Pulls the deterministic mechanics of ``objective-claim`` out of skill prose
 into Python: target collision check, slug candidate enumeration via ancestor
 walking, source cascade selection (local file -> ``--from`` branch ->
 nearest live ancestor branch carrying ``<slug>/body.md`` -> canonical
-``master``), and structured ambiguity reporting. The agent then writes the
-plan envelope to a temp file and runs ``objective exec claim-apply``.
+``master``), and structured ambiguity reporting. Higher-level callers should
+prefer ``objective exec claim``, which converts those plans and ambiguities
+into a single agent-facing contract.
 
 The CLI does **not** prompt for user input. Anywhere the original skill
 asked the human a question (multi-candidate ancestor, multi-slug ancestor,
 no slug + no candidates), this command emits a structured ambiguity payload
-with a stable reason code; the skill prose surfaces alternatives so the
-human picks, and the skill re-runs ``claim-plan`` with the explicit slug or
-``--from`` flag.
+with a stable reason code.
 """
 
 from __future__ import annotations
@@ -173,6 +172,7 @@ class ClaimPlanResult(JsonSerializable):
     schema: str
     canonical_branch: str
     requested_slug: str | None
+    resolved_slug: str | None
     requested_target: str | None
     requested_from_branch: str | None
     requested_from_file: str | None
@@ -210,8 +210,8 @@ def render_claim_plan(result: ClaimPlanResult) -> None:
         "candidate slugs when none was supplied, and selects the source via "
         "the locked cascade: local file -> --from branch -> nearest live "
         "ancestor branch -> canonical master. Returns a structured envelope "
-        "containing exactly one of `plan`, `ambiguity`, or `error`. The skill "
-        "writes the plan to a temp file and runs `objective exec claim-apply`."
+        "containing exactly one of `plan`, `ambiguity`, or `error`. Prefer "
+        "`objective exec claim` for the high-level agent workflow."
     ),
     human_renderer=render_claim_plan,
 )
@@ -284,6 +284,7 @@ def run_claim_plan_objective(
                 requested_slug=requested_slug,
                 target_branch=target_branch,
                 trunk_branch=trunk_branch,
+                resolved_slug=slug,
                 status="error",
                 error=ClaimPlanError(
                     reason="target_collision",
@@ -312,6 +313,7 @@ def run_claim_plan_objective(
                 requested_slug=requested_slug,
                 target_branch=target_branch,
                 trunk_branch=trunk_branch,
+                resolved_slug=slug,
                 status="error",
                 error=source_outcome,
             )
@@ -323,6 +325,7 @@ def run_claim_plan_objective(
                 requested_slug=requested_slug,
                 target_branch=target_branch,
                 trunk_branch=trunk_branch,
+                resolved_slug=slug,
                 status="ambiguous",
                 ambiguity=source_outcome,
             )
@@ -334,6 +337,7 @@ def run_claim_plan_objective(
             requested_slug=requested_slug,
             target_branch=target_branch,
             trunk_branch=trunk_branch,
+            resolved_slug=slug,
             status="plan",
             plan=ClaimPlan(
                 slug=slug,
@@ -351,6 +355,7 @@ def _envelope_for_request(
     target_branch: str,
     trunk_branch: str,
     status: PlanStatus,
+    resolved_slug: str | None = None,
     plan: ClaimPlan | None = None,
     ambiguity: ClaimPlanAmbiguity | None = None,
     error: ClaimPlanError | None = None,
@@ -359,6 +364,7 @@ def _envelope_for_request(
         schema=PLAN_SCHEMA,
         canonical_branch=trunk_branch,
         requested_slug=requested_slug,
+        resolved_slug=resolved_slug,
         requested_target=request.target,
         requested_from_branch=request.from_branch,
         requested_from_file=request.from_file,

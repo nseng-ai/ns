@@ -1,11 +1,10 @@
 """Scenario tests for ``objective exec claim-apply``.
 
-The skill ``objective-claim`` writes the plan envelope from
-``objective exec claim-plan`` to a temp file and runs this command to
-perform the actual carry-forward. Tests cover plan-file shape validation,
-schema-mismatch handling, branch-source ``brmem copy``, local-file source
-``brmem put``, and apply-time drift checks (target collision, source
-missing the slug, local file vanished).
+The lower-level apply primitive reads a plan envelope from
+``objective exec claim-plan`` and performs the actual carry-forward. Tests
+cover plan-file shape validation, schema-mismatch handling, branch-source
+``brmem copy``, local-file source ``brmem put``, and apply-time drift checks
+(target collision, source missing the slug, local file vanished).
 """
 
 from __future__ import annotations
