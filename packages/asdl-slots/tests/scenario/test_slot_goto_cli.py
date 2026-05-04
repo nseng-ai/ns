@@ -23,6 +23,7 @@ from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import NoRepoSentinel, RepoContext, discover_repo_or_sentinel
+from asdl_slots.shell_integration import SLOT_CD_DIRECTIVE_FILE
 
 
 @pytest.fixture(scope="module")
@@ -175,11 +176,13 @@ def test_slot_goto_by_slot_name(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root)
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["goto", "--wt", "slot-01"],
         obj=_make_obj(fakes, slots_root),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
@@ -188,6 +191,7 @@ def test_slot_goto_by_slot_name(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert f"cd {worktree_path}" in result.output
     assert "Copied cd command to clipboard." in result.output
     assert fakes.clipboard.last_copied == f"cd {worktree_path}"
+    assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
 
 
 def test_slot_goto_by_slot_number_short_flag(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -228,11 +232,13 @@ def test_slot_goto_no_clipboard_flag_skips_copy(cli_group: ClinkrGroup, tmp_path
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root)
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["goto", "--wt", "slot-01", "--no-clipboard"],
         obj=_make_obj(fakes, slots_root),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
@@ -240,6 +246,7 @@ def test_slot_goto_no_clipboard_flag_skips_copy(cli_group: ClinkrGroup, tmp_path
     assert "Copied cd command" not in result.output
     assert "Clipboard unavailable" not in result.output
     assert fakes.clipboard.copy_calls == 0
+    assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
 
 
 def test_slot_goto_clipboard_failure_warns_but_succeeds(
@@ -269,11 +276,13 @@ def test_slot_goto_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root)
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["goto", "--wt", "slot-01", "--format", "json"],
         obj=_make_obj(fakes, slots_root),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0, result.output
@@ -288,14 +297,22 @@ def test_slot_goto_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path:
     assert data["clipboard_skipped"] is False
     assert data["clipboard_failure_reason"] is None
     assert data["clipboard_failure_detail"] is None
+    assert not directive_path.exists()
 
 
-def test_slot_goto_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["goto", "--schema"])
+def test_slot_goto_schema(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    directive_path = tmp_path / "cd-directive"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["goto", "--schema"],
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
+    )
     payload = json.loads(result.output)
 
     assert result.exit_code == 0
     assert set(payload) == {"input_schema", "output_schema"}
+    assert not directive_path.exists()
 
 
 # -- error paths ------------------------------------------------------------
@@ -434,11 +451,13 @@ def test_slot_goto_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Pat
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     worktree_path = _seed_assigned(fakes, slots_root)
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["goto", "--wt", "slot-01", "--format", "json"],
         obj=_make_obj(fakes, slots_root),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
     payload = json.loads(result.stdout)
 
@@ -453,6 +472,7 @@ def test_slot_goto_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Pat
     assert data["clipboard_skipped"] is False
     assert data["clipboard_failure_reason"] is None
     assert data["clipboard_failure_detail"] is None
+    assert not directive_path.exists()
 
 
 def test_slot_goto_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -472,9 +492,16 @@ def test_slot_goto_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_pat
     assert "not currently assigned" in payload["message"]
 
 
-def test_slot_goto_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["goto", "--schema"])
+def test_slot_goto_schema_flag_is_eager(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    directive_path = tmp_path / "cd-directive"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["goto", "--schema"],
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
+    )
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
     assert set(payload) == {"input_schema", "output_schema"}
+    assert not directive_path.exists()

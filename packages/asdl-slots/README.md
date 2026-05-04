@@ -99,9 +99,10 @@ shell. The Python command never emits shell code for the wrapper to
 If the wrapper is inactive or uninstalled, or if a command runs in
 non-interactive/JSON mode, existing fallback behavior remains: commands
 still print the `cd <path>` command and optionally copy it. Currently,
-the directive-file navigation surface is `slot checkout` / `slot co`.
-Other navigation helpers continue to use the printed/copied command
-fallback until they are explicitly wired into the directive protocol.
+the directive-file navigation surface is `slot checkout` / `slot co` and
+`slot goto`. Other navigation helpers continue to use the printed/copied
+command fallback until they are explicitly wired into the directive
+protocol.
 
 ### `slot list`
 
