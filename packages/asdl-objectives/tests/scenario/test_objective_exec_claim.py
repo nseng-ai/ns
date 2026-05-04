@@ -3,7 +3,7 @@
 The high-level command is the agent-facing claim contract. It wraps the
 lower-level plan/apply commands, applies unique plans, and returns generic
 selection or blocked payloads without requiring callers to understand
-claim-plan reason codes.
+internal planner reason codes.
 """
 
 from __future__ import annotations
@@ -20,8 +20,7 @@ from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.exec.claim import CLAIM_SCHEMA
-from asdl_objectives.exec.claim_plan import PLAN_SCHEMA
+from asdl_objectives.exec.claim import CLAIM_SCHEMA, PLAN_SCHEMA
 from asdl_objectives.main import build_cli
 from brmem.fake import FakeBranchMemoryGateway
 

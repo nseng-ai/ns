@@ -67,8 +67,7 @@ step hint. Report it directly; do not reconstruct it from lower-level fields.
 ## Guardrails
 
 - Never choose among `needs_selection` options without user intent.
-- Never run `claim-plan` / `claim-apply` directly unless debugging the CLI;
-  `objective exec claim` is the skill-facing contract.
+- Use only `objective exec claim`; it is the skill-facing contract.
 - Never synthesize objective files, carry only part of a branch snapshot,
   write canonical objective storage, run update/reconcile, or implement work
   during claim. The CLI enforces these semantics.

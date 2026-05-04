@@ -1,4 +1,4 @@
-"""Unit tests for the pure helpers in ``exec.claim_plan``.
+"""Unit tests for the pure claim planning helpers.
 
 The helpers under test are private but doing their own dedicated coverage
 keeps the slug-cascade rules and dataclass shape grep-able and easy to
@@ -7,7 +7,7 @@ evolve without spinning up the full Click harness.
 
 from __future__ import annotations
 
-from asdl_objectives.exec.claim_plan import (
+from asdl_objectives.exec.claim import (
     PLAN_SCHEMA,
     CandidateBranch,
     ClaimPlan,
