@@ -2,16 +2,8 @@
 name: objective-next
 description: "Command: objective-next"
 allowed-tools:
-  - "Bash(git rev-parse *)"
-  - "Bash(git for-each-ref *)"
-  - "Bash(git ls-tree *)"
-  - "Bash(git merge-base *)"
-  - "Bash(git rev-list *)"
-  - "Bash(git log *)"
-  - "Bash(brmem check *)"
-  - "Bash(brmem get *)"
-  - "Bash(brmem list *)"
-  - "Bash(objective exec update-precheck *)"
+  - "Bash(objective exec next-context *)"
+  - "Bash(objective exec next-collision *)"
   - "Read"
   - "Write"           # session-plan stub for ExitPlanMode
   - "ExitPlanMode"    # bounce out of plan mode before reporting
@@ -27,189 +19,107 @@ Read-only status peek and next-slice recommendation for an objective.
 
 ## Goal
 
-Given an objective slug — supplied directly or resolved from the current
-branch's claimed objectives — load the snapshot from the current branch,
-summarize the content state, flag stale branch snapshots, and suggest a
-collision-checked kebab-case slug for the next PR-sized slice.
+Given an optional objective slug, load the current branch's objective-next
+context through the tested CLI contract, summarize the returned Markdown, and
+suggest a collision-checked kebab-case slug for the next PR-sized slice.
 
-`next` writes nothing: no `brmem put`, no `brmem copy`, no branch creation,
-no checkbox edits, and no working-tree changes. It is the normal planning
-step before `objective-claim`: choose the slice first, then create a
-branch and attach the objective snapshot to that branch.
+`next` owns semantic judgment only: status summary, open-work interpretation,
+next-slice choice, candidate slug wording, and final response formatting.
+Deterministic facts come from:
 
-## Content Files
-
-Use `<slug>/body.md` as the presence check. When loading, reporting, or
-checking freshness, discover which known files (`body.md`, `roadmap.md`,
-`notes.md`) exist under `<slug>/` and operate only on that set.
+- `objective exec next-context [<slug>] --format json`
+- `objective exec next-collision <candidate-slug> --format json`
 
 ## Inputs
 
-- **Slug, optional.** Parse the objective slug from the prompt when present.
-  Otherwise defer to Step 3's enumeration of slugs claimed on the current
-  branch. Never infer a slug from the branch name; a branch commonly
-  carries a parent objective whose slug differs from the branch's slice
-  slug.
-
-`next` plans against the current branch only. There is no `--from`,
-`--from-file`, or `--branch <other>` flag — to inspect a different branch,
-check it out first.
+- **Slug, optional.** Parse the objective slug from the prompt when present and
+  pass it to `next-context`. If omitted, call `next-context` with no slug.
+- `next` plans against the current branch only. There is no `--from`,
+  `--from-file`, `--branch`, `--source`, or other source-selection flag. To
+  inspect a different branch, check it out first.
 
 ## Core Rules
 
-- **Read-only.** Do not mutate brmem, git refs, branches, files, checkboxes,
-  or the working tree.
-- **Plan-mode bypass.** When invoked inside the harness's plan mode,
-  exit plan mode first via the standard `ExitPlanMode` flow — this
-  skill is read-only and the plan-workflow ceremony has no payoff.
-  Details in Step 1 below.
+- **Read-only.** Do not mutate brmem, git refs, branches, files, checkboxes, or
+  the working tree.
+- **CLI authority.** Do not run raw `git`, `brmem`, Graphite, source-code
+  inspection, or `objective exec update-precheck`. Treat `next-context` as the
+  authority for current branch, trunk branch, slug resolution, file presence,
+  raw content, and freshness advisory.
+- **Current-branch-only source.** Always use the snapshot resolved by
+  `next-context`; do not walk ancestors or load canonical state by hand.
 - **Content-only.** Do not inspect repo source files to audit progress.
   Implementation evidence is folded back later by `objective-update`.
-- **Current-branch-only source.** Always load the snapshot claimed on the
-  current branch. There is no source cascade and no ancestor walk; if the
-  current branch carries no claim, abort with the trunk-aware empty-branch
-  error in Step 3.
-- **No source cascade, no `--source` flag.** `objective-next` does not accept
-  `--from`, `--from-file`, `--branch`, `--source`, or any other flag that
-  would point it at a snapshot off the current branch. To inspect canonical
-  state or another branch's snapshot, use `objective show <slug>` instead;
-  `next` is symmetric with its siblings (`update` is current-branch-only,
-  `reconcile` is canonical-only, `claim` is the explicit cross-source
-  operation), and overloading it with a source flag would re-introduce the
-  drift this skill is locked against.
-- **No Graphite dependency.** Use raw git and brmem only.
-- **Collision-safe suggestion.** Check the suggested slice slug against local
-  branches and canonical objective slugs. On collision, warn and ask;
-  do not auto-resolve.
+- **Collision-safe suggestion.** Check the suggested slice slug with
+  `next-collision`. On collision, warn and ask for a human choice; do not
+  auto-resolve.
+- **No implementation work.** Do not create branches, claim objectives, write
+  plan files, edit checkboxes, or change source during `objective-next`.
 
 ## Workflow
 
 ### 1. Plan-mode bypass (if active)
 
-If the current harness exposes plan mode and a writable session-plan
-path:
+If the current harness exposes plan mode and a writable session-plan path:
 
 1. Use `Write` to put a one-line session-plan at the harness-provided
    session-plan path, e.g.:
 
-   ```
+   ```md
    # /objective-next — read-only status peek
-   Run objective-next to inspect the current branch's objective
-   snapshot and suggest the next-slice slug. No mutations.
+
+   Run objective-next to inspect the current branch's objective snapshot and
+   suggest the next-slice slug. No mutations.
    ```
 
-2. Call `ExitPlanMode`. The harness prompts the user for approval —
-   this is the "bounce out of plan mode" prompt.
-3. After approval, continue with Step 2 (Preflight). If the user
-   declines, abort the skill and tell the user to re-run
-   `/objective-next` outside plan mode (do not silently fall through
-   to the read-only flow inside plan mode — the user explicitly said
-   no, respect that).
+2. Call `ExitPlanMode`.
+3. If the user approves, continue with Step 2. If the user declines, abort and
+   ask them to re-run `/objective-next` outside plan mode.
 
-If plan mode is not active, skip this step entirely and start at
-Step 2.
+If plan mode is not active, start at Step 2.
 
-### 2. Preflight
+### 2. Load current-branch objective context
 
-Confirm the repo and current branch:
+Call exactly one context command:
 
 ```bash
-git rev-parse --show-toplevel
-git rev-parse --abbrev-ref HEAD
+objective exec next-context [<slug>] --format json
 ```
 
-Abort if not in a git repo or on detached `HEAD`. Slug presence is resolved
-in Step 3 from the current branch's claims.
+- Include `[<slug>]` only when the prompt supplied one.
+- If the command fails, surface the CLI error directly and stop. Do not
+  reproduce branch, trunk, slug, file-discovery, or freshness edge-case logic
+  in prose.
+- From the JSON payload, use the resolved branch/source fields, content-file
+  presence, `body_content`, `roadmap_content`, `notes_content`, and any
+  freshness advisory fields returned by the CLI.
 
-### 3. Resolve the Slug from the Current Branch
+### 3. Report status from returned Markdown
 
-Enumerate slugs claimed on the current branch:
-
-```bash
-brmem list --namespace objectives --branch <current> --format json
-```
-
-Split each returned key on `/`, take the first segment, and deduplicate.
-
-If the prompt named a slug, require it to be present in this set; otherwise
-abort with "slug `<requested>` not claimed on `<current>`; run
-`objective-claim <requested>` first."
-
-Otherwise resolve from the enumeration:
-
-- **Single slug**: use it. Surface the resolved slug name in the final
-  report so a wrong-slug guess is visible.
-- **Multiple slugs**: list them with one-line context (the title from each
-  `body.md` if cheap to fetch) and ask which to inspect. A branch may
-  legitimately carry two unrelated parent objectives; never auto-pick.
-- **Zero slugs**: emit the trunk-aware empty-branch error and abort.
-
-#### Empty-branch error (trunk-aware)
-
-- On the trunk branch with zero canonicals: "no canonical objectives; run
-  `objective-create` to author one."
-- On the trunk branch with N canonicals: "trunk holds N canonical objectives; pass
-  a slug to `objective-next <slug>` to plan against one." Do not surface
-  the multi-pick prompt on the trunk branch — it is theater, and the user should
-  pick explicitly.
-- Off the trunk branch with no claim: "no objective claimed on this branch; run
-  `objective-claim` to attach the parent's objective, or
-  `objective-create` to start a new one."
-
-The source for loading is always the current branch's snapshot; record the
-source label `current branch <branch>` and which known content files are
-present under `<slug>/`.
-
-### 4. Load the Content
-
-Read the resolved content files with
-`brmem get <slug>/<file> --namespace objectives --branch <current>`.
-Interpret them using this skill's content inventory and the anatomy in
-`../objective/SKILL.md`.
-
-### 5. Check Freshness
-
-When the current branch is the trunk branch, skip the freshness check (canonical
-storage's lifecycle is `objective-reconcile`, not `objective-update`).
-
-Otherwise, run the deterministic precheck and read its `freshness` field:
-
-```bash
-objective exec update-precheck <slug> --format json
-```
-
-If `data.freshness == "stale"` (or the precheck reports a malformed
-`.absorbed.jsonl` marker via `data.absorbed_marker_diagnostics`), include
-one advisory line:
-
-```text
-Snapshot is behind HEAD on <current-branch> -- consider running
-objective-update <slug> on that branch first.
-```
-
-Do not compare `brmem check` `head_date` values to the branch HEAD time as a
-freshness shortcut. Patch-id absorption recorded in `<slug>/.absorbed.jsonl`
-is the authoritative freshness source — timestamps drift across rebases and
-cherry-picks. If the precheck fails for an unrelated reason, surface the
-error and continue without an advisory.
-
-### 6. Report Status
+Read only the Markdown content returned by `next-context`.
 
 Keep the status report tight enough to verify at a glance:
 
-- source label (`current branch <branch>`) and slug
+- source label / current branch and resolved slug
 - content files present
-- title and status from the required content file
-- completion/progress state from the loaded content, clearly marking open work
-- durable findings presence, summarized in one line when present
-- freshness advisory, if it fired
+- title and status from `body_content`
+- progress state from `body_content`, `roadmap_content`, and `notes_content`
+- first meaningful open work, especially unchecked roadmap items
+- durable findings or notes presence, summarized in one line when useful
+- freshness advisory from `next-context`, if present
 - description/goals summary only when it adds signal
 
-### 7. Suggest the Next-Slice Slug
+If optional content is absent, say so briefly and fall back to the available
+Markdown. Do not fetch missing files yourself.
 
-Default to the first unchecked slice-like item that still fits the objective's
-progress guidance. If priority is non-obvious, present 2-3 candidate slugs with
-one-line rationales and ask the user to choose.
+### 4. Choose a candidate next-slice slug
+
+Use semantic judgment over the returned Markdown:
+
+- Prefer the first unchecked roadmap item that is still PR-sized.
+- If priority is non-obvious, present 2-3 candidate slugs with one-line
+  rationales and ask the user to choose.
+- Generate the candidate slug yourself; the CLI does not supply it.
 
 Slug rules:
 
@@ -219,53 +129,49 @@ Slug rules:
 - usually 50 characters or fewer
 - no redundant `objective-` prefix and no verbatim repeat of the parent slug
 
-Collision check before finalizing:
+### 5. Check candidate slug collision
+
+After choosing one candidate slug, call:
 
 ```bash
-git rev-parse --verify --quiet refs/heads/<suggested-slug>
-brmem check <suggested-slug>/<required-content-file> --namespace objectives --branch <trunk>
+objective exec next-collision <candidate-slug> --format json
 ```
 
-If either exists, warn and ask whether to pick another slug, append a suffix,
-or proceed anyway.
+Report the returned collision state:
 
-### 8. Final Output
+- `clear`: safe to use
+- `branch_exists`: a local branch already uses the slug
+- `canonical_exists`: a canonical objective already uses the slug
+- warnings: include them verbatim or summarized without changing their meaning
+
+On any collision or warning, ask for a human choice: pick another slug, append a
+suffix, or proceed knowingly. Do not auto-resolve.
+
+### 6. Final output
 
 Return:
 
-- source label and slug
-- the status summary
+- source label / current branch and resolved objective slug
+- concise status summary and open-work summary
 - suggested next-slice slug and collision result
+- freshness reminder, if `next-context` returned one
 - next-step hint:
 
 ```text
-To proceed: write a plan file using <suggested-slug>, run
-brmem-create-branch, navigate to the new branch (your choice of tool),
-then run objective-claim. After implementing the slice, merge the PR and
-run objective-reconcile <slug> on the trunk branch.
+To proceed: write or choose a plan file for <suggested-slug>, run
+brmem-branch-create, navigate to the created branch, then run
+objective-claim <objective-slug>. After implementing and merging the slice,
+run objective-reconcile <objective-slug> on the trunk branch.
 ```
-
-If the freshness advisory fired, prepend a reminder to update the stale
-current branch before creating the next slice branch.
 
 ## Edge Cases And Anti-Patterns
 
-- Detached `HEAD`: abort. Missing slug: only abort after Step 3's
-  current-branch enumeration emits the trunk-aware empty-branch error.
-- Branch name does not equal slug. A branch named after a slice (e.g.,
-  `pool-state-assignment-primitives`) commonly carries the parent
-  objective's snapshot (e.g., `asdl-slots-cleanup`). Never derive the
-  slug from the branch name; enumerate `<slug>/` keys with `brmem list`
-  on the current branch.
-- Multiple slugs on the current branch: legitimate when two unrelated
-  parent objectives are claimed on the same branch; list both and ask.
-- Source has only the required content file: report that no optional
-  progress surface exists; fall back to progress guidance, or ask if the
-  next slug is ambiguous.
-- Current branch is the trunk branch: skip the freshness check; canonical rewrites
-  go through `objective-reconcile`, not `objective-update`. On the trunk branch
-  with no slug, refuse to multi-pick — require an explicit slug.
-- Never auto-pick a slug from a multi-slug current branch, auto-resolve a
-  collision, inspect source code for drift, attach/carry forward a
-  snapshot, walk ancestors or canonical state outside the current branch,
-  or implement work during `next`.
+- Surface `next-context` failures directly for detached `HEAD`, missing slug,
+  multiple current-branch objectives, trunk with zero/one/multiple canonicals,
+  missing files, and freshness diagnostics.
+- Never derive an objective slug from the branch name; use the slug resolved by
+  `next-context`.
+- Never run raw `git`, raw `brmem`, Graphite, `objective exec update-precheck`,
+  source-code inspection, branch creation, brmem writes, checkbox edits, or
+  source edits during `objective-next`.
+- Never auto-pick from ambiguous CLI output and never auto-resolve collisions.
