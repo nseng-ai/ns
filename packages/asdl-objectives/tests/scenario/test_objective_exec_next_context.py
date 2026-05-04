@@ -136,6 +136,7 @@ def test_next_context_one_objective_on_branch_emits_full_context(
 
     assert result.exit_code == 0, result.output
     data = payload["data"]
+    assert data["kind"] == "objective_next_context"
     assert data["current_branch"] == "feat/widget"
     assert data["trunk_branch"] == "master"
     assert data["on_trunk"] is False
