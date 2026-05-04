@@ -21,6 +21,7 @@ from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import RepoContext
+from asdl_slots.shell_integration import SLOT_CD_DIRECTIVE_FILE
 
 
 @pytest.fixture(scope="module")
@@ -164,13 +165,20 @@ def test_slot_gt_up_navigates_to_single_child_slot(
             children_by_branch={"feat/base": ("feat/child",)},
         ),
     )
+    directive_path = tmp_path / "cd-directive"
 
-    result = CliRunner().invoke(cli_group, ["gt", "up"], obj=_obj(fakes.ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "up"],
+        obj=_obj(fakes.ctx),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
+    )
 
     assert result.exit_code == 0, result.output
     assert "slot-02" in result.output
     assert f"cd {slot_path}" in result.output
     assert fakes.clipboard.last_copied == f"cd {slot_path}"
+    assert directive_path.read_text(encoding="utf-8") == str(slot_path)
 
 
 def test_slot_gt_up_multiple_children_is_negative(
@@ -213,12 +221,19 @@ def test_slot_gt_down_navigates_to_parent_main_worktree(
             parent_by_branch={"feat/child": "main"},
         ),
     )
+    directive_path = tmp_path / "cd-directive"
 
-    result = CliRunner().invoke(cli_group, ["gt", "down"], obj=_obj(fakes.ctx))
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "down"],
+        obj=_obj(fakes.ctx),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
+    )
 
     assert result.exit_code == 0, result.output
     assert f"cd {main_path}" in result.output
     assert fakes.clipboard.last_copied == f"cd {main_path}"
+    assert directive_path.read_text(encoding="utf-8") == str(main_path)
 
 
 def test_slot_gt_down_untracked_branch_failure(
@@ -267,17 +282,20 @@ def test_slot_gt_up_format_json(cli_group: ClinkrGroup, tmp_path: Path) -> None:
             children_by_branch={"feat/base": ("feat/child",)},
         ),
     )
+    directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
         ["gt", "up", "--format", "json"],
         obj=_obj(fakes.ctx),
+        env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
     data = _machine_data(result.output)
 
     assert result.exit_code == 0
     assert data["branch_name"] == "feat/child"
     assert data["worktree_path"] == str(child_path)
+    assert not directive_path.exists()
 
 
 def test_slot_gt_land_dry_run_plans_bottom_pr(

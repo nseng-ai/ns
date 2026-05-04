@@ -5,6 +5,7 @@ from typing import Annotated
 
 import click
 
+from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.operation import clinkr_operation
@@ -82,4 +83,11 @@ def run_gt_up(ctx: click.Context, request: SlotGtUpRequest) -> ClinkrExit[GtNavi
                 f"Run `slot checkout {child}`."
             )
         )
-    return ClinkrExit.ok(build_navigation_result(slots_ctx, target, request.no_clipboard))
+    return ClinkrExit.ok(
+        build_navigation_result(
+            slots_ctx,
+            target,
+            request.no_clipboard,
+            write_cd_directive=not is_machine_mode(ctx),
+        )
+    )

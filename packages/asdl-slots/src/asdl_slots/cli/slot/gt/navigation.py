@@ -10,6 +10,7 @@ from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.clipboard import ClipboardCopyFailure, ClipboardCopySuccess
 from asdl_slots.naming import extract_slot_number
+from asdl_slots.shell_integration import write_cd_directive_if_active
 
 
 @dataclass(frozen=True)
@@ -48,8 +49,12 @@ def build_navigation_result(
     slots_ctx: SlotsCliContext,
     target: WorktreeTarget,
     no_clipboard: bool,
+    *,
+    write_cd_directive: bool = True,
 ) -> GtNavigationTarget:
-    cd_command = f"cd {target.worktree_path}"
+    worktree_path = str(target.worktree_path)
+    write_cd_directive_if_active(worktree_path, enabled=write_cd_directive)
+    cd_command = f"cd {worktree_path}"
     clipboard_copied = False
     clipboard_failure_reason: str | None = None
     clipboard_failure_detail: str | None = None
@@ -63,7 +68,7 @@ def build_navigation_result(
     return GtNavigationTarget(
         slot_name=target.slot_name,
         branch_name=target.branch_name,
-        worktree_path=str(target.worktree_path),
+        worktree_path=worktree_path,
         cd_command=cd_command,
         clipboard_copied=clipboard_copied,
         clipboard_skipped=no_clipboard,
