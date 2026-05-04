@@ -27,6 +27,7 @@ type SentMessage = {
 	content: string;
 	display: boolean;
 	details: Record<string, unknown>;
+	options?: { triggerTurn?: boolean };
 };
 
 type Harness = {
@@ -47,7 +48,7 @@ const SAMPLE_CONTEXT: NextContextResult = {
 	freshness_advisory: null,
 	notes_present: true,
 	body_content: "# Widget rewrite\n\nStatus: Open\n\nBody raw content.",
-	roadmap_content: "## Phase 1\n\n- [ ] Keep roadmap raw.",
+	roadmap_content: "## Phase 1\n\n- [x] Completed setup.\n- [ ] Keep roadmap raw.",
 	notes_content: "Durable note raw content.",
 };
 
@@ -73,8 +74,8 @@ function makeHarness(handler: (command: string, args: string[], options: ExecCal
 			calls.push({ command, args, options });
 			return handler(command, args, options);
 		},
-		sendMessage: (message: SentMessage) => {
-			messages.push(message);
+		sendMessage: (message: Omit<SentMessage, "options">, options?: SentMessage["options"]) => {
+			messages.push(options === undefined ? message : { ...message, options });
 		},
 		registerCommand: () => {},
 	} as unknown as ExtensionAPI;
@@ -145,6 +146,7 @@ describe("runObjectiveNext", () => {
 
 		const message = latestMessage(harness);
 		expect(message.details.status).toBe("failed");
+		expect(message.options?.triggerTurn).toBeUndefined();
 		expect(message.content).toContain("objective exec next-context failed: no_objective_on_branch");
 		expect(message.content).toContain("No objective on branch");
 	});
@@ -160,7 +162,9 @@ describe("runObjectiveNext", () => {
 
 		await runObjectiveNext(harness.pi, makeContext(cwd), "");
 
-		const content = latestMessage(harness).content;
+		const message = latestMessage(harness);
+		const content = message.content;
+		expect(message.options?.triggerTurn).toBe(true);
 		expect(content).toContain("# Objective next context: `widget-rewrite`");
 		expect(content).toContain("Current branch: `feature/widgets`");
 		expect(content).toContain("Trunk branch: `master`");
@@ -169,10 +173,13 @@ describe("runObjectiveNext", () => {
 		expect(content).toContain("Advisory: Snapshot is behind HEAD");
 		expect(content).toContain(SAMPLE_CONTEXT.body_content);
 		expect(content).toContain(SAMPLE_CONTEXT.roadmap_content ?? "");
+		expect(content).toContain("- [x] Completed setup.");
+		expect(content).toContain("- [ ] Keep roadmap raw.");
 		expect(content).toContain(SAMPLE_CONTEXT.notes_content ?? "");
-		expect(content).toContain("Semantic next-slice choice belongs to the agent/skill");
+		expect(content).toContain("## Agent task");
+		expect(content).toContain("Interpret the raw Markdown above yourself");
+		expect(content).toContain("objective exec next-collision <candidate-slug> --format json");
 		expect(content).not.toContain("Suggested slug");
-		expect(content).not.toContain("Collision");
 	});
 
 	test("does not call legacy git, brmem, objective list/show/precheck, or collision operations", async () => {

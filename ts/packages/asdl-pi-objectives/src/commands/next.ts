@@ -217,10 +217,12 @@ function formatBoolean(value: boolean): string {
 }
 
 function formatContentSection(fileName: string, content: string | null): string[] {
+	// Keep objective Markdown opaque: render the CLI-provided text without
+	// Markdown interpretation so the LM handles checklists, headings, and status.
 	if (content === null) {
 		return [`## ${fileName}`, "", "_Not present._"];
 	}
-	return [`## ${fileName}`, "", content.trimEnd()];
+	return [`## ${fileName}`, "", content];
 }
 
 function buildReport(result: NextContextResult): string {
@@ -251,21 +253,33 @@ function buildReport(result: NextContextResult): string {
 		"",
 		...formatContentSection("notes.md", result.notes_content),
 		"",
-		"## Next step",
+		"## Agent task",
 		"",
-		"Semantic next-slice choice belongs to the agent/skill, not the Pi renderer. Use the context above to choose the next PR-sized slice.",
+		"Interpret the raw Markdown above yourself. Choose the next PR-sized slice, generate a lowercase kebab-case candidate slug, then check it with `objective exec next-collision <candidate-slug> --format json`.",
+		"",
+		"Do not inspect source files, mutate files, create branches, or derive objective policy in TypeScript. If multiple next slices are plausible, present 2-3 candidate slugs and ask the user to choose before checking collisions.",
 	);
 
 	return lines.join("\n");
 }
 
-function emitMessage(pi: ExtensionAPI, content: string, details: Record<string, unknown> = {}): void {
-	pi.sendMessage({
+function emitMessage(
+	pi: ExtensionAPI,
+	content: string,
+	details: Record<string, unknown> = {},
+	options?: { triggerTurn?: boolean },
+): void {
+	const message = {
 		customType: CUSTOM_TYPE,
 		content,
 		display: true,
 		details,
-	});
+	};
+	if (options === undefined) {
+		pi.sendMessage(message);
+		return;
+	}
+	pi.sendMessage(message, options);
 }
 
 export async function runObjectiveNext(pi: ExtensionAPI, ctx: ExtensionCommandContext, argsText: string): Promise<void> {
@@ -278,14 +292,19 @@ export async function runObjectiveNext(pi: ExtensionAPI, ctx: ExtensionCommandCo
 		const result = await loadNextContext(pi, ctx, args.slug);
 		const report = buildReport(result);
 
-		emitMessage(pi, report, {
-			status: "ok",
-			slug: result.slug,
-			branch: result.current_branch,
-			trunk: result.trunk_branch,
-			files: result.files_present,
-			freshness: result.freshness,
-		});
+		emitMessage(
+			pi,
+			report,
+			{
+				status: "ok",
+				slug: result.slug,
+				branch: result.current_branch,
+				trunk: result.trunk_branch,
+				files: result.files_present,
+				freshness: result.freshness,
+			},
+			{ triggerTurn: true },
+		);
 		if (ctx.hasUI) {
 			ctx.ui.notify(`Objective next context: ${result.slug}`, "info");
 		}
