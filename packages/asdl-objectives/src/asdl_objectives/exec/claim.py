@@ -10,6 +10,7 @@ silently choosing among valid claims.
 
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal
@@ -745,7 +746,7 @@ def _source_rerun_args(
 
 
 def _join_args(args: tuple[str, ...]) -> str:
-    return " ".join(args)
+    return " ".join(shlex.quote(arg) for arg in args)
 
 
 def _claimed_message(result: ClaimedResult, *, trunk_branch: str) -> str:
