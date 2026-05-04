@@ -18,7 +18,7 @@ from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_o
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import DetachedHead
+from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.exec.claim import CLAIM_SCHEMA, PLAN_SCHEMA
 from asdl_objectives.main import build_cli
@@ -36,7 +36,7 @@ def _make_obj(
     current_branch: str | DetachedHead = "feat/x",
     branches: tuple[str, ...] = ("master", "feat/x"),
     ancestors: tuple[tuple[str, str], ...] = (),
-    commit_count_by_range: dict[str, int] | None = None,
+    commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
 ) -> ClinkrContextObject:
     git_gateway = FakeGitGateway(
         current_branch_by_path={Path.cwd(): current_branch},
