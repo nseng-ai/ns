@@ -31,20 +31,23 @@ appear when useful. `.closed` appears only in the archive namespace.
 
 ## Operation table
 
-| Operation             | Canonical objective                         | Current branch snapshot        | Other branch snapshots |
-| --------------------- | ------------------------------------------- | ------------------------------ | ---------------------- |
-| `objective-create`    | Writes initial `body.md` and roadmap        | Never                          | Never                  |
-| `objective-next`      | Reads only                                  | Reads only                     | Reads only             |
-| `objective-current`   | Reads only                                  | Reads only                     | Reads only             |
-| `objective-digest`    | Reads only                                  | Reads only                     | Reads only             |
-| `objective-claim`     | May read as source                          | Writes verbatim copy to target | May read as source     |
-| `objective-update`    | Never                                       | Rewrites from branch work      | Never                  |
-| `objective-reconcile` | Rewrites from landed branch + PR evidence   | Reads only as evidence         | Reads only as evidence |
-| `objective close`     | Moves active refs into archive + `.closed`  | Moves matching refs to archive | Moves matching refs    |
-| `objective reopen`    | Moves archive refs back, omitting `.closed` | Moves matching refs back       | Moves matching refs    |
+| Operation             | Canonical objective                         | Current branch snapshot                                | Other branch snapshots |
+| --------------------- | ------------------------------------------- | ------------------------------------------------------ | ---------------------- |
+| `objective-create`    | Writes initial `body.md` and roadmap        | Never                                                  | Never                  |
+| `objective-next`      | Reads only                                  | May claim/update, then reads prepared snapshot         | Reads only             |
+| `objective-current`   | Reads only                                  | Reads only                                             | Reads only             |
+| `objective-digest`    | Reads only                                  | Reads only                                             | Reads only             |
+| `objective-claim`     | May read as source                          | Writes verbatim copy to target                         | May read as source     |
+| `objective-update`    | Never                                       | May claim when missing; then rewrites from branch work | Never                  |
+| `objective-reconcile` | Rewrites from landed branch + PR evidence   | Reads only as evidence                                 | Reads only as evidence |
+| `objective close`     | Moves active refs into archive + `.closed`  | Moves matching refs to archive                         | Moves matching refs    |
+| `objective reopen`    | Moves archive refs back, omitting `.closed` | Moves matching refs back                               | Moves matching refs    |
 
 Carry-forward is exclusively `objective-claim`'s job. It copies one
-source snapshot exactly; it never merges or summarizes.
+source snapshot exactly; it never merges or summarizes. Higher-level skills
+such as `objective-update` and `objective-next` may delegate to the claim
+primitive when preparing an unclaimed branch, but they must not hand-copy or
+synthesize snapshot files themselves.
 
 ## Shared conservative rewrite rules
 
@@ -108,12 +111,15 @@ Forbidden:
 
 ### Branch snapshot update
 
-`update` refreshes the current branch snapshot from work committed on the
-same branch. It is for stacked PRs: use it when another branch will claim
-from the current branch before the current branch lands. For a simple
-single-PR path, merge the PR and run `objective-reconcile` on the trunk
-branch instead. `update` aborts when run on trunk (error type
-`on_trunk_branch`) because trunk is the canonical storage branch.
+`update` makes the current branch snapshot current from work committed on the
+same branch. If the branch is missing the requested or resolved snapshot, the
+workflow may first delegate to `objective-claim`'s plan/apply helpers to
+attach an exact carry-forward, then rerun precheck and update. It is for
+stacked PRs: use it when another branch will claim from the current branch
+before the current branch lands. For a simple single-PR path, merge the PR and
+run `objective-reconcile` on the trunk branch instead. `update` aborts when
+run on trunk (error type `on_trunk_branch`) because trunk is the canonical
+storage branch.
 
 Evidence:
 
@@ -204,9 +210,11 @@ Both rewrite modes follow the same shape:
 
 ### `objective-next`
 
-`next` writes nothing. It resolves the best source for a slug, reports status,
-flags stale non-canonical branch snapshots, and suggests a next-slice slug.
-It does not inspect source code to audit progress.
+`next` prepares only when needed, then reads the prepared current branch
+snapshot for recommendation. On a non-trunk branch with no snapshot it may
+delegate to claim; on a stale branch snapshot it may delegate to update. It
+never mutates canonical state, creates branches, or inspects source code to
+audit progress.
 
 ### `objective-current`
 

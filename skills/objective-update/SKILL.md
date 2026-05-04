@@ -6,6 +6,8 @@ allowed-tools:
   - "Bash(git log *)"
   - "Bash(git show *)"
   - "Bash(objective exec update-precheck *)"
+  - "Bash(objective exec claim-plan *)"
+  - "Bash(objective exec claim-apply *)"
   - "Bash(objective exec absorb-patches *)"
   - "Bash(brmem get *)"
   - "Bash(brmem put *)"
@@ -24,12 +26,14 @@ from it.
 
 ## Goal
 
-Given an explicit objective slug, update the branch-local snapshot under
-`<slug>/` to reflect commits on the current branch. Write only changed
-content files back to `brmem`, then advance the machine-owned
-`<slug>/.absorbed.jsonl` marker so deterministic freshness checks know
-which branch patches this snapshot covers. Report old/new commit SHAs so
-prior snapshots are recoverable.
+Given an explicit, resolved, or implicitly claimed objective slug, make the
+current branch's snapshot under `<slug>/` current with commits on the current
+branch. If the branch has no matching snapshot, delegate to the exact
+carry-forward primitive (`objective exec claim-plan` / `claim-apply`) first,
+then continue the normal update. Write only changed content files back to
+`brmem`, then advance the machine-owned `<slug>/.absorbed.jsonl` marker so
+deterministic freshness checks know which branch patches this snapshot
+covers. Report old/new commit SHAs so prior snapshots are recoverable.
 
 `update` mutates a **branch snapshot**, not the canonical objective.
 Canonical state is stored on the repo's trunk branch (see
@@ -58,7 +62,7 @@ snapshot covers the current branch work.
   and let the precheck enumerate slugs attached to the current branch: a
   single slug auto-resolves, multiple slugs returns
   `ambiguous_objective` (ask the user to choose), zero slugs returns
-  `no_objective_on_branch` (point at `objective-claim`). Never derive
+  `no_objective_on_branch` (run the implicit claim flow below). Never derive
   the slug from the branch name — branches commonly carry a parent
   objective whose slug differs from the branch's slice slug.
 
@@ -84,9 +88,10 @@ snapshot covers the current branch work.
   `../objective/references/mutation-contract.md`. Do not regenerate
   files from the original brief, rename sections, delete history, or rebuild
   files wholesale.
-- **Never attach a missing snapshot.** If `<slug>/` is not present on the
-  branch, abort and point at `objective-claim`. Use `claim`, not
-  `update`, to attach.
+- **Attach missing snapshots only through claim.** If `<slug>/` is not present
+  on the branch, run the claim planning/apply flow below and then rerun the
+  update precheck. Do not synthesize or hand-copy snapshot files during
+  `update`.
 - **Never implement work.** `update` records progress; it does not write
   code or perform the slice's engineering.
 
@@ -106,17 +111,17 @@ commit list in one round-trip.
 
 Handle the result:
 
-- **`error_type` set**: surface the message and stop. The possible values
-  and what they mean:
+- **`error_type` set**: handle only the attach-missing cases here; surface
+  all other errors and stop.
+  - `no_objective_on_branch` — no slugs attached on this branch; continue to
+    Step 1a to implicitly claim one.
+  - `slug_not_attached` — the named slug has no snapshot on this branch;
+    continue to Step 1a to claim that slug.
   - `detached_head` — not on a branch; user must check out a branch.
   - `on_trunk_branch` — `update` operates on branch snapshots only;
     direct the user to `objective-reconcile`.
-  - `no_objective_on_branch` — no slugs attached on this branch; direct
-    the user to `objective-claim <slug>` first.
-  - `ambiguous_objective` — multiple slugs attached; ask the user to
+  - `ambiguous_objective` — multiple slugs already attached; ask the user to
     name one explicitly and re-run with the slug argument.
-  - `slug_not_attached` — the named slug has no snapshot on this
-    branch; direct the user to `objective-claim <slug>` first.
   - `git_failed` — surface the underlying git error verbatim.
 - **`data.freshness == "fresh"`**: report and exit without loading or
   writing files:
@@ -138,6 +143,50 @@ Handle the result:
 
 If `data.absorbed_marker_diagnostics` is non-empty, mention that the marker is
 malformed and will be rewritten if triage succeeds.
+
+### 1a. Implicit claim when missing
+
+Run claim planning with the slug from the prompt, when present:
+
+```bash
+objective exec claim-plan [<slug>] --format json
+```
+
+Handle the claim envelope:
+
+- **`status == "plan"`**: write the complete JSON envelope to a temporary
+  plan file and apply it:
+
+  ```bash
+  PLAN=/tmp/objective-claim-plan-<resolved-slug>.json
+  objective exec claim-apply --plan-file "$PLAN" --format json
+  ```
+
+  Capture the resolved slug from the plan/apply result, rerun the precheck
+  with that slug, and continue Step 1's normal stale/fresh handling:
+
+  ```bash
+  objective exec update-precheck <resolved-slug> --format json
+  ```
+
+- **`status == "ambiguous"`**: present the alternatives and ask the user to
+  choose. For `ambiguous_slug_candidates`, list each slug with the available
+  source branch when present, then rerun:
+
+  ```bash
+  objective exec claim-plan <selected-slug> --format json
+  ```
+
+  For `ambiguous_source_branches`, list the tied source branches for the
+  selected slug, then rerun:
+
+  ```bash
+  objective exec claim-plan <selected-slug> --from <selected-branch> --format json
+  ```
+
+  Apply the resulting plan and rerun `update-precheck <resolved-slug>`.
+
+- **`status == "error"`**: surface the message and stop.
 
 ### 2. Load target files
 
@@ -249,9 +298,9 @@ When no files were rewritten, report:
 
 - Detached `HEAD`: abort.
 - Current branch is the trunk branch: abort and point to `objective-reconcile`.
-- Slug not attached: abort and point to `objective-claim`. (Applies whether the
-  slug was named in the prompt or the current branch has zero attached
-  slugs at auto-resolve time.)
+- Slug not attached or no objective on the branch: run the implicit claim flow,
+  prompt for slug/source selection when `claim-plan` is ambiguous, then rerun
+  `update-precheck` before mutating prose.
 - Multiple attached slugs with no slug in the prompt: ask the user to
   choose. Never auto-pick to break the tie.
 - Snapshot fresh relative to HEAD: report in sync and write nothing.
