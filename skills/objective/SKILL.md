@@ -162,20 +162,25 @@ create canonical
   -> reconcile landed branch snapshots and associated PR evidence into canonical objective
 ```
 
-For stacked PRs, insert `update` after implementation and before a child
-branch claims from the current branch snapshot:
+For stacked PRs, the ergonomic loop is:
 
 ```text
 implement a slice on a branch
-  -> update that branch snapshot from branch work
-  -> inspect with next and choose the child slice
-  -> claim from the updated ancestor snapshot into the child branch
+  -> objective update
+  -> objective next
 ```
+
+`update` makes the current branch's objective snapshot current, claiming one
+first when the branch is missing it. `next` makes the current branch current
+when needed, then recommends the next slice. On an unclaimed non-trunk branch,
+`objective next` claims the selected objective, updates the snapshot, reruns
+its context read, and only then recommends the next slice.
 
 - **Create** (`objective-create`): draft the canonical objective.
   Writes `body.md` and, when a concrete slice plan exists, `roadmap.md`.
-- **Next** (`objective-next`): read-only inspection and next-slice
-  recommendation before branch claim. It writes nothing.
+- **Next** (`objective-next`): prepare-then-read next-slice recommendation.
+  It may claim/update the current branch snapshot when needed, then reads the
+  prepared snapshot for planning. It never mutates canonical state.
 - **Current** (`objective-current`): read-only current-branch orientation
   view. It shows the claimed objective, PR, branch snapshot freshness,
   brmem entries, and the trunk-relation row. It is scoped to the current
@@ -187,11 +192,12 @@ implement a slice on a branch
 - **Claim** (`objective-claim`): attach a branch snapshot by verbatim
   copy from an explicit source, nearest ancestor branch snapshot, or the
   canonical objective.
-- **Update** (`objective-update`): refresh the current branch snapshot
-  from commits on that branch when another branch will claim from it before it
-  lands. It is normally only needed for stacked PRs. It is a no-op when the
-  snapshot is already fresh relative to branch HEAD. When branch work is
-  stale but already documented, `update` may only advance `.absorbed.jsonl`.
+- **Update** (`objective-update`): make the current branch's objective
+  snapshot current. When the snapshot is missing, it may attach one by
+  delegating to the claim primitive; then it refreshes from commits on that
+  branch. It is a no-op when the snapshot is already fresh relative to branch
+  HEAD. When branch work is stale but already documented, `update` may only
+  advance `.absorbed.jsonl`. It never mutates canonical state.
 - **Reconcile** (`objective-reconcile`): rewrite the canonical
   objective by exploring branch snapshots that carry the slug,
   cross-referencing their associated PRs, and folding only landed evidence
@@ -227,17 +233,17 @@ remain stale until `objective-update` runs on the child.
 
 The full contract lives in `references/mutation-contract.md`. Summary:
 
-| Operation             | Canonical objective                          | Current branch snapshot                  | Other branch snapshots |
-| --------------------- | -------------------------------------------- | ---------------------------------------- | ---------------------- |
-| `objective-create`    | Writes initial `body.md` and roadmap         | Never                                    | Never                  |
-| `objective-next`      | Reads only                                   | Reads only                               | Reads only             |
-| `objective-current`   | Reads only                                   | Reads only                               | Reads only             |
-| `objective-digest`    | Reads only                                   | Reads only                               | Reads only             |
-| `objective-claim`     | May read as source                           | Writes verbatim carry-forward to target  | May read as source     |
-| `objective-update`    | Never                                        | Rewrites conservatively from branch work | Never                  |
-| `objective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                   | Reads only as evidence |
-| `objective close`     | Moves active refs into closed archive        | Moves matching refs into closed archive  | Moves matching refs    |
-| `objective reopen`    | Moves archive refs back to active storage    | Moves matching refs back                 | Moves matching refs    |
+| Operation             | Canonical objective                          | Current branch snapshot                                               | Other branch snapshots |
+| --------------------- | -------------------------------------------- | --------------------------------------------------------------------- | ---------------------- |
+| `objective-create`    | Writes initial `body.md` and roadmap         | Never                                                                 | Never                  |
+| `objective-next`      | Reads only                                   | May claim/update, then reads prepared snapshot                        | Reads only             |
+| `objective-current`   | Reads only                                   | Reads only                                                            | Reads only             |
+| `objective-digest`    | Reads only                                   | Reads only                                                            | Reads only             |
+| `objective-claim`     | May read as source                           | Writes verbatim carry-forward to target                               | May read as source     |
+| `objective-update`    | Never                                        | May claim when missing; then rewrites conservatively from branch work | Never                  |
+| `objective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                                                | Reads only as evidence |
+| `objective close`     | Moves active refs into closed archive        | Moves matching refs into closed archive                               | Moves matching refs    |
+| `objective reopen`    | Moves archive refs back to active storage    | Moves matching refs back                                              | Moves matching refs    |
 
 `update` and `reconcile` share the same conservative prose rewrite rules.
 They differ in authority and evidence:
@@ -274,8 +280,10 @@ They differ in authority and evidence:
 ## Non-goals
 
 - Storing objective content in GitHub, PR comments, or working-tree files.
-- Auto-attaching objectives to new branches.
-- Letting `next` write state.
+- Auto-attaching objectives merely by creating or checking out a branch; attach
+  only through `claim` or through `update`/`next` preparation that delegates to
+  claim.
+- Letting `next` write canonical state, create branches, or implement work.
 - Letting `update` rewrite canonical state.
 - Letting `reconcile` rewrite branch snapshots.
 - Rebuilding snapshots wholesale during normal progress work.
