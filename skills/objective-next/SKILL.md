@@ -59,8 +59,9 @@ check it out first.
   one first; if it has a stale snapshot, update it first; then rerun
   `next-context` and plan from the fresh context.
 - **Claim remains the carry-forward primitive.** Missing snapshots are
-  attached only by `objective exec claim-plan` and `claim-apply`. Do not
-  hand-copy or synthesize objective files.
+  attached only by the `objective-claim` workflow. During `next`, delegate to
+  `objective-claim [<slug>]` when the branch has no snapshot; do not
+  hand-copy objective files or manually construct claim plan files.
 - **Conservative updates only.** When preparation needs an update, follow
   `../objective-update/SKILL.md`: load only attached files, triage branch
   commits, rewrite conservatively, and advance `.absorbed.jsonl` only after
@@ -95,7 +96,11 @@ Run the deterministic context helper and parse the JSON envelope:
 objective exec next-context [<slug>] --format json
 ```
 
-Handle the result:
+Handle the result. `next-context` and `update-precheck` may exit 2 for
+preparation-control states. For `no_objective_on_branch` and
+`slug_not_attached`, continue with the preparation path below — these are
+expected workflow branches, not terminal failures. Other exit-2 errors are
+terminal unless this workflow explicitly handles them.
 
 - **Success with `data.freshness == "fresh"` or `null`**: the context is
   ready. Continue to Step 5.
@@ -124,31 +129,26 @@ The important orchestration shape is:
    ```
 
 2. If the precheck reports `no_objective_on_branch` or `slug_not_attached`,
-   run claim planning:
+   delegate to the `objective-claim` workflow:
 
-   ```bash
-   objective exec claim-plan [<slug>] --format json
+   ```text
+   objective-claim [<slug>]
    ```
 
-   - For `status == "plan"`, write the envelope to a temp file and run:
-
-     ```bash
-     objective exec claim-apply --plan-file "$PLAN" --format json
-     ```
-
-   - For `ambiguous_slug_candidates`, list the candidate slugs and available
-     source branch labels, ask which objective to claim, then rerun
-     `claim-plan <selected-slug>`.
-   - For `ambiguous_source_branches`, list the source branches, ask which
-     source to claim from, then rerun
-     `claim-plan <selected-slug> --from <selected-branch>`.
-   - For `status == "error"`, surface the message and stop.
+   Treat these errors as expected preparation control flow, not terminal
+   failures. If `objective-claim` reports ambiguity (candidate slugs or
+   tied source branches), list the alternatives, ask the user to choose,
+   and rerun `objective-claim` with the selected slug (and
+   `--from <branch>` when the ambiguity was over source branches). If it
+   reports a real error, surface the message and stop. Do not manually
+   construct claim plan files during `next`.
 
 3. Rerun `update-precheck <resolved-slug>` after any claim.
 4. If freshness is fresh, preparation is complete.
 5. If freshness is stale, complete the normal conservative update flow from
-   `../objective-update/SKILL.md`, including `brmem put` only for changed
-   files and:
+   `../objective-update/SKILL.md`. When that workflow rewrites files,
+   persist them through serial `brmem put` writes (one at a time per the
+   serialization rule in `objective-update`), then run:
 
    ```bash
    objective exec absorb-patches <slug> --expected-head <data.branch_head_sha> --format json
@@ -247,12 +247,14 @@ on the trunk branch.
   `objective-reconcile`, not `objective-update`.
 - Multiple slugs on the current branch: legitimate when two unrelated parent
   objectives are claimed on the same branch; list both and ask.
-- Unclaimed non-trunk branch: claim through `claim-plan` / `claim-apply`, then
-  update if stale before recommending.
+- Unclaimed non-trunk branch: delegate to `objective-claim`, then update if
+  stale before recommending.
 - Branch name does not equal slug. Never derive the slug from the branch name.
 - Source has only the required content file: report that no optional progress
   surface exists; fall back to progress guidance, or ask if the next slug is
   ambiguous.
+- Never manually create claim plan files during `objective-next`; delegate
+  missing snapshot attachment to `objective-claim`.
 - Never auto-pick a slug from a multi-slug current branch, auto-resolve a
   collision, inspect source code for drift, hand-copy a snapshot, walk
   ancestors outside `claim-plan`, write canonical state, create branches, or
