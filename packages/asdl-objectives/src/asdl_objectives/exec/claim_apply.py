@@ -36,6 +36,7 @@ from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, slug_for_key
 from asdl_objectives.exec.claim_plan import (
     PLAN_SCHEMA,
+    ClaimPlanResult,
     HardFailure,
     SourceKind,
     target_carries_slug,
@@ -117,10 +118,13 @@ def run_claim_apply_objective(
     request: ClaimApplyRequest,
 ) -> ClinkrExit[ClaimApplyResult]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
-    gateway = mctx.brmem_gateway
+    return ClinkrExit.ok(apply_claim_plan_file(mctx, request.plan_file))
+
+
+def apply_claim_plan_file(mctx: ObjectiveCliContext, plan_file: Path) -> ClaimApplyResult:
     trunk_branch = resolve_trunk(mctx.git_gateway).trunk
 
-    raw = request.plan_file.read_text(encoding="utf-8")
+    raw = plan_file.read_text(encoding="utf-8")
     try:
         envelope = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -172,6 +176,59 @@ def run_claim_apply_objective(
     )
 
     parsed = Ensure.ideal_state(_parse_plan_block(plan))
+    return _apply_parsed_claim_plan(mctx, parsed)
+
+
+def apply_claim_plan_result(
+    mctx: ObjectiveCliContext,
+    plan_result: ClaimPlanResult,
+) -> ClaimApplyResult:
+    trunk_branch = resolve_trunk(mctx.git_gateway).trunk
+    Ensure.true(
+        plan_result.schema == PLAN_SCHEMA,
+        error_type="schema_mismatch",
+        message=(
+            f"Plan result schema {plan_result.schema!r} does not match expected {PLAN_SCHEMA!r}."
+        ),
+    )
+    Ensure.true(
+        plan_result.canonical_branch == trunk_branch,
+        error_type="schema_mismatch",
+        message=(
+            f"Plan result canonical_branch {plan_result.canonical_branch!r} does not "
+            f"match expected {trunk_branch!r}."
+        ),
+    )
+    Ensure.true(
+        plan_result.status == "plan",
+        error_type="not_a_plan",
+        message=(
+            f"Plan result status is {plan_result.status!r}; claim apply requires status='plan'."
+        ),
+    )
+    plan = Ensure.not_none(
+        plan_result.plan,
+        error_type="malformed_plan_file",
+        message="Plan result status='plan' without plan details.",
+    )
+    return _apply_parsed_claim_plan(
+        mctx,
+        _ParsedPlan(
+            slug=slug_for_key(plan.slug),
+            target_branch=plan.target_branch,
+            source_kind=plan.source.kind,
+            source_branch=plan.source.branch,
+            source_label=plan.source.label,
+            from_file_path=plan.source.from_file_path,
+        ),
+    )
+
+
+def _apply_parsed_claim_plan(
+    mctx: ObjectiveCliContext,
+    parsed: _ParsedPlan,
+) -> ClaimApplyResult:
+    gateway = mctx.brmem_gateway
     slug = parsed.slug
     target_branch = parsed.target_branch
     source_kind = parsed.source_kind
@@ -211,18 +268,16 @@ def run_claim_apply_objective(
         body_key_value = body_key(slug)
         commit_sha = gateway.put(OBJECTIVE_NAMESPACE, body_key_value, target_branch, content)
         ref_name = _ref_name(target_branch)
-        return ClinkrExit.ok(
-            ClaimApplyResult(
-                schema=PLAN_SCHEMA,
-                slug=slug,
-                target_branch=target_branch,
-                source_kind=source_kind,
-                source_branch=None,
-                source_label=source_label,
-                files_carried=(CarriedFile(file="body.md", key=body_key_value),),
-                destination_ref=ref_name,
-                destination_commit_sha=commit_sha,
-            )
+        return ClaimApplyResult(
+            schema=PLAN_SCHEMA,
+            slug=slug,
+            target_branch=target_branch,
+            source_kind=source_kind,
+            source_branch=None,
+            source_label=source_label,
+            files_carried=(CarriedFile(file="body.md", key=body_key_value),),
+            destination_ref=ref_name,
+            destination_commit_sha=commit_sha,
         )
 
     source_branch = Ensure.not_none(
@@ -263,18 +318,16 @@ def run_claim_apply_objective(
     diag_after = gateway.check(OBJECTIVE_NAMESPACE, copied[0].key, target_branch)
     commit_sha = diag_after.head_sha if diag_after is not None else ""
     ref_name = _ref_name(target_branch)
-    return ClinkrExit.ok(
-        ClaimApplyResult(
-            schema=PLAN_SCHEMA,
-            slug=slug,
-            target_branch=target_branch,
-            source_kind=source_kind,
-            source_branch=source_branch,
-            source_label=source_label,
-            files_carried=files_carried,
-            destination_ref=ref_name,
-            destination_commit_sha=commit_sha,
-        )
+    return ClaimApplyResult(
+        schema=PLAN_SCHEMA,
+        slug=slug,
+        target_branch=target_branch,
+        source_kind=source_kind,
+        source_branch=source_branch,
+        source_label=source_label,
+        files_carried=files_carried,
+        destination_ref=ref_name,
+        destination_commit_sha=commit_sha,
     )
 
 

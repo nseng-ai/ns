@@ -220,6 +220,13 @@ def run_claim_plan_objective(
     request: ClaimPlanRequest,
 ) -> ClinkrExit[ClaimPlanResult]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
+    return ClinkrExit.ok(plan_claim_objective(mctx, request))
+
+
+def plan_claim_objective(
+    mctx: ObjectiveCliContext,
+    request: ClaimPlanRequest,
+) -> ClaimPlanResult:
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
     trunk_branch = resolve_trunk(git).trunk
@@ -263,38 +270,34 @@ def run_claim_plan_objective(
             trunk_branch=trunk_branch,
         )
         if isinstance(outcome, _AmbiguityOutcome):
-            return ClinkrExit.ok(
-                _envelope_for_request(
-                    request=request,
-                    requested_slug=requested_slug,
-                    target_branch=target_branch,
-                    trunk_branch=trunk_branch,
-                    status="ambiguous",
-                    ambiguity=outcome.ambiguity,
-                )
+            return _envelope_for_request(
+                request=request,
+                requested_slug=requested_slug,
+                target_branch=target_branch,
+                trunk_branch=trunk_branch,
+                status="ambiguous",
+                ambiguity=outcome.ambiguity,
             )
         slug = outcome
     else:
         slug = requested_slug
 
     if target_carries_slug(gateway, slug=slug, branch=target_branch):
-        return ClinkrExit.ok(
-            _envelope_for_request(
-                request=request,
-                requested_slug=requested_slug,
-                target_branch=target_branch,
-                trunk_branch=trunk_branch,
-                resolved_slug=slug,
-                status="error",
-                error=ClaimPlanError(
-                    reason="target_collision",
-                    message=(
-                        f"Target branch {target_branch!r} already carries "
-                        f"keys under {slug!r}/. Use objective-update or "
-                        f"objective-reconcile to advance the existing snapshot."
-                    ),
+        return _envelope_for_request(
+            request=request,
+            requested_slug=requested_slug,
+            target_branch=target_branch,
+            trunk_branch=trunk_branch,
+            resolved_slug=slug,
+            status="error",
+            error=ClaimPlanError(
+                reason="target_collision",
+                message=(
+                    f"Target branch {target_branch!r} already carries "
+                    f"keys under {slug!r}/. Use objective-update or "
+                    f"objective-reconcile to advance the existing snapshot."
                 ),
-            )
+            ),
         )
 
     source_outcome = _resolve_source(
@@ -307,44 +310,38 @@ def run_claim_plan_objective(
         from_file=request.from_file,
     )
     if isinstance(source_outcome, ClaimPlanError):
-        return ClinkrExit.ok(
-            _envelope_for_request(
-                request=request,
-                requested_slug=requested_slug,
-                target_branch=target_branch,
-                trunk_branch=trunk_branch,
-                resolved_slug=slug,
-                status="error",
-                error=source_outcome,
-            )
-        )
-    if isinstance(source_outcome, ClaimPlanAmbiguity):
-        return ClinkrExit.ok(
-            _envelope_for_request(
-                request=request,
-                requested_slug=requested_slug,
-                target_branch=target_branch,
-                trunk_branch=trunk_branch,
-                resolved_slug=slug,
-                status="ambiguous",
-                ambiguity=source_outcome,
-            )
-        )
-
-    return ClinkrExit.ok(
-        _envelope_for_request(
+        return _envelope_for_request(
             request=request,
             requested_slug=requested_slug,
             target_branch=target_branch,
             trunk_branch=trunk_branch,
             resolved_slug=slug,
-            status="plan",
-            plan=ClaimPlan(
-                slug=slug,
-                target_branch=target_branch,
-                source=source_outcome,
-            ),
+            status="error",
+            error=source_outcome,
         )
+    if isinstance(source_outcome, ClaimPlanAmbiguity):
+        return _envelope_for_request(
+            request=request,
+            requested_slug=requested_slug,
+            target_branch=target_branch,
+            trunk_branch=trunk_branch,
+            resolved_slug=slug,
+            status="ambiguous",
+            ambiguity=source_outcome,
+        )
+
+    return _envelope_for_request(
+        request=request,
+        requested_slug=requested_slug,
+        target_branch=target_branch,
+        trunk_branch=trunk_branch,
+        resolved_slug=slug,
+        status="plan",
+        plan=ClaimPlan(
+            slug=slug,
+            target_branch=target_branch,
+            source=source_outcome,
+        ),
     )
 
 

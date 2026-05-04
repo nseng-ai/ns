@@ -1,37 +1,31 @@
 """``objective exec claim`` — high-level objective claim workflow for agents.
 
 This command is the single CLI contract for ``objective-claim`` callers. It
-wraps the lower-level ``claim-plan`` / ``claim-apply`` primitives, returns
-ready-to-display messages, and exposes any required user choice as generic
-selection options with complete rerun arguments.
+composes the deterministic claim planner and applier, returns ready-to-display
+messages, and exposes any required user choice as generic selection options
+with complete rerun arguments.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Literal
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable, serialize_to_json_dict
+from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.exec.claim_apply import (
-    ClaimApplyRequest,
-    ClaimApplyResult,
-    run_claim_apply_objective,
-)
+from asdl_objectives.exec.claim_apply import ClaimApplyResult, apply_claim_plan_result
 from asdl_objectives.exec.claim_plan import (
     ClaimPlanAmbiguity,
     ClaimPlanRequest,
     ClaimPlanResult,
-    run_claim_plan_objective,
+    plan_claim_objective,
 )
 
 CLAIM_SCHEMA = "claim/v1"
@@ -68,7 +62,7 @@ class ClaimBlock(JsonSerializable):
 
 @dataclass(frozen=True)
 class ClaimCommandResult(JsonSerializable):
-    """High-level objective claim result for skills and Pi commands."""
+    """High-level objective claim result for skills and CLI callers."""
 
     schema: str
     status: ClaimStatus
@@ -95,12 +89,8 @@ def run_claim_objective(
     ctx: click.Context,
     request: ClaimPlanRequest,
 ) -> ClinkrExit[ClaimCommandResult]:
-    plan_exit = run_claim_plan_objective(ctx, request)
-    plan_result = Ensure.not_none(
-        plan_exit.data,
-        error_type="claim_plan_missing_data",
-        message="claim-plan returned no data.",
-    )
+    mctx = load_typed_context(ctx, ObjectiveCliContext)
+    plan_result = plan_claim_objective(mctx, request)
 
     if plan_result.status == "ambiguous":
         return ClinkrExit.ok(_result_for_ambiguity(request=request, plan_result=plan_result))
@@ -119,7 +109,7 @@ def run_claim_objective(
         message=f"claim-plan returned unsupported status: {plan_result.status!r}.",
     )
 
-    apply_result = _apply_plan(ctx, plan_result)
+    apply_result = apply_claim_plan_result(mctx, plan_result)
     return ClinkrExit.ok(
         ClaimCommandResult(
             schema=CLAIM_SCHEMA,
@@ -132,27 +122,6 @@ def run_claim_objective(
             selection=None,
             block=None,
         )
-    )
-
-
-def _apply_plan(ctx: click.Context, plan_result: ClaimPlanResult) -> ClaimApplyResult:
-    # Load the context here so invalid command contexts fail before we create
-    # transient files, matching other clinkr operation precondition behavior.
-    load_typed_context(ctx, ObjectiveCliContext)
-    with TemporaryDirectory(prefix="objective-claim-") as tmp_dir:
-        plan_path = Path(tmp_dir) / "claim-plan.json"
-        plan_path.write_text(
-            f"{json.dumps(serialize_to_json_dict(plan_result), indent=2)}\n",
-            encoding="utf-8",
-        )
-        apply_exit = run_claim_apply_objective(
-            ctx,
-            ClaimApplyRequest(plan_file=plan_path),
-        )
-    return Ensure.not_none(
-        apply_exit.data,
-        error_type="claim_apply_missing_data",
-        message="claim-apply returned no data.",
     )
 
 
