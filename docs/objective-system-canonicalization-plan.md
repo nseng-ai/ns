@@ -676,19 +676,15 @@ Acceptance:
 Second highest. Ancestor walk and collision check are drift-prone in skill
 prose.
 
-Proposed:
+Implemented as the single skill-facing command:
 
 ```text
-objective exec claim-plan [slug] [--target <branch>] [--from <branch>] [--from-file <path>] --format json
+objective exec claim [slug] [--target <branch>] [--from <branch>] [--from-file <path>] --format json
 ```
 
-Plus either a separate `objective exec claim-apply --plan-file <path>` or a
-top-level `objective claim` plan+apply.
-
-Plan JSON includes: target branch, resolved slug or
-ambiguity/no-candidate error, target collision status, selected source type
-and source branch/path, files to carry, exact `brmem copy` or `brmem put`
-operation shape, all alternatives/ties when ambiguous.
+The command keeps planning and applying as internal steps. Its JSON includes
+the claimed result, a generic selection payload for ambiguous slug/source
+choices, or a blocked payload for impossible inputs.
 
 Acceptance:
 

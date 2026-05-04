@@ -1,4 +1,4 @@
-"""Unit tests for the pure helpers in ``exec.claim_plan``.
+"""Unit tests for the pure claim planning helpers.
 
 The helpers under test are private but doing their own dedicated coverage
 keeps the slug-cascade rules and dataclass shape grep-able and easy to
@@ -7,7 +7,7 @@ evolve without spinning up the full Click harness.
 
 from __future__ import annotations
 
-from asdl_objectives.exec.claim_plan import (
+from asdl_objectives.exec.claim import (
     PLAN_SCHEMA,
     CandidateBranch,
     ClaimPlan,
@@ -65,6 +65,7 @@ def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
         schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="alpha",
+        resolved_slug="alpha",
         requested_target=None,
         requested_from_branch=None,
         requested_from_file=None,
@@ -84,6 +85,7 @@ def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
     )
     payload = result.to_json_dict()
     assert payload["status"] == "plan"
+    assert payload["resolved_slug"] == "alpha"
     assert payload["plan"]["slug"] == "alpha"
     assert payload["plan"]["source"]["kind"] == "canonical"
     assert payload["plan"]["source"]["branch"] == "master"
@@ -96,6 +98,7 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
         schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug=None,
+        resolved_slug="alpha",
         requested_target=None,
         requested_from_branch=None,
         requested_from_file=None,
@@ -114,6 +117,7 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
     )
     payload = result.to_json_dict()
     assert payload["status"] == "ambiguous"
+    assert payload["resolved_slug"] == "alpha"
     amb = payload["ambiguity"]
     assert amb["reason"] == "ambiguous_source_branches"
     assert [c["branch"] for c in amb["branch_alternatives"]] == ["feat/a", "feat/b"]
@@ -126,6 +130,7 @@ def test_claim_plan_result_to_json_dict_for_error_status() -> None:
         schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="ghost",
+        resolved_slug="ghost",
         requested_target=None,
         requested_from_branch=None,
         requested_from_file=None,
@@ -139,6 +144,7 @@ def test_claim_plan_result_to_json_dict_for_error_status() -> None:
     )
     payload = result.to_json_dict()
     assert payload["status"] == "error"
+    assert payload["resolved_slug"] == "ghost"
     assert payload["error"]["reason"] == "explicit_slug_not_found"
     assert payload["plan"] is None
     assert payload["ambiguity"] is None

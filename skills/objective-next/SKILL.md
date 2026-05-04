@@ -11,8 +11,7 @@ allowed-tools:
   - "Bash(objective exec next-context *)"
   - "Bash(objective exec next-collision *)"
   - "Bash(objective exec update-precheck *)"
-  - "Bash(objective exec claim-plan *)"
-  - "Bash(objective exec claim-apply *)"
+  - "Bash(objective exec claim *)"
   - "Bash(objective exec absorb-patches *)"
   - "Read"
   - "Write"
@@ -68,8 +67,8 @@ check it out first.
   the snapshot covers the current branch work.
 - **Current-branch-only source.** Always load the snapshot claimed on the
   current branch. There is no source cascade and no ancestor walk during the
-  planning read; source discovery happens only inside `claim-plan` when the
-  branch is missing a snapshot.
+  planning read; source discovery happens only inside `objective-claim` when
+  the branch is missing a snapshot.
 - **CLI authority for collision checks.** Use `objective exec next-collision`
   to test a candidate slug. Do not reproduce branch- or canonical-collision
   logic with raw `git` or `brmem`.
@@ -257,5 +256,5 @@ on the trunk branch.
   missing snapshot attachment to `objective-claim`.
 - Never auto-pick a slug from a multi-slug current branch, auto-resolve a
   collision, inspect source code for drift, hand-copy a snapshot, walk
-  ancestors outside `claim-plan`, write canonical state, create branches, or
+  ancestors outside the claim primitive, write canonical state, create branches, or
   implement work during `next`.

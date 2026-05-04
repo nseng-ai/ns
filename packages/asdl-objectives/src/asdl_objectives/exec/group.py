@@ -2,8 +2,7 @@
 
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_objectives.exec.absorb_patches import run_absorb_patches_objective
-from asdl_objectives.exec.claim_apply import run_claim_apply_objective
-from asdl_objectives.exec.claim_plan import run_claim_plan_objective
+from asdl_objectives.exec.claim import run_claim_objective
 from asdl_objectives.exec.create import run_create_objective
 from asdl_objectives.exec.current import run_current_objective
 from asdl_objectives.exec.digest import run_digest_objective
@@ -31,8 +30,7 @@ def build_exec_group() -> ClinkrGroup:
             run_reconcile_summary_objective,
             run_reconcile_diff_objective,
             run_reconcile_apply_objective,
-            run_claim_plan_objective,
-            run_claim_apply_objective,
+            run_claim_objective,
             run_create_objective,
         ],
         hidden=True,

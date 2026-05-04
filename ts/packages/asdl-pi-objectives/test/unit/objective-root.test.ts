@@ -10,11 +10,6 @@ describe("objective root command helpers", () => {
 	test("completes all root subcommands for an empty prefix", () => {
 		expect(completeObjectiveArgs("")).toEqual([
 			{
-				value: "claim ",
-				label: "claim",
-				description: "Claim an objective snapshot onto the current branch",
-			},
-			{
 				value: "next ",
 				label: "next",
 				description: "Inspect an objective and suggest the next PR-sized slice",
@@ -28,11 +23,14 @@ describe("objective root command helpers", () => {
 	});
 
 	test.each([
-		["c", ["claim "]],
 		["n", ["next "]],
 		["l", ["list "]],
 	])("completes subcommand prefix %s", (prefix, values) => {
 		expect(completeObjectiveArgs(prefix)?.map((item) => item.value)).toEqual(values);
+	});
+
+	test("does not complete the claim subcommand", () => {
+		expect(completeObjectiveArgs("c")).toBeNull();
 	});
 
 	test.each([
@@ -64,8 +62,8 @@ describe("objective root command helpers", () => {
 		]);
 	});
 
-	test.each(["claim da", "next da"])("does not complete dynamic slugs for %s", (prefix) => {
-		expect(completeObjectiveArgs(prefix)).toBeNull();
+	test("does not complete dynamic slugs for next", () => {
+		expect(completeObjectiveArgs("next da")).toBeNull();
 	});
 
 	test("parses subcommand and rest args", () => {
@@ -78,6 +76,6 @@ describe("objective root command helpers", () => {
 	});
 
 	test("formats unknown subcommand errors with valid choices", () => {
-		expect(formatUnknownSubcommandMessage("wat")).toBe("Unknown objective subcommand: wat\nValid subcommands: claim, next, list, ls.");
+		expect(formatUnknownSubcommandMessage("wat")).toBe("Unknown objective subcommand: wat\nValid subcommands: next, list, ls.");
 	});
 });

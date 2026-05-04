@@ -1,17 +1,12 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import type { AutocompleteItem } from "@mariozechner/pi-tui";
 
-import { runObjectiveClaim } from "./claim.ts";
 import { runObjectiveList } from "./list.ts";
 import { runObjectiveNext } from "./next.ts";
 
 const CUSTOM_TYPE = "objective";
 
 const SUBCOMMANDS = [
-	{
-		name: "claim",
-		description: "Claim an objective snapshot onto the current branch",
-	},
 	{
 		name: "next",
 		description: "Inspect an objective and suggest the next PR-sized slice",
@@ -50,14 +45,6 @@ export type ParsedObjectiveCommand = {
 	restArgs: string;
 };
 
-export function splitArgs(argsText: string): string[] {
-	return argsText
-		.trim()
-		.split(/\s+/)
-		.map((part) => part.trim())
-		.filter((part) => part.length > 0);
-}
-
 export function parseRootArgs(argsText: string): ParsedObjectiveCommand {
 	const trimmed = argsText.trim();
 	if (trimmed.length === 0) {
@@ -76,11 +63,11 @@ export function parseRootArgs(argsText: string): ParsedObjectiveCommand {
 }
 
 export function formatObjectiveRootUsage(): string {
-	return "Usage: /objective <claim|next|list> [args]\nAliases remain available: /objective-claim, /objective-next, /objective-list.";
+	return "Usage: /objective <next|list> [args]\nAliases remain available: /objective-next, /objective-list.";
 }
 
 export function formatUnknownSubcommandMessage(subcommand: string): string {
-	return `Unknown objective subcommand: ${subcommand}\nValid subcommands: claim, next, list, ls.`;
+	return `Unknown objective subcommand: ${subcommand}\nValid subcommands: next, list, ls.`;
 }
 
 export function completeObjectiveArgs(prefix: string): AutocompleteItem[] | null {
@@ -96,7 +83,7 @@ export function completeObjectiveArgs(prefix: string): AutocompleteItem[] | null
 		return completeListArgs(argsPrefix);
 	}
 
-	if (firstToken === "claim" || firstToken === "next") {
+	if (firstToken === "next") {
 		return null;
 	}
 
@@ -147,10 +134,6 @@ async function dispatchObjectiveRoot(
 	ctx: ExtensionCommandContext,
 	parsed: ParsedObjectiveCommand,
 ): Promise<void> {
-	if (parsed.subcommand === "claim") {
-		await runObjectiveClaim(pi, ctx, parsed.restArgs);
-		return;
-	}
 	if (parsed.subcommand === "next") {
 		await runObjectiveNext(pi, ctx, parsed.restArgs);
 		return;
@@ -170,7 +153,7 @@ async function dispatchObjectiveRoot(
 
 export function registerObjectiveRoot(pi: ExtensionAPI): void {
 	pi.registerCommand("objective", {
-		description: "Run asdl objective commands (claim, next, list)",
+		description: "Run asdl objective commands (next, list)",
 		getArgumentCompletions: completeObjectiveArgs,
 		handler: async (argsText, ctx) => {
 			await dispatchObjectiveRoot(pi, ctx, parseRootArgs(argsText));

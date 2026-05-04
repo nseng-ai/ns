@@ -6,8 +6,7 @@ allowed-tools:
   - "Bash(git log *)"
   - "Bash(git show *)"
   - "Bash(objective exec update-precheck *)"
-  - "Bash(objective exec claim-plan *)"
-  - "Bash(objective exec claim-apply *)"
+  - "Bash(objective exec claim *)"
   - "Bash(objective exec absorb-patches *)"
   - "Bash(brmem get *)"
   - "Bash(brmem put *)"
@@ -90,7 +89,7 @@ snapshot covers the current branch work.
 - **Attach missing snapshots only through claim.** If `<slug>/` is not present
   on the branch, delegate to the `objective-claim` skill and then rerun the
   update precheck. Do not synthesize or hand-copy snapshot files during
-  `update`, and do not reproduce `claim-plan` / `claim-apply` mechanics here.
+  `update`, and do not reproduce claim mechanics here.
 - **Serialize snapshot writes.** `brmem put` advances the branch snapshot ref.
   When updating multiple files under the same objective snapshot, run each
   `brmem put` one at a time and wait for its result before starting the next.
@@ -155,7 +154,7 @@ malformed and will be rewritten if triage succeeds.
 
 If `update-precheck` reports `no_objective_on_branch` or `slug_not_attached`,
 delegate to the `objective-claim` skill (passing the slug from the prompt
-when present). Do not reproduce `claim-plan` / `claim-apply` mechanics here.
+when present). Do not reproduce claim mechanics here.
 
 If `objective-claim` reports ambiguity (multiple candidate slugs or tied
 source branches), present the alternatives, ask the user to choose, and
@@ -284,8 +283,8 @@ When no files were rewritten, report:
 - Detached `HEAD`: abort.
 - Current branch is the trunk branch: abort and point to `objective-reconcile`.
 - Slug not attached or no objective on the branch: run the implicit claim flow,
-  prompt for slug/source selection when `claim-plan` is ambiguous, then rerun
-  `update-precheck` before mutating prose.
+  prompt for slug/source selection when `objective-claim` is ambiguous, then
+  rerun `update-precheck` before mutating prose.
 - Multiple attached slugs with no slug in the prompt: ask the user to
   choose. Never auto-pick to break the tie.
 - Snapshot fresh relative to HEAD: report in sync and write nothing.
