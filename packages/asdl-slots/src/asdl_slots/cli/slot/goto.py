@@ -6,6 +6,7 @@ from typing import Annotated
 import click
 
 from asdl_core import get_console
+from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.operation import clinkr_operation
@@ -14,6 +15,7 @@ from asdl_slots.cli.slot.selectors import SelectorOk, resolve_num, resolve_wt
 from asdl_slots.gateway.clipboard import ClipboardCopySuccess
 from asdl_slots.inventory import build_slot_inventory
 from asdl_slots.repo_context import NoRepoSentinel
+from asdl_slots.shell_integration import write_cd_directive_if_active
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,7 @@ def run_goto_slot(ctx: click.Context, request: SlotGotoRequest) -> ClinkrExit[Sl
         )
 
     worktree_path = str(record.path)
+    write_cd_directive_if_active(worktree_path, enabled=not is_machine_mode(ctx))
     cd_command = f"cd {worktree_path}"
     clipboard_copied = False
     clipboard_failure_reason: str | None = None
