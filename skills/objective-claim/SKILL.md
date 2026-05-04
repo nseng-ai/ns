@@ -23,6 +23,10 @@ verbatim onto the target branch. Claim never edits, merges, summarizes, or
 implements objective content; reshaping belongs to `objective-update` on a
 branch snapshot or `objective-reconcile` into canonical state.
 
+The compatibility escape hatch is `--from-file <path>`: it bootstraps a new
+branch snapshot by writing that local file as `<slug>/body.md` only. It does
+not carry an existing snapshot verbatim or synthesize companion files.
+
 Other skills that need to attach a missing snapshot should delegate here
 instead of reproducing claim mechanics.
 
@@ -32,8 +36,9 @@ instead of reproducing claim mechanics.
 - **Target, optional.** `--target <branch>` overrides the write destination;
   otherwise the CLI uses the current branch.
 - **Source, optional.** `--from <branch>` uses an explicit source branch.
-  `--from-file <path>` treats a local file as `<slug>/body.md`. Both require
-  an explicit slug and are mutually exclusive.
+  `--from-file <path>` is a bootstrap exception that treats a local file as
+  `<slug>/body.md` only. Both require an explicit slug and are mutually
+  exclusive.
 
 ## Workflow
 
@@ -68,6 +73,9 @@ step hint. Report it directly; do not reconstruct it from lower-level fields.
 
 - Never choose among `needs_selection` options without user intent.
 - Use only `objective exec claim`; it is the skill-facing contract.
-- Never synthesize objective files, carry only part of a branch snapshot,
-  write canonical objective storage, run update/reconcile, or implement work
-  during claim. The CLI enforces these semantics.
+- Never synthesize objective files, write canonical objective storage, run
+  update/reconcile, or implement work during claim. The CLI enforces these
+  semantics.
+- Do not carry only part of a branch snapshot. The sole partial-write case is
+  explicit `--from-file`, which bootstraps `<slug>/body.md` from a user-supplied
+  local file.
