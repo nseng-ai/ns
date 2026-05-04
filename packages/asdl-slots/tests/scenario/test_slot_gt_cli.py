@@ -52,6 +52,10 @@ def _machine_data(text: str) -> dict[str, object]:
     return data
 
 
+def _compact(text: str) -> str:
+    return " ".join(text.split())
+
+
 def _make_fakes(
     tmp_path: Path,
     *,
@@ -143,6 +147,17 @@ def test_slot_gt_help_lists_commands(cli_group: ClinkrGroup) -> None:
     assert "up" in result.output
     assert "down" in result.output
     assert "land" in result.output
+
+
+@pytest.mark.parametrize("command", [["gt", "up", "-h"], ["gt", "down", "-h"]])
+def test_slot_gt_navigation_help_mentions_shell_integration(
+    cli_group: ClinkrGroup, command: list[str]
+) -> None:
+    result = CliRunner().invoke(cli_group, command)
+    output = _compact(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert "active shell integration can cd the parent shell" in output
 
 
 def test_slot_gt_up_navigates_to_single_child_slot(

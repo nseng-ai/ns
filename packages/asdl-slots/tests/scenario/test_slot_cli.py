@@ -94,6 +94,10 @@ def _machine_data(text: str) -> dict[str, object]:
     return data
 
 
+def _compact(text: str) -> str:
+    return " ".join(text.split())
+
+
 # -- help / shape -----------------------------------------------------------
 
 
@@ -119,6 +123,17 @@ def test_slot_list_help(cli_group: ClinkrGroup) -> None:
     assert "List worktree pool slots derived from Git worktree state." in result.output
     assert "--format" in result.output
     assert "--schema" in result.output
+
+
+@pytest.mark.parametrize("command", [["checkout", "-h"], ["goto", "-h"]])
+def test_slot_navigation_help_mentions_shell_integration(
+    cli_group: ClinkrGroup, command: list[str]
+) -> None:
+    result = CliRunner().invoke(cli_group, command)
+    output = _compact(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert "active shell integration can cd the parent shell" in output
 
 
 def test_slot_version(cli_group: ClinkrGroup) -> None:

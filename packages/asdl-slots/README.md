@@ -74,6 +74,13 @@ available, copy that command to the clipboard. A child process cannot
 change its parent shell's working directory directly, so automatic
 parent-shell `cd` is opt-in through a shell function wrapper.
 
+### Supported shells and installation
+
+Supported shells are `zsh` and `bash`. If `--shell` is omitted,
+`slot shell ...` detects `$SHELL` when it is one of those shells and
+otherwise defaults to `zsh`. Other shells can keep using the printed or
+copied `cd <path>` fallback.
+
 Install the wrapper for your shell:
 
 ```bash
@@ -81,28 +88,61 @@ slot shell install --shell zsh
 slot shell install --shell bash
 ```
 
-Inspect the generated wrapper before installing or redirecting it:
+`slot shell install` appends an idempotent marked block to `.zshrc` or
+`.bashrc`. Open a new shell or run `source ~/.zshrc` / `source ~/.bashrc`
+to activate it. Inspect the generated wrapper before installing or
+redirecting it:
 
 ```bash
 slot shell show --shell zsh
 ```
 
+### Behavior and fallback
+
 The wrapper defines a shell function named `slot`. For each invocation,
 it creates a temporary directive file, then invokes the real `slot`
 binary with `SLOT_CD_DIRECTIVE_FILE=<temp> command slot "$@"` so the
-function does not recursively call itself. On successful interactive
-navigation, `slot` writes only the raw destination path to that file;
-the wrapper reads the path and performs `cd -- <path>` in the parent
-shell. The Python command never emits shell code for the wrapper to
-`eval`, and the directive file is removed after each invocation.
+function does not recursively call itself. On successful navigation,
+`slot` writes only the raw destination path to that file; the wrapper
+reads the path and performs `cd -- <path>` in the parent shell. The
+Python command never emits shell code for the wrapper to `eval`, and the
+directive file is removed after each invocation.
 
-If the wrapper is inactive or uninstalled, or if a command runs in
-non-interactive/JSON mode, existing fallback behavior remains: commands
-still print the `cd <path>` command and optionally copy it. Currently,
-the directive-file navigation surface is `slot checkout` / `slot co` and
-`slot goto`. Other navigation helpers continue to use the printed/copied
-command fallback until they are explicitly wired into the directive
-protocol.
+The directive-file navigation surface is `slot checkout` / `slot co`,
+`slot goto`, `slot gt up`, and `slot gt down`. If the wrapper is inactive
+or uninstalled, existing fallback behavior remains: commands still print
+the `cd <path>` command and optionally copy it. `--no-clipboard` only
+skips clipboard writes; it does not disable an active parent-shell `cd`.
+Use `command slot ...` for a one-off invocation of the real binary
+without the wrapper.
+
+### Non-interactive and JSON behavior
+
+The standalone `slot` binary remains script-safe: without the wrapper, it
+cannot change its caller's working directory and only emits normal
+command output. JSON commands (`--format json`) and schema requests
+(`--schema`) do not write cd directives, so an installed wrapper will not
+move the parent shell for machine-readable calls. Scripts that source the
+wrapper but need stable machine output should call `command slot ...` or
+use `--format json`.
+
+### Troubleshooting
+
+- If `slot checkout ...` or `slot goto ...` still prints `cd <path>` but
+  your shell does not move, the wrapper is not active in that shell. Run
+  `type slot` and confirm it reports a shell function, then source the rc
+  file or open a new shell.
+- If `slot shell ... --shell fish` fails, that shell is unsupported for
+  automatic parent-shell cd today. Use `zsh`/`bash`, or keep using the
+  printed/copied fallback in other shells.
+- If the wrapper says `slot: command not found`, make sure the real
+  `slot` console script is on `PATH`; the wrapper deliberately uses
+  `command slot "$@"` to bypass the shell function and avoid recursion.
+- If you need to prevent directory changes for one command, call
+  `command slot ...` or use `--format json`. `--no-clipboard` only
+  disables clipboard writes.
+- If clipboard copying fails, navigation still prints the `cd <path>`
+  command and the wrapper can still change directory when active.
 
 ### `slot list`
 

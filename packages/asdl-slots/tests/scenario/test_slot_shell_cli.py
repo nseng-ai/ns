@@ -20,12 +20,39 @@ def _obj() -> object:
     return build_clinkr_context_object(lambda: None)
 
 
+def _compact(text: str) -> str:
+    return " ".join(text.split())
+
+
 def _assert_wrapper_protocol(script: str) -> None:
     assert "slot()" in script
     assert "mktemp" in script
     assert "SLOT_CD_DIRECTIVE_FILE" in script
     assert 'command slot "$@"' in script
     assert "cd --" in script
+
+
+def test_shell_help_documents_supported_shells_and_behavior(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["shell", "-h"], obj=_obj())
+    output = _compact(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert "Supported shells: zsh and bash." in output
+    assert "Installation is opt-in" in output
+    assert "command slot" in output
+    assert "--format json" in output
+    assert "Troubleshooting" in output
+    assert "type slot" in output
+
+
+def test_shell_install_help_documents_activation(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["shell", "install", "-h"], obj=_obj())
+    output = _compact(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert "opt-in zsh/bash parent-shell wrapper" in output
+    assert "Source the file or open a new shell" in output
+    assert "supported: zsh, bash" in output
 
 
 def test_shell_show_zsh_renders_wrapper(cli_group: ClinkrGroup) -> None:
