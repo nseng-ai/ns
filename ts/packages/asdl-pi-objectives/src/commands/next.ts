@@ -5,9 +5,11 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-cod
 
 const STATUS_KEY = "objective-next";
 const CUSTOM_TYPE = "objective-next";
+const NEXT_CONTEXT_KIND = "objective_next_context";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export type NextContextResult = {
+	kind: typeof NEXT_CONTEXT_KIND;
 	current_branch: string;
 	trunk_branch: string;
 	on_trunk: boolean;
@@ -155,6 +157,7 @@ function requireSuccessfulEnvelope<T>(envelope: ClinkrEnvelope<unknown>, label: 
 function isNextContextResult(value: unknown): value is NextContextResult {
 	return (
 		isRecord(value) &&
+		value.kind === NEXT_CONTEXT_KIND &&
 		typeof value.current_branch === "string" &&
 		typeof value.trunk_branch === "string" &&
 		typeof value.on_trunk === "boolean" &&

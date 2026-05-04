@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import click
 
@@ -33,6 +33,8 @@ from asdl_objectives.slug_resolution import (
 )
 from asdl_objectives.trunk_resolution import resolve_trunk
 
+NEXT_CONTEXT_KIND = "objective_next_context"
+
 
 @dataclass(frozen=True)
 class ObjectiveNextContextRequest:
@@ -44,6 +46,7 @@ class ObjectiveNextContextRequest:
 
 @dataclass(frozen=True)
 class NextContextResult(JsonSerializable):
+    kind: Literal["objective_next_context"]
     current_branch: str
     trunk_branch: str
     on_trunk: bool
@@ -139,6 +142,7 @@ def run_next_context_objective(
 
     return ClinkrExit.ok(
         NextContextResult(
+            kind=NEXT_CONTEXT_KIND,
             current_branch=current_branch,
             trunk_branch=trunk,
             on_trunk=on_trunk,

@@ -39,6 +39,7 @@ type Harness = {
 const tempDirs: string[] = [];
 
 const SAMPLE_CONTEXT: NextContextResult = {
+	kind: "objective_next_context",
 	current_branch: "feature/widgets",
 	trunk_branch: "master",
 	on_trunk: false,
@@ -62,7 +63,7 @@ async function makeCwd(): Promise<string> {
 	return path;
 }
 
-function envelope(data: NextContextResult): string {
+function envelope(data: unknown): string {
 	return JSON.stringify({ exit_code: 0, data });
 }
 
@@ -131,6 +132,21 @@ describe("runObjectiveNext", () => {
 
 		expect(harness.calls).toEqual([]);
 		expect(latestMessage(harness).content).toContain("Unsupported flag for /objective-next: --format");
+	});
+
+	test("CLI payloads without the objective-next context kind are rejected", async () => {
+		const cwd = await makeCwd();
+		const harness = makeHarness(async () => ({
+			stdout: envelope({ ...SAMPLE_CONTEXT, kind: "other_context" }),
+			stderr: "",
+			code: 0,
+		}));
+
+		await runObjectiveNext(harness.pi, makeContext(cwd), "");
+
+		const message = latestMessage(harness);
+		expect(message.details.status).toBe("failed");
+		expect(message.content).toContain("objective exec next-context returned data that does not match the expected schema");
 	});
 
 	test("CLI envelope errors are surfaced", async () => {
