@@ -264,6 +264,26 @@ def test_claim_target_already_carries_slug_returns_blocked(cli_group: ClinkrGrou
     assert gateway.get("objectives", "widget-rewrite/body.md", "feat/x") == "# already claimed\n"
 
 
+def test_claim_omitted_slug_when_target_already_carries_objective_returns_blocked(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("objectives", "alpha/body.md", "feat/x", "# already claimed\n")
+    obj = _make_obj(
+        gateway=gateway,
+        ancestors=(("feat/x", "HEAD"),),
+        commit_count_by_range={"feat/x..HEAD": 0},
+    )
+
+    result = CliRunner().invoke(cli_group, ["exec", "claim", "--format", "json"], obj=obj)
+
+    data = _data(result)
+    assert data["status"] == "blocked"
+    assert data["block"]["reason"] == "target_collision"
+    assert "alpha/body.md" in data["message"]
+    assert gateway.get("objectives", "alpha/body.md", "feat/x") == "# already claimed\n"
+
+
 def test_claim_detached_head_without_target_exits_nonzero(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,

@@ -1,8 +1,16 @@
-"""``objective exec claim`` — objective claim workflow for agents."""
+"""``objective exec claim`` — attach an objective snapshot to a branch.
+
+The command is intentionally narrow: it resolves a slug and a source snapshot,
+then writes the selected objective directory into the target branch's brmem
+snapshot. It never edits objective prose, mutates canonical state, merges work,
+or synthesizes companion files. Ambiguity is returned as structured
+``needs_selection`` output so the driving skill can ask the user instead of
+silently choosing among valid claims.
+"""
 
 from __future__ import annotations
 
-import json
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal
@@ -11,22 +19,33 @@ import click
 
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.dataclass_json import JsonSerializable
-from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.discovery import body_key, slug_for_key
+from asdl_objectives.discovery import BODY_FILE, body_key, slug_for_key
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.trunk_resolution import resolve_trunk
-from brmem.gateway import BranchMemoryGateway, BrmemCopyConflictError, snapshot_ref_name
+from brmem.gateway import (
+    BranchMemoryGateway,
+    BrmemCopyConflictError,
+    EntryRef,
+    snapshot_ref_name,
+)
 
 CLAIM_SCHEMA = "claim/v1"
+
 ClaimStatus = Literal["claimed", "needs_selection", "blocked"]
+ClaimSourceKind = Literal["branch", "local_file"]
 SelectionKind = Literal["slug", "source_branch"]
-SourceKind = Literal["branch", "local_file"]
+BlockReason = Literal[
+    "no_objective_available",
+    "explicit_slug_not_found",
+    "target_collision",
+    "from_missing_slug",
+]
 
 
 @dataclass(frozen=True)
@@ -41,75 +60,62 @@ class ClaimRequest:
             ["--target"],
             type=click.STRING,
             default=None,
-            help="Target branch to write the snapshot to. Defaults to the current branch.",
+            help="Destination branch; defaults to the current branch.",
         ),
     ] = None
     from_branch: Annotated[
         str | None,
         click.Option(
             ["--from"],
-            "from_branch",
             type=click.STRING,
             default=None,
-            help="Use this branch as the explicit source. Requires an explicit SLUG.",
+            help="Explicit source branch carrying <slug>/body.md.",
         ),
     ] = None
     from_file: Annotated[
-        str | None,
+        Path | None,
         click.Option(
             ["--from-file"],
-            type=click.STRING,
+            type=click.Path(path_type=Path),
             default=None,
-            help=(
-                "Bootstrap `<slug>/body.md` from this local file. Requires an explicit "
-                "SLUG and is mutually exclusive with `--from`."
-            ),
+            help="Bootstrap <slug>/body.md from a local UTF-8 file.",
         ),
     ] = None
 
 
 @dataclass(frozen=True)
-class ClaimSelectionOption(JsonSerializable):
-    """One user-selectable continuation for a claim command."""
-
+class ClaimSource:
+    kind: ClaimSourceKind
+    branch: str | None
+    from_file_path: str | None
     label: str
-    value: str
-    description: str | None
-    rerun_args: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class ClaimSelection(JsonSerializable):
-    """Generic selection payload for UI and non-UI callers."""
-
-    kind: SelectionKind
-    prompt: str
-    options: tuple[ClaimSelectionOption, ...]
-
-
-@dataclass(frozen=True)
-class ClaimBlock(JsonSerializable):
-    """Structured explanation for a claim that cannot continue automatically."""
-
-    reason: str
-    message: str
+class ResolvedClaim:
+    slug: str
+    target_branch: str
+    source: ClaimSource
 
 
 @dataclass(frozen=True)
 class CarriedFile(JsonSerializable):
-    """One file landed on the target branch by the apply."""
-
     file: str
     key: str
 
 
 @dataclass(frozen=True)
 class ClaimApplyResult(JsonSerializable):
-    """Outcome of a successful apply (one slug, one target branch)."""
+    files_carried: tuple[CarriedFile, ...]
+    destination_ref: str
+    destination_commit_sha: str
 
+
+@dataclass(frozen=True)
+class ClaimedResult(JsonSerializable):
     slug: str
     target_branch: str
-    source_kind: SourceKind
+    source_kind: ClaimSourceKind
     source_branch: str | None
     source_label: str
     files_carried: tuple[CarriedFile, ...]
@@ -118,457 +124,189 @@ class ClaimApplyResult(JsonSerializable):
 
 
 @dataclass(frozen=True)
-class ClaimCommandResult(JsonSerializable):
-    """High-level objective claim result for skills and CLI callers."""
+class SelectionOption(JsonSerializable):
+    label: str
+    value: str
+    description: str
+    rerun_args: tuple[str, ...]
 
+
+@dataclass(frozen=True)
+class ClaimSelection(JsonSerializable):
+    kind: SelectionKind
+    prompt: str
+    options: tuple[SelectionOption, ...]
+
+
+@dataclass(frozen=True)
+class ClaimBlock(JsonSerializable):
+    reason: BlockReason
+    message: str
+
+
+@dataclass(frozen=True)
+class ClaimOutput(JsonSerializable):
     schema: str
     status: ClaimStatus
     message: str
-    result: ClaimApplyResult | None
+    result: ClaimedResult | None
     selection: ClaimSelection | None
     block: ClaimBlock | None
 
-
-@dataclass(frozen=True)
-class ClaimSource:
-    """Resolved source for the carry-forward copy."""
-
-    kind: SourceKind
-    branch: str | None
-    from_file_path: str | None
-    label: str
-
-
-@dataclass(frozen=True)
-class ResolvedClaim:
-    """Unique claim ready to apply."""
-
-    slug: str
-    target_branch: str
-    source: ClaimSource
-
-
-@dataclass(frozen=True)
-class HardFailure:
-    """Domain-side sentinel for a hard precondition failure."""
-
-    error_type: str
-    message: str
+    @classmethod
+    def json_schema(cls) -> dict[str, object]:
+        return {
+            "type": "object",
+            "properties": {
+                "schema": {"type": "string", "enum": [CLAIM_SCHEMA]},
+                "status": {
+                    "type": "string",
+                    "enum": ["claimed", "needs_selection", "blocked"],
+                },
+                "message": {"type": "string"},
+                "result": {"type": ["object", "null"]},
+                "selection": {"type": ["object", "null"]},
+                "block": {"type": ["object", "null"]},
+            },
+            "required": ["block", "message", "result", "schema", "selection", "status"],
+        }
 
 
 @dataclass(frozen=True)
-class _CandidateBranch:
-    """A branch that could carry the slug, with ``HEAD`` distance for ranking."""
+class _AncestorObjectiveBranch:
+    branch: str
+    distance: int
+    slugs: tuple[str, ...]
 
+
+@dataclass(frozen=True)
+class _SourceCandidate:
     branch: str
     distance: int
 
 
-def render_claim(result: ClaimCommandResult) -> None:
+def render_claim(result: ClaimOutput) -> None:
     click.echo(result.message)
 
 
 @clinkr_operation(
     name="claim",
     help=(
-        "Claim an existing objective snapshot onto a target branch. Returns "
-        "generic selection options when a human choice is needed and applies "
-        "the resolved claim when unique."
+        "Attach one objective snapshot to a target branch. SLUG may be omitted "
+        "when the command can infer a single reachable objective. Snapshot "
+        "claims copy <slug>/* from --from, a nearest ancestor, or canonical "
+        "trunk; --from-file bootstraps only <slug>/body.md. Ambiguous choices "
+        "return status='needs_selection'; blocked preconditions return "
+        "status='blocked'; invalid flags, detached HEAD target resolution, git "
+        "failures, and apply-time drift exit non-zero."
     ),
     human_renderer=render_claim,
 )
 def run_claim_objective(
     ctx: click.Context,
     request: ClaimRequest,
-) -> ClinkrExit[ClaimCommandResult]:
+) -> ClinkrExit[ClaimOutput]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
-    outcome = resolve_claim(mctx, request)
-
-    match outcome:
-        case ClaimSelection() as selection:
-            return ClinkrExit.ok(_selection_command_result(selection))
-        case ClaimBlock() as block:
-            return ClinkrExit.ok(_blocked_command_result(block))
-        case ResolvedClaim() as claim:
-            apply_result = apply_claim(mctx, claim)
-            return ClinkrExit.ok(
-                ClaimCommandResult(
-                    schema=CLAIM_SCHEMA,
-                    status="claimed",
-                    message=_success_message(
-                        apply_result,
-                        canonical_branch=resolve_trunk(mctx.git_gateway).trunk,
-                    ),
-                    result=apply_result,
-                    selection=None,
-                    block=None,
-                )
-            )
-
-    Ensure.fail(
-        error_type="claim_resolution_unsupported_outcome",
-        message=f"claim resolver returned unsupported outcome: {type(outcome).__name__}",
-    )
-
-
-def resolve_claim(
-    mctx: ObjectiveCliContext,
-    request: ClaimRequest,
-) -> ResolvedClaim | ClaimSelection | ClaimBlock:
-    gateway = mctx.brmem_gateway
     git = mctx.git_gateway
+    gateway = mctx.brmem_gateway
+
+    explicit_slug = _normalize_slug(request.slug)
+    _validate_source_flags(request, explicit_slug)
+
     trunk_branch = resolve_trunk(git).trunk
-    requested_slug = _normalize_slug(request.slug)
-
-    _validate_claim_flags(request, requested_slug=requested_slug)
-
-    target_branch = Ensure.ideal_state(_resolve_target_branch(git, request.target))
-    Ensure.true(
-        target_branch != trunk_branch,
-        error_type="target_is_trunk",
-        message=(
-            f"--target must not be {trunk_branch!r}: claim attaches objectives "
-            "to feature branches; canonical state is immutable here."
-        ),
-    )
-
-    slug_outcome = _resolve_slug(
-        gateway=gateway,
-        git=git,
-        request=request,
-        requested_slug=requested_slug,
-        target_branch=target_branch,
-        trunk_branch=trunk_branch,
-    )
-    if isinstance(slug_outcome, ClaimSelection | ClaimBlock):
-        return slug_outcome
-
-    slug = slug_outcome
-    if target_carries_slug(gateway, slug=slug, branch=target_branch):
-        return ClaimBlock(
-            reason="target_collision",
-            message=_target_collision_message(slug=slug, target_branch=target_branch),
+    target_branch = _resolve_target_branch(git, request.target)
+    if target_branch == trunk_branch:
+        raise ClinkrFailure(
+            error_type="target_is_trunk",
+            message=(
+                f"Cannot claim an objective onto trunk branch {trunk_branch!r}. "
+                "Canonical objective state already lives there."
+            ),
         )
 
-    source_outcome = _resolve_source(
-        gateway=gateway,
-        git=git,
-        request=request,
+    slug_or_output = _resolve_slug_for_claim(
+        gateway,
+        git,
+        explicit_slug=explicit_slug,
+        target_branch=target_branch,
+        requested_target=request.target,
+        trunk_branch=trunk_branch,
+    )
+    if isinstance(slug_or_output, ClaimOutput):
+        return ClinkrExit.ok(slug_or_output)
+    slug = slug_or_output
+
+    target_entries = _entries_for_slug(gateway, branch=target_branch, slug=slug)
+    if target_entries:
+        return ClinkrExit.ok(_blocked_target_collision(slug, target_branch, target_entries))
+
+    source_or_output = _resolve_source(
+        gateway,
+        git,
+        request,
         slug=slug,
         target_branch=target_branch,
         trunk_branch=trunk_branch,
     )
-    if isinstance(source_outcome, ClaimSelection | ClaimBlock):
-        return source_outcome
+    if isinstance(source_or_output, ClaimOutput):
+        return ClinkrExit.ok(source_or_output)
 
-    return ResolvedClaim(
+    claim = ResolvedClaim(slug=slug, target_branch=target_branch, source=source_or_output)
+    applied = apply_claim(mctx, claim)
+    result = ClaimedResult(
         slug=slug,
         target_branch=target_branch,
-        source=source_outcome,
+        source_kind=claim.source.kind,
+        source_branch=claim.source.branch,
+        source_label=claim.source.label,
+        files_carried=applied.files_carried,
+        destination_ref=applied.destination_ref,
+        destination_commit_sha=applied.destination_commit_sha,
+    )
+    return ClinkrExit.ok(
+        ClaimOutput(
+            schema=CLAIM_SCHEMA,
+            status="claimed",
+            message=_claimed_message(result, trunk_branch=trunk_branch),
+            result=result,
+            selection=None,
+            block=None,
+        )
     )
 
 
-def apply_claim(mctx: ObjectiveCliContext, claim: ResolvedClaim) -> ClaimApplyResult:
-    gateway = mctx.brmem_gateway
-    Ensure.true(
-        not target_carries_slug(gateway, slug=claim.slug, branch=claim.target_branch),
-        error_type="target_collision",
-        message=_target_collision_message(slug=claim.slug, target_branch=claim.target_branch),
-    )
+def apply_claim(ctx: ObjectiveCliContext, claim: ResolvedClaim) -> ClaimApplyResult:
+    """Apply a resolved claim, raising hard failures on apply-time drift."""
+    gateway = ctx.brmem_gateway
+    target_entries = _entries_for_slug(gateway, branch=claim.target_branch, slug=claim.slug)
+    if target_entries:
+        raise ClinkrFailure(
+            error_type="target_collision",
+            message=_target_collision_message(claim.slug, claim.target_branch, target_entries),
+        )
 
     if claim.source.kind == "local_file":
-        return _apply_local_file_claim(gateway, claim)
+        return _apply_from_file(gateway, claim)
 
-    return _apply_branch_claim(gateway, claim)
-
-
-def _validate_claim_flags(request: ClaimRequest, *, requested_slug: str | None) -> None:
-    Ensure.true(
-        not (request.from_branch is not None and request.from_file is not None),
-        error_type="conflicting_source_flags",
-        message="--from and --from-file are mutually exclusive.",
-    )
-    Ensure.true(
-        not (
-            (request.from_branch is not None or request.from_file is not None)
-            and requested_slug is None
-        ),
-        error_type="source_flag_without_slug",
-        message=(
-            "--from and --from-file require an explicit SLUG; neither "
-            "auto-resolves the objective name."
-        ),
-    )
-
-
-def _resolve_target_branch(
-    git: GitGateway,
-    requested_target: str | None,
-) -> str | HardFailure:
-    if requested_target is not None:
-        return requested_target
-    match git.get_current_branch(Path.cwd()):
-        case DetachedHead():
-            return HardFailure(
-                error_type="detached_head",
-                message=(
-                    "Detached HEAD: claim requires a checked-out branch or an explicit --target."
-                ),
-            )
-        case GitCommandFailure() as failure:
-            return HardFailure(error_type="git_failed", message=failure.message)
-        case str() as branch:
-            return branch
-
-
-def _resolve_slug(
-    *,
-    gateway: BranchMemoryGateway,
-    git: GitGateway,
-    request: ClaimRequest,
-    requested_slug: str | None,
-    target_branch: str,
-    trunk_branch: str,
-) -> str | ClaimSelection | ClaimBlock:
-    if requested_slug is not None:
-        return requested_slug
-
-    ancestor_branches = _ranked_ancestors(
-        gateway=gateway,
-        git=git,
-        target_branch=target_branch,
-        trunk_branch=trunk_branch,
-    )
-    for branch, _distance in ancestor_branches:
-        slugs = _slugs_on_branch(gateway, branch)
-        if slugs:
-            return _classify_slug_candidates(
-                request=request,
-                slugs=slugs,
-                available_on_branch=branch,
-            )
-
-    canonical_slugs = _slugs_on_branch(gateway, trunk_branch)
-    if not canonical_slugs:
-        return ClaimBlock(
-            reason="no_slug_no_candidates",
-            message=(
-                f"No objectives reachable from any ancestor branch and no canonical "
-                f"objectives on {trunk_branch!r}. Run `objective-create` to author "
-                "a new objective, or pass an explicit SLUG with `--from-file <path>` "
-                "to bootstrap `<slug>/body.md` from a local file."
-            ),
-        )
-    return _classify_slug_candidates(
-        request=request,
-        slugs=canonical_slugs,
-        available_on_branch=trunk_branch,
-    )
-
-
-def _classify_slug_candidates(
-    *,
-    request: ClaimRequest,
-    slugs: tuple[str, ...],
-    available_on_branch: str,
-) -> str | ClaimSelection:
-    if len(slugs) == 1:
-        return slugs[0]
-
-    return ClaimSelection(
-        kind="slug",
-        prompt="Multiple objectives are reachable. Choose one to claim:",
-        options=tuple(
-            ClaimSelectionOption(
-                label=slug,
-                value=slug,
-                description=f"available on {available_on_branch}",
-                rerun_args=_rerun_args(request, slug=slug),
-            )
-            for slug in slugs
-        ),
-    )
-
-
-def _resolve_source(
-    *,
-    gateway: BranchMemoryGateway,
-    git: GitGateway,
-    request: ClaimRequest,
-    slug: str,
-    target_branch: str,
-    trunk_branch: str,
-) -> ClaimSource | ClaimSelection | ClaimBlock:
-    if request.from_file is not None:
-        return _resolve_local_file_source(request.from_file)
-
-    if request.from_branch is not None:
-        return _resolve_explicit_branch_source(
-            gateway=gateway,
-            slug=slug,
-            from_branch=request.from_branch,
-        )
-
-    candidates = _ancestor_branches_carrying_slug(
-        gateway=gateway,
-        git=git,
-        slug=slug,
-        target_branch=target_branch,
-        trunk_branch=trunk_branch,
-    )
-    if candidates:
-        nearest_distance = candidates[0].distance
-        tied = tuple(
-            candidate for candidate in candidates if candidate.distance == nearest_distance
-        )
-        if len(tied) > 1:
-            return _source_branch_selection(request=request, slug=slug, branches=tied)
-
-        chosen = tied[0]
-        return ClaimSource(
-            kind="branch",
-            branch=chosen.branch,
-            from_file_path=None,
-            label=f"ancestor branch {chosen.branch}",
-        )
-
-    if gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), trunk_branch) is not None:
-        return ClaimSource(
-            kind="branch",
-            branch=trunk_branch,
-            from_file_path=None,
-            label="canonical objective",
-        )
-
-    return ClaimBlock(
-        reason="explicit_slug_not_found",
-        message=(
-            f"Slug {slug!r} not found on any ancestor branch or in canonical storage. "
-            "Pass an explicit SLUG with `--from-file <path>` to bootstrap "
-            "`<slug>/body.md`, or run `objective-create` to author a new objective first."
-        ),
-    )
-
-
-def _resolve_local_file_source(from_file: str) -> ClaimSource | ClaimBlock:
-    path = Path(from_file)
-    if not path.exists() or not path.is_file():
-        return ClaimBlock(
-            reason="from_file_unreadable",
-            message=f"--from-file path does not exist or is not a file: {from_file}",
-        )
-
-    return ClaimSource(
-        kind="local_file",
-        branch=None,
-        from_file_path=from_file,
-        label=f"local file {from_file} (bootstrap body.md only)",
-    )
-
-
-def _resolve_explicit_branch_source(
-    *,
-    gateway: BranchMemoryGateway,
-    slug: str,
-    from_branch: str,
-) -> ClaimSource | ClaimBlock:
-    if gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), from_branch) is None:
-        return ClaimBlock(
-            reason="from_missing_slug",
-            message=(
-                f"Source branch {from_branch!r} does not carry {body_key(slug)!r}; "
-                "choose a different --from or use --from-file."
-            ),
-        )
-
-    return ClaimSource(
-        kind="branch",
-        branch=from_branch,
-        from_file_path=None,
-        label=f"branch {from_branch} (explicit --from)",
-    )
-
-
-def _source_branch_selection(
-    *,
-    request: ClaimRequest,
-    slug: str,
-    branches: tuple[_CandidateBranch, ...],
-) -> ClaimSelection:
-    return ClaimSelection(
-        kind="source_branch",
-        prompt="Multiple source branches are reachable. Choose one:",
-        options=tuple(
-            ClaimSelectionOption(
-                label=branch.branch,
-                value=branch.branch,
-                description=f"distance {branch.distance}",
-                rerun_args=_rerun_args(request, slug=slug, from_branch=branch.branch),
-            )
-            for branch in branches
-        ),
-    )
-
-
-def _apply_local_file_claim(
-    gateway: BranchMemoryGateway,
-    claim: ResolvedClaim,
-) -> ClaimApplyResult:
-    from_file_path = Ensure.not_none(
-        claim.source.from_file_path,
-        error_type="from_file_unreadable",
-        message="Local-file claim source is missing its path.",
-    )
-    path = Path(from_file_path)
-    Ensure.true(
-        path.exists() and path.is_file(),
-        error_type="from_file_unreadable",
-        message=f"Local-file source path no longer exists or is not a file: {from_file_path}",
-    )
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    if claim.source.branch is None:
         raise ClinkrFailure(
-            error_type="from_file_unreadable",
-            message=f"Local-file source is not readable: {from_file_path}: {exc}",
-        ) from exc
+            error_type="source_missing_slug",
+            message=f"Source branch is missing for snapshot claim of {claim.slug!r}.",
+        )
 
-    body_key_value = body_key(claim.slug)
-    commit_sha = gateway.put(OBJECTIVE_NAMESPACE, body_key_value, claim.target_branch, content)
-    return ClaimApplyResult(
-        slug=claim.slug,
-        target_branch=claim.target_branch,
-        source_kind=claim.source.kind,
-        source_branch=None,
-        source_label=claim.source.label,
-        files_carried=(CarriedFile(file="body.md", key=body_key_value),),
-        destination_ref=_ref_name(claim.target_branch),
-        destination_commit_sha=commit_sha,
-    )
-
-
-def _apply_branch_claim(
-    gateway: BranchMemoryGateway,
-    claim: ResolvedClaim,
-) -> ClaimApplyResult:
-    source_branch = Ensure.not_none(
-        claim.source.branch,
-        error_type="source_missing_slug",
-        message="Branch claim source is missing its source branch.",
-    )
-    Ensure.not_none(
-        gateway.check(OBJECTIVE_NAMESPACE, body_key(claim.slug), source_branch),
-        error_type="source_missing_slug",
-        message=(
-            f"Source branch {source_branch!r} no longer carries "
-            f"{body_key(claim.slug)!r}; the snapshot may have been deleted since resolution."
-        ),
-    )
+    if gateway.get(OBJECTIVE_NAMESPACE, body_key(claim.slug), claim.source.branch) is None:
+        raise ClinkrFailure(
+            error_type="source_missing_slug",
+            message=(
+                f"Source branch {claim.source.branch!r} no longer carries "
+                f"{body_key(claim.slug)!r}. Re-run objective exec claim to refresh the plan."
+            ),
+        )
 
     try:
         copied = gateway.copy_entries(
             namespace=OBJECTIVE_NAMESPACE,
-            from_branch=source_branch,
+            from_branch=claim.source.branch,
             to_branch=claim.target_branch,
             overwrite=False,
             key_glob=f"{claim.slug}/*",
@@ -576,212 +314,450 @@ def _apply_branch_claim(
     except BrmemCopyConflictError as exc:
         raise ClinkrFailure(
             error_type="target_collision",
-            message=_target_collision_message(slug=claim.slug, target_branch=claim.target_branch),
+            message=_target_collision_message(claim.slug, claim.target_branch, exc.conflicts),
         ) from exc
 
-    copied = Ensure.truthy(
-        copied,
-        error_type="source_missing_slug",
-        message=(
-            f"Source branch {source_branch!r} produced no files matching "
-            f"{claim.slug!r}/* — the snapshot may have been deleted since resolution."
-        ),
+    files_carried = tuple(_carried_file(entry.key, claim.slug) for entry in copied)
+    destination_commit_sha = _destination_commit_sha(
+        gateway,
+        branch=claim.target_branch,
+        files_carried=files_carried,
     )
-    files_carried = tuple(
-        CarriedFile(file=_filename_for_key(entry.key, claim.slug), key=entry.key)
-        for entry in copied
+    return ClaimApplyResult(
+        files_carried=files_carried,
+        destination_ref=snapshot_ref_name(OBJECTIVE_NAMESPACE, claim.target_branch),
+        destination_commit_sha=destination_commit_sha,
     )
 
-    diag_after = gateway.check(OBJECTIVE_NAMESPACE, copied[0].key, claim.target_branch)
-    commit_sha = diag_after.head_sha if diag_after is not None else ""
+
+def _apply_from_file(gateway: BranchMemoryGateway, claim: ResolvedClaim) -> ClaimApplyResult:
+    if claim.source.from_file_path is None:
+        raise ClinkrFailure(
+            error_type="from_file_unreadable",
+            message="--from-file claim source did not include a path.",
+        )
+
+    content = _read_utf8_file_or_fail(Path(claim.source.from_file_path))
+    key = body_key(claim.slug)
+    commit_sha = gateway.put(OBJECTIVE_NAMESPACE, key, claim.target_branch, content)
     return ClaimApplyResult(
-        slug=claim.slug,
-        target_branch=claim.target_branch,
-        source_kind=claim.source.kind,
-        source_branch=source_branch,
-        source_label=claim.source.label,
-        files_carried=files_carried,
-        destination_ref=_ref_name(claim.target_branch),
+        files_carried=(CarriedFile(file=BODY_FILE, key=key),),
+        destination_ref=snapshot_ref_name(OBJECTIVE_NAMESPACE, claim.target_branch),
         destination_commit_sha=commit_sha,
     )
 
 
-def target_carries_slug(
-    gateway: BranchMemoryGateway,
-    *,
-    slug: str,
-    branch: str,
-) -> bool:
-    entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
-    return any(slug_for_key(entry.key) == slug for entry in entries)
+def _validate_source_flags(request: ClaimRequest, explicit_slug: str | None) -> None:
+    if request.from_branch is not None and request.from_file is not None:
+        raise ClinkrFailure(
+            error_type="conflicting_source_flags",
+            message="--from and --from-file are mutually exclusive.",
+        )
+    if explicit_slug is None and (request.from_branch is not None or request.from_file is not None):
+        raise ClinkrFailure(
+            error_type="source_flag_without_slug",
+            message="--from and --from-file require an explicit SLUG argument.",
+        )
 
 
-def _slugs_on_branch(gateway: BranchMemoryGateway, branch: str) -> tuple[str, ...]:
-    entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
-    return tuple(sorted({slug_for_key(entry.key) for entry in entries}))
+def _resolve_target_branch(git: GitGateway, requested_target: str | None) -> str:
+    if requested_target is not None:
+        return requested_target
+
+    branch = git.get_current_branch(Path.cwd())
+    if isinstance(branch, DetachedHead):
+        raise ClinkrFailure(
+            error_type="detached_head",
+            message="Detached HEAD: objective exec claim needs --target or a checked-out branch.",
+        )
+    if isinstance(branch, GitCommandFailure):
+        raise ClinkrFailure(error_type=branch.error_type, message=branch.message)
+    return branch
 
 
-def _ranked_ancestors(
-    *,
-    gateway: BranchMemoryGateway,
-    git: GitGateway,
-    target_branch: str,
-    trunk_branch: str,
-) -> tuple[tuple[str, int], ...]:
-    seen_branches = _brmem_branches_with_namespace(gateway)
-
-    candidates: list[tuple[str, int]] = []
-    for branch in seen_branches:
-        if branch == trunk_branch or branch == target_branch:
-            continue
-        if not git.branch_exists(branch):
-            continue
-        if not git.is_ancestor(branch, "HEAD"):
-            continue
-        distance_result = git.count_commits_in_range(f"{branch}..HEAD")
-        if isinstance(distance_result, GitCommandFailure):
-            continue
-        candidates.append((branch, distance_result))
-
-    candidates.sort(key=lambda item: (item[1], item[0]))
-    return tuple(candidates)
-
-
-def _brmem_branches_with_namespace(gateway: BranchMemoryGateway) -> tuple[str, ...]:
-    entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
-    return tuple(sorted({entry.branch for entry in entries}))
-
-
-def _ancestor_branches_carrying_slug(
-    *,
+def _resolve_slug_for_claim(
     gateway: BranchMemoryGateway,
     git: GitGateway,
+    *,
+    explicit_slug: str | None,
+    target_branch: str,
+    requested_target: str | None,
+    trunk_branch: str,
+) -> str | ClaimOutput:
+    del target_branch  # Target is resolved before slug selection but does not affect ranking.
+    if explicit_slug is not None:
+        return explicit_slug
+
+    ancestor = _nearest_ancestor_objective_branch(gateway, git, trunk_branch=trunk_branch)
+    if ancestor is not None:
+        if len(ancestor.slugs) == 1:
+            return ancestor.slugs[0]
+        return _selection_output(
+            kind="slug",
+            prompt="Multiple objectives are reachable. Choose one to claim:",
+            options=tuple(
+                SelectionOption(
+                    label=slug,
+                    value=slug,
+                    description=(
+                        f"Claim objective {slug!r} from reachable branch {ancestor.branch!r}."
+                    ),
+                    rerun_args=_slug_rerun_args(slug, requested_target=requested_target),
+                )
+                for slug in ancestor.slugs
+            ),
+        )
+
+    canonical_slugs = _slugs_on_branch(gateway, trunk_branch)
+    if len(canonical_slugs) == 1:
+        return canonical_slugs[0]
+    if len(canonical_slugs) > 1:
+        return _selection_output(
+            kind="slug",
+            prompt="Multiple canonical objectives are available. Choose one to claim:",
+            options=tuple(
+                SelectionOption(
+                    label=slug,
+                    value=slug,
+                    description=f"Claim canonical objective {slug!r}.",
+                    rerun_args=_slug_rerun_args(slug, requested_target=requested_target),
+                )
+                for slug in canonical_slugs
+            ),
+        )
+
+    return _blocked(
+        reason="no_objective_available",
+        message=(
+            "Cannot claim objective: no reachable ancestor branch or canonical trunk snapshot "
+            "carries an objective. Supply a SLUG with --from-file to bootstrap one."
+        ),
+    )
+
+
+def _resolve_source(
+    gateway: BranchMemoryGateway,
+    git: GitGateway,
+    request: ClaimRequest,
+    *,
     slug: str,
     target_branch: str,
     trunk_branch: str,
-) -> tuple[_CandidateBranch, ...]:
-    body_key_value = body_key(slug)
-    branches_with_body = {
-        entry.branch
-        for entry in gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, key=body_key_value)
-        if entry.branch != trunk_branch and entry.branch != target_branch
-    }
+) -> ClaimSource | ClaimOutput:
+    if request.from_file is not None:
+        return ClaimSource(
+            kind="local_file",
+            branch=None,
+            from_file_path=str(request.from_file),
+            label=f"local file {request.from_file} (bootstrap body.md only)",
+        )
 
-    candidates: list[_CandidateBranch] = []
-    for branch in sorted(branches_with_body):
-        if not git.branch_exists(branch):
-            continue
+    if request.from_branch is not None:
+        if gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), request.from_branch) is None:
+            return _blocked(
+                reason="from_missing_slug",
+                message=(
+                    f"Cannot claim objective {slug!r}: source branch "
+                    f"{request.from_branch!r} does not carry {body_key(slug)!r}."
+                ),
+            )
+        return ClaimSource(
+            kind="branch",
+            branch=request.from_branch,
+            from_file_path=None,
+            label=f"branch {request.from_branch} (explicit --from)",
+        )
+
+    candidates = _ancestor_source_candidates(
+        gateway,
+        git,
+        slug=slug,
+        trunk_branch=trunk_branch,
+    )
+    if candidates:
+        nearest_distance = candidates[0].distance
+        nearest = tuple(
+            candidate for candidate in candidates if candidate.distance == nearest_distance
+        )
+        if len(nearest) > 1:
+            return _selection_output(
+                kind="source_branch",
+                prompt="Multiple source branches are equally near. Choose one to claim from:",
+                options=tuple(
+                    SelectionOption(
+                        label=candidate.branch,
+                        value=candidate.branch,
+                        description=(
+                            f"Copy {slug!r} from ancestor branch {candidate.branch!r} "
+                            f"({candidate.distance} commits behind HEAD)."
+                        ),
+                        rerun_args=_source_rerun_args(
+                            slug,
+                            requested_target=request.target,
+                            source_branch=candidate.branch,
+                        ),
+                    )
+                    for candidate in nearest
+                ),
+            )
+        source_branch = nearest[0].branch
+        return ClaimSource(
+            kind="branch",
+            branch=source_branch,
+            from_file_path=None,
+            label=f"ancestor branch {source_branch}",
+        )
+
+    if gateway.get(OBJECTIVE_NAMESPACE, body_key(slug), trunk_branch) is not None:
+        return ClaimSource(
+            kind="branch",
+            branch=trunk_branch,
+            from_file_path=None,
+            label="canonical objective",
+        )
+
+    return _blocked(
+        reason="explicit_slug_not_found",
+        message=(
+            f"Cannot claim objective {slug!r}: no ancestor branch or canonical trunk "
+            f"snapshot carries {body_key(slug)!r}."
+        ),
+    )
+
+
+def _nearest_ancestor_objective_branch(
+    gateway: BranchMemoryGateway,
+    git: GitGateway,
+    *,
+    trunk_branch: str,
+) -> _AncestorObjectiveBranch | None:
+    candidates: list[_AncestorObjectiveBranch] = []
+    for branch in _branches_with_objectives(gateway, exclude_branch=trunk_branch):
         if not git.is_ancestor(branch, "HEAD"):
             continue
-        distance = git.count_commits_in_range(f"{branch}..HEAD")
-        if isinstance(distance, GitCommandFailure):
-            continue
-        candidates.append(_CandidateBranch(branch=branch, distance=distance))
+        distance = _commit_distance_or_fail(git, branch)
+        candidates.append(
+            _AncestorObjectiveBranch(
+                branch=branch,
+                distance=distance,
+                slugs=_slugs_on_branch(gateway, branch),
+            )
+        )
+    if not candidates:
+        return None
+    candidates.sort(key=lambda candidate: (candidate.distance, candidate.branch))
+    return candidates[0]
 
+
+def _ancestor_source_candidates(
+    gateway: BranchMemoryGateway,
+    git: GitGateway,
+    *,
+    slug: str,
+    trunk_branch: str,
+) -> tuple[_SourceCandidate, ...]:
+    candidates: list[_SourceCandidate] = []
+    for entry in gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, key=body_key(slug)):
+        if entry.branch == trunk_branch:
+            continue
+        if not git.is_ancestor(entry.branch, "HEAD"):
+            continue
+        candidates.append(
+            _SourceCandidate(
+                branch=entry.branch,
+                distance=_commit_distance_or_fail(git, entry.branch),
+            )
+        )
     candidates.sort(key=lambda candidate: (candidate.distance, candidate.branch))
     return tuple(candidates)
 
 
-def _normalize_slug(raw: str | None) -> str | None:
-    """Drop ``<slug>/<file>`` addressing the way the legacy skill normalized it."""
-    if raw is None:
-        return None
-    stripped = raw.strip()
-    if not stripped:
-        return None
-    return slug_for_key(stripped)
+def _commit_distance_or_fail(git: GitGateway, branch: str) -> int:
+    distance = git.count_commits_in_range(f"{branch}..HEAD")
+    if isinstance(distance, GitCommandFailure):
+        raise ClinkrFailure(error_type=distance.error_type, message=distance.message)
+    return distance
 
 
-def _filename_for_key(key: str, slug: str) -> str:
-    prefix = f"{slug}/"
-    if key.startswith(prefix):
-        return key[len(prefix) :]
-    return key
+def _branches_with_objectives(
+    gateway: BranchMemoryGateway,
+    *,
+    exclude_branch: str,
+) -> tuple[str, ...]:
+    branches = {
+        entry.branch
+        for entry in gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
+        if entry.branch != exclude_branch
+    }
+    return tuple(sorted(branches))
 
 
-def _ref_name(branch: str) -> str:
-    return snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
-
-
-def _target_collision_message(*, slug: str, target_branch: str) -> str:
-    return (
-        f"Target branch {target_branch!r} already carries keys under {slug!r}/. "
-        "Use objective-update or objective-reconcile to advance the existing snapshot, "
-        "or claim a different target."
+def _slugs_on_branch(gateway: BranchMemoryGateway, branch: str) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                slug_for_key(entry.key)
+                for entry in gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
+            }
+        )
     )
 
 
-def _selection_command_result(selection: ClaimSelection) -> ClaimCommandResult:
-    return ClaimCommandResult(
+def _entries_for_slug(
+    gateway: BranchMemoryGateway,
+    *,
+    branch: str,
+    slug: str,
+) -> tuple[EntryRef, ...]:
+    prefix = f"{slug}/"
+    return tuple(
+        entry
+        for entry in gateway.list_entries(namespace=OBJECTIVE_NAMESPACE, branch=branch)
+        if entry.key.startswith(prefix)
+    )
+
+
+def _destination_commit_sha(
+    gateway: BranchMemoryGateway,
+    *,
+    branch: str,
+    files_carried: tuple[CarriedFile, ...],
+) -> str:
+    if not files_carried:
+        raise ClinkrFailure(
+            error_type="source_missing_slug",
+            message="Source snapshot had no entries to copy after apply-time re-check.",
+        )
+    diagnostic = gateway.check(OBJECTIVE_NAMESPACE, files_carried[0].key, branch)
+    if diagnostic is None:
+        raise ClinkrFailure(
+            error_type="source_missing_slug",
+            message="Destination snapshot is missing copied entries after apply.",
+        )
+    return diagnostic.head_sha
+
+
+def _read_utf8_file_or_fail(path: Path) -> str:
+    if not path.exists() or not path.is_file():
+        raise ClinkrFailure(
+            error_type="from_file_unreadable",
+            message=f"--from-file is not readable: {path}: path does not exist or is not a file.",
+        )
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ClinkrFailure(
+            error_type="from_file_unreadable",
+            message=f"--from-file is not readable: {path}: {exc}",
+        ) from exc
+    except UnicodeDecodeError as exc:
+        raise ClinkrFailure(
+            error_type="from_file_unreadable",
+            message=f"--from-file is not readable: {path}: file is not valid UTF-8: {exc}",
+        ) from exc
+
+
+def _normalize_slug(raw_slug: str | None) -> str | None:
+    if raw_slug is None:
+        return None
+    stripped = raw_slug.strip()
+    if not stripped:
+        return None
+    slug = stripped.split("/", 1)[0].strip()
+    if not slug:
+        return None
+    return slug
+
+
+def _carried_file(key: str, slug: str) -> CarriedFile:
+    prefix = f"{slug}/"
+    if key.startswith(prefix):
+        filename = key[len(prefix) :]
+    else:
+        filename = key
+    return CarriedFile(file=filename, key=key)
+
+
+def _blocked_target_collision(
+    slug: str,
+    target_branch: str,
+    entries: tuple[EntryRef, ...],
+) -> ClaimOutput:
+    return _blocked(
+        reason="target_collision",
+        message=_target_collision_message(slug, target_branch, entries),
+    )
+
+
+def _target_collision_message(slug: str, target_branch: str, entries: tuple[EntryRef, ...]) -> str:
+    keys = ", ".join(sorted(entry.key for entry in entries))
+    return (
+        f"Cannot claim objective {slug!r}: target branch {target_branch!r} "
+        f"already carries keys under {slug!r}/: {keys}."
+    )
+
+
+def _blocked(*, reason: BlockReason, message: str) -> ClaimOutput:
+    return ClaimOutput(
+        schema=CLAIM_SCHEMA,
+        status="blocked",
+        message=message,
+        result=None,
+        selection=None,
+        block=ClaimBlock(reason=reason, message=message),
+    )
+
+
+def _selection_output(
+    *,
+    kind: SelectionKind,
+    prompt: str,
+    options: tuple[SelectionOption, ...],
+) -> ClaimOutput:
+    lines = [prompt]
+    for option in options:
+        lines.append(f"- {option.label}: objective exec claim {_join_args(option.rerun_args)}")
+    return ClaimOutput(
         schema=CLAIM_SCHEMA,
         status="needs_selection",
-        message=_selection_message(selection),
+        message="\n".join(lines),
         result=None,
-        selection=selection,
+        selection=ClaimSelection(kind=kind, prompt=prompt, options=options),
         block=None,
     )
 
 
-def _blocked_command_result(block: ClaimBlock) -> ClaimCommandResult:
-    return ClaimCommandResult(
-        schema=CLAIM_SCHEMA,
-        status="blocked",
-        message=f"Cannot claim objective:\n{block.reason}: {block.message}",
-        result=None,
-        selection=None,
-        block=block,
-    )
-
-
-def _rerun_args(
-    request: ClaimRequest,
-    *,
-    slug: str,
-    from_branch: str | None = None,
-) -> tuple[str, ...]:
+def _slug_rerun_args(slug: str, *, requested_target: str | None) -> tuple[str, ...]:
     args: list[str] = [slug]
-    if request.target is not None:
-        args.extend(("--target", request.target))
-    if from_branch is not None:
-        args.extend(("--from", from_branch))
-    elif request.from_branch is not None:
-        args.extend(("--from", request.from_branch))
-    if request.from_file is not None:
-        args.extend(("--from-file", request.from_file))
+    if requested_target is not None:
+        args.extend(["--target", requested_target])
     return tuple(args)
 
 
-def _selection_message(selection: ClaimSelection) -> str:
-    if not selection.options:
-        return selection.prompt
-    lines = [selection.prompt]
-    for option in selection.options:
-        command = "objective exec claim " + " ".join(_shell_quote(arg) for arg in option.rerun_args)
-        suffix = f" ({option.description})" if option.description else ""
-        lines.append(f"- {option.label}{suffix}: {command}")
-    return "\n".join(lines)
+def _source_rerun_args(
+    slug: str,
+    *,
+    requested_target: str | None,
+    source_branch: str,
+) -> tuple[str, ...]:
+    args = list(_slug_rerun_args(slug, requested_target=requested_target))
+    args.extend(["--from", source_branch])
+    return tuple(args)
 
 
-def _success_message(result: ClaimApplyResult, *, canonical_branch: str) -> str:
-    files = "\n".join(f"- {file.file}" for file in result.files_carried) or "- none"
+def _join_args(args: tuple[str, ...]) -> str:
+    return " ".join(shlex.quote(arg) for arg in args)
+
+
+def _claimed_message(result: ClaimedResult, *, trunk_branch: str) -> str:
+    files = ", ".join(file.file for file in result.files_carried)
     return (
         f"Claimed objective: {result.slug}\n"
+        f"Target branch: {result.target_branch}\n"
         f"Source: {result.source_label}\n"
-        f"Target: {result.target_branch}\n\n"
-        f"Files carried:\n{files}\n\n"
+        f"Files carried: {files}\n"
         f"Destination ref: {result.destination_ref}\n"
-        f"Commit: {result.destination_commit_sha}\n\n"
-        "Next:\n"
-        "This branch is ready for implementation. After implementing the slice, merge\n"
-        f"the PR and run objective-reconcile {result.slug} on {canonical_branch}. Run\n"
-        f"objective-update {result.slug} only if another branch will claim from this\n"
-        "branch before it lands."
+        f"Destination commit: {result.destination_commit_sha}\n"
+        f"Next: run objective-reconcile {result.slug} on {trunk_branch} when the branch "
+        "snapshot is ready to merge back."
     )
-
-
-def _shell_quote(part: str) -> str:
-    return part if _is_shell_safe(part) else json.dumps(part)
-
-
-def _is_shell_safe(part: str) -> bool:
-    return bool(part) and all(char.isalnum() or char in "_./:@%+=,-" for char in part)
