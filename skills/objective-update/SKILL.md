@@ -28,9 +28,8 @@ from it.
 
 Given an explicit, resolved, or implicitly claimed objective slug, make the
 current branch's snapshot under `<slug>/` current with commits on the current
-branch. If the branch has no matching snapshot, delegate to the exact
-carry-forward primitive (`objective exec claim-plan` / `claim-apply`) first,
-then continue the normal update. Write only changed content files back to
+branch. If the branch has no matching snapshot, delegate to the
+`objective-claim` carry-forward skill first, then continue the normal update. Write only changed content files back to
 `brmem`, then advance the machine-owned `<slug>/.absorbed.jsonl` marker so
 deterministic freshness checks know which branch patches this snapshot
 covers. Report old/new commit SHAs so prior snapshots are recoverable.
@@ -89,9 +88,14 @@ snapshot covers the current branch work.
   files from the original brief, rename sections, delete history, or rebuild
   files wholesale.
 - **Attach missing snapshots only through claim.** If `<slug>/` is not present
-  on the branch, run the claim planning/apply flow below and then rerun the
+  on the branch, delegate to the `objective-claim` skill and then rerun the
   update precheck. Do not synthesize or hand-copy snapshot files during
-  `update`.
+  `update`, and do not reproduce `claim-plan` / `claim-apply` mechanics here.
+- **Serialize snapshot writes.** `brmem put` advances the branch snapshot ref.
+  When updating multiple files under the same objective snapshot, run each
+  `brmem put` one at a time and wait for its result before starting the next.
+  Never run these writes via `multi_tool_use.parallel`, background jobs,
+  `xargs -P`, or shell `&` parallelism.
 - **Never implement work.** `update` records progress; it does not write
   code or perform the slice's engineering.
 
@@ -109,7 +113,10 @@ The envelope handles preflight (current branch, trunk refusal, detached
 HEAD), slug resolution, file presence + old SHAs, and the `trunk..HEAD`
 commit list in one round-trip.
 
-Handle the result:
+Handle the result. `update-precheck` may exit 2 for preparation-control
+states; `no_objective_on_branch` and `slug_not_attached` are expected
+preparation signals that route to Step 1a, not terminal failures. Other
+exit-2 errors are terminal unless explicitly handled below.
 
 - **`error_type` set**: handle only the attach-missing cases here; surface
   all other errors and stop.
@@ -146,47 +153,23 @@ malformed and will be rewritten if triage succeeds.
 
 ### 1a. Implicit claim when missing
 
-Run claim planning with the slug from the prompt, when present:
+If `update-precheck` reports `no_objective_on_branch` or `slug_not_attached`,
+delegate to the `objective-claim` skill (passing the slug from the prompt
+when present). Do not reproduce `claim-plan` / `claim-apply` mechanics here.
+
+If `objective-claim` reports ambiguity (multiple candidate slugs or tied
+source branches), present the alternatives, ask the user to choose, and
+rerun `objective-claim` with the selected slug (and `--from <branch>` when
+the ambiguity was over source branches). If `objective-claim` reports a
+real error, surface the message and stop.
+
+After a successful claim, capture the resolved slug and rerun the precheck:
 
 ```bash
-objective exec claim-plan [<slug>] --format json
+objective exec update-precheck <resolved-slug> --format json
 ```
 
-Handle the claim envelope:
-
-- **`status == "plan"`**: write the complete JSON envelope to a temporary
-  plan file and apply it:
-
-  ```bash
-  PLAN=/tmp/objective-claim-plan-<resolved-slug>.json
-  objective exec claim-apply --plan-file "$PLAN" --format json
-  ```
-
-  Capture the resolved slug from the plan/apply result, rerun the precheck
-  with that slug, and continue Step 1's normal stale/fresh handling:
-
-  ```bash
-  objective exec update-precheck <resolved-slug> --format json
-  ```
-
-- **`status == "ambiguous"`**: present the alternatives and ask the user to
-  choose. For `ambiguous_slug_candidates`, list each slug with the available
-  source branch when present, then rerun:
-
-  ```bash
-  objective exec claim-plan <selected-slug> --format json
-  ```
-
-  For `ambiguous_source_branches`, list the tied source branches for the
-  selected slug, then rerun:
-
-  ```bash
-  objective exec claim-plan <selected-slug> --from <selected-branch> --format json
-  ```
-
-  Apply the resulting plan and rerun `update-precheck <resolved-slug>`.
-
-- **`status == "error"`**: surface the message and stop.
+Then continue Step 1's normal stale/fresh handling.
 
 ### 2. Load target files
 
@@ -241,15 +224,17 @@ history, or attach a missing snapshot.
 ### 5. Persist changed files
 
 Write changed content to temporary files, then store only changed files back
-to the same branch snapshot:
+to the same branch snapshot **serially**. Run at most one `brmem put` at a
+time and capture its commit SHA before starting the next write:
 
 ```bash
-brmem put <slug>/body.md --namespace objectives --file <temp-body>
-brmem put <slug>/roadmap.md --namespace objectives --file <temp-roadmap>
-brmem put <slug>/notes.md --namespace objectives --file <temp-notes>
+brmem put <slug>/body.md --namespace objectives --file <temp-body> --format json
+brmem put <slug>/roadmap.md --namespace objectives --file <temp-roadmap> --format json
+brmem put <slug>/notes.md --namespace objectives --file <temp-notes> --format json
 ```
 
-Skip `brmem put` for unchanged files. Capture new commit SHAs.
+Skip absent or unchanged files. Do not parallelize these commands —
+parallel writes to the same branch snapshot ref race and lose updates.
 
 ### 6. Advance absorbed marker
 
@@ -307,6 +292,9 @@ When no files were rewritten, report:
 - HEAD changed after precheck: stop on `head_moved`; do not absorb untriaged
   commits.
 - Multiple slugs on the branch: fine; operate only on the explicit slug.
+- Never manually construct claim plan files during `update`; delegate
+  missing snapshot attachment to `objective-claim`.
+- Never parallelize `brmem put` writes to the same branch snapshot.
 - Never implement work, attach a snapshot, rewrite canonical state, delete
   completed roadmap items, hand-edit `.absorbed.jsonl`, or rebuild files
   wholesale during `update`.

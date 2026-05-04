@@ -28,6 +28,10 @@ verbatim to the target branch snapshot.
 summarizes objective content; reshaping belongs to `objective-update`
 on branch snapshots or `objective-reconcile` into canonical state.
 
+This skill is the carry-forward primitive. Other skills (`objective-next`,
+`objective-update`) that need to attach a missing snapshot must delegate to
+this skill rather than reproduce the plan/apply mechanics inline.
+
 ## Inputs
 
 - **Slug, optional.** Parse the objective slug from the prompt when present.
@@ -85,12 +89,25 @@ The JSON envelope's top-level `status` is one of:
 
 ### 2. Apply the plan
 
-When status is `"plan"`, persist the envelope and run apply:
+When status is `"plan"`, write the inner `data` object to a temporary plan
+file and run apply. The CLI wraps every result in a Clinkr envelope
+(`{"exit_code": ..., "data": {...}}`); `claim-apply` expects the inner
+`data` object — which has top-level `schema: "claim-plan/v1"` — not the full
+wrapper. Use a private temp directory and remove it afterward:
 
 ```bash
-PLAN=/tmp/objective-claim-plan-<slug>.json
+DIR=$(mktemp -d "${TMPDIR:-/tmp}/objective-claim.XXXXXX")
+PLAN="$DIR/claim-plan.json"
+objective exec claim-plan [slug] [--target <branch>] [--from <branch>] \
+  [--from-file <path>] --format json \
+  | python -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["data"], indent=2))' \
+  > "$PLAN"
 objective exec claim-apply --plan-file "$PLAN" --format json
+rm -rf "$DIR"
 ```
+
+Do not write the full JSON wrapper (`exit_code` + `data`) as the plan file;
+`claim-apply` rejects it with `schema_mismatch`.
 
 `claim-apply`:
 
