@@ -17,7 +17,7 @@ describe("objective root command helpers", () => {
 			{
 				value: "next ",
 				label: "next",
-				description: "Inspect an objective and suggest the next PR-sized slice",
+				description: "Inspect objective-next context for the current branch",
 			},
 			{
 				value: "list ",
