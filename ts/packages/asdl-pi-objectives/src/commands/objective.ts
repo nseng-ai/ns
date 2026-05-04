@@ -14,7 +14,7 @@ const SUBCOMMANDS = [
 	},
 	{
 		name: "next",
-		description: "Inspect an objective and suggest the next PR-sized slice",
+		description: "Inspect objective-next context for the current branch",
 	},
 	{
 		name: "list",
