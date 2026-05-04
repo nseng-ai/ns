@@ -67,6 +67,42 @@ a `pool_full` error that lists the current assignments. Run
 `slot free` to release a slot, or increase `--size` via `slot resize`
 to grow the pool.
 
+## Opt-in shell integration
+
+By default, navigation commands print a `cd <path>` command and, when
+available, copy that command to the clipboard. A child process cannot
+change its parent shell's working directory directly, so automatic
+parent-shell `cd` is opt-in through a shell function wrapper.
+
+Install the wrapper for your shell:
+
+```bash
+slot shell install --shell zsh
+slot shell install --shell bash
+```
+
+Inspect the generated wrapper before installing or redirecting it:
+
+```bash
+slot shell show --shell zsh
+```
+
+The wrapper defines a shell function named `slot`. For each invocation,
+it creates a temporary directive file, then invokes the real `slot`
+binary with `SLOT_CD_DIRECTIVE_FILE=<temp> command slot "$@"` so the
+function does not recursively call itself. On successful interactive
+navigation, `slot` writes only the raw destination path to that file;
+the wrapper reads the path and performs `cd -- <path>` in the parent
+shell. The Python command never emits shell code for the wrapper to
+`eval`, and the directive file is removed after each invocation.
+
+If the wrapper is inactive or uninstalled, or if a command runs in
+non-interactive/JSON mode, existing fallback behavior remains: commands
+still print the `cd <path>` command and optionally copy it. Currently,
+the directive-file navigation surface is `slot checkout` / `slot co`.
+Other navigation helpers continue to use the printed/copied command
+fallback until they are explicitly wired into the directive protocol.
+
 ### `slot list`
 
 Renders the pool from `git worktree list`. One row per managed `slot-XX`
@@ -140,6 +176,7 @@ This package provides:
 
 - Standalone CLI: `slot` console script (declared in `pyproject.toml`).
 - ASDL plugin: `asdl slot ...` via the `asdl.plugins` entry point.
+- Shell integration subgroup: `slot shell ...`.
 - Graphite-aware subgroup: `slot gt ...`.
 
 Run `slot --help` for the full command list and `slot <cmd> --help` for
