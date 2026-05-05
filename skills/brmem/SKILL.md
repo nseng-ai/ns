@@ -1,6 +1,6 @@
 ---
 name: brmem
-description: "Use when a task needs branch-scoped durable memory with the `brmem` CLI: storing, reading, listing, checking, deleting, or copying text context tied to a git branch, or resolving `.brmem/prompts/...` prompt plugins. Use whenever the user mentions brmem, branch memory, stashing plan/context on a branch, carrying objective/scratch state across sessions, or asks how an agent should call `brmem`. For the specific create-a-branch-with-stashed-plan or pick-up-stashed-branch workflows, use `brmem-branch-create` / `brmem-branch-impl` alongside this CLI reference."
+description: "Use when a task needs branch-scoped durable memory with the `brmem` CLI: storing, reading, listing, checking, deleting, or copying text context tied to a git branch, or resolving `.brmem/prompts/...` prompt plugins. Use whenever the user mentions brmem, branch memory, stashing plan/context on a branch, carrying objective/scratch state across sessions, or asks how an agent should call `brmem`."
 allowed-tools:
   - "Bash(brmem *)"
   - "Bash(git *)"
@@ -16,10 +16,8 @@ stay attached to a Git branch without becoming working-tree files, commits, PR
 comments, or issues.
 
 This skill is a CLI reference. Prefer higher-level skills when they match the
-whole workflow (for example `brmem-branch-create` to create a branch and stash a
-plan, or `brmem-branch-impl` to load all branch memory and start work). Use this
-skill directly when you need to inspect, write, copy, delete, or explain branch
-memory.
+whole workflow. Use this skill directly when you need to inspect, write, copy,
+delete, or explain branch memory.
 
 ## Mental model
 
@@ -188,7 +186,7 @@ After deletion, report the branch, namespace/base, key, ref, and commit.
 Some skills let a repo customize one narrow prompt file. Resolve those with:
 
 ```text
-brmem exec resolve-prompt brmem-branch-create --format json
+brmem exec resolve-prompt <prompt-name> --format json
 ```
 
 The JSON result gives `data.path` and `data.tier` (`project` or `global`). Read
