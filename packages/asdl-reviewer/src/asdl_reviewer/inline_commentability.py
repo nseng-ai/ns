@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from dataclasses import dataclass
 from typing import Literal
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
+from pydantic import model_serializer
+
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.gh.types import PRChangedFile
 from asdl_reviewer.cli.reviewer.exec.format_findings_comment import FindingRow
 
@@ -27,30 +28,27 @@ FallbackReason = Literal[
 _HUNK_HEADER_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,\d+)? @@")
 
 
-@dataclass(frozen=True)
-class InlineTarget:
+class InlineTarget(ClinkrModel):
     path: str
     line: int
 
 
-@dataclass(frozen=True)
-class InlineableFinding:
+class InlineableFinding(ClinkrModel):
     finding: FindingRow
     target: InlineTarget
 
 
-@dataclass(frozen=True)
-class FallbackOnlyFinding:
+class FallbackOnlyFinding(ClinkrModel):
     finding: FindingRow
     reason: FallbackReason
 
 
-@dataclass(frozen=True)
-class InlineCommentabilityResult(JsonSerializable):
+class InlineCommentabilityResult(ClinkrModel):
     inlineable: tuple[InlineableFinding, ...]
     fallback_only: tuple[FallbackOnlyFinding, ...]
 
-    def to_json_dict(self) -> dict[str, object]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, object]:
         return result_to_json_dict(self)
 
 
@@ -137,7 +135,7 @@ def result_to_json_dict(result: InlineCommentabilityResult) -> dict[str, object]
         "inlineable": [
             {
                 "finding": dataclasses.asdict(item.finding),
-                "target": dataclasses.asdict(item.target),
+                "target": item.target.to_json_dict(),
             }
             for item in result.inlineable
         ],

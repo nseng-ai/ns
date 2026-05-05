@@ -1,36 +1,34 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import click
+from pydantic import model_serializer
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.harness_registry import HARNESS_ADAPTERS
 
 
-@dataclass(frozen=True)
-class HarnessListRequest:
+class HarnessListRequest(ClinkrModel):
     pass
 
 
-@dataclass(frozen=True)
-class HarnessEntry:
+class HarnessEntry(ClinkrModel):
     name: str
     binary: str
     path: str | None
     available: bool
 
 
-@dataclass(frozen=True)
-class HarnessListResult(JsonSerializable):
+class HarnessListResult(ClinkrModel):
     harnesses: tuple[HarnessEntry, ...]
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         return {
             "harnesses": [
                 {

@@ -1,22 +1,18 @@
 """Unresolve a PR review thread."""
 
-from dataclasses import dataclass
-
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 
 
-@dataclass(frozen=True)
-class UnresolveThreadRequest:
+class UnresolveThreadRequest(ClinkrModel):
     thread_id: str
 
 
-@dataclass(frozen=True)
-class UnresolveThreadResult(JsonSerializable):
+class UnresolveThreadResult(ClinkrModel):
     thread_id: str
     was_already_unresolved: bool
 

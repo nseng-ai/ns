@@ -2,28 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import IssueComment
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 from asdl_pr_address.cli.pr_address.reply_formatting import format_review_reply
 
 
-@dataclass(frozen=True)
-class ReplyToReviewRequest:
+class ReplyToReviewRequest(ClinkrModel):
     pr_number: int
     review_author: str
     summary_markdown: str
 
 
-@dataclass(frozen=True)
-class ReplyToReviewResult(JsonSerializable):
+class ReplyToReviewResult(ClinkrModel):
     body: str
     comment: IssueComment
 

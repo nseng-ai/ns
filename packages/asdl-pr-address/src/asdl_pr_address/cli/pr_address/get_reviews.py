@@ -1,28 +1,27 @@
 """Fetch PR-level review submissions."""
 
 import dataclasses
-from dataclasses import dataclass
 from typing import Any
 
 import click
+from pydantic import model_serializer
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReview
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 
 
-@dataclass(frozen=True)
-class GetReviewsRequest:
+class GetReviewsRequest(ClinkrModel):
     pr_number: int
 
 
-@dataclass(frozen=True)
-class GetReviewsResult(JsonSerializable):
+class GetReviewsResult(ClinkrModel):
     reviews: tuple[PRReview, ...]
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         return {
             "reviews": [dataclasses.asdict(r) for r in self.reviews],
             "count": len(self.reviews),

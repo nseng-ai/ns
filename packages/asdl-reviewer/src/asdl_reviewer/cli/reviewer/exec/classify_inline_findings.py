@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
@@ -11,6 +10,7 @@ import click
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_reviewer.cli.reviewer.exec.format_findings_comment import parse_findings_payload_result
 from asdl_reviewer.context import ReviewerCliContext
@@ -20,8 +20,7 @@ from asdl_reviewer.inline_commentability import (
 )
 
 
-@dataclass(frozen=True)
-class ClassifyInlineFindingsRequest:
+class ClassifyInlineFindingsRequest(ClinkrModel):
     pr_number: Annotated[
         int,
         click.Option(

@@ -1,13 +1,12 @@
 """Add a reply to a PR review thread."""
 
 import sys
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReviewComment
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
@@ -24,14 +23,12 @@ def _resolve_body(ctx: click.Context, param: click.Parameter, value: str) -> str
     return value
 
 
-@dataclass(frozen=True)
-class AddReviewThreadReplyRequest:
+class AddReviewThreadReplyRequest(ClinkrModel):
     thread_id: str
     body: Annotated[str, click.Argument(["body"], callback=_resolve_body)]
 
 
-@dataclass(frozen=True)
-class AddReviewThreadReplyResult(JsonSerializable):
+class AddReviewThreadReplyResult(ClinkrModel):
     comment: PRReviewComment
 
 

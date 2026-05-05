@@ -1,29 +1,28 @@
 """Fetch unresolved review threads for a PR."""
 
 import dataclasses
-from dataclasses import dataclass
 from typing import Any
 
 import click
+from pydantic import model_serializer
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReviewThread
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 
 
-@dataclass(frozen=True)
-class GetReviewCommentsRequest:
+class GetReviewCommentsRequest(ClinkrModel):
     pr_number: int
     include_resolved: bool = False
 
 
-@dataclass(frozen=True)
-class GetReviewCommentsResult(JsonSerializable):
+class GetReviewCommentsResult(ClinkrModel):
     threads: tuple[PRReviewThread, ...]
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         return {
             "threads": [dataclasses.asdict(t) for t in self.threads],
             "count": len(self.threads),

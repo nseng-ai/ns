@@ -1,24 +1,22 @@
 """Look up the open PR for a branch."""
 
-from dataclasses import dataclass
 from typing import Any
 
 import click
+from pydantic import model_serializer
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRLookupError, PRState
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 
 
-@dataclass(frozen=True)
-class GetPRForBranchRequest:
+class GetPRForBranchRequest(ClinkrModel):
     branch: str
 
 
-@dataclass(frozen=True)
-class GetPRForBranchResult(JsonSerializable):
+class GetPRForBranchResult(ClinkrModel):
     found: bool
     number: int | None = None
     title: str | None = None
@@ -29,7 +27,8 @@ class GetPRForBranchResult(JsonSerializable):
     error: str | None = None
     returncode: int | None = None
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         if not self.found:
             d: dict[str, Any] = {"found": False}
             if self.error is not None:

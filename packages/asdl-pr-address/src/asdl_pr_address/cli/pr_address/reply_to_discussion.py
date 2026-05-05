@@ -4,22 +4,21 @@ from __future__ import annotations
 
 import dataclasses
 import subprocess
-from dataclasses import dataclass
 from typing import Any
 
 import click
+from pydantic import model_serializer
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import IssueComment, Reaction
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 from asdl_pr_address.cli.pr_address.reply_formatting import format_discussion_reply
 
 
-@dataclass(frozen=True)
-class ReplyToDiscussionRequest:
+class ReplyToDiscussionRequest(ClinkrModel):
     pr_number: int
     comment_id: int
     comment_author: str
@@ -27,15 +26,15 @@ class ReplyToDiscussionRequest:
     response: str
 
 
-@dataclass(frozen=True)
-class ReplyToDiscussionResult(JsonSerializable):
+class ReplyToDiscussionResult(ClinkrModel):
     body: str
     comment: IssueComment
     reaction_added: bool
     reaction: Reaction | None = None
     warning: str | None = None
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "body": self.body,
             "comment": dataclasses.asdict(self.comment),
