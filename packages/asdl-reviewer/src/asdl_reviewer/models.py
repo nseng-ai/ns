@@ -10,6 +10,7 @@ from typing import Any, Literal, TypeAlias
 from pydantic import model_serializer
 
 from asdl_core.clinkr.models import ClinkrModel
+from asdl_core.clinkr.serialization import serialize_to_json_dict
 
 Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
@@ -411,6 +412,6 @@ class LocalReviewResult(ClinkrModel):
             "review_path": self.review_path,
             "model": self.model,
             "base_ref": self.base_ref,
-            "usage": self.usage.to_json_dict() if self.usage else None,
-            **self.payload.to_json_dict(),
+            "usage": serialize_to_json_dict(self.usage) if self.usage else None,
+            **serialize_to_json_dict(self.payload),
         }

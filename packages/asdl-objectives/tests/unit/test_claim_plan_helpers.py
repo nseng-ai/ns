@@ -7,6 +7,7 @@ evolve without spinning up the full Click harness.
 
 from __future__ import annotations
 
+from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_objectives.exec.claim import (
     PLAN_SCHEMA,
     CandidateBranch,
@@ -62,7 +63,7 @@ def test_classify_slug_candidates_multiple_returns_ambiguity() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
+def test_claim_plan_result_serializes_for_plan_status() -> None:
     result = ClaimPlanReadyResult(
         json_schema=PLAN_SCHEMA,
         canonical_branch="master",
@@ -83,7 +84,7 @@ def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
             ),
         ),
     )
-    payload = result.to_json_dict()
+    payload = serialize_to_json_dict(result)
     assert payload["status"] == "plan"
     assert payload["resolved_slug"] == "alpha"
     assert payload["plan"]["slug"] == "alpha"
@@ -93,7 +94,7 @@ def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
     assert payload["error"] is None
 
 
-def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
+def test_claim_plan_result_serializes_for_ambiguity_status() -> None:
     result = ClaimPlanAmbiguousResult(
         json_schema=PLAN_SCHEMA,
         canonical_branch="master",
@@ -113,7 +114,7 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
             ),
         ),
     )
-    payload = result.to_json_dict()
+    payload = serialize_to_json_dict(result)
     assert payload["status"] == "ambiguous"
     assert payload["resolved_slug"] == "alpha"
     amb = payload["ambiguity"]
@@ -123,7 +124,7 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
     assert payload["error"] is None
 
 
-def test_claim_plan_result_to_json_dict_for_error_status() -> None:
+def test_claim_plan_result_serializes_for_error_status() -> None:
     result = ClaimPlanErrorResult(
         json_schema=PLAN_SCHEMA,
         canonical_branch="master",
@@ -138,7 +139,7 @@ def test_claim_plan_result_to_json_dict_for_error_status() -> None:
             message="ghost is not anywhere",
         ),
     )
-    payload = result.to_json_dict()
+    payload = serialize_to_json_dict(result)
     assert payload["status"] == "error"
     assert payload["resolved_slug"] == "ghost"
     assert payload["error"]["reason"] == "explicit_slug_not_found"
