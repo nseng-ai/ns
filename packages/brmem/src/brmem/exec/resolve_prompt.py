@@ -2,37 +2,28 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from brmem.gateway_access import get_git_gateway, get_home_root
 
 
-@dataclass(frozen=True)
-class ResolvePromptRequest:
+class ResolvePromptRequest(ClinkrModel):
     name: Annotated[
         str,
         click.Argument(["name"], type=click.STRING),
     ]
 
 
-@dataclass(frozen=True)
-class ResolvePromptResult(JsonSerializable):
+class ResolvePromptResult(ClinkrModel):
     path: Path
     tier: Literal["project", "global"]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "path": str(self.path),
-            "tier": self.tier,
-        }
 
 
 def render_resolve_prompt(result: ResolvePromptResult) -> None:

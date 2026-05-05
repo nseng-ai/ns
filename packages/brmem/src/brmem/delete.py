@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from brmem.gateway import (
     EntryRef,
@@ -28,8 +27,7 @@ from brmem.key_validation import check_key
 from brmem.validation import first_failure
 
 
-@dataclass(frozen=True)
-class DeleteRequest:
+class DeleteRequest(ClinkrModel):
     key: Annotated[
         str,
         click.Argument(["key"], type=click.STRING),
@@ -46,8 +44,7 @@ class DeleteRequest:
     branch: str | None = None
 
 
-@dataclass(frozen=True)
-class DeleteResult(JsonSerializable):
+class DeleteResult(ClinkrModel):
     namespace: str | None
     key: str
     branch: str

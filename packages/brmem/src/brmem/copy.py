@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import fnmatch
 import subprocess
-from dataclasses import dataclass
 from typing import Annotated, Any
 
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from brmem.gateway import (
     BrmemCopyConflictError,
@@ -25,8 +24,7 @@ from brmem.gateway_access import get_branch_memory_gateway
 from brmem.validation import check_key_glob, first_failure
 
 
-@dataclass(frozen=True)
-class CopyRequest:
+class CopyRequest(ClinkrModel):
     namespace: Annotated[
         str,
         click.Option(
@@ -74,16 +72,14 @@ class CopyRequest:
     dry_run: bool = False
 
 
-@dataclass(frozen=True)
-class CopyPlanItem:
+class CopyPlanItem(ClinkrModel):
     key: str
     source_ref: str
     destination_ref: str
     source_sha: str
 
 
-@dataclass(frozen=True)
-class CopyResult(JsonSerializable):
+class CopyResult(ClinkrModel):
     namespace: str
     from_branch: str
     to_branch: str

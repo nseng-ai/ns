@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from brmem.gateway import EntryRef, check_branch_name, check_namespace
 from brmem.gateway_access import (
@@ -19,16 +17,14 @@ from brmem.key_validation import check_key
 from brmem.validation import first_failure
 
 
-@dataclass(frozen=True)
-class ListEntriesRequest:
+class ListEntriesRequest(ClinkrModel):
     namespace: str | None = None
     key: str | None = None
     branch: str | None = None
     base: bool = False
 
 
-@dataclass(frozen=True)
-class ListEntriesResult(JsonSerializable):
+class ListEntriesResult(ClinkrModel):
     namespace: str | None
     key: str | None
     branch: str | None

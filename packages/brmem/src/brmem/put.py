@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Annotated
 
 import click
 
 from asdl_core.clinkr.context import is_machine_mode
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from brmem.content_limits import (
     check_entry_not_binary,
@@ -34,8 +33,7 @@ from brmem.key_validation import check_key
 from brmem.validation import first_failure
 
 
-@dataclass(frozen=True)
-class PutRequest:
+class PutRequest(ClinkrModel):
     key: Annotated[
         str,
         click.Argument(
@@ -66,8 +64,7 @@ class PutRequest:
     ] = False
 
 
-@dataclass(frozen=True)
-class PutResult(JsonSerializable):
+class PutResult(ClinkrModel):
     namespace: str | None
     key: str
     branch: str
