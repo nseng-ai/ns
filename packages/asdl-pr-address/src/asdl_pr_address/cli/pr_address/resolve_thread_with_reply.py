@@ -2,30 +2,27 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Literal
 
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReviewComment
 from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
 from asdl_pr_address.cli.pr_address.reply_formatting import format_resolution_reply
 
 
-@dataclass(frozen=True)
-class ResolveThreadWithReplyRequest:
+class ResolveThreadWithReplyRequest(ClinkrModel):
     thread_id: str
     mode: Literal["fixed", "pre_existing", "explained"]
     message: str | None
     commit_sha: str | None
 
 
-@dataclass(frozen=True)
-class ResolveThreadWithReplyResult(JsonSerializable):
+class ResolveThreadWithReplyResult(ClinkrModel):
     thread_id: str
     body: str
     comment: PRReviewComment

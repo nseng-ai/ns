@@ -5,15 +5,14 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import sys
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRInlineCommentInput
 from asdl_reviewer.cli.reviewer.exec.format_findings_comment import (
@@ -27,8 +26,7 @@ _BOT_AUTHOR_LOGIN = "github-actions[bot]"
 _MARKER_PREFIX = "asdl-reviewer-inline"
 
 
-@dataclass(frozen=True)
-class PostInlineFindingsRequest:
+class PostInlineFindingsRequest(ClinkrModel):
     pr_number: Annotated[
         int,
         click.Option(
@@ -39,8 +37,7 @@ class PostInlineFindingsRequest:
     ]
 
 
-@dataclass(frozen=True)
-class PostInlineFindingsResult(JsonSerializable):
+class PostInlineFindingsResult(ClinkrModel):
     posted_count: int
     skipped_duplicate_count: int
     fallback_only_count: int

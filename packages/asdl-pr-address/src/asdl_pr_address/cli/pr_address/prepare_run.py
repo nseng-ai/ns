@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import click
+from pydantic import model_serializer
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import (
     IssueComment,
@@ -28,8 +29,7 @@ from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 RestructuredFiles = tuple[RestructuredFile, ...]
 
 
-@dataclass(frozen=True)
-class PrepareRunRequest:
+class PrepareRunRequest(ClinkrModel):
     """Inputs to `prepare-run`.
 
     Attributes:
@@ -46,8 +46,7 @@ class PrepareRunRequest:
     include_empty_reviews: bool = False
 
 
-@dataclass(frozen=True)
-class PrepareRunResult(JsonSerializable):
+class PrepareRunResult(ClinkrModel):
     """Normalized PR feedback snapshot for a single `pr-address` run.
 
     When `found` is False the current branch has no associated PR; all other
@@ -93,16 +92,17 @@ class PrepareRunResult(JsonSerializable):
     head_ref_name: str | None = None
     base_ref_name: str | None = None
     state: PRState | None = None
-    reviews: tuple[PRReview, ...] = field(default_factory=tuple)
-    review_threads: tuple[PRReviewThread, ...] = field(default_factory=tuple)
-    discussion_comments: tuple[IssueComment, ...] = field(default_factory=tuple)
-    reopened_thread_ids: tuple[str, ...] = field(default_factory=tuple)
-    restructured_files: RestructuredFiles = field(default_factory=tuple)
-    warnings: tuple[str, ...] = field(default_factory=tuple)
+    reviews: tuple[PRReview, ...] = ()
+    review_threads: tuple[PRReviewThread, ...] = ()
+    discussion_comments: tuple[IssueComment, ...] = ()
+    reopened_thread_ids: tuple[str, ...] = ()
+    restructured_files: RestructuredFiles = ()
+    warnings: tuple[str, ...] = ()
     error: str | None = None
     returncode: int | None = None
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         if not self.found:
             payload: dict[str, Any] = {
                 "found": False,

@@ -4,12 +4,13 @@ from dataclasses import dataclass
 from typing import Any
 
 import click
+from pydantic import model_serializer
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.gateways.review_definition.gateway import REVIEWS_DIRNAME
@@ -20,17 +21,16 @@ from asdl_reviewer.models import (
 )
 
 
-@dataclass(frozen=True)
-class ReviewListRequest:
+class ReviewListRequest(ClinkrModel):
     pass
 
 
-@dataclass(frozen=True)
-class ReviewListResult(JsonSerializable):
+class ReviewListResult(ClinkrModel):
     keys: tuple[str, ...]
     reviews_dir: str
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         return {
             "reviews_dir": self.reviews_dir,
             "keys": list(self.keys),

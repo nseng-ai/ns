@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated, Literal
 
 import click
@@ -9,6 +8,7 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.models import (
@@ -24,8 +24,7 @@ from asdl_reviewer.models import (
 from asdl_reviewer.workflow import run_review_by_key
 
 
-@dataclass(frozen=True)
-class ReviewRunRequest:
+class ReviewRunRequest(ClinkrModel):
     key: str
     harness: Annotated[
         str | None,

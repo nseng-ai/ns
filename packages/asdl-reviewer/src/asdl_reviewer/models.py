@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, TypeAlias
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
+from pydantic import model_serializer
+
+from asdl_core.clinkr.models import ClinkrModel
 
 Severity = Literal["info", "warning", "error"]
 _VALID_SEVERITIES = {"info", "warning", "error"}
@@ -321,13 +323,13 @@ class ReviewFinding:
         )
 
 
-@dataclass(frozen=True)
-class FindingsReview(JsonSerializable):
+class FindingsReview(ClinkrModel):
     """A review payload carrying structured findings."""
 
     findings: tuple[ReviewFinding, ...]
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         return {
             "format": "findings",
             "findings": [dataclasses.asdict(finding) for finding in self.findings],
@@ -335,13 +337,13 @@ class FindingsReview(JsonSerializable):
         }
 
 
-@dataclass(frozen=True)
-class ProseReview(JsonSerializable):
+class ProseReview(ClinkrModel):
     """A review payload carrying a human-readable markdown review."""
 
     prose: str
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         return {
             "format": "text",
             "prose": self.prose,
@@ -367,8 +369,7 @@ class ReviewExecutionRequest:
     diff_text: str
 
 
-@dataclass(frozen=True)
-class ReviewUsage:
+class ReviewUsage(ClinkrModel):
     """Cost and token usage statistics from a harness run."""
 
     input_tokens: int
@@ -392,8 +393,7 @@ class ReviewExecutionResponse:
     usage: ReviewUsage | None = None
 
 
-@dataclass(frozen=True)
-class LocalReviewResult(JsonSerializable):
+class LocalReviewResult(ClinkrModel):
     """Structured result returned by the local reviewer CLI."""
 
     review_name: str
@@ -403,13 +403,14 @@ class LocalReviewResult(JsonSerializable):
     payload: ReviewPayload
     usage: ReviewUsage | None = None
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         """Serialize the local-review result for JSON output."""
         return {
             "review_name": self.review_name,
             "review_path": self.review_path,
             "model": self.model,
             "base_ref": self.base_ref,
-            "usage": dataclasses.asdict(self.usage) if self.usage else None,
+            "usage": self.usage.to_json_dict() if self.usage else None,
             **self.payload.to_json_dict(),
         }
