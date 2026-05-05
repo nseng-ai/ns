@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from asdl_core.clinkr.dataclass_json import output_schema, request_schema
+from asdl_core.clinkr.serialization import output_schema, request_schema
 
 
 def build_json_schema_document(

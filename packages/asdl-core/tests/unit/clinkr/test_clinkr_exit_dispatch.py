@@ -1,26 +1,23 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 
-@dataclass(frozen=True)
-class ProbeRequest:
+class ProbeRequest(ClinkrModel):
     mode: Annotated[str, click.Argument(["mode"], type=click.STRING)]
 
 
-@dataclass(frozen=True)
-class ProbeResult(JsonSerializable):
+class ProbeResult(ClinkrModel):
     value: str
 
 

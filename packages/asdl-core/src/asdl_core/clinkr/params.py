@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import dataclasses
 from dataclasses import dataclass
 from typing import Annotated, Any, TypeGuard, get_args, get_origin, get_type_hints
 
@@ -26,8 +25,8 @@ class RequestField:
 
 
 def extract_click_params(request_type: type) -> list[click.Parameter]:
-    hints = get_type_hints(request_type, include_extras=True)
     fields = _request_fields(request_type)
+    hints = get_type_hints(request_type, include_extras=True)
 
     arguments: list[click.Parameter] = []
     options: list[click.Parameter] = []
@@ -54,41 +53,31 @@ def build_request_from_click_params(request_type: type, kwargs: dict[str, Any]) 
         if name in field_names:
             mapped[name] = value
 
-    if _is_pydantic_model_type(request_type):
-        return request_type.model_validate(mapped)
-    return request_type(**mapped)
+    if not _is_pydantic_model_type(request_type):
+        raise TypeError(
+            f"request type {request_type.__name__} must be a Pydantic BaseModel subclass"
+        )
+    return request_type.model_validate(mapped)
 
 
 def _request_fields(request_type: type) -> list[RequestField]:
-    if _is_pydantic_model_type(request_type):
-        return [
-            RequestField(
-                name=name,
-                has_default=not field_info.is_required(),
-                default=(
-                    field_info.get_default(call_default_factory=True)
-                    if not field_info.is_required()
-                    else _MISSING
-                ),
-            )
-            for name, field_info in request_type.model_fields.items()
-        ]
-
-    return [_dataclass_request_field(field) for field in dataclasses.fields(request_type)]
-
-
-def _dataclass_request_field(field: dataclasses.Field[Any]) -> RequestField:
-    if field.default is not dataclasses.MISSING:
-        return RequestField(name=field.name, has_default=True, default=field.default)
-
-    if field.default_factory is not dataclasses.MISSING:
-        return RequestField(
-            name=field.name,
-            has_default=True,
-            default=field.default_factory(),
+    if not _is_pydantic_model_type(request_type):
+        raise TypeError(
+            f"request type {request_type.__name__} must be a Pydantic BaseModel subclass"
         )
 
-    return RequestField(name=field.name, has_default=False)
+    return [
+        RequestField(
+            name=name,
+            has_default=not field_info.is_required(),
+            default=(
+                field_info.get_default(call_default_factory=True)
+                if not field_info.is_required()
+                else _MISSING
+            ),
+        )
+        for name, field_info in request_type.model_fields.items()
+    ]
 
 
 def _extract_annotated_param(field: RequestField, hint: Any) -> click.Parameter | None:

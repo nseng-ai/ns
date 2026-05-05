@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import pytest
+from pydantic import model_serializer
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit, ExitStatus
+from asdl_core.clinkr.models import ClinkrModel
 
 
-@dataclass(frozen=True)
-class SampleData(JsonSerializable):
+class SampleData(ClinkrModel):
     value: str
 
 
@@ -134,12 +132,12 @@ def test_envelope_failure_includes_error_type_and_message_no_data() -> None:
     }
 
 
-def test_envelope_data_uses_to_json_dict_when_available() -> None:
-    @dataclass(frozen=True)
-    class CustomPayload(JsonSerializable):
+def test_envelope_data_uses_model_serializer_when_available() -> None:
+    class CustomPayload(ClinkrModel):
         raw: str
 
-        def to_json_dict(self) -> dict[str, str]:
+        @model_serializer
+        def serialize_model(self) -> dict[str, str]:
             return {"normalized": self.raw.upper()}
 
     exit_obj = ClinkrExit.ok(CustomPayload(raw="hi"))

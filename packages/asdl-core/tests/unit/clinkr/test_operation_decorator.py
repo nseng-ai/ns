@@ -1,33 +1,33 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import click
 import pytest
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation, get_operation_meta
 
 
-@dataclass(frozen=True)
-class FakeRequest:
+class FakeRequest(ClinkrModel):
     name: str
 
 
-@dataclass(frozen=True)
-class FakeResult(JsonSerializable):
+class FakeResult(ClinkrModel):
     message: str
 
 
-@dataclass(frozen=True)
-class BadResult:
-    """Fixture for test_result_type_must_subclass_json_serializable.
+class BadRequest:
+    name: str
 
-    Deliberately does not subclass JsonSerializable.
+
+class BadResult:
+    """Fixture for test_result_type_must_be_supported_shape.
+
+    Deliberately does not subclass Pydantic BaseModel.
     """
 
-    value: str
+    def __init__(self, *, value: str) -> None:
+        self.value = value
 
 
 def test_clinkr_exit_return_tags_result_type() -> None:
@@ -64,15 +64,34 @@ def test_clinkr_exit_unparameterized_rejected() -> None:
             return ClinkrExit.ok(FakeResult(message="ok"))
 
 
+def test_request_type_must_be_pydantic_model() -> None:
+    with pytest.raises(
+        TypeError,
+        match=r"clinkr_operation function .*op_with_bad_request.*"
+        r"request type BadRequest must be a Pydantic BaseModel subclass",
+    ):
+
+        @clinkr_operation(name="op")
+        def op_with_bad_request(
+            ctx: click.Context,
+            request: BadRequest,
+        ) -> ClinkrExit[FakeResult]:
+            del ctx, request
+            return ClinkrExit.ok(FakeResult(message="ok"))
+
+
 def test_result_type_must_be_supported_shape() -> None:
     with pytest.raises(
         TypeError,
         match=r"clinkr_operation function .*op_with_bad_result.*"
-        r"result type BadResult must be Pydantic-compatible or subclass JsonSerializable",
+        r"result type BadResult must be Pydantic-compatible",
     ):
 
         @clinkr_operation(name="op")
-        def op_with_bad_result(ctx: click.Context, request: FakeRequest) -> ClinkrExit[BadResult]:  # type: ignore[type-var]
+        def op_with_bad_result(
+            ctx: click.Context,
+            request: FakeRequest,
+        ) -> ClinkrExit[BadResult]:  # type: ignore[type-var]
             del ctx, request
             return ClinkrExit.ok(BadResult(value="x"))  # type: ignore[type-var]
 

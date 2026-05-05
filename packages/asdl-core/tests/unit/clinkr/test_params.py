@@ -1,41 +1,31 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
+import pytest
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.params import build_request_from_click_params, extract_click_params
 
 
-@dataclass(frozen=True)
-class AnnotatedRequest:
+class AnnotatedRequest(ClinkrModel):
     target: Annotated[str, click.Argument(["target"])]
     verbose: Annotated[bool, click.Option(["--verbose", "-v"], is_flag=True)] = False
 
 
-@dataclass(frozen=True)
-class InferredRequest:
+class InferredRequest(ClinkrModel):
     name: str
     count: int = 3
     dry_run: bool = False
 
 
-@dataclass(frozen=True)
-class EmptyRequest:
+class EmptyRequest(ClinkrModel):
     pass
 
 
-class PydanticAnnotatedRequest(ClinkrModel):
-    target: Annotated[str, click.Argument(["target"])]
-    verbose: Annotated[bool, click.Option(["--verbose", "-v"], is_flag=True)] = False
-
-
-class PydanticInferredRequest(ClinkrModel):
+class PlainRequest:
     name: str
-    count: int = 3
-    dry_run: bool = False
 
 
 def test_extract_annotated_argument() -> None:
@@ -92,28 +82,11 @@ def test_build_request_handles_hyphens() -> None:
     assert request == InferredRequest(name="bob", count=1, dry_run=False)
 
 
-def test_extract_pydantic_annotated_params() -> None:
-    params = extract_click_params(PydanticAnnotatedRequest)
-
-    assert isinstance(params[0], click.Argument)
-    assert params[0].name == "target"
-    opts = [p for p in params if isinstance(p, click.Option)]
-    assert len(opts) == 1
-    assert opts[0].name == "verbose"
-    assert opts[0].is_flag is True
+def test_extract_click_params_rejects_non_pydantic_request() -> None:
+    with pytest.raises(TypeError, match="must be a Pydantic BaseModel subclass"):
+        extract_click_params(PlainRequest)
 
 
-def test_extract_pydantic_inferred_params() -> None:
-    params = extract_click_params(PydanticInferredRequest)
-
-    args = [p for p in params if isinstance(p, click.Argument)]
-    opts = [p for p in params if isinstance(p, click.Option)]
-    assert [arg.name for arg in args] == ["name"]
-    assert {opt.name for opt in opts} == {"count", "dry_run"}
-
-
-def test_build_pydantic_request_from_click_params() -> None:
-    kwargs = {"name": "alice", "count": 5, "dry-run": True}
-    request = build_request_from_click_params(PydanticInferredRequest, kwargs)
-
-    assert request == PydanticInferredRequest(name="alice", count=5, dry_run=True)
+def test_build_request_rejects_non_pydantic_request() -> None:
+    with pytest.raises(TypeError, match="must be a Pydantic BaseModel subclass"):
+        build_request_from_click_params(PlainRequest, {"name": "alice"})

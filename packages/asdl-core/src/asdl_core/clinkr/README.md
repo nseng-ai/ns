@@ -1,6 +1,6 @@
 # clinkr: CLIs for Clankers
 
-A library for building Click CLI commands that are both human-friendly and machine-readable. Define an operation once, get a standard CLI with options/arguments _and_ a JSON-over-stdin/stdout variant automatically.
+A library for building Click CLI commands that are both human-friendly and machine-readable. Define an operation once, get a standard CLI with options/arguments _and_ a JSON stdout mode automatically.
 
 ## Install
 
@@ -19,22 +19,19 @@ The import list in `group.py` is the visible command inventory for the group. Th
 
 ```python
 # myapp/cli/myapp/greet.py
-from dataclasses import dataclass
-
 import click
 
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 
-@dataclass(frozen=True)
-class GreetRequest:
+class GreetRequest(ClinkrModel):
     name: str
     loud: bool = False
 
 
-@dataclass(frozen=True)
-class GreetResult:
+class GreetResult(ClinkrModel):
     greeting: str
 
 
@@ -159,7 +156,7 @@ Every operation's machine-readable path is `<noun> <verb> --format json`.
 
 ### `@clinkr_operation`
 
-Decorator that marks a function as a clinkr operation. The function must accept exactly two parameters — `ctx: click.Context` followed by the request dataclass — and return `ClinkrExit[T]`. Clinkr threads the active Click context in so operations never have to fetch it from globals. The request type and the wrapped result type are inferred from type annotations.
+Decorator that marks a function as a clinkr operation. The function must accept exactly two parameters — `ctx: click.Context` followed by the Pydantic request model — and return `ClinkrExit[T]`. Clinkr threads the active Click context in so operations never have to fetch it from globals. The request type and the wrapped result type are inferred from type annotations.
 
 ```python
 @clinkr_operation(name="foo", help="Do foo.", aliases=("f",))
@@ -242,7 +239,7 @@ Use `--schema` on any command to get the JSON Schema document for its input and 
 
 ### Parameter Mapping
 
-Dataclass fields map to Click parameters automatically:
+Pydantic request model fields map to Click parameters automatically:
 
 - Fields **without** defaults become positional `click.Argument`s
 - Fields **with** defaults become `click.Option`s (flags for `bool = False`)
@@ -250,7 +247,7 @@ Dataclass fields map to Click parameters automatically:
 
 ### Custom Rendering
 
-Pass a `human_renderer` to `@clinkr_operation` to control how `ClinkrExit.ok` results are displayed in the human CLI. The renderer receives the unwrapped `data` payload. The default renderer serializes the result dataclass as indented JSON. `negative` and `failure` exits bypass the renderer and emit their `message` to stderr.
+Pass a `human_renderer` to `@clinkr_operation` to control how `ClinkrExit.ok` results are displayed in the human CLI. The renderer receives the unwrapped `data` payload. The default renderer serializes the result model as indented JSON. `negative` and `failure` exits bypass the renderer and emit their `message` to stderr.
 
 ## Modules
 
@@ -262,8 +259,9 @@ Pass a `human_renderer` to `@clinkr_operation` to control how `ClinkrExit.ok` re
 | `ensure`          | `Ensure` precondition helpers (`true`, `truthy`, `not_none`, `inst`, `ideal_state`) |
 | `non_ideal_state` | `NonIdealState` Protocol for failure types that pre-name their CLI translation      |
 | `group`           | `ClinkrGroup`                                                                       |
-| `command`         | JSON stdin/stdout wiring and `--schema` flag                                        |
-| `json_schema`     | JSON Schema generation from dataclasses                                             |
-| `params`          | Dataclass-to-Click parameter extraction                                             |
+| `command`         | Machine envelope emission                                                           |
+| `json_schema`     | JSON Schema document assembly                                                       |
+| `models`          | Pydantic base models for clinkr DTOs                                                |
+| `params`          | Pydantic model-to-Click parameter extraction                                        |
 | `rendering`       | Default human output renderer                                                       |
-| `dataclass_json`  | JSON serialization, deserialization, and schema helpers                             |
+| `serialization`   | Pydantic serialization and schema helpers                                           |

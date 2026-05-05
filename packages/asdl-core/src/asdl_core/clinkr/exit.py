@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
-from asdl_core.clinkr.dataclass_json import serialize_to_json_dict
+from asdl_core.clinkr.serialization import serialize_to_json_dict
 
 T = TypeVar("T")
 
