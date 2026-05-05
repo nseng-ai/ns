@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import inspect
-import types
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
+from typing import Any, get_args, get_origin, get_type_hints
 
 import click
 from pydantic import BaseModel
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.serialization import is_pydantic_output_type
 
 _META_ATTR = "_clinkr_operation_meta"
 
@@ -25,18 +24,6 @@ class ClinkrOperationMeta:
     result_type: Any
     aliases: tuple[str, ...]
     human_renderer: Callable[..., None] | None
-
-    @property
-    def result_types(self) -> tuple[type, ...]:
-        """Compatibility view of concrete result variants."""
-        result_type = _unwrap_annotated(self.result_type)
-        if isinstance(result_type, type):
-            return (result_type,)
-
-        origin = get_origin(result_type)
-        if origin is types.UnionType or origin is Union:
-            return tuple(arg for arg in get_args(result_type) if isinstance(arg, type))
-        return ()
 
 
 def clinkr_operation(
@@ -54,7 +41,7 @@ def clinkr_operation(
     ``ClinkrExit.ok(...)``; non-success exits may be raised as ``ClinkrExit``
     exceptions. Clinkr threads the active Click context in; operations must
     never fetch it from globals. ``request_type`` and ``result_type`` are
-    inferred from the function's type annotations.
+    inferred from the function's type annotations and must be Pydantic-compatible.
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -87,7 +74,7 @@ def _extract_types_from_hints(
     """Infer ``(request_type, result_type)`` from a function's type annotations.
 
     The function must accept exactly two parameters — ``ctx: click.Context``
-    followed by the request dataclass — and be annotated as returning
+    followed by the Pydantic request model — and be annotated as returning
     ``ClinkrExit[T]``.
     """
     fn_name = getattr(fn, "__qualname__", repr(fn))
@@ -119,6 +106,11 @@ def _extract_types_from_hints(
             f"parameter '{request_param.name}' must have a type annotation"
         )
     request_type = hints[request_param.name]
+    if not _is_supported_request_type(request_type):
+        raise TypeError(
+            f"clinkr_operation function {fn_name}: "
+            f"request type {_result_type_name(request_type)} must be a Pydantic BaseModel subclass"
+        )
 
     if "return" not in hints:
         raise TypeError(f"clinkr_operation function {fn_name} must have a return type annotation")
@@ -137,8 +129,7 @@ def _extract_types_from_hints(
         if not _is_supported_result_type(result_type):
             raise TypeError(
                 f"clinkr_operation function {fn_name}: "
-                f"result type {_result_type_name(result_type)} must be Pydantic-compatible "
-                "or subclass JsonSerializable"
+                f"result type {_result_type_name(result_type)} must be Pydantic-compatible"
             )
         return request_type, result_type
 
@@ -154,30 +145,12 @@ def _extract_types_from_hints(
     )
 
 
+def _is_supported_request_type(request_type: Any) -> bool:
+    return isinstance(request_type, type) and issubclass(request_type, BaseModel)
+
+
 def _is_supported_result_type(result_type: Any) -> bool:
-    return _is_legacy_result_type(result_type) or _is_pydantic_result_type(result_type)
-
-
-def _is_legacy_result_type(result_type: Any) -> bool:
-    return isinstance(result_type, type) and issubclass(result_type, JsonSerializable)
-
-
-def _is_pydantic_result_type(result_type: Any) -> bool:
-    result_type = _unwrap_annotated(result_type)
-    if isinstance(result_type, type):
-        return issubclass(result_type, BaseModel)
-
-    origin = get_origin(result_type)
-    if origin is types.UnionType or origin is Union:
-        return all(_is_pydantic_result_type(arg) for arg in get_args(result_type))
-
-    return False
-
-
-def _unwrap_annotated(type_expr: Any) -> Any:
-    if get_origin(type_expr) is Annotated:
-        return get_args(type_expr)[0]
-    return type_expr
+    return is_pydantic_output_type(result_type)
 
 
 def _result_type_name(result_type: Any) -> str:

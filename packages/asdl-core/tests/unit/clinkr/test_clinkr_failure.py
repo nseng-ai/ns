@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 # -- ClinkrFailure unit tests ------------------------------------------------
@@ -30,13 +29,11 @@ def test_failure_init_sets_error_type_and_message() -> None:
 # -- Dispatcher conversion ---------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _Request:
+class _Request(ClinkrModel):
     mode: Annotated[str, click.Argument(["mode"], type=click.STRING)]
 
 
-@dataclass(frozen=True)
-class _Result(JsonSerializable):
+class _Result(ClinkrModel):
     value: str
 
 

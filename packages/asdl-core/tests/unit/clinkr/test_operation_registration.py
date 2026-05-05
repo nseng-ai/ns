@@ -1,31 +1,25 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 
-@dataclass(frozen=True)
-class GreetRequest:
+class GreetRequest(ClinkrModel):
     name: str
     excited: bool = False
 
 
-@dataclass(frozen=True)
-class GreetResult(JsonSerializable):
+class GreetResult(ClinkrModel):
     message: str
-
-    def to_json_dict(self) -> dict[str, str]:
-        return {"message": self.message}
 
 
 @clinkr_operation(name="greet", help="Greet someone.", aliases=("hi",))
@@ -101,17 +95,12 @@ def test_error_handling_human() -> None:
     assert "error: it broke" in result.stderr
 
 
-@dataclass(frozen=True)
-class EmptyRequest:
+class EmptyRequest(ClinkrModel):
     pass
 
 
-@dataclass(frozen=True)
-class EmptyResult(JsonSerializable):
+class EmptyResult(ClinkrModel):
     count: int
-
-    def to_json_dict(self) -> dict[str, int]:
-        return {"count": self.count}
 
 
 def test_empty_request_no_args() -> None:
@@ -130,18 +119,13 @@ def test_empty_request_no_args() -> None:
     assert data["count"] == 0
 
 
-@dataclass(frozen=True)
-class SearchRequest:
+class SearchRequest(ClinkrModel):
     query: Annotated[str, click.Argument(["query"])]
     limit: Annotated[int, click.Option(["--limit", "-n"])] = 10
 
 
-@dataclass(frozen=True)
-class SearchResult(JsonSerializable):
+class SearchResult(ClinkrModel):
     results: tuple[str, ...]
-
-    def to_json_dict(self) -> dict[str, list[str]]:
-        return {"results": list(self.results)}
 
 
 @clinkr_operation(name="search", help="Search.")

@@ -1,28 +1,25 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from typing import Annotated, Literal
 
 import click
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object, is_machine_mode
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 # -- fixtures: exit-style operation -----------------------------------------
 
 
-@dataclass(frozen=True)
-class ProbeRequest:
+class ProbeRequest(ClinkrModel):
     mode: Annotated[str, click.Argument(["mode"], type=click.STRING)]
 
 
-@dataclass(frozen=True)
-class ProbeResult(JsonSerializable):
+class ProbeResult(ClinkrModel):
     value: str
 
 
@@ -39,13 +36,11 @@ def run_probe(ctx: click.Context, request: ProbeRequest) -> ClinkrExit[ProbeResu
 # -- fixture: operation that sees is_machine_mode ---------------------------
 
 
-@dataclass(frozen=True)
-class ModeRequest:
+class ModeRequest(ClinkrModel):
     pass
 
 
-@dataclass(frozen=True)
-class ModeResult(JsonSerializable):
+class ModeResult(ClinkrModel):
     machine_mode: bool
 
 
@@ -58,8 +53,7 @@ def run_mode(ctx: click.Context, request: ModeRequest) -> ClinkrExit[ModeResult]
 # -- fixture: operation that already declares --format ---------------------
 
 
-@dataclass(frozen=True)
-class OutputFormatRequest:
+class OutputFormatRequest(ClinkrModel):
     name: Annotated[str, click.Argument(["name"], type=click.STRING)]
     format: Annotated[
         Literal["findings", "text"],
@@ -71,8 +65,7 @@ class OutputFormatRequest:
     ] = "text"
 
 
-@dataclass(frozen=True)
-class OutputFormatResult(JsonSerializable):
+class OutputFormatResult(ClinkrModel):
     summary: str
 
 
@@ -159,7 +152,7 @@ def test_is_machine_mode_true_for_format_json_dispatch() -> None:
 
 
 def test_is_machine_mode_false_for_default_human_dispatch() -> None:
-    # default_human_renderer serializes the dataclass as JSON; the False
+    # default_human_renderer serializes the Pydantic model as JSON; the False
     # branch must be distinguishable from the True branch.
     result = CliRunner().invoke(_make_group(), ["mode"], obj=_runtime_obj())
 
