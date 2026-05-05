@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
@@ -8,6 +7,7 @@ import click
 from asdl_core.clinkr.context import is_machine_mode
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead
 from asdl_core.git.types import GitCommandFailure as GitFailure
@@ -22,8 +22,7 @@ from asdl_slots.cli.slot.gt.navigation import (
 from asdl_slots.repo_context import NoRepoSentinel
 
 
-@dataclass(frozen=True)
-class SlotGtUpRequest:
+class SlotGtUpRequest(ClinkrModel):
     no_clipboard: Annotated[
         bool,
         click.Option(["--no-clipboard"], is_flag=True, default=False),

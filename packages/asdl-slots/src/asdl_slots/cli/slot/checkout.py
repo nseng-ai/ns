@@ -9,9 +9,9 @@ import click
 
 from asdl_core import get_console
 from asdl_core.clinkr.context import is_machine_mode
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 from asdl_slots.checkout_planning import (
@@ -50,8 +50,7 @@ def _complete_branch_name(ctx: click.Context, param: click.Parameter, incomplete
     return [b for b in branches if b.startswith(incomplete)]
 
 
-@dataclass(frozen=True)
-class SlotCheckoutRequest:
+class SlotCheckoutRequest(ClinkrModel):
     branch_name: Annotated[
         str | None,
         click.Argument(
@@ -76,8 +75,7 @@ class SlotCheckoutRequest:
     ] = False
 
 
-@dataclass(frozen=True)
-class SlotCheckoutResult(JsonSerializable):
+class SlotCheckoutResult(ClinkrModel):
     slot_name: str
     branch_name: str
     worktree_path: str

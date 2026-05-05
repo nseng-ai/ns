@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
 
 import click
 
 from asdl_core import get_console
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead
 from asdl_core.git.types import GitCommandFailure as GitFailure
@@ -23,13 +22,11 @@ from asdl_slots.inventory import SlotMatch, build_slot_inventory
 from asdl_slots.repo_context import NoRepoSentinel
 
 
-@dataclass(frozen=True)
-class SlotGtFreeStackRequest:
+class SlotGtFreeStackRequest(ClinkrModel):
     pass
 
 
-@dataclass(frozen=True)
-class SlotGtFreeStackResult(JsonSerializable):
+class SlotGtFreeStackResult(ClinkrModel):
     current_branch: str
     trunk_branch: str
     freed: tuple[FreedSlot, ...]
