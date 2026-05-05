@@ -121,7 +121,7 @@ def _extract_types_from_hints(
                 "ClinkrExit must be parameterized by a single concrete type"
             )
         result_type = args[0]
-        if not issubclass(result_type, JsonSerializable | BaseModel):
+        if not issubclass(result_type, (JsonSerializable, BaseModel)):
             raise TypeError(
                 f"clinkr_operation function {fn_name}: "
                 f"result type {result_type.__name__} must subclass JsonSerializable or BaseModel"
