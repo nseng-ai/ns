@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, get_args, get_origin, get_type_hints
 
 import click
+from pydantic import BaseModel
 
 from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
@@ -120,10 +121,10 @@ def _extract_types_from_hints(
                 "ClinkrExit must be parameterized by a single concrete type"
             )
         result_type = args[0]
-        if not issubclass(result_type, JsonSerializable):
+        if not issubclass(result_type, JsonSerializable | BaseModel):
             raise TypeError(
                 f"clinkr_operation function {fn_name}: "
-                f"result type {result_type.__name__} must subclass JsonSerializable"
+                f"result type {result_type.__name__} must subclass JsonSerializable or BaseModel"
             )
         return request_type, (result_type,)
 

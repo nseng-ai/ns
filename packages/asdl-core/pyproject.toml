@@ -5,6 +5,7 @@ description = "Core utilities for asdl plugins"
 requires-python = ">=3.11"
 dependencies = [
   "click>=8.1.7",
+  "pydantic>=2",
   "rich>=13.0",
 ]
 
