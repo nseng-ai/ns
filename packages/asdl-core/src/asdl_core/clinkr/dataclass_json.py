@@ -78,6 +78,9 @@ def output_schema(output_type: Any) -> dict[str, Any]:
 
 
 def parse_dataclass_from_json(cls: type, data: dict[str, Any]) -> Any:
+    if isinstance(cls, type) and issubclass(cls, BaseModel):
+        return cls.model_validate(data)
+
     from_json = getattr(cls, "from_json_dict", None)
     if from_json is not None:
         return from_json(data)

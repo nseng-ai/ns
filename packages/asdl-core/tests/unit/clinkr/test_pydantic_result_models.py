@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from typing import Annotated, Literal, TypeAlias
 
 import click
@@ -16,8 +15,7 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 
-@dataclass(frozen=True)
-class PydanticProbeRequest:
+class PydanticProbeRequest(ClinkrModel):
     value: Annotated[str, click.Argument(["value"], type=click.STRING)]
 
 

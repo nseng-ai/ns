@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-from typing import Annotated, Any, get_args, get_origin, get_type_hints
+from dataclasses import dataclass
+from typing import Annotated, Any, TypeGuard, get_args, get_origin, get_type_hints
 
 import click
+from pydantic import BaseModel
 
 _PYTHON_TO_CLICK_TYPE: dict[type, click.ParamType] = {
     str: click.STRING,
@@ -13,10 +15,19 @@ _PYTHON_TO_CLICK_TYPE: dict[type, click.ParamType] = {
     bool: click.BOOL,
 }
 
+_MISSING = object()
+
+
+@dataclass(frozen=True)
+class RequestField:
+    name: str
+    has_default: bool
+    default: Any = _MISSING
+
 
 def extract_click_params(request_type: type) -> list[click.Parameter]:
     hints = get_type_hints(request_type, include_extras=True)
-    fields = dataclasses.fields(request_type)
+    fields = _request_fields(request_type)
 
     arguments: list[click.Parameter] = []
     options: list[click.Parameter] = []
@@ -36,16 +47,51 @@ def extract_click_params(request_type: type) -> list[click.Parameter]:
 
 
 def build_request_from_click_params(request_type: type, kwargs: dict[str, Any]) -> Any:
-    field_names = {f.name for f in dataclasses.fields(request_type)}
+    field_names = {field.name for field in _request_fields(request_type)}
     mapped = {}
     for key, value in kwargs.items():
         name = key.replace("-", "_")
         if name in field_names:
             mapped[name] = value
+
+    if _is_pydantic_model_type(request_type):
+        return request_type.model_validate(mapped)
     return request_type(**mapped)
 
 
-def _extract_annotated_param(field: dataclasses.Field[Any], hint: Any) -> click.Parameter | None:
+def _request_fields(request_type: type) -> list[RequestField]:
+    if _is_pydantic_model_type(request_type):
+        return [
+            RequestField(
+                name=name,
+                has_default=not field_info.is_required(),
+                default=(
+                    field_info.get_default(call_default_factory=True)
+                    if not field_info.is_required()
+                    else _MISSING
+                ),
+            )
+            for name, field_info in request_type.model_fields.items()
+        ]
+
+    return [_dataclass_request_field(field) for field in dataclasses.fields(request_type)]
+
+
+def _dataclass_request_field(field: dataclasses.Field[Any]) -> RequestField:
+    if field.default is not dataclasses.MISSING:
+        return RequestField(name=field.name, has_default=True, default=field.default)
+
+    if field.default_factory is not dataclasses.MISSING:
+        return RequestField(
+            name=field.name,
+            has_default=True,
+            default=field.default_factory(),
+        )
+
+    return RequestField(name=field.name, has_default=False)
+
+
+def _extract_annotated_param(field: RequestField, hint: Any) -> click.Parameter | None:
     if get_origin(hint) is not Annotated:
         return None
 
@@ -60,26 +106,18 @@ def _extract_annotated_param(field: dataclasses.Field[Any], hint: Any) -> click.
                 inferred = _PYTHON_TO_CLICK_TYPE.get(inner_type)
                 if inferred is not None and inferred is not click.STRING:
                     param.type = inferred
-            if param.default is None and field.default is not dataclasses.MISSING:
+            if param.default is None and field.has_default:
                 param.default = field.default
             return param
     return None
 
 
-def _infer_param(field: dataclasses.Field[Any], hint: Any) -> click.Parameter:
+def _infer_param(field: RequestField, hint: Any) -> click.Parameter:
     inner_type = _unwrap_annotated(hint)
     click_type = _PYTHON_TO_CLICK_TYPE.get(inner_type, click.STRING)
 
-    has_default = field.default is not dataclasses.MISSING
-    factory = field.default_factory
-    has_factory = factory is not dataclasses.MISSING
-
-    if has_default or has_factory:
-        if has_default:
-            default = field.default
-        else:
-            assert factory is not dataclasses.MISSING
-            default = factory()
+    if field.has_default:
+        default = field.default
         if inner_type is bool and default is False:
             return click.Option(
                 [f"--{field.name.replace('_', '-')}"],
@@ -104,3 +142,7 @@ def _unwrap_annotated(hint: Any) -> Any:
     if get_origin(hint) is Annotated:
         return get_args(hint)[0]
     return hint
+
+
+def _is_pydantic_model_type(value: Any) -> TypeGuard[type[BaseModel]]:
+    return isinstance(value, type) and issubclass(value, BaseModel)
