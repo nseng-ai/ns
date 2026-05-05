@@ -119,8 +119,8 @@ function sanitizeArgs(argsText: string): string[] {
 	if (hasFlag(args, "--format")) {
 		throw new Error("/objective-list always uses JSON internally. Omit --format.");
 	}
-	if (hasFlag(args, "--schema")) {
-		throw new Error("/objective-list does not support --schema. Run `objective list --schema` in a shell instead.");
+	if (hasFlag(args, "--json-schema")) {
+		throw new Error("/objective-list does not support --json-schema. Run `objective list --json-schema` in a shell instead.");
 	}
 	if (args.includes("-h") || args.includes("--help")) {
 		throw new Error(`Supported flags: ${SUPPORTED_FLAGS.join(", ")}. Use \`objective list --help\` in a shell for full help.`);

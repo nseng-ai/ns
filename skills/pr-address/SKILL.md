@@ -272,7 +272,7 @@ on stdout. Failures exit 2 with `error_type` and `message` set.
 enum values.** Do not guess field names, omit required fields, or invent
 enum values (for example, `mode`). The reference is authoritative — if it
 disagrees with memory, the reference wins. If unsure about a field's exact
-shape, also run `pr-address exec <helper> --schema` to print the
+shape, also run `pr-address exec <helper> --json-schema` to print the
 JSON schema.
 
 Substitute the wrapper path documented above for every literal

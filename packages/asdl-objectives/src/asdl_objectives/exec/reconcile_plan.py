@@ -23,7 +23,7 @@ import click
 
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
-from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
+from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRLookupError, PRState, PRSummary
@@ -112,7 +112,7 @@ class SlugPlanItem(ClinkrModel):
     gaps: tuple[str, ...]
 
 
-class ReconcilePlanResult(ClinkrSchemaModel):
+class ReconcilePlanResult(ClinkrJsonSchemaModel):
     canonical_branch: str
     requested_slugs: tuple[str, ...]
     slugs: tuple[SlugPlanItem, ...]
@@ -169,7 +169,7 @@ def render_reconcile_plan(result: ReconcilePlanResult) -> None:
     if not result.slugs:
         click.echo(f"no canonical objectives on {result.canonical_branch}")
         return
-    click.echo(f"reconcile plan ({result.schema}): {len(result.slugs)} slug(s)")
+    click.echo(f"reconcile plan ({result.json_schema}): {len(result.slugs)} slug(s)")
     for item in result.slugs:
         click.echo(f"- {item.slug}")
         if not item.canonical_present:
@@ -224,7 +224,7 @@ def build_reconcile_plan(
 
     if not target_slugs:
         return ReconcilePlanResult(
-            schema=PLAN_SCHEMA,
+            json_schema=PLAN_SCHEMA,
             canonical_branch=trunk,
             requested_slugs=requested_slugs or (),
             slugs=(),
@@ -245,7 +245,7 @@ def build_reconcile_plan(
         )
 
     return ReconcilePlanResult(
-        schema=PLAN_SCHEMA,
+        json_schema=PLAN_SCHEMA,
         canonical_branch=trunk,
         requested_slugs=requested_slugs or (),
         slugs=tuple(items),

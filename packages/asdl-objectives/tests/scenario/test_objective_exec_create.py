@@ -61,7 +61,7 @@ def _write(tmp: Path, name: str, content: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# help / schema
+# help / json schema
 # ---------------------------------------------------------------------------
 
 
@@ -72,12 +72,12 @@ def test_create_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective exec create" in result.output
 
 
-def test_create_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "create", "--schema"])
+def test_create_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "create", "--json-schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ def test_create_body_only(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["schema"] == CREATE_SCHEMA
+    assert data["json_schema"] == CREATE_SCHEMA
     assert data["canonical_branch"] == "master"
     assert data["dry_run"] is False
     assert data["status"] == "ok"
@@ -175,7 +175,7 @@ def test_create_dry_run_ok_for_fresh_slug(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["schema"] == CREATE_SCHEMA
+    assert data["json_schema"] == CREATE_SCHEMA
     assert data["dry_run"] is True
     assert data["status"] == "ok"
     assert data["slug"] == "widget-rewrite"
@@ -520,7 +520,7 @@ def test_create_envelope_shape_is_deterministic(cli_group: ClinkrGroup, tmp_path
 
     data = json.loads(result.output)["data"]
     assert set(data.keys()) == {
-        "schema",
+        "json_schema",
         "canonical_branch",
         "requested_slug",
         "dry_run",
@@ -529,5 +529,5 @@ def test_create_envelope_shape_is_deterministic(cli_group: ClinkrGroup, tmp_path
         "files_written",
         "error",
     }
-    assert data["schema"] == CREATE_SCHEMA
+    assert data["json_schema"] == CREATE_SCHEMA
     assert data["canonical_branch"] == "master"

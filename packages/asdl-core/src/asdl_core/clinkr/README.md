@@ -86,9 +86,9 @@ $ myapp greet Alice --loud --format json
   "data": {"greeting": "HELLO, ALICE!"}
 }
 
-$ myapp greet --schema
+$ myapp greet --json-schema
 {
-  "input_schema": {
+  "input_json_schema": {
     "type": "object",
     "properties": {
       "name": {"type": "string"},
@@ -96,7 +96,7 @@ $ myapp greet --schema
     },
     "required": ["name"]
   },
-  "output_schema": { ... }
+  "output_json_schema": { ... }
 }
 ```
 
@@ -223,7 +223,7 @@ Construct `ClinkrExit.failure(...)` only inside the dispatcher itself.
 
 A `click.Group` subclass that:
 
-- Registers clinkr operations as Click commands, each with `--format json` / `--schema` injected
+- Registers clinkr operations as Click commands, each with `--format json` / `--json-schema` injected
 - Supports command aliases
 - Takes all operations at construction time via the `operations` parameter
 
@@ -235,7 +235,7 @@ By convention, every group package exposes an explicit builder function in `grou
 
 Every operation emits the `ClinkrExit` envelope on stdout when invoked with `--format json`. Exit codes follow the table above: `0` for ok, `1` for negative, `2` for failure.
 
-Use `--schema` on any command to get the JSON Schema document for its input and output.
+Use `--json-schema` on any command to get the JSON Schema document for its input and output.
 
 ### Parameter Mapping
 

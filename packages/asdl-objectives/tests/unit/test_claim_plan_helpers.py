@@ -64,7 +64,7 @@ def test_classify_slug_candidates_multiple_returns_ambiguity() -> None:
 
 def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
     result = ClaimPlanReadyResult(
-        schema=PLAN_SCHEMA,
+        json_schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="alpha",
         resolved_slug="alpha",
@@ -95,7 +95,7 @@ def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
 
 def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
     result = ClaimPlanAmbiguousResult(
-        schema=PLAN_SCHEMA,
+        json_schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug=None,
         resolved_slug="alpha",
@@ -125,7 +125,7 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
 
 def test_claim_plan_result_to_json_dict_for_error_status() -> None:
     result = ClaimPlanErrorResult(
-        schema=PLAN_SCHEMA,
+        json_schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="ghost",
         resolved_slug="ghost",

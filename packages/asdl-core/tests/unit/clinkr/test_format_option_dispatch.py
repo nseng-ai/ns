@@ -75,8 +75,31 @@ def run_review(ctx: click.Context, request: OutputFormatRequest) -> ClinkrExit[O
     return ClinkrExit.ok(OutputFormatResult(summary=f"{request.name}:{request.format}"))
 
 
+# -- fixture: operation that already declares --json-schema ----------------
+
+
+class JsonSchemaOptionRequest(ClinkrModel):
+    json_schema: str = ""
+
+
+class JsonSchemaOptionResult(ClinkrModel):
+    value: str
+
+
+@clinkr_operation(name="schema-option", help="Command with its own --json-schema option.")
+def run_schema_option(
+    ctx: click.Context,
+    request: JsonSchemaOptionRequest,
+) -> ClinkrExit[JsonSchemaOptionResult]:
+    del ctx
+    return ClinkrExit.ok(JsonSchemaOptionResult(value=request.json_schema))
+
+
 def _make_group() -> ClinkrGroup:
-    return ClinkrGroup(name="probes", operations=[run_probe, run_mode, run_review])
+    return ClinkrGroup(
+        name="probes",
+        operations=[run_probe, run_mode, run_review, run_schema_option],
+    )
 
 
 def _runtime_obj() -> object:
@@ -126,17 +149,17 @@ def test_format_json_failure_emits_envelope_and_exits_two() -> None:
     }
 
 
-# -- schema -----------------------------------------------------------------
+# -- json schema ------------------------------------------------------------
 
 
-def test_schema_prints_schema_document_without_required_args() -> None:
-    # Mirror Click's --help: --schema is eager and prints the schema even when
+def test_json_schema_prints_schema_document_without_required_args() -> None:
+    # Mirror Click's --help: --json-schema is eager and prints the schema even when
     # the command has unsatisfied required arguments.
-    result = CliRunner().invoke(_make_group(), ["probe", "--schema"])
+    result = CliRunner().invoke(_make_group(), ["probe", "--json-schema"])
 
     assert result.exit_code == 0
     doc = json.loads(result.stdout)
-    assert set(doc.keys()) == {"input_schema", "output_schema"}
+    assert set(doc.keys()) == {"input_json_schema", "output_json_schema"}
 
 
 # -- machine-mode signal ----------------------------------------------------
@@ -187,11 +210,22 @@ def test_existing_format_option_is_preserved() -> None:
     assert '"summary": "x:findings"' in result.stdout
 
 
-def test_existing_format_option_still_gets_schema_injected() -> None:
-    # --schema is always injected, even on commands that declare their own
+def test_existing_format_option_still_gets_json_schema_injected() -> None:
+    # --json-schema is always injected, even on commands that declare their own
     # --format option.
-    result = CliRunner().invoke(_make_group(), ["review", "x", "--schema"])
+    result = CliRunner().invoke(_make_group(), ["review", "x", "--json-schema"])
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
+
+
+def test_existing_json_schema_option_is_preserved() -> None:
+    result = CliRunner().invoke(
+        _make_group(),
+        ["schema-option", "--json-schema", "claim-plan/v1"],
+        obj=_runtime_obj(),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"value": "claim-plan/v1"}

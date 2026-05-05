@@ -60,12 +60,12 @@ def test_claim_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective exec claim" in result.output
 
 
-def test_claim_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "claim", "--schema"])
+def test_claim_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "claim", "--json-schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 def test_claim_explicit_slug_applies_unique_plan(cli_group: ClinkrGroup) -> None:
@@ -82,9 +82,9 @@ def test_claim_explicit_slug_applies_unique_plan(cli_group: ClinkrGroup) -> None
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["schema"] == CLAIM_SCHEMA
+    assert data["json_schema"] == CLAIM_SCHEMA
     assert data["status"] == "claimed"
-    assert data["result"]["schema"] == PLAN_SCHEMA
+    assert data["result"]["json_schema"] == PLAN_SCHEMA
     assert data["result"]["slug"] == "widget-rewrite"
     assert data["result"]["source_label"] == "canonical objective"
     assert {f["file"] for f in data["result"]["files_carried"]} == {

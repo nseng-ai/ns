@@ -15,7 +15,7 @@ All `pr-address exec <command> --format json` helpers:
   on stdout. Successful runs set `exit_code: 0` and place the payload under
   `data`. Failures set `exit_code: 2` with `error_type` and `message` (no
   `data`).
-- Support `--schema` to print JSON schemas for input/output/error shapes and
+- Support `--json-schema` to print JSON schemas for input/output/error shapes and
   exit without running the operation.
 
 ```bash
@@ -240,7 +240,7 @@ Reaction failure produces a warning, not a batch failure.
 
 Lower-level helpers available via `pr-address exec <command> --format json`.
 The composite helpers above call these internally — use them directly only
-when the workflow requires it. Run `<command> --schema` for full schemas.
+when the workflow requires it. Run `<command> --json-schema` for full schemas.
 
 | Command                   | Description                                                                                                                                                                                                                                           |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

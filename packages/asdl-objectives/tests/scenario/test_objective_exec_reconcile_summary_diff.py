@@ -94,7 +94,7 @@ def test_reconcile_summary_json_excludes_raw_file_content(cli_group: ClinkrGroup
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["schema"] == "reconcile-summary/v1"
+    assert data["json_schema"] == "reconcile-summary/v1"
     assert data["success"] is True
     assert data["summary"] == {
         "slug_count": 1,
@@ -161,7 +161,7 @@ def test_reconcile_diff_json_covers_changed_unchanged_and_missing_files(
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["schema"] == "reconcile-diff/v1"
+    assert data["json_schema"] == "reconcile-diff/v1"
     snapshot = data["snapshots"][0]
     assert snapshot["branch"] == "feat/merged"
     files = {file["file"]: file for file in snapshot["files"]}

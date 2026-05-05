@@ -31,7 +31,7 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
-from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
+from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import BODY_FILE, NOTES_FILE, ROADMAP_FILE
@@ -99,7 +99,7 @@ class SlugApplyResult(ClinkrModel):
     gaps: tuple[str, ...]
 
 
-class ReconcileApplyResult(ClinkrSchemaModel):
+class ReconcileApplyResult(ClinkrJsonSchemaModel):
     canonical_branch: str
     slugs: tuple[SlugApplyResult, ...]
 
@@ -107,7 +107,7 @@ class ReconcileApplyResult(ClinkrSchemaModel):
 def render_reconcile_apply(result: ReconcileApplyResult) -> None:
     total_writes = sum(len(s.writes) for s in result.slugs)
     total_skipped = sum(len(s.skipped) for s in result.slugs)
-    click.echo(f"reconcile-apply ({result.schema}): {len(result.slugs)} slug(s)")
+    click.echo(f"reconcile-apply ({result.json_schema}): {len(result.slugs)} slug(s)")
     click.echo(f"  total writes: {total_writes}, skipped: {total_skipped}")
     for s in result.slugs:
         if not s.writes and not s.skipped and not s.gaps:
@@ -193,7 +193,7 @@ def run_reconcile_apply_objective(
 
     return ClinkrExit.ok(
         ReconcileApplyResult(
-            schema=PLAN_SCHEMA,
+            json_schema=PLAN_SCHEMA,
             canonical_branch=trunk,
             slugs=tuple(slug_results),
         )
@@ -201,22 +201,22 @@ def run_reconcile_apply_objective(
 
 
 def _extract_plan_envelope(raw_envelope: dict[str, Any]) -> dict[str, Any]:
-    if raw_envelope.get("schema") == PLAN_SCHEMA:
+    if raw_envelope.get("json_schema") == PLAN_SCHEMA:
         return raw_envelope
 
     data = raw_envelope.get("data")
-    if isinstance(data, dict) and data.get("schema") == PLAN_SCHEMA:
+    if isinstance(data, dict) and data.get("json_schema") == PLAN_SCHEMA:
         return data
 
-    found_schema = raw_envelope.get("schema")
-    if found_schema is None and isinstance(data, dict):
-        found_schema = data.get("schema")
+    found_json_schema = raw_envelope.get("json_schema")
+    if found_json_schema is None and isinstance(data, dict):
+        found_json_schema = data.get("json_schema")
     raise ClinkrFailure(
         error_type="schema_mismatch",
         message=(
-            "Plan file must contain schema 'reconcile-plan/v1' either as the raw "
-            "plan object or as a clinkr JSON envelope at data.schema; "
-            f"found {found_schema!r}."
+            "Plan file must contain json_schema 'reconcile-plan/v1' either as the raw "
+            "plan object or as a clinkr JSON envelope at data.json_schema; "
+            f"found {found_json_schema!r}."
         ),
     )
 

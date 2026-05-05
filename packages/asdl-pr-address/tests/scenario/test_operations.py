@@ -986,23 +986,23 @@ def test_resolve_then_unresolve_then_resolve_tracks_independently(
     assert fake._unresolved_thread_ids == ["PRRT_abc"]
 
 
-# -- --format json parity / --schema eagerness / failure envelope --
+# -- --format json parity / --json-schema eagerness / failure envelope --
 
 
-def test_get_reviews_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "get-reviews", "--schema"])
+def test_get_reviews_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "get-reviews", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
-def test_add_issue_comment_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "add-issue-comment", "--schema"])
+def test_add_issue_comment_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "add-issue-comment", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 def test_reply_to_review_format_json_reports_failure(cli_group: ClinkrGroup) -> None:

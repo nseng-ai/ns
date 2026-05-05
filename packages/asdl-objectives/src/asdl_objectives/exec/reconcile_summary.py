@@ -8,7 +8,7 @@ import click
 
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
-from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
+from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.exec.reconcile_plan import (
@@ -66,7 +66,7 @@ class ReconcileSummarySlug(ClinkrModel):
     conflicts: tuple[str, ...]
 
 
-class ReconcileSummaryResult(ClinkrSchemaModel):
+class ReconcileSummaryResult(ClinkrJsonSchemaModel):
     success: bool
     canonical_branch: str
     summary: ReconcileSummaryCounts
@@ -147,7 +147,7 @@ def _summary_from_plan(
     summary_slugs = tuple(_summarize_slug(slug) for slug in slugs)
     return ReconcileSummaryResult(
         success=True,
-        schema=SUMMARY_SCHEMA,
+        json_schema=SUMMARY_SCHEMA,
         canonical_branch=canonical_branch,
         summary=ReconcileSummaryCounts(
             slug_count=len(summary_slugs),

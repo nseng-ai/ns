@@ -375,9 +375,9 @@ def test_free_stack_pool_not_initialized(cli_group: ClinkrGroup, tmp_path: Path)
 # -- machine mode -----------------------------------------------------------
 
 
-def test_free_stack_schema_flag(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gt", "free-stack", "--schema"])
+def test_free_stack_json_schema_flag(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gt", "free-stack", "--json-schema"])
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}

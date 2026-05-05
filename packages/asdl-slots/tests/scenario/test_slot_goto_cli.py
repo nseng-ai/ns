@@ -159,7 +159,7 @@ def test_slot_goto_help(cli_group: ClinkrGroup) -> None:
     assert "--wt" in result.output
     assert "--no-clipboard" in result.output
     assert "--format" in result.output
-    assert "--schema" in result.output
+    assert "--json-schema" in result.output
 
 
 def test_slot_goto_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -305,13 +305,13 @@ def test_slot_goto_schema(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["goto", "--schema"],
+        ["goto", "--json-schema"],
         env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
     payload = json.loads(result.output)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
     assert not directive_path.exists()
 
 
@@ -444,7 +444,7 @@ def test_slot_goto_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
     assert "Not inside a git repository" in result.output
 
 
-# -- --format json + --schema -----------------------------------------------
+# -- --format json + --json-schema -----------------------------------------------
 
 
 def test_slot_goto_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -492,16 +492,16 @@ def test_slot_goto_format_json_negative_envelope(cli_group: ClinkrGroup, tmp_pat
     assert "not currently assigned" in payload["message"]
 
 
-def test_slot_goto_schema_flag_is_eager(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_goto_json_schema_flag_is_eager(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     directive_path = tmp_path / "cd-directive"
 
     result = CliRunner().invoke(
         cli_group,
-        ["goto", "--schema"],
+        ["goto", "--json-schema"],
         env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
     assert not directive_path.exists()

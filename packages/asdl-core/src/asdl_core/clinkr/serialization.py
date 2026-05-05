@@ -19,7 +19,7 @@ def serialize_to_json_dict(result: Any) -> dict[str, Any]:
     return cast(dict[str, Any], dumped)
 
 
-def request_schema(request_type: type) -> dict[str, Any]:
+def request_json_schema(request_type: type) -> dict[str, Any]:
     if not _is_pydantic_model_type(request_type):
         raise TypeError(
             f"request type {request_type.__name__} must be a Pydantic BaseModel subclass"
@@ -27,7 +27,7 @@ def request_schema(request_type: type) -> dict[str, Any]:
     return request_type.model_json_schema()
 
 
-def output_schema(output_type: Any) -> dict[str, Any]:
+def output_json_schema(output_type: Any) -> dict[str, Any]:
     if _is_pydantic_model_type(output_type):
         return output_type.model_json_schema()
     return TypeAdapter(output_type).json_schema()

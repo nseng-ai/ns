@@ -122,7 +122,7 @@ def test_slot_list_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: slot list" in result.output
     assert "List worktree pool slots derived from Git worktree state." in result.output
     assert "--format" in result.output
-    assert "--schema" in result.output
+    assert "--json-schema" in result.output
 
 
 @pytest.mark.parametrize("command", [["checkout", "-h"], ["goto", "-h"]])
@@ -245,11 +245,11 @@ def test_slot_ls_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
 
 def test_slot_list_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["list", "--schema"])
+    result = CliRunner().invoke(cli_group, ["list", "--json-schema"])
     payload = _json_output(result.output)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 def test_slot_list_format_json_returns_rows(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -327,12 +327,12 @@ def test_slot_list_drops_assigned_at_field(cli_group: ClinkrGroup, tmp_path: Pat
         assert "assigned_at" not in row
 
 
-def test_slot_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["list", "--schema"])
+def test_slot_list_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--json-schema"])
     payload = _json_output(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # -- not-in-repo error surface ----------------------------------------------

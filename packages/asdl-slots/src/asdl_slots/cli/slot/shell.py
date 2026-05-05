@@ -190,7 +190,7 @@ def build_shell_group() -> ClinkrGroup:
             "Supported shells: zsh and bash. Installation is opt-in: without the wrapper, "
             "navigation commands keep printing/copying `cd <path>`. The wrapper is intended "
             "for interactive shells; scripts can call `command slot ...`, and `--format json` "
-            "/ `--schema` never trigger a parent-shell cd. Troubleshooting: if the shell "
+            "/ `--json-schema` never trigger a parent-shell cd. Troubleshooting: if the shell "
             "still only prints cd, run `type slot` and source your rc file; use "
             "`command slot ...` to bypass the wrapper."
         ),

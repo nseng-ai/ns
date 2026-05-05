@@ -267,7 +267,7 @@ function parseArgs(argsText: string): ParsedArgs {
 		const flag = token.includes("=") ? token.slice(0, token.indexOf("=")) : token;
 		if (
 			flag === "--format" ||
-			flag === "--schema" ||
+			flag === "--json-schema" ||
 			flag === "--from" ||
 			flag === "--from-file" ||
 			flag === "--branch" ||
