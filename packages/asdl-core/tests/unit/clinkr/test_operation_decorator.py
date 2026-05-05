@@ -64,11 +64,11 @@ def test_clinkr_exit_unparameterized_rejected() -> None:
             return ClinkrExit.ok(FakeResult(message="ok"))
 
 
-def test_result_type_must_subclass_json_serializable() -> None:
+def test_result_type_must_be_supported_shape() -> None:
     with pytest.raises(
         TypeError,
         match=r"clinkr_operation function .*op_with_bad_result.*"
-        r"result type BadResult must subclass JsonSerializable",
+        r"result type BadResult must be Pydantic-compatible or subclass JsonSerializable",
     ):
 
         @clinkr_operation(name="op")

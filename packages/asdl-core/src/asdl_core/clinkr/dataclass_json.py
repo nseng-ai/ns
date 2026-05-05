@@ -5,9 +5,9 @@ import json
 import sys
 import types
 from dataclasses import fields
-from typing import Any, Literal, Union, cast, get_args, get_origin
+from typing import Annotated, Any, Literal, Union, cast, get_args, get_origin
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 _PYTHON_TYPE_MAP: dict[type, str] = {
     str: "string",
@@ -71,14 +71,10 @@ def request_schema(request_type: type) -> dict[str, Any]:
     }
 
 
-def output_schema(output_types: tuple[type, ...]) -> dict[str, Any]:
-    if not output_types:
-        return {"type": "object", "properties": {}, "required": []}
-
-    schemas = [_single_output_schema(output_type) for output_type in output_types]
-    if len(schemas) == 1:
-        return schemas[0]
-    return {"oneOf": schemas}
+def output_schema(output_type: Any) -> dict[str, Any]:
+    if _is_pydantic_output_type(output_type):
+        return _pydantic_output_schema(output_type)
+    return _single_output_schema(output_type)
 
 
 def parse_dataclass_from_json(cls: type, data: dict[str, Any]) -> Any:
@@ -125,9 +121,6 @@ def read_json_stdin() -> dict[str, Any] | None:
 
 
 def _single_output_schema(output_type: type) -> dict[str, Any]:
-    if isinstance(output_type, type) and issubclass(output_type, BaseModel):
-        return output_type.model_json_schema()
-
     json_schema_method = getattr(output_type, "json_schema", None)
     if json_schema_method is not None:
         return json_schema_method()
@@ -149,6 +142,26 @@ def _single_output_schema(output_type: type) -> dict[str, Any]:
         "properties": properties,
         "required": sorted(required),
     }
+
+
+def _is_pydantic_output_type(output_type: Any) -> bool:
+    if isinstance(output_type, type) and issubclass(output_type, BaseModel):
+        return True
+
+    origin = get_origin(output_type)
+    if origin is Annotated:
+        return _is_pydantic_output_type(get_args(output_type)[0])
+
+    if origin is types.UnionType or origin is Union:
+        return all(_is_pydantic_output_type(arg) for arg in get_args(output_type))
+
+    return False
+
+
+def _pydantic_output_schema(output_type: Any) -> dict[str, Any]:
+    if isinstance(output_type, type) and issubclass(output_type, BaseModel):
+        return output_type.model_json_schema()
+    return TypeAdapter(output_type).json_schema()
 
 
 def _build_dataclass_request(request_type: type, data: dict[str, Any]) -> Any:

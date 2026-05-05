@@ -83,7 +83,7 @@ def _register_operation(
     help_text = meta.help or operation.__doc__ or ""
     renderer = meta.human_renderer or default_human_renderer
     request_type = meta.request_type
-    result_types = meta.result_types
+    result_type = meta.result_type
 
     # -- build human command --
     params = extract_click_params(request_type)
@@ -130,7 +130,7 @@ def _register_operation(
 
     if inject_format_option:
         params.append(_build_format_option())
-    params.append(_build_schema_option(request_type, result_types))
+    params.append(_build_schema_option(request_type, result_type))
 
     human_cmd = click.Command(
         name=meta.name,
@@ -174,7 +174,7 @@ def _build_format_option() -> click.Parameter:
 
 def _build_schema_option(
     request_type: type,
-    result_types: tuple[type, ...],
+    result_type: Any,
 ) -> click.Parameter:
     """Build the framework-injected ``--schema`` option.
 
@@ -188,7 +188,7 @@ def _build_schema_option(
             return
         schema_doc = build_json_schema_document(
             request_type=request_type,
-            output_types=result_types,
+            result_type=result_type,
         )
         click.echo(json.dumps(schema_doc, indent=2))
         ctx.exit(0)

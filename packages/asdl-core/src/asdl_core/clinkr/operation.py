@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import inspect
+import types
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
 
 import click
 from pydantic import BaseModel
@@ -21,9 +22,21 @@ class ClinkrOperationMeta:
     name: str
     help: str
     request_type: type
-    result_types: tuple[type, ...]
+    result_type: Any
     aliases: tuple[str, ...]
     human_renderer: Callable[..., None] | None
+
+    @property
+    def result_types(self) -> tuple[type, ...]:
+        """Compatibility view of concrete result variants."""
+        result_type = _unwrap_annotated(self.result_type)
+        if isinstance(result_type, type):
+            return (result_type,)
+
+        origin = get_origin(result_type)
+        if origin is types.UnionType or origin is Union:
+            return tuple(arg for arg in get_args(result_type) if isinstance(arg, type))
+        return ()
 
 
 def clinkr_operation(
@@ -40,12 +53,12 @@ def clinkr_operation(
     returning ``ClinkrExit[T]``. Successful operations return
     ``ClinkrExit.ok(...)``; non-success exits may be raised as ``ClinkrExit``
     exceptions. Clinkr threads the active Click context in; operations must
-    never fetch it from globals. ``request_type`` and ``result_types`` are
+    never fetch it from globals. ``request_type`` and ``result_type`` are
     inferred from the function's type annotations.
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-        request_type, result_types = _extract_types_from_hints(fn)
+        request_type, result_type = _extract_types_from_hints(fn)
         setattr(
             fn,
             _META_ATTR,
@@ -53,7 +66,7 @@ def clinkr_operation(
                 name=name,
                 help=help,
                 request_type=request_type,
-                result_types=result_types,
+                result_type=result_type,
                 aliases=aliases,
                 human_renderer=human_renderer,
             ),
@@ -70,15 +83,15 @@ def get_operation_meta(fn: Any) -> ClinkrOperationMeta | None:
 
 def _extract_types_from_hints(
     fn: Callable[..., Any],
-) -> tuple[type, tuple[type, ...]]:
-    """Infer ``(request_type, result_types)`` from a function's type annotations.
+) -> tuple[type, Any]:
+    """Infer ``(request_type, result_type)`` from a function's type annotations.
 
     The function must accept exactly two parameters — ``ctx: click.Context``
     followed by the request dataclass — and be annotated as returning
     ``ClinkrExit[T]``.
     """
     fn_name = getattr(fn, "__qualname__", repr(fn))
-    hints = get_type_hints(fn)
+    hints = get_type_hints(fn, include_extras=True)
     params = list(inspect.signature(fn).parameters.values())
 
     if len(params) != 2:
@@ -115,26 +128,60 @@ def _extract_types_from_hints(
 
     if origin is ClinkrExit:
         args = get_args(return_hint)
-        if len(args) != 1 or not isinstance(args[0], type):
+        if len(args) != 1:
             raise TypeError(
                 f"clinkr_operation function {fn_name}: "
-                "ClinkrExit must be parameterized by a single concrete type"
+                "ClinkrExit must be parameterized by a single result type"
             )
         result_type = args[0]
-        if not issubclass(result_type, (JsonSerializable, BaseModel)):
+        if not _is_supported_result_type(result_type):
             raise TypeError(
                 f"clinkr_operation function {fn_name}: "
-                f"result type {result_type.__name__} must subclass JsonSerializable or BaseModel"
+                f"result type {_result_type_name(result_type)} must be Pydantic-compatible "
+                "or subclass JsonSerializable"
             )
-        return request_type, (result_type,)
+        return request_type, result_type
 
     if return_hint is ClinkrExit:
         raise TypeError(
             f"clinkr_operation function {fn_name}: "
-            "ClinkrExit must be parameterized by a single concrete type"
+            "ClinkrExit must be parameterized by a single result type"
         )
 
     raise TypeError(
         f"clinkr_operation function {fn_name}: "
         f"return annotation must be ClinkrExit[T]; got {return_hint!r}"
     )
+
+
+def _is_supported_result_type(result_type: Any) -> bool:
+    return _is_legacy_result_type(result_type) or _is_pydantic_result_type(result_type)
+
+
+def _is_legacy_result_type(result_type: Any) -> bool:
+    return isinstance(result_type, type) and issubclass(result_type, JsonSerializable)
+
+
+def _is_pydantic_result_type(result_type: Any) -> bool:
+    result_type = _unwrap_annotated(result_type)
+    if isinstance(result_type, type):
+        return issubclass(result_type, BaseModel)
+
+    origin = get_origin(result_type)
+    if origin is types.UnionType or origin is Union:
+        return all(_is_pydantic_result_type(arg) for arg in get_args(result_type))
+
+    return False
+
+
+def _unwrap_annotated(type_expr: Any) -> Any:
+    if get_origin(type_expr) is Annotated:
+        return get_args(type_expr)[0]
+    return type_expr
+
+
+def _result_type_name(result_type: Any) -> str:
+    name = getattr(result_type, "__name__", None)
+    if isinstance(name, str):
+        return name
+    return repr(result_type)
