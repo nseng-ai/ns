@@ -15,15 +15,14 @@ of aborting the whole command.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.console import get_console, make_table
 from asdl_core.gh.pr_gateway import PRGateway
@@ -54,8 +53,7 @@ _STATE_TO_ACTION: dict[PRState, BranchPrAction] = {
 }
 
 
-@dataclass(frozen=True)
-class BranchPrEntry:
+class BranchPrEntry(ClinkrModel):
     branch: str
     obj_state: ObjectiveSnapshotUiState
     action: BranchPrAction
@@ -66,40 +64,18 @@ class BranchPrEntry:
     pr_error_stderr: str | None
 
 
-@dataclass(frozen=True)
-class ObjectiveTreeRequest:
+class ObjectiveTreeRequest(ClinkrModel):
     slug: Annotated[
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
     ] = None
 
 
-@dataclass(frozen=True)
-class ObjectiveTreeResult(JsonSerializable):
+class ObjectiveTreeResult(ClinkrModel):
     slug: str
     canonical_present: bool
     state: ObjectiveState
     entries: tuple[BranchPrEntry, ...]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "slug": self.slug,
-            "canonical_present": self.canonical_present,
-            "state": self.state,
-            "entries": [
-                {
-                    "branch": e.branch,
-                    "obj_state": e.obj_state,
-                    "action": e.action,
-                    "pr_number": e.pr_number,
-                    "pr_state": e.pr_state,
-                    "pr_title": e.pr_title,
-                    "pr_url": e.pr_url,
-                    "pr_error_stderr": e.pr_error_stderr,
-                }
-                for e in self.entries
-            ],
-        }
 
 
 _STATE_BADGES: dict[BranchPrAction, str] = {

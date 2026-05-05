@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
 import click
+from pydantic import model_serializer
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
@@ -31,8 +31,7 @@ from brmem.gateway import EntryRef, check_branch_name
 from brmem.validation import first_failure
 
 
-@dataclass(frozen=True)
-class ObjectiveListRequest:
+class ObjectiveListRequest(ClinkrModel):
     branch: str | None = None
     here: bool = False
     include_closed: Annotated[
@@ -55,8 +54,7 @@ class ObjectiveListRequest:
     ] = False
 
 
-@dataclass(frozen=True)
-class ObjectiveListResult(JsonSerializable):
+class ObjectiveListResult(ClinkrModel):
     scope: Literal["branch", "repo"]
     branch: str | None = None
     entries: tuple[EntryRef, ...] = ()
@@ -66,7 +64,8 @@ class ObjectiveListResult(JsonSerializable):
     def branch_slugs(self) -> tuple[str, ...]:
         return tuple(sorted({slug_for_key(entry.key) for entry in self.entries}))
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         if self.scope == "branch":
             return {
                 "branch": self.branch,

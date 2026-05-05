@@ -9,17 +9,16 @@ rewrite/persist steps; this operation just hands it the facts.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.absorbed_marker import load_absorbed_marker
@@ -46,16 +45,14 @@ from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
 
 
-@dataclass(frozen=True)
-class ObjectiveUpdatePrecheckRequest:
+class ObjectiveUpdatePrecheckRequest(ClinkrModel):
     slug: Annotated[
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
     ] = None
 
 
-@dataclass(frozen=True)
-class FilePrecheck(JsonSerializable):
+class FilePrecheck(ClinkrModel):
     """Presence + diagnostic SHAs for a single objective file."""
 
     key: str
@@ -66,8 +63,7 @@ class FilePrecheck(JsonSerializable):
     size_bytes: int | None
 
 
-@dataclass(frozen=True)
-class BranchCommit(JsonSerializable):
+class BranchCommit(ClinkrModel):
     """One ``trunk..HEAD`` commit, newest-first."""
 
     sha: str
@@ -76,8 +72,7 @@ class BranchCommit(JsonSerializable):
     patch_id: str | None
 
 
-@dataclass(frozen=True)
-class ObjectiveUpdatePrecheckResult(JsonSerializable):
+class ObjectiveUpdatePrecheckResult(ClinkrModel):
     slug: str
     branch: str
     branch_head_sha: str

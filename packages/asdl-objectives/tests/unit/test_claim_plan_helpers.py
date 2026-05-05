@@ -12,8 +12,10 @@ from asdl_objectives.exec.claim import (
     CandidateBranch,
     ClaimPlan,
     ClaimPlanAmbiguity,
+    ClaimPlanAmbiguousResult,
     ClaimPlanError,
-    ClaimPlanResult,
+    ClaimPlanErrorResult,
+    ClaimPlanReadyResult,
     PlanSource,
     SlugAlternative,
     _classify_slug_candidates,
@@ -55,13 +57,13 @@ def test_classify_slug_candidates_multiple_returns_ambiguity() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Round-trip: ClaimPlanResult.to_json_dict produces a stable shape with
+# Round-trip: Pydantic claim-plan variants produce a stable JSON-ready shape with
 # nested fields populated correctly.
 # ---------------------------------------------------------------------------
 
 
 def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
-    result = ClaimPlanResult(
+    result = ClaimPlanReadyResult(
         schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="alpha",
@@ -80,8 +82,6 @@ def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
                 label="canonical objective",
             ),
         ),
-        ambiguity=None,
-        error=None,
     )
     payload = result.to_json_dict()
     assert payload["status"] == "plan"
@@ -94,7 +94,7 @@ def test_claim_plan_result_to_json_dict_for_plan_status() -> None:
 
 
 def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
-    result = ClaimPlanResult(
+    result = ClaimPlanAmbiguousResult(
         schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug=None,
@@ -103,7 +103,6 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
         requested_from_branch=None,
         requested_from_file=None,
         status="ambiguous",
-        plan=None,
         ambiguity=ClaimPlanAmbiguity(
             reason="ambiguous_source_branches",
             message="two ancestors tie",
@@ -113,7 +112,6 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
                 CandidateBranch(branch="feat/b", distance=2),
             ),
         ),
-        error=None,
     )
     payload = result.to_json_dict()
     assert payload["status"] == "ambiguous"
@@ -126,7 +124,7 @@ def test_claim_plan_result_to_json_dict_for_ambiguity_status() -> None:
 
 
 def test_claim_plan_result_to_json_dict_for_error_status() -> None:
-    result = ClaimPlanResult(
+    result = ClaimPlanErrorResult(
         schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="ghost",
@@ -135,8 +133,6 @@ def test_claim_plan_result_to_json_dict_for_error_status() -> None:
         requested_from_branch=None,
         requested_from_file=None,
         status="error",
-        plan=None,
-        ambiguity=None,
         error=ClaimPlanError(
             reason="explicit_slug_not_found",
             message="ghost is not anywhere",

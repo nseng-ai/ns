@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Annotated, Any, NamedTuple
+from typing import Annotated, NamedTuple
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, closed_key, slug_for_key
@@ -24,32 +23,20 @@ class _EntryIdentity(NamedTuple):
     key: str
 
 
-@dataclass(frozen=True)
-class ObjectiveReopenRequest:
+class ObjectiveReopenRequest(ClinkrModel):
     slug: Annotated[
         str,
         click.Argument(["slug"], type=click.STRING),
     ]
 
 
-@dataclass(frozen=True)
-class ObjectiveReopenResult(JsonSerializable):
+class ObjectiveReopenResult(ClinkrModel):
     slug: str
     trunk_branch: str
     state: str
     already_open: bool
     reopened_entries: int
     branches_touched: int
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "slug": self.slug,
-            "trunk_branch": self.trunk_branch,
-            "state": self.state,
-            "already_open": self.already_open,
-            "reopened_entries": self.reopened_entries,
-            "branches_touched": self.branches_touched,
-        }
 
 
 def render_objective_reopen(result: ObjectiveReopenResult) -> None:

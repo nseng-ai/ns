@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.absorbed_marker import (
@@ -27,8 +26,7 @@ from asdl_objectives.patch_facts import load_branch_patch_facts
 from asdl_objectives.trunk_resolution import resolve_trunk
 
 
-@dataclass(frozen=True)
-class AbsorbPatchesRequest:
+class AbsorbPatchesRequest(ClinkrModel):
     slug: Annotated[
         str,
         click.Argument(["slug"], type=click.STRING),
@@ -39,8 +37,7 @@ class AbsorbPatchesRequest:
     ]
 
 
-@dataclass(frozen=True)
-class AbsorbPatchesResult(JsonSerializable):
+class AbsorbPatchesResult(ClinkrModel):
     slug: str
     branch: str
     branch_head_sha: str
@@ -48,26 +45,6 @@ class AbsorbPatchesResult(JsonSerializable):
     old_head_sha: str | None
     new_head_sha: str
     records: tuple[AbsorbedPatchRecord, ...]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "slug": self.slug,
-            "branch": self.branch,
-            "branch_head_sha": self.branch_head_sha,
-            "marker_key": self.marker_key,
-            "old_head_sha": self.old_head_sha,
-            "new_head_sha": self.new_head_sha,
-            "records": [
-                {
-                    "schema": r.schema,
-                    "sha": r.sha,
-                    "patch_id": r.patch_id,
-                    "author_iso": r.author_iso,
-                    "subject": r.subject,
-                }
-                for r in self.records
-            ],
-        }
 
 
 def render_absorb_patches(result: AbsorbPatchesResult) -> None:

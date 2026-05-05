@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.exec.reconcile_plan import (
@@ -24,24 +23,21 @@ from asdl_objectives.exec.reconcile_plan import (
 SUMMARY_SCHEMA = "reconcile-summary/v1"
 
 
-@dataclass(frozen=True)
-class ReconcileSummaryCounts(JsonSerializable):
+class ReconcileSummaryCounts(ClinkrModel):
     slug_count: int
     actionable_slug_count: int
     gap_count: int
     conflict_count: int
 
 
-@dataclass(frozen=True)
-class ReconcileSummaryCanonicalFile(JsonSerializable):
+class ReconcileSummaryCanonicalFile(ClinkrModel):
     file: str
     present: bool
     expected_old_blob_sha: str | None
     expected_old_head_sha: str | None
 
 
-@dataclass(frozen=True)
-class ReconcileSummaryIncludedSnapshot(JsonSerializable):
+class ReconcileSummaryIncludedSnapshot(ClinkrModel):
     branch: str
     pr_number: int | None
     pr_state: str | None
@@ -50,8 +46,7 @@ class ReconcileSummaryIncludedSnapshot(JsonSerializable):
     files: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class ReconcileSummarySkippedSnapshot(JsonSerializable):
+class ReconcileSummarySkippedSnapshot(ClinkrModel):
     branch: str
     reason: str
     pr_number: int | None
@@ -61,8 +56,7 @@ class ReconcileSummarySkippedSnapshot(JsonSerializable):
     pr_error: str | None
 
 
-@dataclass(frozen=True)
-class ReconcileSummarySlug(JsonSerializable):
+class ReconcileSummarySlug(ClinkrModel):
     slug: str
     canonical_present: bool
     canonical_files: tuple[ReconcileSummaryCanonicalFile, ...]
@@ -72,27 +66,11 @@ class ReconcileSummarySlug(JsonSerializable):
     conflicts: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class ReconcileSummaryResult(JsonSerializable):
+class ReconcileSummaryResult(ClinkrSchemaModel):
     success: bool
-    schema: str
     canonical_branch: str
     summary: ReconcileSummaryCounts
     slugs: tuple[ReconcileSummarySlug, ...]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "success": self.success,
-            "schema": self.schema,
-            "canonical_branch": self.canonical_branch,
-            "summary": {
-                "slug_count": self.summary.slug_count,
-                "actionable_slug_count": self.summary.actionable_slug_count,
-                "gap_count": self.summary.gap_count,
-                "conflict_count": self.summary.conflict_count,
-            },
-            "slugs": [_slug_to_json(slug) for slug in self.slugs],
-        }
 
 
 def render_reconcile_summary(result: ReconcileSummaryResult) -> None:

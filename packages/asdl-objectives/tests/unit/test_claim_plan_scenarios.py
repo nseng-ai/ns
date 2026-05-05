@@ -151,7 +151,7 @@ def test_claim_plan_no_slug_multi_candidate_ancestor() -> None:
     amb = data["ambiguity"]
     assert amb["reason"] == "ambiguous_slug_candidates"
     assert {a["slug"] for a in amb["slug_alternatives"]} == {"alpha", "beta"}
-    assert amb["branch_alternatives"] == ()
+    assert amb["branch_alternatives"] == []
     assert all(a["available_on_branch"] == "feat/parent" for a in amb["slug_alternatives"])
 
 
@@ -181,8 +181,8 @@ def test_claim_plan_no_slug_nothing_reachable() -> None:
     assert amb["reason"] == "no_slug_no_candidates"
     assert "objective-create" in amb["message"]
     assert "--from-file" in amb["message"]
-    assert amb["slug_alternatives"] == ()
-    assert amb["branch_alternatives"] == ()
+    assert amb["slug_alternatives"] == []
+    assert amb["branch_alternatives"] == []
 
 
 def test_claim_plan_target_collision() -> None:
