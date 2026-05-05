@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Literal
 
 import click
 
 from asdl_core import get_console, make_table
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.inventory import SlotInventory, build_slot_inventory
@@ -16,21 +15,18 @@ from asdl_slots.inventory import SlotInventory, build_slot_inventory
 SlotStatus = Literal["assigned", "available"]
 
 
-@dataclass(frozen=True)
-class SlotListRequest:
+class SlotListRequest(ClinkrModel):
     """No inputs — `slot list` always renders the whole pool for the repo."""
 
 
-@dataclass(frozen=True)
-class SlotRow:
+class SlotRow(ClinkrModel):
     slot_name: str
     branch: str | None
     worktree_path: str
     status: SlotStatus
 
 
-@dataclass(frozen=True)
-class SlotListResult(JsonSerializable):
+class SlotListResult(ClinkrModel):
     pool_size: int
     rows: tuple[SlotRow, ...]
     repo_name: str

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
 from asdl_core import get_console
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.context import SlotsCliContext
@@ -17,8 +16,7 @@ from asdl_slots.naming import generate_slot_name
 from asdl_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
 
 
-@dataclass(frozen=True)
-class SlotResizeRequest:
+class SlotResizeRequest(ClinkrModel):
     size: Annotated[
         int,
         click.Option(
@@ -29,8 +27,7 @@ class SlotResizeRequest:
     ]
 
 
-@dataclass(frozen=True)
-class SlotResizeResult(JsonSerializable):
+class SlotResizeResult(ClinkrModel):
     previous_pool_size: int
     pool_size: int
     created: tuple[str, ...]

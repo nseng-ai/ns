@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
 from asdl_core import get_console
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRState
 from asdl_slots.cli.slot.context import load_slots_context
@@ -25,14 +24,12 @@ from asdl_slots.inventory import build_slot_inventory
 from asdl_slots.repo_context import NoRepoSentinel
 
 
-@dataclass(frozen=True)
-class SlotGcRequest:
+class SlotGcRequest(ClinkrModel):
     dry_run: Annotated[bool, click.Option(["--dry-run"], is_flag=True, default=False)] = False
     force: Annotated[bool, click.Option(["-f", "--force"], is_flag=True, default=False)] = False
 
 
-@dataclass(frozen=True)
-class SlotGcResultEntry:
+class SlotGcResultEntry(ClinkrModel):
     slot_name: str
     branch_name: str
     worktree_path: str
@@ -43,8 +40,7 @@ class SlotGcResultEntry:
     message: str | None
 
 
-@dataclass(frozen=True)
-class SlotGcResult(JsonSerializable):
+class SlotGcResult(ClinkrModel):
     entries: tuple[SlotGcResultEntry, ...]
     freed_count: int
     kept_count: int

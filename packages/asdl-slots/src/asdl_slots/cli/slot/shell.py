@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import click
 
 from asdl_core import get_console
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 _SUPPORTED_SHELLS = ("zsh", "bash")
@@ -64,8 +63,7 @@ def _marker_block(shell: str) -> str:
     return f"\n{_MARKER_BEGIN}\n{_render_wrapper_script(shell)}\n{_MARKER_END}\n"
 
 
-@dataclass(frozen=True)
-class ShellShowRequest:
+class ShellShowRequest(ClinkrModel):
     shell: Annotated[
         str | None,
         click.Option(
@@ -79,8 +77,7 @@ class ShellShowRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class ShellShowResult(JsonSerializable):
+class ShellShowResult(ClinkrModel):
     shell: str
     script: str
 
@@ -107,8 +104,7 @@ def run_shell_show(ctx: click.Context, request: ShellShowRequest) -> ClinkrExit[
     return ClinkrExit.ok(ShellShowResult(shell=shell, script=_render_wrapper_script(shell)))
 
 
-@dataclass(frozen=True)
-class ShellInstallRequest:
+class ShellInstallRequest(ClinkrModel):
     shell: Annotated[
         str | None,
         click.Option(
@@ -122,8 +118,7 @@ class ShellInstallRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class ShellInstallResult(JsonSerializable):
+class ShellInstallResult(ClinkrModel):
     shell: str
     rc_path: str
     already_installed: bool

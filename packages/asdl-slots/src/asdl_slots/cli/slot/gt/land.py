@@ -1,28 +1,25 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRCommandError, PRMergeResult
 from asdl_slots.cli.slot.gt.context import load_slot_gt_context
 from asdl_slots.cli.slot.gt.land_plan import LandPlan, build_land_plan
 
 
-@dataclass(frozen=True)
-class SlotGtLandRequest:
+class SlotGtLandRequest(ClinkrModel):
     dry_run: Annotated[bool, click.Option(["--dry-run"], is_flag=True, default=False)] = False
     admin: Annotated[bool, click.Option(["--admin"], is_flag=True, default=False)] = False
     auto: Annotated[bool, click.Option(["--auto"], is_flag=True, default=False)] = False
 
 
-@dataclass(frozen=True)
-class SlotGtLandResult(JsonSerializable):
+class SlotGtLandResult(ClinkrModel):
     dry_run: bool
     pr_number: int
     current_branch: str

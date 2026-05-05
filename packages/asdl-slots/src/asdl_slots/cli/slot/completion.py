@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import click
 
 from asdl_core import get_console
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
 _SUPPORTED_SHELLS = ("zsh", "bash")
@@ -41,8 +40,7 @@ def _unsupported_shell_message(shell: str) -> str:
     return f"Shell '{shell}' is not supported. Supported shells: {', '.join(_SUPPORTED_SHELLS)}."
 
 
-@dataclass(frozen=True)
-class CompletionShowRequest:
+class CompletionShowRequest(ClinkrModel):
     shell: Annotated[
         str | None,
         click.Option(
@@ -53,8 +51,7 @@ class CompletionShowRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class CompletionShowResult(JsonSerializable):
+class CompletionShowResult(ClinkrModel):
     shell: str
     script: str
 
@@ -80,8 +77,7 @@ def run_completion_show(
     return ClinkrExit.ok(CompletionShowResult(shell=shell, script=_activation_line(shell)))
 
 
-@dataclass(frozen=True)
-class CompletionInstallRequest:
+class CompletionInstallRequest(ClinkrModel):
     shell: Annotated[
         str | None,
         click.Option(
@@ -92,8 +88,7 @@ class CompletionInstallRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class CompletionInstallResult(JsonSerializable):
+class CompletionInstallResult(ClinkrModel):
     shell: str
     rc_path: str
     already_installed: bool

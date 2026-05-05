@@ -1,27 +1,24 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import click
 
 from asdl_core import get_console
-from asdl_core.clinkr.dataclass_json import JsonSerializable
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.clipboard import ClipboardCopyFailure, ClipboardCopySuccess
 from asdl_slots.naming import extract_slot_number
 from asdl_slots.shell_integration import write_cd_directive_if_active
 
 
-@dataclass(frozen=True)
-class WorktreeTarget:
+class WorktreeTarget(ClinkrModel):
     slot_name: str | None
     branch_name: str
     worktree_path: Path
 
 
-@dataclass(frozen=True)
-class GtNavigationTarget(JsonSerializable):
+class GtNavigationTarget(ClinkrModel):
     slot_name: str | None
     branch_name: str
     worktree_path: str

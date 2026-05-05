@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
 from typing import Annotated, NoReturn
 
 import click
 
 from asdl_core import get_console
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.cli.slot.selectors import (
@@ -23,8 +22,7 @@ from asdl_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch, bu
 from asdl_slots.repo_context import NoRepoSentinel
 
 
-@dataclass(frozen=True)
-class SlotFreeRequest:
+class SlotFreeRequest(ClinkrModel):
     num: Annotated[
         tuple[int, ...],
         click.Option(["-n", "--num"], type=click.INT, multiple=True),
@@ -40,15 +38,13 @@ class SlotFreeRequest:
     current: Annotated[bool, click.Option(["-c", "--current"], is_flag=True, default=False)] = False
 
 
-@dataclass(frozen=True)
-class FreedSlot:
+class FreedSlot(ClinkrModel):
     slot_name: str
     branch_name: str
     worktree_path: str
 
 
-@dataclass(frozen=True)
-class SlotFreeResult(JsonSerializable):
+class SlotFreeResult(ClinkrModel):
     freed: tuple[FreedSlot, ...]
     skipped: tuple[str, ...] = ()
 

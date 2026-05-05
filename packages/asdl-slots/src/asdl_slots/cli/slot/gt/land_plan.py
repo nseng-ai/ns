@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.gh.types import PRDetails, PRLookupError
 from asdl_core.git.types import DetachedHead
 from asdl_core.git.types import GitCommandFailure as GitFailure
@@ -11,8 +9,7 @@ from asdl_core.gt.types import GtCommandFailure, NoParent, UntrackedBranch
 from asdl_slots.cli.slot.gt.context import SlotGtContext
 
 
-@dataclass(frozen=True)
-class LandPlan(JsonSerializable):
+class LandPlan(ClinkrModel):
     repo_root: str
     current_worktree: str
     current_branch: str

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
 from asdl_core import get_console
 from asdl_core.clinkr.context import is_machine_mode
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.cli.slot.selectors import SelectorOk, resolve_num, resolve_wt
@@ -18,8 +17,7 @@ from asdl_slots.repo_context import NoRepoSentinel
 from asdl_slots.shell_integration import write_cd_directive_if_active
 
 
-@dataclass(frozen=True)
-class SlotGotoRequest:
+class SlotGotoRequest(ClinkrModel):
     num: Annotated[int | None, click.Option(["-n", "--num"], type=click.INT, default=None)] = None
     wt: Annotated[str | None, click.Option(["-w", "--wt"], type=click.STRING, default=None)] = None
     no_clipboard: Annotated[
@@ -28,8 +26,7 @@ class SlotGotoRequest:
     ] = False
 
 
-@dataclass(frozen=True)
-class SlotGotoResult(JsonSerializable):
+class SlotGotoResult(ClinkrModel):
     slot_name: str
     branch_name: str
     worktree_path: str
