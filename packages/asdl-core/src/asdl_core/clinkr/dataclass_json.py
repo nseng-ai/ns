@@ -7,6 +7,8 @@ import types
 from dataclasses import fields
 from typing import Any, Literal, Union, cast, get_args, get_origin
 
+from pydantic import BaseModel
+
 _PYTHON_TYPE_MAP: dict[type, str] = {
     str: "string",
     int: "integer",
@@ -49,6 +51,9 @@ def python_type_to_json_schema(type_hint: Any) -> dict[str, Any]:
 
 
 def request_schema(request_type: type) -> dict[str, Any]:
+    if isinstance(request_type, type) and issubclass(request_type, BaseModel):
+        return request_type.model_json_schema()
+
     properties: dict[str, Any] = {}
     required: list[str] = []
 
@@ -97,8 +102,12 @@ class JsonSerializable:
         return dataclasses.asdict(cast(Any, self))
 
 
-def serialize_to_json_dict(result: JsonSerializable) -> dict[str, Any]:
-    return result.to_json_dict()
+def serialize_to_json_dict(result: Any) -> dict[str, Any]:
+    if isinstance(result, BaseModel):
+        return result.model_dump(mode="json")
+    if isinstance(result, JsonSerializable):
+        return result.to_json_dict()
+    raise TypeError(f"Cannot serialize result of type {type(result).__name__}")
 
 
 def read_json_stdin() -> dict[str, Any] | None:
@@ -116,6 +125,9 @@ def read_json_stdin() -> dict[str, Any] | None:
 
 
 def _single_output_schema(output_type: type) -> dict[str, Any]:
+    if isinstance(output_type, type) and issubclass(output_type, BaseModel):
+        return output_type.model_json_schema()
+
     json_schema_method = getattr(output_type, "json_schema", None)
     if json_schema_method is not None:
         return json_schema_method()
