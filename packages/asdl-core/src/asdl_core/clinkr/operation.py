@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import inspect
-import types
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
+from typing import Any, get_args, get_origin, get_type_hints
 
 import click
 from pydantic import BaseModel
@@ -25,18 +24,6 @@ class ClinkrOperationMeta:
     result_type: Any
     aliases: tuple[str, ...]
     human_renderer: Callable[..., None] | None
-
-    @property
-    def result_types(self) -> tuple[type, ...]:
-        """Compatibility view of concrete result variants."""
-        result_type = _unwrap_annotated(self.result_type)
-        if isinstance(result_type, type):
-            return (result_type,)
-
-        origin = get_origin(result_type)
-        if origin is types.UnionType or origin is Union:
-            return tuple(arg for arg in get_args(result_type) if isinstance(arg, type))
-        return ()
 
 
 def clinkr_operation(
@@ -164,12 +151,6 @@ def _is_supported_request_type(request_type: Any) -> bool:
 
 def _is_supported_result_type(result_type: Any) -> bool:
     return is_pydantic_output_type(result_type)
-
-
-def _unwrap_annotated(type_expr: Any) -> Any:
-    if get_origin(type_expr) is Annotated:
-        return get_args(type_expr)[0]
-    return type_expr
 
 
 def _result_type_name(result_type: Any) -> str:

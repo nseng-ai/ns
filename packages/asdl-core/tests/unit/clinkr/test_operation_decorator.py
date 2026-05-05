@@ -37,7 +37,7 @@ def test_clinkr_exit_return_tags_result_type() -> None:
 
     meta = get_operation_meta(op)
     assert meta is not None
-    assert meta.result_types == (FakeResult,)
+    assert meta.result_type is FakeResult
 
 
 def test_decorator_attaches_metadata() -> None:
@@ -51,7 +51,7 @@ def test_decorator_attaches_metadata() -> None:
     assert meta.help == "Say hi."
     assert meta.aliases == ("hi",)
     assert meta.request_type is FakeRequest
-    assert meta.result_types == (FakeResult,)
+    assert meta.result_type is FakeResult
     assert meta.human_renderer is None
 
 
