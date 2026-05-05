@@ -22,8 +22,8 @@ from typing import Annotated, Any, Literal
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRLookupError, PRState, PRSummary
@@ -47,8 +47,7 @@ PLAN_SCHEMA = "reconcile-plan/v1"
 SkipReason = Literal["open", "closed_unmerged", "no_pr", "lookup_error"]
 
 
-@dataclass(frozen=True)
-class ReconcilePlanRequest:
+class ReconcilePlanRequest(ClinkrModel):
     """Optional comma-separated slug list narrowing the sweep."""
 
     slugs: Annotated[
@@ -57,8 +56,7 @@ class ReconcilePlanRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class CanonicalFile(JsonSerializable):
+class CanonicalFile(ClinkrModel):
     """Canonical file presence + raw Markdown + capture-time SHAs.
 
     Two SHAs are captured at plan time:
@@ -80,8 +78,7 @@ class CanonicalFile(JsonSerializable):
     content: str
 
 
-@dataclass(frozen=True)
-class BranchSnapshotPr(JsonSerializable):
+class BranchSnapshotPr(ClinkrModel):
     number: int | None
     state: PRState | None
     title: str | None
@@ -89,8 +86,7 @@ class BranchSnapshotPr(JsonSerializable):
     error: str | None
 
 
-@dataclass(frozen=True)
-class IncludedSnapshot(JsonSerializable):
+class IncludedSnapshot(ClinkrModel):
     """Branch snapshot folded in as eligible (merged-PR-backed) evidence."""
 
     branch: str
@@ -98,15 +94,13 @@ class IncludedSnapshot(JsonSerializable):
     files: tuple[CanonicalFile, ...]
 
 
-@dataclass(frozen=True)
-class SkippedSnapshot(JsonSerializable):
+class SkippedSnapshot(ClinkrModel):
     branch: str
     reason: SkipReason
     pr: BranchSnapshotPr
 
 
-@dataclass(frozen=True)
-class SlugPlanItem(JsonSerializable):
+class SlugPlanItem(ClinkrModel):
     """Per-slug section of the reconcile plan envelope."""
 
     slug: str
@@ -118,20 +112,10 @@ class SlugPlanItem(JsonSerializable):
     gaps: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class ReconcilePlanResult(JsonSerializable):
-    schema: str
+class ReconcilePlanResult(ClinkrSchemaModel):
     canonical_branch: str
     requested_slugs: tuple[str, ...]
     slugs: tuple[SlugPlanItem, ...]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "schema": self.schema,
-            "canonical_branch": self.canonical_branch,
-            "requested_slugs": list(self.requested_slugs),
-            "slugs": [_slug_plan_to_json(item) for item in self.slugs],
-        }
 
 
 def _slug_plan_to_json(item: SlugPlanItem) -> dict[str, Any]:

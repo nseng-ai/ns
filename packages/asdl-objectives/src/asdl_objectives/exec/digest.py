@@ -15,10 +15,10 @@ from typing import Annotated
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRLookupError, PRSummary
 from asdl_core.git.git_gateway import GitGateway
@@ -40,16 +40,14 @@ from asdl_objectives.slug_resolution import (
 from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
 
 
-@dataclass(frozen=True)
-class ObjectiveDigestRequest:
+class ObjectiveDigestRequest(ClinkrModel):
     slug: Annotated[
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
     ] = None
 
 
-@dataclass(frozen=True)
-class DigestPrompt(JsonSerializable):
+class DigestPrompt(ClinkrModel):
     prompt: str
 
 

@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated, Any
 
 import click
+from pydantic import model_serializer
 from rich.markdown import Markdown
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.console import get_console
 from asdl_core.git.types import DetachedHead, GitCommandFailure
@@ -37,8 +37,7 @@ from brmem.gateway import BranchMemoryGateway, EntryRef, check_branch_name
 from brmem.validation import first_failure
 
 
-@dataclass(frozen=True)
-class ObjectiveShowRequest:
+class ObjectiveShowRequest(ClinkrModel):
     slug: Annotated[
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
@@ -46,15 +45,13 @@ class ObjectiveShowRequest:
     branch: str | None = None
 
 
-@dataclass(frozen=True)
-class ObjectiveFile:
+class ObjectiveFile(ClinkrModel):
     filename: str
     source_branch: str
     content: str
 
 
-@dataclass(frozen=True)
-class ObjectiveShowResult(JsonSerializable):
+class ObjectiveShowResult(ClinkrModel):
     slug: str
     canonical_present: bool
     canonical_trunk: str
@@ -67,7 +64,8 @@ class ObjectiveShowResult(JsonSerializable):
     roadmap: ObjectiveFile | None
     notes: ObjectiveFile | None
 
-    def to_json_dict(self) -> dict[str, Any]:
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
         return {
             "slug": self.slug,
             "canonical_present": self.canonical_present,

@@ -131,16 +131,15 @@ def test_current_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     assert set(payload) == {"input_schema", "output_schema"}
     output_schema = payload["output_schema"]
     assert output_schema["properties"]["prompt"]["type"] == "string"
-    assert output_schema["properties"]["current_branch"]["type"] == ["string", "null"]
+    assert output_schema["properties"]["current_branch"]["anyOf"] == [
+        {"type": "string"},
+        {"type": "null"},
+    ]
     assert output_schema["properties"]["trunk_branch"]["type"] == "string"
-    assert output_schema["properties"]["objective"]["properties"]["kind"]["enum"] == [
-        "claimed",
-        "none",
-    ]
-    assert output_schema["properties"]["status_badge"]["properties"]["kind"]["enum"] == [
-        "objective",
-        "none",
-    ]
+    objective_schema = output_schema["$defs"]["CurrentObjectiveStatus"]
+    assert objective_schema["properties"]["kind"]["enum"] == ["claimed", "none"]
+    badge_schema = output_schema["$defs"]["CurrentStatusBadge"]
+    assert badge_schema["properties"]["kind"]["enum"] == ["objective", "none"]
 
 
 # ---------------------------------------------------------------------------

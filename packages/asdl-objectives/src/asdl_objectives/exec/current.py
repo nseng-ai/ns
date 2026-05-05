@@ -17,9 +17,9 @@ from typing import Literal
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import PRLookupError, PRSummary
@@ -41,8 +41,7 @@ _PREVIEW_CHAR_LIMIT = 80
 TrunkRowState = Literal["fresh", "stale", "missing_on_master"]
 
 
-@dataclass(frozen=True)
-class ObjectiveCurrentRequest:
+class ObjectiveCurrentRequest(ClinkrModel):
     pass
 
 
@@ -50,77 +49,23 @@ ObjectiveKind = Literal["claimed", "none"]
 StatusBadgeKind = Literal["objective", "none"]
 
 
-@dataclass(frozen=True)
-class CurrentObjectiveStatus:
+class CurrentObjectiveStatus(ClinkrModel):
     kind: ObjectiveKind
     slug: str | None = None
     state: ObjectiveSnapshotState | None = None
 
 
-@dataclass(frozen=True)
-class CurrentStatusBadge:
+class CurrentStatusBadge(ClinkrModel):
     kind: StatusBadgeKind
     slug: str | None = None
 
 
-@dataclass(frozen=True)
-class CurrentPrompt(JsonSerializable):
+class CurrentPrompt(ClinkrModel):
     prompt: str
     current_branch: str | None
     trunk_branch: str
     objective: CurrentObjectiveStatus
     status_badge: CurrentStatusBadge
-
-    def to_json_dict(self) -> dict[str, object | None]:
-        return {
-            "prompt": self.prompt,
-            "current_branch": self.current_branch,
-            "trunk_branch": self.trunk_branch,
-            "objective": {
-                "kind": self.objective.kind,
-                "slug": self.objective.slug,
-                "state": self.objective.state,
-            },
-            "status_badge": {
-                "kind": self.status_badge.kind,
-                "slug": self.status_badge.slug,
-            },
-        }
-
-    @classmethod
-    def json_schema(cls) -> dict[str, object]:
-        return {
-            "type": "object",
-            "properties": {
-                "prompt": {"type": "string"},
-                "current_branch": {"type": ["string", "null"]},
-                "trunk_branch": {"type": "string"},
-                "objective": {
-                    "type": "object",
-                    "properties": {
-                        "kind": {"type": "string", "enum": ["claimed", "none"]},
-                        "slug": {"type": ["string", "null"]},
-                        "state": {"type": ["string", "null"], "enum": ["fresh", "stale", None]},
-                    },
-                    "required": ["kind", "slug", "state"],
-                },
-                "status_badge": {
-                    "type": "object",
-                    "properties": {
-                        "kind": {"type": "string", "enum": ["objective", "none"]},
-                        "slug": {"type": ["string", "null"]},
-                    },
-                    "required": ["kind", "slug"],
-                },
-            },
-            "required": [
-                "current_branch",
-                "objective",
-                "prompt",
-                "status_badge",
-                "trunk_branch",
-            ],
-        }
 
 
 @dataclass(frozen=True)

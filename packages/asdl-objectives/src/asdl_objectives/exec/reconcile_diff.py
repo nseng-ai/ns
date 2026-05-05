@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import difflib
-from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import BODY_FILE, NOTES_FILE, ROADMAP_FILE
@@ -27,13 +26,11 @@ DIFF_SCHEMA = "reconcile-diff/v1"
 _OBJECTIVE_FILES = (BODY_FILE, ROADMAP_FILE, NOTES_FILE)
 
 
-@dataclass(frozen=True)
-class ReconcileDiffRequest:
+class ReconcileDiffRequest(ClinkrModel):
     slug: Annotated[str, click.Argument(["slug"], type=click.STRING)]
 
 
-@dataclass(frozen=True)
-class ReconcileDiffFile(JsonSerializable):
+class ReconcileDiffFile(ClinkrModel):
     file: str
     canonical_present: bool
     snapshot_present: bool
@@ -41,8 +38,7 @@ class ReconcileDiffFile(JsonSerializable):
     diff: str
 
 
-@dataclass(frozen=True)
-class ReconcileDiffSnapshot(JsonSerializable):
+class ReconcileDiffSnapshot(ClinkrModel):
     branch: str
     pr_number: int | None
     pr_state: str | None
@@ -51,8 +47,7 @@ class ReconcileDiffSnapshot(JsonSerializable):
     files: tuple[ReconcileDiffFile, ...]
 
 
-@dataclass(frozen=True)
-class ReconcileDiffSkippedSnapshot(JsonSerializable):
+class ReconcileDiffSkippedSnapshot(ClinkrModel):
     branch: str
     reason: str
     pr_number: int | None
@@ -62,58 +57,14 @@ class ReconcileDiffSkippedSnapshot(JsonSerializable):
     pr_error: str | None
 
 
-@dataclass(frozen=True)
-class ReconcileDiffResult(JsonSerializable):
+class ReconcileDiffResult(ClinkrSchemaModel):
     success: bool
-    schema: str
     slug: str
     canonical_branch: str
     snapshots: tuple[ReconcileDiffSnapshot, ...]
     skipped_snapshots: tuple[ReconcileDiffSkippedSnapshot, ...]
     gaps: tuple[str, ...]
     conflicts: tuple[str, ...]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "success": self.success,
-            "schema": self.schema,
-            "slug": self.slug,
-            "canonical_branch": self.canonical_branch,
-            "snapshots": [
-                {
-                    "branch": snapshot.branch,
-                    "pr_number": snapshot.pr_number,
-                    "pr_state": snapshot.pr_state,
-                    "pr_title": snapshot.pr_title,
-                    "pr_url": snapshot.pr_url,
-                    "files": [
-                        {
-                            "file": file.file,
-                            "canonical_present": file.canonical_present,
-                            "snapshot_present": file.snapshot_present,
-                            "changed": file.changed,
-                            "diff": file.diff,
-                        }
-                        for file in snapshot.files
-                    ],
-                }
-                for snapshot in self.snapshots
-            ],
-            "skipped_snapshots": [
-                {
-                    "branch": snapshot.branch,
-                    "reason": snapshot.reason,
-                    "pr_number": snapshot.pr_number,
-                    "pr_state": snapshot.pr_state,
-                    "pr_title": snapshot.pr_title,
-                    "pr_url": snapshot.pr_url,
-                    "pr_error": snapshot.pr_error,
-                }
-                for snapshot in self.skipped_snapshots
-            ],
-            "gaps": list(self.gaps),
-            "conflicts": list(self.conflicts),
-        }
 
 
 def render_reconcile_diff(result: ReconcileDiffResult) -> None:

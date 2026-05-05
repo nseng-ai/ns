@@ -28,10 +28,10 @@ from typing import Annotated, Any
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import BODY_FILE, NOTES_FILE, ROADMAP_FILE
@@ -41,8 +41,7 @@ from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
 
 
-@dataclass(frozen=True)
-class ReconcileApplyRequest:
+class ReconcileApplyRequest(ClinkrModel):
     plan_file: Annotated[
         Path,
         click.Option(
@@ -67,8 +66,7 @@ class ReconcileApplyRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class FileWriteResult(JsonSerializable):
+class FileWriteResult(ClinkrModel):
     """Result of one ``brmem put`` to canonical ``master``.
 
     ``old_head_sha`` is the snapshot commit SHA before this write — used
@@ -86,8 +84,7 @@ class FileWriteResult(JsonSerializable):
     recovery_command: str
 
 
-@dataclass(frozen=True)
-class FileWriteSkip(JsonSerializable):
+class FileWriteSkip(ClinkrModel):
     """A proposed write that did not run (drift, missing file, error)."""
 
     file: str
@@ -95,46 +92,16 @@ class FileWriteSkip(JsonSerializable):
     reason: str
 
 
-@dataclass(frozen=True)
-class SlugApplyResult(JsonSerializable):
+class SlugApplyResult(ClinkrModel):
     slug: str
     writes: tuple[FileWriteResult, ...]
     skipped: tuple[FileWriteSkip, ...]
     gaps: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class ReconcileApplyResult(JsonSerializable):
-    schema: str
+class ReconcileApplyResult(ClinkrSchemaModel):
     canonical_branch: str
     slugs: tuple[SlugApplyResult, ...]
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "schema": self.schema,
-            "canonical_branch": self.canonical_branch,
-            "slugs": [
-                {
-                    "slug": s.slug,
-                    "writes": [
-                        {
-                            "file": w.file,
-                            "key": w.key,
-                            "old_blob_sha": w.old_blob_sha,
-                            "old_head_sha": w.old_head_sha,
-                            "new_head_sha": w.new_head_sha,
-                            "recovery_command": w.recovery_command,
-                        }
-                        for w in s.writes
-                    ],
-                    "skipped": [
-                        {"file": k.file, "key": k.key, "reason": k.reason} for k in s.skipped
-                    ],
-                    "gaps": list(s.gaps),
-                }
-                for s in self.slugs
-            ],
-        }
 
 
 def render_reconcile_apply(result: ReconcileApplyResult) -> None:

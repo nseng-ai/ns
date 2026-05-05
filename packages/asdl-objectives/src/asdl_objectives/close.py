@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, Any, NamedTuple
+from typing import Annotated, NamedTuple
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.closed_marker import load_closed_marker, serialize_closed_marker
 from asdl_objectives.context import ObjectiveCliContext
@@ -26,8 +25,7 @@ class _EntryIdentity(NamedTuple):
     key: str
 
 
-@dataclass(frozen=True)
-class ObjectiveCloseRequest:
+class ObjectiveCloseRequest(ClinkrModel):
     slug: Annotated[
         str,
         click.Argument(["slug"], type=click.STRING),
@@ -43,8 +41,7 @@ class ObjectiveCloseRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class ObjectiveCloseResult(JsonSerializable):
+class ObjectiveCloseResult(ClinkrModel):
     slug: str
     trunk_branch: str
     state: str
@@ -53,18 +50,6 @@ class ObjectiveCloseResult(JsonSerializable):
     already_closed: bool
     archived_entries: int
     branches_touched: int
-
-    def to_json_dict(self) -> dict[str, Any]:
-        return {
-            "slug": self.slug,
-            "trunk_branch": self.trunk_branch,
-            "state": self.state,
-            "closed_at": self.closed_at,
-            "reason": self.reason,
-            "already_closed": self.already_closed,
-            "archived_entries": self.archived_entries,
-            "branches_touched": self.branches_touched,
-        }
 
 
 def render_objective_close(result: ObjectiveCloseResult) -> None:

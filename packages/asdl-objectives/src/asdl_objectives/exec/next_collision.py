@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, slug_for_key
@@ -17,16 +16,14 @@ from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.trunk_resolution import resolve_trunk
 
 
-@dataclass(frozen=True)
-class ObjectiveNextCollisionRequest:
+class ObjectiveNextCollisionRequest(ClinkrModel):
     candidate_slug: Annotated[
         str,
         click.Argument(["candidate_slug"], type=click.STRING, required=True),
     ]
 
 
-@dataclass(frozen=True)
-class NextCollisionResult(JsonSerializable):
+class NextCollisionResult(ClinkrModel):
     candidate_slug: str
     branch_exists: bool
     canonical_exists: bool

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
@@ -34,16 +33,14 @@ from asdl_objectives.slug_resolution import (
 from asdl_objectives.trunk_resolution import resolve_trunk
 
 
-@dataclass(frozen=True)
-class ObjectiveNextContextRequest:
+class ObjectiveNextContextRequest(ClinkrModel):
     slug: Annotated[
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
     ] = None
 
 
-@dataclass(frozen=True)
-class NextContextResult(JsonSerializable):
+class NextContextResult(ClinkrModel):
     current_branch: str
     trunk_branch: str
     on_trunk: bool

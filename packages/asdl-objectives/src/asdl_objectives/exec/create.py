@@ -30,9 +30,9 @@ from typing import Annotated, Literal
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
@@ -59,8 +59,7 @@ CreateErrorReason = Literal[
 ]
 
 
-@dataclass(frozen=True)
-class CreateRequest:
+class CreateRequest(ClinkrModel):
     slug: Annotated[
         str,
         click.Argument(["slug"], type=click.STRING),
@@ -100,8 +99,7 @@ class CreateRequest:
     ] = False
 
 
-@dataclass(frozen=True)
-class WrittenFile(JsonSerializable):
+class WrittenFile(ClinkrModel):
     """One file landed on canonical trunk."""
 
     file: str
@@ -109,23 +107,20 @@ class WrittenFile(JsonSerializable):
     commit_sha: str
 
 
-@dataclass(frozen=True)
-class CreateError(JsonSerializable):
+class CreateError(ClinkrModel):
     """Structured "skill can recover" payload."""
 
     reason: CreateErrorReason
     message: str
 
 
-@dataclass(frozen=True)
-class CreateResult(JsonSerializable):
+class CreateResult(ClinkrSchemaModel):
     """Top-level envelope. Exactly one of ``status="ok"`` or ``status="error"``.
 
     ``files_written`` is empty in dry-run and error cases; non-empty only on
     a successful real write.
     """
 
-    schema: str
     canonical_branch: str
     requested_slug: str
     dry_run: bool

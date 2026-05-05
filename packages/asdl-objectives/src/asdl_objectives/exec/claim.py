@@ -11,15 +11,16 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
 import click
+from pydantic import Field
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.clinkr.dataclass_json import JsonSerializable
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
@@ -49,8 +50,7 @@ ErrorReason = Literal[
 ]
 
 
-@dataclass(frozen=True)
-class ClaimPlanRequest:
+class ClaimPlanRequest(ClinkrModel):
     slug: Annotated[
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
@@ -88,24 +88,21 @@ class ClaimPlanRequest:
     ] = None
 
 
-@dataclass(frozen=True)
-class CandidateBranch(JsonSerializable):
+class CandidateBranch(ClinkrModel):
     """A branch that could carry the slug, with ``HEAD`` distance for ranking."""
 
     branch: str
     distance: int
 
 
-@dataclass(frozen=True)
-class SlugAlternative(JsonSerializable):
+class SlugAlternative(ClinkrModel):
     """One slug a user could pick when multiple are reachable."""
 
     slug: str
     available_on_branch: str
 
 
-@dataclass(frozen=True)
-class PlanSource(JsonSerializable):
+class PlanSource(ClinkrModel):
     """Resolved source for the carry-forward copy.
 
     ``kind == "local_file"`` -> ``from_file_path`` is set, ``branch`` is None.
@@ -123,8 +120,7 @@ class PlanSource(JsonSerializable):
     label: str
 
 
-@dataclass(frozen=True)
-class ClaimPlan(JsonSerializable):
+class ClaimPlan(ClinkrModel):
     """Unique deterministic plan ready to apply."""
 
     slug: str
@@ -132,8 +128,7 @@ class ClaimPlan(JsonSerializable):
     source: PlanSource
 
 
-@dataclass(frozen=True)
-class ClaimPlanAmbiguity(JsonSerializable):
+class ClaimPlanAmbiguity(ClinkrModel):
     """Structured "I need a human pick" payload.
 
     ``slug_alternatives`` is non-empty when the reason is
@@ -148,29 +143,55 @@ class ClaimPlanAmbiguity(JsonSerializable):
     branch_alternatives: tuple[CandidateBranch, ...]
 
 
-@dataclass(frozen=True)
-class ClaimPlanError(JsonSerializable):
+class ClaimPlanError(ClinkrModel):
     """Structured "the inputs are impossible to satisfy" payload."""
 
     reason: ErrorReason
     message: str
 
 
-@dataclass(frozen=True)
-class ClaimPlanResult(JsonSerializable):
-    """Top-level envelope. Exactly one of ``plan`` / ``ambiguity`` / ``error`` is set."""
+class ClaimPlanResultBase(ClinkrSchemaModel):
+    """Common fields for every claim-plan status envelope."""
 
-    schema: str
     canonical_branch: str
     requested_slug: str | None
     resolved_slug: str | None
     requested_target: str | None
     requested_from_branch: str | None
     requested_from_file: str | None
-    status: PlanStatus
-    plan: ClaimPlan | None
-    ambiguity: ClaimPlanAmbiguity | None
-    error: ClaimPlanError | None
+
+
+class ClaimPlanReadyResult(ClaimPlanResultBase):
+    """A unique deterministic plan is ready to apply."""
+
+    status: Literal["plan"]
+    plan: ClaimPlan
+    ambiguity: None = None
+    error: None = None
+
+
+class ClaimPlanAmbiguousResult(ClaimPlanResultBase):
+    """A human selection is required before claim can proceed."""
+
+    status: Literal["ambiguous"]
+    plan: None = None
+    ambiguity: ClaimPlanAmbiguity
+    error: None = None
+
+
+class ClaimPlanErrorResult(ClaimPlanResultBase):
+    """The requested claim inputs are impossible to satisfy."""
+
+    status: Literal["error"]
+    plan: None = None
+    ambiguity: None = None
+    error: ClaimPlanError
+
+
+ClaimPlanResult: TypeAlias = Annotated[
+    ClaimPlanReadyResult | ClaimPlanAmbiguousResult | ClaimPlanErrorResult,
+    Field(discriminator="status"),
+]
 
 
 def plan_claim_objective(
@@ -307,19 +328,43 @@ def _envelope_for_request(
     ambiguity: ClaimPlanAmbiguity | None = None,
     error: ClaimPlanError | None = None,
 ) -> ClaimPlanResult:
-    return ClaimPlanResult(
-        schema=PLAN_SCHEMA,
-        canonical_branch=trunk_branch,
-        requested_slug=requested_slug,
-        resolved_slug=resolved_slug,
-        requested_target=request.target,
-        requested_from_branch=request.from_branch,
-        requested_from_file=request.from_file,
-        status=status,
-        plan=plan,
-        ambiguity=ambiguity,
-        error=error,
-    )
+    if status == "plan" and plan is not None:
+        return ClaimPlanReadyResult(
+            schema=PLAN_SCHEMA,
+            canonical_branch=trunk_branch,
+            requested_slug=requested_slug,
+            resolved_slug=resolved_slug,
+            requested_target=request.target,
+            requested_from_branch=request.from_branch,
+            requested_from_file=request.from_file,
+            status="plan",
+            plan=plan,
+        )
+    if status == "ambiguous" and ambiguity is not None:
+        return ClaimPlanAmbiguousResult(
+            schema=PLAN_SCHEMA,
+            canonical_branch=trunk_branch,
+            requested_slug=requested_slug,
+            resolved_slug=resolved_slug,
+            requested_target=request.target,
+            requested_from_branch=request.from_branch,
+            requested_from_file=request.from_file,
+            status="ambiguous",
+            ambiguity=ambiguity,
+        )
+    if status == "error" and error is not None:
+        return ClaimPlanErrorResult(
+            schema=PLAN_SCHEMA,
+            canonical_branch=trunk_branch,
+            requested_slug=requested_slug,
+            resolved_slug=resolved_slug,
+            requested_target=request.target,
+            requested_from_branch=request.from_branch,
+            requested_from_file=request.from_file,
+            status="error",
+            error=error,
+        )
+    raise ValueError(f"Invalid claim-plan envelope state: {status}")
 
 
 def _normalize_slug(raw: str | None) -> str | None:
@@ -663,19 +708,16 @@ class _ParsedPlan:
     from_file_path: str | None
 
 
-@dataclass(frozen=True)
-class CarriedFile(JsonSerializable):
+class CarriedFile(ClinkrModel):
     """One file landed on the target branch by the apply."""
 
     file: str
     key: str
 
 
-@dataclass(frozen=True)
-class ClaimApplyResult(JsonSerializable):
+class ClaimApplyResult(ClinkrSchemaModel):
     """Outcome of a successful apply (one slug, one target branch)."""
 
-    schema: str
     slug: str
     target_branch: str
     source_kind: str
@@ -970,8 +1012,7 @@ ClaimStatus = Literal["claimed", "needs_selection", "blocked"]
 SelectionKind = Literal["slug", "source_branch"]
 
 
-@dataclass(frozen=True)
-class ClaimSelectionOption(JsonSerializable):
+class ClaimSelectionOption(ClinkrModel):
     """One user-selectable continuation for a blocked claim command."""
 
     label: str
@@ -980,8 +1021,7 @@ class ClaimSelectionOption(JsonSerializable):
     rerun_args: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class ClaimSelection(JsonSerializable):
+class ClaimSelection(ClinkrModel):
     """Generic selection payload for UI and non-UI callers."""
 
     kind: SelectionKind
@@ -989,19 +1029,16 @@ class ClaimSelection(JsonSerializable):
     options: tuple[ClaimSelectionOption, ...]
 
 
-@dataclass(frozen=True)
-class ClaimBlock(JsonSerializable):
+class ClaimBlock(ClinkrModel):
     """Structured explanation for a claim that cannot continue automatically."""
 
     reason: str
     message: str
 
 
-@dataclass(frozen=True)
-class ClaimCommandResult(JsonSerializable):
+class ClaimCommandResult(ClinkrSchemaModel):
     """High-level objective claim result for skills and CLI callers."""
 
-    schema: str
     status: ClaimStatus
     message: str
     result: ClaimApplyResult | None
