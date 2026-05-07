@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_objectives.context import ObjectiveCliContext
@@ -94,7 +95,7 @@ def _local_file_plan(*, slug: str, target_branch: str, from_file_path: str) -> d
 
 
 def _apply_data(ctx: ObjectiveCliContext, plan_file: Path) -> dict:
-    return apply_claim_plan_file(ctx, plan_file).to_json_dict()
+    return serialize_to_json_dict(apply_claim_plan_file(ctx, plan_file))
 
 
 def _assert_hard_failure(

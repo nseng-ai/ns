@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from asdl_core.clinkr.failure import ClinkrFailure
+from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
@@ -43,7 +44,7 @@ def _make_ctx(
 
 
 def _plan_data(ctx: ObjectiveCliContext, request: ClaimPlanRequest) -> dict:
-    return plan_claim_objective(ctx, request).to_json_dict()
+    return serialize_to_json_dict(plan_claim_objective(ctx, request))
 
 
 def _assert_hard_failure(
