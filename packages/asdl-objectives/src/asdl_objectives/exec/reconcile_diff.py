@@ -10,7 +10,7 @@ import click
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
-from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
+from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import BODY_FILE, NOTES_FILE, ROADMAP_FILE
@@ -57,7 +57,7 @@ class ReconcileDiffSkippedSnapshot(ClinkrModel):
     pr_error: str | None
 
 
-class ReconcileDiffResult(ClinkrSchemaModel):
+class ReconcileDiffResult(ClinkrJsonSchemaModel):
     success: bool
     slug: str
     canonical_branch: str
@@ -166,7 +166,7 @@ def _diff_from_slug(canonical_branch: str, slug: SlugPlanItem) -> ReconcileDiffR
 
     return ReconcileDiffResult(
         success=True,
-        schema=DIFF_SCHEMA,
+        json_schema=DIFF_SCHEMA,
         slug=slug.slug,
         canonical_branch=canonical_branch,
         snapshots=tuple(snapshots),

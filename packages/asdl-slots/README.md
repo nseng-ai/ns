@@ -121,7 +121,7 @@ without the wrapper.
 The standalone `slot` binary remains script-safe: without the wrapper, it
 cannot change its caller's working directory and only emits normal
 command output. JSON commands (`--format json`) and schema requests
-(`--schema`) do not write cd directives, so an installed wrapper will not
+(`--json-schema`) do not write cd directives, so an installed wrapper will not
 move the parent shell for machine-readable calls. Scripts that source the
 wrapper but need stable machine output should call `command slot ...` or
 use `--format json`.

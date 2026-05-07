@@ -177,7 +177,7 @@ def test_slot_checkout_help(cli_group: ClinkrGroup) -> None:
     assert "--new" in result.output
     assert "--no-clipboard" in result.output
     assert "--format" in result.output
-    assert "--schema" in result.output
+    assert "--json-schema" in result.output
 
 
 # -- checkout basic ---------------------------------------------------------
@@ -756,13 +756,13 @@ def test_slot_checkout_schema(cli_group: ClinkrGroup, tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         cli_group,
-        ["checkout", "--schema"],
+        ["checkout", "--json-schema"],
         env={SLOT_CD_DIRECTIVE_FILE: str(directive_path)},
     )
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
     assert not directive_path.exists()
 
 
@@ -870,7 +870,7 @@ def test_slot_co_alias(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     assert directive_path.read_text(encoding="utf-8") == str(worktree_path)
 
 
-# -- --format json + --schema -----------------------------------------------
+# -- --format json + --json-schema -----------------------------------------------
 
 
 def test_slot_checkout_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -914,9 +914,9 @@ def test_slot_checkout_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_
     assert "does not exist" in payload["message"]
 
 
-def test_slot_checkout_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["checkout", "--schema"])
+def test_slot_checkout_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["checkout", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}

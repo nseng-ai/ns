@@ -86,7 +86,7 @@ class _BrokenPRGateway(FakePRGateway):
 
 
 # ---------------------------------------------------------------------------
-# help / schema
+# help / json schema
 # ---------------------------------------------------------------------------
 
 
@@ -99,12 +99,12 @@ def test_tree_help(cli_group: ClinkrGroup) -> None:
     assert "SLUG" in result.output
 
 
-def test_tree_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["tree", "--schema"])
+def test_tree_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["tree", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------

@@ -221,12 +221,12 @@ def test_objective_list_format_json(cli_group: ClinkrGroup) -> None:
     }
 
 
-def test_objective_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["list", "--schema"])
+def test_objective_list_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------

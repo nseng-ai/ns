@@ -130,7 +130,8 @@ def _register_operation(
 
     if inject_format_option:
         params.append(_build_format_option())
-    params.append(_build_schema_option(request_type, result_type))
+    if not _has_option(params, "--json-schema"):
+        params.append(_build_json_schema_option(request_type, result_type))
 
     human_cmd = click.Command(
         name=meta.name,
@@ -172,32 +173,32 @@ def _build_format_option() -> click.Parameter:
     )
 
 
-def _build_schema_option(
+def _build_json_schema_option(
     request_type: type,
     result_type: Any,
 ) -> click.Parameter:
-    """Build the framework-injected ``--schema`` option.
+    """Build the framework-injected ``--json-schema`` option.
 
     Eager (mirrors ``--help``): prints the JSON Schema document for the
     command's input/output shapes before required-argument validation runs,
     then exits 0.
     """
 
-    def _print_schema(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
+    def _print_json_schema(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
         if not value or ctx.resilient_parsing:
             return
-        schema_doc = build_json_schema_document(
+        json_schema_doc = build_json_schema_document(
             request_type=request_type,
             result_type=result_type,
         )
-        click.echo(json.dumps(schema_doc, indent=2))
+        click.echo(json.dumps(json_schema_doc, indent=2))
         ctx.exit(0)
 
     return click.Option(
-        ["--schema"],
+        ["--json-schema"],
         is_flag=True,
         is_eager=True,
         expose_value=False,
-        callback=_print_schema,
+        callback=_print_json_schema,
         help="Print the JSON Schema for this command's input/output and exit.",
     )

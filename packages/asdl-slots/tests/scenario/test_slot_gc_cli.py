@@ -165,7 +165,7 @@ def test_slot_gc_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: slot gc" in result.output
     assert "merged or closed PR" in result.output
     assert "--format" in result.output
-    assert "--schema" in result.output
+    assert "--json-schema" in result.output
 
 
 def test_slot_gc_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -392,14 +392,14 @@ def test_slot_gc_format_json_without_force_aborts(cli_group: ClinkrGroup, tmp_pa
 
 
 def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gc", "--schema"])
+    result = CliRunner().invoke(cli_group, ["gc", "--json-schema"])
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
-# -- --format json + --schema on the primary command ------------------------
+# -- --format json + --json-schema on the primary command ------------------------
 
 
 def test_slot_gc_format_json_dry_run_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -438,9 +438,9 @@ def test_slot_gc_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path: 
     assert payload["error_type"] == "pool_empty"
 
 
-def test_slot_gc_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["gc", "--schema"])
+def test_slot_gc_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gc", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}

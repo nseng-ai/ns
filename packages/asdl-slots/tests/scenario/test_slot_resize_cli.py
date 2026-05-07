@@ -388,8 +388,8 @@ def test_slot_resize_format_json_envelope(cli_group: ClinkrGroup, tmp_path: Path
 
 
 def test_slot_resize_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["resize", "--schema"])
+    result = CliRunner().invoke(cli_group, ["resize", "--json-schema"])
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}

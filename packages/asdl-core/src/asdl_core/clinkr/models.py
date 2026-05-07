@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class ClinkrModel(BaseModel):
@@ -12,14 +12,10 @@ class ClinkrModel(BaseModel):
         return self.model_dump(mode="json")
 
 
-class ClinkrSchemaModel(ClinkrModel):
-    """Base for DTOs whose JSON contract includes a field named ``schema``."""
+class ClinkrJsonSchemaModel(ClinkrModel):
+    """Base for DTOs whose JSON contract includes a ``json_schema`` field."""
 
-    schema_: str = Field(alias="schema")
-
-    @property
-    def schema(self) -> str:
-        return self.schema_
+    json_schema: str
 
 
 def is_pydantic_model_type(value: Any) -> bool:

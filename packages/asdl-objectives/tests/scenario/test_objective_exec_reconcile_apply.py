@@ -91,11 +91,11 @@ def _file_block(
 def _plan_payload(
     *,
     slugs: list[dict],
-    schema: str = PLAN_SCHEMA,
+    json_schema: str = PLAN_SCHEMA,
     canonical_branch: str = "master",
 ) -> dict:
     return {
-        "schema": schema,
+        "json_schema": json_schema,
         "canonical_branch": canonical_branch,
         "requested_slugs": [],
         "slugs": slugs,
@@ -106,12 +106,18 @@ def _write_plan_file(
     tmp_path: Path,
     *,
     slugs: list[dict],
-    schema: str = PLAN_SCHEMA,
+    json_schema: str = PLAN_SCHEMA,
     canonical_branch: str = "master",
 ) -> Path:
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(
-        json.dumps(_plan_payload(slugs=slugs, schema=schema, canonical_branch=canonical_branch)),
+        json.dumps(
+            _plan_payload(
+                slugs=slugs,
+                json_schema=json_schema,
+                canonical_branch=canonical_branch,
+            )
+        ),
         encoding="utf-8",
     )
     return plan_path
@@ -137,7 +143,7 @@ def _write_proposed_dir_file(
 
 
 # ---------------------------------------------------------------------------
-# help / schema
+# help / json schema
 # ---------------------------------------------------------------------------
 
 
@@ -148,12 +154,12 @@ def test_reconcile_apply_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective exec reconcile-apply" in result.output
 
 
-def test_reconcile_apply_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "reconcile-apply", "--schema"])
+def test_reconcile_apply_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "reconcile-apply", "--json-schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +206,7 @@ def test_reconcile_apply_writes_proposed_file(cli_group: ClinkrGroup, tmp_path: 
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["schema"] == PLAN_SCHEMA
+    assert data["json_schema"] == PLAN_SCHEMA
     assert data["canonical_branch"] == "master"
     slug_result = data["slugs"][0]
     assert slug_result["slug"] == "widget-rewrite"
@@ -342,7 +348,7 @@ def test_reconcile_apply_rejects_malformed_json(cli_group: ClinkrGroup, tmp_path
 
 
 def test_reconcile_apply_rejects_schema_mismatch(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    plan = _write_plan_file(tmp_path, slugs=[], schema="reconcile-plan/v0")
+    plan = _write_plan_file(tmp_path, slugs=[], json_schema="reconcile-plan/v0")
     obj = _make_obj(FakeBranchMemoryGateway())
 
     result = CliRunner().invoke(
@@ -362,7 +368,7 @@ def test_reconcile_apply_rejects_plan_without_reconcile_schema(
 ) -> None:
     plan_path = tmp_path / "bad-shape.json"
     plan_path.write_text(
-        json.dumps({"exit_code": 0, "data": {"schema": "other/v1"}}),
+        json.dumps({"exit_code": 0, "data": {"json_schema": "other/v1"}}),
         encoding="utf-8",
     )
     obj = _make_obj(FakeBranchMemoryGateway())
@@ -376,7 +382,7 @@ def test_reconcile_apply_rejects_plan_without_reconcile_schema(
     payload = json.loads(result.output)
     assert result.exit_code == 2
     assert payload["error_type"] == "schema_mismatch"
-    assert "data.schema" in payload["message"]
+    assert "data.json_schema" in payload["message"]
 
 
 def test_reconcile_apply_rejects_wrong_canonical_branch(

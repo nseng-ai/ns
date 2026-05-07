@@ -32,7 +32,7 @@ import click
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
-from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
+from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
@@ -114,7 +114,7 @@ class CreateError(ClinkrModel):
     message: str
 
 
-class CreateResult(ClinkrSchemaModel):
+class CreateResult(ClinkrJsonSchemaModel):
     """Top-level envelope. Exactly one of ``status="ok"`` or ``status="error"``.
 
     ``files_written`` is empty in dry-run and error cases; non-empty only on
@@ -132,7 +132,7 @@ class CreateResult(ClinkrSchemaModel):
 
 def render_create(result: CreateResult) -> None:
     label = "create (dry-run)" if result.dry_run else "create"
-    click.echo(f"{label} ({result.schema}): status={result.status}")
+    click.echo(f"{label} ({result.json_schema}): status={result.status}")
     if result.status == "ok":
         click.echo(f"  slug:   {result.slug}")
         click.echo(f"  target: {result.canonical_branch}")
@@ -231,7 +231,7 @@ def run_create_objective(
     if request.dry_run:
         return ClinkrExit.ok(
             CreateResult(
-                schema=CREATE_SCHEMA,
+                json_schema=CREATE_SCHEMA,
                 canonical_branch=trunk_branch,
                 requested_slug=request.slug,
                 dry_run=True,
@@ -307,7 +307,7 @@ def run_create_objective(
 
     return ClinkrExit.ok(
         CreateResult(
-            schema=CREATE_SCHEMA,
+            json_schema=CREATE_SCHEMA,
             canonical_branch=trunk_branch,
             requested_slug=request.slug,
             dry_run=False,
@@ -328,7 +328,7 @@ def _envelope_error(
     message: str,
 ) -> CreateResult:
     return CreateResult(
-        schema=CREATE_SCHEMA,
+        json_schema=CREATE_SCHEMA,
         canonical_branch=trunk_branch,
         requested_slug=requested_slug,
         dry_run=dry_run,

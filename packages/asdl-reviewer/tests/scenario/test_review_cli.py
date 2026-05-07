@@ -460,12 +460,12 @@ def test_review_run_json_output_usage_is_null_when_absent(cli_group: ClinkrGroup
     assert output["data"]["usage"] is None
 
 
-def test_review_run_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["review", "run", "--schema"])
+def test_review_run_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["review", "run", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 def test_review_run_format_json_reports_failure(cli_group: ClinkrGroup) -> None:

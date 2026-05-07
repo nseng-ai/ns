@@ -88,13 +88,15 @@ def test_pydantic_result_serializes_into_machine_envelope() -> None:
     assert json.loads(result.stdout) == {"exit_code": 0, "data": {"value": "found"}}
 
 
-def test_schema_can_be_generated_from_pydantic_result_model() -> None:
-    result = CliRunner().invoke(_make_group(), ["probe", "--schema"])
+def test_json_schema_can_be_generated_from_pydantic_result_model() -> None:
+    result = CliRunner().invoke(_make_group(), ["probe", "--json-schema"])
 
     assert result.exit_code == 0
     doc = json.loads(result.stdout)
-    assert doc["output_schema"]["properties"] == {"value": {"title": "Value", "type": "string"}}
-    assert doc["output_schema"]["required"] == ["value"]
+    assert doc["output_json_schema"]["properties"] == {
+        "value": {"title": "Value", "type": "string"}
+    }
+    assert doc["output_json_schema"]["required"] == ["value"]
 
 
 def test_default_human_renderer_supports_pydantic_result_model() -> None:
@@ -104,13 +106,13 @@ def test_default_human_renderer_supports_pydantic_result_model() -> None:
     assert json.loads(result.stdout) == {"value": "found"}
 
 
-def test_discriminated_union_output_schema_uses_type_adapter() -> None:
-    result = CliRunner().invoke(_make_group(), ["union", "--schema"])
+def test_discriminated_union_output_json_schema_uses_type_adapter() -> None:
+    result = CliRunner().invoke(_make_group(), ["union", "--json-schema"])
 
     assert result.exit_code == 0
     doc = json.loads(result.stdout)
-    assert doc["output_schema"]["discriminator"]["propertyName"] == "status"
-    assert len(doc["output_schema"]["oneOf"]) == 2
+    assert doc["output_json_schema"]["discriminator"]["propertyName"] == "status"
+    assert len(doc["output_json_schema"]["oneOf"]) == 2
 
 
 def test_discriminated_union_serializes_into_machine_envelope() -> None:

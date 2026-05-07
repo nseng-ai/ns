@@ -20,7 +20,7 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
-from asdl_core.clinkr.models import ClinkrModel, ClinkrSchemaModel
+from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
@@ -150,7 +150,7 @@ class ClaimPlanError(ClinkrModel):
     message: str
 
 
-class ClaimPlanResultBase(ClinkrSchemaModel):
+class ClaimPlanResultBase(ClinkrJsonSchemaModel):
     """Common fields for every claim-plan status envelope."""
 
     canonical_branch: str
@@ -330,7 +330,7 @@ def _envelope_for_request(
 ) -> ClaimPlanResult:
     if status == "plan" and plan is not None:
         return ClaimPlanReadyResult(
-            schema=PLAN_SCHEMA,
+            json_schema=PLAN_SCHEMA,
             canonical_branch=trunk_branch,
             requested_slug=requested_slug,
             resolved_slug=resolved_slug,
@@ -342,7 +342,7 @@ def _envelope_for_request(
         )
     if status == "ambiguous" and ambiguity is not None:
         return ClaimPlanAmbiguousResult(
-            schema=PLAN_SCHEMA,
+            json_schema=PLAN_SCHEMA,
             canonical_branch=trunk_branch,
             requested_slug=requested_slug,
             resolved_slug=resolved_slug,
@@ -354,7 +354,7 @@ def _envelope_for_request(
         )
     if status == "error" and error is not None:
         return ClaimPlanErrorResult(
-            schema=PLAN_SCHEMA,
+            json_schema=PLAN_SCHEMA,
             canonical_branch=trunk_branch,
             requested_slug=requested_slug,
             resolved_slug=resolved_slug,
@@ -715,7 +715,7 @@ class CarriedFile(ClinkrModel):
     key: str
 
 
-class ClaimApplyResult(ClinkrSchemaModel):
+class ClaimApplyResult(ClinkrJsonSchemaModel):
     """Outcome of a successful apply (one slug, one target branch)."""
 
     slug: str
@@ -747,11 +747,11 @@ def apply_claim_plan_file(mctx: ObjectiveCliContext, plan_file: Path) -> ClaimAp
         message="Plan file must be a JSON object envelope.",
     )
 
-    schema = envelope.get("schema")
+    json_schema = envelope.get("json_schema")
     Ensure.true(
-        schema == PLAN_SCHEMA,
+        json_schema == PLAN_SCHEMA,
         error_type="schema_mismatch",
-        message=f"Plan-file schema {schema!r} does not match expected {PLAN_SCHEMA!r}.",
+        message=f"Plan-file json_schema {json_schema!r} does not match expected {PLAN_SCHEMA!r}.",
     )
 
     canonical_branch = envelope.get("canonical_branch")
@@ -792,10 +792,11 @@ def apply_claim_plan_result(
 ) -> ClaimApplyResult:
     trunk_branch = resolve_trunk(mctx.git_gateway).trunk
     Ensure.true(
-        plan_result.schema == PLAN_SCHEMA,
+        plan_result.json_schema == PLAN_SCHEMA,
         error_type="schema_mismatch",
         message=(
-            f"Plan result schema {plan_result.schema!r} does not match expected {PLAN_SCHEMA!r}."
+            f"Plan result json_schema {plan_result.json_schema!r} does not match "
+            f"expected {PLAN_SCHEMA!r}."
         ),
     )
     Ensure.true(
@@ -876,7 +877,7 @@ def _apply_parsed_claim_plan(
         commit_sha = gateway.put(OBJECTIVE_NAMESPACE, body_key_value, target_branch, content)
         ref_name = _ref_name(target_branch)
         return ClaimApplyResult(
-            schema=PLAN_SCHEMA,
+            json_schema=PLAN_SCHEMA,
             slug=slug,
             target_branch=target_branch,
             source_kind=source_kind,
@@ -926,7 +927,7 @@ def _apply_parsed_claim_plan(
     commit_sha = diag_after.head_sha if diag_after is not None else ""
     ref_name = _ref_name(target_branch)
     return ClaimApplyResult(
-        schema=PLAN_SCHEMA,
+        json_schema=PLAN_SCHEMA,
         slug=slug,
         target_branch=target_branch,
         source_kind=source_kind,
@@ -1036,7 +1037,7 @@ class ClaimBlock(ClinkrModel):
     message: str
 
 
-class ClaimCommandResult(ClinkrSchemaModel):
+class ClaimCommandResult(ClinkrJsonSchemaModel):
     """High-level objective claim result for skills and CLI callers."""
 
     status: ClaimStatus
@@ -1086,7 +1087,7 @@ def run_claim_objective(
     apply_result = apply_claim_plan_result(mctx, plan_result)
     return ClinkrExit.ok(
         ClaimCommandResult(
-            schema=CLAIM_SCHEMA,
+            json_schema=CLAIM_SCHEMA,
             status="claimed",
             message=_success_message(
                 apply_result,
@@ -1153,7 +1154,7 @@ def _selection_result_for_slugs(
         options=options,
     )
     return ClaimCommandResult(
-        schema=CLAIM_SCHEMA,
+        json_schema=CLAIM_SCHEMA,
         status="needs_selection",
         message=_selection_message(selection),
         result=None,
@@ -1183,7 +1184,7 @@ def _selection_result_for_source_branches(
         options=options,
     )
     return ClaimCommandResult(
-        schema=CLAIM_SCHEMA,
+        json_schema=CLAIM_SCHEMA,
         status="needs_selection",
         message=_selection_message(selection),
         result=None,
@@ -1194,7 +1195,7 @@ def _selection_result_for_source_branches(
 
 def _blocked_result(reason: str, message: str) -> ClaimCommandResult:
     return ClaimCommandResult(
-        schema=CLAIM_SCHEMA,
+        json_schema=CLAIM_SCHEMA,
         status="blocked",
         message=f"Cannot claim objective:\n{reason}: {message}",
         result=None,

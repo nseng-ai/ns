@@ -172,7 +172,7 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: slot free" in result.output
     assert "Detach one or more assigned managed slots at trunk" in result.output
     assert "--format" in result.output
-    assert "--schema" in result.output
+    assert "--json-schema" in result.output
     # Short flags advertised in help.
     assert "-n" in result.output
     assert "-w" in result.output
@@ -550,11 +550,11 @@ def test_slot_free_format_json_returns_payload(cli_group: ClinkrGroup, tmp_path:
 
 
 def test_slot_free_schema(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["free", "--schema"])
+    result = CliRunner().invoke(cli_group, ["free", "--json-schema"])
     payload = json.loads(result.output)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # -- error paths ------------------------------------------------------------
@@ -774,7 +774,7 @@ def test_slot_free_not_in_repo_errors(cli_group: ClinkrGroup) -> None:
     assert "Not inside a git repository" in result.output
 
 
-# -- --format json + --schema -----------------------------------------------
+# -- --format json + --json-schema -----------------------------------------------
 
 
 def test_slot_free_format_json_ok_envelope(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -816,9 +816,9 @@ def test_slot_free_format_json_failure_envelope(cli_group: ClinkrGroup, tmp_path
     assert "not currently assigned" in payload["message"]
 
 
-def test_slot_free_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["free", "--schema"])
+def test_slot_free_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["free", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}

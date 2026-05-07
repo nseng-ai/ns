@@ -111,7 +111,7 @@ def _invoke_current_json(cli_group: ClinkrGroup, obj: ClinkrContextObject) -> di
 
 
 # ---------------------------------------------------------------------------
-# help / schema
+# help / json schema
 # ---------------------------------------------------------------------------
 
 
@@ -123,22 +123,22 @@ def test_current_help(cli_group: ClinkrGroup) -> None:
     assert "orientation brief" in result.output
 
 
-def test_current_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "current", "--schema"])
+def test_current_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "current", "--json-schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
-    output_schema = payload["output_schema"]
-    assert output_schema["properties"]["prompt"]["type"] == "string"
-    assert output_schema["properties"]["current_branch"]["anyOf"] == [
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
+    output_json_schema = payload["output_json_schema"]
+    assert output_json_schema["properties"]["prompt"]["type"] == "string"
+    assert output_json_schema["properties"]["current_branch"]["anyOf"] == [
         {"type": "string"},
         {"type": "null"},
     ]
-    assert output_schema["properties"]["trunk_branch"]["type"] == "string"
-    objective_schema = output_schema["$defs"]["CurrentObjectiveStatus"]
+    assert output_json_schema["properties"]["trunk_branch"]["type"] == "string"
+    objective_schema = output_json_schema["$defs"]["CurrentObjectiveStatus"]
     assert objective_schema["properties"]["kind"]["enum"] == ["claimed", "none"]
-    badge_schema = output_schema["$defs"]["CurrentStatusBadge"]
+    badge_schema = output_json_schema["$defs"]["CurrentStatusBadge"]
     assert badge_schema["properties"]["kind"]["enum"] == ["objective", "none"]
 
 

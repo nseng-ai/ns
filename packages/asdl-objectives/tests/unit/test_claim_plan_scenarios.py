@@ -65,7 +65,7 @@ def test_claim_plan_explicit_slug_falls_back_to_canonical() -> None:
 
     data = _plan_data(ctx, ClaimPlanRequest(slug="widget-rewrite"))
 
-    assert data["schema"] == PLAN_SCHEMA
+    assert data["json_schema"] == PLAN_SCHEMA
     assert data["status"] == "plan"
     assert data["plan"]["slug"] == "widget-rewrite"
     assert data["plan"]["target_branch"] == "feat/x"
@@ -313,7 +313,7 @@ def test_claim_plan_envelope_shape_is_deterministic(tmp_path: Path) -> None:
     )
 
     assert set(data.keys()) == {
-        "schema",
+        "json_schema",
         "canonical_branch",
         "requested_slug",
         "resolved_slug",
@@ -325,7 +325,7 @@ def test_claim_plan_envelope_shape_is_deterministic(tmp_path: Path) -> None:
         "ambiguity",
         "error",
     }
-    assert data["schema"] == PLAN_SCHEMA
+    assert data["json_schema"] == PLAN_SCHEMA
     assert data["canonical_branch"] == "master"
     assert data["requested_slug"] == "widget-rewrite"
     assert data["resolved_slug"] == "widget-rewrite"

@@ -1010,32 +1010,32 @@ def test_brmem_json_check_missing(cli_group: ClinkrGroup) -> None:
 
 
 # ---------------------------------------------------------------------------
-# --schema eagerness / failure envelope
+# --json-schema eagerness / failure envelope
 # ---------------------------------------------------------------------------
 
 
-def test_brmem_put_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["put", "--schema"])
+def test_brmem_put_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["put", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
-def test_brmem_get_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["get", "--schema"])
+def test_brmem_get_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["get", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
-def test_brmem_list_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["list", "--schema"])
+def test_brmem_list_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 def test_brmem_put_format_json_reports_failure(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -1507,12 +1507,12 @@ def test_brmem_copy_json_envelope_reports_plan(cli_group: ClinkrGroup) -> None:
         assert item["source_sha"].startswith("fake-")
 
 
-def test_brmem_copy_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["copy", "--schema"])
+def test_brmem_copy_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["copy", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------
@@ -1658,12 +1658,12 @@ def test_brmem_delete_invalid_branch_surfaces_clean_error(cli_group: ClinkrGroup
     assert "Invalid branch name 'feat---x'" in result.output
 
 
-def test_brmem_delete_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["delete", "--schema"])
+def test_brmem_delete_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["delete", "--json-schema"])
     payload = json.loads(result.stdout)
 
     assert result.exit_code == 0, result.output
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------

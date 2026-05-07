@@ -44,7 +44,7 @@ def _write_plan_file(
     error: dict[str, object] | None = None,
 ) -> Path:
     envelope = {
-        "schema": schema,
+        "json_schema": schema,
         "canonical_branch": canonical_branch,
         "requested_slug": None,
         "requested_target": None,
@@ -126,7 +126,7 @@ def test_claim_apply_branch_source_carries_every_file(tmp_path: Path) -> None:
 
     data = _apply_data(ctx, plan)
 
-    assert data["schema"] == PLAN_SCHEMA
+    assert data["json_schema"] == PLAN_SCHEMA
     assert data["slug"] == "widget-rewrite"
     assert data["target_branch"] == "feat/x"
     assert data["source_kind"] == "branch"

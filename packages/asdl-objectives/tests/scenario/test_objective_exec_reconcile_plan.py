@@ -70,7 +70,7 @@ def _make_obj(
 
 
 # ---------------------------------------------------------------------------
-# help / schema
+# help / json schema
 # ---------------------------------------------------------------------------
 
 
@@ -81,12 +81,12 @@ def test_reconcile_plan_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective exec reconcile-plan" in result.output
 
 
-def test_reconcile_plan_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "reconcile-plan", "--schema"])
+def test_reconcile_plan_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "reconcile-plan", "--json-schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ def test_reconcile_plan_empty_registry_emits_clean_envelope(cli_group: ClinkrGro
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     data = payload["data"]
-    assert data["schema"] == PLAN_SCHEMA
+    assert data["json_schema"] == PLAN_SCHEMA
     assert data["canonical_branch"] == "master"
     assert data["requested_slugs"] == []
     assert data["slugs"] == []

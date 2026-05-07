@@ -52,7 +52,7 @@ def load_slots_context(ctx: click.Context) -> SlotsCliContext | NoRepoSentinel:
     ``build_clinkr_context_object(build_slots_context)``; tests do the same
     around pre-built fake contexts.
 
-    Help paths (``slot -h``, ``slot <cmd> -h``, ``slot <cmd> --schema``)
+    Help paths (``slot -h``, ``slot <cmd> -h``, ``slot <cmd> --json-schema``)
     never reach this function, so the factory is not invoked for them.
     """
     result = load_clinkr_context_object(ctx).context_factory()

@@ -127,7 +127,7 @@ class _BrokenPRGateway(FakePRGateway):
 
 
 # ---------------------------------------------------------------------------
-# help / schema
+# help / json schema
 # ---------------------------------------------------------------------------
 
 
@@ -138,13 +138,13 @@ def test_digest_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective exec digest" in result.output
 
 
-def test_digest_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "digest", "--schema"])
+def test_digest_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "digest", "--json-schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert set(payload) == {"input_schema", "output_schema"}
-    assert payload["output_schema"]["properties"]["prompt"]["type"] == "string"
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
+    assert payload["output_json_schema"]["properties"]["prompt"]["type"] == "string"
 
 
 # ---------------------------------------------------------------------------
