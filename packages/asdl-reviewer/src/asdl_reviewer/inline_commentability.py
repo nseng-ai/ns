@@ -15,6 +15,7 @@ from typing import Literal
 from pydantic import model_serializer
 
 from asdl_core.clinkr.models import ClinkrModel
+from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_core.gh.types import PRChangedFile
 from asdl_reviewer.cli.reviewer.exec.format_findings_comment import FindingRow
 
@@ -135,7 +136,7 @@ def result_to_json_dict(result: InlineCommentabilityResult) -> dict[str, object]
         "inlineable": [
             {
                 "finding": dataclasses.asdict(item.finding),
-                "target": item.target.to_json_dict(),
+                "target": serialize_to_json_dict(item.target),
             }
             for item in result.inlineable
         ],
