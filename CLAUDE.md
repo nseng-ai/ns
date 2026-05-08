@@ -48,6 +48,20 @@ asdl/
 3. **Small, testable units** — pure functions and data transformations over complex class hierarchies. Gateway interfaces for external I/O.
 4. **Port, don't copy** — when bringing code from erk, rethink the design. Simplify interfaces, remove unnecessary abstractions, and cut dependencies.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `dagster-io/asdl-tools`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage roles use the default label vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a single-context domain-doc layout. See `docs/agents/domain.md`.
+
 ## See also
 
 @AGENTS.md — repo-wide agent instructions, including the available skills registry.
