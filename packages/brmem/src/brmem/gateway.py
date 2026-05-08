@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-import brmem.ref_layout as ref_layout
+from brmem.ref_layout import EntryRef
 
 
 @dataclass(frozen=True)
@@ -21,7 +21,7 @@ class EntryDiagnostic:
 class BrmemCopyConflictError(Exception):
     """Raised when ``copy_entries`` finds existing destination keys and ``overwrite`` is false."""
 
-    def __init__(self, conflicts: tuple[ref_layout.EntryRef, ...]) -> None:
+    def __init__(self, conflicts: tuple[EntryRef, ...]) -> None:
         self.conflicts = conflicts
         joined = ", ".join(entry.key for entry in conflicts)
         super().__init__(f"destination has conflicting entries: {joined}")
@@ -59,7 +59,7 @@ class BranchMemoryGateway(ABC):
         namespace: str | None = None,
         key: str | None = None,
         branch: str | None = None,
-    ) -> list[ref_layout.EntryRef]:
+    ) -> list[EntryRef]:
         """Return entries, optionally filtered by namespace/key/branch.
 
         ``namespace=None`` means "no namespace filter" — both base and
@@ -122,7 +122,7 @@ class BranchMemoryGateway(ABC):
         to_branch: str,
         overwrite: bool,
         key_glob: str | None,
-    ) -> tuple[ref_layout.EntryRef, ...]:
+    ) -> tuple[EntryRef, ...]:
         """Atomically copy entries in ``namespace`` from ``from_branch`` to ``to_branch``.
 
         When ``key_glob`` is ``None`` this is a snapshot-level operation: the
@@ -145,5 +145,5 @@ class BranchMemoryGateway(ABC):
         source keys match, the gateway returns an empty tuple without touching
         the destination ref.
 
-        Returns destination :class:`brmem.ref_layout.EntryRef` objects in sorted key order.
+        Returns destination :class:`EntryRef` objects in sorted key order.
         """

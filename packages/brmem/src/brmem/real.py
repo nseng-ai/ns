@@ -15,7 +15,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import brmem.ref_layout as ref_layout
 from brmem.gateway import (
     BranchMemoryGateway,
     BrmemCopyConflictError,
@@ -23,6 +22,16 @@ from brmem.gateway import (
     KeyNotFoundError,
 )
 from brmem.key_validation import validate_key
+from brmem.ref_layout import (
+    EntryRef,
+    InvalidBranchNameError,
+    parse_snapshot_ref,
+    ref_name_for_entry,
+    snapshot_ref_name,
+    snapshot_ref_prefixes,
+    validate_branch_name,
+    validate_namespace,
+)
 from brmem.validation import validate_key_glob
 
 
@@ -163,15 +172,15 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         namespace: str | None = None,
         key: str | None = None,
         branch: str | None = None,
-    ) -> list[ref_layout.EntryRef]:
+    ) -> list[EntryRef]:
         if namespace is not None:
-            ref_layout.validate_namespace(namespace)
+            validate_namespace(namespace)
         if key is not None:
             validate_key(key)
         if branch is not None:
-            ref_layout.validate_branch_name(branch)
+            validate_branch_name(branch)
 
-        ref_prefixes = ref_layout.snapshot_ref_prefixes()
+        ref_prefixes = snapshot_ref_prefixes()
         result = _run(
             ["git", "for-each-ref", "--format=%(refname)", *ref_prefixes],
             cwd=self._cwd,
@@ -180,12 +189,12 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         if result.returncode != 0:
             return []
 
-        entries: list[ref_layout.EntryRef] = []
+        entries: list[EntryRef] = []
         for line in result.stdout.splitlines():
             snapshot_ref = line.strip()
             if not snapshot_ref:
                 continue
-            parsed = ref_layout.parse_snapshot_ref(snapshot_ref)
+            parsed = parse_snapshot_ref(snapshot_ref)
             if parsed is None:
                 continue
             if namespace is not None and parsed.namespace != namespace:
@@ -197,13 +206,11 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
                 if key is not None and path != key:
                     continue
                 entries.append(
-                    ref_layout.EntryRef(
+                    EntryRef(
                         namespace=parsed.namespace,
                         key=path,
                         branch=parsed.branch,
-                        ref_name=ref_layout.ref_name_for_entry(
-                            parsed.namespace, path, parsed.branch
-                        ),
+                        ref_name=ref_name_for_entry(parsed.namespace, path, parsed.branch),
                     )
                 )
 
@@ -219,7 +226,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     ) -> str:
         validate_key(key)
         self._check_branch_ref_format(branch)
-        snapshot_ref = ref_layout.snapshot_ref_name(namespace, branch)
+        snapshot_ref = snapshot_ref_name(namespace, branch)
 
         parent_result = _run(
             ["git", "rev-parse", "--verify", snapshot_ref],
@@ -261,7 +268,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     ) -> str | None:
         validate_key(key)
         self._check_branch_ref_format(branch)
-        snapshot_ref = ref_layout.snapshot_ref_name(namespace, branch)
+        snapshot_ref = snapshot_ref_name(namespace, branch)
         target = at if at is not None else snapshot_ref
         result = _run(
             ["git", "show", f"{target}:{key}"],
@@ -280,7 +287,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     ) -> str:
         validate_key(key)
         self._check_branch_ref_format(branch)
-        snapshot_ref = ref_layout.snapshot_ref_name(namespace, branch)
+        snapshot_ref = snapshot_ref_name(namespace, branch)
 
         parent_result = _run(
             ["git", "rev-parse", "--verify", snapshot_ref],
@@ -314,7 +321,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
     ) -> EntryDiagnostic | None:
         validate_key(key)
         self._check_branch_ref_format(branch)
-        snapshot_ref = ref_layout.snapshot_ref_name(namespace, branch)
+        snapshot_ref = snapshot_ref_name(namespace, branch)
         target = at if at is not None else snapshot_ref
 
         existence = _run(
@@ -355,14 +362,14 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         to_branch: str,
         overwrite: bool,
         key_glob: str | None,
-    ) -> tuple[ref_layout.EntryRef, ...]:
-        ref_layout.validate_namespace(namespace)
-        ref_layout.validate_branch_name(from_branch)
-        ref_layout.validate_branch_name(to_branch)
+    ) -> tuple[EntryRef, ...]:
+        validate_namespace(namespace)
+        validate_branch_name(from_branch)
+        validate_branch_name(to_branch)
         if key_glob is not None:
             validate_key_glob(key_glob)
 
-        source_ref = ref_layout.snapshot_ref_name(namespace, from_branch)
+        source_ref = snapshot_ref_name(namespace, from_branch)
         source_sha_result = _run(
             ["git", "rev-parse", "--verify", source_ref],
             cwd=self._cwd,
@@ -372,7 +379,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             return ()
         source_sha = source_sha_result.stdout.strip()
 
-        dest_ref = ref_layout.snapshot_ref_name(namespace, to_branch)
+        dest_ref = snapshot_ref_name(namespace, to_branch)
         dest_sha_result = _run(
             ["git", "rev-parse", "--verify", dest_ref],
             cwd=self._cwd,
@@ -414,17 +421,17 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         dest_ref: str,
         dest_sha: str | None,
         overwrite: bool,
-    ) -> tuple[ref_layout.EntryRef, ...]:
+    ) -> tuple[EntryRef, ...]:
         if dest_sha is not None and not overwrite:
             # Conflict is snapshot-level; the EntryRefs we surface describe
             # every key that currently lives on the destination snapshot and
             # would be overwritten.
             conflicts = tuple(
-                ref_layout.EntryRef(
+                EntryRef(
                     namespace=namespace,
                     key=path,
                     branch=to_branch,
-                    ref_name=ref_layout.ref_name_for_entry(namespace, path, to_branch),
+                    ref_name=ref_name_for_entry(namespace, path, to_branch),
                 )
                 for path, _blob_sha in sorted(
                     _enumerate_tree_entries(self._cwd, dest_ref),
@@ -439,11 +446,11 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         )
 
         return tuple(
-            ref_layout.EntryRef(
+            EntryRef(
                 namespace=namespace,
                 key=path,
                 branch=to_branch,
-                ref_name=ref_layout.ref_name_for_entry(namespace, path, to_branch),
+                ref_name=ref_name_for_entry(namespace, path, to_branch),
             )
             for path, _blob_sha in sorted(
                 _enumerate_tree_entries(self._cwd, source_ref),
@@ -462,7 +469,7 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         dest_sha: str | None,
         overwrite: bool,
         key_glob: str,
-    ) -> tuple[ref_layout.EntryRef, ...]:
+    ) -> tuple[EntryRef, ...]:
         source_matching = [
             (path, blob_sha)
             for path, blob_sha in _enumerate_tree_entries(self._cwd, source_ref)
@@ -486,11 +493,11 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
 
         if dest_matching and not overwrite:
             conflicts = tuple(
-                ref_layout.EntryRef(
+                EntryRef(
                     namespace=namespace,
                     key=path,
                     branch=to_branch,
-                    ref_name=ref_layout.ref_name_for_entry(namespace, path, to_branch),
+                    ref_name=ref_name_for_entry(namespace, path, to_branch),
                 )
                 for path in sorted(dest_matching)
             )
@@ -517,17 +524,17 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
         _run(["git", "update-ref", dest_ref, new_commit_sha], cwd=self._cwd)
 
         return tuple(
-            ref_layout.EntryRef(
+            EntryRef(
                 namespace=namespace,
                 key=path,
                 branch=to_branch,
-                ref_name=ref_layout.ref_name_for_entry(namespace, path, to_branch),
+                ref_name=ref_name_for_entry(namespace, path, to_branch),
             )
             for path, _blob_sha in sorted(source_matching, key=lambda pair: pair[0])
         )
 
     def _check_branch_ref_format(self, branch: str) -> None:
-        ref_layout.validate_branch_name(branch)
+        validate_branch_name(branch)
         validation = _run(
             ["git", "check-ref-format", "--branch", branch],
             cwd=self._cwd,
@@ -537,4 +544,4 @@ class RealBranchMemoryGateway(BranchMemoryGateway):
             details = (
                 validation.stderr.strip() or validation.stdout.strip() or "invalid git branch name"
             )
-            raise ref_layout.InvalidBranchNameError(branch, details)
+            raise InvalidBranchNameError(branch, details)
