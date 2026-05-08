@@ -28,7 +28,8 @@ from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, slug_for_key
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.trunk_resolution import resolve_trunk
-from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
+from brmem.gateway import BranchMemoryGateway
+from brmem.ref_layout import snapshot_ref_name
 
 PLAN_SCHEMA = "claim-plan/v1"
 
@@ -549,7 +550,7 @@ def _ranked_ancestors(
 def _brmem_branches_with_namespace(gateway: BranchMemoryGateway) -> tuple[str, ...]:
     """Enumerate every brmem branch that carries any entry in the objectives namespace.
 
-    The brmem gateway owns ``/`` <-> ``---`` encoding; ``EntryRef.branch``
+    The brmem ref layout owns ``/`` <-> ``---`` encoding; ``EntryRef.branch``
     values are already decoded. We sort alphabetically for determinism;
     ranking by distance happens in the caller.
     """

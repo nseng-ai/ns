@@ -1,10 +1,10 @@
-"""Unit tests for branch-name validation in ``brmem.gateway``.
+"""Unit tests for branch-name validation in ``brmem.ref_layout``.
 
 Branch names are encoded into a single ref segment by replacing ``/`` with
 ``---``. Names that already contain ``---`` would round-trip ambiguously,
 so they are rejected. Empty branch names are rejected too. These checks
 are an invariant of ``brmem`` storage and live next to the other key /
-namespace / branch validators in :mod:`brmem.gateway`; objective skills
+namespace / branch validators in :mod:`brmem.ref_layout`; objective skills
 must not duplicate or contradict them.
 """
 
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from brmem.gateway import (
+from brmem.ref_layout import (
     InvalidBranchNameError,
     check_branch_name,
     validate_branch_name,

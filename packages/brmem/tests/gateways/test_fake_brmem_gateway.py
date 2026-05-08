@@ -3,13 +3,9 @@ from __future__ import annotations
 import pytest
 
 from brmem.fake import EntryKey, FakeBranchMemoryGateway
-from brmem.gateway import (
-    BrmemCopyConflictError,
-    InvalidBranchNameError,
-    InvalidNamespaceError,
-    KeyNotFoundError,
-)
+from brmem.gateway import BrmemCopyConflictError, KeyNotFoundError
 from brmem.key_validation import InvalidKeyError
+from brmem.ref_layout import InvalidBranchNameError, InvalidNamespaceError
 from brmem.validation import InvalidKeyGlobError
 
 

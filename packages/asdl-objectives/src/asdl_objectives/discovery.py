@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
-from brmem.gateway import BranchMemoryGateway, EntryRef
+from brmem.gateway import BranchMemoryGateway
+from brmem.ref_layout import EntryRef
 
 ObjectiveState = Literal["open", "closed"]
 OBJECTIVE_STATES: frozenset[ObjectiveState] = frozenset(("open", "closed"))

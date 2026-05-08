@@ -2,7 +2,7 @@
 
 Keys become path components inside the snapshot commit's tree (e.g.
 ``foo/body.md``). They are also serialized after a ``:`` into the
-``<snapshot-ref>:<key>`` locator returned by :func:`ref_name_for_entry`, so
+``<snapshot-ref>:<key>`` locator returned by :func:`brmem.ref_layout.ref_name_for_entry`, so
 the validation here keeps keys both git-path-safe and locator-safe.
 Restrictions mirror ``git-check-ref-format(1)``
 (https://git-scm.com/docs/git-check-ref-format) where applicable so any key

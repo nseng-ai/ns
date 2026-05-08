@@ -27,7 +27,7 @@ from asdl_objectives.gateway_access import (
     OBJECTIVE_NAMESPACE,
     resolve_current_objective_branch,
 )
-from brmem.gateway import EntryRef, check_branch_name
+from brmem.ref_layout import EntryRef, check_branch_name
 from brmem.validation import first_failure
 
 
