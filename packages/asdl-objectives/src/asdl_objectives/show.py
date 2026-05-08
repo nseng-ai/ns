@@ -33,7 +33,8 @@ from asdl_objectives.slug_resolution import (
     SlugResolution,
     resolve_slug,
 )
-from brmem.gateway import BranchMemoryGateway, EntryRef, check_branch_name
+from brmem.gateway import BranchMemoryGateway
+from brmem.ref_layout import EntryRef, check_branch_name
 from brmem.validation import first_failure
 
 

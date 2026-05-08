@@ -13,7 +13,6 @@ from pathlib import Path
 from brmem.real import (
     _build_tree_from_entries,
     _enumerate_tree_entries,
-    _snapshot_ref_name,
 )
 
 
@@ -118,11 +117,3 @@ def test_build_tree_is_deterministic_for_same_inputs(tmp_path: Path) -> None:
     third = _build_tree_from_entries(repo, reversed_entries)
 
     assert first == second == third
-
-
-def test_snapshot_ref_name_namespaced() -> None:
-    assert _snapshot_ref_name("scratch", "feat/x") == "refs/brmem/ns/scratch/feat---x"
-
-
-def test_snapshot_ref_name_base() -> None:
-    assert _snapshot_ref_name(None, "feat/x") == "refs/brmem/base/feat---x"

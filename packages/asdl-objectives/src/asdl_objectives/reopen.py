@@ -15,7 +15,8 @@ from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, closed_key, slug_for_key
 from asdl_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE, OBJECTIVE_NAMESPACE
 from asdl_objectives.trunk_resolution import resolve_trunk
-from brmem.gateway import BranchMemoryGateway, EntryRef
+from brmem.gateway import BranchMemoryGateway
+from brmem.ref_layout import EntryRef
 
 
 class _EntryIdentity(NamedTuple):

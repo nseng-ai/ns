@@ -20,13 +20,15 @@ from brmem.gateway import (
     BranchMemoryGateway,
     BrmemCopyConflictError,
     EntryDiagnostic,
-    EntryRef,
     KeyNotFoundError,
+)
+from brmem.key_validation import validate_key
+from brmem.ref_layout import (
+    EntryRef,
     ref_name_for_entry,
     validate_branch_name,
     validate_namespace,
 )
-from brmem.key_validation import validate_key
 from brmem.validation import validate_key_glob
 
 _FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)

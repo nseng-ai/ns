@@ -12,18 +12,18 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from brmem.gateway import (
-    EntryRef,
-    KeyNotFoundError,
-    check_branch_name,
-    check_namespace,
-    ref_name_for_entry,
-)
+from brmem.gateway import KeyNotFoundError
 from brmem.gateway_access import (
     get_branch_memory_gateway,
     resolve_current_brmem_branch,
 )
 from brmem.key_validation import check_key
+from brmem.ref_layout import (
+    EntryRef,
+    check_branch_name,
+    check_namespace,
+    ref_name_for_entry,
+)
 from brmem.validation import first_failure
 
 

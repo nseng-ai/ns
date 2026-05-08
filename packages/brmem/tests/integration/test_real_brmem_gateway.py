@@ -5,13 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from brmem.gateway import (
-    BrmemCopyConflictError,
-    InvalidBranchNameError,
-    KeyNotFoundError,
-    parse_entry_ref,
-)
+from brmem.gateway import BrmemCopyConflictError, KeyNotFoundError
 from brmem.real import RealBranchMemoryGateway
+from brmem.ref_layout import InvalidBranchNameError, parse_entry_ref
 
 
 def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:

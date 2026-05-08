@@ -29,7 +29,8 @@ from asdl_core.git.types import GitCommandFailure
 from asdl_objectives.absorbed_marker import load_absorbed_marker
 from asdl_objectives.discovery import body_key
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
-from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
+from brmem.gateway import BranchMemoryGateway
+from brmem.ref_layout import snapshot_ref_name
 
 ObjectiveSnapshotState = Literal["fresh", "stale"]
 

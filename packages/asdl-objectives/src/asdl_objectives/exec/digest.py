@@ -37,7 +37,8 @@ from asdl_objectives.slug_resolution import (
     SlugResolution,
     resolve_slug,
 )
-from brmem.gateway import BranchMemoryGateway, snapshot_ref_name
+from brmem.gateway import BranchMemoryGateway
+from brmem.ref_layout import snapshot_ref_name
 
 
 class ObjectiveDigestRequest(ClinkrModel):
