@@ -6,6 +6,7 @@
 - [Branch Memory](./packages/brmem/CONTEXT.md) — branch-attached text state stored outside commits, PR comments, issues, and working-tree files.
 - [Objectives](./packages/asdl-objectives/CONTEXT.md) — local-first planning records for multi-session workstreams.
 - [Slots](./packages/asdl-slots/CONTEXT.md) — managed git worktrees that let a developer hold multiple branches checked out in parallel.
+- [PR Address](./packages/asdl-pr-address/CONTEXT.md) — end-to-end addressing of pull-request review feedback through ephemeral per-PR Invocations.
 
 ## Relationships
 
@@ -15,3 +16,4 @@
 - **Objectives → Branch Memory**: Objective Snapshots use Branch Memory for branch-local drift while the Canonical Objective remains the shared authority.
 - **Objectives → Branch Memory**: Objective Roadmaps are authored against the Canonical Objective on trunk unless an entry explicitly says it is stacked on another branch; Branch Memory then carries the chosen Objective Snapshot on the implementation branch.
 - **Branch Memory → Objectives**: Branch Memory provides generic storage concepts only; objective semantics such as snapshots, reconciliation, roadmap numbering, and closure belong to the Objectives context.
+- **PR Address → asdl Platform**: The PR Address Tool ships one Public Skill (`pr-address`) and a CLI (`pr-address`); the Skill orchestrates per-PR Invocations and the CLI is the stateless substrate underneath.
