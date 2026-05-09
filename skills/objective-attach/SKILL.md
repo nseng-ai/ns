@@ -1,12 +1,12 @@
 ---
-name: objective-claim
-description: "Command: objective-claim"
+name: objective-attach
+description: "Command: objective-attach"
 allowed-tools:
-  - "Bash(objective exec claim *)"
+  - "Bash(objective exec attach *)"
   - "Read"
 ---
 
-# objective-claim
+# objective-attach
 
 Carry-forward primitive for attaching an existing objective snapshot to a
 target branch.
@@ -19,12 +19,12 @@ target branch.
 ## Goal
 
 Given an optional objective slug, copy one existing objective snapshot
-verbatim onto the target branch. Claim never edits, merges, summarizes, or
+verbatim onto the target branch. The attach workflow never edits, merges, summarizes, or
 implements objective content; reshaping belongs to `objective-update` on a
 branch snapshot or `objective-reconcile` into canonical state.
 
 Other skills that need to attach a missing snapshot should delegate here
-instead of reproducing claim mechanics.
+instead of reproducing attach mechanics.
 
 ## Inputs
 
@@ -40,16 +40,16 @@ instead of reproducing claim mechanics.
 Run the high-level command with the user's arguments:
 
 ```bash
-objective exec claim [slug] [--target <branch>] [--from <branch>] \
+objective exec attach [slug] [--target <branch>] [--from <branch>] \
   [--from-file <path>] --format json
 ```
 
 The Clinkr JSON envelope wraps `data`. Use `data.status`:
 
-- `"claimed"` — report `data.message` to the user.
+- `"attached"` — report `data.message` to the user.
 - `"needs_selection"` — surface `data.message` or
   `data.selection.options[]`. Do not auto-pick. After the user chooses an
-  option, re-run `objective exec claim` with that option's complete
+  option, re-run `objective exec attach` with that option's complete
   `rerun_args` plus `--format json`.
 - `"blocked"` — report `data.message`; the user must change inputs or
   create/update objective state before retrying.
@@ -60,14 +60,14 @@ this skill.
 
 ## Output
 
-For successful claims, the CLI's `data.message` already includes the slug,
+For successful attachments, the CLI's `data.message` already includes the slug,
 source, target branch, files carried, destination ref, commit SHA, and next
 step hint. Report it directly; do not reconstruct it from lower-level fields.
 
 ## Guardrails
 
 - Never choose among `needs_selection` options without user intent.
-- Use only `objective exec claim`; it is the skill-facing contract.
+- Use only `objective exec attach`; it is the skill-facing contract.
 - Never synthesize objective files, carry only part of a branch snapshot,
   write canonical objective storage, run update/reconcile, or implement work
-  during claim. The CLI enforces these semantics.
+  during attach. The CLI enforces these semantics.

@@ -4,6 +4,7 @@ description: "Command: objective-next"
 allowed-tools:
   - "Bash(objective exec next-context *)"
   - "Bash(objective exec next-collision *)"
+  - "Bash(objective exec attach *)"
   - "Read"
   - "ExitPlanMode"
 ---
@@ -21,11 +22,11 @@ the next PR-sized slice.
 ## Goal
 
 Given an objective slug — supplied directly or resolved from the current
-branch's claimed objectives — ensure the current branch has a fresh snapshot,
+branch's attached objectives — ensure the current branch has a fresh snapshot,
 load that prepared snapshot, summarize the objective state, and recommend the
 next roadmap slice using its visible preassigned slice slug.
 
-`next` may mutate only as preparation: it can delegate to the claim primitive
+`next` may mutate only as preparation: it can delegate to the attach primitive
 when the branch has no snapshot and to the update workflow when the snapshot
 is stale. After preparation, the recommendation itself is a read of the
 prepared current-branch snapshot. `next` never mutates canonical state,
@@ -44,20 +45,20 @@ check it out first.
 
 ## Core Rules
 
-- **Prepare before planning.** If the current branch has no snapshot, claim
+- **Prepare before planning.** If the current branch has no snapshot, attach
   one first; if it has a stale snapshot, update it first; then rerun
   `next-context` and plan from the fresh context.
-- **Claim remains the carry-forward primitive.** Missing snapshots are
-  attached only by the `objective-claim` workflow. During `next`, delegate to
-  `objective-claim [<slug>]` when the branch has no snapshot; do not
-  hand-copy objective files or manually construct claim plan files.
+- **Attachment remains the carry-forward primitive.** Missing snapshots are
+  attached only by the `objective-attach` workflow. During `next`, delegate to
+  `objective-attach [<slug>]` when the branch has no snapshot; do not
+  hand-copy objective files or manually construct attach plan files.
 - **Conservative updates only.** When preparation needs an update, follow
   `../objective-update/SKILL.md`: load only attached files, triage branch
   commits, rewrite conservatively, and advance `.absorbed.jsonl` only after
   the snapshot covers the current branch work.
-- **Current-branch-only source.** Always load the snapshot claimed on the
+- **Current-branch-only source.** Always load the snapshot attached on the
   current branch. There is no source cascade and no ancestor walk during the
-  planning read; source discovery happens only inside `objective-claim` when
+  planning read; source discovery happens only inside `objective-attach` when
   the branch is missing a snapshot.
 - **Use preassigned roadmap slice slugs.** Read `data.roadmap_content`
   semantically. Every PR-sized roadmap section heading should contain one
@@ -101,35 +102,35 @@ exit-2 errors are terminal unless this workflow explicitly handles them.
   Step 3 for `data.slug`, rerun `next-context <slug>`, then continue from the
   fresh context.
 - **`error_type == "no_objective_on_branch"` off trunk**: run the preparation
-  flow in Step 3. It will claim when needed and prompt for selection if
+  flow in Step 3. It will attach when needed and prompt for selection if
   ambiguous. Rerun `next-context [<resolved-slug>]` and continue.
 - **`error_type == "ambiguous_objective"`**: the current branch already
-  carries multiple objectives. Ask which existing claimed objective to inspect,
+  carries multiple objectives. Ask which existing attached objective to inspect,
   rerun `next-context <selected-slug>`, update if stale, then continue.
 - **Other errors**: surface the message and stop. On trunk with no canonical
   objectives, tell the user to run `objective-create`. On trunk with multiple
   canonicals and no slug, ask the user to pass an explicit slug.
 
-### 3. Prepare by claim/update when needed
+### 3. Prepare by attach/update when needed
 
 If Step 2 showed that preparation is needed, delegate to the existing
 operation workflows rather than reproducing their internals here:
 
-- For a missing snapshot, follow `../objective-claim/SKILL.md` to attach the
-  objective to the current branch. If claim reports candidate-slug or source-
+- For a missing snapshot, follow `../objective-attach/SKILL.md` to attach the
+  objective to the current branch. If attach reports candidate-slug or source-
   branch ambiguity, list the alternatives, ask the user to choose, and rerun
-  claim with the selected values.
+  attach with the selected values.
 - For a stale snapshot, follow `../objective-update/SKILL.md` for the resolved
   slug. That workflow owns update precheck, conservative rewrites, serialized
   `brmem put` writes, and absorbed-marker advancement.
 
 If either delegated workflow reports a terminal error, surface it and stop. Do
-not manually construct claim plan files, inspect raw source files for progress,
+not manually construct attach plan files, inspect raw source files for progress,
 or run lower-level update commands from this skill.
 
 ### 4. Rerun context after preparation
 
-After any claim or update, rerun:
+After any attach or update, rerun:
 
 ```bash
 objective exec next-context <resolved-slug> --format json
@@ -211,8 +212,8 @@ or proceed knowingly. Do not auto-resolve.
 
 Return:
 
-- whether preparation was needed (`none`, `claimed`, `updated`, or
-  `claimed + updated`)
+- whether preparation was needed (`none`, `attached`, `updated`, or
+  `attached + updated`)
 - source label / current branch and resolved objective slug
 - concise status summary and open-work summary
 - selected roadmap section and preassigned next-slice slug
@@ -222,7 +223,7 @@ Return:
 ```text
 To proceed: write a plan for <selected-slice-slug>, then use the repo's
 normal branch workflow to create the slice branch from that slug. On the new
-branch, run objective-claim (or rerun objective-next on the unclaimed branch
+branch, run objective-attach (or rerun objective-next on the unattached branch
 and let it prepare before planning). After implementing the slice, run
 objective-update <objective-slug>; after the work lands, run
 objective-reconcile <objective-slug> on the trunk branch.
@@ -235,8 +236,8 @@ objective-reconcile <objective-slug> on the trunk branch.
   skip branch freshness preparation because canonical rewrites go through
   `objective-reconcile`, not `objective-update`.
 - Multiple slugs on the current branch: legitimate when two unrelated parent
-  objectives are claimed on the same branch; list both and ask.
-- Unclaimed non-trunk branch: delegate to `objective-claim`, then update if
+  objectives are attached on the same branch; list both and ask.
+- Unattached non-trunk branch: delegate to `objective-attach`, then update if
   stale before recommending.
 - Branch name does not equal objective slug or slice slug. Never derive either
   slug from the branch name.
@@ -245,9 +246,9 @@ objective-reconcile <objective-slug> on the trunk branch.
   do not invent a next-slice slug.
 - Roadmap section lacks a visible slice marker, has more than one marker, or
   has an obviously invalid marker: ask for repair/clarification.
-- Never manually create claim plan files during `objective-next`; delegate
-  missing snapshot attachment to `objective-claim`.
+- Never manually create attach plan files during `objective-next`; delegate
+  missing snapshot attachment to `objective-attach`.
 - Never auto-pick a slug from a multi-slug current branch, auto-resolve a
   collision, invent a fallback next-slice slug, inspect source code for drift,
-  hand-copy a snapshot, walk ancestors outside the claim primitive, write
+  hand-copy a snapshot, walk ancestors outside the attach primitive, write
   canonical state, create branches, or implement work during `next`.

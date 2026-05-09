@@ -51,7 +51,7 @@ The write boundary is explicit. `update` can rewrite only the current branch
 snapshot. `reconcile` can rewrite only the canonical record, and only from
 landed work. Open PRs and unmerged branches stay in branch snapshots;
 higher-level tooling can build a combined view across canonical state and
-those snapshots. `claim` is the only operation that copies a snapshot from one
+those snapshots. `attach` is the only operation that copies a snapshot from one
 place to another, and it copies verbatim.
 
 ## Which Operation To Use
@@ -60,7 +60,7 @@ place to another, and it copies verbatim.
 | --------------------------------------------- | --------------------- | --------- |
 | Start tracking a new workstream               | `objective-create`    | Canonical |
 | See status and choose the next PR-sized slice | `objective-next`      | Nothing   |
-| Attach the workstream to a branch             | `objective-claim`     | Branch    |
+| Attach the workstream to a branch             | `objective-attach`    | Branch    |
 | Refresh a snapshot before stacking on it      | `objective-update`    | Branch    |
 | Refresh canonical state after PRs merge       | `objective-reconcile` | Canonical |
 | Close a completed workstream                  | `objective close`     | Archive   |
@@ -106,24 +106,24 @@ Run this **while still on `<trunk>`**, before creating the slice branch.
 cascade and no `--source` flag. On `<trunk>` the current branch _is_ canonical
 storage, so `next` reads the canonical record you just created and recommends
 the next PR-sized slice by using that roadmap section's preassigned marker
-slug, such as `data-layer`. This happens before `claim` so the branch you
+slug, such as `data-layer`. This happens before `attach` so the branch you
 create is tied to the slice you intend to implement.
 
 To peek at canonical state from a feature branch later, use
 `objective show <slug>`; do not overload `objective-next` with a cross-branch
 read.
 
-### 3. Create a branch for that slice and claim the snapshot
+### 3. Create a branch for that slice and attach the snapshot
 
 ```text
 # create a branch with your repo's normal branch workflow, using data-layer
-objective-claim
+objective-attach
 ```
 
-`claim` attaches the objective to the new branch by copying an existing
-snapshot. The slug is inferred from the parent branch's claimed objectives
-when unambiguous, so `objective-claim` with no argument is enough for the
-common case; pass `objective-claim <slug>` when the parent (or trunk, on
+`attach` attaches the objective to the new branch by copying an existing
+snapshot. The slug is inferred from the parent branch's attached objectives
+when unambiguous, so `objective-attach` with no argument is enough for the
+common case; pass `objective-attach <slug>` when the parent (or trunk, on
 fallback) carries multiple objectives. For the first branch in this
 example, the parent is `<trunk>` and it copies the canonical record you
 just created. For a later branch in a stack, it copies from the nearest
@@ -131,7 +131,7 @@ ancestor branch that already carries `dashboard-revamp`.
 
 The copy is exact. On a newly created empty branch, no progress has been made
 yet toward the workstream, so there is nothing to summarize or merge. If the
-target branch already has `dashboard-revamp/`, `claim` aborts instead of
+target branch already has `dashboard-revamp/`, `attach` aborts instead of
 merging.
 
 ### 4. Implement and merge the slice
@@ -159,19 +159,19 @@ Repeat steps 2-5 for the next non-stacked slice.
 
 ## Stacked Branches
 
-Use `objective-update` only when another branch will claim from the
+Use `objective-update` only when another branch will attach a snapshot from the
 current branch before the current branch lands. That is the stacked-PR case:
 the branch snapshot needs to reflect committed work so the child branch starts
 from the right objective state.
 
 ## Rules Worth Remembering
 
-- `claim` and `next` infer the objective slug when the parent or current
+- `attach` and `next` infer the objective slug when the parent or current
   branch carries exactly one candidate. Pass `<slug>` explicitly when a branch
   carries multiple objectives or trunk holds multiple canonicals.
 - `next` uses the selected roadmap section's visible slice marker as the
   branch/plan slug; it does not invent fallback slice names.
-- `claim` copies exactly one source snapshot and does not edit while copying.
+- `attach` copies exactly one source snapshot and does not edit while copying.
 - `update` is for stacked branch snapshots. `reconcile` is for `<trunk>`.
 - Branch snapshots are branch-local state, not shared truth.
 - Canonical state incorporates landed work, not open PRs or unmerged branches.
@@ -184,7 +184,7 @@ from the right objective state.
   single source of truth for what each operation may touch.
 - Operation skills:
   [`objective-create`](../objective-create/),
-  [`objective-claim`](../objective-claim/),
+  [`objective-attach`](../objective-attach/),
   [`objective-next`](../objective-next/),
   [`objective-update`](../objective-update/), and
   [`objective-reconcile`](../objective-reconcile/).

@@ -1,6 +1,6 @@
-"""``objective exec claim`` — objective claim workflow for agents.
+"""``objective exec attach`` — objective attach workflow for agents.
 
-This command is the single skill-facing claim contract. The deterministic
+This command is the single skill-facing attach contract. The deterministic
 planner and applier live in this module as implementation details so callers do
 not need to juggle separate plan/apply exec commands or intermediate JSON plan
 files.
@@ -31,7 +31,7 @@ from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
 from brmem.ref_layout import snapshot_ref_name
 
-PLAN_SCHEMA = "claim-plan/v1"
+PLAN_SCHEMA = "attach-plan/v1"
 
 # Stable kind codes for the source of the carry-forward copy.
 SourceKind = Literal["local_file", "branch", "canonical"]
@@ -51,7 +51,7 @@ ErrorReason = Literal[
 ]
 
 
-class ClaimPlanRequest(ClinkrModel):
+class AttachPlanRequest(ClinkrModel):
     slug: Annotated[
         str | None,
         click.Argument(["slug"], type=click.STRING, required=False, default=None),
@@ -121,7 +121,7 @@ class PlanSource(ClinkrModel):
     label: str
 
 
-class ClaimPlan(ClinkrModel):
+class AttachPlan(ClinkrModel):
     """Unique deterministic plan ready to apply."""
 
     slug: str
@@ -129,7 +129,7 @@ class ClaimPlan(ClinkrModel):
     source: PlanSource
 
 
-class ClaimPlanAmbiguity(ClinkrModel):
+class AttachPlanAmbiguity(ClinkrModel):
     """Structured "I need a human pick" payload.
 
     ``slug_alternatives`` is non-empty when the reason is
@@ -144,15 +144,15 @@ class ClaimPlanAmbiguity(ClinkrModel):
     branch_alternatives: tuple[CandidateBranch, ...]
 
 
-class ClaimPlanError(ClinkrModel):
+class AttachPlanError(ClinkrModel):
     """Structured "the inputs are impossible to satisfy" payload."""
 
     reason: ErrorReason
     message: str
 
 
-class ClaimPlanResultBase(ClinkrJsonSchemaModel):
-    """Common fields for every claim-plan status envelope."""
+class AttachPlanResultBase(ClinkrJsonSchemaModel):
+    """Common fields for every attach-plan status envelope."""
 
     canonical_branch: str
     requested_slug: str | None
@@ -162,43 +162,43 @@ class ClaimPlanResultBase(ClinkrJsonSchemaModel):
     requested_from_file: str | None
 
 
-class ClaimPlanReadyResult(ClaimPlanResultBase):
+class AttachPlanReadyResult(AttachPlanResultBase):
     """A unique deterministic plan is ready to apply."""
 
     status: Literal["plan"]
-    plan: ClaimPlan
+    plan: AttachPlan
     ambiguity: None = None
     error: None = None
 
 
-class ClaimPlanAmbiguousResult(ClaimPlanResultBase):
-    """A human selection is required before claim can proceed."""
+class AttachPlanAmbiguousResult(AttachPlanResultBase):
+    """A human selection is required before attach can proceed."""
 
     status: Literal["ambiguous"]
     plan: None = None
-    ambiguity: ClaimPlanAmbiguity
+    ambiguity: AttachPlanAmbiguity
     error: None = None
 
 
-class ClaimPlanErrorResult(ClaimPlanResultBase):
-    """The requested claim inputs are impossible to satisfy."""
+class AttachPlanErrorResult(AttachPlanResultBase):
+    """The requested attach inputs are impossible to satisfy."""
 
     status: Literal["error"]
     plan: None = None
     ambiguity: None = None
-    error: ClaimPlanError
+    error: AttachPlanError
 
 
-ClaimPlanResult: TypeAlias = Annotated[
-    ClaimPlanReadyResult | ClaimPlanAmbiguousResult | ClaimPlanErrorResult,
+AttachPlanResult: TypeAlias = Annotated[
+    AttachPlanReadyResult | AttachPlanAmbiguousResult | AttachPlanErrorResult,
     Field(discriminator="status"),
 ]
 
 
-def plan_claim_objective(
+def plan_attach_objective(
     mctx: ObjectiveCliContext,
-    request: ClaimPlanRequest,
-) -> ClaimPlanResult:
+    request: AttachPlanRequest,
+) -> AttachPlanResult:
     gateway = mctx.brmem_gateway
     git = mctx.git_gateway
     trunk_branch = resolve_trunk(git).trunk
@@ -229,8 +229,8 @@ def plan_claim_objective(
         target_branch != trunk_branch,
         error_type="target_is_trunk",
         message=(
-            f"--target must not be {trunk_branch!r}: claim attaches "
-            f"objectives to feature branches; canonical state is immutable here."
+            f"--target must not be {trunk_branch!r}: attachment targets "
+            f"feature branches; canonical state is immutable here."
         ),
     )
 
@@ -262,7 +262,7 @@ def plan_claim_objective(
             trunk_branch=trunk_branch,
             resolved_slug=slug,
             status="error",
-            error=ClaimPlanError(
+            error=AttachPlanError(
                 reason="target_collision",
                 message=(
                     f"Target branch {target_branch!r} already carries "
@@ -281,7 +281,7 @@ def plan_claim_objective(
         from_branch=request.from_branch,
         from_file=request.from_file,
     )
-    if isinstance(source_outcome, ClaimPlanError):
+    if isinstance(source_outcome, AttachPlanError):
         return _envelope_for_request(
             request=request,
             requested_slug=requested_slug,
@@ -291,7 +291,7 @@ def plan_claim_objective(
             status="error",
             error=source_outcome,
         )
-    if isinstance(source_outcome, ClaimPlanAmbiguity):
+    if isinstance(source_outcome, AttachPlanAmbiguity):
         return _envelope_for_request(
             request=request,
             requested_slug=requested_slug,
@@ -309,7 +309,7 @@ def plan_claim_objective(
         trunk_branch=trunk_branch,
         resolved_slug=slug,
         status="plan",
-        plan=ClaimPlan(
+        plan=AttachPlan(
             slug=slug,
             target_branch=target_branch,
             source=source_outcome,
@@ -319,18 +319,18 @@ def plan_claim_objective(
 
 def _envelope_for_request(
     *,
-    request: ClaimPlanRequest,
+    request: AttachPlanRequest,
     requested_slug: str | None,
     target_branch: str,
     trunk_branch: str,
     status: PlanStatus,
     resolved_slug: str | None = None,
-    plan: ClaimPlan | None = None,
-    ambiguity: ClaimPlanAmbiguity | None = None,
-    error: ClaimPlanError | None = None,
-) -> ClaimPlanResult:
+    plan: AttachPlan | None = None,
+    ambiguity: AttachPlanAmbiguity | None = None,
+    error: AttachPlanError | None = None,
+) -> AttachPlanResult:
     if status == "plan" and plan is not None:
-        return ClaimPlanReadyResult(
+        return AttachPlanReadyResult(
             json_schema=PLAN_SCHEMA,
             canonical_branch=trunk_branch,
             requested_slug=requested_slug,
@@ -342,7 +342,7 @@ def _envelope_for_request(
             plan=plan,
         )
     if status == "ambiguous" and ambiguity is not None:
-        return ClaimPlanAmbiguousResult(
+        return AttachPlanAmbiguousResult(
             json_schema=PLAN_SCHEMA,
             canonical_branch=trunk_branch,
             requested_slug=requested_slug,
@@ -354,7 +354,7 @@ def _envelope_for_request(
             ambiguity=ambiguity,
         )
     if status == "error" and error is not None:
-        return ClaimPlanErrorResult(
+        return AttachPlanErrorResult(
             json_schema=PLAN_SCHEMA,
             canonical_branch=trunk_branch,
             requested_slug=requested_slug,
@@ -365,7 +365,7 @@ def _envelope_for_request(
             status="error",
             error=error,
         )
-    raise ValueError(f"Invalid claim-plan envelope state: {status}")
+    raise ValueError(f"Invalid attach-plan envelope state: {status}")
 
 
 def _normalize_slug(raw: str | None) -> str | None:
@@ -403,7 +403,7 @@ def _resolve_target_branch(
             return HardFailure(
                 error_type="detached_head",
                 message=(
-                    "Detached HEAD: claim requires a checked-out branch or an explicit --target."
+                    "Detached HEAD: attach requires a checked-out branch or an explicit --target."
                 ),
             )
         case GitCommandFailure() as failure:
@@ -426,7 +426,7 @@ def target_carries_slug(
 class _AmbiguityOutcome:
     """Internal sentinel: ancestor walk produced a structured ambiguity, not a slug."""
 
-    ambiguity: ClaimPlanAmbiguity
+    ambiguity: AttachPlanAmbiguity
 
 
 def _resolve_slug_from_ancestors(
@@ -469,7 +469,7 @@ def _resolve_slug_from_ancestors(
     canonical_slugs = _slugs_on_branch(gateway, trunk_branch)
     if not canonical_slugs:
         return _AmbiguityOutcome(
-            ambiguity=ClaimPlanAmbiguity(
+            ambiguity=AttachPlanAmbiguity(
                 reason="no_slug_no_candidates",
                 message=(
                     f"No objectives reachable from any ancestor branch and no "
@@ -495,7 +495,7 @@ def _classify_slug_candidates(
     if len(slugs) == 1:
         return slugs[0]
     return _AmbiguityOutcome(
-        ambiguity=ClaimPlanAmbiguity(
+        ambiguity=AttachPlanAmbiguity(
             reason="ambiguous_slug_candidates",
             message=(
                 f"Multiple objectives reachable on {available_on_branch!r}: "
@@ -567,7 +567,7 @@ def _resolve_source(
     trunk_branch: str,
     from_branch: str | None,
     from_file: str | None,
-) -> PlanSource | ClaimPlanError | ClaimPlanAmbiguity:
+) -> PlanSource | AttachPlanError | AttachPlanAmbiguity:
     """Apply the locked source cascade and return one resolved source.
 
     Cascade order:
@@ -576,14 +576,14 @@ def _resolve_source(
       3. Nearest live ancestor branch carrying ``<slug>/body.md``.
       4. Canonical ``master``.
 
-    Returns :class:`ClaimPlanError` for unresolvable inputs (e.g. local file
-    missing) and :class:`ClaimPlanAmbiguity` when multiple ancestor branches
+    Returns :class:`AttachPlanError` for unresolvable inputs (e.g. local file
+    missing) and :class:`AttachPlanAmbiguity` when multiple ancestor branches
     tie for nearest.
     """
     if from_file is not None:
         path = Path(from_file)
         if not path.exists() or not path.is_file():
-            return ClaimPlanError(
+            return AttachPlanError(
                 reason="from_file_unreadable",
                 message=f"--from-file path does not exist or is not a file: {from_file}",
             )
@@ -591,7 +591,7 @@ def _resolve_source(
             with path.open("rb"):
                 pass
         except OSError as exc:
-            return ClaimPlanError(
+            return AttachPlanError(
                 reason="from_file_unreadable",
                 message=f"--from-file path is not readable: {from_file}: {exc}",
             )
@@ -605,7 +605,7 @@ def _resolve_source(
     if from_branch is not None:
         diagnostic = gateway.check(OBJECTIVE_NAMESPACE, body_key(slug), from_branch)
         if diagnostic is None:
-            return ClaimPlanError(
+            return AttachPlanError(
                 reason="from_missing_slug",
                 message=(
                     f"Source branch {from_branch!r} does not carry "
@@ -631,7 +631,7 @@ def _resolve_source(
         nearest_distance = candidates[0].distance
         tied = tuple(c for c in candidates if c.distance == nearest_distance)
         if len(tied) > 1:
-            return ClaimPlanAmbiguity(
+            return AttachPlanAmbiguity(
                 reason="ambiguous_source_branches",
                 message=(
                     f"Multiple ancestor branches tie for nearest source of "
@@ -658,7 +658,7 @@ def _resolve_source(
             label="canonical objective",
         )
 
-    return ClaimPlanError(
+    return AttachPlanError(
         reason="explicit_slug_not_found",
         message=(
             f"Slug {slug!r} not found on any ancestor branch or in canonical "
@@ -716,7 +716,7 @@ class CarriedFile(ClinkrModel):
     key: str
 
 
-class ClaimApplyResult(ClinkrJsonSchemaModel):
+class AttachApplyResult(ClinkrJsonSchemaModel):
     """Outcome of a successful apply (one slug, one target branch)."""
 
     slug: str
@@ -729,7 +729,7 @@ class ClaimApplyResult(ClinkrJsonSchemaModel):
     destination_commit_sha: str
 
 
-def apply_claim_plan_file(mctx: ObjectiveCliContext, plan_file: Path) -> ClaimApplyResult:
+def apply_attach_plan_file(mctx: ObjectiveCliContext, plan_file: Path) -> AttachApplyResult:
     trunk_branch = resolve_trunk(mctx.git_gateway).trunk
 
     raw = plan_file.read_text(encoding="utf-8")
@@ -770,7 +770,7 @@ def apply_claim_plan_file(mctx: ObjectiveCliContext, plan_file: Path) -> ClaimAp
         status == "plan",
         error_type="not_a_plan",
         message=(
-            f"Plan-file status is {status!r}; claim apply requires status='plan'. "
+            f"Plan-file status is {status!r}; attach apply requires status='plan'. "
             f"Resolve the ambiguity or error before applying."
         ),
     )
@@ -784,13 +784,13 @@ def apply_claim_plan_file(mctx: ObjectiveCliContext, plan_file: Path) -> ClaimAp
     )
 
     parsed = Ensure.ideal_state(_parse_plan_block(plan))
-    return _apply_parsed_claim_plan(mctx, parsed)
+    return _apply_parsed_attach_plan(mctx, parsed)
 
 
-def apply_claim_plan_result(
+def apply_attach_plan_result(
     mctx: ObjectiveCliContext,
-    plan_result: ClaimPlanResult,
-) -> ClaimApplyResult:
+    plan_result: AttachPlanResult,
+) -> AttachApplyResult:
     trunk_branch = resolve_trunk(mctx.git_gateway).trunk
     Ensure.true(
         plan_result.json_schema == PLAN_SCHEMA,
@@ -812,7 +812,7 @@ def apply_claim_plan_result(
         plan_result.status == "plan",
         error_type="not_a_plan",
         message=(
-            f"Plan result status is {plan_result.status!r}; claim apply requires status='plan'."
+            f"Plan result status is {plan_result.status!r}; attach apply requires status='plan'."
         ),
     )
     plan = Ensure.not_none(
@@ -820,7 +820,7 @@ def apply_claim_plan_result(
         error_type="malformed_plan_file",
         message="Plan result status='plan' without plan details.",
     )
-    return _apply_parsed_claim_plan(
+    return _apply_parsed_attach_plan(
         mctx,
         _ParsedPlan(
             slug=slug_for_key(plan.slug),
@@ -833,10 +833,10 @@ def apply_claim_plan_result(
     )
 
 
-def _apply_parsed_claim_plan(
+def _apply_parsed_attach_plan(
     mctx: ObjectiveCliContext,
     parsed: _ParsedPlan,
-) -> ClaimApplyResult:
+) -> AttachApplyResult:
     gateway = mctx.brmem_gateway
     slug = parsed.slug
     target_branch = parsed.target_branch
@@ -851,7 +851,7 @@ def _apply_parsed_claim_plan(
         message=(
             f"Target branch {target_branch!r} now carries keys under "
             f"{slug!r}/. Use objective-update or objective-reconcile to "
-            f"advance the existing snapshot, or claim a different target."
+            f"advance the existing snapshot, or attach a different target."
         ),
     )
 
@@ -877,7 +877,7 @@ def _apply_parsed_claim_plan(
         body_key_value = body_key(slug)
         commit_sha = gateway.put(OBJECTIVE_NAMESPACE, body_key_value, target_branch, content)
         ref_name = _ref_name(target_branch)
-        return ClaimApplyResult(
+        return AttachApplyResult(
             json_schema=PLAN_SCHEMA,
             slug=slug,
             target_branch=target_branch,
@@ -927,7 +927,7 @@ def _apply_parsed_claim_plan(
     diag_after = gateway.check(OBJECTIVE_NAMESPACE, copied[0].key, target_branch)
     commit_sha = diag_after.head_sha if diag_after is not None else ""
     ref_name = _ref_name(target_branch)
-    return ClaimApplyResult(
+    return AttachApplyResult(
         json_schema=PLAN_SCHEMA,
         slug=slug,
         target_branch=target_branch,
@@ -1009,13 +1009,13 @@ def _ref_name(branch: str) -> str:
     return snapshot_ref_name(OBJECTIVE_NAMESPACE, branch)
 
 
-CLAIM_SCHEMA = "claim/v1"
-ClaimStatus = Literal["claimed", "needs_selection", "blocked"]
+ATTACH_SCHEMA = "attach/v1"
+AttachStatus = Literal["attached", "needs_selection", "blocked"]
 SelectionKind = Literal["slug", "source_branch"]
 
 
-class ClaimSelectionOption(ClinkrModel):
-    """One user-selectable continuation for a blocked claim command."""
+class AttachSelectionOption(ClinkrModel):
+    """One user-selectable continuation for a blocked attach command."""
 
     label: str
     value: str
@@ -1023,50 +1023,50 @@ class ClaimSelectionOption(ClinkrModel):
     rerun_args: tuple[str, ...]
 
 
-class ClaimSelection(ClinkrModel):
+class AttachSelection(ClinkrModel):
     """Generic selection payload for UI and non-UI callers."""
 
     kind: SelectionKind
     prompt: str
-    options: tuple[ClaimSelectionOption, ...]
+    options: tuple[AttachSelectionOption, ...]
 
 
-class ClaimBlock(ClinkrModel):
-    """Structured explanation for a claim that cannot continue automatically."""
+class AttachBlock(ClinkrModel):
+    """Structured explanation for an attachment that cannot continue automatically."""
 
     reason: str
     message: str
 
 
-class ClaimCommandResult(ClinkrJsonSchemaModel):
-    """High-level objective claim result for skills and CLI callers."""
+class AttachCommandResult(ClinkrJsonSchemaModel):
+    """High-level objective attach result for skills and CLI callers."""
 
-    status: ClaimStatus
+    status: AttachStatus
     message: str
-    result: ClaimApplyResult | None
-    selection: ClaimSelection | None
-    block: ClaimBlock | None
+    result: AttachApplyResult | None
+    selection: AttachSelection | None
+    block: AttachBlock | None
 
 
-def render_claim(result: ClaimCommandResult) -> None:
+def render_attach(result: AttachCommandResult) -> None:
     click.echo(result.message)
 
 
 @clinkr_operation(
-    name="claim",
+    name="attach",
     help=(
-        "Claim an existing objective snapshot onto a target branch. Runs the "
-        "deterministic claim planner, returns generic selection options when "
+        "Attach an existing objective snapshot onto a target branch. Runs the "
+        "deterministic attach planner, returns generic selection options when "
         "a human choice is needed, and applies the resolved plan when unique."
     ),
-    human_renderer=render_claim,
+    human_renderer=render_attach,
 )
-def run_claim_objective(
+def run_attach_objective(
     ctx: click.Context,
-    request: ClaimPlanRequest,
-) -> ClinkrExit[ClaimCommandResult]:
+    request: AttachPlanRequest,
+) -> ClinkrExit[AttachCommandResult]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
-    plan_result = plan_claim_objective(mctx, request)
+    plan_result = plan_attach_objective(mctx, request)
 
     if plan_result.status == "ambiguous":
         return ClinkrExit.ok(_result_for_ambiguity(request=request, plan_result=plan_result))
@@ -1074,22 +1074,22 @@ def run_claim_objective(
     if plan_result.status == "error":
         plan_error = Ensure.not_none(
             plan_result.error,
-            error_type="claim_plan_missing_error",
-            message="claim planner returned status='error' without error details.",
+            error_type="attach_plan_missing_error",
+            message="attach planner returned status='error' without error details.",
         )
         return ClinkrExit.ok(_blocked_result(plan_error.reason, plan_error.message))
 
     Ensure.true(
         plan_result.status == "plan" and plan_result.plan is not None,
-        error_type="claim_plan_unsupported_status",
-        message=f"claim planner returned unsupported status: {plan_result.status!r}.",
+        error_type="attach_plan_unsupported_status",
+        message=f"attach planner returned unsupported status: {plan_result.status!r}.",
     )
 
-    apply_result = apply_claim_plan_result(mctx, plan_result)
+    apply_result = apply_attach_plan_result(mctx, plan_result)
     return ClinkrExit.ok(
-        ClaimCommandResult(
-            json_schema=CLAIM_SCHEMA,
-            status="claimed",
+        AttachCommandResult(
+            json_schema=ATTACH_SCHEMA,
+            status="attached",
             message=_success_message(
                 apply_result,
                 canonical_branch=plan_result.canonical_branch,
@@ -1103,13 +1103,13 @@ def run_claim_objective(
 
 def _result_for_ambiguity(
     *,
-    request: ClaimPlanRequest,
-    plan_result: ClaimPlanResult,
-) -> ClaimCommandResult:
+    request: AttachPlanRequest,
+    plan_result: AttachPlanResult,
+) -> AttachCommandResult:
     ambiguity = Ensure.not_none(
         plan_result.ambiguity,
-        error_type="claim_plan_missing_ambiguity",
-        message="claim planner returned status='ambiguous' without ambiguity details.",
+        error_type="attach_plan_missing_ambiguity",
+        message="attach planner returned status='ambiguous' without ambiguity details.",
     )
 
     if ambiguity.reason == "ambiguous_slug_candidates":
@@ -1120,7 +1120,7 @@ def _result_for_ambiguity(
         if slug is None:
             return _blocked_result(
                 "ambiguous_source_branches",
-                "claim planner found multiple source branches but did not "
+                "attach planner found multiple source branches but did not "
                 "return the resolved slug.",
             )
         return _selection_result_for_source_branches(
@@ -1137,11 +1137,11 @@ def _result_for_ambiguity(
 
 def _selection_result_for_slugs(
     *,
-    request: ClaimPlanRequest,
-    ambiguity: ClaimPlanAmbiguity,
-) -> ClaimCommandResult:
+    request: AttachPlanRequest,
+    ambiguity: AttachPlanAmbiguity,
+) -> AttachCommandResult:
     options = tuple(
-        ClaimSelectionOption(
+        AttachSelectionOption(
             label=alternative.slug,
             value=alternative.slug,
             description=f"available on {alternative.available_on_branch}",
@@ -1149,13 +1149,13 @@ def _selection_result_for_slugs(
         )
         for alternative in ambiguity.slug_alternatives
     )
-    selection = ClaimSelection(
+    selection = AttachSelection(
         kind="slug",
-        prompt="Multiple objectives are reachable. Choose one to claim:",
+        prompt="Multiple objectives are reachable. Choose one to attach:",
         options=options,
     )
-    return ClaimCommandResult(
-        json_schema=CLAIM_SCHEMA,
+    return AttachCommandResult(
+        json_schema=ATTACH_SCHEMA,
         status="needs_selection",
         message=_selection_message(selection),
         result=None,
@@ -1166,12 +1166,12 @@ def _selection_result_for_slugs(
 
 def _selection_result_for_source_branches(
     *,
-    request: ClaimPlanRequest,
+    request: AttachPlanRequest,
     slug: str,
-    ambiguity: ClaimPlanAmbiguity,
-) -> ClaimCommandResult:
+    ambiguity: AttachPlanAmbiguity,
+) -> AttachCommandResult:
     options = tuple(
-        ClaimSelectionOption(
+        AttachSelectionOption(
             label=alternative.branch,
             value=alternative.branch,
             description=f"distance {alternative.distance}",
@@ -1179,13 +1179,13 @@ def _selection_result_for_source_branches(
         )
         for alternative in ambiguity.branch_alternatives
     )
-    selection = ClaimSelection(
+    selection = AttachSelection(
         kind="source_branch",
         prompt="Multiple source branches are reachable. Choose one:",
         options=options,
     )
-    return ClaimCommandResult(
-        json_schema=CLAIM_SCHEMA,
+    return AttachCommandResult(
+        json_schema=ATTACH_SCHEMA,
         status="needs_selection",
         message=_selection_message(selection),
         result=None,
@@ -1194,19 +1194,19 @@ def _selection_result_for_source_branches(
     )
 
 
-def _blocked_result(reason: str, message: str) -> ClaimCommandResult:
-    return ClaimCommandResult(
-        json_schema=CLAIM_SCHEMA,
+def _blocked_result(reason: str, message: str) -> AttachCommandResult:
+    return AttachCommandResult(
+        json_schema=ATTACH_SCHEMA,
         status="blocked",
-        message=f"Cannot claim objective:\n{reason}: {message}",
+        message=f"Cannot attach objective:\n{reason}: {message}",
         result=None,
         selection=None,
-        block=ClaimBlock(reason=reason, message=message),
+        block=AttachBlock(reason=reason, message=message),
     )
 
 
 def _rerun_args(
-    request: ClaimPlanRequest,
+    request: AttachPlanRequest,
     *,
     slug: str,
     from_branch: str | None = None,
@@ -1223,21 +1223,22 @@ def _rerun_args(
     return tuple(args)
 
 
-def _selection_message(selection: ClaimSelection) -> str:
+def _selection_message(selection: AttachSelection) -> str:
     if not selection.options:
         return selection.prompt
     lines = [selection.prompt]
     for option in selection.options:
-        command = "objective exec claim " + " ".join(_shell_quote(arg) for arg in option.rerun_args)
+        quoted_args = " ".join(_shell_quote(arg) for arg in option.rerun_args)
+        command = f"objective exec attach {quoted_args}"
         suffix = f" ({option.description})" if option.description else ""
         lines.append(f"- {option.label}{suffix}: {command}")
     return "\n".join(lines)
 
 
-def _success_message(result: ClaimApplyResult, *, canonical_branch: str) -> str:
+def _success_message(result: AttachApplyResult, *, canonical_branch: str) -> str:
     files = "\n".join(f"- {file.file}" for file in result.files_carried) or "- none"
     return (
-        f"Claimed objective: {result.slug}\n"
+        f"Attached objective: {result.slug}\n"
         f"Source: {result.source_label}\n"
         f"Target: {result.target_branch}\n\n"
         f"Files carried:\n{files}\n\n"
@@ -1246,7 +1247,7 @@ def _success_message(result: ClaimApplyResult, *, canonical_branch: str) -> str:
         f"Next:\n"
         f"This branch is ready for implementation. After implementing the slice, merge\n"
         f"the PR and run objective-reconcile {result.slug} on {canonical_branch}. Run\n"
-        f"objective-update {result.slug} only if another branch will claim from this\n"
+        f"objective-update {result.slug} only if another branch will attach a snapshot from this\n"
         f"branch before it lands."
     )
 

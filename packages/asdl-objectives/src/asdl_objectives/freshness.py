@@ -90,7 +90,7 @@ def classify_branch_snapshot(
     trunk: str,
     alive: bool,
 ) -> ObjectiveSnapshotState:
-    """Classify the snapshot freshness for ``branch``'s claim of ``slug``.
+    """Classify the snapshot freshness for ``branch``'s attach of ``slug``.
 
     Gathers branch commit patch-ids plus the snapshot marker, then defers to
     :func:`classify_obj_state`. Always returns ``"fresh"`` or ``"stale"``;

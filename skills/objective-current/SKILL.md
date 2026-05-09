@@ -1,6 +1,6 @@
 ---
 name: objective-current
-description: 'Read-only orientation view for the current branch. Shows the claimed objective, PR, branch snapshot freshness, brmem entries, and the trunk-relation row.'
+description: 'Read-only orientation view for the current branch. Shows the attached objective, PR, branch snapshot freshness, brmem entries, and the trunk-relation row.'
 allowed-tools:
   - "Bash(objective exec current *)"
 ---
@@ -17,7 +17,7 @@ all the work — the skill simply runs the command and prints the output.
 ## Goal
 
 After stepping away from a branch for a while, returning means re-deriving
-which branch you're on, what objective is claimed there, whether the
+which branch you're on, what objective is attached there, whether the
 snapshot is stale, what brmem context has been parked, and whether there's
 a PR. `objective-current` answers that operational reentry question in one
 shot. It is scoped to the current branch plus its trunk relation; it does

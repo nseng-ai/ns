@@ -536,7 +536,7 @@ def test_precheck_no_objective_on_branch_fails(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 2
     assert payload["error_type"] == "no_objective_on_branch"
-    assert "objective-claim <slug>" in payload["message"]
+    assert "objective-attach <slug>" in payload["message"]
 
 
 def test_precheck_ambiguous_objective_fails(cli_group: ClinkrGroup) -> None:

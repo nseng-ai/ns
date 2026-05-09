@@ -1,4 +1,4 @@
-"""Unit tests for the pure claim planning helpers.
+"""Unit tests for the pure attach planning helpers.
 
 The helpers under test are private but doing their own dedicated coverage
 keeps the slug-cascade rules and dataclass shape grep-able and easy to
@@ -8,15 +8,15 @@ evolve without spinning up the full Click harness.
 from __future__ import annotations
 
 from asdl_core.clinkr.serialization import serialize_to_json_dict
-from asdl_objectives.exec.claim import (
+from asdl_objectives.exec.attach import (
     PLAN_SCHEMA,
+    AttachPlan,
+    AttachPlanAmbiguity,
+    AttachPlanAmbiguousResult,
+    AttachPlanError,
+    AttachPlanErrorResult,
+    AttachPlanReadyResult,
     CandidateBranch,
-    ClaimPlan,
-    ClaimPlanAmbiguity,
-    ClaimPlanAmbiguousResult,
-    ClaimPlanError,
-    ClaimPlanErrorResult,
-    ClaimPlanReadyResult,
     PlanSource,
     SlugAlternative,
     _classify_slug_candidates,
@@ -48,23 +48,23 @@ def test_classify_slug_candidates_multiple_returns_ambiguity() -> None:
         slugs=("alpha", "beta"),
         available_on_branch="feat/parent",
     )
-    # The `_AmbiguityOutcome` wrapper carries a `ClaimPlanAmbiguity`.
+    # The `_AmbiguityOutcome` wrapper carries a `AttachPlanAmbiguity`.
     assert hasattr(outcome, "ambiguity")
     amb = outcome.ambiguity  # type: ignore[union-attr]
-    assert isinstance(amb, ClaimPlanAmbiguity)
+    assert isinstance(amb, AttachPlanAmbiguity)
     assert amb.reason == "ambiguous_slug_candidates"
     assert {alt.slug for alt in amb.slug_alternatives} == {"alpha", "beta"}
     assert all(alt.available_on_branch == "feat/parent" for alt in amb.slug_alternatives)
 
 
 # ---------------------------------------------------------------------------
-# Round-trip: Pydantic claim-plan variants produce a stable JSON-ready shape with
+# Round-trip: Pydantic attach-plan variants produce a stable JSON-ready shape with
 # nested fields populated correctly.
 # ---------------------------------------------------------------------------
 
 
-def test_claim_plan_result_serializes_for_plan_status() -> None:
-    result = ClaimPlanReadyResult(
+def test_attach_plan_result_serializes_for_plan_status() -> None:
+    result = AttachPlanReadyResult(
         json_schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="alpha",
@@ -73,7 +73,7 @@ def test_claim_plan_result_serializes_for_plan_status() -> None:
         requested_from_branch=None,
         requested_from_file=None,
         status="plan",
-        plan=ClaimPlan(
+        plan=AttachPlan(
             slug="alpha",
             target_branch="feat/x",
             source=PlanSource(
@@ -94,8 +94,8 @@ def test_claim_plan_result_serializes_for_plan_status() -> None:
     assert payload["error"] is None
 
 
-def test_claim_plan_result_serializes_for_ambiguity_status() -> None:
-    result = ClaimPlanAmbiguousResult(
+def test_attach_plan_result_serializes_for_ambiguity_status() -> None:
+    result = AttachPlanAmbiguousResult(
         json_schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug=None,
@@ -104,7 +104,7 @@ def test_claim_plan_result_serializes_for_ambiguity_status() -> None:
         requested_from_branch=None,
         requested_from_file=None,
         status="ambiguous",
-        ambiguity=ClaimPlanAmbiguity(
+        ambiguity=AttachPlanAmbiguity(
             reason="ambiguous_source_branches",
             message="two ancestors tie",
             slug_alternatives=(),
@@ -124,8 +124,8 @@ def test_claim_plan_result_serializes_for_ambiguity_status() -> None:
     assert payload["error"] is None
 
 
-def test_claim_plan_result_serializes_for_error_status() -> None:
-    result = ClaimPlanErrorResult(
+def test_attach_plan_result_serializes_for_error_status() -> None:
+    result = AttachPlanErrorResult(
         json_schema=PLAN_SCHEMA,
         canonical_branch="master",
         requested_slug="ghost",
@@ -134,7 +134,7 @@ def test_claim_plan_result_serializes_for_error_status() -> None:
         requested_from_branch=None,
         requested_from_file=None,
         status="error",
-        error=ClaimPlanError(
+        error=AttachPlanError(
             reason="explicit_slug_not_found",
             message="ghost is not anywhere",
         ),
