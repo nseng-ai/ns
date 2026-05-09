@@ -571,18 +571,18 @@ def test_objective_show_with_multiple_slugs_on_branch_uses_explicit_slug(
     cli_group: ClinkrGroup,
 ) -> None:
     """A branch may legitimately carry multiple objective slugs (e.g. a
-    parent objective plus an unrelated co-claim). Passing an explicit
+    parent objective plus an unrelated co-attachment). Passing an explicit
     SLUG resolves correctly without auto-picking; both slugs are
     independently inspectable from the same branch.
 
     Locks the multi-slug invariant of the objective tree / show / current
-    path: claims are per-slug, never per-branch. Exercises the C9 multi-
+    path: attachments are per-slug, never per-branch. Exercises the C9 multi-
     slug-on-one-branch case from the canonicalization plan.
     """
     gateway = FakeBranchMemoryGateway()
-    # Two unrelated objectives both claimed on feat/x.
+    # Two unrelated objectives both attached on feat/x.
     gateway.put("objectives", "parent-objective/body.md", "feat/x", "parent-snap\n")
-    gateway.put("objectives", "co-claimed-objective/body.md", "feat/x", "co-snap\n")
+    gateway.put("objectives", "co-attached-objective/body.md", "feat/x", "co-snap\n")
     obj = _make_obj(gateway=gateway, live_branches=("feat/x",))
 
     parent = CliRunner().invoke(
@@ -592,7 +592,7 @@ def test_objective_show_with_multiple_slugs_on_branch_uses_explicit_slug(
     )
     co = CliRunner().invoke(
         cli_group,
-        ["show", "co-claimed-objective", "--format", "json"],
+        ["show", "co-attached-objective", "--format", "json"],
         obj=obj,
     )
 
@@ -603,9 +603,9 @@ def test_objective_show_with_multiple_slugs_on_branch_uses_explicit_slug(
     # Each slug renders independently with its own body content.
     assert parent_data["slug"] == "parent-objective"
     assert parent_data["body"] == {"source_branch": "feat/x", "content": "parent-snap\n"}
-    assert co_data["slug"] == "co-claimed-objective"
+    assert co_data["slug"] == "co-attached-objective"
     assert co_data["body"] == {"source_branch": "feat/x", "content": "co-snap\n"}
-    # The co-claim does not leak into the other slug's branches list.
+    # The co-attachment does not leak into the other slug's branches list.
     assert parent_data["branches"] == [{"branch": "feat/x", "deleted": False}]
     assert co_data["branches"] == [{"branch": "feat/x", "deleted": False}]
 
@@ -613,7 +613,7 @@ def test_objective_show_with_multiple_slugs_on_branch_uses_explicit_slug(
     listed = CliRunner().invoke(cli_group, ["list", "--here"], obj=obj)
     assert listed.exit_code == 0, listed.output
     assert listed.output.splitlines() == [
-        "co-claimed-objective",
+        "co-attached-objective",
         "parent-objective",
     ]
 

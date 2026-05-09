@@ -1,6 +1,6 @@
-"""Scenario tests for ``objective exec claim``.
+"""Scenario tests for ``objective exec attach``.
 
-The high-level command is the agent-facing claim contract. It wraps the
+The high-level command is the agent-facing attach contract. It wraps the
 lower-level plan/apply commands, applies unique plans, and returns generic
 selection or blocked payloads without requiring callers to understand
 internal planner reason codes.
@@ -20,7 +20,7 @@ from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.exec.claim import CLAIM_SCHEMA, PLAN_SCHEMA
+from asdl_objectives.exec.attach import ATTACH_SCHEMA, PLAN_SCHEMA
 from asdl_objectives.main import build_cli
 from brmem.fake import FakeBranchMemoryGateway
 
@@ -53,22 +53,22 @@ def _make_obj(
     return build_clinkr_context_object(lambda: ctx)
 
 
-def test_claim_help(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "claim", "-h"])
+def test_attach_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "attach", "-h"])
 
     assert result.exit_code == 0
-    assert "Usage: objective exec claim" in result.output
+    assert "Usage: objective exec attach" in result.output
 
 
-def test_claim_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "claim", "--json-schema"])
+def test_attach_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "attach", "--json-schema"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
-def test_claim_explicit_slug_applies_unique_plan(cli_group: ClinkrGroup) -> None:
+def test_attach_explicit_slug_applies_unique_plan(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", "# canonical body\n")
     gateway.put("objectives", "widget-rewrite/notes.md", "master", "- canonical note\n")
@@ -76,14 +76,14 @@ def test_claim_explicit_slug_applies_unique_plan(cli_group: ClinkrGroup) -> None
 
     result = CliRunner().invoke(
         cli_group,
-        ["exec", "claim", "widget-rewrite", "--format", "json"],
+        ["exec", "attach", "widget-rewrite", "--format", "json"],
         obj=obj,
     )
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["json_schema"] == CLAIM_SCHEMA
-    assert data["status"] == "claimed"
+    assert data["json_schema"] == ATTACH_SCHEMA
+    assert data["status"] == "attached"
     assert data["result"]["json_schema"] == PLAN_SCHEMA
     assert data["result"]["slug"] == "widget-rewrite"
     assert data["result"]["source_label"] == "canonical objective"
@@ -91,13 +91,13 @@ def test_claim_explicit_slug_applies_unique_plan(cli_group: ClinkrGroup) -> None
         "body.md",
         "notes.md",
     }
-    assert "Claimed objective: widget-rewrite" in data["message"]
+    assert "Attached objective: widget-rewrite" in data["message"]
     assert "objective-reconcile widget-rewrite on master" in data["message"]
     assert gateway.get("objectives", "widget-rewrite/body.md", "feat/x") == "# canonical body\n"
     assert gateway.get("objectives", "widget-rewrite/notes.md", "feat/x") == "- canonical note\n"
 
 
-def test_claim_ambiguous_slugs_returns_generic_selection(cli_group: ClinkrGroup) -> None:
+def test_attach_ambiguous_slugs_returns_generic_selection(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "alpha/body.md", "feat/parent", "# alpha\n")
     gateway.put("objectives", "beta/body.md", "feat/parent", "# beta\n")
@@ -110,7 +110,7 @@ def test_claim_ambiguous_slugs_returns_generic_selection(cli_group: ClinkrGroup)
 
     result = CliRunner().invoke(
         cli_group,
-        ["exec", "claim", "--target", "feat/custom", "--format", "json"],
+        ["exec", "attach", "--target", "feat/custom", "--format", "json"],
         obj=obj,
     )
 
@@ -118,16 +118,16 @@ def test_claim_ambiguous_slugs_returns_generic_selection(cli_group: ClinkrGroup)
     data = json.loads(result.output)["data"]
     assert data["status"] == "needs_selection"
     assert data["selection"]["kind"] == "slug"
-    assert data["selection"]["prompt"] == "Multiple objectives are reachable. Choose one to claim:"
+    assert data["selection"]["prompt"] == "Multiple objectives are reachable. Choose one to attach:"
     assert data["result"] is None
     assert data["block"] is None
     options = {option["value"]: option for option in data["selection"]["options"]}
     assert options["alpha"]["rerun_args"] == ["alpha", "--target", "feat/custom"]
     assert options["beta"]["rerun_args"] == ["beta", "--target", "feat/custom"]
-    assert "objective exec claim alpha --target feat/custom" in data["message"]
+    assert "objective exec attach alpha --target feat/custom" in data["message"]
 
 
-def test_claim_ambiguous_sources_includes_resolved_slug_in_rerun_args(
+def test_attach_ambiguous_sources_includes_resolved_slug_in_rerun_args(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = FakeBranchMemoryGateway()
@@ -142,7 +142,7 @@ def test_claim_ambiguous_sources_includes_resolved_slug_in_rerun_args(
 
     result = CliRunner().invoke(
         cli_group,
-        ["exec", "claim", "--format", "json"],
+        ["exec", "attach", "--format", "json"],
         obj=obj,
     )
 
@@ -155,10 +155,10 @@ def test_claim_ambiguous_sources_includes_resolved_slug_in_rerun_args(
     assert options["feat/b"]["rerun_args"] == ["alpha", "--from", "feat/b"]
 
 
-def test_claim_plan_error_returns_blocked(cli_group: ClinkrGroup) -> None:
+def test_attach_plan_error_returns_blocked(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,
-        ["exec", "claim", "missing", "--format", "json"],
+        ["exec", "attach", "missing", "--format", "json"],
         obj=_make_obj(gateway=FakeBranchMemoryGateway()),
     )
 
@@ -166,6 +166,6 @@ def test_claim_plan_error_returns_blocked(cli_group: ClinkrGroup) -> None:
     data = json.loads(result.output)["data"]
     assert data["status"] == "blocked"
     assert data["block"]["reason"] == "explicit_slug_not_found"
-    assert "Cannot claim objective" in data["message"]
+    assert "Cannot attach objective" in data["message"]
     assert data["selection"] is None
     assert data["result"] is None

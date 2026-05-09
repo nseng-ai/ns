@@ -53,7 +53,7 @@ exists, `roadmap.md`; it never writes `notes.md`.
 ## Core Rules
 
 - **Canonical only.** The helper writes to canonical `<trunk>`; do not
-  attach to the current branch. Users run `objective-claim <slug>` to
+  attach to the current branch. Users run `objective-attach <slug>` to
   attach a branch snapshot. The current branch is irrelevant — the helper
   only requires it to be a normal (non-detached) branch.
 - **Use canonical templates.** Draft `body.md` from
@@ -204,8 +204,8 @@ From the create JSON envelope, render:
 - next-step hint:
 
 ```text
-To attach this objective to a working branch, run objective-claim from
-inside the branch (the slug is inferred from the parent branch's claim
+To attach this objective to a working branch, run objective-attach from
+inside the branch (the slug is inferred from the parent branch's attach
 when unambiguous). To inspect it and choose a next slice, run
 objective-next. After implementing a slice, run objective-update <slug>
 to record progress.

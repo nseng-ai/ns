@@ -107,7 +107,7 @@ def run_absorb_patches_objective(
         error_type="slug_not_attached",
         message=(
             f"Objective {slug!r} is not attached to branch {current_branch!r}. "
-            f"Run `objective-claim {slug}` on this branch first."
+            f"Run `objective-attach {slug}` on this branch first."
         ),
     )
 

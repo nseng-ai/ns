@@ -6,7 +6,7 @@ allowed-tools:
   - "Bash(git log *)"
   - "Bash(git show *)"
   - "Bash(objective exec update-precheck *)"
-  - "Bash(objective exec claim *)"
+  - "Bash(objective exec attach *)"
   - "Bash(objective exec absorb-patches *)"
   - "Bash(brmem get *)"
   - "Bash(brmem put *)"
@@ -16,8 +16,8 @@ allowed-tools:
 
 # objective-update
 
-Refresh the current branch's objective snapshot before another branch claims
-from it.
+Refresh the current branch's objective snapshot before another branch attaches
+a snapshot from it.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
 > rewrite rules, see `../objective/SKILL.md` and
@@ -25,10 +25,10 @@ from it.
 
 ## Goal
 
-Given an explicit, resolved, or implicitly claimed objective slug, make the
+Given an explicit, resolved, or implicitly attached objective slug, make the
 current branch's snapshot under `<slug>/` current with commits on the current
 branch. If the branch has no matching snapshot, delegate to the
-`objective-claim` carry-forward skill first, then continue the normal update. Write only changed content files back to
+`objective-attach` carry-forward skill first, then continue the normal update. Write only changed content files back to
 `brmem`, then advance the machine-owned `<slug>/.absorbed.jsonl` marker so
 deterministic freshness checks know which branch patches this snapshot
 covers. Report old/new commit SHAs so prior snapshots are recoverable.
@@ -38,8 +38,8 @@ Canonical state is stored on the repo's trunk branch (see
 `../objective/SKILL.md`), so `update` aborts on the trunk branch and points to
 `objective-reconcile`.
 
-This is normally needed only for stacked PRs, when a later branch will claim
-from this branch before this branch lands. For a simple single-PR path, merge
+This is normally needed only for stacked PRs, when a later branch will attach
+a snapshot from this branch before this branch lands. For a simple single-PR path, merge
 the PR and run `objective-reconcile` on the trunk branch instead.
 
 ## Content Files And Marker
@@ -60,7 +60,7 @@ snapshot covers the current branch work.
   and let the precheck enumerate slugs attached to the current branch: a
   single slug auto-resolves, multiple slugs returns
   `ambiguous_objective` (ask the user to choose), zero slugs returns
-  `no_objective_on_branch` (run the implicit claim flow below). Never derive
+  `no_objective_on_branch` (run the implicit attach flow below). Never derive
   the slug from the branch name — branches commonly carry a parent
   objective whose slug differs from the branch's slice slug.
 
@@ -86,10 +86,10 @@ snapshot covers the current branch work.
   `../objective/references/mutation-contract.md`. Do not regenerate
   files from the original brief, rename sections, delete history, or rebuild
   files wholesale.
-- **Attach missing snapshots only through claim.** If `<slug>/` is not present
-  on the branch, delegate to the `objective-claim` skill and then rerun the
+- **Attach missing snapshots only through attach.** If `<slug>/` is not present
+  on the branch, delegate to the `objective-attach` skill and then rerun the
   update precheck. Do not synthesize or hand-copy snapshot files during
-  `update`, and do not reproduce claim mechanics here.
+  `update`, and do not reproduce attach mechanics here.
 - **Serialize snapshot writes.** `brmem put` advances the branch snapshot ref.
   When updating multiple files under the same objective snapshot, run each
   `brmem put` one at a time and wait for its result before starting the next.
@@ -120,9 +120,9 @@ exit-2 errors are terminal unless explicitly handled below.
 - **`error_type` set**: handle only the attach-missing cases here; surface
   all other errors and stop.
   - `no_objective_on_branch` — no slugs attached on this branch; continue to
-    Step 1a to implicitly claim one.
+    Step 1a to implicitly attach one.
   - `slug_not_attached` — the named slug has no snapshot on this branch;
-    continue to Step 1a to claim that slug.
+    continue to Step 1a to attach that slug.
   - `detached_head` — not on a branch; user must check out a branch.
   - `on_trunk_branch` — `update` operates on branch snapshots only;
     direct the user to `objective-reconcile`.
@@ -150,19 +150,19 @@ exit-2 errors are terminal unless explicitly handled below.
 If `data.absorbed_marker_diagnostics` is non-empty, mention that the marker is
 malformed and will be rewritten if triage succeeds.
 
-### 1a. Implicit claim when missing
+### 1a. Implicit attach when missing
 
 If `update-precheck` reports `no_objective_on_branch` or `slug_not_attached`,
-delegate to the `objective-claim` skill (passing the slug from the prompt
-when present). Do not reproduce claim mechanics here.
+delegate to the `objective-attach` skill (passing the slug from the prompt
+when present). Do not reproduce attach mechanics here.
 
-If `objective-claim` reports ambiguity (multiple candidate slugs or tied
+If `objective-attach` reports ambiguity (multiple candidate slugs or tied
 source branches), present the alternatives, ask the user to choose, and
-rerun `objective-claim` with the selected slug (and `--from <branch>` when
-the ambiguity was over source branches). If `objective-claim` reports a
+rerun `objective-attach` with the selected slug (and `--from <branch>` when
+the ambiguity was over source branches). If `objective-attach` reports a
 real error, surface the message and stop.
 
-After a successful claim, capture the resolved slug and rerun the precheck:
+After a successful attach, capture the resolved slug and rerun the precheck:
 
 ```bash
 objective exec update-precheck <resolved-slug> --format json
@@ -287,8 +287,8 @@ When no files were rewritten, report:
 
 - Detached `HEAD`: abort.
 - Current branch is the trunk branch: abort and point to `objective-reconcile`.
-- Slug not attached or no objective on the branch: run the implicit claim flow,
-  prompt for slug/source selection when `objective-claim` is ambiguous, then
+- Slug not attached or no objective on the branch: run the implicit attach flow,
+  prompt for slug/source selection when `objective-attach` is ambiguous, then
   rerun `update-precheck` before mutating prose.
 - Multiple attached slugs with no slug in the prompt: ask the user to
   choose. Never auto-pick to break the tie.
@@ -296,8 +296,8 @@ When no files were rewritten, report:
 - HEAD changed after precheck: stop on `head_moved`; do not absorb untriaged
   commits.
 - Multiple slugs on the branch: fine; operate only on the explicit slug.
-- Never manually construct claim plan files during `update`; delegate
-  missing snapshot attachment to `objective-claim`.
+- Never manually construct attach plan files during `update`; delegate
+  missing snapshot attachment to `objective-attach`.
 - Never parallelize `brmem put` writes to the same branch snapshot.
 - Never implement work, attach a snapshot, rewrite canonical state, delete
   completed roadmap items, remove existing roadmap slice markers, hand-edit

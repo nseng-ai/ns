@@ -186,7 +186,7 @@ def _resolve_context_slug(
                 if on_trunk
                 else (
                     f"No objective on branch {missing.branch!r}. "
-                    "Run `objective-claim <slug>` first."
+                    "Run `objective-attach <slug>` first."
                 )
             )
             raise ClinkrFailure(error_type="no_objective_on_branch", message=message)

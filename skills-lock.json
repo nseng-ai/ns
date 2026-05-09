@@ -141,8 +141,8 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "objective-claim": {
-      "source": "skills/objective-claim",
+    "objective-attach": {
+      "source": "skills/objective-attach",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },

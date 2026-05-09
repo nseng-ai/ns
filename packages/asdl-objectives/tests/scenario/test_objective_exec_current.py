@@ -137,7 +137,7 @@ def test_current_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
     ]
     assert output_json_schema["properties"]["trunk_branch"]["type"] == "string"
     objective_schema = output_json_schema["$defs"]["CurrentObjectiveStatus"]
-    assert objective_schema["properties"]["kind"]["enum"] == ["claimed", "none"]
+    assert objective_schema["properties"]["kind"]["enum"] == ["attached", "none"]
     badge_schema = output_json_schema["$defs"]["CurrentStatusBadge"]
     assert badge_schema["properties"]["kind"]["enum"] == ["objective", "none"]
 
@@ -245,7 +245,7 @@ def test_current_on_trunk_with_n_canonicals_renders_bare_row(cli_group: ClinkrGr
 
     out = _invoke_current(cli_group, obj)
 
-    # Header still surfaces the multi-claim list (master IS the registry),
+    # Header still surfaces the multi-attachment list (master IS the registry),
     # but the stack-map trunk row must be bare — never labeled with the
     # alphabetical-first slug, which would walk an agent toward maintenance
     # work on a slug it is not engaged with.
@@ -263,13 +263,13 @@ def test_current_on_trunk_with_n_canonicals_renders_bare_row(cli_group: ClinkrGr
 # ---------------------------------------------------------------------------
 
 
-def test_current_no_objective_claimed_no_pr(cli_group: ClinkrGroup) -> None:
+def test_current_no_objective_attached_no_pr(cli_group: ClinkrGroup) -> None:
     obj = _make_obj(branch="feat/current")
 
     out = _invoke_current(cli_group, obj)
 
     assert "# On `feat/current`" in out
-    assert "**Objective:** _none claimed_" in out
+    assert "**Objective:** _none attached_" in out
     assert "**Snapshot:**" not in out
     assert "**PR:** _no PR_" in out
     assert "**brmem:** _none_" in out
@@ -277,7 +277,7 @@ def test_current_no_objective_claimed_no_pr(cli_group: ClinkrGroup) -> None:
     assert "## Next Orientation Step" not in out
 
 
-def test_current_no_objective_claimed_json_shape(cli_group: ClinkrGroup) -> None:
+def test_current_no_objective_attached_json_shape(cli_group: ClinkrGroup) -> None:
     obj = _make_obj(branch="feat/current")
 
     payload = _invoke_current_json(cli_group, obj)
@@ -292,7 +292,7 @@ def test_current_no_objective_claimed_json_shape(cli_group: ClinkrGroup) -> None
     }
 
 
-def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
+def test_current_single_attach_fresh(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
     gateway.put(
@@ -338,7 +338,7 @@ def test_current_single_claim_fresh(cli_group: ClinkrGroup) -> None:
     assert "`objective-digest widget`" in out
 
 
-def test_current_single_claim_fresh_json_shape(cli_group: ClinkrGroup) -> None:
+def test_current_single_attach_fresh_json_shape(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
     gateway.put(
@@ -383,12 +383,12 @@ def test_current_single_claim_fresh_json_shape(cli_group: ClinkrGroup) -> None:
         "prompt": _invoke_current(cli_group, obj),
         "current_branch": "feat/current",
         "trunk_branch": "master",
-        "objective": {"kind": "claimed", "slug": "widget", "state": "fresh"},
+        "objective": {"kind": "attached", "slug": "widget", "state": "fresh"},
         "status_badge": {"kind": "objective", "slug": "widget"},
     }
 
 
-def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
+def test_current_single_attach_stale(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
     file_last_touched = {
@@ -424,7 +424,7 @@ def test_current_single_claim_stale(cli_group: ClinkrGroup) -> None:
     assert "**Snapshot:** stale - run `objective-update widget` to refresh" in out
 
 
-def test_current_multiple_claims_on_branch_json_shape(cli_group: ClinkrGroup) -> None:
+def test_current_multiple_attachments_on_branch_json_shape(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "alpha/body.md", "feat/current", "alpha")
     gateway.put("objectives", "bravo/body.md", "feat/current", "bravo")
@@ -447,7 +447,7 @@ def test_current_multiple_claims_on_branch_json_shape(cli_group: ClinkrGroup) ->
     }
 
 
-def test_current_multiple_claims_on_branch(cli_group: ClinkrGroup) -> None:
+def test_current_multiple_attachments_on_branch(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "alpha/body.md", "feat/current", "alpha")
     gateway.put("objectives", "bravo/body.md", "feat/current", "bravo")
@@ -461,7 +461,7 @@ def test_current_multiple_claims_on_branch(cli_group: ClinkrGroup) -> None:
     out = _invoke_current(cli_group, obj)
 
     assert "**Objective:** `alpha`" in out
-    assert "_also claimed: bravo, charlie_" in out
+    assert "_also attached: bravo, charlie_" in out
 
 
 def test_current_brmem_listing_includes_multiple_namespaces(cli_group: ClinkrGroup) -> None:
@@ -576,10 +576,10 @@ def test_current_stack_map_no_trunk_row_when_no_downstack(cli_group: ClinkrGroup
     assert "master" not in fence_body
 
 
-def test_current_on_trunk_with_orphan_claim_renders_missing_on_master(
+def test_current_on_trunk_with_orphan_attach_renders_missing_on_master(
     cli_group: ClinkrGroup,
 ) -> None:
-    """A5 case 3: current branch claims X but master lacks body.md → orphan.
+    """A5 case 3: current branch attaches X but master lacks body.md → orphan.
 
     Sitting on master with slug ``widget`` listed (e.g. via a stray
     roadmap blob) but no canonical ``widget/body.md`` is the orphan case.
@@ -608,7 +608,7 @@ def test_current_on_trunk_with_orphan_claim_renders_missing_on_master(
 def test_current_on_trunk_single_canonical_uses_master_vs_master_freshness(
     cli_group: ClinkrGroup,
 ) -> None:
-    """A5 case 2: current branch claims X and master holds X → fresh|stale.
+    """A5 case 2: current branch attaches X and master holds X → fresh|stale.
 
     Master-vs-master freshness compares ``<X>/body.md`` last-touch on
     master to master HEAD. Newer trunk HEAD than canonical body.md means
@@ -698,7 +698,7 @@ def _stack_rows(prompt: str) -> list[str]:
 
 
 def test_render_with_downstack_uses_in_scope_slug_for_trunk_row() -> None:
-    """A5 case 2 under stack walking: trunk row adopts current's claim."""
+    """A5 case 2 under stack walking: trunk row adopts current's attach."""
     current = _current_block(
         branch="feat/widget",
         objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
@@ -727,7 +727,7 @@ def test_render_with_downstack_uses_in_scope_slug_for_trunk_row() -> None:
     ], rows
 
 
-def test_render_with_downstack_orphan_claim_labels_missing_on_master() -> None:
+def test_render_with_downstack_orphan_attach_labels_missing_on_master() -> None:
     """A5 case 3 under stack walking: trunk row says ``missing on master``."""
     current = _current_block(
         branch="feat/widget",
@@ -755,11 +755,11 @@ def test_render_with_downstack_orphan_claim_labels_missing_on_master() -> None:
     assert "master  no PR  widget missing on master" in rows[0], rows
 
 
-def test_render_with_downstack_no_claim_renders_bare_trunk_row() -> None:
-    """Non-trunk current with no claim → trunk row stays bare even with downstack.
+def test_render_with_downstack_no_attach_renders_bare_trunk_row() -> None:
+    """Non-trunk current with no attach → trunk row stays bare even with downstack.
 
     Locks the in-scope-slug rule against accidentally falling back to
-    master's canonical registry when the current branch claims nothing.
+    master's canonical registry when the current branch attaches nothing.
     """
     current = _current_block(branch="feat/widget", objective=None)
     trunk_row = _trunk_row(in_scope=None)

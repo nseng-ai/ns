@@ -1,7 +1,7 @@
 """``objective exec current`` — render the orientation brief for ``objective-current``.
 
 Tightly coupled to the ``objective-current`` skill: emits a single
-self-contained Markdown brief covering the current branch's claimed
+self-contained Markdown brief covering the current branch's attached
 objective + freshness, PR, brmem entries, and trunk relation. The skill
 simply runs this command and prints the output verbatim. The machine JSON
 contract also exposes structured branch/objective fields so extensions do
@@ -45,7 +45,7 @@ class ObjectiveCurrentRequest(ClinkrModel):
     pass
 
 
-ObjectiveKind = Literal["claimed", "none"]
+ObjectiveKind = Literal["attached", "none"]
 StatusBadgeKind = Literal["objective", "none"]
 
 
@@ -130,8 +130,8 @@ class _TrunkRow:
     Rendered with the current branch's in-scope slug rather than master's
     full canonical registry, so an agent reading the stack map is not
     walked toward maintenance work on slugs it is not engaged with. When
-    the current branch claims no slug (or is itself the trunk), the trunk
-    row is bare. When the current branch claims slug ``X``, the trunk row
+    the current branch attaches no slug (or is itself the trunk), the trunk
+    row is bare. When the current branch attaches slug ``X``, the trunk row
     is labeled with ``X`` and either master-vs-master canonical freshness
     or ``missing on master``.
     """
@@ -285,11 +285,11 @@ def _resolve_in_scope_slug(
     *,
     trunk: str,
 ) -> str | None:
-    """Return the current branch's single claimed slug, or ``None``.
+    """Return the current branch's single attached slug, or ``None``.
 
-    A "claim" means the current branch carries exactly one slug. Multiple
+    A "attach" means the current branch carries exactly one slug. Multiple
     slugs on the current branch are registry-shaped (master's full
-    canonical set, or a rare multi-claim feature branch) and yield
+    canonical set, or a rare multi-attachment feature branch) and yield
     ``None`` so the trunk row stays bare instead of being labeled with an
     arbitrary alphabetical-first slug. ``trunk`` is unused today — it is
     accepted so future stack-walking changes can refine the rule without
@@ -312,7 +312,7 @@ def _build_current_objective_status(
     if slug is None or current_block.objective is None:
         return CurrentObjectiveStatus(kind="none")
     return CurrentObjectiveStatus(
-        kind="claimed",
+        kind="attached",
         slug=slug,
         state=current_block.objective.obj_state,
     )
@@ -340,7 +340,7 @@ def _build_trunk_row(
 ) -> _TrunkRow:
     """Build the trunk row using ``in_scope_slug`` for its label.
 
-    The trunk row label reflects the current branch's claim — not master's
+    The trunk row label reflects the current branch's attach — not master's
     full registry — so an agent reading the stack map is not walked toward
     maintenance work on slugs it is not working on. When the current
     branch is itself the trunk we reuse ``current_block``'s PR lookup to
@@ -504,7 +504,7 @@ def _render_header(current: _CurrentBranchBlock) -> str:
     lines = [f"# On `{current.branch}`", ""]
     objective = current.objective
     if objective is None:
-        lines.append("**Objective:** _none claimed_")
+        lines.append("**Objective:** _none attached_")
     else:
         lines.append(f"**Objective:** `{objective.slug}`")
         if objective.obj_state == "fresh":
@@ -525,7 +525,7 @@ def _render_header(current: _CurrentBranchBlock) -> str:
 
     if current.objectives_extra:
         lines.append("")
-        lines.append(f"_also claimed: {', '.join(current.objectives_extra)}_")
+        lines.append(f"_also attached: {', '.join(current.objectives_extra)}_")
 
     return "\n".join(lines)
 

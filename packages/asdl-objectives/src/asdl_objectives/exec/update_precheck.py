@@ -144,7 +144,7 @@ def run_update_precheck_objective(
                     error_type="no_objective_on_branch",
                     message=(
                         f"No objective on branch {missing.branch!r}. "
-                        "Run `objective-claim <slug>` on this branch first."
+                        "Run `objective-attach <slug>` on this branch first."
                     ),
                 )
             case AmbiguousObjective() as ambiguity:
@@ -166,7 +166,7 @@ def run_update_precheck_objective(
             error_type="slug_not_attached",
             message=(
                 f"Objective {slug!r} is not attached to branch {current_branch!r}. "
-                f"Run `objective-claim {slug}` on this branch first."
+                f"Run `objective-attach {slug}` on this branch first."
             ),
         )
 

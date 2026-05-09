@@ -1,4 +1,4 @@
-"""Scenario-style coverage for the internal claim applier.
+"""Scenario-style coverage for the internal attach applier.
 
 The applier consumes a plan envelope and performs the carry-forward. These
 tests cover plan-file shape validation, schema mismatch handling, branch-source
@@ -17,7 +17,7 @@ from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.exec.claim import PLAN_SCHEMA, apply_claim_plan_file
+from asdl_objectives.exec.attach import PLAN_SCHEMA, apply_attach_plan_file
 from brmem.fake import FakeBranchMemoryGateway
 
 
@@ -95,7 +95,7 @@ def _local_file_plan(*, slug: str, target_branch: str, from_file_path: str) -> d
 
 
 def _apply_data(ctx: ObjectiveCliContext, plan_file: Path) -> dict:
-    return serialize_to_json_dict(apply_claim_plan_file(ctx, plan_file))
+    return serialize_to_json_dict(apply_attach_plan_file(ctx, plan_file))
 
 
 def _assert_hard_failure(
@@ -105,13 +105,13 @@ def _assert_hard_failure(
     error_type: str,
 ) -> ClinkrFailure:
     with pytest.raises(ClinkrFailure) as exc_info:
-        apply_claim_plan_file(ctx, plan_file)
+        apply_attach_plan_file(ctx, plan_file)
 
     assert exc_info.value.error_type == error_type
     return exc_info.value
 
 
-def test_claim_apply_branch_source_carries_every_file(tmp_path: Path) -> None:
+def test_attach_apply_branch_source_carries_every_file(tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "feat/source", "# source body\n")
     gateway.put("objectives", "widget-rewrite/notes.md", "feat/source", "- finding A\n")
@@ -139,7 +139,7 @@ def test_claim_apply_branch_source_carries_every_file(tmp_path: Path) -> None:
     assert gateway.get("objectives", "widget-rewrite/notes.md", "feat/x") == "- finding A\n"
 
 
-def test_claim_apply_local_file_source_writes_only_body(tmp_path: Path) -> None:
+def test_attach_apply_local_file_source_writes_only_body(tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     body_path = tmp_path / "body.md"
     body_path.write_text("# new body from disk\n", encoding="utf-8")
@@ -164,7 +164,7 @@ def test_claim_apply_local_file_source_writes_only_body(tmp_path: Path) -> None:
     assert gateway.get("objectives", "widget-rewrite/roadmap.md", "feat/x") is None
 
 
-def test_claim_apply_rejects_malformed_json(tmp_path: Path) -> None:
+def test_attach_apply_rejects_malformed_json(tmp_path: Path) -> None:
     plan_path = tmp_path / "bad.json"
     plan_path.write_text("not-json", encoding="utf-8")
     ctx = _make_ctx(FakeBranchMemoryGateway())
@@ -172,10 +172,10 @@ def test_claim_apply_rejects_malformed_json(tmp_path: Path) -> None:
     _assert_hard_failure(ctx, plan_path, error_type="malformed_plan_file")
 
 
-def test_claim_apply_rejects_schema_mismatch(tmp_path: Path) -> None:
+def test_attach_apply_rejects_schema_mismatch(tmp_path: Path) -> None:
     plan = _write_plan_file(
         tmp_path,
-        schema="claim-plan/v0",
+        schema="attach-plan/v0",
         plan=_branch_source_plan(
             slug="widget-rewrite",
             target_branch="feat/x",
@@ -186,10 +186,10 @@ def test_claim_apply_rejects_schema_mismatch(tmp_path: Path) -> None:
 
     failure = _assert_hard_failure(ctx, plan, error_type="schema_mismatch")
 
-    assert "claim-plan/v0" in failure.message
+    assert "attach-plan/v0" in failure.message
 
 
-def test_claim_apply_rejects_non_plan_status(tmp_path: Path) -> None:
+def test_attach_apply_rejects_non_plan_status(tmp_path: Path) -> None:
     plan = _write_plan_file(
         tmp_path,
         status="ambiguous",
@@ -206,7 +206,7 @@ def test_claim_apply_rejects_non_plan_status(tmp_path: Path) -> None:
     _assert_hard_failure(ctx, plan, error_type="not_a_plan")
 
 
-def test_claim_apply_rejects_when_target_now_carries_slug(tmp_path: Path) -> None:
+def test_attach_apply_rejects_when_target_now_carries_slug(tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "feat/source", "# source\n")
     gateway.put("objectives", "widget-rewrite/body.md", "feat/x", "# already there\n")
@@ -229,7 +229,7 @@ def test_claim_apply_rejects_when_target_now_carries_slug(tmp_path: Path) -> Non
     assert gateway.get("objectives", "widget-rewrite/body.md", "feat/x") == "# already there\n"
 
 
-def test_claim_apply_rejects_when_source_no_longer_has_slug(tmp_path: Path) -> None:
+def test_attach_apply_rejects_when_source_no_longer_has_slug(tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     plan = _write_plan_file(
         tmp_path,
@@ -244,7 +244,7 @@ def test_claim_apply_rejects_when_source_no_longer_has_slug(tmp_path: Path) -> N
     _assert_hard_failure(ctx, plan, error_type="source_missing_slug")
 
 
-def test_claim_apply_rejects_when_from_file_no_longer_exists(tmp_path: Path) -> None:
+def test_attach_apply_rejects_when_from_file_no_longer_exists(tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     plan = _write_plan_file(
         tmp_path,
@@ -259,7 +259,7 @@ def test_claim_apply_rejects_when_from_file_no_longer_exists(tmp_path: Path) -> 
     _assert_hard_failure(ctx, plan, error_type="from_file_unreadable")
 
 
-def test_claim_apply_canonical_source_writes_to_branch(tmp_path: Path) -> None:
+def test_attach_apply_canonical_source_writes_to_branch(tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", "# canonical body\n")
     plan = _write_plan_file(
