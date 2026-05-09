@@ -33,7 +33,7 @@ A revision that makes an **Objective Snapshot** reflect available **Durable Evid
 _Avoid_: Refresh, absorb
 
 **Objective Reconciliation**:
-The process of updating a **Canonical Objective** from **Durable Evidence**, usually including completed **Units of Work** and their **Objective Snapshots**.
+The process of updating a **Canonical Objective** from **Durable Evidence**, usually including completed numbered Objective Roadmap entries and their **Objective Snapshots**.
 _Avoid_: Canonical update, merge, sync
 
 **Objective Attachment**:
@@ -65,12 +65,8 @@ The stable **Objective Document** that describes scope, goals, completion criter
 _Avoid_: body file
 
 **Objective Roadmap**:
-The **Objective Document** that tracks ordered **Units of Work** for an **Objective**.
-_Avoid_: roadmap file
-
-**Unit of Work**:
-A planned unit of objective work tracked in an **Objective Roadmap** whose completion is determined by **Durable Evidence** of progress.
-_Avoid_: Slice, Roadmap Item, task, ticket, node
+The **Objective Document** that tracks a numbered plan for an **Objective**. Entries describe intended objective progress, not a pre-committed implementation shape.
+_Avoid_: roadmap file, slice list, task list, unit of work
 
 **Durable Evidence**:
 Inspectable proof that objective progress happened, such as a commit, merged PR, stored Branch Memory Entry, updated **Objective Document**, **Objective Marker**, recorded decision, or documented external action.
@@ -95,18 +91,22 @@ _Avoid_: notes file
 - **Objective Closure** changes an **Open Objective** into a **Closed Objective**.
 - An **Objective** is composed of **Objective Documents** and may include **Objective Markers**.
 - The core **Objective Documents** are the **Objective Body**, **Objective Roadmap**, and **Objective Notes**.
-- An **Objective Roadmap** contains zero or more ordered **Units of Work**.
-- `objective-next` recommends the next **Unit of Work**.
-- A **Unit of Work** may be split into smaller **Units of Work** when the work turns out to be more granular than expected.
-- A **Unit of Work** is complete when **Durable Evidence** shows that its intended objective progress happened.
+- An **Objective Roadmap** contains zero or more numbered entries.
+- Numbered **Objective Roadmap** entries are written for agents starting from the **Canonical Objective** on the repo's trunk branch unless an entry explicitly says it depends on another branch.
+- `objective-next` recommends what to do with the next numbered **Objective Roadmap** entry, such as a PR, stack, docs-only change, or split.
+- A numbered **Objective Roadmap** entry may be split when the work turns out to be more granular than expected.
+- A numbered **Objective Roadmap** entry is complete when **Durable Evidence** shows that its intended objective progress happened.
 
 ## Example dialogue
 
 > **Dev:** "Should this branch update the objective directly?"
 > **Domain expert:** "Update the **Objective Snapshot** on the branch; only **Objective Reconciliation** updates the **Canonical Objective**."
 >
-> **Dev:** "Is this Unit of Work complete because the checklist says so?"
-> **Domain expert:** "No. A **Unit of Work** is complete when there is **Durable Evidence** that the intended progress happened."
+> **Dev:** "Is roadmap entry 2 complete because the checklist says so?"
+> **Domain expert:** "No. A numbered **Objective Roadmap** entry is complete when there is **Durable Evidence** that the intended progress happened."
+>
+> **Dev:** "Should roadmap entry 3 assume my current feature branch?"
+> **Domain expert:** "No. Write numbered **Objective Roadmap** entries for agents branching from the **Canonical Objective** on trunk unless the entry explicitly says it is stacked on another branch."
 >
 > **Dev:** "Should we archive this objective now?"
 > **Domain expert:** "Call it **Objective Closure**: the **Objective** becomes closed because it is complete or no longer relevant. Archive mechanics are storage details."
@@ -114,6 +114,6 @@ _Avoid_: notes file
 ## Flagged ambiguities
 
 - "branch snapshot" was used both for objective state and lower-level Branch Memory storage. Resolved: use **Objective Snapshot** for objective semantics.
-- "slice" and "roadmap item" were used for planned objective work. Resolved: use **Unit of Work** instead.
+- "slice", "roadmap item", and "unit of work" over-name planned objective work. Resolved: number **Objective Roadmap** entries and let `objective-next` recommend the implementation shape on demand.
 - "claim" was used for attaching objective state to a branch. Resolved: use **Objective Attachment** in the ontology.
 - "fresh" was used for objective snapshot state. Resolved: use **up-to-date** relative to **Durable Evidence**.
