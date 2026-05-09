@@ -61,6 +61,7 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
     assert "list" in result.output
     assert "check" in result.output
     assert "copy" in result.output
+    assert "export" in result.output
     # The exec subgroup is hidden; neither it nor its operations should appear
     # in top-level brmem -h output.
     assert "exec" not in result.output
@@ -1298,6 +1299,216 @@ def test_brmem_list_base_and_namespace_are_mutually_exclusive(
     assert result.exit_code == 2
     assert payload["error_type"] == "base_and_namespace_conflict"
     assert "mutually exclusive" in payload["message"]
+
+
+# ---------------------------------------------------------------------------
+# brmem export
+# ---------------------------------------------------------------------------
+
+
+def test_brmem_export_help_lists_flags(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["export", "-h"])
+
+    assert result.exit_code == 0
+    assert "--output-dir" in result.output
+    assert "--namespace" in result.output
+    assert "--branch" in result.output
+    assert "--overwrite" in result.output
+    assert "--dry-run" in result.output
+
+
+def test_brmem_export_base_entries_by_default(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "feat/x", "base plan\n")
+    gateway.put(None, "notes/session.md", "feat/x", "base session\n")
+    gateway.put("scratch", "notes/scratch.md", "feat/x", "scratch\n")
+    output_dir = tmp_path / "brmem"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--output-dir", str(output_dir)],
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Exported 2 base entries on branch feat/x to {output_dir}." in result.output
+    assert (output_dir / "plan.md").read_text(encoding="utf-8") == "base plan\n"
+    assert (output_dir / "notes" / "session.md").read_text(encoding="utf-8") == "base session\n"
+    assert not (output_dir / "notes" / "scratch.md").exists()
+
+
+def test_brmem_export_namespace_entries(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "feat/x", "base\n")
+    gateway.put("scratch", "notes/a.md", "feat/x", "scratch a\n")
+    gateway.put("scratch", "notes/b.md", "feat/x", "scratch b\n")
+    gateway.put("objectives", "obj/body.md", "feat/x", "objective\n")
+    output_dir = tmp_path / "scratch"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--namespace", "scratch", "--output-dir", str(output_dir)],
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        f"Exported 2 entries from namespace scratch on branch feat/x to {output_dir}."
+        in result.output
+    )
+    assert (output_dir / "notes" / "a.md").read_text(encoding="utf-8") == "scratch a\n"
+    assert (output_dir / "notes" / "b.md").read_text(encoding="utf-8") == "scratch b\n"
+    assert not (output_dir / "plan.md").exists()
+    assert not (output_dir / "obj" / "body.md").exists()
+
+
+def test_brmem_export_nested_keys_create_directories(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plans/foo/body.md", "feat/x", "body\n")
+    output_dir = tmp_path / "nested"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--output-dir", str(output_dir)],
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (output_dir / "plans" / "foo" / "body.md").read_text(encoding="utf-8") == "body\n"
+
+
+def test_brmem_export_explicit_branch_overrides_current(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "feat/current", "current\n")
+    gateway.put(None, "plan.md", "feat/other", "other\n")
+    output_dir = tmp_path / "other"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--branch", "feat/other", "--output-dir", str(output_dir)],
+        obj=_make_obj(gateway=gateway, branch="feat/current"),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (output_dir / "plan.md").read_text(encoding="utf-8") == "other\n"
+
+
+def test_brmem_export_fails_on_existing_file_without_overwrite(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "feat/x", "new plan\n")
+    gateway.put(None, "notes/new.md", "feat/x", "new note\n")
+    output_dir = tmp_path / "conflict"
+    output_dir.mkdir()
+    (output_dir / "plan.md").write_text("original\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--output-dir", str(output_dir)],
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert result.exit_code == 2
+    assert "Pass --overwrite" in result.output
+    assert (output_dir / "plan.md").read_text(encoding="utf-8") == "original\n"
+    assert not (output_dir / "notes" / "new.md").exists()
+
+
+def test_brmem_export_overwrite_replaces_existing_file(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "feat/x", "replacement\n")
+    output_dir = tmp_path / "overwrite"
+    output_dir.mkdir()
+    (output_dir / "plan.md").write_text("original\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--output-dir", str(output_dir), "--overwrite"],
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (output_dir / "plan.md").read_text(encoding="utf-8") == "replacement\n"
+
+
+def test_brmem_export_dry_run_writes_nothing(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "feat/x", "plan\n")
+    output_dir = tmp_path / "dry-run"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--output-dir", str(output_dir), "--dry-run"],
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Would export 1 base entry on branch feat/x to {output_dir}." in result.output
+    assert "plan.md" in result.output
+    assert not output_dir.exists()
+
+
+def test_brmem_export_empty_selection_is_negative(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan.md", "feat/x", "scratch\n")
+    output_dir = tmp_path / "empty"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--output-dir", str(output_dir)],
+        obj=_make_obj(gateway=gateway),
+    )
+
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.strip() == "No base entries found on branch feat/x."
+    assert not output_dir.exists()
+
+
+def test_brmem_export_json_output(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(None, "plan.md", "feat/x", "base\n")
+    output_dir = tmp_path / "json"
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["export", "--output-dir", str(output_dir), "--format", "json"],
+        obj=_make_obj(gateway=gateway),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "namespace": None,
+        "branch": "feat/x",
+        "output_dir": str(output_dir),
+        "overwrite": False,
+        "dry_run": False,
+        "exported": [
+            {
+                "key": "plan.md",
+                "path": str(output_dir / "plan.md"),
+                "ref_name": "refs/brmem/base/feat---x:plan.md",
+                "size_bytes": 5,
+            }
+        ],
+    }
+
+
+def test_brmem_export_json_schema_flag_is_eager(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["export", "--json-schema"])
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
 
 
 # ---------------------------------------------------------------------------
