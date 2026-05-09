@@ -19,6 +19,7 @@ from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_o
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.gh.types import PRLookupError, PRSummary
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import CommitSummary, DetachedHead, GitCommandFailure
@@ -94,6 +95,7 @@ def _make_obj(
         brmem_gateway=brmem_gateway,
         git_gateway=git_gateway,
         pr_gateway=pr_gateway if pr_gateway is not None else FakePRGateway(),
+        issue_gateway=FakeIssueGateway(),
     )
     return build_clinkr_context_object(lambda: ctx)
 

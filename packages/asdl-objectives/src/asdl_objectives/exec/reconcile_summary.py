@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import click
 
@@ -21,6 +21,7 @@ from asdl_objectives.exec.reconcile_plan import (
 )
 
 SUMMARY_SCHEMA = "reconcile-summary/v1"
+SummaryStatus = Literal["actionable", "no-evidence", "conflict", "gap"]
 
 
 class ReconcileSummaryCounts(ClinkrModel):
@@ -43,7 +44,7 @@ class ReconcileSummaryIncludedSnapshot(ClinkrModel):
     pr_state: str | None
     pr_title: str | None
     pr_url: str | None
-    files: tuple[str, ...]
+    changed_files: tuple[str, ...]
 
 
 class ReconcileSummarySkippedSnapshot(ClinkrModel):
@@ -58,6 +59,7 @@ class ReconcileSummarySkippedSnapshot(ClinkrModel):
 
 class ReconcileSummarySlug(ClinkrModel):
     slug: str
+    status: SummaryStatus
     canonical_present: bool
     canonical_files: tuple[ReconcileSummaryCanonicalFile, ...]
     included_snapshots: tuple[ReconcileSummaryIncludedSnapshot, ...]
@@ -85,7 +87,7 @@ def render_reconcile_summary(result: ReconcileSummaryResult) -> None:
     for slug in result.slugs:
         click.echo(f"## {slug.slug}")
         click.echo()
-        click.echo(f"Status: {_slug_status(slug)}")
+        click.echo(f"Status: {slug.status}")
         present_files = [f"`{f.file}`" for f in slug.canonical_files if f.present]
         click.echo(f"Canonical files: {', '.join(present_files) if present_files else 'None'}")
         click.echo()
@@ -97,7 +99,10 @@ def render_reconcile_summary(result: ReconcileSummaryResult) -> None:
                 pr_label = _pr_label(snapshot.pr_number, snapshot.pr_state)
                 click.echo(f"- {pr_label} — {snapshot.branch}")
                 if snapshot.pr_title:
-                    click.echo(f"  {snapshot.pr_title}")
+                    click.echo(f"  Title: {snapshot.pr_title}")
+                if snapshot.pr_url:
+                    click.echo(f"  URL: {snapshot.pr_url}")
+                click.echo(f"  {_changed_files_summary(snapshot.changed_files)}")
         else:
             click.echo("None.")
         click.echo()
@@ -162,6 +167,12 @@ def _summary_from_plan(
 def _summarize_slug(slug: SlugPlanItem) -> ReconcileSummarySlug:
     return ReconcileSummarySlug(
         slug=slug.slug,
+        status=_status_for(
+            canonical_present=slug.canonical_present,
+            included_snapshot_count=len(slug.included_snapshots),
+            conflicts=slug.conflicts,
+            gaps=slug.gaps,
+        ),
         canonical_present=slug.canonical_present,
         canonical_files=tuple(_summarize_file(file) for file in slug.canonical_files),
         included_snapshots=tuple(
@@ -193,7 +204,7 @@ def _summarize_included_snapshot(
         pr_state=snapshot.pr.state,
         pr_title=snapshot.pr.title,
         pr_url=snapshot.pr.url,
-        files=tuple(file.file for file in snapshot.files),
+        changed_files=tuple(file.path for file in snapshot.pr_changed_files),
     )
 
 
@@ -215,6 +226,7 @@ def _summarize_skipped_snapshot(
 def _slug_to_json(slug: ReconcileSummarySlug) -> dict[str, Any]:
     return {
         "slug": slug.slug,
+        "status": slug.status,
         "canonical_present": slug.canonical_present,
         "canonical_files": [
             {
@@ -232,7 +244,7 @@ def _slug_to_json(slug: ReconcileSummarySlug) -> dict[str, Any]:
                 "pr_state": snapshot.pr_state,
                 "pr_title": snapshot.pr_title,
                 "pr_url": snapshot.pr_url,
-                "files": list(snapshot.files),
+                "changed_files": list(snapshot.changed_files),
             }
             for snapshot in slug.included_snapshots
         ],
@@ -254,17 +266,32 @@ def _slug_to_json(slug: ReconcileSummarySlug) -> dict[str, Any]:
 
 
 def _is_actionable(slug: ReconcileSummarySlug) -> bool:
-    return slug.canonical_present and bool(slug.included_snapshots) and not slug.conflicts
+    return _slug_status(slug) == "actionable"
 
 
-def _slug_status(slug: ReconcileSummarySlug) -> str:
-    if slug.conflicts:
+def _slug_status(slug: ReconcileSummarySlug) -> SummaryStatus:
+    return _status_for(
+        canonical_present=slug.canonical_present,
+        included_snapshot_count=len(slug.included_snapshots),
+        conflicts=slug.conflicts,
+        gaps=slug.gaps,
+    )
+
+
+def _status_for(
+    *,
+    canonical_present: bool,
+    included_snapshot_count: int,
+    conflicts: tuple[str, ...],
+    gaps: tuple[str, ...],
+) -> SummaryStatus:
+    if conflicts:
         return "conflict"
-    if _is_actionable(slug):
-        return "actionable"
-    if slug.gaps:
+    if gaps:
         return "gap"
-    return "no-op"
+    if canonical_present and included_snapshot_count >= 1:
+        return "actionable"
+    return "no-evidence"
 
 
 def _pr_label(pr_number: int | None, pr_state: str | None) -> str:
@@ -273,6 +300,17 @@ def _pr_label(pr_number: int | None, pr_state: str | None) -> str:
     if pr_state is None:
         return f"PR #{pr_number}"
     return f"PR #{pr_number} {pr_state}"
+
+
+def _changed_files_summary(paths: tuple[str, ...]) -> str:
+    count = len(paths)
+    noun = "file" if count == 1 else "files"
+    if count == 0:
+        return "0 changed files"
+    visible = list(paths[:6])
+    if count > len(visible):
+        visible.append("...")
+    return f"{count} changed {noun}: {', '.join(visible)}"
 
 
 def _render_string_list(items: tuple[str, ...]) -> None:

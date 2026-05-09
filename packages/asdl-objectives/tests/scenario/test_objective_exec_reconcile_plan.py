@@ -18,7 +18,8 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_core.gh.types import PRSummary
+from asdl_core.gh.testing import FakeIssueGateway
+from asdl_core.gh.types import PRChangedFile, PRSummary
 from asdl_core.git.testing import FakeGitGateway
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.exec.reconcile_plan import PLAN_SCHEMA
@@ -39,6 +40,7 @@ def _pr(
     url: str = "https://example.com/pull/0",
     head: str = "feat/x",
     base: str = "master",
+    body: str | None = None,
 ) -> PRSummary:
     return PRSummary(
         number=number,
@@ -47,6 +49,7 @@ def _pr(
         head_ref_name=head,
         base_ref_name=base,
         state=state,  # type: ignore[arg-type]
+        body=body,
     )
 
 
@@ -55,6 +58,7 @@ def _make_obj(
     gateway: FakeBranchMemoryGateway,
     branches: tuple[str, ...] = ("master",),
     prs_by_branch: dict[str, PRSummary] | None = None,
+    pr_changed_files: dict[int, tuple[PRChangedFile, ...]] | None = None,
 ) -> ClinkrContextObject:
     git_gateway = FakeGitGateway(
         current_branch_by_path={Path.cwd(): "master"},
@@ -65,6 +69,7 @@ def _make_obj(
         brmem_gateway=gateway,
         git_gateway=git_gateway,
         pr_gateway=FakePRGateway(prs_by_branch=prs_by_branch or {}),
+        issue_gateway=FakeIssueGateway(pr_changed_files=pr_changed_files or {}),
     )
     return build_clinkr_context_object(lambda: ctx)
 
@@ -117,7 +122,9 @@ def test_reconcile_plan_empty_registry_emits_clean_envelope(cli_group: ClinkrGro
 # ---------------------------------------------------------------------------
 
 
-def test_reconcile_plan_single_slug_no_snapshots_emits_gap(cli_group: ClinkrGroup) -> None:
+def test_reconcile_plan_single_slug_no_snapshots_emits_no_evidence_shape(
+    cli_group: ClinkrGroup,
+) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget-rewrite/body.md", "master", "# Widget\n")
     obj = _make_obj(gateway=gateway, branches=("master",))
@@ -145,7 +152,7 @@ def test_reconcile_plan_single_slug_no_snapshots_emits_gap(cli_group: ClinkrGrou
     assert files["notes.md"]["present"] is False
     assert item["included_snapshots"] == []
     assert item["skipped_snapshots"] == []
-    assert item["gaps"] == ["no merged PR-backed branch snapshots carry slug 'widget-rewrite'"]
+    assert item["gaps"] == []
     assert item["conflicts"] == []
 
 
@@ -158,7 +165,18 @@ def test_reconcile_plan_single_merged_snapshot_is_included(cli_group: ClinkrGrou
         gateway=gateway,
         branches=("master", "feat/x"),
         prs_by_branch={
-            "feat/x": _pr(number=42, state="MERGED", head="feat/x"),
+            "feat/x": _pr(
+                number=42,
+                state="MERGED",
+                head="feat/x",
+                body="Implements widget reconcile evidence.",
+            ),
+        },
+        pr_changed_files={
+            42: (
+                PRChangedFile(path="src/widget.py", status="modified", patch="@@ patch"),
+                PRChangedFile(path="docs/widget.md", status="added", patch=None),
+            ),
         },
     )
 
@@ -176,6 +194,11 @@ def test_reconcile_plan_single_merged_snapshot_is_included(cli_group: ClinkrGrou
     assert snap["branch"] == "feat/x"
     assert snap["pr"]["state"] == "MERGED"
     assert snap["pr"]["number"] == 42
+    assert snap["pr_body"] == "Implements widget reconcile evidence."
+    assert snap["pr_changed_files"] == [
+        {"path": "src/widget.py", "status": "modified", "patch": "@@ patch"},
+        {"path": "docs/widget.md", "status": "added", "patch": None},
+    ]
     files = {f["file"]: f for f in snap["files"]}
     assert files["body.md"]["content"] == "# Widget branch\n"
     assert files["notes.md"]["content"] == "- finding A\n"
@@ -241,8 +264,9 @@ def test_reconcile_plan_classifies_skip_reasons(cli_group: ClinkrGroup) -> None:
     assert by_branch["feat/closed"]["reason"] == "closed_unmerged"
     assert by_branch["feat/no-pr"]["reason"] == "no_pr"
     assert by_branch["feat/no-pr"]["pr"]["error"] is None
-    # No merged eligible evidence -> gap.
-    assert item["gaps"] == ["no merged PR-backed branch snapshots carry slug 'widget-rewrite'"]
+    # No merged eligible evidence is classified by the summary as `no-evidence`,
+    # not represented as a plan gap.
+    assert item["gaps"] == []
 
 
 def test_reconcile_plan_pr_lookup_error_is_classified_as_lookup_error(
@@ -276,6 +300,7 @@ def test_reconcile_plan_pr_lookup_error_is_classified_as_lookup_error(
         brmem_gateway=gateway,
         git_gateway=git_gateway,
         pr_gateway=_BoomGateway(),
+        issue_gateway=FakeIssueGateway(),
     )
     obj = build_clinkr_context_object(lambda: ctx)
 
@@ -327,7 +352,7 @@ def test_reconcile_plan_unknown_slug_becomes_gap(cli_group: ClinkrGroup) -> None
     data = json.loads(result.output)["data"]
     by_slug = {item["slug"]: item for item in data["slugs"]}
     assert by_slug["alpha"]["canonical_present"] is True
-    assert by_slug["alpha"]["gaps"] == ["no merged PR-backed branch snapshots carry slug 'alpha'"]
+    assert by_slug["alpha"]["gaps"] == []
     assert by_slug["unknown"]["canonical_present"] is False
     assert by_slug["unknown"]["gaps"] == [
         "slug 'unknown' requested but no canonical body.md on master; use objective-create first"

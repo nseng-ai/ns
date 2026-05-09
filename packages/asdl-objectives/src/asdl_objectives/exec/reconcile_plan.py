@@ -25,8 +25,9 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.gh.issue_gateway import IssueGateway
 from asdl_core.gh.pr_gateway import PRGateway
-from asdl_core.gh.types import PRLookupError, PRState, PRSummary
+from asdl_core.gh.types import PRChangedFile, PRLookupError, PRState, PRSummary
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import (
     BODY_FILE,
@@ -87,11 +88,13 @@ class BranchSnapshotPr(ClinkrModel):
 
 
 class IncludedSnapshot(ClinkrModel):
-    """Branch snapshot folded in as eligible (merged-PR-backed) evidence."""
+    """Merged PR evidence record with optional branch snapshot text hints."""
 
     branch: str
     pr: BranchSnapshotPr
     files: tuple[CanonicalFile, ...]
+    pr_changed_files: tuple[PRChangedFile, ...] = ()
+    pr_body: str | None = None
 
 
 class SkippedSnapshot(ClinkrModel):
@@ -128,6 +131,8 @@ def _slug_plan_to_json(item: SlugPlanItem) -> dict[str, Any]:
                 "branch": s.branch,
                 "pr": _pr_to_json(s.pr),
                 "files": [_canonical_file_to_json(f) for f in s.files],
+                "pr_changed_files": [_changed_file_to_json(f) for f in s.pr_changed_files],
+                "pr_body": s.pr_body,
             }
             for s in item.included_snapshots
         ],
@@ -162,6 +167,14 @@ def _pr_to_json(pr: BranchSnapshotPr) -> dict[str, Any]:
         "title": pr.title,
         "url": pr.url,
         "error": pr.error,
+    }
+
+
+def _changed_file_to_json(file: PRChangedFile) -> dict[str, Any]:
+    return {
+        "path": file.path,
+        "status": file.status,
+        "patch": file.patch,
     }
 
 
@@ -210,6 +223,7 @@ def build_reconcile_plan(
 ) -> ReconcilePlanResult:
     gateway = mctx.brmem_gateway
     pr_gateway = mctx.pr_gateway
+    issue_gateway = mctx.issue_gateway
     trunk = resolve_trunk(mctx.git_gateway).trunk
 
     requested_slugs = _parse_slug_argument(raw_slugs)
@@ -237,6 +251,7 @@ def build_reconcile_plan(
             _build_slug_plan(
                 gateway=gateway,
                 pr_gateway=pr_gateway,
+                issue_gateway=issue_gateway,
                 slug=slug,
                 canonical_set=canonical_set,
                 all_entries_keys=all_entries,
@@ -278,6 +293,7 @@ def _build_slug_plan(
     *,
     gateway: BranchMemoryGateway,
     pr_gateway: PRGateway,
+    issue_gateway: IssueGateway,
     slug: str,
     canonical_set: set[str],
     all_entries_keys: list[Any],
@@ -331,6 +347,7 @@ def _build_slug_plan(
         snap = _classify_snapshot(
             gateway=gateway,
             pr_gateway=pr_gateway,
+            issue_gateway=issue_gateway,
             slug=slug,
             branch=branch,
         )
@@ -339,9 +356,6 @@ def _build_slug_plan(
         else:
             assert snap.skipped is not None
             skipped.append(snap.skipped)
-
-    if not included:
-        gaps.append(f"no merged PR-backed branch snapshots carry slug {slug!r}")
 
     return SlugPlanItem(
         slug=slug,
@@ -409,6 +423,7 @@ def _classify_snapshot(
     *,
     gateway: BranchMemoryGateway,
     pr_gateway: PRGateway,
+    issue_gateway: IssueGateway,
     slug: str,
     branch: str,
 ) -> _SnapshotClassification:
@@ -455,7 +470,13 @@ def _classify_snapshot(
     if pr_result.state == "MERGED":
         files = _read_branch_files(gateway, slug, branch)
         return _SnapshotClassification(
-            included=IncludedSnapshot(branch=branch, pr=pr_meta, files=files),
+            included=IncludedSnapshot(
+                branch=branch,
+                pr=pr_meta,
+                files=files,
+                pr_changed_files=issue_gateway.get_pr_changed_files(pr_result.number),
+                pr_body=pr_result.body,
+            ),
             skipped=None,
         )
 
