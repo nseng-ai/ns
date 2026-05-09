@@ -23,7 +23,7 @@ from asdl_objectives.discovery import (
     slug_for_key,
 )
 from asdl_objectives.gateway_access import (
-    OBJECTIVE_ARCHIVE_NAMESPACE,
+    OBJECTIVE_CLOSED_NAMESPACE,
     OBJECTIVE_NAMESPACE,
     resolve_current_objective_branch,
 )
@@ -174,7 +174,7 @@ def run_list_objectives(
     if not request.here and request.branch is None:
         trunk_branch = mctx.git_gateway.get_trunk_branch()
         active_objectives: tuple[ObjectiveRepoEntry, ...] = ()
-        archived_objectives: tuple[ObjectiveRepoEntry, ...] = ()
+        closed_objectives: tuple[ObjectiveRepoEntry, ...] = ()
         if not request.closed_only:
             active_objectives = discover_objectives(
                 mctx.brmem_gateway,
@@ -184,15 +184,15 @@ def run_list_objectives(
                 state="open",
             )
         if request.include_closed or request.closed_only:
-            archived_objectives = discover_objectives(
+            closed_objectives = discover_objectives(
                 mctx.brmem_gateway,
                 trunk_branch=trunk_branch,
                 is_branch_alive=mctx.git_gateway.branch_exists,
-                namespace=OBJECTIVE_ARCHIVE_NAMESPACE,
+                namespace=OBJECTIVE_CLOSED_NAMESPACE,
                 state="closed",
             )
         objectives = filter_by_state(
-            active_objectives + archived_objectives,
+            active_objectives + closed_objectives,
             _resolve_allowed_states(
                 include_closed=request.include_closed,
                 closed_only=request.closed_only,
@@ -233,7 +233,7 @@ def run_list_objectives(
         )
     if request.include_closed or request.closed_only:
         entries.extend(
-            mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE, branch=branch)
+            mctx.brmem_gateway.list_entries(namespace=OBJECTIVE_CLOSED_NAMESPACE, branch=branch)
         )
 
     return ClinkrExit.ok(

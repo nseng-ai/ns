@@ -8,7 +8,7 @@ from json import JSONDecodeError
 from typing import Any
 
 from asdl_objectives.discovery import closed_key
-from asdl_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE
+from asdl_objectives.gateway_access import OBJECTIVE_CLOSED_NAMESPACE
 from brmem.gateway import BranchMemoryGateway
 
 CLOSED_MARKER_SCHEMA = 1
@@ -40,7 +40,7 @@ def load_closed_marker(
     *,
     slug: str,
     trunk_branch: str,
-    namespace: str = OBJECTIVE_ARCHIVE_NAMESPACE,
+    namespace: str = OBJECTIVE_CLOSED_NAMESPACE,
 ) -> ClosedMarker:
     """Read and parse ``<slug>/.closed`` from the canonical trunk branch."""
     content = gateway.get(namespace, closed_key(slug), trunk_branch)

@@ -1,4 +1,4 @@
-"""``objective close`` — move an objective into the archive namespace."""
+"""``objective close`` — move an objective into the closed namespace."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.closed_marker import load_closed_marker, serialize_closed_marker
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, closed_key, slug_for_key
-from asdl_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE, OBJECTIVE_NAMESPACE
+from asdl_objectives.gateway_access import OBJECTIVE_CLOSED_NAMESPACE, OBJECTIVE_NAMESPACE
 from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
 from brmem.ref_layout import EntryRef
@@ -49,7 +49,7 @@ class ObjectiveCloseResult(ClinkrModel):
     closed_at: str
     reason: str | None
     already_closed: bool
-    archived_entries: int
+    closed_entries: int
     branches_touched: int
 
 
@@ -59,7 +59,7 @@ def render_objective_close(result: ObjectiveCloseResult) -> None:
     else:
         click.echo(
             f"Closed {result.slug} on {result.trunk_branch} at {result.closed_at} "
-            f"(archived_entries={result.archived_entries}, "
+            f"(closed_entries={result.closed_entries}, "
             f"branches_touched={result.branches_touched})."
         )
 
@@ -67,9 +67,9 @@ def render_objective_close(result: ObjectiveCloseResult) -> None:
 @clinkr_operation(
     name="close",
     help=(
-        "Close an objective by moving its active refs into the archive namespace "
+        "Close an objective by moving its active refs into the closed namespace "
         "and writing the canonical `.closed` marker there. Idempotent: "
-        "re-closing preserves the archived closed_at."
+        "re-closing preserves the existing closed_at."
     ),
     human_renderer=render_objective_close,
 )
@@ -85,33 +85,33 @@ def run_close_objective(
         gateway.list_entries(namespace=OBJECTIVE_NAMESPACE),
         request.slug,
     )
-    archived_entries = _entries_for_slug(
-        gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE),
+    closed_entries = _entries_for_slug(
+        gateway.list_entries(namespace=OBJECTIVE_CLOSED_NAMESPACE),
         request.slug,
     )
 
     active_body_present = (
         gateway.check(OBJECTIVE_NAMESPACE, body_key(request.slug), trunk) is not None
     )
-    archived_body_present = (
-        gateway.check(OBJECTIVE_ARCHIVE_NAMESPACE, body_key(request.slug), trunk) is not None
+    closed_body_present = (
+        gateway.check(OBJECTIVE_CLOSED_NAMESPACE, body_key(request.slug), trunk) is not None
     )
-    archived_marker = load_closed_marker(gateway, slug=request.slug, trunk_branch=trunk)
+    closed_marker = load_closed_marker(gateway, slug=request.slug, trunk_branch=trunk)
 
     if not active_body_present:
-        if archived_body_present and archived_marker.present:
-            archived_closed_at = archived_marker.closed_at
-            if archived_closed_at is not None:
+        if closed_body_present and closed_marker.present:
+            existing_closed_at = closed_marker.closed_at
+            if existing_closed_at is not None:
                 return ClinkrExit.ok(
                     ObjectiveCloseResult(
                         slug=request.slug,
                         trunk_branch=trunk,
                         state="closed",
-                        closed_at=archived_closed_at,
-                        reason=archived_marker.reason,
+                        closed_at=existing_closed_at,
+                        reason=closed_marker.reason,
                         already_closed=True,
-                        archived_entries=len(archived_entries),
-                        branches_touched=_branch_count(archived_entries),
+                        closed_entries=len(closed_entries),
+                        branches_touched=_branch_count(closed_entries),
                     )
                 )
         Ensure.true(
@@ -126,21 +126,22 @@ def run_close_objective(
     active_payload = _content_map(gateway, OBJECTIVE_NAMESPACE, active_entries)
     active_payload.pop(_EntryIdentity(trunk, closed_key(request.slug)), None)
 
-    if archived_entries:
+    if closed_entries:
         Ensure.true(
-            archived_marker.present and archived_marker.closed_at is not None,
-            error_type="archive_conflict",
+            closed_marker.present and closed_marker.closed_at is not None,
+            error_type="closed_conflict",
             message=(
-                f"Archive already contains {request.slug!r} but has no valid trunk .closed marker."
+                f"Closed storage already contains {request.slug!r} but has no valid "
+                "trunk .closed marker."
             ),
         )
-        marker_content = gateway.get(OBJECTIVE_ARCHIVE_NAMESPACE, closed_key(request.slug), trunk)
+        marker_content = gateway.get(OBJECTIVE_CLOSED_NAMESPACE, closed_key(request.slug), trunk)
         if marker_content is None:
             Ensure.true(
                 False,
-                error_type="archive_conflict",
+                error_type="closed_conflict",
                 message=(
-                    f"Archive already contains {request.slug!r} but is missing "
+                    f"Closed storage already contains {request.slug!r} but is missing "
                     "trunk .closed content."
                 ),
             )
@@ -148,13 +149,14 @@ def run_close_objective(
         desired_payload = active_payload | {
             _EntryIdentity(trunk, closed_key(request.slug)): marker_content
         }
-        archived_payload = _content_map(gateway, OBJECTIVE_ARCHIVE_NAMESPACE, archived_entries)
+        closed_payload = _content_map(gateway, OBJECTIVE_CLOSED_NAMESPACE, closed_entries)
         Ensure.true(
-            archived_payload == desired_payload,
-            error_type="archive_conflict",
+            closed_payload == desired_payload,
+            error_type="closed_conflict",
             message=(
-                f"Active and archived refs both contain {request.slug!r}; archive content differs "
-                "from the active objective, so close cannot safely clean up active refs."
+                f"Active and closed storage refs both contain {request.slug!r}; "
+                "closed content differs from the active objective, so close cannot "
+                "safely clean up active refs."
             ),
         )
         _delete_entries(gateway, OBJECTIVE_NAMESPACE, active_entries)
@@ -163,11 +165,11 @@ def run_close_objective(
                 slug=request.slug,
                 trunk_branch=trunk,
                 state="closed",
-                closed_at=archived_marker.closed_at or "",
-                reason=archived_marker.reason,
+                closed_at=closed_marker.closed_at or "",
+                reason=closed_marker.reason,
                 already_closed=True,
-                archived_entries=len(archived_entries),
-                branches_touched=_branch_count(archived_entries),
+                closed_entries=len(closed_entries),
+                branches_touched=_branch_count(closed_entries),
             )
         )
 
@@ -177,18 +179,19 @@ def run_close_objective(
         _EntryIdentity(trunk, closed_key(request.slug)): marker_content
     }
     for identity, content in sorted(desired_payload.items()):
-        gateway.put(OBJECTIVE_ARCHIVE_NAMESPACE, identity.key, identity.branch, content)
+        gateway.put(OBJECTIVE_CLOSED_NAMESPACE, identity.key, identity.branch, content)
 
     copied_entries = _entries_for_slug(
-        gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE),
+        gateway.list_entries(namespace=OBJECTIVE_CLOSED_NAMESPACE),
         request.slug,
     )
-    copied_payload = _content_map(gateway, OBJECTIVE_ARCHIVE_NAMESPACE, copied_entries)
+    copied_payload = _content_map(gateway, OBJECTIVE_CLOSED_NAMESPACE, copied_entries)
     Ensure.true(
         copied_payload == desired_payload,
-        error_type="archive_verification_failed",
+        error_type="closed_verification_failed",
         message=(
-            f"Archive verification failed while closing {request.slug!r}; active refs were kept."
+            f"Closed storage verification failed while closing {request.slug!r}; "
+            "active refs were kept."
         ),
     )
 
@@ -202,7 +205,7 @@ def run_close_objective(
             closed_at=closed_at,
             reason=request.reason,
             already_closed=False,
-            archived_entries=len(copied_entries),
+            closed_entries=len(copied_entries),
             branches_touched=_branch_count(copied_entries),
         )
     )
@@ -223,7 +226,7 @@ def _content_map(
         Ensure.true(
             content is not None,
             error_type="missing_entry_content",
-            message=f"Entry {entry.ref_name!r} disappeared while preparing archive move.",
+            message=f"Entry {entry.ref_name!r} disappeared while preparing closed-storage move.",
         )
         result[_EntryIdentity(entry.branch, entry.key)] = content or ""
     return result

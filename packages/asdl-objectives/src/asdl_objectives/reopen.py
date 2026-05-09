@@ -1,4 +1,4 @@
-"""``objective reopen`` — move an archived objective back to the active namespace."""
+"""``objective reopen`` — move a closed objective back to the active namespace."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, closed_key, slug_for_key
-from asdl_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE, OBJECTIVE_NAMESPACE
+from asdl_objectives.gateway_access import OBJECTIVE_CLOSED_NAMESPACE, OBJECTIVE_NAMESPACE
 from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
 from brmem.ref_layout import EntryRef
@@ -54,8 +54,8 @@ def render_objective_reopen(result: ObjectiveReopenResult) -> None:
 @clinkr_operation(
     name="reopen",
     help=(
-        "Reopen an objective by moving archived refs back into the active namespace "
-        "and dropping the archived `.closed` marker. Idempotent: reopening an "
+        "Reopen an objective by moving closed refs back into the active namespace "
+        "and dropping the closed `.closed` marker. Idempotent: reopening an "
         "already-open objective is a no-op."
     ),
     human_renderer=render_objective_reopen,
@@ -72,19 +72,19 @@ def run_reopen_objective(
         gateway.list_entries(namespace=OBJECTIVE_NAMESPACE),
         request.slug,
     )
-    archived_entries = _entries_for_slug(
-        gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE),
+    closed_entries = _entries_for_slug(
+        gateway.list_entries(namespace=OBJECTIVE_CLOSED_NAMESPACE),
         request.slug,
     )
 
-    if not archived_entries:
+    if not closed_entries:
         active_body_present = (
             gateway.check(OBJECTIVE_NAMESPACE, body_key(request.slug), trunk) is not None
         )
         Ensure.true(
             active_body_present,
             error_type="unknown_slug",
-            message=f"No active or archived objective found for slug {request.slug!r}.",
+            message=f"No active or closed objective found for slug {request.slug!r}.",
         )
         return ClinkrExit.ok(
             ObjectiveReopenResult(
@@ -97,13 +97,13 @@ def run_reopen_objective(
             )
         )
 
-    archived_payload = _content_map(gateway, OBJECTIVE_ARCHIVE_NAMESPACE, archived_entries)
-    archived_payload.pop(_EntryIdentity(trunk, closed_key(request.slug)), None)
+    closed_payload = _content_map(gateway, OBJECTIVE_CLOSED_NAMESPACE, closed_entries)
+    closed_payload.pop(_EntryIdentity(trunk, closed_key(request.slug)), None)
     Ensure.true(
-        _EntryIdentity(trunk, body_key(request.slug)) in archived_payload,
+        _EntryIdentity(trunk, body_key(request.slug)) in closed_payload,
         error_type="unknown_slug",
         message=(
-            f"No archived canonical objective body found for slug {request.slug!r} on {trunk!r}."
+            f"No closed canonical objective body found for slug {request.slug!r} on {trunk!r}."
         ),
     )
 
@@ -111,15 +111,15 @@ def run_reopen_objective(
         active_payload = _content_map(gateway, OBJECTIVE_NAMESPACE, active_entries)
         active_payload.pop(_EntryIdentity(trunk, closed_key(request.slug)), None)
         Ensure.true(
-            active_payload == archived_payload,
+            active_payload == closed_payload,
             error_type="reopen_conflict",
             message=(
-                f"Active and archived refs both contain {request.slug!r}; active content differs "
-                "from the archive, so reopen cannot safely clean up archived refs."
+                f"Active and closed refs both contain {request.slug!r}; active content differs "
+                "from the closed storage, so reopen cannot safely clean up closed refs."
             ),
         )
     else:
-        for identity, content in sorted(archived_payload.items()):
+        for identity, content in sorted(closed_payload.items()):
             gateway.put(OBJECTIVE_NAMESPACE, identity.key, identity.branch, content)
         copied_entries = _entries_for_slug(
             gateway.list_entries(namespace=OBJECTIVE_NAMESPACE),
@@ -127,15 +127,15 @@ def run_reopen_objective(
         )
         copied_payload = _content_map(gateway, OBJECTIVE_NAMESPACE, copied_entries)
         Ensure.true(
-            copied_payload == archived_payload,
+            copied_payload == closed_payload,
             error_type="reopen_verification_failed",
             message=(
                 f"Active verification failed while reopening {request.slug!r}; "
-                "archive refs were kept."
+                "closed refs were kept."
             ),
         )
 
-    _delete_entries(gateway, OBJECTIVE_ARCHIVE_NAMESPACE, archived_entries)
+    _delete_entries(gateway, OBJECTIVE_CLOSED_NAMESPACE, closed_entries)
 
     return ClinkrExit.ok(
         ObjectiveReopenResult(
@@ -143,8 +143,8 @@ def run_reopen_objective(
             trunk_branch=trunk,
             state="open",
             already_open=False,
-            reopened_entries=len(archived_payload),
-            branches_touched=len({identity.branch for identity in archived_payload}),
+            reopened_entries=len(closed_payload),
+            branches_touched=len({identity.branch for identity in closed_payload}),
         )
     )
 
@@ -164,7 +164,7 @@ def _content_map(
         Ensure.true(
             content is not None,
             error_type="missing_entry_content",
-            message=f"Entry {entry.ref_name!r} disappeared while preparing archive move.",
+            message=f"Entry {entry.ref_name!r} disappeared while preparing closed-storage move.",
         )
         result[_EntryIdentity(entry.branch, entry.key)] = content or ""
     return result

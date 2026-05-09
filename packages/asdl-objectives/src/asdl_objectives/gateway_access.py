@@ -8,7 +8,7 @@ from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 
 OBJECTIVE_NAMESPACE = "objectives"
-OBJECTIVE_ARCHIVE_NAMESPACE = "objectives-archive"
+OBJECTIVE_CLOSED_NAMESPACE = "objectives-closed"
 
 
 def resolve_current_objective_branch(

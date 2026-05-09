@@ -1,4 +1,4 @@
-"""Unit tests for archive-backed objective state on ``ObjectiveRepoEntry``."""
+"""Unit tests for closed-storage objective state on ``ObjectiveRepoEntry``."""
 
 from __future__ import annotations
 
@@ -16,15 +16,15 @@ def test_active_namespace_discovers_open_state() -> None:
     assert entry.canonical_present is True
 
 
-def test_archive_namespace_discovers_closed_state() -> None:
+def test_closed_namespace_discovers_closed_state() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("objectives-archive", "demo/body.md", "master", "x")
-    gateway.put("objectives-archive", "demo/.closed", "master", '{"schema":1,"closed_at":"t"}\n')
+    gateway.put("objectives-closed", "demo/body.md", "master", "x")
+    gateway.put("objectives-closed", "demo/.closed", "master", '{"schema":1,"closed_at":"t"}\n')
 
     (entry,) = discover_objectives(
         gateway,
         trunk_branch="master",
-        namespace="objectives-archive",
+        namespace="objectives-closed",
         state="closed",
     )
 
@@ -43,14 +43,14 @@ def test_active_closed_marker_does_not_make_objective_closed() -> None:
     assert entry.canonical_present is True
 
 
-def test_archive_marker_only_has_no_canonical_body() -> None:
+def test_closed_marker_only_has_no_canonical_body() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("objectives-archive", "demo/.closed", "master", '{"schema":1,"closed_at":"t"}\n')
+    gateway.put("objectives-closed", "demo/.closed", "master", '{"schema":1,"closed_at":"t"}\n')
 
     (entry,) = discover_objectives(
         gateway,
         trunk_branch="master",
-        namespace="objectives-archive",
+        namespace="objectives-closed",
         state="closed",
     )
 

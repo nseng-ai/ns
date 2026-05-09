@@ -30,7 +30,7 @@ from asdl_objectives.discovery import (
     notes_key,
     roadmap_key,
 )
-from asdl_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE, OBJECTIVE_NAMESPACE
+from asdl_objectives.gateway_access import OBJECTIVE_CLOSED_NAMESPACE, OBJECTIVE_NAMESPACE
 from asdl_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
@@ -125,8 +125,8 @@ def run_digest_objective(
     all_entries = gateway.list_entries(namespace=OBJECTIVE_NAMESPACE)
     slug_entries = [e for e in all_entries if e.key.startswith(f"{slug}/")]
     if not slug_entries:
-        namespace = OBJECTIVE_ARCHIVE_NAMESPACE
-        all_entries = gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE)
+        namespace = OBJECTIVE_CLOSED_NAMESPACE
+        all_entries = gateway.list_entries(namespace=OBJECTIVE_CLOSED_NAMESPACE)
         slug_entries = Ensure.truthy(
             [e for e in all_entries if e.key.startswith(f"{slug}/")],
             error_type="slug_not_seeded",
