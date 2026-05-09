@@ -252,17 +252,17 @@ remain stale until `objective-update` runs on the child.
 
 The full contract lives in `references/mutation-contract.md`. Summary:
 
-| Operation             | Canonical objective                          | Current branch snapshot                                               | Other branch snapshots |
-| --------------------- | -------------------------------------------- | --------------------------------------------------------------------- | ---------------------- |
-| `objective-create`    | Writes initial `body.md` and roadmap         | Never                                                                 | Never                  |
+| Operation             | Canonical objective                          | Current branch snapshot                                                | Other branch snapshots |
+| --------------------- | -------------------------------------------- | ---------------------------------------------------------------------- | ---------------------- |
+| `objective-create`    | Writes initial `body.md` and roadmap         | Never                                                                  | Never                  |
 | `objective-next`      | Reads only                                   | May attach/update, then reads prepared snapshot                        | Reads only             |
-| `objective-current`   | Reads only                                   | Reads only                                                            | Reads only             |
-| `objective-digest`    | Reads only                                   | Reads only                                                            | Reads only             |
-| `objective-attach`     | May read as source                           | Writes verbatim carry-forward to target                               | May read as source     |
+| `objective-current`   | Reads only                                   | Reads only                                                             | Reads only             |
+| `objective-digest`    | Reads only                                   | Reads only                                                             | Reads only             |
+| `objective-attach`    | May read as source                           | Writes verbatim carry-forward to target                                | May read as source     |
 | `objective-update`    | Never                                        | May attach when missing; then rewrites conservatively from branch work | Never                  |
-| `objective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                                                | Reads only as evidence |
-| `objective close`     | Moves active refs into closed archive        | Moves matching refs into closed archive                               | Moves matching refs    |
-| `objective reopen`    | Moves archive refs back to active storage    | Moves matching refs back                                              | Moves matching refs    |
+| `objective-reconcile` | Rewrites conservatively from landed evidence | Reads only as evidence                                                 | Reads only as evidence |
+| `objective close`     | Moves active refs into closed archive        | Moves matching refs into closed archive                                | Moves matching refs    |
+| `objective reopen`    | Moves archive refs back to active storage    | Moves matching refs back                                               | Moves matching refs    |
 
 `update` and `reconcile` share the same conservative prose rewrite rules.
 They differ in authority and evidence:

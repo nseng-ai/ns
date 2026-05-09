@@ -1228,7 +1228,8 @@ def _selection_message(selection: AttachSelection) -> str:
         return selection.prompt
     lines = [selection.prompt]
     for option in selection.options:
-        command = "objective exec attach " + " ".join(_shell_quote(arg) for arg in option.rerun_args)
+        quoted_args = " ".join(_shell_quote(arg) for arg in option.rerun_args)
+        command = f"objective exec attach {quoted_args}"
         suffix = f" ({option.description})" if option.description else ""
         lines.append(f"- {option.label}{suffix}: {command}")
     return "\n".join(lines)

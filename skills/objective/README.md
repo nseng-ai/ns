@@ -60,7 +60,7 @@ place to another, and it copies verbatim.
 | --------------------------------------------- | --------------------- | --------- |
 | Start tracking a new workstream               | `objective-create`    | Canonical |
 | See status and choose the next PR-sized slice | `objective-next`      | Nothing   |
-| Attach the workstream to a branch             | `objective-attach`     | Branch    |
+| Attach the workstream to a branch             | `objective-attach`    | Branch    |
 | Refresh a snapshot before stacking on it      | `objective-update`    | Branch    |
 | Refresh canonical state after PRs merge       | `objective-reconcile` | Canonical |
 | Close a completed workstream                  | `objective close`     | Archive   |

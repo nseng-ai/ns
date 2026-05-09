@@ -10,13 +10,13 @@ from __future__ import annotations
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_objectives.exec.attach import (
     PLAN_SCHEMA,
-    CandidateBranch,
     AttachPlan,
     AttachPlanAmbiguity,
     AttachPlanAmbiguousResult,
     AttachPlanError,
     AttachPlanErrorResult,
     AttachPlanReadyResult,
+    CandidateBranch,
     PlanSource,
     SlugAlternative,
     _classify_slug_candidates,
