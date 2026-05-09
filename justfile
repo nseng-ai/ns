@@ -4,7 +4,7 @@ import? 'local.just'
 nonslop_skills := "ns-changelog-update ns-create-py-dev-cli ns-create-pypackage-project ns-dignified-python ns-fake-driven-test-layout ns-py-fake-driven-testing ns-pytest ns-refac-cli-push-down ns-refactor-swarm ns-resolve-merge-conflicts ns-setup-dprint ns-setup-python-ci ns-skill-management ns-skillx nsx"
 
 # Skill names (under ./skills/) linked into global agent skill directories by `install-tools`.
-brmem_skills := "brmem-branch-create brmem-branch-impl"
+brmem_skills := "dev-brmem-branch-create dev-brmem-branch-impl"
 
 default: check
 
@@ -73,11 +73,11 @@ install-tools:
         ln -sfn {{justfile_directory()}}/skills/$skill ~/.codex/skills/$skill; \
     done
     mkdir -p ~/.brmem/prompts
-    ln -sfn {{justfile_directory()}}/.brmem/prompts/brmem-branch-create.md \
-            ~/.brmem/prompts/brmem-branch-create.md
+    ln -sfn {{justfile_directory()}}/.brmem/prompts/dev-brmem-branch-create.md \
+            ~/.brmem/prompts/dev-brmem-branch-create.md
     @echo "installed: slot, brmem, objective"
     @echo "linked:    {{brmem_skills}} -> ~/.claude/skills, ~/.codex/skills"
-    @echo "linked:    ~/.brmem/prompts/brmem-branch-create.md -> {{justfile_directory()}}/.brmem/prompts/brmem-branch-create.md"
+    @echo "linked:    ~/.brmem/prompts/dev-brmem-branch-create.md -> {{justfile_directory()}}/.brmem/prompts/dev-brmem-branch-create.md"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

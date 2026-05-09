@@ -27,10 +27,10 @@ for code review and project history.
 
 Architecture and import rules for contributors live in [`AGENTS.md`](./AGENTS.md).
 
-## Built-in Workflow: `brmem-branch-create`
+## Developer Helper Workflow: `dev-brmem-branch-create`
 
-`brmem` also includes one human-facing workflow that is useful on its own and
-serves as a worked example.
+This repo also carries local-only developer helper skills that exercise
+`brmem` as worked examples.
 
 It supports this pattern:
 
@@ -43,7 +43,7 @@ This is useful when you want to plan several pieces of work from a parent
 branch, usually `main` or `master`, and then start independent implementation
 sessions in separate worktrees.
 
-`brmem-branch-create` stores session context for a newly created branch. It
+`dev-brmem-branch-create` stores session context for a newly created branch. It
 can also use the plan content to suggest a branch name. The memory behavior is
 the same in every repo: choose a bundle, store the selected files with
 `brmem`, and report what landed.
@@ -55,10 +55,10 @@ policy belongs in a prompt plugin.
 In this repo:
 
 - The packaged default at
-  [`skills/brmem-branch-create/default-prompt.md`](../../skills/brmem-branch-create/default-prompt.md)
+  [`skills/dev-brmem-branch-create/default-prompt.md`](../../skills/dev-brmem-branch-create/default-prompt.md)
   creates the branch with plain Git and does not check it out.
 - The repo-local override at
-  [`.brmem/prompts/brmem-branch-create.md`](../../.brmem/prompts/brmem-branch-create.md)
+  [`.brmem/prompts/dev-brmem-branch-create.md`](../../.brmem/prompts/dev-brmem-branch-create.md)
   also creates the branch without checking it out, then tracks it in Graphite.
 
 That split keeps the skill predictable while still letting the repo express
@@ -100,8 +100,8 @@ branch. `copy` copies entries from one branch snapshot to another. `get`,
 | Copy a namespace from one branch to another | `brmem copy`                | Branch    |
 | Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing   |
 
-The bundled `brmem-branch-create` and `brmem-branch-impl` skills are
-independently useful and double as worked examples of how to use `brmem`.
+The local-only `dev-brmem-branch-create` and `dev-brmem-branch-impl` skills
+are contributor helpers and double as worked examples of how to use `brmem`.
 
 ## Normal Workflow
 
@@ -243,5 +243,6 @@ working tree.
 - [`AGENTS.md`](./AGENTS.md): contributor rules for this package.
 - [`../asdl-objectives`](../asdl-objectives/): a higher-level branch-planning
   system built on `brmem`.
-- [`skills/brmem-branch-create`](../../skills/brmem-branch-create/):
-  an example skill that uses `brmem` for branch-local handoff state.
+- [`skills/dev-brmem-branch-create`](../../skills/dev-brmem-branch-create/):
+  a local-only developer helper that uses `brmem` for branch-local handoff
+  state.

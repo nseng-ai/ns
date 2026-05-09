@@ -6,13 +6,13 @@
       "sourceType": "local",
       "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
-    "brmem-branch-create": {
-      "source": "skills/brmem-branch-create",
+    "dev-brmem-branch-create": {
+      "source": "skills/dev-brmem-branch-create",
       "sourceType": "local",
       "computedHash": "066d8fdd3ac736f5752611fbaf0d75001f92b60273ef2d35ccaa58b7f15676f7"
     },
-    "brmem-branch-impl": {
-      "source": "skills/brmem-branch-impl",
+    "dev-brmem-branch-impl": {
+      "source": "skills/dev-brmem-branch-impl",
       "sourceType": "local",
       "computedHash": "926c73c4d36acb7c4676353140694b95035e28f024d0cb2c733c5fa87f3bb16e"
     },
