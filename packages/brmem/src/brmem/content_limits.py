@@ -1,9 +1,9 @@
-"""Ingestion-time guardrails for branch-memory entries.
+"""Ingestion-time guardrails for Branch Memory Entries.
 
-`brmem put` is intended for text artifacts (plan documents, objective state,
-short notes). Two cheap checks at the door keep stray binaries and oversized
-files out of the ref pack, where they would otherwise become hard-to-reclaim
-storage weight once a brmem ref pinned them.
+`brmem put` is intended for small text notes and tool-owned records. Two cheap
+checks at the door keep stray binaries and oversized files out of the ref pack,
+where they would otherwise become hard-to-reclaim storage weight once a brmem
+ref pinned them.
 
 Helpers here are pure (`bytes -> str | None`); the caller wraps the returned
 fragment with `source_file` context and the `-f / --force` override hint.
@@ -19,7 +19,7 @@ BINARY_SNIFF_BYTES: Final = 8 * 1024  # 8 KiB
 
 def check_entry_size(raw: bytes) -> str | None:
     if len(raw) > MAX_ENTRY_BYTES:
-        return f"is {format_bytes(len(raw))}; brmem entries are capped at 1 MiB"
+        return f"is {format_bytes(len(raw))}; Branch Memory Entries are capped at 1 MiB"
     return None
 
 

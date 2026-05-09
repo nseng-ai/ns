@@ -1,6 +1,6 @@
 # brmem
 
-`brmem` is a generic branch-scoped key/value store backed by git refs (entries live under `refs/brmem/<namespace>/<encoded-branch>:<key>`). It is consumed by other packages — including `asdl-objectives` — but the namespace is a parameter, not a `brmem` concern. `brmem` must remain agnostic of any specific namespace's schema, slug rules, or workflow.
+`brmem` is the generic Branch Memory System backed by git refs. Entries live under locators such as `refs/brmem/ns/<namespace>/<encoded-branch>:<key>`. It is consumed by other packages — including `asdl-objectives` — but the Namespace is a parameter, not a `brmem` concern. `brmem` must remain agnostic of any specific Namespace's schema, slug rules, or workflow.
 
 ## Rules
 

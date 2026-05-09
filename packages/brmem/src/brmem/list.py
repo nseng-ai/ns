@@ -1,4 +1,4 @@
-"""List branch-memory entries."""
+"""List Branch Memory Entries."""
 
 from __future__ import annotations
 
@@ -34,18 +34,16 @@ class ListEntriesResult(ClinkrModel):
 
 def render_list_entries(result: ListEntriesResult) -> None:
     for entry in result.entries:
-        if entry.namespace is None:
-            click.echo(entry.key)
-        else:
-            click.echo(f"{entry.namespace}/{entry.key}")
+        scope = f"Namespace {entry.namespace}" if entry.namespace is not None else "Base"
+        click.echo(f"{scope} | Entry Key {entry.key} | Branch {entry.branch}")
 
 
 @clinkr_operation(
     name="list",
     help=(
-        "List branch-memory entries. Defaults to the current branch; "
+        "List Branch Memory Entries. Defaults to the current branch; "
         "pass --branch to override. --namespace and --key further filter. "
-        "Pass --base to restrict to ad-hoc base entries."
+        "Pass --base to restrict to ad-hoc base Entries."
     ),
     human_renderer=render_list_entries,
 )

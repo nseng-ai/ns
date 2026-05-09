@@ -1,1 +1,1 @@
-"""Manage branch-scoped memory stored in git refs."""
+"""Manage Branch Memory Entries stored in git refs."""

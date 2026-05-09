@@ -1,4 +1,4 @@
-"""Read content from a branch-memory entry."""
+"""Read content from a Branch Memory Entry."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class GetRequest(ClinkrModel):
             ["--namespace"],
             type=click.STRING,
             default=None,
-            help=("Entry namespace (e.g. 'objectives'). Omit for ad-hoc base entries."),
+            help=("Namespace (e.g. 'objectives'). Omit for ad-hoc base Entries."),
         ),
     ] = None
     branch: str | None = None
@@ -58,7 +58,7 @@ def render_get(result: GetResult) -> None:
 
 @clinkr_operation(
     name="get",
-    help="Read content from a branch-memory entry.",
+    help="Read content from a Branch Memory Entry.",
     human_renderer=render_get,
 )
 def run_get(
@@ -106,8 +106,8 @@ def run_get(
         content,
         error_type="branch_memory_missing",
         message=(
-            f"No content for key {request.key} in namespace {namespace_label} "
-            f"on branch {entry_ref.branch} at {target}. "
+            f"No content for Entry Key {request.key} in Namespace {namespace_label} "
+            f"on Branch {entry_ref.branch} at {target}. "
             f"Inspect with: git show {inspect_locator}"
         ),
     )

@@ -24,6 +24,11 @@ def _json_output(text: str) -> dict[str, object]:
     return json.loads(text)
 
 
+def _list_line(namespace: str | None, key: str, branch: str = "feat/x") -> str:
+    scope = f"Namespace {namespace}" if namespace is not None else "Base"
+    return f"{scope} | Entry Key {key} | Branch {branch}"
+
+
 def _make_obj(
     *,
     gateway: FakeBranchMemoryGateway | None = None,
@@ -48,7 +53,7 @@ def test_brmem_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: brmem" in result.output
-    assert "Manage branch-scoped memory stored in git refs." in result.output
+    assert "Manage Branch Memory Entries stored in git refs." in result.output
     assert "--version" in result.output
     assert "put" in result.output
     assert "get" in result.output
@@ -112,7 +117,8 @@ def test_brmem_put_and_get_round_trip(cli_group: ClinkrGroup, tmp_path: Path) ->
 
     assert put_result.exit_code == 0, put_result.output
     assert (
-        f"Stored plan/plan.md from {source_file} for scratch on branch feat/x." in put_result.output
+        f"Stored Entry Key plan/plan.md from {source_file} in Namespace scratch on Branch feat/x."
+        in put_result.output
     )
     assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
     assert "Commit: fake-0001" in put_result.output
@@ -169,8 +175,8 @@ def test_brmem_put_sibling_keys_are_independent(cli_group: ClinkrGroup, tmp_path
     assert b_get.output == "b1\n"
     assert list_result.exit_code == 0
     assert list_result.output.splitlines() == [
-        "scratch/plan/a.md",
-        "scratch/plan/b.md",
+        _list_line("scratch", "plan/a.md"),
+        _list_line("scratch", "plan/b.md"),
     ]
 
 
@@ -293,7 +299,10 @@ def test_brmem_put_from_stdin(cli_group: ClinkrGroup) -> None:
     )
 
     assert put_result.exit_code == 0, put_result.output
-    assert "Stored plan/plan.md from stdin for scratch on branch feat/x." in put_result.output
+    assert (
+        "Stored Entry Key plan/plan.md from stdin in Namespace scratch on Branch feat/x."
+        in put_result.output
+    )
     assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
     assert "Commit: fake-0001" in put_result.output
     assert get_result.exit_code == 0, get_result.output
@@ -476,7 +485,10 @@ def test_brmem_put_defaults_source_file_from_key_basename(
     )
 
     assert put_result.exit_code == 0, put_result.output
-    assert "Stored plan/plan.md from plan.md for scratch on branch feat/x." in put_result.output
+    assert (
+        "Stored Entry Key plan/plan.md from plan.md in Namespace scratch on Branch feat/x."
+        in put_result.output
+    )
     assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in put_result.output
     assert get_result.exit_code == 0, get_result.output
     assert get_result.output == "hello\n"
@@ -714,45 +726,45 @@ def _seed_for_list_filters() -> FakeBranchMemoryGateway:
         (
             [],
             [
-                "objectives/obj-1",
-                "scratch/notes",
-                "scratch/plan",
+                _list_line("objectives", "obj-1"),
+                _list_line("scratch", "notes"),
+                _list_line("scratch", "plan"),
             ],
         ),
         (
             ["--namespace", "scratch"],
             [
-                "scratch/notes",
-                "scratch/plan",
+                _list_line("scratch", "notes"),
+                _list_line("scratch", "plan"),
             ],
         ),
         (
             ["--key", "plan"],
-            ["scratch/plan"],
+            [_list_line("scratch", "plan")],
         ),
         (
             ["--branch", "feat/x"],
             [
-                "objectives/obj-1",
-                "scratch/notes",
-                "scratch/plan",
+                _list_line("objectives", "obj-1"),
+                _list_line("scratch", "notes"),
+                _list_line("scratch", "plan"),
             ],
         ),
         (
             ["--namespace", "scratch", "--key", "plan"],
-            ["scratch/plan"],
+            [_list_line("scratch", "plan")],
         ),
         (
             ["--namespace", "scratch", "--branch", "feat/y"],
-            ["scratch/plan"],
+            [_list_line("scratch", "plan", branch="feat/y")],
         ),
         (
             ["--key", "plan", "--branch", "feat/x"],
-            ["scratch/plan"],
+            [_list_line("scratch", "plan")],
         ),
         (
             ["--namespace", "scratch", "--key", "plan", "--branch", "feat/x"],
-            ["scratch/plan"],
+            [_list_line("scratch", "plan")],
         ),
     ],
 )
@@ -773,7 +785,7 @@ def test_brmem_list_defaults_to_current_branch(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["list"], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["scratch/plan"]
+    assert result.output.splitlines() == [_list_line("scratch", "plan", branch="feat/y")]
 
 
 def test_brmem_list_rejects_detached_head_when_branch_omitted(
@@ -820,7 +832,7 @@ def test_brmem_list_explicit_branch_bypasses_current_branch(
     )
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["scratch/plan"]
+    assert result.output.splitlines() == [_list_line("scratch", "plan", branch="feat/other")]
 
 
 def test_brmem_list_empty_returns_nothing(cli_group: ClinkrGroup) -> None:
@@ -844,7 +856,7 @@ def test_brmem_list_filters_by_key_with_slash(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["scratch/plan/a.md"]
+    assert result.output.splitlines() == [_list_line("scratch", "plan/a.md")]
 
 
 def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
@@ -894,13 +906,13 @@ def test_brmem_check_hit_exits_zero(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.stderr
     assert result.stderr == ""
-    assert "key: plan/plan.md" in result.stdout
-    assert "namespace: scratch" in result.stdout
-    assert "branch: feat/x" in result.stdout
-    assert "ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in result.stdout
-    assert "head: fake-0001" in result.stdout
-    assert "blob: blob-fake-0001" in result.stdout
-    assert "size: 6" in result.stdout
+    assert "Entry Key: plan/plan.md" in result.stdout
+    assert "Namespace: scratch" in result.stdout
+    assert "Branch: feat/x" in result.stdout
+    assert "Entry Locator: refs/brmem/ns/scratch/feat---x:plan/plan.md" in result.stdout
+    assert "Head: fake-0001" in result.stdout
+    assert "Blob: blob-fake-0001" in result.stdout
+    assert "Size: 6" in result.stdout
 
 
 def test_brmem_check_miss_exits_one_with_absent_message(cli_group: ClinkrGroup) -> None:
@@ -913,7 +925,7 @@ def test_brmem_check_miss_exits_one_with_absent_message(cli_group: ClinkrGroup) 
     assert result.exit_code == 1
     assert result.stdout == ""
     assert result.stderr.strip() == (
-        "not found: key=plan/plan.md namespace=scratch branch=feat/x "
+        "not found: Entry Key=plan/plan.md Namespace=scratch Branch=feat/x "
         "at refs/brmem/ns/scratch/feat---x:plan/plan.md"
     )
 
@@ -966,8 +978,8 @@ def test_brmem_check_at_historical(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.stderr
-    assert "size: 4" in result.stdout
-    assert f"target: {first_commit}" in result.stdout
+    assert "Size: 4" in result.stdout
+    assert f"Target: {first_commit}" in result.stdout
 
 
 def test_brmem_json_check_present(cli_group: ClinkrGroup) -> None:
@@ -1003,7 +1015,7 @@ def test_brmem_json_check_missing(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 1, result.output
     assert payload["exit_code"] == 1
-    assert "not found: key=plan/plan.md" in payload["message"]
+    assert "not found: Entry Key=plan/plan.md" in payload["message"]
     data = payload["data"]
     assert data["head_sha"] is None
     assert data["size_bytes"] is None
@@ -1075,7 +1087,7 @@ def test_brmem_get_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 2
     assert payload["exit_code"] == 2
     assert payload["error_type"] == "branch_memory_missing"
-    assert "No content for key plan/plan.md" in payload["message"]
+    assert "No content for Entry Key plan/plan.md" in payload["message"]
 
 
 def test_brmem_list_format_json_reports_failure(cli_group: ClinkrGroup) -> None:
@@ -1135,7 +1147,9 @@ def test_brmem_put_without_namespace_human_output(cli_group: ClinkrGroup, tmp_pa
     )
 
     assert result.exit_code == 0, result.output
-    assert f"Stored scratchpad from {source_file} for base on branch feat/x." in result.output
+    assert (
+        f"Stored Entry Key scratchpad from {source_file} in Base on Branch feat/x." in result.output
+    )
     assert "Ref: refs/brmem/base/feat---x:scratchpad" in result.output
 
 
@@ -1165,8 +1179,8 @@ def test_brmem_check_without_namespace_hit(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.stderr
-    assert "namespace: (base)" in result.stdout
-    assert "ref: refs/brmem/base/feat---x:scratchpad" in result.stdout
+    assert "Namespace: (base)" in result.stdout
+    assert "Entry Locator: refs/brmem/base/feat---x:scratchpad" in result.stdout
 
 
 def test_brmem_check_without_namespace_miss(cli_group: ClinkrGroup) -> None:
@@ -1178,7 +1192,7 @@ def test_brmem_check_without_namespace_miss(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 1
     assert result.stderr.strip() == (
-        "not found: key=scratchpad namespace=(base) branch=feat/x "
+        "not found: Entry Key=scratchpad Namespace=(base) Branch=feat/x "
         "at refs/brmem/base/feat---x:scratchpad"
     )
 
@@ -1240,8 +1254,8 @@ def test_brmem_list_returns_base_and_namespaced_entries_intermixed(
 
     assert result.exit_code == 0, result.output
     assert result.output.splitlines() == [
-        "scratch",
-        "scratch/plan",
+        _list_line(None, "scratch"),
+        _list_line("scratch", "plan"),
     ]
 
 
@@ -1256,7 +1270,7 @@ def test_brmem_list_namespace_filter_excludes_base_entries(
     result = CliRunner().invoke(cli_group, ["list", "--namespace", "scratch"], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["scratch/plan"]
+    assert result.output.splitlines() == [_list_line("scratch", "plan")]
 
 
 def test_brmem_list_base_flag_returns_only_base_entries(cli_group: ClinkrGroup) -> None:
@@ -1268,7 +1282,7 @@ def test_brmem_list_base_flag_returns_only_base_entries(cli_group: ClinkrGroup) 
     result = CliRunner().invoke(cli_group, ["list", "--base"], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["scratch"]
+    assert result.output.splitlines() == [_list_line(None, "scratch")]
 
 
 def test_brmem_list_base_and_namespace_are_mutually_exclusive(
@@ -1336,7 +1350,10 @@ def test_brmem_copy_happy_path_copies_every_file_in_namespace(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Copied 4 entries from master to feat/x" in result.output
+    assert (
+        "Copied 4 Entries in Namespace objectives from Branch master to Branch feat/x"
+        in result.output
+    )
     assert "foo/body.md" in result.output
     assert "foo/roadmap.md" in result.output
     assert "foo/notes.md" in result.output
@@ -1367,7 +1384,7 @@ def test_brmem_copy_dry_run_does_not_mutate(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "Would copy 4 entries" in result.output
+    assert "Would copy 4 Entries" in result.output
     assert gateway.check("objectives", "foo/body.md", "feat/x") is None
     assert gateway.check("objectives", "foo/roadmap.md", "feat/x") is None
     assert gateway.check("objectives", "foo/notes.md", "feat/x") is None
@@ -1392,7 +1409,7 @@ def test_brmem_copy_empty_source_exits_failure(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 2
-    assert "No entries found on branch master" in result.output
+    assert "No Entries found on Branch master" in result.output
     assert "objectives" in result.output
 
 
@@ -1418,7 +1435,7 @@ def test_brmem_copy_conflict_without_overwrite_exits_failure(
     )
 
     assert result.exit_code == 2
-    assert "already has entries for: foo/body.md" in result.output
+    assert "already has Entries for: foo/body.md" in result.output
     assert gateway.get("objectives", "foo/body.md", "feat/x") == "existing\n"
     assert gateway.check("objectives", "foo/roadmap.md", "feat/x") is None
 
@@ -1537,11 +1554,14 @@ def test_brmem_delete_existing_key(cli_group: ClinkrGroup) -> None:
     )
 
     assert delete_result.exit_code == 0, delete_result.output
-    assert "Deleted plan/plan.md from scratch on branch feat/x." in delete_result.output
+    assert (
+        "Deleted Entry Key plan/plan.md from Namespace scratch on Branch feat/x."
+        in delete_result.output
+    )
     assert "Ref: refs/brmem/ns/scratch/feat---x:plan/plan.md" in delete_result.output
     assert "Commit: fake-0002" in delete_result.output
     assert get_result.exit_code == 2
-    assert "No content for key plan/plan.md" in get_result.output
+    assert "No content for Entry Key plan/plan.md" in get_result.output
 
 
 def test_brmem_delete_missing_key_errors(cli_group: ClinkrGroup) -> None:
@@ -1553,10 +1573,10 @@ def test_brmem_delete_missing_key_errors(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 2
     assert "key_not_found" not in result.output  # error_type only surfaces in JSON envelope
-    assert "No entry to delete" in result.output
-    assert "key=plan/plan.md" in result.output
-    assert "namespace=scratch" in result.output
-    assert "branch=feat/x" in result.output
+    assert "No Entry to delete" in result.output
+    assert "Entry Key=plan/plan.md" in result.output
+    assert "Namespace=scratch" in result.output
+    assert "Branch=feat/x" in result.output
 
 
 def test_brmem_delete_preserves_siblings(cli_group: ClinkrGroup) -> None:
@@ -1622,7 +1642,7 @@ def test_brmem_delete_json_missing_key_reports_failure(cli_group: ClinkrGroup) -
     assert result.exit_code == 2
     assert payload["exit_code"] == 2
     assert payload["error_type"] == "key_not_found"
-    assert "No entry to delete" in payload["message"]
+    assert "No Entry to delete" in payload["message"]
 
 
 def test_brmem_delete_without_namespace_targets_base_entry(cli_group: ClinkrGroup) -> None:
@@ -1635,7 +1655,7 @@ def test_brmem_delete_without_namespace_targets_base_entry(cli_group: ClinkrGrou
     get_result = runner.invoke(cli_group, ["get", "scratchpad"], obj=obj)
 
     assert delete_result.exit_code == 0, delete_result.output
-    assert "Deleted scratchpad from base on branch feat/x." in delete_result.output
+    assert "Deleted Entry Key scratchpad from Base on Branch feat/x." in delete_result.output
     assert "Ref: refs/brmem/base/feat---x:scratchpad" in delete_result.output
     assert get_result.exit_code == 2
 
@@ -1704,7 +1724,7 @@ def test_brmem_copy_key_glob_copies_only_matching_source_keys(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Copied 3 entries" in result.output
+    assert "Copied 3 Entries" in result.output
     assert "(filtered by --key-glob 'foo/*')" in result.output
     dest_keys = sorted(e.key for e in gateway.list_entries(namespace="objectives", branch="feat/x"))
     assert dest_keys == ["foo/body.md", "foo/roadmap.md", "foo/sub/x.md"]
@@ -1919,7 +1939,7 @@ def test_brmem_copy_key_glob_dry_run_reports_matching_plan_only(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Would copy 3 entries" in result.output
+    assert "Would copy 3 Entries" in result.output
     assert gateway.list_entries(namespace="objectives", branch="feat/x") == []
 
 
@@ -1943,7 +1963,7 @@ def test_brmem_copy_empty_key_glob_exits_failure(cli_group: ClinkrGroup) -> None
     )
 
     assert result.exit_code == 2
-    assert "Invalid key glob" in result.output
+    assert "Invalid Entry Key glob" in result.output
 
 
 def test_brmem_copy_key_glob_json_envelope_records_filter(

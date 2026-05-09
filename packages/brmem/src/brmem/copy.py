@@ -1,4 +1,4 @@
-"""Atomically copy branch-memory entries from one branch to another."""
+"""Atomically copy Branch Memory Entries from one branch to another."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ class CopyRequest(ClinkrModel):
             ["--namespace"],
             required=True,
             type=click.STRING,
-            help="Entry namespace (e.g. 'objectives').",
+            help="Namespace (e.g. 'objectives').",
         ),
     ]
     from_branch: Annotated[
@@ -40,7 +40,7 @@ class CopyRequest(ClinkrModel):
             ["--from-branch"],
             required=True,
             type=click.STRING,
-            help="Source branch whose snapshot is copied.",
+            help="Source branch whose Branch Memory is copied.",
         ),
     ]
     to_branch: Annotated[
@@ -49,7 +49,7 @@ class CopyRequest(ClinkrModel):
             ["--to-branch"],
             required=True,
             type=click.STRING,
-            help="Destination branch that receives the copied entries.",
+            help="Destination branch that receives the copied Entries.",
         ),
     ]
     key_glob: Annotated[
@@ -59,12 +59,12 @@ class CopyRequest(ClinkrModel):
             type=click.STRING,
             default=None,
             help=(
-                "Copy only entries whose key matches this fnmatch glob "
+                "Copy only Entries whose Entry Key matches this fnmatch glob "
                 "(e.g. 'my-slug/*'). '*' matches any characters including "
                 "'/', '?' matches one character, '[seq]' matches a class. "
-                "Non-matching destination keys are preserved. When absent, "
-                "every entry in the namespace is copied and the destination "
-                "snapshot is replaced entirely."
+                "Non-matching destination Entries are preserved. When absent, "
+                "every Entry in the Namespace is copied and the destination "
+                "Branch Memory is replaced entirely."
             ),
         ),
     ] = None
@@ -92,10 +92,10 @@ class CopyResult(ClinkrModel):
 def render_copy(result: CopyResult) -> None:
     verb = "Would copy" if result.dry_run else "Copied"
     click.echo(
-        f"{verb} {len(result.copied)} entr"
+        f"{verb} {len(result.copied)} Entr"
         f"{'y' if len(result.copied) == 1 else 'ies'} "
-        f"from {result.from_branch} to {result.to_branch} "
-        f"in namespace {result.namespace}."
+        f"in Namespace {result.namespace} from Branch {result.from_branch} "
+        f"to Branch {result.to_branch}."
     )
     if result.key_glob is not None:
         click.echo(f"  (filtered by --key-glob {result.key_glob!r})")
@@ -107,7 +107,7 @@ def render_copy(result: CopyResult) -> None:
 
 @clinkr_operation(
     name="copy",
-    help=("Atomically copy every entry within a namespace from one branch's snapshot to another."),
+    help=("Atomically copy every Entry within a Namespace from one Branch Memory to another."),
     human_renderer=render_copy,
 )
 def run_copy(
@@ -148,12 +148,12 @@ def run_copy(
 
     if request.key_glob is not None:
         message = (
-            f"No entries on branch {request.from_branch} in namespace "
+            f"No Entries on Branch {request.from_branch} in Namespace "
             f"{request.namespace} match --key-glob {request.key_glob!r}."
         )
     else:
         message = (
-            f"No entries found on branch {request.from_branch} in namespace {request.namespace}."
+            f"No Entries found on Branch {request.from_branch} in Namespace {request.namespace}."
         )
     source_entries = Ensure.truthy(
         source_entries,
@@ -179,7 +179,7 @@ def run_copy(
         not conflicting_keys or request.overwrite,
         error_type="destination_conflict",
         message=(
-            f"Destination branch {request.to_branch} already has entries for: "
+            f"Destination Branch {request.to_branch} already has Entries for: "
             f"{', '.join(conflicting_keys)}. Pass --overwrite to replace them."
         ),
     )
@@ -192,7 +192,7 @@ def run_copy(
     Ensure.true(
         not missing,
         error_type="source_sha_unavailable",
-        message=f"Could not resolve source commit for keys: {', '.join(missing)}",
+        message=f"Could not resolve source commit for Entry Keys: {', '.join(missing)}",
     )
 
     plan = _build_plan(
@@ -223,7 +223,7 @@ def run_copy(
         details = (exc.stderr or "").strip() or str(exc)
         raise ClinkrFailure(
             error_type="git_failure",
-            message=f"Failed to copy branch memory: {details}",
+            message=f"Failed to copy Branch Memory: {details}",
         ) from exc
 
     return ClinkrExit.ok(_result(request, plan))
