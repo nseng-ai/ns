@@ -3,11 +3,11 @@ from __future__ import annotations
 import pytest
 
 from asdl_core.gh.types import PRChangedFile
-from asdl_reviewer.cli.reviewer.exec.format_findings_comment import FindingRow
 from asdl_reviewer.inline_commentability import (
     classify_inline_findings,
     commentable_right_side_lines,
 )
+from asdl_reviewer.models import ReviewFinding
 
 _PATCH = """@@ -10,4 +10,5 @@ def main():
  context
@@ -20,8 +20,8 @@ _PATCH = """@@ -10,4 +10,5 @@ def main():
 """
 
 
-def _finding(path: str, line: int | None) -> FindingRow:
-    return FindingRow(
+def _finding(path: str, line: int | None) -> ReviewFinding:
+    return ReviewFinding(
         path=path,
         line=line,
         severity="warning",
@@ -153,7 +153,7 @@ def test_classify_inline_findings_returns_inlineable_target() -> None:
     ],
 )
 def test_classify_inline_findings_fallback_reasons(
-    finding: FindingRow,
+    finding: ReviewFinding,
     changed_files: tuple[PRChangedFile, ...],
     reason: str,
 ) -> None:

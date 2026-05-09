@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-import hashlib
 import sys
 from typing import Annotated
 
@@ -15,15 +14,16 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRInlineCommentInput
-from asdl_reviewer.cli.reviewer.exec.format_findings_comment import (
-    FindingRow,
-    parse_findings_payload_result,
-)
 from asdl_reviewer.context import ReviewerCliContext
+from asdl_reviewer.findings_publication import (
+    extract_inline_markers,
+    inline_marker_for_finding,
+    parse_findings_payload_result,
+    render_inline_body,
+)
 from asdl_reviewer.inline_commentability import FallbackOnlyFinding, classify_inline_findings
 
 _BOT_AUTHOR_LOGIN = "github-actions[bot]"
-_MARKER_PREFIX = "asdl-reviewer-inline"
 
 
 class PostInlineFindingsRequest(ClinkrModel):
@@ -64,13 +64,13 @@ def post_inline_findings_command(
         marker
         for comment in issue_gateway.get_pr_review_comments(request.pr_number)
         if comment.author == _BOT_AUTHOR_LOGIN
-        for marker in _extract_inline_markers(comment.body)
+        for marker in extract_inline_markers(comment.body)
     }
 
     comments: list[PRInlineCommentInput] = []
     skipped_duplicate_count = 0
     for inlineable in classification.inlineable:
-        marker = _marker_for_finding(payload.review_name, inlineable.finding)
+        marker = inline_marker_for_finding(payload.review_name, inlineable.finding)
         if marker in existing_markers:
             skipped_duplicate_count += 1
             continue
@@ -78,7 +78,7 @@ def post_inline_findings_command(
             PRInlineCommentInput(
                 path=inlineable.target.path,
                 line=inlineable.target.line,
-                body=_render_inline_body(marker, inlineable.finding),
+                body=render_inline_body(marker, inlineable.finding),
             )
         )
 
@@ -99,43 +99,6 @@ def post_inline_findings_command(
         api_error=api_error,
     )
     return ClinkrExit.ok(result)
-
-
-def _marker_for_finding(review_name: str, finding: FindingRow) -> str:
-    digest_input = "\0".join(
-        (
-            review_name,
-            finding.path,
-            "" if finding.line is None else str(finding.line),
-            finding.severity,
-            finding.summary,
-            finding.details,
-        )
-    )
-    digest = hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:16]
-    return f"<!-- {_MARKER_PREFIX}:{review_name}:{digest} -->"
-
-
-def _render_inline_body(marker: str, finding: FindingRow) -> str:
-    return "\n".join(
-        [
-            marker,
-            f"**{finding.severity}: {finding.summary}**",
-            "",
-            finding.details,
-            "",
-            "_Posted by asdl-reviewer. Re-running may skip this comment by marker._",
-        ]
-    )
-
-
-def _extract_inline_markers(body: str) -> tuple[str, ...]:
-    markers: list[str] = []
-    for line in body.splitlines():
-        stripped = line.strip()
-        if stripped.startswith(f"<!-- {_MARKER_PREFIX}:") and stripped.endswith(" -->"):
-            markers.append(stripped)
-    return tuple(markers)
 
 
 def _fallback_only_json(items: tuple[FallbackOnlyFinding, ...]) -> tuple[dict[str, object], ...]:
