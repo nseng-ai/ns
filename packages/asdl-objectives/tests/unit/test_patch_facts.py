@@ -50,7 +50,7 @@ def test_load_branch_patch_facts_treats_optional_patch_id_failure_as_unavailable
     assert facts.commit_patch_ids is None
 
 
-def test_load_branch_patch_facts_empty_range_is_fresh_even_without_patch_ids() -> None:
+def test_load_branch_patch_facts_empty_range_is_up_to_date_even_without_patch_ids() -> None:
     facts = load_branch_patch_facts(
         FakeGitGateway(
             commits_by_range={"master..HEAD": ()},

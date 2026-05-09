@@ -7,7 +7,7 @@ rewrite logic works, and how `update` and `reconcile` differ.
 > mechanics. Ref encoding (`refs/brmem/ns/<namespace>/<encoded-branch>`),
 > branch-name validation (rejection of names containing `---`), key
 > validation, and the snapshot-shaped storage model are owned by `brmem`.
-> Slug rules, file constants, the patch-id freshness classifier, and the
+> Slug rules, file constants, the patch-id snapshot-state classifier, and the
 > `objective` CLI surface are owned by the `asdl_objectives` Python
 > package. This contract layers on top of those — it specifies which
 > operation may write where and how the conservative rewrite rules apply.
@@ -77,7 +77,7 @@ Allowed:
 - keep completed sections and their visible slice markers intact
 - add nearby follow-ups discovered during slice work
 - split a section when work landed in more granular pieces than expected,
-  preserving the old section's marker and assigning fresh markers to newly
+  preserving the old section's marker and assigning new markers to newly
   created PR-sized sections
 - reorder remaining sections when the actual slice order changed
 
@@ -113,7 +113,7 @@ Forbidden:
 
 | Mode                   | Skill                 | Target              | Evidence                                                                             | No-op rule                                        |
 | ---------------------- | --------------------- | ------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot freshness                                              | Snapshot covers every `<trunk>..HEAD` content PID |
+| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot state                                                  | Snapshot covers every `<trunk>..HEAD` content PID |
 | Canonical reconcile    | `objective-reconcile` | Canonical objective | Merged PR title, body, and changed-files list; snapshot edits as supplementary hints | No merged-PR-backed branches attached to the slug |
 
 ### Branch snapshot update
@@ -135,14 +135,14 @@ Evidence:
   the snapshot has absorbed
 - all commits on `<trunk>..HEAD` and their `git patch-id` values
 
-Freshness rule:
+Snapshot State rule:
 
-- Freshness is patch-id based. The snapshot is fresh when every non-null
+- Snapshot state is patch-id based. The snapshot is up-to-date when every non-null
   content `patch-id` in `<trunk>..HEAD` is present in the
   `<slug>/.absorbed.jsonl` marker. Commits with `None` patch IDs (merges,
-  empty commits) are ignored for freshness; commit SHA, subject, and author
+  empty commits) are ignored for snapshot state; commit SHA, subject, and author
   time are diagnostic only.
-- If `<trunk>..HEAD` is empty, the snapshot is fresh by definition; print the
+- If `<trunk>..HEAD` is empty, the snapshot is up-to-date by definition; print the
   in-sync message and do not write.
 - A malformed `.absorbed.jsonl` marker renders the snapshot stale.
 - Do not use timestamps (snapshot file `head_date`, commit author time, or
@@ -153,7 +153,7 @@ Freshness rule:
 
 ### Canonical reconcile
 
-`reconcile` refreshes the canonical objective. It is grounded by landed
+`reconcile` updates the canonical objective. It is grounded by landed
 branch snapshots carrying the same slug and by the merged PRs associated with
 those branches. Open PRs and unmerged branches remain branch-local state; a
 higher-level view may combine canonical state with those snapshots without
@@ -220,7 +220,7 @@ audit progress.
 ### `objective-current`
 
 `current` writes nothing. It renders a current-branch stack map from
-deterministic branch facts: attached objective, PR, branch snapshot freshness,
+deterministic branch facts: attached objective, PR, branch snapshot state,
 brmem entries, downstack ancestry, and immediate upstack children. It does not
 summarize objective prose or compute workstream progress.
 

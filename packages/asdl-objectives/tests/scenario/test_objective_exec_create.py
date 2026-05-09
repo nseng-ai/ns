@@ -165,7 +165,7 @@ def test_create_body_and_roadmap(cli_group: ClinkrGroup, tmp_path: Path) -> None
 # ---------------------------------------------------------------------------
 
 
-def test_create_dry_run_ok_for_fresh_slug(cli_group: ClinkrGroup) -> None:
+def test_create_dry_run_ok_for_available_slug(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     obj = _make_obj(gateway=gateway)
 

@@ -12,7 +12,7 @@ allowed-tools:
 
 # objective-reconcile
 
-Refresh canonical objectives on trunk from landed branch snapshots and their
+Update canonical objectives on trunk from landed branch snapshots and their
 merged PRs. The CLI handles deterministic mechanics; the skill performs only
 the conservative semantic rewrite of Markdown.
 
@@ -89,7 +89,7 @@ For each actionable slug:
      end-state changed categorically.
    - `roadmap.md`: check items only when merged evidence corroborates them;
      preserve existing slice markers, keep child tasks under their slice
-     section, and add fresh markers immediately for new or split PR-sized
+     section, and add new markers immediately for new or split PR-sized
      sections.
    - `notes.md`: append durable findings; never paste branch text wholesale.
 3. Write only changed proposed files using this layout:

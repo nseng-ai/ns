@@ -1,38 +1,38 @@
-"""Unit tests for ``classify_obj_state`` and ``classify_branch_snapshot``."""
+"""Unit tests for ``classify_snapshot_state`` and ``classify_branch_snapshot_state``."""
 
 from __future__ import annotations
 
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import CommitSummary, GitCommandFailure
-from asdl_objectives.freshness import (
-    classify_branch_snapshot,
-    classify_canonical_freshness,
-    classify_obj_state,
+from asdl_objectives.snapshot_state import (
+    classify_branch_snapshot_state,
+    classify_canonical_snapshot_state,
+    classify_snapshot_state,
     classify_timestamp_state,
 )
 from brmem.fake import FakeBranchMemoryGateway
 
 
-def test_deleted_branch_is_fresh() -> None:
-    state = classify_obj_state(
+def test_deleted_branch_is_up_to_date() -> None:
+    state = classify_snapshot_state(
         alive=False,
         branch_commit_pids=("p1",),
         absorbed_pids=frozenset(),
     )
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_all_pids_absorbed_is_fresh() -> None:
-    state = classify_obj_state(
+def test_all_pids_absorbed_is_up_to_date() -> None:
+    state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=("p1", "p2"),
         absorbed_pids=frozenset({"p1", "p2", "p3"}),
     )
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
 def test_one_novel_pid_is_stale() -> None:
-    state = classify_obj_state(
+    state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=("p1", "p_novel"),
         absorbed_pids=frozenset({"p1"}),
@@ -41,25 +41,25 @@ def test_one_novel_pid_is_stale() -> None:
 
 
 def test_null_pid_is_ignored() -> None:
-    state = classify_obj_state(
+    state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=("p1", None),
         absorbed_pids=frozenset({"p1"}),
     )
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_empty_branch_commit_pids_is_fresh() -> None:
-    state = classify_obj_state(
+def test_empty_branch_commit_pids_is_up_to_date() -> None:
+    state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=(),
         absorbed_pids=frozenset(),
     )
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
 def test_unavailable_patch_ids_are_stale() -> None:
-    state = classify_obj_state(
+    state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=None,
         absorbed_pids=None,
@@ -76,25 +76,25 @@ def test_timestamp_state_stale_when_branch_newer() -> None:
     assert state == "stale"
 
 
-def test_timestamp_state_fresh_when_snapshot_at_or_after_branch() -> None:
+def test_timestamp_state_up_to_date_when_snapshot_at_or_after_branch() -> None:
     state = classify_timestamp_state(
         alive=True,
         snapshot_iso="2026-04-26T08:00:00+00:00",
         branch_head_iso="2026-04-26T08:00:00+00:00",
     )
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_timestamp_state_fresh_when_isos_missing() -> None:
+def test_timestamp_state_up_to_date_when_isos_missing() -> None:
     state = classify_timestamp_state(
         alive=True,
         snapshot_iso=None,
         branch_head_iso=None,
     )
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_classify_branch_snapshot_alive_with_unavailable_inputs_is_stale() -> None:
+def test_classify_branch_snapshot_state_alive_with_unavailable_inputs_is_stale() -> None:
     gateway = FakeBranchMemoryGateway()
     git = FakeGitGateway(
         commits_by_range={
@@ -109,7 +109,7 @@ def test_classify_branch_snapshot_alive_with_unavailable_inputs_is_stale() -> No
         patch_ids_failure=GitCommandFailure(message="boom", returncode=1),
     )
 
-    state = classify_branch_snapshot(
+    state = classify_branch_snapshot_state(
         gateway,
         git,
         "feat/widget",
@@ -121,7 +121,7 @@ def test_classify_branch_snapshot_alive_with_unavailable_inputs_is_stale() -> No
     assert state == "stale"
 
 
-def test_classify_branch_snapshot_alive_with_unabsorbed_pid_is_stale() -> None:
+def test_classify_branch_snapshot_state_alive_with_unabsorbed_pid_is_stale() -> None:
     gateway = FakeBranchMemoryGateway()
     git = FakeGitGateway(
         commits_by_range={
@@ -138,7 +138,7 @@ def test_classify_branch_snapshot_alive_with_unabsorbed_pid_is_stale() -> None:
         },
     )
 
-    state = classify_branch_snapshot(
+    state = classify_branch_snapshot_state(
         gateway,
         git,
         "feat/widget",
@@ -150,7 +150,7 @@ def test_classify_branch_snapshot_alive_with_unabsorbed_pid_is_stale() -> None:
     assert state == "stale"
 
 
-def test_classify_branch_snapshot_marker_absorbs_branch_pid() -> None:
+def test_classify_branch_snapshot_state_marker_absorbs_branch_pid() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put(
         "objectives",
@@ -174,7 +174,7 @@ def test_classify_branch_snapshot_marker_absorbs_branch_pid() -> None:
         patch_ids_by_range={"master..feat/widget": (("aaa111", "pid-1"),)},
     )
 
-    state = classify_branch_snapshot(
+    state = classify_branch_snapshot_state(
         gateway,
         git,
         "feat/widget",
@@ -183,15 +183,15 @@ def test_classify_branch_snapshot_marker_absorbs_branch_pid() -> None:
         alive=True,
     )
 
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_classify_branch_snapshot_dead_branch_is_fresh() -> None:
+def test_classify_branch_snapshot_state_dead_branch_is_up_to_date() -> None:
     """The wrapper does not upgrade dead branches to "deleted"; that is the caller's job."""
     gateway = FakeBranchMemoryGateway()
     git = FakeGitGateway()
 
-    state = classify_branch_snapshot(
+    state = classify_branch_snapshot_state(
         gateway,
         git,
         "feat/widget",
@@ -200,10 +200,10 @@ def test_classify_branch_snapshot_dead_branch_is_fresh() -> None:
         alive=False,
     )
 
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_classify_branch_snapshot_ignores_timestamps_when_pids_absorbed() -> None:
+def test_classify_branch_snapshot_state_ignores_timestamps_when_pids_absorbed() -> None:
     """Patch-id absorption is authoritative — a stale-looking last-touch timestamp
     must not override a marker that already covers every branch patch ID.
     """
@@ -224,7 +224,7 @@ def test_classify_branch_snapshot_ignores_timestamps_when_pids_absorbed() -> Non
                     sha="aaa111",
                     # Author time is much newer than any plausible snapshot
                     # last-touch — under a timestamp contract this would be
-                    # flagged as stale. Patch-id freshness ignores it.
+                    # flagged as stale. Patch-id snapshot state ignores it.
                     author_iso="2099-01-01T00:00:00+00:00",
                     subject="Wire widget",
                 ),
@@ -239,7 +239,7 @@ def test_classify_branch_snapshot_ignores_timestamps_when_pids_absorbed() -> Non
         },
     )
 
-    state = classify_branch_snapshot(
+    state = classify_branch_snapshot_state(
         gateway,
         git,
         "feat/widget",
@@ -248,10 +248,10 @@ def test_classify_branch_snapshot_ignores_timestamps_when_pids_absorbed() -> Non
         alive=True,
     )
 
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_classify_branch_snapshot_malformed_marker_is_stale() -> None:
+def test_classify_branch_snapshot_state_malformed_marker_is_stale() -> None:
     """Malformed `.absorbed.jsonl` is treated as missing — the snapshot is stale
     when there are content patch IDs to cover.
     """
@@ -275,7 +275,7 @@ def test_classify_branch_snapshot_malformed_marker_is_stale() -> None:
         patch_ids_by_range={"master..feat/widget": (("aaa111", "pid-1"),)},
     )
 
-    state = classify_branch_snapshot(
+    state = classify_branch_snapshot_state(
         gateway,
         git,
         "feat/widget",
@@ -287,7 +287,7 @@ def test_classify_branch_snapshot_malformed_marker_is_stale() -> None:
     assert state == "stale"
 
 
-def test_classify_canonical_freshness_stale_when_trunk_advanced_past_body() -> None:
+def test_classify_canonical_snapshot_state_stale_when_trunk_advanced_past_body() -> None:
     """Master-vs-master: trunk HEAD newer than canonical body.md → stale.
 
     "Stale" on the trunk row answers "should I reconcile?" — newer trunk
@@ -301,13 +301,13 @@ def test_classify_canonical_freshness_stale_when_trunk_advanced_past_body() -> N
         },
     )
 
-    state = classify_canonical_freshness(git, trunk="master", slug="widget")
+    state = classify_canonical_snapshot_state(git, trunk="master", slug="widget")
 
     assert state == "stale"
 
 
-def test_classify_canonical_freshness_fresh_when_body_matches_trunk_head() -> None:
-    """Canonical body.md last-touch equal to trunk HEAD → fresh."""
+def test_classify_canonical_snapshot_state_up_to_date_when_body_matches_trunk_head() -> None:
+    """Canonical body.md last-touch equal to trunk HEAD → up-to-date."""
     git = FakeGitGateway(
         branches=("master",),
         branch_head_iso_by_branch={"master": "2026-04-26T08:00:00+00:00"},
@@ -316,15 +316,15 @@ def test_classify_canonical_freshness_fresh_when_body_matches_trunk_head() -> No
         },
     )
 
-    state = classify_canonical_freshness(git, trunk="master", slug="widget")
+    state = classify_canonical_snapshot_state(git, trunk="master", slug="widget")
 
-    assert state == "fresh"
+    assert state == "up-to-date"
 
 
-def test_classify_canonical_freshness_fresh_when_isos_missing() -> None:
-    """Missing trunk/snapshot timestamps are treated as fresh by `classify_timestamp_state`."""
+def test_classify_canonical_snapshot_state_up_to_date_when_isos_missing() -> None:
+    """Missing trunk/snapshot timestamps are treated as up-to-date by `classify_timestamp_state`."""
     git = FakeGitGateway(branches=("master",))
 
-    state = classify_canonical_freshness(git, trunk="master", slug="widget")
+    state = classify_canonical_snapshot_state(git, trunk="master", slug="widget")
 
-    assert state == "fresh"
+    assert state == "up-to-date"
