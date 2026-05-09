@@ -1,5 +1,5 @@
 ---
-name: dev-fix-just
+name: dev-just-fix
 description: Command
 # Original description (preserved for reference):
 # Run `just` and fix all failures (lint, format, type errors, test failures) by fixing the underlying code — not by deleting or weakening tests. If user input is needed, ask the user. If the current harness is in a planning or read-only mode, present a plan to fix the failures instead of applying changes.
@@ -17,7 +17,7 @@ metadata:
 
 <!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
 
-# dev-fix-just
+# dev-just-fix
 
 Run `just` (the project's default check suite) and fix every failure.
 
@@ -69,7 +69,7 @@ Iteration 3: Fixed type error in src/asdl/cli/main.py — all checks pass
 ### Success
 
 ```
-## dev-fix-just: SUCCESS
+## dev-just-fix: SUCCESS
 
 All checks passed after N iteration(s):
 
@@ -83,7 +83,7 @@ All checks passed after N iteration(s):
 ### Stuck
 
 ```
-## dev-fix-just: STUCK
+## dev-just-fix: STUCK
 
 Unable to resolve the following after N attempts:
 

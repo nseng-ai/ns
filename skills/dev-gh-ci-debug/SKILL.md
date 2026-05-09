@@ -2,7 +2,7 @@
 name: dev-gh-ci-debug
 description: Command
 # Original description (preserved for reference):
-# Debug a failing GitHub Actions run end-to-end. Fires when the user pastes a GitHub Actions URL, gives a run ID, or says things like 'debug this CI run', 'why did CI fail', 'look at gh actions run <id>', 'investigate the failing workflow'. Uses `gh run view` + `--log-failed` to fetch only failed-step logs, correlates `##[error]` annotations with steps in the workflow YAML, reads invoked scripts, and returns a structured diagnosis with the file/line to fix. Developer-only; defers to `dev-gh` for general `gh` CLI questions and to `dev-fix-just` for applying fixes locally.
+# Debug a failing GitHub Actions run end-to-end. Fires when the user pastes a GitHub Actions URL, gives a run ID, or says things like 'debug this CI run', 'why did CI fail', 'look at gh actions run <id>', 'investigate the failing workflow'. Uses `gh run view` + `--log-failed` to fetch only failed-step logs, correlates `##[error]` annotations with steps in the workflow YAML, reads invoked scripts, and returns a structured diagnosis with the file/line to fix. Developer-only; defers to `dev-gh` for general `gh` CLI questions and to `dev-just-fix` for applying fixes locally.
 allowed-tools:
   - "Bash(gh run *)"
   - "Bash(gh api *)"
@@ -25,7 +25,7 @@ A focused playbook for diagnosing GitHub Actions CI failures from a run URL or r
 - User gives a bare run ID and asks to debug it.
 - User says "debug CI", "why did CI fail", "look at gh actions run …", "investigate the failing workflow".
 
-Defer to `dev-gh` for general `gh` questions (PRs, issues, API, auth). Defer to `dev-fix-just` when the failure is local `just` output and no run is involved.
+Defer to `dev-gh` for general `gh` questions (PRs, issues, API, auth). Defer to `dev-just-fix` when the failure is local `just` output and no run is involved.
 
 ## Workflow
 
@@ -81,7 +81,7 @@ Common categories of root cause, in rough order of frequency:
 2. **Environment / secrets** — missing `secrets.X`, wrong scope on `permissions:`, missing `with:` input.
 3. **Checkout depth / ref** — `actions/checkout@v4` without `fetch-depth: 0` when the step needs history.
 4. **Matrix expansion** — `fromJson(...)` on an output that wasn't valid JSON (see category 1).
-5. **Production code** — actual lint/type/test failure surfaced by CI; in that case hand off to `dev-fix-just` for the local fix loop.
+5. **Production code** — actual lint/type/test failure surfaced by CI; in that case hand off to `dev-just-fix` for the local fix loop.
 
 ### 6. Propose a fix
 

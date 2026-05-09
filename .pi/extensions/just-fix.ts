@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_OUTPUT_CHARS = 24_000;
-const SKILL_CANDIDATES = ["dev-just-fix", "dev-fix-just"] as const;
+const SKILL_NAME = "dev-just-fix";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -75,33 +75,27 @@ function formatJustOutput(result: ExecResult): string {
 }
 
 async function expandSkill(pi: ExtensionAPI): Promise<{ name: string; block: string } | undefined> {
-	const commands = pi.getCommands();
-
-	for (const skillName of SKILL_CANDIDATES) {
-		const command = commands.find(
-			(candidate) => candidate.source === "skill" && candidate.name === `skill:${skillName}`,
-		);
-		if (!command) {
-			continue;
-		}
-
-		const skillPath = command.sourceInfo.path;
-		const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
-		const body = stripFrontmatter(await readFile(skillPath, "utf8"));
-		return {
-			name: skillName,
-			block: `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
-		};
+	const command = pi
+		.getCommands()
+		.find((candidate) => candidate.source === "skill" && candidate.name === `skill:${SKILL_NAME}`);
+	if (!command) {
+		return undefined;
 	}
 
-	return undefined;
+	const skillPath = command.sourceInfo.path;
+	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
+	const body = stripFrontmatter(await readFile(skillPath, "utf8"));
+	return {
+		name: SKILL_NAME,
+		block: `<skill name="${SKILL_NAME}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
+	};
 }
 
 function buildFailurePrompt(skillBlock: string | undefined, result: ExecResult, cwd: string): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const justOutput = formatJustOutput(result);
 	const fallback =
-		"The requested just-fix skill was not found among loaded Pi skills. Follow the repository's just-fix workflow anyway.";
+		"The dev-just-fix skill was not found among loaded Pi skills. Follow the repository's dev-just-fix workflow anyway.";
 
 	return `${skillBlock ?? fallback}
 
@@ -141,7 +135,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 	const skill = await expandSkill(pi);
 	if (ctx.hasUI) {
 		ctx.ui.notify(
-			skill ? `\`just\` failed; invoking ${skill.name}.` : "`just` failed; just-fix skill was not found.",
+			skill ? `\`just\` failed; invoking ${skill.name}.` : "`just` failed; dev-just-fix was not found.",
 			skill ? "warning" : "error",
 		);
 	}
@@ -151,12 +145,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 
 export default function justFixExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("just", {
-		description: "Run `just`; if it fails, invoke the just-fix skill.",
-		handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx),
-	});
-
-	pi.registerCommand("just-fix", {
-		description: "Alias for /just: run `just` and invoke the just-fix skill on failure.",
+		description: "Run `just`; if it fails, invoke dev-just-fix.",
 		handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx),
 	});
 }
