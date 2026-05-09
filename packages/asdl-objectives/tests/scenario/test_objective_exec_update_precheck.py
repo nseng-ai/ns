@@ -177,14 +177,14 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
             "patch_id": "pid-1",
         },
     ]
-    assert data["snapshot_absorbed_patch_ids"] == []
-    assert data["absorbed_marker_diagnostics"] == []
-    assert data["absorbed_patch_ids"] == []
-    # Timestamp aggregates and downstack absorption are not part of the
-    # patch-id snapshot state contract.
+    assert data["snapshot_covered_patch_ids"] == []
+    assert data["durable_evidence_diagnostics"] == []
+    assert data["covered_patch_ids"] == []
+    # Timestamp aggregates and downstack covered-patch aggregation are not part
+    # of the patch-id snapshot state contract.
     assert "snapshot_max_head_date" not in data
     assert "branch_max_author_iso" not in data
-    assert "downstack_absorbed_patch_ids" not in data
+    assert "downstack_covered_patch_ids" not in data
 
 
 def test_precheck_only_body_present(cli_group: ClinkrGroup) -> None:
@@ -249,15 +249,15 @@ def test_precheck_in_sync_when_no_branch_commits(cli_group: ClinkrGroup) -> None
 
 
 # ---------------------------------------------------------------------------
-# patch-id absorbed-set
+# patch-id covered set
 # ---------------------------------------------------------------------------
 
 
-def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
+def test_precheck_in_sync_when_all_pids_covered(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
     gateway.put(
         "objectives",
-        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite/.durable-evidence.jsonl",
         "widget-rewrite-layer-1",
         (
             '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
@@ -293,14 +293,14 @@ def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None
     assert data["snapshot_state"] == "up-to-date"
     assert len(data["branch_commits"]) == 2
     assert {c["patch_id"] for c in data["branch_commits"]} == {"pid-1", "pid-2"}
-    assert set(data["absorbed_patch_ids"]) == {"pid-1", "pid-2"}
+    assert set(data["covered_patch_ids"]) == {"pid-1", "pid-2"}
 
 
 def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
     gateway.put(
         "objectives",
-        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite/.durable-evidence.jsonl",
         "widget-rewrite-layer-1",
         (
             '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
@@ -331,14 +331,14 @@ def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> Non
     assert result.exit_code == 0, result.output
     data = payload["data"]
     assert data["in_sync"] is False
-    assert set(data["absorbed_patch_ids"]) == {"pid-1"}
+    assert set(data["covered_patch_ids"]) == {"pid-1"}
 
 
 def test_precheck_ignores_null_pid_for_snapshot_state(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
     gateway.put(
         "objectives",
-        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite/.durable-evidence.jsonl",
         "widget-rewrite-layer-1",
         (
             '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
@@ -372,11 +372,11 @@ def test_precheck_ignores_null_pid_for_snapshot_state(cli_group: ClinkrGroup) ->
     assert data["snapshot_state"] == "up-to-date"
 
 
-def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
+def test_precheck_in_sync_when_snapshot_durable_evidence_covers_pid(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
     gateway.put(
         "objectives",
-        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite/.durable-evidence.jsonl",
         "widget-rewrite-layer-1",
         (
             '{"schema":1,"sha":"sha-2","patch_id":"pid-novel",'
@@ -405,18 +405,19 @@ def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGrou
     data = payload["data"]
     assert data["in_sync"] is True
     assert data["snapshot_state"] == "up-to-date"
-    assert data["snapshot_absorbed_patch_ids"] == ["pid-novel"]
-    assert data["absorbed_patch_ids"] == ["pid-novel"]
+    assert data["snapshot_covered_patch_ids"] == ["pid-novel"]
+    assert data["covered_patch_ids"] == ["pid-novel"]
 
 
 def test_precheck_snapshot_state_ignores_branch_author_time(cli_group: ClinkrGroup) -> None:
-    """Patch-id absorption alone determines snapshot state — a much-newer commit author
-    time on the branch must not flip the verdict to stale.
+    """Covered patch IDs alone determine snapshot state.
+
+    A much-newer commit author time on the branch must not flip the verdict to stale.
     """
     gateway = _seed_objective("widget-rewrite-layer-1")
     gateway.put(
         "objectives",
-        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite/.durable-evidence.jsonl",
         "widget-rewrite-layer-1",
         (
             '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
@@ -456,7 +457,7 @@ def test_precheck_malformed_marker_is_stale(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
     gateway.put(
         "objectives",
-        "widget-rewrite/.absorbed.jsonl",
+        "widget-rewrite/.durable-evidence.jsonl",
         "widget-rewrite-layer-1",
         "not-json\n",
     )
@@ -480,7 +481,7 @@ def test_precheck_malformed_marker_is_stale(cli_group: ClinkrGroup) -> None:
     data = payload["data"]
     assert data["snapshot_state"] == "stale"
     assert data["in_sync"] is False
-    assert data["absorbed_marker_diagnostics"] == ["line 1: invalid JSON: Expecting value"]
+    assert data["durable_evidence_diagnostics"] == ["line 1: invalid JSON: Expecting value"]
 
 
 # ---------------------------------------------------------------------------

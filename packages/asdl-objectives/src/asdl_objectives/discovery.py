@@ -38,7 +38,7 @@ FALLBACK_TRUNK_BRANCH = "main"
 BODY_FILE = "body.md"
 ROADMAP_FILE = "roadmap.md"
 NOTES_FILE = "notes.md"
-ABSORBED_PATCHES_FILE = ".absorbed.jsonl"
+DURABLE_EVIDENCE_FILE = ".durable-evidence.jsonl"
 CLOSED_FILE = ".closed"
 
 
@@ -95,9 +95,9 @@ def notes_key(slug: str) -> str:
     return f"{slug}/{NOTES_FILE}"
 
 
-def absorbed_patches_key(slug: str) -> str:
-    """Return the brmem key for the machine-owned absorbed-patches marker."""
-    return f"{slug}/{ABSORBED_PATCHES_FILE}"
+def durable_evidence_key(slug: str) -> str:
+    """Return the brmem key for the machine-owned Durable Evidence marker."""
+    return f"{slug}/{DURABLE_EVIDENCE_FILE}"
 
 
 def closed_key(slug: str) -> str:

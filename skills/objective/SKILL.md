@@ -55,7 +55,7 @@ objectives live under namespace `objectives-archive`. Entries are keyed by
 - `body.md` - required stable spine
 - `roadmap.md` - optional progress surface
 - `notes.md` - optional durable findings
-- `.absorbed.jsonl` - optional machine-owned branch snapshot marker
+- `.durable-evidence.jsonl` - optional machine-owned branch snapshot marker
 - `.closed` - archive-only closure metadata on the trunk snapshot
 
 Current storage is snapshot-shaped: a single ref per `(namespace, branch)`
@@ -150,7 +150,7 @@ Append-only in spirit. Use it for constraints, collisions, pointers, and
 non-obvious findings discovered during implementation. When a note becomes
 obsolete, annotate it in place instead of deleting it.
 
-### `.absorbed.jsonl` - snapshot state marker
+### `.durable-evidence.jsonl` - snapshot state marker
 
 Machine-owned metadata for branch snapshots. Each JSONL record describes one
 commit observed in the branch's `trunk..HEAD` range when `objective-update`
@@ -209,7 +209,7 @@ next entry.
   delegating to the attach primitive; then it updates from commits on that
   branch. It is a no-op when the snapshot is already up-to-date relative to branch
   HEAD. When branch work is stale but already documented, `update` may only
-  advance `.absorbed.jsonl`. It never mutates canonical state.
+  advance `.durable-evidence.jsonl`. It never mutates canonical state.
 - **Reconcile** (`objective-reconcile`): rewrite the canonical
   objective by exploring branch snapshots that carry the slug,
   cross-referencing their associated PRs, and folding only landed evidence
@@ -237,8 +237,8 @@ Carry-forward never edits, merges, summarizes, or synthesizes. Any reshaping
 belongs to `update` after work lands on a branch, or `reconcile` when landed
 branch evidence is folded into canonical state.
 
-Because `.absorbed.jsonl` is patch-id based, carrying it forward is safe:
-inherited patches remain absorbed on child branches, while new child patches
+Because `.durable-evidence.jsonl` is patch-id based, carrying it forward is safe:
+inherited patches remain covered on child branches, while new child patches
 remain stale until `objective-update` runs on the child.
 
 ## Mutation contracts
@@ -261,7 +261,7 @@ The full contract lives in `references/mutation-contract.md`. Summary:
 They differ in authority and evidence:
 
 - `update` mutates a branch snapshot, using that branch's work as evidence.
-  It also advances `.absorbed.jsonl` after successful triage.
+  It also advances `.durable-evidence.jsonl` after successful triage.
 - `reconcile` mutates the canonical objective, using landed branch snapshots
   plus associated merged PR state/metadata as evidence. Open PRs and unmerged
   branches are left to higher-level views across canonical state and branch

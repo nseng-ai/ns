@@ -2,11 +2,11 @@
 
 Objective Snapshot state is deterministic and patch-id based for live branch
 snapshots. A branch snapshot is up-to-date when every content patch in
-``trunk..branch`` is present in the effective absorbed set:
+``trunk..branch`` is present in the effective covered set:
 
-``snapshot_absorbed_patch_ids``.
+``snapshot_covered_patch_ids``.
 
-The absorbed set comes from ``<slug>/.absorbed.jsonl``, a machine-owned JSONL
+The covered set comes from ``<slug>/.durable-evidence.jsonl``, a machine-owned JSONL
 marker written by ``objective-update`` after its evidence triage confirms
 that the branch snapshot covers the current branch work. The marker is
 cumulative for ``trunk..branch`` and is copied with branch snapshots, so it is
@@ -26,8 +26,8 @@ from typing import Literal
 
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure
-from asdl_objectives.absorbed_marker import load_absorbed_marker
 from asdl_objectives.discovery import body_key
+from asdl_objectives.durable_evidence import load_durable_evidence
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from brmem.gateway import BranchMemoryGateway
 from brmem.ref_layout import snapshot_ref_name
@@ -39,17 +39,17 @@ def classify_snapshot_state(
     *,
     alive: bool,
     branch_commit_pids: tuple[str | None, ...] | None,
-    absorbed_pids: frozenset[str] | None,
+    covered_pids: frozenset[str] | None,
 ) -> ObjectiveSnapshotState:
     """Classify a snapshot as ``"up-to-date"`` or ``"stale"``.
 
     A deleted branch is up-to-date by definition: its history is frozen, so the
     snapshot can no longer drift. For live branches, state classification is purely
     patch-id based. The branch is up-to-date iff every content patch-id in
-    ``trunk..branch`` is present in the effective absorbed set. ``None``
+    ``trunk..branch`` is present in the effective covered set. ``None``
     patch-ids represent merge, empty, or otherwise non-content-changing
     commits; they are ignored for state classification and recorded only as
-    diagnostics in ``.absorbed.jsonl``.
+    diagnostics in ``.durable-evidence.jsonl``.
     """
     if not alive:
         return "up-to-date"
@@ -57,9 +57,9 @@ def classify_snapshot_state(
         content_pids = tuple(pid for pid in branch_commit_pids if pid is not None)
         if not content_pids:
             return "up-to-date"
-        if absorbed_pids is None:
+        if covered_pids is None:
             return "stale"
-        if all(pid in absorbed_pids for pid in content_pids):
+        if all(pid in covered_pids for pid in content_pids):
             return "up-to-date"
         return "stale"
     return "stale"
@@ -96,13 +96,13 @@ def classify_branch_snapshot_state(
     :func:`classify_snapshot_state`. Always returns ``"up-to-date"`` or ``"stale"``;
     callers map ``alive=False`` to a UI ``"deleted"`` label themselves.
     """
-    branch_commit_pids, absorbed_pids = _patch_id_inputs(
+    branch_commit_pids, covered_pids = _patch_id_inputs(
         gateway, git, branch, slug=slug, trunk=trunk, alive=alive
     )
     return classify_snapshot_state(
         alive=alive,
         branch_commit_pids=branch_commit_pids,
-        absorbed_pids=absorbed_pids,
+        covered_pids=covered_pids,
     )
 
 
@@ -142,13 +142,13 @@ def _patch_id_inputs(
     trunk: str,
     alive: bool,
 ) -> tuple[tuple[str | None, ...] | None, frozenset[str] | None]:
-    """Return ``(branch_commit_pids, effective_absorbed_pids)`` for ``branch``."""
+    """Return ``(branch_commit_pids, effective_covered_pids)`` for ``branch``."""
     if not alive:
         return None, None
     pid_result = git.patch_ids_for_range(f"{trunk}..{branch}")
     if isinstance(pid_result, GitCommandFailure):
         return None, None
-    marker = load_absorbed_marker(gateway, slug=slug, branch=branch)
+    marker = load_durable_evidence(gateway, slug=slug, branch=branch)
     if not marker.ok:
         return tuple(pid for _sha, pid in pid_result), None
     return tuple(pid for _sha, pid in pid_result), marker.patch_ids

@@ -1,4 +1,4 @@
-"""``objective exec absorb-patches`` — write the absorbed-patch marker."""
+"""``objective exec record-evidence`` — write the Durable Evidence marker."""
 
 from __future__ import annotations
 
@@ -14,19 +14,19 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
-from asdl_objectives.absorbed_marker import (
-    AbsorbedPatchRecord,
-    records_from_commits,
-    serialize_absorbed_marker,
-)
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_objectives.discovery import absorbed_patches_key, body_key, slug_for_key
+from asdl_objectives.discovery import body_key, durable_evidence_key, slug_for_key
+from asdl_objectives.durable_evidence import (
+    DurableEvidenceRecord,
+    records_from_commits,
+    serialize_durable_evidence,
+)
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.patch_facts import load_branch_patch_facts
 from asdl_objectives.trunk_resolution import resolve_trunk
 
 
-class AbsorbPatchesRequest(ClinkrModel):
+class RecordEvidenceRequest(ClinkrModel):
     slug: Annotated[
         str,
         click.Argument(["slug"], type=click.STRING),
@@ -37,36 +37,36 @@ class AbsorbPatchesRequest(ClinkrModel):
     ]
 
 
-class AbsorbPatchesResult(ClinkrModel):
+class RecordEvidenceResult(ClinkrModel):
     slug: str
     branch: str
     branch_head_sha: str
     marker_key: str
     old_head_sha: str | None
     new_head_sha: str
-    records: tuple[AbsorbedPatchRecord, ...]
+    records: tuple[DurableEvidenceRecord, ...]
 
 
-def render_absorb_patches(result: AbsorbPatchesResult) -> None:
+def render_record_evidence(result: RecordEvidenceResult) -> None:
     count = len(result.records)
     suffix = "record" if count == 1 else "records"
-    click.echo(f"Recorded {count} absorbed patch {suffix} for {result.slug} on {result.branch}.")
+    click.echo(f"Recorded {count} Durable Evidence {suffix} for {result.slug} on {result.branch}.")
     click.echo(f"Marker: {result.marker_key}")
     click.echo(f"Commit: {result.new_head_sha}")
 
 
 @clinkr_operation(
-    name="absorb-patches",
+    name="record-evidence",
     help=(
-        "Write the machine-owned `.absorbed.jsonl` marker for the current "
+        "Write the machine-owned `.durable-evidence.jsonl` marker for the current "
         "branch snapshot. Intended for `objective-update`, not interactive use."
     ),
-    human_renderer=render_absorb_patches,
+    human_renderer=render_record_evidence,
 )
-def run_absorb_patches_objective(
+def run_record_evidence_objective(
     ctx: click.Context,
-    request: AbsorbPatchesRequest,
-) -> ClinkrExit[AbsorbPatchesResult]:
+    request: RecordEvidenceRequest,
+) -> ClinkrExit[RecordEvidenceResult]:
     mctx = load_typed_context(ctx, ObjectiveCliContext)
     git = mctx.git_gateway
     cwd = Path.cwd()
@@ -123,17 +123,17 @@ def run_absorb_patches_objective(
         message="git patch-id failed",
     )
     records = records_from_commits(facts.commits, pid_by_sha=pid_by_sha)
-    marker_key = absorbed_patches_key(slug)
+    marker_key = durable_evidence_key(slug)
     old_diagnostic = mctx.brmem_gateway.check(OBJECTIVE_NAMESPACE, marker_key, current_branch)
     new_head_sha = mctx.brmem_gateway.put(
         OBJECTIVE_NAMESPACE,
         marker_key,
         current_branch,
-        serialize_absorbed_marker(records),
+        serialize_durable_evidence(records),
     )
 
     return ClinkrExit.ok(
-        AbsorbPatchesResult(
+        RecordEvidenceResult(
             slug=slug,
             branch=current_branch,
             branch_head_sha=head_result,

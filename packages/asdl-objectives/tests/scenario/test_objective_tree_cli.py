@@ -544,7 +544,7 @@ def test_tree_classifies_all_five_pr_states(cli_group: ClinkrGroup) -> None:
     }
 
 
-def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGroup) -> None:
+def test_tree_reports_stale_when_branch_has_uncovered_pid(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
@@ -587,13 +587,13 @@ def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGrou
     assert entries[0]["obj_state"] == "stale"
 
 
-def test_tree_reports_up_to_date_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
+def test_tree_reports_up_to_date_when_all_pids_covered(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
     gateway.put(
         "objectives",
-        "widget/.absorbed.jsonl",
+        "widget/.durable-evidence.jsonl",
         "feat/widget",
         (
             '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
@@ -662,13 +662,13 @@ def test_tree_reports_deleted_for_orphaned_branch_snapshot(cli_group: ClinkrGrou
     assert entries[0]["obj_state"] == "deleted"
 
 
-def test_tree_reports_up_to_date_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
+def test_tree_reports_up_to_date_when_durable_evidence_covers_pid(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
     gateway.put(
         "objectives",
-        "widget/.absorbed.jsonl",
+        "widget/.durable-evidence.jsonl",
         "feat/widget",
         (
             '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'

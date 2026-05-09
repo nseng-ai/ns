@@ -1,18 +1,18 @@
-"""Unit tests for the ``.absorbed.jsonl`` marker parser."""
+"""Unit tests for the ``.durable-evidence.jsonl`` marker parser."""
 
 from __future__ import annotations
 
 from asdl_core.git.types import CommitSummary
-from asdl_objectives.absorbed_marker import (
-    AbsorbedPatchRecord,
-    parse_absorbed_marker,
+from asdl_objectives.durable_evidence import (
+    DurableEvidenceRecord,
+    parse_durable_evidence,
     records_from_commits,
-    serialize_absorbed_marker,
+    serialize_durable_evidence,
 )
 
 
 def test_parse_valid_jsonl_records() -> None:
-    marker = parse_absorbed_marker(
+    marker = parse_durable_evidence(
         '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
         '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n'
         '{"schema":1,"sha":"sha-merge","patch_id":null,'
@@ -26,7 +26,7 @@ def test_parse_valid_jsonl_records() -> None:
 
 
 def test_parse_ignores_blank_lines() -> None:
-    marker = parse_absorbed_marker(
+    marker = parse_durable_evidence(
         '\n{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
         '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n\n'
     )
@@ -36,7 +36,7 @@ def test_parse_ignores_blank_lines() -> None:
 
 
 def test_parse_malformed_line_reports_diagnostic() -> None:
-    marker = parse_absorbed_marker(
+    marker = parse_durable_evidence(
         '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
         '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n'
         "not-json\n"
@@ -49,9 +49,9 @@ def test_parse_malformed_line_reports_diagnostic() -> None:
 
 
 def test_serialize_records_is_compact_jsonl() -> None:
-    content = serialize_absorbed_marker(
+    content = serialize_durable_evidence(
         (
-            AbsorbedPatchRecord(
+            DurableEvidenceRecord(
                 schema=1,
                 sha="sha-1",
                 patch_id="pid-1",

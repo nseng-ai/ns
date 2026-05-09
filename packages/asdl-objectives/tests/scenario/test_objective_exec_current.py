@@ -299,7 +299,7 @@ def test_current_single_attach_up_to_date(cli_group: ClinkrGroup) -> None:
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
     gateway.put(
         "objectives",
-        "widget/.absorbed.jsonl",
+        "widget/.durable-evidence.jsonl",
         "feat/current",
         (
             '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
@@ -345,7 +345,7 @@ def test_current_single_attach_up_to_date_json_shape(cli_group: ClinkrGroup) -> 
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
     gateway.put(
         "objectives",
-        "widget/.absorbed.jsonl",
+        "widget/.durable-evidence.jsonl",
         "feat/current",
         (
             '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
@@ -407,7 +407,7 @@ def test_current_single_attach_stale(cli_group: ClinkrGroup) -> None:
             ),
         ),
     }
-    # Branch carries a novel patch-id not absorbed by any ancestor.
+    # Branch carries a novel patch-id not covered by any ancestor.
     patch_ids_by_range = {
         "master..feat/current": (("bbb222", "pid-novel"),),
     }

@@ -125,20 +125,20 @@ storage branch.
 Evidence:
 
 - files currently attached under `<slug>/` on the branch
-- the machine-owned `<slug>/.absorbed.jsonl` marker recording which patch IDs
-  the snapshot has absorbed
+- the machine-owned `<slug>/.durable-evidence.jsonl` marker recording which patch IDs
+  the snapshot has covered
 - all commits on `<trunk>..HEAD` and their `git patch-id` values
 
 Snapshot State rule:
 
 - Snapshot state is patch-id based. The snapshot is up-to-date when every non-null
   content `patch-id` in `<trunk>..HEAD` is present in the
-  `<slug>/.absorbed.jsonl` marker. Commits with `None` patch IDs (merges,
+  `<slug>/.durable-evidence.jsonl` marker. Commits with `None` patch IDs (merges,
   empty commits) are ignored for snapshot state; commit SHA, subject, and author
   time are diagnostic only.
 - If `<trunk>..HEAD` is empty, the snapshot is up-to-date by definition; print the
   in-sync message and do not write.
-- A malformed `.absorbed.jsonl` marker renders the snapshot stale.
+- A malformed `.durable-evidence.jsonl` marker renders the snapshot stale.
 - Do not use timestamps (snapshot file `head_date`, commit author time, or
   committer time) as a reason to skip evidence triage. Author times survive
   some rebases but `git commit --amend --reset-author` can move them, and

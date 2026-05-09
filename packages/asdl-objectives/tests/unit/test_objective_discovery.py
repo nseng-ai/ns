@@ -3,9 +3,9 @@ from __future__ import annotations
 from asdl_objectives.discovery import (
     BranchPresence,
     ObjectiveRepoEntry,
-    absorbed_patches_key,
     body_key,
     discover_objectives,
+    durable_evidence_key,
     group_objective_entries,
     notes_key,
     roadmap_key,
@@ -29,7 +29,7 @@ def test_file_key_helpers() -> None:
     assert body_key("widget") == "widget/body.md"
     assert roadmap_key("widget") == "widget/roadmap.md"
     assert notes_key("widget") == "widget/notes.md"
-    assert absorbed_patches_key("widget") == "widget/.absorbed.jsonl"
+    assert durable_evidence_key("widget") == "widget/.durable-evidence.jsonl"
 
 
 def test_empty_repo_produces_empty_result() -> None:

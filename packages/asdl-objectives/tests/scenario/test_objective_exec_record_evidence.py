@@ -1,4 +1,4 @@
-"""Scenario tests for ``objective exec absorb-patches``."""
+"""Scenario tests for ``objective exec record-evidence``."""
 
 from __future__ import annotations
 
@@ -49,14 +49,14 @@ def _make_obj(
     return build_clinkr_context_object(lambda: ctx)
 
 
-def test_absorb_patches_help(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["exec", "absorb-patches", "-h"])
+def test_record_evidence_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "record-evidence", "-h"])
 
     assert result.exit_code == 0
-    assert "Usage: objective exec absorb-patches" in result.output
+    assert "Usage: objective exec record-evidence" in result.output
 
 
-def test_absorb_patches_writes_marker(cli_group: ClinkrGroup) -> None:
+def test_record_evidence_writes_marker(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/x", "# Widget\n")
     commits = (
@@ -74,7 +74,7 @@ def test_absorb_patches_writes_marker(cli_group: ClinkrGroup) -> None:
         cli_group,
         [
             "exec",
-            "absorb-patches",
+            "record-evidence",
             "widget",
             "--expected-head",
             "head-1",
@@ -87,14 +87,14 @@ def test_absorb_patches_writes_marker(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     data = payload["data"]
-    assert data["marker_key"] == "widget/.absorbed.jsonl"
+    assert data["marker_key"] == "widget/.durable-evidence.jsonl"
     assert data["old_head_sha"] is None
     assert data["new_head_sha"] is not None
     assert [(r["sha"], r["patch_id"]) for r in data["records"]] == [
         ("sha-1", "pid-1"),
         ("sha-2", "pid-2"),
     ]
-    assert gateway.get("objectives", "widget/.absorbed.jsonl", "feat/x") == (
+    assert gateway.get("objectives", "widget/.durable-evidence.jsonl", "feat/x") == (
         '{"schema":1,"sha":"sha-1","patch_id":"pid-1",'
         '"author_iso":"2026-04-26T18:00:00+00:00","subject":"First"}\n'
         '{"schema":1,"sha":"sha-2","patch_id":"pid-2",'
@@ -102,7 +102,7 @@ def test_absorb_patches_writes_marker(cli_group: ClinkrGroup) -> None:
     )
 
 
-def test_absorb_patches_rejects_moved_head(cli_group: ClinkrGroup) -> None:
+def test_record_evidence_rejects_moved_head(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/x", "# Widget\n")
     obj = _make_obj(
@@ -114,7 +114,7 @@ def test_absorb_patches_rejects_moved_head(cli_group: ClinkrGroup) -> None:
         cli_group,
         [
             "exec",
-            "absorb-patches",
+            "record-evidence",
             "widget",
             "--expected-head",
             "head-before",
@@ -127,10 +127,10 @@ def test_absorb_patches_rejects_moved_head(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 2
     assert payload["error_type"] == "head_moved"
-    assert gateway.get("objectives", "widget/.absorbed.jsonl", "feat/x") is None
+    assert gateway.get("objectives", "widget/.durable-evidence.jsonl", "feat/x") is None
 
 
-def test_absorb_patches_requires_attached_slug(cli_group: ClinkrGroup) -> None:
+def test_record_evidence_requires_attached_slug(cli_group: ClinkrGroup) -> None:
     obj = _make_obj(
         gateway=FakeBranchMemoryGateway(),
         branch_head_oid_by_branch={"feat/x": "head-1"},
@@ -140,7 +140,7 @@ def test_absorb_patches_requires_attached_slug(cli_group: ClinkrGroup) -> None:
         cli_group,
         [
             "exec",
-            "absorb-patches",
+            "record-evidence",
             "widget",
             "--expected-head",
             "head-1",

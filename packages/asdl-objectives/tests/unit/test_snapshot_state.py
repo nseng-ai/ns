@@ -17,16 +17,16 @@ def test_deleted_branch_is_up_to_date() -> None:
     state = classify_snapshot_state(
         alive=False,
         branch_commit_pids=("p1",),
-        absorbed_pids=frozenset(),
+        covered_pids=frozenset(),
     )
     assert state == "up-to-date"
 
 
-def test_all_pids_absorbed_is_up_to_date() -> None:
+def test_all_pids_covered_is_up_to_date() -> None:
     state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=("p1", "p2"),
-        absorbed_pids=frozenset({"p1", "p2", "p3"}),
+        covered_pids=frozenset({"p1", "p2", "p3"}),
     )
     assert state == "up-to-date"
 
@@ -35,7 +35,7 @@ def test_one_novel_pid_is_stale() -> None:
     state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=("p1", "p_novel"),
-        absorbed_pids=frozenset({"p1"}),
+        covered_pids=frozenset({"p1"}),
     )
     assert state == "stale"
 
@@ -44,7 +44,7 @@ def test_null_pid_is_ignored() -> None:
     state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=("p1", None),
-        absorbed_pids=frozenset({"p1"}),
+        covered_pids=frozenset({"p1"}),
     )
     assert state == "up-to-date"
 
@@ -53,7 +53,7 @@ def test_empty_branch_commit_pids_is_up_to_date() -> None:
     state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=(),
-        absorbed_pids=frozenset(),
+        covered_pids=frozenset(),
     )
     assert state == "up-to-date"
 
@@ -62,7 +62,7 @@ def test_unavailable_patch_ids_are_stale() -> None:
     state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=None,
-        absorbed_pids=None,
+        covered_pids=None,
     )
     assert state == "stale"
 
@@ -121,7 +121,7 @@ def test_classify_branch_snapshot_state_alive_with_unavailable_inputs_is_stale()
     assert state == "stale"
 
 
-def test_classify_branch_snapshot_state_alive_with_unabsorbed_pid_is_stale() -> None:
+def test_classify_branch_snapshot_state_alive_with_uncovered_pid_is_stale() -> None:
     gateway = FakeBranchMemoryGateway()
     git = FakeGitGateway(
         commits_by_range={
@@ -150,11 +150,11 @@ def test_classify_branch_snapshot_state_alive_with_unabsorbed_pid_is_stale() -> 
     assert state == "stale"
 
 
-def test_classify_branch_snapshot_state_marker_absorbs_branch_pid() -> None:
+def test_classify_branch_snapshot_state_durable_evidence_covers_branch_pid() -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put(
         "objectives",
-        "widget/.absorbed.jsonl",
+        "widget/.durable-evidence.jsonl",
         "feat/widget",
         (
             '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
@@ -203,14 +203,15 @@ def test_classify_branch_snapshot_state_dead_branch_is_up_to_date() -> None:
     assert state == "up-to-date"
 
 
-def test_classify_branch_snapshot_state_ignores_timestamps_when_pids_absorbed() -> None:
-    """Patch-id absorption is authoritative — a stale-looking last-touch timestamp
-    must not override a marker that already covers every branch patch ID.
+def test_classify_branch_snapshot_state_ignores_timestamps_when_pids_covered() -> None:
+    """Covered patch IDs are authoritative.
+
+    A stale-looking last-touch timestamp must not override Durable Evidence.
     """
     gateway = FakeBranchMemoryGateway()
     gateway.put(
         "objectives",
-        "widget/.absorbed.jsonl",
+        "widget/.durable-evidence.jsonl",
         "feat/widget",
         (
             '{"schema":1,"sha":"aaa111","patch_id":"pid-1",'
@@ -252,13 +253,13 @@ def test_classify_branch_snapshot_state_ignores_timestamps_when_pids_absorbed() 
 
 
 def test_classify_branch_snapshot_state_malformed_marker_is_stale() -> None:
-    """Malformed `.absorbed.jsonl` is treated as missing — the snapshot is stale
+    """Malformed `.durable-evidence.jsonl` is treated as missing — the snapshot is stale
     when there are content patch IDs to cover.
     """
     gateway = FakeBranchMemoryGateway()
     gateway.put(
         "objectives",
-        "widget/.absorbed.jsonl",
+        "widget/.durable-evidence.jsonl",
         "feat/widget",
         "this-is-not-json\n",
     )

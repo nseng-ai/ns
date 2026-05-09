@@ -7,7 +7,7 @@ allowed-tools:
   - "Bash(git show *)"
   - "Bash(objective exec update-precheck *)"
   - "Bash(objective exec attach *)"
-  - "Bash(objective exec absorb-patches *)"
+  - "Bash(objective exec record-evidence *)"
   - "Bash(brmem get *)"
   - "Bash(brmem put *)"
   - "Read"
@@ -29,7 +29,7 @@ Given an explicit, resolved, or implicitly attached objective slug, make the
 current branch's snapshot under `<slug>/` current with commits on the current
 branch. If the branch has no matching snapshot, delegate to the
 `objective-attach` carry-forward skill first, then continue the normal update. Write only changed content files back to
-`brmem`, then advance the machine-owned `<slug>/.absorbed.jsonl` marker so
+`brmem`, then advance the machine-owned `<slug>/.durable-evidence.jsonl` marker so
 deterministic snapshot-state checks know which branch patches this snapshot
 covers. Report old/new commit SHAs so prior snapshots are recoverable.
 
@@ -49,8 +49,8 @@ required; `roadmap.md` / `notes.md` optional). Rewrite only files whose
 content changed. Never read or write other branch snapshots or canonical
 state.
 
-The `.absorbed.jsonl` file is not prose. Never hand-author it. It is written
-only by `objective exec absorb-patches` after evidence triage confirms the
+The `.durable-evidence.jsonl` file is not prose. Never hand-author it. It is written
+only by `objective exec record-evidence` after evidence triage confirms the
 snapshot covers the current branch work.
 
 ## Inputs
@@ -80,7 +80,7 @@ snapshot covers the current branch work.
   or writing files. If snapshot state is stale, always triage the branch commits.
 - **Advance the marker after successful triage.** If evidence triage finds
   every branch commit already documented, skip Markdown rewrites but still
-  run `objective exec absorb-patches` to record that the snapshot covers the
+  run `objective exec record-evidence` to record that the snapshot covers the
   current branch patch IDs.
 - **Conservative per-file rewrites.** Apply the shared rules in
   `../objective/references/mutation-contract.md`. Do not regenerate
@@ -137,7 +137,7 @@ exit-2 errors are terminal unless explicitly handled below.
   ```
 
   `data.snapshot_state == "up-to-date"` means every content patch ID in
-  `trunk..HEAD` is already absorbed by the branch snapshot's `.absorbed.jsonl`
+  `trunk..HEAD` is already covered by the branch snapshot's `.durable-evidence.jsonl`
   marker. `data.in_sync` carries the same boolean as a convenience field.
 
 - **Otherwise**: carry forward `data.slug`, `data.branch`, the three
@@ -145,9 +145,9 @@ exit-2 errors are terminal unless explicitly handled below.
   drive "only run for present files" gating; `head_sha` values are the
   old SHAs for the recovery hint), `data.branch_head_sha` (the exact HEAD
   reviewed by this run), `data.branch_commits` (evidence list for triage),
-  and any `data.absorbed_marker_diagnostics`. Continue to step 2.
+  and any `data.durable_evidence_diagnostics`. Continue to step 2.
 
-If `data.absorbed_marker_diagnostics` is non-empty, mention that the marker is
+If `data.durable_evidence_diagnostics` is non-empty, mention that the marker is
 malformed and will be rewritten if triage succeeds.
 
 ### 1a. Implicit attach when missing
@@ -239,19 +239,19 @@ brmem put <slug>/notes.md --namespace objectives --file <temp-notes> --format js
 Skip absent or unchanged files. Do not parallelize these commands —
 parallel writes to the same branch snapshot ref race and lose updates.
 
-### 6. Advance absorbed marker
+### 6. Advance Durable Evidence marker
 
 After content has been confirmed covered — either by existing prose or by
 the rewrites from steps 4–5 — write the deterministic marker:
 
 ```bash
-objective exec absorb-patches <slug> --expected-head <data.branch_head_sha> --format json
+objective exec record-evidence <slug> --expected-head <data.branch_head_sha> --format json
 ```
 
 Handle failures:
 
 - `head_moved` — stop and tell the user to rerun `objective-update`; a new
-  commit landed after triage and must be reviewed before absorption.
+  commit landed after triage and must be reviewed before recording Durable Evidence.
 - `git_failed`, `detached_head`, `on_trunk_branch`, `slug_not_attached` —
   surface the message and stop.
 
@@ -265,7 +265,7 @@ Include:
 - slug and branch
 - files touched with one-line notes
 - old SHA to new SHA for each changed file
-- `.absorbed.jsonl` old SHA to new SHA, or `created` when no old marker existed
+- `.durable-evidence.jsonl` old SHA to new SHA, or `created` when no old marker existed
 - branch evidence used
 - recovery hint:
 
@@ -277,7 +277,7 @@ When no files were rewritten, report:
 
 - slug, branch
 - `snapshot already documents all post-snapshot commits`
-- `.absorbed.jsonl` marker advanced
+- `.durable-evidence.jsonl` marker advanced
 - the commit list checked, with a one-line rationale per commit (e.g.,
   `<sha> <subject>` → matches roadmap entry N already in `notes.md`)
 - the marker commit SHA so the user can audit / recover
@@ -292,7 +292,7 @@ When no files were rewritten, report:
 - Multiple attached slugs with no slug in the prompt: ask the user to
   choose. Never auto-pick to break the tie.
 - Snapshot up-to-date relative to HEAD: report in sync and write nothing.
-- HEAD changed after precheck: stop on `head_moved`; do not absorb untriaged
+- HEAD changed after precheck: stop on `head_moved`; do not record untriaged
   commits.
 - Multiple slugs on the branch: fine; operate only on the explicit slug.
 - Never manually construct attach plan files during `update`; delegate
@@ -300,4 +300,4 @@ When no files were rewritten, report:
 - Never parallelize `brmem put` writes to the same branch snapshot.
 - Never implement work, attach a snapshot, rewrite canonical state, delete
   completed roadmap items, add roadmap branch-slug labels, hand-edit
-  `.absorbed.jsonl`, or rebuild files wholesale during `update`.
+  `.durable-evidence.jsonl`, or rebuild files wholesale during `update`.

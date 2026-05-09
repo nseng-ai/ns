@@ -21,7 +21,6 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
-from asdl_objectives.absorbed_marker import load_absorbed_marker
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import (
     body_key,
@@ -29,6 +28,7 @@ from asdl_objectives.discovery import (
     roadmap_key,
     slug_for_key,
 )
+from asdl_objectives.durable_evidence import load_durable_evidence
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.patch_facts import load_branch_patch_facts
 from asdl_objectives.slug_resolution import (
@@ -80,9 +80,9 @@ class ObjectiveUpdatePrecheckResult(ClinkrModel):
     roadmap: FilePrecheck
     notes: FilePrecheck
     branch_commits: tuple[BranchCommit, ...]
-    snapshot_absorbed_patch_ids: tuple[str, ...]
-    absorbed_marker_diagnostics: tuple[str, ...]
-    absorbed_patch_ids: tuple[str, ...]
+    snapshot_covered_patch_ids: tuple[str, ...]
+    durable_evidence_diagnostics: tuple[str, ...]
+    covered_patch_ids: tuple[str, ...]
     snapshot_state: ObjectiveSnapshotState
     in_sync: bool
 
@@ -190,14 +190,14 @@ def run_update_precheck_objective(
         for c in facts.commits
     )
 
-    marker = load_absorbed_marker(gateway, slug=slug, branch=current_branch)
+    marker = load_durable_evidence(gateway, slug=slug, branch=current_branch)
     effective_pids = marker.patch_ids if marker.ok else None
     snapshot_state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=facts.commit_patch_ids,
-        absorbed_pids=effective_pids,
+        covered_pids=effective_pids,
     )
-    absorbed_pids = tuple(sorted(effective_pids or ()))
+    covered_pids = tuple(sorted(effective_pids or ()))
     in_sync = snapshot_state == "up-to-date"
 
     return ClinkrExit.ok(
@@ -209,11 +209,11 @@ def run_update_precheck_objective(
             roadmap=roadmap,
             notes=notes,
             branch_commits=branch_commits,
-            snapshot_absorbed_patch_ids=tuple(sorted(marker.patch_ids)),
-            absorbed_marker_diagnostics=tuple(
+            snapshot_covered_patch_ids=tuple(sorted(marker.patch_ids)),
+            durable_evidence_diagnostics=tuple(
                 f"line {d.line}: {d.message}" for d in marker.diagnostics
             ),
-            absorbed_patch_ids=absorbed_pids,
+            covered_patch_ids=covered_pids,
             snapshot_state=snapshot_state,
             in_sync=in_sync,
         )

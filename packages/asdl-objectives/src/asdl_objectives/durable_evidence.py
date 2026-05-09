@@ -1,4 +1,4 @@
-"""Read and write objective snapshot absorbed-patch marker files."""
+"""Read and write objective snapshot Durable Evidence marker files."""
 
 from __future__ import annotations
 
@@ -8,15 +8,15 @@ from json import JSONDecodeError
 from typing import Any
 
 from asdl_core.git.types import CommitSummary
-from asdl_objectives.discovery import absorbed_patches_key
+from asdl_objectives.discovery import durable_evidence_key
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from brmem.gateway import BranchMemoryGateway
 
-ABSORBED_MARKER_SCHEMA = 1
+DURABLE_EVIDENCE_SCHEMA = 1
 
 
 @dataclass(frozen=True)
-class AbsorbedPatchRecord:
+class DurableEvidenceRecord:
     """One commit recorded as covered by an objective branch snapshot."""
 
     schema: int
@@ -27,7 +27,7 @@ class AbsorbedPatchRecord:
 
 
 @dataclass(frozen=True)
-class AbsorbedMarkerDiagnostic:
+class DurableEvidenceDiagnostic:
     """A non-fatal marker parsing diagnostic."""
 
     line: int
@@ -35,12 +35,12 @@ class AbsorbedMarkerDiagnostic:
 
 
 @dataclass(frozen=True)
-class AbsorbedMarker:
-    """Parsed ``.absorbed.jsonl`` content."""
+class DurableEvidenceMarker:
+    """Parsed ``.durable-evidence.jsonl`` content."""
 
     present: bool
-    records: tuple[AbsorbedPatchRecord, ...]
-    diagnostics: tuple[AbsorbedMarkerDiagnostic, ...]
+    records: tuple[DurableEvidenceRecord, ...]
+    diagnostics: tuple[DurableEvidenceDiagnostic, ...]
 
     @property
     def patch_ids(self) -> frozenset[str]:
@@ -52,47 +52,47 @@ class AbsorbedMarker:
         return not self.diagnostics
 
 
-def load_absorbed_marker(
+def load_durable_evidence(
     gateway: BranchMemoryGateway,
     *,
     slug: str,
     branch: str,
-) -> AbsorbedMarker:
-    """Read and parse ``<slug>/.absorbed.jsonl`` from ``branch``."""
-    content = gateway.get(OBJECTIVE_NAMESPACE, absorbed_patches_key(slug), branch)
+) -> DurableEvidenceMarker:
+    """Read and parse ``<slug>/.durable-evidence.jsonl`` from ``branch``."""
+    content = gateway.get(OBJECTIVE_NAMESPACE, durable_evidence_key(slug), branch)
     if content is None:
-        return AbsorbedMarker(present=False, records=(), diagnostics=())
-    parsed = parse_absorbed_marker(content)
-    return AbsorbedMarker(
+        return DurableEvidenceMarker(present=False, records=(), diagnostics=())
+    parsed = parse_durable_evidence(content)
+    return DurableEvidenceMarker(
         present=True,
         records=parsed.records,
         diagnostics=parsed.diagnostics,
     )
 
 
-def parse_absorbed_marker(content: str) -> AbsorbedMarker:
+def parse_durable_evidence(content: str) -> DurableEvidenceMarker:
     """Parse marker content without trusting malformed records."""
-    records: list[AbsorbedPatchRecord] = []
-    diagnostics: list[AbsorbedMarkerDiagnostic] = []
+    records: list[DurableEvidenceRecord] = []
+    diagnostics: list[DurableEvidenceDiagnostic] = []
 
     for line_number, raw_line in enumerate(content.splitlines(), start=1):
         if not raw_line.strip():
             continue
         record, error = _parse_marker_line(raw_line)
         if error is not None:
-            diagnostics.append(AbsorbedMarkerDiagnostic(line=line_number, message=error))
+            diagnostics.append(DurableEvidenceDiagnostic(line=line_number, message=error))
             continue
         if record is not None:
             records.append(record)
 
-    return AbsorbedMarker(
+    return DurableEvidenceMarker(
         present=True,
         records=tuple(records),
         diagnostics=tuple(diagnostics),
     )
 
 
-def serialize_absorbed_marker(records: tuple[AbsorbedPatchRecord, ...]) -> str:
+def serialize_durable_evidence(records: tuple[DurableEvidenceRecord, ...]) -> str:
     """Serialize records as compact JSONL with a trailing newline when non-empty."""
     lines = [
         json.dumps(
@@ -116,11 +116,11 @@ def records_from_commits(
     commits: tuple[CommitSummary, ...],
     *,
     pid_by_sha: dict[str, str | None],
-) -> tuple[AbsorbedPatchRecord, ...]:
+) -> tuple[DurableEvidenceRecord, ...]:
     """Build marker records from newest-first git log output, oldest first."""
     return tuple(
-        AbsorbedPatchRecord(
-            schema=ABSORBED_MARKER_SCHEMA,
+        DurableEvidenceRecord(
+            schema=DURABLE_EVIDENCE_SCHEMA,
             sha=commit.sha,
             patch_id=pid_by_sha.get(commit.sha),
             author_iso=commit.author_iso,
@@ -130,7 +130,7 @@ def records_from_commits(
     )
 
 
-def _parse_marker_line(raw_line: str) -> tuple[AbsorbedPatchRecord | None, str | None]:
+def _parse_marker_line(raw_line: str) -> tuple[DurableEvidenceRecord | None, str | None]:
     try:
         data = json.loads(raw_line)
     except JSONDecodeError as exc:
@@ -140,7 +140,7 @@ def _parse_marker_line(raw_line: str) -> tuple[AbsorbedPatchRecord | None, str |
         return None, "expected JSON object"
 
     schema = data.get("schema")
-    if schema != ABSORBED_MARKER_SCHEMA:
+    if schema != DURABLE_EVIDENCE_SCHEMA:
         return None, f"unsupported schema: {schema!r}"
 
     sha = _required_str(data, "sha")
@@ -152,7 +152,7 @@ def _parse_marker_line(raw_line: str) -> tuple[AbsorbedPatchRecord | None, str |
         return None, "; ".join(errors)
 
     return (
-        AbsorbedPatchRecord(
+        DurableEvidenceRecord(
             schema=schema,
             sha=sha[0],
             patch_id=patch_id[0],

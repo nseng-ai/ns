@@ -55,7 +55,7 @@ check it out first.
   objective files or manually construct attach plan files.
 - **Conservative updates only.** When preparation needs an update, follow
   `../objective-update/SKILL.md`: load only attached files, triage branch
-  commits, rewrite conservatively, and advance `.absorbed.jsonl` only after the
+  commits, rewrite conservatively, and advance `.durable-evidence.jsonl` only after the
   snapshot covers the current branch work.
 - **Use numbered roadmap entries.** Read `data.roadmap_content` semantically.
   Pick the first unfinished numbered entry unless priority is clearly different
@@ -118,7 +118,7 @@ workflows rather than reproducing their internals here:
   rerun attach with the selected values.
 - For a stale snapshot, follow `../objective-update/SKILL.md` for the resolved
   slug. That workflow owns update precheck, conservative rewrites, serialized
-  `brmem put` writes, and absorbed-marker advancement.
+  `brmem put` writes, and Durable Evidence marker advancement.
 
 If either delegated workflow reports a terminal error, surface it and stop. Do
 not manually construct attach plan files, inspect raw source files for progress,
