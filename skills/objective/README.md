@@ -61,13 +61,8 @@ place to another, and it copies verbatim.
 | Start tracking a new workstream              | `objective-create`    | Canonical |
 | See status and choose the next roadmap entry | `objective-next`      | Nothing   |
 | Attach the workstream to a branch            | `objective-attach`    | Branch    |
-<<<<<<< HEAD
 | Refresh a snapshot before stacking on it     | `objective-update`    | Branch    |
 | Refresh canonical state after PRs merge      | `objective-reconcile` | Canonical |
-=======
-| Update a snapshot before stacking on it      | `objective-update`    | Branch    |
-| Update canonical state after PRs merge       | `objective-reconcile` | Canonical |
->>>>>>> a3d7161b (Clarify Branch Memory DX language)
 | Close a completed workstream                 | `objective close`     | Archive   |
 | Reopen an archived workstream                | `objective reopen`    | Active    |
 
