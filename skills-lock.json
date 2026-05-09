@@ -21,8 +21,8 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-fix-just": {
-      "source": "skills/dev-fix-just",
+    "dev-just-fix": {
+      "source": "skills/dev-just-fix",
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
