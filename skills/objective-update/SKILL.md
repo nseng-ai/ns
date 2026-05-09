@@ -211,14 +211,19 @@ Apply the shared conservative rewrite rules in
 
 Typical update work:
 
-- check completed roadmap items
+- check completed roadmap items under the relevant slice section
+- preserve existing visible slice markers on roadmap section headings
+- keep child checklist tasks grouped under their slice section; do not add
+  slice markers to child tasks
+- when splitting or adding a PR-sized roadmap section, assign the new section
+  a fresh visible ``(slice: `<slug>`)`` marker immediately
 - check completion criteria that this branch actually satisfied
 - move `Status:` only when the branch state changed categorically
 - append durable findings to `notes.md`
 - create `notes.md` only when there is a durable finding worth preserving
 
 Do not regenerate files from the original brief, rename sections, delete
-history, or attach a missing snapshot.
+history, remove existing slice markers, or attach a missing snapshot.
 
 ### 5. Persist changed files
 
@@ -295,5 +300,5 @@ When no files were rewritten, report:
   missing snapshot attachment to `objective-claim`.
 - Never parallelize `brmem put` writes to the same branch snapshot.
 - Never implement work, attach a snapshot, rewrite canonical state, delete
-  completed roadmap items, hand-edit `.absorbed.jsonl`, or rebuild files
-  wholesale during `update`.
+  completed roadmap items, remove existing roadmap slice markers, hand-edit
+  `.absorbed.jsonl`, or rebuild files wholesale during `update`.

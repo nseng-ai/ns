@@ -862,7 +862,7 @@ function buildReport(input: {
 
 	if (input.suggestedSlug) {
 		lines.push(
-			`To proceed: write a plan file using \`${input.suggestedSlug}\`, run \`brmem-branch-create\`, navigate to the new branch, then run \`objective-claim ${input.slug}\`.`,
+			`To proceed: write a plan file using \`${input.suggestedSlug}\`, create the slice branch with the repo's normal branch workflow, navigate to the new branch, then run \`objective-claim ${input.slug}\`.`,
 		);
 	} else {
 		lines.push("To proceed: choose a PR-sized slice manually, then write a plan file for it before creating a branch.");

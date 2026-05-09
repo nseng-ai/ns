@@ -47,7 +47,8 @@ exists, `roadmap.md`; it never writes `notes.md`.
 - **Concrete slice plan, optional.** Draft `roadmap.md` only when the
   conversation already contains PR-sized slices. If the plan is still vague,
   skip `roadmap.md`; `body.md`'s progress recipe is enough for the initial
-  snapshot.
+  snapshot. When drafting a roadmap, preassign one visible slice slug on each
+  PR-sized section heading.
 
 ## Core Rules
 
@@ -64,6 +65,9 @@ exists, `roadmap.md`; it never writes `notes.md`.
 - **Codified roadmap work only.** Roadmap bullets must describe work that
   lands in a PR: code, tests, docs, config, or deliberate deletion. Manual
   observation and live verification belong in PR test plans.
+- **Preassigned slice slugs.** Every PR-sized roadmap section heading gets one
+  visible marker shaped ``(slice: `<slug>`)``. Checklist children under that
+  heading are tasks for the slice and do not get their own markers.
 
 ## Workflow
 
@@ -143,9 +147,18 @@ For `body.md`:
 
 For `roadmap.md`, when drafted:
 
-- organize by PR-sized slices
+- organize by PR-sized sections, one section per landable slice
+- put one visible ``(slice: `<slug>`)`` marker on every slice section heading
+- use lowercase ASCII, digits, and hyphen-only slice slugs; avoid `/`, a
+  leading `objective-`, consecutive hyphens, `.md` suffixes, and names over
+  about 50 characters
+- keep slice slugs distinct from the parent objective slug and unique within
+  the roadmap
+- put implementation tasks as child checkboxes under the slice section; do not
+  add slice markers to child tasks
 - prefer steelthreaded early slices over framework-only scaffolding
-- keep completed-item history visible for later `update`/`reconcile`
+- keep completed-item history visible for later `update`/`reconcile`,
+  preserving the original slice markers
 
 ### 5. Write The Canonical Record
 
