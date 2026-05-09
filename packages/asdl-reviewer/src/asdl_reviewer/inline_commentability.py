@@ -17,7 +17,7 @@ from pydantic import model_serializer
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_core.gh.types import PRChangedFile
-from asdl_reviewer.cli.reviewer.exec.format_findings_comment import FindingRow
+from asdl_reviewer.models import ReviewFinding
 
 FallbackReason = Literal[
     "missing_line",
@@ -35,12 +35,12 @@ class InlineTarget(ClinkrModel):
 
 
 class InlineableFinding(ClinkrModel):
-    finding: FindingRow
+    finding: ReviewFinding
     target: InlineTarget
 
 
 class FallbackOnlyFinding(ClinkrModel):
-    finding: FindingRow
+    finding: ReviewFinding
     reason: FallbackReason
 
 
@@ -87,7 +87,7 @@ def commentable_right_side_lines(patch: str | None) -> frozenset[int]:
 
 
 def classify_inline_findings(
-    findings: tuple[FindingRow, ...],
+    findings: tuple[ReviewFinding, ...],
     changed_files: tuple[PRChangedFile, ...],
 ) -> InlineCommentabilityResult:
     changed_by_path = {file.path: file for file in changed_files}

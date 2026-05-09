@@ -12,8 +12,8 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_reviewer.cli.reviewer.exec.format_findings_comment import parse_findings_payload_result
 from asdl_reviewer.context import ReviewerCliContext
+from asdl_reviewer.findings_publication import parse_findings_payload_result
 from asdl_reviewer.inline_commentability import (
     InlineCommentabilityResult,
     classify_inline_findings,

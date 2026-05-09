@@ -307,7 +307,7 @@ class ReviewFinding:
             raise ValueError("Review finding field `path` must be a non-empty string.")
         if line is not None and not isinstance(line, int):
             raise ValueError("Review finding field `line` must be an integer or null.")
-        if severity not in _VALID_SEVERITIES:
+        if not isinstance(severity, str) or severity not in _VALID_SEVERITIES:
             valid_values = ", ".join(sorted(_VALID_SEVERITIES))
             raise ValueError(f"Review finding field `severity` must be one of: {valid_values}")
         if not isinstance(summary, str) or not summary.strip():
