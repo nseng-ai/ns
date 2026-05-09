@@ -1245,7 +1245,7 @@ def _success_message(result: AttachApplyResult, *, canonical_branch: str) -> str
         f"Destination ref: {result.destination_ref}\n"
         f"Commit: {result.destination_commit_sha}\n\n"
         f"Next:\n"
-        f"This branch is ready for implementation. After implementing the slice, merge\n"
+        f"This branch is ready for implementation. After implementing the work, merge\n"
         f"the PR and run objective-reconcile {result.slug} on {canonical_branch}. Run\n"
         f"objective-update {result.slug} only if another branch will attach a snapshot from this\n"
         f"branch before it lands."

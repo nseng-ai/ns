@@ -37,12 +37,13 @@ branch-local working copies:
   whichever branch `git symbolic-ref refs/remotes/origin/HEAD` resolves to
   on a given repo.
 - **Branch snapshot**: a local working copy/checkpoint attached to a branch.
-  It can drift while slice work is in flight and accumulate notes. It serves
-  as evidence during reconciliation only after the branch's work has landed.
+  It can drift while roadmap-entry work is in flight and accumulate notes. It
+  serves as evidence during reconciliation only after the branch's work has
+  landed.
 
 The objective body is the current state of the workstream: what is in
-scope, what has landed, what remains, and how to make the next slice of
-progress. The subsystem stays local-first: objective content is stored in
+scope, what has landed, what remains, and how to make the next numbered step.
+The subsystem stays local-first: objective content is stored in
 `brmem`, not GitHub issues, PR bodies, comments, or working-tree files.
 
 ## Storage model
@@ -117,7 +118,7 @@ one explicit slug.
 
 The part that rarely changes after creation.
 
-- **Title**: one line. Describes the workstream, not the current slice.
+- **Title**: one line. Describes the workstream, not the current roadmap entry.
 - **Status**: terse categorical state such as `in progress`, `blocked`, or
   `done`; never a running changelog.
 - **Description**: durable context, scope, adjacent landed work, and
@@ -125,33 +126,23 @@ The part that rarely changes after creation.
 - **Goals**: value-oriented outcomes.
 - **Completion Criteria**: re-checkable end-state bullets.
 - **How to Make Progress**: mechanical recipe for choosing and recording
-  future slices.
+  future numbered entries.
 
 ### `roadmap.md` - progress surface
 
-Ordered PR-sized or session-sized slices. This is where most normal motion
-happens: checking completed items, splitting work that became more granular,
-reordering remaining slices, and adding nearby follow-ups.
+Ordered numbered entries. This is where most normal motion happens: checking
+completed items, splitting work that became more granular, reordering remaining
+entries, and adding nearby follow-ups.
 
-A PR-sized roadmap slice is represented by a section heading with one visible
-preassigned marker shaped ``(slice: `<slug>`)``, for example:
+Use plain numbered entries (`1.`, `2.`, `3.`), with child checkboxes for the
+work inside each entry. Nested numbered entries are fine when an existing entry
+needs to be split later (`3.1`, `3.2`). Do not pre-label roadmap entries as
+PRs, stacks, docs-only work, or splits; `objective-next` recommends that shape
+when it selects an entry.
 
-```md
-## Inventory brmem/objective vocabulary (slice: `inventory-brmem-vocabulary`)
-
-- [ ] Audit existing terms
-- [ ] Lock replacement names
-```
-
-Child checklist tasks under that heading are implementation tasks for the
-slice; they do not get their own slice slugs. Slice slugs are distinct from
-the parent objective slug and follow the same visible slug style: lowercase
-ASCII, digits, hyphens, no slash, no leading `objective-`, no consecutive
-hyphens, and usually 50 characters or fewer.
-
-Every roadmap bullet must describe codified work that lands in a PR: code,
-tests, docs, config, or deliberate deletion. Manual observation and live
-verification belong in PR test plans, not in the roadmap.
+Every roadmap bullet must describe codified work: code, tests, docs, config,
+or deliberate deletion. Manual observation and live verification belong in PR
+test plans, not in the roadmap.
 
 ### `notes.md` - durable findings
 
@@ -172,41 +163,43 @@ diagnostic.
 
 ```text
 create canonical
-  -> inspect with next and choose a PR-sized slice
+  -> inspect with next and choose a numbered roadmap entry
   -> attach canonical or ancestor snapshot into a branch snapshot
-  -> implement and merge a slice
+  -> implement and merge the work
   -> reconcile landed branch snapshots and associated PR evidence into canonical objective
 ```
 
 For stacked PRs, the ergonomic loop is:
 
 ```text
-implement a slice on a branch
+implement a roadmap entry on a branch
   -> objective update
   -> objective next
 ```
 
 `update` makes the current branch's objective snapshot current, attaching one
 first when the branch is missing it. `next` makes the current branch current
-when needed, then recommends the next slice using the selected roadmap
-section's visible preassigned slice slug. On an unattached non-trunk branch,
-`objective next` attaches the selected objective, updates the snapshot, reruns
-its context read, and only then recommends the next slice.
+when needed, then recommends the next numbered roadmap entry and whether it
+should be a single PR, short stack, docs-only change, or split. On an
+unattached non-trunk branch, `objective next` attaches the selected objective,
+updates the snapshot, reruns its context read, and only then recommends the
+next entry.
 
 - **Create** (`objective-create`): draft the canonical objective.
-  Writes `body.md` and, when a concrete slice plan exists, `roadmap.md` with
-  visible slice markers on PR-sized roadmap section headings.
-- **Next** (`objective-next`): prepare-then-read next-slice recommendation.
+  Writes `body.md` and, when a concrete numbered plan exists, `roadmap.md` with
+  plain numbered entries.
+- **Next** (`objective-next`): prepare-then-read next-entry recommendation.
   It may attach/update the current branch snapshot when needed, then reads the
-  prepared snapshot for planning and collision-checks the selected section's
-  visible slice slug. It never mutates canonical state.
+  prepared snapshot for planning, recommends implementation shape, and checks a
+  suggested branch slug for collisions when one is needed. It never mutates
+  canonical state.
 - **Current** (`objective-current`): read-only current-branch orientation
   view. It shows the attached objective, PR, branch snapshot state,
   brmem entries, and the trunk-relation row. It is scoped to the current
   branch only — it does not walk downstack ancestry or upstack children.
   It writes nothing.
 - **Digest** (`objective-digest`): read-only objective dossier from canonical
-  and branch snapshots. It summarizes thesis, slice progress, PR state,
+  and branch snapshots. It summarizes thesis, roadmap progress, PR state,
   readiness, and durable findings. It writes nothing.
 - **Attach** (`objective-attach`): attach a branch snapshot by verbatim
   copy from an explicit source, nearest ancestor branch snapshot, or the

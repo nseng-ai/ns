@@ -81,7 +81,7 @@ class CreateRequest(ClinkrModel):
             default=None,
             help=(
                 "Optional absolute path to the agent-drafted roadmap.md content. "
-                "Omit when the conversation does not yet contain a concrete slice plan."
+                "Omit when the conversation does not yet contain a concrete numbered plan."
             ),
         ),
     ] = None

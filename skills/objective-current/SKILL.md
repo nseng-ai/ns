@@ -22,7 +22,7 @@ snapshot is stale, what brmem context has been parked, and whether there's
 a PR. `objective-current` answers that operational reentry question in one
 shot. It is scoped to the current branch plus its trunk relation; it does
 not walk downstack ancestry or upstack children. It is the orientation
-sibling of `objective-next` (slice planning for one objective on the
+sibling of `objective-next` (roadmap-entry planning for one objective on the
 current branch) and `objective-digest` (objective-level dossier for one
 workstream).
 
@@ -68,5 +68,5 @@ parse, no template to fill, and no prose to write.
   `## Stack Map`, optional `## Next Orientation Step`, optional
   warnings.
 - No objective-content analysis — never summarize prose, compute
-  progress, or recommend a "next slice".
+  progress, or recommend a next roadmap entry.
 - Print to stdout only.

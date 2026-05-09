@@ -45,12 +45,12 @@ _ROADMAP = textwrap.dedent(
     """\
     # Roadmap
 
-    ## Slice 1
+    1. First entry
 
     - [x] Define the architecture
     - [ ] Define plugin entry point ABC
 
-    ## Slice 2
+    2. Second entry
 
     - [ ] Wire CLI command
     """

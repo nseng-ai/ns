@@ -24,15 +24,15 @@ choose or propose a stable slug, and draft the initial canonical objective
 under namespace `objectives` and key prefix `<slug>/`.
 
 `create` writes `body.md` once, and writes `roadmap.md` only when the
-conversation already contains a concrete slice plan. It never writes
+conversation already contains a concrete numbered plan. It never writes
 `notes.md`, never attaches a branch snapshot, and never writes durable
 objective files into the working tree.
 
 ## Content Files
 
 Snapshots store `<slug>/body.md` (required), with optional `roadmap.md` and
-`notes.md`. `create` may write only `body.md` and, when a concrete slice plan
-exists, `roadmap.md`; it never writes `notes.md`.
+`notes.md`. `create` may write only `body.md` and, when a concrete numbered
+plan exists, `roadmap.md`; it never writes `notes.md`.
 
 ## Inputs
 
@@ -44,11 +44,10 @@ exists, `roadmap.md`; it never writes `notes.md`.
 - **Slug, optional.** Use a user-provided slug when present and valid.
   Otherwise propose one from the title and intent. The slug is part of the
   create output, not a prerequisite for starting the conversation.
-- **Concrete slice plan, optional.** Draft `roadmap.md` only when the
-  conversation already contains PR-sized slices. If the plan is still vague,
+- **Concrete numbered plan, optional.** Draft `roadmap.md` only when the
+  conversation already contains ordered entries. If the plan is still vague,
   skip `roadmap.md`; `body.md`'s progress recipe is enough for the initial
-  snapshot. When drafting a roadmap, preassign one visible slice slug on each
-  PR-sized section heading.
+  snapshot. Do not pre-label entries as PRs, stacks, docs-only work, or splits.
 
 ## Core Rules
 
@@ -60,14 +59,13 @@ exists, `roadmap.md`; it never writes `notes.md`.
   `../objective/templates/body-template.md` and `roadmap.md` from
   `../objective/templates/roadmap-template.md` when a roadmap is needed.
 - **Stable spine, not a task dump.** Keep `body.md` durable and
-  end-state-oriented. Put slice sequencing in `roadmap.md`, not in
-  `Description`, `Goals`, or `Status:`.
+  end-state-oriented. Put numbered implementation sequencing in `roadmap.md`,
+  not in `Description`, `Goals`, or `Status:`.
 - **Codified roadmap work only.** Roadmap bullets must describe work that
   lands in a PR: code, tests, docs, config, or deliberate deletion. Manual
   observation and live verification belong in PR test plans.
-- **Preassigned slice slugs.** Every PR-sized roadmap section heading gets one
-  visible marker shaped ``(slice: `<slug>`)``. Checklist children under that
-  heading are tasks for the slice and do not get their own markers.
+- **Numbered entries only.** Roadmap entries are numbered (`1.`, `2.`, `3.`). Do not label entries with branch slugs or implementation shapes
+  in the roadmap; `objective-next` recommends those when an entry is selected.
 
 ## Workflow
 
@@ -142,23 +140,17 @@ For `body.md`:
 - use `## Goals` for the better state this work should create
 - use `## Completion Criteria` for re-checkable end-state criteria
 - use `## How to Make Progress` for how to pick, inspect, and record future
-  slices
+  numbered entries
 - do not include `## Roadmap` or `## Notes`
 
 For `roadmap.md`, when drafted:
 
-- organize by PR-sized sections, one section per landable slice
-- put one visible ``(slice: `<slug>`)`` marker on every slice section heading
-- use lowercase ASCII, digits, and hyphen-only slice slugs; avoid `/`, a
-  leading `objective-`, consecutive hyphens, `.md` suffixes, and names over
-  about 50 characters
-- keep slice slugs distinct from the parent objective slug and unique within
-  the roadmap
-- put implementation tasks as child checkboxes under the slice section; do not
-  add slice markers to child tasks
-- prefer steelthreaded early slices over framework-only scaffolding
-- keep completed-item history visible for later `update`/`reconcile`,
-  preserving the original slice markers
+- organize by numbered entries, one entry per coherent work item
+- keep implementation tasks as child checkboxes under the numbered entry
+- do not add branch slugs, PR/stack labels, or visible markers
+- prefer early entries that exercise real end-to-end behavior over
+  framework-only scaffolding
+- keep completed-item history visible for later `update`/`reconcile`
 
 ### 5. Write The Canonical Record
 
@@ -205,9 +197,9 @@ From the create JSON envelope, render:
 
 ```text
 To attach this objective to a working branch, run objective-attach from
-inside the branch (the slug is inferred from the parent branch's attach
-when unambiguous). To inspect it and choose a next slice, run
-objective-next. After implementing a slice, run objective-update <slug>
+inside the branch (the slug is inferred from the parent branch's attachment
+when unambiguous). To inspect it and choose a next roadmap entry, run
+objective-next. After implementing the work, run objective-update <slug>
 to record progress.
 ```
 
@@ -217,12 +209,12 @@ to record progress.
   `detached_head` or `not_in_repo` error; abort and describe briefly.
 - Canonical storage already carries `<slug>/`: `create` returns
   `slug_collision`; pick a different slug or hand off to `objective-update`.
-- Vague slice plan: write only `body.md`; do not invent `roadmap.md`
+- Vague implementation plan: write only `body.md`; do not invent `roadmap.md`
   filler.
 - Current branch already carries one or more objective slugs: not a create
   blocker, because `create` writes only canonical state.
 - Never store the objective in GitHub, write durable files into the working
   tree, attach a branch snapshot, write `notes.md`, use bare keys, rewrite an
   existing canonical objective, stuff roadmap history into `Status:`, or
-  open a multi-PR redesign with framework-only slices when a steelthreaded
-  slice is possible.
+  open a multi-PR redesign with framework-only entries when an end-to-end
+  entry is possible.

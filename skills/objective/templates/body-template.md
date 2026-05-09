@@ -38,6 +38,6 @@ is setting out to do.
 
 ## How to Make Progress
 
-1. How to pick the next PR-sized slice or smallest landable unit of work
+1. How to pick the next numbered roadmap entry or smallest landable change
 2. What current behavior, tests, or help output to inspect before editing
-3. What to update after landing a slice
+3. What to update after landing the work
