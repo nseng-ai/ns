@@ -707,6 +707,7 @@ def test_get_pr_for_branch_returns_summary(
                 "number": 47,
                 "title": "Port pr-address skill",
                 "url": "https://github.com/dagster-io/asdl/pull/47",
+                "body": "Issue gateway PR body",
                 "headRefName": "asdl-pr-address-skill",
                 "baseRefName": "master",
                 "state": state,
@@ -724,6 +725,7 @@ def test_get_pr_for_branch_returns_summary(
     assert result.head_ref_name == "asdl-pr-address-skill"
     assert result.base_ref_name == "master"
     assert result.state == state
+    assert result.body == "Issue gateway PR body"
 
 
 def test_get_pr_for_branch_returns_error_when_no_pr(

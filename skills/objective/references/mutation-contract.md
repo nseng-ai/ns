@@ -111,10 +111,10 @@ Forbidden:
 
 ## Rewrite modes
 
-| Mode                   | Skill                 | Target              | Evidence                                                  | No-op rule                                        |
-| ---------------------- | --------------------- | ------------------- | --------------------------------------------------------- | ------------------------------------------------- |
-| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot freshness                   | Snapshot covers every `<trunk>..HEAD` content PID |
-| Canonical reconcile    | `objective-reconcile` | Canonical objective | Landed branch snapshots plus associated PR state/metadata | No landed branch/PR evidence to fold in           |
+| Mode                   | Skill                 | Target              | Evidence                                                                             | No-op rule                                        |
+| ---------------------- | --------------------- | ------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| Branch snapshot update | `objective-update`    | Current branch      | Branch commits since snapshot freshness                                              | Snapshot covers every `<trunk>..HEAD` content PID |
+| Canonical reconcile    | `objective-reconcile` | Canonical objective | Merged PR title, body, and changed-files list; snapshot edits as supplementary hints | No merged-PR-backed branches attached to the slug |
 
 ### Branch snapshot update
 
@@ -159,27 +159,17 @@ those branches. Open PRs and unmerged branches remain branch-local state; a
 higher-level view may combine canonical state with those snapshots without
 mutating canonical state.
 
-Preferred evidence adapter:
+Preferred evidence path:
 
 ```bash
-objective tree <slug> --format json
+objective exec reconcile-summary <slug> --format markdown
+objective exec reconcile-diff <slug> --format markdown
 ```
 
-Use the tree output to identify:
-
-- branch snapshots carrying `<slug>/`
-- whether the canonical record is present
-- whether each branch is live or stale/orphaned
-- PR number, URL, title, state, and lookup errors for each branch
-
-Then load the relevant merged PR-backed branch snapshot files with `brmem get`
-and, when PR metadata is needed to interpret the snapshot, inspect the
-associated PR:
-
-```bash
-gh pr view <number-or-branch> \
-  --json number,title,url,headRefName,baseRefName,state,mergedAt,commits,body
-```
+Use merged PR evidence as the primary source for canonical rewrites: PR title,
+body, URL, and changed-files list for each included branch attached to the slug.
+Snapshot edits, when rendered by `reconcile-diff`, are supplementary hints only;
+a byte-identical snapshot does not make a merged PR a no-op.
 
 Use PR state as an inclusion gate:
 
@@ -193,9 +183,13 @@ Use PR state as an inclusion gate:
   tied to landed work.
 
 `reconcile` never writes to branch snapshots and never copies a branch
-snapshot verbatim onto canonical state. Text from eligible landed branch
-snapshots and PR metadata are evidence for a conservative rewrite, not source
-content to paste wholesale.
+snapshot verbatim onto canonical state. Merged PR evidence drives the
+conservative rewrite; eligible snapshot text is only a hint to interpret that
+PR evidence.
+
+Roadmap tick rule: check a roadmap box only when the merged PR's changed-files
+list and/or title/body corroborate the entry's `Includes:` paths or strings.
+Stay conservative when the PR scope is ambiguous.
 
 ## Common rewrite workflow
 

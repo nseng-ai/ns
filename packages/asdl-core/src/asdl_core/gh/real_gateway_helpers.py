@@ -48,7 +48,7 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
             "view",
             branch,
             "--json",
-            "number,title,url,headRefName,baseRefName,state",
+            "number,title,body,url,headRefName,baseRefName,state",
         ],
     )
     if result.returncode != 0:
@@ -65,6 +65,7 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
         head_ref_name=data["headRefName"],
         base_ref_name=data["baseRefName"],
         state=state,
+        body=data.get("body"),
     )
 
 
@@ -104,7 +105,7 @@ def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | P
             "--search",
             query,
             "--json",
-            "number,title,url,headRefName,baseRefName,state",
+            "number,title,body,url,headRefName,baseRefName,state",
         ],
     )
     if result.returncode != 0:
@@ -124,6 +125,7 @@ def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | P
                 head_ref_name=item["headRefName"],
                 base_ref_name=item["baseRefName"],
                 state=state,
+                body=item.get("body"),
             )
         )
     return tuple(summaries)

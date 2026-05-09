@@ -43,6 +43,7 @@ def test_real_pr_gateway_returns_summary(
                 "number": 47,
                 "title": "Port pr-address skill",
                 "url": "https://github.com/dagster-io/asdl/pull/47",
+                "body": "PR body text",
                 "headRefName": "feature",
                 "baseRefName": "master",
                 "state": state,
@@ -55,6 +56,57 @@ def test_real_pr_gateway_returns_summary(
     assert not isinstance(result, PRLookupError)
     assert result.number == 47
     assert result.state == state
+    assert result.body == "PR body text"
+
+
+def test_real_pr_gateway_search_prs_returns_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.append(cmd)
+        assert cmd[:3] == ["gh", "pr", "list"]
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 47,
+                        "title": "Port pr-address skill",
+                        "url": "https://github.com/dagster-io/asdl/pull/47",
+                        "body": "Search body",
+                        "headRefName": "feature",
+                        "baseRefName": "master",
+                        "state": "MERGED",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(real_gateway_helpers.subprocess, "run", fake_run)
+
+    result = RealPRGateway().search_prs("Port", state="merged")
+
+    assert not isinstance(result, PRLookupError)
+    assert len(result) == 1
+    assert result[0].body == "Search body"
+    assert seen == [
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "merged",
+            "--search",
+            "Port",
+            "--json",
+            "number,title,body,url,headRefName,baseRefName,state",
+        ]
+    ]
 
 
 def test_real_pr_gateway_returns_error_when_no_pr(monkeypatch: pytest.MonkeyPatch) -> None:

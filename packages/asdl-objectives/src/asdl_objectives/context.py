@@ -1,8 +1,8 @@
 """Context factory for the objective CLI.
 
 The objective CLI needs brmem, git, and gh gateways together: brmem + git
-for snapshot reads and branch liveness, and the PR gateway for enriching
-snapshot-carrying branches with PR metadata. The brmem subsystem stays
+for snapshot reads and branch liveness, the PR gateway for branch-to-PR
+summaries, and the issue gateway for PR file metadata. The brmem subsystem stays
 domain-agnostic — no PR leakage there — so objective composes its own
 typed context on top of :func:`brmem.context.build_brmem_context`.
 """
@@ -12,7 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from asdl_core.gh.issue_gateway import IssueGateway
 from asdl_core.gh.pr_gateway import PRGateway, RealPRGateway
+from asdl_core.gh.real_issue_gateway import RealIssueGateway
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.real_git_gateway import RealGitGateway, resolve_repo_root, resolve_trunk_branch
 from asdl_objectives.discovery import FALLBACK_TRUNK_BRANCH
@@ -27,6 +29,7 @@ class ObjectiveCliContext:
     brmem_gateway: BranchMemoryGateway
     git_gateway: GitGateway
     pr_gateway: PRGateway
+    issue_gateway: IssueGateway
 
 
 def build_objective_context() -> ObjectiveCliContext:
@@ -42,4 +45,5 @@ def build_objective_context() -> ObjectiveCliContext:
             trunk_branch=trunk or FALLBACK_TRUNK_BRANCH,
         ),
         pr_gateway=RealPRGateway(),
+        issue_gateway=RealIssueGateway(),
     )

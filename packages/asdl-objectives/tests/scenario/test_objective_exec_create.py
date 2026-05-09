@@ -20,6 +20,7 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead
 from asdl_objectives.context import ObjectiveCliContext
@@ -50,6 +51,7 @@ def _make_obj(
         brmem_gateway=gateway,
         git_gateway=git_gateway,
         pr_gateway=FakePRGateway(),
+        issue_gateway=FakeIssueGateway(),
     )
     return build_clinkr_context_object(lambda: ctx)
 

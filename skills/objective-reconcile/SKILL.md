@@ -31,7 +31,7 @@ or comma-separated slug list narrows the sweep.
 
 The `objective exec reconcile-*` commands enforce the mechanical contract:
 
-- only merged-PR-backed branch snapshots are eligible evidence;
+- only merged PRs attached to branch snapshots are eligible evidence;
 - open, closed-unmerged, no-PR, and lookup-error snapshots are surfaced as
   skipped evidence;
 - canonical writes are serial and drift-checked with captured blob SHAs;
@@ -58,23 +58,32 @@ objective exec reconcile-plan [slug-or-comma-separated-list] --format json > /tm
 objective exec reconcile-summary [slug-or-comma-separated-list] --format markdown
 ```
 
-Use this to identify actionable slugs, skipped snapshots, gaps, conflicts,
-PR titles, and canonical files without reading raw Markdown blobs.
+Statuses are:
 
-### 3. Inspect deterministic diffs for each actionable slug
+- `actionable`: canonical exists and at least one merged PR is attached.
+- `no-evidence`: canonical exists but no merged-PR-backed branch is attached.
+- `conflict`: canonical state is unsafe to rewrite until resolved.
+- `gap`: requested evidence or canonical state is missing.
+
+Use this to identify actionable slugs, skipped snapshots, gaps, conflicts,
+PR titles, changed-files summaries, and canonical files without reading raw
+Markdown blobs.
+
+### 3. Inspect evidence for each actionable slug
 
 ```bash
 objective exec reconcile-diff <slug> --format markdown
 ```
 
-The diff treats Markdown as opaque text. Use it to compare canonical files
-against each included merged snapshot.
+The diff shows PR evidence first: title, body, URL, and changed files. Snapshot
+edits are shown only as hints when branch snapshot text differs from canonical
+Markdown.
 
 ### 4. Perform the semantic rewrite only
 
 For each actionable slug:
 
-1. Inspect canonical content and the deterministic diffs.
+1. Inspect the PR evidence, plus any snapshot-edit hint rendered by the diff.
 2. Apply `../objective/references/mutation-contract.md`:
    - `body.md`: quiet factual updates only; move `Status:` only when the
      end-state changed categorically.
@@ -91,7 +100,7 @@ For each actionable slug:
 /tmp/objective-reconcile/<slug>/notes.md.proposed
 ```
 
-Skip slugs with no eligible evidence, canonical conflicts, or only gaps.
+Skip `no-evidence`, `conflict`, and `gap` slugs.
 
 ### 5. Apply the proposed writes
 
@@ -122,7 +131,7 @@ Use the apply JSON plus the summary/diff context. Include:
 - Empty target set: report that no canonical objectives matched and stop.
 - Unknown slug: surface the CLI gap and do not create a new objective here.
 - Canonical `body.md` missing: surface the conflict and skip the slug.
-- No merged-PR-backed snapshots: surface as unchanged/gap; nothing to fold.
+- No merged-PR-backed branches: surface as `no-evidence`; nothing to fold.
 - Drift during apply: report the skipped file and rerun the plan before
   attempting another apply.
 - Canonical roadmap has missing or malformed slice markers: preserve existing

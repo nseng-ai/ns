@@ -99,6 +99,7 @@ def test_objective_plugin_integration() -> None:
             trunk_branch="master",
         ),
         pr_gateway=FakePRGateway(),
+        issue_gateway=FakeIssueGateway(),
     )
     obj = build_clinkr_context_object(lambda: ctx)
 

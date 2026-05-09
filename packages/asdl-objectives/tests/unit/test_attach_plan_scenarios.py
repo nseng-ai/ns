@@ -14,6 +14,7 @@ import pytest
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
@@ -40,6 +41,7 @@ def _make_ctx(
         brmem_gateway=gateway,
         git_gateway=git_gateway,
         pr_gateway=FakePRGateway(),
+        issue_gateway=FakeIssueGateway(),
     )
 
 

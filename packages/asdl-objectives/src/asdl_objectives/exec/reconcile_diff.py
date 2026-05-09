@@ -12,6 +12,7 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrJsonSchemaModel, ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.gh.types import PRChangedFile
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import BODY_FILE, NOTES_FILE, ROADMAP_FILE
 from asdl_objectives.exec.reconcile_plan import (
@@ -38,12 +39,27 @@ class ReconcileDiffFile(ClinkrModel):
     diff: str
 
 
+class ReconcileDiffChangedFile(ClinkrModel):
+    path: str
+    status: str
+
+
+class ReconcileDiffPrEvidence(ClinkrModel):
+    number: int | None
+    state: str | None
+    title: str | None
+    url: str | None
+    body: str | None
+    files: tuple[ReconcileDiffChangedFile, ...]
+
+
 class ReconcileDiffSnapshot(ClinkrModel):
     branch: str
     pr_number: int | None
     pr_state: str | None
     pr_title: str | None
     pr_url: str | None
+    pr_evidence: ReconcileDiffPrEvidence
     files: tuple[ReconcileDiffFile, ...]
 
 
@@ -101,27 +117,29 @@ def render_reconcile_diff(result: ReconcileDiffResult) -> None:
     for snapshot in result.snapshots:
         click.echo(f"## {_snapshot_heading(snapshot)}")
         click.echo()
-        for file in snapshot.files:
-            click.echo(f"### {file.file}")
+        click.echo("### PR evidence")
+        click.echo()
+        _render_pr_evidence(snapshot.pr_evidence)
+        changed_files = tuple(file for file in snapshot.files if file.changed)
+        if changed_files:
+            click.echo("### Snapshot edits (hint)")
             click.echo()
-            if not file.changed:
-                click.echo("No changes.")
+            for file in changed_files:
+                click.echo(f"#### {file.file}")
                 click.echo()
-                continue
-            click.echo("```diff")
-            click.echo(file.diff, nl=False)
-            if file.diff and not file.diff.endswith("\n"):
+                click.echo("```diff")
+                click.echo(file.diff, nl=False)
+                if file.diff and not file.diff.endswith("\n"):
+                    click.echo()
+                click.echo("```")
                 click.echo()
-            click.echo("```")
-            click.echo()
 
 
 @clinkr_operation(
     name="reconcile-diff",
     help=(
-        "Emit deterministic unified diffs between canonical objective files "
-        "and each merged-PR-backed branch snapshot for one slug. Markdown is "
-        "treated as opaque text."
+        "Emit merged PR evidence plus optional deterministic snapshot diff "
+        "hints for one slug. Markdown is treated as opaque text."
     ),
     human_renderer=render_reconcile_diff,
 )
@@ -151,6 +169,14 @@ def _diff_from_slug(canonical_branch: str, slug: SlugPlanItem) -> ReconcileDiffR
                 pr_state=snapshot.pr.state,
                 pr_title=snapshot.pr.title,
                 pr_url=snapshot.pr.url,
+                pr_evidence=ReconcileDiffPrEvidence(
+                    number=snapshot.pr.number,
+                    state=snapshot.pr.state,
+                    title=snapshot.pr.title,
+                    url=snapshot.pr.url,
+                    body=snapshot.pr_body,
+                    files=tuple(_diff_changed_file(file) for file in snapshot.pr_changed_files),
+                ),
                 files=tuple(
                     _diff_file(
                         slug=slug.slug,
@@ -209,6 +235,13 @@ def _diff_file(
     )
 
 
+def _diff_changed_file(file: PRChangedFile) -> ReconcileDiffChangedFile:
+    return ReconcileDiffChangedFile(
+        path=file.path,
+        status=file.status.upper(),
+    )
+
+
 def _skipped_snapshot(snapshot: SkippedSnapshot) -> ReconcileDiffSkippedSnapshot:
     return ReconcileDiffSkippedSnapshot(
         branch=snapshot.branch,
@@ -225,3 +258,34 @@ def _snapshot_heading(snapshot: ReconcileDiffSnapshot) -> str:
     if snapshot.pr_number is None:
         return snapshot.branch
     return f"PR #{snapshot.pr_number} — {snapshot.branch}"
+
+
+def _render_pr_evidence(evidence: ReconcileDiffPrEvidence) -> None:
+    if evidence.number is not None:
+        click.echo(f"- Number: #{evidence.number}")
+    if evidence.state is not None:
+        click.echo(f"- State: {evidence.state}")
+    if evidence.title:
+        click.echo(f"- Title: {evidence.title}")
+    if evidence.url:
+        click.echo(f"- URL: {evidence.url}")
+    click.echo()
+    click.echo("#### Body")
+    click.echo()
+    if evidence.body:
+        click.echo("```markdown")
+        click.echo(evidence.body, nl=False)
+        if not evidence.body.endswith("\n"):
+            click.echo()
+        click.echo("```")
+    else:
+        click.echo("(empty)")
+    click.echo()
+    click.echo("#### Changed files")
+    click.echo()
+    if not evidence.files:
+        click.echo("None.")
+    else:
+        for file in evidence.files:
+            click.echo(f"- {file.status} `{file.path}`")
+    click.echo()
