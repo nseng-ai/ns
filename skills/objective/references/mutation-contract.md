@@ -74,20 +74,27 @@ and `notes.md`.
 Allowed:
 
 - check completed items
-- keep completed items visible
+- keep completed sections and their visible slice markers intact
 - add nearby follow-ups discovered during slice work
-- split an item when work landed in more granular pieces than expected
-- reorder remaining items when the actual slice order changed
+- split a section when work landed in more granular pieces than expected,
+  preserving the old section's marker and assigning fresh markers to newly
+  created PR-sized sections
+- reorder remaining sections when the actual slice order changed
 
 Forbidden:
 
 - erase completed items or progress history
+- remove or casually rename existing slice markers
+- add slice markers to child checklist tasks
 - wholesale reshuffle without clear evidence
 - add manual-only or observation-only bullets such as "live testing session"
   or "manual smoke-test"
 
-Every roadmap bullet must describe codified work that lands in a PR: code,
-tests, docs, config, or deliberate deletion.
+Every PR-sized roadmap section heading should carry one visible marker shaped
+``(slice: `<slug>`)``. Child checklist tasks are implementation tasks for that
+section and do not get their own markers. Every roadmap bullet must describe
+codified work that lands in a PR: code, tests, docs, config, or deliberate
+deletion.
 
 ### `notes.md`
 
@@ -242,7 +249,9 @@ Source resolution:
 ### `objective-create`
 
 `create` drafts the canonical objective. It writes `body.md`, optionally
-`roadmap.md`, and never writes `notes.md`.
+`roadmap.md`, and never writes `notes.md`. When it drafts a roadmap, each
+PR-sized roadmap section receives a visible preassigned slice marker on the
+heading line.
 
 ### `objective close` / `objective reopen`
 

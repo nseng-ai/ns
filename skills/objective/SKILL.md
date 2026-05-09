@@ -133,6 +133,22 @@ Ordered PR-sized or session-sized slices. This is where most normal motion
 happens: checking completed items, splitting work that became more granular,
 reordering remaining slices, and adding nearby follow-ups.
 
+A PR-sized roadmap slice is represented by a section heading with one visible
+preassigned marker shaped ``(slice: `<slug>`)``, for example:
+
+```md
+## Inventory brmem/objective vocabulary (slice: `inventory-brmem-vocabulary`)
+
+- [ ] Audit existing terms
+- [ ] Lock replacement names
+```
+
+Child checklist tasks under that heading are implementation tasks for the
+slice; they do not get their own slice slugs. Slice slugs are distinct from
+the parent objective slug and follow the same visible slug style: lowercase
+ASCII, digits, hyphens, no slash, no leading `objective-`, no consecutive
+hyphens, and usually 50 characters or fewer.
+
 Every roadmap bullet must describe codified work that lands in a PR: code,
 tests, docs, config, or deliberate deletion. Manual observation and live
 verification belong in PR test plans, not in the roadmap.
@@ -172,15 +188,18 @@ implement a slice on a branch
 
 `update` makes the current branch's objective snapshot current, claiming one
 first when the branch is missing it. `next` makes the current branch current
-when needed, then recommends the next slice. On an unclaimed non-trunk branch,
+when needed, then recommends the next slice using the selected roadmap
+section's visible preassigned slice slug. On an unclaimed non-trunk branch,
 `objective next` claims the selected objective, updates the snapshot, reruns
 its context read, and only then recommends the next slice.
 
 - **Create** (`objective-create`): draft the canonical objective.
-  Writes `body.md` and, when a concrete slice plan exists, `roadmap.md`.
+  Writes `body.md` and, when a concrete slice plan exists, `roadmap.md` with
+  visible slice markers on PR-sized roadmap section headings.
 - **Next** (`objective-next`): prepare-then-read next-slice recommendation.
   It may claim/update the current branch snapshot when needed, then reads the
-  prepared snapshot for planning. It never mutates canonical state.
+  prepared snapshot for planning and collision-checks the selected section's
+  visible slice slug. It never mutates canonical state.
 - **Current** (`objective-current`): read-only current-branch orientation
   view. It shows the claimed objective, PR, branch snapshot freshness,
   brmem entries, and the trunk-relation row. It is scoped to the current

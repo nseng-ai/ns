@@ -79,7 +79,9 @@ For each actionable slug:
    - `body.md`: quiet factual updates only; move `Status:` only when the
      end-state changed categorically.
    - `roadmap.md`: check items only when merged evidence corroborates them;
-     add nearby follow-ups when useful.
+     preserve existing slice markers, keep child tasks under their slice
+     section, and add fresh markers immediately for new or split PR-sized
+     sections.
    - `notes.md`: append durable findings; never paste branch text wholesale.
 3. Write only changed proposed files using this layout:
 
@@ -123,6 +125,10 @@ Use the apply JSON plus the summary/diff context. Include:
 - No merged-PR-backed snapshots: surface as unchanged/gap; nothing to fold.
 - Drift during apply: report the skipped file and rerun the plan before
   attempting another apply.
+- Canonical roadmap has missing or malformed slice markers: preserve existing
+  content, repair only the affected heading when the intended slice slug is
+  clear from landed evidence, otherwise ask for clarification instead of
+  inventing a fallback.
 
 ## Closing an objective after reconcile
 

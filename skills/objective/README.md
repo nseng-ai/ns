@@ -15,7 +15,8 @@ slug, such as `dashboard-revamp`, and stores a small directory of markdown
 files:
 
 - `body.md`: required, stable description of the workstream.
-- `roadmap.md`: optional, ordered PR-sized slices.
+- `roadmap.md`: optional, ordered PR-sized slices with visible slice markers
+  on section headings.
 - `notes.md`: optional, durable findings discovered while implementing.
 - `.closed`: archive-only closure metadata written by `objective close`.
 
@@ -90,7 +91,9 @@ otherwise be ambiguous.
 
 Once the shape is clear, the skill writes the shared record on `<trunk>`. It
 writes `body.md` and, when there is already a concrete slice plan,
-`roadmap.md`. It does not attach anything to a feature branch.
+`roadmap.md`. Each PR-sized roadmap section heading gets a visible marker such
+as ``(slice: `data-layer`)``; child checklist tasks do not get markers. It does
+not attach anything to a feature branch.
 
 ### 2. Choose the next slice (still on `<trunk>`)
 
@@ -102,8 +105,8 @@ Run this **while still on `<trunk>`**, before creating the slice branch.
 `objective-next` plans against the current branch only — there is no source
 cascade and no `--source` flag. On `<trunk>` the current branch _is_ canonical
 storage, so `next` reads the canonical record you just created and recommends
-the next PR-sized slice, including a branch slug such as
-`dashboard-revamp/data-layer`. This happens before `claim` so the branch you
+the next PR-sized slice by using that roadmap section's preassigned marker
+slug, such as `data-layer`. This happens before `claim` so the branch you
 create is tied to the slice you intend to implement.
 
 To peek at canonical state from a feature branch later, use
@@ -113,7 +116,7 @@ read.
 ### 3. Create a branch for that slice and claim the snapshot
 
 ```text
-gt create dashboard-revamp/data-layer
+# create a branch with your repo's normal branch workflow, using data-layer
 objective-claim
 ```
 
@@ -163,9 +166,11 @@ from the right objective state.
 
 ## Rules Worth Remembering
 
-- `claim` and `next` infer the slug when the parent or current branch
-  carries exactly one candidate. Pass `<slug>` explicitly when a branch
+- `claim` and `next` infer the objective slug when the parent or current
+  branch carries exactly one candidate. Pass `<slug>` explicitly when a branch
   carries multiple objectives or trunk holds multiple canonicals.
+- `next` uses the selected roadmap section's visible slice marker as the
+  branch/plan slug; it does not invent fallback slice names.
 - `claim` copies exactly one source snapshot and does not edit while copying.
 - `update` is for stacked branch snapshots. `reconcile` is for `<trunk>`.
 - Branch snapshots are branch-local state, not shared truth.
