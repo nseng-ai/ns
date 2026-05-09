@@ -8,6 +8,6 @@ Project-local Pi package for asdl objective workflows.
 - `/objective-next`
 - `/objective` (`next` / `list`)
 
-Objective claiming is handled by the `objective-claim` skill, not this Pi extension.
+Objective attachment is handled by the `objective-attach` skill, not this Pi extension.
 
 This package is currently private and loaded from this repository via `.pi/settings.json`.

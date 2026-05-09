@@ -476,12 +476,12 @@ async function chooseSlug(pi: ExtensionAPI, ctx: ExtensionCommandContext, git: G
 	const slugs = branchSlugsWithBody(listData);
 	if (requestedSlug) {
 		if (!slugs.includes(requestedSlug)) {
-			throw new Error(`slug ${requestedSlug} not claimed on ${git.currentBranch}; run objective-claim ${requestedSlug} first`);
+			throw new Error(`slug ${requestedSlug} not attached on ${git.currentBranch}; run objective-attach ${requestedSlug} first`);
 		}
 		return requestedSlug;
 	}
 	if (slugs.length === 0) {
-		throw new Error("no objective claimed on this branch; run objective-claim to attach the parent's objective, or objective-create to start a new one.");
+		throw new Error("no objective attached on this branch; run objective-attach to attach the parent's objective, or objective-create to start a new one.");
 	}
 	if (slugs.length === 1) {
 		return slugs[0];
@@ -862,7 +862,7 @@ function buildReport(input: {
 
 	if (input.suggestedSlug) {
 		lines.push(
-			`To proceed: write a plan file using \`${input.suggestedSlug}\`, create the slice branch with the repo's normal branch workflow, navigate to the new branch, then run \`objective-claim ${input.slug}\`.`,
+			`To proceed: write a plan file using \`${input.suggestedSlug}\`, create the slice branch with the repo's normal branch workflow, navigate to the new branch, then run \`objective-attach ${input.slug}\`.`,
 		);
 	} else {
 		lines.push("To proceed: choose a PR-sized slice manually, then write a plan file for it before creating a branch.");

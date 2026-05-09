@@ -29,8 +29,8 @@ describe("objective root command helpers", () => {
 		expect(completeObjectiveArgs(prefix)?.map((item) => item.value)).toEqual(values);
 	});
 
-	test("does not complete the claim subcommand", () => {
-		expect(completeObjectiveArgs("c")).toBeNull();
+	test("does not complete the attach subcommand", () => {
+		expect(completeObjectiveArgs("a")).toBeNull();
 	});
 
 	test.each([
@@ -67,7 +67,7 @@ describe("objective root command helpers", () => {
 	});
 
 	test("parses subcommand and rest args", () => {
-		expect(parseRootArgs("claim foo")).toEqual({ subcommand: "claim", restArgs: "foo" });
+		expect(parseRootArgs("attach foo")).toEqual({ subcommand: "attach", restArgs: "foo" });
 		expect(parseRootArgs("ls --here")).toEqual({ subcommand: "ls", restArgs: "--here" });
 	});
 
