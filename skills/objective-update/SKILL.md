@@ -16,7 +16,7 @@ allowed-tools:
 
 # objective-update
 
-Refresh the current branch's objective snapshot before another branch attaches
+Update the current branch's objective snapshot before another branch attaches
 a snapshot from it.
 
 > For the canonical-vs-branch model, document anatomy, lifecycle, and shared
@@ -30,7 +30,7 @@ current branch's snapshot under `<slug>/` current with commits on the current
 branch. If the branch has no matching snapshot, delegate to the
 `objective-attach` carry-forward skill first, then continue the normal update. Write only changed content files back to
 `brmem`, then advance the machine-owned `<slug>/.absorbed.jsonl` marker so
-deterministic freshness checks know which branch patches this snapshot
+deterministic snapshot-state checks know which branch patches this snapshot
 covers. Report old/new commit SHAs so prior snapshots are recoverable.
 
 `update` mutates a **branch snapshot**, not the canonical objective.
@@ -75,9 +75,9 @@ snapshot covers the current branch work.
   to pick — never guess between slices that happen to coexist on a branch.
 - **One slug per invocation.** Multiple slugs on the branch are fine; operate
   only on the explicit slug.
-- **No-op only when structurally fresh.** If precheck reports
-  `data.freshness == "fresh"`, report in sync and exit without loading or
-  writing files. If freshness is stale, always triage the branch commits.
+- **No-op only when structurally up-to-date.** If precheck reports
+  `data.snapshot_state == "up-to-date"`, report in sync and exit without loading
+  or writing files. If snapshot state is stale, always triage the branch commits.
 - **Advance the marker after successful triage.** If evidence triage finds
   every branch commit already documented, skip Markdown rewrites but still
   run `objective exec absorb-patches` to record that the snapshot covers the
@@ -129,16 +129,16 @@ exit-2 errors are terminal unless explicitly handled below.
   - `ambiguous_objective` — multiple slugs already attached; ask the user to
     name one explicitly and re-run with the slug argument.
   - `git_failed` — surface the underlying git error verbatim.
-- **`data.freshness == "fresh"`**: report and exit without loading or
+- **`data.snapshot_state == "up-to-date"`**: report and exit without loading or
   writing files:
 
   ```text
   objective <data.slug> is in sync with HEAD on <data.branch> - no update needed
   ```
 
-  `freshness` is true when every content patch ID in `trunk..HEAD` is
-  already absorbed by the branch snapshot's `.absorbed.jsonl` marker.
-  `data.in_sync` is a compatibility alias for `data.freshness == "fresh"`.
+  `data.snapshot_state == "up-to-date"` means every content patch ID in
+  `trunk..HEAD` is already absorbed by the branch snapshot's `.absorbed.jsonl`
+  marker. `data.in_sync` carries the same boolean as a convenience field.
 
 - **Otherwise**: carry forward `data.slug`, `data.branch`, the three
   `FilePrecheck` records (`body`, `roadmap`, `notes` — `present` flags
@@ -168,7 +168,7 @@ After a successful attach, capture the resolved slug and rerun the precheck:
 objective exec update-precheck <resolved-slug> --format json
 ```
 
-Then continue Step 1's normal stale/fresh handling.
+Then continue Step 1's normal stale/up-to-date handling.
 
 ### 2. Load target files
 
@@ -201,8 +201,8 @@ git show --stat --oneline <sha>
 ```
 
 If every post-snapshot commit is already documented, skip steps 4–5 and
-continue to step 6. Do not draft "freshening" edits to a snapshot whose
-content already covers the work.
+continue to step 6. Do not draft state-only edits to a snapshot whose content
+already covers the work.
 
 ### 4. Rewrite conservatively
 
@@ -216,7 +216,7 @@ Typical update work:
 - keep child checklist tasks grouped under their slice section; do not add
   slice markers to child tasks
 - when splitting or adding a PR-sized roadmap section, assign the new section
-  a fresh visible ``(slice: `<slug>`)`` marker immediately
+  a new visible ``(slice: `<slug>`)`` marker immediately
 - check completion criteria that this branch actually satisfied
 - move `Status:` only when the branch state changed categorically
 - append durable findings to `notes.md`
@@ -292,7 +292,7 @@ When no files were rewritten, report:
   rerun `update-precheck` before mutating prose.
 - Multiple attached slugs with no slug in the prompt: ask the user to
   choose. Never auto-pick to break the tie.
-- Snapshot fresh relative to HEAD: report in sync and write nothing.
+- Snapshot up-to-date relative to HEAD: report in sync and write nothing.
 - HEAD changed after precheck: stop on `head_moved`; do not absorb untriaged
   commits.
 - Multiple slugs on the branch: fine; operate only on the explicit slug.

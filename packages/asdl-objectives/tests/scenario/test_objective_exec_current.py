@@ -256,7 +256,7 @@ def test_current_on_trunk_with_n_canonicals_renders_bare_row(cli_group: ClinkrGr
     fence_body, _, _ = after_open.partition("\n```")
     rows = [line for line in fence_body.splitlines() if line.strip()]
     assert rows == ["master  <- current"], rows
-    assert "alpha fresh" not in fence_body
+    assert "alpha up-to-date" not in fence_body
     assert "alpha stale" not in fence_body
 
 
@@ -294,7 +294,7 @@ def test_current_no_objective_attached_json_shape(cli_group: ClinkrGroup) -> Non
     }
 
 
-def test_current_single_attach_fresh(cli_group: ClinkrGroup) -> None:
+def test_current_single_attach_up_to_date(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
     gateway.put(
@@ -335,12 +335,12 @@ def test_current_single_attach_fresh(cli_group: ClinkrGroup) -> None:
     out = _invoke_current(cli_group, obj)
 
     assert "**Objective:** `widget`" in out
-    assert "**Snapshot:** fresh" in out
+    assert "**Snapshot:** up-to-date" in out
     assert "## Next Orientation Step" in out
     assert "`objective-digest widget`" in out
 
 
-def test_current_single_attach_fresh_json_shape(cli_group: ClinkrGroup) -> None:
+def test_current_single_attach_up_to_date_json_shape(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "feat/current", "# Widget objective\n")
     gateway.put(
@@ -385,7 +385,7 @@ def test_current_single_attach_fresh_json_shape(cli_group: ClinkrGroup) -> None:
         "prompt": _invoke_current(cli_group, obj),
         "current_branch": "feat/current",
         "trunk_branch": "master",
-        "objective": {"kind": "attached", "slug": "widget", "state": "fresh"},
+        "objective": {"kind": "attached", "slug": "widget", "state": "up-to-date"},
         "status_badge": {"kind": "objective", "slug": "widget"},
     }
 
@@ -423,7 +423,7 @@ def test_current_single_attach_stale(cli_group: ClinkrGroup) -> None:
 
     out = _invoke_current(cli_group, obj)
 
-    assert "**Snapshot:** stale - run `objective-update widget` to refresh" in out
+    assert "**Snapshot:** stale - run `objective-update widget` to update it" in out
 
 
 def test_current_multiple_attachments_on_branch_json_shape(cli_group: ClinkrGroup) -> None:
@@ -586,7 +586,7 @@ def test_current_on_trunk_with_orphan_attach_renders_missing_on_master(
     Sitting on master with slug ``widget`` listed (e.g. via a stray
     roadmap blob) but no canonical ``widget/body.md`` is the orphan case.
     The trunk row labels the row ``X missing on master`` so a reconcile
-    candidate is not silently mistaken for a fresh canonical record.
+    candidate is not silently mistaken for a up-to-date canonical record.
     """
     gateway = FakeBranchMemoryGateway()
     # Orphan: roadmap exists, body.md does not — slug is listed but
@@ -607,12 +607,12 @@ def test_current_on_trunk_with_orphan_attach_renders_missing_on_master(
     assert rows == ["master  no PR  widget missing on master  <- current"], rows
 
 
-def test_current_on_trunk_single_canonical_uses_master_vs_master_freshness(
+def test_current_on_trunk_single_canonical_uses_master_vs_master_snapshot_state(
     cli_group: ClinkrGroup,
 ) -> None:
-    """A5 case 2: current branch attaches X and master holds X → fresh|stale.
+    """A5 case 2: current branch attaches X and master holds X → up-to-date|stale.
 
-    Master-vs-master freshness compares ``<X>/body.md`` last-touch on
+    Master-vs-master snapshot state compares ``<X>/body.md`` last-touch on
     master to master HEAD. Newer trunk HEAD than canonical body.md means
     the canonical record has fallen behind — answer to "should I
     reconcile?" — and the row is ``stale``.
@@ -703,12 +703,12 @@ def test_render_with_downstack_uses_in_scope_slug_for_trunk_row() -> None:
     """A5 case 2 under stack walking: trunk row adopts current's attach."""
     current = _current_block(
         branch="feat/widget",
-        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+        objective=_ObjectiveSummary(slug="widget", obj_state="up-to-date"),
     )
-    trunk_row = _trunk_row(in_scope=_TrunkObjectiveSummary(slug="widget", state="fresh"))
+    trunk_row = _trunk_row(in_scope=_TrunkObjectiveSummary(slug="widget", state="up-to-date"))
     parent = _stack_entry(
         branch="feat/parent",
-        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+        objective=_ObjectiveSummary(slug="widget", obj_state="up-to-date"),
     )
 
     prompt = _build_current_prompt(
@@ -723,9 +723,9 @@ def test_render_with_downstack_uses_in_scope_slug_for_trunk_row() -> None:
 
     rows = _stack_rows(prompt)
     assert rows == [
-        "master  no PR  widget fresh",
-        "+- feat/parent  no PR  widget fresh",
-        "   +- feat/widget  no PR  widget fresh  <- current",
+        "master  no PR  widget up-to-date",
+        "+- feat/parent  no PR  widget up-to-date",
+        "   +- feat/widget  no PR  widget up-to-date  <- current",
     ], rows
 
 
@@ -733,14 +733,14 @@ def test_render_with_downstack_orphan_attach_labels_missing_on_master() -> None:
     """A5 case 3 under stack walking: trunk row says ``missing on master``."""
     current = _current_block(
         branch="feat/widget",
-        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+        objective=_ObjectiveSummary(slug="widget", obj_state="up-to-date"),
     )
     trunk_row = _trunk_row(
         in_scope=_TrunkObjectiveSummary(slug="widget", state="missing_on_master"),
     )
     parent = _stack_entry(
         branch="feat/parent",
-        objective=_ObjectiveSummary(slug="widget", obj_state="fresh"),
+        objective=_ObjectiveSummary(slug="widget", obj_state="up-to-date"),
     )
 
     prompt = _build_current_prompt(

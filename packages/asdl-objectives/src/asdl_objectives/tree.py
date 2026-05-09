@@ -31,7 +31,6 @@ from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import ObjectiveState, closed_key
-from asdl_objectives.freshness import classify_branch_snapshot
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.slug_resolution import (
     AmbiguousObjective,
@@ -39,11 +38,12 @@ from asdl_objectives.slug_resolution import (
     SlugResolution,
     resolve_slug,
 )
+from asdl_objectives.snapshot_state import classify_branch_snapshot_state
 from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
 
 BranchPrAction = Literal["open", "merged", "closed", "no_pr", "error"]
-ObjectiveSnapshotUiState = Literal["fresh", "stale", "deleted"]
+ObjectiveSnapshotUiState = Literal["up-to-date", "stale", "deleted"]
 
 _STATE_GROUP_ORDER: tuple[BranchPrAction, ...] = ("merged", "open", "closed", "no_pr", "error")
 _STATE_TO_ACTION: dict[PRState, BranchPrAction] = {
@@ -87,7 +87,7 @@ _STATE_BADGES: dict[BranchPrAction, str] = {
 }
 
 _SNAP_BADGES: dict[ObjectiveSnapshotUiState, str] = {
-    "fresh": "[green]● fresh[/green]",
+    "up-to-date": "[green]● up-to-date[/green]",
     "stale": "[yellow]● stale[/yellow]",
     "deleted": "[dim]○ deleted[/dim]",
 }
@@ -149,7 +149,7 @@ def _classify_branch(
 ) -> BranchPrEntry:
     alive = git.branch_exists(branch)
     if alive:
-        obj_state: ObjectiveSnapshotUiState = classify_branch_snapshot(
+        obj_state: ObjectiveSnapshotUiState = classify_branch_snapshot_state(
             gateway, git, branch, slug, trunk=trunk, alive=True
         )
     else:

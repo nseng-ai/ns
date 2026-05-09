@@ -1,7 +1,7 @@
 """``objective exec update-precheck`` — one-shot preflight for ``objective-update``.
 
 Collapses the deterministic round-trips at the top of the
-``objective-update`` skill (preflight, slug resolution, freshness probe, old
+``objective-update`` skill (preflight, slug resolution, snapshot-state probe, old
 SHA capture, trunk..HEAD enumeration) into a single JSON envelope. The skill
 keeps file content load, per-commit triage, the LLM judgment, and the
 rewrite/persist steps; this operation just hands it the facts.
@@ -29,10 +29,6 @@ from asdl_objectives.discovery import (
     roadmap_key,
     slug_for_key,
 )
-from asdl_objectives.freshness import (
-    ObjectiveSnapshotState,
-    classify_obj_state,
-)
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.patch_facts import load_branch_patch_facts
 from asdl_objectives.slug_resolution import (
@@ -40,6 +36,10 @@ from asdl_objectives.slug_resolution import (
     NoObjectiveOnBranch,
     SlugResolution,
     resolve_slug,
+)
+from asdl_objectives.snapshot_state import (
+    ObjectiveSnapshotState,
+    classify_snapshot_state,
 )
 from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
@@ -83,7 +83,7 @@ class ObjectiveUpdatePrecheckResult(ClinkrModel):
     snapshot_absorbed_patch_ids: tuple[str, ...]
     absorbed_marker_diagnostics: tuple[str, ...]
     absorbed_patch_ids: tuple[str, ...]
-    freshness: ObjectiveSnapshotState
+    snapshot_state: ObjectiveSnapshotState
     in_sync: bool
 
 
@@ -192,13 +192,13 @@ def run_update_precheck_objective(
 
     marker = load_absorbed_marker(gateway, slug=slug, branch=current_branch)
     effective_pids = marker.patch_ids if marker.ok else None
-    freshness = classify_obj_state(
+    snapshot_state = classify_snapshot_state(
         alive=True,
         branch_commit_pids=facts.commit_patch_ids,
         absorbed_pids=effective_pids,
     )
     absorbed_pids = tuple(sorted(effective_pids or ()))
-    in_sync = freshness == "fresh"
+    in_sync = snapshot_state == "up-to-date"
 
     return ClinkrExit.ok(
         ObjectiveUpdatePrecheckResult(
@@ -214,7 +214,7 @@ def run_update_precheck_objective(
                 f"line {d.line}: {d.message}" for d in marker.diagnostics
             ),
             absorbed_patch_ids=absorbed_pids,
-            freshness=freshness,
+            snapshot_state=snapshot_state,
             in_sync=in_sync,
         )
     )

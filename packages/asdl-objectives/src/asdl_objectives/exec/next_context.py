@@ -22,7 +22,6 @@ from asdl_objectives.discovery import (
     notes_key,
     roadmap_key,
 )
-from asdl_objectives.freshness import ObjectiveSnapshotState, classify_branch_snapshot
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from asdl_objectives.slug_resolution import (
     AmbiguousObjective,
@@ -30,6 +29,7 @@ from asdl_objectives.slug_resolution import (
     SlugResolution,
     resolve_slug,
 )
+from asdl_objectives.snapshot_state import ObjectiveSnapshotState, classify_branch_snapshot_state
 from asdl_objectives.trunk_resolution import resolve_trunk
 
 
@@ -46,8 +46,8 @@ class NextContextResult(ClinkrModel):
     on_trunk: bool
     slug: str
     files_present: list[str]
-    freshness: ObjectiveSnapshotState | None
-    freshness_advisory: str | None
+    snapshot_state: ObjectiveSnapshotState | None
+    snapshot_state_advisory: str | None
     notes_present: bool
     body_content: str
     roadmap_content: str | None
@@ -55,7 +55,7 @@ class NextContextResult(ClinkrModel):
 
 
 def render_next_context(result: NextContextResult) -> None:
-    if result.freshness_advisory is not None:
+    if result.snapshot_state_advisory is not None:
         click.echo(
             f"> Snapshot is stale. Consider running `objective-update {result.slug}` "
             "before creating the next slice branch."
@@ -64,7 +64,7 @@ def render_next_context(result: NextContextResult) -> None:
 
     files = ", ".join(result.files_present) if result.files_present else "none"
     notes = "present" if result.notes_present else "none"
-    freshness = result.freshness or "skipped"
+    snapshot_state = result.snapshot_state or "skipped"
 
     click.echo(f"# Objective next context: `{result.slug}`")
     click.echo()
@@ -72,17 +72,17 @@ def render_next_context(result: NextContextResult) -> None:
     click.echo(f"Trunk branch: `{result.trunk_branch}`")
     click.echo(f"On trunk: {str(result.on_trunk).lower()}")
     click.echo(f"Files: {files}")
-    click.echo(f"Freshness: {freshness}")
+    click.echo(f"Snapshot state: {snapshot_state}")
     click.echo(f"Notes: {notes}")
-    if result.freshness_advisory is not None:
-        click.echo(f"Advisory: {result.freshness_advisory}")
+    if result.snapshot_state_advisory is not None:
+        click.echo(f"Advisory: {result.snapshot_state_advisory}")
 
 
 @clinkr_operation(
     name="next-context",
     help=(
         "Emit deterministic objective-next facts: branch/trunk preflight, "
-        "slug resolution, raw objective content, and freshness. Markdown "
+        "slug resolution, raw objective content, and snapshot state. Markdown "
         "interpretation stays with the caller."
     ),
     human_renderer=render_next_context,
@@ -117,10 +117,10 @@ def run_next_context_objective(
         notes_content=notes_content,
     )
 
-    freshness: ObjectiveSnapshotState | None = None
-    freshness_advisory: str | None = None
+    snapshot_state: ObjectiveSnapshotState | None = None
+    snapshot_state_advisory: str | None = None
     if not on_trunk:
-        freshness = classify_branch_snapshot(
+        snapshot_state = classify_branch_snapshot_state(
             mctx.brmem_gateway,
             mctx.git_gateway,
             current_branch,
@@ -128,8 +128,8 @@ def run_next_context_objective(
             trunk=trunk,
             alive=True,
         )
-        if freshness == "stale":
-            freshness_advisory = (
+        if snapshot_state == "stale":
+            snapshot_state_advisory = (
                 f"Snapshot is behind HEAD on {current_branch} — "
                 f"consider running objective-update {slug} first."
             )
@@ -141,8 +141,8 @@ def run_next_context_objective(
             on_trunk=on_trunk,
             slug=slug,
             files_present=files_present,
-            freshness=freshness,
-            freshness_advisory=freshness_advisory,
+            snapshot_state=snapshot_state,
+            snapshot_state_advisory=snapshot_state_advisory,
             notes_present=notes_content is not None and bool(notes_content.strip()),
             body_content=body_content,
             roadmap_content=roadmap_content,

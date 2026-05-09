@@ -116,8 +116,8 @@ class GitGateway(ABC):
 
         Wraps ``git log -1 --format=%cI <branch>``. Returns ``None`` when the
         branch does not exist or the underlying command fails. Used to compare
-        branch HEAD against snapshot last-touched timestamps for fresh / stale
-        objective-snapshot detection.
+        branch HEAD against snapshot last-touched timestamps for up-to-date /
+        stale objective-snapshot detection.
         """
 
     @abstractmethod

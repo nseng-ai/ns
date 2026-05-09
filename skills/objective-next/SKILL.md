@@ -22,7 +22,7 @@ the next PR-sized slice.
 ## Goal
 
 Given an objective slug — supplied directly or resolved from the current
-branch's attached objectives — ensure the current branch has a fresh snapshot,
+branch's attached objectives — ensure the current branch has a up-to-date snapshot,
 load that prepared snapshot, summarize the objective state, and recommend the
 next roadmap slice using its visible preassigned slice slug.
 
@@ -47,7 +47,7 @@ check it out first.
 
 - **Prepare before planning.** If the current branch has no snapshot, attach
   one first; if it has a stale snapshot, update it first; then rerun
-  `next-context` and plan from the fresh context.
+  `next-context` and plan from the up-to-date context.
 - **Attachment remains the carry-forward primitive.** Missing snapshots are
   attached only by the `objective-attach` workflow. During `next`, delegate to
   `objective-attach [<slug>]` when the branch has no snapshot; do not
@@ -96,11 +96,11 @@ For `no_objective_on_branch` off trunk, continue with the preparation path
 below; this is an expected workflow branch, not a terminal failure. Other
 exit-2 errors are terminal unless this workflow explicitly handles them.
 
-- **Success with `data.freshness == "fresh"` or `null`**: the context is
-  ready. Continue to Step 5.
-- **Success with `data.freshness == "stale"`**: run the update preparation in
+- **Success with `data.snapshot_state == "up-to-date"` or `null`**: the context
+  is ready. Continue to Step 5.
+- **Success with `data.snapshot_state == "stale"`**: run the update preparation in
   Step 3 for `data.slug`, rerun `next-context <slug>`, then continue from the
-  fresh context.
+  up-to-date context.
 - **`error_type == "no_objective_on_branch"` off trunk**: run the preparation
   flow in Step 3. It will attach when needed and prompt for selection if
   ambiguous. Rerun `next-context [<resolved-slug>]` and continue.
@@ -136,13 +136,13 @@ After any attach or update, rerun:
 objective exec next-context <resolved-slug> --format json
 ```
 
-Use this fresh context for the status report and slice recommendation. If it
+Use this up-to-date context for the status report and slice recommendation. If it
 still reports stale, stop and explain that preparation did not converge.
 
 ### 5. Interpret the prepared content
 
 Use the `body_content`, `roadmap_content`, `notes_content`, `files_present`,
-`current_branch`, `trunk_branch`, `on_trunk`, and `freshness` fields from the
+`current_branch`, `trunk_branch`, `on_trunk`, and `snapshot_state` fields from the
 prepared context. Interpret them using this skill's content inventory and the
 anatomy in `../objective/SKILL.md`.
 
@@ -197,7 +197,7 @@ objective exec next-collision <candidate-slug> --format json
 ```
 
 Here `<candidate-slug>` is the preassigned marker slug from the roadmap
-section, not a freshly generated name. Report the returned collision state:
+section, not a newly generated name. Report the returned collision state:
 
 - `clear`: safe to use
 - `branch_exists`: a local branch already uses the slug
@@ -233,7 +233,7 @@ objective-reconcile <objective-slug> on the trunk branch.
 
 - Detached `HEAD`: abort.
 - Current branch is the trunk branch: `next-context` may read canonical state;
-  skip branch freshness preparation because canonical rewrites go through
+  skip branch snapshot state preparation because canonical rewrites go through
   `objective-reconcile`, not `objective-update`.
 - Multiple slugs on the current branch: legitimate when two unrelated parent
   objectives are attached on the same branch; list both and ask.

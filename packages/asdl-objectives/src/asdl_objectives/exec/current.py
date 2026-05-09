@@ -2,7 +2,7 @@
 
 Tightly coupled to the ``objective-current`` skill: emits a single
 self-contained Markdown brief covering the current branch's attached
-objective + freshness, PR, brmem entries, and trunk relation. The skill
+objective + snapshot state, PR, brmem entries, and trunk relation. The skill
 simply runs this command and prints the output verbatim. The machine JSON
 contract also exposes structured branch/objective fields so extensions do
 not need to infer status from rendered Markdown.
@@ -27,18 +27,18 @@ from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_objectives.discovery import body_key, slug_for_key
-from asdl_objectives.freshness import (
-    ObjectiveSnapshotState,
-    classify_branch_snapshot,
-    classify_canonical_freshness,
-)
 from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
+from asdl_objectives.snapshot_state import (
+    ObjectiveSnapshotState,
+    classify_branch_snapshot_state,
+    classify_canonical_snapshot_state,
+)
 from asdl_objectives.trunk_resolution import resolve_trunk
 from brmem.gateway import BranchMemoryGateway
 
 _PREVIEW_CHAR_LIMIT = 80
 
-TrunkRowState = Literal["fresh", "stale", "missing_on_master"]
+TrunkRowState = Literal["up-to-date", "stale", "missing_on_master"]
 
 
 class ObjectiveCurrentRequest(ClinkrModel):
@@ -80,8 +80,8 @@ class _TrunkObjectiveSummary:
 
     Distinct from :class:`_ObjectiveSummary` because the trunk row carries a
     third state — ``missing_on_master`` — that does not exist for live branch
-    snapshots, and its ``fresh``/``stale`` labels reflect master-vs-master
-    canonical freshness rather than ``trunk..branch`` patch coverage.
+    snapshots, and its ``up-to-date``/``stale`` labels reflect master-vs-master
+    canonical snapshot state rather than ``trunk..branch`` patch coverage.
     """
 
     slug: str
@@ -132,7 +132,7 @@ class _TrunkRow:
     walked toward maintenance work on slugs it is not engaged with. When
     the current branch attaches no slug (or is itself the trunk), the trunk
     row is bare. When the current branch attaches slug ``X``, the trunk row
-    is labeled with ``X`` and either master-vs-master canonical freshness
+    is labeled with ``X`` and either master-vs-master canonical snapshot state
     or ``missing on master``.
     """
 
@@ -151,7 +151,7 @@ def render_current_prompt(result: CurrentPrompt) -> None:
     help=(
         "Render the orientation brief for `objective-current`. The CLI "
         "pre-computes every fact about the current branch (objective + "
-        "freshness, PR, brmem entries, and trunk relation) and emits the "
+        "snapshot state, PR, brmem entries, and trunk relation) and emits the "
         "final Markdown directly. The skill prints the output verbatim."
     ),
     human_renderer=render_current_prompt,
@@ -275,7 +275,14 @@ def _build_objective_summary(
     if not slugs:
         return None, ()
     primary, *extras = slugs
-    obj_state = classify_branch_snapshot(gateway, git, branch, primary, trunk=trunk, alive=alive)
+    obj_state = classify_branch_snapshot_state(
+        gateway,
+        git,
+        branch,
+        primary,
+        trunk=trunk,
+        alive=alive,
+    )
     summary = _ObjectiveSummary(slug=primary, obj_state=obj_state)
     return summary, tuple(extras)
 
@@ -359,7 +366,7 @@ def _build_trunk_row(
     if canonical_body is None:
         in_scope = _TrunkObjectiveSummary(slug=in_scope_slug, state="missing_on_master")
     else:
-        canonical_state = classify_canonical_freshness(git, trunk=trunk, slug=in_scope_slug)
+        canonical_state = classify_canonical_snapshot_state(git, trunk=trunk, slug=in_scope_slug)
         in_scope = _TrunkObjectiveSummary(slug=in_scope_slug, state=canonical_state)
     return _TrunkRow(branch=trunk, pr=pr_block, pr_error=pr_error, in_scope=in_scope)
 
@@ -507,11 +514,11 @@ def _render_header(current: _CurrentBranchBlock) -> str:
         lines.append("**Objective:** _none attached_")
     else:
         lines.append(f"**Objective:** `{objective.slug}`")
-        if objective.obj_state == "fresh":
-            lines.append("**Snapshot:** fresh")
+        if objective.obj_state == "up-to-date":
+            lines.append("**Snapshot:** up-to-date")
         else:
             lines.append(
-                f"**Snapshot:** stale - run `objective-update {objective.slug}` to refresh"
+                f"**Snapshot:** stale - run `objective-update {objective.slug}` to update it"
             )
 
     lines.append(_render_pr_line(current.pr, current.pr_error))
@@ -682,8 +689,8 @@ def _pr_label_part(pr: _PRBlock | None, pr_error: str | None) -> str:
 def _objective_label_part(objective: _ObjectiveSummary | None, *, deleted: bool) -> str:
     if objective is None:
         return "no objective (deleted)" if deleted else "no objective"
-    freshness = "deleted" if deleted else objective.obj_state
-    return f"{objective.slug} {freshness}"
+    snapshot_state = "deleted" if deleted else objective.obj_state
+    return f"{objective.slug} {snapshot_state}"
 
 
 def _trunk_objective_label_part(in_scope: _TrunkObjectiveSummary | None) -> str:

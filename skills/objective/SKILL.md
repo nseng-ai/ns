@@ -15,7 +15,7 @@ objectives that do not map cleanly to one operation.
 
 > **Authority.** This skill is **conceptual behavior reference** for the
 > objective subsystem, not an independent implementation authority.
-> Deterministic mechanics (slug rules, freshness classification, namespace
+> Deterministic mechanics (slug rules, snapshot-state classification, namespace
 > constants, the `objective` CLI surface) live in the `asdl_objectives`
 > Python package; ref encoding and branch-name validation live in `brmem`.
 > When this skill's prose and the implementing package disagree, the package
@@ -103,7 +103,7 @@ A branch snapshot is the `<slug>/` directory stored on a working branch. It
 is a local checkpoint, not shared ground truth.
 
 - `objective-attach` attaches one by copying from a source snapshot.
-- `objective-update` refreshes it after branch work lands and records the
+- `objective-update` updates it after branch work lands and records the
   branch content patches covered by the snapshot.
 - `objective-reconcile` reads branch snapshots as evidence, but never
   writes back to them.
@@ -159,12 +159,12 @@ Append-only in spirit. Use it for constraints, collisions, pointers, and
 non-obvious findings discovered during implementation. When a note becomes
 obsolete, annotate it in place instead of deleting it.
 
-### `.absorbed.jsonl` - freshness marker
+### `.absorbed.jsonl` - snapshot state marker
 
 Machine-owned metadata for branch snapshots. Each JSONL record describes one
 commit observed in the branch's `trunk..HEAD` range when `objective-update`
 confirmed the snapshot covered that work. Humans may read this file for
-debugging, but should not hand-edit it. The freshness classifier uses only
+debugging, but should not hand-edit it. The snapshot-state classifier uses only
 non-null patch IDs from the marker; commit SHA, subject, and author time are
 diagnostic.
 
@@ -201,7 +201,7 @@ its context read, and only then recommends the next slice.
   prepared snapshot for planning and collision-checks the selected section's
   visible slice slug. It never mutates canonical state.
 - **Current** (`objective-current`): read-only current-branch orientation
-  view. It shows the attached objective, PR, branch snapshot freshness,
+  view. It shows the attached objective, PR, branch snapshot state,
   brmem entries, and the trunk-relation row. It is scoped to the current
   branch only — it does not walk downstack ancestry or upstack children.
   It writes nothing.
@@ -213,8 +213,8 @@ its context read, and only then recommends the next slice.
   canonical objective.
 - **Update** (`objective-update`): make the current branch's objective
   snapshot current. When the snapshot is missing, it may attach one by
-  delegating to the attach primitive; then it refreshes from commits on that
-  branch. It is a no-op when the snapshot is already fresh relative to branch
+  delegating to the attach primitive; then it updates from commits on that
+  branch. It is a no-op when the snapshot is already up-to-date relative to branch
   HEAD. When branch work is stale but already documented, `update` may only
   advance `.absorbed.jsonl`. It never mutates canonical state.
 - **Reconcile** (`objective-reconcile`): rewrite the canonical

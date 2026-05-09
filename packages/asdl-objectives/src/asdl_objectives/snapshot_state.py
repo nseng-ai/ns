@@ -1,7 +1,7 @@
-"""Snapshot-freshness classifier shared by objective commands.
+"""Objective Snapshot state classifier shared by objective commands.
 
-Objective freshness is deterministic and patch-id based for live branch
-snapshots. A branch snapshot is fresh when every content patch in
+Objective Snapshot state is deterministic and patch-id based for live branch
+snapshots. A branch snapshot is up-to-date when every content patch in
 ``trunk..branch`` is present in the effective absorbed set:
 
 ``snapshot_absorbed_patch_ids``.
@@ -10,10 +10,10 @@ The absorbed set comes from ``<slug>/.absorbed.jsonl``, a machine-owned JSONL
 marker written by ``objective-update`` after its evidence triage confirms
 that the branch snapshot covers the current branch work. The marker is
 cumulative for ``trunk..branch`` and is copied with branch snapshots, so it is
-the single source of truth for freshness.
+the single source of truth for Objective Snapshot state.
 
 Only non-null ``git patch-id`` values participate in classification. Commits
-without content patch IDs are ignored for freshness and retained only as
+without content patch IDs are ignored for state classification and retained only as
 diagnostic marker records. If patch-id facts or marker parsing are
 unavailable for a live branch with content patches, the branch is stale. The
 only timestamp classifier left here is for the canonical trunk row, which has
@@ -32,35 +32,35 @@ from asdl_objectives.gateway_access import OBJECTIVE_NAMESPACE
 from brmem.gateway import BranchMemoryGateway
 from brmem.ref_layout import snapshot_ref_name
 
-ObjectiveSnapshotState = Literal["fresh", "stale"]
+ObjectiveSnapshotState = Literal["up-to-date", "stale"]
 
 
-def classify_obj_state(
+def classify_snapshot_state(
     *,
     alive: bool,
     branch_commit_pids: tuple[str | None, ...] | None,
     absorbed_pids: frozenset[str] | None,
 ) -> ObjectiveSnapshotState:
-    """Classify a snapshot as ``"fresh"`` or ``"stale"``.
+    """Classify a snapshot as ``"up-to-date"`` or ``"stale"``.
 
-    A deleted branch is fresh by definition: its history is frozen, so the
-    snapshot can no longer drift. For live branches, freshness is purely
-    patch-id based. The branch is fresh iff every content patch-id in
+    A deleted branch is up-to-date by definition: its history is frozen, so the
+    snapshot can no longer drift. For live branches, state classification is purely
+    patch-id based. The branch is up-to-date iff every content patch-id in
     ``trunk..branch`` is present in the effective absorbed set. ``None``
     patch-ids represent merge, empty, or otherwise non-content-changing
-    commits; they are ignored for freshness and recorded only as diagnostics
-    in ``.absorbed.jsonl``.
+    commits; they are ignored for state classification and recorded only as
+    diagnostics in ``.absorbed.jsonl``.
     """
     if not alive:
-        return "fresh"
+        return "up-to-date"
     if branch_commit_pids is not None:
         content_pids = tuple(pid for pid in branch_commit_pids if pid is not None)
         if not content_pids:
-            return "fresh"
+            return "up-to-date"
         if absorbed_pids is None:
             return "stale"
         if all(pid in absorbed_pids for pid in content_pids):
-            return "fresh"
+            return "up-to-date"
         return "stale"
     return "stale"
 
@@ -73,15 +73,15 @@ def classify_timestamp_state(
 ) -> ObjectiveSnapshotState:
     """Classify timestamp-only canonical rows that have no branch patch range."""
     if not alive:
-        return "fresh"
+        return "up-to-date"
     if snapshot_iso is None or branch_head_iso is None:
-        return "fresh"
+        return "up-to-date"
     if branch_head_iso > snapshot_iso:
         return "stale"
-    return "fresh"
+    return "up-to-date"
 
 
-def classify_branch_snapshot(
+def classify_branch_snapshot_state(
     gateway: BranchMemoryGateway,
     git: GitGateway,
     branch: str,
@@ -90,16 +90,16 @@ def classify_branch_snapshot(
     trunk: str,
     alive: bool,
 ) -> ObjectiveSnapshotState:
-    """Classify the snapshot freshness for ``branch``'s attach of ``slug``.
+    """Classify Objective Snapshot state for ``branch``'s attach of ``slug``.
 
     Gathers branch commit patch-ids plus the snapshot marker, then defers to
-    :func:`classify_obj_state`. Always returns ``"fresh"`` or ``"stale"``;
+    :func:`classify_snapshot_state`. Always returns ``"up-to-date"`` or ``"stale"``;
     callers map ``alive=False`` to a UI ``"deleted"`` label themselves.
     """
     branch_commit_pids, absorbed_pids = _patch_id_inputs(
         gateway, git, branch, slug=slug, trunk=trunk, alive=alive
     )
-    return classify_obj_state(
+    return classify_snapshot_state(
         alive=alive,
         branch_commit_pids=branch_commit_pids,
         absorbed_pids=absorbed_pids,
@@ -112,13 +112,13 @@ def snapshot_last_touched_iso(git: GitGateway, branch: str, slug: str) -> str | 
     return git.file_last_touched_iso(snapshot_ref, body_key(slug))
 
 
-def classify_canonical_freshness(
+def classify_canonical_snapshot_state(
     git: GitGateway, *, trunk: str, slug: str
 ) -> ObjectiveSnapshotState:
     """Classify the canonical objective row on ``trunk`` for ``slug``.
 
     The canonical (master-vs-master) row has no ``trunk..trunk`` patch range,
-    so freshness reduces to a timestamp comparison: when the canonical
+    so state classification reduces to a timestamp comparison: when the canonical
     ``<slug>/body.md`` was last touched on ``trunk`` versus the trunk HEAD
     timestamp. This answers "should I reconcile?" — the canonical record
     has fallen behind trunk's tip when newer work has landed on trunk

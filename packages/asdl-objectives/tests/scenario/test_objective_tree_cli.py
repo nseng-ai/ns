@@ -358,7 +358,7 @@ def test_tree_mixed_rows_json(cli_group: ClinkrGroup) -> None:
     assert merged["pr_title"] == "Scaffold widget rewrite"
     assert merged["pr_url"] == "https://example.com/pull/812"
     assert merged["pr_error_stderr"] is None
-    assert merged["obj_state"] == "fresh"
+    assert merged["obj_state"] == "up-to-date"
 
     no_pr = entries[3]
     assert no_pr["pr_number"] is None
@@ -450,7 +450,7 @@ def test_tree_all_broken_gh_becomes_error_rows(cli_group: ClinkrGroup) -> None:
 
 
 # ---------------------------------------------------------------------------
-# snapshot freshness classification on live branches
+# snapshot state classification on live branches
 # ---------------------------------------------------------------------------
 
 
@@ -462,9 +462,9 @@ def test_tree_classifies_all_five_pr_states(cli_group: ClinkrGroup) -> None:
     drift is silently introduced via a sixth state.
 
     ``test_tree_mixed_rows_json`` exercises the same five states alongside
-    ordering and snapshot freshness; this test isolates the PR-state
+    ordering and snapshot state; this test isolates the PR-state
     classification so a regression that drops one state still fails
-    loudly even if ordering or freshness is reshuffled.
+    loudly even if ordering or snapshot state is reshuffled.
     """
     gateway = FakeBranchMemoryGateway()
     slug = "widget-rewrite"
@@ -587,7 +587,7 @@ def test_tree_reports_stale_when_branch_has_unabsorbed_pid(cli_group: ClinkrGrou
     assert entries[0]["obj_state"] == "stale"
 
 
-def test_tree_reports_fresh_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
+def test_tree_reports_up_to_date_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
@@ -631,13 +631,13 @@ def test_tree_reports_fresh_when_all_pids_absorbed(cli_group: ClinkrGroup) -> No
     entries = payload["data"]["entries"]
     assert len(entries) == 1
     assert entries[0]["branch"] == "feat/widget"
-    assert entries[0]["obj_state"] == "fresh"
+    assert entries[0]["obj_state"] == "up-to-date"
 
 
 def test_tree_reports_deleted_for_orphaned_branch_snapshot(cli_group: ClinkrGroup) -> None:
     """An entry whose branch is no longer live must render as ``deleted`` —
     callers are responsible for the deletion label even though the underlying
-    classifier returns ``fresh`` for dead branches.
+    classifier returns ``up-to-date`` for dead branches.
     """
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
@@ -662,7 +662,7 @@ def test_tree_reports_deleted_for_orphaned_branch_snapshot(cli_group: ClinkrGrou
     assert entries[0]["obj_state"] == "deleted"
 
 
-def test_tree_reports_fresh_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
+def test_tree_reports_up_to_date_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put("objectives", "widget/body.md", "master", "seed\n")
     gateway.put("objectives", "widget/body.md", "feat/widget", "snap\n")
@@ -706,4 +706,4 @@ def test_tree_reports_fresh_when_marker_absorbs_pid(cli_group: ClinkrGroup) -> N
     entries = payload["data"]["entries"]
     assert len(entries) == 1
     assert entries[0]["branch"] == "feat/widget"
-    assert entries[0]["obj_state"] == "fresh"
+    assert entries[0]["obj_state"] == "up-to-date"

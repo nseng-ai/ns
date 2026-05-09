@@ -36,7 +36,7 @@ def load_branch_patch_facts(
     ``git log`` failures are always fatal because callers cannot enumerate
     branch work without commits. ``git patch-id`` failures are fatal only when
     ``require_patch_ids`` is set; otherwise callers receive commits with a
-    ``None`` patch-id lookup and can conservatively classify freshness.
+    ``None`` patch-id lookup and can conservatively classify snapshot state.
     """
     commits = git.log_range(range_spec)
     if isinstance(commits, GitCommandFailure):

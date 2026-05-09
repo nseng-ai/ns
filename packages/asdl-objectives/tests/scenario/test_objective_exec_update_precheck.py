@@ -151,7 +151,7 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
     assert data["branch"] == "widget-rewrite-layer-1"
     assert data["branch_head_sha"] == "HEAD"
     assert data["in_sync"] is False
-    assert data["freshness"] == "stale"
+    assert data["snapshot_state"] == "stale"
 
     assert data["body"]["key"] == "widget-rewrite/body.md"
     assert data["body"]["present"] is True
@@ -181,7 +181,7 @@ def test_precheck_happy_path_emits_files_and_commits(cli_group: ClinkrGroup) -> 
     assert data["absorbed_marker_diagnostics"] == []
     assert data["absorbed_patch_ids"] == []
     # Timestamp aggregates and downstack absorption are not part of the
-    # patch-id freshness contract.
+    # patch-id snapshot state contract.
     assert "snapshot_max_head_date" not in data
     assert "branch_max_author_iso" not in data
     assert "downstack_absorbed_patch_ids" not in data
@@ -290,7 +290,7 @@ def test_precheck_in_sync_when_all_pids_absorbed(cli_group: ClinkrGroup) -> None
     assert result.exit_code == 0, result.output
     data = payload["data"]
     assert data["in_sync"] is True
-    assert data["freshness"] == "fresh"
+    assert data["snapshot_state"] == "up-to-date"
     assert len(data["branch_commits"]) == 2
     assert {c["patch_id"] for c in data["branch_commits"]} == {"pid-1", "pid-2"}
     assert set(data["absorbed_patch_ids"]) == {"pid-1", "pid-2"}
@@ -334,7 +334,7 @@ def test_precheck_not_in_sync_when_some_pid_novel(cli_group: ClinkrGroup) -> Non
     assert set(data["absorbed_patch_ids"]) == {"pid-1"}
 
 
-def test_precheck_ignores_null_pid_for_freshness(cli_group: ClinkrGroup) -> None:
+def test_precheck_ignores_null_pid_for_snapshot_state(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("widget-rewrite-layer-1")
     gateway.put(
         "objectives",
@@ -369,7 +369,7 @@ def test_precheck_ignores_null_pid_for_freshness(cli_group: ClinkrGroup) -> None
     assert result.exit_code == 0, result.output
     data = payload["data"]
     assert data["in_sync"] is True
-    assert data["freshness"] == "fresh"
+    assert data["snapshot_state"] == "up-to-date"
 
 
 def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGroup) -> None:
@@ -404,13 +404,13 @@ def test_precheck_in_sync_when_snapshot_marker_absorbs_pid(cli_group: ClinkrGrou
     assert result.exit_code == 0, result.output
     data = payload["data"]
     assert data["in_sync"] is True
-    assert data["freshness"] == "fresh"
+    assert data["snapshot_state"] == "up-to-date"
     assert data["snapshot_absorbed_patch_ids"] == ["pid-novel"]
     assert data["absorbed_patch_ids"] == ["pid-novel"]
 
 
-def test_precheck_freshness_ignores_branch_author_time(cli_group: ClinkrGroup) -> None:
-    """Patch-id absorption alone determines freshness — a much-newer commit author
+def test_precheck_snapshot_state_ignores_branch_author_time(cli_group: ClinkrGroup) -> None:
+    """Patch-id absorption alone determines snapshot state — a much-newer commit author
     time on the branch must not flip the verdict to stale.
     """
     gateway = _seed_objective("widget-rewrite-layer-1")
@@ -448,7 +448,7 @@ def test_precheck_freshness_ignores_branch_author_time(cli_group: ClinkrGroup) -
 
     assert result.exit_code == 0, result.output
     data = payload["data"]
-    assert data["freshness"] == "fresh"
+    assert data["snapshot_state"] == "up-to-date"
     assert data["in_sync"] is True
 
 
@@ -478,7 +478,7 @@ def test_precheck_malformed_marker_is_stale(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0, result.output
     data = payload["data"]
-    assert data["freshness"] == "stale"
+    assert data["snapshot_state"] == "stale"
     assert data["in_sync"] is False
     assert data["absorbed_marker_diagnostics"] == ["line 1: invalid JSON: Expecting value"]
 

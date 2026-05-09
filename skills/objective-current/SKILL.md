@@ -1,6 +1,6 @@
 ---
 name: objective-current
-description: 'Read-only orientation view for the current branch. Shows the attached objective, PR, branch snapshot freshness, brmem entries, and the trunk-relation row.'
+description: 'Read-only orientation view for the current branch. Shows the attached objective, PR, branch snapshot state, brmem entries, and the trunk-relation row.'
 allowed-tools:
   - "Bash(objective exec current *)"
 ---
@@ -41,7 +41,7 @@ None. The skill operates on the current working directory only.
 ## How it works
 
 `objective exec current` does all the deterministic work and emits the
-final Markdown directly: header (objective + freshness + PR + brmem),
+final Markdown directly: header (objective + snapshot state + PR + brmem),
 optional brmem entry listing, a short ASCII stack map showing the current
 branch and its trunk relation, and any warnings. There is no JSON to
 parse, no template to fill, and no prose to write.

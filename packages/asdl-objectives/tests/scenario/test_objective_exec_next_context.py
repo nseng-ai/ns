@@ -143,8 +143,8 @@ def test_next_context_one_objective_on_branch_emits_full_context(
     assert data["on_trunk"] is False
     assert data["slug"] == "widget-rewrite"
     assert data["files_present"] == ["body.md", "roadmap.md", "notes.md"]
-    assert data["freshness"] == "fresh"
-    assert data["freshness_advisory"] is None
+    assert data["snapshot_state"] == "up-to-date"
+    assert data["snapshot_state_advisory"] is None
     assert data["notes_present"] is True
     assert data["body_content"] == _BODY
     assert data["roadmap_content"] == _ROADMAP
@@ -206,7 +206,7 @@ def test_next_context_trunk_with_zero_canonicals_fails(cli_group: ClinkrGroup) -
     assert "No canonical objectives" in str(payload["message"])
 
 
-def test_next_context_trunk_with_one_canonical_skips_freshness(
+def test_next_context_trunk_with_one_canonical_skips_snapshot_state(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = _seed_objective("master")
@@ -217,8 +217,8 @@ def test_next_context_trunk_with_one_canonical_skips_freshness(
     assert payload["exit_code"] == 0
     data = payload["data"]
     assert data["on_trunk"] is True
-    assert data["freshness"] is None
-    assert data["freshness_advisory"] is None
+    assert data["snapshot_state"] is None
+    assert data["snapshot_state_advisory"] is None
 
 
 def test_next_context_trunk_with_multiple_canonicals_without_slug_fails(
@@ -246,7 +246,7 @@ def test_next_context_explicit_missing_slug_fails(cli_group: ClinkrGroup) -> Non
     assert "missing" in str(payload["message"])
 
 
-def test_next_context_stale_freshness_populates_advisory(cli_group: ClinkrGroup) -> None:
+def test_next_context_stale_snapshot_state_populates_advisory(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("feat/widget")
     obj = _make_obj(
         gateway=gateway,
@@ -257,11 +257,11 @@ def test_next_context_stale_freshness_populates_advisory(cli_group: ClinkrGroup)
 
     assert payload["exit_code"] == 0
     data = payload["data"]
-    assert data["freshness"] == "stale"
-    assert "objective-update widget-rewrite" in data["freshness_advisory"]
+    assert data["snapshot_state"] == "stale"
+    assert "objective-update widget-rewrite" in data["snapshot_state_advisory"]
 
 
-def test_next_context_fresh_snapshot_has_no_advisory(cli_group: ClinkrGroup) -> None:
+def test_next_context_up_to_date_snapshot_has_no_advisory(cli_group: ClinkrGroup) -> None:
     gateway = _seed_objective("feat/widget")
     obj = _make_obj(gateway=gateway, patch_ids_by_range={"master..feat/widget": ()})
 
@@ -269,8 +269,8 @@ def test_next_context_fresh_snapshot_has_no_advisory(cli_group: ClinkrGroup) -> 
 
     assert payload["exit_code"] == 0
     data = payload["data"]
-    assert data["freshness"] == "fresh"
-    assert data["freshness_advisory"] is None
+    assert data["snapshot_state"] == "up-to-date"
+    assert data["snapshot_state_advisory"] is None
 
 
 def test_next_context_detached_head_fails(cli_group: ClinkrGroup) -> None:
