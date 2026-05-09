@@ -1,8 +1,10 @@
 ---
-name: brmem-branch-impl
+name: dev-brmem-branch-impl
 description: Command
+metadata:
+  internal: true
 # Original description (preserved for reference):
-# Load the brmem-stashed plan/context from the current branch and begin implementation against it. Confirms that `brmem` entries exist on the branch, reads every entry into session context, summarizes the loaded plan, creates a TODO list, and starts executing. Use when the user is sitting on a branch created by `brmem-branch-create` (or any branch with brmem content) and wants to pick up the stashed work. Read-only with respect to `brmem` — never writes entries.
+# Load the brmem-stashed plan/context from the current branch and begin implementation against it. Confirms that `brmem` entries exist on the branch, reads every entry into session context, summarizes the loaded plan, creates a TODO list, and starts executing. Use when the user is sitting on a branch created by `dev-brmem-branch-create` (or any branch with brmem content) and wants to pick up the stashed work. Read-only with respect to `brmem` — never writes entries.
 allowed-tools:
   - "Bash(git rev-parse *)"
   - "Bash(git symbolic-ref *)"
@@ -12,15 +14,15 @@ allowed-tools:
   - "Read"
 ---
 
-<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See AGENTS.md § "Public Skill Authoring". -->
+<!-- INTERNAL DEV SKILL: local contributor helper, not published for external discovery. -->
 
-# brmem-branch-impl
+# dev-brmem-branch-impl
 
 Pick up a branch that has plan/context stashed via `brmem` and start implementing against it.
 
 **The skill owns:** confirming `brmem` content exists on the current branch, reading every entry verbatim into session context, summarizing what was loaded, creating a TODO list from the plan, and beginning implementation.
 
-**Symmetric to `brmem-branch-create`:** that skill parks context on a branch; this skill unparks it and gets to work. No repo-local plugin is involved — impl is uniform across branches.
+**Symmetric to `dev-brmem-branch-create`:** that skill parks context on a branch; this skill unparks it and gets to work. No repo-local plugin is involved — impl is uniform across branches.
 
 ## Rules
 
@@ -52,7 +54,7 @@ Parse the result. **Abort if zero entries**, with guidance:
 ```
 No brmem entries on branch `<current-branch>`.
 
-If you meant to stash a plan here first, use `brmem-branch-create` to
+If you meant to stash a plan here first, use `dev-brmem-branch-create` to
 park context on a new branch, then re-run this skill on that branch.
 If the plan lives elsewhere, load it manually.
 ```
