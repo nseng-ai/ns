@@ -47,7 +47,7 @@ _ROADMAP = textwrap.dedent(
     """\
     # Roadmap
 
-    ## Slice 1
+    1. First entry
 
     - [ ] Define plugin entry point ABC
     """

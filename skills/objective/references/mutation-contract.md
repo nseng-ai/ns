@@ -61,7 +61,7 @@ the same.
 | -------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
 | Title                | Leave as-is                                           | Rename unless the user explicitly asks               |
 | Status               | Move categorically (`in progress`, `blocked`, `done`) | Turn into a progress log                             |
-| Description          | Small factual clarifications                          | Restate per-PR progress every slice                  |
+| Description          | Small factual clarifications                          | Restate per-entry progress repeatedly                |
 | Goals                | Small clarifications only                             | Turn into a checklist or second roadmap              |
 | Completion Criteria  | Check items; add brief evidence notes                 | Delete criteria; casually rewrite criteria; renumber |
 | How to Make Progress | Edit when the actual recipe changed                   | Edit merely because a roadmap item finished          |
@@ -74,27 +74,21 @@ and `notes.md`.
 Allowed:
 
 - check completed items
-- keep completed sections and their visible slice markers intact
-- add nearby follow-ups discovered during slice work
-- split a section when work landed in more granular pieces than expected,
-  preserving the old section's marker and assigning new markers to newly
-  created PR-sized sections
-- reorder remaining sections when the actual slice order changed
+- keep completed numbered entries visible for history
+- add nearby follow-ups discovered during entry work
+- split an entry when work landed in more granular pieces than expected
+- reorder remaining entries when the actual order changed
 
 Forbidden:
 
 - erase completed items or progress history
-- remove or casually rename existing slice markers
-- add slice markers to child checklist tasks
+- add branch-slug labels or implementation-shape labels to entries
 - wholesale reshuffle without clear evidence
 - add manual-only or observation-only bullets such as "live testing session"
   or "manual smoke-test"
 
-Every PR-sized roadmap section heading should carry one visible marker shaped
-``(slice: `<slug>`)``. Child checklist tasks are implementation tasks for that
-section and do not get their own markers. Every roadmap bullet must describe
-codified work that lands in a PR: code, tests, docs, config, or deliberate
-deletion.
+Roadmaps use numbered entries with child checklist tasks. Every roadmap bullet
+must describe codified work: code, tests, docs, config, or deliberate deletion.
 
 ### `notes.md`
 
@@ -122,8 +116,8 @@ Forbidden:
 same branch. If the branch is missing the requested or resolved snapshot, the
 workflow may first delegate to `objective-attach`'s plan/apply helpers to
 attach an exact carry-forward, then rerun precheck and update. It is for
-stacked PRs: use it when another branch will attach a snapshot from the current branch
-before the current branch lands. For a simple single-PR path, merge the PR and
+stacked PRs: use it when another branch will attach a snapshot from the current
+branch before the current branch lands. For a simple single-PR path, merge the PR and
 run `objective-reconcile` on the trunk branch instead. `update` aborts when
 run on trunk (error type `on_trunk_branch`) because trunk is the canonical
 storage branch.
@@ -214,8 +208,9 @@ Both rewrite modes follow the same shape:
 `next` prepares only when needed, then reads the prepared current branch
 snapshot for recommendation. On a non-trunk branch with no snapshot it may
 delegate to attach; on a stale branch snapshot it may delegate to update. It
-never mutates canonical state, creates branches, or inspects source code to
-audit progress.
+selects a numbered roadmap entry, recommends an implementation shape, and may
+check a suggested branch slug for collisions. It never mutates canonical state,
+creates branches, or inspects source code to audit progress.
 
 ### `objective-current`
 
@@ -243,9 +238,9 @@ Source resolution:
 ### `objective-create`
 
 `create` drafts the canonical objective. It writes `body.md`, optionally
-`roadmap.md`, and never writes `notes.md`. When it drafts a roadmap, each
-PR-sized roadmap section receives a visible preassigned slice marker on the
-heading line.
+`roadmap.md`, and never writes `notes.md`. When it drafts a roadmap, it uses
+plain numbered entries and does not label entries with branch slugs or
+implementation shapes.
 
 ### `objective close` / `objective reopen`
 

@@ -62,7 +62,7 @@ snapshot covers the current branch work.
   `ambiguous_objective` (ask the user to choose), zero slugs returns
   `no_objective_on_branch` (run the implicit attach flow below). Never derive
   the slug from the branch name — branches commonly carry a parent
-  objective whose slug differs from the branch's slice slug.
+  objective whose slug differs from the branch name.
 
 ## Core Rules
 
@@ -72,7 +72,7 @@ snapshot covers the current branch work.
   it. When it doesn't, auto-resolve only when the current branch carries
   exactly one slug under namespace `objectives`; surface that resolved
   slug in the final report. Multiple attached slugs still require the user
-  to pick — never guess between slices that happen to coexist on a branch.
+  to pick — never guess between objectives that happen to coexist on a branch.
 - **One slug per invocation.** Multiple slugs on the branch are fine; operate
   only on the explicit slug.
 - **No-op only when structurally up-to-date.** If precheck reports
@@ -96,7 +96,7 @@ snapshot covers the current branch work.
   Never run these writes via `multi_tool_use.parallel`, background jobs,
   `xargs -P`, or shell `&` parallelism.
 - **Never implement work.** `update` records progress; it does not write
-  code or perform the slice's engineering.
+  code or perform the roadmap entry's engineering.
 
 ## Workflow
 
@@ -211,19 +211,18 @@ Apply the shared conservative rewrite rules in
 
 Typical update work:
 
-- check completed roadmap items under the relevant slice section
-- preserve existing visible slice markers on roadmap section headings
-- keep child checklist tasks grouped under their slice section; do not add
-  slice markers to child tasks
-- when splitting or adding a PR-sized roadmap section, assign the new section
-  a new visible ``(slice: `<slug>`)`` marker immediately
+- check completed roadmap items under the relevant numbered entry
+- keep child checklist tasks grouped under their numbered entry
+- when splitting or adding roadmap entries, use nested numbering when helpful
+  (`3.1`, `3.2`) and keep completed history visible
 - check completion criteria that this branch actually satisfied
 - move `Status:` only when the branch state changed categorically
 - append durable findings to `notes.md`
 - create `notes.md` only when there is a durable finding worth preserving
 
 Do not regenerate files from the original brief, rename sections, delete
-history, remove existing slice markers, or attach a missing snapshot.
+history, attach a missing snapshot, or add branch-slug labels to roadmap
+entries.
 
 ### 5. Persist changed files
 
@@ -280,7 +279,7 @@ When no files were rewritten, report:
 - `snapshot already documents all post-snapshot commits`
 - `.absorbed.jsonl` marker advanced
 - the commit list checked, with a one-line rationale per commit (e.g.,
-  `<sha> <subject>` → matches Slice N already in `notes.md`)
+  `<sha> <subject>` → matches roadmap entry N already in `notes.md`)
 - the marker commit SHA so the user can audit / recover
 
 ## Edge Cases and Anti-Patterns
@@ -300,5 +299,5 @@ When no files were rewritten, report:
   missing snapshot attachment to `objective-attach`.
 - Never parallelize `brmem put` writes to the same branch snapshot.
 - Never implement work, attach a snapshot, rewrite canonical state, delete
-  completed roadmap items, remove existing roadmap slice markers, hand-edit
+  completed roadmap items, add roadmap branch-slug labels, hand-edit
   `.absorbed.jsonl`, or rebuild files wholesale during `update`.

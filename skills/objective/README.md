@@ -15,8 +15,8 @@ slug, such as `dashboard-revamp`, and stores a small directory of markdown
 files:
 
 - `body.md`: required, stable description of the workstream.
-- `roadmap.md`: optional, ordered PR-sized slices with visible slice markers
-  on section headings.
+- `roadmap.md`: optional, ordered numbered entries that describe remaining
+  work.
 - `notes.md`: optional, durable findings discovered while implementing.
 - `.closed`: archive-only closure metadata written by `objective close`.
 
@@ -56,15 +56,15 @@ place to another, and it copies verbatim.
 
 ## Which Operation To Use
 
-| You want to...                                | Use                   | Writes to |
-| --------------------------------------------- | --------------------- | --------- |
-| Start tracking a new workstream               | `objective-create`    | Canonical |
-| See status and choose the next PR-sized slice | `objective-next`      | Nothing   |
-| Attach the workstream to a branch             | `objective-attach`    | Branch    |
-| Refresh a snapshot before stacking on it      | `objective-update`    | Branch    |
-| Refresh canonical state after PRs merge       | `objective-reconcile` | Canonical |
-| Close a completed workstream                  | `objective close`     | Archive   |
-| Reopen an archived workstream                 | `objective reopen`    | Active    |
+| You want to...                               | Use                   | Writes to |
+| -------------------------------------------- | --------------------- | --------- |
+| Start tracking a new workstream              | `objective-create`    | Canonical |
+| See status and choose the next roadmap entry | `objective-next`      | Nothing   |
+| Attach the workstream to a branch            | `objective-attach`    | Branch    |
+| Refresh a snapshot before stacking on it     | `objective-update`    | Branch    |
+| Refresh canonical state after PRs merge      | `objective-reconcile` | Canonical |
+| Close a completed workstream                 | `objective close`     | Archive   |
+| Reopen an archived workstream                | `objective reopen`    | Active    |
 
 Full write rules live in
 [`references/mutation-contract.md`](./references/mutation-contract.md).
@@ -85,38 +85,38 @@ polish across multiple PRs.
 `objective-create` is a collaborative drafting step, not just a storage
 command. The agent uses the conversation to identify the workstream title,
 scope, goals, completion criteria, and whether there is already enough
-structure for a PR-sized roadmap. It proposes a stable slug, such as
+structure for a numbered roadmap. It proposes a stable objective slug, such as
 `dashboard-revamp`, and asks a short follow-up if the scope or slug would
 otherwise be ambiguous.
 
 Once the shape is clear, the skill writes the shared record on `<trunk>`. It
-writes `body.md` and, when there is already a concrete slice plan,
-`roadmap.md`. Each PR-sized roadmap section heading gets a visible marker such
-as ``(slice: `data-layer`)``; child checklist tasks do not get markers. It does
-not attach anything to a feature branch.
+writes `body.md` and, when there is already a concrete numbered plan,
+`roadmap.md`. The roadmap uses plain numbered entries; it does not label
+entries with branch slugs or implementation shapes. It does not attach anything
+to a feature branch.
 
-### 2. Choose the next slice (still on `<trunk>`)
+### 2. Choose the next roadmap entry (still on `<trunk>`)
 
 ```text
 objective-next dashboard-revamp
 ```
 
-Run this **while still on `<trunk>`**, before creating the slice branch.
-`objective-next` plans against the current branch only — there is no source
-cascade and no `--source` flag. On `<trunk>` the current branch _is_ canonical
-storage, so `next` reads the canonical record you just created and recommends
-the next PR-sized slice by using that roadmap section's preassigned marker
-slug, such as `data-layer`. This happens before `attach` so the branch you
-create is tied to the slice you intend to implement.
+Run this **while still on `<trunk>`**, before creating the implementation
+branch. `objective-next` plans against the current branch only — there is no
+source cascade and no `--source` flag. On `<trunk>` the current branch _is_
+canonical storage, so `next` reads the canonical record you just created,
+selects the next numbered entry, and recommends whether it should be a single
+PR, short stack, docs-only change, or split first. It may also suggest a branch
+slug and check it for collisions.
 
 To peek at canonical state from a feature branch later, use
 `objective show <slug>`; do not overload `objective-next` with a cross-branch
 read.
 
-### 3. Create a branch for that slice and attach the snapshot
+### 3. Create a branch for that entry and attach the snapshot
 
 ```text
-# create a branch with your repo's normal branch workflow, using data-layer
+# create a branch with your repo's normal branch workflow
 objective-attach
 ```
 
@@ -134,7 +134,7 @@ yet toward the workstream, so there is nothing to summarize or merge. If the
 target branch already has `dashboard-revamp/`, `attach` aborts instead of
 merging.
 
-### 4. Implement and merge the slice
+### 4. Implement and merge the work
 
 Write code, land commits, open and merge a PR. For this simple path, do not
 run `objective-update`: no later branch needs to inherit progress from
@@ -155,7 +155,7 @@ into canonical state.
 Reconciliation never writes branch snapshots, and it never pastes a branch
 snapshot verbatim into canonical state.
 
-Repeat steps 2-5 for the next non-stacked slice.
+Repeat steps 2-5 for the next non-stacked roadmap entry.
 
 ## Stacked Branches
 
@@ -169,8 +169,8 @@ from the right objective state.
 - `attach` and `next` infer the objective slug when the parent or current
   branch carries exactly one candidate. Pass `<slug>` explicitly when a branch
   carries multiple objectives or trunk holds multiple canonicals.
-- `next` uses the selected roadmap section's visible slice marker as the
-  branch/plan slug; it does not invent fallback slice names.
+- `next` selects a numbered roadmap entry, recommends implementation shape, and
+  checks a suggested branch slug when branch-based work is appropriate.
 - `attach` copies exactly one source snapshot and does not edit while copying.
 - `update` is for stacked branch snapshots. `reconcile` is for `<trunk>`.
 - Branch snapshots are branch-local state, not shared truth.

@@ -58,7 +58,7 @@ def render_next_context(result: NextContextResult) -> None:
     if result.snapshot_state_advisory is not None:
         click.echo(
             f"> Snapshot is stale. Consider running `objective-update {result.slug}` "
-            "before creating the next slice branch."
+            "before creating the next implementation branch."
         )
         click.echo()
 

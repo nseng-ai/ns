@@ -707,7 +707,7 @@ def _render_next_orientation_step(current: _CurrentBranchBlock) -> str:
     return (
         "## Next Orientation Step\n"
         "\n"
-        f"For objective thesis, slices, and findings, run "
+        f"For objective thesis, roadmap entries, and findings, run "
         f"`objective-digest {current.objective.slug}`."
     )
 

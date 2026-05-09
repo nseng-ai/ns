@@ -104,11 +104,11 @@ The brief enforces these externally visible invariants:
 - Merged PRs is a linkified bullet list (`- [#N](url) — title`) sorted
   by PR number, pre-rendered by the CLI; render `_No merged PRs yet._`
   when none exist.
-- Remaining work is one bullet per unfinished roadmap slice
-  (`- **<slice headline>.** <one short sentence>`).
+- Remaining work is one bullet per unfinished numbered roadmap entry
+  (`- **<entry headline>.** <one short sentence>`).
 - Key findings bullets are each one short sentence after the headline —
   no semicolons, no compound clauses.
-- No slice table, Markdown-derived progress counts, or prose-derived
+- No roadmap table, Markdown-derived progress counts, or prose-derived
   attribution. The CLI computes counts, the latest-snapshot pick, and
   the merged-PR list.
 - Print to stdout only.

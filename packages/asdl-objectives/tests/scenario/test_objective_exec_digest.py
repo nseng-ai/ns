@@ -348,7 +348,7 @@ def test_digest_embeds_master_roadmap_for_remaining_work(cli_group: ClinkrGroup)
         """\
         # Roadmap
 
-        ## Slice 1 — Plugin contract
+        1. Plugin contract
 
         - [x] Define plugin entry point ABC
         - [ ] Wire plugin loader
@@ -371,7 +371,7 @@ def test_digest_embeds_master_roadmap_for_remaining_work(cli_group: ClinkrGroup)
 
     assert result.exit_code == 0, result.output
     assert "Source — canonical roadmap:" in result.output
-    assert "## Slice 1 — Plugin contract" in result.output
+    assert "1. Plugin contract" in result.output
     assert "no roadmap recorded" not in result.output
 
 

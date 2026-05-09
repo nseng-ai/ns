@@ -1,4 +1,4 @@
-"""``objective exec next-collision`` — check next-slice slug availability."""
+"""``objective exec next-collision`` — check candidate branch slug availability."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def render_next_collision(result: NextCollisionResult) -> None:
 @clinkr_operation(
     name="next-collision",
     help=(
-        "Check whether a candidate next-slice slug collides with a local branch "
+        "Check whether a candidate branch slug collides with a local branch "
         "or canonical objective body on trunk. Intended for objective-next callers."
     ),
     human_renderer=render_next_collision,
