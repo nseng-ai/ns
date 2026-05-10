@@ -20,28 +20,28 @@ rewrite logic works, and how `update` and `reconcile` differ.
 - **Canonical objective**: shared ground truth for a slug. Open canonical
   records live in the `objectives` namespace on the repo's trunk branch
   (typically `master` on legacy repos, `main` on greenfield ones). Closed
-  canonical records live in the `objectives-archive` namespace on that same
+  canonical records live in the `objectives-closed` namespace on that same
   trunk branch with `<slug>/.closed` metadata.
 - **Branch snapshot**: local working copy/checkpoint for a slug on a working
   branch. Open snapshots live in `objectives`; closed snapshots live in
-  `objectives-archive`.
+  `objectives-closed`.
 
 Only `body.md` is required for an objective. `roadmap.md` and `notes.md`
-appear when useful. `.closed` appears only in the archive namespace.
+appear when useful. `.closed` appears only in the closed namespace.
 
 ## Operation table
 
-| Operation             | Canonical objective                         | Current branch snapshot                                 | Other branch snapshots |
-| --------------------- | ------------------------------------------- | ------------------------------------------------------- | ---------------------- |
-| `objective-create`    | Writes initial `body.md` and roadmap        | Never                                                   | Never                  |
-| `objective-next`      | Reads only                                  | May attach/update, then reads prepared snapshot         | Reads only             |
-| `objective-current`   | Reads only                                  | Reads only                                              | Reads only             |
-| `objective-digest`    | Reads only                                  | Reads only                                              | Reads only             |
-| `objective-attach`    | May read as source                          | Writes verbatim copy to target                          | May read as source     |
-| `objective-update`    | Never                                       | May attach when missing; then rewrites from branch work | Never                  |
-| `objective-reconcile` | Rewrites from landed branch + PR evidence   | Reads only as evidence                                  | Reads only as evidence |
-| `objective close`     | Moves active refs into archive + `.closed`  | Moves matching refs to archive                          | Moves matching refs    |
-| `objective reopen`    | Moves archive refs back, omitting `.closed` | Moves matching refs back                                | Moves matching refs    |
+| Operation             | Canonical objective                               | Current branch snapshot                                 | Other branch snapshots |
+| --------------------- | ------------------------------------------------- | ------------------------------------------------------- | ---------------------- |
+| `objective-create`    | Writes initial `body.md` and roadmap              | Never                                                   | Never                  |
+| `objective-next`      | Reads only                                        | May attach/update, then reads prepared snapshot         | Reads only             |
+| `objective-current`   | Reads only                                        | Reads only                                              | Reads only             |
+| `objective-digest`    | Reads only                                        | Reads only                                              | Reads only             |
+| `objective-attach`    | May read as source                                | Writes verbatim copy to target                          | May read as source     |
+| `objective-update`    | Never                                             | May attach when missing; then rewrites from branch work | Never                  |
+| `objective-reconcile` | Rewrites from landed branch + PR evidence         | Reads only as evidence                                  | Reads only as evidence |
+| `objective close`     | Moves active refs into closed storage + `.closed` | Moves matching refs to closed storage                   | Moves matching refs    |
+| `objective reopen`    | Moves closed refs back, omitting `.closed`        | Moves matching refs back                                | Moves matching refs    |
 
 Carry-forward is exclusively `objective-attach`'s job. It copies one
 source snapshot exactly; it never merges or summarizes. Higher-level skills
@@ -245,22 +245,22 @@ implementation shapes.
 ### `objective close` / `objective reopen`
 
 `close` moves every active ref for the slug from `objectives` to
-`objectives-archive`, preserving branch and key, then writes a canonical
-archive marker file `<slug>/.closed` on the archived trunk snapshot carrying a
+`objectives-closed`, preserving branch and key, then writes a canonical
+closed marker file `<slug>/.closed` on the closed trunk snapshot carrying a
 JSON envelope (`schema`, `closed_at`, `reason`). After a successful close,
 the slug no longer exists in the active namespace. Re-running close is a
-no-op when the archived canonical body and `.closed` marker already exist.
+no-op when the closed canonical body and `.closed` marker already exist.
 
-`reopen` is the inverse move: it copies archived refs back to `objectives`,
-omits `<slug>/.closed`, verifies the active copies, then deletes the archive
+`reopen` is the inverse move: it copies closed refs back to `objectives`,
+omits `<slug>/.closed`, verifies the active copies, then deletes the closed storage
 refs. Re-running reopen is a no-op when the active canonical body exists and
-no archive remains.
+no closed storage remains.
 
 Closure is never inferred — `reconcile` does not auto-close on
 completion-criteria checkmarks or PR merges, and `update` never closes
 anything. Default listings show open objectives only; `objective list
---closed` reads the archive namespace and `objective list --all` merges open
-and archived discovery.
+--closed` reads the closed namespace and `objective list --all` merges open
+and closed discovery.
 
 ## Anti-patterns
 

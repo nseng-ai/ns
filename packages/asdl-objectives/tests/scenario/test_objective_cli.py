@@ -409,11 +409,11 @@ def test_objective_show_missing_slug_is_negative(cli_group: ClinkrGroup) -> None
     assert "No objective found for slug 'does-not-exist'." in result.output
 
 
-def test_objective_show_reads_archived_slug(cli_group: ClinkrGroup) -> None:
+def test_objective_show_reads_closed_slug(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put("objectives-archive", "closed-one/body.md", "master", "archived body\n")
+    gateway.put("objectives-closed", "closed-one/body.md", "master", "closed body\n")
     gateway.put(
-        "objectives-archive",
+        "objectives-closed",
         "closed-one/.closed",
         "master",
         '{"schema":1,"closed_at":"t","reason":"done"}\n',
@@ -427,7 +427,7 @@ def test_objective_show_reads_archived_slug(cli_group: ClinkrGroup) -> None:
     assert payload["data"]["state"] == "closed"
     assert payload["data"]["closed_at"] == "t"
     assert payload["data"]["closed_reason"] == "done"
-    assert payload["data"]["body"] == {"source_branch": "master", "content": "archived body\n"}
+    assert payload["data"]["body"] == {"source_branch": "master", "content": "closed body\n"}
 
 
 def test_objective_show_format_json(cli_group: ClinkrGroup) -> None:

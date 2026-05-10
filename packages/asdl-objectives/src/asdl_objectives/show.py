@@ -26,7 +26,7 @@ from asdl_objectives.discovery import (
     ObjectiveState,
     closed_key,
 )
-from asdl_objectives.gateway_access import OBJECTIVE_ARCHIVE_NAMESPACE, OBJECTIVE_NAMESPACE
+from asdl_objectives.gateway_access import OBJECTIVE_CLOSED_NAMESPACE, OBJECTIVE_NAMESPACE
 from asdl_objectives.slug_resolution import (
     AmbiguousObjective,
     NoObjectiveOnBranch,
@@ -234,9 +234,9 @@ def run_show_objective(
     slug_entries = _slug_entries(active_entries, requested_slug)
     namespace = OBJECTIVE_NAMESPACE
     if not slug_entries:
-        archive_entries = gateway.list_entries(namespace=OBJECTIVE_ARCHIVE_NAMESPACE)
-        slug_entries = _slug_entries(archive_entries, requested_slug)
-        namespace = OBJECTIVE_ARCHIVE_NAMESPACE
+        closed_entries = gateway.list_entries(namespace=OBJECTIVE_CLOSED_NAMESPACE)
+        slug_entries = _slug_entries(closed_entries, requested_slug)
+        namespace = OBJECTIVE_CLOSED_NAMESPACE
     if not slug_entries:
         empty = ObjectiveShowResult(
             slug=requested_slug,
@@ -263,13 +263,13 @@ def run_show_objective(
     closed_present = any(
         e.branch == trunk_branch and e.key == closed_key(requested_slug) for e in slug_entries
     )
-    state: ObjectiveState = "closed" if namespace == OBJECTIVE_ARCHIVE_NAMESPACE else "open"
+    state: ObjectiveState = "closed" if namespace == OBJECTIVE_CLOSED_NAMESPACE else "open"
     closed_marker: ClosedMarker = (
         load_closed_marker(
             gateway,
             slug=requested_slug,
             trunk_branch=trunk_branch,
-            namespace=OBJECTIVE_ARCHIVE_NAMESPACE,
+            namespace=OBJECTIVE_CLOSED_NAMESPACE,
         )
         if state == "closed" and closed_present
         else ClosedMarker(present=False, closed_at=None, reason=None, diagnostics=())
