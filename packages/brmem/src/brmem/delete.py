@@ -1,4 +1,4 @@
-"""Remove a single branch-memory entry."""
+"""Remove a single Branch Memory Entry."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ class DeleteRequest(ClinkrModel):
             ["--namespace"],
             type=click.STRING,
             default=None,
-            help=("Entry namespace (e.g. 'objectives'). Omit for ad-hoc base entries."),
+            help=("Namespace (e.g. 'objectives'). Omit for ad-hoc base Entries."),
         ),
     ] = None
     branch: str | None = None
@@ -53,11 +53,11 @@ class DeleteResult(ClinkrModel):
 
 
 def render_delete(result: DeleteResult) -> None:
-    namespace_label = result.namespace if result.namespace is not None else "base"
+    scope = f"Namespace {result.namespace}" if result.namespace is not None else "Base"
     click.echo(
         "\n".join(
             [
-                f"Deleted {result.key} from {namespace_label} on branch {result.branch}.",
+                f"Deleted Entry Key {result.key} from {scope} on Branch {result.branch}.",
                 f"Ref: {result.ref_name}",
                 f"Commit: {result.commit}",
             ]
@@ -67,7 +67,7 @@ def render_delete(result: DeleteResult) -> None:
 
 @clinkr_operation(
     name="delete",
-    help="Remove a single branch-memory entry.",
+    help="Remove a single Branch Memory Entry.",
     human_renderer=render_delete,
 )
 def run_delete(
@@ -111,8 +111,9 @@ def run_delete(
         raise ClinkrFailure(
             error_type="key_not_found",
             message=(
-                f"No entry to delete: key={entry_ref.key} namespace={namespace_label} "
-                f"branch={entry_ref.branch} at {entry_ref.ref_name}. "
+                f"No Entry to delete: Entry Key={entry_ref.key} "
+                f"Namespace={namespace_label} Branch={entry_ref.branch} "
+                f"at {entry_ref.ref_name}. "
                 f"Underlying error: {exc}"
             ),
         ) from exc
@@ -120,7 +121,7 @@ def run_delete(
         details = (exc.stderr or "").strip() or str(exc)
         raise ClinkrFailure(
             error_type="git_failure",
-            message=f"Failed to delete branch memory: {details}",
+            message=f"Failed to delete Branch Memory: {details}",
         ) from exc
 
     return ClinkrExit.ok(

@@ -1,15 +1,15 @@
-"""Request-validation aggregation helper for branch-memory CLI commands."""
+"""Request-validation aggregation helper for Branch Memory CLI commands."""
 
 from __future__ import annotations
 
 
 class InvalidKeyGlobError(ValueError):
-    """Raised when a ``--key-glob`` pattern cannot be used to filter entries."""
+    """Raised when a ``--key-glob`` pattern cannot be used to filter Entries."""
 
     def __init__(self, key_glob: str, reason: str) -> None:
         self.key_glob = key_glob
         self.reason = reason
-        super().__init__(f"Invalid key glob {key_glob!r}: {reason}")
+        super().__init__(f"Invalid Entry Key glob {key_glob!r}: {reason}")
 
 
 def validate_key_glob(key_glob: str) -> None:
@@ -24,21 +24,21 @@ def check_key_glob(key_glob: str) -> str | None:
     reason = _key_glob_reason(key_glob)
     if reason is None:
         return None
-    return f"Invalid key glob {key_glob!r}: {reason}"
+    return f"Invalid Entry Key glob {key_glob!r}: {reason}"
 
 
 def _key_glob_reason(key_glob: str) -> str | None:
-    # Globs are Python ``fnmatch`` patterns matched against keys. Keys are
-    # already restricted (see ``key_validation.py``), so the glob only needs
+    # Globs are Python ``fnmatch`` patterns matched against Entry Keys. Entry
+    # Keys are already restricted (see ``key_validation.py``), so the glob only needs
     # to reject bytes that would corrupt the locator or the CLI layer. Glob
     # metacharacters ``*``, ``?``, ``[``, ``]`` must remain legal.
     if not key_glob:
-        return "key glob must not be empty"
+        return "Entry Key glob must not be empty"
     for ch in key_glob:
         if ch == "\x00":
-            return "key glob must not contain NUL"
+            return "Entry Key glob must not contain NUL"
         if ch in ("\n", "\r"):
-            return "key glob must not contain newline"
+            return "Entry Key glob must not contain newline"
     return None
 
 

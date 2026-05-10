@@ -1,4 +1,4 @@
-"""Probe whether a branch-memory entry exists."""
+"""Probe whether a Branch Memory Entry exists."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class CheckRequest(ClinkrModel):
             ["--namespace"],
             type=click.STRING,
             default=None,
-            help=("Entry namespace (e.g. 'objectives'). Omit for ad-hoc base entries."),
+            help=("Namespace (e.g. 'objectives'). Omit for ad-hoc base Entries."),
         ),
     ] = None
     branch: str | None = None
@@ -58,21 +58,21 @@ class CheckResult(ClinkrModel):
 def render_check(result: CheckResult) -> None:
     namespace_label = result.namespace if result.namespace is not None else "(base)"
     lines = [
-        f"namespace: {namespace_label}",
-        f"key: {result.key}",
-        f"branch: {result.branch}",
-        f"ref: {result.ref_name}",
-        f"target: {result.target}",
-        f"head: {result.head_sha} ({result.head_date})",
-        f"blob: {result.blob_sha}",
-        f"size: {result.size_bytes}",
+        f"Namespace: {namespace_label}",
+        f"Entry Key: {result.key}",
+        f"Branch: {result.branch}",
+        f"Entry Locator: {result.ref_name}",
+        f"Target: {result.target}",
+        f"Head: {result.head_sha} ({result.head_date})",
+        f"Blob: {result.blob_sha}",
+        f"Size: {result.size_bytes}",
     ]
     click.echo("\n".join(lines))
 
 
 @clinkr_operation(
     name="check",
-    help="Check whether a branch-memory entry exists.",
+    help="Check whether a Branch Memory Entry exists.",
     human_renderer=render_check,
 )
 def run_check(
@@ -130,8 +130,8 @@ def run_check(
         raise ClinkrExit.negative(
             absent,
             message=(
-                f"not found: key={entry_ref.key} namespace={namespace_label} "
-                f"branch={entry_ref.branch} at {target}"
+                f"not found: Entry Key={entry_ref.key} Namespace={namespace_label} "
+                f"Branch={entry_ref.branch} at {target}"
             ),
         )
 

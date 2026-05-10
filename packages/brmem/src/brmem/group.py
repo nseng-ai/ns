@@ -19,7 +19,7 @@ def build_brmem_group() -> ClinkrGroup:
     )
     outer = ClinkrGroup(
         name="brmem",
-        help="Manage branch-scoped memory stored in git refs.",
+        help="Manage Branch Memory Entries stored in git refs.",
         operations=[
             run_put,
             run_get,

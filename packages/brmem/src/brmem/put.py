@@ -1,4 +1,4 @@
-"""Write content to a branch-memory entry."""
+"""Write content to a Branch Memory Entry."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class PutRequest(ClinkrModel):
             ["--namespace"],
             type=click.STRING,
             default=None,
-            help=("Entry namespace (e.g. 'objectives'). Omit for ad-hoc base entries."),
+            help=("Namespace (e.g. 'objectives'). Omit for ad-hoc base Entries."),
         ),
     ] = None
     stdin: bool = False
@@ -75,13 +75,13 @@ class PutResult(ClinkrModel):
 
 def render_put(result: PutResult) -> None:
     source = "stdin" if result.source_file == "<stdin>" else result.source_file
-    namespace_label = result.namespace if result.namespace is not None else "base"
+    scope = f"Namespace {result.namespace}" if result.namespace is not None else "Base"
     click.echo(
         "\n".join(
             [
                 (
-                    f"Stored {result.key} from {source} for "
-                    f"{namespace_label} on branch {result.branch}."
+                    f"Stored Entry Key {result.key} from {source} in {scope} "
+                    f"on Branch {result.branch}."
                 ),
                 f"Ref: {result.ref_name}",
                 f"Commit: {result.commit}",
@@ -93,7 +93,7 @@ def render_put(result: PutResult) -> None:
 
 @clinkr_operation(
     name="put",
-    help="Write content to a branch-memory entry.",
+    help="Write content to a Branch Memory Entry.",
     human_renderer=render_put,
 )
 def run_put(
@@ -123,7 +123,8 @@ def run_put(
             request.file if request.file is not None else _default_source(request.key),
             error_type="source_file_missing",
             message=(
-                f"Cannot infer a default --file for key {request.key!r}; provide --file or --stdin."
+                f"Cannot infer a default --file for Entry Key {request.key!r}; "
+                "provide --file or --stdin."
             ),
         )
         try:
@@ -199,7 +200,7 @@ def run_put(
         details = exc.stderr.strip() or str(exc)
         raise ClinkrFailure(
             error_type="git_failure",
-            message=f"Failed to write branch memory: {details}",
+            message=f"Failed to write Branch Memory: {details}",
         ) from exc
 
     return ClinkrExit.ok(

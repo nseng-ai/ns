@@ -9,8 +9,8 @@ It is primarily a low-level primitive for higher-level skills and tools.
 Use cases include:
 
 - a plan or handoff note created before implementation starts
-- an objective snapshot attached to a branch (_objective_ is a codename for
-  the higher-level branch-planning system built on `brmem`)
+- tool-owned objective documents attached to a branch (_objective_ is a
+  codename for the higher-level branch-planning system built on `brmem`)
 - agent session summaries captured for later harvesting
 - "lessons learned" notes from an agent session, kept on the branch that
   produced them
@@ -66,38 +66,40 @@ its local branch workflow.
 
 ## Mental Model
 
-There are three ideas to keep in mind:
+There are five ideas to keep in mind:
 
-- **Entry**: a small UTF-8 text blob stored under a key, such as
+- **Branch Memory System**: the `brmem` CLI and Git-ref storage layer.
+- **Branch Memory**: the Entries attached to one branch, either in the ad-hoc
+  base area or in a Namespace.
+- **Entry**: a small UTF-8 text blob stored under an Entry Key, such as
   `plan.md` or `dashboard-revamp/body.md`.
-- **Namespace**: a domain-owned bucket for entries. For example,
-  `objectives` is a namespace where each branch entry has a well-defined
-  schema and is under tool control. Omitting `--namespace` stores an ad-hoc
-  base entry.
-- **Branch snapshot**: the set of entries for one namespace on one branch.
-  Most commands target the current checked-out branch unless you pass
-  `--branch`.
+- **Entry Key**: the path-like name for an Entry within Branch Memory.
+- **Namespace**: a domain-owned bucket for Entries. For example, `objectives`
+  is a Namespace where each Entry has a well-defined schema and is under tool
+  control. Omitting `--namespace` stores an ad-hoc base Entry.
+
+Most commands target the current checked-out branch unless you pass `--branch`.
 
 This lets a branch carry context that spans sessions and tools — durable,
 inspectable, and separate from the code being reviewed. A skill can save
 state on `feature/table-filtering`, another skill can read that same state
-later, and stacked work can copy a selected namespace into a child branch
+later, and stacked work can copy a selected Namespace into a child branch
 before the parent branch lands.
 
-The write boundary is explicit. `put` and `delete` change one entry on one
-branch. `copy` copies entries from one branch snapshot to another. `get`,
-`check`, `list`, and prompt resolution do not change stored branch memory.
+The write boundary is explicit. `put` and `delete` change one Entry on one
+branch. `copy` copies Entries from one Branch Memory to another. `get`,
+`check`, `list`, and prompt resolution do not change stored Branch Memory.
 
 ## Which Command to Use
 
 | You want to...                              | Use                         | Writes to |
 | ------------------------------------------- | --------------------------- | --------- |
-| Store a text artifact on the current branch | `brmem put`                 | Branch    |
-| Print an entry's content                    | `brmem get`                 | Nothing   |
-| See whether an entry exists and where it is | `brmem check`               | Nothing   |
-| List stored entries                         | `brmem list`                | Nothing   |
-| Remove one entry                            | `brmem delete`              | Branch    |
-| Copy a namespace from one branch to another | `brmem copy`                | Branch    |
+| Store a text Entry on the current branch    | `brmem put`                 | Branch    |
+| Print an Entry's content                    | `brmem get`                 | Nothing   |
+| See whether an Entry exists and where it is | `brmem check`               | Nothing   |
+| List stored Entries                         | `brmem list`                | Nothing   |
+| Remove one Entry                            | `brmem delete`              | Branch    |
+| Copy a Namespace from one branch to another | `brmem copy`                | Branch    |
 | Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing   |
 
 The local-only `dev-brmem-branch-create` and `dev-brmem-branch-impl` skills
@@ -115,17 +117,17 @@ brmem put plan.md --file /tmp/plan.md
 ```
 
 `put` reads the file and stores its content under `plan.md` for the current
-branch. The command prints the Git locator and commit for the branch-memory
-snapshot so the result is inspectable.
+branch. The command prints the Entry locator and commit so the result is
+inspectable.
 
-For domain-owned state, use a namespace:
+For domain-owned state, use a Namespace:
 
 ```text
 brmem put dashboard-revamp/body.md --namespace objectives --file body.md
 ```
 
-Namespaces keep unrelated tools from colliding. A scratch `plan.md` entry and
-an `objectives/dashboard-revamp/body.md` entry can coexist on the same branch
+Namespaces keep unrelated tools from colliding. A scratch `plan.md` Entry and
+an `objectives/dashboard-revamp/body.md` Entry can coexist on the same branch
 without meaning the same thing.
 
 ### 2. Read it in a later session
@@ -145,11 +147,11 @@ brmem list --base
 brmem list --namespace objectives
 ```
 
-`check` reports the locator, snapshot head, blob, and size. `list` shows the
-entries visible for the current branch, optionally narrowed to base entries or
-a namespace.
+`check` reports the Entry locator, Branch Memory head commit, blob, and size.
+`list` shows the Entries visible for the current branch, optionally narrowed to
+base Entries or a Namespace.
 
-### 3. Carry namespaced state to another branch
+### 3. Carry namespaced Branch Memory to another branch
 
 ```text
 brmem copy \
@@ -159,26 +161,26 @@ brmem copy \
   --key-glob 'dashboard-revamp/*'
 ```
 
-`copy` is how branch snapshots move forward. With `--key-glob`, it copies only
-matching keys and preserves unrelated destination keys. Without `--key-glob`,
-it copies the whole namespace snapshot.
+`copy` is how Branch Memory moves forward between branches. With `--key-glob`,
+it copies only matching Entry Keys and preserves unrelated destination Entries.
+Without `--key-glob`, it copies the whole Namespace.
 
-If the destination already has matching entries, `copy` aborts instead of
+If the destination already has matching Entries, `copy` aborts instead of
 merging silently. Pass `--dry-run` to preview the plan, or `--overwrite` when
-replacing destination entries is intentional.
+replacing destination Entries is intentional.
 
-### 4. Delete stale branch memory when it is no longer useful
+### 4. Delete stale Branch Memory when it is no longer useful
 
 ```text
 brmem delete plan.md
 ```
 
-Deleting branch memory removes that entry from the branch snapshot. It does
-not touch working-tree files or source commits.
+Deleting Branch Memory removes that Entry from the branch. It does not touch
+working-tree files or source commits.
 
 ## Prompt Plugins
 
-A prompt plugin lets a repo customize one narrow slice of a skill's behavior
+A prompt plugin lets a repo customize one narrow part of a skill's behavior
 without forking the whole skill. The skill still owns the workflow; the plugin
 only answers the repo-specific question the skill asks it.
 
@@ -206,11 +208,11 @@ customizations.
 
 ## Rules Worth Remembering
 
-- Branch memory is branch-scoped. Pass `--branch` when automation should not
+- Branch Memory is branch-scoped. Pass `--branch` when automation should not
   depend on the current checkout.
-- Use namespaces for tool-owned records. Leave base entries for ad-hoc scratch
+- Use Namespaces for tool-owned records. Leave base Entries for ad-hoc scratch
   state.
-- Keep entries small and textual. `brmem` is not a place for generated assets,
+- Keep Entries small and textual. `brmem` is not a place for generated assets,
   secrets, or large datasets.
 - `copy` is exact and conflict-aware. Use `--dry-run`, `--key-glob`, and
   `--overwrite` deliberately.
@@ -233,9 +235,9 @@ but still part of the repository — is a well-trodden pattern:
   metadata in a local SQLite database instead, but the original ref-based
   design is the relevant precedent here.)
 
-`brmem` applies the same idea to branch-scoped agent state: the storage lives
-in refs (under `refs/brmem/<namespace>/<encoded-branch>:<key>`) so it is
-durable, inspectable, and pushable, but stays out of commits, PRs, and the
+`brmem` applies the same idea to branch-scoped agent state: Branch Memory lives
+in refs (for example, `refs/brmem/ns/<namespace>/<encoded-branch>:<key>`) so it
+is durable, inspectable, and pushable, but stays out of commits, PRs, and the
 working tree.
 
 ## See Also

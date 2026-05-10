@@ -1,4 +1,4 @@
-"""Gateway retrieval helpers for branch memory commands."""
+"""Gateway retrieval helpers for Branch Memory commands."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from brmem.gateway import BranchMemoryGateway
 
 
 def get_branch_memory_gateway(ctx: click.Context) -> BranchMemoryGateway:
-    """Return the branch-memory gateway for the current CLI invocation."""
+    """Return the Branch Memory gateway for the current CLI invocation."""
     return load_typed_context(ctx, BrmemCliContext).brmem_gateway
 
 
