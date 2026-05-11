@@ -48,7 +48,8 @@ docs/initiatives/<slug>/updates/YYYY-MM-DDTHHMMSSZ-short-description.md
 ```
 
 The update file has no frontmatter. Metadata already exists in the path,
-filename, Git history, branch, commits, and PRs.
+filename, Git history, branch, and PRs. Do not duplicate unstable metadata in the
+body unless it is semantically useful.
 
 ## Template Path
 
@@ -164,6 +165,10 @@ git diff --stat
 git diff --cached --stat
 ```
 
+Use `git log` to understand recent work, but do not copy raw branch-local commit
+hashes into update prose by default; they can change during amend, rebase,
+restack, or squash.
+
 Use targeted diffs or file reads only when they are needed to avoid a misleading
 summary. If worktree changes are large or mixed, summarize only what can be
 confidently tied to the initiative and mark uncertainty honestly.
@@ -203,6 +208,13 @@ Guidance:
 
 - Title the update with an outcome or finding, not a timestamp.
 - Keep prose useful after branches merge and PRs close.
+- Prefer durable anchors: file paths, artifact names, PR numbers/URLs once
+  submitted, validation commands, observed outcomes, and user-supplied context.
+- Avoid raw branch-local commit hashes. Include a SHA only when the user asks,
+  when the commit is already merged/released/stable, or when it names an
+  external immutable artifact such as a CI run, release, or incident report.
+- Example: write `Added docs/example.md` rather than `Added docs/example.md at
+  commit abc1234`.
 - Name roadmap areas in prose. Do not invent stable IDs such as `R-001`.
 - Distinguish observed facts from assumptions.
 - Include validation evidence when it matters.
