@@ -81,8 +81,14 @@ inspection than narrowly scoped cleanup initiatives.
 
 ## Slug
 
-Use a user-provided slug when it is clear and filesystem-friendly. Otherwise
-generate one that is short, lowercase, hyphen-separated, ASCII, and stable.
+Default to generating the slug from the initiative title or scope. Use a
+user-provided slug only when the user explicitly asks to override it.
+
+The slug must be kebab-case and match the current objective slug contract:
+`^(?!objective-)(?!.*--)[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$`. In practice:
+lowercase ASCII letters and digits, single hyphens as separators, 1-50
+characters, no leading/trailing/consecutive hyphens, and no `objective-`
+prefix.
 
 Check for collisions before writing:
 
