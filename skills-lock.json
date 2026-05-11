@@ -56,6 +56,11 @@
       "sourceType": "github",
       "computedHash": "9315b842df6de2a23216a2e72033fa99337398a8d62c11d6c320e55a6b810339"
     },
+    "initiative-create": {
+      "source": "skills/initiative-create",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
     "ns-changelog-update": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
