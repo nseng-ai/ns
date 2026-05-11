@@ -1,22 +1,28 @@
 # Roadmap
 
-## Now
+## Completed
+
+- Completed work area.
+  - Evidence: PR, docs change, tests, migration, deletion, report, release, or
+    explicit decision.
+
+## In Progress
+
+- [ ] Partially completed work area.
+  - Artifact: Expected reviewable or verifiable output.
+  - Status: What is done and what remains.
+
+## Remaining
 
 - [ ] Named work area.
   - Artifact: PR, docs change, tests, migration, deletion, report, or other
     reviewable output.
   - Notes: Optional context.
 
-## Next
-
-- [ ] Named work area.
-  - Artifact: Expected reviewable or verifiable output.
-
-## Later
-
 - [ ] Named work area.
   - Artifact: Expected reviewable or verifiable output.
 
 ## Parked
 
-- Work intentionally deferred, rejected, or waiting on external facts.
+- Work intentionally deferred, blocked, rejected for now, or waiting on external
+  facts.

@@ -216,6 +216,8 @@ Guidance:
 - Example: write `Added docs/example.md` rather than `Added docs/example.md at
   commit abc1234`.
 - Name roadmap areas in prose. Do not invent stable IDs such as `R-001`.
+- When relevant, state whether the roadmap area is completed, partially
+  complete, blocked, newly discovered, or unchanged.
 - Distinguish observed facts from assumptions.
 - Include validation evidence when it matters.
 - Mention durable-file staleness only when the update makes it apparent.
@@ -223,7 +225,9 @@ Guidance:
   no follow-ups worth preserving.
 
 Do not claim work is complete solely because files changed. Tie completion
-claims to tests, commits, reviewable artifacts, or explicit user statements.
+claims to tests, commits, reviewable artifacts, or explicit user statements. If
+an update completes an item that `roadmap.md` still lists as incomplete, record
+the completion evidence; do not edit the roadmap from this skill.
 
 ### 6. Choose the filename
 
@@ -275,7 +279,7 @@ consistency.
 Recommend `initiative-curate` after recording progress when:
 
 - recent updates contradict `initiative.md` or `roadmap.md`
-- completed work remains listed as active roadmap work
+- completed work remains listed as incomplete roadmap work
 - roadmap areas are too vague to connect progress to future action
 - completion criteria or constraints no longer match the initiative direction
 - accumulated updates are becoming difficult to reconstruct into current state

@@ -159,6 +159,17 @@ Write the current working roadmap. Entries are fluid named work areas, not
 stable tickets. They may be renamed, split, merged, moved, or deleted as
 understanding changes.
 
+Use these sections:
+
+- `Completed`: work already done before creation, only when backed by explicit
+  evidence or user-provided context.
+- `In Progress`: partially completed work. Usually omit or leave empty for a new
+  initiative unless discovery found active partial work.
+- `Remaining`: the ordered queue of incomplete work areas. Most newly drafted
+  roadmap entries belong here.
+- `Parked`: deferred, blocked, rejected-for-now, or waiting-on-external-facts
+  work.
+
 Do not use stable numbered IDs such as `R-001`. Point entries toward concrete
 artifacts such as PRs, merged commits, docs, tests, migrations, reports,
 deleted code, or released behavior.
@@ -194,6 +205,7 @@ they would be empty noise.
 - Prefer prose that will still make sense after branches are merged and PRs
   are closed.
 - Keep roadmap entries outcome-oriented and artifact-backed.
+- Use `Completed`, `In Progress`, `Remaining`, and `Parked` for new roadmaps.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter.
 - Do not use brmem.

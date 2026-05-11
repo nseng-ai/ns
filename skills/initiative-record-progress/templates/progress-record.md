@@ -6,7 +6,7 @@ What changed, what was learned, or what decision was made.
 
 ## Roadmap Context
 
-Name the roadmap area this relates to, if any. Do not use stable numbered IDs.
+Name the roadmap area this relates to, if any. When relevant, state whether this update completes it, partially advances it, blocks it, or discovers new follow-up work. Do not use stable numbered IDs.
 
 ## Initiative Impact
 
