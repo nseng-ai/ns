@@ -84,16 +84,21 @@ inspection than narrowly scoped cleanup initiatives.
 Default to generating the slug from the initiative title or scope. Use a
 user-provided slug only when the user explicitly asks to override it.
 
-The slug must be kebab-case and match the current objective slug contract:
-`^(?!objective-)(?!.*--)[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$`. In practice:
-lowercase ASCII letters and digits, single hyphens as separators, 1-50
-characters, no leading/trailing/consecutive hyphens, and no `objective-`
-prefix.
+The slug must be kebab-case and match:
+`^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$`. In practice: lowercase
+ASCII letters and digits, single hyphens as separators, 1-50 characters,
+and no leading, trailing, or consecutive hyphens.
 
 Check for collisions before writing:
 
 ```bash
-find docs/initiatives -maxdepth 2 -type f -name initiative.md
+test -d docs/initiatives/<slug> && echo collision
+```
+
+Or list existing slugs:
+
+```bash
+find docs/initiatives -mindepth 1 -maxdepth 1 -type d
 ```
 
 If the slug collides, continue the existing initiative or pick a distinct
@@ -199,7 +204,14 @@ file under `updates/`:
 YYYY-MM-DDTHHMMSSZ-short-description.md
 ```
 
-Use UTC. Update files do not need frontmatter.
+Generate the timestamp with:
+
+```bash
+date -u +%Y-%m-%dT%H%M%SZ
+```
+
+Use the command's output verbatim — do not hand-type the timestamp. Update
+files do not need frontmatter.
 
 Template:
 
