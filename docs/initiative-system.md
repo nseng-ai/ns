@@ -132,7 +132,7 @@ Chooses the next useful piece of work.
 
 It should read the initiative state, identify the highest-value unblocked roadmap area, and recommend a concrete implementation shape. It may suggest branch names, PR shape, validation work, or documentation work, but it does not mutate initiative files.
 
-### `initiative-update`
+### `initiative-record-progress`
 
 Records progress from the current session or branch.
 
