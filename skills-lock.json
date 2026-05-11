@@ -21,11 +21,6 @@
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
     },
-    "dev-just-fix": {
-      "source": "skills/dev-just-fix",
-      "sourceType": "local",
-      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
-    },
     "dev-gh": {
       "source": "skills/dev-gh",
       "sourceType": "local",
@@ -40,6 +35,11 @@
       "source": "skills/dev-gt-stackify-branch",
       "sourceType": "local",
       "computedHash": "c12a21d6a318a88b2aba719cdb94f9e4e54d12d354d167b82ab04434c6053f3e"
+    },
+    "dev-just-fix": {
+      "source": "skills/dev-just-fix",
+      "sourceType": "local",
+      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
     "dev-stacker-agent": {
       "source": "skills/dev-stacker-agent",
@@ -66,6 +66,11 @@
       "source": "skills/initiative-create",
       "sourceType": "local",
       "computedHash": "PENDING_REGEN"
+    },
+    "initiative-current": {
+      "source": "skills/initiative-current",
+      "sourceType": "local",
+      "computedHash": "df86f3081ebca1371fafd5f992b6be552743f438c3b9c536f0c670dc28016db7"
     },
     "initiative-next": {
       "source": "skills/initiative-next",
