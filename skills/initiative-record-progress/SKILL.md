@@ -16,14 +16,9 @@ allowed-tools:
 
 # initiative-record-progress
 
-Record progress for an existing checked-in initiative by writing one new update
-file under `docs/initiatives/<slug>/updates/` and skeptically refreshing the
-initiative's durable state.
-
-Initiatives are durable markdown workstreams stored in the repository. This
-skill records evidence from the current session, branch, or checked-out repo
-state, then distills durable consequences into `initiative.md` and `roadmap.md`
-when needed.
+Record progress for a checked-in initiative under `docs/initiatives/<slug>/` by
+writing one new update file and skeptically refreshing `initiative.md` and
+`roadmap.md` from current session, branch, and repo evidence.
 
 ## When To Use
 
@@ -31,8 +26,8 @@ Use this skill when the user asks to:
 
 - record progress for an initiative
 - write, add, log, capture, or save an initiative update
-- summarize current session, branch, PR, implementation, investigation, or
-  review findings for an initiative
+- summarize session, branch, PR, implementation, investigation, or review
+  findings for an initiative
 - preserve a decision, blocker, abandoned approach, repo-drift finding, or
   change in understanding
 - refresh initiative state after a rebase, restack, trunk update, or other
@@ -48,32 +43,17 @@ recorded instead of creating a vague file.
 
 ## Output
 
-Always write exactly one new markdown file:
+Write exactly one new markdown file:
 
 ```text
 docs/initiatives/<slug>/updates/YYYY-MM-DDTHHMMSSZ-short-description.md
 ```
 
-Also perform a mandatory refresh pass over:
+Also refresh `initiative.md` and `roadmap.md`. The refresh may make no edits;
+if durable files are already current, leave them unchanged and say so.
 
-- `docs/initiatives/<slug>/initiative.md`
-- `docs/initiatives/<slug>/roadmap.md`
-
-The refresh pass may make no edits. If durable files are already current, leave
-them unchanged and report that no durable-file edits were needed.
-
-The update file has no frontmatter. Metadata already exists in the path,
-filename, Git history, branch, and PRs. Do not duplicate unstable metadata in the
-body unless it is semantically useful.
-
-## Template Path
-
-Resolve the template relative to this skill directory:
-
-- `skills/initiative-record-progress/templates/progress-record.md`
-
-Use the template as a starting point. Delete placeholder prose and avoid empty
-noise.
+No frontmatter on the update file — metadata lives in the path, filename, and
+git history.
 
 ## Inputs
 
@@ -85,14 +65,12 @@ If no initiative is named:
 2. If the current branch name exactly matches an initiative slug, use that
    initiative.
 3. If exactly one initiative exists, use it.
-4. If multiple initiatives are plausible, list the options and ask the user to
-   choose.
+4. Otherwise, list the options and ask the user to choose.
 
-Never invent an initiative slug. Do not infer hidden state from brmem or other
-agent memory. Do not infer a slug from a partial branch-name match.
+Never invent an initiative slug or infer one from a partial branch-name match.
 
-Also use any explicit progress summary, title, PR context, branch context,
-repo-drift context, or follow-ups supplied by the user as primary evidence.
+Use any explicit progress summary, title, PR context, branch context, repo-drift
+context, or follow-ups supplied by the user as primary evidence.
 
 ## Reads
 
@@ -101,27 +79,19 @@ Always read:
 - `docs/initiatives/<slug>/initiative.md`
 - `docs/initiatives/<slug>/roadmap.md`, if present
 - every markdown file in `docs/initiatives/<slug>/updates/`, if present
-- `skills/initiative-record-progress/templates/progress-record.md`
 
-Also inspect current repository state:
+Also inspect current repository state: branch and worktree status, recent git
+history, changed-file summaries or targeted diffs, and any source, docs, or
+tests needed to describe progress or repo drift accurately.
 
-- current git branch and worktree status
-- recent git history for the current branch
-- changed-file summaries or targeted diffs when needed
-- relevant source, docs, or tests needed to describe progress or repo drift
-  accurately
-
-This is a full initiative-history refresh, not a recent-update-only pass. It is
-not a mandatory full-codebase audit. Keep source inspection targeted to the
-initiative claims, roadmap items, update evidence, user-supplied context, and
-current repo facts that could affect the plan.
+Read every prior update, but keep source inspection targeted — this is not a
+full-codebase audit.
 
 ## Mutation Boundary
 
 This skill may:
 
-- create `docs/initiatives/<slug>/updates/` if the initiative exists but the
-  directory is missing
+- create `docs/initiatives/<slug>/updates/` if missing
 - write exactly one new markdown file under that `updates/` directory
 - edit `docs/initiatives/<slug>/initiative.md`
 - edit `docs/initiatives/<slug>/roadmap.md`
@@ -136,10 +106,6 @@ This skill must not:
 - query external systems as a required part of v1 refresh
 - perform cosmetic rewrites unrelated to the recorded evidence or current repo
   state
-
-If the durable refresh would require a broad compaction or readability rewrite
-that is not needed to keep state current, do not perform that rewrite. Mention
-that explicit curation or compaction would be useful instead.
 
 ## Workflow
 
@@ -185,16 +151,13 @@ git diff --stat
 git diff --cached --stat
 ```
 
-Use targeted diffs, git history, or file reads when they are needed to avoid a
+Reach for targeted diffs, git history, or file reads only when needed to avoid a
 misleading summary or to refresh durable state accurately.
 
-Repo drift is valid evidence. If a rebase, restack, trunk merge, or other change
-in the checked-out repository affects initiative assumptions, roadmap ordering,
-completion status, or follow-up work, record that as a finding even when no new
+Repo drift is valid evidence. If a rebase, restack, trunk merge, or other
+checked-out change affects initiative assumptions, roadmap ordering, completion
+status, or follow-up work, record that as a finding even when no new
 implementation commits were authored in the current session.
-
-Do not copy raw branch-local commit hashes into update prose by default; they can
-change during amend, rebase, restack, or squash.
 
 ### 4. Decide whether an update is warranted
 
@@ -214,7 +177,8 @@ progress.
 
 ### 5. Draft the update
 
-Use the template sections:
+Start from `skills/initiative-record-progress/templates/progress-record.md`.
+Delete placeholder prose and keep the sections:
 
 ```markdown
 # Short Update Title
@@ -234,12 +198,11 @@ Guidance:
 - Keep prose useful after branches merge and PRs close.
 - Prefer durable anchors: file paths, artifact names, PR numbers/URLs once
   submitted, validation commands, observed outcomes, and user-supplied context.
-- Avoid raw branch-local commit hashes. Include a SHA only when the user asks,
-  when the commit is already merged/released/stable, or when it names an
-  external immutable artifact such as a CI run, release, or incident report.
-- Example: write `Added docs/example.md` rather than `Added docs/example.md at
-  commit abc1234`.
-- Name roadmap areas in prose. Do not invent stable IDs such as `R-001`.
+- Avoid raw branch-local commit hashes — they change during amend, rebase,
+  restack, or squash. Include a SHA only when the user asks, when the commit is
+  already merged/released/stable, or when it names an external immutable
+  artifact such as a CI run, release, or incident report.
+- Name roadmap areas in prose, not stable IDs.
 - Distinguish observed facts from assumptions.
 - Include validation evidence when it matters.
 - Keep follow-ups concrete. Use `- None identified.` only when there truly are
@@ -299,44 +262,26 @@ Roadmap refresh rules:
   user-useful context.
 - Allow subheadings under `## Checklist` for large initiatives, but keep the
   top-level sections predictable.
-- Keep entries outcome-oriented and artifact-backed.
-- Avoid stable numbered IDs.
-- Avoid cosmetic rewrites.
+- Keep entries outcome-oriented and artifact-backed. No stable numbered IDs, no
+  cosmetic rewrites.
 
 If the refresh changes sequencing, parks work, or substantially changes durable
-understanding, ensure the new update or final response explains why.
+understanding, the new update or final response should explain why.
 
 ### 7. Choose the filename
 
-Generate the timestamp with:
+Format: `<timestamp>-<slug>.md`, where `<timestamp>` comes verbatim from
+`date -u +%Y-%m-%dT%H%M%SZ` and `<slug>` is 2-6 words of lowercase ASCII with
+single-hyphen separators (no leading, trailing, or consecutive hyphens).
 
-```bash
-date -u +%Y-%m-%dT%H%M%SZ
-```
+Example: `2026-05-11T143217Z-create-skill-shape.md`.
 
-Use the command output verbatim. Do not hand-type the timestamp.
-
-Generate a short description slug from the update title or main outcome:
-
-- lowercase ASCII letters and digits
-- single hyphens as separators
-- no leading, trailing, or consecutive hyphens
-- usually 2-6 words
-
-Example:
-
-```text
-2026-05-11T143217Z-create-skill-shape.md
-```
-
-Before writing, ensure the file does not already exist:
+Check for collision before writing; on collision, rerun `date -u` for a fresh
+timestamp. Never overwrite an existing update file.
 
 ```bash
 test -e docs/initiatives/<slug>/updates/<filename> && echo collision
 ```
-
-If a collision occurs, rerun `date -u` for a fresh timestamp. Never overwrite an
-existing update file.
 
 ### 8. Write the update and durable refresh
 
@@ -348,8 +293,6 @@ mkdir -p docs/initiatives/<slug>/updates
 
 Then write the completed markdown file under that directory and apply any needed
 edits to `initiative.md` and `roadmap.md`.
-
-Do not edit previous updates for consistency.
 
 ## Curation And Compaction
 
@@ -368,10 +311,8 @@ Recommend explicit curation or compaction only when:
 
 After writing the update, return:
 
-- initiative slug and title
-- update file path
-- durable files edited, or that no durable-file edits were needed
-- concise summary of what was captured
-- follow-ups recorded, if any
-- any repo-drift finding captured
+- initiative slug and update file path
+- which durable files were edited, or that none needed edits
+- concise summary of what was captured, including any repo-drift finding or
+  recorded follow-ups
 - whether explicit curation or compaction is recommended
