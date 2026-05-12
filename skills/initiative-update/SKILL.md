@@ -7,7 +7,7 @@ description: "Command: initiative-update"
 
 Update Initiative tracking for exactly one Initiative.
 
-Source of truth: read `docs/initiative-system.md`, then follow the `initiative-update` operation contract.
+Source of truth: read `CONTEXT.md` for domain language and `docs/initiative-system.md` for mechanics, then follow the `initiative-update` operation contract.
 
 Stub guardrails:
 

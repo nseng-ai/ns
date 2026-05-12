@@ -7,7 +7,7 @@ description: "Command: initiative-current"
 
 Read and summarize the current state of one Initiative.
 
-Source of truth: read `docs/initiative-system.md`, then follow the `initiative-current` operation contract.
+Source of truth: read `CONTEXT.md` for domain language and `docs/initiative-system.md` for mechanics, then follow the `initiative-current` operation contract.
 
 Stub guardrails:
 

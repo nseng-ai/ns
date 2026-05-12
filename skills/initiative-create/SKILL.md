@@ -7,7 +7,7 @@ description: "Command: initiative-create"
 
 Create a new Initiative record.
 
-Source of truth: read `docs/initiative-system.md`, then follow the `initiative-create` operation contract.
+Source of truth: read `CONTEXT.md` for domain language and `docs/initiative-system.md` for mechanics, then follow the `initiative-create` operation contract.
 
 Stub guardrails:
 
