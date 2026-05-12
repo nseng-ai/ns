@@ -46,7 +46,7 @@ docs/initiatives/
       2026-05-12T091044Z-another-update.md
 ```
 
-Each initiative is a directory. The directory name is the initiative slug. The slug should be short, lowercase, and filesystem-friendly.
+Each initiative is a directory. The directory name is the initiative slug. The slug must be kebab-case and match `^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$` — lowercase ASCII letters and digits, single hyphens as separators, 1-50 characters, and no leading, trailing, or consecutive hyphens.
 
 ## Core Files
 
