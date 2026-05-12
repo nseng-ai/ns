@@ -15,9 +15,9 @@ allowed-tools:
 Recommend the next concrete, reviewable piece of work for an existing
 initiative.
 
-Initiatives are checked-in markdown workstreams under `docs/initiatives/`.
-This skill reads initiative state and returns a plan. It does not edit files,
-create branches, commit changes, or implement the work.
+Initiatives are checked-in markdown workstreams under `docs/initiatives/`. This
+skill reads initiative state and returns a plan. It does not edit files, create
+branches, commit changes, or implement the work.
 
 ## When To Use
 
@@ -28,7 +28,7 @@ Use this skill when the user asks to:
 - plan the next PR, branch, stack, investigation, or docs change
 - decide what roadmap area is highest-value and unblocked
 
-Do not use this skill to create a new initiative, record progress, curate stale
+Do not use this skill to create a new initiative, record progress, refresh stale
 initiative docs, close an initiative, or perform the implementation itself.
 
 ## Inputs
@@ -61,8 +61,8 @@ Also read when useful:
 - recent git history for the current branch
 - targeted source, docs, or tests needed to make the recommendation concrete
 
-Keep source inspection proportional. This skill should select and shape the
-next action, not audit the whole repository.
+Keep source inspection proportional. This skill should select and shape the next
+action, not audit the whole repository.
 
 ## Mutation Boundary
 
@@ -77,8 +77,10 @@ Do not:
 - commit changes
 - implement source, test, or docs changes
 
-If progress needs to be recorded, recommend `initiative-record-progress`.
-If durable initiative state is stale, recommend `initiative-curate`.
+If progress or repo drift needs to be recorded, recommend
+`initiative-record-progress`; it will also refresh durable initiative state. If
+durable files are factually current but too verbose or hard to read, recommend
+explicit curation or compaction.
 
 ## Workflow
 
@@ -107,8 +109,8 @@ find docs/initiatives/<slug>/updates -maxdepth 1 -type f -name '*.md' | sort -r
 ```
 
 Default to the most recent 3-5 updates. Read more only when the roadmap is
-ambiguous, recent updates appear to supersede each other, or the user asks for a
-fuller review.
+ambiguous, recent updates appear to supersede each other, durable files appear
+stale, or the user asks for a fuller review.
 
 ### 3. Summarize current state
 
@@ -116,25 +118,31 @@ Extract:
 
 - initiative title and thesis
 - scope and non-goals that constrain next work
-- completion criteria
+- completion criteria and their `[ ]` / `[~]` / `[x]` status
 - open questions and constraints
-- active roadmap areas
+- roadmap checklist items and parked work
 - recent progress, findings, blockers, or decisions from updates
 
-If the durable files conflict with recent updates, treat the updates as
-evidence and report that curation may be needed. Do not rewrite the initiative
-from this skill.
+If durable files conflict with recent updates or current repository facts, treat
+that as potential repo drift or stale initiative state. Report it and recommend
+`initiative-record-progress` to record the finding and refresh the durable files.
+Do not rewrite the initiative from this skill.
 
 ### 4. Select the next roadmap area
 
+Use `roadmap.md` as an ordered checklist.
+
 Prefer the highest-value unblocked item in this order:
 
-1. unfinished `Now` work
-2. unfinished `Next` work
-3. unfinished `Later` work
+1. an in-progress `[~]` item that should be completed or unblocked
+2. the first unblocked `[ ]` item in checklist order
+3. another unblocked `[ ]` item when the earlier item is blocked, too broad, or
+   lower-value given current constraints
 4. `Parked` work only when the user asks or a blocker has clearly cleared
 
-Within the relevant section, prefer work that is:
+Skip `[x]` completed items unless the user asks to revisit them.
+
+Within those rules, prefer work that is:
 
 - unblocked
 - outcome-oriented
@@ -142,7 +150,7 @@ Within the relevant section, prefer work that is:
 - small enough for a single reviewable change
 - risk-reducing or sequence-enabling
 - aligned with completion criteria
-- not invalidated by recent updates
+- not invalidated by recent updates or repo drift
 
 Roadmap entries are fluid named work areas, not stable numbered IDs. Refer to
 entries by their prose title or short descriptive label. Do not invent IDs like
@@ -189,16 +197,17 @@ Do not start implementing. Stop at an actionable recommendation.
 
 ## Staleness Handling
 
-Recommend `initiative-curate` before implementation when:
+Recommend `initiative-record-progress` before implementation when:
 
-- recent updates clearly contradict `initiative.md` or `roadmap.md`
-- several completed items remain listed as active work
-- roadmap areas are too vague to select from
+- recent updates or current repo facts clearly contradict `initiative.md` or
+  `roadmap.md`
+- roadmap statuses are stale enough to obscure what should happen next
 - completion criteria no longer match the initiative's current direction
-- enough updates have accumulated that durable context is hard to reconstruct
+- repo drift after rebase, restack, or trunk update changes the plan
 
-If curation is useful but not blocking, still recommend the next action and note
-that curation should happen soon.
+If durable files are current but too verbose, recommend explicit curation or
+compaction. If curation is useful but not blocking, still recommend the next
+action and note that compaction can happen later.
 
 ## Final Response
 
@@ -215,5 +224,5 @@ Return:
 - expected artifact
 - validation plan
 - risks or blockers
-- after-work reminder: record progress with `initiative-record-progress`; run
-  `initiative-curate` only if durable initiative state changed or became stale
+- after-work reminder: record progress with `initiative-record-progress`; it
+  will also refresh `initiative.md` and `roadmap.md`

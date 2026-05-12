@@ -155,9 +155,23 @@ with task-specific content. Keep unknowns honest in `Open Questions`.
 
 ## `roadmap.md`
 
-Write the current working roadmap. Entries are fluid named work areas, not
-stable tickets. They may be renamed, split, merged, moved, or deleted as
+Write the current ordered work checklist. Entries are fluid named work areas,
+not stable tickets. They may be renamed, split, merged, reordered, or parked as
 understanding changes.
+
+Use the canonical top-level sections from `templates/roadmap.md`:
+
+- `## Checklist` for active initiative work
+- `## Parked` for intentionally deferred, rejected, canceled, or waiting work
+
+Checklist item status markers:
+
+- `[ ]` not started
+- `[~]` in progress
+- `[x]` complete
+
+Parked items are plain bullets with no checkboxes. Large initiatives may add
+subheadings under `## Checklist`, but keep the top-level section shape.
 
 Do not use stable numbered IDs such as `R-001`. Point entries toward concrete
 artifacts such as PRs, merged commits, docs, tests, migrations, reports,
@@ -194,6 +208,8 @@ they would be empty noise.
 - Prefer prose that will still make sense after branches are merged and PRs
   are closed.
 - Keep roadmap entries outcome-oriented and artifact-backed.
+- Use `[ ]`, `[~]`, and `[x]` for checklist status.
+- Use plain bullets, not checkboxes, for parked work.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter.
 - Do not use brmem.
