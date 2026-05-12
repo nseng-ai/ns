@@ -161,17 +161,17 @@ understanding changes.
 
 Use these sections:
 
-- `Completed`: work already done before creation, only when backed by explicit
-  evidence or user-provided context.
-- `In Progress`: partially completed work. Usually omit or leave empty for a new
-  initiative unless discovery found active partial work.
-- `Remaining`: the ordered queue of incomplete work areas. Most newly drafted
-  roadmap entries belong here.
+- `Work`: the ordered roadmap. Use checkbox markers for every work entry. Mark
+  work already done before creation as `[x]` only when backed by explicit
+  evidence or user-provided context. Mark partially completed work as `[~]`.
+  Most newly drafted not-started entries belong here as `[ ]` entries.
 - `Parked`: deferred, blocked, rejected-for-now, canceled, or
   waiting-on-external-facts work.
 
-Use plain bullets for `Completed` and `Parked`; use checkboxes for incomplete
-active work in `In Progress` and `Remaining` when useful.
+Keep completed work in its useful roadmap position instead of moving it to a
+separate section. For partially completed work, use `[~]` and add a `Status:`
+sub-bullet describing what is done and what remains. Use plain bullets for parked
+work.
 
 Do not use stable numbered IDs such as `R-001`. Point entries toward concrete
 artifacts such as PRs, merged commits, docs, tests, migrations, reports,
@@ -208,8 +208,10 @@ they would be empty noise.
 - Prefer prose that will still make sense after branches are merged and PRs
   are closed.
 - Keep roadmap entries outcome-oriented and artifact-backed.
-- Use `Completed`, `In Progress`, `Remaining`, and `Parked` for new roadmaps.
-- Use plain bullets, not checkboxes, for completed and parked work.
+- Use `Work` and `Parked` for new roadmaps.
+- Use checkbox markers for every `Work` entry: `[x]` for completed work, `[~]`
+  for partially completed work, and `[ ]` for not-started work. Use plain bullets
+  for parked work.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter.
 - Do not use brmem.

@@ -121,8 +121,8 @@ Extract:
 - scope and non-goals that constrain next work
 - completion criteria
 - open questions and constraints
-- effective roadmap state: `Completed`, `In Progress`, `Remaining`, and
-  `Parked`
+- effective roadmap state: ordered `Work` entries with `[x]`, `[~]`, and `[ ]`
+  boxes, plus `Parked`
 - recent progress, findings, blockers, or decisions from updates
 
 If the durable files conflict with recent updates, treat the updates as
@@ -135,24 +135,25 @@ Build the effective roadmap state before selecting work.
 
 Use the current ontology:
 
-- `Completed`: already done; do not select.
-- `In Progress`: partially complete work.
-- `Remaining`: incomplete roadmap queue.
+- `Work`: the ordered roadmap. `[x]` entries are already done and should not be
+  selected. `[~]` entries are partially complete. `[ ]` entries are not started
+  or have no durable partial-completion evidence yet.
 - `Parked`: deferred, blocked, rejected-for-now, canceled, or
   waiting-on-external-facts work.
 
 Backward compatibility:
 
-- If `roadmap.md` uses legacy `Now`, `Next`, and `Later` sections, normalize
-  unchecked entries into ordered `Remaining` candidates, preserving section order.
+- If `roadmap.md` uses legacy `Completed`, `In Progress`, `Remaining`, `Now`,
+  `Next`, or `Later` sections, normalize entries into ordered `Work` candidates
+  plus `Parked`, preserving the best available order.
 - Keep `Parked` entries parked.
-- Use recent updates as evidence to remove completed work from consideration or
-  treat partial work as `In Progress`.
+- Use recent updates as evidence to skip completed work or treat partial work as
+  partially complete.
 
 Prefer the highest-value unblocked item in this order:
 
-1. unblocked `In Progress` work, because finishing partial work reduces drift
-2. top useful `Remaining` work
+1. `[~]` work, because finishing partial work reduces drift
+2. top useful `[ ]` work in the ordered roadmap
 3. `Parked` work only when the user asks or a blocker has clearly cleared
 
 Within the relevant section, prefer work that is:
@@ -213,7 +214,7 @@ Do not start implementing. Stop at an actionable recommendation.
 Recommend `initiative-record-progress` before implementation when:
 
 - recent updates or repo facts clearly contradict `initiative.md` or `roadmap.md`
-- several completed items remain listed as incomplete roadmap work
+- several completed items are still marked `[~]` or `[ ]` in the roadmap
 - roadmap areas are too stale or vague to select from
 - completion criteria no longer match the initiative's current direction
 - repo drift after a rebase, restack, or trunk update changes the plan

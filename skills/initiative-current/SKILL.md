@@ -141,31 +141,32 @@ snapshot. Combine roadmap entries with update evidence.
 
 Use the current ontology in the response:
 
-- `Completed`: roadmap areas with durable evidence of completion.
-- `In Progress`: partially completed roadmap areas. Omit this section when empty.
-- `Remaining`: incomplete roadmap areas, in useful order.
+- `Work`: one ordered roadmap list. Show completed entries as `[x]`, partially
+  completed entries as `[~]`, and not-started entries as `[ ]`. Partial entries
+  can include a `Status:` note.
 - `Parked`: deferred, blocked, rejected-for-now, canceled, or
   waiting-on-external-facts work.
 
 Backward compatibility:
 
-- If `roadmap.md` uses legacy `Now`, `Next`, and `Later` sections, do not expose
-  those headings in the final response.
-- Treat unchecked legacy `Now`, `Next`, and `Later` entries as ordered
-  `Remaining` candidates, preserving that order.
+- If `roadmap.md` uses legacy `Completed`, `In Progress`, `Remaining`, `Now`,
+  `Next`, or `Later` sections, do not expose those headings in the final
+  response.
+- Treat legacy `Completed` entries and checked entries as `[x]` `Work` items.
+- Treat legacy `In Progress` entries as `[~]` `Work` items with a status note
+  when useful.
+- Treat unchecked legacy `Remaining`, `Now`, `Next`, and `Later` entries as
+  `[ ]` `Work` items, preserving the best available order.
 - Keep legacy `Parked` entries as `Parked`.
-- If updates show a legacy entry is complete, present it under `Completed`.
-- If updates show a legacy entry is partially complete, present it under
-  `In Progress`.
 
 Completion inference:
 
-- A checked roadmap entry may be shown as `Completed`.
-- An update may move an item to `Completed` when it records a reviewable artifact,
+- A checked roadmap entry may be shown as completed (`[x]`).
+- An update may mark an item as completed when it records a reviewable artifact,
   validation result, merged PR, checked-in doc, explicit user decision, or other
   durable completion evidence for that roadmap area.
-- An update may move an item to `In Progress` when it records partial progress and
-  clear remaining work.
+- An update may mark an item as partial (`[~]`) and add or explain `Status:` when
+  it records partial progress and clear remaining work.
 - Do not claim completion from vague activity such as "continued work".
 - Include brief evidence for inferred completion when it helps explain why the
   effective view differs from `roadmap.md`.
@@ -188,8 +189,9 @@ durable files. Do not rewrite durable state from this skill.
 
 This skill may identify the most visible active work or blocker, but it should
 not select the next implementation task or produce a full work plan. The
-`Remaining` section is a state readout, not a recommendation. If the user asks
-what to do next, switch to or recommend `initiative-next`.
+incomplete `Work` entries (`[~]` and `[ ]`) are a state readout, not a
+recommendation. If the user asks what to do next, switch to or recommend
+`initiative-next`.
 
 ## Final Response
 
@@ -198,8 +200,8 @@ Return:
 - initiative slug and title
 - concise thesis or purpose
 - branch/worktree context, if relevant
-- effective roadmap state using `Completed`, optional `In Progress`, `Remaining`,
-  and `Parked`
+- effective roadmap state using an ordered `Work` list with `[x]`, `[~]`, and
+  `[ ]` entries, plus `Parked` when present
 - recent updates summary
 - blockers, risks, open questions, or stale-state warnings
 - completion-state readout, if the files make it clear

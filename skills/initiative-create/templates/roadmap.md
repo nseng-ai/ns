@@ -1,18 +1,14 @@
 # Roadmap
 
-## Completed
+## Work
 
-- Completed work area.
+- [x] Completed work area.
   - Evidence: PR, docs change, tests, migration, deletion, report, release, or
     explicit decision.
 
-## In Progress
-
-- [ ] Partially completed work area.
+- [~] Partially completed work area.
   - Artifact: Expected reviewable or verifiable output.
   - Status: What is done and what remains.
-
-## Remaining
 
 - [ ] Named work area.
   - Artifact: PR, docs change, tests, migration, deletion, report, or other

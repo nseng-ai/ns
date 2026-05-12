@@ -95,28 +95,24 @@ The current ordered work state.
 Roadmap entries are fluid named work areas, not stable tickets. They can be
 renamed, split, merged, reordered, or parked as understanding changes.
 
-The roadmap is intentionally state-shaped so users and agents can see what has
-been done, what is underway, what remains, and what has been deferred without
-reconstructing the plan from the update log.
+The roadmap is intentionally queue-shaped so users and agents can see the work
+in useful sequence, with completed work checked off in place instead of moved to
+a separate completion section.
 
 Canonical top-level sections:
 
 ```markdown
 # Roadmap
 
-## Completed
+## Work
 
-- Completed work area.
+- [x] Completed work area.
   - Evidence: PR, docs change, tests, migration, deletion, report, release, or
     explicit decision.
 
-## In Progress
-
-- [ ] Partially completed work area.
+- [~] Partially completed work area.
   - Artifact: Expected reviewable or verifiable output.
   - Status: What is done and what remains.
-
-## Remaining
 
 - [ ] Not-started work area.
   - Artifact: Expected reviewable or verifiable output.
@@ -129,18 +125,17 @@ Canonical top-level sections:
 
 Section meanings:
 
-- `Completed`: work areas with durable evidence of completion, such as merged
-  PRs, checked-in docs, tests, migrations, deletions, reports, released behavior,
-  or an explicit user decision.
-- `In Progress`: work areas that are partially complete and have clear remaining
-  work.
-- `Remaining`: the ordered queue of incomplete roadmap areas.
+- `Work`: the ordered roadmap. Use checkbox markers for every work entry. `[x]`
+  means durable completion evidence exists, such as merged PRs, checked-in docs,
+  tests, migrations, deletions, reports, released behavior, or an explicit user
+  decision. `[~]` means partially completed and carries a `Status:` sub-bullet.
+  `[ ]` means not started or no durable partial-completion evidence yet.
 - `Parked`: work intentionally deferred, blocked, rejected for now, canceled, or
   waiting on external facts.
 
-Use plain bullets for `Completed` and `Parked`. Use checkboxes for active
-incomplete work in `In Progress` and `Remaining` when useful. The section, not a
-stable ID, carries the item's state.
+The checkbox marker, not a stable ID or separate section, carries completion
+state. Keep completed work in its useful roadmap position unless the sequence
+itself has become misleading.
 
 Roadmap entries should point toward concrete artifacts such as PRs, merged
 commits, docs, tests, migrations, reports, deleted code, or released behavior.
@@ -148,11 +143,12 @@ commits, docs, tests, migrations, reports, deleted code, or released behavior.
 The roadmap should avoid stable item numbers such as `R-001`. If an update needs
 to refer to roadmap context, it should name the relevant work area in prose.
 
-Readers should tolerate older roadmaps that use `Now`, `Next`, and `Later`.
-Read-only skills should normalize those legacy sections into the current
-ontology for presentation and planning. `initiative-record-progress` may migrate
-a legacy or stale roadmap into the canonical sections as part of its refresh
-when the initiative history or current repository state justifies editing it.
+Readers should tolerate older roadmaps that use `Completed`, `In Progress`, and
+`Remaining`, or legacy `Now`, `Next`, and `Later`. Read-only skills should
+normalize those legacy sections into the current `Work` / `Parked` shape for
+presentation and planning. `initiative-record-progress` may migrate a legacy or
+stale roadmap into the canonical sections as part of its refresh when the
+initiative history or current repository state justifies editing it.
 
 ### `updates/`
 
@@ -249,19 +245,19 @@ Inputs:
 This skill is read-only. It presents an effective roadmap state by combining the
 durable roadmap with progress updates. For example, if `roadmap.md` still lists
 an item as incomplete but a later update records a completed artifact for that
-item, `initiative-current` should present the item under `Completed` and note
-that `initiative-record-progress` can record the stale-state finding and refresh
-durable files.
+item, `initiative-current` should show the item checked off in the ordered work
+list and note that `initiative-record-progress` can record the stale-state
+finding and refresh durable files.
 
 ### `initiative-next`
 
 Chooses the next useful piece of work.
 
 It should read the initiative state, identify the highest-value unblocked roadmap
-area, and recommend a concrete implementation shape. It should prefer unblocked
-`In Progress` work first, then the top useful `Remaining` work. It may suggest
-branch names, PR shape, validation work, or documentation work, but it does not
-mutate initiative files.
+area, and recommend a concrete implementation shape. It should prefer `[~]`
+partially completed work, then the top useful `[ ]` work in the ordered roadmap.
+It may suggest branch names, PR shape, validation work, or documentation work,
+but it does not mutate initiative files.
 
 If recent updates or repository facts show durable files are stale enough to
 obscure the next step, it should recommend `initiative-record-progress` before
@@ -281,11 +277,12 @@ Also refreshes:
 - `roadmap.md`
 
 The refresh may make no durable-file edits. When it does edit durable files, it
-should be proactive but evidence-bound: move roadmap items among `Completed`,
-`In Progress`, `Remaining`, and `Parked`; revise completion criteria; park
-obsolete work; adjust sequencing; and update durable scope, constraints,
-invariants, risks, or open questions when the initiative history and current
-repository state justify it.
+should be proactive but evidence-bound: check completed roadmap items in place,
+mark partially completed items with `[~]` and `Status:` when useful, mark
+not-started items with `[ ]`, park obsolete work, adjust sequencing, revise
+completion criteria, and update durable scope, constraints, invariants, risks, or
+open questions when the initiative history and current repository state justify
+it.
 
 It should not rewrite existing update files.
 
@@ -386,19 +383,15 @@ justifies tracking this as an initiative.
 ```markdown
 # Roadmap
 
-## Completed
+## Work
 
-- Completed work area.
+- [x] Completed work area.
   - Evidence: PR, docs change, tests, migration, deletion, report, release, or
     explicit decision.
 
-## In Progress
-
-- [ ] Partially completed work area.
+- [~] Partially completed work area.
   - Artifact: Expected reviewable or verifiable output.
   - Status: What is done and what remains.
-
-## Remaining
 
 - [ ] Named work area.
   - Artifact: PR, docs change, tests, migration, deletion, report, or other
@@ -445,9 +438,11 @@ risks, or future work.
 - Prefer prose that will still make sense after branches are merged and PRs are
   closed.
 - Keep roadmap entries outcome-oriented and artifact-backed.
-- Use `Completed`, `In Progress`, `Remaining`, and `Parked` for new roadmaps and
-  for refreshes that edit stale roadmaps.
-- Use plain bullets, not checkboxes, for completed and parked work.
+- Use `Work` and `Parked` for new roadmaps and for refreshes that edit stale
+  roadmaps.
+- Use checkbox markers for every `Work` entry: `[x]` for completed work, `[~]`
+  for partially completed work, and `[ ]` for not-started work. Use plain bullets
+  for parked work.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter unless a later skill has a concrete need for it.
 - Do not rewrite update files during refresh.
