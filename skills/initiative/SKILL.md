@@ -25,15 +25,18 @@ Do not use `docs/initiatives/`.
 
 ## Files
 
-`initiative.md` contains durable purpose, boundaries, criteria, open questions, and closure context. Required headings:
+`initiative.md` contains durable purpose, boundaries, criteria, assumptions, risks, open questions, and closure context. Required headings:
 
 - `# <Title>`
 - `## Thesis`
 - `## Scope`
 - `## Non-Goals`
 - `## Completion Criteria`
+- `## Assumptions and Risks`
 - `## Open Questions`
 - `## Closure` only when closed
+
+`## Assumptions and Risks` captures assumptions that might be disproven and risks that need de-risking, mitigation, acceptance, or explicit follow-up. Keep it narrative and evidence-linked; do not turn it into IDs, owners, due dates, or a task database.
 
 `roadmap.md` contains ordered guidance. Required headings:
 
@@ -43,7 +46,7 @@ Do not use `docs/initiatives/`.
 
 Use only `[ ]`, `[~]`, and `[x]` statuses.
 
-`updates/` contains Semantic Updates: meaningful findings, decisions, blockers, completion evidence, plan changes, or follow-ups. No ceremonial pings or branch changelogs. Required headings:
+`updates/` contains Semantic Updates: meaningful findings, decisions, blockers, assumption changes, risk de-risking or surfacing, completion evidence, plan changes, or follow-ups. No ceremonial pings or branch changelogs. Required headings:
 
 - `# <Update Title>`
 - `## Summary`
