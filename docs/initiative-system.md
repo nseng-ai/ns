@@ -24,6 +24,9 @@ The system should stay simple:
 - No stable numbered roadmap item IDs.
 - No external service audit requirement.
 - The checked-out git repository is the ground truth at the time a skill runs.
+- `initiative-next` is the ordinary continue-work trigger. It runs a cheap
+  freshness gate before choosing next work and may invoke progress recording
+  when branch or worktree evidence is newer than initiative progress.
 - `initiative-record-progress` assumes durable initiative files may be stale and
   refreshes them every time it records progress.
 
@@ -211,6 +214,38 @@ also does not add baseline commits or hidden state to initiative files. Use Git
 history and targeted repository inspection when needed to understand changed
 files, recover prior versions, or explain drift.
 
+## Progress Freshness Gate
+
+`initiative-next` is the normal command users run when continuing an initiative.
+Before selecting the next work item, it cheaply checks whether non-initiative
+repository evidence is newer than the latest initiative progress evidence.
+
+For `docs/initiatives/<slug>/`, the gate:
+
+1. Finds the latest committed progress anchor, preferring the latest commit that
+   touched `updates/` and falling back to the latest commit that touched
+   `initiative.md` or `roadmap.md`.
+2. Blocks automatic recording when initiative docs are dirty, because
+   progress-state work is already in flight.
+3. Checks for dirty worktree changes outside `docs/initiatives/**`.
+4. Checks for commits in `<anchor>..HEAD` outside `docs/initiatives/**`.
+5. Runs `initiative-record-progress` before next-work selection when newer
+   non-initiative evidence exists, then re-reads initiative state and chooses the
+   next step.
+
+If no committed anchor exists, the gate skips automatic recording unless the
+user supplied clear progress to preserve. If only initiative docs are dirty, the
+gate reports that progress recording is blocked rather than creating a second
+in-flight update. If the deeper initiative read later discovers stale durable
+docs, `initiative-next` may run one progress-recording refresh pass and restart
+selection.
+
+The gate uses Git ancestry/topology, not wall-clock timestamps, hidden state,
+frontmatter, baseline files, or Graphite metadata. Graphite-style stacks need no
+special runtime dependency: on a child branch, an inherited parent-branch update
+is the progress anchor, and child commits after that anchor appear in
+`<anchor>..HEAD` through ordinary Git history.
+
 ## Skill Suite
 
 The initiative system is operated through skills. The skills may share templates
@@ -251,25 +286,34 @@ finding and refresh durable files.
 
 ### `initiative-next`
 
-Chooses the next useful piece of work.
+Chooses the next useful piece of work and is the ordinary trigger for progress
+recording before continuation.
 
-It should read the initiative state, identify the highest-value unblocked roadmap
-area, and recommend a concrete implementation shape. It should prefer `[~]`
-partially completed work, then the top useful `[ ]` work in the ordered roadmap.
+It should resolve the initiative, run the cheap freshness gate, and invoke
+`initiative-record-progress` first when newer non-initiative branch or worktree
+evidence exists. After any recording or refresh, it should re-read initiative
+state, identify the highest-value unblocked roadmap area, and recommend a
+concrete implementation shape. It should prefer `[~]` partially completed work,
+then the top useful `[ ]` work in the ordered roadmap.
+
+Default behavior is read-only. It may mutate initiative files only through the
+bounded `initiative-record-progress` workflow when the freshness gate triggers or
+when the normal read finds durable files stale enough to obscure the next step.
 It may suggest branch names, PR shape, validation work, or documentation work,
-but it does not mutate initiative files.
+but it should not create branches, commit changes, or implement source changes.
 
-If recent updates or repository facts show durable files are stale enough to
-obscure the next step, it should recommend `initiative-record-progress` before
-implementation so the stale-state finding can be recorded and durable files can
-be refreshed.
+If automatic recording is blocked or evidence is too vague to preserve durably,
+it should report the gate status and continue only when the next step remains
+safe to recommend.
 
 ### `initiative-record-progress`
 
 Records progress, findings, decisions, blockers, or repo drift from the current
-session or branch.
+session or branch. It may be invoked explicitly by the user or automatically by
+`initiative-next` after the freshness gate finds newer branch/worktree evidence.
 
-Always writes exactly one new file under `updates/`.
+When progress recording is warranted, it writes exactly one new file under
+`updates/`.
 
 Also refreshes:
 

@@ -42,11 +42,30 @@ source changes.
 
 Do not write ceremonial updates. If there is no concrete progress, finding,
 decision, blocker, repo drift, or follow-up to preserve, ask what should be
-recorded instead of creating a vague file.
+recorded instead of creating a vague file when invoked explicitly.
+
+## Automatic Invocation
+
+`initiative-next` may run this workflow automatically when its freshness gate
+finds non-initiative branch or worktree evidence newer than the latest committed
+initiative progress anchor.
+
+Automatic invocation is conservative:
+
+- still avoid ceremonial updates
+- write only for concrete durable progress, findings, decisions, blockers, repo
+  drift, or follow-ups
+- skip writing when evidence is vague, too in-progress to preserve, or cannot be
+  confidently assigned to this initiative
+- report the skip reason back to `initiative-next` so next-work selection can
+  continue only when safe
+
+Explicit user invocation still records progress when concrete progress, a
+finding, a decision, a blocker, repo drift, or a follow-up exists.
 
 ## Output
 
-Write exactly one new markdown file:
+When recording is warranted, write exactly one new markdown file:
 
 ```text
 docs/initiatives/<slug>/updates/YYYY-MM-DDTHHMMSSZ-short-description.md
@@ -198,9 +217,11 @@ Write an update when there is concrete durable context, such as:
 - follow-up work discovered during the session
 - repository drift that invalidates assumptions or changes future work
 
-Ask before writing when the only available content would be generic status such
-as "continued work" or when multiple initiatives could plausibly own the same
-progress.
+When invoked explicitly, ask before writing if the only available content would
+be generic status such as "continued work" or if multiple initiatives could
+plausibly own the same progress. When invoked automatically, skip writing and
+report why instead of asking for clarification unless the caller has already
+asked the user to choose.
 
 ### 5. Draft the update
 
@@ -386,3 +407,6 @@ After writing the update, return:
   recorded follow-ups
 - any readability-only rewrite or broad reorganization intentionally left out,
   when relevant
+
+When automatic invocation skips writing, return the initiative slug, `skipped`,
+and the concrete reason no durable update was written.

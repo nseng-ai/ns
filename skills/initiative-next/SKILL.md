@@ -1,12 +1,16 @@
 ---
 name: initiative-next
-description: Choose the next useful piece of work for an existing checked-in initiative under docs/initiatives. Use when the user asks what to do next, to continue an initiative, to plan the next PR/branch, or to turn initiative roadmap state into a concrete next action.
+description: Choose the next useful piece of work for an existing checked-in initiative under docs/initiatives, using a cheap freshness gate to record newer branch/worktree evidence first when needed.
 allowed-tools:
   - "Read"
+  - "Write"
+  - "Edit"
   - "Bash(find *)"
   - "Bash(rg *)"
   - "Bash(git *)"
   - "Bash(test *)"
+  - "Bash(date -u *)"
+  - "Bash(mkdir -p *)"
 ---
 
 # initiative-next
@@ -15,8 +19,10 @@ Recommend the next concrete, reviewable piece of work for an existing
 initiative.
 
 Initiatives are checked-in markdown workstreams under `docs/initiatives/`.
-This skill reads initiative state and returns a plan. It does not edit files,
-create branches, commit changes, or implement the work.
+This skill normally reads initiative state and returns a plan. Before choosing,
+it checks whether non-initiative repository evidence is newer than the latest
+initiative progress anchor. It mutates only when that freshness gate, or a later
+stale-state check, requires the bounded `initiative-record-progress` workflow.
 
 ## When To Use
 
@@ -27,8 +33,11 @@ Use this skill when the user asks to:
 - plan the next PR, branch, stack, investigation, or docs change
 - decide what roadmap area is highest-value and unblocked
 
-Do not use this skill to create a new initiative, record progress, refresh
-durable files, close an initiative, or perform the implementation itself.
+Do not use this skill to create a new initiative, close an initiative, or
+perform the implementation itself. If the user's primary request is to record a
+known update rather than choose next work, use `initiative-record-progress`
+directly. This skill may invoke progress recording automatically before
+selection when repository evidence is fresher than initiative progress.
 
 ## Inputs
 
@@ -62,23 +71,33 @@ next action, not audit the whole repository.
 
 ## Mutation Boundary
 
-This skill is read-only.
+Default behavior is read-only.
 
-Do not:
+This skill may mutate only when the freshness gate triggers or when the normal
+initiative read finds durable files stale enough to require one refresh before
+safe next-work selection. In that case, run the same bounded mutations as
+`initiative-record-progress`:
 
-- edit `initiative.md`
-- edit `roadmap.md`
-- create or edit files under `updates/`
+- create `docs/initiatives/<slug>/updates/` if needed
+- write exactly one new markdown update file when concrete durable evidence
+  exists
+- edit `docs/initiatives/<slug>/initiative.md`
+- edit `docs/initiatives/<slug>/roadmap.md`
+
+This skill must not:
+
+- mutate initiative files when the gate is clean, skipped, or blocked
+- edit existing update files, except for an immediate correction during the same
+  response before final reporting
 - create a branch
 - commit changes
 - implement source, test, or docs changes
 - use brmem or hidden agent state
+- add frontmatter, hidden baseline files, stable roadmap item IDs, or a Graphite
+  dependency
 
-If progress needs to be recorded, recommend `initiative-record-progress`. If
-durable initiative state is stale, recommend `initiative-record-progress` so the
-stale-state finding can be recorded and durable files can be refreshed. If
-durable files are factually current but hard to read, note the readability issue
-without naming a separate workflow.
+If durable files are factually current but hard to read, note the readability
+issue without naming a separate workflow.
 
 ## Workflow
 
@@ -96,7 +115,78 @@ git branch --show-current
 When a slug or path is supplied, verify that the directory exists and contains
 `initiative.md`. If it does not, stop and report the mismatch.
 
-### 2. Load initiative state
+When no slug is supplied and multiple initiatives exist, ask the user to choose
+before running the freshness gate or doing any mutation.
+
+### 2. Run the cheap freshness gate
+
+Run this before deep source inspection and before selecting work. Use git
+ancestry/topology, not wall-clock timestamps. Do not add hidden state,
+frontmatter, baseline files, or a Graphite dependency.
+
+First check whether initiative docs are already dirty:
+
+```bash
+git status --short -- docs/initiatives/<slug>
+```
+
+If output is non-empty, set progress gate status to `blocked`. Do not
+auto-record; progress-state work is already in flight. Continue read-only next
+selection only if the dirty initiative docs are coherent enough to use.
+
+Find the latest committed initiative progress anchor:
+
+```bash
+git log -1 --format=%H -- docs/initiatives/<slug>/updates
+git log -1 --format=%H -- \
+  docs/initiatives/<slug>/initiative.md \
+  docs/initiatives/<slug>/roadmap.md
+```
+
+Prefer the latest commit touching `updates/`. Fall back to the latest commit
+touching `initiative.md` or `roadmap.md`. If no committed anchor exists, set
+progress gate status to `skipped` and do not auto-record unless the user supplied
+clear concrete progress to preserve.
+
+Check for newer non-initiative evidence:
+
+```bash
+git status --short -- . ':(exclude)docs/initiatives/**'
+git log --oneline <anchor>..HEAD -- . ':(exclude)docs/initiatives/**'
+```
+
+If either command reports evidence, the gate triggers. If neither reports
+evidence, set progress gate status to `clean` and continue read-only.
+
+Use these statuses:
+
+- `clean`: anchor exists and no newer non-initiative evidence was found
+- `recorded`: progress workflow wrote an update, and possibly refreshed durable
+  files
+- `skipped`: no committed anchor exists, or the progress workflow found no
+  concrete durable update to write
+- `blocked`: initiative selection is unresolved, initiative docs are dirty, or a
+  safe automatic recording decision cannot be made
+
+### 3. Record progress when the gate triggers
+
+When the gate triggers, run the `initiative-record-progress` workflow for this
+initiative before choosing next work. Use the same evidence standards and
+mutation boundary as that skill.
+
+Automatic recording is conservative:
+
+- Write only when branch/worktree evidence contains concrete durable progress,
+  findings, decisions, blockers, repo drift, or follow-ups.
+- Skip writing when evidence is vague, ceremonial, too in-progress to preserve,
+  or cannot be confidently assigned to this initiative.
+- If skipped, report why and continue read-only only when the next action is
+  still clear.
+
+After any write, re-read `initiative.md`, `roadmap.md`, and recent updates before
+summarizing state or choosing next work.
+
+### 4. Load initiative state
 
 Read `initiative.md` and `roadmap.md`, if present.
 
@@ -110,7 +200,7 @@ Default to the most recent 3-5 updates. Read more only when the roadmap is
 ambiguous, recent updates appear to supersede each other, or the user asks for a
 fuller review.
 
-### 3. Summarize current state
+### 5. Summarize current state
 
 Extract:
 
@@ -122,11 +212,13 @@ Extract:
   boxes, plus `Parked`
 - recent progress, findings, blockers, or decisions from updates
 
-If the durable files conflict with recent updates, treat the updates as
-evidence and report that `initiative-record-progress` may be needed to record the
-finding and refresh durable files. Do not rewrite the initiative from this skill.
+If this normal read finds that durable files conflict with recent updates or
+repo facts, and no progress workflow has already run this turn, run one
+`initiative-record-progress` refresh pass, then restart at step 4. If the refresh
+is skipped or blocked, report why and continue only when the next action remains
+safe to recommend.
 
-### 4. Select the next roadmap area
+### 6. Select the next roadmap area
 
 Build the effective roadmap state before selecting work.
 
@@ -170,7 +262,7 @@ entries by their prose title or short descriptive label. Do not invent IDs like
 If no single next step is clearly best, present 2-3 candidates with short
 rationales and ask the user to choose.
 
-### 5. Recommend implementation shape
+### 7. Recommend implementation shape
 
 Choose the smallest safe shape:
 
@@ -193,7 +285,7 @@ git branch --list <candidate-branch-slug>
 If a collision exists, say so and ask for a human choice. Do not auto-resolve by
 silently appending a suffix.
 
-### 6. Make the next action concrete
+### 8. Make the next action concrete
 
 For the selected work area, identify:
 
@@ -208,13 +300,17 @@ Do not start implementing. Stop at an actionable recommendation.
 
 ## Staleness Handling
 
-Recommend `initiative-record-progress` before implementation when:
+Run one `initiative-record-progress` refresh pass before implementation when:
 
 - recent updates or repo facts clearly contradict `initiative.md` or `roadmap.md`
 - several completed items are still marked `[~]` or `[ ]` in the roadmap
 - roadmap areas are too stale or vague to select from
 - completion criteria no longer match the initiative's current direction
 - repo drift after a rebase, restack, or trunk update changes the plan
+
+If the refresh pass already ran, was skipped, or is blocked, do not loop. Report
+the status and either recommend from the best reliable state or ask for the
+missing clarification.
 
 If durable files are factually current but verbose, note the readability issue;
 still recommend the next action when it is clear.
@@ -224,6 +320,9 @@ still recommend the next action when it is clear.
 Return:
 
 - initiative slug and title
+- progress gate status: `clean`, `recorded`, `skipped`, or `blocked`, with the
+  reason
+- if `recorded`, the update path and which durable files changed
 - concise current-state summary
 - selected roadmap work area
 - why it is the best next step
@@ -234,6 +333,5 @@ Return:
 - expected artifact
 - validation plan
 - risks or blockers
-- after-work reminder: record progress with `initiative-record-progress`; it
-  will also refresh `initiative.md` and `roadmap.md` when evidence shows they are
-  stale
+- when relevant, a soft post-work note that rerunning `initiative-next` will
+  perform the freshness gate again
