@@ -2,7 +2,8 @@
 
 ## Summary
 
-What changed, what was learned, or what decision was made.
+What changed, what was learned, what decision was made, or what repo drift was
+observed.
 
 ## Roadmap Context
 

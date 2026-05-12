@@ -2,13 +2,18 @@
 
 ## Status
 
-Design draft. This document describes the proposed checked-in initiative system and is intended to be the basis for implementing initiative-related skills.
+Design draft. This document describes the checked-in initiative system and is
+intended to be the basis for implementing initiative-related skills.
 
 ## Summary
 
-Initiatives are checked-in markdown documents for work that spans multiple sessions, branches, or pull requests.
+Initiatives are checked-in markdown documents for work that spans multiple
+sessions, branches, or pull requests.
 
-They are driven by skills and prompts, not by a CLI. The repository is the source of truth. Git provides history, review, sharing, and conflict handling. Skills provide the workflow for creating, reading, updating, and curating initiative documents.
+They are driven by skills and prompts, not by a CLI. The repository is the
+source of truth. Git provides history, review, sharing, and conflict handling.
+Skills provide the workflow for creating, reading, updating, and curating
+initiative documents.
 
 The system should stay simple:
 
@@ -17,7 +22,10 @@ The system should stay simple:
 - No CLI requirement.
 - No required frontmatter.
 - No stable numbered roadmap item IDs.
-- No automatic rewrite after every task.
+- No external service audit requirement.
+- The checked-out git repository is the ground truth at the time a skill runs.
+- `initiative-record-progress` assumes durable initiative files may be stale and
+  refreshes them every time it records progress.
 
 ## When To Use An Initiative
 
@@ -30,7 +38,9 @@ Use an initiative when the work needs durable context across sessions:
 - Cleanup efforts with sequencing or risk.
 - Work where future agents need rationale, not just a task list.
 
-Do not use an initiative for a small bug fix, a single obvious PR, a one-off operational request, or a short investigation whose findings fit naturally in chat or a PR description.
+Do not use an initiative for a small bug fix, a single obvious PR, a one-off
+operational request, or a short investigation whose findings fit naturally in
+chat or a PR description.
 
 ## Directory Layout
 
@@ -46,7 +56,11 @@ docs/initiatives/
       2026-05-12T091044Z-another-update.md
 ```
 
-Each initiative is a directory. The directory name is the initiative slug. The slug must be kebab-case and match `^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$` — lowercase ASCII letters and digits, single hyphens as separators, 1-50 characters, and no leading, trailing, or consecutive hyphens.
+Each initiative is a directory. The directory name is the initiative slug. The
+slug must be kebab-case and match
+`^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$` — lowercase ASCII letters and
+digits, single hyphens as separators, 1-50 characters, and no leading, trailing,
+or consecutive hyphens.
 
 ## Core Files
 
@@ -63,35 +77,93 @@ It should answer:
 - What constraints matter?
 - What invariants should future work preserve?
 - What does done look like?
+- What open questions still affect the plan?
 
-This file should change only when the durable understanding of the initiative changes.
+This file should not be a progress log. It should change when the durable
+understanding of the initiative changes: scope, constraints, invariants,
+completion criteria, risks, or open questions.
+
+`initiative-record-progress` treats this file as a set of current claims, not as
+unquestionable truth. On every progress record, the skill checks those claims
+against the update history and current checked-out repository state and edits the
+file only when durable understanding has changed.
 
 ### `roadmap.md`
 
-The current working roadmap.
+The current ordered work state.
 
-Roadmap entries are fluid named work areas, not stable tickets. They can be renamed, split, merged, moved, or deleted as understanding changes.
+Roadmap entries are fluid named work areas, not stable tickets. They can be
+renamed, split, merged, reordered, or parked as understanding changes.
 
-Roadmaps use these sections:
+The roadmap is intentionally state-shaped so users and agents can see what has
+been done, what is underway, what remains, and what has been deferred without
+reconstructing the plan from the update log.
 
-- `Completed`: work areas with durable evidence of completion, such as merged PRs, checked-in docs, tests, migrations, deletions, reports, released behavior, or an explicit user decision.
-- `In Progress`: work areas that are partially complete. This section is often empty because many PRs or branches complete exactly one roadmap item.
+Canonical top-level sections:
+
+```markdown
+# Roadmap
+
+## Completed
+
+- Completed work area.
+  - Evidence: PR, docs change, tests, migration, deletion, report, release, or
+    explicit decision.
+
+## In Progress
+
+- [ ] Partially completed work area.
+  - Artifact: Expected reviewable or verifiable output.
+  - Status: What is done and what remains.
+
+## Remaining
+
+- [ ] Not-started work area.
+  - Artifact: Expected reviewable or verifiable output.
+
+## Parked
+
+- Work intentionally deferred, blocked, rejected for now, canceled, or waiting on
+  external facts.
+```
+
+Section meanings:
+
+- `Completed`: work areas with durable evidence of completion, such as merged
+  PRs, checked-in docs, tests, migrations, deletions, reports, released behavior,
+  or an explicit user decision.
+- `In Progress`: work areas that are partially complete and have clear remaining
+  work.
 - `Remaining`: the ordered queue of incomplete roadmap areas.
-- `Parked`: work intentionally deferred, blocked, rejected for now, or waiting on external facts.
+- `Parked`: work intentionally deferred, blocked, rejected for now, canceled, or
+  waiting on external facts.
 
-Roadmap entries should point toward concrete artifacts such as PRs, merged commits, docs, tests, migrations, reports, deleted code, or released behavior.
+Use plain bullets for `Completed` and `Parked`. Use checkboxes for active
+incomplete work in `In Progress` and `Remaining` when useful. The section, not a
+stable ID, carries the item's state.
 
-The roadmap should avoid stable item numbers such as `R-001`. If an update needs to refer to roadmap context, it should name the relevant work area in prose.
+Roadmap entries should point toward concrete artifacts such as PRs, merged
+commits, docs, tests, migrations, reports, deleted code, or released behavior.
 
-Readers should tolerate older roadmaps that use `Now`, `Next`, and `Later`. Skills should normalize those legacy sections into the current ontology for presentation and planning, but should not migrate existing initiative files unless curation is explicitly requested.
+The roadmap should avoid stable item numbers such as `R-001`. If an update needs
+to refer to roadmap context, it should name the relevant work area in prose.
+
+Readers should tolerate older roadmaps that use `Now`, `Next`, and `Later`.
+Read-only skills should normalize those legacy sections into the current
+ontology for presentation and planning. `initiative-record-progress` may migrate
+a legacy or stale roadmap into the canonical sections as part of its refresh
+when the initiative history or current repository state justifies editing it.
 
 ### `updates/`
 
-A chronological record of progress, findings, and changes in understanding.
+A chronological evidence record of progress, findings, and changes in
+understanding.
 
-Each update is a new markdown file. Existing update files should not be edited except to correct an immediate mistake shortly after creation.
+Each update is a new markdown file. Existing update files should not be edited
+except to correct an immediate mistake shortly after creation.
 
-Update files do not need frontmatter. Metadata already exists in the path, filename, Git history, commits, branches, and PRs.
+Update files do not need frontmatter. Metadata already exists in the path,
+filename, Git history, commits, branches, and PRs.
 
 The filename should begin with a UTC timestamp and include a short slug:
 
@@ -105,13 +177,53 @@ Example:
 2026-05-11T143217Z-create-skill-shape.md
 ```
 
+Updates are the detailed audit trail. `initiative.md` and `roadmap.md` are the
+current distilled state.
+
+## Refresh Model
+
+Every call to `initiative-record-progress` performs two linked operations:
+
+1. Write exactly one new update file under `updates/`.
+2. Skeptically refresh `initiative.md` and `roadmap.md` from the full checked-in
+   initiative history and current repository state.
+
+The refresh is mandatory, but edits are not. If durable files are already
+current, the skill should leave them unchanged and report that no durable-file
+edits were needed.
+
+The refresh source of truth is repository state, not hidden memory:
+
+- current `initiative.md`
+- current `roadmap.md`
+- every existing update file
+- the drafted new update
+- current checked-out git repository state and relevant git history
+
+The current durable files are useful curated state, but they are not blindly
+trusted. They are hypotheses to verify against the full update history and the
+repo as currently checked out.
+
+Repo drift is recordable progress. If a rebase, restack, trunk merge, or other
+change to the checked-out repository invalidates initiative assumptions or
+changes the plan, `initiative-record-progress` should record that finding and
+refresh durable files even when the agent did not author new implementation
+commits.
+
+The v1 system does not require a full external-world audit on every update. It
+also does not add baseline commits or hidden state to initiative files. Use Git
+history and targeted repository inspection when needed to understand changed
+files, recover prior versions, or explain drift.
+
 ## Skill Suite
 
-The initiative system is operated through skills. The skills may share templates and references, but the checked-in files remain the durable state.
+The initiative system is operated through skills. The skills may share templates
+and references, but the checked-in files remain the durable state.
 
 ### `initiative-create`
 
-Creates a new initiative directory after enough discovery to avoid inventing context.
+Creates a new initiative directory after enough discovery to avoid inventing
+context.
 
 Writes:
 
@@ -119,7 +231,8 @@ Writes:
 - `roadmap.md`
 - `updates/`
 
-It should not create an initial update file unless there is specific session context worth preserving separately from the created documents.
+It should not create an initial update file unless there is specific session
+context worth preserving separately from the created documents.
 
 ### `initiative-current`
 
@@ -129,27 +242,57 @@ Inputs:
 
 - `initiative.md`
 - `roadmap.md`
-- recent files in `updates/`
+- recent or relevant files in `updates/`
 - current branch state
 - relevant git history when useful
 
-This skill is read-only. It presents an effective roadmap state by combining the durable roadmap with progress updates. For example, if `roadmap.md` still lists an item as incomplete but a later update records a completed artifact for that item, `initiative-current` should present the item under `Completed` and note that curation may be useful.
+This skill is read-only. It presents an effective roadmap state by combining the
+durable roadmap with progress updates. For example, if `roadmap.md` still lists
+an item as incomplete but a later update records a completed artifact for that
+item, `initiative-current` should present the item under `Completed` and note
+that `initiative-record-progress` can record the stale-state finding and refresh
+durable files.
 
 ### `initiative-next`
 
 Chooses the next useful piece of work.
 
-It should read the initiative state, identify the highest-value unblocked roadmap area, and recommend a concrete implementation shape. It should prefer unblocked `In Progress` work first, then the top useful `Remaining` work. It may suggest branch names, PR shape, validation work, or documentation work, but it does not mutate initiative files.
+It should read the initiative state, identify the highest-value unblocked roadmap
+area, and recommend a concrete implementation shape. It should prefer unblocked
+`In Progress` work first, then the top useful `Remaining` work. It may suggest
+branch names, PR shape, validation work, or documentation work, but it does not
+mutate initiative files.
+
+If recent updates or repository facts show durable files are stale enough to
+obscure the next step, it should recommend `initiative-record-progress` before
+implementation so the stale-state finding can be recorded and durable files can
+be refreshed.
 
 ### `initiative-record-progress`
 
-Records progress from the current session or branch.
+Records progress, findings, decisions, blockers, or repo drift from the current
+session or branch.
 
-Writes exactly one new file under `updates/`. It should not rewrite `initiative.md`, `roadmap.md`, or existing updates.
+Always writes exactly one new file under `updates/`.
+
+Also refreshes:
+
+- `initiative.md`
+- `roadmap.md`
+
+The refresh may make no durable-file edits. When it does edit durable files, it
+should be proactive but evidence-bound: move roadmap items among `Completed`,
+`In Progress`, `Remaining`, and `Parked`; revise completion criteria; park
+obsolete work; adjust sequencing; and update durable scope, constraints,
+invariants, risks, or open questions when the initiative history and current
+repository state justify it.
+
+It should not rewrite existing update files.
 
 ### `initiative-curate`
 
-Folds accumulated learning back into durable files.
+Performs an explicit manual curation pass when the user asks to compact,
+condense, or substantially reorganize durable initiative files.
 
 May edit:
 
@@ -158,19 +301,26 @@ May edit:
 
 Should not rewrite files in `updates/`.
 
-Use this skill when enough update files have accumulated that the durable initiative description or roadmap is stale. For roadmap curation, fold update evidence into `Completed`, `In Progress`, `Remaining`, and `Parked`; do not rewrite update files.
+Normal stale-state handling belongs in `initiative-record-progress`; curation is
+for larger readability, compaction, or restructuring work that should not happen
+opportunistically during every progress record.
 
 ### `initiative-close`
 
 Marks an initiative as complete or intentionally abandoned.
 
-The preferred v1 behavior is to update `initiative.md` with closure context and leave the directory in place. Deleting the initiative directory is discouraged because checked-in initiative history is useful.
+The preferred v1 behavior is to update `initiative.md` with closure context and
+leave the directory in place. Deleting the initiative directory is discouraged
+because checked-in initiative history is useful.
 
 ## Create Skill Intake
 
-`initiative-create` should ask only for information that cannot be safely inferred from the repo or the user's initial request.
+`initiative-create` should ask only for information that cannot be safely
+inferred from the repo or the user's initial request.
 
-If the initial request already answers most of these questions, ask only the missing blocker questions. If there is enough context to proceed, create a draft and record assumptions explicitly.
+If the initial request already answers most of these questions, ask only the
+missing blocker questions. If there is enough context to proceed, create a draft
+and record assumptions explicitly.
 
 Recommended intake:
 
@@ -182,7 +332,9 @@ Recommended intake:
 6. Are there known constraints or preferences?
 7. Where should I look first?
 
-The skill should keep interrogation short. The goal is not to make the user author the initiative. The goal is to get enough grounding for the agent to inspect the repo and draft useful checked-in documents.
+The skill should keep interrogation short. The goal is not to make the user
+author the initiative. The goal is to get enough grounding for the agent to
+inspect the repo and draft useful checked-in documents.
 
 ## Create Skill Discovery
 
@@ -190,12 +342,14 @@ Before writing files, `initiative-create` should do targeted discovery:
 
 - Read relevant project instructions such as `AGENTS.md`.
 - Search for existing initiatives under `docs/initiatives/`.
-- Check whether a close existing initiative should be continued instead of creating a duplicate.
+- Check whether a close existing initiative should be continued instead of
+  creating a duplicate.
 - Inspect likely packages, modules, docs, tests, and adjacent workflows.
 - Identify constraints, risk boundaries, and validation surfaces.
 - Capture unknowns honestly instead of pretending the roadmap is complete.
 
-Discovery should be proportional to the request. A broad architecture initiative needs more discovery than a narrowly scoped cleanup effort.
+Discovery should be proportional to the request. A broad architecture initiative
+needs more discovery than a narrowly scoped cleanup effort.
 
 ## `initiative.md` Template
 
@@ -204,11 +358,13 @@ Discovery should be proportional to the request. A broad architecture initiative
 
 ## Thesis
 
-One paragraph explaining the durable purpose of the initiative. This should remain useful even if the roadmap changes.
+One paragraph explaining the durable purpose of the initiative. This should
+remain useful even if the roadmap changes.
 
 ## Motivation
 
-Why this work matters. Describe the pain, risk, opportunity, or capability that justifies tracking this as an initiative.
+Why this work matters. Describe the pain, risk, opportunity, or capability that
+justifies tracking this as an initiative.
 
 ## Scope
 
@@ -222,7 +378,8 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 
 ## Constraints
 
-- Compatibility, architecture, sequencing, performance, ownership, review, or rollout constraints.
+- Compatibility, architecture, sequencing, performance, ownership, review, or
+  rollout constraints.
 
 ## Invariants
 
@@ -237,7 +394,7 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 
 ## Open Questions
 
-- Unknowns discovered during creation.
+- Unknowns discovered during creation or refresh.
 ```
 
 ## `roadmap.md` Template
@@ -248,7 +405,8 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 ## Completed
 
 - Completed work area.
-  - Evidence: PR, docs change, tests, migration, deletion, report, release, or explicit decision.
+  - Evidence: PR, docs change, tests, migration, deletion, report, release, or
+    explicit decision.
 
 ## In Progress
 
@@ -259,7 +417,8 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 ## Remaining
 
 - [ ] Named work area.
-  - Artifact: PR, docs change, tests, migration, deletion, report, or other reviewable output.
+  - Artifact: PR, docs change, tests, migration, deletion, report, or other
+    reviewable output.
   - Notes: Optional context.
 
 - [ ] Named work area.
@@ -267,7 +426,8 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 
 ## Parked
 
-- Work intentionally deferred, blocked, rejected for now, or waiting on external facts.
+- Work intentionally deferred, blocked, rejected for now, canceled, or waiting on
+  external facts.
 ```
 
 ## Update File Template
@@ -277,15 +437,19 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 
 ## Summary
 
-What changed, what was learned, or what decision was made.
+What changed, what was learned, what decision was made, or what repo drift was
+observed.
 
 ## Roadmap Context
 
-Name the roadmap area this relates to, if any. When relevant, state whether the update completes it, partially advances it, blocks it, or discovers new follow-up work. Do not use stable numbered IDs.
+Name the roadmap area this relates to, if any. When relevant, state whether the
+update completes it, partially advances it, blocks it, or discovers new follow-up
+work. Do not use stable numbered IDs.
 
 ## Initiative Impact
 
-Explain how this affects scope, constraints, invariants, completion criteria, risks, or future work.
+Explain how this affects scope, constraints, invariants, completion criteria,
+risks, or future work.
 
 ## Follow-Ups
 
@@ -294,19 +458,28 @@ Explain how this affects scope, constraints, invariants, completion criteria, ri
 
 ## Authoring Rules
 
-- Prefer prose that will still make sense after branches are merged and PRs are closed.
+- Prefer prose that will still make sense after branches are merged and PRs are
+  closed.
 - Keep roadmap entries outcome-oriented and artifact-backed.
-- Use `Completed`, `In Progress`, `Remaining`, and `Parked` for new roadmaps.
+- Use `Completed`, `In Progress`, `Remaining`, and `Parked` for new roadmaps and
+  for refreshes that edit stale roadmaps.
+- Use plain bullets, not checkboxes, for completed and parked work.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter unless a later skill has a concrete need for it.
-- Do not rewrite update files during curation.
-- Do not treat updates as canonical truth. They are evidence to be read and curated.
+- Do not rewrite update files during refresh or curation.
+- Do not treat durable files as blindly authoritative; refresh them from the
+  initiative history and current repository state.
+- Do not treat updates as canonical truth by themselves. They are evidence to be
+  read and distilled.
 - Preserve rationale and invariants even when implementation details change.
 - Record uncertainty as open questions or parked work.
 
 ## Open Design Questions
 
-- Whether closed initiatives should stay in place with closure context or move under `docs/initiatives/closed/`.
+- Whether closed initiatives should stay in place with closure context or move
+  under `docs/initiatives/closed/`.
 - Whether update filenames should include the current branch slug.
-- Whether initiative skills should share one combined `initiative` skill or separate operation-specific skills.
-- Whether curation should be triggered manually only or recommended after a threshold number of updates.
+- Whether initiative skills should share one combined `initiative` skill or
+  separate operation-specific skills.
+- Whether a future refresh should compare against external systems beyond the
+  checked-out repository.

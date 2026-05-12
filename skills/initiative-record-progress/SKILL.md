@@ -1,9 +1,10 @@
 ---
 name: initiative-record-progress
-description: Record progress, findings, decisions, or blockers for an existing checked-in initiative under docs/initiatives by writing exactly one new update file. Use when the user asks to log, capture, save, or write an initiative update for the current session, branch, PR, or workstream.
+description: Record progress, findings, decisions, blockers, or repo drift for an existing checked-in initiative under docs/initiatives by writing one new update file and skeptically refreshing durable initiative state.
 allowed-tools:
   - "Read"
   - "Write"
+  - "Edit"
   - "Bash(find *)"
   - "Bash(rg *)"
   - "Bash(git *)"
@@ -15,12 +16,13 @@ allowed-tools:
 
 # initiative-record-progress
 
-Record progress for an existing checked-in initiative by writing one new update
-file under `docs/initiatives/<slug>/updates/`.
+Record progress for a checked-in initiative under `docs/initiatives/<slug>/` by
+writing one new update file and skeptically refreshing `initiative.md` and
+`roadmap.md` from current session, branch, and repo evidence.
 
 Initiatives are durable markdown workstreams stored in the repository. This
-skill records evidence from the current session or branch; it does not curate
-or rewrite durable initiative state.
+skill records evidence from the current session or branch and refreshes durable
+initiative state when the evidence shows it is stale.
 
 ## When To Use
 
@@ -30,14 +32,18 @@ Use this skill when the user asks to:
 - write, add, log, capture, or save an initiative update
 - summarize current session, branch, PR, implementation, investigation, or
   review findings for an initiative
-- preserve a decision, blocker, abandoned approach, or change in understanding
+- preserve a decision, blocker, abandoned approach, repo-drift finding, or change
+  in understanding
+- refresh initiative state after a rebase, restack, trunk update, or other
+  checked-out repository change that affects the plan
 
 Do not use this skill to create a new initiative, choose the next work item,
-curate stale durable files, close an initiative, or implement source changes.
+compact initiative docs for readability, close an initiative, or implement
+source changes.
 
 Do not write ceremonial updates. If there is no concrete progress, finding,
-decision, blocker, or follow-up to preserve, ask what should be recorded instead
-of creating a vague file.
+decision, blocker, repo drift, or follow-up to preserve, ask what should be
+recorded instead of creating a vague file.
 
 ## Output
 
@@ -46,6 +52,9 @@ Write exactly one new markdown file:
 ```text
 docs/initiatives/<slug>/updates/YYYY-MM-DDTHHMMSSZ-short-description.md
 ```
+
+Also refresh `initiative.md` and `roadmap.md`. The refresh may make no edits; if
+durable files are already current, leave them unchanged and say so.
 
 The update file has no frontmatter. Metadata already exists in the path,
 filename, Git history, branch, and PRs. Do not duplicate unstable metadata in the
@@ -76,8 +85,8 @@ If no initiative is named:
 Never invent an initiative slug. Do not infer hidden state from brmem or other
 agent memory. Do not infer a slug from a partial branch-name match.
 
-Also use any explicit progress summary, title, PR context, branch context, or
-follow-ups supplied by the user as primary evidence.
+Use any explicit progress summary, title, PR context, branch context, repo-drift
+context, or follow-ups supplied by the user as primary evidence.
 
 ## Reads
 
@@ -85,18 +94,15 @@ Always read:
 
 - `docs/initiatives/<slug>/initiative.md`
 - `docs/initiatives/<slug>/roadmap.md`, if present
-- recent files in `docs/initiatives/<slug>/updates/`, if present
+- every markdown file in `docs/initiatives/<slug>/updates/`, if present
 - `skills/initiative-record-progress/templates/progress-record.md`
 
-Also inspect when useful:
+Also inspect current repository state: branch and worktree status, recent git
+history, changed-file summaries or targeted diffs, and any source, docs, or
+tests needed to describe progress or repo drift accurately.
 
-- current git branch and worktree status
-- recent commits on the current branch
-- `git diff --stat` or targeted diffs for changed files
-- relevant source, docs, or tests needed to describe the progress accurately
-
-Keep inspection proportional. This skill records progress; it should not audit
-the whole repository or perform curation.
+Read every prior update, but keep source inspection targeted — this is not a
+full-codebase audit.
 
 ## Mutation Boundary
 
@@ -105,20 +111,19 @@ This skill may:
 - create `docs/initiatives/<slug>/updates/` if the initiative exists but the
   directory is missing
 - write exactly one new markdown file under that `updates/` directory
+- edit `docs/initiatives/<slug>/initiative.md`
+- edit `docs/initiatives/<slug>/roadmap.md`
 
 This skill must not:
 
-- edit `initiative.md`
-- edit `roadmap.md`
 - edit existing update files, except for an immediate correction during the same
   response before final reporting
 - create branches, commit changes, submit PRs, or implement work
 - use brmem or any hidden agent state
 - add frontmatter or stable roadmap item IDs
-
-If the update reveals that `initiative.md` or `roadmap.md` is stale, mention the
-staleness in the new update when relevant and recommend `initiative-curate` in
-the final response. Do not perform curation from this skill.
+- query external systems as a required part of v1 refresh
+- perform cosmetic rewrites unrelated to the recorded evidence or current repo
+  state
 
 ## Workflow
 
@@ -139,28 +144,27 @@ When a slug or path is supplied, verify that the directory exists and contains
 If `docs/initiatives/` does not exist or no initiatives exist, stop and suggest
 `initiative-create` only when the work appears initiative-sized.
 
-### 2. Load initiative state
+### 2. Load full initiative state
 
 Read `initiative.md` and `roadmap.md` if present.
 
-List update files newest-first and read the most recent few:
+List update files oldest-to-newest and read all of them:
 
 ```bash
-find docs/initiatives/<slug>/updates -maxdepth 1 -type f -name '*.md' | sort -r
+find docs/initiatives/<slug>/updates -maxdepth 1 -type f -name '*.md' | sort
 ```
 
-Default to the most recent 3-5 updates. Read more only when recent progress is
-ambiguous or the user asks for a fuller history.
+If there are many updates, still account for all of them. Summarize older updates
+internally instead of copying large content into the response.
 
-### 3. Gather progress evidence
+### 3. Gather current repo evidence
 
-Use the conversation first. Then inspect lightweight repository evidence as
-needed:
+Use the conversation first. Then inspect lightweight repository evidence:
 
 ```bash
 git status --short
 git branch --show-current
-git log --oneline --decorate -5
+git log --oneline --decorate -10
 git diff --stat
 git diff --cached --stat
 ```
@@ -169,9 +173,13 @@ Use `git log` to understand recent work, but do not copy raw branch-local commit
 hashes into update prose by default; they can change during amend, rebase,
 restack, or squash.
 
-Use targeted diffs or file reads only when they are needed to avoid a misleading
-summary. If worktree changes are large or mixed, summarize only what can be
-confidently tied to the initiative and mark uncertainty honestly.
+Reach for targeted diffs, git history, or file reads only when needed to avoid a
+misleading summary or to refresh durable state accurately.
+
+Repo drift is valid evidence. If a rebase, restack, trunk merge, or other
+checked-out change affects initiative assumptions, roadmap ordering, completion
+status, or follow-up work, record that as a finding even when no new
+implementation commits were authored in the current session.
 
 ### 4. Decide whether an update is warranted
 
@@ -183,6 +191,7 @@ Write an update when there is concrete durable context, such as:
 - a blocker, risk, or abandoned approach
 - a change in understanding that should influence future work
 - follow-up work discovered during the session
+- repository drift that invalidates assumptions or changes future work
 
 Ask before writing when the only available content would be generic status such
 as "continued work" or when multiple initiatives could plausibly own the same
@@ -207,6 +216,9 @@ Use the template sections:
 Guidance:
 
 - Title the update with an outcome or finding, not a timestamp.
+- Treat the body as durable initiative evidence, not a raw branch changelog.
+  Center roadmap movement, open-question changes, blockers, decisions, repo
+  drift, validation, and follow-ups that should influence future state.
 - Keep prose useful after branches merge and PRs close.
 - Prefer durable anchors: file paths, artifact names, PR numbers/URLs once
   submitted, validation commands, observed outcomes, and user-supplied context.
@@ -220,16 +232,89 @@ Guidance:
   complete, blocked, newly discovered, or unchanged.
 - Distinguish observed facts from assumptions.
 - Include validation evidence when it matters.
-- Mention durable-file staleness only when the update makes it apparent.
 - Keep follow-ups concrete. Use `- None identified.` only when there truly are
   no follow-ups worth preserving.
 
 Do not claim work is complete solely because files changed. Tie completion
-claims to tests, commits, reviewable artifacts, or explicit user statements. If
-an update completes an item that `roadmap.md` still lists as incomplete, record
-the completion evidence; do not edit the roadmap from this skill.
+claims to tests, commits, reviewable artifacts, current repository evidence, or
+explicit user statements.
 
-### 6. Choose the filename
+### 6. Skeptically refresh durable state
+
+Treat current `initiative.md` and `roadmap.md` as useful curated claims, not as
+unquestionable truth.
+
+Refresh from:
+
+- current `initiative.md`
+- current `roadmap.md`
+- every prior update file
+- the drafted new update
+- current checked-out repository state and targeted git evidence
+
+Edit `initiative.md` only when durable understanding changed. Appropriate edits
+include:
+
+- updating scope or non-goals
+- revising constraints, invariants, risks, or open questions
+- checking off, adding, removing, or clarifying completion criteria when evidence
+  justifies it
+- preserving rationale that should survive implementation churn
+
+Do not put progress-log detail in `initiative.md`.
+
+Edit `roadmap.md` as the current ordered work state. Canonical shape:
+
+```markdown
+# Roadmap
+
+## Completed
+
+- Completed work area.
+  - Evidence: Delivered or verified output.
+
+## In Progress
+
+- [ ] Partially completed work area.
+  - Artifact: Expected reviewable or verifiable output.
+  - Status: What is done and what remains.
+
+## Remaining
+
+- [ ] Not-started work area.
+  - Artifact: Expected reviewable or verifiable output.
+
+## Parked
+
+- Deferred, blocked, rejected for now, canceled, or waiting work.
+```
+
+Roadmap refresh rules:
+
+- Move items with durable completion evidence to `Completed` as plain bullets.
+- Move partially completed items with clear remaining work to `In Progress`.
+- Keep the ordered queue of not-started or still-incomplete work under
+  `Remaining`.
+- Park obsolete, canceled, intentionally deferred, blocked, or waiting work under
+  `Parked` as plain bullets.
+- Keep completed and in-progress items visible in their sections unless the user
+  asks to compact or condense them.
+- Reorder incomplete work when evidence invalidates sequencing, while preserving
+  user-useful context.
+- Normalize legacy `Now` / `Next` / `Later` roadmaps into `Completed`,
+  `In Progress`, `Remaining`, and `Parked` when the roadmap is already being
+  edited for substantive refresh. Do not perform a section-only migration when
+  no durable state changed.
+- Keep entries outcome-oriented and artifact-backed. Preserve useful `Artifact`,
+  `Evidence`, `Status`, and `Notes` sub-bullets.
+- Do not invent stable numbered IDs.
+- Do not perform cosmetic rewrites unrelated to the recorded evidence or current
+  repository state.
+
+If the refresh changes sequencing, parks work, or substantially changes durable
+understanding, the new update or final response should explain why.
+
+### 7. Choose the filename
 
 Generate the timestamp with:
 
@@ -261,7 +346,7 @@ test -e docs/initiatives/<slug>/updates/<filename> && echo collision
 If a collision occurs, rerun `date -u` for a fresh timestamp. Never overwrite an
 existing update file.
 
-### 7. Write exactly one update file
+### 8. Write the update and durable refresh
 
 Create the updates directory only if needed:
 
@@ -269,30 +354,30 @@ Create the updates directory only if needed:
 mkdir -p docs/initiatives/<slug>/updates
 ```
 
-Then write the completed markdown file under that directory.
+Then write the completed markdown file under that directory and apply any needed
+edits to `initiative.md` and `roadmap.md`.
 
-Do not edit any other initiative file. Do not rewrite previous updates for
-consistency.
+Do not rewrite previous updates for consistency.
 
-## Staleness Handling
+## Curation And Compaction
 
-Recommend `initiative-curate` after recording progress when:
+Normal stale-state handling belongs in this skill. Do not merely recommend a
+separate curation step when the current update or repo evidence makes durable
+files stale; refresh them now.
 
-- recent updates contradict `initiative.md` or `roadmap.md`
-- completed work remains listed as incomplete roadmap work
-- roadmap areas are too vague to connect progress to future action
-- completion criteria or constraints no longer match the initiative direction
-- accumulated updates are becoming difficult to reconstruct into current state
+Recommend explicit curation or compaction only when:
 
-Curation is separate from progress recording. This skill may mention the need
-but must not perform it.
+- the user wants a readability rewrite or condensed roadmap
+- the roadmap has become too long but remains factually current
+- durable files need broad restructuring beyond the evidence being recorded
+- uncertainty is high enough that a separate planning conversation is safer
 
 ## Final Response
 
 After writing the update, return:
 
-- initiative slug and title
-- update file path
-- concise summary of what was captured
-- follow-ups recorded, if any
-- whether `initiative-curate` is recommended
+- initiative slug and update file path
+- which durable files were edited, or that none needed edits
+- concise summary of what was captured, including any repo-drift finding or
+  recorded follow-ups
+- whether explicit curation or compaction is recommended
