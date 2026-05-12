@@ -268,18 +268,14 @@ Edit `roadmap.md` as the current ordered work state. Canonical shape:
 ```markdown
 # Roadmap
 
-## Completed
+## Work
 
-- Completed work area.
+- [x] Completed work area.
   - Evidence: Delivered or verified output.
 
-## In Progress
-
-- [ ] Partially completed work area.
+- [~] Partially completed work area.
   - Artifact: Expected reviewable or verifiable output.
   - Status: What is done and what remains.
-
-## Remaining
 
 - [ ] Not-started work area.
   - Artifact: Expected reviewable or verifiable output.
@@ -291,18 +287,19 @@ Edit `roadmap.md` as the current ordered work state. Canonical shape:
 
 Roadmap refresh rules:
 
-- Move items with durable completion evidence to `Completed` as plain bullets.
-- Move partially completed items with clear remaining work to `In Progress`.
-- Keep the ordered queue of not-started or still-incomplete work under
-  `Remaining`.
+- Mark items with durable completion evidence as `[x]` in place and add or
+  update an `Evidence:` sub-bullet when useful.
+- Mark partially completed items as `[~]` and add or update a `Status:`
+  sub-bullet describing what is done and what remains.
+- Keep not-started work unchecked (`[ ]`) in the ordered `Work` list.
 - Park obsolete, canceled, intentionally deferred, blocked, or waiting work under
   `Parked` as plain bullets.
-- Keep completed and in-progress items visible in their sections unless the user
+- Keep completed and partially completed items visible in `Work` unless the user
   asks to compact or condense them.
-- Reorder incomplete work when evidence invalidates sequencing, while preserving
+- Reorder work only when evidence invalidates sequencing, while preserving
   user-useful context.
-- Normalize legacy `Now` / `Next` / `Later` roadmaps into `Completed`,
-  `In Progress`, `Remaining`, and `Parked` when the roadmap is already being
+- Normalize legacy `Completed` / `In Progress` / `Remaining` and `Now` / `Next`
+  / `Later` roadmaps into `Work` and `Parked` when the roadmap is already being
   edited for substantive refresh. Do not perform a section-only migration when
   no durable state changed.
 - Keep entries outcome-oriented and artifact-backed. Preserve useful `Artifact`,

@@ -1,23 +1,19 @@
 # Roadmap
 
-## Completed
+## Work
 
-- Define the fixture and runtime configuration contract.
+- [x] Define the fixture and runtime configuration contract.
   - Evidence: `docs/github-gateway-conformance-fixtures.md` documents the dedicated repository contract, pytest/runtime configuration boundary, checked-in persistent fixture catalog model, ephemeral run markers, mutation opt-in, authentication, rate-limit preflight, maintainer checklist, and open operating decisions.
 
-- Make live conformance and real gateway calls target an explicit repository.
+- [x] Make live conformance and real gateway calls target an explicit repository.
   - Evidence: `RealPRGateway` and `RealIssueGateway` accept an optional `owner/name` repo; shared `gh` helpers pass `-R` where supported; GraphQL and REST helpers parse the configured repo instead of relying on ambient `gh repo view`; gateway tests cover the explicit-repo command shapes.
 
-- Establish the opt-in live conformance spine for read-only runs.
+- [x] Establish the opt-in live conformance spine for read-only runs.
   - Evidence: `packages/asdl-core/live_conformance/github/` provides pytest options, config validation, preflight checks, fixture catalog types, a repository-targeted `gh` wrapper, and a first live read-only PR lookup test. `pyproject.toml` registers `live_github` markers, `justfile` exposes `just live-github-readonly <repo>`, and live tests are skipped unless `--run-live-github` is supplied.
 
-## In Progress
-
-- [ ] Prove the first read-only fake/real parity slice.
+- [~] Prove the first read-only fake/real parity slice.
   - Artifact: Shared contract helper or paired tests that exercise the same documented scenario against a fake gateway and the real gateway pointed at the fixture repository.
   - Status: The real-side `PRGateway.get_pr_for_branch` live check exists for the `pr_basic_lookup` scenario, with setup failures classified through preflight checks. Remaining work is to provision real fixture identifiers, add the fake-side or shared parity assertion, and run the slice against the canonical repository.
-
-## Remaining
 
 - [ ] Provision the canonical conformance repository and first persistent scenario fixtures.
   - Artifact: A dedicated GitHub repository plus recorded owner/name, visibility, maintainer, credential model, and persistent fixture identities needed by the first read-only slice.
