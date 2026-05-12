@@ -118,7 +118,8 @@ Extract:
 - scope and non-goals that constrain next work
 - completion criteria
 - open questions and constraints
-- active roadmap areas
+- effective roadmap state: `Completed`, `In Progress`, `Remaining`, and
+  `Parked`
 - recent progress, findings, blockers, or decisions from updates
 
 If the durable files conflict with recent updates, treat the updates as
@@ -127,12 +128,29 @@ from this skill.
 
 ### 4. Select the next roadmap area
 
+Build the effective roadmap state before selecting work.
+
+Use the current ontology:
+
+- `Completed`: already done; do not select.
+- `In Progress`: partially complete work.
+- `Remaining`: incomplete roadmap queue.
+- `Parked`: deferred, blocked, rejected-for-now, or waiting-on-external-facts
+  work.
+
+Backward compatibility:
+
+- If `roadmap.md` uses legacy `Now`, `Next`, and `Later` sections, normalize
+  unchecked entries into ordered `Remaining` candidates, preserving section order.
+- Keep `Parked` entries parked.
+- Use recent updates as evidence to remove completed work from consideration or
+  treat partial work as `In Progress`.
+
 Prefer the highest-value unblocked item in this order:
 
-1. unfinished `Now` work
-2. unfinished `Next` work
-3. unfinished `Later` work
-4. `Parked` work only when the user asks or a blocker has clearly cleared
+1. unblocked `In Progress` work, because finishing partial work reduces drift
+2. top useful `Remaining` work
+3. `Parked` work only when the user asks or a blocker has clearly cleared
 
 Within the relevant section, prefer work that is:
 
@@ -192,7 +210,7 @@ Do not start implementing. Stop at an actionable recommendation.
 Recommend `initiative-curate` before implementation when:
 
 - recent updates clearly contradict `initiative.md` or `roadmap.md`
-- several completed items remain listed as active work
+- several completed items remain listed as incomplete roadmap work
 - roadmap areas are too vague to select from
 - completion criteria no longer match the initiative's current direction
 - enough updates have accumulated that durable context is hard to reconstruct

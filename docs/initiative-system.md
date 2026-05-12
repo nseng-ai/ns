@@ -72,9 +72,18 @@ The current working roadmap.
 
 Roadmap entries are fluid named work areas, not stable tickets. They can be renamed, split, merged, moved, or deleted as understanding changes.
 
+Roadmaps use these sections:
+
+- `Completed`: work areas with durable evidence of completion, such as merged PRs, checked-in docs, tests, migrations, deletions, reports, released behavior, or an explicit user decision.
+- `In Progress`: work areas that are partially complete. This section is often empty because many PRs or branches complete exactly one roadmap item.
+- `Remaining`: the ordered queue of incomplete roadmap areas.
+- `Parked`: work intentionally deferred, blocked, rejected for now, or waiting on external facts.
+
 Roadmap entries should point toward concrete artifacts such as PRs, merged commits, docs, tests, migrations, reports, deleted code, or released behavior.
 
 The roadmap should avoid stable item numbers such as `R-001`. If an update needs to refer to roadmap context, it should name the relevant work area in prose.
+
+Readers should tolerate older roadmaps that use `Now`, `Next`, and `Later`. Skills should normalize those legacy sections into the current ontology for presentation and planning, but should not migrate existing initiative files unless curation is explicitly requested.
 
 ### `updates/`
 
@@ -124,13 +133,13 @@ Inputs:
 - current branch state
 - relevant git history when useful
 
-This skill is read-only.
+This skill is read-only. It presents an effective roadmap state by combining the durable roadmap with progress updates. For example, if `roadmap.md` still lists an item as incomplete but a later update records a completed artifact for that item, `initiative-current` should present the item under `Completed` and note that curation may be useful.
 
 ### `initiative-next`
 
 Chooses the next useful piece of work.
 
-It should read the initiative state, identify the highest-value unblocked roadmap area, and recommend a concrete implementation shape. It may suggest branch names, PR shape, validation work, or documentation work, but it does not mutate initiative files.
+It should read the initiative state, identify the highest-value unblocked roadmap area, and recommend a concrete implementation shape. It should prefer unblocked `In Progress` work first, then the top useful `Remaining` work. It may suggest branch names, PR shape, validation work, or documentation work, but it does not mutate initiative files.
 
 ### `initiative-record-progress`
 
@@ -149,7 +158,7 @@ May edit:
 
 Should not rewrite files in `updates/`.
 
-Use this skill when enough update files have accumulated that the durable initiative description or roadmap is stale.
+Use this skill when enough update files have accumulated that the durable initiative description or roadmap is stale. For roadmap curation, fold update evidence into `Completed`, `In Progress`, `Remaining`, and `Parked`; do not rewrite update files.
 
 ### `initiative-close`
 
@@ -236,7 +245,18 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 ```markdown
 # Roadmap
 
-## Now
+## Completed
+
+- Completed work area.
+  - Evidence: PR, docs change, tests, migration, deletion, report, release, or explicit decision.
+
+## In Progress
+
+- [ ] Partially completed work area.
+  - Artifact: Expected reviewable or verifiable output.
+  - Status: What is done and what remains.
+
+## Remaining
 
 - [ ] Named work area.
   - Artifact: PR, docs change, tests, migration, deletion, report, or other reviewable output.
@@ -245,19 +265,9 @@ Why this work matters. Describe the pain, risk, opportunity, or capability that 
 - [ ] Named work area.
   - Artifact: Expected reviewable or verifiable output.
 
-## Next
-
-- [ ] Named work area.
-  - Artifact: Expected reviewable or verifiable output.
-
-## Later
-
-- [ ] Named work area.
-  - Artifact: Expected reviewable or verifiable output.
-
 ## Parked
 
-- Work intentionally deferred, rejected, or waiting on external facts.
+- Work intentionally deferred, blocked, rejected for now, or waiting on external facts.
 ```
 
 ## Update File Template
@@ -271,7 +281,7 @@ What changed, what was learned, or what decision was made.
 
 ## Roadmap Context
 
-Name the roadmap area this relates to, if any. Do not use stable numbered IDs.
+Name the roadmap area this relates to, if any. When relevant, state whether the update completes it, partially advances it, blocks it, or discovers new follow-up work. Do not use stable numbered IDs.
 
 ## Initiative Impact
 
@@ -286,6 +296,7 @@ Explain how this affects scope, constraints, invariants, completion criteria, ri
 
 - Prefer prose that will still make sense after branches are merged and PRs are closed.
 - Keep roadmap entries outcome-oriented and artifact-backed.
+- Use `Completed`, `In Progress`, `Remaining`, and `Parked` for new roadmaps.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter unless a later skill has a concrete need for it.
 - Do not rewrite update files during curation.
