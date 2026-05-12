@@ -7,7 +7,7 @@ description: "Command: initiative-next"
 
 Recommend the next useful work for an active Initiative.
 
-Source of truth: read `docs/initiative-system.md`, then follow the `initiative-next` operation contract.
+Source of truth: read `CONTEXT.md` for domain language and `docs/initiative-system.md` for mechanics, then follow the `initiative-next` operation contract.
 
 Stub guardrails:
 

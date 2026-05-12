@@ -7,7 +7,7 @@ description: "Command: initiative-close"
 
 Close an Initiative without deleting its checked-in history.
 
-Source of truth: read `docs/initiative-system.md`, then follow the `initiative-close` operation contract.
+Source of truth: read `CONTEXT.md` for domain language and `docs/initiative-system.md` for mechanics, then follow the `initiative-close` operation contract.
 
 Stub guardrails:
 
