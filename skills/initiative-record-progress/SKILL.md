@@ -8,7 +8,6 @@ allowed-tools:
   - "Bash(find *)"
   - "Bash(rg *)"
   - "Bash(git *)"
-  - "Bash(ls *)"
   - "Bash(test *)"
   - "Bash(date -u *)"
   - "Bash(mkdir -p *)"
@@ -62,7 +61,7 @@ body unless it is semantically useful.
 
 ## Template Path
 
-Resolve the template relative to this skill directory:
+Resolve the template from the repo root:
 
 - `skills/initiative-record-progress/templates/progress-record.md`
 
@@ -76,14 +75,11 @@ Accept an optional initiative slug or path from the prompt.
 If no initiative is named:
 
 1. Inspect `docs/initiatives/`.
-2. If the current branch name exactly matches an initiative slug, use that
-   initiative.
-3. If exactly one initiative exists, use it.
-4. If multiple initiatives are plausible, list the options and ask the user to
-   choose.
+2. If exactly one initiative exists, use it.
+3. If multiple initiatives exist, list the options and ask the user to choose.
 
 Never invent an initiative slug. Do not infer hidden state from brmem or other
-agent memory. Do not infer a slug from a partial branch-name match.
+agent memory.
 
 Use any explicit progress summary, title, PR context, branch context, repo-drift
 context, or follow-ups supplied by the user as primary evidence.

@@ -52,11 +52,11 @@ decisions worth preserving separately from the created documents.
 
 ## Template Paths
 
-Resolve templates relative to this skill directory, not the initiative target:
+Resolve templates from the repo root:
 
 - `skills/initiative-create/templates/initiative.md`
 - `skills/initiative-create/templates/roadmap.md`
-- `skills/initiative-create/templates/update.md`
+- `skills/initiative-record-progress/templates/progress-record.md`
 
 Use the templates as starting points for files written under
 `docs/initiatives/<slug>/`.
@@ -81,32 +81,51 @@ When enough context exists, proceed and record assumptions explicitly.
 
 ## Workflow
 
-1. Gather only the missing intake context needed for a useful draft.
-2. Run discovery, including the existing-initiative duplicate check.
-3. Choose and validate the slug.
-4. Read the relevant templates from `skills/initiative-create/templates/`.
-5. Create the target directory:
+### 1. Gather intake
 
-   ```bash
-   mkdir -p docs/initiatives/<slug>/updates
-   ```
+Gather only the missing intake context needed for a useful draft. See `## Intake`.
 
-6. Write `initiative.md` and `roadmap.md` under `docs/initiatives/<slug>/`.
-7. Write one initial update only when the session context warrants it.
-8. Summarize the created initiative and immediate next step.
+### 2. Run discovery
+
+Run discovery, including the existing-initiative duplicate check. See `## Discovery`.
+
+### 3. Choose the slug
+
+Choose and validate the slug. See `## Slug`.
+
+### 4. Read templates
+
+Read the relevant templates from `skills/initiative-create/templates/`.
+
+### 5. Create the target directory
+
+```bash
+mkdir -p docs/initiatives/<slug>/updates
+```
+
+### 6. Write durable files
+
+Write `initiative.md` and `roadmap.md` under `docs/initiatives/<slug>/`. See
+`## initiative.md` and `## roadmap.md`.
+
+### 7. Write the initial update (optional)
+
+Write one initial update only when the session context warrants it. See
+`## Initial Update File`.
+
+### 8. Summarize
+
+Summarize the created initiative and immediate next step.
 
 ## Discovery
 
 Before writing files:
 
 1. Read relevant project instructions such as `AGENTS.md`.
-2. Search `docs/initiatives/` for nearby existing initiatives.
-3. Read titles and thesis/motivation sections for plausible matches, not just
-   directory names. Duplicate scope under a different slug is the real risk.
-4. If a close existing initiative exists, recommend continuing it instead of
-   creating a duplicate.
-5. Inspect likely packages, modules, docs, tests, and adjacent workflows.
-6. Identify constraints, risks, validation surfaces, and open questions.
+2. Scan existing initiatives for slug collision and semantic overlap (see
+   `## Slug` below for the procedure).
+3. Inspect likely packages, modules, docs, tests, and adjacent workflows.
+4. Identify constraints, risks, validation surfaces, and open questions.
 
 Scale discovery to the request. Broad architecture initiatives need more
 inspection than narrowly scoped cleanup initiatives.
@@ -200,8 +219,24 @@ date -u +%Y-%m-%dT%H%M%SZ
 Use the command's output verbatim — do not hand-type the timestamp. Update
 files do not need frontmatter.
 
-Use `templates/update.md`. Delete placeholder prose and skip sections only when
-they would be empty noise.
+Generate a short description slug from the update title or main outcome:
+
+- lowercase ASCII letters and digits
+- single hyphens as separators
+- no leading, trailing, or consecutive hyphens
+- usually 2-6 words
+
+Before writing, ensure the file does not already exist:
+
+```bash
+test -e docs/initiatives/<slug>/updates/<filename> && echo collision
+```
+
+If a collision occurs, rerun `date -u` for a fresh timestamp. Never overwrite
+an existing update file.
+
+Use `skills/initiative-record-progress/templates/progress-record.md`. Delete
+placeholder prose and skip sections only when they would be empty noise.
 
 ## Authoring Rules
 
