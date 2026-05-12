@@ -28,7 +28,7 @@ Use this skill when the user asks to:
 - plan the next PR, branch, stack, investigation, or docs change
 - decide what roadmap area is highest-value and unblocked
 
-Do not use this skill to create a new initiative, record progress, curate stale
+Do not use this skill to create a new initiative, record progress, refresh stale
 initiative docs, close an initiative, or perform the implementation itself.
 
 ## Inputs
@@ -77,8 +77,11 @@ Do not:
 - commit changes
 - implement source, test, or docs changes
 
-If progress needs to be recorded, recommend `initiative-record-progress`.
-If durable initiative state is stale, recommend `initiative-curate`.
+If progress needs to be recorded, recommend `initiative-record-progress`. If
+durable initiative state is stale, recommend `initiative-record-progress` so the
+stale-state finding can be recorded and durable files can be refreshed. If
+durable files are factually current but hard to read, note the readability issue
+without naming a separate workflow.
 
 ## Workflow
 
@@ -123,8 +126,8 @@ Extract:
 - recent progress, findings, blockers, or decisions from updates
 
 If the durable files conflict with recent updates, treat the updates as
-evidence and report that curation may be needed. Do not rewrite the initiative
-from this skill.
+evidence and report that `initiative-record-progress` may be needed to record the
+finding and refresh durable files. Do not rewrite the initiative from this skill.
 
 ### 4. Select the next roadmap area
 
@@ -135,8 +138,8 @@ Use the current ontology:
 - `Completed`: already done; do not select.
 - `In Progress`: partially complete work.
 - `Remaining`: incomplete roadmap queue.
-- `Parked`: deferred, blocked, rejected-for-now, or waiting-on-external-facts
-  work.
+- `Parked`: deferred, blocked, rejected-for-now, canceled, or
+  waiting-on-external-facts work.
 
 Backward compatibility:
 
@@ -207,16 +210,16 @@ Do not start implementing. Stop at an actionable recommendation.
 
 ## Staleness Handling
 
-Recommend `initiative-curate` before implementation when:
+Recommend `initiative-record-progress` before implementation when:
 
-- recent updates clearly contradict `initiative.md` or `roadmap.md`
+- recent updates or repo facts clearly contradict `initiative.md` or `roadmap.md`
 - several completed items remain listed as incomplete roadmap work
-- roadmap areas are too vague to select from
+- roadmap areas are too stale or vague to select from
 - completion criteria no longer match the initiative's current direction
-- enough updates have accumulated that durable context is hard to reconstruct
+- repo drift after a rebase, restack, or trunk update changes the plan
 
-If curation is useful but not blocking, still recommend the next action and note
-that curation should happen soon.
+If durable files are factually current but verbose, note the readability issue;
+still recommend the next action when it is clear.
 
 ## Final Response
 
@@ -233,5 +236,6 @@ Return:
 - expected artifact
 - validation plan
 - risks or blockers
-- after-work reminder: record progress with `initiative-record-progress`; run
-  `initiative-curate` only if durable initiative state changed or became stale
+- after-work reminder: record progress with `initiative-record-progress`; it
+  will also refresh `initiative.md` and `roadmap.md` when evidence shows they are
+  stale

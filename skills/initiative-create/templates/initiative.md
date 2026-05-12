@@ -38,4 +38,4 @@ justifies tracking this as an initiative.
 
 ## Open Questions
 
-- Unknowns discovered during creation.
+- Unknowns discovered during creation or refresh.

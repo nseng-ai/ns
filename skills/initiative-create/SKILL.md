@@ -155,8 +155,8 @@ with task-specific content. Keep unknowns honest in `Open Questions`.
 
 ## `roadmap.md`
 
-Write the current working roadmap. Entries are fluid named work areas, not
-stable tickets. They may be renamed, split, merged, moved, or deleted as
+Write the current ordered work state. Entries are fluid named work areas, not
+stable tickets. They may be renamed, split, merged, reordered, or parked as
 understanding changes.
 
 Use these sections:
@@ -167,8 +167,11 @@ Use these sections:
   initiative unless discovery found active partial work.
 - `Remaining`: the ordered queue of incomplete work areas. Most newly drafted
   roadmap entries belong here.
-- `Parked`: deferred, blocked, rejected-for-now, or waiting-on-external-facts
-  work.
+- `Parked`: deferred, blocked, rejected-for-now, canceled, or
+  waiting-on-external-facts work.
+
+Use plain bullets for `Completed` and `Parked`; use checkboxes for incomplete
+active work in `In Progress` and `Remaining` when useful.
 
 Do not use stable numbered IDs such as `R-001`. Point entries toward concrete
 artifacts such as PRs, merged commits, docs, tests, migrations, reports,
@@ -206,6 +209,7 @@ they would be empty noise.
   are closed.
 - Keep roadmap entries outcome-oriented and artifact-backed.
 - Use `Completed`, `In Progress`, `Remaining`, and `Parked` for new roadmaps.
+- Use plain bullets, not checkboxes, for completed and parked work.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter.
 - Do not use brmem.

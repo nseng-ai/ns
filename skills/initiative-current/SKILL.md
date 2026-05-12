@@ -30,7 +30,7 @@ Use this skill when the user asks to:
 - understand how the current branch relates to an initiative
 
 Do not use this skill to create a new initiative, choose the next work item,
-record progress, curate durable files, close an initiative, or implement source
+record progress, refresh durable files, close an initiative, or implement source
 changes.
 
 ## Inputs
@@ -81,8 +81,11 @@ Do not:
 - use brmem or hidden agent state
 
 If progress needs to be recorded, recommend `initiative-record-progress`. If
-durable initiative files are stale, recommend `initiative-curate`. If the user
-wants a concrete next work item, recommend `initiative-next`.
+durable initiative files are stale, recommend `initiative-record-progress` so the
+stale-state finding can be recorded and durable files can be refreshed. If
+durable files are factually current but hard to read, report that as a readability
+issue instead of naming a separate workflow. If the user wants a concrete next
+work item, recommend `initiative-next`.
 
 ## Workflow
 
@@ -141,8 +144,8 @@ Use the current ontology in the response:
 - `Completed`: roadmap areas with durable evidence of completion.
 - `In Progress`: partially completed roadmap areas. Omit this section when empty.
 - `Remaining`: incomplete roadmap areas, in useful order.
-- `Parked`: deferred, blocked, rejected-for-now, or waiting-on-external-facts
-  work.
+- `Parked`: deferred, blocked, rejected-for-now, canceled, or
+  waiting-on-external-facts work.
 
 Backward compatibility:
 
@@ -178,7 +181,8 @@ Also extract:
 
 Treat update files as evidence, not canonical truth. If the effective view
 substantially differs from `roadmap.md`, report the difference and note that
-`initiative-curate` may be useful. Do not rewrite durable state from this skill.
+`initiative-record-progress` can record the stale-state finding and refresh
+durable files. Do not rewrite durable state from this skill.
 
 ### 5. Stay out of planning mode
 
@@ -201,8 +205,9 @@ Return:
 - completion-state readout, if the files make it clear
 - recommended follow-up skill only when useful:
   - `initiative-next` for next-work planning
-  - `initiative-record-progress` for saving new progress
-  - `initiative-curate` for stale durable files
+  - `initiative-record-progress` for saving new progress or refreshing stale
+    durable files
+- readability or organization concerns, when useful
 
 Keep the response factual and read-only. Do not invent roadmap IDs, frontmatter,
 or hidden metadata.

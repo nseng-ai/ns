@@ -24,5 +24,5 @@
 
 ## Parked
 
-- Work intentionally deferred, blocked, rejected for now, or waiting on external
-  facts.
+- Work intentionally deferred, blocked, rejected for now, canceled, or waiting on
+  external facts.
