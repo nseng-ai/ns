@@ -6,7 +6,6 @@ allowed-tools:
   - "Bash(find *)"
   - "Bash(rg *)"
   - "Bash(git *)"
-  - "Bash(ls *)"
   - "Bash(test *)"
 ---
 
@@ -28,8 +27,8 @@ Use this skill when the user asks to:
 - plan the next PR, branch, stack, investigation, or docs change
 - decide what roadmap area is highest-value and unblocked
 
-Do not use this skill to create a new initiative, record progress, refresh stale
-initiative docs, close an initiative, or perform the implementation itself.
+Do not use this skill to create a new initiative, record progress, refresh
+durable files, close an initiative, or perform the implementation itself.
 
 ## Inputs
 
@@ -39,12 +38,9 @@ If no initiative is named:
 
 1. Inspect `docs/initiatives/`.
 2. If exactly one initiative exists, use it.
-3. If the current branch name exactly matches an initiative slug, prefer that
-   initiative.
-4. If multiple initiatives are plausible, list the options and ask the user to
-   choose.
+3. If multiple initiatives exist, list the options and ask the user to choose.
 
-Never invent an initiative slug. Never infer hidden state from brmem or other
+Never invent an initiative slug. Do not infer hidden state from brmem or other
 agent memory.
 
 ## Reads
@@ -76,6 +72,7 @@ Do not:
 - create a branch
 - commit changes
 - implement source, test, or docs changes
+- use brmem or hidden agent state
 
 If progress needs to be recorded, recommend `initiative-record-progress`. If
 durable initiative state is stale, recommend `initiative-record-progress` so the
@@ -101,7 +98,7 @@ When a slug or path is supplied, verify that the directory exists and contains
 
 ### 2. Load initiative state
 
-Read `initiative.md` and `roadmap.md`.
+Read `initiative.md` and `roadmap.md`, if present.
 
 List update files newest-first and read the most recent few:
 

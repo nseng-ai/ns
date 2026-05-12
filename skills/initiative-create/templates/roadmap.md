@@ -10,12 +10,12 @@
   - Artifact: Expected reviewable or verifiable output.
   - Status: What is done and what remains.
 
-- [ ] Named work area.
+- [ ] Not-started work area.
   - Artifact: PR, docs change, tests, migration, deletion, report, or other
     reviewable output.
   - Notes: Optional context.
 
-- [ ] Named work area.
+- [ ] Not-started work area.
   - Artifact: Expected reviewable or verifiable output.
 
 ## Parked
