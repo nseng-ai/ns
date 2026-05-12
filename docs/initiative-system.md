@@ -166,10 +166,20 @@ Contract:
 
 - Require an explicit slug or explicit user confirmation of an LM-proposed slug.
 - Create `.asdl/initiatives/<slug>/` with `initiative.md`, `roadmap.md`, and `updates/`.
-- Before writing, conduct a `grill-me` style context pass: interview the user relentlessly about every aspect until shared understanding is reached; walk down each branch of the design tree, resolving dependencies between decisions one-by-one; explore repository evidence for answerable questions; ask one unresolved question at a time; include a recommended answer with each question; after each question, ask whether to continue or stop and create the Initiative with the context gathered so far; focus on scope, completion criteria, assumptions, risks, sequencing, and closure evidence.
 - Write LM-authored initial content using the standardized headings, including a concrete `## Assumptions and Risks` section.
 - Do not create an initial update file; the initial durable files are the birth record.
 - Do not create `closed.md`.
+
+User interview:
+
+- Before writing, conduct a user interview inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md).
+- Interview the user relentlessly about every aspect until shared understanding is reached.
+- Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
+- Explore repository evidence for answerable questions before asking the user.
+- Ask one unresolved question at a time.
+- Include a recommended answer with each question.
+- After each question, ask whether to continue or stop and create the Initiative with the context gathered so far.
+- Focus on scope, completion criteria, assumptions, risks, sequencing, and closure evidence.
 
 Future CLI pushdown candidates:
 

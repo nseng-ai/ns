@@ -51,7 +51,7 @@ Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
 ## Workflow
 
 1. Gather enough context to write a useful title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and initial roadmap.
-2. Use a `grill-me` style discovery loop before writing:
+2. Conduct a user interview before writing, inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md):
    - Interview the user relentlessly about every aspect of the initiative until shared understanding is reached.
    - Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
    - Explore the codebase or existing docs instead of asking questions whose answers can be discovered locally.
