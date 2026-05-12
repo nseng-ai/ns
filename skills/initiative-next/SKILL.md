@@ -7,11 +7,18 @@ description: "Command: initiative-next"
 
 Recommend the next useful work for an active Initiative without mutating files.
 
-## Read first
+For shared vocabulary and system-wide rules, use the `initiative` skill when available; this command remains self-contained.
 
-- Read `CONTEXT.md` for Initiative domain language and anti-precedents.
-- Read `docs/initiative-system.md`, especially Initiative Selection, `initiative-next`, and Tracking Gate.
-- V1 is markdown-only: read Markdown directly; do not add or call Python CLI tooling.
+## Required shape
+
+Canonical root: `.asdl/initiatives/<slug>/`.
+
+- `initiative.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Open Questions`; `## Closure` when closed.
+- `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
+- `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Initiative Impact`, `## Follow-Ups`.
+- `closed.md`: optional Closure Marker; existence means closed.
+
+V1 is markdown-only: read Markdown directly; do not add or call Python CLI tooling.
 
 ## Resolve the Initiative
 
@@ -22,18 +29,23 @@ Recommend the next useful work for an active Initiative without mutating files.
 
 Never infer Initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
 
+## Tracking Gate
+
+Before recommending work:
+
+1. Inspect uncommitted changes and branch diff when available.
+2. Look for material non-Initiative changes that plausibly advance the selected Initiative.
+3. Look for corresponding changes under `.asdl/initiatives/<slug>/`.
+4. If meaningful progress appears likely but unrecorded, stop and ask the user to run `initiative-update`.
+5. If evidence is absent, ambiguous, or clearly unrelated, proceed with a concise note.
+
 ## Workflow
 
-1. Exclude closed Initiatives by default. If the selected Initiative has `closed.md`, stop and say it is closed rather than recommending new work.
+1. Exclude closed Initiatives by default. If `closed.md` exists, stop and say it is closed.
 2. Read `initiative.md`, `roadmap.md`, and relevant `updates/` files.
-3. Apply the read-only Tracking Gate before recommending work:
-   - Inspect uncommitted changes and branch diff when available.
-   - Look for material non-Initiative changes that plausibly advance the selected Initiative.
-   - Look for corresponding changes under `.asdl/initiatives/<slug>/`.
-   - If meaningful progress appears likely but unrecorded, stop and ask the user to run `initiative-update`.
-   - If evidence is absent, ambiguous, or clearly unrelated, proceed with a concise note.
+3. Apply the Tracking Gate.
 4. Recommend the smallest coherent next step grounded in the Initiative narrative and roadmap.
-5. Explain why this is next, what files or areas are likely involved, and what completion evidence should be recorded afterward.
+5. Explain why this is next, likely files or areas, and what completion evidence should be recorded afterward.
 6. If no active or planned work remains, say the Initiative may be ready for `initiative-close` instead of inventing work.
 
 ## Stop / ask
