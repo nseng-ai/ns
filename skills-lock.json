@@ -6,6 +6,11 @@
       "sourceType": "local",
       "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
+    "brmem-handoff": {
+      "source": "skills/brmem-handoff",
+      "sourceType": "local",
+      "computedHash": "7a260ae962051648096af0c79769fbd87ae19d84001ffddba4476e8498f8817e"
+    },
     "dev-brmem-branch-create": {
       "source": "skills/dev-brmem-branch-create",
       "sourceType": "local",
