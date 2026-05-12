@@ -7,11 +7,18 @@ description: "Command: initiative-current"
 
 Read and summarize the current state of one Initiative without mutating files.
 
-## Read first
+For shared vocabulary and system-wide rules, use the `initiative` skill when available; this command remains self-contained.
 
-- Read `CONTEXT.md` for Initiative domain language and anti-precedents.
-- Read `docs/initiative-system.md`, especially Documentation Surfaces, Initiative Selection, and the `initiative-current` contract.
-- V1 is markdown-only: read Markdown directly; do not add or call Python CLI tooling.
+## Required shape
+
+Canonical root: `.asdl/initiatives/<slug>/`.
+
+- `initiative.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Open Questions`; `## Closure` when closed.
+- `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
+- `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Initiative Impact`, `## Follow-Ups`.
+- `closed.md`: optional Closure Marker; existence means closed.
+
+V1 is markdown-only: read Markdown directly; do not add or call Python CLI tooling.
 
 ## Resolve the Initiative
 
@@ -24,17 +31,17 @@ Never infer Initiative ownership from branch names, objectives, PR titles, packa
 
 ## Workflow
 
-1. Read `initiative.md`, `roadmap.md`, the newest relevant files in `updates/`, and whether `closed.md` exists.
-2. If required files are missing, report that clearly; do not scaffold or repair them in this read-only command.
-3. Summarize the durable narrative: thesis, scope boundaries, completion criteria, open questions, roadmap status, blockers, and recent Semantic Updates.
-4. Report whether the Initiative is closed based on `closed.md` presence, and include closure context from `initiative.md` when present.
+1. Read `initiative.md`, `roadmap.md`, newest relevant files in `updates/`, and whether `closed.md` exists.
+2. If required files are missing, report that clearly; do not scaffold or repair them.
+3. Summarize thesis, scope boundaries, completion criteria, open questions, roadmap status, blockers, and recent Semantic Updates.
+4. Report whether the Initiative is closed based on `closed.md` presence; include closure context from `initiative.md` when present.
 5. Do not edit, create, delete, or reformat any Initiative files.
 
 ## Stop / ask
 
 - Initiative selection is ambiguous or absent.
 - The selected path is outside `.asdl/initiatives/`.
-- The user asks for mutation; redirect to `initiative-update`, `initiative-create`, or `initiative-close` as appropriate.
+- The user asks for mutation; redirect to `initiative-update`, `initiative-create`, or `initiative-close`.
 
 ## Verify
 
