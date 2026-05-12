@@ -4,7 +4,7 @@
 
 Initial operating contract for the `github-gateway-conformance-harness` initiative.
 
-The canonical GitHub repository has not been selected yet. Until it is selected, this document defines the repository shape, fixture lifecycle, and configuration contract that the first live conformance tests should target.
+The canonical GitHub repository has not been selected yet. Until it is selected, this document defines the repository shape, fixture lifecycle, fixture catalog model, and runtime configuration boundary that the first live conformance tests target.
 
 ## Purpose
 
@@ -12,7 +12,7 @@ The live GitHub conformance suite validates the public `asdl_core.gh` gateway co
 
 The fixture contract is intentionally separate from test implementation. It should be stable enough that:
 
-- a maintainer can create or repair the test repository without reading test internals;
+- a maintainer can create or repair the test repository without reading gateway internals;
 - a test author can add a conformance case without guessing which resources are safe;
 - a CI author can configure scheduled/manual runs without exposing production repositories;
 - failures can distinguish fixture/environment problems from real fake-vs-real contract drift.
@@ -32,98 +32,99 @@ Required repository properties:
 
 The repository should have a short README that identifies it as an automated conformance fixture repository and links back to this document or its successor.
 
-## Configuration Contract
+## Runtime Configuration Boundary
 
-Live conformance tests should require explicit repository selection. They must not accidentally run against the developer's current repository just because `gh` can infer context from git remotes.
+Runtime configuration stays small and explicit. It answers only:
 
-Use these environment variables as the initial configuration surface:
+- should live tests run;
+- which repository should they target;
+- are mutating tests allowed;
+- what run id should ephemeral resources use.
 
-| Variable                                 | Required | Meaning                                                                                 |
-| ---------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| `ASDL_GH_CONFORMANCE_REPO`               | yes      | GitHub repository in `owner/name` form.                                                 |
-| `ASDL_GH_CONFORMANCE_GOLDEN_PR`          | yes      | Pull request number for the persistent read-only golden PR.                             |
-| `ASDL_GH_CONFORMANCE_GOLDEN_BRANCH`      | yes      | Head branch name for the persistent read-only golden PR.                                |
-| `ASDL_GH_CONFORMANCE_GOLDEN_ISSUE_LABEL` | yes      | Label that selects persistent read-only golden issues.                                  |
-| `ASDL_GH_CONFORMANCE_AUTHOR_LOGIN`       | optional | Expected bot/user login for marker-based comment lookup tests, when author-sensitive.   |
-| `ASDL_GH_CONFORMANCE_RUN_ID`             | optional | Caller-provided unique run id. If absent, the harness should generate one per test run. |
-| `ASDL_GH_CONFORMANCE_ALLOW_MUTATIONS`    | optional | Must be set to `1` before mutating live tests create or update GitHub resources.        |
+Primary configuration is pytest options:
 
-Authentication should use the normal `gh` mechanisms:
+```bash
+uv run pytest packages/asdl-core/live_conformance/github \
+  --run-live-github \
+  --github-conformance-repo owner/asdl-gh-conformance
+```
 
-- local runs: `gh auth status` should show an authenticated account with access to `ASDL_GH_CONFORMANCE_REPO`;
+The repo also provides a convenience recipe for the read-only slice:
+
+```bash
+just live-github-readonly owner/asdl-gh-conformance
+```
+
+Optional environment fallback exists only at the pytest boundary:
+
+| Variable                              | Meaning                                                                                  |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `ASDL_GH_CONFORMANCE_REPO`            | GitHub repository in `owner/name` form, used when `--github-conformance-repo` is absent. |
+| `ASDL_GH_CONFORMANCE_ALLOW_MUTATIONS` | Set to `1` to allow tests marked `live_github_mutating`.                                 |
+| `ASDL_GH_CONFORMANCE_RUN_ID`          | Caller-provided unique run id. If absent, the harness generates one per test run.        |
+
+Do not require scenario fixture identities as runtime parameters. In particular, do not add or depend on singular golden-fixture variables such as:
+
+- `ASDL_GH_CONFORMANCE_GOLDEN_PR`
+- `ASDL_GH_CONFORMANCE_GOLDEN_BRANCH`
+- `ASDL_GH_CONFORMANCE_GOLDEN_ISSUE_LABEL`
+
+Persistent fixture identities live in checked-in fixture catalog code. Runtime gateway code must not read `ASDL_GH_CONFORMANCE_*` variables.
+
+Authentication uses normal `gh` mechanisms:
+
+- local runs: `gh auth status` should show an authenticated account with access to the configured repository;
 - CI runs: provide a least-privilege token through `GH_TOKEN` or the workflow's selected authentication mechanism.
 
 The exact CI token model is a repository-owner decision. A fine-grained PAT or GitHub App token should be scoped to the conformance repository only where feasible. Expected permissions are at least metadata read, issues read/write, pull requests read/write, and contents read/write for ephemeral branches and commits.
-
-When invoking `gh`, the harness should either pass `-R "$ASDL_GH_CONFORMANCE_REPO"` to commands that support it or set `GH_REPO` only inside the live-test process. If a gateway implementation inherits repository context from the current working directory, the harness must establish that context deliberately, for example with a temporary checkout of the conformance repository or a controlled `GH_REPO` environment.
 
 ## Fixture Classes
 
 The repository contains two fixture classes:
 
-1. **Persistent golden fixtures** — stable, read-only resources created once and maintained deliberately.
+1. **Persistent scenario fixtures** — stable, read-only resources created once and maintained deliberately.
 2. **Ephemeral per-run fixtures** — uniquely marked resources created by mutating tests and owned by the run that created them.
 
-Tests must never mutate persistent golden fixtures. Mutating tests must create their own ephemeral resources and address them by run marker, branch prefix, PR number, issue number, or comment id captured during that run.
+Tests must never mutate persistent scenario fixtures. Mutating tests must create their own ephemeral resources and address them by run marker, branch prefix, PR number, issue number, or comment id captured during that run.
 
-## Persistent Golden Fixtures
+## Persistent Scenario Fixture Catalog
 
-Golden fixtures provide safe read-only targets for parity tests. They should be small, boring, and intentionally stable. If a golden fixture must change, update the fixture documentation and conformance expectations in the same review.
+Persistent fixtures provide safe read-only targets for parity tests. They are named by scenario and checked into the live conformance fixture catalog with the identifiers and expected initial state needed by that scenario.
 
-### Golden Label
+Examples of scenario names:
 
-Create a label named by `ASDL_GH_CONFORMANCE_GOLDEN_ISSUE_LABEL`, recommended value:
+- `pr_basic_lookup`
+- `pr_changed_files_text`
+- `pr_discussion_comments`
+- `pr_reviews`
+- `pr_review_threads_mixed_resolution`
+- `issue_list_open_with_label`
+- `closed_pr_lookup`
+- `merged_pr_lookup`
+- `null_author_comment`
+- `pagination_boundary_comments`
 
-```text
-asdl-gh-conformance-golden
-```
+The first catalog slice may contain placeholders until the canonical repository is provisioned, but the model remains the same: update checked-in fixture definitions when fixture identities change. Do not add ad hoc environment variables for one-off PR numbers, branch names, or labels.
 
-This label selects read-only issues used by `IssueGateway.list` conformance tests. It must not be reused for ephemeral resources.
+### Catalog Entry Expectations
 
-### Golden Issue
+A pull request fixture records, at minimum:
 
-Create at least one open issue with the golden label.
+- scenario name;
+- PR number;
+- head branch;
+- expected lifecycle state (`OPEN`, `CLOSED`, or `MERGED`);
+- expected title prefix;
+- optional changed file paths required by that scenario.
 
-Recommended shape:
+An issue-list fixture records, at minimum:
 
-- title starts with `[asdl-gh-conformance:golden-issue]`;
-- body contains the marker `<!-- asdl-gh-conformance:golden-issue -->`;
-- issue remains open unless tests explicitly add closed-state coverage later;
-- no conformance test edits, comments on, labels, assigns, closes, or reopens this issue.
+- scenario name;
+- label;
+- expected issue state;
+- expected title prefix.
 
-Tests may assert stable public fields such as number, title, state, URL shape, and presence in `gh issue list --label <golden-label>`. Tests should not assert global issue counts.
-
-### Golden Pull Request
-
-Create one persistent open pull request and record its number in `ASDL_GH_CONFORMANCE_GOLDEN_PR`. Its head branch is recorded in `ASDL_GH_CONFORMANCE_GOLDEN_BRANCH`.
-
-Recommended branch name:
-
-```text
-asdl-gh-conformance-golden-pr
-```
-
-Recommended PR shape:
-
-- title starts with `[asdl-gh-conformance:golden-pr]`;
-- body contains the marker `<!-- asdl-gh-conformance:golden-pr -->`;
-- head branch changes one small text fixture file, for example `fixtures/golden-pr.txt`;
-- PR remains open and unmerged;
-- branch remains undeleted;
-- conformance tests do not push to the branch, edit the PR, close it, merge it, request reviewers, add labels, or alter review-thread state.
-
-The golden PR should contain these read-only resources:
-
-| Resource                 | Purpose                                                                                                        |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Changed text file        | Exercises changed-file shape, status, and patch handling.                                                      |
-| Discussion comment       | Exercises PR discussion-comment listing without mutating the PR.                                               |
-| Submitted PR review      | Exercises PR-level review listing for states such as `COMMENTED`, `APPROVED`, or `CHANGES_REQUESTED`.          |
-| Inline review comment    | Exercises PR review-comment listing.                                                                           |
-| Unresolved review thread | Exercises review-thread listing when `include_resolved=False`.                                                 |
-| Resolved review thread   | Exercises review-thread listing when `include_resolved=True`; tests must not resolve or unresolve this thread. |
-
-The first read-only parity slice does not need to assert every row above. Missing optional rows should be treated as fixture-not-ready skips or setup failures, not as fake/real semantic drift.
+Persistent fixtures should be small, boring, and intentionally stable. If a fixture must change, update the fixture catalog and this contract in the same review when the contract changes.
 
 ## Ephemeral Per-Run Fixtures
 
@@ -138,7 +139,7 @@ Use this marker form:
 Generate `<run-id>` once per live-test run. Recommended format:
 
 ```text
-YYYYMMDDTHHMMSSZ-<short-sha-or-random-hex>
+YYYYMMDDTHHMMSSZ-<short-random-hex>
 ```
 
 Use lowercase, URL-safe purpose names such as `discussion-comment`, `review-reaction`, or `thread-resolution`.
@@ -171,8 +172,8 @@ Allowed in mutating tests, only in the conformance repository and only with an e
 
 Forbidden for all conformance tests:
 
-- mutate persistent golden issues, PRs, branches, comments, reviews, or review threads;
-- operate on any repository other than `ASDL_GH_CONFORMANCE_REPO`;
+- mutate persistent scenario issues, PRs, branches, comments, reviews, or review threads;
+- operate on any repository other than the configured conformance repository;
 - depend on global issue, PR, comment, reaction, or review counts;
 - change repository settings, branch protection, secrets, collaborators, webhooks, Actions settings, or organization settings;
 - create broad or unbounded API scans outside the configured repository;
@@ -184,7 +185,7 @@ Conformance tests should assert gateway contract behavior and public dataclass s
 
 Prefer assertions like:
 
-- the golden PR branch lookup returns the configured PR number and an open lifecycle state;
+- the `pr_basic_lookup` branch lookup returns the cataloged PR number and lifecycle state;
 - changed files include the expected fixture path and a text patch when GitHub exposes one;
 - review comments have stable public fields such as id, body, author, path, line, and created timestamp;
 - discussion comment lookup respects both marker and author when the operation is author-sensitive;
@@ -198,7 +199,7 @@ Avoid assertions like:
 - GraphQL node ids have a particular prefix;
 - pagination happens after a specific page size unless the test deliberately creates that boundary.
 
-Environment failures should be reported separately from semantic failures. Missing `gh`, missing environment variables, failed authentication, missing permissions, rate-limit exhaustion, and absent golden fixtures are harness/setup failures. A real gateway result that differs from the fake for the same documented scenario is a possible contract-drift failure.
+Environment and fixture failures should be reported separately from semantic failures. Missing `gh`, missing repository configuration, failed authentication, missing permissions, rate-limit exhaustion, unreachable repositories, and absent persistent fixtures are harness/setup failures. A real gateway result that differs from the fake for the same documented scenario is a possible contract-drift failure.
 
 ## Local Preflight Checklist
 
@@ -210,30 +211,33 @@ gh auth status
 gh api rate_limit
 ```
 
-Then export the conformance configuration, for example:
+Then run the read-only conformance slice, for example:
 
 ```bash
-export ASDL_GH_CONFORMANCE_REPO=owner/name
-export ASDL_GH_CONFORMANCE_GOLDEN_PR=123
-export ASDL_GH_CONFORMANCE_GOLDEN_BRANCH=asdl-gh-conformance-golden-pr
-export ASDL_GH_CONFORMANCE_GOLDEN_ISSUE_LABEL=asdl-gh-conformance-golden
+uv run pytest packages/asdl-core/live_conformance/github \
+  --run-live-github \
+  --github-conformance-repo owner/asdl-gh-conformance
 ```
 
-Set `ASDL_GH_CONFORMANCE_ALLOW_MUTATIONS=1` only when intentionally running tests that create or update live GitHub resources.
+or:
+
+```bash
+just live-github-readonly owner/asdl-gh-conformance
+```
+
+Set `ASDL_GH_CONFORMANCE_ALLOW_MUTATIONS=1` or pass `--github-conformance-allow-mutations` only when intentionally running tests that create or update live GitHub resources.
 
 ## Maintainer Checklist
 
 When creating or repairing the conformance repository:
 
-- create or verify the golden label;
-- create or verify the golden issue;
-- create or verify the golden PR and branch;
-- add at least one small changed text file to the golden PR;
-- add the golden PR discussion comment, PR review, inline review comment, unresolved thread, and resolved thread needed by the currently enabled tests;
-- record the repository, golden PR number, golden branch, and golden issue label in the CI configuration;
+- create or verify every persistent scenario fixture named by the checked-in fixture catalog;
+- keep fixture PR numbers, branches, labels, states, and title prefixes in sync with the catalog;
+- add scenario-specific comments, reviews, changed files, or review threads only when the catalog/test slice requires them;
 - confirm `gh auth status` and `gh api rate_limit` work with the selected token;
+- run the preflight tests before treating semantic conformance failures as gateway drift;
 - run the read-only conformance slice before enabling mutating tests;
-- treat fixture repair as reviewable work when it changes test expectations.
+- treat fixture repair as reviewable work when it changes checked-in expectations.
 
 ## Open Decisions
 
@@ -243,6 +247,6 @@ These decisions should be made before the first scheduled live run is treated as
 - repository visibility;
 - fixture maintainer or owning team;
 - CI token model and exact fine-grained permissions;
-- pytest marker/path/command used to select the live suite;
+- exact persistent fixture identifiers for the first fully provisioned catalog;
 - whether the first mutating tests should clean up successful resources immediately or intentionally leave all resources for early inspection;
 - whether merge behavior belongs in the initial conformance repository or requires a separate branch-protection fixture.

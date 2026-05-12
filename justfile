@@ -50,6 +50,9 @@ js-test: ts-test
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'
 
+live-github-readonly repo:
+    uv run pytest packages/asdl-core/live_conformance/github --run-live-github --github-conformance-repo {{repo}}
+
 test-all:
     uv run pytest -n auto
 

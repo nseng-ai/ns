@@ -109,6 +109,50 @@ def test_real_pr_gateway_search_prs_returns_body(monkeypatch: pytest.MonkeyPatch
     ]
 
 
+def test_real_pr_gateway_targets_explicit_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout=json.dumps(
+                {
+                    "number": 47,
+                    "title": "Port pr-address skill",
+                    "url": "https://github.com/octo/demo/pull/47",
+                    "body": "PR body text",
+                    "headRefName": "feature",
+                    "baseRefName": "master",
+                    "state": "OPEN",
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(real_gateway_helpers.subprocess, "run", fake_run)
+
+    result = RealPRGateway(repo="octo/demo").get_pr_for_branch("feature")
+
+    assert not isinstance(result, PRLookupError)
+    assert seen == [
+        [
+            "gh",
+            "pr",
+            "view",
+            "feature",
+            "--json",
+            "number,title,body,url,headRefName,baseRefName,state",
+            "-R",
+            "octo/demo",
+        ]
+    ]
+
+
 def test_real_pr_gateway_returns_error_when_no_pr(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         real_gateway_helpers.subprocess,

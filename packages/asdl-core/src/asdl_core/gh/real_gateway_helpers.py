@@ -23,8 +23,10 @@ from asdl_core.gh.types import (
 )
 
 
-def _run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
+def _run_gh(args: list[str], *, repo: str | None = None) -> subprocess.CompletedProcess[str]:
     cmd = ["gh", *args]
+    if repo is not None:
+        cmd.extend(["-R", repo])
     try:
         return subprocess.run(
             cmd,
@@ -40,7 +42,9 @@ def _run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
         )
 
 
-def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
+def fetch_pr_summary_for_branch(
+    branch: str, *, repo: str | None = None
+) -> PRSummary | PRLookupError:
     """Shell out to ``gh pr view <branch>`` and return a ``PRSummary``."""
     result = _run_gh(
         [
@@ -50,6 +54,7 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
             "--json",
             "number,title,body,url,headRefName,baseRefName,state",
         ],
+        repo=repo,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -69,7 +74,9 @@ def fetch_pr_summary_for_branch(branch: str) -> PRSummary | PRLookupError:
     )
 
 
-def fetch_pr_details_for_branch(branch: str) -> PRDetails | PRLookupError:
+def fetch_pr_details_for_branch(
+    branch: str, *, repo: str | None = None
+) -> PRDetails | PRLookupError:
     """Shell out to ``gh pr view <branch>`` and return guarded-merge metadata."""
     result = _run_gh(
         [
@@ -79,6 +86,7 @@ def fetch_pr_details_for_branch(branch: str) -> PRDetails | PRLookupError:
             "--json",
             "number,headRefName,baseRefName,headRefOid",
         ],
+        repo=repo,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -94,7 +102,9 @@ def fetch_pr_details_for_branch(branch: str) -> PRDetails | PRLookupError:
     )
 
 
-def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | PRLookupError:
+def search_prs(
+    query: str, *, state: PRStateFilter, repo: str | None = None
+) -> tuple[PRSummary, ...] | PRLookupError:
     """Shell out to ``gh pr list --state <state> --search <query>``."""
     result = _run_gh(
         [
@@ -107,6 +117,7 @@ def search_prs(query: str, *, state: PRStateFilter) -> tuple[PRSummary, ...] | P
             "--json",
             "number,title,body,url,headRefName,baseRefName,state",
         ],
+        repo=repo,
     )
     if result.returncode != 0:
         return PRLookupError(
@@ -137,6 +148,7 @@ def merge_pr(
     match_head_commit: str,
     admin: bool,
     auto: bool,
+    repo: str | None = None,
 ) -> PRMergeResult | PRCommandError:
     """Shell out to ``gh pr merge`` using squash merge and a head-commit guard."""
     args = [
@@ -151,7 +163,7 @@ def merge_pr(
         args.append("--admin")
     if auto:
         args.append("--auto")
-    result = _run_gh(args)
+    result = _run_gh(args, repo=repo)
     if result.returncode != 0:
         return PRCommandError(
             stderr=result.stderr.strip(),

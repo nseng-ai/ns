@@ -69,16 +69,19 @@ class PRGateway(ABC):
 class RealPRGateway(PRGateway):
     """Real implementation backed by the `gh` CLI."""
 
+    def __init__(self, *, repo: str | None = None) -> None:
+        self._repo = repo
+
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
-        return fetch_pr_summary_for_branch(branch)
+        return fetch_pr_summary_for_branch(branch, repo=self._repo)
 
     def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupError:
-        return fetch_pr_details_for_branch(branch)
+        return fetch_pr_details_for_branch(branch, repo=self._repo)
 
     def search_prs(
         self, query: str, *, state: PRStateFilter
     ) -> tuple[PRSummary, ...] | PRLookupError:
-        return search_prs(query, state=state)
+        return search_prs(query, state=state, repo=self._repo)
 
     def merge_pr(
         self,
@@ -93,4 +96,5 @@ class RealPRGateway(PRGateway):
             match_head_commit=match_head_commit,
             admin=admin,
             auto=auto,
+            repo=self._repo,
         )

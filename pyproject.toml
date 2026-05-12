@@ -113,6 +113,10 @@ python = ".venv"
 
 [tool.pytest.ini_options]
 addopts = "-q --import-mode=importlib"
+markers = [
+  "live_github: opt-in live GitHub conformance tests",
+  "live_github_mutating: live GitHub conformance tests that mutate ephemeral fixtures",
+]
 testpaths = [
   "tests",
   "packages/brmem/tests",
