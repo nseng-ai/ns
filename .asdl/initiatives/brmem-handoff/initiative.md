@@ -33,11 +33,17 @@ Over time, the workflow should also capture a session summary and a self-improve
 - Tests or scenario coverage exercise the write and read path for the handoff behavior.
 - Follow-on design is captured for session summaries and self-improvement analysis, even if the first steel thread only implements the primary handoff document.
 
+## Decisions
+
+- The first steel thread is a first-party `brmem-handoff` skill sourced from `skills/brmem-handoff/SKILL.md` and installed through the repo skill symlink chain.
+- The primary handoff lives in Branch Memory namespace `handoff` at entry key `current.md`, scoped to the relevant Git branch.
+- Saving a handoff replaces the previous `handoff/current.md` for that branch. Timestamped handoff history remains parked for later.
+- The durable load command is `brmem get current.md --namespace handoff --branch <branch>`.
+- The initial retrieval UX is skill-driven: agents load the `brmem-handoff` skill and run the documented `brmem get` command before continuing work.
+
 ## Open Questions
 
-- Should the primary handoff live in base Branch Memory or a dedicated namespace such as `handoff` or `sessions`?
-- What exact entry key should the first steel thread use: `handoff.md`, `session/handoff.md`, or another stable convention?
-- Should creating a new handoff overwrite the previous handoff for the branch, require confirmation, or keep timestamped entries?
+- What test or scenario harness should exercise the save/load behavior without mutating a user's real Branch Memory?
 - Should the session summary and self-improvement analysis be separate Branch Memory entries or sections in one compound handoff document?
-- What should the retrieval UX be for the next session: a skill instruction only, a CLI command, or both?
+- What exact shape and names should the session summary and repo-efficiency/self-learning artifacts use?
 - What lessons from compound engineering should influence the self-learning analysis without making the workflow too heavy?
