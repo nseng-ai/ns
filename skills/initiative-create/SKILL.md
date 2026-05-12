@@ -8,6 +8,9 @@ allowed-tools:
   - "Bash(find *)"
   - "Bash(rg *)"
   - "Bash(git *)"
+  - "Bash(test *)"
+  - "Bash(date -u *)"
+  - "Bash(mkdir -p *)"
 ---
 
 # initiative-create
@@ -47,6 +50,17 @@ docs/initiatives/<slug>/
 Create an initial update file only when the session has specific findings or
 decisions worth preserving separately from the created documents.
 
+## Template Paths
+
+Resolve templates relative to this skill directory, not the initiative target:
+
+- `skills/initiative-create/templates/initiative.md`
+- `skills/initiative-create/templates/roadmap.md`
+- `skills/initiative-create/templates/update.md`
+
+Use the templates as starting points for files written under
+`docs/initiatives/<slug>/`.
+
 ## Intake
 
 Use the conversation first. Ask only for missing information that blocks a
@@ -65,16 +79,34 @@ Useful questions, when not already answered:
 Keep intake short. The user should not have to author the initiative for you.
 When enough context exists, proceed and record assumptions explicitly.
 
+## Workflow
+
+1. Gather only the missing intake context needed for a useful draft.
+2. Run discovery, including the existing-initiative duplicate check.
+3. Choose and validate the slug.
+4. Read the relevant templates from `skills/initiative-create/templates/`.
+5. Create the target directory:
+
+   ```bash
+   mkdir -p docs/initiatives/<slug>/updates
+   ```
+
+6. Write `initiative.md` and `roadmap.md` under `docs/initiatives/<slug>/`.
+7. Write one initial update only when the session context warrants it.
+8. Summarize the created initiative and immediate next step.
+
 ## Discovery
 
 Before writing files:
 
 1. Read relevant project instructions such as `AGENTS.md`.
 2. Search `docs/initiatives/` for nearby existing initiatives.
-3. If a close existing initiative exists, recommend continuing it instead of
+3. Read titles and thesis/motivation sections for plausible matches, not just
+   directory names. Duplicate scope under a different slug is the real risk.
+4. If a close existing initiative exists, recommend continuing it instead of
    creating a duplicate.
-4. Inspect likely packages, modules, docs, tests, and adjacent workflows.
-5. Identify constraints, risks, validation surfaces, and open questions.
+5. Inspect likely packages, modules, docs, tests, and adjacent workflows.
+6. Identify constraints, risks, validation surfaces, and open questions.
 
 Scale discovery to the request. Broad architecture initiatives need more
 inspection than narrowly scoped cleanup initiatives.
@@ -101,59 +133,25 @@ Or list existing slugs:
 find docs/initiatives -mindepth 1 -maxdepth 1 -type d
 ```
 
-If the slug collides, continue the existing initiative or pick a distinct
-slug after explaining the choice.
+Also scan existing initiative prose for semantic overlap before writing. Start
+with:
+
+```bash
+find docs/initiatives -maxdepth 2 -type f -name initiative.md
+```
+
+Read plausible matches and compare title, thesis, motivation, scope, and
+non-goals against the proposed work. If the work belongs in an existing
+initiative, continue it. If it is intentionally separate, record the boundary
+in `Non-Goals` or `Open Questions`.
 
 ## `initiative.md`
 
 Write durable context. This file should change only when the durable
 understanding of the workstream changes.
 
-Template:
-
-```markdown
-# Initiative Title
-
-## Thesis
-
-One paragraph explaining the durable purpose of the initiative. This should
-remain useful even if the roadmap changes.
-
-## Motivation
-
-Why this work matters. Describe the pain, risk, opportunity, or capability
-that justifies tracking this as an initiative.
-
-## Scope
-
-- What is included.
-- Systems, packages, workflows, behaviors, or docs involved.
-
-## Non-Goals
-
-- What is explicitly excluded.
-- Adjacent tempting work that should not be pulled in.
-
-## Constraints
-
-- Compatibility, architecture, sequencing, performance, ownership, review, or
-  rollout constraints.
-
-## Invariants
-
-- Things future work must preserve.
-- Design rules that should remain true across implementation changes.
-
-## Completion Criteria
-
-- [ ] Observable end state.
-- [ ] Validation, docs, tests, migration, or cleanup requirement.
-- [ ] Anything that must be true before closing the initiative.
-
-## Open Questions
-
-- Unknowns discovered during creation.
-```
+Use `templates/initiative.md`. Delete placeholder prose and fill every section
+with task-specific content. Keep unknowns honest in `Open Questions`.
 
 ## `roadmap.md`
 
@@ -165,32 +163,7 @@ Do not use stable numbered IDs such as `R-001`. Point entries toward concrete
 artifacts such as PRs, merged commits, docs, tests, migrations, reports,
 deleted code, or released behavior.
 
-Template:
-
-```markdown
-# Roadmap
-
-## Now
-
-- [ ] Named work area.
-  - Artifact: PR, docs change, tests, migration, deletion, report, or other
-    reviewable output.
-  - Notes: Optional context.
-
-## Next
-
-- [ ] Named work area.
-  - Artifact: Expected reviewable or verifiable output.
-
-## Later
-
-- [ ] Named work area.
-  - Artifact: Expected reviewable or verifiable output.
-
-## Parked
-
-- Work intentionally deferred, rejected, or waiting on external facts.
-```
+Use `templates/roadmap.md`. Delete placeholder entries that do not apply.
 
 ## Initial Update File
 
@@ -213,28 +186,8 @@ date -u +%Y-%m-%dT%H%M%SZ
 Use the command's output verbatim — do not hand-type the timestamp. Update
 files do not need frontmatter.
 
-Template:
-
-```markdown
-# Short Update Title
-
-## Summary
-
-What changed, what was learned, or what decision was made.
-
-## Roadmap Context
-
-Name the roadmap area this relates to, if any. Do not use stable numbered IDs.
-
-## Initiative Impact
-
-Explain how this affects scope, constraints, invariants, completion criteria,
-risks, or future work.
-
-## Follow-Ups
-
-- Concrete follow-up, if any.
-```
+Use `templates/update.md`. Delete placeholder prose and skip sections only when
+they would be empty noise.
 
 ## Authoring Rules
 
