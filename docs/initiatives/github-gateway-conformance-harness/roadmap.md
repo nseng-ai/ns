@@ -2,67 +2,49 @@
 
 ## Completed
 
-- No completed roadmap areas yet.
+- None yet.
 
 ## In Progress
 
-- [ ] Define the test-repository fixture contract.
-  - Deliverable: Documentation describing the canonical test repository, persistent golden fixtures, ephemeral per-run fixtures, naming/marker conventions, and ownership.
-  - Status: Initial operating contract added in `docs/github-gateway-conformance-fixtures.md`; still needs the canonical repository, visibility, owner, CI token model, and actual golden fixtures to be selected or verified.
-  - Notes: The repository should be managed over time, not rolled back to a pristine initial state. Persistent golden fixtures are read-only and stable. Mutating tests create uniquely marked per-run resources; comprehensive stale-resource cleanup can come later.
+- None currently identified in this branch.
 
 ## Remaining
 
+- [ ] Define the fixture and runtime configuration contract.
+  - Artifact: Checked-in documentation, and preferably a small fixture catalog shape, describing the conformance repository contract, persistent scenario fixtures, ephemeral per-run markers, repository selection, mutation opt-in, authentication, rate-limit expectations, and local preflight checks.
+  - Notes: This should be the next piece of work because it constrains every later test and CI artifact. Avoid relying on a developer's ambient `gh` repository context or a growing list of one-off fixture environment variables.
+
+- [ ] Provision the canonical conformance repository and first persistent scenario fixtures.
+  - Artifact: A dedicated GitHub repository plus recorded owner/name, visibility, maintainer, credential model, and persistent fixture identities needed by the first read-only slice.
+  - Notes: Start with boring fixtures such as a stable open PR branch lookup scenario and an issue-list-by-label scenario. Add comments, reviews, review threads, closed/merged PRs, and pagination fixtures only when tests need them.
+
 - [ ] Establish the opt-in live conformance spine.
-  - Deliverable: Initial live GitHub conformance test module, pytest marker/path convention, environment guards, and a documented local command.
-  - Includes:
-    - Select the explicit entry point for live conformance tests.
-    - Ensure missing `gh`, auth, repo config, or golden fixture config skips or fails clearly.
-    - Keep the suite out of ordinary `just test` / PR CI.
-    - Document local operation and basic failure triage.
+  - Artifact: A dedicated live test path, pytest marker or option, preflight/config handling, explicit repository targeting, and a documented local command or `just` recipe.
+  - Notes: The spine must skip or fail clearly for missing `gh`, missing auth, missing repository configuration, inaccessible fixtures, or disallowed mutations, and it must stay out of ordinary `just test` and default PR CI.
 
 - [ ] Prove the first read-only fake/real parity slice.
-  - Deliverable: Shared contract helper or paired tests that compare public gateway result shapes for one golden issue or PR scenario.
-  - Includes:
-    - Load `ASDL_GH_CONFORMANCE_*` configuration.
-    - Seed a matching fake fixture for the same scenario.
-    - Exercise a small high-signal read-only surface, such as golden PR lookup, changed files, comments, reviews, or golden issue listing.
-    - Classify failures as setup/auth/fixture problems versus fake/real contract drift.
+  - Artifact: Shared contract helper or paired tests that exercise the same documented scenario against a fake gateway and the real gateway pointed at the fixture repository.
+  - Notes: Good first candidates are PR branch lookup, issue listing by label, or changed-file metadata. The slice should classify fixture/setup failures separately from possible fake/real contract drift.
 
 - [ ] Add safe mutation coverage with ephemeral fixtures.
-  - Deliverable: Mutating conformance cases that create uniquely marked resources and never touch golden fixtures.
-  - Includes:
-    - Generate and propagate a per-run marker.
-    - Create ephemeral issues, branches, and PRs as needed.
-    - Cover comments, comment updates, reactions, and PR reviews first.
-    - Add review-thread resolution and replies only after fixture setup is reliable.
-    - Leave cleanup optional until resource growth is understood.
+  - Artifact: Mutating live conformance cases that create uniquely marked resources, touch only resources owned by the current run, and verify returned public gateway objects.
+  - Notes: Start with discussion comments, comment updates, reactions, or PR reviews. Add review-thread resolution and replies only after ephemeral PR/review-thread setup is reliable.
 
-- [ ] Wire scheduled/manual CI for the live suite.
-  - Deliverable: GitHub Actions workflow that runs only the conformance entry point on a schedule or `workflow_dispatch`.
-  - Includes:
-    - Configure the selected test repository and golden fixture environment variables.
-    - Use least-privilege credentials for the conformance repository.
-    - Emit clear diagnostics for auth, rate limit, missing fixture, and semantic drift failures.
-    - Keep default PR CI unchanged.
+- [ ] Wire scheduled or manual CI for the live suite.
+  - Artifact: GitHub Actions workflow that runs only the conformance entry point on a schedule or `workflow_dispatch` with the chosen repository and credentials.
+  - Notes: Keep default PR CI unchanged. Diagnostics should make auth, rate-limit, fixture, and semantic drift failures easy to distinguish.
 
 - [ ] Expand conformance coverage and drift visibility.
-  - Deliverable: Broader gateway contract coverage plus a concise fake/real coverage report.
-  - Includes:
-    - Add cases for review threads, pagination boundaries, null authors, closed or merged PR lookup, changed-file edge cases, and safe merge behavior.
-    - Track which gateway methods have fake coverage, mocked real-sanity coverage, and live conformance coverage.
-    - Feed legitimate drift findings back into fake behavior and gateway contract tests.
+  - Artifact: Broader gateway contract coverage plus a concise map of fake coverage, mocked real-sanity coverage, and live conformance coverage.
+  - Notes: Add scenarios for review threads, deleted/null authors, discussion comments, inline review comments, pagination boundaries, closed or merged PR lookup, changed-file edge cases, and safe merge behavior when the fixture model supports them.
 
-- [ ] Add operational maintenance once the harness has run for a while.
-  - Deliverable: Cleanup and ergonomics improvements informed by observed suite behavior.
-  - Includes:
-    - Add stale ephemeral fixture cleanup by marker, branch, title, or label.
-    - Improve explicit repository, cwd, or environment injection if the harness exposes friction.
-    - Preserve `asdl_core.gh` stdlib-only and extractability constraints.
+- [ ] Add operational maintenance after observing real runs.
+  - Artifact: Cleanup and ergonomics improvements informed by actual fixture repository growth and run failures.
+  - Notes: Candidates include stale ephemeral-resource cleanup by marker/branch/title/label, better repository-targeting ergonomics, and clearer failure reports. Preserve the `asdl_core.gh` stdlib-only and extractability boundary.
 
 ## Parked
 
 - Running live GitHub conformance tests on every pull request or every build is deferred unless the suite becomes fast, reliable, and cheap enough to justify the signal.
-- Exercising production repositories is out of scope; use an isolated test repository instead.
-- Full repository rollback is rejected as the default model because GitHub history and identifiers are durable. Manage fixture growth with stable read-only fixtures, per-run markers, and later cleanup instead.
+- Exercising production repositories is out of scope; the suite should use an isolated fixture repository.
+- Full fixture repository rollback is rejected as the default lifecycle model because GitHub history and identifiers are durable.
 - Broad GitHub API benchmarking or load testing is deferred; the goal is contract confidence, not throughput analysis.

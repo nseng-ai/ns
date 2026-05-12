@@ -2,72 +2,73 @@
 
 ## Thesis
 
-Build a checked-in live GitHub conformance harness that exercises the `asdl_core.gh` gateway contracts against a real, isolated GitHub test repository so the fake and real implementations can be kept behaviorally aligned over time. The conformance suite should complement the existing fake-driven and subprocess-mocked gateway tests by validating the external GitHub behaviors that cannot be represented confidently in local tests alone.
+Create an opt-in live GitHub conformance suite for the `asdl_core.gh` gateway contracts, backed by an isolated fixture repository, so fake and real gateway implementations can be checked against GitHub's actual `gh` CLI and API behavior without making fast local or pull-request test feedback depend on the network.
 
 ## Motivation
 
-The GitHub gateway layer is a critical dependency for PR-addressing, reviewer publication, objectives, slots, and other workflows that read or mutate GitHub state. Today the fake implementations power most business-logic tests, while the real gateway tests monkeypatch `subprocess.run` to cover command construction and parsing. That keeps ordinary CI fast, but it can miss drift in GitHub API payloads, `gh` CLI behavior, pagination, authentication, and mutation semantics. A nightly live-repository conformance suite provides defense in depth: it can catch fake/real contract divergence before users discover it in live PR workflows.
+GitHub gateway behavior is part of the correctness boundary for PR addressing, review publication, objectives, slots, and other workflows that read or mutate pull requests and issues. The repository already relies heavily on fake-driven tests for business logic and subprocess-shaped real gateway tests for command construction and response parsing. Those tests are fast and should remain the default, but they cannot fully detect drift in GitHub payloads, `gh` CLI behavior, pagination, authentication, rate limits, mutation semantics, or fixture assumptions. A small live conformance harness provides defense in depth by validating the gateway contract against a real, intentionally managed GitHub repository.
 
 ## Scope
 
-- The `asdl_core.gh` gateway layer, especially `IssueGateway` / `RealIssueGateway` / `FakeIssueGateway` and `PRGateway` / `RealPRGateway` / `FakePRGateway`.
-- A real GitHub test repository with controlled issues, branches, pull requests, reviews, review comments, discussion comments, reactions, and review threads as needed by the gateway surface.
-- A dedicated conformance test entry point that is not part of ordinary per-build test execution and can run the same contract-oriented scenarios against fake implementations and real implementations where practical.
-- CI wiring for a scheduled or manually triggered conformance job that is separate from ordinary PR CI.
-- Test-harness documentation describing required secrets, repository setup, fixture lifecycle, rate-limit expectations, and how to run or skip the suite locally.
-- A managed test-repository fixture model with:
-  - persistent golden fixtures: stable read-only issues, PRs, branches, comments, and reviews that tests never mutate;
-  - ephemeral per-run fixtures: uniquely marked resources created by mutating tests and touched only by the run that created them.
-- Feedback from the live harness into fake behavior when a legitimate fake/real mismatch is found.
+- The `asdl_core.gh` gateway contracts, real implementations, fake implementations, and public domain result types used by `IssueGateway` and `PRGateway` consumers.
+- A dedicated live conformance test entry point that is selected intentionally and excluded from ordinary `just test`, package scenario tests, and default PR CI.
+- An isolated GitHub fixture repository with persistent read-only scenario fixtures and ephemeral per-run resources for mutating tests.
+- A fixture and runtime configuration contract covering repository selection, authentication, fixture catalog ownership, mutation opt-in, rate-limit expectations, and local preflight checks.
+- Shared conformance or parity helpers where they make fake/real contract drift easier to see.
+- Scheduled or manually triggered CI that runs the live suite against the fixture repository with least-privilege credentials.
+- Documentation for maintainers and developers explaining how to provision fixtures, run the suite, interpret setup failures, and feed legitimate drift findings back into the gateway contract and fakes.
 
 ## Non-Goals
 
-- Replacing fast fake-driven scenario tests or mocked real-sanity tests in normal CI.
-- Running live GitHub mutation tests on every pull request or every build by default.
-- Broad GitHub automation outside the gateway contract, such as managing production repositories, arbitrary organization settings, or unrelated `gh` workflows.
-- Adding runtime dependencies to `asdl_core.gh`; that subpackage remains stdlib-only and extractable.
-- Testing every GitHub API edge case exhaustively in the first pass. The initial harness should prove the shape and cover the highest-risk gateway operations first.
-- Fully resetting the GitHub test repository to a pristine initial state after each run. GitHub history is durable and some resource identifiers are monotonic, so the repository should be managed rather than rolled back.
-- Designing comprehensive stale-fixture cleanup in the first pass. Cleanup can be added later after the fixture lifecycle is understood.
+- Replacing fake-driven unit, scenario, or gateway tests as the primary development loop.
+- Running live GitHub tests on every pull request or every build by default.
+- Exercising production repositories, organization settings, broad repository administration, or unrelated GitHub automation.
+- Making `asdl_core.gh` depend on non-stdlib runtime packages or parent `asdl_core` utilities.
+- Exhaustively testing every GitHub API edge case before the initial harness is useful.
+- Requiring the fixture repository to be reset to a pristine state after each run. GitHub history and identifiers are durable, so the repository should be managed rather than rolled back.
+- Building comprehensive stale-fixture cleanup before the suite has produced enough evidence about resource growth.
 
 ## Constraints
 
-- `asdl_core.gh` must remain self-contained, stdlib-only, and free of imports from parent `asdl_core` utilities.
-- The conformance harness must be opt-in for developers and scheduled for CI so network, auth, rate-limit, and GitHub availability failures do not destabilize fast PR feedback.
-- The conformance suite must have an explicit runner, marker, path, or workflow that prevents ordinary per-build test commands from invoking it accidentally.
-- The real gateways are backed by the `gh` CLI and currently inherit repository context from the process environment/current working directory. The harness must make repository selection explicit and safe, either through a temporary checkout, `GH_REPO`, or a documented supported mechanism.
-- GitHub REST, GraphQL, and Search have separate rate-limit behavior. The suite should be small, paginated deliberately, and able to surface rate-limit/auth failures clearly.
-- Mutating tests must use an isolated test repository, unique fixture names or markers, and idempotent setup so repeated nightly runs do not depend on global repository counts or pristine state.
-- Persistent golden fixtures must be treated as read-only. Ephemeral per-run fixtures may accumulate closed issues, PRs, comments, or branches until a later cleanup mechanism exists.
-- Secrets used by scheduled CI must be least-privilege for the test repository where feasible, and the harness must not require broad production repository access.
+- `asdl_core.gh` remains self-contained, stdlib-only, and extractable; any pytest-specific or repository-fixture helpers should live outside the runtime gateway package.
+- Live conformance must be explicitly selected by a runner, marker, path, recipe, or CI workflow. Missing configuration must not accidentally fall through to a developer's ambient GitHub repository.
+- Repository targeting must be deliberate. The harness should use a configured `owner/name` repository through `gh` repository selection, controlled environment, or a controlled checkout rather than relying on incidental current-working-directory state.
+- Runtime configuration should stay small. Stable persistent fixture identities should be documented or checked in as a scenario catalog rather than passed as ad hoc one-off environment variables wherever practical.
+- Mutating tests must require an explicit mutation opt-in and must operate only on resources marked for the current run.
+- Persistent scenario fixtures are read-only. Tests may assert documented public fields for those fixtures, but must not mutate them or rely on global repository counts.
+- GitHub REST, GraphQL, and Search have different rate-limit behavior. The suite should stay small, use pagination deliberately, and surface rate-limit/authentication failures clearly.
+- CI credentials should be least-privilege for the fixture repository where feasible and must not require broad production repository access.
 
 ## Invariants
 
-- Fake implementations stay I/O-free and constructor-configured; the live GitHub harness validates the contract but does not make fakes depend on GitHub.
-- Business logic continues to test primarily over fakes. Live GitHub conformance tests are final validation, not the primary development loop.
-- Gateway contract changes update the ABC, real implementation, fake implementation, fake tests, mocked real-sanity tests, and relevant conformance coverage together.
-- Conformance tests must be safe to re-run after partial failure; setup should tolerate existing resources from previous failed runs.
-- Real tests should assert stable contract behavior and public result shapes, not incidental private GitHub payload details.
-- Tests should address fixture resources by explicit branch names, labels, markers, PR numbers, or other stable identifiers rather than asserting global repository state.
-- Failures should distinguish harness/environment problems from actual fake/real contract drift whenever possible.
+- Fake implementations stay I/O-free and constructor-configured; the live suite validates the contract but never makes fakes depend on GitHub.
+- Business logic continues to test primarily over fakes. Live conformance is final validation and drift detection, not the normal edit-test loop.
+- Gateway contract changes update the ABC, real implementation, fake implementation, fake tests, mocked real-sanity tests, and relevant live conformance coverage together.
+- Live tests assert stable public gateway behavior and dataclass shapes, not incidental private GitHub payload details.
+- The suite is safe to re-run after partial failure. Setup tolerates existing ephemeral resources from previous failed runs.
+- Fixture resources are addressed by explicit scenario names, fixture catalog entries, branches, labels, markers, PR numbers, issue numbers, or run ids rather than by repository-wide counts.
+- Failures distinguish harness/environment/fixture problems from possible fake/real semantic contract drift whenever practical.
 
 ## Completion Criteria
 
-- [ ] A documented GitHub test repository exists with persistent golden fixtures and ephemeral per-run fixture conventions for read-only and mutating gateway operations.
-- [ ] A dedicated opt-in live GitHub conformance suite covers the initial contract surface for `IssueGateway` and `PRGateway` without running in ordinary per-build test commands.
-- [ ] The suite includes parity-oriented assertions or shared contract helpers that make fake/real drift visible.
-- [ ] A scheduled or manually triggered GitHub Actions workflow runs the conformance suite against the test repository with appropriate secrets and permissions.
-- [ ] Local developer instructions explain how to configure auth, select the test repo, run the suite, and interpret common auth/rate-limit/environment failures.
-- [ ] Existing fake and mocked real-sanity tests remain fast, deterministic, and part of normal `just test` / PR CI.
-- [ ] Any fake/real mismatches found while building the harness are either fixed or recorded with explicit follow-up.
+- [ ] A fixture and runtime configuration contract is checked in, including persistent scenario fixtures, ephemeral per-run fixture conventions, repository targeting, auth, rate-limit, and local preflight guidance.
+- [ ] A canonical isolated GitHub fixture repository is selected or created, with ownership, visibility, credentials, and persistent scenario fixture identities recorded in the appropriate docs or catalog.
+- [ ] A dedicated opt-in live conformance suite exists and is excluded from ordinary per-build test commands and default PR CI.
+- [ ] The initial read-only parity slice validates at least one high-signal `IssueGateway` or `PRGateway` scenario against both fake and real behavior.
+- [ ] Mutating coverage exists for at least one safe ephemeral-resource operation and proves the marker/ownership model without touching persistent fixtures.
+- [ ] A scheduled or manually triggered GitHub Actions workflow runs the live suite against the fixture repository with appropriate diagnostics and permissions.
+- [ ] Local developer instructions explain how to authenticate, select the fixture repository, run read-only and mutating slices, and interpret common setup or rate-limit failures.
+- [ ] Existing fake-driven and mocked real-sanity tests remain fast, deterministic, and part of normal `just test` / PR CI.
+- [ ] Any fake/real mismatches found while building the harness are fixed or recorded with explicit follow-up.
 
 ## Open Questions
 
-- What repository should serve as the canonical GitHub test repo, and who owns its fixture lifecycle?
-- What exact path, pytest marker, or command convention should identify live GitHub conformance tests while keeping them out of ordinary per-build test runs?
-- Which resources belong in the persistent golden fixture set, and which should be created ephemerally per run?
-- What naming or marker convention should ephemeral resources use so future cleanup can identify stale resources without affecting golden fixtures?
-- What CI secret/token model is acceptable: repository-scoped fine-grained PAT, GitHub App token, or another mechanism?
-- Which gateway operations are safe and valuable enough for the first nightly suite, especially thread resolution, unresolution, reactions, and inline review creation?
-- Should the real gateway gain explicit repository/cwd injection before the harness, or is process-level `GH_REPO` / temporary checkout context sufficient?
-- How should the suite report environment failures versus semantic contract failures so nightly noise stays actionable?
+- What repository should be the canonical fixture repository, and who owns its ongoing maintenance?
+- Should the fixture repository be public or private?
+- What CI credential model is acceptable: fine-grained PAT, GitHub App token, `GITHUB_TOKEN` against a repository in the same org, or another mechanism?
+- What exact path, pytest marker, command, or `just` recipe should select the live suite while keeping it out of ordinary test commands?
+- What should the first checked-in persistent fixture catalog contain: basic PR branch lookup, issue listing by label, changed files, comments, reviews, review threads, closed/merged PR lookup, or pagination scenarios?
+- Should real gateway implementations gain explicit repository selection before the harness lands, or should repository selection remain entirely at the conformance-runner boundary?
+- Which mutating operations are valuable and safe enough for the first mutation slice: discussion comments, comment updates, reactions, PR reviews, review-thread resolution, or thread replies?
+- How should the live suite classify setup failures versus semantic contract failures so scheduled runs stay actionable?
+- When should stale ephemeral fixture cleanup be added, and should successful mutating runs clean up immediately or leave early resources for inspection?
