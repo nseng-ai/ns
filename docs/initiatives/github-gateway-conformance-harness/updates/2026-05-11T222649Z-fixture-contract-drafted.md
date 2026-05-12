@@ -1,24 +1,25 @@
-# Fixture Contract Drafted
+# Fixture Contract Defines Harness Boundaries
 
 ## Summary
 
-A first checked-in fixture contract was added in `docs/github-gateway-conformance-fixtures.md` on branch `add-github-gateway-conformance-fixtures-contract-d` at commit `fa9c2216`.
+The fixture contract establishes the safety and configuration boundary for live GitHub conformance: tests target a deliberate repository, persistent scenario resources are cataloged as read-only fixtures, and mutating cases must use per-run ownership markers instead of touching shared fixtures.
 
-The document defines the live conformance repository shape, required environment variables, persistent golden fixtures, ephemeral per-run fixture markers, allowed and forbidden mutations, local preflight checks, and maintainer setup expectations. It explicitly leaves the canonical repository, visibility, owner, CI token model, and first-run command selection as open decisions.
+This turns the fixture model from an open design area into a reviewable operating draft. It does not select the canonical repository, credential model, or real persistent fixture identities.
 
 ## Roadmap Context
 
-This advances the roadmap's current work to define the test-repository fixture contract. It also gives the future opt-in conformance entry point and read-only parity slice a concrete configuration and fixture target to build against.
+This completes the roadmap area for defining the fixture and runtime configuration contract as a checked-in artifact. It also gives the opt-in live conformance spine and first read-only parity slice a concrete repository, authentication, preflight, and fixture-catalog model to build against.
+
+Repository provisioning remains open: the contract is usable only after a real fixture repository and catalog entries are chosen.
 
 ## Initiative Impact
 
-The initiative now has a reviewable artifact that separates fixture lifecycle and repository safety rules from test implementation. Future conformance tests can rely on documented conventions for `ASDL_GH_CONFORMANCE_*` configuration, read-only golden resources, per-run mutation markers, and setup-vs-contract-drift failure classification.
+Future work should assume explicit repository selection, a checked-in persistent fixture catalog, read-only golden resources, mutation opt-in, and setup-vs-semantic-drift failure classification as the baseline harness model.
 
-The work does not yet select or create the canonical GitHub repository, so the fixture contract is an operating draft rather than a completed live setup.
+The initiative should continue to track the canonical repository, visibility, maintainer, credentials, and first fixture identities as unresolved operating decisions.
 
 ## Follow-Ups
 
-- Choose the canonical conformance repository, visibility, owning maintainer, and CI token model.
-- Create or verify the golden label, golden issue, golden PR, golden branch, and review/comment/thread resources described by the fixture contract.
-- Build the opt-in conformance test entry point against the documented `ASDL_GH_CONFORMANCE_*` environment surface.
-- Use the golden PR and issue fixtures to prove the first read-only fake/real parity slice.
+- Choose or create the canonical conformance repository and decide its visibility, maintainer, and credential model.
+- Replace placeholder fixture catalog entries with real persistent PR and issue scenario identities.
+- Build and run the first read-only fake/real parity slice against the selected repository.
