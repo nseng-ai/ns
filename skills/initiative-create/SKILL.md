@@ -16,10 +16,8 @@ allowed-tools:
 # initiative-create
 
 Create a new checked-in initiative directory after enough discovery to avoid
-inventing context.
-
-Initiatives are for durable workstreams that span sessions, branches, or pull
-requests. They live in the repository, not brmem or hidden agent state.
+inventing context. Initiatives are durable workstreams that live in the
+repository, not brmem or hidden agent state.
 
 ## When To Use
 
@@ -47,19 +45,15 @@ docs/initiatives/<slug>/
   updates/
 ```
 
-Create an initial update file only when the session has specific findings or
-decisions worth preserving separately from the created documents.
+## Templates
 
-## Template Paths
+Resolve relative to this skill directory:
 
-Resolve templates relative to this skill directory, not the initiative target:
+- `templates/initiative.md`
+- `templates/roadmap.md`
+- `templates/update.md`
 
-- `skills/initiative-create/templates/initiative.md`
-- `skills/initiative-create/templates/roadmap.md`
-- `skills/initiative-create/templates/update.md`
-
-Use the templates as starting points for files written under
-`docs/initiatives/<slug>/`.
+Use as starting points for files written under `docs/initiatives/<slug>/`.
 
 ## Intake
 
@@ -84,7 +78,7 @@ When enough context exists, proceed and record assumptions explicitly.
 1. Gather only the missing intake context needed for a useful draft.
 2. Run discovery, including the existing-initiative duplicate check.
 3. Choose and validate the slug.
-4. Read the relevant templates from `skills/initiative-create/templates/`.
+4. Read the relevant templates.
 5. Create the target directory:
 
    ```bash
@@ -92,7 +86,7 @@ When enough context exists, proceed and record assumptions explicitly.
    ```
 
 6. Write `initiative.md` and `roadmap.md` under `docs/initiatives/<slug>/`.
-7. Write one initial update only when the session context warrants it.
+7. Write one initial update only when warranted.
 8. Summarize the created initiative and immediate next step.
 
 ## Discovery
@@ -100,11 +94,18 @@ When enough context exists, proceed and record assumptions explicitly.
 Before writing files:
 
 1. Read relevant project instructions such as `AGENTS.md`.
-2. Search `docs/initiatives/` for nearby existing initiatives.
-3. Read titles and thesis/motivation sections for plausible matches, not just
-   directory names. Duplicate scope under a different slug is the real risk.
-4. If a close existing initiative exists, recommend continuing it instead of
-   creating a duplicate.
+2. List existing initiatives:
+
+   ```bash
+   find docs/initiatives -maxdepth 2 -type f -name initiative.md
+   ```
+
+3. Read titles, thesis, motivation, scope, and non-goals of plausible matches —
+   not just directory names. Duplicate scope under a different slug is the real
+   risk.
+4. If the work belongs in an existing initiative, recommend continuing it. If
+   it is intentionally separate, record the boundary in `Non-Goals` or
+   `Open Questions`.
 5. Inspect likely packages, modules, docs, tests, and adjacent workflows.
 6. Identify constraints, risks, validation surfaces, and open questions.
 
@@ -133,25 +134,13 @@ Or list existing slugs:
 find docs/initiatives -mindepth 1 -maxdepth 1 -type d
 ```
 
-Also scan existing initiative prose for semantic overlap before writing. Start
-with:
-
-```bash
-find docs/initiatives -maxdepth 2 -type f -name initiative.md
-```
-
-Read plausible matches and compare title, thesis, motivation, scope, and
-non-goals against the proposed work. If the work belongs in an existing
-initiative, continue it. If it is intentionally separate, record the boundary
-in `Non-Goals` or `Open Questions`.
-
 ## `initiative.md`
 
 Write durable context. This file should change only when the durable
 understanding of the workstream changes.
 
-Use `templates/initiative.md`. Delete placeholder prose and fill every section
-with task-specific content. Keep unknowns honest in `Open Questions`.
+Delete template placeholder prose. Fill every section with task-specific
+content. Keep unknowns honest in `Open Questions`.
 
 ## `roadmap.md`
 
@@ -159,25 +148,10 @@ Write the current ordered work checklist. Entries are fluid named work areas,
 not stable tickets. They may be renamed, split, merged, reordered, or parked as
 understanding changes.
 
-Use the canonical top-level sections from `templates/roadmap.md`:
-
-- `## Checklist` for active initiative work
-- `## Parked` for intentionally deferred, rejected, canceled, or waiting work
-
-Checklist item status markers:
-
-- `[ ]` not started
-- `[~]` in progress
-- `[x]` complete
-
-Parked items are plain bullets with no checkboxes. Large initiatives may add
-subheadings under `## Checklist`, but keep the top-level section shape.
-
-Do not use stable numbered IDs such as `R-001`. Point entries toward concrete
-artifacts such as PRs, merged commits, docs, tests, migrations, reports,
-deleted code, or released behavior.
-
-Use `templates/roadmap.md`. Delete placeholder entries that do not apply.
+Delete template placeholder entries that do not apply. Do not use stable
+numbered IDs such as `R-001`. Point entries toward concrete artifacts such as
+PRs, merged commits, docs, tests, migrations, reports, deleted code, or
+released behavior.
 
 ## Initial Update File
 
@@ -197,24 +171,18 @@ Generate the timestamp with:
 date -u +%Y-%m-%dT%H%M%SZ
 ```
 
-Use the command's output verbatim — do not hand-type the timestamp. Update
-files do not need frontmatter.
-
-Use `templates/update.md`. Delete placeholder prose and skip sections only when
-they would be empty noise.
+Use the command output verbatim — do not hand-type the timestamp. Delete
+template placeholder prose; skip sections only when they would be empty noise.
 
 ## Authoring Rules
 
 - Prefer prose that will still make sense after branches are merged and PRs
   are closed.
-- Keep roadmap entries outcome-oriented and artifact-backed.
-- Use `[ ]`, `[~]`, and `[x]` for checklist status.
 - Use plain bullets, not checkboxes, for parked work.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter.
 - Do not use brmem.
 - Do not create a CLI dependency.
-- Do not invent stable roadmap item IDs.
 - Record uncertainty as open questions or parked work.
 - Preserve rationale and invariants even when implementation details change.
 
