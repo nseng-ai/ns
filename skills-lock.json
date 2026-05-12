@@ -72,6 +72,11 @@
       "sourceType": "local",
       "computedHash": "b98feb38880ce70eb63017d2607f85f2d90308782979ec66180f1de1bf1086ad"
     },
+    "initiative-record-progress": {
+      "source": "skills/initiative-record-progress",
+      "sourceType": "local",
+      "computedHash": "957da239f9d91d8a2a5804474aafa21d23050aee6b3503e671402de40b28dab7"
+    },
     "ns-changelog-update": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
