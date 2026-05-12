@@ -60,6 +60,13 @@ The update file has no frontmatter. Metadata already exists in the path,
 filename, Git history, branch, and PRs. Do not duplicate unstable metadata in the
 body unless it is semantically useful.
 
+Treat the body as an initiative-state delta, not a branch changelog. Capture
+what should influence future curation of `initiative.md` or `roadmap.md`: status
+changes, resolved or newly opened questions, decisions, risks, blockers,
+constraints, and next work. Do not reproduce commit-message history, file
+inventories, or implementation mechanics unless a specific artifact is necessary
+durable context.
+
 ## Template Path
 
 Resolve the template relative to this skill directory:
@@ -171,7 +178,9 @@ git diff --cached --stat
 
 Use `git log` to understand recent work, but do not copy raw branch-local commit
 hashes into update prose by default; they can change during amend, rebase,
-restack, or squash.
+restack, or squash. Treat git evidence as source material, not content: prefer
+"this closes or advances roadmap area X and leaves Y" over "files A/B/C changed"
+unless those paths are durable artifacts future work needs.
 
 Reach for targeted diffs, git history, or file reads only when needed to avoid a
 misleading summary or to refresh durable state accurately.
@@ -220,8 +229,13 @@ Guidance:
   Center roadmap movement, open-question changes, blockers, decisions, repo
   drift, validation, and follow-ups that should influence future state.
 - Keep prose useful after branches merge and PRs close.
-- Prefer durable anchors: file paths, artifact names, PR numbers/URLs once
-  submitted, validation commands, observed outcomes, and user-supplied context.
+- Default to concise durable deltas; most sections should be short paragraphs or
+  focused bullets, not a transcript of the branch.
+- Center initiative text and status: roadmap movement, open-question changes,
+  decisions, risks, blockers, constraints, and next work.
+- Use durable anchors sparingly: artifact paths, PR numbers/URLs once submitted,
+  validation commands, observed outcomes, and user-supplied context. Include
+  them only when a future reader needs the specific anchor.
 - Avoid raw branch-local commit hashes. Include a SHA only when the user asks,
   when the commit is already merged/released/stable, or when it names an
   external immutable artifact such as a CI run, release, or incident report.
