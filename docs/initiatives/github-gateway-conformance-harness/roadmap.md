@@ -2,29 +2,26 @@
 
 ## Completed
 
-- None yet.
+- Define the fixture and runtime configuration contract.
+  - Evidence: `docs/github-gateway-conformance-fixtures.md` documents the dedicated repository contract, pytest/runtime configuration boundary, checked-in persistent fixture catalog model, ephemeral run markers, mutation opt-in, authentication, rate-limit preflight, maintainer checklist, and open operating decisions.
+
+- Make live conformance and real gateway calls target an explicit repository.
+  - Evidence: `RealPRGateway` and `RealIssueGateway` accept an optional `owner/name` repo; shared `gh` helpers pass `-R` where supported; GraphQL and REST helpers parse the configured repo instead of relying on ambient `gh repo view`; gateway tests cover the explicit-repo command shapes.
+
+- Establish the opt-in live conformance spine for read-only runs.
+  - Evidence: `packages/asdl-core/live_conformance/github/` provides pytest options, config validation, preflight checks, fixture catalog types, a repository-targeted `gh` wrapper, and a first live read-only PR lookup test. `pyproject.toml` registers `live_github` markers, `justfile` exposes `just live-github-readonly <repo>`, and live tests are skipped unless `--run-live-github` is supplied.
 
 ## In Progress
 
-- None currently identified in this branch.
+- [ ] Prove the first read-only fake/real parity slice.
+  - Artifact: Shared contract helper or paired tests that exercise the same documented scenario against a fake gateway and the real gateway pointed at the fixture repository.
+  - Status: The real-side `PRGateway.get_pr_for_branch` live check exists for the `pr_basic_lookup` scenario, with setup failures classified through preflight checks. Remaining work is to provision real fixture identifiers, add the fake-side or shared parity assertion, and run the slice against the canonical repository.
 
 ## Remaining
 
-- [ ] Define the fixture and runtime configuration contract.
-  - Artifact: Checked-in documentation, and preferably a small fixture catalog shape, describing the conformance repository contract, persistent scenario fixtures, ephemeral per-run markers, repository selection, mutation opt-in, authentication, rate-limit expectations, and local preflight checks.
-  - Notes: This should be the next piece of work because it constrains every later test and CI artifact. Avoid relying on a developer's ambient `gh` repository context or a growing list of one-off fixture environment variables.
-
 - [ ] Provision the canonical conformance repository and first persistent scenario fixtures.
   - Artifact: A dedicated GitHub repository plus recorded owner/name, visibility, maintainer, credential model, and persistent fixture identities needed by the first read-only slice.
-  - Notes: Start with boring fixtures such as a stable open PR branch lookup scenario and an issue-list-by-label scenario. Add comments, reviews, review threads, closed/merged PRs, and pagination fixtures only when tests need them.
-
-- [ ] Establish the opt-in live conformance spine.
-  - Artifact: A dedicated live test path, pytest marker or option, preflight/config handling, explicit repository targeting, and a documented local command or `just` recipe.
-  - Notes: The spine must skip or fail clearly for missing `gh`, missing auth, missing repository configuration, inaccessible fixtures, or disallowed mutations, and it must stay out of ordinary `just test` and default PR CI.
-
-- [ ] Prove the first read-only fake/real parity slice.
-  - Artifact: Shared contract helper or paired tests that exercise the same documented scenario against a fake gateway and the real gateway pointed at the fixture repository.
-  - Notes: Good first candidates are PR branch lookup, issue listing by label, or changed-file metadata. The slice should classify fixture/setup failures separately from possible fake/real contract drift.
+  - Notes: Start by replacing the placeholder `pr_basic_lookup` and `issue_list_open_with_label` catalog identifiers with real fixtures. Add comments, reviews, review threads, closed/merged PRs, and pagination fixtures only when tests need them.
 
 - [ ] Add safe mutation coverage with ephemeral fixtures.
   - Artifact: Mutating live conformance cases that create uniquely marked resources, touch only resources owned by the current run, and verify returned public gateway objects.

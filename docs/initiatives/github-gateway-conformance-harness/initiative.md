@@ -32,7 +32,7 @@ GitHub gateway behavior is part of the correctness boundary for PR addressing, r
 
 - `asdl_core.gh` remains self-contained, stdlib-only, and extractable; any pytest-specific or repository-fixture helpers should live outside the runtime gateway package.
 - Live conformance must be explicitly selected by a runner, marker, path, recipe, or CI workflow. Missing configuration must not accidentally fall through to a developer's ambient GitHub repository.
-- Repository targeting must be deliberate. The harness should use a configured `owner/name` repository through `gh` repository selection, controlled environment, or a controlled checkout rather than relying on incidental current-working-directory state.
+- Repository targeting must be deliberate. The harness uses a configured `owner/name` repository; when that repo is passed into real gateways, `gh` calls must target it explicitly (`-R` where supported or parsed owner/repo for API calls) rather than relying on incidental current-working-directory state.
 - Runtime configuration should stay small. Stable persistent fixture identities should be documented or checked in as a scenario catalog rather than passed as ad hoc one-off environment variables wherever practical.
 - Mutating tests must require an explicit mutation opt-in and must operate only on resources marked for the current run.
 - Persistent scenario fixtures are read-only. Tests may assert documented public fields for those fixtures, but must not mutate them or rely on global repository counts.
@@ -51,9 +51,9 @@ GitHub gateway behavior is part of the correctness boundary for PR addressing, r
 
 ## Completion Criteria
 
-- [ ] A fixture and runtime configuration contract is checked in, including persistent scenario fixtures, ephemeral per-run fixture conventions, repository targeting, auth, rate-limit, and local preflight guidance.
+- [x] A fixture and runtime configuration contract is checked in, including persistent scenario fixtures, ephemeral per-run fixture conventions, repository targeting, auth, rate-limit, and local preflight guidance.
 - [ ] A canonical isolated GitHub fixture repository is selected or created, with ownership, visibility, credentials, and persistent scenario fixture identities recorded in the appropriate docs or catalog.
-- [ ] A dedicated opt-in live conformance suite exists and is excluded from ordinary per-build test commands and default PR CI.
+- [x] A dedicated opt-in live conformance suite exists and is excluded from ordinary per-build test commands and default PR CI.
 - [ ] The initial read-only parity slice validates at least one high-signal `IssueGateway` or `PRGateway` scenario against both fake and real behavior.
 - [ ] Mutating coverage exists for at least one safe ephemeral-resource operation and proves the marker/ownership model without touching persistent fixtures.
 - [ ] A scheduled or manually triggered GitHub Actions workflow runs the live suite against the fixture repository with appropriate diagnostics and permissions.
@@ -66,9 +66,8 @@ GitHub gateway behavior is part of the correctness boundary for PR addressing, r
 - What repository should be the canonical fixture repository, and who owns its ongoing maintenance?
 - Should the fixture repository be public or private?
 - What CI credential model is acceptable: fine-grained PAT, GitHub App token, `GITHUB_TOKEN` against a repository in the same org, or another mechanism?
-- What exact path, pytest marker, command, or `just` recipe should select the live suite while keeping it out of ordinary test commands?
-- What should the first checked-in persistent fixture catalog contain: basic PR branch lookup, issue listing by label, changed files, comments, reviews, review threads, closed/merged PR lookup, or pagination scenarios?
-- Should real gateway implementations gain explicit repository selection before the harness lands, or should repository selection remain entirely at the conformance-runner boundary?
+- What exact persistent fixture identities should replace the placeholder `pr_basic_lookup` and `issue_list_open_with_label` catalog entries, and which additional catalog fixtures should come next?
+- How should the first read-only live scenario be paired with fake behavior: shared helper, paired tests, or another parity pattern?
 - Which mutating operations are valuable and safe enough for the first mutation slice: discussion comments, comment updates, reactions, PR reviews, review-thread resolution, or thread replies?
-- How should the live suite classify setup failures versus semantic contract failures so scheduled runs stay actionable?
+- What additional diagnostics are needed to keep setup, fixture, rate-limit, and semantic drift failures actionable in scheduled runs?
 - When should stale ephemeral fixture cleanup be added, and should successful mutating runs clean up immediately or leave early resources for inspection?

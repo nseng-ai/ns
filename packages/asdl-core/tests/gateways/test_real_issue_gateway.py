@@ -170,6 +170,101 @@ def _make_fake_run(
     return fake_run
 
 
+def test_list_targets_explicit_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 5,
+                        "title": "[fixture:issue-list-open] issue",
+                        "state": "OPEN",
+                        "updatedAt": "2026-05-01T00:00:00Z",
+                        "url": "https://github.com/octo/demo/issues/5",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    result = RealIssueGateway(repo="octo/demo").list(label="fixture/issue-list-open")
+
+    assert len(result) == 1
+    assert calls == [
+        [
+            "gh",
+            "issue",
+            "list",
+            "--state",
+            "open",
+            "--json",
+            "number,title,state,updatedAt,url",
+            "--limit",
+            "100",
+            "--label",
+            "fixture/issue-list-open",
+            "-R",
+            "octo/demo",
+        ]
+    ]
+
+
+def test_get_review_threads_uses_explicit_repo_without_repo_view(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(
+        cmd: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        if cmd[:3] == ["gh", "repo", "view"]:
+            raise AssertionError("explicit repo should avoid ambient gh repo view")
+        joined = " ".join(cmd)
+        assert cmd[:3] == ["gh", "api", "graphql"]
+        assert "owner=octo" in joined
+        assert "repo=demo" in joined
+        assert "number=47" in joined
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout=json.dumps(
+                {
+                    "data": {
+                        "repository": {
+                            "pullRequest": {
+                                "reviewThreads": {
+                                    "nodes": [
+                                        _make_thread(thread_id="PRRT_open", is_resolved=False)
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(real_issue_gateway.subprocess, "run", fake_run)
+
+    result = RealIssueGateway(repo="octo/demo").get_review_threads(47)
+
+    assert tuple(thread.id for thread in result) == ("PRRT_open",)
+    assert len(calls) == 1
+
+
 def test_get_review_threads_default_filters_out_resolved(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
