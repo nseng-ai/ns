@@ -241,7 +241,7 @@ explicit user statements.
 
 ### 6. Skeptically refresh durable state
 
-Treat current `initiative.md` and `roadmap.md` as useful curated claims, not as
+Treat current `initiative.md` and `roadmap.md` as useful durable claims, not as
 unquestionable truth.
 
 Refresh from:
@@ -359,18 +359,15 @@ edits to `initiative.md` and `roadmap.md`.
 
 Do not rewrite previous updates for consistency.
 
-## Curation And Compaction
+## Readability-Only Rewrites
 
-Normal stale-state handling belongs in this skill. Do not merely recommend a
-separate curation step when the current update or repo evidence makes durable
-files stale; refresh them now.
+Normal stale-state handling belongs in this skill. Do not defer refresh work when
+the current update or repo evidence makes durable files stale; refresh them now.
 
-Recommend explicit curation or compaction only when:
-
-- the user wants a readability rewrite or condensed roadmap
-- the roadmap has become too long but remains factually current
-- durable files need broad restructuring beyond the evidence being recorded
-- uncertainty is high enough that a separate planning conversation is safer
+Do not perform broad readability rewrites, condensed-roadmap passes, or structural
+reorganizations that are unrelated to the evidence being recorded. If durable
+files are factually current but hard to read, report that separately and say no
+standard initiative workflow owns it yet.
 
 ## Final Response
 
@@ -380,4 +377,5 @@ After writing the update, return:
 - which durable files were edited, or that none needed edits
 - concise summary of what was captured, including any repo-drift finding or
   recorded follow-ups
-- whether explicit curation or compaction is recommended
+- any readability-only rewrite or broad reorganization intentionally left out,
+  when relevant

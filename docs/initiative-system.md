@@ -12,7 +12,7 @@ sessions, branches, or pull requests.
 
 They are driven by skills and prompts, not by a CLI. The repository is the
 source of truth. Git provides history, review, sharing, and conflict handling.
-Skills provide the workflow for creating, reading, updating, and curating
+Skills provide the workflow for creating, reading, updating, and using
 initiative documents.
 
 The system should stay simple:
@@ -200,7 +200,7 @@ The refresh source of truth is repository state, not hidden memory:
 - the drafted new update
 - current checked-out git repository state and relevant git history
 
-The current durable files are useful curated state, but they are not blindly
+The current durable files are useful distilled state, but they are not blindly
 trusted. They are hypotheses to verify against the full update history and the
 repo as currently checked out.
 
@@ -288,22 +288,6 @@ invariants, risks, or open questions when the initiative history and current
 repository state justify it.
 
 It should not rewrite existing update files.
-
-### `initiative-curate`
-
-Performs an explicit manual curation pass when the user asks to compact,
-condense, or substantially reorganize durable initiative files.
-
-May edit:
-
-- `initiative.md`
-- `roadmap.md`
-
-Should not rewrite files in `updates/`.
-
-Normal stale-state handling belongs in `initiative-record-progress`; curation is
-for larger readability, compaction, or restructuring work that should not happen
-opportunistically during every progress record.
 
 ### `initiative-close`
 
@@ -466,7 +450,7 @@ risks, or future work.
 - Use plain bullets, not checkboxes, for completed and parked work.
 - Do not add metadata fields that duplicate Git metadata.
 - Do not use frontmatter unless a later skill has a concrete need for it.
-- Do not rewrite update files during refresh or curation.
+- Do not rewrite update files during refresh.
 - Do not treat durable files as blindly authoritative; refresh them from the
   initiative history and current repository state.
 - Do not treat updates as canonical truth by themselves. They are evidence to be
@@ -481,5 +465,7 @@ risks, or future work.
 - Whether update filenames should include the current branch slug.
 - Whether initiative skills should share one combined `initiative` skill or
   separate operation-specific skills.
+- Whether a dedicated readability compaction workflow becomes necessary after the
+  refresh model has real usage.
 - Whether a future refresh should compare against external systems beyond the
   checked-out repository.

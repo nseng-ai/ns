@@ -79,8 +79,9 @@ Do not:
 
 If progress needs to be recorded, recommend `initiative-record-progress`. If
 durable initiative state is stale, recommend `initiative-record-progress` so the
-stale-state finding can be recorded and durable files can be refreshed. Recommend
-`initiative-curate` only for readability compaction or broad reorganization.
+stale-state finding can be recorded and durable files can be refreshed. If
+durable files are factually current but hard to read, note the readability issue
+without naming a separate workflow.
 
 ## Workflow
 
@@ -217,9 +218,8 @@ Recommend `initiative-record-progress` before implementation when:
 - completion criteria no longer match the initiative's current direction
 - repo drift after a rebase, restack, or trunk update changes the plan
 
-If durable files are factually current but verbose, recommend
-`initiative-curate` for optional curation or compaction; still recommend the next
-action when it is clear.
+If durable files are factually current but verbose, note the readability issue;
+still recommend the next action when it is clear.
 
 ## Final Response
 

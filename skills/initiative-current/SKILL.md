@@ -82,9 +82,10 @@ Do not:
 
 If progress needs to be recorded, recommend `initiative-record-progress`. If
 durable initiative files are stale, recommend `initiative-record-progress` so the
-stale-state finding can be recorded and durable files can be refreshed. Recommend
-`initiative-curate` only for readability compaction or broad reorganization. If
-the user wants a concrete next work item, recommend `initiative-next`.
+stale-state finding can be recorded and durable files can be refreshed. If
+durable files are factually current but hard to read, report that as a readability
+issue instead of naming a separate workflow. If the user wants a concrete next
+work item, recommend `initiative-next`.
 
 ## Workflow
 
@@ -206,7 +207,7 @@ Return:
   - `initiative-next` for next-work planning
   - `initiative-record-progress` for saving new progress or refreshing stale
     durable files
-  - `initiative-curate` for optional compaction or broad reorganization
+- readability or organization concerns, when useful
 
 Keep the response factual and read-only. Do not invent roadmap IDs, frontmatter,
 or hidden metadata.
