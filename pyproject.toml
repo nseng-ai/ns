@@ -3,6 +3,7 @@ members = [
   "packages/brmem",
   "packages/asdl-core",
   "packages/asdl-dispatcher",
+  "packages/asdl-initiatives",
   "packages/asdl-objectives",
   "packages/asdl-pr-address",
   "packages/asdl-reviewer",
@@ -13,6 +14,7 @@ members = [
 brmem = { workspace = true }
 asdl-core = { workspace = true }
 asdl-dispatcher = { workspace = true }
+asdl-initiatives = { workspace = true }
 asdl-objectives = { workspace = true }
 asdl-pr-address = { workspace = true }
 asdl-reviewer = { workspace = true }
@@ -38,6 +40,7 @@ asdl = "asdl_tools.cli.cli:main"
 [project.optional-dependencies]
 plugins = [
   "asdl-dispatcher",
+  "asdl-initiatives",
   "asdl-objectives",
   "asdl-pr-address",
   "asdl-slots",
@@ -52,6 +55,7 @@ dev = [
   "pytest-xdist>=3.8.0",
   "asdl-core",
   "asdl-dispatcher",
+  "asdl-initiatives",
   "asdl-objectives",
   "asdl-pr-address",
   "asdl-reviewer",
@@ -74,6 +78,7 @@ src = [
   "packages/brmem/src",
   "packages/asdl-core/src",
   "packages/asdl-dispatcher/src",
+  "packages/asdl-initiatives/src",
   "packages/asdl-objectives/src",
   "packages/asdl-pr-address/src",
   "packages/asdl-reviewer/src",
@@ -97,6 +102,7 @@ known-first-party = [
   "asdl_tools",
   "asdl_core",
   "asdl_dispatcher",
+  "asdl_initiatives",
   "asdl_objectives",
   "asdl_pr_address",
   "asdl_reviewer",
@@ -122,6 +128,7 @@ testpaths = [
   "packages/brmem/tests",
   "packages/asdl-core/tests",
   "packages/asdl-dispatcher/tests",
+  "packages/asdl-initiatives/tests",
   "packages/asdl-objectives/tests",
   "packages/asdl-pr-address/tests",
   "packages/asdl-reviewer/tests",

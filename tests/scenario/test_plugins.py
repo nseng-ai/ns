@@ -132,6 +132,27 @@ def test_objective_plugin_integration() -> None:
     assert "Render the digest brief" in result.output
 
 
+def test_initiative_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="initiative",
+        value="asdl_initiatives.plugin:build_initiative_plugin",
+    )
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    runner = CliRunner()
+
+    result = runner.invoke(parent, ["initiative", "--help"])
+    assert result.exit_code == 0
+    assert "Work with checked-in Initiative records." in result.output
+    assert "exec" not in result.output
+
+    result = runner.invoke(parent, ["initiative", "exec", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "Commands for use by initiative skills." in result.output
+
+
 def test_pr_address_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
