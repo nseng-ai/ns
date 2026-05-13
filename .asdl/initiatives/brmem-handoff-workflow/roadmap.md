@@ -2,10 +2,10 @@
 
 ## Work
 
-- [ ] Create the first-party `branch-handoff` skill with Branch Memory storage in namespace `session-artifacts` and key pattern `handoffs/<slug>.md`.
-- [ ] Define the skill workflow for deriving or accepting a handoff slug, checking for collisions, writing the Markdown artifact, and reporting the Branch Memory locator.
-- [ ] Document how a later session or different harness lists and reads handoff artifacts for the current branch.
-- [ ] Validate the steelthread manually by creating and reading at least one handoff artifact on a branch.
+- [x] Create the first-party `branch-handoff` skill with Branch Memory storage in namespace `session-artifacts` and key pattern `handoffs/<slug>.md`.
+- [x] Define the skill workflow for deriving or accepting a handoff slug, checking for collisions, writing the Markdown artifact, and reporting the Branch Memory locator.
+- [x] Document how a later session or different harness lists and reads handoff artifacts for the current branch.
+- [x] Validate the steelthread manually by creating and reading at least one handoff artifact on a branch.
 
 ## Parked
 

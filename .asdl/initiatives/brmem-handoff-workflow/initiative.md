@@ -43,13 +43,11 @@ Assumptions:
 
 Risks:
 
-- If slug creation is too implicit, agents may create hard-to-discover or colliding artifact names; the skill needs a simple, predictable slugging rule and a `brmem check` preflight.
-- If artifacts become too broad, Branch Memory may turn into an unstructured task system; the skill should keep handoffs concise and artifact-oriented.
-- If future harnesses interpret the artifact layout differently, harvesting and cross-harness reuse may become brittle; the initial key pattern and namespace should be documented explicitly.
-- If overwrite behavior is unclear, useful handoffs could be lost; replacement must require explicit user intent.
+- The slug-collision risk is de-risked for the steelthread by the implemented skill rule: use an explicit slug when provided, otherwise derive concise kebab-case from the handoff focus/title, and preflight with `brmem check` before writing.
+- If artifacts become too broad, Branch Memory may turn into an unstructured task system; the skill keeps handoffs concise and artifact-oriented, but this remains a risk to watch as more artifact types are added.
+- If future harnesses interpret the artifact layout differently, harvesting and cross-harness reuse may become brittle; the initial key pattern and namespace are now documented explicitly in the skill.
+- The overwrite-loss risk is de-risked for the steelthread by requiring `brmem check` and explicit replacement intent before `brmem put` overwrites an existing artifact.
 
 ## Open Questions
 
-- What exact slug derivation rule should `branch-handoff` recommend when the user does not provide a slug?
-- Should the skill include a standard Markdown section template for handoff artifacts, or leave structure flexible?
 - When harvesting artifacts from merged PRs is implemented later, which artifact types beyond handoffs should be collected first?
