@@ -9,17 +9,18 @@ import click
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_initiatives.exec.inventory import (
+    InitiativeFiles,
+    build_initiative_files,
+    list_update_files,
+    relative_record_path,
+    relative_root_path,
+    render_file_presence,
+)
 
 
 class InitiativeListRequest(ClinkrModel):
     pass
-
-
-class InitiativeFiles(ClinkrModel):
-    initiative_md: bool
-    roadmap_md: bool
-    updates_dir: bool
-    closed_md: bool
 
 
 class InitiativeListEntry(ClinkrModel):
@@ -47,7 +48,7 @@ def render_initiative_list(result: InitiativeListResult) -> None:
             "| "
             f"{entry.slug} | "
             f"{'closed' if entry.closed else 'open'} | "
-            f"{_render_file_presence(entry.files)} | "
+            f"{render_file_presence(entry.files)} | "
             f"{entry.update_count} | "
             f"`{entry.path}` |"
         )
@@ -67,7 +68,7 @@ def run_list_initiatives(
 
 
 def _build_initiative_list_result() -> InitiativeListResult:
-    root = _relative_root_path()
+    root = relative_root_path()
     absolute_root = Path.cwd() / root
     entries: tuple[InitiativeListEntry, ...] = ()
     if absolute_root.is_dir():
@@ -86,42 +87,13 @@ def _build_initiative_list_result() -> InitiativeListResult:
 
 
 def _build_entry(path: Path) -> InitiativeListEntry:
-    relative_path = _relative_root_path() / path.name
-    files = InitiativeFiles(
-        initiative_md=(path / "initiative.md").is_file(),
-        roadmap_md=(path / "roadmap.md").is_file(),
-        updates_dir=(path / "updates").is_dir(),
-        closed_md=(path / "closed.md").is_file(),
-    )
+    relative_path = relative_record_path(path.name)
+    files = build_initiative_files(path)
+    updates = list_update_files(path)
     return InitiativeListEntry(
         slug=path.name,
         path=relative_path.as_posix(),
         closed=files.closed_md,
         files=files,
-        update_count=_count_update_files(path / "updates"),
+        update_count=len(updates),
     )
-
-
-def _count_update_files(updates_dir: Path) -> int:
-    if not updates_dir.is_dir():
-        return 0
-    return sum(1 for child in updates_dir.glob("*.md") if child.is_file())
-
-
-def _render_file_presence(files: InitiativeFiles) -> str:
-    return ", ".join(
-        (
-            f"initiative.md:{_yes_no(files.initiative_md)}",
-            f"roadmap.md:{_yes_no(files.roadmap_md)}",
-            f"updates/:{_yes_no(files.updates_dir)}",
-            f"closed.md:{_yes_no(files.closed_md)}",
-        )
-    )
-
-
-def _yes_no(value: bool) -> str:
-    return "yes" if value else "no"
-
-
-def _relative_root_path() -> Path:
-    return Path(".asdl") / "initiatives"
