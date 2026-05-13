@@ -51,3 +51,22 @@ Risks:
 ## Open Questions
 
 - When harvesting artifacts from merged PRs is implemented later, which artifact types beyond handoffs should be collected first?
+
+## Closure
+
+Closed as completed on 2026-05-13.
+
+Evidence:
+
+- The first-party `branch-handoff` skill exists and is installed for agent discovery.
+- The skill documents Branch Memory storage in namespace `session-artifacts` with keys shaped like `handoffs/<slug>.md`.
+- The workflow covers explicit or derived slugs, collision preflight with `brmem check`, explicit overwrite intent, Markdown artifact writing, Branch Memory storage, and later recovery with `brmem list` / `brmem get`.
+- Manual steelthread validation stored and recovered `handoffs/branch-handoff-validation.md` on branch `implement-handoff-file-processing`.
+- The completed work was submitted for review at <https://app.graphite.com/github/pr/dagster-io/asdl-tools/460>.
+
+Remaining caveats and follow-ups:
+
+- Harvesting merged-PR session artifacts into a durable knowledge base or corpus remains intentionally parked.
+- Additional artifact types, such as session summaries or lessons learned, remain deferred until there is evidence they are needed.
+- A dedicated CLI remains unnecessary for the steelthread and should only be reconsidered if the skill-only workflow proves too procedural or needs stronger validation.
+- The artifact-breadth risk remains worth watching so Branch Memory handoffs stay artifact-oriented rather than becoming a task system.
