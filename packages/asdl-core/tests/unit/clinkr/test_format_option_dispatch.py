@@ -183,6 +183,24 @@ def test_is_machine_mode_false_for_default_human_dispatch() -> None:
     assert '"machine_mode": false' in result.stdout
 
 
+def test_format_markdown_uses_human_dispatch() -> None:
+    result = CliRunner().invoke(
+        _make_group(),
+        ["mode", "--format", "markdown"],
+        obj=_runtime_obj(),
+    )
+
+    assert result.exit_code == 0
+    assert '"machine_mode": false' in result.stdout
+
+
+def test_format_md_alias_uses_human_dispatch() -> None:
+    result = CliRunner().invoke(_make_group(), ["mode", "--format", "md"], obj=_runtime_obj())
+
+    assert result.exit_code == 0
+    assert '"machine_mode": false' in result.stdout
+
+
 def test_machine_mode_does_not_leak_when_context_object_is_reused() -> None:
     runner = CliRunner()
     obj = build_clinkr_context_object(lambda: object())

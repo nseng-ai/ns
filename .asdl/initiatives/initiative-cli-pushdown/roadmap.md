@@ -13,12 +13,14 @@
   - Scenario coverage exercises standalone help/version, hidden-but-invocable `exec`, and top-level plugin discovery smoke behavior.
   - Verification: `uv run pytest packages/asdl-initiatives/tests/scenario tests/scenario/test_plugins.py` and `just` passed.
   - No `exec` operations, Markdown parsing, git/Graphite/brmem integration, or Initiative mutation commands were introduced.
-- [ ] PR 3: implement `initiative exec list` with JSON and Markdown formats.
-  - `--format json` returns Initiative slugs, paths, closed-marker state, required file presence, and update counts.
+- [x] PR 3: implement `initiative exec list` with JSON and Markdown formats.
+  - Evidence: `packages/asdl-initiatives/src/asdl_initiatives/exec/list.py` implements pure filesystem inventory under the hidden `initiative exec list` command.
+  - `--format json` returns Initiative slugs, relative paths, closed-marker state, file-presence facts, and update counts.
   - Include open and closed Initiatives by default and sort by slug ascending.
-  - `--format md` renders the same inventory compactly for direct agent reading.
-  - Do not inspect git state, return changed/touched path facts, or produce a selection hint.
-  - Cover absent `.asdl/initiatives/`, empty roots, malformed entries, and closed records.
+  - `--format md` renders the same inventory as a compact table for direct agent reading.
+  - The command does not inspect git state, return changed/touched path facts, read Markdown contents, or produce a selection hint.
+  - Coverage includes absent `.asdl/initiatives/`, empty roots, sorted open/closed records, missing required files, direct update counts, ignored non-directory entries, `--format json`, `--format md`, Clinkr's `md` format alias, and plugin smoke invocation.
+  - Verification: `uv run pytest packages/asdl-initiatives/tests/scenario packages/asdl-core/tests/unit/clinkr/test_format_option_dispatch.py tests/scenario/test_plugins.py` and `just` passed.
 - [ ] PR 4: implement `initiative exec read-initiative <slug-or-path>` with JSON and Markdown formats.
   - Validate explicit slug/path selection under `.asdl/initiatives/<slug>/`.
   - `--format json` returns missing-slug/path and invalid-path errors as stable JSON plus file inventory, closed state, and paths by default.

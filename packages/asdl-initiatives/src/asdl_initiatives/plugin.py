@@ -6,8 +6,12 @@ from asdl_core.plugin import AsdlPluginSpec
 from asdl_initiatives.group import build_initiative_group
 
 
+def build_initiative_context() -> object:
+    return object()
+
+
 def build_initiative_plugin() -> AsdlPluginSpec:
     return AsdlPluginSpec(
         build_group=build_initiative_group,
-        context_factory=None,
+        context_factory=build_initiative_context,
     )

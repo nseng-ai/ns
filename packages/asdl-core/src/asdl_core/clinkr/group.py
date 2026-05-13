@@ -158,17 +158,17 @@ def _build_format_option() -> click.Parameter:
     """Build the framework-injected ``--format`` option.
 
     ``--format json`` dispatches the operation through the machine-envelope
-    path on the same command. ``--format markdown`` uses the human renderer;
-    markdown-oriented commands render markdown there.
+    path on the same command. ``--format markdown`` and its ``md`` alias use
+    the human renderer; markdown-oriented commands render markdown there.
     """
     return click.Option(
         ["--format", MACHINE_FORMAT_PARAM_NAME],
-        type=click.Choice(["human", "json", "markdown"]),
+        type=click.Choice(["human", "json", "markdown", "md"]),
         default="human",
         show_default=True,
         help=(
             "Output format. 'json' emits the machine envelope for scripting; "
-            "'markdown' uses the command's human renderer."
+            "'markdown'/'md' uses the command's human renderer."
         ),
     )
 
