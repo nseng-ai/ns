@@ -21,9 +21,9 @@
   - The command does not inspect git state, return changed/touched path facts, read Markdown contents, or produce a selection hint.
   - Coverage includes absent `.asdl/initiatives/`, empty roots, sorted open/closed records, missing required files, direct update counts, ignored non-directory entries, `--format json`, `--format md`, Clinkr's `md` format alias, and plugin smoke invocation.
   - Verification: `uv run pytest packages/asdl-initiatives/tests/scenario packages/asdl-core/tests/unit/clinkr/test_format_option_dispatch.py tests/scenario/test_plugins.py` and `just` passed.
-- [ ] PR 4: implement `initiative exec read-initiative <slug-or-path>` with JSON and Markdown formats.
-  - Validate explicit slug/path selection under `.asdl/initiatives/<slug>/`.
-  - `--format json` returns missing-slug/path and invalid-path errors as stable JSON plus file inventory, closed state, and paths by default.
+- [ ] PR 4: implement `initiative exec read-initiative <slug>` with JSON and Markdown formats.
+  - Require an explicit slug and resolve only `.asdl/initiatives/<slug>/`; callers that start from a path must select or derive the slug before invoking the CLI.
+  - `--format json` returns missing-slug and invalid-slug errors as stable JSON plus file inventory, closed state, and paths by default.
   - `--format md` includes the raw `initiative.md`, `roadmap.md`, and all update Markdown by default without parsing headings or roadmap status.
 - [ ] PR 5: implement `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref>` with JSON and Markdown formats, then simplify `initiative-next` to use it.
   - Require an explicit `--base-ref` for committed-change comparison.
