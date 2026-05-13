@@ -2,7 +2,7 @@
 
 import pytest
 
-from asdl_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
+from asdl_core.git.types import DetachedHead, GitCommandFailure, GitPathChange, RestructuredFile
 
 
 def test_detached_head_is_frozen() -> None:
@@ -27,3 +27,11 @@ def test_restructured_file_construction() -> None:
     )
     assert rf.status == "R"
     assert rf.similarity == 95
+
+
+def test_git_path_change_construction() -> None:
+    change = GitPathChange(status="R100", path="src/new.py", old_path="src/old.py")
+
+    assert change.status == "R100"
+    assert change.path == "src/new.py"
+    assert change.old_path == "src/old.py"

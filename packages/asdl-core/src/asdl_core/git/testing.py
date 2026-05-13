@@ -12,6 +12,7 @@ from asdl_core.git.types import (
     DetachedHead,
     FileStatus,
     GitCommandFailure,
+    GitPathChange,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -43,6 +44,15 @@ class FakeGitGateway(GitGateway):
         restructured_files_by_key: (
             dict[tuple[Path, str], tuple[RestructuredFile, ...] | GitCommandFailure] | None
         ) = None,
+        working_tree_changes_by_path: (
+            dict[Path, tuple[GitPathChange, ...] | GitCommandFailure] | None
+        ) = None,
+        index_changes_by_path: (
+            dict[Path, tuple[GitPathChange, ...] | GitCommandFailure] | None
+        ) = None,
+        range_changes_by_key: (
+            dict[tuple[Path, str], tuple[GitPathChange, ...] | GitCommandFailure] | None
+        ) = None,
         file_last_touched_by_ref_path: dict[tuple[str, str], str] | None = None,
         branch_head_iso_by_branch: dict[str, str] | None = None,
         branch_head_oid_by_branch: dict[str, str] | None = None,
@@ -71,6 +81,9 @@ class FakeGitGateway(GitGateway):
         self._existing_paths = set(existing_paths)
         self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
         self._restructured_files_by_key = dict(restructured_files_by_key or {})
+        self._working_tree_changes_by_path = dict(working_tree_changes_by_path or {})
+        self._index_changes_by_path = dict(index_changes_by_path or {})
+        self._range_changes_by_key = dict(range_changes_by_key or {})
         self._file_last_touched_by_ref_path = dict(file_last_touched_by_ref_path or {})
         self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
         self._branch_head_oid_by_branch = dict(branch_head_oid_by_branch or {})
@@ -204,6 +217,25 @@ class FakeGitGateway(GitGateway):
         return self._file_status_by_path.get(
             cwd, FileStatus(staged=False, modified=False, untracked=False)
         )
+
+    def list_working_tree_changes(
+        self,
+        cwd: Path,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        return self._working_tree_changes_by_path.get(cwd, ())
+
+    def list_index_changes(
+        self,
+        cwd: Path,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        return self._index_changes_by_path.get(cwd, ())
+
+    def list_range_changes(
+        self,
+        cwd: Path,
+        base_ref: str,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        return self._range_changes_by_key.get((cwd, base_ref), ())
 
     def file_last_touched_iso(self, ref: str, path: str) -> str | None:
         return self._file_last_touched_by_ref_path.get((ref, path))

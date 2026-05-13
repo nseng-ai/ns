@@ -10,6 +10,7 @@ from asdl_core.git.types import (
     DetachedHead,
     FileStatus,
     GitCommandFailure,
+    GitPathChange,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -99,6 +100,28 @@ class GitGateway(ABC):
     @abstractmethod
     def get_file_status(self, cwd: Path) -> FileStatus:
         """Return a ``FileStatus`` describing the worktree's dirty state."""
+
+    @abstractmethod
+    def list_working_tree_changes(
+        self,
+        cwd: Path,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        """Return unstaged and untracked path changes in ``cwd``."""
+
+    @abstractmethod
+    def list_index_changes(
+        self,
+        cwd: Path,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        """Return staged path changes in ``cwd``."""
+
+    @abstractmethod
+    def list_range_changes(
+        self,
+        cwd: Path,
+        base_ref: str,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        """Return committed path changes from ``base_ref...HEAD`` in ``cwd``."""
 
     @abstractmethod
     def file_last_touched_iso(self, ref: str, path: str) -> str | None:

@@ -46,6 +46,15 @@ class RestructuredFile:
 
 
 @dataclass(frozen=True)
+class GitPathChange:
+    """One path change reported by ``git diff --name-status``."""
+
+    status: str
+    path: str
+    old_path: str | None = None
+
+
+@dataclass(frozen=True)
 class WorktreeInfo:
     """A worktree reported by ``git worktree list --porcelain``."""
 

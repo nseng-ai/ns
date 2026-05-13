@@ -11,6 +11,7 @@ from asdl_core.git.types import (
     DetachedHead,
     FileStatus,
     GitCommandFailure,
+    GitPathChange,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -243,6 +244,46 @@ def parse_name_status_output(stdout: str) -> tuple[RestructuredFile, ...]:
     return tuple(files)
 
 
+def parse_git_path_change_output(stdout: str) -> tuple[GitPathChange, ...]:
+    """Parse NUL-delimited ``git diff --name-status -z`` output."""
+
+    tokens = stdout.split("\x00")
+    if tokens and tokens[-1] == "":
+        tokens = tokens[:-1]
+    changes: list[GitPathChange] = []
+    index = 0
+    while index < len(tokens):
+        status = tokens[index]
+        index += 1
+        if not status:
+            continue
+        status_kind = status[:1]
+        if status_kind in {"R", "C"}:
+            if index + 1 >= len(tokens):
+                break
+            old_path = tokens[index]
+            new_path = tokens[index + 1]
+            index += 2
+            if old_path and new_path:
+                changes.append(GitPathChange(status=status, path=new_path, old_path=old_path))
+            continue
+
+        if index >= len(tokens):
+            break
+        path = tokens[index]
+        index += 1
+        if path:
+            changes.append(GitPathChange(status=status, path=path))
+
+    return tuple(changes)
+
+
+def parse_untracked_files_output(stdout: str) -> tuple[GitPathChange, ...]:
+    """Parse NUL-delimited ``git ls-files --others`` output as ``??`` changes."""
+
+    return tuple(GitPathChange(status="??", path=path) for path in stdout.split("\x00") if path)
+
+
 class RealGitGateway(GitGateway):
     """Shared real implementation for git repository and worktree operations."""
 
@@ -401,6 +442,81 @@ class RealGitGateway(GitGateway):
     def get_file_status(self, cwd: Path) -> FileStatus:
         result = _run(["git", "status", "--porcelain"], cwd=cwd, check=True)
         return parse_porcelain_status(result.stdout)
+
+    def list_working_tree_changes(
+        self,
+        cwd: Path,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        diff_result = _run(
+            ["git", "diff", "--name-status", "-z", "-M", "-C"],
+            cwd=cwd,
+            check=False,
+        )
+        if diff_result.returncode != 0:
+            return GitCommandFailure(
+                message=(
+                    "Failed to list working tree changes: "
+                    f"{diff_result.stderr.strip() or 'git diff failed'}"
+                ),
+                returncode=diff_result.returncode,
+            )
+
+        untracked_result = _run(
+            ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+            cwd=cwd,
+            check=False,
+        )
+        if untracked_result.returncode != 0:
+            return GitCommandFailure(
+                message=(
+                    "Failed to list untracked files: "
+                    f"{untracked_result.stderr.strip() or 'git ls-files failed'}"
+                ),
+                returncode=untracked_result.returncode,
+            )
+
+        return (
+            *parse_git_path_change_output(diff_result.stdout),
+            *parse_untracked_files_output(untracked_result.stdout),
+        )
+
+    def list_index_changes(
+        self,
+        cwd: Path,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        result = _run(
+            ["git", "diff", "--cached", "--name-status", "-z", "-M", "-C"],
+            cwd=cwd,
+            check=False,
+        )
+        if result.returncode != 0:
+            return GitCommandFailure(
+                message=(
+                    f"Failed to list index changes: {result.stderr.strip() or 'git diff failed'}"
+                ),
+                returncode=result.returncode,
+            )
+        return parse_git_path_change_output(result.stdout)
+
+    def list_range_changes(
+        self,
+        cwd: Path,
+        base_ref: str,
+    ) -> tuple[GitPathChange, ...] | GitCommandFailure:
+        result = _run(
+            ["git", "diff", "--name-status", "-z", "-M", "-C", f"{base_ref}...HEAD"],
+            cwd=cwd,
+            check=False,
+        )
+        if result.returncode != 0:
+            return GitCommandFailure(
+                message=(
+                    f"Failed to list committed changes against {base_ref}: "
+                    f"{result.stderr.strip() or 'git diff failed'}"
+                ),
+                returncode=result.returncode,
+            )
+        return parse_git_path_change_output(result.stdout)
 
     def file_last_touched_iso(self, ref: str, path: str) -> str | None:
         result = _run(

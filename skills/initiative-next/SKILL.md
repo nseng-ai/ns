@@ -18,7 +18,7 @@ Canonical root: `.asdl/initiatives/<slug>/`.
 - `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Initiative Impact`, `## Follow-Ups`.
 - `closed.md`: optional Closure Marker; existence means closed.
 
-V1 is markdown-only: read Markdown directly; do not add or call Python CLI tooling.
+Initiative records are Markdown; read `initiative.md`, `roadmap.md`, and `updates/` directly. Use the dedicated exec command only for the Tracking Gate changed-path facts described below.
 
 ## Resolve the Initiative
 
@@ -32,9 +32,9 @@ Do not auto-select from candidate count or changed/touched files. Never infer In
 
 Before recommending work:
 
-1. Inspect uncommitted changes and branch diff when available.
-2. Look for material non-Initiative changes that plausibly advance the selected Initiative.
-3. Look for corresponding changes under `.asdl/initiatives/<slug>/`.
+1. Choose an explicit base ref for the branch diff from repo facts or user input; do not ask the CLI to infer it.
+2. Run `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref> --format md`.
+3. Interpret the command's path evidence yourself: look for material non-Initiative changes that plausibly advance the selected Initiative, and for corresponding changes under `.asdl/initiatives/<slug>/`.
 4. If meaningful progress appears likely but unrecorded, stop and ask the user to run `initiative-update`.
 5. If evidence is absent, ambiguous, or clearly unrelated, proceed with a concise note.
 

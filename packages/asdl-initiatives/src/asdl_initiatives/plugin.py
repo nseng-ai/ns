@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from asdl_core.git.real_git_gateway import RealGitGateway
 from asdl_core.plugin import AsdlPluginSpec
+from asdl_initiatives.context import InitiativeCliContext
 from asdl_initiatives.group import build_initiative_group
 
 
-def build_initiative_context() -> object:
-    return object()
+def build_initiative_context() -> InitiativeCliContext:
+    return InitiativeCliContext(git_gateway=RealGitGateway())
 
 
 def build_initiative_plugin() -> AsdlPluginSpec:
