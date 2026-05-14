@@ -50,6 +50,7 @@ Assumptions:
 - Emitting raw Initiative Markdown through `--format md` preserves the hard boundary against Markdown parsing while reducing tool calls and avoiding JSON string extraction for prose-heavy reads.
 - Changed-path facts belong only in `tracking-gate-facts`, where they serve `initiative-next`'s Tracking Gate preflight; semantic materiality and base-ref choice can remain with the agent.
 - A new `asdl-initiatives` package can host standalone and plugin CLI entry points without introducing runtime coupling to objective-specific storage or Graphite stack metadata. PR 2 confirmed the package skeleton can wire the standalone/plugin entry points and a hidden empty `exec` subgroup without adding objective, Graphite, brmem, git, or Markdown-parsing runtime dependencies.
+- Tracking-gate fact collection can sit on `GitGateway` alone (working-tree, index, and `<base>..HEAD` committed path changes) without reaching for Graphite, brmem, or Markdown parsing. PR 5 confirmed this by adding `GitPathChange` plus the changed-path listing APIs to the real and fake git gateways and consuming them from `initiative exec tracking-gate-facts`.
 
 Risks:
 

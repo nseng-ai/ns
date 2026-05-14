@@ -27,11 +27,13 @@
   - `--format json` returns stable envelopes for missing slug, invalid slug, and absent records, plus root/record paths, file presence, closed state, sorted update files, and update counts without raw Markdown content.
   - `--format md` renders raw `initiative.md`, `roadmap.md`, and direct sorted `updates/*.md`, with explicit missing-file notes for incomplete records.
   - Verification: `uv run pytest packages/asdl-initiatives/tests/scenario packages/asdl-initiatives/tests/unit tests/scenario/test_plugins.py` and `just` passed.
-- [ ] PR 5: implement `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref>` with JSON and Markdown formats, then simplify `initiative-next` to use it.
+- [~] PR 5: implement `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref>` with JSON and Markdown formats, then simplify `initiative-next` to use it.
   - Require an explicit `--base-ref` for committed-change comparison.
   - `--format json` reports read-only git/worktree evidence for current branch, working tree/index changes, committed changes from `--base-ref` to `HEAD`, selected-Initiative paths, other-Initiative paths, and non-Initiative paths.
   - `--format md` renders those facts compactly for direct agent reading.
   - Keep materiality judgment and base-ref choice in `initiative-next`.
+  - Evidence: `packages/asdl-initiatives/src/asdl_initiatives/exec/tracking_gate_facts.py` implements the hidden `initiative exec tracking-gate-facts` command; `asdl_core.git` gained `GitPathChange` and listing APIs (working-tree, index, committed `<base>..HEAD`) on real and fake gateways; `skills/initiative-next/SKILL.md` now calls the command for its Tracking Gate facts; unit and scenario coverage exercise path classification, base-ref handling, slug-or-path resolution, JSON and Markdown rendering.
+  - Remaining: audit other Initiative skills (`initiative-current`, `initiative-update`, `initiative-close`, `initiative`) to delegate any deterministic mechanics they still duplicate, then close out this PR.
 - [ ] Update Initiative skills and docs to delegate deterministic mechanics.
   - Shorten repeated inventory, record-reading, closed-marker, and Tracking Gate fact-gathering instructions.
   - Preserve semantic decision rules and user-facing behavior in the skills.
