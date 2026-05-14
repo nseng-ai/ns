@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated, Literal
 
 import click
 
@@ -19,9 +20,20 @@ from asdl_objectives.exec.inventory import (
     render_file_presence,
 )
 
+ObjectiveListState = Literal["all", "open", "closed"]
+
 
 class ObjectiveListRequest(ClinkrModel):
-    pass
+    state: Annotated[
+        ObjectiveListState,
+        click.Option(
+            ["--state"],
+            type=click.Choice(["all", "open", "closed"]),
+            default="open",
+            show_default=True,
+            help="Filter Objective records by closed state.",
+        ),
+    ] = "open"
 
 
 class ObjectiveListEntry(ClinkrModel):
@@ -35,6 +47,7 @@ class ObjectiveListEntry(ClinkrModel):
 class ObjectiveListResult(ClinkrModel):
     root_path: str
     root_exists: bool
+    state: ObjectiveListState
     entries: tuple[ObjectiveListEntry, ...]
 
 
@@ -64,7 +77,7 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
     )
 
     if not result.entries:
-        console.print("[dim]No objective records.[/dim]")
+        console.print(f"[dim]{_empty_records_message(result.state)}[/dim]")
         return
 
     table = make_table()
@@ -85,6 +98,12 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
         )
 
     console.print(table)
+
+
+def _empty_records_message(state: ObjectiveListState) -> str:
+    if state == "all":
+        return "No objective records."
+    return f"No {state} objective records."
 
 
 def _render_file_tokens(files: ObjectiveFiles) -> str:
@@ -112,11 +131,11 @@ def run_list_objectives(
     ctx: click.Context,
     request: ObjectiveListRequest,
 ) -> ClinkrExit[ObjectiveListResult]:
-    del ctx, request
-    return ClinkrExit.ok(_build_objective_list_result())
+    del ctx
+    return ClinkrExit.ok(_build_objective_list_result(request.state))
 
 
-def _build_objective_list_result() -> ObjectiveListResult:
+def _build_objective_list_result(state: ObjectiveListState = "open") -> ObjectiveListResult:
     root = relative_root_path()
     absolute_root = Path.cwd() / root
     entries: tuple[ObjectiveListEntry, ...] = ()
@@ -128,11 +147,24 @@ def _build_objective_list_result() -> ObjectiveListResult:
                 key=lambda child: child.name,
             )
         )
+        entries = _filter_entries(entries, state)
     return ObjectiveListResult(
         root_path=root.as_posix(),
         root_exists=absolute_root.exists(),
+        state=state,
         entries=entries,
     )
+
+
+def _filter_entries(
+    entries: tuple[ObjectiveListEntry, ...],
+    state: ObjectiveListState,
+) -> tuple[ObjectiveListEntry, ...]:
+    if state == "open":
+        return tuple(entry for entry in entries if not entry.closed)
+    if state == "closed":
+        return tuple(entry for entry in entries if entry.closed)
+    return entries
 
 
 def _build_entry(path: Path) -> ObjectiveListEntry:

@@ -72,6 +72,7 @@ def test_objective_list_absent_root(
         "data": {
             "root_path": ".asdl/objectives",
             "root_exists": False,
+            "state": "open",
             "entries": [],
         },
     }
@@ -91,11 +92,12 @@ def test_objective_list_empty_root(
     assert json.loads(result.output)["data"] == {
         "root_path": ".asdl/objectives",
         "root_exists": True,
+        "state": "open",
         "entries": [],
     }
 
 
-def test_objective_list_sorts_open_and_closed_records(
+def test_objective_list_all_state_sorts_open_and_closed_records(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -105,7 +107,7 @@ def test_objective_list_sorts_open_and_closed_records(
     _write_objective(root, "zeta", closed=True)
     _write_objective(root, "alpha")
 
-    result = _invoke_json(cli_group)
+    result = _invoke_json(cli_group, "--state", "all")
 
     assert result.exit_code == 0, result.output
     entries = json.loads(result.output)["data"]["entries"]
@@ -115,6 +117,70 @@ def test_objective_list_sorts_open_and_closed_records(
     assert entries[1]["path"] == ".asdl/objectives/zeta"
     assert entries[1]["closed"] is True
     assert entries[1]["files"]["closed_md"] is True
+
+
+def test_objective_list_filters_open_state(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "objectives"
+    _write_objective(root, "active")
+    _write_objective(root, "done", closed=True)
+
+    result = _invoke_json(cli_group, "--state", "open")
+
+    assert result.exit_code == 0, result.output
+    entries = json.loads(result.output)["data"]["entries"]
+    assert [entry["slug"] for entry in entries] == ["active"]
+    assert entries[0]["closed"] is False
+
+
+def test_objective_list_filters_closed_state(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "objectives"
+    _write_objective(root, "active")
+    _write_objective(root, "done", closed=True)
+
+    result = _invoke_json(cli_group, "--state", "closed")
+
+    assert result.exit_code == 0, result.output
+    entries = json.loads(result.output)["data"]["entries"]
+    assert [entry["slug"] for entry in entries] == ["done"]
+    assert entries[0]["closed"] is True
+
+
+def test_objective_list_default_state_returns_open(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "objectives"
+    _write_objective(root, "active")
+    _write_objective(root, "done", closed=True)
+
+    result = _invoke_json(cli_group)
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["state"] == "open"
+    entries = data["entries"]
+    assert [entry["slug"] for entry in entries] == ["active"]
+    assert entries[0]["closed"] is False
+
+
+def test_objective_list_invalid_state(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--state", "bogus"])
+
+    assert result.exit_code != 0
+    assert "Invalid value for '--state'" in result.output
+    assert "bogus" in result.output
 
 
 def test_objective_list_reports_missing_required_files(
@@ -222,10 +288,56 @@ def test_objective_list_human_default(
     assert "present" in result.output
     assert "Slug" in result.output
     assert "alpha" in result.output
-    assert "zeta" in result.output
+    assert "zeta" not in result.output
     # The markdown table header is markdown-only and must not leak into
     # the human renderer's output.
     assert "| slug | state |" not in result.output
+
+
+def test_objective_list_human_default_empty_says_no_open_records(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "objectives"
+    _write_objective(root, "done", closed=True)
+
+    result = CliRunner().invoke(cli_group, ["list"])
+
+    assert result.exit_code == 0, result.output
+    assert "No open objective records." in result.output
+
+
+def test_objective_list_human_closed_empty_says_no_closed_records(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "objectives"
+    _write_objective(root, "active")
+
+    result = CliRunner().invoke(cli_group, ["list", "--state", "closed"])
+
+    assert result.exit_code == 0, result.output
+    assert "No closed objective records." in result.output
+
+
+def test_objective_list_human_all_empty_omits_state_adjective(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".asdl" / "objectives").mkdir(parents=True)
+
+    result = CliRunner().invoke(cli_group, ["list", "--state", "all"])
+
+    assert result.exit_code == 0, result.output
+    assert "No objective records." in result.output
+    assert "No open objective records." not in result.output
+    assert "No closed objective records." not in result.output
 
 
 def test_objective_exec_read_missing_slug_returns_stable_json(
@@ -458,10 +570,10 @@ def test_objective_exec_read_json_omits_raw_markdown_content(
     assert "private update body sentinel" not in result.output
 
 
-def _invoke_json(cli_group: ClinkrGroup) -> Result:
+def _invoke_json(cli_group: ClinkrGroup, *args: str) -> Result:
     return CliRunner().invoke(
         cli_group,
-        ["list", "--format", "json"],
+        ["list", *args, "--format", "json"],
         obj=build_clinkr_context_object(lambda: object()),
     )
 
