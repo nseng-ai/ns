@@ -10,7 +10,7 @@ The shared architectural vocabulary lives in `.claude/skills/improve-codebase-ar
 
 Five candidates surfaced by an `/improve-codebase-architecture` review pass:
 
-1. **`brmem/gateway_access.py`** — three one-line accessors plus an out-of-place error translator. Deletion concentrates ~5 lines into the CLI context builder; the file is a pass-through.
+1. **`gateway_access.py` shallow modules** — both `brmem/gateway_access.py` (three one-line accessors plus an out-of-place error translator) and `asdl-pr-address/cli/pr_address/gateway_access.py` (two one-line accessors over a `PrAddressCliContext`). Deletion folds the accessors into direct `load_typed_context(ctx, <Context>)` reads at op call sites — matching the existing `asdl-reviewer` convention — and collapses brmem's error translator into the documented `Ensure.ideal_state` idiom on the canonical `DetachedHead`/`GitCommandFailure` types. Both pass-through modules disappear.
 2. **asdl-slots slot lifecycle** — `repo_context.py`, `inventory.py`, `checkout_planning.py`, `lifecycle.py` are four thin pure-data modules. A `slot checkout` requires composing all four in the correct order from the CLI; the cross-module invariants live nowhere.
 3. **asdl-reviewer workflow + four thin gateways** — `harness_detection`, `local_diff`, `review_definition`, `review_execution` each expose 2–3 methods. The workflow knows all four gateway shapes; the actual variation point is "what environment am I running a review in," not "which capability am I asking for."
 4. **clinkr operation registration ceremony** — `_register_operation` and the Pydantic-to-Click params bridge live as free helpers; they belong as internal seams of `ClinkrGroup`. Public decorator surface unchanged.
