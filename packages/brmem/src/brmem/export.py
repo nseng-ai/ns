@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import secrets
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -38,14 +40,17 @@ class ExportRequest(ClinkrModel):
     ] = None
     branch: str | None = None
     output_dir: Annotated[
-        str,
+        str | None,
         click.Option(
             ["--output-dir"],
-            required=True,
             type=click.STRING,
-            help="Directory that will receive files named by brmem keys.",
+            default=None,
+            help=(
+                "Directory that will receive files named by brmem keys. "
+                "Defaults to a fresh temp directory with a unique suffix."
+            ),
         ),
-    ]
+    ] = None
     overwrite: Annotated[
         bool,
         click.Option(
@@ -133,7 +138,7 @@ def run_export(
         message=branch_failure or "Invalid branch name.",
     )
 
-    output_dir = _absolute_output_dir(request.output_dir)
+    output_dir = _resolve_output_dir(request.output_dir)
     gateway = get_branch_memory_gateway(ctx)
     entries = _matching_entries(gateway, request.namespace, branch)
 
@@ -310,7 +315,9 @@ def _write_exports(prepared: list[_PreparedExport]) -> None:
             ) from exc
 
 
-def _absolute_output_dir(output_dir: str) -> Path:
+def _resolve_output_dir(output_dir: str | None) -> Path:
+    if output_dir is None:
+        return Path(tempfile.gettempdir()) / f"brmem-export-{secrets.token_hex(8)}"
     path = Path(output_dir)
     if path.is_absolute():
         return path

@@ -153,9 +153,12 @@ brmem list --namespace notes
 `list` shows the Entries visible for the current branch, optionally narrowed to
 base Entries or a Namespace.
 
-To materialize Entries as files, export them to an explicit directory:
+To materialize Entries as files, export them. With no `--output-dir`, `export`
+writes to a fresh temp directory whose path has a unique random suffix (e.g.
+`$TMPDIR/brmem-export-<hash>`) and prints that path in its output:
 
 ```text
+brmem export
 brmem export --output-dir /tmp/brmem-export
 brmem export --namespace objectives --output-dir /tmp/objectives
 brmem export --branch feature/table-filtering --output-dir /tmp/brmem-export

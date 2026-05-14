@@ -42,7 +42,7 @@ private tokens, binary assets, generated build output, or large datasets.
 | Print one Entry's content                | `brmem get <key>`                                               | No      |
 | Probe one Entry and get locator/size     | `brmem check <key>`                                             | No      |
 | List Entries on a branch                 | `brmem list`                                                    | No      |
-| Export Entries to files                  | `brmem export --output-dir <dir>`                               | Files   |
+| Export Entries to files                  | `brmem export [--output-dir <dir>]`                             | Files   |
 | Remove one Entry                         | `brmem delete <key>`                                            | Yes     |
 | Copy namespaced Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
 | Resolve a repo/global prompt plugin      | `brmem exec resolve-prompt <name>`                              | No      |
@@ -130,12 +130,16 @@ Use `export` when a workflow needs Branch Memory materialized as ordinary UTF-8
 files in a chosen directory:
 
 ```text
+brmem export --branch feature/add-cache
 brmem export --branch feature/add-cache --output-dir /tmp/brmem-export
 brmem export --namespace scratch --branch feature/add-cache --output-dir /tmp/scratch-export
 ```
 
 Important details:
 
+- Omitting `--output-dir` writes to a fresh temp directory whose path has a
+  unique random suffix (e.g. `$TMPDIR/brmem-export-<hash>`); the directory
+  outlives the process and the chosen path is printed in the command output.
 - Omitting `--namespace` exports **base Entries only**. It does not mean "all
   Namespaces."
 - Each key becomes a relative path under `--output-dir`; for example,

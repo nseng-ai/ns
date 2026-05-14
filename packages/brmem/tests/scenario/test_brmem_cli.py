@@ -1337,6 +1337,42 @@ def test_brmem_export_base_entries_by_default(cli_group: ClinkrGroup, tmp_path: 
     assert not (output_dir / "notes" / "scratch.md").exists()
 
 
+def test_brmem_export_defaults_to_unique_temp_dir(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import brmem.export as export_module
+
+    monkeypatch.setattr(export_module.tempfile, "gettempdir", lambda: str(tmp_path))
+
+    def _run() -> tuple[int, str]:
+        gateway = FakeBranchMemoryGateway()
+        gateway.put(None, "plan.md", "feat/x", "base plan\n")
+        result = CliRunner().invoke(
+            cli_group,
+            ["export", "--format", "json"],
+            obj=_make_obj(gateway=gateway),
+        )
+        assert result.exit_code == 0, result.output
+        payload = _json_output(result.output)
+        return payload["exit_code"], payload["data"]["output_dir"]  # type: ignore[index,return-value]
+
+    _, first_dir = _run()
+    _, second_dir = _run()
+
+    first_path = Path(first_dir)
+    second_path = Path(second_dir)
+
+    assert first_path != second_path
+    assert first_path.parent == tmp_path
+    assert second_path.parent == tmp_path
+    assert first_path.name.startswith("brmem-export-")
+    assert second_path.name.startswith("brmem-export-")
+    assert (first_path / "plan.md").read_text(encoding="utf-8") == "base plan\n"
+    assert (second_path / "plan.md").read_text(encoding="utf-8") == "base plan\n"
+
+
 def test_brmem_export_namespace_entries(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
     gateway.put(None, "plan.md", "feat/x", "base\n")
