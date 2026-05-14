@@ -66,4 +66,4 @@ Risks:
 
 - If Initiative update histories grow too large, should `read-initiative --format md` add an updates limit flag later?
 - Should a future Initiative pick up deterministic Tracking Gate evidence collection as its own scope, now that this Initiative has descoped `initiative exec tracking-gate-facts`?
-- On this branch, should the skill/doc references to `initiative exec tracking-gate-facts` and the `tracking-gate-facts`-coupled scenario tests be reverted in-place, or carried as a small follow-up PR that lands together with the skill/doc delegation work?
+- Resolved on 2026-05-14: the skill/doc references to `initiative exec tracking-gate-facts` and the coupled scenario tests were revised in-place on `validate-initiative-steelthread` rather than carried as a separate follow-up PR.

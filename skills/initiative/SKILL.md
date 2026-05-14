@@ -65,10 +65,10 @@ Do not auto-select from candidate count or changed/touched files. Never infer fr
 
 ## Tracking Gate
 
-Before `initiative-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Initiative. If so, ask for `initiative-update` before recommending new work. `initiative-next` collects the changed-path facts via `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref> --format md`; materiality remains an LM judgment.
+Before `initiative-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Initiative. If so, ask for `initiative-update` before recommending new work. Changed-path evidence collection and materiality remain skill/agent responsibilities in v1; there is no shipped `initiative exec` command for the Tracking Gate.
 
 ## Non-goals
 
 - Not an objective, task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Initiative _meaning_ in Markdown; CLI tooling (`initiative exec list`, `initiative exec read-initiative`, `initiative exec tracking-gate-facts`) owns only deterministic facts (inventory, file presence, closed-marker, changed paths). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
+- V1 keeps Initiative _meaning_ in Markdown; CLI tooling (`initiative exec list`, `initiative exec read-initiative`) owns only deterministic facts (inventory, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
