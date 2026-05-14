@@ -5,11 +5,12 @@ from typing import Any
 import click
 from pydantic import model_serializer
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRLookupError, PRState
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 
 
 class GetPRForBranchRequest(ClinkrModel):
@@ -55,8 +56,8 @@ def run_get_pr_for_branch(
     ctx: click.Context,
     request: GetPRForBranchRequest,
 ) -> ClinkrExit[GetPRForBranchResult]:
-    gateway = get_gh_issue_gateway(ctx)
-    result = gateway.get_pr_for_branch(request.branch)
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
+    result = pr_address_context.gh_issue_gateway.get_pr_for_branch(request.branch)
     if isinstance(result, PRLookupError):
         return ClinkrExit.ok(
             GetPRForBranchResult(

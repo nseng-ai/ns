@@ -9,12 +9,13 @@ from typing import Any
 import click
 from pydantic import model_serializer
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import IssueComment, Reaction
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import format_discussion_reply
 
 
@@ -55,6 +56,7 @@ def run_reply_to_discussion(
     ctx: click.Context,
     request: ReplyToDiscussionRequest,
 ) -> ClinkrExit[ReplyToDiscussionResult]:
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
     normalized_response = Ensure.truthy(
         request.response.strip(),
         error_type="invalid_request",
@@ -67,14 +69,13 @@ def run_reply_to_discussion(
         response=normalized_response,
     )
 
-    gateway = get_gh_issue_gateway(ctx)
-    comment = gateway.add_comment(request.pr_number, body)
+    comment = pr_address_context.gh_issue_gateway.add_comment(request.pr_number, body)
 
     reaction: Reaction | None = None
     warning: str | None = None
     reaction_added = False
     try:
-        reaction = gateway.add_reaction(request.comment_id, "+1")
+        reaction = pr_address_context.gh_issue_gateway.add_reaction(request.comment_id, "+1")
         reaction_added = True
     except subprocess.CalledProcessError as exc:
         warning = f"Failed to add reaction to comment {request.comment_id}: {exc}"

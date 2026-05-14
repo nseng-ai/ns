@@ -10,6 +10,7 @@ from typing import Any
 import click
 from pydantic import model_serializer
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
@@ -22,7 +23,7 @@ from asdl_core.gh.types import (
     PRState,
 )
 from asdl_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway, get_git_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
 from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 
@@ -142,8 +143,8 @@ def run_prepare_run(
     ctx: click.Context,
     request: PrepareRunRequest,
 ) -> ClinkrExit[PrepareRunResult]:
-    git_gateway = get_git_gateway(ctx)
-    branch_result = git_gateway.get_current_branch(Path.cwd())
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
+    branch_result = pr_address_context.git_gateway.get_current_branch(Path.cwd())
     match branch_result:
         case GitCommandFailure() as failure:
             raise ClinkrFailure(error_type="git_failed", message=failure.message)
@@ -155,8 +156,7 @@ def run_prepare_run(
         case str() as current_branch:
             pass
 
-    gateway = get_gh_issue_gateway(ctx)
-    pr = gateway.get_pr_for_branch(current_branch)
+    pr = pr_address_context.gh_issue_gateway.get_pr_for_branch(current_branch)
     if isinstance(pr, PRLookupError):
         return ClinkrExit.ok(
             PrepareRunResult(
@@ -168,16 +168,19 @@ def run_prepare_run(
         )
     # pr is now guaranteed to be a PR object, not PRLookupError
 
-    raw_reviews = gateway.get_reviews(pr.number)
+    raw_reviews = pr_address_context.gh_issue_gateway.get_reviews(pr.number)
     reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
-    snapshot_threads = gateway.get_review_threads(pr.number, include_resolved=True)
-    discussion_comments = gateway.get_discussion_comments(pr.number)
+    snapshot_threads = pr_address_context.gh_issue_gateway.get_review_threads(
+        pr.number,
+        include_resolved=True,
+    )
+    discussion_comments = pr_address_context.gh_issue_gateway.get_discussion_comments(pr.number)
 
     warnings: list[str] = []
     reopened_thread_ids: list[str] = []
     for thread_id in _contested_thread_ids(snapshot_threads):
         try:
-            gateway.unresolve_review_thread(thread_id)
+            pr_address_context.gh_issue_gateway.unresolve_review_thread(thread_id)
         except Exception as exc:
             warnings.append(f"Failed to reopen contested thread {thread_id}: {exc}")
             continue
@@ -190,7 +193,10 @@ def run_prepare_run(
     )
 
     restructured_files: RestructuredFiles
-    files_result = git_gateway.get_restructured_files(Path.cwd(), pr.base_ref_name)
+    files_result = pr_address_context.git_gateway.get_restructured_files(
+        Path.cwd(),
+        pr.base_ref_name,
+    )
     if isinstance(files_result, GitCommandFailure):
         warnings.append(files_result.message)
         restructured_files = ()

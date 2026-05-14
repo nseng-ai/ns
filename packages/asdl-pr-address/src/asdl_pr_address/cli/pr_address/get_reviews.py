@@ -6,11 +6,12 @@ from typing import Any
 import click
 from pydantic import model_serializer
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReview
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 
 
 class GetReviewsRequest(ClinkrModel):
@@ -36,6 +37,6 @@ def run_get_reviews(
     ctx: click.Context,
     request: GetReviewsRequest,
 ) -> ClinkrExit[GetReviewsResult]:
-    gateway = get_gh_issue_gateway(ctx)
-    reviews = gateway.get_reviews(request.pr_number)
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
+    reviews = pr_address_context.gh_issue_gateway.get_reviews(request.pr_number)
     return ClinkrExit.ok(GetReviewsResult(reviews=reviews))

@@ -697,7 +697,7 @@ def test_brmem_get_collects_multiple_validation_errors(cli_group: ClinkrGroup) -
             "--branch",
             "feat---x",
         ],
-        obj={"brmem_gateway": FakeBranchMemoryGateway()},
+        obj=_make_obj(),
     )
 
     assert result.exit_code == 2

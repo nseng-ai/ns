@@ -7,11 +7,12 @@ from typing import Annotated, Literal
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from brmem.gateway_access import get_git_gateway, get_home_root
+from brmem.context import BrmemCliContext
 
 
 class ResolvePromptRequest(ClinkrModel):
@@ -43,11 +44,11 @@ def run_resolve_prompt(
     ctx: click.Context,
     request: ResolvePromptRequest,
 ) -> ClinkrExit[ResolvePromptResult]:
-    git_gateway = get_git_gateway(ctx)
+    brmem_context = load_typed_context(ctx, BrmemCliContext)
     cwd = Path.cwd()
 
     Ensure.true(
-        git_gateway.get_git_common_dir(cwd) is not None,
+        brmem_context.git_gateway.get_git_common_dir(cwd) is not None,
         error_type="not-a-git-repo",
         message=(
             f"Not inside a git repository: {cwd}. "
@@ -56,11 +57,10 @@ def run_resolve_prompt(
         ),
     )
 
-    repo_root = git_gateway.get_repository_root(cwd)
-    home_root = get_home_root(ctx)
+    repo_root = brmem_context.git_gateway.get_repository_root(cwd)
 
     project_path = repo_root / ".brmem" / "prompts" / f"{request.name}.md"
-    global_path = home_root / ".brmem" / "prompts" / f"{request.name}.md"
+    global_path = brmem_context.home_root / ".brmem" / "prompts" / f"{request.name}.md"
 
     if project_path.exists():
         return ClinkrExit.ok(ResolvePromptResult(path=project_path, tier="project"))

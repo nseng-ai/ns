@@ -6,12 +6,13 @@ from typing import Literal
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReviewComment
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import format_resolution_reply
 
 
@@ -37,6 +38,7 @@ def run_resolve_thread_with_reply(
     ctx: click.Context,
     request: ResolveThreadWithReplyRequest,
 ) -> ClinkrExit[ResolveThreadWithReplyResult]:
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
     if request.mode == "fixed":
         Ensure.truthy(
             request.message and request.message.strip(),
@@ -64,9 +66,8 @@ def run_resolve_thread_with_reply(
         commit_sha=normalized_sha,
     )
 
-    gateway = get_gh_issue_gateway(ctx)
-    comment = gateway.add_review_thread_reply(request.thread_id, body)
-    resolve_result = gateway.resolve_review_thread(request.thread_id)
+    comment = pr_address_context.gh_issue_gateway.add_review_thread_reply(request.thread_id, body)
+    resolve_result = pr_address_context.gh_issue_gateway.resolve_review_thread(request.thread_id)
     return ClinkrExit.ok(
         ResolveThreadWithReplyResult(
             thread_id=request.thread_id,

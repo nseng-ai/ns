@@ -5,11 +5,12 @@ from typing import Annotated
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRReviewComment
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 
 
 def _resolve_body(ctx: click.Context, param: click.Parameter, value: str) -> str:
@@ -40,6 +41,9 @@ def run_add_review_thread_reply(
     ctx: click.Context,
     request: AddReviewThreadReplyRequest,
 ) -> ClinkrExit[AddReviewThreadReplyResult]:
-    gateway = get_gh_issue_gateway(ctx)
-    comment = gateway.add_review_thread_reply(request.thread_id, request.body)
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
+    comment = pr_address_context.gh_issue_gateway.add_review_thread_reply(
+        request.thread_id,
+        request.body,
+    )
     return ClinkrExit.ok(AddReviewThreadReplyResult(comment=comment))

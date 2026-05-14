@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from brmem.gateway_access import (
-    get_branch_memory_gateway,
-    resolve_current_brmem_branch,
-)
+from brmem.context import BrmemCliContext
 from brmem.key_validation import check_key
 from brmem.ref_layout import EntryRef, check_branch_name, check_namespace
 from brmem.validation import first_failure
@@ -51,6 +51,8 @@ def run_list_entries(
     ctx: click.Context,
     request: ListEntriesRequest,
 ) -> ClinkrExit[ListEntriesResult]:
+    brmem_context = load_typed_context(ctx, BrmemCliContext)
+
     Ensure.true(
         not (request.base and request.namespace is not None),
         error_type="base_and_namespace_conflict",
@@ -75,10 +77,13 @@ def run_list_entries(
         message=message,
     )
 
-    branch = resolve_current_brmem_branch(ctx, request.branch)
+    branch = (
+        request.branch
+        if request.branch is not None
+        else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
+    )
 
-    gateway = get_branch_memory_gateway(ctx)
-    entries = gateway.list_entries(
+    entries = brmem_context.brmem_gateway.list_entries(
         namespace=request.namespace,
         key=request.key,
         branch=branch,

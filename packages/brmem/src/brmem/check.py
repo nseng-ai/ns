@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from brmem.gateway_access import (
-    get_branch_memory_gateway,
-    resolve_current_brmem_branch,
-)
+from brmem.context import BrmemCliContext
 from brmem.key_validation import check_key
 from brmem.ref_layout import (
     EntryRef,
@@ -79,7 +78,12 @@ def run_check(
     ctx: click.Context,
     request: CheckRequest,
 ) -> ClinkrExit[CheckResult]:
-    branch = resolve_current_brmem_branch(ctx, request.branch)
+    brmem_context = load_typed_context(ctx, BrmemCliContext)
+    branch = (
+        request.branch
+        if request.branch is not None
+        else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
+    )
 
     failure = first_failure(
         (
@@ -105,8 +109,7 @@ def run_check(
 
     target = request.at if request.at is not None else entry_ref.ref_name
 
-    gateway = get_branch_memory_gateway(ctx)
-    diagnostic = gateway.check(
+    diagnostic = brmem_context.brmem_gateway.check(
         entry_ref.namespace,
         entry_ref.key,
         entry_ref.branch,
