@@ -87,19 +87,22 @@ before the parent branch lands.
 
 The write boundary is explicit. `put` and `delete` change one Entry on one
 branch. `copy` copies Entries from one Branch Memory to another. `get`,
-`check`, `list`, and prompt resolution do not change stored Branch Memory.
+`check`, `list`, `export`, and prompt resolution do not change stored Branch
+Memory. `export` writes working-tree-adjacent files only in the output
+directory you provide.
 
 ## Which Command to Use
 
-| You want to...                              | Use                         | Writes to |
-| ------------------------------------------- | --------------------------- | --------- |
-| Store a text Entry on the current branch    | `brmem put`                 | Branch    |
-| Print an Entry's content                    | `brmem get`                 | Nothing   |
-| See whether an Entry exists and where it is | `brmem check`               | Nothing   |
-| List stored Entries                         | `brmem list`                | Nothing   |
-| Remove one Entry                            | `brmem delete`              | Branch    |
-| Copy a Namespace from one branch to another | `brmem copy`                | Branch    |
-| Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing   |
+| You want to...                              | Use                         | Writes to  |
+| ------------------------------------------- | --------------------------- | ---------- |
+| Store a text Entry on the current branch    | `brmem put`                 | Branch     |
+| Print an Entry's content                    | `brmem get`                 | Nothing    |
+| See whether an Entry exists and where it is | `brmem check`               | Nothing    |
+| List stored Entries                         | `brmem list`                | Nothing    |
+| Export Entries to files                     | `brmem export`              | Filesystem |
+| Remove one Entry                            | `brmem delete`              | Branch     |
+| Copy a Namespace from one branch to another | `brmem copy`                | Branch     |
+| Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing    |
 
 The local-only `dev-brmem-branch-create` and `dev-brmem-branch-impl` skills
 are contributor helpers and double as worked examples of how to use `brmem`.
@@ -149,6 +152,22 @@ brmem list --namespace notes
 `check` reports the Entry locator, Branch Memory head commit, blob, and size.
 `list` shows the Entries visible for the current branch, optionally narrowed to
 base Entries or a Namespace.
+
+To materialize Entries as files, export them. With no `--output-dir`, `export`
+writes to a fresh temp directory whose path has a unique random suffix (e.g.
+`$TMPDIR/brmem-export-<hash>`) and prints that path in its output:
+
+```text
+brmem export
+brmem export --output-dir /tmp/brmem-export
+brmem export --namespace objectives --output-dir /tmp/objectives
+brmem export --branch feature/table-filtering --output-dir /tmp/brmem-export
+```
+
+When `--namespace` is omitted, `export` writes base Entries only; it does not
+mean "all Namespaces." Existing files make export fail unless you pass
+`--overwrite`. Use `--dry-run` to preview planned writes without creating the
+output directory or files.
 
 ### 3. Carry namespaced Branch Memory to another branch
 
@@ -215,6 +234,8 @@ customizations.
   secrets, or large datasets.
 - `copy` is exact and conflict-aware. Use `--dry-run`, `--key-glob`, and
   `--overwrite` deliberately.
+- `export` defaults to base entries only. Pass `--namespace` deliberately and
+  use `--overwrite` only when replacing files is intended.
 - Prompt plugins should customize one explicit repo-specific decision, not
   become a second skill.
 

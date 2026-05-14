@@ -42,13 +42,14 @@ private tokens, binary assets, generated build output, or large datasets.
 | Print one Entry's content                | `brmem get <key>`                                               | No      |
 | Probe one Entry and get locator/size     | `brmem check <key>`                                             | No      |
 | List Entries on a branch                 | `brmem list`                                                    | No      |
+| Export Entries to files                  | `brmem export [--output-dir <dir>]`                             | Files   |
 | Remove one Entry                         | `brmem delete <key>`                                            | Yes     |
 | Copy namespaced Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
 | Resolve a repo/global prompt plugin      | `brmem exec resolve-prompt <name>`                              | No      |
 
-Add `--namespace <ns>` to `put`, `get`, `check`, `delete`, or `list` for
-namespaced Entries. Omit it for base Entries. `brmem copy` requires a Namespace;
-base Entries are handled individually.
+Add `--namespace <ns>` to `put`, `get`, `check`, `delete`, `list`, or `export`
+for namespaced Entries. Omit it for base Entries. `brmem copy` requires a
+Namespace; base Entries are handled individually.
 
 ## Operating rules
 
@@ -71,9 +72,9 @@ base Entries are handled individually.
    binary content, and caps Entries at 1 MiB unless `--force` is supplied. Use
    `--force` only when the user explicitly accepts the storage cost/risk.
 6. **Prefer JSON for machine parsing.** Add `--format json` when you need stable
-   fields from `put`, `list`, `check`, `copy`, `delete`, or `resolve-prompt`.
-   For `get`, the human output is intentionally just the stored content; use that
-   when feeding the text directly into your workflow.
+   fields from `put`, `list`, `check`, `export`, `copy`, `delete`, or
+   `resolve-prompt`. For `get`, the human output is intentionally just the
+   stored content; use that when feeding the text directly into your workflow.
 7. **Report mutations.** After `put`, `copy`, or `delete`, tell the user the
    branch, Namespace/base, Entry Key(s), Entry locator(s), and commit(s)
    printed by the CLI.
@@ -122,6 +123,33 @@ the user.
 
 Use `--at <treeish-or-commit>` with `get` or `check` only when you need a
 historical Branch Memory version rather than the current Branch Memory.
+
+## Export Branch Memory to files
+
+Use `export` when a workflow needs Branch Memory materialized as ordinary UTF-8
+files in a chosen directory:
+
+```text
+brmem export --branch feature/add-cache
+brmem export --branch feature/add-cache --output-dir /tmp/brmem-export
+brmem export --namespace scratch --branch feature/add-cache --output-dir /tmp/scratch-export
+```
+
+Important details:
+
+- Omitting `--output-dir` writes to a fresh temp directory whose path has a
+  unique random suffix (e.g. `$TMPDIR/brmem-export-<hash>`); the directory
+  outlives the process and the chosen path is printed in the command output.
+- Omitting `--namespace` exports **base Entries only**. It does not mean "all
+  Namespaces."
+- Each key becomes a relative path under `--output-dir`; for example,
+  `notes/session.md` writes `<output-dir>/notes/session.md`.
+- Export fails before writing if no Entries match, the output directory is not a
+  directory, a target already exists, or a target path is unsafe. Pass
+  `--overwrite` only when replacing existing files is intentional.
+- Use `--dry-run` to see planned writes without creating directories or files.
+- Add `--format json` when another tool needs the planned/exported paths and
+  sizes.
 
 ## Check or inspect an Entry
 
