@@ -23,6 +23,7 @@ def test_objective_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective" in result.output
     assert "Work with checked-in Objective records." in result.output
     assert "--version" in result.output
+    assert "list" in result.output
     assert "exec" not in result.output
 
 
@@ -33,20 +34,21 @@ def test_objective_version(cli_group: ClinkrGroup) -> None:
     assert "version" in result.output.lower()
 
 
+def test_objective_list_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["list", "--help"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective list" in result.output
+    assert "List checked-in Objective record directories" in result.output
+
+
 def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["exec", "--help"])
 
     assert result.exit_code == 0
     assert "Usage: objective exec" in result.output
     assert "Commands for use by objective skills." in result.output
-    assert "list" in result.output
     assert "read-objective" in result.output
-
-    result = CliRunner().invoke(cli_group, ["exec", "list", "--help"])
-
-    assert result.exit_code == 0
-    assert "Usage: objective exec list" in result.output
-    assert "List checked-in Objective record directories" in result.output
 
     result = CliRunner().invoke(cli_group, ["exec", "read-objective", "--help"])
 
@@ -55,7 +57,7 @@ def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     assert "Read one Objective record by explicit slug" in result.output
 
 
-def test_objective_exec_list_absent_root(
+def test_objective_list_absent_root(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -75,7 +77,7 @@ def test_objective_exec_list_absent_root(
     }
 
 
-def test_objective_exec_list_empty_root(
+def test_objective_list_empty_root(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -93,7 +95,7 @@ def test_objective_exec_list_empty_root(
     }
 
 
-def test_objective_exec_list_sorts_open_and_closed_records(
+def test_objective_list_sorts_open_and_closed_records(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -115,7 +117,7 @@ def test_objective_exec_list_sorts_open_and_closed_records(
     assert entries[1]["files"]["closed_md"] is True
 
 
-def test_objective_exec_list_reports_missing_required_files(
+def test_objective_list_reports_missing_required_files(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -137,7 +139,7 @@ def test_objective_exec_list_reports_missing_required_files(
     assert entry["update_count"] == 0
 
 
-def test_objective_exec_list_counts_direct_markdown_updates_only(
+def test_objective_list_counts_direct_markdown_updates_only(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -159,7 +161,7 @@ def test_objective_exec_list_counts_direct_markdown_updates_only(
     assert entry["update_count"] == 2
 
 
-def test_objective_exec_list_ignores_non_directory_root_entries(
+def test_objective_list_ignores_non_directory_root_entries(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -178,7 +180,7 @@ def test_objective_exec_list_ignores_non_directory_root_entries(
     assert [entry["slug"] for entry in entries] == ["real"]
 
 
-def test_objective_exec_list_format_md(
+def test_objective_list_format_md(
     cli_group: ClinkrGroup,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -187,7 +189,7 @@ def test_objective_exec_list_format_md(
     root = tmp_path / ".asdl" / "objectives"
     _write_objective(root, "alpha", updates=("progress.md",))
 
-    result = CliRunner().invoke(cli_group, ["exec", "list", "--format", "md"])
+    result = CliRunner().invoke(cli_group, ["list", "--format", "md"])
 
     assert result.exit_code == 0, result.output
     assert "Root: `.asdl/objectives` (present)" in result.output
@@ -198,6 +200,32 @@ def test_objective_exec_list_format_md(
     ) in result.output
     assert "choose" not in result.output.lower()
     assert "recommend" not in result.output.lower()
+
+
+def test_objective_list_human_default(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "objectives"
+    _write_objective(root, "alpha")
+    _write_objective(root, "zeta", closed=True)
+
+    result = CliRunner().invoke(cli_group, ["list"])
+
+    assert result.exit_code == 0, result.output
+    # CliRunner runs without a tty so get_console() strips ANSI markup; the
+    # plain-text fragments must be present.
+    assert "Root:" in result.output
+    assert ".asdl/objectives" in result.output
+    assert "present" in result.output
+    assert "Slug" in result.output
+    assert "alpha" in result.output
+    assert "zeta" in result.output
+    # The markdown table header is markdown-only and must not leak into
+    # the human renderer's output.
+    assert "| slug | state |" not in result.output
 
 
 def test_objective_exec_read_missing_slug_returns_stable_json(
@@ -433,7 +461,7 @@ def test_objective_exec_read_json_omits_raw_markdown_content(
 def _invoke_json(cli_group: ClinkrGroup) -> Result:
     return CliRunner().invoke(
         cli_group,
-        ["exec", "list", "--format", "json"],
+        ["list", "--format", "json"],
         obj=build_clinkr_context_object(lambda: object()),
     )
 

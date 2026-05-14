@@ -23,7 +23,7 @@ Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/
 ## Resolve the Objective
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective exec list --format md` to enumerate candidates and ask the user to choose.
+2. If no slug or path is explicit, run `objective list --format md` to enumerate candidates and ask the user to choose.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.

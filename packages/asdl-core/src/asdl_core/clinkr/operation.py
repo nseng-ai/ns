@@ -24,6 +24,7 @@ class ClinkrOperationMeta:
     result_type: Any
     aliases: tuple[str, ...]
     human_renderer: Callable[..., None] | None
+    markdown_renderer: Callable[..., None] | None
 
 
 def clinkr_operation(
@@ -32,6 +33,7 @@ def clinkr_operation(
     help: str = "",
     aliases: tuple[str, ...] = (),
     human_renderer: Callable[..., None] | None = None,
+    markdown_renderer: Callable[..., None] | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator that marks a function as a clinkr operation.
 
@@ -42,6 +44,13 @@ def clinkr_operation(
     exceptions. Clinkr threads the active Click context in; operations must
     never fetch it from globals. ``request_type`` and ``result_type`` are
     inferred from the function's type annotations and must be Pydantic-compatible.
+
+    Renderers:
+    - ``human_renderer`` handles ``--format human`` (and ``--format md`` when
+      ``markdown_renderer`` is not set).
+    - ``markdown_renderer`` handles ``--format markdown`` / ``--format md``
+      when commands want a distinct machine-friendly Markdown rendering
+      alongside a richer human view.
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -56,6 +65,7 @@ def clinkr_operation(
                 result_type=result_type,
                 aliases=aliases,
                 human_renderer=human_renderer,
+                markdown_renderer=markdown_renderer,
             ),
         )
         return fn
