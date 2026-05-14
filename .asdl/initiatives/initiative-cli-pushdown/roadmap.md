@@ -7,9 +7,12 @@
   - Removed auto-selection from changed/touched Initiative files.
   - When no explicit slug or path is supplied, Initiative operations list candidate Initiatives and ask the user to choose.
   - Preserved the rule against inferring Initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or hidden metadata.
-- [ ] PR 2: establish the new `asdl-initiatives` package, `initiative` CLI surface, and hidden `exec` subgroup.
-  - Include standalone and plugin entry points according to repository CLI conventions.
-  - Keep the command group focused on Initiative facts, not Initiative meaning.
+- [x] PR 2: establish the new `asdl-initiatives` package, `initiative` CLI surface, and hidden `exec` subgroup.
+  - Evidence: `packages/asdl-initiatives/` now defines the `asdl-initiatives` package, standalone `initiative` script, `asdl.plugins` entry point, outer `initiative` group, and hidden empty `exec` subgroup.
+  - Root workspace, optional plugin, dev dependency, Ruff source, pytest testpath, and lockfile wiring include the new package.
+  - Scenario coverage exercises standalone help/version, hidden-but-invocable `exec`, and top-level plugin discovery smoke behavior.
+  - Verification: `uv run pytest packages/asdl-initiatives/tests/scenario tests/scenario/test_plugins.py` and `just` passed.
+  - No `exec` operations, Markdown parsing, git/Graphite/brmem integration, or Initiative mutation commands were introduced.
 - [ ] PR 3: implement `initiative exec list` with JSON and Markdown formats.
   - `--format json` returns Initiative slugs, paths, closed-marker state, required file presence, and update counts.
   - Include open and closed Initiatives by default and sort by slug ascending.

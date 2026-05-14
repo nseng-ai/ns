@@ -48,7 +48,7 @@ Assumptions:
 - Pure filesystem listing and explicit Initiative record reading will be reused by multiple Initiative skills often enough to justify tested code.
 - Emitting raw Initiative Markdown through `--format md` preserves the hard boundary against Markdown parsing while reducing tool calls and avoiding JSON string extraction for prose-heavy reads.
 - Changed-path facts belong only in `tracking-gate-facts`, where they serve `initiative-next`'s Tracking Gate preflight; semantic materiality and base-ref choice can remain with the agent.
-- A new `asdl-initiatives` package can host standalone and plugin CLI entry points without introducing runtime coupling to objective-specific storage or Graphite stack metadata.
+- A new `asdl-initiatives` package can host standalone and plugin CLI entry points without introducing runtime coupling to objective-specific storage or Graphite stack metadata. PR 2 confirmed the package skeleton can wire the standalone/plugin entry points and a hidden empty `exec` subgroup without adding objective, Graphite, brmem, git, or Markdown-parsing runtime dependencies.
 
 Risks:
 
@@ -56,7 +56,7 @@ Risks:
 - The initial command set could become too broad if create/update/close helpers are added before the three read-oriented commands prove useful. Mitigation: park mutation helpers explicitly.
 - Removing changed/touched-file auto-selection may add one user prompt when no slug is supplied. Mitigation: `initiative exec list` should make candidate presentation cheap, and the simpler rule avoids unclear git/stack semantics.
 - Skill docs could become less clear if they merely say “run the CLI” without preserving decision rules. Mitigation: keep interpretation rules in the skills and document JSON fields precisely.
-- Introducing a new CLI package or plugin may add maintenance cost. Mitigation: follow existing package and scenario-test conventions and keep the first contract small.
+- Introducing a new CLI package or plugin may add maintenance cost. Mitigation: follow existing package and scenario-test conventions and keep the first contract small. PR 2 reduced this risk by limiting the first package slice to wiring-only behavior with targeted scenario coverage and a green full repository suite.
 
 ## Open Questions
 

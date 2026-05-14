@@ -1,0 +1,22 @@
+[project]
+name = "asdl-initiatives"
+version = "0.1.0"
+description = "Checked-in Initiative records for asdl"
+requires-python = ">=3.11"
+dependencies = [
+  "click>=8.1.7",
+  "asdl-core",
+]
+
+[project.scripts]
+initiative = "asdl_initiatives.main:main"
+
+[project.entry-points."asdl.plugins"]
+initiative = "asdl_initiatives.plugin:build_initiative_plugin"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/asdl_initiatives"]
