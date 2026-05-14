@@ -50,6 +50,36 @@ def run_mode(ctx: click.Context, request: ModeRequest) -> ClinkrExit[ModeResult]
     return ClinkrExit.ok(ModeResult(machine_mode=is_machine_mode(ctx)))
 
 
+# -- fixture: operation with separate human and markdown renderers ---------
+
+
+class DualRendererRequest(ClinkrModel):
+    pass
+
+
+class DualRendererResult(ClinkrModel):
+    label: str
+
+
+def _dual_human_renderer(data: DualRendererResult) -> None:
+    click.echo(f"HUMAN:{data.label}")
+
+
+def _dual_markdown_renderer(data: DualRendererResult) -> None:
+    click.echo(f"MD:{data.label}")
+
+
+@clinkr_operation(
+    name="dual",
+    help="Command with distinct human and markdown renderers.",
+    human_renderer=_dual_human_renderer,
+    markdown_renderer=_dual_markdown_renderer,
+)
+def run_dual(ctx: click.Context, request: DualRendererRequest) -> ClinkrExit[DualRendererResult]:
+    del ctx, request
+    return ClinkrExit.ok(DualRendererResult(label="hello"))
+
+
 # -- fixture: operation that already declares --format ---------------------
 
 
@@ -98,7 +128,7 @@ def run_schema_option(
 def _make_group() -> ClinkrGroup:
     return ClinkrGroup(
         name="probes",
-        operations=[run_probe, run_mode, run_review, run_schema_option],
+        operations=[run_probe, run_mode, run_dual, run_review, run_schema_option],
     )
 
 
@@ -199,6 +229,30 @@ def test_format_md_alias_uses_human_dispatch() -> None:
 
     assert result.exit_code == 0
     assert '"machine_mode": false' in result.stdout
+
+
+# -- markdown_renderer routing ---------------------------------------------
+
+
+def test_human_format_routes_to_human_renderer_when_markdown_renderer_set() -> None:
+    result = CliRunner().invoke(_make_group(), ["dual"], obj=_runtime_obj())
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "HUMAN:hello"
+
+
+def test_markdown_format_routes_to_markdown_renderer_when_set() -> None:
+    result = CliRunner().invoke(_make_group(), ["dual", "--format", "markdown"], obj=_runtime_obj())
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "MD:hello"
+
+
+def test_md_alias_routes_to_markdown_renderer_when_set() -> None:
+    result = CliRunner().invoke(_make_group(), ["dual", "--format", "md"], obj=_runtime_obj())
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "MD:hello"
 
 
 def test_machine_mode_does_not_leak_when_context_object_is_reused() -> None:

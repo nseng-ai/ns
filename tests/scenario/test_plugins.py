@@ -93,6 +93,7 @@ def test_objective_plugin_integration() -> None:
     result = runner.invoke(parent, ["objective", "--help"])
     assert result.exit_code == 0
     assert "Work with checked-in Objective records." in result.output
+    assert "list" in result.output
     assert "exec" not in result.output
 
     result = runner.invoke(parent, ["objective", "exec", "--help"])
@@ -102,7 +103,7 @@ def test_objective_plugin_integration() -> None:
     with runner.isolated_filesystem():
         result = runner.invoke(
             parent,
-            ["objective", "exec", "list", "--format", "json"],
+            ["objective", "list", "--format", "json"],
             obj=build_clinkr_context_object(lambda: object()),
         )
     assert result.exit_code == 0, result.output

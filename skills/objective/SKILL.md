@@ -58,7 +58,7 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective exec list --format md` to enumerate candidate Objective directories under `.asdl/objectives/` and ask the user to choose.
+2. If no slug or path is explicit, run `objective list --format md` to enumerate candidate Objective directories under `.asdl/objectives/` and ask the user to choose.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path evidence belongs only to operation-specific checks after an Objective is selected.
@@ -71,4 +71,4 @@ Before `objective-next` recommends work, check read-only whether material progre
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective exec list`, `objective exec read-objective`) owns only deterministic facts (inventory, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
+- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective exec read-objective`) owns only deterministic facts (inventory, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.

@@ -204,8 +204,8 @@ Contract:
 
 Shipped CLI:
 
-- Candidate objective listing: `objective exec list`.
-- Closed-marker detection and structured inventory: `objective exec list` (per-record) and `objective exec read-objective <slug>` (per-record raw Markdown plus closed state and missing-file notes).
+- Candidate objective listing: `objective list`.
+- Closed-marker detection and structured inventory: `objective list` (per-record) and `objective exec read-objective <slug>` (per-record raw Markdown plus closed state and missing-file notes).
 
 ### `objective-next`
 
@@ -223,7 +223,7 @@ Contract:
 
 Shipped CLI:
 
-- Closed-objective filtering: `objective exec list` reports each record's closed state.
+- Closed-objective filtering: `objective list` reports each record's closed state.
 
 Future CLI pushdown candidates:
 
@@ -300,8 +300,8 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 Good CLI responsibilities:
 
 - Validate slugs and paths. _(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)_
-- List candidate objectives. _(shipped: `objective exec list`.)_
-- Detect closed markers. _(shipped: `objective exec list` and `objective exec read-objective` both report closed state.)_
+- List candidate objectives. _(shipped: `objective list`.)_
+- Detect closed markers. _(shipped: `objective list` and `objective exec read-objective` both report closed state.)_
 - Scaffold required files and headings. _(future.)_
 - Detect missing `## Assumptions and Risks` sections. _(future.)_
 - Generate timestamped update filenames. _(future.)_

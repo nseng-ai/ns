@@ -81,7 +81,8 @@ def _register_operation(
 ) -> None:
     """Wire up human and machine Click commands for a single operation."""
     help_text = meta.help or operation.__doc__ or ""
-    renderer = meta.human_renderer or default_human_renderer
+    human_renderer = meta.human_renderer or default_human_renderer
+    markdown_renderer = meta.markdown_renderer
     request_type = meta.request_type
     result_type = meta.result_type
 
@@ -118,7 +119,10 @@ def _register_operation(
             )
         if result.status is ExitStatus.OK:
             assert result.data is not None
-            renderer(result.data)
+            if format_mode in ("markdown", "md") and markdown_renderer is not None:
+                markdown_renderer(result.data)
+            else:
+                human_renderer(result.data)
             return
         if result.status is ExitStatus.NEGATIVE:
             if result.message is not None:
@@ -159,7 +163,9 @@ def _build_format_option() -> click.Parameter:
 
     ``--format json`` dispatches the operation through the machine-envelope
     path on the same command. ``--format markdown`` and its ``md`` alias use
-    the human renderer; markdown-oriented commands render markdown there.
+    the command's ``markdown_renderer`` when one is registered; otherwise
+    they fall back to the human renderer (preserving the behavior of commands
+    that render Markdown directly from their human renderer).
     """
     return click.Option(
         ["--format", MACHINE_FORMAT_PARAM_NAME],
@@ -168,7 +174,8 @@ def _build_format_option() -> click.Parameter:
         show_default=True,
         help=(
             "Output format. 'json' emits the machine envelope for scripting; "
-            "'markdown'/'md' uses the command's human renderer."
+            "'markdown'/'md' uses the command's markdown renderer when set, "
+            "otherwise falls back to the human renderer."
         ),
     )
 

@@ -1,4 +1,4 @@
-"""``objective exec list`` filesystem inventory."""
+"""``objective list`` filesystem inventory and renderers."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import click
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_core.console import get_console, make_table
 from asdl_objectives.exec.inventory import (
     ObjectiveFiles,
     build_objective_files,
@@ -37,7 +38,7 @@ class ObjectiveListResult(ClinkrModel):
     entries: tuple[ObjectiveListEntry, ...]
 
 
-def render_objective_list(result: ObjectiveListResult) -> None:
+def render_objective_list_markdown(result: ObjectiveListResult) -> None:
     root_state = "present" if result.root_exists else "missing"
     click.echo(f"Root: `{result.root_path}` ({root_state})")
     click.echo()
@@ -54,10 +55,58 @@ def render_objective_list(result: ObjectiveListResult) -> None:
         )
 
 
+def render_objective_list_human(result: ObjectiveListResult) -> None:
+    console = get_console()
+    root_state = "present" if result.root_exists else "missing"
+    state_color = "green" if result.root_exists else "red"
+    console.print(
+        f"Root: [bold]{result.root_path}[/bold] ([{state_color}]{root_state}[/{state_color}])"
+    )
+
+    if not result.entries:
+        console.print("[dim]No objective records.[/dim]")
+        return
+
+    table = make_table()
+    table.add_column("Slug", style="bold cyan", no_wrap=True)
+    table.add_column("State", no_wrap=True)
+    table.add_column("Files", no_wrap=True)
+    table.add_column("Updates", justify="right", no_wrap=True)
+    table.add_column("Path", style="dim", overflow="ellipsis", ratio=1)
+
+    for entry in result.entries:
+        state_label = "[red]closed[/red]" if entry.closed else "[green]open[/green]"
+        table.add_row(
+            entry.slug,
+            state_label,
+            _render_file_tokens(entry.files),
+            str(entry.update_count),
+            entry.path,
+        )
+
+    console.print(table)
+
+
+def _render_file_tokens(files: ObjectiveFiles) -> str:
+    return "  ".join(
+        (
+            _token("obj", files.objective_md),
+            _token("rmap", files.roadmap_md),
+            _token("upd", files.updates_dir),
+            _token("cls", files.closed_md),
+        )
+    )
+
+
+def _token(label: str, present: bool) -> str:
+    return f"[green]{label}[/green]" if present else f"[dim]{label}[/dim]"
+
+
 @clinkr_operation(
     name="list",
     help="List checked-in Objective record directories as filesystem facts.",
-    human_renderer=render_objective_list,
+    human_renderer=render_objective_list_human,
+    markdown_renderer=render_objective_list_markdown,
 )
 def run_list_objectives(
     ctx: click.Context,
