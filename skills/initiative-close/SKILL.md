@@ -18,19 +18,19 @@ Canonical root: `.asdl/initiatives/<slug>/`.
 - `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Initiative Impact`, `## Follow-Ups`.
 - `closed.md`: minimal Closure Marker; existence means closed.
 
-V1 is markdown-only: read and edit Markdown directly; do not add or call Python CLI tooling.
+Initiative records are Markdown; read and edit Markdown directly. Use `initiative exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
 
 ## Resolve the Initiative
 
 1. Use an explicit user-provided slug or path under `.asdl/initiatives/<slug>/`.
-2. If no slug or path is explicit, list candidate Initiative directories under `.asdl/initiatives/` and ask the user to choose.
+2. If no slug or path is explicit, run `initiative exec list --format md` to enumerate candidates and ask the user to choose.
 3. If no candidates exist, say so and suggest `initiative-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer Initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
 
 ## Workflow
 
-1. Read `initiative.md`, `roadmap.md`, relevant `updates/`, and whether `closed.md` already exists.
+1. Run `initiative exec read-initiative <slug> --format md` to load the selected record's raw Markdown and closed state.
 2. If already closed, stop unless the user explicitly asks to amend closure context.
 3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale.
 4. Add or update `## Closure` in `initiative.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.

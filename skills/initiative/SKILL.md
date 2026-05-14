@@ -58,17 +58,17 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/initiatives/<slug>/`.
-2. If no slug or path is explicit, list candidate Initiative directories under `.asdl/initiatives/` and ask the user to choose.
+2. If no slug or path is explicit, run `initiative exec list --format md` to enumerate candidate Initiative directories under `.asdl/initiatives/` and ask the user to choose.
 3. If no candidates exist, say so and suggest `initiative-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer from branch name, objective, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path evidence belongs only to operation-specific checks after an Initiative is selected.
 
 ## Tracking Gate
 
-Before `initiative-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Initiative. If so, ask for `initiative-update` before recommending new work.
+Before `initiative-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Initiative. If so, ask for `initiative-update` before recommending new work. `initiative-next` collects the changed-path facts via `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref> --format md`; materiality remains an LM judgment.
 
 ## Non-goals
 
 - Not an objective, task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 is markdown-only; do not add or call Python CLI tooling.
+- V1 keeps Initiative _meaning_ in Markdown; CLI tooling (`initiative exec list`, `initiative exec read-initiative`, `initiative exec tracking-gate-facts`) owns only deterministic facts (inventory, file presence, closed-marker, changed paths). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
