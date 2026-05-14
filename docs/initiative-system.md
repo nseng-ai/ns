@@ -155,7 +155,7 @@ Do not auto-select from candidate count or changed/touched files. Never infer in
 
 ## Operations
 
-V1 keeps Initiative meaning in Markdown. A small `initiative exec` CLI surface (`list`, `read-initiative`, `tracking-gate-facts`) ships deterministic read mechanics that the skills delegate to; mutations remain direct Markdown edits.
+V1 keeps Initiative meaning in Markdown. A small `initiative exec` CLI surface (`list`, `read-initiative`) ships deterministic read mechanics that the skills delegate to; mutations remain direct Markdown edits.
 
 ### `initiative-create`
 
@@ -223,9 +223,13 @@ Contract:
 
 Shipped CLI:
 
-- Read-only branch evidence collection and changed-path classification for an explicitly selected initiative: `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref>`.
 - Closed-initiative filtering: `initiative exec list` reports each record's closed state.
-- A structured Tracking Gate report: `initiative exec tracking-gate-facts` (the LM still authors the materiality interpretation).
+
+Future CLI pushdown candidates:
+
+- Read-only branch/worktree evidence collection for an explicitly selected initiative.
+- Changed-path classification for the selected initiative's Tracking Gate.
+- A structured Tracking Gate report.
 
 ### `initiative-update`
 
@@ -282,7 +286,7 @@ Markdown-only v1 behavior:
 
 The Tracking Gate must not mutate files, auto-refresh initiative state, or perform hidden reconciliation.
 
-`initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref>` provides the deterministic git comparison and changed-path scope facts. Semantic materiality — whether a given diff plausibly advances the selected Initiative — remains LM/human-authored.
+The exact deterministic git comparison and scope algorithm are intentionally left as future CLI work. Semantic materiality — whether a given diff plausibly advances the selected Initiative — remains LM/human-authored in v1.
 
 ## PR Tracking Policy
 
@@ -302,8 +306,8 @@ Good CLI responsibilities:
 - Scaffold required files and headings. _(future.)_
 - Detect missing `## Assumptions and Risks` sections. _(future.)_
 - Generate timestamped update filenames. _(future.)_
-- Report changed-path facts for an explicitly selected initiative. _(shipped: `initiative exec tracking-gate-facts`.)_
-- Collect read-only Tracking Gate evidence. _(shipped: `initiative exec tracking-gate-facts`.)_
+- Report changed-path facts for an explicitly selected initiative. _(future.)_
+- Collect read-only Tracking Gate evidence. _(future.)_
 - Enforce one-initiative-per-update guardrails. _(future.)_
 
 Responsibilities that should remain LM/human-authored:

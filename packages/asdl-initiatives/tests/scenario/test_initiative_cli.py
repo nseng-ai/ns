@@ -392,6 +392,21 @@ def test_initiative_exec_read_markdown_notes_missing_files(
     assert "_Missing `updates/` directory._" in result.output
 
 
+def test_initiative_exec_read_markdown_empty_updates_dir_note(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha")
+
+    result = _invoke_read_md(cli_group, "alpha")
+
+    assert result.exit_code == 0, result.output
+    assert "_No direct update Markdown files found._" in result.output
+
+
 def test_initiative_exec_read_json_omits_raw_markdown_content(
     cli_group: ClinkrGroup,
     tmp_path: Path,
@@ -431,6 +446,14 @@ def _invoke_read_json(cli_group: ClinkrGroup, slug: str | None = None) -> Result
     return CliRunner().invoke(
         cli_group,
         args,
+        obj=build_clinkr_context_object(lambda: object()),
+    )
+
+
+def _invoke_read_md(cli_group: ClinkrGroup, slug: str) -> Result:
+    return CliRunner().invoke(
+        cli_group,
+        ["exec", "read-initiative", slug, "--format", "md"],
         obj=build_clinkr_context_object(lambda: object()),
     )
 
