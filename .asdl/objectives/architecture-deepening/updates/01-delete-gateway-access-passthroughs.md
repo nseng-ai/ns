@@ -10,4 +10,4 @@ This completes the roadmap's first deepening row. The branch-resolution helper i
 
 ## Follow-Ups
 
-No surprises emerged. The remaining roadmap rows stay parked for separate deletion-test passes.
+One scenario test still passed a legacy raw `ctx.obj` dictionary on a validation-failure path; it now uses the typed-context fixture like the rest of the brmem CLI scenarios. The remaining roadmap rows stay parked for separate deletion-test passes.
