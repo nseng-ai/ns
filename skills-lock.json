@@ -80,26 +80,6 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "c77b86b4332919499608f9af1880074e1fec65a59b95c70c27a9f39cd137865e"
     },
-    "initiative-create": {
-      "source": "skills/initiative-create",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "initiative-current": {
-      "source": "skills/initiative-current",
-      "sourceType": "local",
-      "computedHash": "df86f3081ebca1371fafd5f992b6be552743f438c3b9c536f0c670dc28016db7"
-    },
-    "initiative-next": {
-      "source": "skills/initiative-next",
-      "sourceType": "local",
-      "computedHash": "b98feb38880ce70eb63017d2607f85f2d90308782979ec66180f1de1bf1086ad"
-    },
-    "initiative-record-progress": {
-      "source": "skills/initiative-record-progress",
-      "sourceType": "local",
-      "computedHash": "957da239f9d91d8a2a5804474aafa21d23050aee6b3503e671402de40b28dab7"
-    },
     "ns-changelog-update": {
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
