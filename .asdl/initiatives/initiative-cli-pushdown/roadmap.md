@@ -2,10 +2,11 @@
 
 ## Work
 
-- [ ] PR 1: simplify existing Initiative skill selection before adding CLI support.
-  - Remove auto-selection from changed/touched Initiative files.
-  - When no explicit slug or path is supplied, list candidate Initiatives and ask the user to choose.
-  - Preserve the rule against inferring Initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or hidden metadata.
+- [x] PR 1: simplify existing Initiative skill selection before adding CLI support.
+  - Evidence: `skills/initiative*/SKILL.md`, `docs/initiative-system.md`, and `CONTEXT.md` now require explicit selection or candidate-list-and-ask behavior.
+  - Removed auto-selection from changed/touched Initiative files.
+  - When no explicit slug or path is supplied, Initiative operations list candidate Initiatives and ask the user to choose.
+  - Preserved the rule against inferring Initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or hidden metadata.
 - [ ] PR 2: establish the new `asdl-initiatives` package, `initiative` CLI surface, and hidden `exec` subgroup.
   - Include standalone and plugin entry points according to repository CLI conventions.
   - Keep the command group focused on Initiative facts, not Initiative meaning.

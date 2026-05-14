@@ -145,14 +145,13 @@ Rules:
 
 ## Initiative Selection
 
-When an operation needs an initiative, resolve it in this order:
+When an operation needs an existing initiative, resolve it in this order:
 
 1. Use an explicit user-provided slug or path under `.asdl/initiatives/<slug>/`.
-2. Otherwise inspect the current worktree and branch diff for changed files under `.asdl/initiatives/<slug>/`.
-3. If exactly one initiative slug is touched, use that initiative.
-4. If zero or multiple initiative slugs are touched, ask the user to choose.
+2. If no slug or path is explicit, list candidate initiative directories under `.asdl/initiatives/` and ask the user to choose.
+3. If no candidates exist, report that no initiatives exist and suggest `initiative-create` when appropriate.
 
-Never infer initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms.
+Do not auto-select from candidate count or changed/touched files. Never infer initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path evidence may be used only by operation-specific checks after an initiative is selected.
 
 ## Operations
 
@@ -202,7 +201,6 @@ Contract:
 Future CLI pushdown candidates:
 
 - Candidate initiative listing.
-- Selection facts based on touched initiative files.
 - Closed-marker detection.
 - Structured inventory of initiative files and recent updates.
 
@@ -222,8 +220,8 @@ Contract:
 
 Future CLI pushdown candidates:
 
-- Read-only branch/worktree evidence collection.
-- Touched-initiative detection.
+- Read-only branch/worktree evidence collection for an explicitly selected initiative.
+- Changed-path classification for the selected initiative's Tracking Gate.
 - Closed-initiative filtering.
 - A structured Tracking Gate report.
 
@@ -247,7 +245,7 @@ Future CLI pushdown candidates:
 - Timestamped update filename generation.
 - Path validation and one-initiative enforcement.
 - Closed-marker guardrails.
-- Detection of whether durable initiative files were touched.
+- Detection of whether the selected initiative's durable files changed.
 
 ### `initiative-close`
 
@@ -302,7 +300,7 @@ Good CLI responsibilities:
 - Scaffold required files and headings.
 - Detect missing `## Assumptions and Risks` sections.
 - Generate timestamped update filenames.
-- Report touched initiative files.
+- Report changed-path facts for an explicitly selected initiative.
 - Collect read-only Tracking Gate evidence.
 - Enforce one-initiative-per-update guardrails.
 

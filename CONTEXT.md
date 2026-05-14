@@ -51,7 +51,7 @@ _Avoid_: Hidden status, archive directory, deletion
 - **Initiative Close** preserves the initiative directory in place, updates `initiative.md` with closure context, and writes a **Closure Marker** for non-LM filtering.
 - Closed **Initiatives** are readable by `initiative-current` but are not eligible for `initiative-next` by default.
 - `initiative-next` may apply a **Tracking Gate** but must not mutate initiative files.
-- When multiple **Initiatives** exist and none is explicit or exactly one touched by the branch, initiative operations should ask the user to choose rather than infer ownership.
+- When no **Initiative** is explicit, initiative operations should list candidates and ask the user to choose rather than infer ownership from branch or worktree evidence.
 - An **Initiative** does not have a branch attachment mechanism in v1.
 - V1 starts fresh from `.asdl/initiatives/`; `docs/initiatives/` is not a canonical initiative root.
 
