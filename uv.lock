@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 members = [
     "asdl-core",
     "asdl-dispatcher",
-    "asdl-initiatives",
+    "asdl-objectives",
     "asdl-pr-address",
     "asdl-reviewer",
     "asdl-slots",
@@ -56,9 +56,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "asdl-initiatives"
+name = "asdl-objectives"
 version = "0.1.0"
-source = { editable = "packages/asdl-initiatives" }
+source = { editable = "packages/asdl-objectives" }
 dependencies = [
     { name = "asdl-core" },
     { name = "click" },
@@ -129,7 +129,7 @@ dependencies = [
 [package.optional-dependencies]
 plugins = [
     { name = "asdl-dispatcher" },
-    { name = "asdl-initiatives" },
+    { name = "asdl-objectives" },
     { name = "asdl-pr-address" },
     { name = "asdl-slots" },
 ]
@@ -138,7 +138,7 @@ plugins = [
 dev = [
     { name = "asdl-core" },
     { name = "asdl-dispatcher" },
-    { name = "asdl-initiatives" },
+    { name = "asdl-objectives" },
     { name = "asdl-pr-address" },
     { name = "asdl-reviewer" },
     { name = "asdl-slots" },
@@ -154,7 +154,7 @@ dev = [
 requires-dist = [
     { name = "asdl-core", editable = "packages/asdl-core" },
     { name = "asdl-dispatcher", marker = "extra == 'plugins'", editable = "packages/asdl-dispatcher" },
-    { name = "asdl-initiatives", marker = "extra == 'plugins'", editable = "packages/asdl-initiatives" },
+    { name = "asdl-objectives", marker = "extra == 'plugins'", editable = "packages/asdl-objectives" },
     { name = "asdl-pr-address", marker = "extra == 'plugins'", editable = "packages/asdl-pr-address" },
     { name = "asdl-slots", marker = "extra == 'plugins'", editable = "packages/asdl-slots" },
     { name = "click", specifier = ">=8.1.7" },
@@ -165,7 +165,7 @@ provides-extras = ["plugins"]
 dev = [
     { name = "asdl-core", editable = "packages/asdl-core" },
     { name = "asdl-dispatcher", editable = "packages/asdl-dispatcher" },
-    { name = "asdl-initiatives", editable = "packages/asdl-initiatives" },
+    { name = "asdl-objectives", editable = "packages/asdl-objectives" },
     { name = "asdl-pr-address", editable = "packages/asdl-pr-address" },
     { name = "asdl-reviewer", editable = "packages/asdl-reviewer" },
     { name = "asdl-slots", editable = "packages/asdl-slots" },

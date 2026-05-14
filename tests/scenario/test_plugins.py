@@ -79,35 +79,35 @@ def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec()
     assert len(parent.commands) == 0
 
 
-def test_initiative_plugin_integration() -> None:
+def test_objective_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
-        name="initiative",
-        value="asdl_initiatives.plugin:build_initiative_plugin",
+        name="objective",
+        value="asdl_objectives.plugin:build_objective_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
 
-    result = runner.invoke(parent, ["initiative", "--help"])
+    result = runner.invoke(parent, ["objective", "--help"])
     assert result.exit_code == 0
-    assert "Work with checked-in Initiative records." in result.output
+    assert "Work with checked-in Objective records." in result.output
     assert "exec" not in result.output
 
-    result = runner.invoke(parent, ["initiative", "exec", "--help"])
+    result = runner.invoke(parent, ["objective", "exec", "--help"])
     assert result.exit_code == 0, result.output
-    assert "Commands for use by initiative skills." in result.output
+    assert "Commands for use by objective skills." in result.output
 
     with runner.isolated_filesystem():
         result = runner.invoke(
             parent,
-            ["initiative", "exec", "list", "--format", "json"],
+            ["objective", "exec", "list", "--format", "json"],
             obj=build_clinkr_context_object(lambda: object()),
         )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["data"]["root_path"] == ".asdl/initiatives"
+    assert payload["data"]["root_path"] == ".asdl/objectives"
     assert payload["data"]["entries"] == []
 
 

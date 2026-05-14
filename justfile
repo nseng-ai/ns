@@ -69,6 +69,7 @@ refresh-nonslop:
 install-tools:
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
     uv tool install --force --editable {{justfile_directory()}}/packages/brmem
+    uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
     mkdir -p ~/.claude/skills ~/.codex/skills
     for skill in {{brmem_skills}}; do \
         ln -sfn {{justfile_directory()}}/skills/$skill ~/.claude/skills/$skill; \
@@ -90,5 +91,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package asdl-tools --package brmem --package asdl-core --package asdl-dispatcher --package asdl-pr-address --package asdl-reviewer --package asdl-slots
+    uv build --package asdl-tools --package brmem --package asdl-core --package asdl-dispatcher --package asdl-objectives --package asdl-pr-address --package asdl-reviewer --package asdl-slots
     uv publish
