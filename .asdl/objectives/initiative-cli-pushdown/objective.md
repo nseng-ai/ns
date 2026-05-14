@@ -66,4 +66,24 @@ Risks:
 
 - If Objective update histories grow too large, should `read-objective --format md` add an updates limit flag later?
 - Should a future Objective pick up deterministic Tracking Gate evidence collection as its own scope, now that this Objective has descoped `objective exec tracking-gate-facts`?
-- On this branch, should the skill/doc references to `objective exec tracking-gate-facts` and the `tracking-gate-facts`-coupled scenario tests be reverted in-place, or carried as a small follow-up PR that lands together with the skill/doc delegation work?
+
+## Closure
+
+Outcome: completed. The reduced two-command steelthread shipped as planned: `objective exec list` and `objective exec read-objective` are live under the hidden `objective exec` subgroup in `packages/asdl-objectives/`, both with `--format json` and `--format md`. The Objective skills and `docs/objective-system.md` delegate candidate listing and record reading to those commands while keeping all Objective meaning in the skills and human-authored Markdown.
+
+Key evidence:
+
+- PRs #461 (Objective + roadmap), #462 (explicit-slug-or-ask selection), #463 (`asdl-objectives` package skeleton), #464 (`objective exec list`), #465 (`objective exec read-objective`), #467 (skill/doc delegation), #468 (renderer/error-branch scenario tests), and #470/#471 (delete legacy objective system and rename initiative → objective on master).
+- Skill/doc descope of `objective exec tracking-gate-facts` landed on master via `finish-objetict-pushdown`: shipped CLI surface now reads `(list, read-objective)` in `docs/objective-system.md` and `skills/objective/SKILL.md`; Tracking Gate facts collection is back under "Future CLI pushdown candidates."
+- Final verification on `finish-objetict-pushdown`: `uv run pytest packages/asdl-objectives/tests tests/scenario/test_plugins.py` (30 passed) and `just` (ruff, ruff format, dprint, ty, full pytest 1197 passed) all green; `grep` confirms no `tracking-gate-facts` / `GitPathChange` references remain in `skills/`, `docs/`, or `packages/asdl-objectives/`.
+
+Remaining assumptions, risks, and caveats:
+
+- Deterministic Tracking Gate evidence collection (originally PR 5) remains parked. The `add-tracking-gate-facts-and-git-path-change-suppor` branch still exists locally and on `origin` if a future Objective picks it up.
+- The CLI-creep risk is mitigated for v1 by the explicit "do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code" guard in `skills/objective/SKILL.md`. Future commands added under `objective exec` should preserve this boundary.
+- Three earlier 2026-05-14 updates (`2026-05-14T004058Z-skill-and-doc-audit-landed.md`, `2026-05-14T012636Z-steelthread-validated.md`, and `2026-05-14T094723Z-descope-cleanup-landed.md`) are preserved for history but superseded by `2026-05-14T093556Z-tracking-gate-facts-descoped.md` and `2026-05-14T111321Z-descope-cleanup-landed-on-master.md`. Do not cite their PR-5-done / steelthread-validated / cleanup-landed claims as current state.
+
+Follow-ups:
+
+- Decide whether to promote deferred Tracking Gate CLI work into a follow-on Objective or leave it dormant under `## Parked` in this Objective's roadmap.
+- The Objective directory slug remains `initiative-cli-pushdown` to preserve stable identity across the 2026-05-14 system rename; the narrative title is `Objective CLI Pushdown`.

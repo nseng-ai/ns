@@ -155,7 +155,7 @@ Do not auto-select from candidate count or changed/touched files. Never infer ob
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. A small `objective exec` CLI surface (`list`, `read-objective`, `tracking-gate-facts`) ships deterministic read mechanics that the skills delegate to; mutations remain direct Markdown edits.
+V1 keeps Objective meaning in Markdown. A small `objective exec` CLI surface (`list`, `read-objective`) ships deterministic read mechanics that the skills delegate to; mutations remain direct Markdown edits.
 
 ### `objective-create`
 
@@ -223,9 +223,12 @@ Contract:
 
 Shipped CLI:
 
-- Read-only branch evidence collection and changed-path classification for an explicitly selected objective: `objective exec tracking-gate-facts <slug-or-path> --base-ref <ref>`.
 - Closed-objective filtering: `objective exec list` reports each record's closed state.
-- A structured Tracking Gate report: `objective exec tracking-gate-facts` (the LM still authors the materiality interpretation).
+
+Future CLI pushdown candidates:
+
+- Read-only branch evidence collection and changed-path classification for an explicitly selected objective.
+- A structured Tracking Gate report (the LM still authors the materiality interpretation).
 
 ### `objective-update`
 
@@ -282,7 +285,7 @@ Markdown-only v1 behavior:
 
 The Tracking Gate must not mutate files, auto-refresh objective state, or perform hidden reconciliation.
 
-`objective exec tracking-gate-facts <slug-or-path> --base-ref <ref>` provides the deterministic git comparison and changed-path scope facts. Semantic materiality — whether a given diff plausibly advances the selected Objective — remains LM/human-authored.
+Deterministic git comparison and changed-path scope facts for the Tracking Gate are left as future CLI work; collection of branch evidence and semantic materiality both remain LM/human-authored in v1.
 
 ## PR Tracking Policy
 
@@ -302,8 +305,8 @@ Good CLI responsibilities:
 - Scaffold required files and headings. _(future.)_
 - Detect missing `## Assumptions and Risks` sections. _(future.)_
 - Generate timestamped update filenames. _(future.)_
-- Report changed-path facts for an explicitly selected objective. _(shipped: `objective exec tracking-gate-facts`.)_
-- Collect read-only Tracking Gate evidence. _(shipped: `objective exec tracking-gate-facts`.)_
+- Report changed-path facts for an explicitly selected objective. _(future.)_
+- Collect read-only Tracking Gate evidence. _(future.)_
 - Enforce one-objective-per-update guardrails. _(future.)_
 
 Responsibilities that should remain LM/human-authored:
