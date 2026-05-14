@@ -9,8 +9,7 @@ It is primarily a low-level primitive for higher-level skills and tools.
 Use cases include:
 
 - a plan or handoff note created before implementation starts
-- tool-owned objective documents attached to a branch (_objective_ is a
-  codename for the higher-level branch-planning system built on `brmem`)
+- tool-owned documents attached to a branch
 - agent session summaries captured for later harvesting
 - "lessons learned" notes from an agent session, kept on the branch that
   produced them
@@ -74,7 +73,7 @@ There are five ideas to keep in mind:
 - **Entry**: a small UTF-8 text blob stored under an Entry Key, such as
   `plan.md` or `dashboard-revamp/body.md`.
 - **Entry Key**: the path-like name for an Entry within Branch Memory.
-- **Namespace**: a domain-owned bucket for Entries. For example, `objectives`
+- **Namespace**: a domain-owned bucket for Entries. For example, `notes`
   is a Namespace where each Entry has a well-defined schema and is under tool
   control. Omitting `--namespace` stores an ad-hoc base Entry.
 
@@ -123,11 +122,11 @@ inspectable.
 For domain-owned state, use a Namespace:
 
 ```text
-brmem put dashboard-revamp/body.md --namespace objectives --file body.md
+brmem put dashboard-revamp/body.md --namespace notes --file body.md
 ```
 
 Namespaces keep unrelated tools from colliding. A scratch `plan.md` Entry and
-an `objectives/dashboard-revamp/body.md` Entry can coexist on the same branch
+a `notes/dashboard-revamp/body.md` Entry can coexist on the same branch
 without meaning the same thing.
 
 ### 2. Read it in a later session
@@ -144,7 +143,7 @@ To inspect without printing the whole content:
 ```text
 brmem check plan.md
 brmem list --base
-brmem list --namespace objectives
+brmem list --namespace notes
 ```
 
 `check` reports the Entry locator, Branch Memory head commit, blob, and size.
@@ -155,7 +154,7 @@ base Entries or a Namespace.
 
 ```text
 brmem copy \
-  --namespace objectives \
+  --namespace notes \
   --from-branch master \
   --to-branch feature/table-filtering \
   --key-glob 'dashboard-revamp/*'
@@ -243,8 +242,6 @@ working tree.
 ## See Also
 
 - [`AGENTS.md`](./AGENTS.md): contributor rules for this package.
-- [`../asdl-objectives`](../asdl-objectives/): a higher-level branch-planning
-  system built on `brmem`.
 - [`skills/dev-brmem-branch-create`](../../skills/dev-brmem-branch-create/):
   a local-only developer helper that uses `brmem` for branch-local handoff
   state.

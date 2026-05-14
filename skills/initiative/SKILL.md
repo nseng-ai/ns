@@ -61,7 +61,7 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 2. If no slug or path is explicit, run `initiative exec list --format md` to enumerate candidate Initiative directories under `.asdl/initiatives/` and ask the user to choose.
 3. If no candidates exist, say so and suggest `initiative-create` when appropriate.
 
-Do not auto-select from candidate count or changed/touched files. Never infer from branch name, objective, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path evidence belongs only to operation-specific checks after an Initiative is selected.
+Do not auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path evidence belongs only to operation-specific checks after an Initiative is selected.
 
 ## Tracking Gate
 
@@ -69,6 +69,6 @@ Before `initiative-next` recommends work, check read-only whether material progr
 
 ## Non-goals
 
-- Not an objective, task database, workflow controller, or branch attachment system.
+- Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
 - V1 keeps Initiative _meaning_ in Markdown; CLI tooling (`initiative exec list`, `initiative exec read-initiative`) owns only deterministic facts (inventory, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.

@@ -195,46 +195,6 @@
       "sourceType": "github",
       "computedHash": "b46238d4c9f4f40df3781a4a9688b28ba0e17aece4f38b4c141e9c458ab33eae"
     },
-    "objective": {
-      "source": "skills/objective",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-attach": {
-      "source": "skills/objective-attach",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-create": {
-      "source": "skills/objective-create",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-current": {
-      "source": "skills/objective-current",
-      "sourceType": "local",
-      "computedHash": "9b618536779843d0ed0a6b77b796290ae712c9f564d39bfda3b3544d07b123a4"
-    },
-    "objective-digest": {
-      "source": "skills/objective-digest",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-next": {
-      "source": "skills/objective-next",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-reconcile": {
-      "source": "skills/objective-reconcile",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-update": {
-      "source": "skills/objective-update",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
     "pr-address": {
       "source": "skills/pr-address",
       "sourceType": "local",

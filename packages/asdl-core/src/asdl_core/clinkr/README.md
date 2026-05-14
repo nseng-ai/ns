@@ -210,7 +210,7 @@ envelope = Ensure.inst(
 When a domain helper returns a sum type whose error arms each carry a CLI-ready `error_type` and `message` (i.e. each conforms to the `NonIdealState` Protocol), collapse the match block at the CLI boundary with `Ensure.ideal_state`:
 
 ```python
-# resolve_slug returns SlugResolution | NoObjectiveOnBranch | AmbiguousObjective
+# resolve_slug returns SlugResolution | NoSlugOnBranch | AmbiguousSlug
 # | DetachedHead | GitCommandFailure — the failure arms all expose
 # error_type/message, so the union conforms structurally to NonIdealState.
 slug_resolution = Ensure.ideal_state(resolve_slug(mctx, request.slug))

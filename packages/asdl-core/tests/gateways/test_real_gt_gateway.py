@@ -25,13 +25,13 @@ def test_real_gt_gateway_missing_gt_returns_command_failure(
 
 
 def test_parse_stack_output_linear_two_branch() -> None:
-    stdout = "◯  master (code/asdl)\n◉  add-objective-current-skill\n"
+    stdout = "◯  master (code/asdl)\n◉  add-feature-x\n"
 
     result = parse_stack_output(stdout)
 
     assert result == StackInfo(
         trunk="master",
-        current="add-objective-current-skill",
+        current="add-feature-x",
         ancestors=("master",),
         children=(),
         warnings=(),

@@ -4,7 +4,7 @@ This doc captures one important invariant for Pi extension and workflow design i
 
 > Pi's working directory is **session/runtime-bound**, not shell-command-bound.
 
-That distinction matters for objective widgets, slot switching, and any extension that shells out to repo CLIs.
+That distinction matters for slot switching and any extension that shells out to repo CLIs.
 
 ## Short version
 
@@ -61,14 +61,13 @@ For workflows that intentionally move to another branch/worktree (for example sl
 2. Create a **fresh** Pi session file whose header `cwd` is that worktree path.
 3. Switch Pi to that session.
 
-This avoids trying to mutate Pi's `cwd` in place and keeps relative paths, objectives, and project-local resources coherent.
+This avoids trying to mutate Pi's `cwd` in place and keeps relative paths and project-local resources coherent.
 
 ## Why fresh sessions are preferred
 
 When moving between worktrees, a fresh session is usually safer than carrying over the existing conversation because it avoids:
 
 - stale relative paths
-- stale objective widgets
 - old AGENTS/resource context from the previous worktree
 - confusion about which checkout the agent is operating on
 

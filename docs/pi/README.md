@@ -10,7 +10,7 @@ Checked-in project-local Pi extensions live in:
 .pi/extensions/
 ```
 
-Use project-local extensions when the behavior is specific to this repo's workflows, CLIs, objectives, slots, or contributor conventions.
+Use project-local extensions when the behavior is specific to this repo's workflows, CLIs, slots, or contributor conventions.
 
 ## Checked-in extensions and worktrees
 
@@ -46,7 +46,7 @@ Use `/reload` after changing files under `.pi/extensions/`.
 ### Prefer project-local extensions when
 
 - the behavior is specific to this repo
-- the extension shells out to repo CLIs like `slot` or `objective`
+- the extension shells out to repo CLIs like `slot`
 - the extension depends on repo conventions or checked-in files
 - you want the behavior to travel with the repository
 

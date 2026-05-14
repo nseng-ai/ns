@@ -31,7 +31,7 @@ class CopyRequest(ClinkrModel):
             ["--namespace"],
             required=True,
             type=click.STRING,
-            help="Namespace (e.g. 'objectives').",
+            help="Namespace (e.g. 'notes').",
         ),
     ]
     from_branch: Annotated[

@@ -26,7 +26,7 @@ Initiative records are Markdown; read `initiative.md`, `roadmap.md`, and `update
 2. If no slug or path is explicit, run `initiative exec list --format md` to enumerate candidates and ask the user to choose.
 3. If no candidates exist, say so and suggest `initiative-create` when appropriate.
 
-Do not auto-select from candidate count or changed/touched files. Never infer Initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
+Do not auto-select from candidate count or changed/touched files. Never infer Initiative ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
 
 ## Workflow
 
