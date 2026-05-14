@@ -1,0 +1,72 @@
+---
+name: initiative
+description: "Use for conceptual questions about asdl Initiatives and as shared grounding with initiative-create, initiative-current, initiative-next, initiative-update, or initiative-close. Read-only."
+---
+
+# initiative
+
+Read-only grounding for Initiative skills. Do not mutate files from this skill.
+
+## Concept
+
+An Initiative is a checked-in durable narrative roadmap for multi-session, multi-branch, or multi-PR work.
+
+Canonical root only:
+
+```text
+.asdl/initiatives/<slug>/
+  initiative.md
+  roadmap.md
+  updates/
+  closed.md  # optional marker
+```
+
+Do not use `docs/initiatives/`.
+
+## Files
+
+`initiative.md` contains durable purpose, boundaries, criteria, open questions, and closure context. Required headings:
+
+- `# <Title>`
+- `## Thesis`
+- `## Scope`
+- `## Non-Goals`
+- `## Completion Criteria`
+- `## Open Questions`
+- `## Closure` only when closed
+
+`roadmap.md` contains ordered guidance. Required headings:
+
+- `# Roadmap`
+- `## Work`
+- `## Parked`
+
+Use only `[ ]`, `[~]`, and `[x]` statuses.
+
+`updates/` contains Semantic Updates: meaningful findings, decisions, blockers, completion evidence, plan changes, or follow-ups. No ceremonial pings or branch changelogs. Required headings:
+
+- `# <Update Title>`
+- `## Summary`
+- `## Initiative Impact`
+- `## Follow-Ups`
+
+`closed.md` is a minimal Closure Marker. Its existence means closed; closure meaning belongs in `initiative.md`.
+
+## Selection
+
+1. Use an explicit user-provided slug or path under `.asdl/initiatives/<slug>/`.
+2. Otherwise inspect worktree and branch changes for touched Initiative files.
+3. If exactly one Initiative slug is touched, use it.
+4. If zero or multiple slugs are touched, ask.
+
+Never infer from branch name, objective, PR, package, roadmap keyword, or hidden attachment metadata.
+
+## Tracking Gate
+
+Before `initiative-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Initiative. If so, ask for `initiative-update` before recommending new work.
+
+## Non-goals
+
+- Not an objective, task database, workflow controller, or branch attachment system.
+- No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
+- V1 is markdown-only; do not add or call Python CLI tooling.
