@@ -37,10 +37,9 @@
 - [x] Update Initiative skills and docs to delegate deterministic mechanics.
   - Evidence: PR 467 (`delegate-initiative-skills-to-exec`) edits the five remaining Initiative skill `SKILL.md` files (`initiative-current`, `initiative-update`, `initiative-close`, `initiative`, `initiative-create`) and `docs/initiative-system.md` to delegate candidate listing to `initiative exec list --format md`, record reading to `initiative exec read-initiative <slug> --format md`, and Tracking Gate path facts to `initiative exec tracking-gate-facts`. The umbrella skill and canonical doc now describe shipped versus future CLI responsibilities and keep the "do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code" guard explicit. Mutation guidance remains direct Markdown.
   - Verification: `uv run pytest packages/asdl-initiatives/tests tests/scenario/test_plugins.py` and `just` passed on the PR 467 branch.
-- [ ] Validate the full steelthread.
-  - Add scenario/unit/plugin tests for the new CLI surface.
-  - Cover JSON contracts and Markdown renderers.
-  - Run the repository test/lint suite and fix issues through the normal autofix workflow where applicable.
+- [x] Validate the full steelthread.
+  - Evidence: PR 468 (`validate-initiative-steelthread`) added five scenario tests in `packages/asdl-initiatives/tests/scenario/test_initiative_cli.py` covering previously unasserted Markdown renderer and error-handling branches across the three `initiative exec` commands: `test_initiative_exec_read_markdown_empty_updates_dir_note`, `test_initiative_exec_tracking_gate_markdown_empty_evidence_note`, `test_initiative_exec_tracking_gate_range_failure_returns_failure_envelope`, `test_initiative_exec_tracking_gate_markdown_current_branch_failure`, and `test_initiative_exec_tracking_gate_markdown_selected_initiative_missing`. JSON contracts and the remaining Markdown branches were already covered by tests landed in PRs 1–5; the audit recorded in `updates/2026-05-14T012636Z-steelthread-validated.md` enumerates the per-command coverage map and the deliberately-accepted non-coverage.
+  - Verification: `uv run pytest packages/asdl-initiatives/tests` (51 passed) and `just` (1577 passed, ruff/dprint/ty all green) on the PR 468 branch; the three exec commands were also smoke-tested against this repo via `uv run initiative exec list/read-initiative/tracking-gate-facts --format md`.
 
 ## Parked
 

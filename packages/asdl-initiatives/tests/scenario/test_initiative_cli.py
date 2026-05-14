@@ -8,6 +8,9 @@ from click.testing import CliRunner, Result
 
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
+from asdl_core.git.testing import FakeGitGateway
+from asdl_core.git.types import DetachedHead, GitCommandFailure, GitPathChange
+from asdl_initiatives.context import InitiativeCliContext
 from asdl_initiatives.main import build_cli
 
 
@@ -41,6 +44,7 @@ def test_initiative_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None
     assert "Commands for use by initiative skills." in result.output
     assert "list" in result.output
     assert "read-initiative" in result.output
+    assert "tracking-gate-facts" in result.output
 
     result = CliRunner().invoke(cli_group, ["exec", "list", "--help"])
 
@@ -53,6 +57,12 @@ def test_initiative_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None
     assert result.exit_code == 0
     assert "Usage: initiative exec read-initiative" in result.output
     assert "Read one Initiative record by explicit slug" in result.output
+
+    result = CliRunner().invoke(cli_group, ["exec", "tracking-gate-facts", "--help"])
+
+    assert result.exit_code == 0
+    assert "Usage: initiative exec tracking-gate-facts" in result.output
+    assert "Collect changed-path facts for an Initiative tracking gate" in result.output
 
 
 def test_initiative_exec_list_absent_root(
@@ -392,6 +402,21 @@ def test_initiative_exec_read_markdown_notes_missing_files(
     assert "_Missing `updates/` directory._" in result.output
 
 
+def test_initiative_exec_read_markdown_empty_updates_dir_note(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha")
+
+    result = _invoke_read_md(cli_group, "alpha")
+
+    assert result.exit_code == 0, result.output
+    assert "_No direct update Markdown files found._" in result.output
+
+
 def test_initiative_exec_read_json_omits_raw_markdown_content(
     cli_group: ClinkrGroup,
     tmp_path: Path,
@@ -415,6 +440,283 @@ def test_initiative_exec_read_json_omits_raw_markdown_content(
     assert "private update body sentinel" not in result.output
 
 
+def test_initiative_exec_tracking_gate_missing_base_ref_returns_stable_json(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = _invoke_tracking_json(cli_group, "alpha", base_ref=None)
+
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Usage:" not in result.stderr
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": "Missing base ref. Pass --base-ref <ref>.",
+        "data": _empty_tracking_data(status="missing_base_ref", error="missing_base_ref"),
+    }
+
+
+def test_initiative_exec_tracking_gate_invalid_selection_returns_stable_json(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = _invoke_tracking_json(cli_group, "docs/plan.md", base_ref="main")
+
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Usage:" not in result.stderr
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": (
+            "Invalid Initiative selection 'docs/plan.md'. "
+            "Pass a slug or path under .asdl/initiatives/<slug>/."
+        ),
+        "data": _empty_tracking_data(
+            status="invalid_selection",
+            error="invalid_selection",
+            base_ref="main",
+        ),
+    }
+
+
+def test_initiative_exec_tracking_gate_classifies_selected_other_and_non_initiative(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha", closed=True)
+    _write_initiative(root, "beta")
+    cwd = Path.cwd()
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={cwd: "feature/initiative"},
+        working_tree_changes_by_path={
+            cwd: (
+                GitPathChange(status="M", path=".asdl/initiatives/alpha/roadmap.md"),
+                GitPathChange(status="M", path=".asdl/initiatives/beta/initiative.md"),
+                GitPathChange(status="M", path="packages/asdl/example.py"),
+            )
+        },
+    )
+
+    result = _invoke_tracking_json(cli_group, "alpha", base_ref="main", git_gateway=git_gateway)
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["selected"] == {
+        "input": "alpha",
+        "slug": "alpha",
+        "path": ".asdl/initiatives/alpha",
+        "exists": True,
+        "closed": True,
+    }
+    assert data["current_branch"] == {
+        "status": "branch",
+        "name": "feature/initiative",
+        "error": None,
+        "returncode": None,
+    }
+    assert data["buckets"]["selected_initiative"]["working_tree"] == [
+        {
+            "status": "M",
+            "path": ".asdl/initiatives/alpha/roadmap.md",
+            "old_path": None,
+            "initiative_slugs": ["alpha"],
+        }
+    ]
+    assert data["buckets"]["other_initiatives"]["working_tree"] == [
+        {
+            "status": "M",
+            "path": ".asdl/initiatives/beta/initiative.md",
+            "old_path": None,
+            "initiative_slugs": ["beta"],
+        }
+    ]
+    assert data["buckets"]["non_initiative"]["working_tree"] == [
+        {
+            "status": "M",
+            "path": "packages/asdl/example.py",
+            "old_path": None,
+            "initiative_slugs": [],
+        }
+    ]
+
+
+def test_initiative_exec_tracking_gate_separates_working_tree_index_and_committed(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha")
+    cwd = Path.cwd()
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={cwd: DetachedHead()},
+        working_tree_changes_by_path={
+            cwd: (GitPathChange(status="M", path=".asdl/initiatives/alpha/roadmap.md"),)
+        },
+        index_changes_by_path={
+            cwd: (GitPathChange(status="A", path=".asdl/initiatives/alpha/updates/progress.md"),)
+        },
+        range_changes_by_key={
+            (cwd, "origin/main"): (GitPathChange(status="M", path="packages/asdl/example.py"),)
+        },
+    )
+
+    result = _invoke_tracking_json(
+        cli_group,
+        ".asdl/initiatives/alpha/initiative.md",
+        base_ref="origin/main",
+        git_gateway=git_gateway,
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["base_ref"] == "origin/main"
+    assert data["current_branch"]["status"] == "detached"
+    assert [
+        change["path"] for change in data["buckets"]["selected_initiative"]["working_tree"]
+    ] == [".asdl/initiatives/alpha/roadmap.md"]
+    assert [change["path"] for change in data["buckets"]["selected_initiative"]["index"]] == [
+        ".asdl/initiatives/alpha/updates/progress.md"
+    ]
+    assert [change["path"] for change in data["buckets"]["non_initiative"]["committed"]] == [
+        "packages/asdl/example.py"
+    ]
+
+
+def test_initiative_exec_tracking_gate_markdown_output(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha")
+    cwd = Path.cwd()
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={cwd: "feature/alpha"},
+        working_tree_changes_by_path={
+            cwd: (GitPathChange(status="??", path=".asdl/initiatives/alpha/updates/new.md"),)
+        },
+        range_changes_by_key={
+            (cwd, "main"): (GitPathChange(status="M", path="packages/asdl/example.py"),)
+        },
+    )
+
+    result = _invoke_tracking_md(cli_group, "alpha", base_ref="main", git_gateway=git_gateway)
+
+    assert result.exit_code == 0, result.output
+    assert "# Initiative Tracking Gate Facts" in result.output
+    assert (
+        "Selected Initiative: `alpha` (`.asdl/initiatives/alpha`, present, open)" in result.output
+    )
+    assert "Base ref: `main`" in result.output
+    assert "Current branch: `feature/alpha`" in result.output
+    assert "| selected_initiative | 1 | 0 | 0 |" in result.output
+    assert "| non_initiative | 0 | 0 | 1 |" in result.output
+    assert (
+        "| working_tree | selected_initiative | ?? | `.asdl/initiatives/alpha/updates/new.md` |"
+        in result.output
+    )
+    assert "| committed | non_initiative | M | `packages/asdl/example.py` |" in result.output
+    assert "recommend" not in result.output.lower()
+    assert "material" not in result.output.lower()
+
+
+def test_initiative_exec_tracking_gate_markdown_empty_evidence_note(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha")
+    cwd = Path.cwd()
+    git_gateway = FakeGitGateway(current_branch_by_path={cwd: "main"})
+
+    result = _invoke_tracking_md(cli_group, "alpha", base_ref="main", git_gateway=git_gateway)
+
+    assert result.exit_code == 0, result.output
+    assert "_No path evidence found._" in result.output
+    assert "| selected_initiative | 0 | 0 | 0 |" in result.output
+    assert "| other_initiatives | 0 | 0 | 0 |" in result.output
+    assert "| non_initiative | 0 | 0 | 0 |" in result.output
+    assert "## Path Evidence" not in result.output
+
+
+def test_initiative_exec_tracking_gate_range_failure_returns_failure_envelope(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha")
+    cwd = Path.cwd()
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={cwd: "main"},
+        range_changes_by_key={
+            (cwd, "main"): GitCommandFailure(message="bad ref", returncode=128),
+        },
+    )
+
+    result = _invoke_tracking_json(cli_group, "alpha", base_ref="main", git_gateway=git_gateway)
+
+    assert result.exit_code == 2, result.output
+    envelope = json.loads(result.output)
+    assert envelope["exit_code"] == 2
+    assert envelope["error_type"] == "git_failed"
+    assert "bad ref" in envelope["message"]
+
+
+def test_initiative_exec_tracking_gate_markdown_current_branch_failure(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".asdl" / "initiatives"
+    _write_initiative(root, "alpha")
+    cwd = Path.cwd()
+    git_gateway = FakeGitGateway(
+        current_branch_by_path={
+            cwd: GitCommandFailure(message="not a git repo", returncode=128),
+        },
+    )
+
+    result = _invoke_tracking_md(cli_group, "alpha", base_ref="main", git_gateway=git_gateway)
+
+    assert result.exit_code == 0, result.output
+    assert "Current branch: failure (not a git repo)" in result.output
+
+
+def test_initiative_exec_tracking_gate_markdown_selected_initiative_missing(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    cwd = Path.cwd()
+    git_gateway = FakeGitGateway(current_branch_by_path={cwd: "main"})
+
+    result = _invoke_tracking_md(cli_group, "alpha", base_ref="main", git_gateway=git_gateway)
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "Selected Initiative: `alpha` (`.asdl/initiatives/alpha`, missing, open)" in result.output
+    )
+    assert "| selected_initiative | 0 | 0 | 0 |" in result.output
+
+
 def _invoke_json(cli_group: ClinkrGroup) -> Result:
     return CliRunner().invoke(
         cli_group,
@@ -433,6 +735,83 @@ def _invoke_read_json(cli_group: ClinkrGroup, slug: str | None = None) -> Result
         args,
         obj=build_clinkr_context_object(lambda: object()),
     )
+
+
+def _invoke_read_md(cli_group: ClinkrGroup, slug: str) -> Result:
+    return CliRunner().invoke(
+        cli_group,
+        ["exec", "read-initiative", slug, "--format", "md"],
+        obj=build_clinkr_context_object(lambda: object()),
+    )
+
+
+def _invoke_tracking_json(
+    cli_group: ClinkrGroup,
+    slug_or_path: str,
+    *,
+    base_ref: str | None,
+    git_gateway: FakeGitGateway | None = None,
+) -> Result:
+    args = ["exec", "tracking-gate-facts", slug_or_path]
+    if base_ref is not None:
+        args.extend(("--base-ref", base_ref))
+    args.extend(("--format", "json"))
+    return CliRunner().invoke(
+        cli_group,
+        args,
+        obj=build_clinkr_context_object(
+            lambda: InitiativeCliContext(git_gateway=git_gateway or FakeGitGateway())
+        ),
+    )
+
+
+def _invoke_tracking_md(
+    cli_group: ClinkrGroup,
+    slug_or_path: str,
+    *,
+    base_ref: str,
+    git_gateway: FakeGitGateway,
+) -> Result:
+    return CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "tracking-gate-facts",
+            slug_or_path,
+            "--base-ref",
+            base_ref,
+            "--format",
+            "md",
+        ],
+        obj=build_clinkr_context_object(lambda: InitiativeCliContext(git_gateway=git_gateway)),
+    )
+
+
+def _empty_tracking_data(
+    *,
+    status: str,
+    error: str,
+    base_ref: str | None = None,
+) -> dict[str, object]:
+    return {
+        "status": status,
+        "error": error,
+        "root_path": ".asdl/initiatives",
+        "root_exists": False,
+        "selected": None,
+        "base_ref": base_ref,
+        "current_branch": None,
+        "buckets": _empty_tracking_buckets(),
+    }
+
+
+def _empty_tracking_buckets() -> dict[str, object]:
+    empty = {"working_tree": [], "index": [], "committed": []}
+    return {
+        "selected_initiative": empty,
+        "other_initiatives": empty,
+        "non_initiative": empty,
+    }
 
 
 def _empty_read_data(
