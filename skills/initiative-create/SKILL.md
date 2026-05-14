@@ -56,7 +56,8 @@ Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
    - Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
    - Explore the codebase or existing docs instead of asking questions whose answers can be discovered locally.
    - Ask only one unresolved question at a time.
-   - For each question, include your recommended answer so the user can confirm or correct it, then ask whether they want to continue to the next question or stop and create the Initiative with the context gathered so far.
+   - For each question, include your recommended answer so the user can confirm or correct it, then present a compact numbered menu instead of an open-ended continuation prompt.
+   - Numbered menus should include the recommended path first, the main alternative(s) next, and a final "Stop and create Initiative" option. Use domain-specific labels so the choices are concrete (for example: `1) Skill-only steelthread`, `2) Dedicated CLI commands`, `3) Stop and create Initiative`). Tell the user they can answer with a number or a custom correction.
    - Focus especially on branch points that affect scope, completion criteria, assumptions, risks, sequencing, or closure evidence.
    - Continue until shared understanding is sufficient to avoid generic or invented durable content, or until the user chooses to stop questioning and write the Initiative.
 3. Create `.asdl/initiatives/<slug>/`, `.asdl/initiatives/<slug>/updates/`, `initiative.md`, and `roadmap.md`.
