@@ -1,8 +1,8 @@
 """Pure planners for `slot checkout` and `slot checkout --current`.
 
-Mirrors the `lifecycle.py` shape: pure functions over a :class:`SlotInventory`
-and the :class:`GitGateway`, returning a tagged-union plan that the CLI
-executes. Inventory-only — no persisted pool state involvement.
+Pure functions over a :class:`SlotInventory` and the :class:`GitGateway`,
+returning tagged-union plans consumed by the lifecycle coordinator.
+Inventory-only — no persisted pool state involvement.
 """
 
 from __future__ import annotations

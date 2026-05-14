@@ -2,8 +2,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.git.testing import FakeGitGateway
+from asdl_core.git.types import DetachedHead, WorktreeInfo
+from asdl_slots.context import SlotsCliContext
+from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
+from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.inventory import SlotInventory, SlotRecord
-from asdl_slots.lifecycle import build_init_plan, build_resize_plan
+from asdl_slots.lifecycle import (
+    SlotCheckoutOutcome,
+    SlotLifecycleFailure,
+    build_init_plan,
+    build_resize_plan,
+    checkout_branch,
+    checkout_current,
+)
+from asdl_slots.repo_context import RepoContext
 
 
 def _record(n: int, branch: str | None = None) -> SlotRecord:
@@ -17,6 +31,60 @@ def _record(n: int, branch: str | None = None) -> SlotRecord:
 
 def _inventory(*records: SlotRecord) -> SlotInventory:
     return SlotInventory(records=tuple(sorted(records, key=lambda r: r.slot_number)))
+
+
+def _slot_path(slots_root: Path, n: int) -> Path:
+    return slots_root / "repos" / "repo" / "worktrees" / f"slot-{n:02d}"
+
+
+def _slot_worktree(slots_root: Path, n: int, branch: str | None) -> WorktreeInfo:
+    return WorktreeInfo(path=_slot_path(slots_root, n), branch=branch, is_bare=False)
+
+
+def _lifecycle_context(
+    tmp_path: Path,
+    *,
+    branches: tuple[str, ...] = (),
+    worktrees: tuple[WorktreeInfo, ...] = (),
+    previous_branch_by_path: dict[Path, str | None] | None = None,
+    trunk_branch: str = "main",
+) -> tuple[SlotsCliContext, FakeGitGateway]:
+    repo_root = (tmp_path / "repo").resolve()
+    slots_root = tmp_path / "slots"
+    repo_dir = slots_root / "repos" / "repo"
+    repo = RepoContext(
+        root=repo_root,
+        main_repo_root=repo_root,
+        repo_name="repo",
+        repo_dir=repo_dir,
+        worktrees_dir=repo_dir / "worktrees",
+    )
+    current_branch_by_path: dict[Path, str | DetachedHead] = {
+        wt.path: wt.branch if wt.branch is not None else DetachedHead() for wt in worktrees
+    }
+    existing_paths = {repo_root, *(wt.path for wt in worktrees)}
+    storage = FakeSlotsStorageGateway(existing_paths=existing_paths)
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        branches=branches,
+        worktrees=worktrees,
+        current_branch_by_path=current_branch_by_path,
+        previous_branch_by_path=previous_branch_by_path,
+        trunk_branch=trunk_branch,
+        existing_paths=existing_paths,
+        repository_root_by_cwd={repo_root: repo_root},
+    )
+    return (
+        SlotsCliContext(
+            repo=repo,
+            git=git,
+            storage=storage,
+            clipboard=FakeClipboardGateway(),
+            pr=FakePRGateway(),
+            slots_root=slots_root,
+        ),
+        git,
+    )
 
 
 def test_init_plan_creates_one_through_n() -> None:
@@ -91,3 +159,89 @@ def test_resize_shrink_returns_full_records() -> None:
     assert removed.slot_number == 2
     assert removed.branch == "feat/x"
     assert removed.path == Path("/wt/slot-02")
+
+
+def test_checkout_branch_existing_branch_assigns_lowest_clean_slot(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("feat/x",),
+        worktrees=(
+            _slot_worktree(slots_root, 1, None),
+            _slot_worktree(slots_root, 2, None),
+        ),
+    )
+
+    outcome = checkout_branch(ctx, "feat/x", new_branch=False, base=None)
+
+    assert isinstance(outcome, SlotCheckoutOutcome)
+    assert outcome.slot_name == "slot-01"
+    assert outcome.branch_name == "feat/x"
+    assert outcome.worktree_path == _slot_path(slots_root, 1)
+    assert outcome.already_assigned is False
+    assert outcome.created_branch is False
+    assert outcome.current_wt_note is None
+    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/x"
+    assert ctx.storage.path_exists(ctx.repo.repo_dir)
+    assert ctx.storage.path_exists(ctx.repo.worktrees_dir)
+
+
+def test_checkout_branch_new_creates_branch_before_assigning(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main",),
+        worktrees=(_slot_worktree(slots_root, 1, None),),
+    )
+
+    outcome = checkout_branch(ctx, "feat/new", new_branch=True, base="main")
+
+    assert isinstance(outcome, SlotCheckoutOutcome)
+    assert git.branch_exists("feat/new")
+    assert outcome.slot_name == "slot-01"
+    assert outcome.branch_name == "feat/new"
+    assert outcome.created_branch is True
+    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/new"
+
+
+def test_checkout_branch_pool_full_returns_failure_without_checkout(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    assigned = _slot_worktree(slots_root, 1, "feat/a")
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("feat/a", "feat/b"),
+        worktrees=(assigned,),
+    )
+    worktrees_before = git.list_worktrees()
+
+    outcome = checkout_branch(ctx, "feat/b", new_branch=False, base=None)
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "pool_full"
+    assert "slot-01 -> feat/a" in outcome.message
+    assert git.list_worktrees() == worktrees_before
+    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/a"
+
+
+def test_checkout_current_preserves_existing_redirect_behavior(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = (tmp_path / "repo").resolve()
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("feat/x", "some-other"),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="feat/x", is_bare=False),
+            _slot_worktree(slots_root, 1, None),
+        ),
+        previous_branch_by_path={repo_root: "some-other"},
+    )
+
+    outcome = checkout_current(ctx)
+
+    assert isinstance(outcome, SlotCheckoutOutcome)
+    assert outcome.slot_name == "slot-01"
+    assert outcome.branch_name == "feat/x"
+    assert outcome.created_branch is False
+    assert outcome.current_wt_note is None
+    assert git.get_current_branch(repo_root) == "some-other"
+    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/x"
