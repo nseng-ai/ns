@@ -46,10 +46,10 @@ Closure requires that no candidate is in an indeterminate state. Candidates adde
 
 **Risks**
 
-- Deepening asdl-slots and asdl-reviewer touches the busiest packages; a botched consolidation could regress observable CLI behavior. *Mitigation*: insist on a working test surface against the new interface before deleting the old shape.
-- Collapsing the four asdl-reviewer gateways may erase a seam that a future harness or environment variant actually wants. *Mitigation*: defer candidate 3 until at least one such variant is on the horizon, or re-litigate the two-adapter rule at the time.
-- The clinkr deepening (candidate 4) touches every package that registers commands. *Mitigation*: keep the public decorator surface stable; only internal seams move.
-- "Open list" creates closure-creep risk: candidates added mid-flight could keep this Objective open indefinitely. *Mitigation*: each added candidate must include a deletion-test argument written into `## Scope` before its roadmap row is added.
+- Deepening asdl-slots and asdl-reviewer touches the busiest packages; a botched consolidation could regress observable CLI behavior. _Mitigation_: insist on a working test surface against the new interface before deleting the old shape.
+- Collapsing the four asdl-reviewer gateways may erase a seam that a future harness or environment variant actually wants. _Mitigation_: defer candidate 3 until at least one such variant is on the horizon, or re-litigate the two-adapter rule at the time.
+- The clinkr deepening (candidate 4) touches every package that registers commands. _Mitigation_: keep the public decorator surface stable; only internal seams move.
+- "Open list" creates closure-creep risk: candidates added mid-flight could keep this Objective open indefinitely. _Mitigation_: each added candidate must include a deletion-test argument written into `## Scope` before its roadmap row is added.
 
 ## Open Questions
 
