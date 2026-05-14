@@ -65,10 +65,10 @@ Do not auto-select from candidate count or changed/touched files. Never infer fr
 
 ## Tracking Gate
 
-Before `objective-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If so, ask for `objective-update` before recommending new work. `objective-next` collects the changed-path facts via `objective exec tracking-gate-facts <slug-or-path> --base-ref <ref> --format md`; materiality remains an LM judgment.
+Before `objective-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If so, ask for `objective-update` before recommending new work. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
 
 ## Non-goals
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective exec list`, `objective exec read-objective`, `objective exec tracking-gate-facts`) owns only deterministic facts (inventory, file presence, closed-marker, changed paths). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
+- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective exec list`, `objective exec read-objective`) owns only deterministic facts (inventory, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.

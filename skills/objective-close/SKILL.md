@@ -37,6 +37,10 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
 5. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
 6. Leave `.asdl/objectives/<slug>/` in place. Do not archive, delete, move, or implement a reopen workflow.
 
+## Closure timing
+
+Closure does not have to wait for the closing work to land on the trunk branch. When the same branch and PR that finishes the Objective also writes `## Closure` and `closed.md`, the merge of that PR is the closure event on the trunk. Couple Objective tracking with the work that triggered it: prefer closing on the branch that ships the final work over carrying closure to a follow-up PR.
+
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
