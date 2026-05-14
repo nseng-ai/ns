@@ -54,8 +54,12 @@ Required headings:
 
 ## Completion Criteria
 
+## Assumptions and Risks
+
 ## Open Questions
 ```
+
+`## Assumptions and Risks` records assumptions that might be disproven and risks that need de-risking, mitigation, acceptance, or explicit follow-up. Keep entries human-readable and evidence-linked. Do not add IDs, owners, due dates, lifecycle metadata, or automation semantics.
 
 When an initiative is closed, add:
 
@@ -100,7 +104,7 @@ Do not add task IDs, owners, priority fields, due dates, lifecycle metadata, or 
 
 ### `updates/`
 
-`updates/` contains **Semantic Updates**. An update file records meaningful information such as a finding, decision, blocker, completion evidence, changed plan, or follow-up.
+`updates/` contains **Semantic Updates**. An update file records meaningful information such as a finding, decision, blocker, assumption invalidation, risk de-risking or surfacing, completion evidence, changed plan, or follow-up.
 
 Update filenames should be timestamped and human-readable:
 
@@ -162,9 +166,20 @@ Contract:
 
 - Require an explicit slug or explicit user confirmation of an LM-proposed slug.
 - Create `.asdl/initiatives/<slug>/` with `initiative.md`, `roadmap.md`, and `updates/`.
-- Write LM-authored initial content using the standardized headings.
+- Write LM-authored initial content using the standardized headings, including a concrete `## Assumptions and Risks` section.
 - Do not create an initial update file; the initial durable files are the birth record.
 - Do not create `closed.md`.
+
+User interview:
+
+- Before writing, conduct a user interview inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md).
+- Interview the user relentlessly about every aspect until shared understanding is reached.
+- Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
+- Explore repository evidence for answerable questions before asking the user.
+- Ask one unresolved question at a time.
+- Include a recommended answer with each question.
+- After each question, ask whether to continue or stop and create the Initiative with the context gathered so far.
+- Focus on scope, completion criteria, assumptions, risks, sequencing, and closure evidence.
 
 Future CLI pushdown candidates:
 
@@ -180,6 +195,7 @@ Contract:
 
 - Resolve the initiative using the selection rules.
 - Read `initiative.md`, `roadmap.md`, recent `updates/`, and `closed.md` presence.
+- Report assumptions and risks alongside completion criteria, open questions, roadmap state, and recent updates.
 - Report whether the initiative is closed.
 - Do not mutate files.
 
@@ -200,6 +216,7 @@ Contract:
 - Exclude closed initiatives by default.
 - Read `initiative.md`, `roadmap.md`, and relevant updates.
 - Apply the **Tracking Gate** before recommending next work.
+- Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
 - If the Tracking Gate indicates likely unrecorded progress, stop and ask for an `initiative-update` instead of recommending next work.
 - Do not mutate files.
 
@@ -219,8 +236,9 @@ Contract:
 - Update exactly one initiative per invocation.
 - Do not span multiple initiatives in one update.
 - Edit `initiative.md` and/or `roadmap.md` when durable narrative or ordered guidance has changed.
+- Edit `## Assumptions and Risks` when an assumption is found incorrect or revised, a risk is de-risked or not de-risked, a risk materializes or is accepted, or new assumptions/risks emerge.
 - Write a Semantic Update when there is meaningful semantic information to record.
-- A Semantic Update may be written even when durable files do not change, if it records a meaningful finding, decision, blocker, completion evidence, changed plan, or follow-up.
+- A Semantic Update may be written even when durable files do not change, if it records a meaningful finding, decision, blocker, assumption or risk change, completion evidence, changed plan, or follow-up.
 - Maintenance-only edits to durable files do not require a Semantic Update.
 - Do not update a closed initiative unless the user explicitly asks to amend the closed record; v1 has no reopen workflow.
 
@@ -238,7 +256,7 @@ Records an initiative as complete or intentionally abandoned while preserving it
 Contract:
 
 - Resolve the initiative using the selection rules.
-- Update `initiative.md` with `## Closure` context.
+- Update `initiative.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
 - Write `closed.md` as an existence-only Closure Marker.
 - Leave the initiative directory in place.
 - Do not delete or archive the initiative.
@@ -282,6 +300,7 @@ Good CLI responsibilities:
 - List candidate initiatives.
 - Detect closed markers.
 - Scaffold required files and headings.
+- Detect missing `## Assumptions and Risks` sections.
 - Generate timestamped update filenames.
 - Report touched initiative files.
 - Collect read-only Tracking Gate evidence.
@@ -290,6 +309,7 @@ Good CLI responsibilities:
 Responsibilities that should remain LM/human-authored:
 
 - Writing narrative prose.
+- Ferreting out assumptions and risks from ambiguous plans.
 - Deciding whether evidence is semantically meaningful.
 - Explaining why durable files changed or did not change.
 - Choosing roadmap wording and next-work recommendations.

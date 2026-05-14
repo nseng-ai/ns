@@ -13,7 +13,7 @@ For shared vocabulary and system-wide rules, use the `initiative` skill when ava
 
 Canonical root: `.asdl/initiatives/<slug>/`.
 
-- `initiative.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Open Questions`; add `## Closure` when closing.
+- `initiative.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; add `## Closure` when closing.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
 - `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Initiative Impact`, `## Follow-Ups`.
 - `closed.md`: minimal Closure Marker; existence means closed.
@@ -34,7 +34,7 @@ Never infer Initiative ownership from branch names, objectives, PR titles, packa
 1. Read `initiative.md`, `roadmap.md`, relevant `updates/`, and whether `closed.md` already exists.
 2. If already closed, stop unless the user explicitly asks to amend closure context.
 3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale.
-4. Add or update `## Closure` in `initiative.md` with outcome, key evidence, remaining caveats, and follow-ups if any.
+4. Add or update `## Closure` in `initiative.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.
 5. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `initiative.md`, not in `closed.md`.
 6. Leave `.asdl/initiatives/<slug>/` in place. Do not archive, delete, move, or implement a reopen workflow.
 

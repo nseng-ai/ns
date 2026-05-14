@@ -13,7 +13,7 @@ For shared vocabulary and system-wide rules, use the `initiative` skill when ava
 
 Canonical root: `.asdl/initiatives/<slug>/`.
 
-- `initiative.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Open Questions`; `## Closure` when closed.
+- `initiative.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
 - `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Initiative Impact`, `## Follow-Ups`.
 - `closed.md`: optional Closure Marker; existence means closed.
@@ -33,7 +33,7 @@ Never infer Initiative ownership from branch names, objectives, PR titles, packa
 
 1. Read `initiative.md`, `roadmap.md`, newest relevant files in `updates/`, and whether `closed.md` exists.
 2. If required files are missing, report that clearly; do not scaffold or repair them.
-3. Summarize thesis, scope boundaries, completion criteria, open questions, roadmap status, blockers, and recent Semantic Updates.
+3. Summarize thesis, scope boundaries, completion criteria, assumptions and risks, open questions, roadmap status, blockers, and recent Semantic Updates.
 4. Report whether the Initiative is closed based on `closed.md` presence; include closure context from `initiative.md` when present.
 5. Do not edit, create, delete, or reformat any Initiative files.
 
