@@ -152,6 +152,17 @@ def test_initiative_plugin_integration() -> None:
     assert result.exit_code == 0, result.output
     assert "Commands for use by initiative skills." in result.output
 
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            parent,
+            ["initiative", "exec", "list", "--format", "json"],
+            obj=build_clinkr_context_object(lambda: object()),
+        )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"]["root_path"] == ".asdl/initiatives"
+    assert payload["data"]["entries"] == []
+
 
 def test_pr_address_plugin_integration() -> None:
     parent = click.Group("test")
