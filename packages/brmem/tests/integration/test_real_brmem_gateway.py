@@ -138,7 +138,7 @@ def test_real_brmem_list_entries_filters(tmp_path: Path) -> None:
 
     gateway.put("scratch", "plan", "feat/x", "a\n")
     gateway.put("scratch", "plan", "feat/y", "a\n")
-    gateway.put("objectives", "obj-1", "feat/x", "a\n")
+    gateway.put("notes", "obj-1", "feat/x", "a\n")
 
     ws = gateway.list_entries(namespace="scratch")
     assert [(e.namespace, e.key, e.branch) for e in ws] == [
@@ -148,7 +148,7 @@ def test_real_brmem_list_entries_filters(tmp_path: Path) -> None:
 
     fx = gateway.list_entries(branch="feat/x")
     assert [(e.namespace, e.key, e.branch) for e in fx] == [
-        ("objectives", "obj-1", "feat/x"),
+        ("notes", "obj-1", "feat/x"),
         ("scratch", "plan", "feat/x"),
     ]
 
@@ -278,12 +278,12 @@ def test_real_brmem_snapshot_tree_holds_every_key(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "feat/x", "body\n")
-    gateway.put("objectives", "foo/roadmap.md", "feat/x", "road\n")
-    gateway.put("objectives", "bar/body.md", "feat/x", "bar\n")
+    gateway.put("notes", "foo/body.md", "feat/x", "body\n")
+    gateway.put("notes", "foo/roadmap.md", "feat/x", "road\n")
+    gateway.put("notes", "bar/body.md", "feat/x", "bar\n")
 
     tree_output = _run_git(
-        repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/objectives/feat---x"
+        repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/notes/feat---x"
     ).stdout.splitlines()
     assert sorted(tree_output) == [
         "bar/body.md",
@@ -296,11 +296,11 @@ def test_real_brmem_copy_entries_reuses_source_snapshot_sha(tmp_path: Path) -> N
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "master", "body\n")
-    source_head = gateway.put("objectives", "foo/roadmap.md", "master", "road\n")
+    gateway.put("notes", "foo/body.md", "master", "body\n")
+    source_head = gateway.put("notes", "foo/roadmap.md", "master", "road\n")
 
     copied = gateway.copy_entries(
-        namespace="objectives",
+        namespace="notes",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -308,30 +308,25 @@ def test_real_brmem_copy_entries_reuses_source_snapshot_sha(tmp_path: Path) -> N
     )
 
     assert [(e.key, e.ref_name) for e in copied] == [
-        ("foo/body.md", "refs/brmem/ns/objectives/feat---x:foo/body.md"),
-        ("foo/roadmap.md", "refs/brmem/ns/objectives/feat---x:foo/roadmap.md"),
+        ("foo/body.md", "refs/brmem/ns/notes/feat---x:foo/body.md"),
+        ("foo/roadmap.md", "refs/brmem/ns/notes/feat---x:foo/roadmap.md"),
     ]
     # The destination snapshot ref is pointed at the source snapshot commit
     # — no new commit, no new tree.
-    assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/objectives/feat---x").stdout.strip()
-        == source_head
-    )
-    assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/objectives/master").stdout.strip() == source_head
-    )
+    assert _run_git(repo, "rev-parse", "refs/brmem/ns/notes/feat---x").stdout.strip() == source_head
+    assert _run_git(repo, "rev-parse", "refs/brmem/ns/notes/master").stdout.strip() == source_head
 
 
 def test_real_brmem_copy_entries_raises_on_conflict_without_overwrite(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "master", "source\n")
-    dest_sha = gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
+    gateway.put("notes", "foo/body.md", "master", "source\n")
+    dest_sha = gateway.put("notes", "foo/body.md", "feat/x", "existing\n")
 
     with pytest.raises(BrmemCopyConflictError):
         gateway.copy_entries(
-            namespace="objectives",
+            namespace="notes",
             from_branch="master",
             to_branch="feat/x",
             overwrite=False,
@@ -340,20 +335,18 @@ def test_real_brmem_copy_entries_raises_on_conflict_without_overwrite(tmp_path: 
 
     # Destination snapshot must be untouched — copy aborts before any ref
     # mutation.
-    assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/objectives/feat---x").stdout.strip() == dest_sha
-    )
+    assert _run_git(repo, "rev-parse", "refs/brmem/ns/notes/feat---x").stdout.strip() == dest_sha
 
 
 def test_real_brmem_copy_entries_overwrite_replaces_destination(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    source_sha = gateway.put("objectives", "foo/body.md", "master", "source\n")
-    gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
+    source_sha = gateway.put("notes", "foo/body.md", "master", "source\n")
+    gateway.put("notes", "foo/body.md", "feat/x", "existing\n")
 
     gateway.copy_entries(
-        namespace="objectives",
+        namespace="notes",
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
@@ -361,10 +354,7 @@ def test_real_brmem_copy_entries_overwrite_replaces_destination(tmp_path: Path) 
     )
 
     # Destination snapshot is reassigned to the source commit verbatim.
-    assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/objectives/feat---x").stdout.strip()
-        == source_sha
-    )
+    assert _run_git(repo, "rev-parse", "refs/brmem/ns/notes/feat---x").stdout.strip() == source_sha
 
 
 def test_real_brmem_copy_entries_overwrite_drops_destination_only_keys(tmp_path: Path) -> None:
@@ -374,24 +364,21 @@ def test_real_brmem_copy_entries_overwrite_drops_destination_only_keys(tmp_path:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    source_sha = gateway.put("objectives", "foo/body.md", "master", "source\n")
-    gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
-    gateway.put("objectives", "foo/notes.md", "feat/x", "dest-only\n")
+    source_sha = gateway.put("notes", "foo/body.md", "master", "source\n")
+    gateway.put("notes", "foo/body.md", "feat/x", "existing\n")
+    gateway.put("notes", "foo/notes.md", "feat/x", "dest-only\n")
 
     gateway.copy_entries(
-        namespace="objectives",
+        namespace="notes",
         from_branch="master",
         to_branch="feat/x",
         overwrite=True,
         key_glob=None,
     )
 
-    assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/objectives/feat---x").stdout.strip()
-        == source_sha
-    )
+    assert _run_git(repo, "rev-parse", "refs/brmem/ns/notes/feat---x").stdout.strip() == source_sha
     tree_output = _run_git(
-        repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/objectives/feat---x"
+        repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/notes/feat---x"
     ).stdout.splitlines()
     assert tree_output == ["foo/body.md"]
 
@@ -401,7 +388,7 @@ def test_real_brmem_copy_entries_no_matching_source_returns_empty(tmp_path: Path
     gateway = RealBranchMemoryGateway(cwd=repo)
 
     copied = gateway.copy_entries(
-        namespace="objectives",
+        namespace="notes",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -412,7 +399,7 @@ def test_real_brmem_copy_entries_no_matching_source_returns_empty(tmp_path: Path
     # Nothing should have been created on feat/x.
     assert (
         subprocess.run(
-            ["git", "rev-parse", "--verify", "refs/brmem/ns/objectives/feat---x"],
+            ["git", "rev-parse", "--verify", "refs/brmem/ns/notes/feat---x"],
             cwd=repo,
             capture_output=True,
             text=True,
@@ -426,15 +413,15 @@ def test_real_brmem_copy_entries_is_atomic_under_conflict(tmp_path: Path) -> Non
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "master", "body\n")
-    gateway.put("objectives", "foo/roadmap.md", "master", "road\n")
+    gateway.put("notes", "foo/body.md", "master", "body\n")
+    gateway.put("notes", "foo/roadmap.md", "master", "road\n")
     # Destination snapshot already exists — conflict is snapshot-level.
     # Copy must refuse without mutating the destination snapshot at all.
-    pre_existing = gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
+    pre_existing = gateway.put("notes", "foo/body.md", "feat/x", "existing\n")
 
     with pytest.raises(BrmemCopyConflictError):
         gateway.copy_entries(
-            namespace="objectives",
+            namespace="notes",
             from_branch="master",
             to_branch="feat/x",
             overwrite=False,
@@ -442,12 +429,11 @@ def test_real_brmem_copy_entries_is_atomic_under_conflict(tmp_path: Path) -> Non
         )
 
     assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/objectives/feat---x").stdout.strip()
-        == pre_existing
+        _run_git(repo, "rev-parse", "refs/brmem/ns/notes/feat---x").stdout.strip() == pre_existing
     )
     # The source's additional key must not have leaked onto feat/x.
     tree_output = _run_git(
-        repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/objectives/feat---x"
+        repo, "ls-tree", "-r", "--name-only", "refs/brmem/ns/notes/feat---x"
     ).stdout.splitlines()
     assert tree_output == ["foo/body.md"]
 
@@ -525,25 +511,25 @@ def test_real_brmem_copy_entries_key_glob_rebuilds_tree_with_parent_pointer(
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "master", "foo-body\n")
-    gateway.put("objectives", "bar/body.md", "master", "bar-body\n")
+    gateway.put("notes", "foo/body.md", "master", "foo-body\n")
+    gateway.put("notes", "bar/body.md", "master", "bar-body\n")
     # Destination starts with one non-matching key that must be preserved.
-    dest_head_before = gateway.put("objectives", "bar/body.md", "feat/x", "dest-bar\n")
+    dest_head_before = gateway.put("notes", "bar/body.md", "feat/x", "dest-bar\n")
     dest_bar_blob_before = _run_git(
         repo,
         "rev-parse",
-        "refs/brmem/ns/objectives/feat---x:bar/body.md",
+        "refs/brmem/ns/notes/feat---x:bar/body.md",
     ).stdout.strip()
 
     gateway.copy_entries(
-        namespace="objectives",
+        namespace="notes",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
         key_glob="foo/*",
     )
 
-    dest_ref = "refs/brmem/ns/objectives/feat---x"
+    dest_ref = "refs/brmem/ns/notes/feat---x"
     dest_head_after = _run_git(repo, "rev-parse", dest_ref).stdout.strip()
     assert dest_head_after != dest_head_before
 
@@ -568,18 +554,18 @@ def test_real_brmem_copy_entries_key_glob_to_empty_dest_has_no_parent(
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "master", "foo-body\n")
-    gateway.put("objectives", "bar/body.md", "master", "bar-body\n")
+    gateway.put("notes", "foo/body.md", "master", "foo-body\n")
+    gateway.put("notes", "bar/body.md", "master", "bar-body\n")
 
     gateway.copy_entries(
-        namespace="objectives",
+        namespace="notes",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
         key_glob="foo/*",
     )
 
-    dest_ref = "refs/brmem/ns/objectives/feat---x"
+    dest_ref = "refs/brmem/ns/notes/feat---x"
     dest_head = _run_git(repo, "rev-parse", dest_ref).stdout.strip()
 
     # Parentless commit: rev-list --parents prints just the commit sha.
@@ -594,12 +580,12 @@ def test_real_brmem_copy_entries_key_glob_is_atomic_under_conflict(tmp_path: Pat
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "master", "source\n")
-    dest_head = gateway.put("objectives", "foo/body.md", "feat/x", "existing\n")
+    gateway.put("notes", "foo/body.md", "master", "source\n")
+    dest_head = gateway.put("notes", "foo/body.md", "feat/x", "existing\n")
 
     with pytest.raises(BrmemCopyConflictError) as excinfo:
         gateway.copy_entries(
-            namespace="objectives",
+            namespace="notes",
             from_branch="master",
             to_branch="feat/x",
             overwrite=False,
@@ -609,9 +595,7 @@ def test_real_brmem_copy_entries_key_glob_is_atomic_under_conflict(tmp_path: Pat
     assert [entry.key for entry in excinfo.value.conflicts] == ["foo/body.md"]
     # Destination ref must be untouched — conflict check runs before any ref
     # write.
-    assert (
-        _run_git(repo, "rev-parse", "refs/brmem/ns/objectives/feat---x").stdout.strip() == dest_head
-    )
+    assert _run_git(repo, "rev-parse", "refs/brmem/ns/notes/feat---x").stdout.strip() == dest_head
 
 
 def test_real_brmem_copy_entries_key_glob_zero_match_does_not_touch_dest(
@@ -620,10 +604,10 @@ def test_real_brmem_copy_entries_key_glob_zero_match_does_not_touch_dest(
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put("objectives", "foo/body.md", "master", "source\n")
+    gateway.put("notes", "foo/body.md", "master", "source\n")
 
     copied = gateway.copy_entries(
-        namespace="objectives",
+        namespace="notes",
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -634,7 +618,7 @@ def test_real_brmem_copy_entries_key_glob_zero_match_does_not_touch_dest(
     # Destination ref must not exist: zero-match copies never create a ref.
     assert (
         subprocess.run(
-            ["git", "rev-parse", "--verify", "refs/brmem/ns/objectives/feat---x"],
+            ["git", "rev-parse", "--verify", "refs/brmem/ns/notes/feat---x"],
             cwd=repo,
             capture_output=True,
             text=True,

@@ -35,7 +35,7 @@ class GetRequest(ClinkrModel):
             ["--namespace"],
             type=click.STRING,
             default=None,
-            help=("Namespace (e.g. 'objectives'). Omit for ad-hoc base Entries."),
+            help=("Namespace (e.g. 'notes'). Omit for ad-hoc base Entries."),
         ),
     ] = None
     branch: str | None = None

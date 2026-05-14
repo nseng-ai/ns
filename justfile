@@ -63,13 +63,12 @@ refresh-nonslop:
     uv sync --upgrade-package nonslop
     npx skills add nseng-ai/nonslop --skill {{nonslop_skills}} --agent codex claude-code -y
 
-# Install slot, brmem, and objective as editable uv tools, and symlink affiliated
+# Install slot and brmem as editable uv tools, and symlink affiliated
 # skills into ~/.claude/skills/ and ~/.codex/skills/ so both agents can discover them.
-# Note: slot ships from asdl-slots; brmem ships from packages/brmem; objective ships from asdl-objectives.
+# Note: slot ships from asdl-slots; brmem ships from packages/brmem.
 install-tools:
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
     uv tool install --force --editable {{justfile_directory()}}/packages/brmem
-    uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
     mkdir -p ~/.claude/skills ~/.codex/skills
     for skill in {{brmem_skills}}; do \
         ln -sfn {{justfile_directory()}}/skills/$skill ~/.claude/skills/$skill; \
@@ -78,7 +77,7 @@ install-tools:
     mkdir -p ~/.brmem/prompts
     ln -sfn {{justfile_directory()}}/.brmem/prompts/dev-brmem-branch-create.md \
             ~/.brmem/prompts/dev-brmem-branch-create.md
-    @echo "installed: slot, brmem, objective"
+    @echo "installed: slot, brmem"
     @echo "linked:    {{brmem_skills}} -> ~/.claude/skills, ~/.codex/skills"
     @echo "linked:    ~/.brmem/prompts/dev-brmem-branch-create.md -> {{justfile_directory()}}/.brmem/prompts/dev-brmem-branch-create.md"
 
@@ -91,5 +90,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package asdl-tools --package brmem --package asdl-core --package asdl-dispatcher --package asdl-objectives --package asdl-pr-address --package asdl-reviewer --package asdl-slots
+    uv build --package asdl-tools --package brmem --package asdl-core --package asdl-dispatcher --package asdl-pr-address --package asdl-reviewer --package asdl-slots
     uv publish

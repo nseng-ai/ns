@@ -23,7 +23,7 @@ The `@clinkr_operation` decorator reads the request and return annotations. Requ
 
 `ClinkrExit` is a CLI concern. It encodes `error_type` / `message` / exit code for a user-facing command and is constructed only at the CLI boundary.
 
-- Domain helpers (resolvers, gateway-adjacent utilities, anything reusable below the CLI) return sum types that describe _what went wrong_ in domain terms: frozen dataclasses or sentinels such as `DetachedHead`, `GitCommandFailure`, `NoObjectiveOnBranch`, `AmbiguousObjective`. The return type is `Result | Error1 | Error2 | …`, matched at the caller.
+- Domain helpers (resolvers, gateway-adjacent utilities, anything reusable below the CLI) return sum types that describe _what went wrong_ in domain terms: frozen dataclasses or sentinels such as `DetachedHead`, `GitCommandFailure`, `NoSlugOnBranch`, `AmbiguousSlug`. The return type is `Result | Error1 | Error2 | …`, matched at the caller.
 - Only CLI entry points (`run_*` operations, `@clinkr_operation`-decorated functions, and the CLI-layer helpers they directly call) translate to a CLI exit shape.
 - At the CLI boundary, translate domain errors into a failure by raising `ClinkrFailure(error_type=..., message=...)` with stable `error_type` strings. Keep the match arms explicit at each entry point so error wording stays visible and grep-able.
 - Do not sneak `ClinkrExit` into domain helpers "for convenience." A helper that returns `ClinkrExit` drags the CLI shape into every other consumer (tests, other commands, future non-CLI callers) and couples domain logic to the exit protocol.
@@ -94,7 +94,7 @@ except FileNotFoundError as exc:
 
 When a domain helper returns a sum type whose error arms each carry a CLI-ready `message`, the failure-narrowing match block at the CLI boundary collapses to a single `Ensure.ideal_state(...)` call.
 
-`NonIdealState` is a `@runtime_checkable` Protocol in `asdl_core.clinkr.non_ideal_state`. A failure type qualifies structurally by exposing a `message: str` (as a field or `@property` method); no inheritance required. The Protocol's runtime discriminator is therefore "has a `message` attribute" — this is acceptable because every call site passes an explicit union (`Slug | NoObjectiveOnBranch | …`) into `Ensure.ideal_state`, and success arms in those unions do not expose `message`.
+`NonIdealState` is a `@runtime_checkable` Protocol in `asdl_core.clinkr.non_ideal_state`. A failure type qualifies structurally by exposing a `message: str` (as a field or `@property` method); no inheritance required. The Protocol's runtime discriminator is therefore "has a `message` attribute" — this is acceptable because every call site passes an explicit union (`Slug | NoSlugOnBranch | …`) into `Ensure.ideal_state`, and success arms in those unions do not expose `message`.
 
 The CLI translation tag (`error_type`) is derived from the class name by `error_type_for`: `ClaudeCodeInvalidJson` → `"claude_code_invalid_json"`, `DetachedHead` → `"detached_head"`. A failure type that needs a different tag (e.g. an entrenched CLI string, or a context-overridable field) can expose an `error_type: str` attribute as an override; `error_type_for` honors that attribute when present.
 

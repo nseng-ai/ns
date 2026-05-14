@@ -55,14 +55,14 @@ def test_ref_name_for_entry_builds_and_parses_base_entry_locator() -> None:
 
 
 def test_ref_name_for_entry_builds_and_parses_namespaced_entry_locator() -> None:
-    locator = ref_name_for_entry("objectives", "slug/body.md", "feat/x")
+    locator = ref_name_for_entry("notes", "slug/body.md", "feat/x")
 
-    assert locator == "refs/brmem/ns/objectives/feat---x:slug/body.md"
+    assert locator == "refs/brmem/ns/notes/feat---x:slug/body.md"
     assert parse_entry_ref(locator) == EntryRef(
-        namespace="objectives",
+        namespace="notes",
         key="slug/body.md",
         branch="feat/x",
-        ref_name="refs/brmem/ns/objectives/feat---x:slug/body.md",
+        ref_name="refs/brmem/ns/notes/feat---x:slug/body.md",
     )
 
 

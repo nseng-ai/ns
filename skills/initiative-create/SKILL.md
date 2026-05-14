@@ -43,7 +43,7 @@ Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
 ## Slug and path
 
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing files.
-- Use only `.asdl/initiatives/<slug>/`. Do not create records under `docs/initiatives/` or objective-system locations.
+- Use only `.asdl/initiatives/<slug>/`. Do not create records under `docs/initiatives/` or other locations.
 - Do not add registries, YAML/frontmatter, UUIDs, hidden attachment metadata, or state-machine behavior.
 - If `.asdl/initiatives/<slug>/` exists, stop and ask whether the user meant `initiative-current` or `initiative-update`; never overwrite. Use `initiative exec read-initiative <slug> --format md` to check: it returns a `not_found` envelope when the slug has no record, and otherwise emits the existing record.
 - Initiative records are Markdown; read and edit Markdown directly. Use `initiative exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.

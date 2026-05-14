@@ -6,7 +6,7 @@ This context captures project language for durable planning workflows in this re
 
 **Initiative**:
 A checked-in documentation workstream for durable multi-session, multi-branch, or multi-PR work.
-_Avoid_: Objective, hidden agent state, ticket
+_Avoid_: hidden agent state, ticket
 
 **Durable Narrative Roadmap Record**:
 The role of an **Initiative** as human-readable context and ordered work guidance, without owning workflow-control semantics.
@@ -62,5 +62,4 @@ _Avoid_: Hidden status, archive directory, deletion
 
 ## Flagged ambiguities
 
-- "initiative" is distinct from any objective workflow; design discussion here should not use objective-system mechanics as precedent.
 - Enforcement of the rule that initiative-affecting PRs update initiative docs before landing is unresolved.

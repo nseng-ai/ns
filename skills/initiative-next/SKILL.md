@@ -26,7 +26,7 @@ V1 is markdown-only: read Markdown directly; do not add or call Python CLI tooli
 2. If no slug or path is explicit, list candidate Initiative directories under `.asdl/initiatives/` and ask the user to choose.
 3. If no candidates exist, say so and suggest `initiative-create` when appropriate.
 
-Do not auto-select from candidate count or changed/touched files. Never infer Initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or hidden attachment mechanisms. Changed-path evidence belongs only to the Tracking Gate after an Initiative is selected.
+Do not auto-select from candidate count or changed/touched files. Never infer Initiative ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms. Changed-path evidence belongs only to the Tracking Gate after an Initiative is selected.
 
 ## Tracking Gate
 

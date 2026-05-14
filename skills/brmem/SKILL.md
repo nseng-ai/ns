@@ -1,6 +1,6 @@
 ---
 name: brmem
-description: "Use when a task needs branch-scoped durable memory with the `brmem` CLI: storing, reading, listing, checking, deleting, or copying text context tied to a git branch, or resolving `.brmem/prompts/...` prompt plugins. Use whenever the user mentions brmem, Branch Memory, stashing plan/context on a branch, carrying objective/scratch state across sessions, or asks how an agent should call `brmem`."
+description: "Use when a task needs branch-scoped durable memory with the `brmem` CLI: storing, reading, listing, checking, deleting, or copying text context tied to a git branch, or resolving `.brmem/prompts/...` prompt plugins. Use whenever the user mentions brmem, Branch Memory, stashing plan/context on a branch, carrying scratch state across sessions, or asks how an agent should call `brmem`."
 allowed-tools:
   - "Bash(brmem *)"
   - "Bash(git *)"
@@ -26,7 +26,7 @@ delete, or explain Branch Memory.
 - **Entry**: a small text blob stored under an Entry Key such as `plan.md` or
   `plans/table-filter.md`.
 - **Entry Key**: the path-like name for an Entry within Branch Memory.
-- **Namespace**: a tool-owned bucket such as `objectives`. Omit `--namespace`
+- **Namespace**: a tool-owned bucket such as `notes`. Omit `--namespace`
   for ad-hoc base Entries.
 
 Commands default to the current branch unless you pass `--branch`.
@@ -148,7 +148,7 @@ Preview first:
 
 ```text
 brmem copy \
-  --namespace objectives \
+  --namespace notes \
   --from-branch main \
   --to-branch feature/table-filter \
   --dry-run \
@@ -159,7 +159,7 @@ Then perform the copy:
 
 ```text
 brmem copy \
-  --namespace objectives \
+  --namespace notes \
   --from-branch main \
   --to-branch feature/table-filter
 ```

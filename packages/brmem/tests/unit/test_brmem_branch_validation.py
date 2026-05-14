@@ -4,7 +4,7 @@ Branch names are encoded into a single ref segment by replacing ``/`` with
 ``---``. Names that already contain ``---`` would round-trip ambiguously,
 so they are rejected. Empty branch names are rejected too. These checks
 are an invariant of ``brmem`` storage and live next to the other key /
-namespace / branch validators in :mod:`brmem.ref_layout`; objective skills
+namespace / branch validators in :mod:`brmem.ref_layout`; downstream consumers
 must not duplicate or contradict them.
 """
 

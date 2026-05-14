@@ -7,7 +7,7 @@ This document is the canonical operational specification for ASDL initiatives.
 
 An **Initiative** is a checked-in **Durable Narrative Roadmap Record** for multi-session, multi-branch, or multi-PR work. It preserves human-readable context, ordered guidance, decisions, findings, blockers, and completion evidence.
 
-An Initiative is not an objective, workflow controller, state machine, hidden agent store, or task database.
+An Initiative is not a workflow controller, state machine, hidden agent store, or task database.
 
 ## Canonical Location
 
@@ -151,7 +151,7 @@ When an operation needs an existing initiative, resolve it in this order:
 2. If no slug or path is explicit, list candidate initiative directories under `.asdl/initiatives/` and ask the user to choose.
 3. If no candidates exist, report that no initiatives exist and suggest `initiative-create` when appropriate.
 
-Do not auto-select from candidate count or changed/touched files. Never infer initiative ownership from branch names, objectives, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path evidence may be used only by operation-specific checks after an initiative is selected.
+Do not auto-select from candidate count or changed/touched files. Never infer initiative ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path evidence may be used only by operation-specific checks after an initiative is selected.
 
 ## Operations
 

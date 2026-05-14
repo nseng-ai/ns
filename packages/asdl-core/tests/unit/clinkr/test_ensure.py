@@ -101,11 +101,11 @@ class _NisFailureWithProperties:
 
     @property
     def error_type(self) -> str:
-        return "no_objective_on_branch"
+        return "no_thing_on_branch"
 
     @property
     def message(self) -> str:
-        return f"No objective on branch {self.branch!r}."
+        return f"No thing on branch {self.branch!r}."
 
 
 def test_ideal_state_returns_value_when_ideal() -> None:
@@ -134,5 +134,5 @@ def test_ideal_state_raises_with_property_based_failure() -> None:
     with pytest.raises(ClinkrFailure) as excinfo:
         Ensure.ideal_state(value)
 
-    assert excinfo.value.error_type == "no_objective_on_branch"
-    assert excinfo.value.message == "No objective on branch 'feat/x'."
+    assert excinfo.value.error_type == "no_thing_on_branch"
+    assert excinfo.value.message == "No thing on branch 'feat/x'."

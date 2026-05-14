@@ -12,7 +12,6 @@ from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.git.testing import FakeGitGateway
-from asdl_objectives.context import ObjectiveCliContext
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_reviewer import git_toplevel as git_toplevel_module
 from asdl_reviewer.context import ReviewerCliContext
@@ -31,7 +30,6 @@ from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import RepoContext, discover_repo_or_sentinel
 from asdl_tools.cli.plugins import PluginEntryPointSource, discover_plugins
-from brmem.fake import FakeBranchMemoryGateway
 
 
 class FakePluginEntryPoint:
@@ -79,57 +77,6 @@ def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec()
     discover_plugins(parent, source=_entry_point_source(ep))
 
     assert len(parent.commands) == 0
-
-
-def test_objective_plugin_integration() -> None:
-    parent = click.Group("test")
-    ep = FakePluginEntryPoint(
-        name="objective",
-        value="asdl_objectives.plugin:build_objective_plugin",
-    )
-
-    discover_plugins(parent, source=_entry_point_source(ep))
-
-    gateway = FakeBranchMemoryGateway()
-    gateway.put("objectives", "clinkr-migration/body.md", "feat/x", "seed\n")
-    ctx = ObjectiveCliContext(
-        brmem_gateway=gateway,
-        git_gateway=FakeGitGateway(
-            current_branch_by_path={Path.cwd(): "feat/x"},
-            trunk_branch="master",
-        ),
-        pr_gateway=FakePRGateway(),
-        issue_gateway=FakeIssueGateway(),
-    )
-    obj = build_clinkr_context_object(lambda: ctx)
-
-    runner = CliRunner()
-
-    result = runner.invoke(parent, ["objective", "--help"])
-    assert result.exit_code == 0
-    assert "list" in result.output
-
-    result = runner.invoke(parent, ["objective", "list", "--here"], obj=obj)
-    assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == ["clinkr-migration"]
-
-    result = runner.invoke(
-        parent,
-        ["objective", "list", "--here", "--format", "json"],
-        obj=obj,
-    )
-    assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
-    assert payload["exit_code"] == 0
-    assert payload["data"]["entries"][0]["key"] == "clinkr-migration/body.md"
-
-    # The hidden ``exec`` subgroup must mount through plugin discovery.
-    result = runner.invoke(parent, ["objective", "--help"])
-    assert result.exit_code == 0
-    assert "exec" not in result.output
-    result = runner.invoke(parent, ["objective", "exec", "digest", "--help"])
-    assert result.exit_code == 0, result.output
-    assert "Render the digest brief" in result.output
 
 
 def test_initiative_plugin_integration() -> None:

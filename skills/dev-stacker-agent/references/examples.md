@@ -9,10 +9,10 @@ not a required author-facing plan schema.
 Input plan:
 
 ```md
-# Objective reconcile stack
+# Report reconcile stack
 
 1. First add the shared reconciliation primitives in asdl-core.
-2. Then add the objective CLI command that consumes them.
+2. Then add the report CLI command that consumes them.
 3. Finish with scenario tests and docs.
 
 Validation: just
@@ -35,8 +35,8 @@ Normalized slices:
   {
     "schema": "stacker-slice-manifest/v1",
     "ordinal": 2,
-    "title": "PR 2 - objective CLI command",
-    "scope": "Add the objective CLI command that consumes the new primitives.",
+    "title": "PR 2 - report CLI command",
+    "scope": "Add the report CLI command that consumes the new primitives.",
     "base": "previous_slice",
     "validate": {"command": "just"},
     "constraints": ["Do not touch vendored skills."]
@@ -45,7 +45,7 @@ Normalized slices:
     "schema": "stacker-slice-manifest/v1",
     "ordinal": 3,
     "title": "PR 3 - scenario tests and docs",
-    "scope": "Add scenario coverage and docs for the new objective reconcile flow.",
+    "scope": "Add scenario coverage and docs for the new report reconcile flow.",
     "base": "previous_slice",
     "validate": {"command": "just"},
     "constraints": ["Do not touch vendored skills."]
