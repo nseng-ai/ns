@@ -21,10 +21,12 @@
   - The command does not inspect git state, return changed/touched path facts, read Markdown contents, or produce a selection hint.
   - Coverage includes absent `.asdl/initiatives/`, empty roots, sorted open/closed records, missing required files, direct update counts, ignored non-directory entries, `--format json`, `--format md`, Clinkr's `md` format alias, and plugin smoke invocation.
   - Verification: `uv run pytest packages/asdl-initiatives/tests/scenario packages/asdl-core/tests/unit/clinkr/test_format_option_dispatch.py tests/scenario/test_plugins.py` and `just` passed.
-- [ ] PR 4: implement `initiative exec read-initiative <slug>` with JSON and Markdown formats.
-  - Require an explicit slug and resolve only `.asdl/initiatives/<slug>/`; callers that start from a path must select or derive the slug before invoking the CLI.
-  - `--format json` returns missing-slug and invalid-slug errors as stable JSON plus file inventory, closed state, and paths by default.
-  - `--format md` includes the raw `initiative.md`, `roadmap.md`, and all update Markdown by default without parsing headings or roadmap status.
+- [x] PR 4: implement `initiative exec read-initiative <slug>` with JSON and Markdown formats.
+  - Evidence: `packages/asdl-initiatives/src/asdl_initiatives/exec/read_initiative.py` implements the hidden `initiative exec read-initiative` command and `exec/inventory.py` shares file-presence/update inventory with `list`.
+  - Requires an explicit slug, rejects path-shaped input, and resolves only `.asdl/initiatives/<slug>/` without path normalization.
+  - `--format json` returns stable envelopes for missing slug, invalid slug, and absent records, plus root/record paths, file presence, closed state, sorted update files, and update counts without raw Markdown content.
+  - `--format md` renders raw `initiative.md`, `roadmap.md`, and direct sorted `updates/*.md`, with explicit missing-file notes for incomplete records.
+  - Verification: `uv run pytest packages/asdl-initiatives/tests/scenario packages/asdl-initiatives/tests/unit tests/scenario/test_plugins.py` and `just` passed.
 - [ ] PR 5: implement `initiative exec tracking-gate-facts <slug-or-path> --base-ref <ref>` with JSON and Markdown formats, then simplify `initiative-next` to use it.
   - Require an explicit `--base-ref` for committed-change comparison.
   - `--format json` reports read-only git/worktree evidence for current branch, working tree/index changes, committed changes from `--base-ref` to `HEAD`, selected-Initiative paths, other-Initiative paths, and non-Initiative paths.
