@@ -21,6 +21,7 @@ from asdl_slots.errors import (
     SlotAllocationError,
 )
 from asdl_slots.inventory import SlotInventory, SlotRecord, build_slot_inventory
+from asdl_slots.naming import generate_slot_name
 from asdl_slots.repo_context import ensure_slots_metadata_dir
 
 MIN_POOL_SIZE = 1
@@ -54,7 +55,139 @@ class SlotLifecycleFailure:
     message: str
 
 
+@dataclass(frozen=True)
+class SlotInitOutcome:
+    created: tuple[str, ...]
+    pool_size: int
+    worktrees_dir: Path
+
+
+@dataclass(frozen=True)
+class SlotResizeOutcome:
+    previous_pool_size: int
+    pool_size: int
+    created: tuple[str, ...]
+    removed: tuple[str, ...]
+    worktrees_dir: Path
+
+
 ExecutableCheckoutPlan = ReuseAssignment | BranchInMainWorktree | AssignToSlot
+
+
+def _invalid_size_failure() -> SlotLifecycleFailure:
+    return SlotLifecycleFailure(
+        error_type="invalid_size",
+        message=f"--size must be between {MIN_POOL_SIZE} and {MAX_POOL_SIZE}.",
+    )
+
+
+def initialize_pool(
+    slots_ctx: SlotsCliContext, target_size: int
+) -> SlotInitOutcome | SlotLifecycleFailure:
+    if target_size < MIN_POOL_SIZE or target_size > MAX_POOL_SIZE:
+        return _invalid_size_failure()
+
+    inventory = build_slot_inventory(
+        slots_ctx.git,
+        main_repo_root=slots_ctx.repo.main_repo_root,
+    )
+    if inventory.pool_size > 0:
+        return SlotLifecycleFailure(
+            error_type="pool_already_initialized",
+            message=(
+                f"Pool already has {inventory.pool_size} slot(s). "
+                f"Use `slot resize --size N` to change capacity."
+            ),
+        )
+
+    ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
+    plan = build_init_plan(target_size)
+    trunk = slots_ctx.git.get_trunk_branch()
+    created: list[str] = []
+    for slot_number in plan.create:
+        name = generate_slot_name(slot_number)
+        path = slots_ctx.repo.worktrees_dir / name
+        slots_ctx.git.add_detached_worktree(path, trunk)
+        created.append(name)
+
+    return SlotInitOutcome(
+        created=tuple(created),
+        pool_size=len(created),
+        worktrees_dir=slots_ctx.repo.worktrees_dir,
+    )
+
+
+def resize_pool(
+    slots_ctx: SlotsCliContext, target_size: int
+) -> SlotResizeOutcome | SlotLifecycleFailure:
+    if target_size < MIN_POOL_SIZE or target_size > MAX_POOL_SIZE:
+        return _invalid_size_failure()
+
+    inventory = build_slot_inventory(
+        slots_ctx.git,
+        main_repo_root=slots_ctx.repo.main_repo_root,
+    )
+    previous_pool_size = inventory.pool_size
+    plan = build_resize_plan(inventory, target_size)
+
+    if not plan.create and not plan.remove:
+        return SlotResizeOutcome(
+            previous_pool_size=previous_pool_size,
+            pool_size=previous_pool_size,
+            created=(),
+            removed=(),
+            worktrees_dir=slots_ctx.repo.worktrees_dir,
+        )
+
+    if plan.remove:
+        errors = _validate_removals(slots_ctx, plan.remove)
+        if errors:
+            return SlotLifecycleFailure(
+                error_type="resize_unsafe",
+                message="\n".join(errors),
+            )
+
+    ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
+    trunk = slots_ctx.git.get_trunk_branch()
+
+    created: list[str] = []
+    for slot_number in plan.create:
+        name = generate_slot_name(slot_number)
+        path = slots_ctx.repo.worktrees_dir / name
+        slots_ctx.git.add_detached_worktree(path, trunk)
+        created.append(name)
+
+    removed: list[str] = []
+    for record in plan.remove:
+        slots_ctx.git.remove_worktree(record.path)
+        removed.append(record.slot_name)
+
+    return SlotResizeOutcome(
+        previous_pool_size=previous_pool_size,
+        pool_size=previous_pool_size + len(created) - len(removed),
+        created=tuple(created),
+        removed=tuple(removed),
+        worktrees_dir=slots_ctx.repo.worktrees_dir,
+    )
+
+
+def _validate_removals(
+    slots_ctx: SlotsCliContext, to_remove: tuple[SlotRecord, ...]
+) -> tuple[str, ...]:
+    errors: list[str] = []
+    for record in to_remove:
+        if record.branch is not None:
+            errors.append(
+                f"{record.slot_name} is assigned to '{record.branch}'; "
+                f"free it before shrinking the pool."
+            )
+            continue
+        if slots_ctx.git.has_uncommitted_changes(record.path):
+            errors.append(
+                f"{record.slot_name} at {record.path} has uncommitted changes; "
+                f"commit or discard before shrinking the pool."
+            )
+    return tuple(errors)
 
 
 def build_init_plan(target_size: int) -> InitPlan:
