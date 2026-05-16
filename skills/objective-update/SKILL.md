@@ -23,10 +23,11 @@ Objective records are Markdown; read and edit Markdown directly. Use `objective 
 ## Resolve exactly one Objective
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --state open --format md` to enumerate candidates and ask the user to choose.
-3. If no candidates exist, say so and suggest `objective-create` when appropriate.
+2. If no slug or path is explicit, run `objective list --state open --format md` immediately.
+3. Present the open Objective options from that command's output in your reply and ask the user to choose one slug/path. Do not ask a generic "which Objective?" question before showing the enumerated options.
+4. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
-Do not write a multi-Objective update. Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
+Do not write a multi-Objective update. Do not auto-select from candidate count, even if there is only one open Objective, or from changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
 
 ## Workflow
 
@@ -46,7 +47,7 @@ Do not write a multi-Objective update. Do not auto-select from candidate count o
 
 ## Stop / ask
 
-- Objective selection is ambiguous or absent.
+- Objective selection is ambiguous or absent after presenting the `objective list --state open --format md` options.
 - The request would update more than one Objective.
 - The selected Objective is closed and the user has not explicitly asked to amend its closed record.
 - The user asks for a ceremonial status ping, branch changelog, registry, YAML/frontmatter, UUID, hidden metadata, or state-machine behavior.
