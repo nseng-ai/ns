@@ -4,7 +4,7 @@
 
 Phase 0 — scaffold
 
-- [ ] Create `/CONTEXT-MAP.md` with planned-contexts list, links (existing or TBD), and explicit "Out of scope" notes for `asdl-dispatcher` and `asdl-initiatives`
+- [x] Create `/CONTEXT-MAP.md` with planned-contexts list, links (existing or TBD), and explicit "Out of scope" notes for `asdl-dispatcher` and `asdl-initiatives` — scaffold committed; `asdl-core` linked live (Clinkr anchor present, 4 H2 anchors named as planned), 5 plugin packages marked _Planned_, `asdl-dispatcher` / `asdl-initiatives` listed out of scope with revisit triggers, Relationships and Flagged ambiguities sections seeded as Phase 4 placeholders
 
 Phase 1 — finish `packages/asdl-core/CONTEXT.md` (append H2 sections to existing file)
 

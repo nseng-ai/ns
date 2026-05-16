@@ -58,6 +58,6 @@ Risks:
 
 ## Open Questions
 
-- Should `/CONTEXT-MAP.md` link into `asdl-core`'s H2 sections individually (e.g. `Clinkr → packages/asdl-core/CONTEXT.md#clinkr`), or treat `asdl-core` as a single linked context?
+- Should `/CONTEXT-MAP.md` link into `asdl-core`'s H2 sections individually (e.g. `Clinkr → packages/asdl-core/CONTEXT.md#clinkr`), or treat `asdl-core` as a single linked context? — _Provisional answer at Phase 0 scaffold:_ treat `asdl-core` as one linked context but name each H2 anchor inline next to the link. Revisit at Phase 4 readback if per-anchor naming proves noisy or insufficient.
 - When a cross-context ambiguity is severe (e.g. "Review" used differently in `gh`, `pr-address`, and `reviewer`), is the right response to canonicalize a single name across packages, or to keep package-local names with the boundary documented?
 - Once the sweep is done, what is the maintenance cadence — opportunistic on PRs that touch domain code, or a periodic re-grilling cycle?
