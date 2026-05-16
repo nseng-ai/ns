@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import subprocess
-
 import click
 
 from asdl_core import get_console
@@ -11,14 +9,11 @@ from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead
 from asdl_core.git.types import GitCommandFailure as GitFailure
 from asdl_core.gt.types import GtCommandFailure
-from asdl_slots.cli.slot.free import (
-    FreedSlot,
-    partial_failure,
-    validate_assigned_and_clean,
-)
+from asdl_slots.cli.slot.free import FreedSlot
 from asdl_slots.cli.slot.gt.context import load_slot_gt_context
 from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches
 from asdl_slots.inventory import SlotMatch, build_slot_inventory
+from asdl_slots.lifecycle import SlotFreeOutcome, SlotLifecycleFailure, free_slots
 from asdl_slots.repo_context import NoRepoSentinel
 
 
@@ -139,54 +134,23 @@ def run_gt_free_stack(
             )
         )
 
-    targets_tuple = tuple(targets)
-    preflight_errors = validate_assigned_and_clean(slots_ctx, inventory, targets_tuple)
-    if preflight_errors:
-        raise ClinkrExit.failure(
-            error_type="invalid_slot_args",
-            message="\n".join(preflight_errors),
-        )
-
-    freed: list[FreedSlot] = []
-    for slot_name in targets_tuple:
-        record = inventory.find_by_slot(slot_name)
-        if record is None or record.branch is None:
-            partial_failure(
-                freed,
-                error_type="slot_not_assigned",
-                message=f"{slot_name} is not currently assigned (state changed during free).",
-            )
-        if slots_ctx.git.has_uncommitted_changes(record.path):
-            partial_failure(
-                freed,
-                error_type="dirty_worktree",
-                message=(
-                    f"{slot_name} has uncommitted changes at {record.path} "
-                    f"(state changed during free)."
-                ),
-            )
-        try:
-            slots_ctx.git.detach_head(record.path, trunk)
-        except subprocess.CalledProcessError as exc:
-            stderr = exc.stderr.strip() if exc.stderr else str(exc)
-            partial_failure(
-                freed,
-                error_type="slot_allocation_error",
-                message=f"Failed to detach {slot_name} at {record.path} to {trunk}: {stderr}",
-            )
-        freed.append(
-            FreedSlot(
-                slot_name=record.slot_name,
-                branch_name=record.branch,
-                worktree_path=str(record.path),
-            )
-        )
+    outcome = free_slots(slots_ctx, tuple(targets), trunk_branch=trunk)
+    if isinstance(outcome, SlotLifecycleFailure):
+        raise ClinkrExit.failure(error_type=outcome.error_type, message=outcome.message)
+    assert isinstance(outcome, SlotFreeOutcome)
 
     return ClinkrExit.ok(
         SlotGtFreeStackResult(
             current_branch=current,
             trunk_branch=trunk,
-            freed=tuple(freed),
+            freed=tuple(
+                FreedSlot(
+                    slot_name=entry.slot_name,
+                    branch_name=entry.branch_name,
+                    worktree_path=str(entry.worktree_path),
+                )
+                for entry in outcome.freed
+            ),
             noop_reason=None,
         )
     )
