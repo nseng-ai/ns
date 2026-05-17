@@ -10,19 +10,18 @@ from typing import Any
 import pytest
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.gateways.local_diff import real as local_diff_real
-from asdl_reviewer.gateways.local_diff.real import RealLocalDiffGateway
-from asdl_reviewer.gateways.review_definition.real import RealReviewDefinitionGateway
-from asdl_reviewer.gateways.review_execution import real as review_execution_real
-from asdl_reviewer.gateways.review_execution.real import RealReviewExecutionGateway
+from asdl_reviewer.gateways.review_environment import real as review_environment_real
+from asdl_reviewer.gateways.review_environment.real import RealReviewEnvironmentGateway
 from asdl_reviewer.harness_adapter import HarnessAdapter
 from asdl_reviewer.models import (
     FindingsReview,
+    LocalDiff,
     ProseReview,
     ReviewerFailure,
     ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFormat,
+    ReviewSource,
 )
 
 
@@ -107,20 +106,38 @@ def _stream_json_lines(
     return [json.dumps(event) + "\n" for event in events]
 
 
-def test_real_review_definition_gateway_reads_file(tmp_path: Path) -> None:
-    path = tmp_path / "dignified-python.md"
+def test_real_review_environment_loads_review_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reviews_dir = tmp_path / "reviews"
+    path = reviews_dir / "dignified-python.md"
+    path.parent.mkdir(parents=True)
     path.write_text("# Dignified Python", encoding="utf-8")
 
-    assert RealReviewDefinitionGateway().load_source(path) == "# Dignified Python"
+    def fake_git_toplevel(*, cwd: Path) -> Path:
+        return tmp_path
+
+    monkeypatch.setattr(review_environment_real, "git_toplevel", fake_git_toplevel)
+
+    result = RealReviewEnvironmentGateway(cwd=tmp_path).load_review_source(key="dignified-python")
+
+    assert isinstance(result, ReviewSource)
+    assert result.key == "dignified-python"
+    assert result.path == path
+    assert result.source == "# Dignified Python"
 
 
-def test_real_local_diff_gateway_runs_git_diff(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_real_review_environment_load_diff_runs_git_diff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cwd = Path("/repo")
 
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        assert kwargs["cwd"] == cwd
-        if cmd[:3] == ["git", "rev-parse", "--show-toplevel"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="/repo\n", stderr="")
+    def fake_git_toplevel(*, cwd: Path) -> Path:
+        return cwd
+
+    def fake_run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+        assert cwd == Path("/repo")
         if cmd[:3] == ["git", "diff", "--no-ext-diff"]:
             return subprocess.CompletedProcess(
                 cmd,
@@ -130,15 +147,52 @@ def test_real_local_diff_gateway_runs_git_diff(monkeypatch: pytest.MonkeyPatch) 
             )
         raise AssertionError(f"unexpected command: {cmd!r}")
 
-    monkeypatch.setattr(local_diff_real.subprocess, "run", fake_run)
+    monkeypatch.setattr(review_environment_real, "git_toplevel", fake_git_toplevel)
+    monkeypatch.setattr(review_environment_real, "run_git", fake_run_git)
 
-    result = RealLocalDiffGateway(cwd=cwd).load_diff(base_ref="master")
+    result = RealReviewEnvironmentGateway(cwd=cwd).load_diff(base_ref="master")
 
+    assert isinstance(result, LocalDiff)
     assert result.base_ref == "master"
     assert "diff --git a/app.py b/app.py" in result.diff_text
 
 
-def test_real_review_execution_gateway_runs_claude_code_findings(
+def test_real_review_environment_detect_harness_delegates_to_shutil_which(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_which(binary: str) -> str | None:
+        calls.append(binary)
+        return "/usr/local/bin/claude"
+
+    monkeypatch.setattr(review_environment_real.shutil, "which", fake_which)
+
+    detection = RealReviewEnvironmentGateway(cwd=Path("/repo")).detect_harness(
+        name="claude-code",
+        binary="claude",
+    )
+
+    assert detection.path == "/usr/local/bin/claude"
+    assert detection.available is True
+    assert calls == ["claude"]
+
+
+def test_real_review_environment_detect_harness_reports_absent_binary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(review_environment_real.shutil, "which", lambda _binary: None)
+
+    detection = RealReviewEnvironmentGateway(cwd=Path("/repo")).detect_harness(
+        name="codex",
+        binary="codex",
+    )
+
+    assert detection.path is None
+    assert detection.available is False
+
+
+def test_real_review_environment_runs_claude_code_findings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     structured = {
@@ -167,9 +221,12 @@ def test_real_review_execution_gateway_runs_claude_code_findings(
         fake_process["value"] = process
         return process
 
-    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
 
-    gateway = RealReviewExecutionGateway(progress_writer=progress_messages.append)
+    gateway = RealReviewEnvironmentGateway(
+        cwd=Path("/repo"),
+        progress_writer=progress_messages.append,
+    )
     result = gateway.run_review(_sample_request(system_prompt="OUR SYSTEM PROMPT"))
 
     assert isinstance(result, ReviewExecutionResponse)
@@ -188,7 +245,7 @@ def test_real_review_execution_gateway_runs_claude_code_findings(
     assert fake_process["value"].stdin.closed
 
 
-def test_real_review_execution_gateway_text_format_returns_prose(
+def test_real_review_environment_text_format_returns_prose(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     prose = "### Review\n\n- app.py:1 — prefer click.echo"
@@ -203,9 +260,9 @@ def test_real_review_execution_gateway_text_format_returns_prose(
         fake_process["value"] = process
         return process
 
-    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
 
-    gateway = RealReviewExecutionGateway()
+    gateway = RealReviewEnvironmentGateway(cwd=Path("/repo"))
     result = gateway.run_review(_sample_request(review_format="text"))
 
     assert isinstance(result, ReviewExecutionResponse)
@@ -217,13 +274,10 @@ def test_real_review_execution_gateway_text_format_returns_prose(
     assert fake_process["value"].stdin.buffer == "review this diff"
 
 
-def test_real_review_execution_gateway_handles_large_prompt(
+def test_real_review_environment_handles_large_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression: a 200KB prompt would have exceeded ARG_MAX on macOS when
-    inlined into argv. With the prompt on stdin, it must round-trip cleanly
-    even when the OS pipe buffer (~64KB) cannot absorb it in a single write.
-    """
+    """Regression: a 200KB prompt must be written through stdin."""
     large_prompt = "x" * (200 * 1024)
     stdout_lines = _stream_json_lines()
     fake_process: dict[str, _FakePopen] = {}
@@ -234,7 +288,7 @@ def test_real_review_execution_gateway_handles_large_prompt(
         fake_process["value"] = process
         return process
 
-    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
 
     request = _sample_request()
     request_with_large_prompt = ReviewExecutionRequest(
@@ -249,15 +303,15 @@ def test_real_review_execution_gateway_handles_large_prompt(
         base_ref=request.base_ref,
         diff_text=request.diff_text,
     )
-    result = RealReviewExecutionGateway().run_review(request_with_large_prompt)
+    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(request_with_large_prompt)
 
     assert isinstance(result, ReviewExecutionResponse)
     assert fake_process["value"].stdin.buffer == large_prompt
     assert fake_process["value"].stdin.closed
 
 
-def test_real_review_execution_gateway_rejects_unknown_harness() -> None:
-    gateway = RealReviewExecutionGateway()
+def test_real_review_environment_rejects_unknown_harness() -> None:
+    gateway = RealReviewEnvironmentGateway(cwd=Path("/repo"))
 
     result = gateway.run_review(_sample_request(adapter_name="banana"))
 
@@ -265,43 +319,45 @@ def test_real_review_execution_gateway_rejects_unknown_harness() -> None:
     assert error_type_for(result) == "harness_unknown"
 
 
-def test_real_review_execution_gateway_rejects_unsupported_model() -> None:
-    result = RealReviewExecutionGateway().run_review(_sample_request(model="gpt-5-mini"))
+def test_real_review_environment_rejects_unsupported_model() -> None:
+    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(
+        _sample_request(model="gpt-5-mini")
+    )
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "model_not_supported_by_harness"
 
 
-def test_real_review_execution_gateway_reports_missing_binary(
+def test_real_review_environment_reports_missing_binary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         raise FileNotFoundError("claude: no such file")
 
-    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
 
-    result = RealReviewExecutionGateway().run_review(_sample_request())
+    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(_sample_request())
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "harness_binary_missing"
 
 
-def test_real_review_execution_gateway_reports_non_zero_exit(
+def test_real_review_environment_reports_non_zero_exit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         return _FakePopen(stdout_lines=[], stderr_text="model unavailable\n", returncode=1)
 
-    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
 
-    result = RealReviewExecutionGateway().run_review(_sample_request())
+    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(_sample_request())
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "harness_execution_failed"
     assert "model unavailable" in result.message
 
 
-def test_real_review_execution_gateway_surfaces_missing_result_event(
+def test_real_review_environment_surfaces_missing_result_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     truncated_stream = [
@@ -312,15 +368,15 @@ def test_real_review_execution_gateway_surfaces_missing_result_event(
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         return _FakePopen(stdout_lines=truncated_stream)
 
-    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
 
-    result = RealReviewExecutionGateway().run_review(_sample_request())
+    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(_sample_request())
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "claude_code_missing_result_event"
 
 
-def test_real_review_execution_gateway_uses_injected_registry(
+def test_real_review_environment_uses_injected_registry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured_requests: list[ReviewExecutionRequest] = []
@@ -345,9 +401,9 @@ def test_real_review_execution_gateway_uses_injected_registry(
     def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
         return _FakePopen(stdout_lines=[])
 
-    monkeypatch.setattr(review_execution_real.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
 
-    gateway = RealReviewExecutionGateway(adapters={"noop": adapter})
+    gateway = RealReviewEnvironmentGateway(cwd=Path("/repo"), adapters={"noop": adapter})
     result = gateway.run_review(_sample_request(adapter_name="noop", model="anything"))
 
     assert isinstance(result, ReviewExecutionResponse)

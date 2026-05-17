@@ -65,7 +65,7 @@ def run_harness_list_command(
     reviewer_context = load_typed_context(ctx, ReviewerCliContext)
     entries: list[HarnessEntry] = []
     for adapter in HARNESS_ADAPTERS.values():
-        detection = reviewer_context.harness_detection.detect(
+        detection = reviewer_context.review_environment.detect_harness(
             name=adapter.name,
             binary=adapter.binary,
         )

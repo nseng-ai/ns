@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 import click
-import pytest
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
@@ -13,12 +11,8 @@ from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
-from asdl_reviewer import git_toplevel as git_toplevel_module
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
-from asdl_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
+from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
 from asdl_reviewer.models import (
     FindingsReview,
     LocalDiff,
@@ -205,7 +199,7 @@ def test_slots_plugin_integration(tmp_path: Path) -> None:
     assert all(row["status"] == "available" for row in rows)
 
 
-def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_reviewer_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="reviewer",
@@ -214,21 +208,12 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
 
     discover_plugins(parent, source=_entry_point_source(ep))
 
-    repo_root = Path("/repo")
-
-    def fake_git_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["git", "rev-parse", "--show-toplevel"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=f"{repo_root}\n", stderr="")
-        raise AssertionError(f"unexpected git command: {cmd!r}")
-
-    monkeypatch.setattr(git_toplevel_module.subprocess, "run", fake_git_run)
-
     runner = CliRunner()
 
     obj = ReviewerCliContext(
-        review_definition=FakeReviewDefinitionGateway(
-            sources_by_path={
-                repo_root / "reviews" / "dignified-python.md": (
+        review_environment=FakeReviewEnvironmentGateway(
+            review_sources_by_key={
+                "dignified-python": (
                     "---\n"
                     "description: Review Python diffs for style violations.\n"
                     "default_model: sonnet\n"
@@ -236,15 +221,11 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
                     "\n"
                     "Flag concrete issues in the diff.\n"
                 )
-            }
-        ),
-        local_diff=FakeLocalDiffGateway(
-            default_result=LocalDiff(
+            },
+            default_diff=LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
-            )
-        ),
-        review_execution=FakeReviewExecutionGateway(
+            ),
             default_response=ReviewExecutionResponse(
                 payload=FindingsReview(
                     findings=(
@@ -257,10 +238,8 @@ def test_reviewer_plugin_integration(monkeypatch: pytest.MonkeyPatch) -> None:
                         ),
                     )
                 )
-            )
-        ),
-        harness_detection=FakeHarnessDetectionGateway(
-            paths_by_binary={"claude": "/usr/local/bin/claude"}
+            ),
+            paths_by_binary={"claude": "/usr/local/bin/claude"},
         ),
         issue_gateway=FakeIssueGateway(),
         cwd=Path("/anywhere"),

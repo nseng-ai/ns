@@ -13,12 +13,7 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.review_definition.gateway import REVIEWS_DIRNAME
-from asdl_reviewer.git_toplevel import git_toplevel
-from asdl_reviewer.models import (
-    GitInvocationFailedError,
-    RepoRootUnavailableError,
-)
+from asdl_reviewer.models import GitInvocationFailedError, RepoRootUnavailableError
 
 
 class ReviewListRequest(ClinkrModel):
@@ -93,14 +88,10 @@ def run_review_list_command(
     reviewer_context = load_typed_context(ctx, ReviewerCliContext)
 
     try:
-        repo_root = git_toplevel(cwd=reviewer_context.cwd)
+        catalog = Ensure.ideal_state(reviewer_context.review_environment.list_review_keys())
     except RepoRootUnavailableError as exc:
         raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except GitInvocationFailedError as exc:
         raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
 
-    reviews_dir = repo_root / REVIEWS_DIRNAME
-
-    keys = Ensure.ideal_state(reviewer_context.review_definition.list_reviews(reviews_dir))
-
-    return ClinkrExit.ok(ReviewListResult(keys=keys, reviews_dir=str(reviews_dir)))
+    return ClinkrExit.ok(ReviewListResult(keys=catalog.keys, reviews_dir=str(catalog.reviews_dir)))

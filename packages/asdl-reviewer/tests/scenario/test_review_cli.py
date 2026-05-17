@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -10,13 +9,9 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.testing import FakeIssueGateway
-from asdl_reviewer import git_toplevel as git_toplevel_module
 from asdl_reviewer.cli.main import build_cli
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.harness_detection.fake import FakeHarnessDetectionGateway
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
-from asdl_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
+from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
 from asdl_reviewer.models import (
     FindingsReview,
     LocalDiff,
@@ -30,7 +25,6 @@ from asdl_reviewer.models import (
 REPO_ROOT = Path("/repo")
 REVIEWS_DIR = REPO_ROOT / "reviews"
 REVIEW_KEY = "dignified-python"
-REVIEW_PATH = REVIEWS_DIR / f"{REVIEW_KEY}.md"
 
 
 def _sample_source(*, include_default_model: bool = True) -> str:
@@ -49,27 +43,24 @@ def _build_context(
     *,
     payload: ReviewPayload | None = None,
     harness_detected: bool = True,
-    keys: dict[Path, tuple[str, ...]] | None = None,
+    keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
 ) -> ReviewerCliContext:
     paths_by_binary = {"claude": "/usr/local/bin/claude"} if harness_detected else {}
     if payload is None:
         payload = FindingsReview(findings=())
     return ReviewerCliContext(
-        review_definition=FakeReviewDefinitionGateway(
-            sources_by_path={REVIEW_PATH: _sample_source()},
-            keys_by_reviews_dir=keys,
-        ),
-        local_diff=FakeLocalDiffGateway(
-            default_result=LocalDiff(
+        review_environment=FakeReviewEnvironmentGateway(
+            review_sources_by_key={REVIEW_KEY: _sample_source()},
+            review_keys=keys,
+            default_diff=LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
-            )
-        ),
-        review_execution=FakeReviewExecutionGateway(
+            ),
             default_response=ReviewExecutionResponse(payload=payload, usage=usage),
+            paths_by_binary=paths_by_binary,
+            reviews_dir=REVIEWS_DIR,
         ),
-        harness_detection=FakeHarnessDetectionGateway(paths_by_binary=paths_by_binary),
         issue_gateway=FakeIssueGateway(),
         cwd=Path("/anywhere"),
     )
@@ -79,7 +70,7 @@ def _context(
     *,
     payload: ReviewPayload | None = None,
     harness_detected: bool = True,
-    keys: dict[Path, tuple[str, ...]] | None = None,
+    keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
 ) -> ClinkrContextObject:
     ctx = _build_context(
@@ -98,16 +89,6 @@ def _obj(context: object) -> ClinkrContextObject:
 @pytest.fixture(scope="module")
 def cli_group() -> ClinkrGroup:
     return build_cli()
-
-
-@pytest.fixture(autouse=True)
-def _fake_git_toplevel(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["git", "rev-parse", "--show-toplevel"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=f"{REPO_ROOT}\n", stderr="")
-        raise AssertionError(f"unexpected git command: {cmd!r}")
-
-    monkeypatch.setattr(git_toplevel_module.subprocess, "run", fake_run)
 
 
 def test_reviewer_help_lists_subgroups(cli_group: ClinkrGroup) -> None:
@@ -176,7 +157,8 @@ def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    executed = ctx.review_execution.executed_requests[0]  # type: ignore[attr-defined]
+    assert isinstance(ctx.review_environment, FakeReviewEnvironmentGateway)
+    executed = ctx.review_environment.executed_requests[0]
     assert executed.review_format == "text"
 
 
@@ -188,7 +170,8 @@ def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -
 
     assert result.exit_code == 0, result.output
     assert "Model: sonnet" in result.output
-    assert ctx.review_execution.executed_requests[0].model == "sonnet"  # type: ignore[attr-defined]
+    assert isinstance(ctx.review_environment, FakeReviewEnvironmentGateway)
+    assert ctx.review_environment.executed_requests[0].model == "sonnet"
 
 
 def test_review_run_surfaces_no_harness_detected(cli_group: ClinkrGroup) -> None:
@@ -267,7 +250,7 @@ def test_review_run_json_output_text_format(cli_group: ClinkrGroup) -> None:
 def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     ctx = _build_context(
-        keys={REVIEWS_DIR: ("dignified-python", "python/typing")},
+        keys=("dignified-python", "python/typing"),
     )
 
     result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
@@ -281,7 +264,7 @@ def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
 
 def test_review_list_alias_ls(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
-    ctx = _build_context(keys={REVIEWS_DIR: ("dignified-python",)})
+    ctx = _build_context(keys=("dignified-python",))
 
     result = runner.invoke(cli_group, ["review", "ls"], obj=_obj(ctx))
 
@@ -294,7 +277,7 @@ def test_review_list_groups_nested_keys_under_top_level_dirs(
 ) -> None:
     runner = CliRunner()
     ctx = _build_context(
-        keys={REVIEWS_DIR: ("dignified-python", "python/fakes", "python/typing")},
+        keys=("dignified-python", "python/fakes", "python/typing"),
     )
 
     result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
@@ -313,7 +296,7 @@ def test_review_list_flat_only_output_has_no_group_headers(
 ) -> None:
     runner = CliRunner()
     ctx = _build_context(
-        keys={REVIEWS_DIR: ("alpha", "beta", "gamma")},
+        keys=("alpha", "beta", "gamma"),
     )
 
     result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
@@ -330,7 +313,7 @@ def test_review_list_renders_root_entries_before_group_headers(
 ) -> None:
     runner = CliRunner()
     ctx = _build_context(
-        keys={REVIEWS_DIR: ("alpha", "python/fakes", "rust/clippy")},
+        keys=("alpha", "python/fakes", "rust/clippy"),
     )
 
     result = runner.invoke(cli_group, ["review", "list"], obj=_obj(ctx))
@@ -346,7 +329,7 @@ def test_review_list_renders_root_entries_before_group_headers(
 def test_review_list_json_envelope_preserves_ci_contract(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     ctx = _build_context(
-        keys={REVIEWS_DIR: ("dignified-python", "python/typing")},
+        keys=("dignified-python", "python/typing"),
     )
 
     result = runner.invoke(cli_group, ["review", "list", "--format", "json"], obj=_obj(ctx))

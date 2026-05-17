@@ -3,16 +3,8 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
-from asdl_reviewer.gateways.harness_detection.gateway import HarnessDetectionGateway
-from asdl_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from asdl_reviewer.gateways.review_definition.gateway import (
-    REVIEWS_DIRNAME,
-    ReviewDefinitionGateway,
-)
-from asdl_reviewer.gateways.review_execution.gateway import ReviewExecutionGateway
-from asdl_reviewer.git_toplevel import git_toplevel
+from asdl_reviewer.gateways.review_environment.gateway import ReviewEnvironmentGateway
 from asdl_reviewer.harness_registry import HARNESS_ADAPTERS
 from asdl_reviewer.models import (
     BaseRefUnavailable,
@@ -26,6 +18,7 @@ from asdl_reviewer.models import (
     ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFormat,
+    ReviewSource,
 )
 from asdl_reviewer.prompting import build_review_prompt, build_review_system_prompt
 from asdl_reviewer.review_definition import parse_review_definition
@@ -40,27 +33,15 @@ def run_review_by_key(
     requested_base_ref: str | None,
     requested_harness: str | None,
     requested_format: ReviewFormat,
-    cwd: Path,
-    review_definition_gateway: ReviewDefinitionGateway,
-    local_diff_gateway: LocalDiffGateway,
-    review_execution_gateway: ReviewExecutionGateway,
-    harness_detection_gateway: HarnessDetectionGateway,
+    review_environment: ReviewEnvironmentGateway,
 ) -> LocalReviewResult | ReviewerFailure:
     """Run a markdown-defined reviewer identified by ``key``."""
-    repo_root = git_toplevel(cwd=cwd)
-
-    reviews_dir = repo_root / REVIEWS_DIRNAME
-
-    review_path = review_definition_gateway.resolve_key(reviews_dir, key)
-    if not isinstance(review_path, Path):
-        return review_path
-
-    source = review_definition_gateway.load_source(review_path)
-    if not isinstance(source, str):
-        return source
+    review_source = review_environment.load_review_source(key=key)
+    if not isinstance(review_source, ReviewSource):
+        return review_source
 
     try:
-        review_definition = parse_review_definition(source, name=key)
+        review_definition = parse_review_definition(review_source.source, name=review_source.key)
     except ValueError as exc:
         return InvalidReviewDefinition(message=str(exc))
 
@@ -73,12 +54,12 @@ def run_review_by_key(
 
     resolved_harness = resolve_harness(
         requested_harness=requested_harness,
-        harness_detection_gateway=harness_detection_gateway,
+        review_environment=review_environment,
     )
     if not isinstance(resolved_harness, str):
         return resolved_harness
 
-    local_diff = local_diff_gateway.load_diff(base_ref=requested_base_ref)
+    local_diff = review_environment.load_diff(base_ref=requested_base_ref)
     if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
 
@@ -99,13 +80,13 @@ def run_review_by_key(
         base_ref=local_diff.base_ref,
         diff_text=local_diff.diff_text,
     )
-    execution_response = review_execution_gateway.run_review(execution_request)
+    execution_response = review_environment.run_review(execution_request)
     if not isinstance(execution_response, ReviewExecutionResponse):
         return execution_response
 
     return LocalReviewResult(
         review_name=review_definition.name,
-        review_path=str(review_path),
+        review_path=str(review_source.path),
         model=resolved_model,
         base_ref=local_diff.base_ref,
         payload=execution_response.payload,
@@ -134,7 +115,7 @@ def _resolve_model(
 def resolve_harness(
     *,
     requested_harness: str | None,
-    harness_detection_gateway: HarnessDetectionGateway,
+    review_environment: ReviewEnvironmentGateway,
 ) -> str | ReviewerFailure:
     """Resolve which harness to dispatch through.
 
@@ -152,7 +133,7 @@ def resolve_harness(
 
     available_names: list[str] = []
     for adapter in HARNESS_ADAPTERS.values():
-        detection = harness_detection_gateway.detect(
+        detection = review_environment.detect_harness(
             name=adapter.name,
             binary=adapter.binary,
         )

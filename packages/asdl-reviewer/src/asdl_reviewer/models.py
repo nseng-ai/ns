@@ -257,6 +257,19 @@ class GitDiffFailedError(ReviewerError):
 
 
 @dataclass(frozen=True)
+class HarnessDetection:
+    """Whether a harness binary is installed, and where it lives on PATH."""
+
+    name: str
+    binary: str
+    path: str | None
+
+    @property
+    def available(self) -> bool:
+        return self.path is not None
+
+
+@dataclass(frozen=True)
 class ReviewDefinition:
     """Parsed markdown definition of a reviewer."""
 
@@ -264,6 +277,23 @@ class ReviewDefinition:
     description: str
     instructions: str
     default_model: str | None
+
+
+@dataclass(frozen=True)
+class ReviewSource:
+    """Markdown source for a review definition loaded from the environment."""
+
+    key: str
+    path: Path
+    source: str
+
+
+@dataclass(frozen=True)
+class ReviewCatalog:
+    """Catalog of markdown review keys available in the environment."""
+
+    reviews_dir: Path
+    keys: tuple[str, ...]
 
 
 @dataclass(frozen=True)
