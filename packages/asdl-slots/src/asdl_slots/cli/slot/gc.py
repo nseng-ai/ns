@@ -13,14 +13,14 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRState
 from asdl_slots.cli.slot.context import load_slots_context
-from asdl_slots.gc import (
+from asdl_slots.lifecycle import (
     SlotGcAction,
     SlotGcOutcome,
+    SlotLifecycleFailure,
     execute_gc_plan,
-    outcome_from_plan,
+    outcome_from_gc_plan,
     plan_gc,
 )
-from asdl_slots.inventory import build_slot_inventory
 from asdl_slots.repo_context import NoRepoSentinel
 
 
@@ -124,16 +124,6 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
     if isinstance(slots_ctx, NoRepoSentinel):
         Ensure.fail(error_type="not_in_repo", message=slots_ctx.message)
 
-    inventory = build_slot_inventory(
-        slots_ctx.git,
-        main_repo_root=slots_ctx.repo.main_repo_root,
-    )
-    Ensure.true(
-        inventory.pool_size > 0,
-        error_type="pool_empty",
-        message="No managed slots configured. Run `slot init --size N` first.",
-    )
-
     Ensure.true(
         not (request.dry_run and request.force),
         error_type="conflicting_flags",
@@ -141,17 +131,19 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
     )
 
     plan = plan_gc(slots_ctx)
+    if isinstance(plan, SlotLifecycleFailure):
+        return ClinkrExit.failure(error_type=plan.error_type, message=plan.message)
 
     if request.dry_run:
-        return ClinkrExit.ok(_result_from_outcome(outcome_from_plan(plan, dry_run=True)))
+        return ClinkrExit.ok(_result_from_outcome(outcome_from_gc_plan(plan, dry_run=True)))
 
     if plan.would_free_count == 0:
-        return ClinkrExit.ok(_result_from_outcome(outcome_from_plan(plan, dry_run=False)))
+        return ClinkrExit.ok(_result_from_outcome(outcome_from_gc_plan(plan, dry_run=False)))
 
     if request.force:
         return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
 
-    preview = _result_from_outcome(outcome_from_plan(plan, dry_run=True))
+    preview = _result_from_outcome(outcome_from_gc_plan(plan, dry_run=True))
     render_slot_gc(preview)
     proceed = click.confirm(
         f"Free {plan.would_free_count} slot(s)?",
@@ -160,5 +152,5 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
     if proceed:
         return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
     return ClinkrExit.ok(
-        _result_from_outcome(outcome_from_plan(plan, dry_run=False), cancelled=True)
+        _result_from_outcome(outcome_from_gc_plan(plan, dry_run=False), cancelled=True)
     )
