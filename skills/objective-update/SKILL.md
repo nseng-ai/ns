@@ -31,13 +31,21 @@ Do not write a multi-Objective update. Do not auto-select from candidate count, 
 
 After exactly one Objective is selected, branch and PR facts may be considered as optional repo evidence for that selected Objective only. They never participate in Objective selection.
 
+## Landed-state semantics
+
+`objective-update` brings the selected Objective up to date as if the current git changes or current-branch PR changes have landed on the default branch. Treat the selected branch/PR diff as prospective trunk state, not as an ephemeral branch status report.
+
+- Do not keep a roadmap row `[~]` merely because the implementing PR is still open. If the selected evidence clearly completes the work, update the Objective to the state that should be true after that patch lands.
+- Do not write branch changelogs. Mention branch names, PR numbers, review status, or merge status only when they are durable evidence, useful breadcrumbs, or materially affect confidence.
+- If the evidence is incomplete, failing, draft, disputed, or otherwise uncertain in a way that affects whether the Objective state would be true after landing, ask or record the uncertainty as a risk/follow-up instead of inventing completion.
+
 ## Post-selection repo evidence
 
 After loading the selected Objective and confirming it is not closed, collect available repo evidence fail-soft:
 
 - Run `git status --short` and `git diff --stat` to see local working-tree and diff context.
 - When GitHub CLI is available, run `gh pr view --json number,title,state,url,headRefName,baseRefName,files,commits` to inspect the current branch's PR metadata. If no PR exists, `gh` is unavailable, authentication is missing, or the command fails, note that PR evidence was unavailable and continue.
-- Treat branch and PR metadata only as evidence for the already selected Objective. Do not update merely because a PR exists.
+- Treat branch and PR metadata only as evidence for the already selected Objective and for the landed-state projection. Do not update merely because a PR exists.
 - Update only when the selected Objective content clearly matches the user's request and repo evidence such as changed paths, PR files, title, or commits. If the evidence is ambiguous, appears unrelated, or could map to multiple roadmap rows, ask instead of writing.
 
 ## Workflow
