@@ -29,21 +29,45 @@ Objective records are Markdown; read and edit Markdown directly. Use `objective 
 
 Do not write a multi-Objective update. Do not auto-select from candidate count, even if there is only one open Objective, or from changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
 
+After exactly one Objective is selected, branch and PR facts may be considered as optional repo evidence for that selected Objective only. They never participate in Objective selection.
+
+## Landed-state semantics
+
+`objective-update` brings the selected Objective up to date as if the current git changes or current-branch PR changes have landed on the default branch. Treat the selected branch/PR diff as prospective trunk state, not as an ephemeral branch status report.
+
+Frame the implementation change and the Objective edit as one atomic patch: the progress and the update about that progress land together. The goal is for the current branch's PR, if it exists, to be internally accurate immediately after merge.
+
+- Ask: "If this branch/PR were merged now, what should the selected Objective say on the default branch?" Write that state.
+- Do not require the implementation PR to have already merged, and do not keep a roadmap row `[~]` merely because the implementing PR is still open. If the selected evidence clearly completes the work, update the Objective to the state that should be true after that patch lands.
+- It is normal for the Objective update to be in the same PR as the implementation. Do not treat missing pre-existing Objective changes as a blocker when `objective-update` is about to write them.
+- Do not write branch changelogs. Mention branch names, PR numbers, review status, or merge status only when they are durable evidence, useful breadcrumbs, or materially affect confidence.
+- Open/draft/unmerged PR state alone is not uncertainty. If the evidence itself is incomplete, failing, disputed, or otherwise uncertain in a way that affects whether the Objective state would be true after landing, ask or record the uncertainty as a risk/follow-up instead of inventing completion.
+
+## Post-selection repo evidence
+
+After loading the selected Objective and confirming it is not closed, collect available repo evidence fail-soft:
+
+- Run `git status --short` and `git diff --stat` to see local working-tree and diff context.
+- When GitHub CLI is available, run `gh pr view --json number,title,state,url,headRefName,baseRefName,files,commits` to inspect the current branch's PR metadata. If no PR exists, `gh` is unavailable, authentication is missing, or the command fails, note that PR evidence was unavailable and continue.
+- Treat branch and PR metadata only as evidence for the already selected Objective and for the landed-state projection. Do not update merely because a PR exists.
+- Update only when the selected Objective content clearly matches the user's request and repo evidence such as changed paths, PR files, title, or commits. If the evidence is ambiguous, appears unrelated, or could map to multiple roadmap rows, ask instead of writing.
+
 ## Workflow
 
 1. Run `objective exec read-objective <slug> --format md` to load the selected record's raw Markdown and closed state.
 2. If closed, stop unless the user explicitly asks to amend the closed record; v1 has no reopen workflow.
-3. Compare the user's request, repo evidence, and existing Objective files to decide what durable tracking changed.
-4. Edit `objective.md` when durable narrative, boundaries, completion criteria, assumptions, risks, open questions, or closure-adjacent context changed.
-5. Update `## Assumptions and Risks` when evidence changes risk knowledge:
+3. Collect post-selection repo evidence as described above.
+4. Compare the user's request, repo evidence, and existing Objective files to decide what durable tracking changed.
+5. Edit `objective.md` when durable narrative, boundaries, completion criteria, assumptions, risks, open questions, or closure-adjacent context changed.
+6. Update `## Assumptions and Risks` when evidence changes risk knowledge:
    - Mark an assumption incorrect, revised, or still active when new evidence bears on it.
    - Mark a risk de-risked, not de-risked, materialized, accepted, or still open with concise evidence or rationale.
    - Add newly discovered assumptions or risks when they affect scope, sequencing, confidence, or completion evidence.
    - Preserve useful history in the prose; do not silently delete disproven assumptions or de-risked risks without explanation.
-6. Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
-7. Write a Semantic Update in `updates/YYYY-MM-DDTHHMMSSZ-short-slug.md` for meaningful information: finding, decision, blocker, assumption invalidation, risk de-risking or surfacing, completion evidence, changed plan, or follow-up.
-8. Explain why durable files changed, or why they intentionally remained correct after meaningful evidence was considered.
-9. For maintenance-only durable edits with no new semantic information, do not create an update file; say that explicitly.
+7. Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
+8. Write a Semantic Update in `updates/YYYY-MM-DDTHHMMSSZ-short-slug.md` for meaningful information: finding, decision, blocker, assumption invalidation, risk de-risking or surfacing, completion evidence, changed plan, or follow-up.
+9. Explain why durable files changed, or why they intentionally remained correct after meaningful evidence was considered.
+10. For maintenance-only durable edits with no new semantic information, do not create an update file; say that explicitly.
 
 ## Stop / ask
 
@@ -58,4 +82,4 @@ Do not write a multi-Objective update. Do not auto-select from candidate count, 
 - Confirm changed Objective files all live under exactly one `.asdl/objectives/<slug>/` directory.
 - If an update file was written, confirm its filename is timestamped, human-readable, and under that Objective's `updates/` directory.
 - Confirm required headings remain present in edited durable files, including `## Assumptions and Risks`.
-- Summarize durable-file edits and whether a Semantic Update was created.
+- Summarize durable-file edits, whether a Semantic Update was created, and whether current-branch PR evidence was considered, unavailable, or irrelevant.
