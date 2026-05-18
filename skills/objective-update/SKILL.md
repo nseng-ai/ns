@@ -35,9 +35,13 @@ After exactly one Objective is selected, branch and PR facts may be considered a
 
 `objective-update` brings the selected Objective up to date as if the current git changes or current-branch PR changes have landed on the default branch. Treat the selected branch/PR diff as prospective trunk state, not as an ephemeral branch status report.
 
-- Do not keep a roadmap row `[~]` merely because the implementing PR is still open. If the selected evidence clearly completes the work, update the Objective to the state that should be true after that patch lands.
+Frame the implementation change and the Objective edit as one atomic patch: the progress and the update about that progress land together. The goal is for the current branch's PR, if it exists, to be internally accurate immediately after merge.
+
+- Ask: "If this branch/PR were merged now, what should the selected Objective say on the default branch?" Write that state.
+- Do not require the implementation PR to have already merged, and do not keep a roadmap row `[~]` merely because the implementing PR is still open. If the selected evidence clearly completes the work, update the Objective to the state that should be true after that patch lands.
+- It is normal for the Objective update to be in the same PR as the implementation. Do not treat missing pre-existing Objective changes as a blocker when `objective-update` is about to write them.
 - Do not write branch changelogs. Mention branch names, PR numbers, review status, or merge status only when they are durable evidence, useful breadcrumbs, or materially affect confidence.
-- If the evidence is incomplete, failing, draft, disputed, or otherwise uncertain in a way that affects whether the Objective state would be true after landing, ask or record the uncertainty as a risk/follow-up instead of inventing completion.
+- Open/draft/unmerged PR state alone is not uncertainty. If the evidence itself is incomplete, failing, disputed, or otherwise uncertain in a way that affects whether the Objective state would be true after landing, ask or record the uncertainty as a risk/follow-up instead of inventing completion.
 
 ## Post-selection repo evidence
 
