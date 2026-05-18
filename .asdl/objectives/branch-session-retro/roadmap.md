@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] PR 1: create the `asdl-retro` package skeleton with standalone `branch-retro` CLI, asdl plugin registration, outer `branch-retro` group, and hidden empty `exec` subgroup.
+- [x] PR 1: create the `asdl-retro` package skeleton with standalone `branch-retro` CLI, asdl plugin registration, outer `branch-retro` group, and hidden empty `exec` subgroup.
 - [ ] PR 2: implement the Pi JSONL session source adapter and core session parser models with unit coverage for normal, partial, and malformed logs.
 - [ ] PR 3: implement `branch-retro exec collect-evidence` with repo/branch context, conservative session association, aggregate metrics, warnings, and a stable JSON envelope.
 - [ ] PR 4: add evidence aggregation for repeated file reads, repeated shell commands, failed tools, tools by name, token usage when present, and large outputs when measurable.

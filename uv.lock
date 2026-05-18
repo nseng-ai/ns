@@ -8,6 +8,7 @@ members = [
     "asdl-dispatcher",
     "asdl-objectives",
     "asdl-pr-address",
+    "asdl-retro",
     "asdl-reviewer",
     "asdl-slots",
     "asdl-tools",
@@ -87,6 +88,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "asdl-retro"
+version = "0.1.0"
+source = { editable = "packages/asdl-retro" }
+dependencies = [
+    { name = "asdl-core" },
+    { name = "click" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "click", specifier = ">=8.1.7" },
+]
+
+[[package]]
 name = "asdl-reviewer"
 version = "0.1.0"
 source = { editable = "packages/asdl-reviewer" }
@@ -132,6 +148,7 @@ plugins = [
     { name = "asdl-dispatcher" },
     { name = "asdl-objectives" },
     { name = "asdl-pr-address" },
+    { name = "asdl-retro" },
     { name = "asdl-slots" },
 ]
 
@@ -141,6 +158,7 @@ dev = [
     { name = "asdl-dispatcher" },
     { name = "asdl-objectives" },
     { name = "asdl-pr-address" },
+    { name = "asdl-retro" },
     { name = "asdl-reviewer" },
     { name = "asdl-slots" },
     { name = "brmem" },
@@ -158,6 +176,7 @@ requires-dist = [
     { name = "asdl-dispatcher", marker = "extra == 'plugins'", editable = "packages/asdl-dispatcher" },
     { name = "asdl-objectives", marker = "extra == 'plugins'", editable = "packages/asdl-objectives" },
     { name = "asdl-pr-address", marker = "extra == 'plugins'", editable = "packages/asdl-pr-address" },
+    { name = "asdl-retro", marker = "extra == 'plugins'", editable = "packages/asdl-retro" },
     { name = "asdl-slots", marker = "extra == 'plugins'", editable = "packages/asdl-slots" },
     { name = "click", specifier = ">=8.1.7" },
 ]
@@ -169,6 +188,7 @@ dev = [
     { name = "asdl-dispatcher", editable = "packages/asdl-dispatcher" },
     { name = "asdl-objectives", editable = "packages/asdl-objectives" },
     { name = "asdl-pr-address", editable = "packages/asdl-pr-address" },
+    { name = "asdl-retro", editable = "packages/asdl-retro" },
     { name = "asdl-reviewer", editable = "packages/asdl-reviewer" },
     { name = "asdl-slots", editable = "packages/asdl-slots" },
     { name = "brmem", editable = "packages/brmem" },

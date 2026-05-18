@@ -117,6 +117,27 @@ def test_objective_plugin_integration() -> None:
     assert payload["data"]["groups"] == []
 
 
+def test_branch_retro_plugin_integration() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="branch_retro",
+        value="asdl_retro.plugin:build_branch_retro_plugin",
+    )
+
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    runner = CliRunner()
+
+    result = runner.invoke(parent, ["branch-retro", "--help"])
+    assert result.exit_code == 0
+    assert "Branch session retrospective evidence operations." in result.output
+    assert "exec" not in result.output
+
+    result = runner.invoke(parent, ["branch-retro", "exec", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "Commands for use by branch retrospective skills." in result.output
+
+
 def test_pr_address_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
