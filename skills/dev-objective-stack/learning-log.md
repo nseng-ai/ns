@@ -80,3 +80,10 @@ Notes:
   Skill change to consider: During each Objective update, mark roadmap items by
   landed behavior rather than by the original PR boundary, and let later slices
   narrow to evidence/coverage if implementation moved earlier.
+- Observation: Completing all roadmap checkboxes is not the same operation as
+  closing the Objective.
+  Evidence: PR 4 checks off the packagechk implementation roadmap and adds
+  closure-ready evidence, but `closed.md` is intentionally not created because
+  `objective-close` is a separate explicit workflow.
+  Skill change to consider: Add an end-of-stack decision point: ask whether to
+  close the Objective, leave it open for review, or create a follow-up slice.
