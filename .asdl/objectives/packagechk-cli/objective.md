@@ -43,6 +43,7 @@ Build `packagechk`, a small standalone Python CLI that checks whether a proposed
 Assumptions:
 
 - PyPI and npm registry endpoints can distinguish taken names from available names using stable success/not-found responses.
+- Python stdlib HTTP is sufficient for v1 registry lookups, keeping the package dependency-light while still modeling operational failures explicitly.
 - A standalone `packages/packagechk` workspace package is the right first home and does not need to integrate with `asdl.plugins`.
 - Users care first about publishing/name availability, not installability or command-provider lookup.
 - Rejecting unsupported registries and scoped npm names in v1 is better than returning ambiguous `unknown` results.
@@ -51,11 +52,10 @@ Risks:
 
 - Registry naming rules and reserved-name behavior may be more nuanced than simple HTTP existence checks; the implementation must avoid claiming names are publishable when a registry would still reject them.
 - Network failures can be confused with name availability unless errors are modeled separately and mapped to exit code `2`.
-- PyPI normalization and npm validation edge cases could produce surprising output if the normalized/validated name is not shown clearly.
+- PyPI normalization is now covered by unit, gateway, and CLI tests; npm validation edge cases still need the same treatment so invalid names do not produce surprising output.
 - Future Homebrew support has a different claimability model than PyPI/npm, so the v1 registry model should leave room for advisory or multi-part Homebrew results.
 
 ## Open Questions
 
-- Should the first implementation use Python stdlib HTTP only, or add a dependency such as `requests`/`httpx` for registry queries?
 - Should `packagechk` eventually support npm scoped names, and if so should it check the scoped package exactly or also advise on scope ownership?
 - What exact JSON schema should be considered stable for downstream scripts?

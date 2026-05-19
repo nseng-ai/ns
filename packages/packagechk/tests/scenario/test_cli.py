@@ -6,6 +6,7 @@ from click.testing import CliRunner
 
 from packagechk.cli import build_cli
 from packagechk.gateways.registries.fake import FakePackageRegistryGateway
+from packagechk.gateways.registries.real import RealPackageRegistryGateway
 from packagechk.models import Registry, RegistryCheckResult
 
 
@@ -94,3 +95,31 @@ def test_packagechk_json_output_is_structured() -> None:
     }
     assert gateway.pypi_checked_names == ["sample-name"]
     assert gateway.npm_checked_names == []
+
+
+def test_packagechk_pypi_registry_reports_available_with_normalized_name() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
+
+    result = CliRunner().invoke(build_cli(gateway), ["Foo_Bar", "--registry", "pypi"])
+
+    assert result.exit_code == 0
+    assert result.output == "pypi: available as 'foo-bar'\n"
+
+
+def test_packagechk_pypi_registry_reports_taken() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
+
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--registry", "pypi"])
+
+    assert result.exit_code == 1
+    assert result.output == "pypi: taken\n"
+
+
+def test_packagechk_pypi_registry_rejects_invalid_name() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
+
+    result = CliRunner().invoke(build_cli(gateway), ["bad!name", "--registry", "pypi"])
+
+    assert result.exit_code == 2
+    assert "pypi: invalid" in result.output
+    assert "must start and end" in result.output
