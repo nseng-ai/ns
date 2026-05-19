@@ -52,7 +52,7 @@ Risks:
 
 - Registry naming rules and reserved-name behavior may be more nuanced than simple HTTP existence checks; the implementation must avoid claiming names are publishable when a registry would still reject them.
 - Network failures can be confused with name availability unless errors are modeled separately and mapped to exit code `2`.
-- PyPI normalization is now covered by unit, gateway, and CLI tests; npm validation edge cases still need the same treatment so invalid names do not produce surprising output.
+- PyPI normalization and npm validation are now covered by unit, gateway, and CLI tests, reducing the risk that registry-specific name handling produces surprising output.
 - Future Homebrew support has a different claimability model than PyPI/npm, so the v1 registry model should leave room for advisory or multi-part Homebrew results.
 
 ## Open Questions

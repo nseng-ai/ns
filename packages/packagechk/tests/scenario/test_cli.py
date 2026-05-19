@@ -123,3 +123,41 @@ def test_packagechk_pypi_registry_rejects_invalid_name() -> None:
     assert result.exit_code == 2
     assert "pypi: invalid" in result.output
     assert "must start and end" in result.output
+
+
+def test_packagechk_npm_registry_reports_available_without_rewriting_name() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
+
+    result = CliRunner().invoke(build_cli(gateway), ["sample_name", "--registry", "npm"])
+
+    assert result.exit_code == 0
+    assert result.output == "npm: available\n"
+
+
+def test_packagechk_npm_registry_reports_taken() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
+
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--registry", "npm"])
+
+    assert result.exit_code == 1
+    assert result.output == "npm: taken\n"
+
+
+def test_packagechk_npm_registry_rejects_scoped_names() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
+
+    result = CliRunner().invoke(build_cli(gateway), ["@scope/name", "--registry", "npm"])
+
+    assert result.exit_code == 2
+    assert "npm: invalid" in result.output
+    assert "scoped package names are not supported in v1" in result.output
+
+
+def test_packagechk_npm_registry_rejects_uppercase_names_without_rewriting() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
+
+    result = CliRunner().invoke(build_cli(gateway), ["SampleName", "--registry", "npm"])
+
+    assert result.exit_code == 2
+    assert "npm: invalid" in result.output
+    assert "must be lowercase" in result.output
