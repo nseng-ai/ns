@@ -25,6 +25,9 @@ class RegistryCheckResult:
     lookup_name: str
     status: CheckStatus
     message: str
+    package_url: str | None = None
+    latest_version: str | None = None
+    description: str | None = None
 
     @classmethod
     def available(
@@ -43,13 +46,25 @@ class RegistryCheckResult:
         )
 
     @classmethod
-    def taken(cls, registry: Registry, *, input_name: str, lookup_name: str) -> RegistryCheckResult:
+    def taken(
+        cls,
+        registry: Registry,
+        *,
+        input_name: str,
+        lookup_name: str,
+        package_url: str | None = None,
+        latest_version: str | None = None,
+        description: str | None = None,
+    ) -> RegistryCheckResult:
         return cls(
             registry=registry,
             input_name=input_name,
             lookup_name=lookup_name,
             status=CheckStatus.TAKEN,
             message=f"{registry.value} package name is already taken",
+            package_url=package_url,
+            latest_version=latest_version,
+            description=description,
         )
 
     @classmethod
@@ -103,13 +118,20 @@ class RegistryCheckResult:
         )
 
     def to_json_dict(self) -> dict[str, str]:
-        return {
+        payload = {
             "registry": self.registry.value,
             "input_name": self.input_name,
             "lookup_name": self.lookup_name,
             "status": self.status.value,
             "message": self.message,
         }
+        if self.package_url is not None:
+            payload["package_url"] = self.package_url
+        if self.latest_version is not None:
+            payload["latest_version"] = self.latest_version
+        if self.description is not None:
+            payload["description"] = self.description
+        return payload
 
 
 @dataclass(frozen=True)
