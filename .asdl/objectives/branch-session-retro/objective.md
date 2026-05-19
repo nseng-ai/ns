@@ -12,9 +12,9 @@ In scope:
 
 - Add a new `packages/asdl-retro` package with standalone and plugin CLI wiring that follows existing repository conventions.
 - Expose agent-facing operations under a hidden `exec` subgroup, beginning with `branch-retro exec collect-evidence`.
-- Add a reusable provider-neutral session parsing and analysis library in `asdl-core` for querying session sources, parsing records, and computing compact deterministic metrics.
+- Add a reusable harness-neutral session parsing and analysis library in `asdl-core` for querying session sources, parsing records, and computing compact deterministic metrics; keep harness identity distinct from model provider metadata.
 - Implement the first Pi JSONL session source adapter in `asdl-core` for local session logs associated with the current repo/worktree.
-- Keep the session source boundary future-ready for later Claude, Codex, or other provider adapters without implementing those providers in this slice.
+- Keep the session source boundary future-ready for later Claude, Codex, or other harness adapters without implementing those adapters in this slice.
 - Use conservative session association: collect repo/worktree sessions and mark branch confidence explicitly, rather than aggressively inferring branch ownership from prose or git history.
 - Parse session records deterministically to extract compact facts such as session metadata, message counts, tool calls, tool names, failed tool results, command arguments, files read, token usage when present, large outputs when measurable, and repeated mechanical patterns.
 - Emit a stable JSON envelope suitable for skills: `success`, repo and branch context, session summaries, aggregate metrics, evidence items, warnings, and source references.
@@ -41,11 +41,11 @@ Out of scope for the first objective slice:
 
 ## Completion Criteria
 
-- `packages/asdl-core` contains reusable provider-neutral session parsing and analysis interfaces and models, with the Pi JSONL adapter as the first implementation.
+- `packages/asdl-core` contains reusable harness-neutral session parsing interfaces and models, deterministic analysis helpers, and the Pi JSONL adapter as the first source implementation.
 - `packages/asdl-retro` exists in the workspace with standalone CLI and asdl plugin registration.
 - The outer `branch-retro` command contains a hidden `exec` subgroup, and `branch-retro exec collect-evidence` is invocable by skills.
 - `branch-retro exec collect-evidence --repo <path> --branch <branch> --format json` returns a stable success/failure envelope and compact evidence payload without LLM calls.
-- The `branch-retro` command consumes the shared `asdl-core` session library rather than owning provider-specific parsers or analysis logic.
+- The `branch-retro` command consumes the shared `asdl-core` session library rather than owning harness-specific parsers or analysis logic.
 - The Pi JSONL adapter in `asdl-core` can discover and parse session files for a repo/worktree, tolerate malformed or partial records with warnings, and preserve source references for evidence.
 - The collector reports conservative association confidence when explicit branch metadata is absent, rather than pretending older repo sessions are certainly branch-specific.
 - Aggregation identifies at least the first useful evidence classes: tool-call counts, failed tools, tools by name, repeated file reads, repeated shell commands, token usage when available, and large outputs when available.
@@ -57,9 +57,9 @@ Out of scope for the first objective slice:
 
 Assumptions:
 
-- Reusable session parsing and analysis is useful outside `asdl-retro`, so `asdl-core` is the right home for provider-neutral models, source interfaces, parsers, and aggregate metrics.
-- Pi JSONL session logs are available locally and stable enough for a first adapter that extracts generic events, messages, tool calls, tool results, timestamps, and usage records.
-- A small provider-neutral session source boundary can support the Pi adapter now and later Claude/Codex adapters without over-generalizing the v1 schema.
+- Reusable session parsing and analysis is useful outside `asdl-retro`, so `asdl-core` is the right home for harness-neutral models, source interfaces, parsers, and aggregate metrics. PR 2 confirms the source/parser boundary can land independently of the `branch-retro` collector.
+- Pi JSONL session logs are available locally and stable enough for a first adapter that extracts generic events, messages, tool calls, tool results, timestamps, and usage records. PR 2 validates this against synthetic structural fixtures; real-log validation remains for the later steelthread pass.
+- A small harness-neutral session source boundary can support the Pi adapter now and later Claude/Codex adapters without over-generalizing the v1 schema. PR 2 de-risks the boundary by using explicit `harness`, `source_info`, `source_ref`, and `association` models while keeping Pi schema names inside the adapter.
 - Repo/worktree association is useful even when exact branch metadata is missing, provided the payload marks that association as lower confidence.
 - A single cohesive `collect-evidence` command will remove enough repeated tool calls and prompt mechanics from skills to justify a new package.
 - Skills are the right consumers for the first version: they can decide which evidence matters and can propose documentation, skill, CLI, test, or code changes without the Python command becoming semantic.
@@ -68,17 +68,17 @@ Assumptions:
 Risks:
 
 - Session association may be too weak for older logs that lack explicit branch metadata. Mitigation: label confidence clearly and add explicit branch/session metadata capture in a later PR if needed.
-- Session logs can be large or contain sensitive user/tool output. Mitigation: emit compact metrics and source references by default, avoid storing raw transcript content, and make any raw excerpts opt-in and bounded.
+- Session logs can be large or contain sensitive user/tool output. Mitigation: emit compact metrics and source references by default, avoid storing raw transcript content, and make any raw excerpts opt-in and bounded. PR 2 de-risks the parser/model layer by retaining output lengths/counts and selected safe arguments, not raw prompt, assistant, tool-result, or command-output text.
 - The evidence schema could become too verbose, reintroducing token pressure for the skill. Mitigation: keep aggregate summaries compact, include limits, and test representative payload sizes.
 - Tool duration and wall-time data may be incomplete in existing logs. Mitigation: report fields only when evidence exists and distinguish missing telemetry from zero cost.
 - The CLI boundary could creep into semantic recommendation logic. Mitigation: keep recommendation categories and prioritization in the skill, and test the CLI as deterministic extraction/aggregation only.
-- The shared core boundary could become over-generalized before non-Pi providers exist. Mitigation: define only the narrow query/source and normalized-event vocabulary needed by the Pi adapter and branch retrospective evidence.
-- Pi-specific JSONL details could leak into generic core models. Mitigation: isolate provider quirks in the Pi adapter and keep shared analysis over normalized session facts.
+- The shared core boundary could become over-generalized before non-Pi providers exist. Mitigation: define only the narrow query/source and normalized-event vocabulary needed by the Pi adapter and branch retrospective evidence. PR 2 partly de-risks this by limiting normalized facts to session identity, association, counts, model/provider metadata, tool and command metadata, usage, source refs, and warnings.
+- Pi-specific JSONL details could leak into generic core models. Mitigation: isolate harness quirks in the Pi adapter and keep shared analysis over normalized session facts. PR 2 partly de-risks this with a dedicated `sessions.adapters.pi_jsonl` module and tests that check shared model names are not Pi-prefixed.
 - A new package adds maintenance overhead. Mitigation: keep the first command narrow, follow established package/test patterns, and avoid coupling it to brmem, Graphite, or provider-specific internals outside the adapter.
 
 ## Open Questions
 
-- What is the smallest provider-neutral session vocabulary that supports Pi now without constraining later Claude or Codex adapters?
+- As aggregation begins, what additional harness-neutral facts are needed beyond the PR 2 vocabulary of source identity, source refs, conservative association, message counts, model/provider metadata, tool calls/results, command executions, usage counters, and warnings?
 - How should future sessions record explicit branch metadata so association can become high-confidence without heuristics?
 - Should a later PR add a local per-session summary cache, and if so should it live under Pi state, asdl state, or Branch Memory?
 - What thresholds should define repeated reads, repeated commands, large outputs, and other evidence classes?
