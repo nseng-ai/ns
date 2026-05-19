@@ -52,3 +52,10 @@ Notes:
   skills found" until rerun with `INSTALL_INTERNAL_SKILLS=1`.
   Skill change to consider: Keep draft skills internal, but mention the install
   environment variable in skill-management notes when creating similar drafts.
+- Observation: A real Objective-stack run may update two durable tracking
+  surfaces: the selected Objective and the draft skill's learning log.
+  Evidence: The packagechk PR 1 slice needs `.asdl/objectives/packagechk-cli/*`
+  updates and `skills/dev-objective-stack/learning-log.md` notes in the same
+  branch as the implementation.
+  Skill change to consider: Add learning-log files to each slice manifest so
+  agents do not forget non-Objective workflow notes.
