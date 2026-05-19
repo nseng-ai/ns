@@ -15,7 +15,7 @@ Build `packagechk`, a small standalone Python CLI that checks whether a proposed
 - Treat the tool as a name-claimability checker, not an installability checker.
 - Use script-friendly exit codes: `0` when available on all checked registries, `1` when taken on any checked registry, and `2` for invalid input, unsupported registry selection, or operational failures.
 - Apply registry-aware name handling: PyPI uses PEP 503-style normalization; npm validates unscoped package names and does not silently rewrite invalid names.
-- Provide concise human output by default and a `--json` output mode.
+- Provide concise human output by default and a `--json` output mode, including package page URLs, latest versions, descriptions or summaries, and normalized lookup names for taken results when registries provide them.
 
 ## Non-Goals
 
@@ -34,8 +34,8 @@ Build `packagechk`, a small standalone Python CLI that checks whether a proposed
 - Invalid package names and registry/API failures produce exit code `2` with actionable error text.
 - PyPI normalization makes equivalent names such as `foo_bar`, `foo.bar`, and `foo-bar` collide for lookup purposes.
 - npm scoped names are rejected in v1 with a clear explanation.
-- Human output is concise and stable enough for people to read.
-- `--json` emits structured results suitable for scripts and agents.
+- Human output is concise and stable enough for people to read, while taken-name results include easy registry context when available.
+- `--json` emits structured results suitable for scripts and agents, including optional taken-result metadata fields.
 - Scenario tests cover help/version behavior, available and taken names, registry selection, invalid names, unsupported brew selection, exit codes, and JSON output.
 
 ## Assumptions and Risks
@@ -47,13 +47,14 @@ Assumptions:
 - A standalone `packages/packagechk` workspace package is the right first home and does not need to integrate with `asdl.plugins`.
 - Users care first about publishing/name availability, not installability or command-provider lookup.
 - Rejecting unsupported registries and scoped npm names in v1 is better than returning ambiguous `unknown` results.
-- The v1 JSON schema is stable enough for scripts when versioned with `schema_version: 1` and per-registry result objects.
+- The v1 JSON schema is stable enough for scripts when versioned with `schema_version: 1` and per-registry result objects; optional taken-result metadata can be added without changing status or exit-code semantics.
 
 Risks:
 
 - Registry naming rules and reserved-name behavior may be more nuanced than simple HTTP existence checks; the implementation must avoid claiming names are publishable when a registry would still reject them.
 - Network failures can be confused with name availability unless errors are modeled separately and mapped to exit code `2`.
 - PyPI normalization and npm validation are now covered by unit, gateway, and CLI tests, reducing the risk that registry-specific name handling produces surprising output.
+- Taken-result metadata is best-effort advisory context; missing or malformed registry JSON is omitted rather than reclassified as an operational failure, reducing the risk that metadata display makes availability checks brittle.
 - Future Homebrew support has a different claimability model than PyPI/npm, so the v1 registry model should leave room for advisory or multi-part Homebrew results.
 
 ## Open Questions
