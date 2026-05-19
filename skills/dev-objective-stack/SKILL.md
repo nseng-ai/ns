@@ -1,11 +1,11 @@
 ---
 name: dev-objective-stack
-description: "Draft workflow for implementing one checked-in asdl Objective as a Graphite PR stack. Use when the user wants to split an Objective into PRs/branches, implement an Objective as a stack, include Objective updates in each PR, create branch handoffs for clean context, or refine/finalize this draft workflow after trying it."
+description: "Implement one checked-in asdl Objective as a Graphite PR stack. Use when the user wants to split an Objective into PRs/branches, implement an Objective as a stack, include Objective updates in each PR, or create branch handoffs for clean context."
 metadata:
   internal: true
 ---
 
-<!-- INTERNAL DRAFT SKILL: asdl-only. -->
+<!-- INTERNAL SKILL: asdl contributor workflow. -->
 
 # dev-objective-stack
 
@@ -13,8 +13,13 @@ Implement exactly one checked-in Objective as an ordered Graphite stack where ea
 PR contains both implementation changes and the Objective update that would be
 true after that PR lands.
 
-This is a draft skill. After the workflow stabilizes, audit and rename or
-finalize it according to `ns-skill-management`.
+## Default mode
+
+When invoked with an Objective slug/path and an implementation request, execute
+this workflow. Do not treat it as a proposal-only checklist: select and read the
+Objective, inspect Graphite state, propose a concrete stack split, ask only the
+required stop/confirmation questions below, then implement validated PR slices
+with branch handoffs. If the user asks only to plan, stop after the plan.
 
 ## Load with
 
@@ -24,7 +29,6 @@ finalize it according to `ns-skill-management`.
 - `objective-close` only when the user chooses to close a complete Objective.
 - `graphite` for stack branch mechanics.
 - `branch-handoff` when creating or recovering branch/session handoffs.
-- `ns-skill-management` and `ns-skill-audit` when editing or finalizing this skill.
 
 ## When to stop and ask
 
@@ -74,7 +78,7 @@ Decide and state the stack base. If the current branch is an existing Objective
 scaffold branch, treat it as the base only when the user confirms that the new
 implementation stack should build on it.
 
-### 3. Draft the stack plan
+### 3. Plan the stack
 
 Split the remaining Objective roadmap into small independently reviewable slices.
 Prefer 3-6 PRs; choose more when the registry, CLI, tests, or Objective update
