@@ -59,3 +59,16 @@ Notes:
   branch as the implementation.
   Skill change to consider: Add learning-log files to each slice manifest so
   agents do not forget non-Objective workflow notes.
+- Observation: `git diff --stat` omits untracked files, which can hide most of a
+  newly scaffolded package during pre-commit evidence collection.
+  Evidence: PR 1 status showed `?? packages/packagechk/`, while `git diff --stat`
+  only showed tracked root and Objective files before the package was staged.
+  Skill change to consider: In slice verification, pair `git status --short` with
+  either staged stats after `git add` or explicit file inventory for untracked
+  package scaffolds.
+- Observation: CLI invalid-input tests can accidentally exercise option parsing
+  instead of domain validation when sample names begin with `-`.
+  Evidence: A PyPI invalid-name scenario using `-bad` failed as Click option
+  parsing (`No such option: -b`) until changed to `bad!name`.
+  Skill change to consider: Add a reminder that scenario tests should distinguish
+  CLI parser errors from domain-level invalid input unless both are in scope.
