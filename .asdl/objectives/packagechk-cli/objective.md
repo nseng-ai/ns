@@ -47,6 +47,7 @@ Assumptions:
 - A standalone `packages/packagechk` workspace package is the right first home and does not need to integrate with `asdl.plugins`.
 - Users care first about publishing/name availability, not installability or command-provider lookup.
 - Rejecting unsupported registries and scoped npm names in v1 is better than returning ambiguous `unknown` results.
+- The v1 JSON schema is stable enough for scripts when versioned with `schema_version: 1` and per-registry result objects.
 
 Risks:
 
@@ -58,4 +59,3 @@ Risks:
 ## Open Questions
 
 - Should `packagechk` eventually support npm scoped names, and if so should it check the scoped package exactly or also advise on scope ownership?
-- What exact JSON schema should be considered stable for downstream scripts?

@@ -83,6 +83,7 @@ def test_packagechk_json_output_is_structured() -> None:
     assert json.loads(result.output) == {
         "exit_code": 0,
         "name": "sample-name",
+        "schema_version": 1,
         "results": [
             {
                 "input_name": "sample-name",
@@ -161,3 +162,56 @@ def test_packagechk_npm_registry_rejects_uppercase_names_without_rewriting() -> 
     assert result.exit_code == 2
     assert "npm: invalid" in result.output
     assert "must be lowercase" in result.output
+
+
+def test_packagechk_default_registries_exit_zero_when_both_available() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
+
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name"])
+
+    assert result.exit_code == 0
+    assert result.output.splitlines() == ["pypi: available", "npm: available"]
+
+
+def test_packagechk_default_registries_exit_one_when_any_registry_is_taken() -> None:
+    def fetch_status_code(url: str, _timeout_seconds: float) -> int:
+        if "pypi.org" in url:
+            return 404
+        return 200
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name"])
+
+    assert result.exit_code == 1
+    assert result.output.splitlines() == ["pypi: available", "npm: taken"]
+
+
+def test_packagechk_default_registries_exit_two_when_any_registry_errors() -> None:
+    def fetch_status_code(url: str, _timeout_seconds: float) -> int:
+        if "pypi.org" in url:
+            return 404
+        raise OSError("registry unavailable")
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name"])
+
+    assert result.exit_code == 2
+    assert "pypi: available" in result.output
+    assert "npm: error" in result.output
+    assert "registry unavailable" in result.output
+
+
+def test_packagechk_default_json_output_includes_both_registries_and_schema_version() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
+
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == 1
+    assert payload["name"] == "sample-name"
+    assert payload["exit_code"] == 0
+    assert [item["registry"] for item in payload["results"]] == ["pypi", "npm"]
+    assert [item["status"] for item in payload["results"]] == ["available", "available"]

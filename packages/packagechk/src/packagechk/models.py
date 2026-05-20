@@ -132,6 +132,7 @@ class PackageCheckReport:
 
     def to_json_dict(self) -> dict[str, object]:
         return {
+            "schema_version": 1,
             "name": self.input_name,
             "exit_code": self.exit_code,
             "results": [result.to_json_dict() for result in self.results],
