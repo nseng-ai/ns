@@ -21,5 +21,12 @@ def _render_result(result: RegistryCheckResult) -> str:
     if result.status is CheckStatus.AVAILABLE:
         return f"{result.registry.value}: available{lookup_suffix}"
     if result.status is CheckStatus.TAKEN:
-        return f"{result.registry.value}: taken{lookup_suffix}"
+        details = [f"{result.registry.value}: taken{lookup_suffix}"]
+        if result.latest_version is not None:
+            details.append(f"latest {result.latest_version}")
+        if result.description is not None:
+            details.append(result.description)
+        if result.package_url is not None:
+            details.append(result.package_url)
+        return " — ".join(details)
     return f"{result.registry.value}: {result.status.value}: {result.message}"

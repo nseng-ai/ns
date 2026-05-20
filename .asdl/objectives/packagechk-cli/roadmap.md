@@ -7,6 +7,7 @@
 - [x] Implement PyPI name normalization and availability lookup.
 - [x] Implement npm unscoped-name validation and availability lookup.
 - [x] Add human output, JSON output, and the agreed exit-code behavior.
+- [x] Enrich taken-result human and JSON output with registry metadata: package page URL, latest version, description or summary, and normalized lookup name when applicable.
 - [x] Add CLI scenario tests for supported registries, unsupported `brew`, invalid names, exit codes, and output formats.
 - [x] Wire the package into the uv workspace and run the repo checks.
 

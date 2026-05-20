@@ -6,7 +6,7 @@ from click.testing import CliRunner
 
 from packagechk.cli import build_cli
 from packagechk.gateways.registries.fake import FakePackageRegistryGateway
-from packagechk.gateways.registries.real import RealPackageRegistryGateway
+from packagechk.gateways.registries.real import RealPackageRegistryGateway, RegistryHttpResponse
 from packagechk.models import Registry, RegistryCheckResult
 
 
@@ -98,6 +98,45 @@ def test_packagechk_json_output_is_structured() -> None:
     assert gateway.npm_checked_names == []
 
 
+def test_packagechk_json_output_includes_taken_metadata() -> None:
+    gateway = FakePackageRegistryGateway(
+        pypi_results={
+            "sample-name": RegistryCheckResult.taken(
+                Registry.PYPI,
+                input_name="sample-name",
+                lookup_name="sample-name",
+                package_url="https://pypi.org/project/sample-name/",
+                latest_version="1.2.3",
+                description="Sample PyPI package",
+            )
+        },
+    )
+
+    result = CliRunner().invoke(
+        build_cli(gateway),
+        ["sample-name", "--registry", "pypi", "--json"],
+    )
+
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "name": "sample-name",
+        "schema_version": 1,
+        "results": [
+            {
+                "description": "Sample PyPI package",
+                "input_name": "sample-name",
+                "latest_version": "1.2.3",
+                "lookup_name": "sample-name",
+                "message": "pypi package name is already taken",
+                "package_url": "https://pypi.org/project/sample-name/",
+                "registry": "pypi",
+                "status": "taken",
+            }
+        ],
+    }
+
+
 def test_packagechk_pypi_registry_reports_available_with_normalized_name() -> None:
     gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
 
@@ -108,12 +147,19 @@ def test_packagechk_pypi_registry_reports_available_with_normalized_name() -> No
 
 
 def test_packagechk_pypi_registry_reports_taken() -> None:
-    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
+    gateway = RealPackageRegistryGateway(
+        response_fetcher=lambda _url, _timeout_seconds: RegistryHttpResponse(
+            status_code=200,
+            json_body={"info": {"version": "1.2.3", "summary": "Sample PyPI package"}},
+        )
+    )
 
     result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--registry", "pypi"])
 
     assert result.exit_code == 1
-    assert result.output == "pypi: taken\n"
+    assert result.output == (
+        "pypi: taken — latest 1.2.3 — Sample PyPI package — https://pypi.org/project/sample-name/\n"
+    )
 
 
 def test_packagechk_pypi_registry_rejects_invalid_name() -> None:
@@ -136,12 +182,23 @@ def test_packagechk_npm_registry_reports_available_without_rewriting_name() -> N
 
 
 def test_packagechk_npm_registry_reports_taken() -> None:
-    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
+    gateway = RealPackageRegistryGateway(
+        response_fetcher=lambda _url, _timeout_seconds: RegistryHttpResponse(
+            status_code=200,
+            json_body={
+                "dist-tags": {"latest": "4.5.6"},
+                "description": "Sample npm package",
+            },
+        )
+    )
 
     result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--registry", "npm"])
 
     assert result.exit_code == 1
-    assert result.output == "npm: taken\n"
+    assert result.output == (
+        "npm: taken — latest 4.5.6 — Sample npm package — "
+        "https://www.npmjs.com/package/sample-name\n"
+    )
 
 
 def test_packagechk_npm_registry_rejects_scoped_names() -> None:
@@ -184,7 +241,10 @@ def test_packagechk_default_registries_exit_one_when_any_registry_is_taken() -> 
     result = CliRunner().invoke(build_cli(gateway), ["sample-name"])
 
     assert result.exit_code == 1
-    assert result.output.splitlines() == ["pypi: available", "npm: taken"]
+    assert result.output.splitlines() == [
+        "pypi: available",
+        "npm: taken — https://www.npmjs.com/package/sample-name",
+    ]
 
 
 def test_packagechk_default_registries_exit_two_when_any_registry_errors() -> None:

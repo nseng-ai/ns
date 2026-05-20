@@ -3,6 +3,28 @@ from __future__ import annotations
 from packagechk.models import CheckStatus, PackageCheckReport, Registry, RegistryCheckResult
 
 
+def test_registry_check_result_json_includes_metadata_when_present() -> None:
+    result = RegistryCheckResult.taken(
+        Registry.PYPI,
+        input_name="Foo_Bar",
+        lookup_name="foo-bar",
+        package_url="https://pypi.org/project/foo-bar/",
+        latest_version="1.2.3",
+        description="Sample PyPI package",
+    )
+
+    assert result.to_json_dict() == {
+        "description": "Sample PyPI package",
+        "input_name": "Foo_Bar",
+        "latest_version": "1.2.3",
+        "lookup_name": "foo-bar",
+        "message": "pypi package name is already taken",
+        "package_url": "https://pypi.org/project/foo-bar/",
+        "registry": "pypi",
+        "status": "taken",
+    }
+
+
 def test_report_exit_code_is_zero_when_all_results_available() -> None:
     report = PackageCheckReport(
         input_name="sample-name",
