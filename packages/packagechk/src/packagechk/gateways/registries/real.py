@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 from packagechk.gateways.registries.gateway import PackageRegistryGateway
 from packagechk.models import Registry, RegistryCheckResult
+from packagechk.npm import npm_validation_error
 from packagechk.pypi import normalize_pypi_name, pypi_validation_error
 
 StatusCodeFetcher = Callable[[str, float], int]
@@ -66,17 +67,54 @@ class RealPackageRegistryGateway(PackageRegistryGateway):
         )
 
     def check_npm(self, package_name: str) -> RegistryCheckResult:
+        validation_error = npm_validation_error(package_name)
+        if validation_error is not None:
+            return RegistryCheckResult.invalid(
+                Registry.NPM,
+                input_name=package_name,
+                lookup_name=package_name,
+                message=validation_error,
+            )
+
+        url = _npm_package_url(package_name)
+        try:
+            status_code = self._status_code_fetcher(url, self._timeout_seconds)
+        except (OSError, TimeoutError, urllib.error.URLError) as error:
+            return RegistryCheckResult.error(
+                Registry.NPM,
+                input_name=package_name,
+                lookup_name=package_name,
+                message=f"npm lookup failed: {error}",
+            )
+
+        if status_code == 200:
+            return RegistryCheckResult.taken(
+                Registry.NPM,
+                input_name=package_name,
+                lookup_name=package_name,
+            )
+        if status_code == 404:
+            return RegistryCheckResult.available(
+                Registry.NPM,
+                input_name=package_name,
+                lookup_name=package_name,
+            )
         return RegistryCheckResult.error(
             Registry.NPM,
             input_name=package_name,
             lookup_name=package_name,
-            message="npm lookup is not implemented yet",
+            message=f"npm returned unexpected HTTP status {status_code}",
         )
 
 
 def _pypi_project_json_url(normalized_name: str) -> str:
     quoted_name = urllib.parse.quote(normalized_name, safe="")
     return f"https://pypi.org/pypi/{quoted_name}/json"
+
+
+def _npm_package_url(package_name: str) -> str:
+    quoted_name = urllib.parse.quote(package_name, safe="")
+    return f"https://registry.npmjs.org/{quoted_name}"
 
 
 def _urllib_status_code(url: str, timeout_seconds: float) -> int:

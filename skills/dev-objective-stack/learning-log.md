@@ -72,3 +72,11 @@ Notes:
   parsing (`No such option: -b`) until changed to `bad!name`.
   Skill change to consider: Add a reminder that scenario tests should distinguish
   CLI parser errors from domain-level invalid input unless both are in scope.
+- Observation: A later planned slice may become partly implemented as a natural
+  consequence of an earlier slice's clean design.
+  Evidence: After the npm slice, default both-registry execution already works in
+  code because the CLI default and both real gateway methods are now wired; the
+  final PR is still useful for aggregation scenarios and JSON schema confirmation.
+  Skill change to consider: During each Objective update, mark roadmap items by
+  landed behavior rather than by the original PR boundary, and let later slices
+  narrow to evidence/coverage if implementation moved earlier.

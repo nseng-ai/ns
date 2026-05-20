@@ -63,3 +63,68 @@ def test_real_gateway_rejects_invalid_pypi_name_before_fetching() -> None:
     assert result.status is CheckStatus.INVALID
     assert "must start and end" in result.message
     assert urls == []
+
+
+def test_real_gateway_maps_npm_200_to_taken() -> None:
+    urls: list[str] = []
+
+    def fetch_status_code(url: str, timeout_seconds: float) -> int:
+        urls.append(url)
+        assert timeout_seconds == 5.0
+        return 200
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = gateway.check_npm("sample_name")
+
+    assert result.registry is Registry.NPM
+    assert result.status is CheckStatus.TAKEN
+    assert result.input_name == "sample_name"
+    assert result.lookup_name == "sample_name"
+    assert urls == ["https://registry.npmjs.org/sample_name"]
+
+
+def test_real_gateway_maps_npm_404_to_available() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
+
+    result = gateway.check_npm("available-name")
+
+    assert result.status is CheckStatus.AVAILABLE
+    assert result.lookup_name == "available-name"
+
+
+def test_real_gateway_maps_unexpected_npm_status_to_error() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 503)
+
+    result = gateway.check_npm("sample-name")
+
+    assert result.status is CheckStatus.ERROR
+    assert "unexpected HTTP status 503" in result.message
+
+
+def test_real_gateway_maps_npm_fetch_failure_to_error() -> None:
+    def fetch_status_code(_url: str, _timeout_seconds: float) -> int:
+        raise OSError("network unavailable")
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = gateway.check_npm("sample-name")
+
+    assert result.status is CheckStatus.ERROR
+    assert "network unavailable" in result.message
+
+
+def test_real_gateway_rejects_invalid_npm_name_before_fetching() -> None:
+    urls: list[str] = []
+
+    def fetch_status_code(url: str, _timeout_seconds: float) -> int:
+        urls.append(url)
+        return 200
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = gateway.check_npm("@scope/name")
+
+    assert result.status is CheckStatus.INVALID
+    assert "scoped package names are not supported" in result.message
+    assert urls == []
