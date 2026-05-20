@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
-const SKILL_NAME = "objective-next";
 const MAX_ERROR_CHARS = 4_000;
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -47,6 +46,18 @@ type ExtensionAPI = {
 	sendUserMessage(content: string): void;
 };
 
+type ObjectiveCommandName = "objective-next" | "objective-current" | "objective-update";
+
+type ObjectiveCommandSpec = {
+	commandName: ObjectiveCommandName;
+	skillName: ObjectiveCommandName;
+	description: string;
+	statusKey: string;
+	selectionTitle: string;
+	fallbackPrompt: string;
+	actionPrompt: string;
+};
+
 type ObjectiveEntry = {
 	slug: string;
 	path: string;
@@ -58,6 +69,39 @@ type ObjectiveList = {
 	rootExists: boolean;
 	entries: ObjectiveEntry[];
 };
+
+const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
+	{
+		commandName: "objective-next",
+		skillName: "objective-next",
+		description: "Pick an open Objective, then invoke objective-next for the selected slug.",
+		statusKey: "objective-next",
+		selectionTitle: "Select an open Objective for next-work recommendation",
+		fallbackPrompt:
+			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below without mutating files.",
+		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
+	},
+	{
+		commandName: "objective-current",
+		skillName: "objective-current",
+		description: "Pick an open Objective, then invoke objective-current for the selected slug.",
+		statusKey: "objective-current",
+		selectionTitle: "Select an open Objective to summarize",
+		fallbackPrompt:
+			"The objective-current skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: summarize the current state of the explicit Objective below without mutating files.",
+		actionPrompt: "Run objective-current for this explicitly selected Objective slug or path:",
+	},
+	{
+		commandName: "objective-update",
+		skillName: "objective-update",
+		description: "Pick an open Objective, then invoke objective-update for the selected slug.",
+		statusKey: "objective-update",
+		selectionTitle: "Select an open Objective to update",
+		fallbackPrompt:
+			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
+		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
+	},
+];
 
 function stripFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
@@ -136,9 +180,13 @@ function formatObjectiveListFailure(result: ExecResult): string {
 	return truncateTail(`objective list failed (${status}).\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`, MAX_ERROR_CHARS);
 }
 
-async function listOpenObjectives(pi: ExtensionAPI, ctx: CommandContext): Promise<ObjectiveList> {
+async function listOpenObjectives(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveCommandSpec,
+): Promise<ObjectiveList> {
 	if (ctx.hasUI) {
-		ctx.ui.setStatus("objective-next", "listing open Objectives…");
+		ctx.ui.setStatus(spec.statusKey, "listing open Objectives…");
 	}
 
 	let result: ExecResult;
@@ -149,7 +197,7 @@ async function listOpenObjectives(pi: ExtensionAPI, ctx: CommandContext): Promis
 		});
 	} finally {
 		if (ctx.hasUI) {
-			ctx.ui.setStatus("objective-next", undefined);
+			ctx.ui.setStatus(spec.statusKey, undefined);
 		}
 	}
 
@@ -160,10 +208,13 @@ async function listOpenObjectives(pi: ExtensionAPI, ctx: CommandContext): Promis
 	return parseObjectiveList(result.stdout);
 }
 
-async function expandSkill(pi: ExtensionAPI): Promise<{ name: string; block: string } | undefined> {
+async function expandSkill(
+	pi: ExtensionAPI,
+	skillName: ObjectiveCommandName,
+): Promise<{ name: string; block: string } | undefined> {
 	const command = pi
 		.getCommands()
-		.find((candidate) => candidate.source === "skill" && candidate.name === `skill:${SKILL_NAME}`);
+		.find((candidate) => candidate.source === "skill" && candidate.name === `skill:${skillName}`);
 	if (!command) {
 		return undefined;
 	}
@@ -172,24 +223,30 @@ async function expandSkill(pi: ExtensionAPI): Promise<{ name: string; block: str
 	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
 	const body = stripFrontmatter(await readFile(skillPath, "utf8"));
 	return {
-		name: SKILL_NAME,
-		block: `<skill name="${SKILL_NAME}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
+		name: skillName,
+		block: `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
 	};
 }
 
-function buildObjectiveNextPrompt(skillBlock: string | undefined, objective: string): string {
-	const fallback =
-		"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below without mutating files.";
+function buildObjectiveSkillPrompt(
+	spec: ObjectiveCommandSpec,
+	skillBlock: string | undefined,
+	objective: string,
+): string {
+	const updateReminder =
+		spec.skillName === "objective-update"
+			? "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow."
+			: "";
 
-	return `${skillBlock ?? fallback}
+	return `${skillBlock ?? spec.fallbackPrompt}
 
-Run objective-next for this explicitly selected Objective slug or path:
+${spec.actionPrompt}
 
 \`\`\`text
 ${objective}
 \`\`\`
 
-Treat this as an explicit user selection. Do not auto-select a different Objective.`;
+Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
 }
 
 function formatObjectiveChoice(entry: ObjectiveEntry): string {
@@ -197,24 +254,35 @@ function formatObjectiveChoice(entry: ObjectiveEntry): string {
 	return `${entry.slug} — ${updateLabel} — ${entry.path}`;
 }
 
-async function invokeObjectiveNext(pi: ExtensionAPI, ctx: CommandContext, objective: string): Promise<void> {
+async function invokeObjectiveSkill(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveCommandSpec,
+	objective: string,
+): Promise<void> {
 	await ctx.waitForIdle();
 
-	const skill = await expandSkill(pi);
+	const skill = await expandSkill(pi, spec.skillName);
 	if (ctx.hasUI) {
 		ctx.ui.notify(
-			skill ? `Invoking ${skill.name} for ${objective}.` : "objective-next skill was not found; using fallback prompt.",
+			skill
+				? `Invoking ${skill.name} for ${objective}.`
+				: `${spec.skillName} skill was not found; using fallback prompt.`,
 			skill ? "info" : "warning",
 		);
 	}
 
-	pi.sendUserMessage(buildObjectiveNextPrompt(skill?.block, objective));
+	pi.sendUserMessage(buildObjectiveSkillPrompt(spec, skill?.block, objective));
 }
 
-async function chooseObjectiveAndInvoke(pi: ExtensionAPI, ctx: CommandContext): Promise<void> {
+async function chooseObjectiveAndInvoke(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveCommandSpec,
+): Promise<void> {
 	await ctx.waitForIdle();
 
-	const objectiveList = await listOpenObjectives(pi, ctx);
+	const objectiveList = await listOpenObjectives(pi, ctx, spec);
 	if (objectiveList.entries.length === 0) {
 		if (ctx.hasUI) {
 			ctx.ui.notify("No open Objectives. Create one with /skill:objective-create.", "info");
@@ -231,7 +299,7 @@ async function chooseObjectiveAndInvoke(pi: ExtensionAPI, ctx: CommandContext): 
 		choices.set(formatObjectiveChoice(entry), entry.slug);
 	}
 
-	const selected = await ctx.ui.select("Select an open Objective", [...choices.keys()]);
+	const selected = await ctx.ui.select(spec.selectionTitle, [...choices.keys()]);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
 		return;
@@ -243,18 +311,23 @@ async function chooseObjectiveAndInvoke(pi: ExtensionAPI, ctx: CommandContext): 
 		return;
 	}
 
-	await invokeObjectiveNext(pi, ctx, slug);
+	await invokeObjectiveSkill(pi, ctx, spec, slug);
 }
 
-async function handleObjectiveNext(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+async function handleObjectiveCommand(
+	pi: ExtensionAPI,
+	spec: ObjectiveCommandSpec,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
 	const explicitObjective = args.trim();
 	try {
 		if (explicitObjective) {
-			await invokeObjectiveNext(pi, ctx, explicitObjective);
+			await invokeObjectiveSkill(pi, ctx, spec, explicitObjective);
 			return;
 		}
 
-		await chooseObjectiveAndInvoke(pi, ctx);
+		await chooseObjectiveAndInvoke(pi, ctx, spec);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (ctx.hasUI) {
@@ -263,9 +336,11 @@ async function handleObjectiveNext(pi: ExtensionAPI, args: string, ctx: CommandC
 	}
 }
 
-export default function objectiveNextExtension(pi: ExtensionAPI): void {
-	pi.registerCommand("objective-next", {
-		description: "Pick an open Objective, then invoke objective-next for the selected slug.",
-		handler: async (args, ctx) => handleObjectiveNext(pi, args, ctx),
-	});
+export default function objectiveExtension(pi: ExtensionAPI): void {
+	for (const spec of OBJECTIVE_COMMANDS) {
+		pi.registerCommand(spec.commandName, {
+			description: spec.description,
+			handler: async (args, ctx) => handleObjectiveCommand(pi, spec, args, ctx),
+		});
+	}
 }
