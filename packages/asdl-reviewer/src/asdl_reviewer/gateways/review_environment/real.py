@@ -8,6 +8,7 @@ import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TextIO
 
 from asdl_core.git.real_git_gateway import resolve_trunk_branch
 from asdl_reviewer.gateways.review_environment.gateway import ReviewEnvironmentGateway
@@ -51,6 +52,16 @@ class _ResolvedReviewPath:
 
 def _silent_progress(_msg: str) -> None:
     return None
+
+
+def _pump_stdin(stdin_stream: TextIO, stdin_payload: str) -> None:
+    try:
+        stdin_stream.write(stdin_payload)
+    except BrokenPipeError:
+        # The harness may exit before reading stdin; stdout/stderr handling below reports failures.
+        pass
+    finally:
+        stdin_stream.close()
 
 
 class RealReviewEnvironmentGateway(ReviewEnvironmentGateway):
@@ -182,17 +193,11 @@ class RealReviewEnvironmentGateway(ReviewEnvironmentGateway):
         writer_thread: threading.Thread | None = None
         if stdin_payload is not None:
             assert process.stdin is not None  # PIPE guarantees this
-            stdin_stream = process.stdin
-
-            def _pump_stdin() -> None:
-                try:
-                    stdin_stream.write(stdin_payload)
-                except BrokenPipeError:
-                    pass
-                finally:
-                    stdin_stream.close()
-
-            writer_thread = threading.Thread(target=_pump_stdin, daemon=True)
+            writer_thread = threading.Thread(
+                target=_pump_stdin,
+                args=(process.stdin, stdin_payload),
+                daemon=True,
+            )
             writer_thread.start()
 
         stdout_lines: list[str] = []
@@ -241,6 +246,15 @@ def _resolve_review_path(*, reviews_dir: Path, key: str) -> _ResolvedReviewPath 
     if key_path.is_absolute() or ".." in key_path.parts:
         return ReviewKeyInvalid(
             message=f"Review key must be a relative path without `..`: {key!r}",
+        )
+
+    if not reviews_dir.exists():
+        return ReviewsDirMissing(
+            message=f"No reviews directory at {reviews_dir}. Create it and add `<key>.md` files.",
+        )
+    if not reviews_dir.is_dir():
+        return ReviewsDirNotADirectory(
+            message=f"Reviews path is not a directory: {reviews_dir}",
         )
 
     path = reviews_dir / f"{normalized}.md"

@@ -105,6 +105,28 @@ def test_real_load_review_source_returns_failure_for_missing_key(
     assert error_type_for(result) == "review_definition_not_found"
 
 
+def test_real_load_review_source_fails_when_reviews_dir_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="dignified-python")
+
+    assert isinstance(result, ReviewerFailure)
+    assert error_type_for(result) == "reviews_dir_missing"
+
+
+def test_real_load_review_source_fails_when_reviews_path_is_a_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "reviews").write_text("not a dir", encoding="utf-8")
+
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="dignified-python")
+
+    assert isinstance(result, ReviewerFailure)
+    assert error_type_for(result) == "reviews_dir_not_a_directory"
+
+
 def test_real_load_review_source_rejects_empty_key(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
