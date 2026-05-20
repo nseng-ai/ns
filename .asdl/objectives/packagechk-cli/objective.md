@@ -60,3 +60,27 @@ Risks:
 ## Open Questions
 
 - Should `packagechk` eventually support npm scoped names, and if so should it check the scoped package exactly or also advise on scope ownership?
+
+## Closure
+
+Outcome: completed. The v1 `packagechk` CLI shipped as a standalone workspace package for checking package-name claimability on PyPI and npm, with registry selection, registry-aware validation/normalization, concise human output, script-friendly JSON output, and the agreed exit-code contract.
+
+Key evidence:
+
+- The roadmap's v1 work items are complete: package/CLI scaffold, registry result model, PyPI lookup, npm lookup, human/JSON output, taken-result metadata, scenario coverage, workspace wiring, and repo validation.
+- PyPI checks use PEP 503-style normalization and map taken, available, invalid input, and operational failures into the shared result model.
+- npm checks validate unscoped names without silent rewriting, reject scoped names for v1, and map taken, available, invalid input, and operational failures into the shared result model.
+- Taken results include best-effort package page URL, latest version, description or summary, and normalized lookup name when the registry provides it.
+- Scenario tests cover supported registries, unsupported `brew`, invalid names, exit codes, output formats, default both-registry behavior, and JSON output with `schema_version: 1`.
+- The latest recorded validation for the metadata slice passed `uv run pytest packages/packagechk/tests` and the full `just` suite.
+
+Remaining assumptions, risks, and caveats:
+
+- Homebrew formula/cask/executable-provider checks remain parked because they have a different claimability model than PyPI and npm.
+- Scoped npm-name support remains parked; the open question about exact scoped-package checks versus scope-ownership advice should be answered before implementing it.
+- Publishing `packagechk` to PyPI or npm remains parked and was not part of the v1 implementation.
+- Registry metadata stays optional and best-effort in the v1 JSON schema; missing or malformed metadata does not change availability or exit-code semantics.
+
+Follow-ups:
+
+- Start a new Objective if Homebrew support, scoped npm support, or package publication becomes a priority.
