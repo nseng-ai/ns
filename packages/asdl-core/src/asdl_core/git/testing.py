@@ -45,6 +45,8 @@ class FakeGitGateway(GitGateway):
         restructured_files_by_key: (
             dict[tuple[Path, str], tuple[RestructuredFile, ...] | GitCommandFailure] | None
         ) = None,
+        directories_by_ref_path: dict[tuple[str, str], tuple[str, ...]] | None = None,
+        paths_at_ref: Iterable[tuple[str, str]] = (),
         file_last_touched_by_ref_path: dict[tuple[str, str], str] | None = None,
         branch_head_iso_by_branch: dict[str, str] | None = None,
         branch_head_oid_by_branch: dict[str, str] | None = None,
@@ -74,6 +76,8 @@ class FakeGitGateway(GitGateway):
         self._existing_paths = set(existing_paths)
         self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
         self._restructured_files_by_key = dict(restructured_files_by_key or {})
+        self._directories_by_ref_path = dict(directories_by_ref_path or {})
+        self._paths_at_ref = set(paths_at_ref)
         self._file_last_touched_by_ref_path = dict(file_last_touched_by_ref_path or {})
         self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
         self._branch_head_oid_by_branch = dict(branch_head_oid_by_branch or {})
@@ -130,6 +134,16 @@ class FakeGitGateway(GitGateway):
 
     def list_local_branches(self) -> tuple[str, ...]:
         return tuple(sorted(self._branches))
+
+    def list_directories_at_ref(
+        self,
+        ref: str,
+        path: str,
+    ) -> tuple[str, ...] | GitCommandFailure:
+        return self._directories_by_ref_path.get((ref, path), ())
+
+    def path_exists_at_ref(self, ref: str, path: str) -> bool:
+        return (ref, path) in self._paths_at_ref
 
     def get_restructured_files(
         self,
