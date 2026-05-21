@@ -56,3 +56,27 @@ Closure requires that no candidate is in an indeterminate state. Candidates adde
 - Should the resolution mode (shipped / parked-with-reason / rejected-with-ADR) be recorded explicitly in each candidate's roadmap row, or is the `## Parked` section plus the ADR file plus the completed checkbox sufficient signal?
 - Are there second-pass review opportunities worth surfacing for asdl-objectives or asdl-dispatcher before they grow further? Not in scope here, but worth flagging on close.
 - Resolved: the asdl-reviewer gateway consolidation and harness-invocation candidates shipped as separate rows. The gateway seam remains the review-environment boundary; harness invocation is a deep implementation module behind that seam.
+
+## Closure
+
+**Outcome:** completed. All five scoped candidates reached the **shipped** state; none were parked-with-reason or rejected-with-ADR.
+
+**Evidence:**
+
+- `gateway_access.py` pass-throughs in `brmem/` and `asdl-pr-address/` deleted; op call sites read fields directly off `load_typed_context(...)`; brmem branch resolution uses `Ensure.ideal_state(...)` on canonical `DetachedHead` / `GitCommandFailure`.
+- asdl-slots `checkout`, `init`, `resize`, `free`, and `gc` now route through `asdl_slots.lifecycle` semantic entry points returning `Slot<Op>Outcome | SlotLifecycleFailure`. `lifecycle` is the sole importer of `build_init_plan` / `build_resize_plan`; the standalone `gc` module is gone. `slot list` and `slot goto` intentionally remain thin inventory reads (decision recorded in the 2026-05-17 gc Semantic Update).
+- asdl-reviewer's four thin gateways (`harness_detection`, `local_diff`, `review_definition`, `review_execution`) are replaced by one composite `review_environment` seam with real and fake adapters; workflow, CLI, gateway, scenario, and plugin tests target the new interface.
+- clinkr operation registration moved onto `ClinkrGroup._register_operation(...)`; the standalone `params.py` bridge and its direct tests were deleted with behavior coverage preserved through registered commands; type-hint extraction is cached per request type; public decorator/group APIs unchanged; full `just` gate passed (`1302 passed`).
+- asdl-reviewer harness invocation unified behind `asdl_reviewer.harness.invocation.HarnessRuntime` exposed as `list_harnesses()` / `run_review(HarnessReviewRequest)` on `ReviewEnvironmentGateway`. Deleted `harness_adapter.py`, `harness_registry.py`, `prompting.py`, and the old `harness/claude/` package. Shipped as PR #502; targeted reviewer/plugin suite passed (`135 passed`) and full `just` gate (`1285 passed`).
+
+The open-list rule did not surface additional candidates mid-flight; no `## Parked` rows accumulated.
+
+**Residual risks and caveats:**
+
+- If a second harness or review-environment variant appears, re-litigate the two-adapter rule against `HarnessRuntime` rather than pre-emptively splitting the runtime or reviving a harness-registry shape.
+- `slot list` / `slot goto` and selector-specific inventory reads in `slot free` remain CLI / Graphite selection seams; introduce a lifecycle query API only when a second real caller materializes.
+
+**Follow-ups (out of scope for this Objective):**
+
+- A second-pass `/improve-codebase-architecture` review for asdl-objectives and asdl-dispatcher was deferred from this Objective. Open a fresh Objective if and when those packages warrant their own deepening pass — do not append to this one.
+- The "explicit resolution-mode column in each roadmap row" open question is left unresolved; this Objective closed cleanly without needing it, so revisit only if a future Objective accumulates a mix of shipped / parked / rejected rows that the current shape can't disambiguate.
