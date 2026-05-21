@@ -13,7 +13,8 @@ from asdl_slots.cli.slot.free import FreedSlot
 from asdl_slots.cli.slot.gt.context import load_slot_gt_context
 from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches
 from asdl_slots.inventory import SlotMatch, build_slot_inventory
-from asdl_slots.lifecycle import SlotFreeOutcome, SlotLifecycleFailure, free_slots
+from asdl_slots.lifecycle.free import free_slots
+from asdl_slots.lifecycle.outcomes import SlotFreeOutcome, SlotLifecycleFailure
 from asdl_slots.repo_context import NoRepoSentinel
 
 

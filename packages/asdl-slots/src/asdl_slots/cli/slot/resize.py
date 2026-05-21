@@ -10,11 +10,8 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_slots.cli.slot.context import load_slots_context
-from asdl_slots.lifecycle import (
-    SlotLifecycleFailure,
-    SlotResizeOutcome,
-    resize_pool,
-)
+from asdl_slots.lifecycle.outcomes import SlotLifecycleFailure, SlotResizeOutcome
+from asdl_slots.lifecycle.pool import resize_pool
 from asdl_slots.repo_context import NoRepoSentinel
 
 

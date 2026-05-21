@@ -19,7 +19,8 @@ from asdl_slots.cli.slot.selectors import (
 )
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import MainWorktreeMatch, SlotInventory, SlotMatch
-from asdl_slots.lifecycle import SlotFreeOutcome, SlotLifecycleFailure, free_slots
+from asdl_slots.lifecycle.free import free_slots
+from asdl_slots.lifecycle.outcomes import SlotFreeOutcome, SlotLifecycleFailure
 from asdl_slots.repo_context import NoRepoSentinel
 
 
