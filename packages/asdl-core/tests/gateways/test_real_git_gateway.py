@@ -6,8 +6,12 @@ from pathlib import Path
 import pytest
 
 from asdl_core.git import real_git_gateway
-from asdl_core.git.real_git_gateway import RealGitGateway, parse_name_status_output
-from asdl_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
+from asdl_core.git.real_git_gateway import (
+    RealGitGateway,
+    parse_local_branch_tip_output,
+    parse_name_status_output,
+)
+from asdl_core.git.types import DetachedHead, GitCommandFailure, LocalBranchTip, RestructuredFile
 
 
 def test_get_current_branch_returns_branch_name(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -153,6 +157,77 @@ def test_get_restructured_files_returns_failure(monkeypatch: pytest.MonkeyPatch)
         "fatal: bad revision 'origin/main...HEAD'",
         returncode=128,
     )
+
+
+def test_parse_local_branch_tip_output_parses_nul_delimited_lines() -> None:
+    assert parse_local_branch_tip_output(
+        "main\x002026-05-20T10:44:08-04:00\n"
+        "feat/x\x002026-05-20T11:15:42-04:00\n"
+        "missing-separator\n"
+        "empty-time\x00\n"
+    ) == (
+        LocalBranchTip(name="main", head_iso="2026-05-20T10:44:08-04:00"),
+        LocalBranchTip(name="feat/x", head_iso="2026-05-20T11:15:42-04:00"),
+        LocalBranchTip(name="empty-time", head_iso=None),
+    )
+
+
+def test_list_local_branch_tips_returns_branch_names_and_timestamps(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "initial")
+    _git(repo, "branch", "-M", "main")
+    _git(repo, "branch", "feat/x")
+
+    result = RealGitGateway(repo_root=repo).list_local_branch_tips()
+
+    assert tuple(tip.name for tip in result) == ("feat/x", "main")
+    assert all(tip.head_iso is not None for tip in result)
+    assert all("T" in tip.head_iso for tip in result if tip.head_iso is not None)
+
+
+def test_list_tracked_paths_at_ref_returns_recursive_paths(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    root = repo / ".asdl" / "objectives"
+    (root / "alpha" / "updates").mkdir(parents=True)
+    (root / "beta").mkdir()
+    (root / "alpha" / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    (root / "alpha" / "updates" / "progress.md").write_text("# Progress\n", encoding="utf-8")
+    (root / "beta" / "closed.md").write_text("closed\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objectives")
+
+    result = RealGitGateway(repo_root=repo).list_tracked_paths_at_ref("HEAD", ".asdl/objectives")
+
+    assert result == (
+        ".asdl/objectives/alpha/objective.md",
+        ".asdl/objectives/alpha/updates/progress.md",
+        ".asdl/objectives/beta/closed.md",
+    )
+
+
+def test_list_tracked_paths_at_ref_missing_tree_path_returns_empty(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "initial")
+
+    result = RealGitGateway(repo_root=repo).list_tracked_paths_at_ref("HEAD", ".asdl/objectives")
+
+    assert result == ()
+
+
+def test_list_tracked_paths_at_ref_invalid_ref_returns_failure(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+
+    result = RealGitGateway(repo_root=repo).list_tracked_paths_at_ref(
+        "refs/heads/does-not-exist",
+        ".asdl/objectives",
+    )
+
+    assert isinstance(result, GitCommandFailure)
+    assert result.returncode != 0
 
 
 def test_list_directories_at_ref_missing_tree_path_returns_empty(tmp_path: Path) -> None:

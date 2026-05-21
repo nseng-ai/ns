@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import DetachedHead, GitCommandFailure, RestructuredFile
+from asdl_core.git.types import DetachedHead, GitCommandFailure, LocalBranchTip, RestructuredFile
 
 
 def test_fake_current_branch_defaults_to_detached_head() -> None:
@@ -82,3 +82,43 @@ def test_fake_path_exists_at_ref_returns_seeded_existence() -> None:
         "refs/heads/feature",
         ".asdl/objectives/beta/closed.md",
     )
+
+
+def test_fake_list_local_branch_tips_returns_sorted_branches_and_seeded_timestamps() -> None:
+    gateway = FakeGitGateway(
+        branches=("feat/b", "main", "feat/a"),
+        branch_head_iso_by_branch={"feat/a": "2026-05-20T10:44:08-04:00"},
+    )
+
+    assert gateway.list_local_branch_tips() == (
+        LocalBranchTip(name="feat/a", head_iso="2026-05-20T10:44:08-04:00"),
+        LocalBranchTip(name="feat/b", head_iso=None),
+        LocalBranchTip(name="main", head_iso=None),
+    )
+
+
+def test_fake_list_tracked_paths_at_ref_defaults_to_empty() -> None:
+    gateway = FakeGitGateway()
+
+    assert gateway.list_tracked_paths_at_ref("refs/heads/feature", ".asdl/objectives") == ()
+
+
+def test_fake_list_tracked_paths_at_ref_returns_seeded_paths() -> None:
+    paths = (
+        ".asdl/objectives/alpha/objective.md",
+        ".asdl/objectives/alpha/updates/progress.md",
+    )
+    gateway = FakeGitGateway(
+        tracked_paths_by_ref_path={("refs/heads/feature", ".asdl/objectives"): paths}
+    )
+
+    assert gateway.list_tracked_paths_at_ref("refs/heads/feature", ".asdl/objectives") == paths
+
+
+def test_fake_list_tracked_paths_at_ref_returns_seeded_failure() -> None:
+    failure = GitCommandFailure(message="bad ref", returncode=128)
+    gateway = FakeGitGateway(
+        tracked_paths_by_ref_path={("refs/heads/feature", ".asdl/objectives"): failure}
+    )
+
+    assert gateway.list_tracked_paths_at_ref("refs/heads/feature", ".asdl/objectives") == failure

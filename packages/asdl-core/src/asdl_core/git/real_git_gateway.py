@@ -11,6 +11,7 @@ from asdl_core.git.types import (
     DetachedHead,
     FileStatus,
     GitCommandFailure,
+    LocalBranchTip,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -44,6 +45,20 @@ def parse_porcelain_status(stdout: str) -> FileStatus:
             if worktree != " ":
                 modified = True
     return FileStatus(staged=staged, modified=modified, untracked=untracked)
+
+
+def parse_local_branch_tip_output(stdout: str) -> tuple[LocalBranchTip, ...]:
+    """Parse NUL-delimited local branch tip output from ``git for-each-ref``."""
+
+    tips: list[LocalBranchTip] = []
+    for raw_line in stdout.splitlines():
+        if not raw_line:
+            continue
+        name, separator, head_iso = raw_line.partition("\x00")
+        if separator == "" or name == "":
+            continue
+        tips.append(LocalBranchTip(name=name, head_iso=head_iso or None))
+    return tuple(tips)
 
 
 def parse_worktree_list_output(stdout: str) -> tuple[WorktreeInfo, ...]:
@@ -330,6 +345,36 @@ class RealGitGateway(GitGateway):
             cwd=self._require_repo_root(),
             check=True,
         )
+        return tuple(line for line in result.stdout.splitlines() if line)
+
+    def list_local_branch_tips(self) -> tuple[LocalBranchTip, ...]:
+        result = _run(
+            [
+                "git",
+                "for-each-ref",
+                "--format=%(refname:short)%00%(committerdate:iso8601-strict)",
+                "refs/heads/",
+            ],
+            cwd=self._require_repo_root(),
+            check=True,
+        )
+        return parse_local_branch_tip_output(result.stdout)
+
+    def list_tracked_paths_at_ref(
+        self,
+        ref: str,
+        path: str,
+    ) -> tuple[str, ...] | GitCommandFailure:
+        result = _run(
+            ["git", "ls-tree", "-r", "--full-tree", "--name-only", ref, "--", path],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            return GitCommandFailure(
+                message=result.stderr.strip() or "git ls-tree failed",
+                returncode=result.returncode,
+            )
         return tuple(line for line in result.stdout.splitlines() if line)
 
     def list_directories_at_ref(

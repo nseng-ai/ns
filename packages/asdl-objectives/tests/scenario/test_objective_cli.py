@@ -82,9 +82,9 @@ def test_objective_status_groups_multiple_branches_under_one_objective(
 ) -> None:
     ctx = _status_context(
         branches=("master", "feat/b", "feat/a"),
-        directories_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives"): ("alpha",),
-            ("refs/heads/feat/b", ".asdl/objectives"): ("alpha",),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
         branch_head_iso_by_branch={
             "feat/a": "2026-05-20T10:44:08-04:00",
@@ -125,9 +125,12 @@ def test_objective_status_groups_multiple_branches_under_one_objective(
 def test_objective_status_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
     ctx = _status_context(
         branches=("master", "feat/b", "feat/a"),
-        directories_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives"): ("beta", "alpha"),
-            ("refs/heads/feat/b", ".asdl/objectives"): ("alpha",),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (
+                ".asdl/objectives/beta/objective.md",
+                ".asdl/objectives/alpha/objective.md",
+            ),
+            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
     )
 
@@ -143,10 +146,13 @@ def test_objective_status_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -
 def test_objective_status_excludes_closed_objectives(cli_group: ClinkrGroup) -> None:
     ctx = _status_context(
         branches=("master", "feat/a"),
-        directories_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives"): ("closed-one", "open-one"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (
+                ".asdl/objectives/closed-one/objective.md",
+                ".asdl/objectives/closed-one/closed.md",
+                ".asdl/objectives/open-one/objective.md",
+            ),
         },
-        paths_at_ref=(("refs/heads/feat/a", ".asdl/objectives/closed-one/closed.md"),),
     )
 
     result = _invoke_status_json(cli_group, ctx)
@@ -162,9 +168,11 @@ def test_objective_status_excludes_trunk_and_no_objective_branches(
 ) -> None:
     ctx = _status_context(
         branches=("master", "feat/active", "feat/empty"),
-        directories_by_ref_path={
-            ("refs/heads/master", ".asdl/objectives"): ("alpha",),
-            ("refs/heads/feat/active", ".asdl/objectives"): ("alpha",),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/active", ".asdl/objectives"): (
+                ".asdl/objectives/alpha/objective.md",
+            ),
         },
     )
 
@@ -186,8 +194,8 @@ def test_objective_status_default_human_and_markdown_are_list_view(
 ) -> None:
     ctx = _status_context(
         branches=("master", "feat/a"),
-        directories_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives"): ("alpha",),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
         branch_head_iso_by_branch={"feat/a": "2026-05-20T10:44:08-04:00"},
         commit_count_by_range={"master..feat/a": 7},
@@ -220,8 +228,8 @@ def test_objective_status_detail_human_and_markdown_column_shape(
 ) -> None:
     ctx = _status_context(
         branches=("master", "feat/a"),
-        directories_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives"): ("alpha",),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
         branch_head_iso_by_branch={"feat/a": "2026-05-20T10:44:08-04:00"},
         commit_count_by_range={"master..feat/a": 7},
@@ -798,8 +806,9 @@ def _status_context(
     *,
     branches: tuple[str, ...],
     trunk_branch: str = "master",
-    directories_by_ref_path: dict[tuple[str, str], tuple[str, ...]] | None = None,
-    paths_at_ref: tuple[tuple[str, str], ...] = (),
+    tracked_paths_by_ref_path: (
+        dict[tuple[str, str], tuple[str, ...] | GitCommandFailure] | None
+    ) = None,
     branch_head_iso_by_branch: dict[str, str] | None = None,
     commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
 ) -> ObjectiveCliContext:
@@ -810,8 +819,7 @@ def _status_context(
             repo_root=Path("/repo"),
             branches=branches,
             trunk_branch=trunk_branch,
-            directories_by_ref_path=directories_by_ref_path,
-            paths_at_ref=paths_at_ref,
+            tracked_paths_by_ref_path=tracked_paths_by_ref_path,
             branch_head_iso_by_branch=branch_head_iso_by_branch,
             commit_count_by_range=commit_count_by_range,
         ),
