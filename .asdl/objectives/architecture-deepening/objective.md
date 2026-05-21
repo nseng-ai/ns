@@ -47,7 +47,7 @@ Closure requires that no candidate is in an indeterminate state. Candidates adde
 **Risks**
 
 - Deepening asdl-slots and asdl-reviewer touches the busiest packages; a botched consolidation could regress observable CLI behavior. _Mitigation_: insist on a working test surface against the new interface before deleting the old shape.
-- Collapsing the four asdl-reviewer gateways may erase a seam that a future harness or environment variant actually wants. _Mitigation_: defer candidate 3 until at least one such variant is on the horizon, or re-litigate the two-adapter rule at the time.
+- Collapsing the four asdl-reviewer gateways may erase a seam that a future harness or environment variant actually wants. _Status_: the `review_environment` consolidation replaces the four thin gateways with one composite seam backed by real and fake adapters. Workflow, gateway, scenario, and plugin smoke tests now target that interface, which de-risks the useful-variation-point concern for this candidate. _Residual_: the later harness-invocation candidate may still reveal harness-specific seams; re-litigate the two-adapter rule if a future harness/environment variant needs a seam that disappeared.
 - The clinkr deepening (candidate 4) touches every package that registers commands. _Mitigation_: keep the public decorator surface stable; only internal seams move.
 - "Open list" creates closure-creep risk: candidates added mid-flight could keep this Objective open indefinitely. _Mitigation_: each added candidate must include a deletion-test argument written into `## Scope` before its roadmap row is added.
 

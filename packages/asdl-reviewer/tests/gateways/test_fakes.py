@@ -2,31 +2,108 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
-from asdl_reviewer.gateways.review_execution.fake import FakeReviewExecutionGateway
+from asdl_core.clinkr.non_ideal_state import error_type_for
+from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
 from asdl_reviewer.models import (
+    BaseRefUnavailable,
     FindingsReview,
     LocalDiff,
+    ReviewDefinitionNotFound,
+    ReviewerFailure,
     ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFinding,
+    ReviewsDirMissing,
 )
 
 
-def test_review_definition_fake_returns_configured_source() -> None:
-    path = Path("standards/dignified-python.md")
-    gateway = FakeReviewDefinitionGateway(sources_by_path={path: "# Dignified Python"})
+def _request(*, review_name: str = "Dignified Python") -> ReviewExecutionRequest:
+    return ReviewExecutionRequest(
+        adapter_name="claude-code",
+        model="sonnet",
+        prompt="review this diff",
+        system_prompt="You are a code reviewer.",
+        review_format="findings",
+        review_name=review_name,
+        review_description="Review Python diffs for style violations.",
+        review_instructions="Flag concrete issues in the diff.",
+        base_ref="master",
+        diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+    )
 
-    result = gateway.load_source(path)
 
-    assert result == "# Dignified Python"
-    assert gateway.requested_paths == (path,)
+def test_fake_load_review_source_returns_configured_source() -> None:
+    reviews_dir = Path("/repo/reviews")
+    gateway = FakeReviewEnvironmentGateway(
+        review_sources_by_key={"standards/dignified-python": "# Dignified Python"},
+        reviews_dir=reviews_dir,
+    )
+
+    result = gateway.load_review_source(key="standards/dignified-python")
+
+    assert result.key == "standards/dignified-python"
+    assert result.path == reviews_dir / "standards" / "dignified-python.md"
+    assert result.source == "# Dignified Python"
+    assert gateway.requested_review_keys == ("standards/dignified-python",)
 
 
-def test_local_diff_fake_returns_configured_diff() -> None:
-    gateway = FakeLocalDiffGateway(
-        results_by_base_ref={
+def test_fake_load_review_source_returns_configured_failure() -> None:
+    failure = ReviewDefinitionNotFound(path=Path("/missing.md"), message="missing")
+    gateway = FakeReviewEnvironmentGateway(
+        review_source_failures_by_key={"missing": failure},
+    )
+
+    result = gateway.load_review_source(key="missing")
+
+    assert result is failure
+
+
+def test_fake_load_review_source_returns_not_found_for_unknown_key() -> None:
+    gateway = FakeReviewEnvironmentGateway()
+
+    result = gateway.load_review_source(key="missing")
+
+    assert isinstance(result, ReviewerFailure)
+    assert error_type_for(result) == "review_definition_not_found"
+
+
+def test_fake_list_review_keys_infers_from_sources() -> None:
+    gateway = FakeReviewEnvironmentGateway(
+        review_sources_by_key={
+            "dignified-python": "# Dignified Python",
+            "python/typing": "# Typing",
+        }
+    )
+
+    catalog = gateway.list_review_keys()
+
+    assert catalog.keys == ("dignified-python", "python/typing")
+    assert catalog.reviews_dir == Path("/repo/reviews")
+
+
+def test_fake_list_review_keys_returns_configured_keys() -> None:
+    gateway = FakeReviewEnvironmentGateway(
+        review_sources_by_key={"ignored": "# Ignored"},
+        review_keys=("alpha", "python/typing"),
+    )
+
+    catalog = gateway.list_review_keys()
+
+    assert catalog.keys == ("alpha", "python/typing")
+
+
+def test_fake_list_review_keys_returns_configured_failure() -> None:
+    failure = ReviewsDirMissing(message="nope")
+    gateway = FakeReviewEnvironmentGateway(list_review_keys_failure=failure)
+
+    result = gateway.list_review_keys()
+
+    assert result is failure
+
+
+def test_fake_load_diff_returns_configured_diff() -> None:
+    gateway = FakeReviewEnvironmentGateway(
+        diffs_by_base_ref={
             "master": LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
@@ -41,7 +118,36 @@ def test_local_diff_fake_returns_configured_diff() -> None:
     assert gateway.requested_base_refs == ("master",)
 
 
-def test_review_execution_fake_returns_configured_response() -> None:
+def test_fake_load_diff_returns_default_failure() -> None:
+    failure = BaseRefUnavailable(message="no base")
+    gateway = FakeReviewEnvironmentGateway(default_diff=failure)
+
+    result = gateway.load_diff(base_ref=None)
+
+    assert result is failure
+    assert gateway.requested_base_refs == (None,)
+
+
+def test_fake_detect_harness_returns_configured_path() -> None:
+    gateway = FakeReviewEnvironmentGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
+
+    detection = gateway.detect_harness(name="claude-code", binary="claude")
+
+    assert detection.available is True
+    assert detection.path == "/usr/local/bin/claude"
+    assert gateway.detect_calls == (("claude-code", "claude"),)
+
+
+def test_fake_detect_harness_reports_binary_absent() -> None:
+    gateway = FakeReviewEnvironmentGateway()
+
+    detection = gateway.detect_harness(name="claude-code", binary="claude")
+
+    assert detection.available is False
+    assert detection.path is None
+
+
+def test_fake_run_review_returns_configured_response() -> None:
     finding = ReviewFinding(
         path="app.py",
         line=1,
@@ -49,26 +155,13 @@ def test_review_execution_fake_returns_configured_response() -> None:
         summary="Avoid print in library code",
         details="Use click.echo() instead.",
     )
-    gateway = FakeReviewExecutionGateway(
+    gateway = FakeReviewEnvironmentGateway(
         responses_by_review_name={
             "Dignified Python": ReviewExecutionResponse(payload=FindingsReview(findings=(finding,)))
         }
     )
 
-    result = gateway.run_review(
-        ReviewExecutionRequest(
-            adapter_name="claude-code",
-            model="sonnet",
-            prompt="review this diff",
-            system_prompt="You are a code reviewer.",
-            review_format="findings",
-            review_name="Dignified Python",
-            review_description="Review Python diffs for style violations.",
-            review_instructions="Flag concrete issues in the diff.",
-            base_ref="master",
-            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
-        )
-    )
+    result = gateway.run_review(_request())
 
     assert isinstance(result, ReviewExecutionResponse)
     assert isinstance(result.payload, FindingsReview)

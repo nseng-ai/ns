@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.gateways.review_definition.fake import FakeReviewDefinitionGateway
-from asdl_reviewer.gateways.review_definition.real import RealReviewDefinitionGateway
-from asdl_reviewer.models import ReviewerFailure, ReviewsDirMissing
+from asdl_reviewer.gateways.review_environment import real as review_environment_real
+from asdl_reviewer.gateways.review_environment.real import RealReviewEnvironmentGateway
+from asdl_reviewer.models import ReviewerFailure, ReviewSource
 
 
 def _write(path: Path, body: str) -> None:
@@ -13,128 +15,149 @@ def _write(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def test_real_list_reviews_is_empty_for_empty_dir(tmp_path: Path) -> None:
+def _gateway(repo_root: Path, monkeypatch: pytest.MonkeyPatch) -> RealReviewEnvironmentGateway:
+    def fake_git_toplevel(*, cwd: Path) -> Path:
+        return repo_root
+
+    monkeypatch.setattr(review_environment_real, "git_toplevel", fake_git_toplevel)
+    return RealReviewEnvironmentGateway(cwd=repo_root)
+
+
+def test_real_list_review_keys_is_empty_for_empty_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     reviews_dir = tmp_path / "reviews"
     reviews_dir.mkdir()
 
-    keys = RealReviewDefinitionGateway().list_reviews(reviews_dir)
+    catalog = _gateway(tmp_path, monkeypatch).list_review_keys()
 
-    assert keys == ()
+    assert not isinstance(catalog, ReviewerFailure)
+    assert catalog.keys == ()
+    assert catalog.reviews_dir == reviews_dir
 
 
-def test_real_list_reviews_reports_flat_and_nested_keys(tmp_path: Path) -> None:
+def test_real_list_review_keys_reports_flat_and_nested_keys(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     reviews_dir = tmp_path / "reviews"
     _write(reviews_dir / "dignified-python.md", "# Dignified Python")
     _write(reviews_dir / "python" / "typing.md", "# Typing")
     _write(reviews_dir / "python" / "errors.md", "# Errors")
     _write(reviews_dir / "not-a-review.txt", "ignored")
 
-    keys = RealReviewDefinitionGateway().list_reviews(reviews_dir)
+    catalog = _gateway(tmp_path, monkeypatch).list_review_keys()
 
-    assert keys == ("dignified-python", "python/errors", "python/typing")
+    assert not isinstance(catalog, ReviewerFailure)
+    assert catalog.keys == ("dignified-python", "python/errors", "python/typing")
+    assert catalog.reviews_dir == reviews_dir
 
 
-def test_real_list_reviews_fails_when_dir_missing(tmp_path: Path) -> None:
-    result = RealReviewDefinitionGateway().list_reviews(tmp_path / "reviews")
+def test_real_list_review_keys_fails_when_dir_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _gateway(tmp_path, monkeypatch).list_review_keys()
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "reviews_dir_missing"
 
 
-def test_real_list_reviews_fails_when_path_is_a_file(tmp_path: Path) -> None:
+def test_real_list_review_keys_fails_when_path_is_a_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     weird = tmp_path / "reviews"
     weird.write_text("not a dir", encoding="utf-8")
 
-    result = RealReviewDefinitionGateway().list_reviews(weird)
+    result = _gateway(tmp_path, monkeypatch).list_review_keys()
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "reviews_dir_not_a_directory"
 
 
-def test_real_resolve_key_returns_path(tmp_path: Path) -> None:
+def test_real_load_review_source_returns_source_for_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     reviews_dir = tmp_path / "reviews"
-    _write(reviews_dir / "python" / "typing.md", "# Typing")
+    path = reviews_dir / "python" / "typing.md"
+    _write(path, "# Typing")
 
-    result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "python/typing")
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="python/typing")
 
-    assert result == reviews_dir / "python" / "typing.md"
+    assert isinstance(result, ReviewSource)
+    assert result.key == "python/typing"
+    assert result.path == path
+    assert result.source == "# Typing"
 
 
-def test_real_resolve_key_returns_failure_for_missing_key(tmp_path: Path) -> None:
-    reviews_dir = tmp_path / "reviews"
-    reviews_dir.mkdir()
+def test_real_load_review_source_returns_failure_for_missing_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "reviews").mkdir()
 
-    result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "nope")
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="nope")
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "review_definition_not_found"
 
 
-def test_real_resolve_key_rejects_empty_key(tmp_path: Path) -> None:
-    reviews_dir = tmp_path / "reviews"
-    reviews_dir.mkdir()
+def test_real_load_review_source_fails_when_reviews_dir_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="dignified-python")
 
-    result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "  ")
+    assert isinstance(result, ReviewerFailure)
+    assert error_type_for(result) == "reviews_dir_missing"
+
+
+def test_real_load_review_source_fails_when_reviews_path_is_a_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "reviews").write_text("not a dir", encoding="utf-8")
+
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="dignified-python")
+
+    assert isinstance(result, ReviewerFailure)
+    assert error_type_for(result) == "reviews_dir_not_a_directory"
+
+
+def test_real_load_review_source_rejects_empty_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "reviews").mkdir()
+
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="  ")
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "review_key_invalid"
 
 
-def test_real_resolve_key_rejects_traversal(tmp_path: Path) -> None:
-    reviews_dir = tmp_path / "reviews"
-    reviews_dir.mkdir()
+def test_real_load_review_source_rejects_traversal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "reviews").mkdir()
 
-    result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "../outside")
-
-    assert isinstance(result, ReviewerFailure)
-    assert error_type_for(result) == "review_key_invalid"
-
-
-def test_real_resolve_key_rejects_absolute_path(tmp_path: Path) -> None:
-    reviews_dir = tmp_path / "reviews"
-    reviews_dir.mkdir()
-
-    result = RealReviewDefinitionGateway().resolve_key(reviews_dir, "/etc/passwd")
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="../outside")
 
     assert isinstance(result, ReviewerFailure)
     assert error_type_for(result) == "review_key_invalid"
 
 
-def test_fake_list_reviews_infers_from_sources() -> None:
-    reviews_dir = Path("/repo/reviews")
-    gateway = FakeReviewDefinitionGateway(
-        sources_by_path={
-            reviews_dir / "dignified-python.md": "# Dignified Python",
-            reviews_dir / "python" / "typing.md": "# Typing",
-        }
-    )
+def test_real_load_review_source_rejects_absolute_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "reviews").mkdir()
 
-    keys = gateway.list_reviews(reviews_dir)
-
-    assert keys == ("dignified-python", "python/typing")
-
-
-def test_fake_list_reviews_returns_configured_failure() -> None:
-    reviews_dir = Path("/repo/reviews")
-    failure = ReviewsDirMissing(message="nope")
-    gateway = FakeReviewDefinitionGateway(list_failures={reviews_dir: failure})
-
-    assert gateway.list_reviews(reviews_dir) is failure
-
-
-def test_fake_resolve_key_returns_configured_path() -> None:
-    reviews_dir = Path("/repo/reviews")
-    path = reviews_dir / "dignified-python.md"
-    gateway = FakeReviewDefinitionGateway(sources_by_path={path: "# D"})
-
-    assert gateway.resolve_key(reviews_dir, "dignified-python") == path
-
-
-def test_fake_resolve_key_returns_failure_for_unknown_key() -> None:
-    reviews_dir = Path("/repo/reviews")
-    gateway = FakeReviewDefinitionGateway()
-
-    result = gateway.resolve_key(reviews_dir, "nope")
+    result = _gateway(tmp_path, monkeypatch).load_review_source(key="/etc/passwd")
 
     assert isinstance(result, ReviewerFailure)
-    assert error_type_for(result) == "review_definition_not_found"
+    assert error_type_for(result) == "review_key_invalid"
