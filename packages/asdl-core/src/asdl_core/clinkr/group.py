@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Callable, Sequence
-from typing import Any
+from dataclasses import dataclass
+from functools import cache
+from typing import Annotated, Any, TypeGuard, get_args, get_origin, get_type_hints
 
 import click
+from pydantic import BaseModel
 
 from asdl_core.clinkr.command import emit_machine_envelope
 from asdl_core.clinkr.context import MACHINE_FORMAT_PARAM_NAME, set_machine_mode
@@ -12,8 +16,23 @@ from asdl_core.clinkr.exit import ClinkrExit, ExitStatus
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.json_schema import build_json_schema_document
 from asdl_core.clinkr.operation import ClinkrOperationMeta, get_operation_meta
-from asdl_core.clinkr.params import build_request_from_click_params, extract_click_params
 from asdl_core.clinkr.rendering import default_human_renderer
+
+_PYTHON_TO_CLICK_TYPE: dict[type, click.ParamType] = {
+    str: click.STRING,
+    int: click.INT,
+    float: click.FLOAT,
+    bool: click.BOOL,
+}
+
+_MISSING = object()
+
+
+@dataclass(frozen=True)
+class RequestField:
+    name: str
+    has_default: bool
+    default: Any = _MISSING
 
 
 class ClinkrGroup(click.Group):
@@ -38,7 +57,7 @@ class ClinkrGroup(click.Group):
             meta = get_operation_meta(op_fn)
             if meta is None:
                 raise TypeError(f"{op_fn!r} is not decorated with @clinkr_operation")
-            _register_operation(self, op_fn, meta)
+            self._register_operation(op_fn, meta)
 
     # -- alias handling (ported from AliasedGroup) --
 
@@ -47,6 +66,82 @@ class ClinkrGroup(click.Group):
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
         return super().get_command(ctx, self._aliases.get(cmd_name, cmd_name))
+
+    # -- operation registration --
+
+    def _register_operation(
+        self,
+        operation: Callable[..., Any],
+        meta: ClinkrOperationMeta,
+    ) -> None:
+        """Wire up human and machine Click commands for a single operation."""
+        help_text = meta.help or operation.__doc__ or ""
+        human_renderer = meta.human_renderer or default_human_renderer
+        markdown_renderer = meta.markdown_renderer
+        request_type = meta.request_type
+        result_type = meta.result_type
+
+        params = _build_click_params(request_type)
+        inject_format_option = not _has_option(params, "--format")
+
+        @click.pass_context
+        def human_callback(ctx: click.Context, **kwargs: Any) -> None:
+            format_mode = kwargs.pop(MACHINE_FORMAT_PARAM_NAME, "human")
+
+            request = _build_request_from_click_params(request_type, kwargs)
+
+            if format_mode == "json":
+                set_machine_mode(ctx)
+                try:
+                    result = operation(ctx, request)
+                except ClinkrFailure as fail:
+                    result = ClinkrExit.failure(error_type=fail.error_type, message=fail.message)
+                except ClinkrExit as exit_result:
+                    result = exit_result
+                emit_machine_envelope(result)
+                return
+
+            try:
+                result = operation(ctx, request)
+            except ClinkrFailure as fail:
+                result = ClinkrExit.failure(error_type=fail.error_type, message=fail.message)
+            except ClinkrExit as exit_result:
+                result = exit_result
+            if not isinstance(result, ClinkrExit):
+                raise click.ClickException(
+                    f"operation '{meta.name}' did not return a ClinkrExit; "
+                    f"got {type(result).__name__}"
+                )
+            if result.status is ExitStatus.OK:
+                assert result.data is not None
+                if format_mode in ("markdown", "md") and markdown_renderer is not None:
+                    markdown_renderer(result.data)
+                else:
+                    human_renderer(result.data)
+                return
+            if result.status is ExitStatus.NEGATIVE:
+                if result.message is not None:
+                    click.echo(result.message, err=True)
+                ctx.exit(1)
+            # FAILURE
+            click.echo(f"error: {result.message}", err=True)
+            ctx.exit(2)
+
+        if inject_format_option:
+            params.append(_build_format_option())
+        if not _has_option(params, "--json-schema"):
+            params.append(_build_json_schema_option(request_type, result_type))
+
+        human_cmd = click.Command(
+            name=meta.name,
+            callback=human_callback,
+            params=params,
+            help=help_text,
+        )
+
+        self.add_command(human_cmd, meta.name)
+        for alias in meta.aliases:
+            self.add_alias(meta.name, alias)
 
     # -- help formatting with aliases --
 
@@ -74,80 +169,117 @@ class ClinkrGroup(click.Group):
 # -- private helpers ----------------------------------------------------------
 
 
-def _register_operation(
-    group: ClinkrGroup,
-    operation: Callable[..., Any],
-    meta: ClinkrOperationMeta,
-) -> None:
-    """Wire up human and machine Click commands for a single operation."""
-    help_text = meta.help or operation.__doc__ or ""
-    human_renderer = meta.human_renderer or default_human_renderer
-    markdown_renderer = meta.markdown_renderer
-    request_type = meta.request_type
-    result_type = meta.result_type
+def _build_click_params(request_type: type) -> list[click.Parameter]:
+    fields = _request_fields(request_type)
+    hints = _request_type_hints(request_type)
 
-    # -- build human command --
-    params = extract_click_params(request_type)
-    inject_format_option = not _has_option(params, "--format")
+    arguments: list[click.Parameter] = []
+    options: list[click.Parameter] = []
 
-    @click.pass_context
-    def human_callback(ctx: click.Context, **kwargs: Any) -> None:
-        format_mode = kwargs.pop(MACHINE_FORMAT_PARAM_NAME, "human")
+    for field in fields:
+        hint = hints.get(field.name, str)
+        param = _extract_annotated_param(field, hint)
+        if param is None:
+            param = _infer_param(field, hint)
 
-        request = build_request_from_click_params(request_type, kwargs)
+        if isinstance(param, click.Argument):
+            arguments.append(param)
+        else:
+            options.append(param)
 
-        if format_mode == "json":
-            set_machine_mode(ctx)
-            try:
-                result = operation(ctx, request)
-            except ClinkrFailure as fail:
-                result = ClinkrExit.failure(error_type=fail.error_type, message=fail.message)
-            except ClinkrExit as exit_result:
-                result = exit_result
-            emit_machine_envelope(result)
-            return
+    return [*arguments, *options]
 
-        try:
-            result = operation(ctx, request)
-        except ClinkrFailure as fail:
-            result = ClinkrExit.failure(error_type=fail.error_type, message=fail.message)
-        except ClinkrExit as exit_result:
-            result = exit_result
-        if not isinstance(result, ClinkrExit):
-            raise click.ClickException(
-                f"operation '{meta.name}' did not return a ClinkrExit; got {type(result).__name__}"
-            )
-        if result.status is ExitStatus.OK:
-            assert result.data is not None
-            if format_mode in ("markdown", "md") and markdown_renderer is not None:
-                markdown_renderer(result.data)
-            else:
-                human_renderer(result.data)
-            return
-        if result.status is ExitStatus.NEGATIVE:
-            if result.message is not None:
-                click.echo(result.message, err=True)
-            ctx.exit(1)
-        # FAILURE
-        click.echo(f"error: {result.message}", err=True)
-        ctx.exit(2)
 
-    if inject_format_option:
-        params.append(_build_format_option())
-    if not _has_option(params, "--json-schema"):
-        params.append(_build_json_schema_option(request_type, result_type))
+def _build_request_from_click_params(request_type: type, kwargs: dict[str, Any]) -> Any:
+    field_names = {field.name for field in _request_fields(request_type)}
+    mapped = {}
+    for key, value in kwargs.items():
+        name = key.replace("-", "_")
+        if name in field_names:
+            mapped[name] = value
 
-    human_cmd = click.Command(
-        name=meta.name,
-        callback=human_callback,
-        params=params,
-        help=help_text,
+    if not _is_pydantic_model_type(request_type):
+        raise TypeError(
+            f"request type {request_type.__name__} must be a Pydantic BaseModel subclass"
+        )
+    return request_type.model_validate(mapped)
+
+
+def _request_fields(request_type: type) -> tuple[RequestField, ...]:
+    if not _is_pydantic_model_type(request_type):
+        raise TypeError(
+            f"request type {request_type.__name__} must be a Pydantic BaseModel subclass"
+        )
+
+    return tuple(
+        RequestField(
+            name=name,
+            has_default=not field_info.is_required(),
+            default=(
+                field_info.get_default(call_default_factory=True)
+                if not field_info.is_required()
+                else _MISSING
+            ),
+        )
+        for name, field_info in request_type.model_fields.items()
     )
 
-    # -- register --
-    group.add_command(human_cmd, meta.name)
-    for alias in meta.aliases:
-        group._aliases[alias] = meta.name
+
+@cache
+def _request_type_hints(request_type: type) -> dict[str, Any]:
+    return get_type_hints(request_type, include_extras=True)
+
+
+def _extract_annotated_param(field: RequestField, hint: Any) -> click.Parameter | None:
+    if get_origin(hint) is not Annotated:
+        return None
+
+    args = get_args(hint)
+    for meta in args[1:]:
+        if isinstance(meta, (click.Argument, click.Option)):
+            param = copy.copy(meta)
+            param.name = field.name
+            inner_type = args[0]
+            if param.type is None or isinstance(param.type, click.STRING.__class__):
+                inferred = _PYTHON_TO_CLICK_TYPE.get(inner_type)
+                if inferred is not None and inferred is not click.STRING:
+                    param.type = inferred
+            if param.default is None and field.has_default:
+                param.default = field.default
+            return param
+    return None
+
+
+def _infer_param(field: RequestField, hint: Any) -> click.Parameter:
+    inner_type = _unwrap_annotated(hint)
+    click_type = _PYTHON_TO_CLICK_TYPE.get(inner_type, click.STRING)
+
+    if field.has_default:
+        default = field.default
+        if inner_type is bool and default is False:
+            return click.Option(
+                [f"--{field.name.replace('_', '-')}"],
+                is_flag=True,
+                default=False,
+                help=None,
+            )
+        return click.Option(
+            [f"--{field.name.replace('_', '-')}"],
+            type=click_type,
+            default=default,
+            help=None,
+        )
+
+    return click.Argument(
+        [field.name],
+        type=click_type,
+    )
+
+
+def _unwrap_annotated(hint: Any) -> Any:
+    if get_origin(hint) is Annotated:
+        return get_args(hint)[0]
+    return hint
 
 
 def _has_option(params: list[click.Parameter], flag: str) -> bool:
@@ -209,3 +341,7 @@ def _build_json_schema_option(
         callback=_print_json_schema,
         help="Print the JSON Schema for this command's input/output and exit.",
     )
+
+
+def _is_pydantic_model_type(value: Any) -> TypeGuard[type[BaseModel]]:
+    return isinstance(value, type) and issubclass(value, BaseModel)

@@ -141,3 +141,53 @@ def test_annotated_params() -> None:
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data["results"]) == 2
+
+
+class InspectRequest(ClinkrModel):
+    name: str
+    count: int = 3
+    dry_run: bool = False
+
+
+class InspectResult(ClinkrModel):
+    name: str
+    count: int
+    dry_run: bool
+
+
+@clinkr_operation(name="inspect", help="Inspect inferred params.")
+def _inspect_op(ctx: click.Context, request: InspectRequest) -> ClinkrExit[InspectResult]:
+    del ctx
+    return ClinkrExit.ok(
+        InspectResult(name=request.name, count=request.count, dry_run=request.dry_run)
+    )
+
+
+def test_inferred_required_argument_and_defaulted_option() -> None:
+    group = ClinkrGroup("test", help="Test.", operations=[_inspect_op])
+
+    runner = CliRunner()
+    result = runner.invoke(group, ["inspect", "alice", "--count", "5"], obj=_runtime_obj())
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == {"name": "alice", "count": 5, "dry_run": False}
+
+
+def test_inferred_defaulted_option_uses_default() -> None:
+    group = ClinkrGroup("test", help="Test.", operations=[_inspect_op])
+
+    runner = CliRunner()
+    result = runner.invoke(group, ["inspect", "alice"], obj=_runtime_obj())
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == {"name": "alice", "count": 3, "dry_run": False}
+
+
+def test_inferred_bool_flag_maps_hyphenated_option_to_field_name() -> None:
+    group = ClinkrGroup("test", help="Test.", operations=[_inspect_op])
+
+    runner = CliRunner()
+    result = runner.invoke(group, ["inspect", "alice", "--dry-run"], obj=_runtime_obj())
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == {"name": "alice", "count": 3, "dry_run": True}
