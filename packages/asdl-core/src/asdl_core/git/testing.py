@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Final
@@ -38,6 +39,7 @@ class FakeGitGateway(GitGateway):
         previous_branch_by_path: dict[Path, str | None] | None = None,
         trunk_branch: str = "main",
         file_status_by_path: dict[Path, FileStatus] | None = None,
+        detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
         existing_paths: Iterable[Path] = (),
         repository_root_by_cwd: dict[Path, Path] | None = None,
         restructured_files_by_key: (
@@ -68,6 +70,7 @@ class FakeGitGateway(GitGateway):
         self._previous_branch_by_path = dict(previous_branch_by_path or {})
         self._trunk_branch = trunk_branch
         self._file_status_by_path = dict(file_status_by_path or {})
+        self._detach_head_failures_by_path = dict(detach_head_failures_by_path or {})
         self._existing_paths = set(existing_paths)
         self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
         self._restructured_files_by_key = dict(restructured_files_by_key or {})
@@ -184,6 +187,8 @@ class FakeGitGateway(GitGateway):
 
     def detach_head(self, cwd: Path, ref: str) -> None:
         self._detach_head_calls.append((cwd, ref))
+        if cwd in self._detach_head_failures_by_path:
+            raise self._detach_head_failures_by_path[cwd]
         self._current_branch_by_path[cwd] = DetachedHead()
         self._worktrees = [
             WorktreeInfo(path=wt.path, branch=None, is_bare=wt.is_bare) if wt.path == cwd else wt

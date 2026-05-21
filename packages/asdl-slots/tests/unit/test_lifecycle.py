@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from asdl_core.gh.pr_testing import FakePRGateway
@@ -11,6 +12,7 @@ from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.inventory import SlotInventory, SlotRecord
 from asdl_slots.lifecycle import (
     SlotCheckoutOutcome,
+    SlotFreeOutcome,
     SlotInitOutcome,
     SlotLifecycleFailure,
     SlotResizeOutcome,
@@ -18,6 +20,7 @@ from asdl_slots.lifecycle import (
     build_resize_plan,
     checkout_branch,
     checkout_current,
+    free_slots,
     initialize_pool,
     resize_pool,
 )
@@ -53,6 +56,7 @@ def _lifecycle_context(
     previous_branch_by_path: dict[Path, str | None] | None = None,
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
+    detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
 ) -> tuple[SlotsCliContext, FakeGitGateway]:
     repo_root = (tmp_path / "repo").resolve()
     slots_root = tmp_path / "slots"
@@ -77,6 +81,7 @@ def _lifecycle_context(
         previous_branch_by_path=previous_branch_by_path,
         trunk_branch=trunk_branch,
         file_status_by_path=file_status_by_path,
+        detach_head_failures_by_path=detach_head_failures_by_path,
         existing_paths=existing_paths,
         repository_root_by_cwd={repo_root: repo_root},
     )
@@ -463,3 +468,215 @@ def test_resize_pool_invalid_size_above_max_returns_failure(tmp_path: Path) -> N
     assert isinstance(outcome, SlotLifecycleFailure)
     assert outcome.error_type == "invalid_size"
     assert git.list_worktrees() == worktrees_before
+
+
+# --- free_slots ---
+
+
+def test_free_slots_empty_list_is_no_op(tmp_path: Path) -> None:
+    ctx, git = _lifecycle_context(tmp_path, branches=("main",))
+    worktrees_before = git.list_worktrees()
+
+    outcome = free_slots(ctx, ())
+
+    assert isinstance(outcome, SlotFreeOutcome)
+    assert outcome.freed == ()
+    assert git.list_worktrees() == worktrees_before
+    assert git._detach_head_calls == []
+
+
+def test_free_slots_single_assigned_slot_detaches_at_trunk(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        trunk_branch="trunk",
+    )
+    path = _slot_path(slots_root, 1)
+
+    outcome = free_slots(ctx, ("slot-01",))
+
+    assert isinstance(outcome, SlotFreeOutcome)
+    assert len(outcome.freed) == 1
+    freed = outcome.freed[0]
+    assert freed.slot_name == "slot-01"
+    assert freed.branch_name == "feat/x"
+    assert freed.worktree_path == path
+    assert git.get_current_branch(path) == DetachedHead()
+    assert git._detach_head_calls == [(path, "trunk")]
+
+
+def test_free_slots_batch_detaches_all_in_order(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/a", "feat/b", "feat/c"),
+        worktrees=(
+            _slot_worktree(slots_root, 1, "feat/a"),
+            _slot_worktree(slots_root, 2, "feat/b"),
+            _slot_worktree(slots_root, 3, "feat/c"),
+        ),
+    )
+
+    outcome = free_slots(ctx, ("slot-03", "slot-01"))
+
+    assert isinstance(outcome, SlotFreeOutcome)
+    assert [freed.slot_name for freed in outcome.freed] == ["slot-03", "slot-01"]
+    assert [freed.branch_name for freed in outcome.freed] == ["feat/c", "feat/a"]
+    assert git._detach_head_calls == [
+        (_slot_path(slots_root, 3), "main"),
+        (_slot_path(slots_root, 1), "main"),
+    ]
+    assert git.get_current_branch(_slot_path(slots_root, 1)) == DetachedHead()
+    assert git.get_current_branch(_slot_path(slots_root, 2)) == "feat/b"
+    assert git.get_current_branch(_slot_path(slots_root, 3)) == DetachedHead()
+
+
+def test_free_slots_unassigned_target_returns_invalid_slot_args(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main",),
+        worktrees=(_slot_worktree(slots_root, 1, None),),
+    )
+
+    outcome = free_slots(ctx, ("slot-01",))
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "invalid_slot_args"
+    assert "slot-01 is not currently assigned" in outcome.message
+    assert git._detach_head_calls == []
+
+
+def test_free_slots_dirty_target_returns_invalid_slot_args(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    dirty_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        file_status_by_path={
+            dirty_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+    )
+
+    outcome = free_slots(ctx, ("slot-01",))
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "invalid_slot_args"
+    assert f"slot-01 has uncommitted changes at {dirty_path}" in outcome.message
+    assert git._detach_head_calls == []
+    assert git.get_current_branch(dirty_path) == "feat/x"
+
+
+def test_free_slots_preflight_blocks_all_when_one_dirty(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    dirty_path = _slot_path(slots_root, 2)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/a", "feat/b"),
+        worktrees=(
+            _slot_worktree(slots_root, 1, "feat/a"),
+            _slot_worktree(slots_root, 2, "feat/b"),
+        ),
+        file_status_by_path={
+            dirty_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+    )
+
+    outcome = free_slots(ctx, ("slot-01", "slot-02"))
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "invalid_slot_args"
+    assert f"slot-02 has uncommitted changes at {dirty_path}" in outcome.message
+    assert git._detach_head_calls == []
+    assert git.get_current_branch(_slot_path(slots_root, 1)) == "feat/a"
+    assert git.get_current_branch(_slot_path(slots_root, 2)) == "feat/b"
+
+
+def test_free_slots_combines_selector_preflight_errors_with_state_errors(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main",),
+        worktrees=(
+            _slot_worktree(slots_root, 1, "feat/x"),
+            _slot_worktree(slots_root, 2, None),
+        ),
+    )
+
+    outcome = free_slots(
+        ctx,
+        ("slot-02",),
+        preflight_errors=("--num must be in 1..2.", "bogus is not a valid slot name."),
+    )
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "invalid_slot_args"
+    assert outcome.message.splitlines() == [
+        "--num must be in 1..2.",
+        "bogus is not a valid slot name.",
+        "slot-02 is not currently assigned. Run `slot list` to see the pool.",
+    ]
+    assert git._detach_head_calls == []
+
+
+def test_free_slots_mid_loop_git_failure_reports_already_freed(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    first_path = _slot_path(slots_root, 1)
+    second_path = _slot_path(slots_root, 2)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/a", "feat/b"),
+        worktrees=(
+            _slot_worktree(slots_root, 1, "feat/a"),
+            _slot_worktree(slots_root, 2, "feat/b"),
+        ),
+        detach_head_failures_by_path={
+            second_path: subprocess.CalledProcessError(
+                128,
+                ["git", "checkout", "--detach", "main"],
+                stderr="fatal: reference is not a tree: main",
+            ),
+        },
+    )
+
+    outcome = free_slots(ctx, ("slot-01", "slot-02"))
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "slot_allocation_error"
+    assert "Failed to detach slot-02" in outcome.message
+    assert "reference is not a tree" in outcome.message
+    assert outcome.message.endswith("Already freed: slot-01.")
+    assert git._detach_head_calls == [(first_path, "main"), (second_path, "main")]
+    assert git.get_current_branch(first_path) == DetachedHead()
+    assert git.get_current_branch(second_path) == "feat/b"
+
+
+def test_free_slots_mid_loop_first_failure_omits_already_freed(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    first_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/a"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/a"),),
+        detach_head_failures_by_path={
+            first_path: subprocess.CalledProcessError(
+                128,
+                ["git", "checkout", "--detach", "main"],
+                stderr="fatal: boom",
+            ),
+        },
+    )
+
+    outcome = free_slots(ctx, ("slot-01",))
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "slot_allocation_error"
+    assert "Failed to detach slot-01" in outcome.message
+    assert "Already freed:" not in outcome.message
+    assert git._detach_head_calls == [(first_path, "main")]
+    assert git.get_current_branch(first_path) == "feat/a"
