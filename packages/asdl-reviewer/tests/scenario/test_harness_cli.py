@@ -11,7 +11,9 @@ from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.testing import FakeIssueGateway
 from asdl_reviewer.cli.main import build_cli
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
+from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
+from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from asdl_reviewer.harness.fake import FakeHarnessRuntime
 
 
 def _context(
@@ -19,9 +21,9 @@ def _context(
     paths_by_binary: dict[str, str] | None = None,
 ) -> ClinkrContextObject:
     ctx = ReviewerCliContext(
-        review_environment=FakeReviewEnvironmentGateway(
-            paths_by_binary=paths_by_binary,
-        ),
+        catalog=FakeReviewCatalogGateway(),
+        diff=FakeLocalDiffGateway(),
+        harness_runtime=FakeHarnessRuntime(paths_by_binary=paths_by_binary),
         issue_gateway=FakeIssueGateway(),
         cwd=Path("/anywhere"),
     )

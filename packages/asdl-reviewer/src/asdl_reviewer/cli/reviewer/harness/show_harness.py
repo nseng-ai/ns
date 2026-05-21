@@ -36,7 +36,7 @@ def run_harness_show_command(
 
     resolved = resolve_harness(
         requested_harness=None,
-        review_environment=reviewer_context.review_environment,
+        harness_runtime=reviewer_context.harness_runtime,
     )
     harness_name = Ensure.ideal_state(resolved)
 

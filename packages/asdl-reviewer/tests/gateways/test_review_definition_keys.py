@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.gateways.review_environment import real as review_environment_real
-from asdl_reviewer.gateways.review_environment.real import RealReviewEnvironmentGateway
+from asdl_reviewer.gateways.review_catalog import real as review_catalog_real
+from asdl_reviewer.gateways.review_catalog.real import RealReviewCatalogGateway
 from asdl_reviewer.models import ReviewerFailure, ReviewSource
 
 
@@ -15,12 +15,12 @@ def _write(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def _gateway(repo_root: Path, monkeypatch: pytest.MonkeyPatch) -> RealReviewEnvironmentGateway:
+def _gateway(repo_root: Path, monkeypatch: pytest.MonkeyPatch) -> RealReviewCatalogGateway:
     def fake_git_toplevel(*, cwd: Path) -> Path:
         return repo_root
 
-    monkeypatch.setattr(review_environment_real, "git_toplevel", fake_git_toplevel)
-    return RealReviewEnvironmentGateway(cwd=repo_root)
+    monkeypatch.setattr(review_catalog_real, "git_toplevel", fake_git_toplevel)
+    return RealReviewCatalogGateway(cwd=repo_root)
 
 
 def test_real_list_review_keys_is_empty_for_empty_dir(

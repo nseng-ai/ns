@@ -12,7 +12,9 @@ from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.gh.types import IssueComment, PRChangedFile, PRReviewComment
 from asdl_reviewer.cli.main import build_cli
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
+from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
+from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from asdl_reviewer.harness.fake import FakeHarnessRuntime
 
 
 @pytest.fixture(scope="module")
@@ -25,7 +27,9 @@ _BOT = "github-actions[bot]"
 
 def _context_with_issue_gateway(gateway: FakeIssueGateway) -> ClinkrContextObject:
     ctx = ReviewerCliContext(
-        review_environment=FakeReviewEnvironmentGateway(),
+        catalog=FakeReviewCatalogGateway(),
+        diff=FakeLocalDiffGateway(),
+        harness_runtime=FakeHarnessRuntime(),
         issue_gateway=gateway,
         cwd=Path("/anywhere"),
     )

@@ -1,30 +1,18 @@
-"""Real review-environment gateway backed by git, filesystem, and harnesses."""
+"""Real review catalog gateway backed by the filesystem."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 
-from asdl_core.git.real_git_gateway import resolve_trunk_branch
-from asdl_reviewer.gateways.review_environment.gateway import ReviewEnvironmentGateway
-from asdl_reviewer.git_toplevel import git_toplevel, run_git
-from asdl_reviewer.harness.invocation import (
-    HarnessReviewRequest,
-    HarnessRuntime,
-    ProgressWriter,
-    silent_progress,
-)
+from asdl_reviewer.gateways.review_catalog.gateway import ReviewCatalogGateway
+from asdl_reviewer.git_toplevel import git_toplevel
 from asdl_reviewer.models import (
-    BaseRefUnavailable,
-    GitDiffFailedError,
-    HarnessDetection,
-    LocalDiff,
     ReviewCatalog,
     ReviewDefinitionNotAFile,
     ReviewDefinitionNotFound,
     ReviewDefinitionReadError,
     ReviewerFailure,
-    ReviewExecutionResponse,
     ReviewKeyInvalid,
     ReviewKeyResolutionFailed,
     ReviewsDirMissing,
@@ -41,16 +29,11 @@ class _ResolvedReviewPath:
     path: Path
 
 
-class RealReviewEnvironmentGateway(ReviewEnvironmentGateway):
-    """Access the local review-running environment."""
+class RealReviewCatalogGateway(ReviewCatalogGateway):
+    """Access markdown review definitions on the local filesystem."""
 
-    def __init__(
-        self,
-        cwd: Path,
-        progress_writer: ProgressWriter = silent_progress,
-    ) -> None:
+    def __init__(self, cwd: Path) -> None:
         self._cwd = cwd
-        self._harness_runtime = HarnessRuntime(progress_writer=progress_writer)
 
     def load_review_source(self, *, key: str) -> ReviewSource | ReviewerFailure:
         reviews_dir = self._reviews_dir()
@@ -94,40 +77,6 @@ class RealReviewEnvironmentGateway(ReviewEnvironmentGateway):
             relative = md_path.relative_to(reviews_dir)
             keys.append(relative.with_suffix("").as_posix())
         return ReviewCatalog(reviews_dir=reviews_dir, keys=tuple(keys))
-
-    def load_diff(self, *, base_ref: str | None) -> LocalDiff | BaseRefUnavailable:
-        repo_root = self._repo_root()
-        resolved_base_ref = base_ref.strip() if base_ref is not None else ""
-        if not resolved_base_ref:
-            resolved_base_ref = resolve_trunk_branch(repo_root) or ""
-        if not resolved_base_ref:
-            return BaseRefUnavailable(
-                message="Unable to resolve a base branch. Pass --base-ref explicitly.",
-            )
-
-        diff_result = run_git(
-            ["git", "diff", "--no-ext-diff", f"origin/{resolved_base_ref}...HEAD"],
-            cwd=repo_root,
-        )
-        if diff_result.returncode != 0:
-            stderr = diff_result.stderr.strip()
-            raise GitDiffFailedError(
-                stderr or f"Unable to load the local diff against origin/{resolved_base_ref}."
-            )
-
-        return LocalDiff(
-            base_ref=resolved_base_ref,
-            diff_text=diff_result.stdout,
-        )
-
-    def list_harnesses(self) -> tuple[HarnessDetection, ...]:
-        return self._harness_runtime.list_harnesses()
-
-    def run_review(
-        self,
-        request: HarnessReviewRequest,
-    ) -> ReviewExecutionResponse | ReviewerFailure:
-        return self._harness_runtime.run_review(request)
 
     def _repo_root(self) -> Path:
         return git_toplevel(cwd=self._cwd)

@@ -113,7 +113,9 @@ def run_review_command(
             requested_base_ref=request.base_ref,
             requested_harness=request.harness,
             requested_format=request.review_format,
-            review_environment=reviewer_context.review_environment,
+            catalog=reviewer_context.catalog,
+            diff=reviewer_context.diff,
+            harness_runtime=reviewer_context.harness_runtime,
         )
     except ReviewDefinitionReadError as exc:
         raise ClinkrFailure(error_type="review_definition_read_failed", message=str(exc)) from exc
