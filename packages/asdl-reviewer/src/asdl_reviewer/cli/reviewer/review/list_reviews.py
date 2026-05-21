@@ -88,7 +88,7 @@ def run_review_list_command(
     reviewer_context = load_typed_context(ctx, ReviewerCliContext)
 
     try:
-        catalog = Ensure.ideal_state(reviewer_context.review_environment.list_review_keys())
+        catalog = Ensure.ideal_state(reviewer_context.catalog.list_review_keys())
     except RepoRootUnavailableError as exc:
         raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except GitInvocationFailedError as exc:

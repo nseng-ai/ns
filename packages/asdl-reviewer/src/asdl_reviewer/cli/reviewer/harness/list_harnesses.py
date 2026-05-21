@@ -69,6 +69,6 @@ def run_harness_list_command(
             path=detection.path,
             available=detection.available,
         )
-        for detection in reviewer_context.review_environment.list_harnesses()
+        for detection in reviewer_context.harness_runtime.list_harnesses()
     )
     return ClinkrExit.ok(HarnessListResult(harnesses=entries))

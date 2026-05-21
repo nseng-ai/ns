@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
+from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
+from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from asdl_reviewer.harness.fake import FakeHarnessRuntime
 from asdl_reviewer.harness.invocation import HarnessReviewRequest
 from asdl_reviewer.models import (
     BaseRefUnavailable,
@@ -38,7 +40,7 @@ def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
 
 def test_fake_load_review_source_returns_configured_source() -> None:
     reviews_dir = Path("/repo/reviews")
-    gateway = FakeReviewEnvironmentGateway(
+    gateway = FakeReviewCatalogGateway(
         review_sources_by_key={"standards/dignified-python": "# Dignified Python"},
         reviews_dir=reviews_dir,
     )
@@ -53,7 +55,7 @@ def test_fake_load_review_source_returns_configured_source() -> None:
 
 def test_fake_load_review_source_returns_configured_failure() -> None:
     failure = ReviewDefinitionNotFound(path=Path("/missing.md"), message="missing")
-    gateway = FakeReviewEnvironmentGateway(
+    gateway = FakeReviewCatalogGateway(
         review_source_failures_by_key={"missing": failure},
     )
 
@@ -63,7 +65,7 @@ def test_fake_load_review_source_returns_configured_failure() -> None:
 
 
 def test_fake_load_review_source_returns_not_found_for_unknown_key() -> None:
-    gateway = FakeReviewEnvironmentGateway()
+    gateway = FakeReviewCatalogGateway()
 
     result = gateway.load_review_source(key="missing")
 
@@ -72,7 +74,7 @@ def test_fake_load_review_source_returns_not_found_for_unknown_key() -> None:
 
 
 def test_fake_list_review_keys_infers_from_sources() -> None:
-    gateway = FakeReviewEnvironmentGateway(
+    gateway = FakeReviewCatalogGateway(
         review_sources_by_key={
             "dignified-python": "# Dignified Python",
             "python/typing": "# Typing",
@@ -86,7 +88,7 @@ def test_fake_list_review_keys_infers_from_sources() -> None:
 
 
 def test_fake_list_review_keys_returns_configured_keys() -> None:
-    gateway = FakeReviewEnvironmentGateway(
+    gateway = FakeReviewCatalogGateway(
         review_sources_by_key={"ignored": "# Ignored"},
         review_keys=("alpha", "python/typing"),
     )
@@ -98,7 +100,7 @@ def test_fake_list_review_keys_returns_configured_keys() -> None:
 
 def test_fake_list_review_keys_returns_configured_failure() -> None:
     failure = ReviewsDirMissing(message="nope")
-    gateway = FakeReviewEnvironmentGateway(list_review_keys_failure=failure)
+    gateway = FakeReviewCatalogGateway(list_review_keys_failure=failure)
 
     result = gateway.list_review_keys()
 
@@ -106,7 +108,7 @@ def test_fake_list_review_keys_returns_configured_failure() -> None:
 
 
 def test_fake_load_diff_returns_configured_diff() -> None:
-    gateway = FakeReviewEnvironmentGateway(
+    gateway = FakeLocalDiffGateway(
         diffs_by_base_ref={
             "master": LocalDiff(
                 base_ref="master",
@@ -124,7 +126,7 @@ def test_fake_load_diff_returns_configured_diff() -> None:
 
 def test_fake_load_diff_returns_default_failure() -> None:
     failure = BaseRefUnavailable(message="no base")
-    gateway = FakeReviewEnvironmentGateway(default_diff=failure)
+    gateway = FakeLocalDiffGateway(default_diff=failure)
 
     result = gateway.load_diff(base_ref=None)
 
@@ -133,9 +135,9 @@ def test_fake_load_diff_returns_default_failure() -> None:
 
 
 def test_fake_list_harnesses_returns_configured_path() -> None:
-    gateway = FakeReviewEnvironmentGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
+    harness_runtime = FakeHarnessRuntime(paths_by_binary={"claude": "/usr/local/bin/claude"})
 
-    detections = gateway.list_harnesses()
+    detections = harness_runtime.list_harnesses()
 
     assert len(detections) == 1
     detection = detections[0]
@@ -146,9 +148,9 @@ def test_fake_list_harnesses_returns_configured_path() -> None:
 
 
 def test_fake_list_harnesses_reports_binary_absent() -> None:
-    gateway = FakeReviewEnvironmentGateway()
+    harness_runtime = FakeHarnessRuntime()
 
-    detections = gateway.list_harnesses()
+    detections = harness_runtime.list_harnesses()
 
     assert len(detections) == 1
     detection = detections[0]
@@ -166,15 +168,15 @@ def test_fake_run_review_returns_configured_response() -> None:
         summary="Avoid print in library code",
         details="Use click.echo() instead.",
     )
-    gateway = FakeReviewEnvironmentGateway(
+    harness_runtime = FakeHarnessRuntime(
         responses_by_review_name={
             "Dignified Python": ReviewExecutionResponse(payload=FindingsReview(findings=(finding,)))
         }
     )
 
-    result = gateway.run_review(_request())
+    result = harness_runtime.run_review(_request())
 
     assert isinstance(result, ReviewExecutionResponse)
     assert isinstance(result.payload, FindingsReview)
     assert result.payload.findings == (finding,)
-    assert gateway.executed_requests[0].review_definition.name == "Dignified Python"
+    assert harness_runtime.executed_requests[0].review_definition.name == "Dignified Python"

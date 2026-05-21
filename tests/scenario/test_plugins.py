@@ -12,7 +12,9 @@ from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
+from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
+from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from asdl_reviewer.harness.fake import FakeHarnessRuntime
 from asdl_reviewer.models import (
     FindingsReview,
     LocalDiff,
@@ -211,7 +213,7 @@ def test_reviewer_plugin_integration() -> None:
     runner = CliRunner()
 
     obj = ReviewerCliContext(
-        review_environment=FakeReviewEnvironmentGateway(
+        catalog=FakeReviewCatalogGateway(
             review_sources_by_key={
                 "dignified-python": (
                     "---\n"
@@ -222,10 +224,15 @@ def test_reviewer_plugin_integration() -> None:
                     "Flag concrete issues in the diff.\n"
                 )
             },
+        ),
+        diff=FakeLocalDiffGateway(
             default_diff=LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
             ),
+        ),
+        harness_runtime=FakeHarnessRuntime(
+            paths_by_binary={"claude": "/usr/local/bin/claude"},
             default_response=ReviewExecutionResponse(
                 payload=FindingsReview(
                     findings=(
@@ -239,7 +246,6 @@ def test_reviewer_plugin_integration() -> None:
                     )
                 )
             ),
-            paths_by_binary={"claude": "/usr/local/bin/claude"},
         ),
         issue_gateway=FakeIssueGateway(),
         cwd=Path("/anywhere"),

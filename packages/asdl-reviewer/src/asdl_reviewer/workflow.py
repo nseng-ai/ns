@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 
-from asdl_reviewer.gateways.review_environment.gateway import ReviewEnvironmentGateway
-from asdl_reviewer.harness.invocation import HarnessReviewRequest
+from asdl_reviewer.gateways.local_diff.gateway import LocalDiffGateway
+from asdl_reviewer.gateways.review_catalog.gateway import ReviewCatalogGateway
+from asdl_reviewer.harness.invocation import HarnessReviewRequest, HarnessRuntime
 from asdl_reviewer.models import (
     BaseRefUnavailable,
     HarnessDetection,
@@ -32,10 +33,12 @@ def run_review_by_key(
     requested_base_ref: str | None,
     requested_harness: str | None,
     requested_format: ReviewFormat,
-    review_environment: ReviewEnvironmentGateway,
+    catalog: ReviewCatalogGateway,
+    diff: LocalDiffGateway,
+    harness_runtime: HarnessRuntime,
 ) -> LocalReviewResult | ReviewerFailure:
     """Run a markdown-defined reviewer identified by ``key``."""
-    review_source = review_environment.load_review_source(key=key)
+    review_source = catalog.load_review_source(key=key)
     if not isinstance(review_source, ReviewSource):
         return review_source
 
@@ -53,16 +56,16 @@ def run_review_by_key(
 
     resolved_harness = resolve_harness(
         requested_harness=requested_harness,
-        review_environment=review_environment,
+        harness_runtime=harness_runtime,
     )
     if not isinstance(resolved_harness, str):
         return resolved_harness
 
-    local_diff = review_environment.load_diff(base_ref=requested_base_ref)
+    local_diff = diff.load_diff(base_ref=requested_base_ref)
     if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
 
-    execution_response = review_environment.run_review(
+    execution_response = harness_runtime.run_review(
         HarnessReviewRequest(
             harness_name=resolved_harness,
             model=resolved_model,
@@ -105,7 +108,7 @@ def _resolve_model(
 def resolve_harness(
     *,
     requested_harness: str | None,
-    review_environment: ReviewEnvironmentGateway,
+    harness_runtime: HarnessRuntime,
 ) -> str | ReviewerFailure:
     """Resolve which harness to dispatch through.
 
@@ -113,7 +116,7 @@ def resolve_harness(
     the single detected harness on PATH. Errors if zero or 2+ harnesses are
     detected and no explicit choice was made.
     """
-    detections = review_environment.list_harnesses()
+    detections = harness_runtime.list_harnesses()
 
     explicit = (requested_harness or "").strip()
     if explicit:

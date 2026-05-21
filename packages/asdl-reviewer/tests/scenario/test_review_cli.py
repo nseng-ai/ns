@@ -11,7 +11,9 @@ from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.testing import FakeIssueGateway
 from asdl_reviewer.cli.main import build_cli
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
+from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
+from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from asdl_reviewer.harness.fake import FakeHarnessRuntime
 from asdl_reviewer.models import (
     FindingsReview,
     LocalDiff,
@@ -50,16 +52,20 @@ def _build_context(
     if payload is None:
         payload = FindingsReview(findings=())
     return ReviewerCliContext(
-        review_environment=FakeReviewEnvironmentGateway(
+        catalog=FakeReviewCatalogGateway(
             review_sources_by_key={REVIEW_KEY: _sample_source()},
             review_keys=keys,
+            reviews_dir=REVIEWS_DIR,
+        ),
+        diff=FakeLocalDiffGateway(
             default_diff=LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
             ),
-            default_response=ReviewExecutionResponse(payload=payload, usage=usage),
+        ),
+        harness_runtime=FakeHarnessRuntime(
             paths_by_binary=paths_by_binary,
-            reviews_dir=REVIEWS_DIR,
+            default_response=ReviewExecutionResponse(payload=payload, usage=usage),
         ),
         issue_gateway=FakeIssueGateway(),
         cwd=Path("/anywhere"),
@@ -157,8 +163,8 @@ def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert isinstance(ctx.review_environment, FakeReviewEnvironmentGateway)
-    executed = ctx.review_environment.executed_requests[0]
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    executed = ctx.harness_runtime.executed_requests[0]
     assert executed.harness_name == "claude-code"
     assert executed.review_format == "text"
     assert executed.review_definition.name == REVIEW_KEY
@@ -173,8 +179,8 @@ def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -
 
     assert result.exit_code == 0, result.output
     assert "Model: sonnet" in result.output
-    assert isinstance(ctx.review_environment, FakeReviewEnvironmentGateway)
-    assert ctx.review_environment.executed_requests[0].model == "sonnet"
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    assert ctx.harness_runtime.executed_requests[0].model == "sonnet"
 
 
 def test_review_run_surfaces_no_harness_detected(cli_group: ClinkrGroup) -> None:
