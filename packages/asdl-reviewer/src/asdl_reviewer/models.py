@@ -384,22 +384,6 @@ class ProseReview(ClinkrModel):
 ReviewPayload = FindingsReview | ProseReview
 
 
-@dataclass(frozen=True)
-class ReviewExecutionRequest:
-    """Request dispatched to a harness adapter for execution."""
-
-    adapter_name: str
-    model: str
-    prompt: str
-    system_prompt: str
-    review_format: ReviewFormat
-    review_name: str
-    review_description: str
-    review_instructions: str
-    base_ref: str
-    diff_text: str
-
-
 class ReviewUsage(ClinkrModel):
     """Cost and token usage statistics from a harness run."""
 

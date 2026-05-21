@@ -5,9 +5,10 @@ from __future__ import annotations
 import os
 
 from asdl_reviewer.gateways.review_environment.gateway import ReviewEnvironmentGateway
-from asdl_reviewer.harness_registry import HARNESS_ADAPTERS
+from asdl_reviewer.harness.invocation import HarnessReviewRequest
 from asdl_reviewer.models import (
     BaseRefUnavailable,
+    HarnessDetection,
     HarnessNotConfigured,
     HarnessUnknown,
     InvalidReviewDefinition,
@@ -15,12 +16,10 @@ from asdl_reviewer.models import (
     ModelNotProvided,
     ReviewDefinition,
     ReviewerFailure,
-    ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFormat,
     ReviewSource,
 )
-from asdl_reviewer.prompting import build_review_prompt, build_review_system_prompt
 from asdl_reviewer.review_definition import parse_review_definition
 
 ENV_HARNESS = "ASDL_REVIEWER_HARNESS"
@@ -63,24 +62,15 @@ def run_review_by_key(
     if isinstance(local_diff, BaseRefUnavailable):
         return local_diff
 
-    prompt = build_review_prompt(
-        review_definition=review_definition,
-        local_diff=local_diff,
+    execution_response = review_environment.run_review(
+        HarnessReviewRequest(
+            harness_name=resolved_harness,
+            model=resolved_model,
+            review_definition=review_definition,
+            local_diff=local_diff,
+            review_format=requested_format,
+        )
     )
-    system_prompt = build_review_system_prompt(requested_format)
-    execution_request = ReviewExecutionRequest(
-        adapter_name=resolved_harness,
-        model=resolved_model,
-        prompt=prompt,
-        system_prompt=system_prompt,
-        review_format=requested_format,
-        review_name=review_definition.name,
-        review_description=review_definition.description,
-        review_instructions=review_definition.instructions,
-        base_ref=local_diff.base_ref,
-        diff_text=local_diff.diff_text,
-    )
-    execution_response = review_environment.run_review(execution_request)
     if not isinstance(execution_response, ReviewExecutionResponse):
         return execution_response
 
@@ -123,28 +113,23 @@ def resolve_harness(
     the single detected harness on PATH. Errors if zero or 2+ harnesses are
     detected and no explicit choice was made.
     """
+    detections = review_environment.list_harnesses()
+
     explicit = (requested_harness or "").strip()
     if explicit:
-        return _validate_harness(explicit)
+        return _validate_harness(explicit, detections)
 
     env_value = os.environ.get(ENV_HARNESS, "").strip()
     if env_value:
-        return _validate_harness(env_value)
+        return _validate_harness(env_value, detections)
 
-    available_names: list[str] = []
-    for adapter in HARNESS_ADAPTERS.values():
-        detection = review_environment.detect_harness(
-            name=adapter.name,
-            binary=adapter.binary,
-        )
-        if detection.available:
-            available_names.append(adapter.name)
+    available_names = [detection.name for detection in detections if detection.available]
 
     if len(available_names) == 1:
         return available_names[0]
 
     if not available_names:
-        known = ", ".join(sorted(HARNESS_ADAPTERS))
+        known = _known_harness_names(detections)
         return HarnessNotConfigured(
             message=(
                 f"No harness detected on PATH. Install a supported harness ({known}) "
@@ -160,10 +145,15 @@ def resolve_harness(
     )
 
 
-def _validate_harness(name: str) -> str | ReviewerFailure:
-    if name not in HARNESS_ADAPTERS:
-        known = ", ".join(sorted(HARNESS_ADAPTERS))
+def _validate_harness(name: str, detections: tuple[HarnessDetection, ...]) -> str | ReviewerFailure:
+    known_names = {detection.name for detection in detections}
+    if name not in known_names:
+        known = _known_harness_names(detections)
         return HarnessUnknown(
             message=f"Unknown harness {name!r}. Known harnesses: {known}.",
         )
     return name
+
+
+def _known_harness_names(detections: tuple[HarnessDetection, ...]) -> str:
+    return ", ".join(sorted(detection.name for detection in detections))

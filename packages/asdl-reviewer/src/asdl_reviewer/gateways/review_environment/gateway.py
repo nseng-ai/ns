@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from asdl_reviewer.harness.invocation import HarnessReviewRequest
 from asdl_reviewer.models import (
     BaseRefUnavailable,
     HarnessDetection,
     LocalDiff,
     ReviewCatalog,
     ReviewerFailure,
-    ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewSource,
 )
@@ -32,12 +32,12 @@ class ReviewEnvironmentGateway(ABC):
         """Return the local diff against ``base_ref`` or a typed failure."""
 
     @abstractmethod
-    def detect_harness(self, *, name: str, binary: str) -> HarnessDetection:
-        """Return whether one harness binary is available on PATH."""
+    def list_harnesses(self) -> tuple[HarnessDetection, ...]:
+        """Return detection information for all known harnesses."""
 
     @abstractmethod
     def run_review(
         self,
-        request: ReviewExecutionRequest,
+        request: HarnessReviewRequest,
     ) -> ReviewExecutionResponse | ReviewerFailure:
-        """Execute a review request or return a typed failure."""
+        """Execute a parsed review request or return a typed failure."""

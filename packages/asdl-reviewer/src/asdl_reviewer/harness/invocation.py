@@ -1,11 +1,18 @@
-"""Claude Code harness adapter."""
+"""Unified harness invocation for markdown-defined reviews."""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+import shutil
+import subprocess
+import threading
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from functools import cache
+from importlib.resources import files
+from types import MappingProxyType
+from typing import Any, TextIO
 
-from asdl_reviewer.harness_adapter import HarnessAdapter
 from asdl_reviewer.models import (
     ClaudeCodeEmptyOutput,
     ClaudeCodeInvalidFindings,
@@ -14,13 +21,56 @@ from asdl_reviewer.models import (
     ClaudeCodeMissingResultEvent,
     ClaudeCodeNonJsonResult,
     FindingsReview,
+    HarnessBinaryMissing,
+    HarnessDetection,
+    HarnessExecutionFailed,
+    HarnessInvocationFailed,
+    HarnessUnknown,
+    LocalDiff,
+    ModelNotSupportedByHarness,
     ProseReview,
+    ReviewDefinition,
     ReviewerFailure,
-    ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFinding,
+    ReviewFormat,
     ReviewUsage,
 )
+
+ProgressWriter = Callable[[str], None]
+BinaryLocator = Callable[[str], str | None]
+
+
+@dataclass(frozen=True)
+class HarnessReviewRequest:
+    """Semantic request for running a parsed review through a selected harness."""
+
+    harness_name: str
+    model: str
+    review_definition: ReviewDefinition
+    local_diff: LocalDiff
+    review_format: ReviewFormat
+
+
+@dataclass(frozen=True)
+class HarnessProcessInvocation:
+    """Concrete subprocess invocation for one harness run."""
+
+    argv: tuple[str, ...]
+    stdin: str | None
+
+
+@dataclass(frozen=True)
+class HarnessDefinition:
+    """Internal definition of how to invoke one known harness."""
+
+    name: str
+    binary: str
+    supports_model: Callable[[str], bool]
+    build_invocation: Callable[[HarnessReviewRequest], HarnessProcessInvocation]
+    parse_stdout: Callable[[HarnessReviewRequest, str], ReviewExecutionResponse | ReviewerFailure]
+    describe_event: Callable[[str], str | None]
+
 
 CLAUDE_CODE_BINARY = "claude"
 CLAUDE_CODE_NAME = "claude-code"
@@ -32,7 +82,7 @@ _PROSE_SNIPPET_MAX_CHARS = 500
 
 _READ_ONLY_TOOLS = "Bash,Read"
 
-FINDINGS_JSON_SCHEMA: dict[str, Any] = {
+_CLAUDE_FINDINGS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "required": ["findings"],
@@ -56,17 +106,68 @@ FINDINGS_JSON_SCHEMA: dict[str, Any] = {
 }
 
 
+def silent_progress(_msg: str) -> None:
+    """Ignore harness progress messages."""
+    return None
+
+
+def _no_event_description(_line: str) -> str | None:
+    return None
+
+
+def _read_prompt(filename: str) -> str:
+    return files("asdl_reviewer.prompts").joinpath(filename).read_text(encoding="utf-8").strip()
+
+
+@cache
+def _review_prompt_template() -> str:
+    return files("asdl_reviewer.prompts").joinpath("review_prompt.md").read_text(encoding="utf-8")
+
+
+@cache
+def _system_prompt_findings() -> str:
+    return _read_prompt("review_system_findings.md")
+
+
+@cache
+def _system_prompt_text() -> str:
+    return _read_prompt("review_system_text.md")
+
+
+def _select_review_system_prompt(review_format: ReviewFormat) -> str:
+    if review_format == "findings":
+        return _system_prompt_findings()
+    return _system_prompt_text()
+
+
+def _assemble_review_prompt(
+    *,
+    review_definition: ReviewDefinition,
+    local_diff: LocalDiff,
+) -> str:
+    return (
+        _review_prompt_template()
+        .format(
+            review_name=review_definition.name,
+            review_description=review_definition.description,
+            review_instructions=review_definition.instructions,
+            base_ref=local_diff.base_ref,
+            diff_text=local_diff.diff_text,
+        )
+        .strip()
+    )
+
+
 def _claude_code_supports_model(model: str) -> bool:
     if model in _CLAUDE_CODE_MODEL_ALIASES:
         return True
     return any(model.startswith(prefix) for prefix in _CLAUDE_CODE_MODEL_PREFIXES)
 
 
-def _claude_code_build_argv(request: ReviewExecutionRequest) -> list[str]:
-    # The user prompt is fed via stdin (see ``_claude_code_build_stdin``), not
-    # argv, so a large diff can never trigger E2BIG when claude is execve'd.
-    # `--tools` is variadic, so it must always be followed by another flag —
-    # we keep `--model` immediately after it to terminate the variadic.
+def _claude_code_build_invocation(request: HarnessReviewRequest) -> HarnessProcessInvocation:
+    # The user prompt is fed via stdin, not argv, so a large diff can never
+    # trigger E2BIG when claude is execve'd. `--tools` is variadic, so it must
+    # always be followed by another flag; keep `--model` immediately after it.
     argv = [
         CLAUDE_CODE_BINARY,
         "-p",
@@ -82,15 +183,17 @@ def _claude_code_build_argv(request: ReviewExecutionRequest) -> list[str]:
         "--model",
         request.model,
         "--system-prompt",
-        request.system_prompt,
+        _select_review_system_prompt(request.review_format),
     ]
     if request.review_format == "findings":
-        argv += ["--json-schema", json.dumps(FINDINGS_JSON_SCHEMA)]
-    return argv
-
-
-def _claude_code_build_stdin(request: ReviewExecutionRequest) -> str:
-    return request.prompt
+        argv += ["--json-schema", json.dumps(_CLAUDE_FINDINGS_SCHEMA)]
+    return HarnessProcessInvocation(
+        argv=tuple(argv),
+        stdin=_assemble_review_prompt(
+            review_definition=request.review_definition,
+            local_diff=request.local_diff,
+        ),
+    )
 
 
 def _parse_findings_payload(
@@ -216,7 +319,7 @@ def _extract_result_event(stdout: str) -> dict[str, Any] | ReviewerFailure:
 
 
 def _claude_code_parse_stdout(
-    request: ReviewExecutionRequest,
+    request: HarnessReviewRequest,
     stdout: str,
 ) -> ReviewExecutionResponse | ReviewerFailure:
     result_event = _extract_result_event(stdout)
@@ -303,12 +406,146 @@ def _claude_code_describe_event(line: str) -> str | None:
     return None
 
 
-CLAUDE_CODE_ADAPTER = HarnessAdapter(
+def _pump_stdin(stdin_stream: TextIO, stdin_payload: str) -> None:
+    try:
+        stdin_stream.write(stdin_payload)
+    except BrokenPipeError:
+        # The harness may exit before reading stdin; stdout/stderr handling reports failures.
+        pass
+    finally:
+        stdin_stream.close()
+
+
+_CLAUDE_CODE_HARNESS = HarnessDefinition(
     name=CLAUDE_CODE_NAME,
     binary=CLAUDE_CODE_BINARY,
-    build_argv=_claude_code_build_argv,
-    parse_stdout=_claude_code_parse_stdout,
     supports_model=_claude_code_supports_model,
+    build_invocation=_claude_code_build_invocation,
+    parse_stdout=_claude_code_parse_stdout,
     describe_event=_claude_code_describe_event,
-    build_stdin=_claude_code_build_stdin,
 )
+
+_DEFAULT_HARNESSES: Mapping[str, HarnessDefinition] = MappingProxyType(
+    {
+        _CLAUDE_CODE_HARNESS.name: _CLAUDE_CODE_HARNESS,
+    }
+)
+
+
+class HarnessRuntime:
+    """Run parsed reviews through the configured harness implementations."""
+
+    def __init__(
+        self,
+        *,
+        progress_writer: ProgressWriter = silent_progress,
+        binary_locator: BinaryLocator | None = None,
+    ) -> None:
+        self._progress_writer = progress_writer
+        self._binary_locator = binary_locator or shutil.which
+        self._harnesses = _DEFAULT_HARNESSES
+
+    def list_harnesses(self) -> tuple[HarnessDetection, ...]:
+        """Return detection information for every known harness."""
+        detections: list[HarnessDetection] = []
+        for definition in self._harnesses.values():
+            detections.append(
+                HarnessDetection(
+                    name=definition.name,
+                    binary=definition.binary,
+                    path=self._binary_locator(definition.binary),
+                )
+            )
+        return tuple(detections)
+
+    def run_review(
+        self,
+        request: HarnessReviewRequest,
+    ) -> ReviewExecutionResponse | ReviewerFailure:
+        """Execute a semantic review request through its selected harness."""
+        definition = self._harnesses.get(request.harness_name)
+        if definition is None:
+            known = ", ".join(sorted(self._harnesses))
+            return HarnessUnknown(
+                message=f"Unknown harness {request.harness_name!r}. Known harnesses: {known}.",
+            )
+
+        if not definition.supports_model(request.model):
+            return ModelNotSupportedByHarness(
+                message=(
+                    f"Model {request.model!r} is not supported by harness {definition.name!r}."
+                ),
+            )
+
+        if self._binary_locator(definition.binary) is None:
+            return HarnessBinaryMissing(
+                message=(
+                    f"Harness binary {definition.binary!r} is not on PATH. "
+                    "Install the harness or pick a different one."
+                ),
+            )
+
+        invocation = definition.build_invocation(request)
+        stdin_arg = subprocess.PIPE if invocation.stdin is not None else subprocess.DEVNULL
+
+        try:
+            process = subprocess.Popen(
+                list(invocation.argv),
+                stdin=stdin_arg,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+        except FileNotFoundError:
+            return HarnessBinaryMissing(
+                message=(
+                    f"Harness binary {definition.binary!r} is not on PATH. "
+                    "Install the harness or pick a different one."
+                ),
+            )
+        except OSError as exc:
+            return HarnessInvocationFailed(
+                message=f"Unable to invoke {definition.binary!r}: {exc}",
+            )
+
+        writer_thread: threading.Thread | None = None
+        if invocation.stdin is not None:
+            if process.stdin is None:
+                return HarnessInvocationFailed(
+                    message=f"Unable to open stdin pipe for harness {definition.name!r}.",
+                )
+            writer_thread = threading.Thread(
+                target=_pump_stdin,
+                args=(process.stdin, invocation.stdin),
+                daemon=True,
+            )
+            writer_thread.start()
+
+        stdout_lines: list[str] = []
+        if process.stdout is not None:
+            for line in process.stdout:
+                stdout_lines.append(line)
+                description = definition.describe_event(line)
+                if description is not None:
+                    self._progress_writer(description)
+
+        process.wait()
+        if writer_thread is not None:
+            writer_thread.join(timeout=5.0)
+        stderr_text = ""
+        if process.stderr is not None:
+            stderr_text = process.stderr.read()
+
+        if process.returncode != 0:
+            stderr = stderr_text.strip()
+            last_line = stdout_lines[-1].strip() if stdout_lines else ""
+            return HarnessExecutionFailed(
+                message=(
+                    stderr
+                    or last_line
+                    or f"Harness {definition.name!r} exited with status {process.returncode}."
+                ),
+            )
+
+        return definition.parse_stdout(request, "".join(stdout_lines))

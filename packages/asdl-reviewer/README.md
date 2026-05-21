@@ -40,10 +40,10 @@ reviewer harness list --format json
 
 ## Harness selection
 
-`asdl-reviewer` does not know how to call an LLM directly. Each harness
-(Claude Code, Codex, Pi, …) is driven through a small adapter that knows its
-argv shape and stdout contract. The first-class adapter today is
-**Claude Code**; adding others is a future slice.
+`asdl-reviewer` runs parsed review definitions through a unified harness
+runtime. The runtime owns prompt assembly, harness detection, model support,
+subprocess invocation, progress events, and stdout parsing. The first-class
+harness today is **Claude Code**; adding others is a future slice.
 
 Resolution order for which harness a review uses:
 
@@ -53,16 +53,11 @@ Resolution order for which harness a review uses:
 4. Failure — either no harness is on `PATH`, or more than one is and the
    choice is ambiguous.
 
-The Claude Code adapter shells out to:
-
-```
-claude -p --output-format json --bare --model <model> "<prompt>"
-```
-
-`--bare` skips hooks, plugins, and CLAUDE.md auto-discovery so reviews are
-fast and deterministic. `-p --output-format json` returns the model's
-response as JSON; the adapter then parses the model's text as
-`{"findings": [...]}`.
+The Claude Code harness shells out with `-p --output-format stream-json
+--verbose --bare`, passes the assembled review prompt on stdin, and uses
+read-only tools (`Bash,Read`). Findings mode also supplies a structured-output
+JSON schema; text mode omits that schema and returns the terminal result prose.
+The runtime parses Claude's stream-json `result` event and usage metadata.
 
 ## Review definition format
 
@@ -96,7 +91,7 @@ reviewer's `instructions`.
 
 ## Finding schema
 
-Every review executor must emit JSON of this shape on stdout:
+In findings mode, the harness returns structured output of this shape:
 
 ```json
 {
