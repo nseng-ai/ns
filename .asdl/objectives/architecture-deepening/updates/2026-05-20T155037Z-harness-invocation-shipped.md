@@ -8,7 +8,7 @@ The shallow harness modules were deleted: `harness_adapter.py`, `harness_registr
 
 Parser behavior changed as intended: `default_model` is now parsed as a non-empty string only. Harness-specific model support is enforced during selected-harness execution and returns `model_not_supported_by_harness`.
 
-Verification passed: targeted reviewer/plugin suite (`135 passed`) and full `just` (`1285 passed`). No current-branch PR evidence was available (`gh pr view` found no PR for `unify-asdl-reviewer-harness-invocation`).
+Verification passed: targeted reviewer/plugin suite (`135 passed`) and full `just` (`1285 passed`). Current-branch PR evidence is available as PR #502 ("Unify asdl-reviewer harness invocation behind `HarnessRuntime` and delete adapter, registry, and prompting modules"); its file list matches the harness-invocation implementation and Objective updates recorded here.
 
 ## Objective Impact
 
