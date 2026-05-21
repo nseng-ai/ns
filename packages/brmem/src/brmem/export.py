@@ -10,16 +10,14 @@ from typing import Annotated
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from brmem.context import BrmemCliContext
 from brmem.gateway import BranchMemoryGateway
-from brmem.gateway_access import (
-    get_branch_memory_gateway,
-    resolve_current_brmem_branch,
-)
 from brmem.key_validation import check_key
 from brmem.ref_layout import EntryRef, check_branch_name, check_namespace
 from brmem.validation import first_failure
@@ -130,7 +128,12 @@ def run_export(
         message=message,
     )
 
-    branch = resolve_current_brmem_branch(ctx, request.branch)
+    brmem_context = load_typed_context(ctx, BrmemCliContext)
+    branch = (
+        request.branch
+        if request.branch is not None
+        else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
+    )
     branch_failure = check_branch_name(branch)
     Ensure.true(
         branch_failure is None,
@@ -139,7 +142,7 @@ def run_export(
     )
 
     output_dir = _resolve_output_dir(request.output_dir)
-    gateway = get_branch_memory_gateway(ctx)
+    gateway = brmem_context.brmem_gateway
     entries = _matching_entries(gateway, request.namespace, branch)
 
     if not entries:

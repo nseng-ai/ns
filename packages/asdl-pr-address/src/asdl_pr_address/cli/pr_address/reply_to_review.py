@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import IssueComment
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import format_review_reply
 
 
@@ -32,6 +33,7 @@ def run_reply_to_review(
     ctx: click.Context,
     request: ReplyToReviewRequest,
 ) -> ClinkrExit[ReplyToReviewResult]:
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
     normalized_summary = Ensure.truthy(
         request.summary_markdown.strip(),
         error_type="invalid_request",
@@ -43,6 +45,5 @@ def run_reply_to_review(
         summary_markdown=normalized_summary,
     )
 
-    gateway = get_gh_issue_gateway(ctx)
-    comment = gateway.add_comment(request.pr_number, body)
+    comment = pr_address_context.gh_issue_gateway.add_comment(request.pr_number, body)
     return ClinkrExit.ok(ReplyToReviewResult(body=body, comment=comment))

@@ -9,7 +9,7 @@ from typing import Annotated
 
 import click
 
-from asdl_core.clinkr.context import is_machine_mode
+from asdl_core.clinkr.context import is_machine_mode, load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
@@ -19,10 +19,7 @@ from brmem.content_limits import (
     check_entry_not_binary,
     check_entry_size,
 )
-from brmem.gateway_access import (
-    get_branch_memory_gateway,
-    resolve_current_brmem_branch,
-)
+from brmem.context import BrmemCliContext
 from brmem.key_validation import check_key
 from brmem.ref_layout import (
     EntryRef,
@@ -100,6 +97,8 @@ def run_put(
     ctx: click.Context,
     request: PutRequest,
 ) -> ClinkrExit[PutResult]:
+    brmem_context = load_typed_context(ctx, BrmemCliContext)
+
     Ensure.true(
         not (request.stdin and is_machine_mode(ctx)),
         error_type="stdin_unsupported_in_json_mode",
@@ -163,7 +162,11 @@ def run_put(
             message=f"{source_file} is not valid UTF-8: {exc}",
         ) from exc
 
-    branch = resolve_current_brmem_branch(ctx, request.branch)
+    branch = (
+        request.branch
+        if request.branch is not None
+        else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
+    )
 
     validation_failure = first_failure(
         (
@@ -187,10 +190,8 @@ def run_put(
         ref_name=ref_name_for_entry(request.namespace, request.key, branch),
     )
 
-    gateway = get_branch_memory_gateway(ctx)
-
     try:
-        commit = gateway.put(
+        commit = brmem_context.brmem_gateway.put(
             entry_ref.namespace,
             entry_ref.key,
             entry_ref.branch,

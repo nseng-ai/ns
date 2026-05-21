@@ -8,13 +8,14 @@ from typing import Annotated, Any
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from brmem.context import BrmemCliContext
 from brmem.gateway import BrmemCopyConflictError
-from brmem.gateway_access import get_branch_memory_gateway
 from brmem.ref_layout import (
     EntryRef,
     check_branch_name,
@@ -114,6 +115,8 @@ def run_copy(
     ctx: click.Context,
     request: CopyRequest,
 ) -> ClinkrExit[CopyResult]:
+    brmem_context = load_typed_context(ctx, BrmemCliContext)
+
     key_glob_message = check_key_glob(request.key_glob) if request.key_glob is not None else None
     validation_failure = first_failure(
         ("invalid_namespace", check_namespace(request.namespace)),
@@ -128,10 +131,8 @@ def run_copy(
         message=message,
     )
 
-    gateway = get_branch_memory_gateway(ctx)
-
     all_source_entries = list(
-        gateway.list_entries(
+        brmem_context.brmem_gateway.list_entries(
             namespace=request.namespace,
             branch=request.from_branch,
         )
@@ -161,7 +162,7 @@ def run_copy(
         message=message,
     )
 
-    all_dest_entries = gateway.list_entries(
+    all_dest_entries = brmem_context.brmem_gateway.list_entries(
         namespace=request.namespace,
         branch=request.to_branch,
     )
@@ -185,7 +186,12 @@ def run_copy(
     )
 
     source_shas = {
-        entry.key: _source_sha(gateway, request.namespace, entry.key, request.from_branch)
+        entry.key: _source_sha(
+            brmem_context.brmem_gateway,
+            request.namespace,
+            entry.key,
+            request.from_branch,
+        )
         for entry in source_entries
     }
     missing = [key for key, sha in source_shas.items() if sha is None]
@@ -207,7 +213,7 @@ def run_copy(
         return ClinkrExit.ok(_result(request, plan))
 
     try:
-        gateway.copy_entries(
+        brmem_context.brmem_gateway.copy_entries(
             namespace=request.namespace,
             from_branch=request.from_branch,
             to_branch=request.to_branch,

@@ -2,10 +2,11 @@
 
 import click
 
+from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_pr_address.cli.pr_address.gateway_access import get_gh_issue_gateway
+from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 
 
 class UnresolveThreadRequest(ClinkrModel):
@@ -25,8 +26,8 @@ def run_unresolve_thread(
     ctx: click.Context,
     request: UnresolveThreadRequest,
 ) -> ClinkrExit[UnresolveThreadResult]:
-    gateway = get_gh_issue_gateway(ctx)
-    result = gateway.unresolve_review_thread(request.thread_id)
+    pr_address_context = load_typed_context(ctx, PrAddressCliContext)
+    result = pr_address_context.gh_issue_gateway.unresolve_review_thread(request.thread_id)
     return ClinkrExit.ok(
         UnresolveThreadResult(
             thread_id=result.thread_id,
