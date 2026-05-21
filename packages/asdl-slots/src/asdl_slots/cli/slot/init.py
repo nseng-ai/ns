@@ -5,14 +5,17 @@ from typing import Annotated
 import click
 
 from asdl_core import get_console
+from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_slots.cli.slot.context import load_slots_context
-from asdl_slots.inventory import build_slot_inventory
-from asdl_slots.lifecycle import MAX_POOL_SIZE, MIN_POOL_SIZE, build_init_plan
-from asdl_slots.naming import generate_slot_name
-from asdl_slots.repo_context import NoRepoSentinel, ensure_slots_metadata_dir
+from asdl_slots.lifecycle import (
+    SlotInitOutcome,
+    SlotLifecycleFailure,
+    initialize_pool,
+)
+from asdl_slots.repo_context import NoRepoSentinel
 
 
 class SlotInitRequest(ClinkrModel):
@@ -42,46 +45,26 @@ def render_slot_init(result: SlotInitResult) -> None:
         console.print(f"  + [bold cyan]{name}[/bold cyan]")
 
 
+def _outcome_to_result(outcome: SlotInitOutcome) -> SlotInitResult:
+    return SlotInitResult(
+        pool_size=outcome.pool_size,
+        created=outcome.created,
+        worktrees_dir=str(outcome.worktrees_dir),
+    )
+
+
 @clinkr_operation(
     name="init",
     help="Initialize the worktree pool with N detached slots at trunk.",
     human_renderer=render_slot_init,
 )
 def run_init_slots(ctx: click.Context, request: SlotInitRequest) -> ClinkrExit[SlotInitResult]:
-    if request.size < MIN_POOL_SIZE or request.size > MAX_POOL_SIZE:
-        return ClinkrExit.failure(
-            error_type="invalid_size",
-            message=f"--size must be between {MIN_POOL_SIZE} and {MAX_POOL_SIZE}.",
-        )
+    slots_ctx_result = load_slots_context(ctx)
+    if isinstance(slots_ctx_result, NoRepoSentinel):
+        Ensure.fail(error_type="not_in_repo", message=slots_ctx_result.message)
+    slots_ctx = slots_ctx_result
 
-    slots_ctx = load_slots_context(ctx)
-    if isinstance(slots_ctx, NoRepoSentinel):
-        return ClinkrExit.failure(error_type="not_in_repo", message=slots_ctx.message)
-
-    inventory = build_slot_inventory(slots_ctx.git)
-    if inventory.pool_size > 0:
-        return ClinkrExit.failure(
-            error_type="pool_already_initialized",
-            message=(
-                f"Pool already has {inventory.pool_size} slot(s). "
-                f"Use `slot resize --size N` to change capacity."
-            ),
-        )
-
-    ensure_slots_metadata_dir(slots_ctx.repo, slots_ctx.storage)
-    plan = build_init_plan(request.size)
-    trunk = slots_ctx.git.get_trunk_branch()
-    created: list[str] = []
-    for slot_number in plan.create:
-        name = generate_slot_name(slot_number)
-        path = slots_ctx.repo.worktrees_dir / name
-        slots_ctx.git.add_detached_worktree(path, trunk)
-        created.append(name)
-
-    return ClinkrExit.ok(
-        SlotInitResult(
-            pool_size=len(created),
-            created=tuple(created),
-            worktrees_dir=str(slots_ctx.repo.worktrees_dir),
-        )
-    )
+    outcome = initialize_pool(slots_ctx, request.size)
+    if isinstance(outcome, SlotLifecycleFailure):
+        return ClinkrExit.failure(error_type=outcome.error_type, message=outcome.message)
+    return ClinkrExit.ok(_outcome_to_result(outcome))
