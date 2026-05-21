@@ -148,10 +148,12 @@ Rules:
 When an operation needs an existing objective, resolve it in this order:
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, list candidate objective directories under `.asdl/objectives/` and ask the user to choose.
+2. If no slug or path is explicit, list candidate objective directories under `.asdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as open objectives for active-objective workflows.
 3. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
 
-Do not auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path evidence may be used only by operation-specific checks after an objective is selected.
+Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the open-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple open objectives exist, still present the options and ask the user to choose.
+
+Outside that `objective-update` confirmation path, do not auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
 
 ## Operations
 
@@ -238,6 +240,8 @@ Contract:
 
 - Update exactly one objective per invocation.
 - Do not span multiple objectives in one update.
+- For explicit update requests with exactly one open objective and no explicit slug/path, the operation may present that objective as the only candidate but must get confirmation before continuing.
+- After selection, local working-tree changes, committed branch diffs, Graphite stack parent context, and optional PR metadata may be used as evidence for the selected objective. PR evidence is not required when local committed branch evidence is sufficient.
 - Edit `objective.md` and/or `roadmap.md` when durable narrative or ordered guidance has changed.
 - Edit `## Assumptions and Risks` when an assumption is found incorrect or revised, a risk is de-risked or not de-risked, a risk materializes or is accepted, or new assumptions/risks emerge.
 - Write a Semantic Update when there is meaningful semantic information to record.

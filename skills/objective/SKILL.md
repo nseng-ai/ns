@@ -61,7 +61,9 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 2. If no slug or path is explicit, run `objective list --state open --format md` to enumerate candidate Objective directories under `.asdl/objectives/` and ask the user to choose.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
-Do not auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path evidence belongs only to operation-specific checks after an Objective is selected.
+`objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one open Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple open Objectives exist, ask instead.
+
+Outside that confirmation path, do not auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
 ## Tracking Gate
 
