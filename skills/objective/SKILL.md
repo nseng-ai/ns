@@ -65,9 +65,9 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 
 Outside that confirmation path, do not auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
-## Branch inventory
+## Repository status
 
-Use `objective branches` to inventory open Objective records across local branch tips. It groups by slug and reports branch, tip age, and ahead-of-trunk count only. It does not parse Markdown, choose a canonical branch, or list branches without open Objectives.
+Use `objective status` for the default objective-level list of open Objective records with local branch state. Use `objective status --view detail` when you need the per-branch detail view with branch, tip age, and ahead-of-trunk count. It does not parse Markdown, choose a canonical branch, or list branches without open Objectives.
 
 ## Tracking Gate
 
@@ -77,4 +77,4 @@ Before `objective-next` recommends work, check read-only whether material progre
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective branches`, `objective exec read-objective`) owns only deterministic facts (inventory, branch facts, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
+- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective status`, `objective exec read-objective`) owns only deterministic facts (inventory, branch facts, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.

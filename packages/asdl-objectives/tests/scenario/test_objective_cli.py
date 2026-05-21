@@ -26,7 +26,7 @@ def test_objective_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective" in result.output
     assert "Work with checked-in Objective records." in result.output
     assert "--version" in result.output
-    assert "branches" in result.output
+    assert "status" in result.output
     assert "list" in result.output
     assert "exec" not in result.output
 
@@ -46,37 +46,41 @@ def test_objective_list_help(cli_group: ClinkrGroup) -> None:
     assert "List checked-in Objective record directories" in result.output
 
 
-def test_objective_branches_help(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["branches", "--help"])
+def test_objective_status_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["status", "--help"])
 
     assert result.exit_code == 0
-    assert "Usage: objective branches" in result.output
-    assert "List open Objective branch states across local branches." in result.output
+    assert "Usage: objective status" in result.output
+    assert "Show current Objective status for this local repository." in result.output
+    assert "--view" in result.output
+    assert "Select objective-level list or per-branch" in result.output
+    assert "detail view." in result.output
 
 
-def test_objective_branches_empty_result(cli_group: ClinkrGroup) -> None:
-    ctx = _branches_context(branches=("master", "feat/no-objectives"))
+def test_objective_status_empty_result(cli_group: ClinkrGroup) -> None:
+    ctx = _status_context(branches=("master", "feat/no-objectives"))
 
-    result = _invoke_branches_json(cli_group, ctx)
+    result = _invoke_status_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == {
         "exit_code": 0,
         "data": {
             "trunk_branch": "master",
+            "view": "list",
             "groups": [],
         },
     }
 
-    human = _invoke_branches_human(cli_group, ctx)
+    human = _invoke_status_human(cli_group, ctx)
     assert human.exit_code == 0, human.output
-    assert "No open Objective branch states found." in human.output
+    assert "No open Objective status found." in human.output
 
 
-def test_objective_branches_groups_multiple_branches_under_one_objective(
+def test_objective_status_groups_multiple_branches_under_one_objective(
     cli_group: ClinkrGroup,
 ) -> None:
-    ctx = _branches_context(
+    ctx = _status_context(
         branches=("master", "feat/b", "feat/a"),
         directories_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): ("alpha",),
@@ -92,10 +96,11 @@ def test_objective_branches_groups_multiple_branches_under_one_objective(
         },
     )
 
-    result = _invoke_branches_json(cli_group, ctx)
+    result = _invoke_status_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
+    assert payload["data"]["view"] == "list"
     assert payload["data"]["groups"] == [
         {
             "slug": "alpha",
@@ -117,8 +122,8 @@ def test_objective_branches_groups_multiple_branches_under_one_objective(
     assert "tip_age" not in payload["data"]["groups"][0]["branches"][0]
 
 
-def test_objective_branches_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
-    ctx = _branches_context(
+def test_objective_status_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
+    ctx = _status_context(
         branches=("master", "feat/b", "feat/a"),
         directories_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): ("beta", "alpha"),
@@ -126,7 +131,7 @@ def test_objective_branches_sorts_groups_and_branch_rows(cli_group: ClinkrGroup)
         },
     )
 
-    result = _invoke_branches_json(cli_group, ctx)
+    result = _invoke_status_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     groups = json.loads(result.output)["data"]["groups"]
@@ -135,8 +140,8 @@ def test_objective_branches_sorts_groups_and_branch_rows(cli_group: ClinkrGroup)
     assert [entry["branch"] for entry in groups[1]["branches"]] == ["feat/a"]
 
 
-def test_objective_branches_excludes_closed_objectives(cli_group: ClinkrGroup) -> None:
-    ctx = _branches_context(
+def test_objective_status_excludes_closed_objectives(cli_group: ClinkrGroup) -> None:
+    ctx = _status_context(
         branches=("master", "feat/a"),
         directories_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): ("closed-one", "open-one"),
@@ -144,7 +149,7 @@ def test_objective_branches_excludes_closed_objectives(cli_group: ClinkrGroup) -
         paths_at_ref=(("refs/heads/feat/a", ".asdl/objectives/closed-one/closed.md"),),
     )
 
-    result = _invoke_branches_json(cli_group, ctx)
+    result = _invoke_status_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     groups = json.loads(result.output)["data"]["groups"]
@@ -152,10 +157,10 @@ def test_objective_branches_excludes_closed_objectives(cli_group: ClinkrGroup) -
     assert "closed-one" not in result.output
 
 
-def test_objective_branches_excludes_trunk_and_no_objective_branches(
+def test_objective_status_excludes_trunk_and_no_objective_branches(
     cli_group: ClinkrGroup,
 ) -> None:
-    ctx = _branches_context(
+    ctx = _status_context(
         branches=("master", "feat/active", "feat/empty"),
         directories_by_ref_path={
             ("refs/heads/master", ".asdl/objectives"): ("alpha",),
@@ -163,21 +168,23 @@ def test_objective_branches_excludes_trunk_and_no_objective_branches(
         },
     )
 
-    result = _invoke_branches_json(cli_group, ctx)
+    result = _invoke_status_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     branches = json.loads(result.output)["data"]["groups"][0]["branches"]
     assert [entry["branch"] for entry in branches] == ["feat/active"]
 
-    human = _invoke_branches_human(cli_group, ctx)
+    human = _invoke_status_human(cli_group, ctx, view="detail")
     assert human.exit_code == 0, human.output
     assert "feat/active" in human.output
     assert "master" not in human.output
     assert "feat/empty" not in human.output
 
 
-def test_objective_branches_human_and_markdown_column_shape(cli_group: ClinkrGroup) -> None:
-    ctx = _branches_context(
+def test_objective_status_default_human_and_markdown_are_list_view(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _status_context(
         branches=("master", "feat/a"),
         directories_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): ("alpha",),
@@ -186,9 +193,44 @@ def test_objective_branches_human_and_markdown_column_shape(cli_group: ClinkrGro
         commit_count_by_range={"master..feat/a": 7},
     )
 
-    human = _invoke_branches_human(cli_group, ctx)
+    human = _invoke_status_human(cli_group, ctx)
 
     assert human.exit_code == 0, human.output
+    assert "Open Objective status in this local repository" in human.output
+    assert "Objective" in human.output
+    assert "Local branches" in human.output
+    assert "Latest tip" in human.output
+    assert "Max ahead trunk" in human.output
+    assert "alpha" in human.output
+    assert "+7" in human.output
+    assert "feat/a" not in human.output
+    assert "Tip age" not in human.output
+
+    markdown = _invoke_status_md(cli_group, ctx)
+    assert markdown.exit_code == 0, markdown.output
+    assert "# Open Objective status in this local repository" in markdown.output
+    assert "| objective | local branches | latest tip | max ahead trunk |" in markdown.output
+    assert "| alpha | 1 |" in markdown.output
+    assert "+7" in markdown.output
+    assert "| `feat/a` |" not in markdown.output
+
+
+def test_objective_status_detail_human_and_markdown_column_shape(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _status_context(
+        branches=("master", "feat/a"),
+        directories_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): ("alpha",),
+        },
+        branch_head_iso_by_branch={"feat/a": "2026-05-20T10:44:08-04:00"},
+        commit_count_by_range={"master..feat/a": 7},
+    )
+
+    human = _invoke_status_human(cli_group, ctx, view="detail")
+
+    assert human.exit_code == 0, human.output
+    assert "Open Objective branch details in this local repository" in human.output
     assert "Branch" in human.output
     assert "Tip age" in human.output
     assert "Ahead trunk" in human.output
@@ -198,9 +240,9 @@ def test_objective_branches_human_and_markdown_column_shape(cli_group: ClinkrGro
     assert "latest update" not in human.output.lower()
     assert "objective files changed" not in human.output.lower()
 
-    markdown = _invoke_branches_md(cli_group, ctx)
+    markdown = _invoke_status_md(cli_group, ctx, view="detail")
     assert markdown.exit_code == 0, markdown.output
-    assert "# Open Objectives across local branches" in markdown.output
+    assert "# Open Objective branch details in this local repository" in markdown.output
     assert "| branch | tip age | ahead trunk |" in markdown.output
     assert "| `feat/a` |" in markdown.output
     assert "tip subject" not in markdown.output.lower()
@@ -208,10 +250,10 @@ def test_objective_branches_human_and_markdown_column_shape(cli_group: ClinkrGro
     assert "objective files changed" not in markdown.output.lower()
 
 
-def test_objective_branches_unavailable_context_returns_failure_envelope(
+def test_objective_status_unavailable_context_returns_failure_envelope(
     cli_group: ClinkrGroup,
 ) -> None:
-    result = _invoke_branches_json(
+    result = _invoke_status_json(
         cli_group,
         ObjectiveCliUnavailable("Not inside a git repository."),
     )
@@ -752,7 +794,7 @@ def test_objective_exec_read_json_omits_raw_markdown_content(
     assert "private update body sentinel" not in result.output
 
 
-def _branches_context(
+def _status_context(
     *,
     branches: tuple[str, ...],
     trunk_branch: str = "master",
@@ -776,31 +818,55 @@ def _branches_context(
     )
 
 
-def _invoke_branches_json(
+def _invoke_status_json(
     cli_group: ClinkrGroup,
     ctx: ObjectiveCliContext | ObjectiveCliUnavailable,
+    *,
+    view: str | None = None,
 ) -> Result:
+    args = _status_args(format_mode="json", view=view)
     return CliRunner().invoke(
         cli_group,
-        ["branches", "--format", "json"],
+        args,
         obj=build_clinkr_context_object(lambda: ctx),
     )
 
 
-def _invoke_branches_human(cli_group: ClinkrGroup, ctx: ObjectiveCliContext) -> Result:
+def _invoke_status_human(
+    cli_group: ClinkrGroup,
+    ctx: ObjectiveCliContext,
+    *,
+    view: str | None = None,
+) -> Result:
+    args = _status_args(view=view)
     return CliRunner().invoke(
         cli_group,
-        ["branches"],
+        args,
         obj=build_clinkr_context_object(lambda: ctx),
     )
 
 
-def _invoke_branches_md(cli_group: ClinkrGroup, ctx: ObjectiveCliContext) -> Result:
+def _invoke_status_md(
+    cli_group: ClinkrGroup,
+    ctx: ObjectiveCliContext,
+    *,
+    view: str | None = None,
+) -> Result:
+    args = _status_args(format_mode="md", view=view)
     return CliRunner().invoke(
         cli_group,
-        ["branches", "--format", "md"],
+        args,
         obj=build_clinkr_context_object(lambda: ctx),
     )
+
+
+def _status_args(*, format_mode: str | None = None, view: str | None = None) -> list[str]:
+    args = ["status"]
+    if view is not None:
+        args.extend(("--view", view))
+    if format_mode is not None:
+        args.extend(("--format", format_mode))
+    return args
 
 
 def _invoke_json(cli_group: ClinkrGroup, *args: str) -> Result:
