@@ -10,7 +10,6 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.harness_registry import HARNESS_ADAPTERS
 
 
 class HarnessListRequest(ClinkrModel):
@@ -63,18 +62,13 @@ def run_harness_list_command(
     request: HarnessListRequest,
 ) -> ClinkrExit[HarnessListResult]:
     reviewer_context = load_typed_context(ctx, ReviewerCliContext)
-    entries: list[HarnessEntry] = []
-    for adapter in HARNESS_ADAPTERS.values():
-        detection = reviewer_context.review_environment.detect_harness(
-            name=adapter.name,
-            binary=adapter.binary,
+    entries = tuple(
+        HarnessEntry(
+            name=detection.name,
+            binary=detection.binary,
+            path=detection.path,
+            available=detection.available,
         )
-        entries.append(
-            HarnessEntry(
-                name=adapter.name,
-                binary=adapter.binary,
-                path=detection.path,
-                available=detection.available,
-            )
-        )
-    return ClinkrExit.ok(HarnessListResult(harnesses=tuple(entries)))
+        for detection in reviewer_context.review_environment.list_harnesses()
+    )
+    return ClinkrExit.ok(HarnessListResult(harnesses=entries))

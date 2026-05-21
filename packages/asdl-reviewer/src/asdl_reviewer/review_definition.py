@@ -6,7 +6,6 @@ from typing import Any
 
 import yaml
 
-from asdl_reviewer.harness_registry import HARNESS_ADAPTERS
 from asdl_reviewer.models import ReviewDefinition
 
 _FRONTMATTER_FENCE = "---"
@@ -44,7 +43,6 @@ def parse_review_definition(source: str, *, name: str) -> ReviewDefinition:
         default_model: str | None = None
     elif isinstance(default_model_value, str) and default_model_value.strip():
         default_model = default_model_value.strip()
-        _validate_supported_model(default_model)
     else:
         raise ValueError("Review definition field `default_model` must be a non-empty string.")
 
@@ -69,16 +67,6 @@ def _reject_unknown_keys(frontmatter: dict[str, Any]) -> None:
     raise ValueError(
         f"Review definition frontmatter contains unknown field(s): {unknown_list}. "
         f"Allowed fields: {allowed}."
-    )
-
-
-def _validate_supported_model(model: str) -> None:
-    if any(adapter.supports_model(model) for adapter in HARNESS_ADAPTERS.values()):
-        return
-    known_harnesses = ", ".join(sorted(HARNESS_ADAPTERS))
-    raise ValueError(
-        f"Review definition field `default_model` value {model!r} is not supported by any "
-        f"registered harness (known harnesses: {known_harnesses})."
     )
 
 

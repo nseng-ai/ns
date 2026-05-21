@@ -10,6 +10,7 @@ from asdl_reviewer.models import (
     FindingsReview,
     LocalDiff,
     LocalReviewResult,
+    ModelNotSupportedByHarness,
     ReviewerFailure,
     ReviewExecutionResponse,
     ReviewFormat,
@@ -26,6 +27,7 @@ def _review_environment(
     *,
     review_sources_by_key: dict[str, str] | None = None,
     paths_by_binary: dict[str, str] | None = None,
+    default_response: ReviewExecutionResponse | ReviewerFailure | None = None,
 ) -> FakeReviewEnvironmentGateway:
     if review_sources_by_key is None:
         review_sources_by_key = {REVIEW_KEY: SAMPLE_SOURCE}
@@ -37,7 +39,8 @@ def _review_environment(
             base_ref="master",
             diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
         ),
-        default_response=ReviewExecutionResponse(payload=FindingsReview(findings=())),
+        default_response=default_response
+        or ReviewExecutionResponse(payload=FindingsReview(findings=())),
         paths_by_binary=paths_by_binary,
         reviews_dir=Path("/repo/reviews"),
     )
@@ -73,7 +76,13 @@ def test_runs_end_to_end_auto_selecting_single_detected_harness() -> None:
     assert result.review_name == REVIEW_KEY
     assert result.model == "sonnet"
     assert result.base_ref == "master"
-    assert review_environment.executed_requests[0].adapter_name == "claude-code"
+    executed = review_environment.executed_requests[0]
+    assert executed.harness_name == "claude-code"
+    assert executed.review_definition.name == REVIEW_KEY
+    assert executed.review_definition.description == "Review Python diffs."
+    assert executed.review_definition.instructions == "Flag concrete issues."
+    assert executed.local_diff.base_ref == "master"
+    assert "diff --git a/app.py b/app.py" in executed.local_diff.diff_text
 
 
 def test_nested_key_preserves_subpath_in_review_name() -> None:
@@ -85,7 +94,7 @@ def test_nested_key_preserves_subpath_in_review_name() -> None:
 
     assert isinstance(result, LocalReviewResult)
     assert result.review_name == "python/typing"
-    assert review_environment.executed_requests[0].review_name == "python/typing"
+    assert review_environment.executed_requests[0].review_definition.name == "python/typing"
 
 
 def test_explicit_harness_flag_wins() -> None:
@@ -93,7 +102,7 @@ def test_explicit_harness_flag_wins() -> None:
 
     _run(requested_harness="claude-code", review_environment=review_environment)
 
-    assert review_environment.executed_requests[0].adapter_name == "claude-code"
+    assert review_environment.executed_requests[0].harness_name == "claude-code"
 
 
 def test_env_var_overrides_auto_detection(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,7 +111,7 @@ def test_env_var_overrides_auto_detection(monkeypatch: pytest.MonkeyPatch) -> No
 
     _run(review_environment=review_environment)
 
-    assert review_environment.executed_requests[0].adapter_name == "claude-code"
+    assert review_environment.executed_requests[0].harness_name == "claude-code"
 
 
 def test_unknown_harness_is_rejected() -> None:
@@ -141,12 +150,33 @@ def test_model_flag_overrides_default_model() -> None:
     assert review_environment.executed_requests[0].model == "opus"
 
 
-def test_format_is_threaded_onto_execution_request() -> None:
+def test_format_is_threaded_onto_semantic_harness_request() -> None:
     review_environment = _review_environment()
 
     _run(requested_format="text", review_environment=review_environment)
 
     executed = review_environment.executed_requests[0]
     assert executed.review_format == "text"
-    assert "markdown review" in executed.system_prompt.lower()
-    assert "JSON" not in executed.prompt
+
+
+def test_unsupported_default_model_failure_propagates_after_harness_selection() -> None:
+    source = (
+        "---\n"
+        "description: Review Python diffs.\n"
+        "default_model: gpt-5-mini\n"
+        "---\n"
+        "\n"
+        "Flag concrete issues.\n"
+    )
+    review_environment = _review_environment(
+        review_sources_by_key={REVIEW_KEY: source},
+        default_response=ModelNotSupportedByHarness(
+            message="Model 'gpt-5-mini' is not supported by harness 'claude-code'."
+        ),
+    )
+
+    result = _run(review_environment=review_environment)
+
+    assert isinstance(result, ReviewerFailure)
+    assert error_type_for(result) == "model_not_supported_by_harness"
+    assert review_environment.executed_requests[0].model == "gpt-5-mini"

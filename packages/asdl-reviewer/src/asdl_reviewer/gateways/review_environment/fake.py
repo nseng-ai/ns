@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_reviewer.gateways.review_environment.gateway import ReviewEnvironmentGateway
+from asdl_reviewer.harness.invocation import HarnessReviewRequest, HarnessRuntime
 from asdl_reviewer.models import (
     BaseRefUnavailable,
     FindingsReview,
@@ -13,7 +14,6 @@ from asdl_reviewer.models import (
     ReviewCatalog,
     ReviewDefinitionNotFound,
     ReviewerFailure,
-    ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewSource,
 )
@@ -51,8 +51,10 @@ class FakeReviewEnvironmentGateway(ReviewEnvironmentGateway):
         self._reviews_dir = reviews_dir
         self._requested_review_keys: list[str] = []
         self._requested_base_refs: list[str | None] = []
-        self._detect_calls: list[tuple[str, str]] = []
-        self._executed_requests: list[ReviewExecutionRequest] = []
+        self._executed_requests: list[HarnessReviewRequest] = []
+        self._harness_runtime = HarnessRuntime(
+            binary_locator=lambda binary: self._paths_by_binary.get(binary)
+        )
 
     def load_review_source(self, *, key: str) -> ReviewSource | ReviewerFailure:
         self._requested_review_keys.append(key)
@@ -85,21 +87,17 @@ class FakeReviewEnvironmentGateway(ReviewEnvironmentGateway):
             return self._diffs_by_base_ref[base_ref]
         return self._default_diff
 
-    def detect_harness(self, *, name: str, binary: str) -> HarnessDetection:
-        self._detect_calls.append((name, binary))
-        return HarnessDetection(
-            name=name,
-            binary=binary,
-            path=self._paths_by_binary.get(binary),
-        )
+    def list_harnesses(self) -> tuple[HarnessDetection, ...]:
+        return self._harness_runtime.list_harnesses()
 
     def run_review(
         self,
-        request: ReviewExecutionRequest,
+        request: HarnessReviewRequest,
     ) -> ReviewExecutionResponse | ReviewerFailure:
         self._executed_requests.append(request)
-        if request.review_name in self._responses_by_review_name:
-            return self._responses_by_review_name[request.review_name]
+        review_name = request.review_definition.name
+        if review_name in self._responses_by_review_name:
+            return self._responses_by_review_name[review_name]
         return self._default_response
 
     @property
@@ -113,11 +111,6 @@ class FakeReviewEnvironmentGateway(ReviewEnvironmentGateway):
         return tuple(self._requested_base_refs)
 
     @property
-    def detect_calls(self) -> tuple[tuple[str, str], ...]:
-        """Return harness detection calls made during the test."""
-        return tuple(self._detect_calls)
-
-    @property
-    def executed_requests(self) -> tuple[ReviewExecutionRequest, ...]:
+    def executed_requests(self) -> tuple[HarnessReviewRequest, ...]:
         """Return review execution requests made during the test."""
         return tuple(self._executed_requests)

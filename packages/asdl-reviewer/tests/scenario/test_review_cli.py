@@ -159,7 +159,10 @@ def test_review_run_text_format_threads_request(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert isinstance(ctx.review_environment, FakeReviewEnvironmentGateway)
     executed = ctx.review_environment.executed_requests[0]
+    assert executed.harness_name == "claude-code"
     assert executed.review_format == "text"
+    assert executed.review_definition.name == REVIEW_KEY
+    assert executed.local_diff.base_ref == "master"
 
 
 def test_review_run_uses_default_model_from_definition(cli_group: ClinkrGroup) -> None:

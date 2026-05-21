@@ -126,23 +126,11 @@ def test_parse_review_definition_lists_all_unknown_frontmatter_keys() -> None:
     assert "Allowed fields:" in message
 
 
-def test_parse_review_definition_rejects_unsupported_default_model() -> None:
-    with pytest.raises(ValueError, match="not supported by any registered harness"):
-        parse_review_definition(
-            "---\n"
-            "description: Review Python diffs for style violations.\n"
-            "default_model: gpt-5-mini\n"
-            "---\n"
-            "\nFlag concrete issues in the diff.\n",
-            name="dignified-python",
-        )
-
-
 @pytest.mark.parametrize(
     "model",
-    ["sonnet", "opus", "haiku", "claude-sonnet-4-6", "claude-opus-4-7"],
+    ["sonnet", "opus", "haiku", "claude-sonnet-4-6", "gpt-5-mini"],
 )
-def test_parse_review_definition_accepts_supported_default_models(model: str) -> None:
+def test_parse_review_definition_accepts_non_empty_default_models(model: str) -> None:
     definition = parse_review_definition(
         f"---\n"
         f"description: Review Python diffs for style violations.\n"
@@ -155,12 +143,15 @@ def test_parse_review_definition_accepts_supported_default_models(model: str) ->
     assert definition.default_model == model
 
 
-def test_parse_review_definition_requires_default_model_non_empty_string() -> None:
+@pytest.mark.parametrize("default_model", ["5", '""'])
+def test_parse_review_definition_requires_default_model_non_empty_string(
+    default_model: str,
+) -> None:
     with pytest.raises(ValueError, match="`default_model`"):
         parse_review_definition(
             "---\n"
             "description: Review Python diffs for style violations.\n"
-            "default_model: 5\n"
+            f"default_model: {default_model}\n"
             "---\n"
             "\nFlag concrete issues in the diff.\n",
             name="dignified-python",

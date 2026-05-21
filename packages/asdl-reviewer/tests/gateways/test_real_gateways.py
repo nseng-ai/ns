@@ -1,109 +1,39 @@
 from __future__ import annotations
 
-import json
 import subprocess
-from collections.abc import Iterable
-from io import StringIO
 from pathlib import Path
-from typing import Any
 
 import pytest
 
-from asdl_core.clinkr.non_ideal_state import error_type_for
 from asdl_reviewer.gateways.review_environment import real as review_environment_real
 from asdl_reviewer.gateways.review_environment.real import RealReviewEnvironmentGateway
-from asdl_reviewer.harness_adapter import HarnessAdapter
+from asdl_reviewer.harness import invocation as harness_invocation
+from asdl_reviewer.harness.invocation import HarnessReviewRequest
 from asdl_reviewer.models import (
     FindingsReview,
     LocalDiff,
-    ProseReview,
-    ReviewerFailure,
-    ReviewExecutionRequest,
+    ReviewDefinition,
     ReviewExecutionResponse,
-    ReviewFormat,
     ReviewSource,
 )
 
 
-def _sample_request(
-    *,
-    model: str = "sonnet",
-    adapter_name: str = "claude-code",
-    review_format: ReviewFormat = "findings",
-    system_prompt: str = "SYSTEM PROMPT",
-) -> ReviewExecutionRequest:
-    return ReviewExecutionRequest(
-        adapter_name=adapter_name,
-        model=model,
-        prompt="review this diff",
-        system_prompt=system_prompt,
-        review_format=review_format,
-        review_name="Dignified Python",
-        review_description="Review Python diffs for style violations.",
-        review_instructions="Flag concrete issues in the diff.",
-        base_ref="master",
-        diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+def _sample_request() -> HarnessReviewRequest:
+    return HarnessReviewRequest(
+        harness_name="claude-code",
+        model="sonnet",
+        review_definition=ReviewDefinition(
+            name="Dignified Python",
+            description="Review Python diffs for style violations.",
+            instructions="Flag concrete issues in the diff.",
+            default_model="sonnet",
+        ),
+        local_diff=LocalDiff(
+            base_ref="master",
+            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+        ),
+        review_format="findings",
     )
-
-
-class _CapturingStdin:
-    """Stand-in for ``Popen.stdin`` that records writes and survives close."""
-
-    def __init__(self) -> None:
-        self.buffer = ""
-        self.closed = False
-
-    def write(self, data: str) -> int:
-        self.buffer += data
-        return len(data)
-
-    def close(self) -> None:
-        self.closed = True
-
-
-class _FakePopen:
-    def __init__(
-        self,
-        *,
-        stdout_lines: Iterable[str],
-        stderr_text: str = "",
-        returncode: int = 0,
-    ) -> None:
-        self.stdout = iter(list(stdout_lines))
-        self.stderr = StringIO(stderr_text)
-        self.stdin = _CapturingStdin()
-        self.returncode = returncode
-
-    def wait(self) -> int:
-        return self.returncode
-
-
-def _stream_json_lines(
-    *,
-    model: str = "sonnet",
-    structured_output: object | None = None,
-    result_text: str = "Findings produced.",
-    include_structured_output: bool = True,
-) -> list[str]:
-    result_event: dict[str, object] = {
-        "type": "result",
-        "result": result_text,
-        "num_turns": 1,
-        "duration_ms": 1234,
-    }
-    if include_structured_output:
-        if structured_output is None:
-            structured_output = {"findings": []}
-        result_event["structured_output"] = structured_output
-    events = [
-        {"type": "system", "subtype": "init", "model": model},
-        {
-            "type": "assistant",
-            "message": {"role": "assistant", "content": [{"type": "text", "text": result_text}]},
-        },
-        result_event,
-    ]
-    return [json.dumps(event) + "\n" for event in events]
 
 
 def test_real_review_environment_loads_review_source(
@@ -157,7 +87,7 @@ def test_real_review_environment_load_diff_runs_git_diff(
     assert "diff --git a/app.py b/app.py" in result.diff_text
 
 
-def test_real_review_environment_detect_harness_delegates_to_shutil_which(
+def test_real_review_environment_list_harnesses_reports_available_binary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
@@ -166,247 +96,60 @@ def test_real_review_environment_detect_harness_delegates_to_shutil_which(
         calls.append(binary)
         return "/usr/local/bin/claude"
 
-    monkeypatch.setattr(review_environment_real.shutil, "which", fake_which)
+    monkeypatch.setattr(harness_invocation.shutil, "which", fake_which)
 
-    detection = RealReviewEnvironmentGateway(cwd=Path("/repo")).detect_harness(
-        name="claude-code",
-        binary="claude",
-    )
+    detections = RealReviewEnvironmentGateway(cwd=Path("/repo")).list_harnesses()
 
+    assert len(detections) == 1
+    detection = detections[0]
+    assert detection.name == "claude-code"
+    assert detection.binary == "claude"
     assert detection.path == "/usr/local/bin/claude"
     assert detection.available is True
     assert calls == ["claude"]
 
 
-def test_real_review_environment_detect_harness_reports_absent_binary(
+def test_real_review_environment_list_harnesses_reports_absent_binary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(review_environment_real.shutil, "which", lambda _binary: None)
+    monkeypatch.setattr(harness_invocation.shutil, "which", lambda _binary: None)
 
-    detection = RealReviewEnvironmentGateway(cwd=Path("/repo")).detect_harness(
-        name="codex",
-        binary="codex",
-    )
+    detections = RealReviewEnvironmentGateway(cwd=Path("/repo")).list_harnesses()
 
+    assert len(detections) == 1
+    detection = detections[0]
+    assert detection.name == "claude-code"
+    assert detection.binary == "claude"
     assert detection.path is None
     assert detection.available is False
 
 
-def test_real_review_environment_runs_claude_code_findings(
+def test_real_review_environment_run_review_delegates_to_harness_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    structured = {
-        "findings": [
-            {
-                "path": "app.py",
-                "line": 1,
-                "severity": "warning",
-                "summary": "Avoid print in library code",
-                "details": "Use click.echo() instead.",
-            }
-        ]
-    }
-    stdout_lines = _stream_json_lines(structured_output=structured)
-    progress_messages: list[str] = []
-    captured: dict[str, Any] = {}
-    fake_process: dict[str, _FakePopen] = {}
+    class _FakeHarnessRuntime:
+        def __init__(self, *, progress_writer: object) -> None:
+            self.progress_writer = progress_writer
+            self.requests: list[HarnessReviewRequest] = []
+            created_runtimes.append(self)
 
-    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
-        captured["cmd"] = cmd
-        captured["kwargs"] = kwargs
-        assert cmd[0] == "claude"
-        assert "--model" in cmd
-        assert "review this diff" not in cmd
-        process = _FakePopen(stdout_lines=stdout_lines)
-        fake_process["value"] = process
-        return process
+        def list_harnesses(self) -> tuple[object, ...]:
+            return ()
 
-    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
+        def run_review(
+            self,
+            request: HarnessReviewRequest,
+        ) -> ReviewExecutionResponse:
+            self.requests.append(request)
+            return ReviewExecutionResponse(payload=FindingsReview(findings=()))
 
-    gateway = RealReviewEnvironmentGateway(
-        cwd=Path("/repo"),
-        progress_writer=progress_messages.append,
-    )
-    result = gateway.run_review(_sample_request(system_prompt="OUR SYSTEM PROMPT"))
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, FindingsReview)
-    assert result.payload.findings[0].path == "app.py"
-    assert any("session started" in msg for msg in progress_messages)
-    assert any("result received" in msg for msg in progress_messages)
-
-    cmd = captured["cmd"]
-    assert "--system-prompt" in cmd
-    assert cmd[cmd.index("--system-prompt") + 1] == "OUR SYSTEM PROMPT"
-    assert "--append-system-prompt" not in cmd
-    assert "--json-schema" in cmd
-    assert captured["kwargs"]["stdin"] is subprocess.PIPE
-    assert fake_process["value"].stdin.buffer == "review this diff"
-    assert fake_process["value"].stdin.closed
-
-
-def test_real_review_environment_text_format_returns_prose(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    prose = "### Review\n\n- app.py:1 — prefer click.echo"
-    stdout_lines = _stream_json_lines(result_text=prose, include_structured_output=False)
-    captured: dict[str, Any] = {}
-    fake_process: dict[str, _FakePopen] = {}
-
-    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
-        captured["cmd"] = cmd
-        captured["kwargs"] = kwargs
-        process = _FakePopen(stdout_lines=stdout_lines)
-        fake_process["value"] = process
-        return process
-
-    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
-
-    gateway = RealReviewEnvironmentGateway(cwd=Path("/repo"))
-    result = gateway.run_review(_sample_request(review_format="text"))
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert isinstance(result.payload, ProseReview)
-    assert result.payload.prose == prose
-    assert "--json-schema" not in captured["cmd"]
-    assert "review this diff" not in captured["cmd"]
-    assert captured["kwargs"]["stdin"] is subprocess.PIPE
-    assert fake_process["value"].stdin.buffer == "review this diff"
-
-
-def test_real_review_environment_handles_large_prompt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Regression: a 200KB prompt must be written through stdin."""
-    large_prompt = "x" * (200 * 1024)
-    stdout_lines = _stream_json_lines()
-    fake_process: dict[str, _FakePopen] = {}
-
-    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
-        assert large_prompt not in cmd
-        process = _FakePopen(stdout_lines=stdout_lines)
-        fake_process["value"] = process
-        return process
-
-    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
+    created_runtimes: list[_FakeHarnessRuntime] = []
+    monkeypatch.setattr(review_environment_real, "HarnessRuntime", _FakeHarnessRuntime)
 
     request = _sample_request()
-    request_with_large_prompt = ReviewExecutionRequest(
-        adapter_name=request.adapter_name,
-        model=request.model,
-        prompt=large_prompt,
-        system_prompt=request.system_prompt,
-        review_format=request.review_format,
-        review_name=request.review_name,
-        review_description=request.review_description,
-        review_instructions=request.review_instructions,
-        base_ref=request.base_ref,
-        diff_text=request.diff_text,
-    )
-    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(request_with_large_prompt)
-
-    assert isinstance(result, ReviewExecutionResponse)
-    assert fake_process["value"].stdin.buffer == large_prompt
-    assert fake_process["value"].stdin.closed
-
-
-def test_real_review_environment_rejects_unknown_harness() -> None:
     gateway = RealReviewEnvironmentGateway(cwd=Path("/repo"))
-
-    result = gateway.run_review(_sample_request(adapter_name="banana"))
-
-    assert isinstance(result, ReviewerFailure)
-    assert error_type_for(result) == "harness_unknown"
-
-
-def test_real_review_environment_rejects_unsupported_model() -> None:
-    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(
-        _sample_request(model="gpt-5-mini")
-    )
-
-    assert isinstance(result, ReviewerFailure)
-    assert error_type_for(result) == "model_not_supported_by_harness"
-
-
-def test_real_review_environment_reports_missing_binary(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
-        raise FileNotFoundError("claude: no such file")
-
-    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
-
-    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(_sample_request())
-
-    assert isinstance(result, ReviewerFailure)
-    assert error_type_for(result) == "harness_binary_missing"
-
-
-def test_real_review_environment_reports_non_zero_exit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
-        return _FakePopen(stdout_lines=[], stderr_text="model unavailable\n", returncode=1)
-
-    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
-
-    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(_sample_request())
-
-    assert isinstance(result, ReviewerFailure)
-    assert error_type_for(result) == "harness_execution_failed"
-    assert "model unavailable" in result.message
-
-
-def test_real_review_environment_surfaces_missing_result_event(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    truncated_stream = [
-        json.dumps({"type": "system", "subtype": "init", "model": "sonnet"}) + "\n",
-        json.dumps({"type": "assistant", "message": {"content": [{"text": "hi"}]}}) + "\n",
-    ]
-
-    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
-        return _FakePopen(stdout_lines=truncated_stream)
-
-    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
-
-    result = RealReviewEnvironmentGateway(cwd=Path("/repo")).run_review(_sample_request())
-
-    assert isinstance(result, ReviewerFailure)
-    assert error_type_for(result) == "claude_code_missing_result_event"
-
-
-def test_real_review_environment_uses_injected_registry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured_requests: list[ReviewExecutionRequest] = []
-
-    def fake_build_argv(request: ReviewExecutionRequest) -> list[str]:
-        captured_requests.append(request)
-        return ["echo", "ok"]
-
-    def fake_parse(
-        request: ReviewExecutionRequest, stdout: str
-    ) -> ReviewExecutionResponse | ReviewerFailure:
-        return ReviewExecutionResponse(payload=FindingsReview(findings=()))
-
-    adapter = HarnessAdapter(
-        name="noop",
-        binary="echo",
-        build_argv=fake_build_argv,
-        parse_stdout=fake_parse,
-        supports_model=lambda _: True,
-    )
-
-    def fake_popen(cmd: list[str], **kwargs: object) -> _FakePopen:
-        return _FakePopen(stdout_lines=[])
-
-    monkeypatch.setattr(review_environment_real.subprocess, "Popen", fake_popen)
-
-    gateway = RealReviewEnvironmentGateway(cwd=Path("/repo"), adapters={"noop": adapter})
-    result = gateway.run_review(_sample_request(adapter_name="noop", model="anything"))
+    result = gateway.run_review(request)
 
     assert isinstance(result, ReviewExecutionResponse)
-    assert len(captured_requests) == 1
-    assert captured_requests[0].model == "anything"
-    assert captured_requests[0].prompt == "review this diff"
+    assert len(created_runtimes) == 1
+    assert created_runtimes[0].requests == [request]

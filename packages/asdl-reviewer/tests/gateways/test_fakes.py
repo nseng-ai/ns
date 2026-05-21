@@ -4,31 +4,35 @@ from pathlib import Path
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
 from asdl_reviewer.gateways.review_environment.fake import FakeReviewEnvironmentGateway
+from asdl_reviewer.harness.invocation import HarnessReviewRequest
 from asdl_reviewer.models import (
     BaseRefUnavailable,
     FindingsReview,
     LocalDiff,
+    ReviewDefinition,
     ReviewDefinitionNotFound,
     ReviewerFailure,
-    ReviewExecutionRequest,
     ReviewExecutionResponse,
     ReviewFinding,
     ReviewsDirMissing,
 )
 
 
-def _request(*, review_name: str = "Dignified Python") -> ReviewExecutionRequest:
-    return ReviewExecutionRequest(
-        adapter_name="claude-code",
+def _request(*, review_name: str = "Dignified Python") -> HarnessReviewRequest:
+    return HarnessReviewRequest(
+        harness_name="claude-code",
         model="sonnet",
-        prompt="review this diff",
-        system_prompt="You are a code reviewer.",
+        review_definition=ReviewDefinition(
+            name=review_name,
+            description="Review Python diffs for style violations.",
+            instructions="Flag concrete issues in the diff.",
+            default_model="sonnet",
+        ),
+        local_diff=LocalDiff(
+            base_ref="master",
+            diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
+        ),
         review_format="findings",
-        review_name=review_name,
-        review_description="Review Python diffs for style violations.",
-        review_instructions="Flag concrete issues in the diff.",
-        base_ref="master",
-        diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
     )
 
 
@@ -128,21 +132,28 @@ def test_fake_load_diff_returns_default_failure() -> None:
     assert gateway.requested_base_refs == (None,)
 
 
-def test_fake_detect_harness_returns_configured_path() -> None:
+def test_fake_list_harnesses_returns_configured_path() -> None:
     gateway = FakeReviewEnvironmentGateway(paths_by_binary={"claude": "/usr/local/bin/claude"})
 
-    detection = gateway.detect_harness(name="claude-code", binary="claude")
+    detections = gateway.list_harnesses()
 
+    assert len(detections) == 1
+    detection = detections[0]
+    assert detection.name == "claude-code"
+    assert detection.binary == "claude"
     assert detection.available is True
     assert detection.path == "/usr/local/bin/claude"
-    assert gateway.detect_calls == (("claude-code", "claude"),)
 
 
-def test_fake_detect_harness_reports_binary_absent() -> None:
+def test_fake_list_harnesses_reports_binary_absent() -> None:
     gateway = FakeReviewEnvironmentGateway()
 
-    detection = gateway.detect_harness(name="claude-code", binary="claude")
+    detections = gateway.list_harnesses()
 
+    assert len(detections) == 1
+    detection = detections[0]
+    assert detection.name == "claude-code"
+    assert detection.binary == "claude"
     assert detection.available is False
     assert detection.path is None
 
@@ -166,4 +177,4 @@ def test_fake_run_review_returns_configured_response() -> None:
     assert isinstance(result, ReviewExecutionResponse)
     assert isinstance(result.payload, FindingsReview)
     assert result.payload.findings == (finding,)
-    assert gateway.executed_requests[0].review_name == "Dignified Python"
+    assert gateway.executed_requests[0].review_definition.name == "Dignified Python"
