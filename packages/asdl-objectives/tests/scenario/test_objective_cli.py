@@ -118,6 +118,39 @@ def test_objective_list_groups_multiple_branches_under_one_objective(
     ]
     assert "tip_age" not in payload["data"]["groups"][0]["branches"][0]
 
+    human = _invoke_list_human(cli_group, ctx)
+    assert human.exit_code == 0, human.output
+    assert "Latest branch" in human.output
+    assert "feat/b" in human.output
+    assert "feat/a" not in human.output
+
+    markdown = _invoke_list_md(cli_group, ctx)
+    assert markdown.exit_code == 0, markdown.output
+    assert "| alpha | `feat/b` |" in markdown.output
+    assert "`feat/a`" not in markdown.output
+
+
+def test_objective_list_latest_branch_tie_breaks_by_branch_name(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/b", "feat/a"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        branch_head_iso_by_branch={
+            "feat/a": "2026-05-20T10:44:08-04:00",
+            "feat/b": "2026-05-20T10:44:08-04:00",
+        },
+    )
+
+    markdown = _invoke_list_md(cli_group, ctx)
+
+    assert markdown.exit_code == 0, markdown.output
+    assert "| alpha | `feat/a` |" in markdown.output
+    assert "`feat/b`" not in markdown.output
+
 
 def test_objective_list_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
     ctx = _list_context(
@@ -203,21 +236,24 @@ def test_objective_list_default_human_and_markdown_are_list_view(
     assert human.exit_code == 0, human.output
     assert "Open Objective status in this local repository" in human.output
     assert "Objective" in human.output
-    assert "Local branches" in human.output
+    assert "Latest branch" in human.output
     assert "Latest tip" in human.output
+    assert "Local branches" in human.output
     assert "Max ahead trunk" in human.output
     assert "alpha" in human.output
+    assert "feat/a" in human.output
     assert "+7" in human.output
-    assert "feat/a" not in human.output
     assert "Tip age" not in human.output
 
     markdown = _invoke_list_md(cli_group, ctx)
     assert markdown.exit_code == 0, markdown.output
     assert "# Open Objective status in this local repository" in markdown.output
-    assert "| objective | local branches | latest tip | max ahead trunk |" in markdown.output
-    assert "| alpha | 1 |" in markdown.output
+    assert (
+        "| objective | latest branch | latest tip | local branches | max ahead trunk |"
+        in markdown.output
+    )
+    assert "| alpha | `feat/a` |" in markdown.output
     assert "+7" in markdown.output
-    assert "| `feat/a` |" not in markdown.output
 
 
 def test_objective_list_detail_human_and_markdown_column_shape(
@@ -328,6 +364,7 @@ def test_objective_list_names_outputs_slugs_one_per_line(cli_group: ClinkrGroup)
     lines = [line for line in result.output.splitlines() if line.strip()]
     assert lines == ["alpha", "beta"]
     assert "Objective" not in result.output
+    assert "Latest branch" not in result.output
     assert "Latest tip" not in result.output
 
 
