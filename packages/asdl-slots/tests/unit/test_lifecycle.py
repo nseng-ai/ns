@@ -3,7 +3,10 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.types import PRLookupError, PRState, PRSummary
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo
 from asdl_slots.context import SlotsCliContext
@@ -13,6 +16,7 @@ from asdl_slots.inventory import SlotInventory, SlotRecord
 from asdl_slots.lifecycle import (
     SlotCheckoutOutcome,
     SlotFreeOutcome,
+    SlotGcOutcome,
     SlotInitOutcome,
     SlotLifecycleFailure,
     SlotResizeOutcome,
@@ -20,8 +24,12 @@ from asdl_slots.lifecycle import (
     build_resize_plan,
     checkout_branch,
     checkout_current,
+    execute_gc_plan,
     free_slots,
+    garbage_collect_slots,
     initialize_pool,
+    outcome_from_gc_plan,
+    plan_gc,
     resize_pool,
 )
 from asdl_slots.repo_context import RepoContext
@@ -57,6 +65,8 @@ def _lifecycle_context(
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
     detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
+    prs_by_branch: dict[str, PRSummary] | None = None,
+    pr_gateway: FakePRGateway | None = None,
 ) -> tuple[SlotsCliContext, FakeGitGateway]:
     repo_root = (tmp_path / "repo").resolve()
     slots_root = tmp_path / "slots"
@@ -91,11 +101,29 @@ def _lifecycle_context(
             git=git,
             storage=storage,
             clipboard=FakeClipboardGateway(),
-            pr=FakePRGateway(),
+            pr=pr_gateway or FakePRGateway(prs_by_branch=prs_by_branch or {}),
             slots_root=slots_root,
         ),
         git,
     )
+
+
+def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
+    return PRSummary(
+        number=number,
+        title=f"PR {number}",
+        url=f"https://github.com/dagster-io/asdl/pull/{number}",
+        head_ref_name=branch,
+        base_ref_name="master",
+        state=state,
+    )
+
+
+class _BrokenPRGateway(FakePRGateway):
+    """PR gateway that returns a non-1 error to simulate a broken gh CLI."""
+
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+        return PRLookupError(stderr="gh: command not found", returncode=4)
 
 
 def test_init_plan_creates_one_through_n() -> None:
@@ -680,3 +708,347 @@ def test_free_slots_mid_loop_first_failure_omits_already_freed(tmp_path: Path) -
     assert "Already freed:" not in outcome.message
     assert git._detach_head_calls == [(first_path, "main")]
     assert git.get_current_branch(first_path) == "feat/a"
+
+
+# --- slot GC ---
+
+
+def test_plan_gc_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
+    ctx, git = _lifecycle_context(tmp_path)
+
+    plan = plan_gc(ctx)
+
+    assert isinstance(plan, SlotLifecycleFailure)
+    assert plan.error_type == "pool_empty"
+    assert "slot init --size N" in plan.message
+    assert git._detach_head_calls == []
+
+
+def test_garbage_collect_slots_empty_pool_returns_lifecycle_failure(tmp_path: Path) -> None:
+    ctx, _git = _lifecycle_context(tmp_path)
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "pool_empty"
+
+
+def test_garbage_collect_slots_detached_slots_are_ignored(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, None),),
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert outcome.entries == ()
+    assert outcome.freed_count == 0
+    assert outcome.kept_count == 0
+    assert outcome.skipped_count == 0
+    assert outcome.error_count == 0
+    assert outcome.dry_run is False
+    assert git._detach_head_calls == []
+
+
+def test_garbage_collect_slots_open_pr_is_kept(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")},
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert len(outcome.entries) == 1
+    entry = outcome.entries[0]
+    assert entry.action == "kept_open_pr"
+    assert entry.pr_state == "OPEN"
+    assert entry.pr_number == 42
+    assert outcome.kept_count == 1
+    assert git._detach_head_calls == []
+
+
+@pytest.mark.parametrize("pr_state", ["MERGED", "CLOSED"])
+def test_garbage_collect_slots_completed_pr_is_freed(
+    tmp_path: Path,
+    pr_state: PRState,
+) -> None:
+    slots_root = tmp_path / "slots"
+    worktree_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": _make_pr(7, pr_state, "feat/done")},
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert [entry.action for entry in outcome.entries] == ["freed"]
+    assert outcome.entries[0].pr_state == pr_state
+    assert outcome.freed_count == 1
+    assert git._detach_head_calls == [(worktree_path, "main")]
+    assert git._create_branch_calls == []
+    assert git._checkout_calls == []
+
+
+def test_garbage_collect_slots_no_pr_is_kept(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "local-only"),),
+        prs_by_branch={},
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert [entry.action for entry in outcome.entries] == ["kept_no_pr"]
+    assert outcome.entries[0].pr_number is None
+    assert outcome.kept_count == 1
+    assert git._detach_head_calls == []
+
+
+def test_garbage_collect_slots_broken_pr_lookup_yields_error_entry(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=_BrokenPRGateway(),
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert [entry.action for entry in outcome.entries] == ["error"]
+    assert outcome.error_count == 1
+    assert "gh: command not found" in (outcome.entries[0].message or "")
+    assert git._detach_head_calls == []
+
+
+def test_garbage_collect_slots_dirty_worktree_is_skipped(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    worktree_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/dirty"),),
+        file_status_by_path={
+            worktree_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert [entry.action for entry in outcome.entries] == ["skipped_dirty"]
+    assert outcome.skipped_count == 1
+    assert git._detach_head_calls == []
+
+
+def test_garbage_collect_slots_dry_run_reports_without_mutating(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=True)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    assert [entry.action for entry in outcome.entries] == ["would_free"]
+    assert outcome.freed_count == 1
+    assert outcome.dry_run is True
+    assert git._checkout_calls == []
+    assert git._create_branch_calls == []
+    assert git._detach_head_calls == []
+
+
+def test_garbage_collect_slots_mixed_pool_classifies_per_slot(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(
+            _slot_worktree(slots_root, 1, "feat/done"),
+            _slot_worktree(slots_root, 2, "feat/wip"),
+            _slot_worktree(slots_root, 3, "local"),
+            _slot_worktree(slots_root, 4, "feat/dirty"),
+            _slot_worktree(slots_root, 5, None),
+        ),
+        file_status_by_path={
+            _slot_path(slots_root, 4): FileStatus(
+                staged=False,
+                modified=True,
+                untracked=False,
+            ),
+        },
+        prs_by_branch={
+            "feat/done": _make_pr(1, "MERGED", "feat/done"),
+            "feat/wip": _make_pr(2, "OPEN", "feat/wip"),
+            "feat/dirty": _make_pr(3, "MERGED", "feat/dirty"),
+        },
+    )
+
+    outcome = garbage_collect_slots(ctx, dry_run=False)
+
+    assert isinstance(outcome, SlotGcOutcome)
+    actions_by_slot = {entry.slot_name: entry.action for entry in outcome.entries}
+    assert actions_by_slot == {
+        "slot-01": "freed",
+        "slot-02": "kept_open_pr",
+        "slot-03": "kept_no_pr",
+        "slot-04": "skipped_dirty",
+    }
+    assert outcome.freed_count == 1
+    assert outcome.kept_count == 2
+    assert outcome.skipped_count == 1
+    assert outcome.error_count == 0
+    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+
+
+def test_plan_gc_classifies_without_mutating_state(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(
+            _slot_worktree(slots_root, 1, "feat/done"),
+            _slot_worktree(slots_root, 2, "feat/wip"),
+            _slot_worktree(slots_root, 3, "local"),
+        ),
+        prs_by_branch={
+            "feat/done": _make_pr(1, "MERGED", "feat/done"),
+            "feat/wip": _make_pr(2, "OPEN", "feat/wip"),
+        },
+    )
+
+    plan = plan_gc(ctx)
+
+    assert not isinstance(plan, SlotLifecycleFailure)
+    actions_by_slot = {entry.slot_name: entry.action for entry in plan.entries}
+    assert actions_by_slot == {
+        "slot-01": "would_free",
+        "slot-02": "kept_open_pr",
+        "slot-03": "kept_no_pr",
+    }
+    assert plan.would_free_count == 1
+    assert git._detach_head_calls == []
+
+
+def test_plan_gc_dirty_worktree_still_classified_as_would_free(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    worktree_path = _slot_path(slots_root, 1)
+    ctx, _git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/dirty"),),
+        file_status_by_path={
+            worktree_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+    )
+
+    plan = plan_gc(ctx)
+
+    assert not isinstance(plan, SlotLifecycleFailure)
+    assert [entry.action for entry in plan.entries] == ["would_free"]
+    assert plan.would_free_count == 1
+
+
+def test_outcome_from_gc_plan_preserves_dry_run_tally_semantics(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, _git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+    )
+    plan = plan_gc(ctx)
+    assert not isinstance(plan, SlotLifecycleFailure)
+
+    outcome = outcome_from_gc_plan(plan, dry_run=True)
+
+    assert [entry.action for entry in outcome.entries] == ["would_free"]
+    assert outcome.freed_count == 1
+    assert outcome.dry_run is True
+
+
+def test_execute_gc_plan_frees_would_free_entries(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+    )
+
+    plan = plan_gc(ctx)
+    assert not isinstance(plan, SlotLifecycleFailure)
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [entry.action for entry in outcome.entries] == ["freed"]
+    assert outcome.freed_count == 1
+    assert outcome.dry_run is False
+    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+
+
+def test_execute_gc_plan_passthrough_non_would_free(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 2, "feat/wip"),),
+        prs_by_branch={"feat/wip": _make_pr(2, "OPEN", "feat/wip")},
+    )
+
+    plan = plan_gc(ctx)
+    assert not isinstance(plan, SlotLifecycleFailure)
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [entry.action for entry in outcome.entries] == ["kept_open_pr"]
+    assert outcome.kept_count == 1
+    assert outcome.freed_count == 0
+    assert git._detach_head_calls == []
+
+
+def test_execute_gc_plan_translates_dirty_to_skipped(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    worktree_path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/dirty"),),
+        file_status_by_path={
+            worktree_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+        prs_by_branch={"feat/dirty": _make_pr(12, "MERGED", "feat/dirty")},
+    )
+
+    plan = plan_gc(ctx)
+    assert not isinstance(plan, SlotLifecycleFailure)
+    assert [entry.action for entry in plan.entries] == ["would_free"]
+
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [entry.action for entry in outcome.entries] == ["skipped_dirty"]
+    assert outcome.skipped_count == 1
+    assert git._detach_head_calls == []
+
+
+def test_execute_gc_plan_record_disappears_yields_error(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        worktrees=(_slot_worktree(slots_root, 1, "feat/done"),),
+        prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")},
+    )
+
+    plan = plan_gc(ctx)
+    assert not isinstance(plan, SlotLifecycleFailure)
+    git._worktrees.clear()
+
+    outcome = execute_gc_plan(ctx, plan)
+
+    assert [entry.action for entry in outcome.entries] == ["error"]
+    assert outcome.error_count == 1
+    assert "state changed between plan and execute" in (outcome.entries[0].message or "")
+    assert git._detach_head_calls == []
