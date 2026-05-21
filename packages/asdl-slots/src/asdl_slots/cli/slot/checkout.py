@@ -16,12 +16,8 @@ from asdl_core.git.real_git_gateway import RealGitGateway, resolve_repo_root
 from asdl_slots.cli.slot.context import load_slots_context
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.clipboard import ClipboardCopySuccess
-from asdl_slots.lifecycle import (
-    SlotCheckoutOutcome,
-    SlotLifecycleFailure,
-    checkout_branch,
-    checkout_current,
-)
+from asdl_slots.lifecycle.checkout import checkout_branch, checkout_current
+from asdl_slots.lifecycle.outcomes import SlotCheckoutOutcome, SlotLifecycleFailure
 from asdl_slots.naming import extract_slot_number
 from asdl_slots.repo_context import NoRepoSentinel
 from asdl_slots.shell_integration import write_cd_directive_if_active

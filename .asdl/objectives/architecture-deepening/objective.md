@@ -57,7 +57,7 @@ Closure requires that no candidate is in an indeterminate state. Candidates adde
 - Are there second-pass review opportunities worth surfacing for asdl-objectives or asdl-dispatcher before they grow further? Not in scope here, but worth flagging on close.
 - Resolved: the asdl-reviewer gateway consolidation and harness-invocation candidates shipped as separate rows. The gateway seam remains the review-environment boundary; harness invocation is a deep implementation module behind that seam.
 
-## Closure
+## Round 1 Closure
 
 **Outcome:** completed. All five scoped candidates reached the **shipped** state; none were parked-with-reason or rejected-with-ADR.
 
@@ -80,3 +80,12 @@ The open-list rule did not surface additional candidates mid-flight; no `## Park
 
 - A second-pass `/improve-codebase-architecture` review for asdl-objectives and asdl-dispatcher was deferred from this Objective. Open a fresh Objective if and when those packages warrant their own deepening pass — do not append to this one.
 - The "explicit resolution-mode column in each roadmap row" open question is left unresolved; this Objective closed cleanly without needing it, so revisit only if a future Objective accumulates a mix of shipped / parked / rejected rows that the current shape can't disambiguate.
+
+## Round 2 Scope
+
+An independent assessment of the Round 1 stack (PRs #474–#502) surfaced two residual shapes worth one more deepening pass. Both apply the Round 1 pattern (collapse shallow modules into deeper ones) one more time, in opposite directions: one splits a module that grew past its comfortable size, the other splits back a gateway that consolidated too aggressively.
+
+6. **Split `asdl_slots/lifecycle.py` (719 lines) into a `lifecycle/` package.** The Round 1 consolidation succeeded: lifecycle is a coherent state-machine module that owns every mutating slot workflow (init, resize, checkout, free, gc). At 719 lines housing seven public operations plus shared helpers, it sits at the threshold where "one coherent module" tips into "needs a submodule per operation." Splitting promotes the boundary from one file to one package: `outcomes.py` (shared dataclasses), `pool.py` (init + resize), `checkout.py`, `free.py`, `gc.py`. The contract does not change; callers update import paths under the no-re-exports rule. _Deletion test:_ removing any submodule's responsibilities leaves a hole in the lifecycle state machine — they pass for the same reason the original consolidation did. The split does not introduce a new seam, only a directory-level boundary that mirrors the existing operation boundary.
+7. **Split `ReviewEnvironmentGateway` into `ReviewCatalogGateway` + `LocalDiffGateway`; inject `HarnessRuntime` directly into `Workflow`.** After PR #502 unified harness invocation behind `HarnessRuntime`, the unified review-environment gateway bundles three concerns whose fakes have nothing in common: review catalog (file-level: `load_review_source`, `list_review_keys`), local diff (git-level: `load_diff`), and harness execution (`list_harnesses`, `run_review` — pure delegation to `HarnessRuntime`). The fake gateway's `binary_locator` constructor arg exists only to support the delegated harness methods. _Deletion test:_ deleting the harness methods from the gateway interface leaves no orphan callers — `Workflow` already needs harness execution, but it can take a `HarnessRuntime` as a direct dependency instead of routing through the gateway. Splitting catalog from diff is justified by their independent fake shapes (fixture file content vs. git-command output) and independent test scenarios. This is not a return to the four-gateway shape; the harness layer stays unified inside `HarnessRuntime`, and the two narrow gateways replace one wide one.
+
+Round 2 closure requires that both candidates reach a definite state (shipped / parked-with-reason / rejected-with-ADR) by the same rule as Round 1.

@@ -13,14 +13,8 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRState
 from asdl_slots.cli.slot.context import load_slots_context
-from asdl_slots.lifecycle import (
-    SlotGcAction,
-    SlotGcOutcome,
-    SlotLifecycleFailure,
-    execute_gc_plan,
-    outcome_from_gc_plan,
-    plan_gc,
-)
+from asdl_slots.lifecycle.gc import execute_gc_plan, outcome_from_gc_plan, plan_gc
+from asdl_slots.lifecycle.outcomes import SlotGcAction, SlotGcOutcome, SlotLifecycleFailure
 from asdl_slots.repo_context import NoRepoSentinel
 
 

@@ -13,23 +13,26 @@ from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.inventory import SlotInventory, SlotRecord
-from asdl_slots.lifecycle import (
+from asdl_slots.lifecycle.checkout import checkout_branch, checkout_current
+from asdl_slots.lifecycle.free import free_slots
+from asdl_slots.lifecycle.gc import (
+    execute_gc_plan,
+    garbage_collect_slots,
+    outcome_from_gc_plan,
+    plan_gc,
+)
+from asdl_slots.lifecycle.outcomes import (
     SlotCheckoutOutcome,
     SlotFreeOutcome,
     SlotGcOutcome,
     SlotInitOutcome,
     SlotLifecycleFailure,
     SlotResizeOutcome,
+)
+from asdl_slots.lifecycle.pool import (
     build_init_plan,
     build_resize_plan,
-    checkout_branch,
-    checkout_current,
-    execute_gc_plan,
-    free_slots,
-    garbage_collect_slots,
     initialize_pool,
-    outcome_from_gc_plan,
-    plan_gc,
     resize_pool,
 )
 from asdl_slots.repo_context import RepoContext
