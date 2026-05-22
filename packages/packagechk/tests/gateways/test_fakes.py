@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
+from packagechk.gateways.pypi_publish.fake import FakePypiPublishGateway
+from packagechk.gateways.pypi_publish.gateway import PypiPublishError
 from packagechk.gateways.registries.fake import FakePackageRegistryGateway
 from packagechk.models import CheckStatus, Registry, RegistryCheckResult
 
@@ -35,3 +41,42 @@ def test_fake_registry_gateway_returns_error_for_unconfigured_names() -> None:
     assert result.status is CheckStatus.ERROR
     assert result.input_name == "unknown-name"
     assert "no fake PyPI result configured" in result.message
+
+
+def test_fake_pypi_publish_gateway_records_operations_and_returns_artifacts() -> None:
+    artifacts = [Path("dist/sample-0.0.1.tar.gz"), Path("dist/sample-0.0.1-py3-none-any.whl")]
+    gateway = FakePypiPublishGateway(artifacts=artifacts)
+    project_dir = Path("project")
+
+    assert gateway.ensure_publish_tools_available() is None
+    assert gateway.build_package(project_dir) == artifacts
+    assert gateway.publish_artifacts(project_dir, artifacts) is None
+
+    assert gateway.tool_checks == 1
+    assert gateway.built_project_dirs == [project_dir]
+    assert gateway.published_artifacts == [artifacts]
+
+
+def test_fake_pypi_publish_gateway_returns_configured_tool_error() -> None:
+    gateway = FakePypiPublishGateway(tools_error="uv is missing")
+
+    assert gateway.ensure_publish_tools_available() == "uv is missing"
+    assert gateway.tool_checks == 1
+
+
+def test_fake_pypi_publish_gateway_raises_configured_build_error() -> None:
+    gateway = FakePypiPublishGateway(build_error="build failed")
+    project_dir = Path("project")
+
+    with pytest.raises(PypiPublishError, match="build failed"):
+        gateway.build_package(project_dir)
+
+    assert gateway.built_project_dirs == [project_dir]
+
+
+def test_fake_pypi_publish_gateway_returns_configured_publish_error() -> None:
+    artifacts = [Path("dist/sample-0.0.1.tar.gz")]
+    gateway = FakePypiPublishGateway(publish_error="publish failed")
+
+    assert gateway.publish_artifacts(Path("project"), artifacts) == "publish failed"
+    assert gateway.published_artifacts == [artifacts]

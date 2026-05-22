@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
+from packagechk.gateways.pypi_publish.gateway import PypiPublishError
+from packagechk.gateways.pypi_publish.real import PublishCommandResult, RealPypiPublishGateway
 from packagechk.gateways.registries.real import RealPackageRegistryGateway, RegistryHttpResponse
 from packagechk.models import CheckStatus, Registry
 
@@ -175,3 +181,83 @@ def test_real_gateway_rejects_invalid_npm_name_before_fetching() -> None:
     assert result.status is CheckStatus.INVALID
     assert "scoped package names are not supported" in result.message
     assert urls == []
+
+
+def test_real_pypi_publish_gateway_reports_missing_uv() -> None:
+    gateway = RealPypiPublishGateway(tool_finder=lambda _tool_name: False)
+
+    error = gateway.ensure_publish_tools_available()
+
+    assert error is not None
+    assert "uv" in error
+
+
+def test_real_pypi_publish_gateway_build_invokes_uv_build(tmp_path: Path) -> None:
+    calls: list[tuple[list[str], Path]] = []
+
+    def run_command(command: list[str], cwd: Path) -> PublishCommandResult:
+        calls.append((command, cwd))
+        dist_dir = cwd / "dist"
+        dist_dir.mkdir()
+        (dist_dir / "sample-0.0.1.tar.gz").write_text("artifact", encoding="utf-8")
+        return PublishCommandResult(return_code=0, stdout="", stderr="")
+
+    artifacts = RealPypiPublishGateway(command_runner=run_command).build_package(tmp_path)
+
+    assert calls == [(["uv", "build"], tmp_path)]
+    assert artifacts == [tmp_path / "dist" / "sample-0.0.1.tar.gz"]
+
+
+def test_real_pypi_publish_gateway_build_failure_raises_publish_error(tmp_path: Path) -> None:
+    def run_command(_command: list[str], _cwd: Path) -> PublishCommandResult:
+        return PublishCommandResult(return_code=2, stdout="", stderr="build failed")
+
+    gateway = RealPypiPublishGateway(command_runner=run_command)
+
+    with pytest.raises(PypiPublishError, match="uv build failed with exit code 2: build failed"):
+        gateway.build_package(tmp_path)
+
+
+def test_real_pypi_publish_gateway_build_requires_dist_artifacts(tmp_path: Path) -> None:
+    def run_command(_command: list[str], cwd: Path) -> PublishCommandResult:
+        (cwd / "dist").mkdir()
+        return PublishCommandResult(return_code=0, stdout="", stderr="")
+
+    gateway = RealPypiPublishGateway(command_runner=run_command)
+
+    with pytest.raises(PypiPublishError, match="did not produce any artifacts"):
+        gateway.build_package(tmp_path)
+
+
+def test_real_pypi_publish_gateway_publish_invokes_uv_publish(tmp_path: Path) -> None:
+    calls: list[tuple[list[str], Path]] = []
+    artifacts = [
+        tmp_path / "dist" / "sample-0.0.1.tar.gz",
+        tmp_path / "dist" / "sample.whl",
+    ]
+
+    def run_command(command: list[str], cwd: Path) -> PublishCommandResult:
+        calls.append((command, cwd))
+        return PublishCommandResult(return_code=0, stdout="", stderr="")
+
+    error = RealPypiPublishGateway(command_runner=run_command).publish_artifacts(
+        tmp_path,
+        artifacts,
+    )
+
+    assert error is None
+    assert calls == [(["uv", "publish", *(str(artifact) for artifact in artifacts)], tmp_path)]
+
+
+def test_real_pypi_publish_gateway_publish_failure_returns_error(tmp_path: Path) -> None:
+    artifacts = [tmp_path / "dist" / "sample-0.0.1.tar.gz"]
+
+    def run_command(_command: list[str], _cwd: Path) -> PublishCommandResult:
+        return PublishCommandResult(return_code=1, stdout="", stderr="publish failed")
+
+    error = RealPypiPublishGateway(command_runner=run_command).publish_artifacts(
+        tmp_path,
+        artifacts,
+    )
+
+    assert error == f"uv publish {artifacts[0]} failed with exit code 1: publish failed"
