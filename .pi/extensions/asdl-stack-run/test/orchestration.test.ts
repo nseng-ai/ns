@@ -1,0 +1,294 @@
+import { describe, expect, test } from "bun:test";
+
+import type { ExecFunction, ExecResult } from "../src/command.ts";
+import { startNextStackSlice } from "../src/orchestration.ts";
+import { parseStackPlanMarkdown } from "../src/plan.ts";
+import type { StackRunPlanResult } from "../src/stack-run.ts";
+
+const PLAN_CONTENT = `---
+schema: asdl.stack-plan.v1
+objective: asdl-stack-run-extension
+planned_branches:
+  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-run-extension/plan-storage
+---
+
+Branches:
+- asdl-stack-run-extension/extension-skeleton
+- asdl-stack-run-extension/plan-storage
+`;
+
+type ExpectedCommand = {
+	command: string;
+	args: string[];
+	result: ExecResult;
+};
+
+function result(stdout = "", code = 0, stderr = ""): ExecResult {
+	return { stdout, stderr, code, killed: false };
+}
+
+function fakeExec(expectedCommands: ExpectedCommand[]): ExecFunction {
+	return async (command, args) => {
+		const expected = expectedCommands.shift();
+		if (!expected) {
+			throw new Error(`Unexpected command: ${command} ${args.join(" ")}`);
+		}
+		expect({ command, args }).toEqual({ command: expected.command, args: expected.args });
+		return expected.result;
+	};
+}
+
+function planResult(): StackRunPlanResult {
+	const plan = parseStackPlanMarkdown(PLAN_CONTENT);
+	return {
+		source: "branch-memory",
+		action: "loaded",
+		planBranch: "plan-branch",
+		locator: { namespace: "stack-plans", key: "asdl-stack-run-extension.md", branch: "plan-branch" },
+		plan,
+	};
+}
+
+describe("slice start orchestration", () => {
+	test("starts the first incomplete planned branch", async () => {
+		const commands: ExpectedCommand[] = [
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("", 1),
+			},
+			{ command: "git", args: ["status", "--porcelain"], result: result("") },
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/extension-skeleton"],
+				result: result("", 1),
+			},
+			{
+				command: "git",
+				args: ["checkout", "-b", "asdl-stack-run-extension/extension-skeleton", "plan-branch"],
+				result: result("switched\n"),
+			},
+			{ command: "gt", args: ["track", "-p", "plan-branch"], result: result("tracked\n") },
+			{
+				command: "brmem",
+				args: [
+					"put",
+					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"stack-runs",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+					"--file",
+					"/tmp/ledger.md",
+				],
+				result: result("stored\n"),
+			},
+		];
+		let ledgerContent = "";
+
+		const slice = await startNextStackSlice(planResult(), {
+			cwd: "/repo",
+			exec: fakeExec(commands),
+			writeTempFile: async (content) => {
+				ledgerContent = content;
+				return "/tmp/ledger.md";
+			},
+		});
+
+		expect(slice.status).toBe("started");
+		if (slice.status === "started") {
+			expect(slice.plannedBranch).toBe("asdl-stack-run-extension/extension-skeleton");
+			expect(slice.intendedParent).toBe("plan-branch");
+			expect(slice.ledgerLocator).toEqual({
+				branch: "asdl-stack-run-extension/extension-skeleton",
+				namespace: "stack-runs",
+				key: "asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+			});
+			expect(slice.kickoffPrompt).toContain("Objective slug: asdl-stack-run-extension");
+			expect(slice.kickoffPrompt).toContain("Current planned branch: asdl-stack-run-extension/extension-skeleton");
+		}
+		expect(ledgerContent).toContain("schema: asdl.stack-slice-ledger.v1");
+		expect(ledgerContent).toContain("branch: plan-branch");
+		expect(ledgerContent).toContain("key: asdl-stack-run-extension.md");
+		expect(ledgerContent).toContain(planResult().plan.sha256);
+		expect(commands).toEqual([]);
+	});
+
+	test("reports complete when every planned branch has a handoff", async () => {
+		const commands: ExpectedCommand[] = [
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("present\n"),
+			},
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---plan-storage.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/plan-storage",
+				],
+				result: result("present\n"),
+			},
+		];
+
+		const slice = await startNextStackSlice(planResult(), { cwd: "/repo", exec: fakeExec(commands) });
+
+		expect(slice.status).toBe("complete");
+		expect(commands).toEqual([]);
+	});
+
+	test("stops before branch creation when the worktree is dirty", async () => {
+		const commands: ExpectedCommand[] = [
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("", 1),
+			},
+			{ command: "git", args: ["status", "--porcelain"], result: result(" M file.txt\n") },
+		];
+
+		await expect(startNextStackSlice(planResult(), { cwd: "/repo", exec: fakeExec(commands) })).rejects.toThrow(
+			/dirty worktree/,
+		);
+		expect(commands).toEqual([]);
+	});
+
+	test("surfaces Graphite tracking failures with command diagnostics", async () => {
+		const commands: ExpectedCommand[] = [
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("", 1),
+			},
+			{ command: "git", args: ["status", "--porcelain"], result: result("") },
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/extension-skeleton"],
+				result: result("", 1),
+			},
+			{
+				command: "git",
+				args: ["checkout", "-b", "asdl-stack-run-extension/extension-skeleton", "plan-branch"],
+				result: result("switched\n"),
+			},
+			{ command: "gt", args: ["track", "-p", "plan-branch"], result: result("", 1, "wrong parent\n") },
+		];
+
+		await expect(startNextStackSlice(planResult(), { cwd: "/repo", exec: fakeExec(commands) })).rejects.toThrow(
+			/gt track -p plan-branch/,
+		);
+		expect(commands).toEqual([]);
+	});
+
+	test("uses the previous planned branch and handoff locator for later slices", async () => {
+		const commands: ExpectedCommand[] = [
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("present\n"),
+			},
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---plan-storage.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/plan-storage",
+				],
+				result: result("", 1),
+			},
+			{ command: "git", args: ["status", "--porcelain"], result: result("") },
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/plan-storage"],
+				result: result("", 1),
+			},
+			{
+				command: "git",
+				args: [
+					"checkout",
+					"-b",
+					"asdl-stack-run-extension/plan-storage",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("switched\n"),
+			},
+			{
+				command: "gt",
+				args: ["track", "-p", "asdl-stack-run-extension/extension-skeleton"],
+				result: result("tracked\n"),
+			},
+			{
+				command: "brmem",
+				args: [
+					"put",
+					"asdl-stack-run-extension/asdl-stack-run-extension---plan-storage.md",
+					"--namespace",
+					"stack-runs",
+					"--branch",
+					"asdl-stack-run-extension/plan-storage",
+					"--file",
+					"/tmp/ledger.md",
+				],
+				result: result("stored\n"),
+			},
+		];
+
+		const slice = await startNextStackSlice(planResult(), {
+			cwd: "/repo",
+			exec: fakeExec(commands),
+			writeTempFile: async () => "/tmp/ledger.md",
+		});
+
+		expect(slice.status).toBe("started");
+		if (slice.status === "started") {
+			expect(slice.intendedParent).toBe("asdl-stack-run-extension/extension-skeleton");
+			expect(slice.kickoffPrompt).toContain(
+				"Previous handoff locator: session-artifacts/handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md on branch asdl-stack-run-extension/extension-skeleton",
+			);
+		}
+		expect(commands).toEqual([]);
+	});
+});
