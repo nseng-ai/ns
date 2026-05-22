@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from packagechk.gateways.npm_publish.fake import FakeNpmPublishGateway
 from packagechk.gateways.pypi_publish.fake import FakePypiPublishGateway
 from packagechk.gateways.pypi_publish.gateway import PypiPublishError
 from packagechk.gateways.registries.fake import FakePackageRegistryGateway
@@ -80,3 +81,29 @@ def test_fake_pypi_publish_gateway_returns_configured_publish_error() -> None:
 
     assert gateway.publish_artifacts(Path("project"), artifacts) == "publish failed"
     assert gateway.published_artifacts == [artifacts]
+
+
+def test_fake_npm_publish_gateway_records_operations() -> None:
+    gateway = FakeNpmPublishGateway()
+    project_dir = Path("project")
+
+    assert gateway.ensure_publish_tools_available() is None
+    assert gateway.publish_project(project_dir) is None
+
+    assert gateway.tool_checks == 1
+    assert gateway.published_project_dirs == [project_dir]
+
+
+def test_fake_npm_publish_gateway_returns_configured_tool_error() -> None:
+    gateway = FakeNpmPublishGateway(tools_error="npm is missing")
+
+    assert gateway.ensure_publish_tools_available() == "npm is missing"
+    assert gateway.tool_checks == 1
+
+
+def test_fake_npm_publish_gateway_returns_configured_publish_error() -> None:
+    gateway = FakeNpmPublishGateway(publish_error="npm publish failed")
+    project_dir = Path("project")
+
+    assert gateway.publish_project(project_dir) == "npm publish failed"
+    assert gateway.published_project_dirs == [project_dir]
