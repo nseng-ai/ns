@@ -739,6 +739,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("✓ $ git rev-parse --show-toplevel");
 		expect(streamText).toContain(`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A}`);
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
+		expect(streamText).toContain("Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
 	});
 
 	test("renders final landed PR numbers as terminal hyperlinks", async () => {
@@ -795,6 +796,7 @@ describe("land-stack command scenarios", () => {
 		const streamText = commandMessagesText(messages);
 		expect(streamText).not.toContain("✗ $ gt delete feature-a -f -q — exit 1");
 		expect(streamText).not.toContain("fatal: 'master' is already checked out");
+		expect(streamText).toContain("✓ $ gt delete feature-a -f -q — branch feature-a still checked out; clean up manually with gt sync or direct branch deletion");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
 		expect(streamText).not.toContain("Completed with 1 warning:");
 		expect(streamText).not.toContain("All target PRs were merged, but deleting the local Graphite branch feature-a failed.");
