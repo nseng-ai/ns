@@ -39,11 +39,20 @@ ty:
 ts-install:
     bun install --cwd ts
 
-ts-check: ts-install
+ts-check: ts-install pi-stack-run-check
     bun run --cwd ts check
 
-ts-test: ts-install
+ts-test: ts-install pi-stack-run-test
     bun run --cwd ts test
+
+pi-stack-run-install:
+    bun install --cwd .pi/extensions/asdl-stack-run
+
+pi-stack-run-check: pi-stack-run-install
+    bun run --cwd .pi/extensions/asdl-stack-run check
+
+pi-stack-run-test: pi-stack-run-install
+    bun run --cwd .pi/extensions/asdl-stack-run test
 
 js-test: ts-test
 

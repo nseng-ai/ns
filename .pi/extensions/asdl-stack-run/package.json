@@ -1,0 +1,26 @@
+{
+	"name": "asdl-stack-run-pi-extension",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"check": "tsc --noEmit --project tsconfig.json",
+		"test": "bun test"
+	},
+	"pi": {
+		"extensions": ["./index.ts"]
+	},
+	"dependencies": {
+		"yaml": "2.9.0"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"typebox": "*"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "0.75.4",
+		"@types/node": "24.12.4",
+		"typebox": "1.1.38",
+		"typescript": "5.9.3"
+	}
+}
