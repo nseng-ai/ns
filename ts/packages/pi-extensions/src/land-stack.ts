@@ -96,6 +96,16 @@ export type BranchPlan = {
 	pr: PullRequestSnapshot;
 };
 
+export type PrSubmitRequirement = {
+	branch: string;
+	prNumber: number;
+	localSha: string;
+	prHeadSha: string;
+	baseRefName: string;
+	expectedBaseRefName: string | undefined;
+	reasons: string[];
+};
+
 export type WorktreeConflict = {
 	branch: string;
 	path: string;
@@ -119,6 +129,7 @@ export type LandingPlan = {
 	repoRoot: string;
 	stack: StackSnapshot;
 	branchPlans: BranchPlan[];
+	prSubmitRequirements: PrSubmitRequirement[];
 	managedSlotConflicts: WorktreeConflict[];
 };
 
@@ -178,7 +189,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				}
 
 				setStatus(ctx, "preflighting...");
-				const plan = await buildLandingPlan(pi, ctx.cwd);
+				let plan = await buildLandingPlan(pi, ctx.cwd, { allowSubmitRequiredState: true });
 				const planText = formatPlan(plan);
 
 				if (args.dryRun) {
@@ -193,6 +204,17 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 					const confirmed = await ctx.ui.confirm("Land this stack path?", planText);
 					if (!confirmed) {
 						fail("Cancelled before merge; no PRs were landed.", { level: "info" });
+					}
+				}
+
+				if (plan.prSubmitRequirements.length > 0) {
+					await confirmAndSubmitRequiredPrUpdates(pi, ctx, plan);
+					setStatus(ctx, "rechecking preflight...");
+					plan = await buildLandingPlan(pi, ctx.cwd, { allowSubmitRequiredState: true });
+					if (plan.prSubmitRequirements.length > 0) {
+						fail(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
+							suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.current))} manually, inspect PR heads, and rerun /land-stack.`,
+						});
 					}
 				}
 
@@ -233,7 +255,11 @@ export function parseArgs(argsText: string): ParsedArgs {
 	return parsed;
 }
 
-async function buildLandingPlan(pi: ExtensionAPI, cwd: string): Promise<LandingPlan> {
+async function buildLandingPlan(
+	pi: ExtensionAPI,
+	cwd: string,
+	options: { allowSubmitRequiredState?: boolean } = {},
+): Promise<LandingPlan> {
 	const repoRoot = await loadRepoRoot(pi, cwd);
 	const current = await loadCurrentBranch(pi, repoRoot);
 	const trunk = await loadTrunk(pi, repoRoot);
@@ -256,7 +282,8 @@ async function buildLandingPlan(pi: ExtensionAPI, cwd: string): Promise<LandingP
 		const pr = await loadPr(pi, repoRoot, branch);
 		branchPlans.push({ branch, localSha, pr });
 	}
-	validateInitialPrPreflight(branchPlans, stack.trunk);
+	validateInitialPrPreflight(branchPlans, stack.trunk, { allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState) });
+	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.trunk);
 
 	const conflicts = await detectWorktreeConflicts(pi, repoRoot, current, relevantBranches);
 	const manualConflicts = conflicts.filter((conflict) => conflict.kind === "manual-worktree");
@@ -270,8 +297,68 @@ async function buildLandingPlan(pi: ExtensionAPI, cwd: string): Promise<LandingP
 		repoRoot,
 		stack,
 		branchPlans,
+		prSubmitRequirements,
 		managedSlotConflicts: conflicts.filter((conflict) => conflict.kind === "managed-slot"),
 	};
+}
+
+async function confirmAndSubmitRequiredPrUpdates(pi: ExtensionAPI, ctx: ExtensionCommandContext, plan: LandingPlan): Promise<void> {
+	const submitArgs = submitUpdateArgs(plan.stack.current);
+	const details = formatSubmitUpdateDetails(plan);
+
+	if (!ctx.hasUI) {
+		fail(
+			[
+				"GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required submit/update confirmation.",
+				details,
+				`No PRs were landed. Run ${formatCommand("gt", submitArgs)} manually, then rerun /land-stack --yes.`,
+			].join("\n"),
+			{ suggestedAction: `Run ${formatCommand("gt", submitArgs)} manually, then rerun /land-stack --yes.` },
+		);
+	}
+
+	const confirmed = await ctx.ui.confirm("Run gt submit/update?", details);
+	if (!confirmed) {
+		fail("Cancelled before merge; no PRs were landed.", { level: "info" });
+	}
+
+	setStatus(ctx, `submitting ${plan.stack.current}...`);
+	const result = await exec(pi, "gt", submitArgs, plan.repoRoot, GT_MUTATION_TIMEOUT_MS);
+	if (result.code !== 0) {
+		fail("gt submit/update failed before any PRs were landed.", {
+			commandDisplay: formatCommand("gt", submitArgs),
+			result,
+			suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /land-stack.`,
+		});
+	}
+}
+
+function submitUpdateArgs(branch: string): string[] {
+	return ["submit", "--branch", branch, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
+}
+
+function formatSubmitUpdateDetails(plan: LandingPlan): string {
+	const submitArgs = submitUpdateArgs(plan.stack.current);
+	return [
+		"GitHub PR metadata is behind local Graphite refs. Run Graphite submit/update before merging?",
+		"",
+		...plan.prSubmitRequirements.map(formatPrSubmitRequirement),
+		"",
+		`$ ${formatCommand("gt", submitArgs)}`,
+	].join("\n");
+}
+
+function formatRemainingSubmitRequirements(requirements: PrSubmitRequirement[]): string {
+	return [
+		"gt submit/update completed, but GitHub PR metadata still differs from local Graphite refs.",
+		"No PRs were landed.",
+		"",
+		...requirements.map(formatPrSubmitRequirement),
+	].join("\n");
+}
+
+function formatPrSubmitRequirement(requirement: PrSubmitRequirement): string {
+	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
 }
 
 async function confirmAndFreeManagedSlots(pi: ExtensionAPI, ctx: ExtensionCommandContext, plan: LandingPlan): Promise<void> {
@@ -662,13 +749,17 @@ async function loadPr(pi: ExtensionAPI, repoRoot: string, branchOrNumber: string
 	};
 }
 
-export function validateInitialPrPreflight(branchPlans: BranchPlan[], trunk: string): void {
+export function validateInitialPrPreflight(
+	branchPlans: BranchPlan[],
+	trunk: string,
+	options: { allowSubmitRequiredState?: boolean } = {},
+): void {
 	for (let index = 0; index < branchPlans.length; index += 1) {
 		const branchPlan = branchPlans[index];
 		if (!branchPlan) continue;
 		const { branch, localSha, pr } = branchPlan;
-		validateOpenPrBasics({ branch, localSha, pr });
-		if (index === 0 && pr.baseRefName !== trunk) {
+		validateOpenPrBasics({ branch, localSha, pr, allowHeadShaMismatch: Boolean(options.allowSubmitRequiredState) });
+		if (index === 0 && pr.baseRefName !== trunk && !options.allowSubmitRequiredState) {
 			fail(`Bottom PR #${pr.number} targets ${pr.baseRefName}, expected ${trunk}; restack/submit it first.`);
 		}
 	}
@@ -685,7 +776,41 @@ export function validateStrictMergeGate(input: { branch: string; localSha: strin
 	}
 }
 
-export function validateOpenPrBasics(input: { branch: string; localSha: string; pr: PullRequestSnapshot }): void {
+function collectPrSubmitRequirements(branchPlans: BranchPlan[], trunk: string): PrSubmitRequirement[] {
+	const requirements: PrSubmitRequirement[] = [];
+	for (let index = 0; index < branchPlans.length; index += 1) {
+		const branchPlan = branchPlans[index];
+		if (!branchPlan) continue;
+		const { branch, localSha, pr } = branchPlan;
+		const expectedBaseRefName = index === 0 ? trunk : undefined;
+		const reasons: string[] = [];
+		if (pr.headRefOid !== localSha) {
+			reasons.push(`head ${shortSha(pr.headRefOid)} != local ${shortSha(localSha)}`);
+		}
+		if (expectedBaseRefName && pr.baseRefName !== expectedBaseRefName) {
+			reasons.push(`base ${pr.baseRefName} != ${expectedBaseRefName}`);
+		}
+		if (reasons.length > 0) {
+			requirements.push({
+				branch,
+				prNumber: pr.number,
+				localSha,
+				prHeadSha: pr.headRefOid,
+				baseRefName: pr.baseRefName,
+				expectedBaseRefName,
+				reasons,
+			});
+		}
+	}
+	return requirements;
+}
+
+export function validateOpenPrBasics(input: {
+	branch: string;
+	localSha: string;
+	pr: PullRequestSnapshot;
+	allowHeadShaMismatch?: boolean;
+}): void {
 	const { branch, localSha, pr } = input;
 	if (pr.state !== "OPEN") {
 		fail(`PR #${pr.number} for ${branch} is ${pr.state}, expected OPEN.`);
@@ -696,7 +821,7 @@ export function validateOpenPrBasics(input: { branch: string; localSha: string; 
 	if (pr.headRefName !== branch) {
 		fail(`PR #${pr.number} head branch is ${pr.headRefName}, expected ${branch}.`);
 	}
-	if (pr.headRefOid !== localSha) {
+	if (pr.headRefOid !== localSha && !input.allowHeadShaMismatch) {
 		fail(
 			`PR #${pr.number} head SHA does not match local branch SHA; run gt submit/update first.\nPR head: ${shortSha(pr.headRefOid)}\nLocal ${branch}: ${shortSha(localSha)}`,
 		);
@@ -784,7 +909,7 @@ function normalizeExistingPath(path: string): string {
 }
 
 export function formatPlan(plan: LandingPlan): string {
-	const { stack, branchPlans, managedSlotConflicts } = plan;
+	const { stack, branchPlans, prSubmitRequirements, managedSlotConflicts } = plan;
 	const lines: string[] = [];
 
 	lines.push(`Land Graphite stack path: ${[stack.trunk, ...stack.landingBranches].join(" -> ")}`);
@@ -815,6 +940,17 @@ export function formatPlan(plan: LandingPlan): string {
 		for (const warning of stack.warnings) {
 			lines.push(`  - ${warning}`);
 		}
+	}
+
+	lines.push("");
+	if (prSubmitRequirements.length > 0) {
+		lines.push("Before merging, this command will ask before running gt submit/update because GitHub PR metadata is behind local refs:");
+		for (const requirement of prSubmitRequirements) {
+			lines.push(`  ${formatPrSubmitRequirement(requirement)}`);
+		}
+		lines.push(`  Command: ${formatCommand("gt", submitUpdateArgs(stack.current))}`);
+	} else {
+		lines.push("No pre-merge PR submit/update is required.");
 	}
 
 	lines.push("");
@@ -850,10 +986,10 @@ function usage(): string {
 		`/${COMMAND_NAME} [--yes] [--dry-run] [--help]`,
 		"",
 		"Lands the current Graphite stack path from bottom branch through the current branch, one PR at a time.",
-		"Requires a clean repo, local/remote SHA parity, non-draft open PRs, bottom PR based on gt trunk, and no manual worktree conflicts.",
+		"Requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no manual worktree conflicts; can offer to run gt submit/update for stale PR heads before merging.",
 		"",
 		"Options:",
-		"  --yes, -y    Skip the main landing confirmation. Managed slot cleanup still requires an explicit UI confirmation.",
+		"  --yes, -y    Skip the main landing confirmation. PR submit/update and managed slot cleanup still require explicit UI confirmation.",
 		"  --dry-run    Show the plan and exit before mutating anything.",
 		"  --help, -h   Show this help.",
 	].join("\n");
