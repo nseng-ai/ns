@@ -107,9 +107,22 @@ Risks:
 
 ## Open Questions
 
-- What exact slash command names should ship in v1: `/stack-run`, `/stack-continue`, `/stack-status`, and internal `/stack-closeout`, or a smaller command surface first?
-- What is the minimal useful `stack_slice_done` parameter schema after branch and handoff key derivation are handled by the extension?
-- How much UI confirmation should supervised mode require at plan storage, branch start, and closeout?
-- What is the best lightweight way to test a project-local Pi extension in this repo's existing validation setup?
-- Should a v2 add mechanical verification of current branch, changed files, Objective update presence, validation reruns, clean worktree, and Graphite branch state before advancing?
-- Should the extension eventually graduate into a reusable Pi package or remain repo-local as an asdl workflow tool?
+Resolved in v1:
+
+- Command surface: `/stack-run`, `/stack-status`, and internal follow-up `/stack-closeout` ship first; no separate `/stack-continue` is needed because `/stack-run` resumes from Branch Memory state.
+- `stack_slice_done` accepts `summary`, `validation`, `handoff_markdown`, optional `semantic_update_file`, and optional `followups`; branch and handoff identity are extension-derived.
+- UI confirmation is required only for replacing differing canonical plan content in supervised mode. Non-UI replacement requires `--replace`; branch start and closeout fail closed on drift rather than prompting through extra flows.
+- The project-local extension is tested with local Bun tests and TypeScript checking wired into the repo's `just` TypeScript recipes.
+
+Still open for future Objectives:
+
+- Whether a v2 should add mechanical verification of current branch, changed files, Objective update presence, validation reruns, clean worktree, and Graphite branch state before advancing.
+- Whether the extension should eventually graduate into a reusable Pi package or remain repo-local as an asdl workflow tool.
+
+## Closure
+
+Completed on 2026-05-22. The v1 project-local Pi extension ships under `.pi/extensions/asdl-stack-run/` with local runtime dependencies, `/stack-run`, `/stack-status`, internal `/stack-closeout`, `stack_slice_done`, and `stack_slice_blocked`.
+
+Closure evidence: all five roadmap rows are complete; the extension implements plan validation and Branch Memory plan storage, slice branch/session orchestration, pointer ledger writing and validation, structured closeout, handoff storage, recovery/status diagnostics, and README documentation. Ground-truth verification on the closing branch found the implementation files and tests in place, `node_modules` untracked, and full repository validation passing with `just`.
+
+Remaining caveats are intentionally parked rather than blocking this Objective: mechanical closeout verification, checked-in schema artifacts, branch repair flows, richer supervised UI, reusable package promotion, and gated PR submission can be handled as future Objectives if needed.

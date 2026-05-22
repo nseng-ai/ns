@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { ExecFunction, ExecResult } from "../src/command.ts";
+import { formatSliceLedger } from "../src/ledger.ts";
 import { startNextStackSlice } from "../src/orchestration.ts";
 import { parseStackPlanMarkdown } from "../src/plan.ts";
 import type { StackRunPlanResult } from "../src/stack-run.ts";
@@ -119,6 +120,76 @@ describe("slice start orchestration", () => {
 		expect(ledgerContent).toContain("branch: plan-branch");
 		expect(ledgerContent).toContain("key: asdl-stack-run-extension.md");
 		expect(ledgerContent).toContain(planResult().plan.sha256);
+		expect(commands).toEqual([]);
+	});
+
+	test("resumes an existing branch when it has a valid ledger and no handoff", async () => {
+		const plan = planResult();
+		const ledger = formatSliceLedger({
+			planBranch: plan.planBranch,
+			planKey: plan.locator.key,
+			planSha256: plan.plan.sha256,
+		});
+		const commands: ExpectedCommand[] = [
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"session-artifacts",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("", 1),
+			},
+			{ command: "git", args: ["status", "--porcelain"], result: result("") },
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/extension-skeleton"],
+				result: result("commit\n"),
+			},
+			{
+				command: "brmem",
+				args: [
+					"check",
+					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"stack-runs",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result("present\n"),
+			},
+			{
+				command: "brmem",
+				args: [
+					"get",
+					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"--namespace",
+					"stack-runs",
+					"--branch",
+					"asdl-stack-run-extension/extension-skeleton",
+				],
+				result: result(ledger),
+			},
+			{ command: "git", args: ["branch", "--show-current"], result: result("plan-branch\n") },
+			{
+				command: "git",
+				args: ["checkout", "asdl-stack-run-extension/extension-skeleton"],
+				result: result("switched\n"),
+			},
+			{ command: "gt", args: ["track", "-p", "plan-branch"], result: result("tracked\n") },
+		];
+
+		const slice = await startNextStackSlice(plan, { cwd: "/repo", exec: fakeExec(commands) });
+
+		expect(slice.status).toBe("started");
+		if (slice.status === "started") {
+			expect(slice.ledgerLocator.key).toBe(
+				"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+			);
+		}
 		expect(commands).toEqual([]);
 	});
 

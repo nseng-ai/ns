@@ -9,6 +9,7 @@ import {
 } from "./src/closeout.ts";
 import { startNextStackSlice } from "./src/orchestration.ts";
 import { formatStackRunPlanResult, loadOrStoreStackRunPlan } from "./src/stack-run.ts";
+import { buildStackStatusReport, formatStackStatusReport } from "./src/status.ts";
 import { registerStackSliceTools } from "./src/tools.ts";
 
 type PiExecOptions = {
@@ -80,6 +81,28 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 						await replacementCtx.sendUserMessage(slice.kickoffPrompt);
 					},
 				});
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				if (ctx.hasUI) {
+					ctx.ui.notify(message, "error");
+				}
+				throw error;
+			}
+		},
+	});
+
+	pi.registerCommand("stack-status", {
+		description: "Show status and recovery diagnostics for a stack-run plan.",
+		handler: async (args, ctx) => {
+			const exec = (command: string, commandArgs: string[], options: ExecOptions | undefined) =>
+				pi.exec(command, commandArgs, toPiExecOptions(options));
+
+			try {
+				const report = await buildStackStatusReport(args, { cwd: ctx.cwd, exec });
+				const formatted = formatStackStatusReport(report);
+				if (ctx.hasUI) {
+					ctx.ui.notify(formatted, report.warnings.length > 0 ? "warning" : "info");
+				}
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				if (ctx.hasUI) {

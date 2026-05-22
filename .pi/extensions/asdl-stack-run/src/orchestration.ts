@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { CommandExecutionError, formatCommand, runCommand, type ExecFunction } from "./command.ts";
 import { deriveHandoffKey, deriveLedgerKey, type BranchMemoryKey } from "./keys.ts";
-import { formatSliceLedger } from "./ledger.ts";
+import { formatSliceLedger, parseSliceLedgerMarkdown } from "./ledger.ts";
 import type { StackRunPlanResult } from "./stack-run.ts";
 
 const COMMAND_TIMEOUT_MS = 30_000;
@@ -142,26 +142,31 @@ async function localBranchExists(
 	return result.code === 0;
 }
 
-async function checkoutPlannedBranch(
+async function checkoutNewBranch(
 	deps: StackRunOrchestrationDependencies,
 	plannedBranch: string,
 	intendedParent: string,
 ): Promise<void> {
-	if (!(await localBranchExists(deps, plannedBranch))) {
-		await runCommand(deps.exec, "git", ["checkout", "-b", plannedBranch, intendedParent], {
-			cwd: deps.cwd,
-			signal: deps.signal,
-			timeout: COMMAND_TIMEOUT_MS,
-		});
+	await runCommand(deps.exec, "git", ["checkout", "-b", plannedBranch, intendedParent], {
+		cwd: deps.cwd,
+		signal: deps.signal,
+		timeout: COMMAND_TIMEOUT_MS,
+	});
+}
+
+async function checkoutExistingBranch(
+	deps: StackRunOrchestrationDependencies,
+	plannedBranch: string,
+	currentBranchName: string,
+): Promise<void> {
+	if (currentBranchName === plannedBranch) {
 		return;
 	}
-
-	const branch = await currentBranch(deps);
-	if (branch !== plannedBranch) {
-		throw new Error(
-			`Planned branch ${plannedBranch} already exists while current branch is ${branch}. Stop for recovery/status diagnostics before checking it out.`,
-		);
-	}
+	await runCommand(deps.exec, "git", ["checkout", plannedBranch], {
+		cwd: deps.cwd,
+		signal: deps.signal,
+		timeout: COMMAND_TIMEOUT_MS,
+	});
 }
 
 async function trackWithGraphite(
@@ -221,6 +226,78 @@ async function writeSliceLedger(
 	return ledgerLocator;
 }
 
+async function brmemGet(
+	deps: StackRunOrchestrationDependencies,
+	locator: SliceLocator,
+): Promise<string> {
+	const result = await runCommand(
+		deps.exec,
+		"brmem",
+		["get", locator.key, "--namespace", locator.namespace, "--branch", locator.branch],
+		{
+			cwd: deps.cwd,
+			signal: deps.signal,
+			timeout: COMMAND_TIMEOUT_MS,
+		},
+	);
+	return result.stdout;
+}
+
+async function readAndValidateSliceLedger(
+	planResult: StackRunPlanResult,
+	plannedBranch: string,
+	deps: StackRunOrchestrationDependencies,
+): Promise<SliceLocator | undefined> {
+	const ledgerLocator = deriveLedgerLocator(planResult.plan.objective, plannedBranch);
+	if (!(await brmemCheck(deps, ledgerLocator))) {
+		return undefined;
+	}
+
+	const ledger = parseSliceLedgerMarkdown(await brmemGet(deps, ledgerLocator));
+	if (ledger.plan.branch !== planResult.planBranch) {
+		throw new Error(
+			`Slice ledger ${ledgerLocator.namespace}/${ledgerLocator.key} points at plan branch ${ledger.plan.branch}, expected ${planResult.planBranch}.`,
+		);
+	}
+	if (ledger.plan.namespace !== planResult.locator.namespace || ledger.plan.key !== planResult.locator.key) {
+		throw new Error(
+			`Slice ledger ${ledgerLocator.namespace}/${ledgerLocator.key} points at ${ledger.plan.namespace}/${ledger.plan.key}, expected ${planResult.locator.namespace}/${planResult.locator.key}.`,
+		);
+	}
+	if (ledger.plan.sha256 !== planResult.plan.sha256) {
+		throw new Error(
+			`Plan hash drift detected for ${planResult.locator.namespace}/${planResult.locator.key} on ${planResult.planBranch}: ledger has ${ledger.plan.sha256}, current content has ${planResult.plan.sha256}.`,
+		);
+	}
+	return ledgerLocator;
+}
+
+async function preparePlannedBranchAndLedger(
+	planResult: StackRunPlanResult,
+	plannedBranch: string,
+	intendedParent: string,
+	deps: StackRunOrchestrationDependencies,
+): Promise<SliceLocator> {
+	const exists = await localBranchExists(deps, plannedBranch);
+	if (!exists) {
+		await checkoutNewBranch(deps, plannedBranch, intendedParent);
+		await trackWithGraphite(deps, intendedParent);
+		return writeSliceLedger(planResult, plannedBranch, deps);
+	}
+
+	const existingLedger = await readAndValidateSliceLedger(planResult, plannedBranch, deps);
+	const branch = await currentBranch(deps);
+	if (branch !== plannedBranch && !existingLedger) {
+		throw new Error(
+			`Planned branch ${plannedBranch} already exists but has no valid stack-runs ledger. Run /stack-status for diagnostics before resuming it.`,
+		);
+	}
+
+	await checkoutExistingBranch(deps, plannedBranch, branch);
+	await trackWithGraphite(deps, intendedParent);
+	return existingLedger ?? writeSliceLedger(planResult, plannedBranch, deps);
+}
+
 export function buildKickoffPrompt(args: {
 	objective: string;
 	plannedBranch: string;
@@ -275,9 +352,12 @@ export async function startNextStackSlice(
 	}
 
 	await ensureCleanWorktree(deps);
-	await checkoutPlannedBranch(deps, nextSlice.plannedBranch, nextSlice.intendedParent);
-	await trackWithGraphite(deps, nextSlice.intendedParent);
-	const ledgerLocator = await writeSliceLedger(planResult, nextSlice.plannedBranch, deps);
+	const ledgerLocator = await preparePlannedBranchAndLedger(
+		planResult,
+		nextSlice.plannedBranch,
+		nextSlice.intendedParent,
+		deps,
+	);
 	const planLocator = { ...planResult.locator };
 	const kickoffArgs = {
 		objective: planResult.plan.objective,
