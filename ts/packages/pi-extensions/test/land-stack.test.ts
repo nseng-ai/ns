@@ -12,6 +12,7 @@ import landStackExtension, {
 	parseWorktreeList,
 	shortSha,
 	slotNameFromPath,
+	isGtDeleteCheckedOutElsewhere,
 	isGtDeleteMissingBranch,
 	stripAnsi,
 	validateInitialPrPreflight,
@@ -539,11 +540,15 @@ describe("land-stack pure helpers", () => {
 		expect(tail).toContain("line 45");
 	});
 
-	test("detects benign Graphite delete failures for already-missing branches", () => {
+	test("detects benign Graphite delete failures", () => {
 		expect(isGtDeleteMissingBranch(execResult({ code: 1, stderr: "ERROR: Could not find branch feature-a.\n" }), "feature-a")).toBe(
 			true,
 		);
 		expect(isGtDeleteMissingBranch(execResult({ code: 1, stderr: "ERROR: authentication failed\n" }), "feature-a")).toBe(false);
+		expect(isGtDeleteCheckedOutElsewhere(execResult({ code: 1, stderr: "fatal: 'master' is already checked out at '/repo-main'\n" }))).toBe(
+			true,
+		);
+		expect(isGtDeleteCheckedOutElsewhere(execResult({ code: 1, stderr: "ERROR: authentication failed\n" }))).toBe(false);
 	});
 
 	test("formats plans and failures", () => {
@@ -750,7 +755,7 @@ describe("land-stack command scenarios", () => {
 		expect(commandMessagesText(messages)).toContain("✓ $ gt delete feature-a -f -q — branch feature-a already absent");
 	});
 
-	test("treats final local Graphite delete failure as a post-landing warning", async () => {
+	test("treats final local Graphite delete checkout conflict as successful landing", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
@@ -758,6 +763,31 @@ describe("land-stack command scenarios", () => {
 			step("gt", ["delete", "feature-a", "-f", "-q"], {
 				code: 1,
 				stderr: "fatal: 'master' is already checked out at '/repo-main'\n",
+			}),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(notifications.at(-1)?.message).toContain("Landed 1 PR: #101 feature-a.");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).not.toContain("✗ $ gt delete feature-a -f -q — exit 1");
+		expect(streamText).not.toContain("fatal: 'master' is already checked out");
+		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
+		expect(streamText).not.toContain("Completed with 1 warning:");
+		expect(streamText).not.toContain("All target PRs were merged, but deleting the local Graphite branch feature-a failed.");
+		expect(streamText).not.toContain("land-stack stopped");
+		expect(streamText).not.toContain("Failed at:");
+	});
+
+	test("treats unexpected final local Graphite delete failure as a post-landing warning", async () => {
+		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...mergeSteps.slice(0, -1),
+			step("gt", ["delete", "feature-a", "-f", "-q"], {
+				code: 1,
+				stderr: "ERROR: authentication failed\n",
 			}),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
