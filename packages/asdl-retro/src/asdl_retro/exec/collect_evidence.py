@@ -14,6 +14,7 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
+from asdl_core.sessions.evidence import SessionEvidenceItem, collect_session_evidence
 from asdl_core.sessions.types import (
     ParsedSession,
     SessionAssociation,
@@ -153,8 +154,12 @@ class AggregateMetricsDto(ClinkrModel):
 
 class EvidenceItemDto(ClinkrModel):
     kind: str
+    subject: str | None
     summary: str
+    count: int | None
+    session_count: int | None
     source_refs: tuple[SessionSourceRefDto, ...]
+    metadata: dict[str, str | int | bool | None]
 
 
 class CollectEvidenceResult(ClinkrModel):
@@ -336,7 +341,9 @@ def _result_from_query_result(
         aggregate_metrics=aggregate_metrics_from_summaries(summaries, warnings),
         sessions=summaries,
         warnings=warnings,
-        evidence_items=(),
+        evidence_items=tuple(
+            _evidence_item_to_dto(item) for item in collect_session_evidence(query_result.sessions)
+        ),
     )
 
 
@@ -461,6 +468,18 @@ def _query_to_dto(request: CollectEvidenceRequest, repo_root: str | None) -> Ses
         repo_root=repo_root,
         session_root=_path_to_string(request.session_root),
         max_sessions=request.max_sessions,
+    )
+
+
+def _evidence_item_to_dto(item: SessionEvidenceItem) -> EvidenceItemDto:
+    return EvidenceItemDto(
+        kind=item.kind,
+        subject=item.subject,
+        summary=item.summary,
+        count=item.count,
+        session_count=item.session_count,
+        source_refs=tuple(_source_ref_to_dto(source_ref) for source_ref in item.source_refs),
+        metadata=dict(item.metadata),
     )
 
 
