@@ -12,6 +12,7 @@ import landStackExtension, {
 	parseWorktreeList,
 	shortSha,
 	slotNameFromPath,
+	isGtDeleteMissingBranch,
 	stripAnsi,
 	validateInitialPrPreflight,
 	validateOpenPrBasics,
@@ -65,6 +66,12 @@ type Confirmation = {
 type StatusUpdate = {
 	key: string;
 	value: string | undefined;
+};
+
+type WidgetUpdate = {
+	key: string;
+	value: string[] | undefined;
+	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
 };
 
 class FakePi implements ExtensionAPI {
@@ -127,11 +134,13 @@ function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: bool
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	statuses: StatusUpdate[];
+	widgets: WidgetUpdate[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
 	const confirmations: Confirmation[] = [];
 	const statuses: StatusUpdate[] = [];
+	const widgets: WidgetUpdate[] = [];
 	const confirmAnswers = [...(options.confirms ?? [true])];
 	let waits = 0;
 
@@ -149,13 +158,16 @@ function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: bool
 			setStatus(key: string, value: string | undefined): void {
 				statuses.push({ key, value });
 			},
+			setWidget(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void {
+				widgets.push({ key, value, options });
+			},
 		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
 	};
 
-	return { ctx, notifications, confirmations, statuses, waitForIdleCalls: () => waits };
+	return { ctx, notifications, confirmations, statuses, widgets, waitForIdleCalls: () => waits };
 }
 
 async function runLandStack(
@@ -167,6 +179,7 @@ async function runLandStack(
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	statuses: StatusUpdate[];
+	widgets: WidgetUpdate[];
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script);
@@ -176,6 +189,10 @@ async function runLandStack(
 	const context = createContext(contextOptions);
 	await command?.handler(args, context.ctx);
 	return { pi, ...context };
+}
+
+function lastWidgetText(widgets: WidgetUpdate[]): string {
+	return widgets.at(-1)?.value?.join("\n") ?? "";
 }
 
 function prSnapshot(overrides: {
@@ -499,6 +516,13 @@ describe("land-stack pure helpers", () => {
 		expect(tail).toContain("line 45");
 	});
 
+	test("detects benign Graphite delete failures for already-missing branches", () => {
+		expect(isGtDeleteMissingBranch(execResult({ code: 1, stderr: "ERROR: Could not find branch feature-a.\n" }), "feature-a")).toBe(
+			true,
+		);
+		expect(isGtDeleteMissingBranch(execResult({ code: 1, stderr: "ERROR: authentication failed\n" }), "feature-a")).toBe(false);
+	});
+
 	test("formats plans and failures", () => {
 		const plan: LandingPlan = {
 			repoRoot: ROOT,
@@ -652,7 +676,7 @@ describe("land-stack command scenarios", () => {
 
 	test("happy path merges bottom-to-current and restacks but does not merge descendants", async () => {
 		const script = [...featureStackPreflight(), ...mergeFeatureA(), ...mergeFeatureBWithDescendant()];
-		const { pi, notifications, confirmations } = await runLandStack("--yes", script);
+		const { pi, notifications, confirmations, widgets } = await runLandStack("--yes", script);
 
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
@@ -666,7 +690,40 @@ describe("land-stack command scenarios", () => {
 		).toEqual(["feature-b", DESCENDANT]);
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(notifications.at(-1)?.message).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
-		expect(notifications.at(-1)?.message).toContain("Left open/restacked: feature-c.");
+		expect(lastWidgetText(widgets)).toContain("Left open/restacked: feature-c.");
+	});
+
+	test("streams command execution to an above-editor widget", async () => {
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...mergeSingleFeatureA(),
+		];
+		const { pi, widgets, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(widgets.length).toBeGreaterThan(0);
+		expect(widgets.every((widget) => widget.options?.placement === "aboveEditor")).toBe(true);
+		const widgetText = lastWidgetText(widgets);
+		expect(widgetText).toContain("land-stack command stream");
+		expect(widgetText).toContain("✓ $ git rev-parse --show-toplevel");
+		expect(widgetText).toContain(`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A}`);
+		expect(widgetText).toContain("✓ Landed 1 PR: #101 feature-a.");
+	});
+
+	test("treats missing local branch during Graphite delete as successful cleanup", async () => {
+		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...mergeSteps.slice(0, -1),
+			step("gt", ["delete", "feature-a", "-f", "-q"], { code: 1, stderr: "ERROR: Could not find branch feature-a.\n" }),
+		];
+		const { pi, notifications, widgets } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(notifications.at(-1)?.message).toContain("Landed 1 PR: #101 feature-a.");
+		expect(lastWidgetText(widgets)).toContain("✓ $ gt delete feature-a -f -q — branch feature-a already absent");
 	});
 
 	test("targets the next open branch for Graphite refresh after merging a downstack PR", async () => {
@@ -831,12 +888,13 @@ describe("land-stack command scenarios", () => {
 				stderr: "restack failed",
 			}),
 		];
-		const { pi, notifications } = await runLandStack("--yes", script);
+		const { pi, notifications, widgets } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("Already landed:");
-		expect(notifications[0]?.message).toContain("#101 feature-a");
-		expect(notifications[0]?.message).toContain("Restack failed after merging #101; stopping before merging feature-b.");
+		expect(notifications[0]?.message).toContain("land-stack stopped at feature-b");
+		expect(lastWidgetText(widgets)).toContain("Already landed:");
+		expect(lastWidgetText(widgets)).toContain("#101 feature-a");
+		expect(lastWidgetText(widgets)).toContain("Restack failed after merging #101; stopping before merging feature-b.");
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit")).toBe(false);
 	});
 
@@ -850,12 +908,13 @@ describe("land-stack command scenarios", () => {
 				stderr: "submit failed",
 			}),
 		];
-		const { pi, notifications } = await runLandStack("--yes", script);
+		const { pi, notifications, widgets } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("Already landed:");
-		expect(notifications[0]?.message).toContain("#101 feature-a");
-		expect(notifications[0]?.message).toContain("Submit/update failed after merging #101; stopping before merging feature-b.");
+		expect(notifications[0]?.message).toContain("land-stack stopped at feature-b");
+		expect(lastWidgetText(widgets)).toContain("Already landed:");
+		expect(lastWidgetText(widgets)).toContain("#101 feature-a");
+		expect(lastWidgetText(widgets)).toContain("Submit/update failed after merging #101; stopping before merging feature-b.");
 	});
 
 	test("PR preflight failures refuse before worktree checks or mutation", async () => {

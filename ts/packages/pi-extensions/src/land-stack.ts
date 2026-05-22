@@ -3,6 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 
 const COMMAND_NAME = "land-stack";
 const STATUS_KEY = "land-stack";
+const COMMAND_STREAM_WIDGET_KEY = "land-stack-command-stream";
 
 const GIT_TIMEOUT_MS = 30_000;
 const GH_TIMEOUT_MS = 30_000;
@@ -17,6 +18,8 @@ const PR_FIELDS = "number,title,state,isDraft,headRefName,baseRefName,headRefOid
 
 const MAX_OUTPUT_TAIL_LINES = 40;
 const MAX_OUTPUT_TAIL_CHARS = 4_000;
+const MAX_COMMAND_STREAM_LINES = 80;
+const MAX_COMMAND_STREAM_OUTPUT_LINES = 4;
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -47,6 +50,7 @@ export type ExtensionCommandContext = {
 		notify(message: string, level?: NotifyLevel): void;
 		confirm(title: string, message: string): Promise<boolean>;
 		setStatus(key: string, value: string | undefined): void;
+		setWidget?(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
 	};
 	waitForIdle(): Promise<void>;
 };
@@ -168,6 +172,68 @@ export class LandStackError extends Error {
 	}
 }
 
+type CommandStreamFinish = {
+	result: ExecResult;
+	note?: string;
+};
+
+class LandStackCommandStream {
+	private readonly lines: string[] = [];
+
+	constructor(private readonly ctx: ExtensionCommandContext) {}
+
+	start(commandDisplay: string): number {
+		const index = this.lines.length;
+		this.lines.push(`→ $ ${commandDisplay}`);
+		this.render();
+		return index;
+	}
+
+	finish(index: number, commandDisplay: string, finish: CommandStreamFinish): void {
+		const result = finish.result;
+		const icon = result.code === 0 ? "✓" : "✗";
+		const suffix =
+			result.code === 0
+				? finish.note
+					? ` — ${finish.note}`
+					: ""
+				: ` — exit ${result.code}${result.killed ? " (killed or timed out)" : ""}`;
+		this.lines[index] = `${icon} $ ${commandDisplay}${suffix}`;
+		if (result.code !== 0) {
+			this.lines.push(...commandStreamOutputLines(result));
+		}
+		this.render();
+	}
+
+	finishSuccess(message: string): void {
+		this.appendBlock("✓", message);
+	}
+
+	finishFailure(message: string): void {
+		this.appendBlock("✗", message);
+	}
+
+	private appendBlock(icon: string, message: string): void {
+		const lines = message.split("\n");
+		const first = lines.shift() ?? "";
+		this.lines.push(first ? `${icon} ${first}` : icon);
+		for (const line of lines) {
+			this.lines.push(line ? `  ${line}` : "");
+		}
+		this.render();
+	}
+
+	private render(): void {
+		if (!this.ctx.hasUI || !this.ctx.ui.setWidget) return;
+		const omittedCount = Math.max(0, this.lines.length - MAX_COMMAND_STREAM_LINES);
+		const visibleLines = this.lines.slice(-MAX_COMMAND_STREAM_LINES);
+		const body = omittedCount > 0 ? [`… ${omittedCount} earlier line(s) omitted`, ...visibleLines] : visibleLines;
+		this.ctx.ui.setWidget(COMMAND_STREAM_WIDGET_KEY, ["land-stack command stream", ...body], {
+			placement: "aboveEditor",
+		});
+	}
+}
+
 export default function landStackExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Land the current Graphite stack path bottom-to-current, one PR at a time",
@@ -181,6 +247,8 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 			await ctx.waitForIdle();
 
 			const landed: LandedPr[] = [];
+			const commandStream = new LandStackCommandStream(ctx);
+			const runtimePi = withCommandStreaming(pi, commandStream);
 			try {
 				const args = parseArgs(rawArgs);
 				if (args.help) {
@@ -189,10 +257,11 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				}
 
 				setStatus(ctx, "preflighting...");
-				let plan = await buildLandingPlan(pi, ctx.cwd, { allowSubmitRequiredState: true });
+				let plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
 				const planText = formatPlan(plan);
 
 				if (args.dryRun) {
+					commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
 					present(ctx, `Dry run only; no PRs or local refs were changed.\n\n${planText}`, "info");
 					return;
 				}
@@ -208,9 +277,9 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				}
 
 				if (plan.prSubmitRequirements.length > 0) {
-					await confirmAndSubmitRequiredPrUpdates(pi, ctx, plan);
+					await confirmAndSubmitRequiredPrUpdates(runtimePi, ctx, plan);
 					setStatus(ctx, "rechecking preflight...");
-					plan = await buildLandingPlan(pi, ctx.cwd, { allowSubmitRequiredState: true });
+					plan = await buildLandingPlan(runtimePi, ctx.cwd, { allowSubmitRequiredState: true });
 					if (plan.prSubmitRequirements.length > 0) {
 						fail(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
 							suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.current))} manually, inspect PR heads, and rerun /land-stack.`,
@@ -219,16 +288,19 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 				}
 
 				if (plan.managedSlotConflicts.length > 0) {
-					await confirmAndFreeManagedSlots(pi, ctx, plan);
+					await confirmAndFreeManagedSlots(runtimePi, ctx, plan);
 				}
 
-				await runMergeLoop(pi, ctx, plan, landed);
+				await runMergeLoop(runtimePi, ctx, plan, landed);
 
-				present(ctx, formatSuccessSummary(landed, plan.stack.descendantBranches), "success");
+				const successSummary = formatSuccessSummary(landed, plan.stack.descendantBranches);
+				commandStream.finishSuccess(successSummary);
+				presentBrief(ctx, successSummary, "success", formatSuccessNotification(successSummary));
 			} catch (error) {
 				const formatted = formatFailure(error, landed);
 				const level = error instanceof LandStackError ? error.level : "error";
-				present(ctx, formatted, level);
+				commandStream.finishFailure(formatted);
+				presentBrief(ctx, formatted, level, formatFailureNotification(error));
 			} finally {
 				setStatus(ctx, undefined);
 			}
@@ -1077,15 +1149,55 @@ function formatConflict(conflict: WorktreeConflict): string {
 	return `${conflict.branch} ${conflict.path} (${conflict.kind})`;
 }
 
+function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackCommandStream): ExtensionAPI {
+	return {
+		registerCommand(name, options) {
+			pi.registerCommand(name, options);
+		},
+		async exec(command, args, options) {
+			const commandDisplay = formatCommand(command, args);
+			const index = commandStream.start(commandDisplay);
+			try {
+				const rawResult = await pi.exec(command, args, options);
+				const normalizedResult = normalizePiExecResult(rawResult);
+				const finish = normalizeCommandFinish(command, args, normalizedResult);
+				commandStream.finish(index, commandDisplay, finish);
+				return finish.result;
+			} catch (error) {
+				const result: ExecResult = { stdout: "", stderr: errorMessage(error), code: 1, killed: false };
+				commandStream.finish(index, commandDisplay, { result });
+				throw error;
+			}
+		},
+	};
+}
+
+function normalizePiExecResult(result: PiExecResult): ExecResult {
+	return {
+		stdout: result.stdout ?? "",
+		stderr: result.stderr ?? "",
+		code: result.code,
+		killed: Boolean(result.killed),
+	};
+}
+
+function normalizeCommandFinish(command: string, args: string[], result: ExecResult): CommandStreamFinish {
+	const deleteBranch = command === "gt" && args[0] === "delete" ? args[1] : undefined;
+	if (deleteBranch && result.code !== 0 && !result.killed && isGtDeleteMissingBranch(result, deleteBranch)) {
+		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
+	}
+	return { result };
+}
+
+export function isGtDeleteMissingBranch(result: ExecResult, branch: string): boolean {
+	const output = stripAnsi(`${result.stderr}\n${result.stdout}`).toLowerCase();
+	return output.includes(`could not find branch ${branch.toLowerCase()}`);
+}
+
 async function exec(pi: ExtensionAPI, command: string, args: string[], cwd: string, timeout: number): Promise<ExecResult> {
 	try {
-		const result = await pi.exec(command, args, { cwd, timeout });
-		return {
-			stdout: result.stdout ?? "",
-			stderr: result.stderr ?? "",
-			code: result.code,
-			killed: Boolean(result.killed),
-		};
+		const result = normalizePiExecResult(await pi.exec(command, args, { cwd, timeout }));
+		return normalizeCommandFinish(command, args, result).result;
 	} catch (error) {
 		return {
 			stdout: "",
@@ -1094,6 +1206,15 @@ async function exec(pi: ExtensionAPI, command: string, args: string[], cwd: stri
 			killed: false,
 		};
 	}
+}
+
+function commandStreamOutputLines(result: ExecResult): string[] {
+	const output = outputTail(stripAnsi(`${result.stderr}\n${result.stdout}`).replace(/\r/g, "\n"));
+	if (!output) return [];
+	return output
+		.split("\n")
+		.slice(-MAX_COMMAND_STREAM_OUTPUT_LINES)
+		.map((line) => `  │ ${line}`);
 }
 
 function formatCommandDetails(result: ExecResult, commandDisplay?: string): string {
@@ -1156,15 +1277,37 @@ function unique(values: string[]): string[] {
 }
 
 function present(ctx: ExtensionCommandContext, message: string, level: NotifyLevel): void {
+	presentBrief(ctx, message, level, message);
+}
+
+function presentBrief(ctx: ExtensionCommandContext, fullMessage: string, level: NotifyLevel, uiMessage: string): void {
 	if (ctx.hasUI) {
-		ctx.ui.notify(message, level);
+		ctx.ui.notify(uiMessage, level);
 		return;
 	}
 	if (level === "error") {
-		console.error(message);
+		console.error(fullMessage);
 		return;
 	}
-	console.log(message);
+	console.log(fullMessage);
+}
+
+function formatSuccessNotification(message: string): string {
+	return firstNonEmptyLine(message) ?? "land-stack completed.";
+}
+
+function formatFailureNotification(error: unknown): string {
+	if (!(error instanceof LandStackError)) {
+		return `land-stack failed unexpectedly: ${errorMessage(error)}`;
+	}
+	const detail = firstNonEmptyLine(error.message) ?? "unknown error";
+	if (error.failedBranch || error.failedPr) {
+		return `land-stack stopped at ${formatFailedTarget(error)}: ${detail}`;
+	}
+	if (error.level === "info") {
+		return detail;
+	}
+	return `land-stack stopped: ${detail}`;
 }
 
 function setStatus(ctx: ExtensionCommandContext, message: string | undefined): void {
