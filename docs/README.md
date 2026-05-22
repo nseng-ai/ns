@@ -14,7 +14,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 ## Index
 
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
-- [Branch retrospective evidence](branch-retro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
+- [Branch retrospective evidence](aretro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
 - [Slot co-autocomplete plan](slot-co-autocomplete-plan.md): slot autocomplete design notes.

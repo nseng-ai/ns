@@ -2,11 +2,11 @@
 
 ## Summary
 
-`branch-retro exec collect-evidence` now exists as the first real skill-facing `asdl-retro` operation. It accepts `--repo`, `--branch`, `--session-root`, and `--max-sessions`, uses a typed CLI context with injectable git and session-source gateways, and defaults the real session source to the shared Pi JSONL adapter.
+`aretro exec collect-evidence` now exists as the first real skill-facing `aretro` operation. It accepts `--repo`, `--branch`, `--session-root`, and `--max-sessions`, uses a typed CLI context with injectable git and session-source gateways, and defaults the real session source to the shared Pi JSONL adapter.
 
 The JSON result is a Clinkr envelope whose data contains `success`/`error`, repo context, query metadata, source metadata, aggregate metrics, compact session summaries, warnings with source refs, and an empty `evidence_items` tuple reserved for PR 4. Known user-correctable states such as non-repos and detached HEAD return stable negative JSON; missing session roots and source warnings remain successful collection results with surfaced warnings.
 
-Validation passed with targeted unit and scenario tests, branch-retro plugin smoke coverage, and the full `just` suite (`1314 passed`).
+Validation passed with targeted unit and scenario tests, aretro plugin smoke coverage, and the full `just` suite (`1314 passed`).
 
 ## Objective Impact
 

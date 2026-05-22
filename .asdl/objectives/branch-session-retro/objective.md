@@ -4,14 +4,14 @@
 
 Agents working on a branch should be able to ask, cheaply and repeatably, what would have made the branch's sessions faster, smaller, or higher quality. The right first step is a deterministic Python push-down CLI for skills: it should discover and parse local session logs, turn them into compact structured evidence, and leave semantic recommendations to the invoking skill and agent.
 
-This workstream will build a multi-PR steelthread around `asdl-retro`: a new package with a standalone `branch-retro` CLI and matching asdl plugin subgroup. Reusable session parsing and analysis belongs in `asdl-core`; `asdl-retro` should stay a thin CLI and skill boundary that queries the shared library and renders the retrospective evidence envelope. The first skill-facing command is a hidden `branch-retro exec collect-evidence` operation that emits one cohesive JSON payload for the current repo and branch context. In v1 the command is deterministic only; it does not call an LLM, write recommendations, or edit documentation, skills, or code.
+This workstream will build a multi-PR steelthread around `aretro`: a new package with a standalone `aretro` CLI and matching asdl plugin subgroup. Reusable session parsing and analysis belongs in `asdl-core`; `aretro` should stay a thin CLI and skill boundary that queries the shared library and renders the retrospective evidence envelope. The first skill-facing command is a hidden `aretro exec collect-evidence` operation that emits one cohesive JSON payload for the current repo and branch context. In v1 the command is deterministic only; it does not call an LLM, write recommendations, or edit documentation, skills, or code.
 
 ## Scope
 
 In scope:
 
-- Add a new `packages/asdl-retro` package with standalone and plugin CLI wiring that follows existing repository conventions.
-- Expose agent-facing operations under a hidden `exec` subgroup, beginning with `branch-retro exec collect-evidence`.
+- Add a new `packages/aretro` package with standalone and plugin CLI wiring that follows existing repository conventions.
+- Expose agent-facing operations under a hidden `exec` subgroup, beginning with `aretro exec collect-evidence`.
 - Add a reusable harness-neutral session parsing and analysis library in `asdl-core` for querying session sources, parsing records, and computing compact deterministic metrics; keep harness identity distinct from model provider metadata.
 - Implement the first Pi JSONL session source adapter in `asdl-core` for local session logs associated with the current repo/worktree.
 - Keep the session source boundary future-ready for later Claude, Codex, or other harness adapters without implementing those adapters in this slice.
@@ -42,10 +42,10 @@ Out of scope for the first objective slice:
 ## Completion Criteria
 
 - `packages/asdl-core` contains reusable harness-neutral session parsing interfaces and models, deterministic analysis helpers, and the Pi JSONL adapter as the first source implementation.
-- `packages/asdl-retro` exists in the workspace with standalone CLI and asdl plugin registration.
-- The outer `branch-retro` command contains a hidden `exec` subgroup, and `branch-retro exec collect-evidence` is invocable by skills.
-- `branch-retro exec collect-evidence --repo <path> --branch <branch> --format json` returns a stable success/failure envelope and compact evidence payload without LLM calls.
-- The `branch-retro` command consumes the shared `asdl-core` session library rather than owning harness-specific parsers or analysis logic.
+- `packages/aretro` exists in the workspace with standalone CLI and asdl plugin registration.
+- The outer `aretro` command contains a hidden `exec` subgroup, and `aretro exec collect-evidence` is invocable by skills.
+- `aretro exec collect-evidence --repo <path> --branch <branch> --format json` returns a stable success/failure envelope and compact evidence payload without LLM calls.
+- The `aretro` command consumes the shared `asdl-core` session library rather than owning harness-specific parsers or analysis logic.
 - The Pi JSONL adapter in `asdl-core` can discover and parse session files for a repo/worktree, tolerate malformed or partial records with warnings, and preserve source references for evidence.
 - The collector reports conservative association confidence when explicit branch metadata is absent, rather than pretending older repo sessions are certainly branch-specific.
 - Aggregation identifies at least the first useful evidence classes: tool-call counts, failed tools, tools by name, repeated file reads, repeated shell commands, token usage when available, and large outputs when available.
@@ -63,7 +63,7 @@ Assumptions:
 - Repo/worktree association is useful even when exact branch metadata is missing, provided the payload marks that association as lower confidence.
 - A single cohesive `collect-evidence` command will remove enough repeated tool calls and prompt mechanics from skills to justify a new package. PR 3 validates the command boundary for repo/branch resolution, session-source querying, compact summaries, warnings, and the skill-facing envelope; PR 4 still needs to prove richer aggregation removes enough repeated inspection work.
 - Skills are the right consumers for the first version: they can decide which evidence matters and can propose documentation, skill, CLI, test, or code changes without the Python command becoming semantic.
-- Existing asdl CLI package conventions are sufficient for a new `asdl-retro` package with a standalone `branch-retro` CLI, hidden exec operations, and plugin discovery.
+- Existing asdl CLI package conventions are sufficient for a new `aretro` package with a standalone `aretro` CLI, hidden exec operations, and plugin discovery.
 
 Risks:
 
