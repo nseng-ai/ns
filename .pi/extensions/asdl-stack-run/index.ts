@@ -1,8 +1,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { type ExecOptions } from "./src/command.ts";
+import {
+	closeoutStackSlice,
+	formatCloseoutResult,
+	takePendingCloseout,
+	type PendingCloseouts,
+} from "./src/closeout.ts";
 import { startNextStackSlice } from "./src/orchestration.ts";
 import { formatStackRunPlanResult, loadOrStoreStackRunPlan } from "./src/stack-run.ts";
+import { registerStackSliceTools } from "./src/tools.ts";
 
 type PiExecOptions = {
 	cwd?: string;
@@ -28,6 +35,9 @@ function toPiExecOptions(options: ExecOptions | undefined): PiExecOptions | unde
 }
 
 export default function asdlStackRunExtension(pi: ExtensionAPI): void {
+	const pendingCloseouts: PendingCloseouts = new Map();
+	registerStackSliceTools(pi, pendingCloseouts);
+
 	pi.registerCommand("stack-run", {
 		description: "Store or load a Branch Memory stack plan and start the next incomplete slice.",
 		handler: async (args, ctx) => {
@@ -70,6 +80,38 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 						await replacementCtx.sendUserMessage(slice.kickoffPrompt);
 					},
 				});
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				if (ctx.hasUI) {
+					ctx.ui.notify(message, "error");
+				}
+				throw error;
+			}
+		},
+	});
+
+	pi.registerCommand("stack-closeout", {
+		description: "Internal stack-run follow-up that stores a queued completion handoff.",
+		handler: async (args, ctx) => {
+			const id = args.trim();
+			if (id.length === 0) {
+				const message = "Usage: /stack-closeout <tool-call-id>";
+				if (ctx.hasUI) {
+					ctx.ui.notify(message, "error");
+				}
+				throw new Error(message);
+			}
+
+			const exec = (command: string, commandArgs: string[], options: ExecOptions | undefined) =>
+				pi.exec(command, commandArgs, toPiExecOptions(options));
+
+			try {
+				const payload = takePendingCloseout(pendingCloseouts, id);
+				const closeout = await closeoutStackSlice(payload, { cwd: ctx.cwd, exec });
+				pendingCloseouts.delete(id);
+				if (ctx.hasUI) {
+					ctx.ui.notify(formatCloseoutResult(closeout), "info");
+				}
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				if (ctx.hasUI) {
