@@ -1,0 +1,10 @@
+{
+  "name": "@asdl/pi-extensions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "devDependencies": {}
+}
