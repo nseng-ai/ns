@@ -50,18 +50,18 @@ Out of scope for the first objective slice:
 - The collector reports conservative association confidence when explicit branch metadata is absent, rather than pretending older repo sessions are certainly branch-specific.
 - Aggregation identifies at least the first useful evidence classes: tool-call counts, failed tools, tools by name, repeated file reads, repeated shell commands, token usage when available, and large outputs when available.
 - Scenario and unit tests cover the standalone command, hidden exec invocability, plugin smoke behavior, parser edge cases, and JSON contract stability.
-- A skill or skill update delegates deterministic collection to `branch-retro exec collect-evidence` and keeps semantic recommendation writing in the skill/agent.
+- A skill or skill update delegates deterministic collection to `aretro exec collect-evidence` and keeps semantic recommendation writing in the skill/agent.
 - The repository quality suite is green after the package, CLI, tests, and skill/docs changes land.
 
 ## Assumptions and Risks
 
 Assumptions:
 
-- Reusable session parsing and analysis is useful outside `asdl-retro`, so `asdl-core` is the right home for harness-neutral models, source interfaces, parsers, and aggregate metrics. PR 2 confirms the source/parser boundary can land independently of the `branch-retro` collector.
+- Reusable session parsing and analysis is useful outside `aretro`, so `asdl-core` is the right home for harness-neutral models, source interfaces, parsers, and aggregate metrics. PR 2 confirms the source/parser boundary can land independently of the `aretro` collector.
 - Pi JSONL session logs are available locally and stable enough for a first adapter that extracts generic events, messages, tool calls, tool results, timestamps, and usage records. PR 2 validates this against synthetic structural fixtures; real-log validation remains for the later steelthread pass.
 - A small harness-neutral session source boundary can support the Pi adapter now and later Claude/Codex adapters without over-generalizing the v1 schema. PR 2 de-risks the boundary by using explicit `harness`, `source_info`, `source_ref`, and `association` models while keeping Pi schema names inside the adapter.
 - Repo/worktree association is useful even when exact branch metadata is missing, provided the payload marks that association as lower confidence.
-- A single cohesive `collect-evidence` command will remove enough repeated tool calls and prompt mechanics from skills to justify a new package. PR 3 validates the command boundary for repo/branch resolution, session-source querying, compact summaries, warnings, and the skill-facing envelope; PR 4 still needs to prove richer aggregation removes enough repeated inspection work.
+- A single cohesive `collect-evidence` command will remove enough repeated tool calls and prompt mechanics from skills to justify a new package. PR 3 validates the command boundary for repo/branch resolution, session-source querying, compact summaries, warnings, and the skill-facing envelope. PR 4 validates the first richer aggregation pass by adding source-backed evidence items for tool usage, failed tools, repeated reads, repeated commands, token usage, and large or truncated outputs.
 - Skills are the right consumers for the first version: they can decide which evidence matters and can propose documentation, skill, CLI, test, or code changes without the Python command becoming semantic.
 - Existing asdl CLI package conventions are sufficient for a new `aretro` package with a standalone `aretro` CLI, hidden exec operations, and plugin discovery.
 
@@ -69,17 +69,17 @@ Risks:
 
 - Session association may be too weak for older logs that lack explicit branch metadata. Mitigation: label confidence clearly and add explicit branch/session metadata capture in a later PR if needed.
 - Session logs can be large or contain sensitive user/tool output. Mitigation: emit compact metrics and source references by default, avoid storing raw transcript content, and make any raw excerpts opt-in and bounded. PR 2 de-risks the parser/model layer by retaining output lengths/counts and selected safe arguments, not raw prompt, assistant, tool-result, or command-output text. PR 3 extends the mitigation at the CLI envelope by summarizing counts and source refs only and by testing that raw prompt/tool-output/command text is not emitted.
-- The evidence schema could become too verbose, reintroducing token pressure for the skill. Mitigation: keep aggregate summaries compact, include limits, and test representative payload sizes. PR 3 de-risks the first envelope by returning only repo/query/source metadata, aggregate counts, compact session summaries, warnings, and empty `evidence_items`; representative payload-size validation remains for real sessions.
+- The evidence schema could become too verbose, reintroducing token pressure for the skill. Mitigation: keep aggregate summaries compact, include limits, and test representative payload sizes. PR 3 de-risks the first envelope by returning only repo/query/source metadata, aggregate counts, compact session summaries, warnings, and empty `evidence_items`. PR 4 adds bounded source-backed `evidence_items`, caps source refs, hashes oversized command subjects, and preserves the no-raw-output boundary; representative payload-size validation remains for real sessions.
 - Tool duration and wall-time data may be incomplete in existing logs. Mitigation: report fields only when evidence exists and distinguish missing telemetry from zero cost.
-- The CLI boundary could creep into semantic recommendation logic. Mitigation: keep recommendation categories and prioritization in the skill, and test the CLI as deterministic extraction/aggregation only. PR 3 further de-risks this by implementing no LLM calls or recommendations and by leaving PR4 aggregation evidence as explicit empty `evidence_items` rather than pretending semantic analysis exists.
+- The CLI boundary could creep into semantic recommendation logic. Mitigation: keep recommendation categories and prioritization in the skill, and test the CLI as deterministic extraction/aggregation only. PR 3 further de-risks this by implementing no LLM calls or recommendations; PR 4 keeps `evidence_items` factual and source-backed rather than turning aggregation into semantic advice.
 - The shared core boundary could become over-generalized before non-Pi providers exist. Mitigation: define only the narrow query/source and normalized-event vocabulary needed by the Pi adapter and branch retrospective evidence. PR 2 partly de-risks this by limiting normalized facts to session identity, association, counts, model/provider metadata, tool and command metadata, usage, source refs, and warnings.
 - Pi-specific JSONL details could leak into generic core models. Mitigation: isolate harness quirks in the Pi adapter and keep shared analysis over normalized session facts. PR 2 partly de-risks this with a dedicated `sessions.adapters.pi_jsonl` module and tests that check shared model names are not Pi-prefixed.
 - A new package adds maintenance overhead. Mitigation: keep the first command narrow, follow established package/test patterns, and avoid coupling it to brmem, Graphite, or provider-specific internals outside the adapter.
 
 ## Open Questions
 
-- As aggregation begins, what additional harness-neutral facts are needed beyond the PR 2 vocabulary of source identity, source refs, conservative association, message counts, model/provider metadata, tool calls/results, command executions, usage counters, and warnings?
+- After the first aggregation pass, what additional harness-neutral facts are needed beyond source identity, source refs, conservative association, message counts, model/provider metadata, tool calls/results, command executions, usage counters, warnings, and bounded evidence items?
 - How should future sessions record explicit branch metadata so association can become high-confidence without heuristics?
 - Should a later PR add a local per-session summary cache, and if so should it live under Pi state, asdl state, or Branch Memory?
-- What thresholds should define repeated reads, repeated commands, large outputs, and other evidence classes?
+- Are the initial thresholds for repeated reads, repeated commands, large outputs, and other evidence classes useful on real branch sessions, or should PR 7 tune them?
 - Should the first skill produce only a recommendation report, or also offer follow-up commands to apply approved doc/skill/code changes?

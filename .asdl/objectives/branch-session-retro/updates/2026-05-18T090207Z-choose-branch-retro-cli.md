@@ -1,4 +1,4 @@
-# Choose branch-retro CLI Name
+# Choose aretro CLI Name
 
 ## Summary
 
