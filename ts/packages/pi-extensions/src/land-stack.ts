@@ -1134,6 +1134,7 @@ function formatSuccessSummary(landed: LandedPr[], descendants: string[], warning
 		lines.push(`Left open/restacked: ${descendants.join(", ")}.`);
 	}
 	lines.push("Remote branches were not deleted.");
+	lines.push("Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
 	if (warnings.length > 0) {
 		lines.push("", `Completed with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}:`);
 		for (const warning of warnings) {
@@ -1400,7 +1401,12 @@ async function deleteFinalLocalGraphiteBranch(
 		return finish.result;
 	}
 	if (!result.killed && isGtDeleteCheckedOutElsewhere(result)) {
-		return { ...result, code: 0 };
+		const checkedOutFinish: CommandStreamFinish = {
+			result: { ...result, code: 0 },
+			note: `branch ${branch} still checked out; clean up manually with gt sync or direct branch deletion`,
+		};
+		commandStream.finish(commandDisplay, checkedOutFinish);
+		return checkedOutFinish.result;
 	}
 	commandStream.finish(commandDisplay, finish);
 	return finish.result;
