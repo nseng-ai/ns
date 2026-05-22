@@ -750,6 +750,30 @@ describe("land-stack command scenarios", () => {
 		expect(commandMessagesText(messages)).toContain("✓ $ gt delete feature-a -f -q — branch feature-a already absent");
 	});
 
+	test("treats final local Graphite delete failure as a post-landing warning", async () => {
+		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...mergeSteps.slice(0, -1),
+			step("gt", ["delete", "feature-a", "-f", "-q"], {
+				code: 1,
+				stderr: "fatal: 'master' is already checked out at '/repo-main'\n",
+			}),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.message).toContain("Landed 1 PR: #101 feature-a.");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1");
+		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
+		expect(streamText).toContain("Completed with 1 warning:");
+		expect(streamText).toContain("All target PRs were merged, but deleting the local Graphite branch feature-a failed.");
+		expect(streamText).not.toContain("land-stack stopped");
+		expect(streamText).not.toContain("Failed at:");
+	});
+
 	test("targets the next open branch for Graphite refresh after merging a downstack PR", async () => {
 		const script = [
 			...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }),
