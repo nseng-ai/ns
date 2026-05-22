@@ -35,6 +35,8 @@ class RealPypiPublishGateway(PypiPublishGateway):
     def ensure_publish_tools_available(self) -> str | None:
         if not self._tool_finder("uv"):
             return "Required tool 'uv' is not available. Install uv to build and publish packages."
+        if not self._tool_finder("uvx"):
+            return "Required tool 'uvx' is not available. Install uv to build and publish packages."
         return None
 
     def build_package(self, project_dir: Path) -> list[Path]:
@@ -71,7 +73,7 @@ class RealPypiPublishGateway(PypiPublishGateway):
         if not artifacts:
             return "No distribution artifacts to publish."
 
-        command = ["uv", "publish", *(str(artifact) for artifact in artifacts)]
+        command = ["uvx", "uv-publish", *(str(artifact) for artifact in artifacts)]
         try:
             result = self._command_runner(command, project_dir)
         except OSError as error:

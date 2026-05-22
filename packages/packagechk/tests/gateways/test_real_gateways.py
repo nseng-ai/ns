@@ -192,6 +192,15 @@ def test_real_pypi_publish_gateway_reports_missing_uv() -> None:
     assert "uv" in error
 
 
+def test_real_pypi_publish_gateway_reports_missing_uvx() -> None:
+    gateway = RealPypiPublishGateway(tool_finder=lambda tool_name: tool_name == "uv")
+
+    error = gateway.ensure_publish_tools_available()
+
+    assert error is not None
+    assert "uvx" in error
+
+
 def test_real_pypi_publish_gateway_build_invokes_uv_build(tmp_path: Path) -> None:
     calls: list[tuple[list[str], Path]] = []
 
@@ -229,7 +238,7 @@ def test_real_pypi_publish_gateway_build_requires_dist_artifacts(tmp_path: Path)
         gateway.build_package(tmp_path)
 
 
-def test_real_pypi_publish_gateway_publish_invokes_uv_publish(tmp_path: Path) -> None:
+def test_real_pypi_publish_gateway_publish_invokes_uvx_uv_publish(tmp_path: Path) -> None:
     calls: list[tuple[list[str], Path]] = []
     artifacts = [
         tmp_path / "dist" / "sample-0.0.1.tar.gz",
@@ -246,7 +255,7 @@ def test_real_pypi_publish_gateway_publish_invokes_uv_publish(tmp_path: Path) ->
     )
 
     assert error is None
-    assert calls == [(["uv", "publish", *(str(artifact) for artifact in artifacts)], tmp_path)]
+    assert calls == [(["uvx", "uv-publish", *(str(artifact) for artifact in artifacts)], tmp_path)]
 
 
 def test_real_pypi_publish_gateway_publish_failure_returns_error(tmp_path: Path) -> None:
@@ -260,4 +269,4 @@ def test_real_pypi_publish_gateway_publish_failure_returns_error(tmp_path: Path)
         artifacts,
     )
 
-    assert error == f"uv publish {artifacts[0]} failed with exit code 1: publish failed"
+    assert error == f"uvx uv-publish {artifacts[0]} failed with exit code 1: publish failed"

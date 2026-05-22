@@ -233,7 +233,7 @@ def _run_claim_pypi_command(
             click.echo("No distribution artifacts were built.", err=True)
             raise SystemExit(2)
 
-        click.echo("Publishing placeholder package with uv publish...", err=True)
+        click.echo("Publishing placeholder package with uvx uv-publish...", err=True)
         publish_error = publish_gateway.publish_artifacts(project_dir, artifacts)
         if publish_error is not None:
             click.echo(publish_error, err=True)
@@ -260,7 +260,7 @@ def _render_claim_dry_run(*, spec: ClaimProjectSpec, lookup_name: str, skip_chec
     click.echo("Would write: pyproject.toml", err=True)
     click.echo(f"Would write: src/{spec.module_name}/__init__.py", err=True)
     click.echo("Would run: uv build", err=True)
-    click.echo("Would run: uv publish <artifacts>", err=True)
+    click.echo("Would run: uvx uv-publish <artifacts>", err=True)
     click.echo(f"PyPI URL: {_pypi_project_url(lookup_name)}", err=True)
 
 
