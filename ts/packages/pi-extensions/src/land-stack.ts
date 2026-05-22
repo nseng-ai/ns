@@ -167,6 +167,13 @@ export type LandedPr = {
 	title: string;
 };
 
+type LandingWarning = {
+	message: string;
+	commandDisplay?: string;
+	result?: ExecResult;
+	suggestedAction?: string;
+};
+
 export type LandStackErrorOptions = {
 	level?: NotifyLevel;
 	commandDisplay?: string;
@@ -262,6 +269,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 			await ctx.waitForIdle();
 
 			const landed: LandedPr[] = [];
+			const warnings: LandingWarning[] = [];
 			const commandStream = new LandStackCommandStream(pi, ctx);
 			const runtimePi = withCommandStreaming(pi, commandStream);
 			try {
@@ -306,11 +314,12 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 					await confirmAndFreeManagedSlots(runtimePi, ctx, plan);
 				}
 
-				await runMergeLoop(runtimePi, ctx, plan, landed);
+				await runMergeLoop(runtimePi, ctx, plan, landed, warnings);
 
-				const successSummary = formatSuccessSummary(landed, plan.stack.descendantBranches);
+				const successSummary = formatSuccessSummary(landed, plan.stack.descendantBranches, warnings);
+				const completionLevel = warnings.length > 0 ? "warning" : "success";
 				commandStream.finishSuccess(successSummary);
-				presentBrief(ctx, successSummary, "success", formatSuccessNotification(successSummary));
+				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary));
 			} catch (error) {
 				const formatted = formatFailure(error, landed);
 				const level = error instanceof LandStackError ? error.level : "error";
@@ -497,7 +506,13 @@ async function confirmAndFreeManagedSlots(pi: ExtensionAPI, ctx: ExtensionComman
 	}
 }
 
-async function runMergeLoop(pi: ExtensionAPI, ctx: ExtensionCommandContext, plan: LandingPlan, landed: LandedPr[]): Promise<void> {
+async function runMergeLoop(
+	pi: ExtensionAPI,
+	ctx: ExtensionCommandContext,
+	plan: LandingPlan,
+	landed: LandedPr[],
+	warnings: LandingWarning[],
+): Promise<void> {
 	const { repoRoot, stack } = plan;
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
@@ -562,6 +577,16 @@ async function runMergeLoop(pi: ExtensionAPI, ctx: ExtensionCommandContext, plan
 		const deleteArgs = ["delete", branch, "-f", "-q"];
 		const deleted = await exec(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 		if (deleted.code !== 0) {
+			if (!nextRestackBranch) {
+				warnings.push({
+					message: `All target PRs were merged, but deleting the local Graphite branch ${branch} failed.`,
+					commandDisplay: formatCommand("gt", deleteArgs),
+					result: deleted,
+					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack.`,
+				});
+				continue;
+			}
+
 			fail(`PR #${pr.number} merged, but deleting the local Graphite branch ${branch} failed.`, {
 				commandDisplay: formatCommand("gt", deleteArgs),
 				result: deleted,
@@ -1082,14 +1107,35 @@ function usage(): string {
 	].join("\n");
 }
 
-function formatSuccessSummary(landed: LandedPr[], descendants: string[]): string {
+function formatSuccessSummary(landed: LandedPr[], descendants: string[], warnings: LandingWarning[] = []): string {
 	const landedText = landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
 	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
 	if (descendants.length > 0) {
 		lines.push(`Left open/restacked: ${descendants.join(", ")}.`);
 	}
 	lines.push("Remote branches were not deleted.");
+	if (warnings.length > 0) {
+		lines.push("", `Completed with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}:`);
+		for (const warning of warnings) {
+			lines.push(...formatLandingWarning(warning));
+		}
+	}
 	return lines.join("\n");
+}
+
+function formatLandingWarning(warning: LandingWarning): string[] {
+	const lines = [`- ${warning.message}`];
+	if (warning.commandDisplay || warning.result) {
+		lines.push(...indentLines(formatCommandDetails(warning.result ?? emptyResult(), warning.commandDisplay), "  "));
+	}
+	if (warning.suggestedAction) {
+		lines.push(`  Suggested next action: ${warning.suggestedAction}`);
+	}
+	return lines;
+}
+
+function indentLines(text: string, prefix: string): string[] {
+	return text.split("\n").map((line) => `${prefix}${line}`);
 }
 
 function formatRestackFailureMessage(previousPrNumber: number, branch: string, beforeAnotherMerge: boolean): string {
