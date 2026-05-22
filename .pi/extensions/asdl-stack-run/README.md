@@ -5,8 +5,22 @@ Project-local Pi extension for coordinating ASDL Objective implementation stacks
 ## Commands
 
 - `/stack-run [--replace] <local-plan-file-or-branch-memory-key>` stores or loads a canonical stack plan, starts or resumes the first incomplete slice branch, writes/validates its pointer ledger, and opens a fresh Pi session with a kickoff prompt.
+- `/objective-stack-impl [--replan] [objective-slug]` plans an open Objective stack when no canonical plan exists, or loads the Branch Memory-only plan and starts/resumes the first incomplete slice. In non-UI modes, `objective-slug` is required; interactive mode can select from open `.asdl/objectives/*/` records.
 - `/stack-status <local-plan-file-or-branch-memory-key>` shows plan, branch, ledger, handoff, worktree, git, and Graphite diagnostics. With no argument, it tries to infer the plan from the current branch's `stack-runs` ledger.
 - `/stack-closeout <tool-call-id>` is an internal follow-up queued by `stack_slice_done`; it stores the agent-drafted completion handoff.
+
+## Objective stack implementation flow
+
+`/objective-stack-impl` is a confirm-then-continue workflow when a plan is missing:
+
+1. Run `/objective-stack-impl <objective-slug>` from the intended plan branch.
+2. If `stack-plans/<objective-slug>.md` is absent on that branch, Pi opens a fresh planning session. The prompt includes the Objective, roadmap, Semantic Updates, required stack-plan schema, and the Branch Memory destination.
+3. The planning agent collaborates with the user until the final plan is confirmed, then replies with only an `<asdl-stack-plan-confirmation>...</asdl-stack-plan-confirmation>` marker containing the final Markdown plan. The planning agent does not run `brmem put`.
+4. The extension detects the marker, validates the plan, presents a controlled confirmation, stores the plan in Branch Memory, and queues `/objective-stack-impl <objective-slug>` as a follow-up on the user's behalf. The follow-up validates and loads the Branch Memory plan, then reuses the normal stack-run orchestration.
+
+`--replan` always starts a fresh planning session even when a plan already exists. The replacement prompt instructs the planning agent to treat the final plan as a total replacement and require explicit user confirmation before emitting the final confirmation marker. The extension still performs the controlled store confirmation before overwriting Branch Memory.
+
+Canonical `/objective-stack-impl` plans live only in Branch Memory namespace `stack-plans`, keyed by `<objective-slug>.md` on the invocation branch. Local plan files are not part of this command's persistence model. Existing plans are parsed and checked against the selected Objective slug before implementation starts; invalid existing plans fail closed so the user can inspect or intentionally replan.
 
 ## Plan format
 
