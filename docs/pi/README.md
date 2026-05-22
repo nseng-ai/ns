@@ -12,6 +12,12 @@ Checked-in project-local Pi extensions live in:
 
 Use project-local extensions when the behavior is specific to this repo's workflows, CLIs, slots, or contributor conventions.
 
+## Extension message linkification
+
+For clickable PR/issue links in custom Pi extension output, keep message content plain, carry URLs in `message.details`, and linkify in the registered renderer.
+
+See [Extension message linkification](./extension-message-linkification.md).
+
 ## Checked-in extensions and worktrees
 
 If a project-local extension participates in worktree switching, it must be present in the target worktree too.
