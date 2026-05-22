@@ -343,15 +343,21 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 }
 
 function singleBranchPreflight(worktrees: string): ScriptedExec[] {
+	return singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A, worktrees });
+}
+
+function singleBranchPreflightWithRefs(options: { localSha: string; prSha: string; worktrees?: string | undefined }): ScriptedExec[] {
 	return [
 		...repoIntro({ current: "feature-a", stackOutput: STACK_SINGLE_BRANCH }),
 		...cleanRepoChecks(),
 		...localBranchChecks(["feature-a"]),
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_A}\n` }),
+		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${options.localSha}\n` }),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
+			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha })),
 		}),
-		step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees }),
+		step("git", ["worktree", "list", "--porcelain"], {
+			stdout: options.worktrees ?? worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
+		}),
 	];
 }
 
@@ -507,6 +513,7 @@ describe("land-stack pure helpers", () => {
 				{ branch: "feature-a", localSha: SHA_A, pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }) },
 				{ branch: CURRENT, localSha: SHA_B, pr: prSnapshot({ number: 102, branch: CURRENT, base: "feature-a", sha: SHA_B }) },
 			],
+			prSubmitRequirements: [],
 			managedSlotConflicts: [{ branch: "feature-a", path: "/Users/me/.slots/repos/repo/worktrees/slot-01", kind: "managed-slot" }],
 		};
 		const formatted = formatPlan(plan);
@@ -714,6 +721,44 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 
+	test("offers to submit stale PR heads during preflight before merging", async () => {
+		const submitArgs = ["submit", "--branch", "feature-a", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A }),
+			step("gt", submitArgs),
+			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
+			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
+			}),
+			step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", SHA_B]),
+			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 101,
+						branch: "feature-a",
+						base: TRUNK,
+						sha: SHA_B,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+					}),
+				),
+			}),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
+		];
+		const { pi, notifications, confirmations } = await runLandStack("--yes", script, { confirms: [true] });
+
+		pi.assertDone();
+		expect(confirmations).toHaveLength(1);
+		expect(confirmations[0]?.title).toBe("Run gt submit/update?");
+		expect(confirmations[0]?.message).toContain("#101 feature-a");
+		expect(confirmations[0]?.message).toContain("head aaaaaaa != local bbbbbbb");
+		expect(pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs))).toBeLessThan(
+			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
+		);
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
 	test("merge failure stops immediately with no local cleanup", async () => {
 		const script = [...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }), ...mergeFeatureA({ mergeCode: 1 })];
 		const { pi, notifications } = await runLandStack("--yes", script);
@@ -815,12 +860,12 @@ describe("land-stack command scenarios", () => {
 
 	test("PR preflight failures refuse before worktree checks or mutation", async () => {
 		const script = badInitialPrPreflight(
-			prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B }),
+			prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A, isDraft: true }),
 		);
 		const { pi, notifications } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("head SHA does not match local branch SHA");
+		expect(notifications[0]?.message).toContain("is a draft");
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "worktree")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(false);
 	});
