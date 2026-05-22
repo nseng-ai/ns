@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { CommandExecutionError, formatCommand, runCommand, type ExecFunction } from "./command.ts";
 import { deriveHandoffKey, deriveLedgerKey, type BranchMemoryKey } from "./keys.ts";
 import { formatSliceLedger, parseSliceLedgerMarkdown } from "./ledger.ts";
-import type { StackRunPlanResult } from "./stack-run.ts";
+import type { StackImplPlanResult } from "./stack-impl.ts";
 
 const COMMAND_TIMEOUT_MS = 30_000;
 
-export type StackRunOrchestrationDependencies = {
+export type StackImplOrchestrationDependencies = {
 	cwd: string;
 	exec: ExecFunction;
 	writeTempFile?: ((content: string) => Promise<string>) | undefined;
@@ -37,14 +37,14 @@ export type StackSliceStartResult =
 		};
 
 async function defaultWriteTempFile(content: string): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "asdl-stack-run-"));
+	const directory = await mkdtemp(join(tmpdir(), "asdl-stack-impl-"));
 	const path = join(directory, "ledger.md");
 	await writeFile(path, content, "utf8");
 	return path;
 }
 
 async function brmemCheck(
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 	locator: SliceLocator,
 ): Promise<boolean> {
 	const result = await runCommand(
@@ -70,8 +70,8 @@ function deriveLedgerLocator(objective: string, branch: string): SliceLocator {
 }
 
 async function firstIncompleteSlice(
-	planResult: StackRunPlanResult,
-	deps: StackRunOrchestrationDependencies,
+	planResult: StackImplPlanResult,
+	deps: StackImplOrchestrationDependencies,
 ): Promise<
 	| {
 			plannedBranch: string;
@@ -107,7 +107,7 @@ async function firstIncompleteSlice(
 	return undefined;
 }
 
-async function ensureCleanWorktree(deps: StackRunOrchestrationDependencies): Promise<void> {
+async function ensureCleanWorktree(deps: StackImplOrchestrationDependencies): Promise<void> {
 	const result = await runCommand(deps.exec, "git", ["status", "--porcelain"], {
 		cwd: deps.cwd,
 		signal: deps.signal,
@@ -120,7 +120,7 @@ async function ensureCleanWorktree(deps: StackRunOrchestrationDependencies): Pro
 	}
 }
 
-async function currentBranch(deps: StackRunOrchestrationDependencies): Promise<string> {
+async function currentBranch(deps: StackImplOrchestrationDependencies): Promise<string> {
 	const result = await runCommand(deps.exec, "git", ["branch", "--show-current"], {
 		cwd: deps.cwd,
 		signal: deps.signal,
@@ -130,7 +130,7 @@ async function currentBranch(deps: StackRunOrchestrationDependencies): Promise<s
 }
 
 async function localBranchExists(
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 	branch: string,
 ): Promise<boolean> {
 	const result = await runCommand(deps.exec, "git", ["rev-parse", "--verify", `refs/heads/${branch}`], {
@@ -143,7 +143,7 @@ async function localBranchExists(
 }
 
 async function checkoutNewBranch(
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 	plannedBranch: string,
 	intendedParent: string,
 ): Promise<void> {
@@ -155,7 +155,7 @@ async function checkoutNewBranch(
 }
 
 async function checkoutExistingBranch(
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 	plannedBranch: string,
 	currentBranchName: string,
 ): Promise<void> {
@@ -170,7 +170,7 @@ async function checkoutExistingBranch(
 }
 
 async function trackWithGraphite(
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 	intendedParent: string,
 ): Promise<void> {
 	const args = ["track", "-p", intendedParent];
@@ -192,9 +192,9 @@ async function trackWithGraphite(
 }
 
 async function writeSliceLedger(
-	planResult: StackRunPlanResult,
+	planResult: StackImplPlanResult,
 	plannedBranch: string,
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 ): Promise<SliceLocator> {
 	const ledgerLocator = deriveLedgerLocator(planResult.plan.objective, plannedBranch);
 	const ledgerContent = formatSliceLedger({
@@ -227,7 +227,7 @@ async function writeSliceLedger(
 }
 
 async function brmemGet(
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 	locator: SliceLocator,
 ): Promise<string> {
 	const result = await runCommand(
@@ -244,9 +244,9 @@ async function brmemGet(
 }
 
 async function readAndValidateSliceLedger(
-	planResult: StackRunPlanResult,
+	planResult: StackImplPlanResult,
 	plannedBranch: string,
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 ): Promise<SliceLocator | undefined> {
 	const ledgerLocator = deriveLedgerLocator(planResult.plan.objective, plannedBranch);
 	if (!(await brmemCheck(deps, ledgerLocator))) {
@@ -273,10 +273,10 @@ async function readAndValidateSliceLedger(
 }
 
 async function preparePlannedBranchAndLedger(
-	planResult: StackRunPlanResult,
+	planResult: StackImplPlanResult,
 	plannedBranch: string,
 	intendedParent: string,
-	deps: StackRunOrchestrationDependencies,
+	deps: StackImplOrchestrationDependencies,
 ): Promise<SliceLocator> {
 	const exists = await localBranchExists(deps, plannedBranch);
 	if (!exists) {
@@ -289,7 +289,7 @@ async function preparePlannedBranchAndLedger(
 	const branch = await currentBranch(deps);
 	if (branch !== plannedBranch && !existingLedger) {
 		throw new Error(
-			`Planned branch ${plannedBranch} already exists but has no valid stack-runs ledger. Run /stack-status for diagnostics before resuming it.`,
+			`Planned branch ${plannedBranch} already exists but has no valid stack-impls ledger. Run /stack-impl-status for diagnostics before resuming it.`,
 		);
 	}
 
@@ -312,7 +312,7 @@ export function buildKickoffPrompt(args: {
 		? `${args.previousHandoffLocator.namespace}/${args.previousHandoffLocator.key} on branch ${args.previousHandoffLocator.branch}`
 		: "none; this is the first planned branch.";
 
-	return `Continue the ASDL stack-run Objective slice in this fresh session.
+	return `Continue the ASDL stack-impl Objective slice in this fresh session.
 
 Objective slug: ${args.objective}
 Objective path: .asdl/objectives/${args.objective}/
@@ -334,14 +334,14 @@ Instructions:
 2. Implement only the current branch's slice from the plan body.
 3. Update the Objective with landed-state semantics for this slice.
 4. Validate the slice and create/amend the Graphite commit.
-5. When complete, call stack_slice_done with a concise handoff draft.
-6. If blocked, call stack_slice_blocked with the reason, attempted work, and next steps.
+5. When complete, call stack_impl_slice_done with a concise handoff draft.
+6. If blocked, call stack_impl_slice_blocked with the reason, attempted work, and next steps.
 `;
 }
 
 export async function startNextStackSlice(
-	planResult: StackRunPlanResult,
-	deps: StackRunOrchestrationDependencies,
+	planResult: StackImplPlanResult,
+	deps: StackImplOrchestrationDependencies,
 ): Promise<StackSliceStartResult> {
 	const nextSlice = await firstIncompleteSlice(planResult, deps);
 	if (!nextSlice) {

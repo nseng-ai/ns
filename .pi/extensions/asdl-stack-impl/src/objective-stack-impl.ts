@@ -8,7 +8,7 @@ import { runCommand, type ExecFunction } from "./command.ts";
 import { derivePlanKey, validateObjectiveSlug, type BranchMemoryKey } from "./keys.ts";
 import { parseStackPlanMarkdown } from "./plan.ts";
 import { STACK_PLAN_SCHEMA } from "./schemas.ts";
-import type { StackRunPlanResult } from "./stack-run.ts";
+import type { StackImplPlanResult } from "./stack-impl.ts";
 
 const COMMAND_TIMEOUT_MS = 30_000;
 const OBJECTIVES_ROOT = ".asdl/objectives";
@@ -66,10 +66,10 @@ export type ObjectiveStackPlanningState = {
 };
 
 export type ObjectiveStackImplPreparation =
-	| { status: "run"; planResult: StackRunPlanResult }
+	| { status: "run"; planResult: StackImplPlanResult }
 	| { status: "plan"; slug: string; planBranch: string; replan: boolean; kickoffPrompt: string };
 
-export const OBJECTIVE_STACK_PLANNING_CUSTOM_TYPE = "asdl-stack-run/objective-stack-planning";
+export const OBJECTIVE_STACK_PLANNING_CUSTOM_TYPE = "asdl-stack-impl/objective-stack-planning";
 export const OBJECTIVE_STACK_PLAN_CONFIRMATION_OPEN = "<asdl-stack-plan-confirmation>";
 export const OBJECTIVE_STACK_PLAN_CONFIRMATION_CLOSE = "</asdl-stack-plan-confirmation>";
 
@@ -328,7 +328,7 @@ function loadExistingPlanResult(
 	planBranch: string,
 	locator: BranchMemoryKey & { branch: string },
 	content: string,
-): StackRunPlanResult {
+): StackImplPlanResult {
 	try {
 		const plan = parseStackPlanMarkdown(content);
 		if (plan.objective !== slug) {
@@ -407,7 +407,7 @@ export async function storeConfirmedObjectiveStackPlan(
 	content: string,
 	state: ObjectiveStackPlanningState,
 	deps: ObjectiveStackImplDependencies,
-): Promise<StackRunPlanResult> {
+): Promise<StackImplPlanResult> {
 	const normalizedContent = normalizePlanContent(content);
 	const plan = validateConfirmedObjectiveStackPlan(normalizedContent, state);
 	const currentBranch = await currentGitBranch(deps);
@@ -513,7 +513,7 @@ export function buildObjectiveStackPlanningPrompt(args: {
 		`- \`objective\` must be exactly \`${args.record.slug}\`.`,
 		"- `planned_branches` must be a non-empty list of unique branch names.",
 		"- Every planned branch must appear literally in the Markdown body.",
-		"- Planned branch names must not contain literal `---` because stack-run uses that escape internally.",
+		"- Planned branch names must not contain literal `---` because stack-impl uses that escape internally.",
 		"",
 		"Planning rules:",
 		"- Collaborate with the user until the stack plan is confirmed.",

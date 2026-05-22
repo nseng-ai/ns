@@ -28,13 +28,13 @@ function fakePi() {
 	};
 }
 
-describe("stack slice tools", () => {
-	test("stack_slice_done queues closeout and stores pending payload", async () => {
+describe("stack impl tools", () => {
+	test("stack_impl_slice_done queues closeout and stores pending payload", async () => {
 		const pending: PendingCloseouts = new Map();
 		const { pi, tools, sentMessages } = fakePi();
 		registerStackSliceTools(pi as never, pending);
 
-		const doneTool = tools.find((tool) => tool.name === "stack_slice_done");
+		const doneTool = tools.find((tool) => tool.name === "stack_impl_slice_done");
 		expect(doneTool).toBeDefined();
 		const response = await doneTool!.execute("tool-call-1", {
 			summary: "done",
@@ -44,17 +44,17 @@ describe("stack slice tools", () => {
 
 		expect(pending.get("tool-call-1")?.handoff_markdown).toBe("# Handoff\n");
 		expect(sentMessages).toEqual([
-			{ content: "/stack-closeout tool-call-1", options: { deliverAs: "followUp" } },
+			{ content: "/stack-impl-closeout tool-call-1", options: { deliverAs: "followUp" } },
 		]);
-		expect(response.content[0]?.text).toContain("Queued /stack-closeout");
+		expect(response.content[0]?.text).toContain("Queued /stack-impl-closeout");
 	});
 
-	test("stack_slice_blocked reports blockage without writing a completion handoff", async () => {
+	test("stack_impl_slice_blocked reports blockage without writing a completion handoff", async () => {
 		const pending: PendingCloseouts = new Map();
 		const { pi, tools, sentMessages } = fakePi();
 		registerStackSliceTools(pi as never, pending);
 
-		const blockedTool = tools.find((tool) => tool.name === "stack_slice_blocked");
+		const blockedTool = tools.find((tool) => tool.name === "stack_impl_slice_blocked");
 		expect(blockedTool).toBeDefined();
 		const response = await blockedTool!.execute("tool-call-2", {
 			reason: "validation failed",

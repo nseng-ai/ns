@@ -40,7 +40,7 @@ export type CloseoutResult = {
 };
 
 async function defaultWriteTempFile(content: string): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "asdl-stack-closeout-"));
+	const directory = await mkdtemp(join(tmpdir(), "asdl-stack-impl-closeout-"));
 	const path = join(directory, "handoff.md");
 	await writeFile(path, content, "utf8");
 	return path;
@@ -94,7 +94,7 @@ async function findLedgerKey(branch: string, deps: CloseoutDependencies): Promis
 	const result = await runCommand(
 		deps.exec,
 		"brmem",
-		["list", "--namespace", "stack-runs", "--branch", branch, "--format", "json"],
+		["list", "--namespace", "stack-impls", "--branch", branch, "--format", "json"],
 		{
 			cwd: deps.cwd,
 			signal: deps.signal,
@@ -106,11 +106,11 @@ async function findLedgerKey(branch: string, deps: CloseoutDependencies): Promis
 		key.endsWith(`/${escapedBranch}.md`),
 	);
 	if (matchingKeys.length === 0) {
-		throw new Error(`No stack-runs ledger found for current branch ${branch}.`);
+		throw new Error(`No stack-impls ledger found for current branch ${branch}.`);
 	}
 	if (matchingKeys.length > 1) {
 		throw new Error(
-			`Multiple stack-runs ledgers match current branch ${branch}: ${matchingKeys.join(", ")}.`,
+			`Multiple stack-impls ledgers match current branch ${branch}: ${matchingKeys.join(", ")}.`,
 		);
 	}
 	return matchingKeys[0]!;
@@ -137,7 +137,7 @@ export function takePendingCloseout(pending: PendingCloseouts, id: string): Stac
 	const payload = pending.get(id);
 	if (!payload) {
 		throw new Error(
-			`No pending stack_slice_done payload found for ${id}. Ask the agent to call stack_slice_done again, then retry /stack-closeout with the new id.`,
+			`No pending stack_impl_slice_done payload found for ${id}. Ask the agent to call stack_impl_slice_done again, then retry /stack-impl-closeout with the new id.`,
 		);
 	}
 	return payload;
@@ -149,7 +149,7 @@ export async function closeoutStackSlice(
 ): Promise<CloseoutResult> {
 	const branch = await currentGitBranch(deps);
 	const ledgerKey = await findLedgerKey(branch, deps);
-	const ledgerContent = await brmemGet(deps, { namespace: "stack-runs", key: ledgerKey, branch });
+	const ledgerContent = await brmemGet(deps, { namespace: "stack-impls", key: ledgerKey, branch });
 	const ledger = parseSliceLedgerMarkdown(ledgerContent);
 	const planContent = await brmemGet(deps, {
 		namespace: ledger.plan.namespace,

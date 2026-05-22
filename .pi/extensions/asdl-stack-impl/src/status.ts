@@ -12,14 +12,14 @@ import {
 } from "./keys.ts";
 import { parseSliceLedgerMarkdown } from "./ledger.ts";
 import { parseStackPlanMarkdown, type StackPlanDocument } from "./plan.ts";
-import { parseStackRunArgs, type StackRunFileSystem } from "./stack-run.ts";
+import { parseStackImplArgs, type StackImplFileSystem } from "./stack-impl.ts";
 
 const COMMAND_TIMEOUT_MS = 30_000;
 
 export type StatusDependencies = {
 	cwd: string;
 	exec: ExecFunction;
-	fileSystem?: StackRunFileSystem;
+	fileSystem?: StackImplFileSystem;
 	signal?: AbortSignal | undefined;
 };
 
@@ -48,7 +48,7 @@ export type StackStatusReport = {
 	warnings: string[];
 };
 
-const nodeFileSystem: StackRunFileSystem = {
+const nodeFileSystem: StackImplFileSystem = {
 	async isFile(path: string): Promise<boolean> {
 		try {
 			return (await stat(path)).isFile();
@@ -130,7 +130,7 @@ async function findCurrentBranchLedgerKey(branch: string, deps: StatusDependenci
 	const result = await runCommand(
 		deps.exec,
 		"brmem",
-		["list", "--namespace", "stack-runs", "--branch", branch, "--format", "json"],
+		["list", "--namespace", "stack-impls", "--branch", branch, "--format", "json"],
 		{
 			cwd: deps.cwd,
 			signal: deps.signal,
@@ -140,18 +140,18 @@ async function findCurrentBranchLedgerKey(branch: string, deps: StatusDependenci
 	const suffix = `/${escapeBranchForKey(branch)}.md`;
 	const keys = parseBrmemListKeys(result.stdout).filter((key) => key.endsWith(suffix));
 	if (keys.length === 0) {
-		throw new Error("Usage: /stack-status <local-plan-file-or-branch-memory-key> (or run from a branch with a stack-runs ledger).",
+		throw new Error("Usage: /stack-impl-status <local-plan-file-or-branch-memory-key> (or run from a branch with a stack-impls ledger).",
 		);
 	}
 	if (keys.length > 1) {
-		throw new Error(`Multiple stack-runs ledgers match ${branch}: ${keys.join(", ")}.`);
+		throw new Error(`Multiple stack-impls ledgers match ${branch}: ${keys.join(", ")}.`);
 	}
 	return keys[0]!;
 }
 
 async function loadPlanFromCurrentLedger(branch: string, deps: StatusDependencies): Promise<StatusPlan> {
 	const ledgerKey = await findCurrentBranchLedgerKey(branch, deps);
-	const ledgerContent = await brmemGet(deps, { namespace: "stack-runs", key: ledgerKey, branch });
+	const ledgerContent = await brmemGet(deps, { namespace: "stack-impls", key: ledgerKey, branch });
 	const ledger = parseSliceLedgerMarkdown(ledgerContent);
 	const locator = { namespace: ledger.plan.namespace, key: ledger.plan.key, branch: ledger.plan.branch };
 	const plan = parseStackPlanMarkdown(await brmemGet(deps, locator));
@@ -170,7 +170,7 @@ export async function loadPlanForStatus(args: string, deps: StatusDependencies):
 		return loadPlanFromCurrentLedger(branch, deps);
 	}
 
-	const parsedArgs = parseStackRunArgs(args);
+	const parsedArgs = parseStackImplArgs(args);
 	const localPath = resolve(deps.cwd, parsedArgs.planArg);
 	if (await fileSystem.isFile(localPath)) {
 		const plan = parseStackPlanMarkdown(await fileSystem.readTextFile(localPath));
@@ -235,7 +235,7 @@ async function branchStatus(
 	const ledgerLocator = { ...deriveLedgerKey(statusPlan.plan.objective, branch), branch };
 	const ledgerPresent = await brmemCheck(deps, ledgerLocator);
 	if (!ledgerPresent) {
-		warnings.push("missing stack-runs ledger");
+		warnings.push("missing stack-impls ledger");
 	} else {
 		try {
 			const ledger = parseSliceLedgerMarkdown(await brmemGet(deps, ledgerLocator));

@@ -128,6 +128,9 @@ Required headings:
 
 Rules:
 
+- Treat existing Semantic Update files as immutable historical records. They should preserve the terminology, command names, branch names, paths, and evidence that were true when the update was written.
+- Do not bulk-edit old updates for a rename, rebrand, directory move, command rename, or current-state cleanup. If present-day truth supersedes an old update, write a new Semantic Update that names the superseded event or file instead of retconning history.
+- Amend an existing update only for a narrow correction to the same semantic event, such as fixing incorrect evidence, verification wording, or duplicate same-event progress. Keep historically accurate wording intact.
 - An update should generally explain why `objective.md` or `roadmap.md` changed.
 - A meaningful update may exist without durable-file edits when the durable files remain correct after meaningful evidence was considered.
 - Maintenance edits to `objective.md` or `roadmap.md` do not require an update file when they add no new semantic information.

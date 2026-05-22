@@ -118,9 +118,11 @@ Do not spend context on old updates unless they materially affect the current ch
 
 ## Amend vs new Semantic Update
 
-Amend an existing update when correcting stale/incorrect evidence for the same semantic event, fixing same-branch/PR verification wording or counts, or avoiding a duplicate shipped/progress update for the same roadmap row.
+Semantic Update files are immutable historical records by default. Preserve terminology, command names, branch names, paths, and evidence that were true when the update was written. Do not bulk-edit old updates for a rename, rebrand, directory move, command rename, or current-state cleanup.
 
-Write a new update for a distinct finding, blocker, decision, risk change, completion event, or follow-up slice that materially changes roadmap state.
+Amend an existing update only for a narrow correction to the same semantic event: correcting incorrect evidence, fixing same-branch/PR verification wording or materially wrong counts, or avoiding a duplicate shipped/progress update for the same roadmap row. Keep historically accurate wording intact.
+
+Write a new update for a distinct finding, blocker, decision, risk change, completion event, follow-up slice, or supersession of an older update that materially changes roadmap state.
 
 ## Verification evidence
 
@@ -164,6 +166,6 @@ The final response may include exact command output when useful; durable Objecti
 
 - Changed Objective files all live under exactly one `.asdl/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
-- Amended update file, if any, is the existing Semantic Update for the same event, not a duplicate.
+- Amended update file, if any, is the existing Semantic Update for the same event, not a duplicate or rename/current-state retcon.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
 - Final response includes: selected Objective slug/path; durable files edited; whether a Semantic Update was created, amended, or intentionally not written; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; verification run or skipped.

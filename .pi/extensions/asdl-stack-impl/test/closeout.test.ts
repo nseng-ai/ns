@@ -11,17 +11,17 @@ import { parseStackPlanMarkdown } from "../src/plan.ts";
 
 const PLAN_CONTENT = `---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
 ---
 
-Branch: asdl-stack-run-extension/extension-skeleton
+Branch: asdl-stack-impl-extension/extension-skeleton
 `;
 
-const CURRENT_BRANCH = "asdl-stack-run-extension/extension-skeleton";
-const LEDGER_KEY = "asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md";
-const HANDOFF_KEY = "handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md";
+const CURRENT_BRANCH = "asdl-stack-impl-extension/extension-skeleton";
+const LEDGER_KEY = "asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md";
+const HANDOFF_KEY = "handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md";
 
 type ExpectedCommand = {
 	command: string;
@@ -48,7 +48,7 @@ function brmemListStdout(): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			namespace: "stack-runs",
+			namespace: "stack-impls",
 			branch: CURRENT_BRANCH,
 			entries: [{ key: LEDGER_KEY }],
 		},
@@ -68,24 +68,24 @@ describe("stack slice closeout", () => {
 		const plan = parseStackPlanMarkdown(PLAN_CONTENT);
 		const ledger = formatSliceLedger({
 			planBranch: "plan-branch",
-			planKey: "asdl-stack-run-extension.md",
+			planKey: "asdl-stack-impl-extension.md",
 			planSha256: plan.sha256,
 		});
 		const commands: ExpectedCommand[] = [
 			{ command: "git", args: ["branch", "--show-current"], result: result(`${CURRENT_BRANCH}\n`) },
 			{
 				command: "brmem",
-				args: ["list", "--namespace", "stack-runs", "--branch", CURRENT_BRANCH, "--format", "json"],
+				args: ["list", "--namespace", "stack-impls", "--branch", CURRENT_BRANCH, "--format", "json"],
 				result: result(brmemListStdout()),
 			},
 			{
 				command: "brmem",
-				args: ["get", LEDGER_KEY, "--namespace", "stack-runs", "--branch", CURRENT_BRANCH],
+				args: ["get", LEDGER_KEY, "--namespace", "stack-impls", "--branch", CURRENT_BRANCH],
 				result: result(ledger),
 			},
 			{
 				command: "brmem",
-				args: ["get", "asdl-stack-run-extension.md", "--namespace", "stack-plans", "--branch", "plan-branch"],
+				args: ["get", "asdl-stack-impl-extension.md", "--namespace", "stack-plans", "--branch", "plan-branch"],
 				result: result(PLAN_CONTENT),
 			},
 			{
@@ -127,24 +127,24 @@ describe("stack slice closeout", () => {
 	test("stops closeout when ledger plan hash drifts", async () => {
 		const ledger = formatSliceLedger({
 			planBranch: "plan-branch",
-			planKey: "asdl-stack-run-extension.md",
+			planKey: "asdl-stack-impl-extension.md",
 			planSha256: "a".repeat(64),
 		});
 		const commands: ExpectedCommand[] = [
 			{ command: "git", args: ["branch", "--show-current"], result: result(`${CURRENT_BRANCH}\n`) },
 			{
 				command: "brmem",
-				args: ["list", "--namespace", "stack-runs", "--branch", CURRENT_BRANCH, "--format", "json"],
+				args: ["list", "--namespace", "stack-impls", "--branch", CURRENT_BRANCH, "--format", "json"],
 				result: result(brmemListStdout()),
 			},
 			{
 				command: "brmem",
-				args: ["get", LEDGER_KEY, "--namespace", "stack-runs", "--branch", CURRENT_BRANCH],
+				args: ["get", LEDGER_KEY, "--namespace", "stack-impls", "--branch", CURRENT_BRANCH],
 				result: result(ledger),
 			},
 			{
 				command: "brmem",
-				args: ["get", "asdl-stack-run-extension.md", "--namespace", "stack-plans", "--branch", "plan-branch"],
+				args: ["get", "asdl-stack-impl-extension.md", "--namespace", "stack-plans", "--branch", "plan-branch"],
 				result: result(PLAN_CONTENT),
 			},
 		];
@@ -156,6 +156,6 @@ describe("stack slice closeout", () => {
 	});
 
 	test("missing pending closeout payload has a recovery message", () => {
-		expect(() => takePendingCloseout(new Map(), "missing-id")).toThrow(/call stack_slice_done again/);
+		expect(() => takePendingCloseout(new Map(), "missing-id")).toThrow(/call stack_impl_slice_done again/);
 	});
 });

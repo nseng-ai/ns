@@ -1,5 +1,5 @@
 {
-	"name": "asdl-stack-run-pi-extension",
+	"name": "asdl-stack-impl-pi-extension",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",

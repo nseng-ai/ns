@@ -1,4 +1,4 @@
-# Pi Stack Run Extension
+# Pi Stack Impl Extension
 
 ## Thesis
 
@@ -12,7 +12,7 @@ The v1 design is intentionally small and durable. A stack plan is stored in Bran
 
 In scope:
 
-- Add a project-local Pi extension under `.pi/extensions/asdl-stack-run/`.
+- Add a project-local Pi extension under `.pi/extensions/asdl-stack-impl/`.
 - Use the Pi extension APIs for slash commands, custom tools, `ctx.newSession(...)`, and shell execution through the extension runtime.
 - Use the `yaml` npm package directly, with a tiny deterministic frontmatter fence extractor, for plan and ledger frontmatter parsing.
 - Define and validate runtime-only TypeScript schemas for:
@@ -21,8 +21,8 @@ In scope:
 - Store stack plans in Branch Memory:
   - namespace: `stack-plans`;
   - key: `<objective>.md`;
-  - branch: the branch where `/stack-run` starts.
-- Support `/stack-run <local-plan-file>` by validating the local file, storing it in Branch Memory as the canonical plan, and continuing from the Branch Memory entry.
+  - branch: the branch where `/stack-impl` starts.
+- Support `/stack-impl <local-plan-file>` by validating the local file, storing it in Branch Memory as the canonical plan, and continuing from the Branch Memory entry.
 - Support running an existing Branch Memory plan by key.
 - Treat branch names as slice identity.
 - Derive Branch Memory keys from objective plus branch, using `---` as the slash escape, and reject planned branch names that contain literal `---`.
@@ -31,10 +31,10 @@ In scope:
 - Require a clean worktree before starting a slice branch.
 - Start a fresh Pi session for each slice, with a small kickoff prompt that points the agent at the Branch Memory plan, Objective, current branch, prior handoff when one exists, and required structured tools.
 - Register structured custom tools:
-  - `stack_slice_done` for completion reports and handoff drafts;
-  - `stack_slice_blocked` for v1 blockage reports that stop the workflow.
-- For v1, trust the agent's `stack_slice_done` payload, trust that the agent ran validation, and have the extension store the agent-drafted handoff in Branch Memory.
-- Write concise branch-local slice ledgers in Branch Memory namespace `stack-runs`, with pointer-only frontmatter:
+  - `stack_impl_slice_done` for completion reports and handoff drafts;
+  - `stack_impl_slice_blocked` for v1 blockage reports that stop the workflow.
+- For v1, trust the agent's `stack_impl_slice_done` payload, trust that the agent ran validation, and have the extension store the agent-drafted handoff in Branch Memory.
+- Write concise branch-local slice ledgers in Branch Memory namespace `stack-impls`, with pointer-only frontmatter:
 
 ```yaml
 schema: asdl.stack-slice-ledger.v1
@@ -46,7 +46,7 @@ plan:
 ```
 
 - Infer slice completion from the expected handoff artifact existing in `session-artifacts` on the slice branch.
-- Add enough status/recovery behavior for `/stack-run` or a follow-up command to resume the first incomplete planned branch when possible.
+- Add enough status/recovery behavior for `/stack-impl` or a follow-up command to resume the first incomplete planned branch when possible.
 
 Out of scope for v1:
 
@@ -64,22 +64,22 @@ Out of scope for v1:
 - Do not turn Branch Memory into a hidden task database. In v1 it stores the plan artifact, pointer-only slice ledgers, and handoff artifacts.
 - Do not parse human Markdown as structured task state. The only machine-readable plan contract is the frontmatter.
 - Do not create placeholder commits merely to make a branch appear in Graphite. The first real commit should be created by `gt modify` after the agent has implemented the slice.
-- Do not verify all mechanical completion facts in v1. The trusted `stack_slice_done` protocol is a deliberate simplification, with later hardening expected if the steelthread proves useful.
+- Do not verify all mechanical completion facts in v1. The trusted `stack_impl_slice_done` protocol is a deliberate simplification, with later hardening expected if the steelthread proves useful.
 - Do not store or expose secrets, raw session logs, or large generated outputs.
 
 ## Completion Criteria
 
-- `.pi/extensions/asdl-stack-run/` exists as a project-local Pi extension with its runtime dependencies declared locally.
+- `.pi/extensions/asdl-stack-impl/` exists as a project-local Pi extension with its runtime dependencies declared locally.
 - The extension validates minimal stack-plan frontmatter with `schema: asdl.stack-plan.v1`, `objective`, and ordered `planned_branches`.
-- `/stack-run <local-plan-file>` stores a validated plan in Branch Memory namespace `stack-plans` using key `<objective>.md` on the starting branch. Identical existing content is accepted; differing content requires explicit replacement or confirmation.
-- `/stack-run <plan-key>` can load and validate an existing Branch Memory stack plan.
+- `/stack-impl <local-plan-file>` stores a validated plan in Branch Memory namespace `stack-plans` using key `<objective>.md` on the starting branch. Identical existing content is accepted; differing content requires explicit replacement or confirmation.
+- `/stack-impl <plan-key>` can load and validate an existing Branch Memory stack plan.
 - The extension rejects planned branches containing literal `---` and derives ledger/handoff keys deterministically using `---` as the slash escape.
 - The extension checks that each planned branch string appears literally in the plan body without parsing Markdown sections.
 - The extension can find the first incomplete planned branch by combining branch-local pointer ledgers and derived handoff existence.
 - Starting a slice requires a clean worktree, creates/checks out the planned branch with raw git from the intended parent, and tracks it with Graphite without creating an empty commit.
-- Each started slice branch receives a pointer-only Branch Memory ledger in namespace `stack-runs` pointing back to the canonical Branch Memory plan entry and content hash.
+- Each started slice branch receives a pointer-only Branch Memory ledger in namespace `stack-impls` pointing back to the canonical Branch Memory plan entry and content hash.
 - Each slice starts in a fresh Pi session with a compact kickoff prompt that tells the agent what to load and how to signal completion or blockage.
-- `stack_slice_done` and `stack_slice_blocked` are registered Pi custom tools. `stack_slice_done` carries an agent-drafted handoff and queues closeout; `stack_slice_blocked` stops the workflow in v1.
+- `stack_impl_slice_done` and `stack_impl_slice_blocked` are registered Pi custom tools. `stack_impl_slice_done` carries an agent-drafted handoff and queues closeout; `stack_impl_slice_blocked` stops the workflow in v1.
 - Slice closeout stores the handoff draft in Branch Memory namespace `session-artifacts` under the derived key for the current branch.
 - The workflow can resume after interruption by reading the Branch Memory plan and branch-local ledger rather than relying on prior chat history.
 - The Objective includes tests or documented validation appropriate for the extension code, and the repository quality suite remains green after the extension and Objective updates land.
@@ -93,13 +93,13 @@ Assumptions:
 - Branch Memory is an appropriate durability layer for stack plans, pointer ledgers, and handoff artifacts because these are branch-scoped, inspectable text artifacts and the repo already depends on `brmem`.
 - Minimal plan frontmatter plus human-readable plan body is enough for the extension/agent boundary: the extension gets deterministic branch order, and the agent interprets the body using the current branch name.
 - Using branch names as slice identity is stable enough for v1. If branches are renamed, the plan and relevant Branch Memory artifacts may need manual repair.
-- Trusting `stack_slice_done` is acceptable for the first steelthread because it keeps the extension small and lets hardening be driven by observed failures.
+- Trusting `stack_impl_slice_done` is acceptable for the first steelthread because it keeps the extension small and lets hardening be driven by observed failures.
 
 Risks:
 
 - The trusted completion protocol may advance after incomplete validation, missing Objective updates, or inaccurate handoff content. Mitigation: keep v1 supervised by default and design later hardening around mechanical verification.
 - Minimal frontmatter may make plan authoring ambiguous if the Markdown body does not clearly name each branch. Mitigation: require literal branch presence in the body and include the current branch in the kickoff prompt.
-- Branch Memory plan storage can diverge from a local draft if users edit a file after storing it. Mitigation: treat the Branch Memory entry as canonical once `/stack-run` stores it and preserve a content hash in slice ledgers.
+- Branch Memory plan storage can diverge from a local draft if users edit a file after storing it. Mitigation: treat the Branch Memory entry as canonical once `/stack-impl` stores it and preserve a content hash in slice ledgers.
 - Graphite metadata can drift from the planned branch order after manual restacks. Mitigation: use the plan as the creation recipe and Graphite/git as actual branch state during recovery, warning rather than silently rewriting history when they disagree.
 - Rejecting branch names containing `---` is a small constraint, but it keeps derived keys readable and reversible.
 - Keeping schemas only in TypeScript runtime validation avoids checked-in schema overhead, but external repair tools will not have a separate JSON Schema contract.
@@ -109,8 +109,8 @@ Risks:
 
 Resolved in v1:
 
-- Command surface: `/stack-run`, `/stack-status`, and internal follow-up `/stack-closeout` ship first; no separate `/stack-continue` is needed because `/stack-run` resumes from Branch Memory state.
-- `stack_slice_done` accepts `summary`, `validation`, `handoff_markdown`, optional `semantic_update_file`, and optional `followups`; branch and handoff identity are extension-derived.
+- Command surface: `/stack-impl`, `/stack-impl-status`, and internal follow-up `/stack-impl-closeout` ship first; no separate `/stack-continue` is needed because `/stack-impl` resumes from Branch Memory state.
+- `stack_impl_slice_done` accepts `summary`, `validation`, `handoff_markdown`, optional `semantic_update_file`, and optional `followups`; branch and handoff identity are extension-derived.
 - UI confirmation is required only for replacing differing canonical plan content in supervised mode. Non-UI replacement requires `--replace`; branch start and closeout fail closed on drift rather than prompting through extra flows.
 - The project-local extension is tested with local Bun tests and TypeScript checking wired into the repo's `just` TypeScript recipes.
 
@@ -121,7 +121,7 @@ Still open for future Objectives:
 
 ## Closure
 
-Completed on 2026-05-22. The v1 project-local Pi extension ships under `.pi/extensions/asdl-stack-run/` with local runtime dependencies, `/stack-run`, `/stack-status`, internal `/stack-closeout`, `stack_slice_done`, and `stack_slice_blocked`.
+Completed on 2026-05-22. The v1 project-local Pi extension ships under `.pi/extensions/asdl-stack-impl/` with local runtime dependencies, `/stack-impl`, `/stack-impl-status`, internal `/stack-impl-closeout`, `stack_impl_slice_done`, and `stack_impl_slice_blocked`.
 
 Closure evidence: all five roadmap rows are complete; the extension implements plan validation and Branch Memory plan storage, slice branch/session orchestration, pointer ledger writing and validation, structured closeout, handoff storage, recovery/status diagnostics, and README documentation. Ground-truth verification on the closing branch found the implementation files and tests in place, `node_modules` untracked, and full repository validation passing with `just`.
 

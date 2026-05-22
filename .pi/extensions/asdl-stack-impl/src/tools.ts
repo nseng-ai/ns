@@ -21,33 +21,33 @@ const blockedSchema = Type.Object({
 
 export function registerStackSliceTools(pi: ExtensionAPI, pendingCloseouts: PendingCloseouts): void {
 	pi.registerTool({
-		name: "stack_slice_done",
-		label: "Stack Slice Done",
-		description: "Signal that the current stack-run slice is complete and provide a handoff draft.",
-		promptSnippet: "Queue stack-run slice closeout with an agent-drafted handoff",
+		name: "stack_impl_slice_done",
+		label: "Stack Implementation Slice Done",
+		description: "Signal that the current stack-impl slice is complete and provide a handoff draft.",
+		promptSnippet: "Queue stack-impl slice closeout with an agent-drafted handoff",
 		promptGuidelines: [
-			"Use stack_slice_done only after code, tests, Objective update, Graphite commit/amend, and a handoff draft are ready.",
-			"When using stack_slice_done, include validation evidence and a concise Markdown handoff draft; the extension derives branch and handoff keys.",
+			"Use stack_impl_slice_done only after code, tests, Objective update, Graphite commit/amend, and a handoff draft are ready.",
+			"When using stack_impl_slice_done, include validation evidence and a concise Markdown handoff draft; the extension derives branch and handoff keys.",
 		],
 		parameters: doneSchema,
 		async execute(toolCallId, params) {
 			const payload = params as StackSliceDonePayload;
 			pendingCloseouts.set(toolCallId, payload);
-			pi.sendUserMessage(`/stack-closeout ${toolCallId}`, { deliverAs: "followUp" });
+			pi.sendUserMessage(`/stack-impl-closeout ${toolCallId}`, { deliverAs: "followUp" });
 			return {
-				content: [{ type: "text", text: "Queued /stack-closeout for this completed stack slice." }],
+				content: [{ type: "text", text: "Queued /stack-impl-closeout for this completed stack slice." }],
 				details: { queued: true, toolCallId, summary: payload.summary },
 			};
 		},
 	});
 
 	pi.registerTool({
-		name: "stack_slice_blocked",
-		label: "Stack Slice Blocked",
-		description: "Signal that the current stack-run slice is blocked and should stop in v1.",
-		promptSnippet: "Report that the current stack-run slice is blocked",
+		name: "stack_impl_slice_blocked",
+		label: "Stack Implementation Slice Blocked",
+		description: "Signal that the current stack-impl slice is blocked and should stop in v1.",
+		promptSnippet: "Report that the current stack-impl slice is blocked",
 		promptGuidelines: [
-			"Use stack_slice_blocked when the current stack-run slice cannot be completed safely; it does not write a completion handoff.",
+			"Use stack_impl_slice_blocked when the current stack-impl slice cannot be completed safely; it does not write a completion handoff.",
 		],
 		parameters: blockedSchema,
 		async execute(_toolCallId, params) {

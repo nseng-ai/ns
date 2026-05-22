@@ -4,19 +4,19 @@ import type { ExecFunction, ExecResult } from "../src/command.ts";
 import { formatSliceLedger } from "../src/ledger.ts";
 import { startNextStackSlice } from "../src/orchestration.ts";
 import { parseStackPlanMarkdown } from "../src/plan.ts";
-import type { StackRunPlanResult } from "../src/stack-run.ts";
+import type { StackImplPlanResult } from "../src/stack-impl.ts";
 
 const PLAN_CONTENT = `---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
-  - asdl-stack-run-extension/plan-storage
+  - asdl-stack-impl-extension/extension-skeleton
+  - asdl-stack-impl-extension/plan-storage
 ---
 
 Branches:
-- asdl-stack-run-extension/extension-skeleton
-- asdl-stack-run-extension/plan-storage
+- asdl-stack-impl-extension/extension-skeleton
+- asdl-stack-impl-extension/plan-storage
 `;
 
 type ExpectedCommand = {
@@ -40,13 +40,13 @@ function fakeExec(expectedCommands: ExpectedCommand[]): ExecFunction {
 	};
 }
 
-function planResult(): StackRunPlanResult {
+function planResult(): StackImplPlanResult {
 	const plan = parseStackPlanMarkdown(PLAN_CONTENT);
 	return {
 		source: "branch-memory",
 		action: "loaded",
 		planBranch: "plan-branch",
-		locator: { namespace: "stack-plans", key: "asdl-stack-run-extension.md", branch: "plan-branch" },
+		locator: { namespace: "stack-plans", key: "asdl-stack-impl-extension.md", branch: "plan-branch" },
 		plan,
 	};
 }
@@ -58,23 +58,23 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("", 1),
 			},
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/extension-skeleton"],
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
 				result: result("", 1),
 			},
 			{
 				command: "git",
-				args: ["checkout", "-b", "asdl-stack-run-extension/extension-skeleton", "plan-branch"],
+				args: ["checkout", "-b", "asdl-stack-impl-extension/extension-skeleton", "plan-branch"],
 				result: result("switched\n"),
 			},
 			{ command: "gt", args: ["track", "-p", "plan-branch"], result: result("tracked\n") },
@@ -82,11 +82,11 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"put",
-					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
-					"stack-runs",
+					"stack-impls",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 					"--file",
 					"/tmp/ledger.md",
 				],
@@ -106,19 +106,19 @@ describe("slice start orchestration", () => {
 
 		expect(slice.status).toBe("started");
 		if (slice.status === "started") {
-			expect(slice.plannedBranch).toBe("asdl-stack-run-extension/extension-skeleton");
+			expect(slice.plannedBranch).toBe("asdl-stack-impl-extension/extension-skeleton");
 			expect(slice.intendedParent).toBe("plan-branch");
 			expect(slice.ledgerLocator).toEqual({
-				branch: "asdl-stack-run-extension/extension-skeleton",
-				namespace: "stack-runs",
-				key: "asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+				branch: "asdl-stack-impl-extension/extension-skeleton",
+				namespace: "stack-impls",
+				key: "asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md",
 			});
-			expect(slice.kickoffPrompt).toContain("Objective slug: asdl-stack-run-extension");
-			expect(slice.kickoffPrompt).toContain("Current planned branch: asdl-stack-run-extension/extension-skeleton");
+			expect(slice.kickoffPrompt).toContain("Objective slug: asdl-stack-impl-extension");
+			expect(slice.kickoffPrompt).toContain("Current planned branch: asdl-stack-impl-extension/extension-skeleton");
 		}
 		expect(ledgerContent).toContain("schema: asdl.stack-slice-ledger.v1");
 		expect(ledgerContent).toContain("branch: plan-branch");
-		expect(ledgerContent).toContain("key: asdl-stack-run-extension.md");
+		expect(ledgerContent).toContain("key: asdl-stack-impl-extension.md");
 		expect(ledgerContent).toContain(planResult().plan.sha256);
 		expect(commands).toEqual([]);
 	});
@@ -135,29 +135,29 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("", 1),
 			},
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/extension-skeleton"],
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
 				result: result("commit\n"),
 			},
 			{
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
-					"stack-runs",
+					"stack-impls",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("present\n"),
 			},
@@ -165,18 +165,18 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"get",
-					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
-					"stack-runs",
+					"stack-impls",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result(ledger),
 			},
 			{ command: "git", args: ["branch", "--show-current"], result: result("plan-branch\n") },
 			{
 				command: "git",
-				args: ["checkout", "asdl-stack-run-extension/extension-skeleton"],
+				args: ["checkout", "asdl-stack-impl-extension/extension-skeleton"],
 				result: result("switched\n"),
 			},
 			{ command: "gt", args: ["track", "-p", "plan-branch"], result: result("tracked\n") },
@@ -187,7 +187,7 @@ describe("slice start orchestration", () => {
 		expect(slice.status).toBe("started");
 		if (slice.status === "started") {
 			expect(slice.ledgerLocator.key).toBe(
-				"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+				"asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md",
 			);
 		}
 		expect(commands).toEqual([]);
@@ -199,11 +199,11 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("present\n"),
 			},
@@ -211,11 +211,11 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---plan-storage.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---plan-storage.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/plan-storage",
+					"asdl-stack-impl-extension/plan-storage",
 				],
 				result: result("present\n"),
 			},
@@ -233,11 +233,11 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("", 1),
 			},
@@ -256,23 +256,23 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("", 1),
 			},
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/extension-skeleton"],
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
 				result: result("", 1),
 			},
 			{
 				command: "git",
-				args: ["checkout", "-b", "asdl-stack-run-extension/extension-skeleton", "plan-branch"],
+				args: ["checkout", "-b", "asdl-stack-impl-extension/extension-skeleton", "plan-branch"],
 				result: result("switched\n"),
 			},
 			{ command: "gt", args: ["track", "-p", "plan-branch"], result: result("", 1, "wrong parent\n") },
@@ -290,11 +290,11 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("present\n"),
 			},
@@ -302,18 +302,18 @@ describe("slice start orchestration", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---plan-storage.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---plan-storage.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/plan-storage",
+					"asdl-stack-impl-extension/plan-storage",
 				],
 				result: result("", 1),
 			},
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/plan-storage"],
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/plan-storage"],
 				result: result("", 1),
 			},
 			{
@@ -321,25 +321,25 @@ describe("slice start orchestration", () => {
 				args: [
 					"checkout",
 					"-b",
-					"asdl-stack-run-extension/plan-storage",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/plan-storage",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("switched\n"),
 			},
 			{
 				command: "gt",
-				args: ["track", "-p", "asdl-stack-run-extension/extension-skeleton"],
+				args: ["track", "-p", "asdl-stack-impl-extension/extension-skeleton"],
 				result: result("tracked\n"),
 			},
 			{
 				command: "brmem",
 				args: [
 					"put",
-					"asdl-stack-run-extension/asdl-stack-run-extension---plan-storage.md",
+					"asdl-stack-impl-extension/asdl-stack-impl-extension---plan-storage.md",
 					"--namespace",
-					"stack-runs",
+					"stack-impls",
 					"--branch",
-					"asdl-stack-run-extension/plan-storage",
+					"asdl-stack-impl-extension/plan-storage",
 					"--file",
 					"/tmp/ledger.md",
 				],
@@ -355,9 +355,9 @@ describe("slice start orchestration", () => {
 
 		expect(slice.status).toBe("started");
 		if (slice.status === "started") {
-			expect(slice.intendedParent).toBe("asdl-stack-run-extension/extension-skeleton");
+			expect(slice.intendedParent).toBe("asdl-stack-impl-extension/extension-skeleton");
 			expect(slice.kickoffPrompt).toContain(
-				"Previous handoff locator: session-artifacts/handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md on branch asdl-stack-run-extension/extension-skeleton",
+				"Previous handoff locator: session-artifacts/handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md on branch asdl-stack-impl-extension/extension-skeleton",
 			);
 		}
 		expect(commands).toEqual([]);

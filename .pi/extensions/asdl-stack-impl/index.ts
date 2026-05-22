@@ -17,7 +17,7 @@ import {
 	type ObjectiveStackImplDependencies,
 } from "./src/objective-stack-impl.ts";
 import { startNextStackSlice } from "./src/orchestration.ts";
-import { formatStackRunPlanResult, loadOrStoreStackRunPlan } from "./src/stack-run.ts";
+import { formatStackImplPlanResult, loadOrStoreStackImplPlan } from "./src/stack-impl.ts";
 import { buildStackStatusReport, formatStackStatusReport } from "./src/status.ts";
 import { registerStackSliceTools } from "./src/tools.ts";
 
@@ -89,7 +89,7 @@ function assistantText(message: unknown): string {
 		.join("");
 }
 
-export default function asdlStackRunExtension(pi: ExtensionAPI): void {
+export default function asdlStackImplExtension(pi: ExtensionAPI): void {
 	const pendingCloseouts: PendingCloseouts = new Map();
 	registerStackSliceTools(pi, pendingCloseouts);
 
@@ -139,7 +139,7 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 		try {
 			const exec = createExec(pi);
 			const result = await storeConfirmedObjectiveStackPlan(content, state, { cwd: ctx.cwd, exec });
-			ctx.ui.notify(formatStackRunPlanResult(result), "info");
+			ctx.ui.notify(formatStackImplPlanResult(result), "info");
 			pi.sendUserMessage(`/objective-stack-impl ${state.objective}`, { deliverAs: "followUp" });
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
@@ -147,13 +147,13 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 		}
 	});
 
-	pi.registerCommand("stack-run", {
+	pi.registerCommand("stack-impl", {
 		description: "Store or load a Branch Memory stack plan and start the next incomplete slice.",
 		handler: async (args, ctx) => {
 			const exec = createExec(pi);
 
 			try {
-				const result = await loadOrStoreStackRunPlan(args, {
+				const result = await loadOrStoreStackImplPlan(args, {
 					cwd: ctx.cwd,
 					exec,
 					confirmReplace: ctx.hasUI
@@ -164,7 +164,7 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 				const slice = await startNextStackSlice(result, { cwd: ctx.cwd, exec });
 
 				if (ctx.hasUI) {
-					ctx.ui.notify(formatStackRunPlanResult(result), "info");
+					ctx.ui.notify(formatStackImplPlanResult(result), "info");
 					ctx.ui.notify(slice.status === "complete" ? slice.message : `Started ${slice.plannedBranch}.`, "info");
 				}
 
@@ -184,7 +184,7 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("objective-stack-impl", {
-		description: "Plan an Objective stack if needed, otherwise start the next incomplete stack-run slice.",
+		description: "Plan an Objective stack if needed, otherwise start the next incomplete stack-impl slice.",
 		handler: async (args, ctx) => {
 			const exec = createExec(pi);
 			const deps: ObjectiveStackImplDependencies = { cwd: ctx.cwd, exec };
@@ -215,7 +215,7 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 				const slice = await startNextStackSlice(prep.planResult, { cwd: ctx.cwd, exec });
 
 				if (ctx.hasUI) {
-					ctx.ui.notify(formatStackRunPlanResult(prep.planResult), "info");
+					ctx.ui.notify(formatStackImplPlanResult(prep.planResult), "info");
 					ctx.ui.notify(slice.status === "complete" ? slice.message : `Started ${slice.plannedBranch}.`, "info");
 				}
 
@@ -234,8 +234,8 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.registerCommand("stack-status", {
-		description: "Show status and recovery diagnostics for a stack-run plan.",
+	pi.registerCommand("stack-impl-status", {
+		description: "Show status and recovery diagnostics for a stack-impl plan.",
 		handler: async (args, ctx) => {
 			const exec = createExec(pi);
 
@@ -255,12 +255,12 @@ export default function asdlStackRunExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.registerCommand("stack-closeout", {
-		description: "Internal stack-run follow-up that stores a queued completion handoff.",
+	pi.registerCommand("stack-impl-closeout", {
+		description: "Internal stack-impl follow-up that stores a queued completion handoff.",
 		handler: async (args, ctx) => {
 			const id = args.trim();
 			if (id.length === 0) {
-				const message = "Usage: /stack-closeout <tool-call-id>";
+				const message = "Usage: /stack-impl-closeout <tool-call-id>";
 				if (ctx.hasUI) {
 					ctx.ui.notify(message, "error");
 				}

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "asdl-stack-run-pi-extension",
+      "name": "asdl-stack-impl-pi-extension",
       "dependencies": {
         "yaml": "2.9.0",
       },

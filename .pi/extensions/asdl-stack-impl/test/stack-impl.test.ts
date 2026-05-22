@@ -2,29 +2,29 @@ import { describe, expect, test } from "bun:test";
 
 import type { ExecFunction, ExecResult } from "../src/command.ts";
 import {
-	loadOrStoreStackRunPlan,
-	type StackRunFileSystem,
-	type StackRunPlanResult,
-} from "../src/stack-run.ts";
+	loadOrStoreStackImplPlan,
+	type StackImplFileSystem,
+	type StackImplPlanResult,
+} from "../src/stack-impl.ts";
 
 const VALID_PLAN = `---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
 ---
 
-Slice: asdl-stack-run-extension/extension-skeleton
+Slice: asdl-stack-impl-extension/extension-skeleton
 `;
 
 const DIFFERENT_PLAN = `---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
 ---
 
-Different body for asdl-stack-run-extension/extension-skeleton
+Different body for asdl-stack-impl-extension/extension-skeleton
 `;
 
 type ExpectedCommand = {
@@ -48,7 +48,7 @@ function fakeExec(expectedCommands: ExpectedCommand[]): ExecFunction {
 	};
 }
 
-function localPlanFileSystem(content: string, existingPath = "/repo/plan.md"): StackRunFileSystem {
+function localPlanFileSystem(content: string, existingPath = "/repo/plan.md"): StackImplFileSystem {
 	return {
 		async isFile(path) {
 			return path === existingPath;
@@ -64,7 +64,7 @@ async function expectNoRemainingCommands(commands: ExpectedCommand[]): Promise<v
 	expect(commands).toEqual([]);
 }
 
-describe("/stack-run plan storage", () => {
+describe("/stack-impl plan storage", () => {
 	test("stores an absent local plan in Branch Memory", async () => {
 		const commands: ExpectedCommand[] = [
 			{ command: "git", args: ["branch", "--show-current"], result: result("plan-branch\n") },
@@ -72,7 +72,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -84,7 +84,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"put",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -96,7 +96,7 @@ describe("/stack-run plan storage", () => {
 			},
 		];
 
-		const loaded = await loadOrStoreStackRunPlan("plan.md", {
+		const loaded = await loadOrStoreStackImplPlan("plan.md", {
 			cwd: "/repo",
 			exec: fakeExec(commands),
 			fileSystem: localPlanFileSystem(VALID_PLAN),
@@ -106,7 +106,7 @@ describe("/stack-run plan storage", () => {
 		expect(loaded.locator).toEqual({
 			branch: "plan-branch",
 			namespace: "stack-plans",
-			key: "asdl-stack-run-extension.md",
+			key: "asdl-stack-impl-extension.md",
 		});
 		await expectNoRemainingCommands(commands);
 	});
@@ -118,7 +118,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -130,7 +130,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"get",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -140,7 +140,7 @@ describe("/stack-run plan storage", () => {
 			},
 		];
 
-		const loaded = await loadOrStoreStackRunPlan("plan.md", {
+		const loaded = await loadOrStoreStackImplPlan("plan.md", {
 			cwd: "/repo",
 			exec: fakeExec(commands),
 			fileSystem: localPlanFileSystem(VALID_PLAN),
@@ -157,7 +157,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -169,7 +169,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"get",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -181,7 +181,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"put",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -193,7 +193,7 @@ describe("/stack-run plan storage", () => {
 			},
 		];
 
-		const loaded = await loadOrStoreStackRunPlan("plan.md", {
+		const loaded = await loadOrStoreStackImplPlan("plan.md", {
 			cwd: "/repo",
 			exec: fakeExec(commands),
 			fileSystem: localPlanFileSystem(VALID_PLAN),
@@ -211,7 +211,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -223,7 +223,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"get",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -234,7 +234,7 @@ describe("/stack-run plan storage", () => {
 		];
 
 		await expect(
-			loadOrStoreStackRunPlan("plan.md", {
+			loadOrStoreStackImplPlan("plan.md", {
 				cwd: "/repo",
 				exec: fakeExec(commands),
 				fileSystem: localPlanFileSystem(VALID_PLAN),
@@ -250,7 +250,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"get",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -260,8 +260,8 @@ describe("/stack-run plan storage", () => {
 			},
 		];
 
-		const loaded: StackRunPlanResult = await loadOrStoreStackRunPlan(
-			"asdl-stack-run-extension.md",
+		const loaded: StackImplPlanResult = await loadOrStoreStackImplPlan(
+			"asdl-stack-impl-extension.md",
 			{
 				cwd: "/repo",
 				exec: fakeExec(commands),
@@ -282,7 +282,7 @@ describe("/stack-run plan storage", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension.md",
+					"asdl-stack-impl-extension.md",
 					"--namespace",
 					"stack-plans",
 					"--branch",
@@ -293,7 +293,7 @@ describe("/stack-run plan storage", () => {
 		];
 
 		await expect(
-			loadOrStoreStackRunPlan("plan.md", {
+			loadOrStoreStackImplPlan("plan.md", {
 				cwd: "/repo",
 				exec: fakeExec(commands),
 				fileSystem: localPlanFileSystem(VALID_PLAN),
@@ -308,7 +308,7 @@ describe("/stack-run plan storage", () => {
 		];
 
 		await expect(
-			loadOrStoreStackRunPlan("plan.md", {
+			loadOrStoreStackImplPlan("plan.md", {
 				cwd: "/repo",
 				exec: fakeExec(commands),
 				fileSystem: localPlanFileSystem("---\nschema: nope\n---\n\nbody\n"),

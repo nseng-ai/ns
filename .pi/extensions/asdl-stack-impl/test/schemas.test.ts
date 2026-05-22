@@ -7,24 +7,24 @@ import { parseStackPlanMarkdown } from "../src/plan.ts";
 
 const VALID_PLAN = `---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
-  - asdl-stack-run-extension/plan-storage
+  - asdl-stack-impl-extension/extension-skeleton
+  - asdl-stack-impl-extension/plan-storage
 ---
 
 ## Stack
 
-- asdl-stack-run-extension/extension-skeleton
-- asdl-stack-run-extension/plan-storage
+- asdl-stack-impl-extension/extension-skeleton
+- asdl-stack-impl-extension/plan-storage
 `;
 
 const VALID_LEDGER = `---
 schema: asdl.stack-slice-ledger.v1
 plan:
-  branch: add-asdl-stack-run-pi-extension-skeleton-and-schem
+  branch: add-asdl-stack-impl-pi-extension-skeleton-and-schem
   namespace: stack-plans
-  key: asdl-stack-run-extension.md
+  key: asdl-stack-impl-extension.md
   sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 ---
 
@@ -35,9 +35,9 @@ describe("frontmatter extraction", () => {
 	test("extracts frontmatter and leaves the body unparsed", () => {
 		expect(extractFrontmatter(VALID_PLAN)).toEqual({
 			frontmatterText:
-				"schema: asdl.stack-plan.v1\nobjective: asdl-stack-run-extension\nplanned_branches:\n  - asdl-stack-run-extension/extension-skeleton\n  - asdl-stack-run-extension/plan-storage\n",
+				"schema: asdl.stack-plan.v1\nobjective: asdl-stack-impl-extension\nplanned_branches:\n  - asdl-stack-impl-extension/extension-skeleton\n  - asdl-stack-impl-extension/plan-storage\n",
 			body:
-				"\n## Stack\n\n- asdl-stack-run-extension/extension-skeleton\n- asdl-stack-run-extension/plan-storage\n",
+				"\n## Stack\n\n- asdl-stack-impl-extension/extension-skeleton\n- asdl-stack-impl-extension/plan-storage\n",
 		});
 	});
 
@@ -53,10 +53,10 @@ describe("frontmatter extraction", () => {
 describe("stack plan validation", () => {
 	test("accepts a valid stack plan", () => {
 		const plan = parseStackPlanMarkdown(VALID_PLAN);
-		expect(plan.objective).toBe("asdl-stack-run-extension");
+		expect(plan.objective).toBe("asdl-stack-impl-extension");
 		expect(plan.plannedBranches).toEqual([
-			"asdl-stack-run-extension/extension-skeleton",
-			"asdl-stack-run-extension/plan-storage",
+			"asdl-stack-impl-extension/extension-skeleton",
+			"asdl-stack-impl-extension/plan-storage",
 		]);
 		expect(plan.sha256).toMatch(/^[0-9a-f]{64}$/);
 	});
@@ -67,7 +67,7 @@ describe("stack plan validation", () => {
 schema: [
 ---
 
-asdl-stack-run-extension/extension-skeleton
+asdl-stack-impl-extension/extension-skeleton
 `),
 		).toThrow(/Invalid YAML/);
 	});
@@ -76,12 +76,12 @@ asdl-stack-run-extension/extension-skeleton
 		expect(() =>
 			parseStackPlanMarkdown(`---
 schema: other.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
 ---
 
-asdl-stack-run-extension/extension-skeleton
+asdl-stack-impl-extension/extension-skeleton
 `),
 		).toThrow(/schema must be exactly/);
 	});
@@ -92,10 +92,10 @@ asdl-stack-run-extension/extension-skeleton
 schema: asdl.stack-plan.v1
 objective: bad/objective
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
 ---
 
-asdl-stack-run-extension/extension-skeleton
+asdl-stack-impl-extension/extension-skeleton
 `),
 		).toThrow(/single key segment/);
 	});
@@ -104,13 +104,13 @@ asdl-stack-run-extension/extension-skeleton
 		expect(() =>
 			parseStackPlanMarkdown(`---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
-  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
 ---
 
-asdl-stack-run-extension/extension-skeleton
+asdl-stack-impl-extension/extension-skeleton
 `),
 		).toThrow(/duplicate/);
 	});
@@ -119,7 +119,7 @@ asdl-stack-run-extension/extension-skeleton
 		expect(() =>
 			parseStackPlanMarkdown(`---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
   - ""
 ---
@@ -133,12 +133,12 @@ empty
 		expect(() =>
 			parseStackPlanMarkdown(`---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension---extension-skeleton
+  - asdl-stack-impl-extension---extension-skeleton
 ---
 
-asdl-stack-run-extension---extension-skeleton
+asdl-stack-impl-extension---extension-skeleton
 `),
 		).toThrow(/literal `---`/);
 	});
@@ -147,9 +147,9 @@ asdl-stack-run-extension---extension-skeleton
 		expect(() =>
 			parseStackPlanMarkdown(`---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
+  - asdl-stack-impl-extension/extension-skeleton
 ---
 
 This body names no branch.
@@ -161,7 +161,7 @@ This body names no branch.
 describe("slice ledger validation", () => {
 	test("accepts a valid pointer ledger", () => {
 		const ledger = parseSliceLedgerMarkdown(VALID_LEDGER);
-		expect(ledger.plan.branch).toBe("add-asdl-stack-run-pi-extension-skeleton-and-schem");
+		expect(ledger.plan.branch).toBe("add-asdl-stack-impl-pi-extension-skeleton-and-schem");
 		expect(ledger.plan.namespace).toBe("stack-plans");
 	});
 
@@ -170,9 +170,9 @@ describe("slice ledger validation", () => {
 			parseSliceLedgerMarkdown(`---
 schema: asdl.stack-slice-ledger.v1
 plan:
-  branch: add-asdl-stack-run-pi-extension-skeleton-and-schem
+  branch: add-asdl-stack-impl-pi-extension-skeleton-and-schem
   namespace: stack-plans
-  key: asdl-stack-run-extension.md
+  key: asdl-stack-impl-extension.md
   sha256: ABC
 ---
 
@@ -184,22 +184,22 @@ body
 
 describe("Branch Memory key derivation", () => {
 	test("derives plan, ledger, and handoff keys with slash escaping", () => {
-		expect(derivePlanKey("asdl-stack-run-extension")).toEqual({
+		expect(derivePlanKey("asdl-stack-impl-extension")).toEqual({
 			namespace: "stack-plans",
-			key: "asdl-stack-run-extension.md",
+			key: "asdl-stack-impl-extension.md",
 		});
-		expect(deriveLedgerKey("asdl-stack-run-extension", "topic/branch")).toEqual({
-			namespace: "stack-runs",
-			key: "asdl-stack-run-extension/topic---branch.md",
+		expect(deriveLedgerKey("asdl-stack-impl-extension", "topic/branch")).toEqual({
+			namespace: "stack-impls",
+			key: "asdl-stack-impl-extension/topic---branch.md",
 		});
-		expect(deriveHandoffKey("asdl-stack-run-extension", "topic/branch")).toEqual({
+		expect(deriveHandoffKey("asdl-stack-impl-extension", "topic/branch")).toEqual({
 			namespace: "session-artifacts",
-			key: "handoffs/asdl-stack-run-extension-topic---branch.md",
+			key: "handoffs/asdl-stack-impl-extension-topic---branch.md",
 		});
 	});
 
 	test("rejects branch names containing the escape literal", () => {
-		expect(() => deriveLedgerKey("asdl-stack-run-extension", "topic---branch")).toThrow(
+		expect(() => deriveLedgerKey("asdl-stack-impl-extension", "topic---branch")).toThrow(
 			/literal `---`/,
 		);
 	});

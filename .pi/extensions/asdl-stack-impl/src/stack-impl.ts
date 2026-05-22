@@ -7,25 +7,25 @@ import { parseStackPlanMarkdown, type StackPlanDocument } from "./plan.ts";
 
 const COMMAND_TIMEOUT_MS = 30_000;
 
-export type StackRunParsedArgs = {
+export type StackImplParsedArgs = {
 	planArg: string;
 	replace: boolean;
 };
 
-export type StackRunFileSystem = {
+export type StackImplFileSystem = {
 	isFile(path: string): Promise<boolean>;
 	readTextFile(path: string): Promise<string>;
 };
 
-export type StackRunDependencies = {
+export type StackImplDependencies = {
 	cwd: string;
 	exec: ExecFunction;
-	fileSystem?: StackRunFileSystem;
+	fileSystem?: StackImplFileSystem;
 	confirmReplace?: ((message: string) => Promise<boolean>) | undefined;
 	signal?: AbortSignal | undefined;
 };
 
-export type StackRunPlanResult = {
+export type StackImplPlanResult = {
 	source: "local-file" | "branch-memory";
 	action: "stored" | "reused" | "replaced" | "loaded";
 	planBranch: string;
@@ -34,7 +34,7 @@ export type StackRunPlanResult = {
 	localPath?: string;
 };
 
-const nodeFileSystem: StackRunFileSystem = {
+const nodeFileSystem: StackImplFileSystem = {
 	async isFile(path: string): Promise<boolean> {
 		try {
 			return (await stat(path)).isFile();
@@ -50,7 +50,7 @@ const nodeFileSystem: StackRunFileSystem = {
 	},
 };
 
-export function parseStackRunArgs(args: string): StackRunParsedArgs {
+export function parseStackImplArgs(args: string): StackImplParsedArgs {
 	const parts = args.trim().split(/\s+/).filter(Boolean);
 	let replace = false;
 	const operands: string[] = [];
@@ -62,12 +62,12 @@ export function parseStackRunArgs(args: string): StackRunParsedArgs {
 		operands.push(part);
 	}
 	if (operands.length !== 1) {
-		throw new Error("Usage: /stack-run [--replace] <local-plan-file-or-branch-memory-key>");
+		throw new Error("Usage: /stack-impl [--replace] <local-plan-file-or-branch-memory-key>");
 	}
 	return { planArg: operands[0]!, replace };
 }
 
-async function currentGitBranch(deps: StackRunDependencies): Promise<string> {
+async function currentGitBranch(deps: StackImplDependencies): Promise<string> {
 	const result = await runCommand(deps.exec, "git", ["branch", "--show-current"], {
 		cwd: deps.cwd,
 		signal: deps.signal,
@@ -75,13 +75,13 @@ async function currentGitBranch(deps: StackRunDependencies): Promise<string> {
 	});
 	const branch = result.stdout.trim();
 	if (branch.length === 0) {
-		throw new Error("Cannot run stack-run from a detached HEAD; current git branch is empty.");
+		throw new Error("Cannot run stack-impl from a detached HEAD; current git branch is empty.");
 	}
 	return branch;
 }
 
 async function brmemCheckPlan(
-	deps: StackRunDependencies,
+	deps: StackImplDependencies,
 	locator: BranchMemoryKey & { branch: string },
 ): Promise<boolean> {
 	const result = await runCommand(
@@ -99,7 +99,7 @@ async function brmemCheckPlan(
 }
 
 async function brmemGetPlan(
-	deps: StackRunDependencies,
+	deps: StackImplDependencies,
 	locator: BranchMemoryKey & { branch: string },
 ): Promise<string> {
 	const result = await runCommand(
@@ -116,7 +116,7 @@ async function brmemGetPlan(
 }
 
 async function brmemPutPlan(
-	deps: StackRunDependencies,
+	deps: StackImplDependencies,
 	locator: BranchMemoryKey & { branch: string },
 	filePath: string,
 ): Promise<void> {
@@ -140,7 +140,7 @@ function assertCanonicalPlanKey(plan: StackPlanDocument, key: string): void {
 }
 
 async function maybeReplaceDifferingPlan(
-	deps: StackRunDependencies,
+	deps: StackImplDependencies,
 	locator: BranchMemoryKey & { branch: string },
 	localPath: string,
 	replace: boolean,
@@ -165,12 +165,12 @@ async function maybeReplaceDifferingPlan(
 }
 
 async function storeOrReuseLocalPlan(
-	parsedArgs: StackRunParsedArgs,
-	deps: StackRunDependencies,
+	parsedArgs: StackImplParsedArgs,
+	deps: StackImplDependencies,
 	planBranch: string,
 	localPath: string,
 	content: string,
-): Promise<StackRunPlanResult> {
+): Promise<StackImplPlanResult> {
 	const plan = parseStackPlanMarkdown(content);
 	const key = derivePlanKey(plan.objective);
 	const locator = { ...key, branch: planBranch };
@@ -191,9 +191,9 @@ async function storeOrReuseLocalPlan(
 
 async function loadExistingPlanKey(
 	key: string,
-	deps: StackRunDependencies,
+	deps: StackImplDependencies,
 	planBranch: string,
-): Promise<StackRunPlanResult> {
+): Promise<StackImplPlanResult> {
 	const locator = { namespace: STACK_PLANS_NAMESPACE, key, branch: planBranch };
 	const content = await brmemGetPlan(deps, locator);
 	const plan = parseStackPlanMarkdown(content);
@@ -201,11 +201,11 @@ async function loadExistingPlanKey(
 	return { source: "branch-memory", action: "loaded", planBranch, locator, plan };
 }
 
-export async function loadOrStoreStackRunPlan(
+export async function loadOrStoreStackImplPlan(
 	args: string,
-	deps: StackRunDependencies,
-): Promise<StackRunPlanResult> {
-	const parsedArgs = parseStackRunArgs(args);
+	deps: StackImplDependencies,
+): Promise<StackImplPlanResult> {
+	const parsedArgs = parseStackImplArgs(args);
 	const fileSystem = deps.fileSystem ?? nodeFileSystem;
 	const planBranch = await currentGitBranch(deps);
 	const localPath = resolve(deps.cwd, parsedArgs.planArg);
@@ -218,7 +218,7 @@ export async function loadOrStoreStackRunPlan(
 	return loadExistingPlanKey(parsedArgs.planArg, deps, planBranch);
 }
 
-export function formatStackRunPlanResult(result: StackRunPlanResult): string {
+export function formatStackImplPlanResult(result: StackImplPlanResult): string {
 	const source = result.source === "local-file" ? `local file ${result.localPath}` : "Branch Memory";
 	return [
 		`Stack plan ${result.action} from ${source}.`,

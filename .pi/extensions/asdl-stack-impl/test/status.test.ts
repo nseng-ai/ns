@@ -7,15 +7,15 @@ import { buildStackStatusReport, formatStackStatusReport } from "../src/status.t
 
 const PLAN_CONTENT = `---
 schema: asdl.stack-plan.v1
-objective: asdl-stack-run-extension
+objective: asdl-stack-impl-extension
 planned_branches:
-  - asdl-stack-run-extension/extension-skeleton
-  - asdl-stack-run-extension/plan-storage
+  - asdl-stack-impl-extension/extension-skeleton
+  - asdl-stack-impl-extension/plan-storage
 ---
 
 Branches:
-- asdl-stack-run-extension/extension-skeleton
-- asdl-stack-run-extension/plan-storage
+- asdl-stack-impl-extension/extension-skeleton
+- asdl-stack-impl-extension/plan-storage
 `;
 
 type ExpectedCommand = {
@@ -44,31 +44,31 @@ describe("stack status", () => {
 		const plan = parseStackPlanMarkdown(PLAN_CONTENT);
 		const ledger = formatSliceLedger({
 			planBranch: "plan-branch",
-			planKey: "asdl-stack-run-extension.md",
+			planKey: "asdl-stack-impl-extension.md",
 			planSha256: plan.sha256,
 		});
 		const commands: ExpectedCommand[] = [
 			{ command: "git", args: ["branch", "--show-current"], result: result("plan-branch\n") },
 			{
 				command: "brmem",
-				args: ["get", "asdl-stack-run-extension.md", "--namespace", "stack-plans", "--branch", "plan-branch"],
+				args: ["get", "asdl-stack-impl-extension.md", "--namespace", "stack-plans", "--branch", "plan-branch"],
 				result: result(PLAN_CONTENT),
 			},
 			{ command: "git", args: ["status", "--porcelain"], result: result(" M file.ts\n") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/extension-skeleton"],
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
 				result: result("commit\n"),
 			},
 			{
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
-					"stack-runs",
+					"stack-impls",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("present\n"),
 			},
@@ -76,11 +76,11 @@ describe("stack status", () => {
 				command: "brmem",
 				args: [
 					"get",
-					"asdl-stack-run-extension/asdl-stack-run-extension---extension-skeleton.md",
+					"asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
-					"stack-runs",
+					"stack-impls",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result(ledger),
 			},
@@ -88,33 +88,33 @@ describe("stack status", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---extension-skeleton.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/extension-skeleton",
+					"asdl-stack-impl-extension/extension-skeleton",
 				],
 				result: result("present\n"),
 			},
 			{
 				command: "gt",
-				args: ["branch", "info", "asdl-stack-run-extension/extension-skeleton"],
-				result: result("asdl-stack-run-extension/extension-skeleton\n\nParent: plan-branch\n"),
+				args: ["branch", "info", "asdl-stack-impl-extension/extension-skeleton"],
+				result: result("asdl-stack-impl-extension/extension-skeleton\n\nParent: plan-branch\n"),
 			},
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-run-extension/plan-storage"],
+				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/plan-storage"],
 				result: result("", 1),
 			},
 			{
 				command: "brmem",
 				args: [
 					"check",
-					"asdl-stack-run-extension/asdl-stack-run-extension---plan-storage.md",
+					"asdl-stack-impl-extension/asdl-stack-impl-extension---plan-storage.md",
 					"--namespace",
-					"stack-runs",
+					"stack-impls",
 					"--branch",
-					"asdl-stack-run-extension/plan-storage",
+					"asdl-stack-impl-extension/plan-storage",
 				],
 				result: result("", 1),
 			},
@@ -122,17 +122,17 @@ describe("stack status", () => {
 				command: "brmem",
 				args: [
 					"check",
-					"handoffs/asdl-stack-run-extension-asdl-stack-run-extension---plan-storage.md",
+					"handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---plan-storage.md",
 					"--namespace",
 					"session-artifacts",
 					"--branch",
-					"asdl-stack-run-extension/plan-storage",
+					"asdl-stack-impl-extension/plan-storage",
 				],
 				result: result("", 1),
 			},
 		];
 
-		const report = await buildStackStatusReport("asdl-stack-run-extension.md", {
+		const report = await buildStackStatusReport("asdl-stack-impl-extension.md", {
 			cwd: "/repo",
 			exec: fakeExec(commands),
 			fileSystem: {
@@ -146,12 +146,12 @@ describe("stack status", () => {
 		});
 		const formatted = formatStackStatusReport(report);
 
-		expect(report.firstIncomplete).toBe("asdl-stack-run-extension/plan-storage");
+		expect(report.firstIncomplete).toBe("asdl-stack-impl-extension/plan-storage");
 		expect(report.warnings).toContain("dirty worktree");
-		expect(formatted).toContain("- [x] asdl-stack-run-extension/extension-skeleton");
-		expect(formatted).toContain("- [ ] asdl-stack-run-extension/plan-storage");
+		expect(formatted).toContain("- [x] asdl-stack-impl-extension/extension-skeleton");
+		expect(formatted).toContain("- [ ] asdl-stack-impl-extension/plan-storage");
 		expect(formatted).toContain("warning: missing git branch");
-		expect(formatted).toContain("warning: missing stack-runs ledger");
+		expect(formatted).toContain("warning: missing stack-impls ledger");
 		expect(formatted).toContain("warning: missing completion handoff");
 		expect(commands).toEqual([]);
 	});

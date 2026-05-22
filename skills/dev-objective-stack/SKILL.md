@@ -130,7 +130,10 @@ For each slice, work from the parent/top-of-stack branch:
    - edit `roadmap.md` when status/order changes;
    - mark roadmap items by actual landed behavior, not by the original PR plan;
    - edit `objective.md` when durable scope, risks, assumptions, or questions change;
-   - write one timestamped Semantic Update for meaningful progress.
+   - write one timestamped Semantic Update for meaningful progress;
+   - never rewrite earlier Semantic Updates to match renamed branches, commands,
+     paths, or Objective slugs. Preserve history; add a new superseding update if
+     current truth needs to correct or replace an earlier event.
 6. Update any planned non-Objective tracking files for workflow lessons or
    durable coordination notes.
 7. Run validation for the slice. If `just` reports lint/format failures, use the
@@ -186,4 +189,5 @@ Before reporting success:
 - New files are reflected in staged stats or an explicit file inventory.
 - Objective changes are only under `.asdl/objectives/<slug>/`; no sibling Objective slug was added, deleted, or moved unless this run was explicitly a slug migration.
 - Each Semantic Update filename is timestamped and human-readable.
+- Existing Semantic Updates were not retconned for renames or current-state cleanup; any amendment is a narrow same-event correction.
 - Validation commands and failures/fixes are reported honestly.

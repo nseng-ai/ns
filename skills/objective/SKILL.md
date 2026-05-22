@@ -50,7 +50,7 @@ The `<slug>` directory name is the durable Objective identity. Titles, command n
 
 Use only `[ ]`, `[~]`, and `[x]` statuses.
 
-`updates/` contains Semantic Updates: meaningful findings, decisions, blockers, assumption changes, risk de-risking or surfacing, completion evidence, plan changes, or follow-ups. No ceremonial pings or branch changelogs. Required headings:
+`updates/` contains Semantic Updates: meaningful findings, decisions, blockers, assumption changes, risk de-risking or surfacing, completion evidence, plan changes, or follow-ups. Existing update files are immutable historical records: preserve terminology, command names, branch names, paths, and evidence that were true when written. Do not bulk-edit old updates for renames, rebrands, directory moves, or current-state cleanup; write a new superseding update instead. No ceremonial pings or branch changelogs. Required headings:
 
 - `# <Update Title>`
 - `## Summary`

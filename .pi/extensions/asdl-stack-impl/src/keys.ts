@@ -1,5 +1,5 @@
 export const STACK_PLANS_NAMESPACE = "stack-plans";
-export const STACK_RUNS_NAMESPACE = "stack-runs";
+export const STACK_IMPLS_NAMESPACE = "stack-impls";
 export const SESSION_ARTIFACTS_NAMESPACE = "session-artifacts";
 
 export type BranchMemoryKey = {
@@ -43,7 +43,7 @@ export function derivePlanKey(objective: string): BranchMemoryKey {
 export function deriveLedgerKey(objective: string, branch: string): BranchMemoryKey {
 	validateObjectiveSlug(objective);
 	return {
-		namespace: STACK_RUNS_NAMESPACE,
+		namespace: STACK_IMPLS_NAMESPACE,
 		key: `${objective}/${escapeBranchForKey(branch)}.md`,
 	};
 }
