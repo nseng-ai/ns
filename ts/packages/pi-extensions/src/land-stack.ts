@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 
 const COMMAND_NAME = "land-stack";
 const STATUS_KEY = "land-stack";
-const COMMAND_STREAM_WIDGET_KEY = "land-stack-command-stream";
+const COMMAND_STREAM_MESSAGE_TYPE = "land-stack-command-stream";
 
 const GIT_TIMEOUT_MS = 30_000;
 const GH_TIMEOUT_MS = 30_000;
@@ -18,7 +18,6 @@ const PR_FIELDS = "number,title,state,isDraft,headRefName,baseRefName,headRefOid
 
 const MAX_OUTPUT_TAIL_LINES = 40;
 const MAX_OUTPUT_TAIL_CHARS = 4_000;
-const MAX_COMMAND_STREAM_LINES = 80;
 const MAX_COMMAND_STREAM_OUTPUT_LINES = 4;
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
@@ -43,6 +42,26 @@ export type AutocompleteItem = {
 	description?: string;
 };
 
+type CustomMessageContent = string | Array<{ type: string; text?: string }>;
+
+type CustomMessage = {
+	customType: string;
+	content: CustomMessageContent;
+	display: boolean;
+	details?: unknown;
+};
+
+type RenderTheme = {
+	fg(color: string, text: string): string;
+};
+
+type RenderComponent = {
+	render(width: number): string[];
+	invalidate(): void;
+};
+
+type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+
 export type ExtensionCommandContext = {
 	cwd: string;
 	hasUI: boolean;
@@ -63,6 +82,11 @@ export type ExtensionAPI = {
 			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
 			handler(args: string, ctx: ExtensionCommandContext): Promise<void> | void;
 		},
+	): void;
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	sendMessage?(
+		message: CustomMessage,
+		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResult>;
 };
@@ -178,18 +202,18 @@ type CommandStreamFinish = {
 };
 
 class LandStackCommandStream {
-	private readonly lines: string[] = [];
+	constructor(
+		private readonly pi: ExtensionAPI,
+		private readonly ctx: ExtensionCommandContext,
+	) {}
 
-	constructor(private readonly ctx: ExtensionCommandContext) {}
-
-	start(commandDisplay: string): number {
-		const index = this.lines.length;
-		this.lines.push(`→ $ ${commandDisplay}`);
-		this.render();
-		return index;
+	start(_commandDisplay: string): void {
+		// The active operation is already reflected in the status line. Only completed
+		// command results are appended to chat so the log scrolls naturally instead of
+		// pinning a rewritten widget above the editor.
 	}
 
-	finish(index: number, commandDisplay: string, finish: CommandStreamFinish): void {
+	finish(commandDisplay: string, finish: CommandStreamFinish): void {
 		const result = finish.result;
 		const icon = result.code === 0 ? "✓" : "✗";
 		const suffix =
@@ -198,43 +222,34 @@ class LandStackCommandStream {
 					? ` — ${finish.note}`
 					: ""
 				: ` — exit ${result.code}${result.killed ? " (killed or timed out)" : ""}`;
-		this.lines[index] = `${icon} $ ${commandDisplay}${suffix}`;
+		const lines = [`${icon} $ ${commandDisplay}${suffix}`];
 		if (result.code !== 0) {
-			this.lines.push(...commandStreamOutputLines(result));
+			lines.push(...commandStreamOutputLines(result));
 		}
-		this.render();
+		this.append(lines.join("\n"));
 	}
 
 	finishSuccess(message: string): void {
-		this.appendBlock("✓", message);
+		this.append(formatCommandStreamBlock("✓", message));
 	}
 
 	finishFailure(message: string): void {
-		this.appendBlock("✗", message);
+		this.append(formatCommandStreamBlock("✗", message));
 	}
 
-	private appendBlock(icon: string, message: string): void {
-		const lines = message.split("\n");
-		const first = lines.shift() ?? "";
-		this.lines.push(first ? `${icon} ${first}` : icon);
-		for (const line of lines) {
-			this.lines.push(line ? `  ${line}` : "");
-		}
-		this.render();
-	}
-
-	private render(): void {
-		if (!this.ctx.hasUI || !this.ctx.ui.setWidget) return;
-		const omittedCount = Math.max(0, this.lines.length - MAX_COMMAND_STREAM_LINES);
-		const visibleLines = this.lines.slice(-MAX_COMMAND_STREAM_LINES);
-		const body = omittedCount > 0 ? [`… ${omittedCount} earlier line(s) omitted`, ...visibleLines] : visibleLines;
-		this.ctx.ui.setWidget(COMMAND_STREAM_WIDGET_KEY, ["land-stack command stream", ...body], {
-			placement: "aboveEditor",
+	private append(message: string): void {
+		if (!this.ctx.hasUI || !this.pi.sendMessage) return;
+		this.pi.sendMessage({
+			customType: COMMAND_STREAM_MESSAGE_TYPE,
+			content: message,
+			display: true,
 		});
 	}
 }
 
 export default function landStackExtension(pi: ExtensionAPI): void {
+	pi.registerMessageRenderer?.(COMMAND_STREAM_MESSAGE_TYPE, renderCommandStreamMessage);
+
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Land the current Graphite stack path bottom-to-current, one PR at a time",
 		getArgumentCompletions: (prefix: string) => {
@@ -247,7 +262,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 			await ctx.waitForIdle();
 
 			const landed: LandedPr[] = [];
-			const commandStream = new LandStackCommandStream(ctx);
+			const commandStream = new LandStackCommandStream(pi, ctx);
 			const runtimePi = withCommandStreaming(pi, commandStream);
 			try {
 				const args = parseArgs(rawArgs);
@@ -1156,16 +1171,16 @@ function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackCommandS
 		},
 		async exec(command, args, options) {
 			const commandDisplay = formatCommand(command, args);
-			const index = commandStream.start(commandDisplay);
+			commandStream.start(commandDisplay);
 			try {
 				const rawResult = await pi.exec(command, args, options);
 				const normalizedResult = normalizePiExecResult(rawResult);
 				const finish = normalizeCommandFinish(command, args, normalizedResult);
-				commandStream.finish(index, commandDisplay, finish);
+				commandStream.finish(commandDisplay, finish);
 				return finish.result;
 			} catch (error) {
 				const result: ExecResult = { stdout: "", stderr: errorMessage(error), code: 1, killed: false };
-				commandStream.finish(index, commandDisplay, { result });
+				commandStream.finish(commandDisplay, { result });
 				throw error;
 			}
 		},
@@ -1187,6 +1202,48 @@ function normalizeCommandFinish(command: string, args: string[], result: ExecRes
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
 	}
 	return { result };
+}
+
+function renderCommandStreamMessage(message: CustomMessage, _options: { expanded: boolean }, theme: RenderTheme): RenderComponent {
+	const content = customMessageText(message.content);
+	return {
+		render(width: number): string[] {
+			return content.split("\n").map((line) => theme.fg(commandStreamLineColor(line), truncateDisplayLine(line, width)));
+		},
+		invalidate(): void {},
+	};
+}
+
+function customMessageText(content: CustomMessageContent): string {
+	if (typeof content === "string") return content;
+	return content
+		.filter((part) => part.type === "text")
+		.map((part) => part.text ?? "")
+		.join("\n");
+}
+
+function commandStreamLineColor(line: string): string {
+	if (line.startsWith("✓")) return "success";
+	if (line.startsWith("✗")) return "error";
+	if (line.startsWith("→")) return "accent";
+	return "dim";
+}
+
+function truncateDisplayLine(line: string, width: number): string {
+	if (width <= 0) return "";
+	if (line.length <= width) return line;
+	if (width === 1) return "…";
+	return `${line.slice(0, width - 1)}…`;
+}
+
+function formatCommandStreamBlock(icon: string, message: string): string {
+	const lines = message.split("\n");
+	const first = lines.shift() ?? "";
+	const formatted = [first ? `${icon} ${first}` : icon];
+	for (const line of lines) {
+		formatted.push(line ? `  ${line}` : "");
+	}
+	return formatted.join("\n");
 }
 
 export function isGtDeleteMissingBranch(result: ExecResult, branch: string): boolean {
