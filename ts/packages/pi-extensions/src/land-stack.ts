@@ -165,6 +165,16 @@ export type LandedPr = {
 	branch: string;
 	number: number;
 	title: string;
+	url?: string;
+};
+
+type CommandStreamPrLink = {
+	number: number;
+	url: string;
+};
+
+type CommandStreamMessageDetails = {
+	prLinks: CommandStreamPrLink[];
 };
 
 type LandingWarning = {
@@ -236,21 +246,25 @@ class LandStackCommandStream {
 		this.append(lines.join("\n"));
 	}
 
-	finishSuccess(message: string): void {
-		this.append(formatCommandStreamBlock("✓", message));
+	finishSuccess(message: string, details?: CommandStreamMessageDetails): void {
+		this.append(formatCommandStreamBlock("✓", message), details);
 	}
 
 	finishFailure(message: string): void {
 		this.append(formatCommandStreamBlock("✗", message));
 	}
 
-	private append(message: string): void {
+	private append(message: string, details?: CommandStreamMessageDetails): void {
 		if (!this.ctx.hasUI || !this.pi.sendMessage) return;
-		this.pi.sendMessage({
+		const customMessage: CustomMessage = {
 			customType: COMMAND_STREAM_MESSAGE_TYPE,
 			content: message,
 			display: true,
-		});
+		};
+		if (details) {
+			customMessage.details = details;
+		}
+		this.pi.sendMessage(customMessage);
 	}
 }
 
@@ -318,8 +332,9 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 
 				const successSummary = formatSuccessSummary(landed, plan.stack.descendantBranches, warnings);
 				const completionLevel = warnings.length > 0 ? "warning" : "success";
-				commandStream.finishSuccess(successSummary);
-				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary));
+				const commandStreamDetails = commandStreamDetailsForLanded(landed);
+				commandStream.finishSuccess(successSummary, commandStreamDetails);
+				presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, commandStreamDetails));
 			} catch (error) {
 				const formatted = formatFailure(error, landed);
 				const level = error instanceof LandStackError ? error.level : "error";
@@ -557,7 +572,8 @@ async function runMergeLoop(
 			});
 		}
 
-		landed.push({ branch, number: pr.number, title: pr.title });
+		const prUrl = verified.url ?? pr.url;
+		landed.push({ branch, number: pr.number, title: pr.title, ...(prUrl ? { url: prUrl } : {}) });
 
 		if (nextRestackBranch) {
 			setStatus(ctx, `refreshing stack through ${nextRestackBranch}...`);
@@ -1256,12 +1272,74 @@ function normalizeCommandFinish(command: string, args: string[], result: ExecRes
 
 function renderCommandStreamMessage(message: CustomMessage, _options: { expanded: boolean }, theme: RenderTheme): RenderComponent {
 	const content = customMessageText(message.content);
+	const prLinks = commandStreamPrLinks(message.details);
 	return {
 		render(width: number): string[] {
-			return content.split("\n").map((line) => theme.fg(commandStreamLineColor(line), truncateDisplayLine(line, width)));
+			return content
+				.split("\n")
+				.map((line) => theme.fg(commandStreamLineColor(line), renderCommandStreamLine(line, prLinks, width)));
 		},
 		invalidate(): void {},
 	};
+}
+
+function renderCommandStreamLine(line: string, prLinks: Map<number, string>, width: number): string {
+	const truncated = truncateDisplayLine(line, width);
+	if (prLinks.size === 0) return truncated;
+	return linkifyPrReferences(truncated, prLinks);
+}
+
+function linkifyPrReferences(line: string, prLinks: Map<number, string>): string {
+	return line.replace(/#(\d+)\b/g, (match, numberText: string) => {
+		const url = prLinks.get(Number(numberText));
+		return url ? terminalHyperlink(match, url) : match;
+	});
+}
+
+function terminalHyperlink(text: string, url: string): string {
+	return `\x1B]8;;${url}\x07${text}\x1B]8;;\x07`;
+}
+
+function commandStreamPrLinks(details: unknown): Map<number, string> {
+	const links = new Map<number, string>();
+	if (!isRecord(details) || !Array.isArray(details.prLinks)) return links;
+
+	for (const rawLink of details.prLinks) {
+		if (!isRecord(rawLink)) continue;
+		const number = rawLink.number;
+		const url = rawLink.url;
+		if (typeof number !== "number" || !Number.isInteger(number) || typeof url !== "string") continue;
+		const sanitizedUrl = sanitizeTerminalHyperlinkUrl(url);
+		if (sanitizedUrl) {
+			links.set(number, sanitizedUrl);
+		}
+	}
+	return links;
+}
+
+function sanitizeTerminalHyperlinkUrl(url: string): string | undefined {
+	if (/\p{Cc}/u.test(url)) return undefined;
+	try {
+		const parsed = new URL(url);
+		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+		return parsed.toString();
+	} catch {
+		return undefined;
+	}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function commandStreamDetailsForLanded(landed: LandedPr[]): CommandStreamMessageDetails | undefined {
+	const prLinks: CommandStreamPrLink[] = [];
+	for (const entry of landed) {
+		if (entry.url) {
+			prLinks.push({ number: entry.number, url: entry.url });
+		}
+	}
+	return prLinks.length > 0 ? { prLinks } : undefined;
 }
 
 function customMessageText(content: CustomMessageContent): string {
@@ -1430,8 +1508,9 @@ function presentBrief(ctx: ExtensionCommandContext, fullMessage: string, level: 
 	console.log(fullMessage);
 }
 
-function formatSuccessNotification(message: string): string {
-	return firstNonEmptyLine(message) ?? "land-stack completed.";
+function formatSuccessNotification(message: string, details?: CommandStreamMessageDetails): string {
+	const firstLine = firstNonEmptyLine(message) ?? "land-stack completed.";
+	return details ? linkifyPrReferences(firstLine, commandStreamPrLinks(details)) : firstLine;
 }
 
 function formatFailureNotification(error: unknown): string {
@@ -1463,7 +1542,7 @@ function emptyResult(): ExecResult {
 }
 
 export function stripAnsi(text: string): string {
-	return text.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, "");
+	return text.replace(/\x1B(?:\][^\x07]*(?:\x07|\x1B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, "");
 }
 
 function errorMessage(error: unknown): string {

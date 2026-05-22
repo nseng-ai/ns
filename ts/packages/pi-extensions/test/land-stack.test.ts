@@ -534,6 +534,7 @@ describe("land-stack pure helpers", () => {
 
 	test("strips ANSI and truncates output tails", () => {
 		expect(stripAnsi("\u001b[31mred\u001b[0m")).toBe("red");
+		expect(stripAnsi("\u001b]8;;https://github.example/pull/101\u0007#101\u001b]8;;\u0007")).toBe("#101");
 		const lines = Array.from({ length: 45 }, (_, index) => `line ${index + 1}`).join("\n");
 		const tail = outputTail(lines);
 		expect(tail.startsWith("… 5 earlier line(s) omitted\nline 6")).toBe(true);
@@ -717,7 +718,7 @@ describe("land-stack command scenarios", () => {
 			pi.execCalls.filter((call) => call.command === "gt" && call.args[0] === "restack").map((call) => call.args[2]),
 		).toEqual(["feature-b", DESCENDANT]);
 		expect(notifications.at(-1)?.level).toBe("success");
-		expect(notifications.at(-1)?.message).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
 	});
 
@@ -740,6 +741,27 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
 	});
 
+	test("renders final landed PR numbers as terminal hyperlinks", async () => {
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...mergeSingleFeatureA(),
+		];
+		const { pi, messages, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(notifications.at(-1)?.message).toContain("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07 feature-a");
+		const finalMessage = messages.at(-1);
+		expect(messageContentText(finalMessage?.content ?? "")).toContain("✓ Landed 1 PR: #101 feature-a.");
+		expect(finalMessage?.details).toEqual({ prLinks: [{ number: 101, url: "https://github.example/pull/101" }] });
+		const renderer = pi.messageRenderers.get("land-stack-command-stream");
+		expect(renderer).toBeDefined();
+		const rendered = renderer?.(finalMessage!, { expanded: false }, { fg: (_color: string, text: string) => text })
+			.render(200)
+			.join("\n");
+		expect(rendered).toContain("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07 feature-a");
+	});
+
 	test("treats missing local branch during Graphite delete as successful cleanup", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [
@@ -751,7 +773,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("success");
-		expect(notifications.at(-1)?.message).toContain("Landed 1 PR: #101 feature-a.");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 1 PR: #101 feature-a.");
 		expect(commandMessagesText(messages)).toContain("✓ $ gt delete feature-a -f -q — branch feature-a already absent");
 	});
 
@@ -769,7 +791,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("success");
-		expect(notifications.at(-1)?.message).toContain("Landed 1 PR: #101 feature-a.");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 1 PR: #101 feature-a.");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).not.toContain("✗ $ gt delete feature-a -f -q — exit 1");
 		expect(streamText).not.toContain("fatal: 'master' is already checked out");
@@ -794,7 +816,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("warning");
-		expect(notifications.at(-1)?.message).toContain("Landed 1 PR: #101 feature-a.");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 1 PR: #101 feature-a.");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
@@ -940,7 +962,7 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.findIndex((call) => call.command === "slot")).toBeLessThan(
 			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
 		);
-		expect(notifications.at(-1)?.message).toContain("Landed 1 PR: #101 feature-a.");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 1 PR: #101 feature-a.");
 	});
 
 	test("managed slot conflict in non-interactive mode refuses and does not free slots", async () => {
