@@ -314,7 +314,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 					await confirmAndFreeManagedSlots(runtimePi, ctx, plan);
 				}
 
-				await runMergeLoop(runtimePi, ctx, plan, landed, warnings);
+				await runMergeLoop(runtimePi, ctx, plan, landed, warnings, { commandStream, unstreamedPi: pi });
 
 				const successSummary = formatSuccessSummary(landed, plan.stack.descendantBranches, warnings);
 				const completionLevel = warnings.length > 0 ? "warning" : "success";
@@ -512,6 +512,7 @@ async function runMergeLoop(
 	plan: LandingPlan,
 	landed: LandedPr[],
 	warnings: LandingWarning[],
+	options: { commandStream?: LandStackCommandStream; unstreamedPi?: ExtensionAPI } = {},
 ): Promise<void> {
 	const { repoRoot, stack } = plan;
 
@@ -575,7 +576,10 @@ async function runMergeLoop(
 
 		setStatus(ctx, `deleting local Graphite branch ${branch}...`);
 		const deleteArgs = ["delete", branch, "-f", "-q"];
-		const deleted = await exec(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
+		const deleted =
+			!nextRestackBranch && options.commandStream && options.unstreamedPi
+				? await deleteFinalLocalGraphiteBranch(options.unstreamedPi, options.commandStream, repoRoot, branch)
+				: await exec(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 		if (deleted.code !== 0) {
 			if (!nextRestackBranch) {
 				warnings.push({
@@ -1297,10 +1301,41 @@ export function isGtDeleteMissingBranch(result: ExecResult, branch: string): boo
 	return output.includes(`could not find branch ${branch.toLowerCase()}`);
 }
 
+export function isGtDeleteCheckedOutElsewhere(result: ExecResult): boolean {
+	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
+	return /fatal:\s*['"][^'"]+['"] is already checked out at ['"][^'"]+['"]/i.test(output);
+}
+
+async function deleteFinalLocalGraphiteBranch(
+	pi: ExtensionAPI,
+	commandStream: LandStackCommandStream,
+	repoRoot: string,
+	branch: string,
+): Promise<ExecResult> {
+	const deleteArgs = ["delete", branch, "-f", "-q"];
+	const commandDisplay = formatCommand("gt", deleteArgs);
+	commandStream.start(commandDisplay);
+	const result = await execRaw(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
+	const finish = normalizeCommandFinish("gt", deleteArgs, result);
+	if (finish.result.code === 0) {
+		commandStream.finish(commandDisplay, finish);
+		return finish.result;
+	}
+	if (!result.killed && isGtDeleteCheckedOutElsewhere(result)) {
+		return { ...result, code: 0 };
+	}
+	commandStream.finish(commandDisplay, finish);
+	return finish.result;
+}
+
 async function exec(pi: ExtensionAPI, command: string, args: string[], cwd: string, timeout: number): Promise<ExecResult> {
+	const result = await execRaw(pi, command, args, cwd, timeout);
+	return normalizeCommandFinish(command, args, result).result;
+}
+
+async function execRaw(pi: ExtensionAPI, command: string, args: string[], cwd: string, timeout: number): Promise<ExecResult> {
 	try {
-		const result = normalizePiExecResult(await pi.exec(command, args, { cwd, timeout }));
-		return normalizeCommandFinish(command, args, result).result;
+		return normalizePiExecResult(await pi.exec(command, args, { cwd, timeout }));
 	} catch (error) {
 		return {
 			stdout: "",
