@@ -47,7 +47,7 @@ def build_objective_context() -> ObjectiveCliContext | ObjectiveCliUnavailable:
 def load_objective_context(ctx: click.Context) -> ObjectiveCliContext | ObjectiveCliUnavailable:
     """Unpack the typed Objective context from the given Click context."""
     result = load_clinkr_context_object(ctx).context_factory()
-    if not isinstance(result, ObjectiveCliContext | ObjectiveCliUnavailable):
+    if not isinstance(result, (ObjectiveCliContext, ObjectiveCliUnavailable)):
         raise RuntimeError(
             "context_factory returned "
             f"{type(result).__name__}, expected ObjectiveCliContext or ObjectiveCliUnavailable."
