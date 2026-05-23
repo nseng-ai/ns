@@ -13,6 +13,7 @@ from asdl_core.git.types import (
     DetachedHead,
     FileStatus,
     GitCommandFailure,
+    LocalBranchTip,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -46,6 +47,9 @@ class FakeGitGateway(GitGateway):
             dict[tuple[Path, str], tuple[RestructuredFile, ...] | GitCommandFailure] | None
         ) = None,
         directories_by_ref_path: dict[tuple[str, str], tuple[str, ...]] | None = None,
+        tracked_paths_by_ref_path: (
+            dict[tuple[str, str], tuple[str, ...] | GitCommandFailure] | None
+        ) = None,
         paths_at_ref: Iterable[tuple[str, str]] = (),
         file_last_touched_by_ref_path: dict[tuple[str, str], str] | None = None,
         branch_head_iso_by_branch: dict[str, str] | None = None,
@@ -77,6 +81,7 @@ class FakeGitGateway(GitGateway):
         self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
         self._restructured_files_by_key = dict(restructured_files_by_key or {})
         self._directories_by_ref_path = dict(directories_by_ref_path or {})
+        self._tracked_paths_by_ref_path = dict(tracked_paths_by_ref_path or {})
         self._paths_at_ref = set(paths_at_ref)
         self._file_last_touched_by_ref_path = dict(file_last_touched_by_ref_path or {})
         self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
@@ -134,6 +139,22 @@ class FakeGitGateway(GitGateway):
 
     def list_local_branches(self) -> tuple[str, ...]:
         return tuple(sorted(self._branches))
+
+    def list_local_branch_tips(self) -> tuple[LocalBranchTip, ...]:
+        return tuple(
+            LocalBranchTip(
+                name=branch,
+                head_iso=self._branch_head_iso_by_branch.get(branch),
+            )
+            for branch in sorted(self._branches)
+        )
+
+    def list_tracked_paths_at_ref(
+        self,
+        ref: str,
+        path: str,
+    ) -> tuple[str, ...] | GitCommandFailure:
+        return self._tracked_paths_by_ref_path.get((ref, path), ())
 
     def list_directories_at_ref(
         self,

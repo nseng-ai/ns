@@ -10,6 +10,7 @@ from asdl_core.git.types import (
     DetachedHead,
     FileStatus,
     GitCommandFailure,
+    LocalBranchTip,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -49,6 +50,22 @@ class GitGateway(ABC):
     @abstractmethod
     def list_local_branches(self) -> tuple[str, ...]:
         """Return the local branch names in the bound repo."""
+
+    @abstractmethod
+    def list_local_branch_tips(self) -> tuple[LocalBranchTip, ...]:
+        """Return local branch names and HEAD committer timestamps."""
+
+    @abstractmethod
+    def list_tracked_paths_at_ref(
+        self,
+        ref: str,
+        path: str,
+    ) -> tuple[str, ...] | GitCommandFailure:
+        """Return tracked file paths under ``path`` at ``ref``.
+
+        Missing paths return an empty tuple. Unknown refs or unexpected git errors
+        return ``GitCommandFailure``.
+        """
 
     @abstractmethod
     def list_directories_at_ref(

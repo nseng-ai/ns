@@ -168,23 +168,20 @@ def build_objective_status_result(
     rows_by_slug: dict[str, list[ObjectiveBranchEntry]] = {}
     trunk = ctx.trunk_branch
 
-    for branch in ctx.git.list_local_branches():
+    for branch_tip in ctx.git.list_local_branch_tips():
+        branch = branch_tip.name
         if branch == trunk:
             continue
 
         ref = f"refs/heads/{branch}"
-        slugs_result = ctx.git.list_directories_at_ref(ref, OBJECTIVE_ROOT)
-        if isinstance(slugs_result, GitCommandFailure):
+        paths_result = ctx.git.list_tracked_paths_at_ref(ref, OBJECTIVE_ROOT)
+        if isinstance(paths_result, GitCommandFailure):
             raise ClinkrFailure(
-                error_type="git_list_objectives_failed",
-                message=slugs_result.message,
+                error_type="git_list_objective_paths_failed",
+                message=paths_result.message,
             )
 
-        open_slugs = tuple(
-            slug
-            for slug in sorted(slugs_result)
-            if not ctx.git.path_exists_at_ref(ref, f"{OBJECTIVE_ROOT}/{slug}/closed.md")
-        )
+        open_slugs = _open_objective_slugs_from_paths(paths_result)
         if not open_slugs:
             continue
 
@@ -194,13 +191,12 @@ def build_objective_status_result(
                 error_type="git_ahead_count_failed",
                 message=ahead_result.message,
             )
-        tip_head_iso = ctx.git.branch_head_iso(branch)
 
         for slug in open_slugs:
             rows_by_slug.setdefault(slug, []).append(
                 ObjectiveBranchEntry(
                     branch=branch,
-                    tip_head_iso=tip_head_iso,
+                    tip_head_iso=branch_tip.head_iso,
                     ahead_trunk=ahead_result,
                 )
             )
@@ -216,6 +212,25 @@ def build_objective_status_result(
             for slug, entries in sorted(rows_by_slug.items())
         ),
     )
+
+
+def _open_objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
+    slugs: set[str] = set()
+    closed_slugs: set[str] = set()
+    prefix = f"{OBJECTIVE_ROOT}/"
+
+    for path in paths:
+        if not path.startswith(prefix):
+            continue
+        rest = path.removeprefix(prefix)
+        slug, separator, child_path = rest.partition("/")
+        if slug == "" or separator == "":
+            continue
+        slugs.add(slug)
+        if child_path == "closed.md":
+            closed_slugs.add(slug)
+
+    return tuple(sorted(slugs - closed_slugs))
 
 
 def _latest_tip_head_iso(group: ObjectiveStatusGroup) -> str | None:

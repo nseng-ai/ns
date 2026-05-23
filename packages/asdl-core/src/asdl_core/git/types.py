@@ -36,6 +36,14 @@ class GitCommandFailure:
 
 
 @dataclass(frozen=True)
+class LocalBranchTip:
+    """A local branch name and its HEAD committer timestamp."""
+
+    name: str
+    head_iso: str | None
+
+
+@dataclass(frozen=True)
 class RestructuredFile:
     """A file pair surfaced by git's rename/copy detection."""
 
