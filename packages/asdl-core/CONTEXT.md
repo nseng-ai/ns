@@ -361,12 +361,3 @@ A **PRReviewThread** owns the **PR diff anchor** and thread state: path, line ra
 A **PR inline comment draft** is pre-submission data. After submission through a **PRReview**, GitHub may surface it as a **PRReviewComment** inside a **PRReviewThread**; do not use the persisted comment term for the draft.
 
 **PR changed files** are the source for deciding whether a **PR diff anchor** is commentable. Missing patch text means inline-commentability may be limited for that file; it is not a gateway failure by itself.
-
-### Flagged ambiguities
-
-- **IssueGateway** — current implementation name that leaks GitHub's issue/PR API model; resolved target language is **PRGateway** for all current PR-centered GitHub workflows.
-- **PRReviewSubmission** — current implementation split for the result of creating a review; resolved target language is **PRReview** because the created review is the same domain concept as a fetched submitted review. The unified create-review result should parse the author from GitHub's response rather than dropping it.
-- **PRDetails** — current implementation split for guarded-merge metadata; resolved target language is **PRSummary** with head commit OID included, accepting modest overfetching to keep one PR metadata concept.
-- **PRLookupError / PRCommandError** — current implementation conflates negative lookup answers with gateway failures; resolved target language is **PRLookupMiss** for a successful not-found answer and **PRGatewayFailure** for `gh`/GitHub/API failure.
-- **ResolveReviewThreadResult / UnresolveReviewThreadResult** — current implementation exposes fake-only pre-state booleans; resolved target language is **PRReviewThreadState**, a trusted post-mutation state record.
-- **PRMergeResult** — current implementation carries command-output-shaped success data; resolved target language is **PRMergeOutcome**, with stdout/stderr treated as diagnostics rather than domain fields.

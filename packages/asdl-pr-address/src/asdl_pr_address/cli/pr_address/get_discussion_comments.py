@@ -33,7 +33,7 @@ class GetDiscussionCommentsResult(ClinkrModel):
     name="get-discussion-comments",
     help="Fetch discussion comments for a PR.",
 )
-def run_get_discussion_comments(
+def run_get_pr_discussion_comments(
     ctx: click.Context,
     request: GetDiscussionCommentsRequest,
 ) -> ClinkrExit[GetDiscussionCommentsResult]:

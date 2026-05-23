@@ -18,12 +18,12 @@ The current tracked workspace has 7 packages with meaningful domain language. Ea
     - [`## Clinkr`](packages/asdl-core/CONTEXT.md#clinkr) — operation / group / exit-envelope CLI framework. _Present._
     - [`## Git`](packages/asdl-core/CONTEXT.md#git) — git gateway: branches, refs, worktrees, patch-id, `NonIdealState` arms. _Present._
     - [`## Gt`](packages/asdl-core/CONTEXT.md#gt) — Graphite gateway: stack metadata, ancestors/children/descendants, `StackInfo`. _Present._
-    - `## Gh` — GitHub gateway: PRs, reviews, threads, comments, state filters. _Planned._
+    - [`## Gh`](packages/asdl-core/CONTEXT.md#gh) — GitHub gateway: PRs, reviews, threads, comments, state filters. _Present._
     - `## Top-level utilities` — `plugin.py`, `console.py`, `format.py`, `click_utils.py`. _Planned._
 - **brmem** — [`packages/brmem/CONTEXT.md`](packages/brmem/CONTEXT.md). _Planned._
   - Branch-scoped durable memory: `Entry`, `Namespace`, `EntryKey`, `RefLayout`, snapshots, prompt resolution.
 - **asdl-pr-address** — [`packages/asdl-pr-address/CONTEXT.md`](packages/asdl-pr-address/CONTEXT.md). _Planned._
-  - PR review address book: `ReviewThread`, `ReviewComment`, `DiscussionComment`, `IssueComment`, `Reaction`, `Feedback`. Cross-references (does not redefine) `asdl-core.gh` types.
+  - PR review address book: `ReviewThread`, `ReviewComment`, `DiscussionComment`, PR discussion comments, `Reaction`, `Feedback`. Cross-references (does not redefine) `asdl-core.gh` types.
 - **asdl-reviewer** — [`packages/asdl-reviewer/CONTEXT.md`](packages/asdl-reviewer/CONTEXT.md). _Planned._
   - Reviewer harness: `Reviewer`, `ReviewDefinition`, `HarnessAdapter`, `Finding`, `InlineCommentability`, severity. Explicitly disambiguates `Review` against `gh.PRReview` and `pr-address.ReviewThread`.
 - **asdl-slots** — [`packages/asdl-slots/CONTEXT.md`](packages/asdl-slots/CONTEXT.md). _Planned._
@@ -69,7 +69,7 @@ Phase 4 will finalize this section once package sessions either canonicalize col
 Candidates to confirm or resolve during sessions:
 
 - **Review** — used differently in `asdl-core.gh` (`PRReview` = a single review submission), `asdl-pr-address` (`ReviewThread` = a conversation), and `asdl-reviewer` (a `Reviewer` runs a `ReviewDefinition`).
-- **Comment** — `PRReviewComment` vs `IssueComment` vs `DiscussionComment` vs `ReviewComment` across `gh` and `pr-address`.
+- **Comment** — `asdl-core.gh` distinguishes `PRReviewComment` from `PRDiscussionComment`; `asdl-pr-address` still needs to confirm its package-local `DiscussionComment` and `ReviewComment` names against those core types.
 - **State/status** — `gh.PRState` / `gh.PRStateFilter` vs `format.state_badge` rendering vs `packagechk.CheckStatus` / `PackageCheckReport.exit_code` availability outcomes.
 - **Branch / ref / start_point** — usage across `asdl-core.git`, `asdl-core.gt`, and `asdl-slots`.
 

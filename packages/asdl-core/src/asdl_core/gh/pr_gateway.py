@@ -5,15 +5,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from asdl_core.gh.real_gateway_helpers import (
-    add_comment,
-    add_reaction,
+    add_pr_discussion_comment,
+    add_pr_discussion_comment_reaction,
     add_review_thread_reply,
     create_pr_review,
-    fetch_pr_details_for_branch,
     fetch_pr_summary_for_branch,
-    find_comment_by_marker,
-    get_discussion_comments,
+    find_pr_discussion_comment_by_marker,
     get_pr_changed_files,
+    get_pr_discussion_comments,
     get_pr_review_comments,
     get_review_threads,
     get_reviews,
@@ -21,11 +20,10 @@ from asdl_core.gh.real_gateway_helpers import (
     resolve_review_thread,
     search_prs,
     unresolve_review_thread,
-    update_comment,
+    update_pr_discussion_comment,
 )
 from asdl_core.gh.types import (
     PRChangedFile,
-    PRDetails,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -49,10 +47,6 @@ class PRGateway(ABC):
     @abstractmethod
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss | PRGatewayFailure:
         """Look up the PR for a branch."""
-
-    @abstractmethod
-    def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupMiss | PRGatewayFailure:
-        """Look up detailed PR metadata for guarded merge workflows."""
 
     @abstractmethod
     def search_prs(
@@ -79,12 +73,8 @@ class PRGateway(ABC):
         """Fetch inline review comments on a PR."""
 
     @abstractmethod
-    def get_discussion_comments(self, pr_number: int) -> tuple[PRDiscussionComment, ...]:
-        """Fetch top-level discussion comments on a PR."""
-
     def get_pr_discussion_comments(self, pr_number: int) -> tuple[PRDiscussionComment, ...]:
-        """Fetch top-level discussion comments on a PR using the PR-domain alias."""
-        return self.get_discussion_comments(pr_number)
+        """Fetch top-level discussion comments on a PR."""
 
     # -- PR mutations --
 
@@ -118,40 +108,22 @@ class PRGateway(ABC):
         """Submit one PR review containing multiple inline comments."""
 
     @abstractmethod
-    def add_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
+    def add_pr_discussion_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
         """Add a top-level discussion comment to a PR."""
 
-    def add_pr_discussion_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
-        """Add a top-level discussion comment to a PR using the PR-domain alias."""
-        return self.add_comment(pr_number, body)
-
     @abstractmethod
-    def find_comment_by_marker(
-        self, pr_number: int, marker: str, author_login: str
-    ) -> PRDiscussionComment | None:
-        """Find a discussion comment carrying ``marker`` from ``author_login``."""
-
     def find_pr_discussion_comment_by_marker(
         self, pr_number: int, marker: str, author_login: str
     ) -> PRDiscussionComment | None:
-        """Find a discussion comment using the PR-domain alias."""
-        return self.find_comment_by_marker(pr_number, marker, author_login)
+        """Find a PR discussion comment carrying ``marker`` from ``author_login``."""
 
     @abstractmethod
-    def update_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
+    def update_pr_discussion_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
         """Replace the body of an existing PR discussion comment."""
 
-    def update_pr_discussion_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
-        """Replace a PR discussion comment using the PR-domain alias."""
-        return self.update_comment(comment_id, body)
-
     @abstractmethod
-    def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
-        """Add a reaction to a PR discussion comment."""
-
     def add_pr_discussion_comment_reaction(self, comment_id: int, reaction: str) -> Reaction:
-        """Add a reaction to a PR discussion comment using the PR-domain alias."""
-        return self.add_reaction(comment_id, reaction)
+        """Add a reaction to a PR discussion comment."""
 
 
 class RealPRGateway(PRGateway):
@@ -162,9 +134,6 @@ class RealPRGateway(PRGateway):
 
     def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss | PRGatewayFailure:
         return fetch_pr_summary_for_branch(branch, repo=self._repo)
-
-    def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupMiss | PRGatewayFailure:
-        return fetch_pr_details_for_branch(branch, repo=self._repo)
 
     def search_prs(
         self, query: str, *, state: PRStateFilter
@@ -185,8 +154,8 @@ class RealPRGateway(PRGateway):
     def get_pr_review_comments(self, pr_number: int) -> tuple[PRReviewComment, ...]:
         return get_pr_review_comments(pr_number, repo=self._repo)
 
-    def get_discussion_comments(self, pr_number: int) -> tuple[PRDiscussionComment, ...]:
-        return get_discussion_comments(pr_number, repo=self._repo)
+    def get_pr_discussion_comments(self, pr_number: int) -> tuple[PRDiscussionComment, ...]:
+        return get_pr_discussion_comments(pr_number, repo=self._repo)
 
     def merge_pr(
         self,
@@ -218,21 +187,21 @@ class RealPRGateway(PRGateway):
     ) -> PRReview:
         return create_pr_review(pr_number, comments, repo=self._repo)
 
-    def add_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
-        return add_comment(pr_number, body, repo=self._repo)
+    def add_pr_discussion_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
+        return add_pr_discussion_comment(pr_number, body, repo=self._repo)
 
-    def find_comment_by_marker(
+    def find_pr_discussion_comment_by_marker(
         self, pr_number: int, marker: str, author_login: str
     ) -> PRDiscussionComment | None:
-        return find_comment_by_marker(
+        return find_pr_discussion_comment_by_marker(
             pr_number,
             marker,
             author_login,
             repo=self._repo,
         )
 
-    def update_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
-        return update_comment(comment_id, body, repo=self._repo)
+    def update_pr_discussion_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
+        return update_pr_discussion_comment(comment_id, body, repo=self._repo)
 
-    def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
-        return add_reaction(comment_id, reaction, repo=self._repo)
+    def add_pr_discussion_comment_reaction(self, comment_id: int, reaction: str) -> Reaction:
+        return add_pr_discussion_comment_reaction(comment_id, reaction, repo=self._repo)

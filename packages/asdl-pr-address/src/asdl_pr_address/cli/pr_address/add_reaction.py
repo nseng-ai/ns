@@ -24,7 +24,7 @@ class AddReactionResult(ClinkrModel):
     name="add-reaction",
     help="Add a reaction to a comment.",
 )
-def run_add_reaction(
+def run_add_pr_discussion_comment_reaction(
     ctx: click.Context,
     request: AddReactionRequest,
 ) -> ClinkrExit[AddReactionResult]:

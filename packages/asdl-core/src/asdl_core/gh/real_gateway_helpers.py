@@ -1,8 +1,7 @@
-"""Subprocess-backed helpers shared across the real gh gateways.
+"""Subprocess-backed helpers for the real PRGateway implementation.
 
-The real ``PRGateway`` and ``IssueGateway`` implementations both need some of
-GitHub's PR plumbing via ``gh``. Keeping helper functions in this module makes
-that production plumbing explicit without adding parent-package dependencies.
+Keeping helper functions in this module makes the production ``gh`` plumbing
+explicit without adding parent-package dependencies.
 """
 
 from __future__ import annotations
@@ -13,7 +12,6 @@ from typing import Any, cast
 
 from asdl_core.gh.types import (
     PRChangedFile,
-    PRDetails,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -212,31 +210,6 @@ def fetch_pr_summary_for_branch(
     return _summary_from_pr_view(data)
 
 
-def fetch_pr_details_for_branch(
-    branch: str, *, repo: str | None = None
-) -> PRDetails | PRLookupMiss | PRGatewayFailure:
-    """Shell out to ``gh pr view <branch>`` and return guarded-merge metadata."""
-    result = _run_gh(
-        [
-            "pr",
-            "view",
-            branch,
-            "--json",
-            "number,headRefName,baseRefName,headRefOid",
-        ],
-        repo=repo,
-    )
-    if result.returncode != 0:
-        return _lookup_failure(result)
-    data = json.loads(result.stdout)
-    return PRDetails(
-        number=data["number"],
-        head_ref_name=data["headRefName"],
-        base_ref_name=data["baseRefName"],
-        head_ref_oid=data["headRefOid"],
-    )
-
-
 def search_prs(
     query: str, *, state: PRStateFilter, repo: str | None = None
 ) -> tuple[PRSummary, ...] | PRGatewayFailure:
@@ -429,7 +402,7 @@ def get_pr_review_comments(
     )
 
 
-def get_discussion_comments(
+def get_pr_discussion_comments(
     pr_number: int, *, repo: str | None = None
 ) -> tuple[PRDiscussionComment, ...]:
     owner, repo_name = _get_owner_repo(repo)
@@ -546,7 +519,9 @@ def create_pr_review(
     )
 
 
-def add_comment(pr_number: int, body: str, *, repo: str | None = None) -> PRDiscussionComment:
+def add_pr_discussion_comment(
+    pr_number: int, body: str, *, repo: str | None = None
+) -> PRDiscussionComment:
     owner, repo_name = _get_owner_repo(repo)
     cmd = [
         "gh",
@@ -562,20 +537,22 @@ def add_comment(pr_number: int, body: str, *, repo: str | None = None) -> PRDisc
     return _discussion_comment_from_response(comment)
 
 
-def find_comment_by_marker(
+def find_pr_discussion_comment_by_marker(
     pr_number: int,
     marker: str,
     author_login: str,
     *,
     repo: str | None = None,
 ) -> PRDiscussionComment | None:
-    for comment in get_discussion_comments(pr_number, repo=repo):
+    for comment in get_pr_discussion_comments(pr_number, repo=repo):
         if comment.author == author_login and marker in comment.body:
             return comment
     return None
 
 
-def update_comment(comment_id: int, body: str, *, repo: str | None = None) -> PRDiscussionComment:
+def update_pr_discussion_comment(
+    comment_id: int, body: str, *, repo: str | None = None
+) -> PRDiscussionComment:
     owner, repo_name = _get_owner_repo(repo)
     cmd = [
         "gh",
@@ -591,7 +568,9 @@ def update_comment(comment_id: int, body: str, *, repo: str | None = None) -> PR
     return _discussion_comment_from_response(comment)
 
 
-def add_reaction(comment_id: int, reaction: str, *, repo: str | None = None) -> Reaction:
+def add_pr_discussion_comment_reaction(
+    comment_id: int, reaction: str, *, repo: str | None = None
+) -> Reaction:
     owner, repo_name = _get_owner_repo(repo)
     cmd = [
         "gh",
