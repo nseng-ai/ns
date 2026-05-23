@@ -22,7 +22,7 @@ Canonical root: `.asdl/objectives/<slug>/`.
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
 - Update files: `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
-- `closed.md`: optional Closure Marker; existence means closed.
+- `closed.md`: optional minimal Closure Marker; existence means closed; closure meaning belongs in `objective.md` under `## Closure`.
 
 Objective records are Markdown. Read/edit Markdown directly. Use `objective exec` for deterministic reads: candidate listing, inventory, closed-marker detection. Mutate files directly.
 
@@ -122,6 +122,18 @@ Amend an existing update when correcting stale/incorrect evidence for the same s
 
 Write a new update for a distinct finding, blocker, decision, risk change, completion event, or follow-up slice that materially changes roadmap state.
 
+## Closure Gate
+
+After normal update evidence and durable Objective edits, evaluate whether the selected Objective appears ready to close.
+
+Closure-ready means the Objective is not already closed; the outcome is clear (`completed` or intentionally `abandoned`); completion criteria or abandonment rationale are evidenced; no active non-parked roadmap work remains; important risks/open questions are resolved, accepted, or carried as follow-ups/caveats; and a concise `## Closure` can record outcome, evidence, caveats, and follow-ups.
+
+Never close automatically. Never close merely because roadmap checkboxes are all `[x]`, or from branch names, PR titles, package names, candidate count, or other selection hints. If closure-ready, ask: `Objective <slug> appears ready to close as <completed|abandoned>. Close it now?` Include a one- or two-line rationale when helpful.
+
+If the user confirms, perform `objective-close` semantics inline: add/update `## Closure` in `objective.md`, write minimal `closed.md`, keep the Objective directory in place, and put closure meaning in `objective.md` rather than `closed.md`. If the user already explicitly requested update-and-close in this invocation, treat confirmation as granted only when outcome and rationale are clear.
+
+If closure is declined, ambiguous, or unclear, leave `closed.md` absent and report that closure was offered/skipped or not offered. Do not create a duplicate Semantic Update solely for closure; create or amend one only when closure introduces distinct semantic information beyond the normal update.
+
 ## Verification evidence
 
 Prefer command plus pass/fail over exact aggregate counts in durable Objective files. Record exact counts only when materially meaningful.
@@ -146,8 +158,10 @@ The final response may include exact command output when useful; durable Objecti
    - preserve useful history; do not silently delete disproven assumptions or de-risked risks.
 8. Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
 9. Create or amend a Semantic Update for meaningful findings, decisions, blockers, assumption/risk changes, completion evidence, plan changes, or follow-ups.
-10. Explain why durable files changed, or why they remained correct after meaningful evidence was considered.
-11. For maintenance-only durable edits with no new semantic information, do not create/amend an update file; say so explicitly.
+10. Apply the Closure Gate. If closure-ready, ask for confirmation unless the user already explicitly granted update-and-close permission in this invocation.
+11. If closure is confirmed, add/update `## Closure` in `objective.md` and write minimal `closed.md` using `objective-close` semantics. If closure is declined, ambiguous, or not ready, leave the Objective open.
+12. Explain why durable files changed, why they remained correct, and whether closure was not evaluated, not ready, offered, declined/skipped, or completed.
+13. For maintenance-only durable edits with no new semantic information, do not create/amend an update file; say so explicitly.
 
 ## Stop / ask
 
@@ -155,7 +169,9 @@ The final response may include exact command output when useful; durable Objecti
 - Update intent remains ambiguous after the invocation-intent confirmation.
 - The exactly-one open Objective confirmation is pending.
 - The request would update more than one Objective.
-- The selected Objective is closed and the user did not explicitly ask to amend its closed record.
+- The selected Objective is closed and the user did not explicitly ask to amend its closed record; v1 has no reopen workflow.
+- Closure appears ready but confirmation is pending.
+- Closure outcome/rationale is unclear after normal update evidence; leave open unless the user clarifies.
 - The update would add, delete, move, recreate, or normalize any Objective slug directory instead of editing the selected slug in place.
 - The user asks for a ceremonial status ping, branch changelog, registry, YAML/frontmatter, UUID, hidden metadata, or state-machine behavior.
 - Information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
@@ -166,4 +182,6 @@ The final response may include exact command output when useful; durable Objecti
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - Amended update file, if any, is the existing Semantic Update for the same event, not a duplicate.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
-- Final response includes: selected Objective slug/path; durable files edited; whether a Semantic Update was created, amended, or intentionally not written; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; verification run or skipped.
+- If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists under the selected Objective directory.
+- If closure was not performed, confirm no `closed.md` was created by this invocation.
+- Final response includes: selected Objective slug/path; durable files edited; whether a Semantic Update was created, amended, or intentionally not written; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; closure gate result (not evaluated, not ready, offered, declined/skipped, or completed) and whether `closed.md` was written; verification run or skipped.
