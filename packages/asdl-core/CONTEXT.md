@@ -4,12 +4,12 @@ asdl-core is the shared substrate that every asdl plugin builds on. It is a sing
 
 ## Clinkr
 
-Clinkr makes asdl CLIs equally usable by humans and agents. Every CLI subcommand built on clinkr exposes the same programmatic contract:
+Clinkr makes asdl CLIs equally usable by humans and agents. Ordinary CLI subcommands built on clinkr expose the same programmatic contract:
 
-- A stable JSON **machine envelope** per operation (`--format json`).
+- A stable JSON **machine envelope** per ordinary operation (`--format json`; operations that deliberately own a custom `--format` keep that flag instead).
 - A three-value **OK | NEGATIVE | FAILURE** exit contract.
 - A Pydantic-typed **request** shape (Click params are auto-derived from it).
-- A separate **human rendering** path for interactive use.
+- Separate **human renderer** and optional Markdown renderer paths for non-JSON use.
 
 Why this shape: skills and agents invoke asdl CLIs programmatically and need predictable, parseable contracts that humans can also read.
 
@@ -18,10 +18,10 @@ Why this shape: skills and agents invoke asdl CLIs programmatically and need pre
 **Operation** — The semantic command of a clinkr CLI: the single typed function that runs regardless of whether its result is dispatched through the machine envelope or the human renderer. Declared with `@clinkr_operation`; signature is `(ctx, request: <PydanticModel>) -> ClinkrExit[T]`. Registered with a `ClinkrGroup`, which wraps it as a `click.Command` at mount time.
 _Avoid:_ "command" unqualified (ambiguous with `click.Command`), "subcommand," "handler," "endpoint," "action."
 
-**ClinkrGroup** — A `click.Group` subclass that takes a sequence of Operations at construction and wraps each as a `click.Command` — injecting `--format` and `--json-schema` and wiring human/machine dispatch. Owns the alias table. Immutable after `__init__`: operations, aliases, and hidden-ness are fixed at construction.
+**ClinkrGroup** — A `click.Group` subclass that takes a sequence of Operations at construction and wraps each as a `click.Command` — injecting `--format` and `--json-schema` when those flags are not already owned by the request shape, and wiring human/machine dispatch. Owns the alias table. Operations and hidden-ness are construction-time choices; operation aliases normally come from decorator metadata at registration, with `add_alias` as the low-level manual alias escape hatch.
 _Avoid:_ "registry" (implies dynamic add/remove), "router."
 
-**ClinkrExit\[T\]** — The exit envelope every Operation produces. Generic over the data payload `T`; carries a `status` (`ExitStatus`), and either `data` (OK / NEGATIVE) or `error_type` + `message` (NEGATIVE / FAILURE). Constructed via the `ok` / `negative` / `failure` classmethods; constructor enforces the per-status field invariants. Also subclasses `Exception` so the dispatcher can both `return` and `raise`/catch it across the operation/dispatch boundary — but operation bodies do not construct `ClinkrExit.failure(...)` directly (see `ClinkrFailure`).
+**ClinkrExit\[T\]** — The exit envelope every Operation produces. Generic over the data payload `T`; carries a `status` (`ExitStatus`). OK carries `data`; NEGATIVE carries a `message` and may carry `data` for machine callers; FAILURE carries `error_type` + `message` and never carries `data`. Constructed via the `ok` / `negative` / `failure` classmethods; constructor enforces the per-status field invariants. Also subclasses `Exception` so the dispatcher can both `return` and `raise`/catch it across the operation/dispatch boundary — but operation bodies do not construct `ClinkrExit.failure(...)` directly (see `ClinkrFailure`).
 _Avoid:_ "result" unqualified (collides with the `result_type` Pydantic payload), "response," "envelope" unqualified (collides with the machine envelope).
 
 **ExitStatus** — The three-value enum that tags a `ClinkrExit` and determines its exit code:
@@ -33,10 +33,10 @@ _Avoid:_ "result" unqualified (collides with the `result_type` Pydantic payload)
 _Litmus test for NEGATIVE vs FAILURE:_ if a positive result would be `ClinkrExit.ok(...)`, a negative result is `ClinkrExit.negative(...)`. If the command could not even ask the question, it is `ClinkrFailure` (which the dispatcher converts to `ClinkrExit.failure(...)`).
 _Avoid:_ "error" for NEGATIVE; "warning" for either.
 
-**Machine envelope** — The framework-owned JSON shape emitted on `--format=json`: `{"exit_code": int, ["error_type": str], ["message": str], ["data": <result_type JSON>]}`. Same shape across every Operation and every status. Authors do not customize it; to change machine output, change the Operation's `result_type` Pydantic shape.
+**Machine envelope** — The framework-owned JSON shape emitted on `--format=json`: `{"exit_code": int, ["error_type": str], ["message": str], ["data": <result_type JSON>]}`. Same shape across every Operation and every status; NEGATIVE results can include both `message` and `data`. Authors do not customize it; to change machine output, change the Operation's `result_type` Pydantic shape.
 _Avoid:_ "machine output" (vague), "JSON envelope" (collides with the more general envelope concept).
 
-**Human renderer** — A per-Operation callable that receives the OK-path `data` payload and writes to stdout. Runs on `--format=human` (default) and `--format=markdown`/`md` — the renderer branches on format if it cares. Default is JSON-dump. Override via `@clinkr_operation(human_renderer=...)`. NEGATIVE / FAILURE bypass the renderer: `message` goes to stderr (NEGATIVE) or stderr with an `error:` prefix (FAILURE).
+**Human renderer** — A per-Operation callable that receives the OK-path `data` payload and writes to stdout for `--format=human` (default). Default is JSON-dump. Override via `@clinkr_operation(human_renderer=...)`; register `markdown_renderer=...` when `--format=markdown` / `md` should render differently, otherwise Markdown formats fall back to the human renderer. NEGATIVE / FAILURE bypass renderers: `message` goes to stderr (NEGATIVE) or stderr with an `error:` prefix (FAILURE).
 _Avoid:_ "formatter" (collides with `click.HelpFormatter`), "view," "presenter."
 
 **ClinkrFailure** — The exception raised inside an Operation body to signal an unrecoverable failure. Carries `error_type` and `message`; the dispatcher catches it at the CLI boundary and emits `ClinkrExit.failure(...)` (exit code 2). Operation bodies and CLI-layer helpers do not construct `ClinkrExit.failure(...)` directly. _See also:_ `Ensure` (sugar for guards), `NonIdealState` (sugar for sum-type narrowing).
@@ -94,6 +94,6 @@ ClinkrGroup wraps each Operation as a `click.Command` at construction time, then
 1. Parses argv into the Request type.
 2. Installs a `ClinkrContextObject` carrying the plugin's `context_factory`; sets `machine_mode` when `--format=json` is passed.
 3. Calls the Operation as `op(ctx, request)`.
-4. Routes the returned `ClinkrExit[T]` to either the Human renderer (default, `--format=human`/`markdown`) or the machine envelope (`--format=json`).
+4. Routes the returned `ClinkrExit[T]` to the Human renderer (default), the Markdown renderer when one is registered for `--format=markdown`/`md`, or the machine envelope (`--format=json`).
 
-ExitStatus drives the process exit code (`OK=0`, `NEGATIVE=1`, `FAILURE=2`) and the stderr behavior (`NEGATIVE` writes `message` to stderr; `FAILURE` writes `error: <message>` to stderr; both bypass the Human renderer). The Typed context is constructed lazily — `context_factory()` runs only when an Operation calls `load_typed_context`, so `--help` and `--json-schema` paths skip it entirely.
+ExitStatus drives the process exit code (`OK=0`, `NEGATIVE=1`, `FAILURE=2`) and the stderr behavior (`NEGATIVE` writes `message` to stderr; `FAILURE` writes `error: <message>` to stderr; both bypass renderers). NEGATIVE `data`, when present, is visible only in the machine envelope. The Typed context is constructed lazily — `context_factory()` runs only when an Operation calls `load_typed_context`, so `--help` and `--json-schema` paths skip it entirely.
