@@ -387,9 +387,14 @@ function singleBranchPreflight(worktrees: string): ScriptedExec[] {
 	return singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A, worktrees });
 }
 
-function singleBranchPreflightWithRefs(options: { localSha: string; prSha: string; worktrees?: string | undefined }): ScriptedExec[] {
+function singleBranchPreflightWithRefs(options: {
+	localSha: string;
+	prSha: string;
+	worktrees?: string | undefined;
+	stackOutput?: string | undefined;
+}): ScriptedExec[] {
 	return [
-		...repoIntro({ current: "feature-a", stackOutput: STACK_SINGLE_BRANCH }),
+		...repoIntro({ current: "feature-a", stackOutput: options.stackOutput ?? STACK_SINGLE_BRANCH }),
 		...cleanRepoChecks(),
 		...localBranchChecks(["feature-a"]),
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${options.localSha}\n` }),
@@ -567,6 +572,7 @@ describe("land-stack pure helpers", () => {
 				{ branch: CURRENT, localSha: SHA_B, pr: prSnapshot({ number: 102, branch: CURRENT, base: "feature-a", sha: SHA_B }) },
 			],
 			prSubmitRequirements: [],
+			submitRestackRequirements: [],
 			managedSlotConflicts: [{ branch: "feature-a", path: "/Users/me/.slots/repos/repo/worktrees/slot-01", kind: "managed-slot" }],
 		};
 		const formatted = formatPlan(plan);
@@ -884,6 +890,7 @@ describe("land-stack command scenarios", () => {
 		const submitArgs = ["submit", "--branch", "feature-a", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A }),
+			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_B}\n` }),
@@ -915,6 +922,54 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs))).toBeLessThan(
 			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
 		);
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("offers to restack before submit/update when git reachability shows restack is needed", async () => {
+		const restackArgs = ["restack", "--branch", "feature-a", "--upstack", "--no-interactive"];
+		const submitArgs = ["submit", "--branch", "feature-a", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A }),
+			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"], { stdout: `${SHA_C}\n` }),
+			step("gt", restackArgs),
+			step("gt", submitArgs),
+			...singleBranchPreflightWithRefs({ localSha: SHA_C, prSha: SHA_C }),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_C}\n` }),
+			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_C })),
+			}),
+			step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", SHA_C]),
+			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 101,
+						branch: "feature-a",
+						base: TRUNK,
+						sha: SHA_C,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+					}),
+				),
+			}),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
+		];
+		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script, { confirms: [true] });
+
+		pi.assertDone();
+		expect(confirmations).toHaveLength(1);
+		expect(confirmations[0]?.title).toBe("Run gt restack + submit/update?");
+		expect(confirmations[0]?.message).toContain("needs restack before submit/update");
+		expect(confirmations[0]?.message).toContain("- feature-a on main");
+		expect(confirmations[0]?.message).toContain("#101 feature-a");
+		expect(confirmations[0]?.message).toContain(`$ ${formatCommand("gt", restackArgs)}`);
+		expect(confirmations[0]?.message).toContain(`$ ${formatCommand("gt", submitArgs)}`);
+		expect(pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, restackArgs))).toBeLessThan(
+			pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs)),
+		);
+		expect(pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs))).toBeLessThan(
+			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
+		);
+		expect(commandMessagesText(messages)).toContain(`✓ $ ${formatCommand("gt", restackArgs)}`);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 

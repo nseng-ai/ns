@@ -134,6 +134,11 @@ export type PrSubmitRequirement = {
 	reasons: string[];
 };
 
+export type RestackRequirement = {
+	branch: string;
+	parent: string;
+};
+
 export type WorktreeConflict = {
 	branch: string;
 	path: string;
@@ -158,6 +163,7 @@ export type LandingPlan = {
 	stack: StackSnapshot;
 	branchPlans: BranchPlan[];
 	prSubmitRequirements: PrSubmitRequirement[];
+	submitRestackRequirements: RestackRequirement[];
 	managedSlotConflicts: WorktreeConflict[];
 };
 
@@ -404,33 +410,56 @@ async function buildLandingPlan(
 		});
 	}
 
+	const submitRestackRequirements =
+		prSubmitRequirements.length > 0 ? await collectSubmitRestackRequirements(pi, repoRoot, stack) : [];
+
 	return {
 		repoRoot,
 		stack,
 		branchPlans,
 		prSubmitRequirements,
+		submitRestackRequirements,
 		managedSlotConflicts: conflicts.filter((conflict) => conflict.kind === "managed-slot"),
 	};
 }
 
 async function confirmAndSubmitRequiredPrUpdates(pi: ExtensionAPI, ctx: ExtensionCommandContext, plan: LandingPlan): Promise<void> {
 	const submitArgs = submitUpdateArgs(plan.stack.current);
+	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
+	const commandLines = restackTarget
+		? [formatCommand("gt", restackForSubmitArgs(restackTarget)), formatCommand("gt", submitArgs)]
+		: [formatCommand("gt", submitArgs)];
+	const manualCommandText = commandLines.map((commandLine) => `\`${commandLine}\``).join(" then ");
+	const actionName = restackTarget ? "restack + submit/update" : "submit/update";
 
 	if (!ctx.hasUI) {
 		fail(
 			[
-				"GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required submit/update confirmation.",
+				`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 				details,
-				`No PRs were landed. Run ${formatCommand("gt", submitArgs)} manually, then rerun /land-stack --yes.`,
+				`No PRs were landed. Run ${manualCommandText} manually, then rerun /land-stack --yes.`,
 			].join("\n"),
-			{ suggestedAction: `Run ${formatCommand("gt", submitArgs)} manually, then rerun /land-stack --yes.` },
+			{ suggestedAction: `Run ${manualCommandText} manually, then rerun /land-stack --yes.` },
 		);
 	}
 
-	const confirmed = await ctx.ui.confirm("Run gt submit/update?", details);
+	const confirmed = await ctx.ui.confirm(restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?", details);
 	if (!confirmed) {
 		fail("Cancelled before merge; no PRs were landed.", { level: "info" });
+	}
+
+	if (restackTarget) {
+		const restackArgs = restackForSubmitArgs(restackTarget);
+		setStatus(ctx, `restacking ${restackTarget}...`);
+		const restacked = await exec(pi, "gt", restackArgs, plan.repoRoot, GT_MUTATION_TIMEOUT_MS);
+		if (restacked.code !== 0) {
+			fail("gt restack failed before any PRs were landed.", {
+				commandDisplay: formatCommand("gt", restackArgs),
+				result: restacked,
+				suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /land-stack.`,
+			});
+		}
 	}
 
 	setStatus(ctx, `submitting ${plan.stack.current}...`);
@@ -448,15 +477,43 @@ function submitUpdateArgs(branch: string): string[] {
 	return ["submit", "--branch", branch, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
 }
 
+function restackForSubmitArgs(branch: string): string[] {
+	return ["restack", "--branch", branch, "--upstack", "--no-interactive"];
+}
+
+function restackTargetForSubmit(plan: LandingPlan): string | undefined {
+	return plan.submitRestackRequirements[0]?.branch;
+}
+
 function formatSubmitUpdateDetails(plan: LandingPlan): string {
 	const submitArgs = submitUpdateArgs(plan.stack.current);
-	return [
-		"GitHub PR metadata is behind local Graphite refs. Run Graphite submit/update before merging?",
+	const restackTarget = restackTargetForSubmit(plan);
+	const commands = restackTarget
+		? [formatCommand("gt", restackForSubmitArgs(restackTarget)), formatCommand("gt", submitArgs)]
+		: [formatCommand("gt", submitArgs)];
+	const lines = [
+		restackTarget
+			? "Local branch reachability shows this stack needs restack before submit/update, and GitHub PR metadata is behind local refs. Run restack then submit/update before merging?"
+			: "GitHub PR metadata is behind local Graphite refs. Run Graphite submit/update before merging?",
 		"",
+	];
+
+	if (restackTarget) {
+		lines.push(
+			"Landing branches needing restack:",
+			...plan.submitRestackRequirements.map((requirement) => `- ${requirement.branch} on ${requirement.parent}`),
+			"",
+		);
+	}
+
+	lines.push(
+		"PR metadata to update:",
 		...plan.prSubmitRequirements.map(formatPrSubmitRequirement),
 		"",
-		`$ ${formatCommand("gt", submitArgs)}`,
-	].join("\n");
+		"Commands:",
+		...commands.map((command) => `$ ${command}`),
+	);
+	return lines.join("\n");
 }
 
 function formatRemainingSubmitRequirements(requirements: PrSubmitRequirement[]): string {
@@ -937,6 +994,44 @@ function collectPrSubmitRequirements(branchPlans: BranchPlan[], trunk: string): 
 	return requirements;
 }
 
+async function collectSubmitRestackRequirements(
+	pi: ExtensionAPI,
+	repoRoot: string,
+	stack: StackSnapshot,
+): Promise<RestackRequirement[]> {
+	const requirements: RestackRequirement[] = [];
+	for (const edge of landingParentEdges(stack)) {
+		const result = await exec(
+			pi,
+			"git",
+			["rev-list", "-1", localBranchRef(edge.parent), "--not", localBranchRef(edge.branch)],
+			repoRoot,
+			GIT_TIMEOUT_MS,
+		);
+		if (result.code !== 0) {
+			fail(`Could not inspect whether ${edge.branch} contains parent ${edge.parent}.`, {
+				commandDisplay: formatCommand("git", ["rev-list", "-1", localBranchRef(edge.parent), "--not", localBranchRef(edge.branch)]),
+				result,
+			});
+		}
+		if (result.stdout.trim().length > 0) {
+			requirements.push(edge);
+		}
+	}
+	return requirements;
+}
+
+function landingParentEdges(stack: StackSnapshot): RestackRequirement[] {
+	return stack.landingBranches.map((branch, index) => ({
+		branch,
+		parent: index === 0 ? stack.trunk : (stack.landingBranches[index - 1] ?? stack.trunk),
+	}));
+}
+
+function localBranchRef(branch: string): string {
+	return `refs/heads/${branch}`;
+}
+
 export function validateOpenPrBasics(input: {
 	branch: string;
 	localSha: string;
@@ -1076,9 +1171,22 @@ export function formatPlan(plan: LandingPlan): string {
 
 	lines.push("");
 	if (prSubmitRequirements.length > 0) {
-		lines.push("Before merging, this command will ask before running gt submit/update because GitHub PR metadata is behind local refs:");
+		const restackTarget = restackTargetForSubmit(plan);
+		lines.push(
+			restackTarget
+				? "Before merging, this command will ask before running gt restack + submit/update because local branch reachability shows restack is required and GitHub PR metadata is behind local refs:"
+				: "Before merging, this command will ask before running gt submit/update because GitHub PR metadata is behind local refs:",
+		);
+		if (restackTarget) {
+			for (const requirement of plan.submitRestackRequirements) {
+				lines.push(`  Restack: ${requirement.branch} on ${requirement.parent}`);
+			}
+		}
 		for (const requirement of prSubmitRequirements) {
 			lines.push(`  ${formatPrSubmitRequirement(requirement)}`);
+		}
+		if (restackTarget) {
+			lines.push(`  Command: ${formatCommand("gt", restackForSubmitArgs(restackTarget))}`);
 		}
 		lines.push(`  Command: ${formatCommand("gt", submitUpdateArgs(stack.current))}`);
 	} else {
@@ -1118,7 +1226,7 @@ function usage(): string {
 		`/${COMMAND_NAME} [--yes] [--dry-run] [--help]`,
 		"",
 		"Lands the current Graphite stack path from bottom branch through the current branch, one PR at a time.",
-		"Requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no manual worktree conflicts; can offer to run gt submit/update for stale PR heads before merging.",
+		"Requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no manual worktree conflicts; can offer to run gt restack + submit/update for stale PR heads before merging.",
 		"",
 		"Options:",
 		"  --yes, -y    Skip the main landing confirmation. PR submit/update and managed slot cleanup still require explicit UI confirmation.",
