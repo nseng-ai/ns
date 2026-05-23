@@ -27,6 +27,7 @@ Useful discovered context to preserve:
 - Repo validation for TypeScript Pi extensions is currently `bun run --cwd ts check` and `bun run --cwd ts test`; both passed at Objective creation time.
 - The existing engineered package has strong coverage for `objective` and `land-stack`; the standalone `just-fix.ts` and `submit.ts` are useful but not currently covered by that package's tests.
 - The shared command runtime seam is intentionally narrow: `ts/packages/pi-extensions/src/command-runtime.ts` owns pure result/text helpers, while command orchestration, UI/non-UI presentation, and custom message streaming remain caller-owned until another seam proves real leverage.
+- Objective selection deepening kept the grouped-changed-Objective picker from PR #567 and added shared cross-command characterization tests across `objective-next`, `objective-current`, and `objective-update` for the parts of the selection rule that are genuinely shared (explicit-arg bypass, candidate loading, zero/cancel handling, prompt embedding, and the `objective-update`-only post-selection evidence reminder); selection logic stays inline in `objective.ts` because no clearer pure module boundary emerged.
 - `submit.ts` currently imports the older `@mariozechner/pi-coding-agent` type path while current installed docs use `@earendil-works/pi-coding-agent`.
 
 Starting deepening candidates to resolve somehow:
