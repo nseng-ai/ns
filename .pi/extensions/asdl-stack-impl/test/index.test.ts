@@ -206,7 +206,11 @@ describe("stack impl extension commands", () => {
 				result: result("", 1),
 			},
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
-			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${NEXT_BRANCH}`], result: result("", 1) },
+			{
+				command: "git",
+				args: ["show-ref", "--verify", "--quiet", `refs/heads/${NEXT_BRANCH}`],
+				result: result("", 1),
+			},
 			{ command: "git", args: ["checkout", "-b", NEXT_BRANCH, CURRENT_BRANCH], result: result("switched\n") },
 			{ command: "gt", args: ["track", "-p", CURRENT_BRANCH], result: result("tracked\n") },
 			{

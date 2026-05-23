@@ -69,7 +69,7 @@ describe("slice start orchestration", () => {
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
 				result: result("", 1),
 			},
 			{
@@ -146,8 +146,8 @@ describe("slice start orchestration", () => {
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
-				result: result("commit\n"),
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
+				result: result(""),
 			},
 			{
 				command: "brmem",
@@ -267,7 +267,7 @@ describe("slice start orchestration", () => {
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
 				result: result("", 1),
 			},
 			{
@@ -313,7 +313,7 @@ describe("slice start orchestration", () => {
 			{ command: "git", args: ["status", "--porcelain"], result: result("") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/plan-storage"],
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/asdl-stack-impl-extension/plan-storage"],
 				result: result("", 1),
 			},
 			{

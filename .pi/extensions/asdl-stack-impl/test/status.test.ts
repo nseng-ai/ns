@@ -57,8 +57,8 @@ describe("stack status", () => {
 			{ command: "git", args: ["status", "--porcelain"], result: result(" M file.ts\n") },
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
-				result: result("commit\n"),
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/asdl-stack-impl-extension/extension-skeleton"],
+				result: result(""),
 			},
 			{
 				command: "brmem",
@@ -103,7 +103,7 @@ describe("stack status", () => {
 			},
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/asdl-stack-impl-extension/plan-storage"],
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/asdl-stack-impl-extension/plan-storage"],
 				result: result("", 1),
 			},
 			{

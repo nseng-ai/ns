@@ -188,7 +188,7 @@ export async function loadPlanForStatus(args: string, deps: StatusDependencies):
 }
 
 async function gitBranchExists(branch: string, deps: StatusDependencies): Promise<boolean> {
-	const result = await runCommand(deps.exec, "git", ["rev-parse", "--verify", `refs/heads/${branch}`], {
+	const result = await runCommand(deps.exec, "git", ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], {
 		cwd: deps.cwd,
 		signal: deps.signal,
 		timeout: COMMAND_TIMEOUT_MS,

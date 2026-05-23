@@ -133,12 +133,17 @@ async function localBranchExists(
 	deps: StackImplOrchestrationDependencies,
 	branch: string,
 ): Promise<boolean> {
-	const result = await runCommand(deps.exec, "git", ["rev-parse", "--verify", `refs/heads/${branch}`], {
-		cwd: deps.cwd,
-		signal: deps.signal,
-		timeout: COMMAND_TIMEOUT_MS,
-		acceptedCodes: [0, 1],
-	});
+	const result = await runCommand(
+		deps.exec,
+		"git",
+		["show-ref", "--verify", "--quiet", `refs/heads/${branch}`],
+		{
+			cwd: deps.cwd,
+			signal: deps.signal,
+			timeout: COMMAND_TIMEOUT_MS,
+			acceptedCodes: [0, 1],
+		},
+	);
 	return result.code === 0;
 }
 
