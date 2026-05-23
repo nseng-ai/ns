@@ -2,15 +2,15 @@
 
 ## Work
 
-- [ ] Document the Pi extension layer distinction in `docs/pi/README.md`.
-  - Capture `.pi/extensions/*.ts` as the vibecoded extension layer: fast, repo-local, experimental, and allowed to be rough while dogfooding.
-  - Capture `ts/packages/pi-extensions/` as the engineered layer: stable, tested, reusable implementation for behavior that has proven durable.
-  - Include promotion criteria based on stability, risk, reuse, and test need.
-- [ ] Inventory the current authored project-local extensions and classify their current layer.
-  - Expected starting set: `.pi/extensions/objective.ts`, `.pi/extensions/land-stack.ts`, `.pi/extensions/just-fix.ts`, `.pi/extensions/submit.ts`, and `ts/packages/pi-extensions/src/*`.
-  - Note which files are thin discovery adapters, which are vibecoded implementations, and which are engineered implementations.
-- [ ] Resolve candidate 1: clarify the vibecoded-vs-engineered architecture.
-  - Decide whether additional docs, package metadata, or local conventions are needed beyond `docs/pi/README.md`.
+- [x] Document the Pi extension layer distinction in `docs/pi/README.md`.
+  - Captures `.pi/extensions/*.ts` and `.pi/extensions/*/index.ts` as the vibecoded extension layer: fast, repo-local, experimental, and allowed to be rough while dogfooding.
+  - Captures `ts/packages/pi-extensions/` as the engineered layer: stable, tested, reusable implementation for behavior that has proven durable.
+  - Includes promotion criteria based on stability, risk, reuse, and test need.
+- [x] Inventory the current authored project-local extensions and classify their current layer.
+  - Captured `.pi/extensions/objective.ts`, `.pi/extensions/land-stack.ts`, `.pi/extensions/just-fix.ts`, `.pi/extensions/submit.ts`, and the engineered `ts/packages/pi-extensions/src/*` implementations in `docs/pi/README.md`.
+  - Notes which files are thin discovery adapters, which are vibecoded implementations, and which are engineered implementations.
+- [x] Resolve candidate 1: clarify the vibecoded-vs-engineered architecture.
+  - Resolved in `docs/pi/README.md`; no package metadata or additional local convention is needed for the first architecture pass.
 - [ ] Resolve candidate 2: shared Pi command runtime mechanics.
   - Evaluate command execution, result normalization, output truncation, UI/non-UI presentation, custom messages, and fake adapters.
   - Implement only if the module would provide real leverage across multiple extensions.

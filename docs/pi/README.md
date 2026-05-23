@@ -10,7 +10,72 @@ Checked-in project-local Pi extensions live in:
 .pi/extensions/
 ```
 
+Pi auto-discovers project-local extension modules from:
+
+```text
+.pi/extensions/*.ts
+.pi/extensions/*/index.ts
+```
+
 Use project-local extensions when the behavior is specific to this repo's workflows, CLIs, slots, or contributor conventions.
+
+Checked-in files under `.pi/extensions/` are the local discovery surface. They may contain a full repo-local implementation, or they may be thin adapters that delegate to engineered package code.
+
+## Project-local implementation layers
+
+This repo keeps two useful layers for Pi extension work.
+
+### Vibecoded extension layer
+
+Paths:
+
+```text
+.pi/extensions/*.ts
+.pi/extensions/*/index.ts
+```
+
+The vibecoded extension layer is for fast repo-local workflow experiments that should stay close to Pi's auto-discovery surface while their shape is still changing. It is a good fit when behavior is specific to this checkout's CLIs, slots, or conventions and does not yet need a package-level test surface.
+
+This layer is valuable, not deprecated. Keep user-facing behavior obvious, prefer direct code while the seam is unproven, and avoid extracting shared helpers before there is demonstrated leverage.
+
+### Engineered extension layer
+
+Path:
+
+```text
+ts/packages/pi-extensions/
+```
+
+The engineered layer is for durable behavior that benefits from tests, fake adapters, shared modules, or package-level validation. Project-local discovery adapters can stay in `.pi/extensions/` while the implementation lives in this package.
+
+Use this layer for behavior that has proven stable, has meaningful safety risk, is reused by more than one extension, or needs fake-driven tests. For TypeScript package changes, validate with:
+
+```text
+bun run --cwd ts check
+bun run --cwd ts test
+```
+
+### Promotion criteria
+
+Consider promoting behavior from the vibecoded layer to the engineered layer when one or more criteria apply:
+
+- **Stability:** the command behavior has proven durable and is no longer rapidly changing.
+- **Risk:** incorrect behavior could affect branches, PRs, Graphite stacks, GitHub state, or user worktrees.
+- **Reuse:** multiple extensions need the same command runtime, skill expansion, rendering, or workflow primitives.
+- **Test need:** confidence requires fake-driven tests, branch/PR scenarios, or package-level validation.
+
+Do not promote behavior merely because the extension is checked in. Do not extract shared helpers unless the deletion test shows real leverage across callers.
+
+### Current inventory
+
+| Area/file                                     | Current layer                                  | Notes                                                                                                |
+| --------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `.pi/extensions/objective.ts`                 | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates Objective behavior to package code.                   |
+| `.pi/extensions/land-stack.ts`                | Project-local adapter over engineered behavior | Keeps `/land-stack` discovery local while durable behavior lives in the package.                     |
+| `.pi/extensions/just-fix.ts`                  | Vibecoded implementation                       | Useful repo-local workflow; not yet promoted or package-tested.                                      |
+| `.pi/extensions/submit.ts`                    | Vibecoded implementation                       | Candidate for a future promotion decision; also carries the import-path review question.             |
+| `ts/packages/pi-extensions/src/objective.ts`  | Engineered implementation                      | Package-tested Objective extension behavior.                                                         |
+| `ts/packages/pi-extensions/src/land-stack.ts` | Engineered implementation                      | Package-tested landing behavior; later refactors may split internals without changing `/land-stack`. |
 
 ## Extension message linkification
 
