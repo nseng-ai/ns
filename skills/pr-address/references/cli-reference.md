@@ -114,12 +114,12 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
 
 **Output fields (under `data`):**
 
-| Field                  | Description                               |
-| ---------------------- | ----------------------------------------- |
-| `thread_id`            | Echo of the input thread ID               |
-| `body`                 | The formatted reply body posted to GitHub |
-| `comment`              | The created comment object                |
-| `was_already_resolved` | Whether the thread was already resolved   |
+| Field         | Description                               |
+| ------------- | ----------------------------------------- |
+| `thread_id`   | Echo of the input thread ID               |
+| `body`        | The formatted reply body posted to GitHub |
+| `comment`     | The created comment object                |
+| `is_resolved` | Post-mutation resolved state              |
 
 **Example:**
 
@@ -139,7 +139,7 @@ pr-address exec resolve-thread-with-reply \
     "thread_id": "PRRT_kwDOR4YhMs57SeUg",
     "body": "Fixed in commit ac18f2b: Introduced DetachedHead ...\n\nAddressed via _pr-address_ at 2026-04-16T01:40:33Z\n<!-- pr-address:resolved -->",
     "comment": { "id": 3090302853, "author": "schrockn", ... },
-    "was_already_resolved": false
+    "is_resolved": true
   }
 }
 ```

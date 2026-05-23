@@ -7,10 +7,16 @@ from pydantic import model_serializer
 
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.gh.types import PRLookupError, PRState
+from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRState
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
+
+
+def _gateway_failure_message(prefix: str, failure: PRGatewayFailure) -> str:
+    detail = failure.stderr or failure.stdout or f"exit code {failure.returncode}"
+    return f"{prefix}: {detail}"
 
 
 class GetPRForBranchRequest(ClinkrModel):
@@ -57,8 +63,16 @@ def run_get_pr_for_branch(
     request: GetPRForBranchRequest,
 ) -> ClinkrExit[GetPRForBranchResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    result = pr_address_context.gh_issue_gateway.get_pr_for_branch(request.branch)
-    if isinstance(result, PRLookupError):
+    result = pr_address_context.pr_gateway.get_pr_for_branch(request.branch)
+    if isinstance(result, PRGatewayFailure):
+        raise ClinkrFailure(
+            error_type="pr_gateway_failure",
+            message=_gateway_failure_message(
+                f"Failed to look up PR for branch {request.branch!r}",
+                result,
+            ),
+        )
+    if isinstance(result, PRLookupMiss):
         return ClinkrExit.ok(
             GetPRForBranchResult(
                 found=False,

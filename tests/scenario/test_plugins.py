@@ -125,7 +125,7 @@ def test_pr_address_plugin_integration() -> None:
 
     runner = CliRunner()
     ctx = PrAddressCliContext(
-        gh_issue_gateway=FakeIssueGateway(),
+        pr_gateway=FakePRGateway(),
         git_gateway=FakeGitGateway(),
     )
     obj = build_clinkr_context_object(lambda: ctx)

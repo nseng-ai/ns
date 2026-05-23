@@ -10,7 +10,7 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.gh.types import IssueComment
+from asdl_core.gh.types import PRDiscussionComment
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 
 
@@ -19,7 +19,7 @@ class GetDiscussionCommentsRequest(ClinkrModel):
 
 
 class GetDiscussionCommentsResult(ClinkrModel):
-    comments: tuple[IssueComment, ...]
+    comments: tuple[PRDiscussionComment, ...]
 
     @model_serializer
     def serialize_model(self) -> dict[str, Any]:
@@ -38,5 +38,5 @@ def run_get_discussion_comments(
     request: GetDiscussionCommentsRequest,
 ) -> ClinkrExit[GetDiscussionCommentsResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    comments = pr_address_context.gh_issue_gateway.get_discussion_comments(request.pr_number)
+    comments = pr_address_context.pr_gateway.get_pr_discussion_comments(request.pr_number)
     return ClinkrExit.ok(GetDiscussionCommentsResult(comments=comments))

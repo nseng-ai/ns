@@ -42,7 +42,7 @@ def run_add_review_thread_reply(
     request: AddReviewThreadReplyRequest,
 ) -> ClinkrExit[AddReviewThreadReplyResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    comment = pr_address_context.gh_issue_gateway.add_review_thread_reply(
+    comment = pr_address_context.pr_gateway.add_review_thread_reply(
         request.thread_id,
         request.body,
     )
