@@ -27,8 +27,6 @@ Do not use `docs/objectives/`.
 
 The `<slug>` directory name is the durable Objective identity. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate `.asdl/objectives/<slug>/` under a new slug unless the user explicitly asks for an Objective slug migration.
 
-If `objective list` reports possible Objective slug migrations, stop and ask the user to choose the canonical slug or explicitly approve a migration before reading, updating, creating, closing, or planning against the affected Objectives.
-
 ## Files
 
 `objective.md` contains durable purpose, boundaries, criteria, assumptions, risks, open questions, and closure context. Required headings:
@@ -64,9 +62,8 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --format md` to enumerate candidate open Objectives across local branch tips and ask the user to choose. Use `objective list --current --format md` to filter to Objectives associated with the current branch. Use `objective list --names` only for machine-readable slug extraction after confirming the full list has no slug-migration warning relevant to the operation.
-3. If `objective list` reports possible Objective slug migrations, stop and resolve the slug identity question before continuing.
-4. If no candidates exist, say so and suggest `objective-create` when appropriate.
+2. If no slug or path is explicit, run `objective list --format md` to enumerate candidate open Objectives across local branch tips and ask the user to choose. Use `objective list --current --format md` to filter to Objectives associated with the current branch. Use `objective list --names` only for machine-readable slug extraction.
+3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one open Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple open Objectives exist, ask instead.
 
@@ -74,7 +71,7 @@ Outside that confirmation path, do not auto-select from candidate count or chang
 
 ## Repository status
 
-Use `objective list` for the default objective-level list of open Objective records with local branch state across all branch tips. Use `objective list --view detail` for the per-branch detail view with branch, tip age, and ahead-of-trunk count. Use `objective list --current` to filter to Objectives associated with the current branch, and `objective list --names` to emit just slugs, one per line. The full list also reports possible slug migrations when a branch replaces Objective directory slugs relative to its nearest local ancestor. It does not parse Markdown, choose a canonical branch, or list branches without open Objectives.
+Use `objective list` for the default objective-level list of open Objective records with local branch state across all branch tips. Use `objective list --view detail` for the per-branch detail view with branch, tip age, and ahead-of-trunk count. Use `objective list --current` to filter to Objectives associated with the current branch, and `objective list --names` to emit just slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without open Objectives.
 
 ## Tracking Gate
 

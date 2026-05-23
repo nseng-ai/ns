@@ -26,8 +26,7 @@ The Objective slug directory is durable identity. Closing an Objective keeps the
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
 2. If no slug or path is explicit, run `objective list --format md` to enumerate candidates and ask the user to choose.
-3. If the list reports possible Objective slug migrations relevant to the request, stop and resolve canonical identity before continuing.
-4. If no candidates exist, say so and suggest `objective-create` when appropriate.
+3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
 
@@ -47,7 +46,6 @@ Closure does not have to wait for the closing work to land on the trunk branch. 
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
-- `objective list` reports possible slug migrations relevant to the request and the user has not resolved them.
 - Required Objective files are missing.
 - The closure outcome or rationale is unclear.
 - The Objective is already closed and the user did not ask to amend closure context.

@@ -26,16 +26,15 @@ Canonical root: `.asdl/objectives/<slug>/`.
 
 Objective records are Markdown. Read/edit Markdown directly. Use `objective exec` for deterministic reads: candidate listing, inventory, closed-marker detection. Mutate files directly.
 
-The Objective slug directory is durable identity. Command/product/prose renames are ordinary Objective edits; they do not justify moving `.asdl/objectives/<slug>/` or creating a replacement Objective. Only rename an Objective slug when the user explicitly asks for an Objective slug migration.
+The selected Objective slug directory is immutable during `objective-update`. Command/product/prose renames are ordinary Objective edits inside `.asdl/objectives/<slug>/`; update titles, prose, roadmap rows, and Semantic Updates in place. Do not move, delete, recreate, or normalize Objective slug directories as part of an update. If the user explicitly wants an Objective slug migration, stop and handle that as a separate, explicit migration decision before any normal update work.
 
 ## Resolve exactly one Objective
 
 1. Use an explicit user-provided slug/path under `.asdl/objectives/<slug>/`.
 2. Otherwise run `objective list --format md` immediately.
-3. If the list reports possible Objective slug migrations relevant to this update, stop and ask the user to resolve the canonical slug or explicitly approve a migration before evidence or mutation.
-4. If exactly one open Objective exists and update intent is explicit, ask before evidence/mutation: `Only one open Objective exists: <slug>. Run objective-update for this Objective?`
-5. If multiple open Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
-6. If none exist, say so and suggest `objective-create` when appropriate.
+3. If exactly one open Objective exists and update intent is explicit, ask before evidence/mutation: `Only one open Objective exists: <slug>. Run objective-update for this Objective?`
+4. If multiple open Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
+5. If none exist, say so and suggest `objective-create` when appropriate.
 
 If update intent is ambiguous, ask the invocation-intent confirmation before any only-open-Objective confirmation.
 
@@ -94,6 +93,8 @@ After loading the selected Objective and confirming it is not closed, collect fa
 
 Do not require PR evidence when local committed branch evidence is sufficient. For stacked Graphite branches, prefer the Graphite parent as base so lower-stack changes are excluded. If base discovery fails, inspect recent commits and uncommitted status; ask only if evidence remains insufficient.
 
+Use working-tree and branch `name-status` evidence as an Objective path integrity check. If the update would add, delete, move, or recreate a sibling `.asdl/objectives/<other-slug>/` directory, or if existing local changes already do so without an explicit slug-migration request, stop before editing and ask the user to resolve the slug identity/path move first.
+
 Update only when selected Objective content clearly matches the user request and evidence. If evidence is ambiguous, unrelated, or maps to multiple roadmap rows, ask instead of writing.
 
 Final response must say whether PR evidence was considered, unavailable, or irrelevant. In durable Objective files, avoid temporal absence statements unless materially important. Prefer durable wording:
@@ -135,32 +136,33 @@ The final response may include exact command output when useful; durable Objecti
 1. Run `objective exec read-objective <slug> --format md` per Objective read scope.
 2. If closed, stop unless the user explicitly asks to amend the closed record; v1 has no reopen workflow.
 3. Collect post-selection repo evidence.
-4. Compare user request, evidence, and existing Objective files to decide what durable tracking changed.
-5. Edit `objective.md` for durable narrative, boundaries, completion criteria, assumptions, risks, open questions, or closure-adjacent context.
-6. Update `## Assumptions and Risks` when evidence changes risk knowledge:
+4. Confirm Objective path integrity: normal update edits must remain under the selected `.asdl/objectives/<slug>/` directory and must not add/delete/move sibling Objective slug directories.
+5. Compare user request, evidence, and existing Objective files to decide what durable tracking changed.
+6. Edit `objective.md` for durable narrative, boundaries, completion criteria, assumptions, risks, open questions, or closure-adjacent context.
+7. Update `## Assumptions and Risks` when evidence changes risk knowledge:
    - mark assumptions incorrect, revised, or still active;
    - mark risks de-risked, not de-risked, materialized, accepted, or still open;
    - add new assumptions/risks that affect scope, sequencing, confidence, or completion evidence;
    - preserve useful history; do not silently delete disproven assumptions or de-risked risks.
-7. Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
-8. Create or amend a Semantic Update for meaningful findings, decisions, blockers, assumption/risk changes, completion evidence, plan changes, or follow-ups.
-9. Explain why durable files changed, or why they remained correct after meaningful evidence was considered.
-10. For maintenance-only durable edits with no new semantic information, do not create/amend an update file; say so explicitly.
+8. Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
+9. Create or amend a Semantic Update for meaningful findings, decisions, blockers, assumption/risk changes, completion evidence, plan changes, or follow-ups.
+10. Explain why durable files changed, or why they remained correct after meaningful evidence was considered.
+11. For maintenance-only durable edits with no new semantic information, do not create/amend an update file; say so explicitly.
 
 ## Stop / ask
 
 - Objective selection is ambiguous or absent after presenting `objective list --format md` options.
-- `objective list` reports possible slug migrations relevant to the update and the user has not resolved them.
 - Update intent remains ambiguous after the invocation-intent confirmation.
 - The exactly-one open Objective confirmation is pending.
 - The request would update more than one Objective.
 - The selected Objective is closed and the user did not explicitly ask to amend its closed record.
+- The update would add, delete, move, recreate, or normalize any Objective slug directory instead of editing the selected slug in place.
 - The user asks for a ceremonial status ping, branch changelog, registry, YAML/frontmatter, UUID, hidden metadata, or state-machine behavior.
 - Information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
 
 ## Verify
 
-- Changed Objective files all live under exactly one `.asdl/objectives/<slug>/` directory, with no added/deleted sibling Objective slug unless the user explicitly requested a slug migration.
+- Changed Objective files all live under exactly one `.asdl/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - Amended update file, if any, is the existing Semantic Update for the same event, not a duplicate.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.

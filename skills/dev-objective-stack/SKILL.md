@@ -33,7 +33,6 @@ with branch handoffs. If the user asks only to plan, stop after the plan.
 ## When to stop and ask
 
 - No explicit Objective slug/path was provided and Objective selection is needed.
-- `objective list` reports possible slug migrations relevant to the stack and the user has not resolved canonical identity.
 - The user wants multiple Objectives in one stack.
 - The stack base is ambiguous or not what `gt ls`/`gt branch info` shows.
 - Objective scaffold/base work exists on a branch, but the user has not confirmed
@@ -62,10 +61,9 @@ with branch handoffs. If the user asks only to plan, stop after the plan.
 
 1. Use the explicit slug/path if the user provided one.
 2. If absent, run `objective list --format md` and ask the user to choose.
-3. If the list reports possible Objective slug migrations relevant to the stack, stop and resolve canonical identity before planning.
-4. Run `objective exec read-objective <slug> --format md`.
-5. Stop if the Objective is closed unless the user explicitly says to amend it.
-6. Note missing required files, especially `updates/`, before planning repairs or updates.
+3. Run `objective exec read-objective <slug> --format md`.
+4. Stop if the Objective is closed unless the user explicitly says to amend it.
+5. Note missing required files, especially `updates/`, before planning repairs or updates.
 
 ### 2. Inspect stack state
 

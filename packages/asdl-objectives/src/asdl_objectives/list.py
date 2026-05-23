@@ -13,7 +13,6 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.console import get_console, make_table
 from asdl_core.format import format_relative_time
-from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure
 from asdl_objectives.context import (
     ObjectiveCliContext,
@@ -67,13 +66,6 @@ class ObjectiveListGroup(ClinkrModel):
     branches: tuple[ObjectiveBranchEntry, ...]
 
 
-class ObjectiveSlugChangeWarning(ClinkrModel):
-    branch: str
-    base_branch: str
-    removed_slugs: tuple[str, ...]
-    added_slugs: tuple[str, ...]
-
-
 class ObjectiveListResult(ClinkrModel):
     trunk_branch: str
     view: ObjectiveListView
@@ -81,7 +73,6 @@ class ObjectiveListResult(ClinkrModel):
     filtered_to_current: bool
     names_only: bool
     groups: tuple[ObjectiveListGroup, ...]
-    slug_change_warnings: tuple[ObjectiveSlugChangeWarning, ...]
 
 
 def render_objective_list_human(result: ObjectiveListResult) -> None:
@@ -92,12 +83,10 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
     console = get_console()
     if not result.groups:
         console.print(f"[dim]{_empty_message(result)}[/dim]")
-        _render_slug_change_warnings_human(result)
         return
 
     if result.view == "detail":
         _render_objective_list_detail_human(result)
-        _render_slug_change_warnings_human(result)
         return
 
     console.print(f"[bold]{_list_heading(result)}[/bold]")
@@ -116,27 +105,6 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
             f"+{_max_ahead_trunk(group)}",
         )
     console.print(table)
-    _render_slug_change_warnings_human(result)
-
-
-def _render_slug_change_warnings_human(result: ObjectiveListResult) -> None:
-    if not result.slug_change_warnings:
-        return
-
-    console = get_console()
-    console.print()
-    console.print("[bold yellow]Possible Objective slug migrations detected[/bold yellow]")
-    console.print(
-        "[yellow]Objective directory slugs are durable identities; do not rename them "
-        "unless the user explicitly requested a slug migration.[/yellow]"
-    )
-    for warning in result.slug_change_warnings:
-        console.print(
-            "[yellow]- "
-            f"{warning.branch} vs {warning.base_branch}: "
-            f"removed {_format_slugs(warning.removed_slugs)}; "
-            f"added {_format_slugs(warning.added_slugs)}[/yellow]"
-        )
 
 
 def _render_objective_list_detail_human(result: ObjectiveListResult) -> None:
@@ -171,7 +139,6 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
     if not result.groups:
         click.echo()
         click.echo(_empty_message(result))
-        _render_slug_change_warnings_markdown(result)
         return
 
     click.echo()
@@ -189,7 +156,6 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
             f"{len(group.branches)} | "
             f"+{_max_ahead_trunk(group)} |"
         )
-    _render_slug_change_warnings_markdown(result)
 
 
 def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
@@ -197,7 +163,6 @@ def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
     if not result.groups:
         click.echo()
         click.echo(_empty_message(result))
-        _render_slug_change_warnings_markdown(result)
         return
 
     for group in result.groups:
@@ -212,27 +177,6 @@ def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
                 f"{format_relative_time(entry.tip_head_iso)} | "
                 f"+{entry.ahead_trunk} |"
             )
-    _render_slug_change_warnings_markdown(result)
-
-
-def _render_slug_change_warnings_markdown(result: ObjectiveListResult) -> None:
-    if not result.slug_change_warnings:
-        return
-
-    click.echo()
-    click.echo("## Possible Objective slug migrations detected")
-    click.echo()
-    click.echo(
-        "Objective directory slugs are durable identities; do not rename them "
-        "unless the user explicitly requested a slug migration."
-    )
-    for warning in result.slug_change_warnings:
-        click.echo(
-            "- "
-            f"`{warning.branch}` vs `{warning.base_branch}`: "
-            f"removed {_format_slugs(warning.removed_slugs)}; "
-            f"added {_format_slugs(warning.added_slugs)}."
-        )
 
 
 def _render_slugs(result: ObjectiveListResult) -> None:
@@ -258,10 +202,6 @@ def _empty_message(result: ObjectiveListResult) -> str:
             return "No current branch (detached HEAD); nothing to list."
         return f"No open Objectives associated with current branch `{result.current_branch}`."
     return "No open Objective status found."
-
-
-def _format_slugs(slugs: tuple[str, ...]) -> str:
-    return ", ".join(f"`{slug}`" for slug in slugs)
 
 
 @clinkr_operation(
@@ -295,7 +235,6 @@ def build_objective_list_result(
     names_only: bool = False,
 ) -> ObjectiveListResult:
     rows_by_slug: dict[str, list[ObjectiveBranchEntry]] = {}
-    all_slugs_by_branch: dict[str, tuple[str, ...]] = {}
     trunk = ctx.trunk_branch
 
     current_branch: str | None = None
@@ -311,6 +250,9 @@ def build_objective_list_result(
 
     for branch_tip in ctx.git.list_local_branch_tips():
         branch = branch_tip.name
+        if branch == trunk:
+            continue
+
         ref = f"refs/heads/{branch}"
         paths_result = ctx.git.list_tracked_paths_at_ref(ref, OBJECTIVE_ROOT)
         if isinstance(paths_result, GitCommandFailure):
@@ -318,10 +260,6 @@ def build_objective_list_result(
                 error_type="git_list_objective_paths_failed",
                 message=paths_result.message,
             )
-
-        all_slugs_by_branch[branch] = _objective_slugs_from_paths(paths_result)
-        if branch == trunk:
-            continue
 
         open_slugs = _open_objective_slugs_from_paths(paths_result)
         if not open_slugs:
@@ -343,11 +281,6 @@ def build_objective_list_result(
                 )
             )
 
-    slug_change_warnings = _build_slug_change_warnings(
-        ctx.git,
-        trunk_branch=trunk,
-        all_slugs_by_branch=all_slugs_by_branch,
-    )
     if filter_current:
         rows_by_slug = {
             slug: entries
@@ -355,11 +288,6 @@ def build_objective_list_result(
             if current_branch is not None
             and any(entry.branch == current_branch for entry in entries)
         }
-        slug_change_warnings = tuple(
-            warning
-            for warning in slug_change_warnings
-            if current_branch is not None and warning.branch == current_branch
-        )
 
     return ObjectiveListResult(
         trunk_branch=trunk,
@@ -374,12 +302,11 @@ def build_objective_list_result(
             )
             for slug, entries in sorted(rows_by_slug.items())
         ),
-        slug_change_warnings=slug_change_warnings,
     )
 
 
 def _open_objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
-    slugs = set(_objective_slugs_from_paths(paths))
+    slugs: set[str] = set()
     closed_slugs: set[str] = set()
     prefix = f"{OBJECTIVE_ROOT}/"
 
@@ -390,90 +317,11 @@ def _open_objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
         slug, separator, child_path = rest.partition("/")
         if slug == "" or separator == "":
             continue
+        slugs.add(slug)
         if child_path == "closed.md":
             closed_slugs.add(slug)
 
     return tuple(sorted(slugs - closed_slugs))
-
-
-def _objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
-    slugs: set[str] = set()
-    prefix = f"{OBJECTIVE_ROOT}/"
-
-    for path in paths:
-        if not path.startswith(prefix):
-            continue
-        rest = path.removeprefix(prefix)
-        slug, separator, _child_path = rest.partition("/")
-        if slug == "" or separator == "":
-            continue
-        slugs.add(slug)
-
-    return tuple(sorted(slugs))
-
-
-def _build_slug_change_warnings(
-    git: GitGateway,
-    *,
-    trunk_branch: str,
-    all_slugs_by_branch: dict[str, tuple[str, ...]],
-) -> tuple[ObjectiveSlugChangeWarning, ...]:
-    warnings: list[ObjectiveSlugChangeWarning] = []
-    for branch in sorted(all_slugs_by_branch):
-        if branch == trunk_branch:
-            continue
-
-        base_branch = _nearest_ancestor_branch(
-            git,
-            branch=branch,
-            candidates=tuple(sorted(all_slugs_by_branch)),
-        )
-        if base_branch is None:
-            continue
-
-        branch_slugs = set(all_slugs_by_branch[branch])
-        base_slugs = set(all_slugs_by_branch[base_branch])
-        added_slugs = tuple(sorted(branch_slugs - base_slugs))
-        removed_slugs = tuple(sorted(base_slugs - branch_slugs))
-        if not added_slugs or not removed_slugs:
-            continue
-
-        warnings.append(
-            ObjectiveSlugChangeWarning(
-                branch=branch,
-                base_branch=base_branch,
-                removed_slugs=removed_slugs,
-                added_slugs=added_slugs,
-            )
-        )
-    return tuple(warnings)
-
-
-def _nearest_ancestor_branch(
-    git: GitGateway,
-    *,
-    branch: str,
-    candidates: tuple[str, ...],
-) -> str | None:
-    nearest: tuple[int, str] | None = None
-    for candidate in candidates:
-        if candidate == branch:
-            continue
-        if not git.is_ancestor(candidate, branch):
-            continue
-
-        commit_count = git.count_commits_in_range(f"{candidate}..{branch}")
-        if isinstance(commit_count, GitCommandFailure):
-            continue
-        if commit_count == 0:
-            continue
-        candidate_rank = (commit_count, candidate)
-        if nearest is None or candidate_rank < nearest:
-            nearest = candidate_rank
-
-    if nearest is None:
-        return None
-    return nearest[1]
 
 
 def _latest_tip_branch(group: ObjectiveListGroup) -> str:
