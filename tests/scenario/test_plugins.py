@@ -10,6 +10,7 @@ from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.git.testing import FakeGitGateway
+from asdl_objectives.context import ObjectiveCliContext
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
@@ -89,24 +90,28 @@ def test_objective_plugin_integration() -> None:
     result = runner.invoke(parent, ["objective", "--help"])
     assert result.exit_code == 0
     assert "Work with checked-in Objective records." in result.output
-    assert "status" in result.output
     assert "list" in result.output
+    assert "status" not in result.output
     assert "exec" not in result.output
 
     result = runner.invoke(parent, ["objective", "exec", "--help"])
     assert result.exit_code == 0, result.output
     assert "Commands for use by objective skills." in result.output
 
-    with runner.isolated_filesystem():
-        result = runner.invoke(
-            parent,
-            ["objective", "list", "--format", "json"],
-            obj=build_clinkr_context_object(lambda: object()),
-        )
+    ctx = ObjectiveCliContext(
+        repo_root=Path("/repo"),
+        trunk_branch="master",
+        git=FakeGitGateway(repo_root=Path("/repo"), branches=("master",), trunk_branch="master"),
+    )
+    result = runner.invoke(
+        parent,
+        ["objective", "list", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["data"]["root_path"] == ".asdl/objectives"
-    assert payload["data"]["entries"] == []
+    assert payload["data"]["trunk_branch"] == "master"
+    assert payload["data"]["groups"] == []
 
 
 def test_pr_address_plugin_integration() -> None:

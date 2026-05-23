@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from asdl_objectives.status import _open_objective_slugs_from_paths
+from asdl_objectives.list import _open_objective_slugs_from_paths
 
 
 def test_open_objective_slugs_from_paths_ignores_gitkeep_and_nested_closed_marker() -> None:

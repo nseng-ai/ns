@@ -1,129 +1,206 @@
-"""``objective list`` filesystem inventory and renderers."""
+"""``objective list`` read-only inventory across local branch tips."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 import click
 
 from asdl_core.clinkr.exit import ClinkrExit
+from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.console import get_console, make_table
-from asdl_objectives.exec.inventory import (
-    ObjectiveFiles,
-    build_objective_files,
-    list_update_files,
-    relative_record_path,
-    relative_root_path,
-    render_file_presence,
+from asdl_core.format import format_relative_time
+from asdl_core.git.types import GitCommandFailure
+from asdl_objectives.context import (
+    ObjectiveCliContext,
+    ObjectiveCliUnavailable,
+    load_objective_context,
 )
 
-ObjectiveListState = Literal["all", "open", "closed"]
+OBJECTIVE_ROOT = ".asdl/objectives"
+ObjectiveListView = Literal["list", "detail"]
 
 
 class ObjectiveListRequest(ClinkrModel):
-    state: Annotated[
-        ObjectiveListState,
+    current: Annotated[
+        bool,
         click.Option(
-            ["--state"],
-            type=click.Choice(["all", "open", "closed"]),
-            default="open",
-            show_default=True,
-            help="Filter Objective records by closed state.",
+            ["--current"],
+            is_flag=True,
+            default=False,
+            help="Filter to Objectives associated with the current branch.",
         ),
-    ] = "open"
+    ] = False
+    names: Annotated[
+        bool,
+        click.Option(
+            ["--names"],
+            is_flag=True,
+            default=False,
+            help="Output Objective slugs only, one per line.",
+        ),
+    ] = False
+    view: Annotated[
+        ObjectiveListView,
+        click.Option(
+            ["--view"],
+            type=click.Choice(["list", "detail"]),
+            default="list",
+            show_default=True,
+            help="Select objective-level list or per-branch detail view.",
+        ),
+    ] = "list"
 
 
-class ObjectiveListEntry(ClinkrModel):
+class ObjectiveBranchEntry(ClinkrModel):
+    branch: str
+    tip_head_iso: str | None
+    ahead_trunk: int
+
+
+class ObjectiveListGroup(ClinkrModel):
     slug: str
-    path: str
-    closed: bool
-    files: ObjectiveFiles
-    update_count: int
+    branches: tuple[ObjectiveBranchEntry, ...]
 
 
 class ObjectiveListResult(ClinkrModel):
-    root_path: str
-    root_exists: bool
-    state: ObjectiveListState
-    entries: tuple[ObjectiveListEntry, ...]
-
-
-def render_objective_list_markdown(result: ObjectiveListResult) -> None:
-    root_state = "present" if result.root_exists else "missing"
-    click.echo(f"Root: `{result.root_path}` ({root_state})")
-    click.echo()
-    click.echo("| slug | state | files | updates | path |")
-    click.echo("| --- | --- | --- | ---: | --- |")
-    for entry in result.entries:
-        click.echo(
-            "| "
-            f"{entry.slug} | "
-            f"{'closed' if entry.closed else 'open'} | "
-            f"{render_file_presence(entry.files)} | "
-            f"{entry.update_count} | "
-            f"`{entry.path}` |"
-        )
+    trunk_branch: str
+    view: ObjectiveListView
+    current_branch: str | None
+    filtered_to_current: bool
+    names_only: bool
+    groups: tuple[ObjectiveListGroup, ...]
 
 
 def render_objective_list_human(result: ObjectiveListResult) -> None:
-    console = get_console()
-    root_state = "present" if result.root_exists else "missing"
-    state_color = "green" if result.root_exists else "red"
-    console.print(
-        f"Root: [bold]{result.root_path}[/bold] ([{state_color}]{root_state}[/{state_color}])"
-    )
-
-    if not result.entries:
-        console.print(f"[dim]{_empty_records_message(result.state)}[/dim]")
+    if result.names_only:
+        _render_slugs(result)
         return
 
+    console = get_console()
+    if not result.groups:
+        console.print(f"[dim]{_empty_message(result)}[/dim]")
+        return
+
+    if result.view == "detail":
+        _render_objective_list_detail_human(result)
+        return
+
+    console.print(f"[bold]{_list_heading(result)}[/bold]")
     table = make_table()
-    table.add_column("Slug", style="bold cyan", no_wrap=True)
-    table.add_column("State", no_wrap=True)
-    table.add_column("Files", no_wrap=True)
-    table.add_column("Updates", justify="right", no_wrap=True)
-    table.add_column("Path", style="dim", overflow="ellipsis", ratio=1)
-
-    for entry in result.entries:
-        state_label = "[red]closed[/red]" if entry.closed else "[green]open[/green]"
+    table.add_column("Objective", style="bold cyan", no_wrap=True)
+    table.add_column("Local branches", justify="right", no_wrap=True)
+    table.add_column("Latest tip", no_wrap=True)
+    table.add_column("Max ahead trunk", justify="right", no_wrap=True)
+    for group in result.groups:
         table.add_row(
-            entry.slug,
-            state_label,
-            _render_file_tokens(entry.files),
-            str(entry.update_count),
-            entry.path,
+            group.slug,
+            str(len(group.branches)),
+            format_relative_time(_latest_tip_head_iso(group)),
+            f"+{_max_ahead_trunk(group)}",
         )
-
     console.print(table)
 
 
-def _empty_records_message(state: ObjectiveListState) -> str:
-    if state == "all":
-        return "No objective records."
-    return f"No {state} objective records."
+def _render_objective_list_detail_human(result: ObjectiveListResult) -> None:
+    console = get_console()
+    console.print(f"[bold]{_detail_heading(result)}[/bold]")
+    for group in result.groups:
+        console.print()
+        console.print(f"[bold cyan]{group.slug}[/bold cyan]")
+        table = make_table()
+        table.add_column("Branch", style="bold", no_wrap=True)
+        table.add_column("Tip age", no_wrap=True)
+        table.add_column("Ahead trunk", justify="right", no_wrap=True)
+        for entry in group.branches:
+            table.add_row(
+                entry.branch,
+                format_relative_time(entry.tip_head_iso),
+                f"+{entry.ahead_trunk}",
+            )
+        console.print(table)
 
 
-def _render_file_tokens(files: ObjectiveFiles) -> str:
-    return "  ".join(
-        (
-            _token("obj", files.objective_md),
-            _token("rmap", files.roadmap_md),
-            _token("upd", files.updates_dir),
-            _token("cls", files.closed_md),
+def render_objective_list_markdown(result: ObjectiveListResult) -> None:
+    if result.names_only:
+        _render_slugs(result)
+        return
+
+    if result.view == "detail":
+        _render_objective_list_detail_markdown(result)
+        return
+
+    click.echo(f"# {_list_heading(result)}")
+    if not result.groups:
+        click.echo()
+        click.echo(_empty_message(result))
+        return
+
+    click.echo()
+    click.echo("| objective | local branches | latest tip | max ahead trunk |")
+    click.echo("| --- | ---: | --- | ---: |")
+    for group in result.groups:
+        click.echo(
+            "| "
+            f"{group.slug} | "
+            f"{len(group.branches)} | "
+            f"{format_relative_time(_latest_tip_head_iso(group))} | "
+            f"+{_max_ahead_trunk(group)} |"
         )
-    )
 
 
-def _token(label: str, present: bool) -> str:
-    return f"[green]{label}[/green]" if present else f"[dim]{label}[/dim]"
+def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
+    click.echo(f"# {_detail_heading(result)}")
+    if not result.groups:
+        click.echo()
+        click.echo(_empty_message(result))
+        return
+
+    for group in result.groups:
+        click.echo()
+        click.echo(f"## {group.slug}")
+        click.echo()
+        click.echo("| branch | tip age | ahead trunk |")
+        click.echo("| --- | --- | ---: |")
+        for entry in group.branches:
+            click.echo(
+                f"| `{entry.branch}` | "
+                f"{format_relative_time(entry.tip_head_iso)} | "
+                f"+{entry.ahead_trunk} |"
+            )
+
+
+def _render_slugs(result: ObjectiveListResult) -> None:
+    for group in result.groups:
+        click.echo(group.slug)
+
+
+def _list_heading(result: ObjectiveListResult) -> str:
+    if result.filtered_to_current and result.current_branch is not None:
+        return f"Open Objective status for current branch `{result.current_branch}`"
+    return "Open Objective status in this local repository"
+
+
+def _detail_heading(result: ObjectiveListResult) -> str:
+    if result.filtered_to_current and result.current_branch is not None:
+        return f"Open Objective branch details for current branch `{result.current_branch}`"
+    return "Open Objective branch details in this local repository"
+
+
+def _empty_message(result: ObjectiveListResult) -> str:
+    if result.filtered_to_current:
+        if result.current_branch is None:
+            return "No current branch (detached HEAD); nothing to list."
+        return f"No open Objectives associated with current branch `{result.current_branch}`."
+    return "No open Objective status found."
 
 
 @clinkr_operation(
     name="list",
-    help="List checked-in Objective record directories as filesystem facts.",
+    help="List open Objectives across local branch tips in this repository.",
     human_renderer=render_objective_list_human,
     markdown_renderer=render_objective_list_markdown,
 )
@@ -131,50 +208,140 @@ def run_list_objectives(
     ctx: click.Context,
     request: ObjectiveListRequest,
 ) -> ClinkrExit[ObjectiveListResult]:
-    del ctx
-    return ClinkrExit.ok(_build_objective_list_result(request.state))
-
-
-def _build_objective_list_result(state: ObjectiveListState = "open") -> ObjectiveListResult:
-    root = relative_root_path()
-    absolute_root = Path.cwd() / root
-    entries: tuple[ObjectiveListEntry, ...] = ()
-    if absolute_root.is_dir():
-        entries = tuple(
-            _build_entry(path)
-            for path in sorted(
-                (child for child in absolute_root.iterdir() if child.is_dir()),
-                key=lambda child: child.name,
-            )
+    objective_ctx = load_objective_context(ctx)
+    if isinstance(objective_ctx, ObjectiveCliUnavailable):
+        return ClinkrExit.failure(error_type="not_in_repo", message=objective_ctx.message)
+    return ClinkrExit.ok(
+        build_objective_list_result(
+            objective_ctx,
+            view=request.view,
+            filter_current=request.current,
+            names_only=request.names,
         )
-        entries = _filter_entries(entries, state)
+    )
+
+
+def build_objective_list_result(
+    ctx: ObjectiveCliContext,
+    *,
+    view: ObjectiveListView = "list",
+    filter_current: bool = False,
+    names_only: bool = False,
+) -> ObjectiveListResult:
+    rows_by_slug: dict[str, list[ObjectiveBranchEntry]] = {}
+    trunk = ctx.trunk_branch
+
+    current_branch: str | None = None
+    if filter_current:
+        current_result = ctx.git.get_current_branch(ctx.repo_root)
+        if isinstance(current_result, GitCommandFailure):
+            raise ClinkrFailure(
+                error_type="git_current_branch_failed",
+                message=current_result.message,
+            )
+        if isinstance(current_result, str):
+            current_branch = current_result
+
+    for branch_tip in ctx.git.list_local_branch_tips():
+        branch = branch_tip.name
+        if branch == trunk:
+            continue
+
+        ref = f"refs/heads/{branch}"
+        paths_result = ctx.git.list_tracked_paths_at_ref(ref, OBJECTIVE_ROOT)
+        if isinstance(paths_result, GitCommandFailure):
+            raise ClinkrFailure(
+                error_type="git_list_objective_paths_failed",
+                message=paths_result.message,
+            )
+
+        open_slugs = _open_objective_slugs_from_paths(paths_result)
+        if not open_slugs:
+            continue
+
+        ahead_result = ctx.git.count_commits_in_range(f"{trunk}..{branch}")
+        if isinstance(ahead_result, GitCommandFailure):
+            raise ClinkrFailure(
+                error_type="git_ahead_count_failed",
+                message=ahead_result.message,
+            )
+
+        for slug in open_slugs:
+            rows_by_slug.setdefault(slug, []).append(
+                ObjectiveBranchEntry(
+                    branch=branch,
+                    tip_head_iso=branch_tip.head_iso,
+                    ahead_trunk=ahead_result,
+                )
+            )
+
+    if filter_current:
+        rows_by_slug = {
+            slug: entries
+            for slug, entries in rows_by_slug.items()
+            if current_branch is not None
+            and any(entry.branch == current_branch for entry in entries)
+        }
+
     return ObjectiveListResult(
-        root_path=root.as_posix(),
-        root_exists=absolute_root.exists(),
-        state=state,
-        entries=entries,
+        trunk_branch=trunk,
+        view=view,
+        current_branch=current_branch,
+        filtered_to_current=filter_current,
+        names_only=names_only,
+        groups=tuple(
+            ObjectiveListGroup(
+                slug=slug,
+                branches=tuple(sorted(entries, key=lambda entry: entry.branch)),
+            )
+            for slug, entries in sorted(rows_by_slug.items())
+        ),
     )
 
 
-def _filter_entries(
-    entries: tuple[ObjectiveListEntry, ...],
-    state: ObjectiveListState,
-) -> tuple[ObjectiveListEntry, ...]:
-    if state == "open":
-        return tuple(entry for entry in entries if not entry.closed)
-    if state == "closed":
-        return tuple(entry for entry in entries if entry.closed)
-    return entries
+def _open_objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
+    slugs: set[str] = set()
+    closed_slugs: set[str] = set()
+    prefix = f"{OBJECTIVE_ROOT}/"
+
+    for path in paths:
+        if not path.startswith(prefix):
+            continue
+        rest = path.removeprefix(prefix)
+        slug, separator, child_path = rest.partition("/")
+        if slug == "" or separator == "":
+            continue
+        slugs.add(slug)
+        if child_path == "closed.md":
+            closed_slugs.add(slug)
+
+    return tuple(sorted(slugs - closed_slugs))
 
 
-def _build_entry(path: Path) -> ObjectiveListEntry:
-    relative_path = relative_record_path(path.name)
-    files = build_objective_files(path)
-    updates = list_update_files(path)
-    return ObjectiveListEntry(
-        slug=path.name,
-        path=relative_path.as_posix(),
-        closed=files.closed_md,
-        files=files,
-        update_count=len(updates),
-    )
+def _latest_tip_head_iso(group: ObjectiveListGroup) -> str | None:
+    parsed_tips: list[tuple[datetime, str]] = []
+    for entry in group.branches:
+        tip_head_iso = entry.tip_head_iso
+        if tip_head_iso is None:
+            continue
+        parsed_dt = _parse_iso_datetime(tip_head_iso)
+        if parsed_dt is not None:
+            parsed_tips.append((parsed_dt, tip_head_iso))
+
+    if not parsed_tips:
+        return None
+    return max(parsed_tips, key=lambda item: item[0])[1]
+
+
+def _parse_iso_datetime(iso_timestamp: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _max_ahead_trunk(group: ObjectiveListGroup) -> int:
+    return max((entry.ahead_trunk for entry in group.branches), default=0)

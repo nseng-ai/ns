@@ -9,7 +9,7 @@ from click.testing import CliRunner, Result
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import GitCommandFailure
+from asdl_core.git.types import DetachedHead, GitCommandFailure
 from asdl_objectives.context import ObjectiveCliContext, ObjectiveCliUnavailable
 from asdl_objectives.main import build_cli
 
@@ -26,8 +26,8 @@ def test_objective_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective" in result.output
     assert "Work with checked-in Objective records." in result.output
     assert "--version" in result.output
-    assert "status" in result.output
     assert "list" in result.output
+    assert "status" not in result.output
     assert "exec" not in result.output
 
 
@@ -43,24 +43,16 @@ def test_objective_list_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: objective list" in result.output
-    assert "List checked-in Objective record directories" in result.output
-
-
-def test_objective_status_help(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["status", "--help"])
-
-    assert result.exit_code == 0
-    assert "Usage: objective status" in result.output
-    assert "Show current Objective status for this local repository." in result.output
+    assert "List open Objectives across local branch tips" in result.output
+    assert "--current" in result.output
+    assert "--names" in result.output
     assert "--view" in result.output
-    assert "Select objective-level list or per-branch" in result.output
-    assert "detail view." in result.output
 
 
-def test_objective_status_empty_result(cli_group: ClinkrGroup) -> None:
-    ctx = _status_context(branches=("master", "feat/no-objectives"))
+def test_objective_list_empty_result(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(branches=("master", "feat/no-objectives"))
 
-    result = _invoke_status_json(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == {
@@ -68,19 +60,22 @@ def test_objective_status_empty_result(cli_group: ClinkrGroup) -> None:
         "data": {
             "trunk_branch": "master",
             "view": "list",
+            "current_branch": None,
+            "filtered_to_current": False,
+            "names_only": False,
             "groups": [],
         },
     }
 
-    human = _invoke_status_human(cli_group, ctx)
+    human = _invoke_list_human(cli_group, ctx)
     assert human.exit_code == 0, human.output
     assert "No open Objective status found." in human.output
 
 
-def test_objective_status_groups_multiple_branches_under_one_objective(
+def test_objective_list_groups_multiple_branches_under_one_objective(
     cli_group: ClinkrGroup,
 ) -> None:
-    ctx = _status_context(
+    ctx = _list_context(
         branches=("master", "feat/b", "feat/a"),
         tracked_paths_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
@@ -96,11 +91,14 @@ def test_objective_status_groups_multiple_branches_under_one_objective(
         },
     )
 
-    result = _invoke_status_json(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["data"]["view"] == "list"
+    assert payload["data"]["filtered_to_current"] is False
+    assert payload["data"]["current_branch"] is None
+    assert payload["data"]["names_only"] is False
     assert payload["data"]["groups"] == [
         {
             "slug": "alpha",
@@ -118,12 +116,11 @@ def test_objective_status_groups_multiple_branches_under_one_objective(
             ],
         }
     ]
-    assert "canonical" not in result.output.lower()
     assert "tip_age" not in payload["data"]["groups"][0]["branches"][0]
 
 
-def test_objective_status_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
-    ctx = _status_context(
+def test_objective_list_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
         branches=("master", "feat/b", "feat/a"),
         tracked_paths_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): (
@@ -134,7 +131,7 @@ def test_objective_status_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -
         },
     )
 
-    result = _invoke_status_json(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     groups = json.loads(result.output)["data"]["groups"]
@@ -143,8 +140,8 @@ def test_objective_status_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -
     assert [entry["branch"] for entry in groups[1]["branches"]] == ["feat/a"]
 
 
-def test_objective_status_excludes_closed_objectives(cli_group: ClinkrGroup) -> None:
-    ctx = _status_context(
+def test_objective_list_excludes_closed_objectives(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
         branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): (
@@ -155,7 +152,7 @@ def test_objective_status_excludes_closed_objectives(cli_group: ClinkrGroup) -> 
         },
     )
 
-    result = _invoke_status_json(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     groups = json.loads(result.output)["data"]["groups"]
@@ -163,10 +160,10 @@ def test_objective_status_excludes_closed_objectives(cli_group: ClinkrGroup) -> 
     assert "closed-one" not in result.output
 
 
-def test_objective_status_excludes_trunk_and_no_objective_branches(
+def test_objective_list_excludes_trunk_and_no_objective_branches(
     cli_group: ClinkrGroup,
 ) -> None:
-    ctx = _status_context(
+    ctx = _list_context(
         branches=("master", "feat/active", "feat/empty"),
         tracked_paths_by_ref_path={
             ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
@@ -176,23 +173,23 @@ def test_objective_status_excludes_trunk_and_no_objective_branches(
         },
     )
 
-    result = _invoke_status_json(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     branches = json.loads(result.output)["data"]["groups"][0]["branches"]
     assert [entry["branch"] for entry in branches] == ["feat/active"]
 
-    human = _invoke_status_human(cli_group, ctx, view="detail")
+    human = _invoke_list_human(cli_group, ctx, view="detail")
     assert human.exit_code == 0, human.output
     assert "feat/active" in human.output
     assert "master" not in human.output
     assert "feat/empty" not in human.output
 
 
-def test_objective_status_default_human_and_markdown_are_list_view(
+def test_objective_list_default_human_and_markdown_are_list_view(
     cli_group: ClinkrGroup,
 ) -> None:
-    ctx = _status_context(
+    ctx = _list_context(
         branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
@@ -201,7 +198,7 @@ def test_objective_status_default_human_and_markdown_are_list_view(
         commit_count_by_range={"master..feat/a": 7},
     )
 
-    human = _invoke_status_human(cli_group, ctx)
+    human = _invoke_list_human(cli_group, ctx)
 
     assert human.exit_code == 0, human.output
     assert "Open Objective status in this local repository" in human.output
@@ -214,7 +211,7 @@ def test_objective_status_default_human_and_markdown_are_list_view(
     assert "feat/a" not in human.output
     assert "Tip age" not in human.output
 
-    markdown = _invoke_status_md(cli_group, ctx)
+    markdown = _invoke_list_md(cli_group, ctx)
     assert markdown.exit_code == 0, markdown.output
     assert "# Open Objective status in this local repository" in markdown.output
     assert "| objective | local branches | latest tip | max ahead trunk |" in markdown.output
@@ -223,10 +220,10 @@ def test_objective_status_default_human_and_markdown_are_list_view(
     assert "| `feat/a` |" not in markdown.output
 
 
-def test_objective_status_detail_human_and_markdown_column_shape(
+def test_objective_list_detail_human_and_markdown_column_shape(
     cli_group: ClinkrGroup,
 ) -> None:
-    ctx = _status_context(
+    ctx = _list_context(
         branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
@@ -235,7 +232,7 @@ def test_objective_status_detail_human_and_markdown_column_shape(
         commit_count_by_range={"master..feat/a": 7},
     )
 
-    human = _invoke_status_human(cli_group, ctx, view="detail")
+    human = _invoke_list_human(cli_group, ctx, view="detail")
 
     assert human.exit_code == 0, human.output
     assert "Open Objective branch details in this local repository" in human.output
@@ -244,24 +241,135 @@ def test_objective_status_detail_human_and_markdown_column_shape(
     assert "Ahead trunk" in human.output
     assert "feat/a" in human.output
     assert "+7" in human.output
-    assert "tip subject" not in human.output.lower()
-    assert "latest update" not in human.output.lower()
-    assert "objective files changed" not in human.output.lower()
 
-    markdown = _invoke_status_md(cli_group, ctx, view="detail")
+    markdown = _invoke_list_md(cli_group, ctx, view="detail")
     assert markdown.exit_code == 0, markdown.output
     assert "# Open Objective branch details in this local repository" in markdown.output
     assert "| branch | tip age | ahead trunk |" in markdown.output
     assert "| `feat/a` |" in markdown.output
-    assert "tip subject" not in markdown.output.lower()
-    assert "latest update" not in markdown.output.lower()
-    assert "objective files changed" not in markdown.output.lower()
 
 
-def test_objective_status_unavailable_context_returns_failure_envelope(
+def test_objective_list_current_filters_to_current_branch(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/here", "feat/other"),
+        current_branch="feat/here",
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/here", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/other", ".asdl/objectives"): (".asdl/objectives/beta/objective.md",),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, current=True)
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["filtered_to_current"] is True
+    assert data["current_branch"] == "feat/here"
+    assert [group["slug"] for group in data["groups"]] == ["alpha"]
+
+
+def test_objective_list_current_empty_when_branch_unrelated(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/here", "feat/other"),
+        current_branch="feat/here",
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/other", ".asdl/objectives"): (".asdl/objectives/beta/objective.md",),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, current=True)
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["filtered_to_current"] is True
+    assert data["current_branch"] == "feat/here"
+    assert data["groups"] == []
+
+    human = _invoke_list_human(cli_group, ctx, current=True)
+    assert human.exit_code == 0, human.output
+    assert "No open Objectives associated with current branch" in human.output
+    assert "feat/here" in human.output
+
+
+def test_objective_list_current_detached_head_is_empty(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/a"),
+        current_branch=DetachedHead(),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, current=True)
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    assert data["filtered_to_current"] is True
+    assert data["current_branch"] is None
+    assert data["groups"] == []
+
+    human = _invoke_list_human(cli_group, ctx, current=True)
+    assert human.exit_code == 0, human.output
+    assert "detached head" in human.output.lower()
+
+
+def test_objective_list_names_outputs_slugs_one_per_line(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/a", "feat/b"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/beta/objective.md",),
+        },
+    )
+
+    result = _invoke_list_human(cli_group, ctx, names=True)
+
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.output.splitlines() if line.strip()]
+    assert lines == ["alpha", "beta"]
+    assert "Objective" not in result.output
+    assert "Latest tip" not in result.output
+
+
+def test_objective_list_names_with_current_filters_then_emits_slugs(
     cli_group: ClinkrGroup,
 ) -> None:
-    result = _invoke_status_json(
+    ctx = _list_context(
+        branches=("master", "feat/here", "feat/other"),
+        current_branch="feat/here",
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/here", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/other", ".asdl/objectives"): (".asdl/objectives/beta/objective.md",),
+        },
+    )
+
+    result = _invoke_list_human(cli_group, ctx, current=True, names=True)
+
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.output.splitlines() if line.strip()]
+    assert lines == ["alpha"]
+
+
+def test_objective_list_names_markdown_also_emits_slugs(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/a"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+    )
+
+    result = _invoke_list_md(cli_group, ctx, names=True)
+
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.output.splitlines() if line.strip()]
+    assert lines == ["alpha"]
+    assert "|" not in result.output
+
+
+def test_objective_list_unavailable_context_returns_failure_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = _invoke_list_json(
         cli_group,
         ObjectiveCliUnavailable("Not inside a git repository."),
     )
@@ -287,289 +395,6 @@ def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: objective exec read-objective" in result.output
     assert "Read one Objective record by explicit slug" in result.output
-
-
-def test_objective_list_absent_root(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    result = _invoke_json(cli_group)
-
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == {
-        "exit_code": 0,
-        "data": {
-            "root_path": ".asdl/objectives",
-            "root_exists": False,
-            "state": "open",
-            "entries": [],
-        },
-    }
-
-
-def test_objective_list_empty_root(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / ".asdl" / "objectives").mkdir(parents=True)
-
-    result = _invoke_json(cli_group)
-
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.output)["data"] == {
-        "root_path": ".asdl/objectives",
-        "root_exists": True,
-        "state": "open",
-        "entries": [],
-    }
-
-
-def test_objective_list_all_state_sorts_open_and_closed_records(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "zeta", closed=True)
-    _write_objective(root, "alpha")
-
-    result = _invoke_json(cli_group, "--state", "all")
-
-    assert result.exit_code == 0, result.output
-    entries = json.loads(result.output)["data"]["entries"]
-    assert [entry["slug"] for entry in entries] == ["alpha", "zeta"]
-    assert entries[0]["path"] == ".asdl/objectives/alpha"
-    assert entries[0]["closed"] is False
-    assert entries[1]["path"] == ".asdl/objectives/zeta"
-    assert entries[1]["closed"] is True
-    assert entries[1]["files"]["closed_md"] is True
-
-
-def test_objective_list_filters_open_state(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "active")
-    _write_objective(root, "done", closed=True)
-
-    result = _invoke_json(cli_group, "--state", "open")
-
-    assert result.exit_code == 0, result.output
-    entries = json.loads(result.output)["data"]["entries"]
-    assert [entry["slug"] for entry in entries] == ["active"]
-    assert entries[0]["closed"] is False
-
-
-def test_objective_list_filters_closed_state(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "active")
-    _write_objective(root, "done", closed=True)
-
-    result = _invoke_json(cli_group, "--state", "closed")
-
-    assert result.exit_code == 0, result.output
-    entries = json.loads(result.output)["data"]["entries"]
-    assert [entry["slug"] for entry in entries] == ["done"]
-    assert entries[0]["closed"] is True
-
-
-def test_objective_list_default_state_returns_open(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "active")
-    _write_objective(root, "done", closed=True)
-
-    result = _invoke_json(cli_group)
-
-    assert result.exit_code == 0, result.output
-    data = json.loads(result.output)["data"]
-    assert data["state"] == "open"
-    entries = data["entries"]
-    assert [entry["slug"] for entry in entries] == ["active"]
-    assert entries[0]["closed"] is False
-
-
-def test_objective_list_invalid_state(cli_group: ClinkrGroup) -> None:
-    result = CliRunner().invoke(cli_group, ["list", "--state", "bogus"])
-
-    assert result.exit_code != 0
-    assert "Invalid value for '--state'" in result.output
-    assert "bogus" in result.output
-
-
-def test_objective_list_reports_missing_required_files(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    (root / "partial").mkdir(parents=True)
-
-    result = _invoke_json(cli_group)
-
-    assert result.exit_code == 0, result.output
-    entry = json.loads(result.output)["data"]["entries"][0]
-    assert entry["files"] == {
-        "objective_md": False,
-        "roadmap_md": False,
-        "updates_dir": False,
-        "closed_md": False,
-    }
-    assert entry["update_count"] == 0
-
-
-def test_objective_list_counts_direct_markdown_updates_only(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    objective_path = _write_objective(root, "counter", updates=("first.md", "second.md"))
-    updates_dir = objective_path / "updates"
-    (updates_dir / "notes.txt").write_text("not markdown\n", encoding="utf-8")
-    nested_dir = updates_dir / "nested"
-    nested_dir.mkdir()
-    (nested_dir / "third.md").write_text("nested update\n", encoding="utf-8")
-    (updates_dir / "directory.md").mkdir()
-
-    result = _invoke_json(cli_group)
-
-    assert result.exit_code == 0, result.output
-    entry = json.loads(result.output)["data"]["entries"][0]
-    assert entry["update_count"] == 2
-
-
-def test_objective_list_ignores_non_directory_root_entries(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    root.mkdir(parents=True)
-    (root / ".gitkeep").write_text("", encoding="utf-8")
-    (root / "not-an-objective.md").write_text("ignored\n", encoding="utf-8")
-    _write_objective(root, "real")
-
-    result = _invoke_json(cli_group)
-
-    assert result.exit_code == 0, result.output
-    entries = json.loads(result.output)["data"]["entries"]
-    assert [entry["slug"] for entry in entries] == ["real"]
-
-
-def test_objective_list_format_md(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "alpha", updates=("progress.md",))
-
-    result = CliRunner().invoke(cli_group, ["list", "--format", "md"])
-
-    assert result.exit_code == 0, result.output
-    assert "Root: `.asdl/objectives` (present)" in result.output
-    assert "| slug | state | files | updates | path |" in result.output
-    assert (
-        "| alpha | open | objective.md:yes, roadmap.md:yes, updates/:yes, closed.md:no | "
-        "1 | `.asdl/objectives/alpha` |"
-    ) in result.output
-    assert "choose" not in result.output.lower()
-    assert "recommend" not in result.output.lower()
-
-
-def test_objective_list_human_default(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "alpha")
-    _write_objective(root, "zeta", closed=True)
-
-    result = CliRunner().invoke(cli_group, ["list"])
-
-    assert result.exit_code == 0, result.output
-    # CliRunner runs without a tty so get_console() strips ANSI markup; the
-    # plain-text fragments must be present.
-    assert "Root:" in result.output
-    assert ".asdl/objectives" in result.output
-    assert "present" in result.output
-    assert "Slug" in result.output
-    assert "alpha" in result.output
-    assert "zeta" not in result.output
-    # The markdown table header is markdown-only and must not leak into
-    # the human renderer's output.
-    assert "| slug | state |" not in result.output
-
-
-def test_objective_list_human_default_empty_says_no_open_records(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "done", closed=True)
-
-    result = CliRunner().invoke(cli_group, ["list"])
-
-    assert result.exit_code == 0, result.output
-    assert "No open objective records." in result.output
-
-
-def test_objective_list_human_closed_empty_says_no_closed_records(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    root = tmp_path / ".asdl" / "objectives"
-    _write_objective(root, "active")
-
-    result = CliRunner().invoke(cli_group, ["list", "--state", "closed"])
-
-    assert result.exit_code == 0, result.output
-    assert "No closed objective records." in result.output
-
-
-def test_objective_list_human_all_empty_omits_state_adjective(
-    cli_group: ClinkrGroup,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / ".asdl" / "objectives").mkdir(parents=True)
-
-    result = CliRunner().invoke(cli_group, ["list", "--state", "all"])
-
-    assert result.exit_code == 0, result.output
-    assert "No objective records." in result.output
-    assert "No open objective records." not in result.output
-    assert "No closed objective records." not in result.output
 
 
 def test_objective_exec_read_missing_slug_returns_stable_json(
@@ -802,37 +627,45 @@ def test_objective_exec_read_json_omits_raw_markdown_content(
     assert "private update body sentinel" not in result.output
 
 
-def _status_context(
+def _list_context(
     *,
     branches: tuple[str, ...],
     trunk_branch: str = "master",
+    current_branch: str | DetachedHead | GitCommandFailure | None = None,
     tracked_paths_by_ref_path: (
         dict[tuple[str, str], tuple[str, ...] | GitCommandFailure] | None
     ) = None,
     branch_head_iso_by_branch: dict[str, str] | None = None,
     commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
 ) -> ObjectiveCliContext:
+    repo_root = Path("/repo")
+    current_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None
+    if current_branch is not None:
+        current_by_path = {repo_root: current_branch}
     return ObjectiveCliContext(
-        repo_root=Path("/repo"),
+        repo_root=repo_root,
         trunk_branch=trunk_branch,
         git=FakeGitGateway(
-            repo_root=Path("/repo"),
+            repo_root=repo_root,
             branches=branches,
             trunk_branch=trunk_branch,
             tracked_paths_by_ref_path=tracked_paths_by_ref_path,
             branch_head_iso_by_branch=branch_head_iso_by_branch,
             commit_count_by_range=commit_count_by_range,
+            current_branch_by_path=current_by_path,
         ),
     )
 
 
-def _invoke_status_json(
+def _invoke_list_json(
     cli_group: ClinkrGroup,
     ctx: ObjectiveCliContext | ObjectiveCliUnavailable,
     *,
     view: str | None = None,
+    current: bool = False,
+    names: bool = False,
 ) -> Result:
-    args = _status_args(format_mode="json", view=view)
+    args = _list_args(format_mode="json", view=view, current=current, names=names)
     return CliRunner().invoke(
         cli_group,
         args,
@@ -840,13 +673,15 @@ def _invoke_status_json(
     )
 
 
-def _invoke_status_human(
+def _invoke_list_human(
     cli_group: ClinkrGroup,
     ctx: ObjectiveCliContext,
     *,
     view: str | None = None,
+    current: bool = False,
+    names: bool = False,
 ) -> Result:
-    args = _status_args(view=view)
+    args = _list_args(view=view, current=current, names=names)
     return CliRunner().invoke(
         cli_group,
         args,
@@ -854,13 +689,15 @@ def _invoke_status_human(
     )
 
 
-def _invoke_status_md(
+def _invoke_list_md(
     cli_group: ClinkrGroup,
     ctx: ObjectiveCliContext,
     *,
     view: str | None = None,
+    current: bool = False,
+    names: bool = False,
 ) -> Result:
-    args = _status_args(format_mode="md", view=view)
+    args = _list_args(format_mode="md", view=view, current=current, names=names)
     return CliRunner().invoke(
         cli_group,
         args,
@@ -868,21 +705,23 @@ def _invoke_status_md(
     )
 
 
-def _status_args(*, format_mode: str | None = None, view: str | None = None) -> list[str]:
-    args = ["status"]
+def _list_args(
+    *,
+    format_mode: str | None = None,
+    view: str | None = None,
+    current: bool = False,
+    names: bool = False,
+) -> list[str]:
+    args = ["list"]
+    if current:
+        args.append("--current")
+    if names:
+        args.append("--names")
     if view is not None:
         args.extend(("--view", view))
     if format_mode is not None:
         args.extend(("--format", format_mode))
     return args
-
-
-def _invoke_json(cli_group: ClinkrGroup, *args: str) -> Result:
-    return CliRunner().invoke(
-        cli_group,
-        ["list", *args, "--format", "json"],
-        obj=build_clinkr_context_object(lambda: object()),
-    )
 
 
 def _invoke_read_json(cli_group: ClinkrGroup, slug: str | None = None) -> Result:

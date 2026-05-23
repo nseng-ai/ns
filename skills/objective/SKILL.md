@@ -58,7 +58,7 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --state open --format md` to enumerate candidate Objective directories under `.asdl/objectives/` and ask the user to choose.
+2. If no slug or path is explicit, run `objective list --names` (or `objective list --format md` for the full table) to enumerate candidate open Objectives across local branch tips and ask the user to choose. Use `objective list --current` to filter to Objectives associated with the current branch.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one open Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple open Objectives exist, ask instead.
@@ -67,7 +67,7 @@ Outside that confirmation path, do not auto-select from candidate count or chang
 
 ## Repository status
 
-Use `objective status` for the default objective-level list of open Objective records with local branch state. Use `objective status --view detail` when you need the per-branch detail view with branch, tip age, and ahead-of-trunk count. It does not parse Markdown, choose a canonical branch, or list branches without open Objectives.
+Use `objective list` for the default objective-level list of open Objective records with local branch state across all branch tips. Use `objective list --view detail` for the per-branch detail view with branch, tip age, and ahead-of-trunk count. Use `objective list --current` to filter to Objectives associated with the current branch, and `objective list --names` to emit just slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without open Objectives.
 
 ## Tracking Gate
 
@@ -77,4 +77,4 @@ Before `objective-next` recommends work, check read-only whether material progre
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective status`, `objective exec read-objective`) owns only deterministic facts (inventory, branch facts, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
+- V1 keeps Objective _meaning_ in Markdown; CLI tooling (`objective list`, `objective exec read-objective`) owns only deterministic facts (inventory, branch facts, file presence, closed-marker). Do not parse Markdown headings, roadmap checkboxes, or prose meaning in CLI code.
