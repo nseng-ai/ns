@@ -1,12 +1,81 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
-from asdl_core.gt.real_gateway import RealGtGateway, parse_stack_output
-from asdl_core.gt.types import GtCommandFailure, StackInfo
+from asdl_core.gt.real_gateway import RealGtGateway
+from asdl_core.gt.types import GtCommandFailure, StackInfo, UntrackedBranch
+
+
+@dataclass(frozen=True)
+class _BranchRow:
+    branch_name: str
+    parent_branch_name: str | None
+    children: tuple[str, ...] = ()
+    validation_result: str | None = None
+
+
+def _build_metadata_db(tmp_path: Path, branches: list[_BranchRow]) -> Path:
+    db_path = tmp_path / ".graphite_metadata.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE branch_metadata (
+                branch_name TEXT PRIMARY KEY,
+                parent_branch_name TEXT,
+                children TEXT NOT NULL,
+                validation_result TEXT
+            )
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO branch_metadata (
+                branch_name,
+                parent_branch_name,
+                children,
+                validation_result
+            ) VALUES (?, ?, ?, ?)
+            """,
+            [
+                (
+                    branch.branch_name,
+                    branch.parent_branch_name,
+                    json.dumps(list(branch.children)),
+                    branch.validation_result,
+                )
+                for branch in branches
+            ],
+        )
+    return db_path
+
+
+def _patch_git_rev_parse(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    common_dir: Path | None,
+    current_branch: str = "feat/current",
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if cmd == ["git", "rev-parse", "--git-common-dir"]:
+            if common_dir is None:
+                return subprocess.CompletedProcess(
+                    cmd,
+                    128,
+                    stdout="",
+                    stderr="fatal: not a git repository",
+                )
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"{common_dir}\n", stderr="")
+        if cmd == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"{current_branch}\n", stderr="")
+        raise AssertionError(f"unexpected subprocess invocation: {cmd!r}")
+
+    monkeypatch.setattr("asdl_core.gt.real_gateway.subprocess.run", fake_run)
 
 
 def test_real_gt_gateway_missing_gt_returns_command_failure(
@@ -24,162 +93,126 @@ def test_real_gt_gateway_missing_gt_returns_command_failure(
     assert "gt: not found" in result.message
 
 
-def test_parse_stack_output_linear_two_branch() -> None:
-    stdout = "◯  master (code/asdl)\n◉  add-feature-x\n"
+def test_real_gt_gateway_stack_reads_linear_metadata_stack(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _build_metadata_db(
+        tmp_path,
+        [
+            _BranchRow("main", None, ("feat/mid",), "TRUNK"),
+            _BranchRow("feat/mid", "main", ("feat/current",)),
+            _BranchRow("feat/current", "feat/mid"),
+        ],
+    )
+    _patch_git_rev_parse(monkeypatch, common_dir=tmp_path, current_branch="feat/current")
 
-    result = parse_stack_output(stdout)
+    result = RealGtGateway().stack(tmp_path)
 
     assert result == StackInfo(
-        trunk="master",
-        current="add-feature-x",
-        ancestors=("master",),
+        trunk="main",
+        current="feat/current",
+        ancestors=("main", "feat/mid"),
         children=(),
         warnings=(),
+        descendants=(),
     )
 
 
-def test_parse_stack_output_linear_three_branch_with_child() -> None:
-    stdout = "◯  master\n◯  feat/base\n◉  feat/middle\n◯  feat/child\n"
+def test_real_gt_gateway_stack_handles_current_trunk(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _build_metadata_db(tmp_path, [_BranchRow("main", None, (), "TRUNK")])
+    _patch_git_rev_parse(monkeypatch, common_dir=tmp_path, current_branch="main")
 
-    result = parse_stack_output(stdout)
-
-    assert result == StackInfo(
-        trunk="master",
-        current="feat/middle",
-        ancestors=("master", "feat/base"),
-        children=("feat/child",),
-        warnings=(),
-        descendants=("feat/child",),
-    )
-
-
-def test_parse_stack_output_descendants_includes_grandchildren() -> None:
-    stdout = "◯  master\n◯  feat/base\n◉  feat/middle\n◯  feat/child\n◯  feat/grandchild\n"
-
-    result = parse_stack_output(stdout)
-
-    assert result is not None
-    assert result.descendants == ("feat/child", "feat/grandchild")
-    assert result.ancestors == ("master", "feat/base")
-
-
-def test_parse_stack_output_current_is_trunk() -> None:
-    stdout = "◉  master (code/asdl)\n"
-
-    result = parse_stack_output(stdout)
+    result = RealGtGateway().stack(tmp_path)
 
     assert result == StackInfo(
-        trunk="master",
-        current="master",
+        trunk="main",
+        current="main",
         ancestors=(),
         children=(),
         warnings=(),
+        descendants=(),
     )
 
 
-def test_parse_stack_output_warns_on_off_column_entries() -> None:
-    # Sibling branch off ancestor sits at a different column.
-    stdout = "◯  master\n◯  feat/base\n  ◯  feat/sibling\n◉  feat/current\n"
-
-    result = parse_stack_output(stdout)
-
-    assert result is not None
-    assert result.current == "feat/current"
-    assert result.ancestors == ("master", "feat/base")
-    assert any("outside the current branch's column" in w for w in result.warnings)
-
-
-def test_parse_stack_output_no_current_marker_returns_none() -> None:
-    stdout = "◯  master\n◯  feat/base\n"
-
-    assert parse_stack_output(stdout) is None
-
-
-def test_real_gt_gateway_stack_passes_log_and_children(
+def test_real_gt_gateway_stack_preserves_fork_children_and_warns_on_descendant_walk(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
-    log_stdout = "◯  master\n◉  feat/current\n"
-    children_stdout = ""
-    calls: list[list[str]] = []
-
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        calls.append(cmd)
-        if cmd[1:4] == ["log", "short", "--stack"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=log_stdout, stderr="")
-        if cmd[1] == "children":
-            return subprocess.CompletedProcess(cmd, 0, stdout=children_stdout, stderr="")
-        raise AssertionError(f"unexpected gt invocation: {cmd!r}")
-
-    monkeypatch.setattr("asdl_core.gt.real_gateway.subprocess.run", fake_run)
-
-    result = RealGtGateway().stack(Path("/repo"))
-
-    assert result == StackInfo(
-        trunk="master",
-        current="feat/current",
-        ancestors=("master",),
-        children=(),
-        warnings=(),
+    _build_metadata_db(
+        tmp_path,
+        [
+            _BranchRow("main", None, ("feat/current",), "TRUNK"),
+            _BranchRow("feat/current", "main", ("feat/a", "feat/b")),
+            _BranchRow("feat/a", "feat/current", ("feat/a2",)),
+            _BranchRow("feat/a2", "feat/a"),
+            _BranchRow("feat/b", "feat/current"),
+        ],
     )
-    assert any(c[1:4] == ["log", "short", "--stack"] for c in calls)
-    assert any(c[1] == "children" for c in calls)
+    _patch_git_rev_parse(monkeypatch, common_dir=tmp_path, current_branch="feat/current")
 
-
-def test_real_gt_gateway_stack_uses_gt_children_for_authoritative_children(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    log_stdout = "◯  master\n◉  feat/current\n"
-    children_stdout = "feat/childA\nfeat/childB\n"
-
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if cmd[1:4] == ["log", "short", "--stack"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=log_stdout, stderr="")
-        if cmd[1] == "children":
-            return subprocess.CompletedProcess(cmd, 0, stdout=children_stdout, stderr="")
-        raise AssertionError(f"unexpected gt invocation: {cmd!r}")
-
-    monkeypatch.setattr("asdl_core.gt.real_gateway.subprocess.run", fake_run)
-
-    result = RealGtGateway().stack(Path("/repo"))
+    result = RealGtGateway().stack(tmp_path)
 
     assert isinstance(result, StackInfo)
-    assert result.children == ("feat/childA", "feat/childB")
-    # Parser saw zero children but gt children reports two; warning surfaces the diff.
-    assert any("differ between gt log parse" in w for w in result.warnings)
+    assert result.children == ("feat/a", "feat/b")
+    assert result.descendants == ("feat/a", "feat/a2")
+    assert any("first child only" in warning for warning in result.warnings)
 
 
-def test_real_gt_gateway_stack_plumbs_descendants_through(
+def test_real_gt_gateway_stack_returns_untracked_for_missing_current_branch(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
-    log_stdout = "◯  master\n◉  feat/current\n◯  feat/child\n◯  feat/grandchild\n"
-    children_stdout = "feat/child\n"
+    _build_metadata_db(tmp_path, [_BranchRow("main", None, (), "TRUNK")])
+    _patch_git_rev_parse(monkeypatch, common_dir=tmp_path, current_branch="feat/missing")
 
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if cmd[1:4] == ["log", "short", "--stack"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=log_stdout, stderr="")
-        if cmd[1] == "children":
-            return subprocess.CompletedProcess(cmd, 0, stdout=children_stdout, stderr="")
-        raise AssertionError(f"unexpected gt invocation: {cmd!r}")
+    result = RealGtGateway().stack(tmp_path)
 
-    monkeypatch.setattr("asdl_core.gt.real_gateway.subprocess.run", fake_run)
-
-    result = RealGtGateway().stack(Path("/repo"))
-
-    assert isinstance(result, StackInfo)
-    assert result.children == ("feat/child",)
-    assert result.descendants == ("feat/child", "feat/grandchild")
+    assert isinstance(result, UntrackedBranch)
+    assert "feat/missing" in result.message
 
 
-def test_real_gt_gateway_stack_returns_failure_on_log_error(
+def test_real_gt_gateway_stack_returns_failure_for_missing_metadata_db(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
-    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="not a gt repo")
+    _patch_git_rev_parse(monkeypatch, common_dir=tmp_path, current_branch="feat/current")
 
-    monkeypatch.setattr("asdl_core.gt.real_gateway.subprocess.run", fake_run)
-
-    result = RealGtGateway().stack(Path("/repo"))
+    result = RealGtGateway().stack(tmp_path)
 
     assert isinstance(result, GtCommandFailure)
-    assert result.returncode == 1
-    assert "not a gt repo" in result.message
+    assert result.returncode is None
+    assert "not found" in result.message
+    assert str(tmp_path / ".graphite_metadata.db") in result.message
+
+
+def test_real_gt_gateway_stack_returns_failure_for_schema_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / ".graphite_metadata.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY)")
+    _patch_git_rev_parse(monkeypatch, common_dir=tmp_path, current_branch="main")
+
+    result = RealGtGateway().stack(tmp_path)
+
+    assert isinstance(result, GtCommandFailure)
+    assert result.returncode is None
+    assert "schema mismatch" in result.message
+
+
+def test_real_gt_gateway_stack_returns_failure_when_common_dir_resolution_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _patch_git_rev_parse(monkeypatch, common_dir=None, current_branch="feat/current")
+
+    result = RealGtGateway().stack(tmp_path)
+
+    assert isinstance(result, GtCommandFailure)
+    assert result.returncode is None
+    assert "git common dir" in result.message

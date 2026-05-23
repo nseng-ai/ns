@@ -17,7 +17,7 @@ class UntrackedBranch:
 
 @dataclass(frozen=True)
 class GtCommandFailure:
-    """A ``gt`` command failed."""
+    """A Graphite command or metadata read failed."""
 
     message: str
     returncode: int | None
@@ -36,12 +36,12 @@ class StackInfo:
 
     ``current`` is the branch checked out at the ``cwd`` used for the stack
     read. A stack read that cannot identify the current Graphite branch is not
-    a ``StackInfo``; it is a ``GtCommandFailure``. ``ancestors`` is the linear
-    chain of parents from trunk down to (and including) the immediate parent of
-    ``current``. It is ordered trunk-first and excludes ``current``. ``children``
-    lists the immediate children of ``current`` only (no recursion into
-    grandchildren). ``descendants`` lists every aligned branch strictly below
-    ``current`` in the gt log column, ordered top-to-bottom; for a linear stack
+    a ``StackInfo``; it is an ``UntrackedBranch`` or ``GtCommandFailure``.
+    ``ancestors`` is the linear chain of parents from trunk down to (and
+    including) the immediate parent of ``current``. It is ordered trunk-first
+    and excludes ``current``. ``children`` lists the immediate children of
+    ``current`` only (no recursion into grandchildren). ``descendants`` follows
+    the first-child walk away from ``current``; for a linear stack
     ``master → A → B(current) → C → D`` it is ``("C", "D")``.
     """
 

@@ -13,7 +13,7 @@ from asdl_core.gt.types import (
 
 ParentResult = str | NoParent | UntrackedBranch | GtCommandFailure
 ChildrenResult = tuple[str, ...] | UntrackedBranch | GtCommandFailure
-StackResult = StackInfo | GtCommandFailure
+StackResult = StackInfo | UntrackedBranch | GtCommandFailure
 
 
 class FakeGtGateway(GtGateway):
@@ -91,7 +91,7 @@ class FakeGtGateway(GtGateway):
         self._sync_calls.append((cwd, restack))
         return self._sync_failure
 
-    def stack(self, cwd: Path) -> StackInfo | GtCommandFailure:
+    def stack(self, cwd: Path) -> StackInfo | UntrackedBranch | GtCommandFailure:
         self._stack_calls.append(cwd)
         if cwd in self._stack_by_cwd:
             return self._stack_by_cwd[cwd]

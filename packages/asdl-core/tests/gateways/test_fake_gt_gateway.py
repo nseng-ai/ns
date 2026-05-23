@@ -119,6 +119,14 @@ def test_fake_gt_gateway_stack_failure_passthrough() -> None:
     assert gateway.stack(cwd) == failure
 
 
+def test_fake_gt_gateway_stack_untracked_passthrough() -> None:
+    cwd = Path("/repo")
+    untracked = UntrackedBranch(message="not tracked")
+    gateway = FakeGtGateway(stack_by_cwd={cwd: untracked})
+
+    assert gateway.stack(cwd) == untracked
+
+
 def test_fake_gt_gateway_stack_plumbs_descendants() -> None:
     cwd = Path("/wt/slot-01")
     snapshot = StackInfo(

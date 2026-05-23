@@ -8,7 +8,7 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead
 from asdl_core.git.types import GitCommandFailure as GitFailure
-from asdl_core.gt.types import GtCommandFailure
+from asdl_core.gt.types import GtCommandFailure, UntrackedBranch
 from asdl_slots.cli.slot.free import FreedSlot
 from asdl_slots.cli.slot.gt.context import load_slot_gt_context
 from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches
@@ -105,6 +105,11 @@ def run_gt_free_stack(
     stack_result = gt_ctx.gt.stack(slots_ctx.repo.root)
     if isinstance(stack_result, GtCommandFailure):
         raise ClinkrExit.failure(error_type="gt_stack_failed", message=stack_result.message)
+    if isinstance(stack_result, UntrackedBranch):
+        raise ClinkrExit.failure(
+            error_type="gt_untracked_branch",
+            message="current branch is not tracked by Graphite — run `gt track` first",
+        )
     stack = stack_result
 
     stack_branches = collect_stack_branches(stack, current=current, trunk=trunk)
