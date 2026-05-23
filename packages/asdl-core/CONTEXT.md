@@ -193,3 +193,21 @@ The Git subdomain knows only **WorktreeInfo**. The slots package may interpret w
 ### Flagged ambiguities
 
 - **Branch / ref / start_point** — resolved locally: a **Branch** is a local `refs/heads/*` name, a **Ref** is any git object name or revision expression used for object/history operations, and a **Start point** is the ref used only to seed branch creation; Graphite parent/ancestor language belongs in the future `## Gt` section.
+
+## Gt
+
+The Gt subdomain is the shared boundary for Graphite stack metadata and stack operations. It keeps `gt` CLI calls behind a gateway so asdl packages can reason about Graphite parentage, stack navigation, restacking, and sync behavior without shelling out directly.
+
+### Language
+
+**StackInfo** — A focused snapshot of the Graphite stack around the branch checked out at a `cwd`; it is not a complete Graphite branch graph.
+_Avoid:_ stack graph, branch tree, full stack inventory.
+
+**Downstack branch** — The immediate Graphite parent of the current branch, toward trunk.
+_Avoid:_ previous branch, base branch, Git parent.
+
+**Upstack branch** — An immediate Graphite child of the current branch, away from trunk.
+_Avoid:_ next branch, descendant, child worktree.
+
+**Upstack descendants** — The recursive Graphite children below a branch, ordered along the visible stack walk.
+_Avoid:_ children, dependents, branch tree.
