@@ -92,14 +92,16 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
     console.print(f"[bold]{_list_heading(result)}[/bold]")
     table = make_table()
     table.add_column("Objective", style="bold cyan", no_wrap=True)
-    table.add_column("Local branches", justify="right", no_wrap=True)
+    table.add_column("Latest branch", style="bold", no_wrap=True)
     table.add_column("Latest tip", no_wrap=True)
+    table.add_column("Local branches", justify="right", no_wrap=True)
     table.add_column("Max ahead trunk", justify="right", no_wrap=True)
     for group in result.groups:
         table.add_row(
             group.slug,
-            str(len(group.branches)),
+            _latest_tip_branch(group),
             format_relative_time(_latest_tip_head_iso(group)),
+            str(len(group.branches)),
             f"+{_max_ahead_trunk(group)}",
         )
     console.print(table)
@@ -140,14 +142,18 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
         return
 
     click.echo()
-    click.echo("| objective | local branches | latest tip | max ahead trunk |")
-    click.echo("| --- | ---: | --- | ---: |")
+    click.echo("| objective | latest branch | latest tip | local branches | max ahead trunk |")
+    click.echo("| --- | --- | --- | ---: | ---: |")
     for group in result.groups:
+        latest_branch = _latest_tip_branch(group)
+        if latest_branch != "":
+            latest_branch = f"`{latest_branch}`"
         click.echo(
             "| "
             f"{group.slug} | "
-            f"{len(group.branches)} | "
+            f"{latest_branch} | "
             f"{format_relative_time(_latest_tip_head_iso(group))} | "
+            f"{len(group.branches)} | "
             f"+{_max_ahead_trunk(group)} |"
         )
 
@@ -318,19 +324,36 @@ def _open_objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(sorted(slugs - closed_slugs))
 
 
+def _latest_tip_branch(group: ObjectiveListGroup) -> str:
+    entry = _latest_tip_entry(group)
+    if entry is None:
+        return ""
+    return entry.branch
+
+
 def _latest_tip_head_iso(group: ObjectiveListGroup) -> str | None:
-    parsed_tips: list[tuple[datetime, str]] = []
+    entry = _latest_tip_entry(group)
+    if entry is None:
+        return None
+    return entry.tip_head_iso
+
+
+def _latest_tip_entry(group: ObjectiveListGroup) -> ObjectiveBranchEntry | None:
+    parsed_tips: list[tuple[datetime, ObjectiveBranchEntry]] = []
     for entry in group.branches:
         tip_head_iso = entry.tip_head_iso
         if tip_head_iso is None:
             continue
         parsed_dt = _parse_iso_datetime(tip_head_iso)
         if parsed_dt is not None:
-            parsed_tips.append((parsed_dt, tip_head_iso))
+            parsed_tips.append((parsed_dt, entry))
 
     if not parsed_tips:
         return None
-    return max(parsed_tips, key=lambda item: item[0])[1]
+
+    latest_dt = max(parsed_dt for parsed_dt, _entry in parsed_tips)
+    latest_entries = [entry for parsed_dt, entry in parsed_tips if parsed_dt == latest_dt]
+    return min(latest_entries, key=lambda entry: entry.branch)
 
 
 def _parse_iso_datetime(iso_timestamp: str) -> datetime | None:

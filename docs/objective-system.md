@@ -167,7 +167,7 @@ Contract:
 
 - Inspect local branch tips without checking out branches.
 - Treat an Objective as open on a branch when `.asdl/objectives/<slug>/` exists at that branch tip and `.asdl/objectives/<slug>/closed.md` does not.
-- Default to an Objective-level list view with branch count, latest tip age, and max ahead-of-trunk count.
+- Default to an Objective-level list view with latest branch by tip timestamp (ties by branch name), latest tip age, branch count, and max ahead-of-trunk count.
 - Provide a detail view that groups by Objective slug and reports only branch, tip age, and ahead-of-trunk count.
 - Provide a `--current` filter that restricts the list to Objectives associated with the current branch.
 - Provide a `--names` flag that emits Objective slugs only, one per line.
