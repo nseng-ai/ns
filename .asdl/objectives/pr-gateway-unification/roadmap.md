@@ -9,16 +9,17 @@
   - Update asdl-core unit, fake, real-sanity, and live-conformance tests for the additive unified API.
   - Evidence: local branch diff against Graphite parent `add-unified-pr-gateway-core-gh-api`; targeted core gateway tests and full `just` passed.
 
-- [ ] PR 2 — Migrate `asdl-pr-address` to unified `PRGateway`
+- [x] PR 2 — Migrate `asdl-pr-address` to unified `PRGateway`
   - Replace `gh_issue_gateway` usage with `pr_gateway`.
   - Use `PRDiscussionComment`, unified `PRReview`, unified `PRSummary`, `PRLookupMiss` / `PRGatewayFailure`, and `PRReviewThreadState`.
   - Adjust resolve/unresolve and resolve-with-reply outputs away from fake-only `was_already_*` semantics toward trusted post-state.
-  - Update `asdl-pr-address` scenario tests and result schemas.
+  - Update `asdl-pr-address` scenario tests, the `pr-address` plugin smoke test, CLI reference docs, and result schemas.
+  - Evidence: local branch diff against Graphite parent `unify-pr-gateway-add-review-comments-and-thread-mu`; `uv run pytest packages/asdl-pr-address/tests/scenario tests/scenario/test_plugins.py` passed.
 
 - [ ] PR 3 — Migrate `asdl-reviewer`, `asdl-slots`, plugin smoke tests, and live wiring
   - Move reviewer contexts and findings-comment flows to `PRGateway` and `PRDiscussionComment`.
   - Update slots GC/lifecycle code for enriched `PRSummary` and the lookup-miss/failure split.
-  - Update top-level plugin smoke tests and live GitHub conformance fixtures to the unified gateway.
+  - Update remaining top-level plugin smoke tests and live GitHub conformance fixtures to the unified gateway.
   - Keep stack green after all production consumers no longer need `IssueGateway`.
 
 - [ ] PR 4 — Delete old API names and finalize docs/Objectives
