@@ -1,0 +1,132 @@
+export type JsonObject = Record<string, unknown>;
+export type TypeBoxLikeSchema = object;
+
+export type ChildSessionTerminalStatus = "completed" | "blocked";
+export type ChildSessionFailureStatus = "stopped-without-terminal" | "cancelled" | "error" | "protocol-error";
+export type ChildSessionStatus = ChildSessionTerminalStatus | ChildSessionFailureStatus;
+
+export type ChildSessionTerminalToolDefinition<TInput = unknown> = {
+	name: string;
+	status: ChildSessionTerminalStatus;
+	description: string;
+	parameters: TypeBoxLikeSchema;
+};
+
+export type ChildSessionOptions = {
+	title?: string;
+	prompt: string;
+	cwd?: string;
+	terminalTools: readonly ChildSessionTerminalToolDefinition[];
+	signal?: AbortSignal;
+};
+
+export type ChildSessionProgress = {
+	title?: string;
+	state: "starting" | "running" | "terminating" | "stopped";
+	currentTool?: string;
+	toolCount: number;
+	turnCount: number;
+	elapsedMs: number;
+	sessionFile?: string;
+};
+
+export type ChildSessionTerminalCapture<
+	TInput = unknown,
+	TStatus extends ChildSessionTerminalStatus = ChildSessionTerminalStatus,
+> = {
+	toolName: string;
+	toolCallId?: string;
+	status: TStatus;
+	input: TInput;
+};
+
+type ChildSessionResultBase<TStatus extends ChildSessionStatus> = {
+	status: TStatus;
+	title?: string;
+	elapsedMs: number;
+	progress: ChildSessionProgress;
+	sessionFile?: string;
+};
+
+export type ChildSessionCompletedResult<TInput = unknown> = ChildSessionResultBase<"completed"> & {
+	terminal: ChildSessionTerminalCapture<TInput, "completed">;
+};
+
+export type ChildSessionBlockedResult<TInput = unknown> = ChildSessionResultBase<"blocked"> & {
+	terminal: ChildSessionTerminalCapture<TInput, "blocked">;
+};
+
+type ChildSessionFailureResultBase<TStatus extends ChildSessionFailureStatus> = ChildSessionResultBase<TStatus> & {
+	diagnostic: string;
+};
+
+export type ChildSessionStoppedWithoutTerminalResult = ChildSessionFailureResultBase<"stopped-without-terminal"> & {
+	stopReason?: string;
+};
+
+export type ChildSessionCancelledResult = ChildSessionFailureResultBase<"cancelled"> & {
+	reason?: string;
+};
+
+export type ChildSessionErrorResult = ChildSessionFailureResultBase<"error"> & {
+	error: {
+		message: string;
+		name?: string;
+		stack?: string;
+	};
+};
+
+export type ChildSessionProtocolErrorResult = ChildSessionFailureResultBase<"protocol-error"> & {
+	protocolError: {
+		message: string;
+		event?: unknown;
+	};
+};
+
+export type ChildSessionResult<TInput = unknown> =
+	| ChildSessionCompletedResult<TInput>
+	| ChildSessionBlockedResult<TInput>
+	| ChildSessionStoppedWithoutTerminalResult
+	| ChildSessionCancelledResult
+	| ChildSessionErrorResult
+	| ChildSessionProtocolErrorResult;
+
+export type ChildSessionPi = object;
+
+export type ChildSessionContext = {
+	cwd: string;
+	signal?: AbortSignal;
+};
+
+const NOT_IMPLEMENTED_MESSAGE = "runChildSession is not implemented yet; child process execution will be added in a later slice.";
+
+export async function runChildSession<TTerminalInput = unknown>(
+	pi: ChildSessionPi,
+	ctx: ChildSessionContext,
+	options: ChildSessionOptions,
+): Promise<ChildSessionResult<TTerminalInput>> {
+	void pi;
+	void ctx;
+
+	const progress: ChildSessionProgress = {
+		...(options.title === undefined ? {} : { title: options.title }),
+		state: "stopped",
+		toolCount: options.terminalTools.length,
+		turnCount: 0,
+		elapsedMs: 0,
+	};
+
+	const result: ChildSessionErrorResult = {
+		...(options.title === undefined ? {} : { title: options.title }),
+		status: "error",
+		elapsedMs: 0,
+		progress,
+		diagnostic: NOT_IMPLEMENTED_MESSAGE,
+		error: {
+			message: NOT_IMPLEMENTED_MESSAGE,
+			name: "NotImplementedError",
+		},
+	};
+
+	return result;
+}
