@@ -1,3 +1,5 @@
+import { runChildSessionProcess, type ChildSessionRunnerDependencies } from "./run-child-session/child-process.ts";
+
 export type JsonObject = Record<string, unknown>;
 export type TypeBoxLikeSchema = object;
 
@@ -91,42 +93,22 @@ export type ChildSessionResult<TInput = unknown> =
 	| ChildSessionErrorResult
 	| ChildSessionProtocolErrorResult;
 
-export type ChildSessionPi = object;
+export const CHILD_SESSION_RUNNER_DEPENDENCIES = Symbol("runChildSessionRunnerDependencies");
+
+export type ChildSessionPi = {
+	[CHILD_SESSION_RUNNER_DEPENDENCIES]?: ChildSessionRunnerDependencies;
+	[key: string]: unknown;
+};
 
 export type ChildSessionContext = {
 	cwd: string;
 	signal?: AbortSignal;
 };
 
-const NOT_IMPLEMENTED_MESSAGE = "runChildSession is not implemented yet; child process execution will be added in a later slice.";
-
 export async function runChildSession<TTerminalInput = unknown>(
 	pi: ChildSessionPi,
 	ctx: ChildSessionContext,
 	options: ChildSessionOptions,
 ): Promise<ChildSessionResult<TTerminalInput>> {
-	void pi;
-	void ctx;
-
-	const progress: ChildSessionProgress = {
-		...(options.title === undefined ? {} : { title: options.title }),
-		state: "stopped",
-		toolCount: options.terminalTools.length,
-		turnCount: 0,
-		elapsedMs: 0,
-	};
-
-	const result: ChildSessionErrorResult = {
-		...(options.title === undefined ? {} : { title: options.title }),
-		status: "error",
-		elapsedMs: 0,
-		progress,
-		diagnostic: NOT_IMPLEMENTED_MESSAGE,
-		error: {
-			message: NOT_IMPLEMENTED_MESSAGE,
-			name: "NotImplementedError",
-		},
-	};
-
-	return result;
+	return await runChildSessionProcess<TTerminalInput>(pi, ctx, options, pi[CHILD_SESSION_RUNNER_DEPENDENCIES]);
 }
