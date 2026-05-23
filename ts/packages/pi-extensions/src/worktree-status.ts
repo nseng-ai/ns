@@ -2,6 +2,7 @@ import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatc
 import { basename, dirname, join, resolve } from "node:path";
 
 const UI_KEY = "worktree-status";
+const LOCAL_BRANCH_REF_PREFIX = "refs/heads/";
 const COMMAND_TIMEOUT_MS = 5_000;
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
@@ -600,11 +601,38 @@ async function loadDownBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal
 
 	try {
 		const result = await pi.exec("gt", ["parent"], execOptions(cwd, signal));
-		if (result.code !== 0) return "-";
-
-		return firstNonEmptyLine(result.stdout) ?? "-";
+		if (result.code === 0) {
+			const parent = firstNonEmptyLine(result.stdout);
+			if (parent) return parent;
+		}
 	} catch {
-		return "-";
+		// Fall back to the previously checked-out local branch when Graphite is unavailable.
+	}
+
+	return (await loadPreviousCheckoutLocalBranch(pi, cwd, signal)) ?? "-";
+}
+
+async function loadPreviousCheckoutLocalBranch(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
+	if (signal?.aborted) return undefined;
+
+	try {
+		const previousRefResult = await pi.exec("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], execOptions(cwd, signal));
+		if (previousRefResult.code !== 0) return undefined;
+
+		const previousRef = firstNonEmptyLine(previousRefResult.stdout);
+		if (!previousRef?.startsWith(LOCAL_BRANCH_REF_PREFIX)) return undefined;
+
+		const verifyResult = await pi.exec("git", ["show-ref", "--verify", previousRef], execOptions(cwd, signal));
+		if (verifyResult.code !== 0) return undefined;
+
+		const branch = previousRef.slice(LOCAL_BRANCH_REF_PREFIX.length);
+		return branch.length > 0 ? branch : undefined;
+	} catch {
+		return undefined;
 	}
 }
 
