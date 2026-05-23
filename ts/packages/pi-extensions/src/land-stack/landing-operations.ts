@@ -16,7 +16,7 @@ import type {
 	PrSubmitRequirement,
 } from "./types.ts";
 import { detectWorktreeConflicts, formatConflict, formatSlotConflict } from "./worktrees.ts";
-import type { LandStackCommandStream } from "./command-stream.ts";
+import { formatCommandForDisplay, type LandStackCommandStream } from "./command-stream.ts";
 import { formatRestackFailureMessage, formatSubmitFailureMessage, setStatus } from "./presentation.ts";
 
 export async function confirmAndSubmitRequiredPrUpdates(
@@ -166,6 +166,21 @@ export async function confirmAndFreeManagedSlots(
 	}
 }
 
+function squashMergeArgs(pr: PullRequestSnapshot): string[] {
+	return [
+		"pr",
+		"merge",
+		String(pr.number),
+		"--squash",
+		"--match-head-commit",
+		pr.headRefOid,
+		"--subject",
+		pr.title,
+		"--body",
+		pr.body ?? "",
+	];
+}
+
 export async function runMergeLoop(
 	pi: ExtensionAPI,
 	ctx: ExtensionCommandContext,
@@ -185,12 +200,12 @@ export async function runMergeLoop(
 		const pr = await loadPr(pi, repoRoot, branch);
 		validateStrictMergeGate({ branch, localSha, pr, trunk: stack.trunk });
 
-		setStatus(ctx, `merging #${pr.number} ${branch}...`);
-		const mergeArgs = ["pr", "merge", String(pr.number), "--squash", "--match-head-commit", pr.headRefOid];
+		setStatus(ctx, `merging #${pr.number} ${branch} with PR title/body...`);
+		const mergeArgs = squashMergeArgs(pr);
 		const merge = await exec(pi, "gh", mergeArgs, repoRoot, GH_MERGE_TIMEOUT_MS);
 		if (merge.code !== 0) {
 			fail("Merge rejected; stopping stack landing immediately.", {
-				commandDisplay: formatCommand("gh", mergeArgs),
+				commandDisplay: formatCommandForDisplay("gh", mergeArgs),
 				result: merge,
 				failedBranch: branch,
 				failedPr: pr.number,

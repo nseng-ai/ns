@@ -27,7 +27,7 @@ import landStackExtension, {
 	type PullRequestSnapshot,
 } from "../src/land-stack.ts";
 
-const PR_FIELDS = "number,title,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const ROOT = "/repo";
 const TRUNK = "main";
 const CURRENT = "feature-b";
@@ -144,6 +144,23 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
+function expectedSquashMergeArgs(options: { number: number; sha: string; title?: string | undefined; body?: string | null | undefined }): string[] {
+	const title = options.title ?? `PR ${options.number}`;
+	const body = options.body === undefined ? `Body for PR ${options.number}` : (options.body ?? "");
+	return [
+		"pr",
+		"merge",
+		String(options.number),
+		"--squash",
+		"--match-head-commit",
+		options.sha,
+		"--subject",
+		title,
+		"--body",
+		body,
+	];
+}
+
 function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {}): {
 	ctx: ExtensionCommandContext;
 	notifications: Notification[];
@@ -224,7 +241,8 @@ function prSnapshot(overrides: {
 	branch: string;
 	base: string;
 	sha: string;
-	title?: string;
+	title?: string | undefined;
+	body?: string | null | undefined;
 	state?: string;
 	isDraft?: boolean;
 	mergedAt?: string | null;
@@ -232,6 +250,7 @@ function prSnapshot(overrides: {
 	return {
 		number: overrides.number,
 		title: overrides.title ?? `PR ${overrides.number}`,
+		body: overrides.body === undefined ? `Body for PR ${overrides.number}` : overrides.body,
 		state: overrides.state ?? "OPEN",
 		isDraft: overrides.isDraft ?? false,
 		headRefName: overrides.branch,
@@ -313,15 +332,24 @@ function featureStackPreflight(options: { stackOutput?: string | undefined; work
 }
 
 function mergeFeatureA(
-	options: { mergeCode?: number; verifyState?: string; includeCleanup?: boolean; refreshTarget?: string | null } = {},
+	options: {
+		mergeCode?: number;
+		verifyState?: string;
+		includeCleanup?: boolean;
+		refreshTarget?: string | null;
+		title?: string;
+		body?: string | null;
+	} = {},
 ): ScriptedExec[] {
 	const includeCleanup = options.includeCleanup ?? true;
 	const steps = [
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_A}\n` }),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
+			stdout: prStdout(
+				prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A, title: options.title, body: options.body }),
+			),
 		}),
-		step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", SHA_A], {
+		step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A, title: options.title, body: options.body }), {
 			code: options.mergeCode ?? 0,
 			stderr: options.mergeCode ? "merge blocked" : "",
 		}),
@@ -363,7 +391,7 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 		step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
 			stdout: prStdout(prSnapshot({ number: 102, branch: "feature-b", base: TRUNK, sha: SHA_B })),
 		}),
-		step("gh", ["pr", "merge", "102", "--squash", "--match-head-commit", SHA_B]),
+		step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
 		step("gh", ["pr", "view", "102", "--json", PR_FIELDS], {
 			stdout: prStdout(
 				prSnapshot({
@@ -407,13 +435,15 @@ function singleBranchPreflightWithRefs(options: {
 	];
 }
 
-function mergeFeatureAThroughDelete(options: { refreshTarget?: string | null } = {}): ScriptedExec[] {
+function mergeFeatureAThroughDelete(options: { refreshTarget?: string | null; title?: string; body?: string | null } = {}): ScriptedExec[] {
 	const steps = [
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_A}\n` }),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
+			stdout: prStdout(
+				prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A, title: options.title, body: options.body }),
+			),
 		}),
-		step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", SHA_A]),
+		step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A, title: options.title, body: options.body })),
 		step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
 			stdout: prStdout(
 				prSnapshot({
@@ -579,6 +609,9 @@ describe("land-stack pure helpers", () => {
 		expect(formatted).toContain("Land Graphite stack path: main -> feature-a -> feature-b");
 		expect(formatted).toContain("Will leave open/restack but not merge:");
 		expect(formatted).toContain("slot-01 feature-a");
+		expect(formatted).toContain(
+			"gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
+		);
 
 		const landed: LandedPr[] = [{ branch: "feature-a", number: 101, title: "PR 101" }];
 		const failure = formatFailure(
@@ -743,9 +776,47 @@ describe("land-stack command scenarios", () => {
 		const streamText = commandMessagesText(messages);
 		expect(streamText).not.toContain("land-stack command stream");
 		expect(streamText).toContain("✓ $ git rev-parse --show-toplevel");
-		expect(streamText).toContain(`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A}`);
+		expect(streamText).toContain(
+			`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>'`,
+		);
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
 		expect(streamText).toContain("Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
+	});
+
+	test("uses merge-loop PR title and body as squash subject/body without displaying the body", async () => {
+		const body = "Line 1\n\nLine 2";
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...mergeFeatureAThroughDelete({ refreshTarget: null, title: "Custom squash subject", body }),
+		];
+		const { pi, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		const mergeCall = pi.execCalls.find((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge");
+		expect(mergeCall?.args).toEqual(
+			expectedSquashMergeArgs({ number: 101, sha: SHA_A, title: "Custom squash subject", body }),
+		);
+		expect(mergeCall?.args.at(-1)).toBe(body);
+
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain(
+			`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'Custom squash subject' --body '<PR body>'`,
+		);
+		expect(streamText).not.toContain("Line 1");
+		expect(streamText).not.toContain("Line 2");
+	});
+
+	test("passes an empty squash body when the merge-loop PR body is null", async () => {
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
+			...mergeFeatureAThroughDelete({ refreshTarget: null, body: null }),
+		];
+		const { pi } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		const mergeCall = pi.execCalls.find((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge");
+		expect(mergeCall?.args).toEqual(expectedSquashMergeArgs({ number: 101, sha: SHA_A, body: null }));
+		expect(mergeCall?.args.at(-1)).toBe("");
 	});
 
 	test("renders final landed PR numbers as terminal hyperlinks", async () => {
@@ -841,7 +912,7 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
 			}),
-			step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", SHA_A]),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A })),
 			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
 				stdout: prStdout(
 					prSnapshot({
@@ -862,7 +933,7 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 102, branch: "feature-b", base: TRUNK, sha: SHA_B })),
 			}),
-			step("gh", ["pr", "merge", "102", "--squash", "--match-head-commit", SHA_B]),
+			step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
 			step("gh", ["pr", "view", "102", "--json", PR_FIELDS], {
 				stdout: prStdout(
 					prSnapshot({
@@ -897,7 +968,7 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
 			}),
-			step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", SHA_B]),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B })),
 			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
 				stdout: prStdout(
 					prSnapshot({
@@ -938,7 +1009,7 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_C })),
 			}),
-			step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", SHA_C]),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_C })),
 			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
 				stdout: prStdout(
 					prSnapshot({
@@ -974,11 +1045,20 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("merge failure stops immediately with no local cleanup", async () => {
-		const script = [...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }), ...mergeFeatureA({ mergeCode: 1 })];
-		const { pi, notifications } = await runLandStack("--yes", script);
+		const body = "Line 1\n\nLine 2";
+		const script = [...featureStackPreflight({ stackOutput: STACK_TO_CURRENT }), ...mergeFeatureA({ mergeCode: 1, body })];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
 		expect(notifications[0]?.message).toContain("Merge rejected; stopping stack landing immediately.");
+		expect(notifications[0]?.message).not.toContain("Line 1");
+		expect(notifications[0]?.message).not.toContain("Line 2");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain(
+			`✗ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>' — exit 1`,
+		);
+		expect(streamText).not.toContain("Line 1");
+		expect(streamText).not.toContain("Line 2");
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(false);
 	});

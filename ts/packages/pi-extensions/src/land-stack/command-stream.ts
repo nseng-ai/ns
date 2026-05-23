@@ -70,7 +70,7 @@ export function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackC
 			pi.registerCommand(name, options);
 		},
 		async exec(command, args, options) {
-			const commandDisplay = formatCommand(command, args);
+			const commandDisplay = formatCommandForDisplay(command, args);
 			commandStream.start(commandDisplay);
 			try {
 				const rawResult = await pi.exec(command, args, options);
@@ -85,6 +85,23 @@ export function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackC
 			}
 		},
 	};
+}
+
+export function formatCommandForDisplay(command: string, args: readonly string[]): string {
+	return formatCommand(command, displayArgsForCommand(command, args));
+}
+
+function displayArgsForCommand(command: string, args: readonly string[]): string[] {
+	if (command !== "gh" || args[0] !== "pr" || args[1] !== "merge") {
+		return [...args];
+	}
+
+	const displayArgs = [...args];
+	const bodyIndex = displayArgs.indexOf("--body");
+	if (bodyIndex >= 0 && bodyIndex + 1 < displayArgs.length) {
+		displayArgs[bodyIndex + 1] = "<PR body>";
+	}
+	return displayArgs;
 }
 
 export function renderCommandStreamMessage(
