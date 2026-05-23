@@ -17,7 +17,7 @@ The current tracked workspace has 7 packages with meaningful domain language. Ea
   - The shared substrate. One file with one H2 section per logical subdomain:
     - [`## Clinkr`](packages/asdl-core/CONTEXT.md#clinkr) — operation / group / exit-envelope CLI framework. _Present._
     - [`## Git`](packages/asdl-core/CONTEXT.md#git) — git gateway: branches, refs, worktrees, patch-id, `NonIdealState` arms. _Present._
-    - `## Gt` — Graphite gateway: stack metadata, ancestors/children/descendants, `StackInfo`. _Planned._
+    - [`## Gt`](packages/asdl-core/CONTEXT.md#gt) — Graphite gateway: stack metadata, ancestors/children/descendants, `StackInfo`. _Present._
     - `## Gh` — GitHub gateway: PRs, reviews, threads, comments, state filters. _Planned._
     - `## Top-level utilities` — `plugin.py`, `console.py`, `format.py`, `click_utils.py`. _Planned._
 - **brmem** — [`packages/brmem/CONTEXT.md`](packages/brmem/CONTEXT.md). _Planned._
