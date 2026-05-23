@@ -1,15 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
 import landStackExtension, {
+	classifyGtDeleteFailure,
 	completeLandStackArgs,
 	formatLandingPlan,
 	LAND_STACK_HELP,
+	linkifyPrReferences,
 	parseLandStackArgs,
 	resolveStackWalkFromGtLogOutput,
 	type CommandContext,
 	type ExtensionAPI,
 	type NotifyLevel,
 	type PreflightSnapshot,
+	type RanCommand,
 	type StackWalkResolution,
 	type StackWalkResult,
 } from "../src/land-stack.ts";
@@ -39,10 +42,18 @@ type ScriptedExec = {
 	result: Partial<PiExecResultLike> | undefined;
 };
 
+type SentMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
+
+type ConfirmCall = {
+	title: string;
+	body: string;
+};
+
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
+	readonly sentMessages: SentMessage[] = [];
 	private readonly script: ScriptedExec[];
 
 	constructor(script: ScriptedExec[] = []) {
@@ -71,31 +82,39 @@ class FakePi implements ExtensionAPI {
 		return execResult(expected.result);
 	}
 
+	sendMessage(message: SentMessage): void {
+		this.sentMessages.push(message);
+	}
+
 	assertDone(): void {
 		expect(this.errors).toEqual([]);
 		expect(this.script).toEqual([]);
 	}
 }
 
-function createContext(): {
+function createContext(options: { hasUI?: boolean; confirmResults?: boolean[] } = {}): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	statusCalls: StatusCall[];
+	confirmCalls: ConfirmCall[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
 	const statusCalls: StatusCall[] = [];
+	const confirmCalls: ConfirmCall[] = [];
+	const confirmResults = [...(options.confirmResults ?? [])];
 	let waits = 0;
 
 	const ctx: CommandContext = {
 		cwd: "/repo",
-		hasUI: true,
+		hasUI: options.hasUI ?? true,
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
 			},
-			async confirm(): Promise<boolean> {
-				return false;
+			async confirm(title: string, body: string): Promise<boolean> {
+				confirmCalls.push({ title, body });
+				return confirmResults.shift() ?? false;
 			},
 			setStatus(key: string, value: string | undefined): void {
 				statusCalls.push({ key, value });
@@ -106,13 +125,14 @@ function createContext(): {
 		},
 	};
 
-	return { ctx, notifications, statusCalls, waitForIdleCalls: () => waits };
+	return { ctx, notifications, statusCalls, confirmCalls, waitForIdleCalls: () => waits };
 }
 
-async function runLandStackCommand(args: string, script: ScriptedExec[] = []): Promise<{
+async function runLandStackCommand(args: string, script: ScriptedExec[] = [], contextOptions: { hasUI?: boolean; confirmResults?: boolean[] } = {}): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	statusCalls: StatusCall[];
+	confirmCalls: ConfirmCall[];
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script);
@@ -123,7 +143,7 @@ async function runLandStackCommand(args: string, script: ScriptedExec[] = []): P
 		throw new Error("land-stack was not registered");
 	}
 
-	const context = createContext();
+	const context = createContext(contextOptions);
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -281,6 +301,44 @@ Will not merge descendants above current, will not delete remote branches, will 
 			{ key: "land-stack", value: undefined },
 		]);
 	});
+
+	test("--yes lands one PR with merge verification before local delete", async () => {
+		const result = await runLandStackCommand("--yes", happyOnePrLandingScript());
+
+		result.pi.assertDone();
+		expect(result.confirmCalls).toEqual([]);
+		expect(result.notifications).toEqual([
+			{
+				message:
+					"Landed 1 PR(s): #101 feature/current.\nRemote branches were not deleted.\nClean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",
+				level: "info",
+			},
+		]);
+		expect(result.pi.execCalls.map((call) => `${call.command} ${call.args.join(" ")}`)).toContain(
+			"gh pr merge 101 --squash --match-head-commit abc1234567890",
+		);
+		expect(result.pi.execCalls.map((call) => `${call.command} ${call.args.join(" ")}`).at(-1)).toBe("gt delete feature/current -f -q");
+		expect(result.pi.sentMessages.at(-1)?.content).toBe(result.notifications[0]?.message);
+		expect(result.pi.sentMessages.at(-1)?.details).toEqual({ prLinks: [{ number: 101, url: "https://github.example/repo/pull/101" }] });
+	});
+});
+
+
+describe("land-stack presentation helpers", () => {
+	test("classifies gt delete failures conservatively", () => {
+		expect(classifyGtDeleteFailure(deleteCommand({ stderr: "branch feature/current already absent" }))).toBe("already-absent");
+		expect(classifyGtDeleteFailure(deleteCommand({ stderr: "cannot delete branch feature/current checked out at /repo" }))).toBe("checked-out");
+		expect(classifyGtDeleteFailure(deleteCommand({ stderr: "database is locked" }))).toBe("other");
+	});
+
+	test("linkifies only PR references with safe URLs", () => {
+		expect(
+			linkifyPrReferences("Landed #101 and #102.", [
+				{ number: 101, branch: "feature/current", url: "https://github.example/repo/pull/101" },
+				{ number: 102, branch: "feature/unsafe", url: "javascript:alert(1)" },
+			]),
+		).toBe("Landed \u001B]8;;https://github.example/repo/pull/101\u0007#101\u001B]8;;\u0007 and #102.");
+	});
 });
 
 function baseSnapshot(): PreflightSnapshot {
@@ -336,13 +394,50 @@ function happyDryRunScript(): ScriptedExec[] {
 		step("git", ["show-ref", "--verify", "--quiet", "refs/heads/feature/current"]),
 		step("git", ["rev-parse", "refs/heads/feature/current"], { stdout: "abc1234567890\n" }),
 		step("gh", ["pr", "view", "feature/current", "--json", "number,title,state,isDraft,headRefName,headRefOid,baseRefName,mergedAt,url"], {
-			stdout: JSON.stringify(baseSnapshot().landingBranches[0]?.pr),
+			stdout: JSON.stringify(currentPr()),
 		}),
 		step("git", ["merge-base", "--is-ancestor", "refs/heads/main", "refs/heads/feature/current"]),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: "worktree /repo\nHEAD abc1234567890\nbranch refs/heads/feature/current\n\n",
 		}),
 	];
+}
+
+function happyOnePrLandingScript(): ScriptedExec[] {
+	return [
+		...happyDryRunScript(),
+		step("git", ["rev-parse", "refs/heads/feature/current"], { stdout: "abc1234567890\n" }),
+		step("gh", ["pr", "view", "feature/current", "--json", "number,title,state,isDraft,headRefName,headRefOid,baseRefName,mergedAt,url"], {
+			stdout: JSON.stringify(currentPr()),
+		}),
+		step("gh", ["pr", "merge", "101", "--squash", "--match-head-commit", "abc1234567890"]),
+		step("gh", ["pr", "view", "101", "--json", "number,title,state,isDraft,headRefName,headRefOid,baseRefName,mergedAt,url"], {
+			stdout: JSON.stringify({ ...currentPr(), state: "MERGED", mergedAt: "2026-05-23T12:00:00Z" }),
+		}),
+		step("gt", ["delete", "feature/current", "-f", "-q"]),
+	];
+}
+
+function currentPr(): PreflightSnapshot["landingBranches"][number]["pr"] {
+	const pr = baseSnapshot().landingBranches[0]?.pr;
+	if (!pr) {
+		throw new Error("missing current PR fixture");
+	}
+	return pr;
+}
+
+function deleteCommand(overrides: Partial<RanCommand>): RanCommand {
+	return {
+		command: "gt",
+		args: ["delete", "feature/current", "-f", "-q"],
+		cwd: "/repo",
+		display: "gt delete feature/current -f -q",
+		stdout: "",
+		stderr: "",
+		code: 1,
+		killed: false,
+		...overrides,
+	};
 }
 
 describe("resolveStackWalkFromGtLogOutput", () => {
