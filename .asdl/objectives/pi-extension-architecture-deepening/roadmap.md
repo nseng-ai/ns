@@ -16,9 +16,11 @@
   - Updated engineered `objective` and `land-stack` implementations to consume the helpers, with `test/command-runtime.test.ts` covering the pure runtime seam.
   - Intentionally left command orchestration, UI/non-UI presentation, and custom message streaming in callers until another deletion-test-backed seam appears.
   - Evidence: local branch diff against `extract-command-runtime-utils`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
-- [ ] Resolve candidate 3: Objective selection deepening.
-  - Preserve the Objective rule that operations list candidates, optionally make one deterministic non-binding suggestion, and require explicit selection.
-  - Decide whether this becomes a dedicated engineered module or remains inside `objective.ts`.
+- [x] Resolve candidate 3: Objective selection deepening.
+  - Kept the grouped-changed-Objective picker for `objective-next` introduced in PR #567 (`selectChangedObjectivesOrOther`, `compactDiffSuggestion`, `View other open Objectives…`) as the chosen Objective-selection UX.
+  - Added a shared parametrized harness (`runObjectiveCommand`, `SELECTION_TITLES`, `ACTION_PROMPTS`, `expectPromptSelectsObjective`) and a new `objective command shared selection policy` describe in `objective.test.ts` covering the shared parts of the rule across `objective-next`, `objective-current`, and `objective-update`: explicit-arg bypass, candidate loading, zero-open handling, picker cancellation, and explicit-selection embedding in the generated prompt; plus a small `objective command prompt details` describe for the `objective-update`-only post-selection evidence reminder.
+  - Kept the selection logic inside `objective.ts`; a dedicated `objective-selection.ts` module did not pass the deletion test for this slice.
+  - Evidence: working-tree diff touching `objective.test.ts`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [ ] Resolve candidate 4: `land-stack` internal module split.
   - Explore separating stack facts, PR facts, landing orchestration, command streaming, and rendering while keeping `/land-stack` as the external command interface.
   - Adjust tests only to improve locality and preserve safety invariants.
@@ -29,7 +31,7 @@
   - Compare `objective.ts` and `just-fix.ts` skill expansion flows.
   - Extract only if the seam has enough leverage and a fake-driven test surface.
 - [ ] Implement accepted refactors as they become clear.
-  - The command-runtime helper extraction is an accepted refactor for candidate 2; future refactors remain open for candidates 3-6.
+  - The command-runtime helper extraction is an accepted refactor for candidate 2, and the shared cross-command Objective selection characterization tests are the accepted inline test-deepening for candidate 3 (the grouped picker from PR #567 is kept as-is); future refactors remain open for candidates 4-6.
   - Keep each PR coherent and update this Objective when decisions, rejected candidates, or meaningful outcomes emerge.
   - Validate relevant changes with `bun run --cwd ts check`, `bun run --cwd ts test`, and broader repo checks when needed.
 - [ ] Close by explicit human decision.

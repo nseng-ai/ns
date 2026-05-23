@@ -11,6 +11,21 @@ import objectiveExtension, {
 const ROOT = "/repo";
 const TRUNK = "master";
 
+const OBJECTIVE_COMMAND_NAMES = ["objective-next", "objective-current", "objective-update"] as const;
+type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
+
+const SELECTION_TITLES: Record<ObjectiveCommandName, string> = {
+	"objective-next": "Select an open Objective for next-work recommendation",
+	"objective-current": "Select an open Objective to summarize",
+	"objective-update": "Select an open Objective to update",
+};
+
+const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
+	"objective-next": "Run objective-next for this explicitly selected Objective slug or path:",
+	"objective-current": "Run objective-current for this explicitly selected Objective slug or path:",
+	"objective-update": "Run objective-update for this explicitly selected Objective slug or path:",
+};
+
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 
 type ExecCall = {
@@ -151,6 +166,48 @@ async function runObjectiveNext(
 	const context = createContext(contextOptions);
 	await command?.handler(args, context.ctx);
 	return { pi, ...context };
+}
+
+async function runObjectiveCommand(
+	commandName: ObjectiveCommandName,
+	args: string,
+	script: ScriptedExec[] = [],
+	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
+): Promise<{
+	pi: FakePi;
+	notifications: Notification[];
+	selections: Selection[];
+	waitForIdleCalls: () => number;
+}> {
+	const pi = new FakePi(script);
+	objectiveExtension(pi);
+	const command = pi.commands.get(commandName);
+	expect(command).toBeDefined();
+	if (!command) {
+		throw new Error(`${commandName} was not registered`);
+	}
+
+	const context = createContext(contextOptions);
+	await command.handler(args, context.ctx);
+	return { pi, ...context };
+}
+
+function expectListOpenObjectivesCall(result: { pi: FakePi }): void {
+	expect(result.pi.execCalls[0]).toEqual({
+		command: "objective",
+		args: ["list", "--format", "json"],
+		options: { cwd: ROOT, timeout: 30_000 },
+	});
+}
+
+function expectPromptSelectsObjective(
+	commandName: ObjectiveCommandName,
+	prompt: string | undefined,
+	objective: string,
+): void {
+	expect(prompt).toContain(ACTION_PROMPTS[commandName]);
+	expect(prompt).toContain(`\`\`\`text\n${objective}\n\`\`\``);
+	expect(prompt).toContain("Treat this as an explicit user selection. Do not auto-select a different Objective.");
 }
 
 function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
@@ -365,5 +422,104 @@ describe("objective picker suggestion", () => {
 		]);
 		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
 		expect(result.pi.sentUserMessages).toEqual([]);
+	});
+});
+
+describe("objective command shared selection policy", () => {
+	for (const commandName of OBJECTIVE_COMMAND_NAMES) {
+		describe(commandName, () => {
+			test("explicit slug or path bypasses objective list and git diff", async () => {
+				const explicitObjective = ".asdl/objectives/bravo/objective.md";
+				const result = await runObjectiveCommand(commandName, `  ${explicitObjective}  `);
+
+				result.pi.assertDone();
+				expect(result.pi.execCalls).toEqual([]);
+				expect(result.selections).toEqual([]);
+				expect(result.waitForIdleCalls()).toBe(1);
+				expectPromptSelectsObjective(commandName, result.pi.sentUserMessages[0], explicitObjective);
+				expect(result.pi.sentUserMessages[0]).toContain(
+					`The ${commandName} skill was not found among loaded Pi skills.`,
+				);
+				expect(result.notifications).toContainEqual({
+					message: `${commandName} skill was not found; using fallback prompt.`,
+					level: "warning",
+				});
+			});
+
+			test("empty args load open candidates with objective list json", async () => {
+				const result = await runObjectiveCommand(
+					commandName,
+					"",
+					[listStep(["alpha"]), diffStep("")],
+					{ cancelSelect: true },
+				);
+
+				result.pi.assertDone();
+				expectListOpenObjectivesCall(result);
+				expect(result.selections).toHaveLength(1);
+				expect(result.pi.sentUserMessages).toEqual([]);
+			});
+
+			test("zero open Objectives notify and send no prompt", async () => {
+				const result = await runObjectiveCommand(commandName, "", [listStep([])]);
+
+				result.pi.assertDone();
+				expect(result.pi.execCalls).toHaveLength(1);
+				expectListOpenObjectivesCall(result);
+				expect(result.notifications).toEqual([
+					{ message: "No open Objectives. Create one with /skill:objective-create.", level: "info" },
+				]);
+				expect(result.selections).toEqual([]);
+				expect(result.pi.sentUserMessages).toEqual([]);
+			});
+
+			test("picker cancellation sends no prompt", async () => {
+				const result = await runObjectiveCommand(
+					commandName,
+					"",
+					[listStep(["alpha", "bravo"]), diffStep("M\t.asdl/objectives/bravo/objective.md\n")],
+					{ cancelSelect: true },
+				);
+
+				result.pi.assertDone();
+				expect(result.notifications).toContainEqual({
+					message: "Objective selection cancelled.",
+					level: "info",
+				});
+				expect(result.pi.sentUserMessages).toEqual([]);
+			});
+
+			test("selected slug is embedded as an explicit selection in the generated skill prompt", async () => {
+				const result = await runObjectiveCommand(
+					commandName,
+					"",
+					[listStep(["alpha", "bravo"]), diffStep("")],
+					{ selectIndex: 0 },
+				);
+
+				result.pi.assertDone();
+				expectPromptSelectsObjective(commandName, result.pi.sentUserMessages[0], "alpha");
+			});
+		});
+	}
+});
+
+describe("objective command prompt details", () => {
+	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
+		const result = await runObjectiveCommand("objective-update", "bravo");
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"After this explicit selection, follow objective-update's normal post-selection evidence workflow.",
+		);
+	});
+
+	test("non-update prompts do not include the objective-update evidence workflow reminder", async () => {
+		for (const commandName of ["objective-next", "objective-current"] as const) {
+			const result = await runObjectiveCommand(commandName, "bravo");
+
+			result.pi.assertDone();
+			expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");
+		}
 	});
 });
