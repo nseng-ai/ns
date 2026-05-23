@@ -76,7 +76,9 @@ Risks:
 
 PR 1 evidence de-risks the additive core gateway shape: real and fake core tests now cover the unified PRGateway surface, PR discussion comment parsing, review creation author parsing, review-thread post-state parsing, `PRSummary.head_ref_oid` population, and guarded merge success/failure result semantics.
 
-PR 2 evidence de-risks the first production consumer migration and answers the CLI-result naming questions for `asdl-pr-address`: review-thread mutation outputs now expose `is_resolved` as trusted post-mutation state and drop fake-only `was_already_*` pre-state claims. Reviewer migration, slots migration, live wiring, final deletion, and final docs alignment remain active risks or follow-ups for later PRs.
+PR 2 evidence de-risks the first production consumer migration and answers the CLI-result naming questions for `asdl-pr-address`: review-thread mutation outputs now expose `is_resolved` as trusted post-mutation state and drop fake-only `was_already_*` pre-state claims.
+
+PR 3 evidence de-risks the remaining consumer and wiring migration: reviewer contexts and publication flows, slots GC lookup handling, plugin smoke coverage, and live GitHub conformance wiring now use the unified PR gateway vocabulary. Final old-name deletion and final docs alignment remain active risks or follow-ups for PR 4.
 
 ## Open Questions
 

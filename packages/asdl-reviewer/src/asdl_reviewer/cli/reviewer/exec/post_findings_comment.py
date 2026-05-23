@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 import click
 
 from asdl_core.clinkr.context import load_typed_context
-from asdl_core.gh.types import IssueComment
+from asdl_core.gh.types import PRDiscussionComment
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.findings_publication import (
     FindingsCommentBodyParseError,
@@ -56,10 +56,10 @@ def post_findings_comment_command(
         click.echo(f"post-findings-comment: {parsed.message}", err=True)
         sys.exit(1)
 
-    issue_gateway = load_typed_context(ctx, ReviewerCliContext).issue_gateway
+    pr_gateway = load_typed_context(ctx, ReviewerCliContext).pr_gateway
 
     run_summary = _format_run_summary(run_url)
-    existing = issue_gateway.find_comment_by_marker(
+    existing = pr_gateway.find_pr_discussion_comment_by_marker(
         pr_number, parsed.marker, author_login=_BOT_AUTHOR_LOGIN
     )
     body = preserve_activity_log(
@@ -69,9 +69,9 @@ def post_findings_comment_command(
     )
 
     if existing is None:
-        result = issue_gateway.add_comment(pr_number, body)
+        result = pr_gateway.add_pr_discussion_comment(pr_number, body)
     else:
-        result = issue_gateway.update_comment(existing.id, body)
+        result = pr_gateway.update_pr_discussion_comment(existing.id, body)
 
     _report(result, created=existing is None)
 
@@ -83,6 +83,6 @@ def _format_run_summary(run_url: str | None) -> str:
     return timestamp
 
 
-def _report(comment: IssueComment, *, created: bool) -> None:
+def _report(comment: PRDiscussionComment, *, created: bool) -> None:
     verb = "created" if created else "updated"
     click.echo(f"post-findings-comment: {verb} comment {comment.id}", err=True)

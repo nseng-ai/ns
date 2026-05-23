@@ -8,7 +8,6 @@ from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_core.gh.testing import FakeIssueGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
@@ -253,7 +252,7 @@ def test_reviewer_plugin_integration() -> None:
                 )
             ),
         ),
-        issue_gateway=FakeIssueGateway(),
+        pr_gateway=FakePRGateway(),
         cwd=Path("/anywhere"),
     )
 

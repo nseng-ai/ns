@@ -45,7 +45,7 @@ def classify_inline_findings_command(
     raw = sys.stdin.read()
     payload = Ensure.ideal_state(parse_findings_payload_result(raw))
 
-    issue_gateway = load_typed_context(ctx, ReviewerCliContext).issue_gateway
-    changed_files = issue_gateway.get_pr_changed_files(request.pr_number)
+    pr_gateway = load_typed_context(ctx, ReviewerCliContext).pr_gateway
+    changed_files = pr_gateway.get_pr_changed_files(request.pr_number)
     result = classify_inline_findings(payload.findings, changed_files)
     return ClinkrExit.ok(result)

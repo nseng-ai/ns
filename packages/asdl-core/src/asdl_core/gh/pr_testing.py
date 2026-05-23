@@ -38,6 +38,7 @@ class FakePRGateway(PRGateway):
         prs_by_branch: dict[str, PRSummary] | None = None,
         pr_details_by_branch: dict[str, PRDetails] | None = None,
         prs: Sequence[PRSummary] = (),
+        lookup_failure: PRGatewayFailure | None = None,
         search_failure: PRGatewayFailure | None = None,
         merge_failure: PRGatewayFailure | None = None,
     ) -> None:
@@ -59,6 +60,7 @@ class FakePRGateway(PRGateway):
         self._prs_by_branch = prs_by_branch or {}
         self._pr_details_by_branch = pr_details_by_branch or {}
         self._prs = tuple(prs)
+        self._lookup_failure = lookup_failure
         self._search_failure = search_failure
         self._merge_failure = merge_failure
         self._next_comment_id = 1
@@ -75,7 +77,9 @@ class FakePRGateway(PRGateway):
 
     # -- PR queries --
 
-    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss:
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+        if self._lookup_failure is not None:
+            return self._lookup_failure
         pr = self._prs_by_branch.get(branch)
         if pr is None:
             return PRLookupMiss()

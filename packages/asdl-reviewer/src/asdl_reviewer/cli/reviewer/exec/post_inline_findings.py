@@ -56,13 +56,13 @@ def post_inline_findings_command(
     raw = sys.stdin.read()
     payload = Ensure.ideal_state(parse_findings_payload_result(raw))
 
-    issue_gateway = load_typed_context(ctx, ReviewerCliContext).issue_gateway
-    changed_files = issue_gateway.get_pr_changed_files(request.pr_number)
+    pr_gateway = load_typed_context(ctx, ReviewerCliContext).pr_gateway
+    changed_files = pr_gateway.get_pr_changed_files(request.pr_number)
     classification = classify_inline_findings(payload.findings, changed_files)
 
     existing_markers = {
         marker
-        for comment in issue_gateway.get_pr_review_comments(request.pr_number)
+        for comment in pr_gateway.get_pr_review_comments(request.pr_number)
         if comment.author == _BOT_AUTHOR_LOGIN
         for marker in extract_inline_markers(comment.body)
     }
@@ -86,7 +86,7 @@ def post_inline_findings_command(
     posted_count = 0
     if comments:
         try:
-            issue_gateway.create_pr_review(request.pr_number, tuple(comments))
+            pr_gateway.create_pr_review(request.pr_number, tuple(comments))
             posted_count = len(comments)
         except Exception as exc:  # noqa: BLE001 - CLI boundary preserves fallback accounting in JSON.
             api_error = str(exc) or exc.__class__.__name__

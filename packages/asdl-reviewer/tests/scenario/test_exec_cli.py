@@ -8,8 +8,14 @@ from click.testing import CliRunner
 
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
-from asdl_core.gh.testing import FakeIssueGateway
-from asdl_core.gh.types import IssueComment, PRChangedFile, PRReviewComment
+from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.types import (
+    PRChangedFile,
+    PRDiscussionComment,
+    PRInlineCommentInput,
+    PRReview,
+    PRReviewComment,
+)
 from asdl_reviewer.cli.main import build_cli
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
@@ -25,12 +31,12 @@ def cli_group() -> ClinkrGroup:
 _BOT = "github-actions[bot]"
 
 
-def _context_with_issue_gateway(gateway: FakeIssueGateway) -> ClinkrContextObject:
+def _context_with_pr_gateway(gateway: FakePRGateway) -> ClinkrContextObject:
     ctx = ReviewerCliContext(
         catalog=FakeReviewCatalogGateway(),
         diff=FakeLocalDiffGateway(),
         harness_runtime=FakeHarnessRuntime(),
-        issue_gateway=gateway,
+        pr_gateway=gateway,
         cwd=Path("/anywhere"),
     )
     return build_clinkr_context_object(lambda: ctx)
@@ -200,8 +206,8 @@ def test_format_findings_comment_fails_on_malformed_stdin(
 # -- post-findings-comment --
 
 
-def _make_bot_comment(comment_id: int, *, body: str) -> IssueComment:
-    return IssueComment(
+def _make_bot_comment(comment_id: int, *, body: str) -> PRDiscussionComment:
+    return PRDiscussionComment(
         id=comment_id,
         body=body,
         author=_BOT,
@@ -258,7 +264,7 @@ def test_classify_inline_findings_groups_findings_by_commentability(
             ],
         },
     }
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         pr_changed_files={
             47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
         }
@@ -269,7 +275,7 @@ def test_classify_inline_findings_groups_findings_by_commentability(
         cli_group,
         ["exec", "classify-inline-findings", "--pr-number", "47"],
         input=json.dumps(payload),
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
@@ -302,10 +308,17 @@ def _findings_payload(findings: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+class _RejectingCreateReviewGateway(FakePRGateway):
+    def create_pr_review(
+        self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
+    ) -> PRReview:
+        raise RuntimeError("validation failed")
+
+
 def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         pr_changed_files={
             47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
         }
@@ -327,7 +340,7 @@ def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
         cli_group,
         ["exec", "post-inline-findings", "--pr-number", "47"],
         input=json.dumps(payload),
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
@@ -335,8 +348,8 @@ def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
     assert data["posted_count"] == 1
     assert data["skipped_duplicate_count"] == 0
     assert data["fallback_only_count"] == 0
-    assert len(fake._created_reviews) == 1
-    pr_number, comments = fake._created_reviews[0]
+    assert len(fake.created_reviews) == 1
+    pr_number, comments = fake.created_reviews[0]
     assert pr_number == 47
     assert len(comments) == 1
     assert comments[0].path == "app.py"
@@ -355,7 +368,7 @@ def test_post_inline_findings_skips_existing_marker_duplicates(
         "summary": "Inline this",
         "details": "This line is in the PR diff.",
     }
-    first_fake = FakeIssueGateway(
+    first_fake = FakePRGateway(
         pr_changed_files={
             47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
         }
@@ -365,12 +378,12 @@ def test_post_inline_findings_skips_existing_marker_duplicates(
         cli_group,
         ["exec", "post-inline-findings", "--pr-number", "47"],
         input=json.dumps(_findings_payload([finding])),
-        obj=_context_with_issue_gateway(first_fake),
+        obj=_context_with_pr_gateway(first_fake),
     )
     assert first.exit_code == 0, first.output
-    marker_body = first_fake._created_reviews[0][1][0].body
+    marker_body = first_fake.created_reviews[0][1][0].body
 
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         pr_changed_files={
             47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
         },
@@ -392,20 +405,20 @@ def test_post_inline_findings_skips_existing_marker_duplicates(
         cli_group,
         ["exec", "post-inline-findings", "--pr-number", "47"],
         input=json.dumps(_findings_payload([finding])),
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["posted_count"] == 0
     assert data["skipped_duplicate_count"] == 1
-    assert fake._created_reviews == []
+    assert fake.created_reviews == ()
 
 
 def test_post_inline_findings_reports_fallback_only_findings(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         pr_changed_files={
             47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
         }
@@ -434,7 +447,7 @@ def test_post_inline_findings_reports_fallback_only_findings(
         cli_group,
         ["exec", "post-inline-findings", "--pr-number", "47"],
         input=json.dumps(payload),
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
@@ -445,37 +458,36 @@ def test_post_inline_findings_reports_fallback_only_findings(
         "missing_line",
         "file_not_changed",
     ]
-    assert fake._created_reviews == []
+    assert fake.created_reviews == ()
 
 
 def test_post_inline_findings_handles_empty_findings_as_noop(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
         ["exec", "post-inline-findings", "--pr-number", "47"],
         input=json.dumps(_findings_payload([])),
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["posted_count"] == 0
     assert data["fallback_only_count"] == 0
-    assert fake._created_reviews == []
+    assert fake.created_reviews == ()
 
 
 def test_post_inline_findings_reports_api_rejection_without_losing_fallback_accounting(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway(
+    fake = _RejectingCreateReviewGateway(
         pr_changed_files={
             47: [PRChangedFile(path="app.py", status="modified", patch="@@ -1 +1 @@\n+new")]
-        },
-        raise_on={"create_pr_review": RuntimeError("validation failed")},
+        }
     )
     payload = _findings_payload(
         [
@@ -501,7 +513,7 @@ def test_post_inline_findings_reports_api_rejection_without_losing_fallback_acco
         cli_group,
         ["exec", "post-inline-findings", "--pr-number", "47"],
         input=json.dumps(payload),
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
@@ -518,7 +530,7 @@ def test_post_inline_findings_reports_api_rejection_without_losing_fallback_acco
 def test_post_findings_comment_creates_comment_when_none_exists(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
     body = "<!-- asdl-reviewer:dignified-python -->\n## asdl-reviewer · `dignified-python`\n"
 
     runner = CliRunner()
@@ -526,16 +538,16 @@ def test_post_findings_comment_creates_comment_when_none_exists(
         cli_group,
         ["exec", "post-findings-comment", "--pr-number", "47"],
         input=body,
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
-    assert len(fake._comments) == 1
-    assert fake._comments[0][0] == 47
-    posted_body = fake._comments[0][1]
+    assert len(fake.comments) == 1
+    assert fake.comments[0][0] == 47
+    posted_body = fake.comments[0][1]
     assert posted_body.startswith("<!-- asdl-reviewer:dignified-python -->\n")
     assert "### Activity Log" in posted_body
-    assert fake._updated_comments == []
+    assert fake.updated_comments == ()
 
 
 def test_post_findings_comment_updates_existing_bot_comment(
@@ -549,7 +561,7 @@ def test_post_findings_comment_updates_existing_bot_comment(
         "\n"
         "- 2026-04-22T12:00:00Z\n"
     )
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         discussion_comments={47: [_make_bot_comment(101, body=existing_body)]},
     )
     new_body = "<!-- asdl-reviewer:dignified-python -->\nfresh findings\n"
@@ -559,13 +571,13 @@ def test_post_findings_comment_updates_existing_bot_comment(
         cli_group,
         ["exec", "post-findings-comment", "--pr-number", "47"],
         input=new_body,
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
-    assert fake._comments == []
-    assert len(fake._updated_comments) == 1
-    comment_id, written = fake._updated_comments[0]
+    assert fake.comments == ()
+    assert len(fake.updated_comments) == 1
+    comment_id, written = fake.updated_comments[0]
     assert comment_id == 101
     # The new body replaced the findings content…
     assert "fresh findings" in written
@@ -579,10 +591,10 @@ def test_post_findings_comment_ignores_human_marker_capture(
 ) -> None:
     """A human dropping the marker into their own comment cannot hijack the bot slot."""
     human_body = "<!-- asdl-reviewer:dignified-python -->\npretend i'm the bot\n"
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         discussion_comments={
             47: [
-                IssueComment(
+                PRDiscussionComment(
                     id=999,
                     body=human_body,
                     author="alice",
@@ -597,32 +609,32 @@ def test_post_findings_comment_ignores_human_marker_capture(
         cli_group,
         ["exec", "post-findings-comment", "--pr-number", "47"],
         input="<!-- asdl-reviewer:dignified-python -->\nreal findings\n",
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
     # Human comment was not PATCHed.
-    assert fake._updated_comments == []
+    assert fake.updated_comments == ()
     # And a fresh bot comment was posted.
-    assert len(fake._comments) == 1
+    assert len(fake.comments) == 1
 
 
 def test_post_findings_comment_rejects_body_missing_marker(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
     runner = CliRunner()
     result = runner.invoke(
         cli_group,
         ["exec", "post-findings-comment", "--pr-number", "47"],
         input="no marker here\nsecond line\n",
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 1
     assert "marker" in result.output
-    assert fake._comments == []
-    assert fake._updated_comments == []
+    assert fake.comments == ()
+    assert fake.updated_comments == ()
 
 
 def test_post_findings_comment_caps_activity_log_at_ten_entries(
@@ -634,7 +646,7 @@ def test_post_findings_comment_caps_activity_log_at_ten_entries(
     existing_body = (
         f"<!-- asdl-reviewer:dignified-python -->\nbody\n\n### Activity Log\n\n{prior_entries}\n"
     )
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         discussion_comments={47: [_make_bot_comment(42, body=existing_body)]},
     )
 
@@ -643,11 +655,11 @@ def test_post_findings_comment_caps_activity_log_at_ten_entries(
         cli_group,
         ["exec", "post-findings-comment", "--pr-number", "47"],
         input="<!-- asdl-reviewer:dignified-python -->\nnew\n",
-        obj=_context_with_issue_gateway(fake),
+        obj=_context_with_pr_gateway(fake),
     )
 
     assert result.exit_code == 0, result.output
-    _, written = fake._updated_comments[0]
+    _, written = fake.updated_comments[0]
     # Cap of 10: nine of the prior January entries should survive (oldest dropped)
     # alongside one new entry added this run.
     assert written.count("- 2026-01-") == 9

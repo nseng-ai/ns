@@ -7,7 +7,7 @@ import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from asdl_core.gh.types import PRLookupError, PRSummary
+from asdl_core.gh.types import PRGatewayFailure, PRLookupMiss, PRSummary
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import SlotRecord, build_slot_inventory
 from asdl_slots.lifecycle.outcomes import (
@@ -102,15 +102,20 @@ def plan_gc(slots_ctx: SlotsCliContext) -> SlotGcPlan | SlotLifecycleFailure:
             continue
         pr_result = slots_ctx.pr.get_pr_for_branch(record.branch)
 
-        if isinstance(pr_result, PRLookupError):
-            if pr_result.returncode == 1:
-                entries.append(_entry_from_record(record, "kept_no_pr"))
-                continue
+        if isinstance(pr_result, PRLookupMiss):
+            entries.append(_entry_from_record(record, "kept_no_pr"))
+            continue
+
+        if isinstance(pr_result, PRGatewayFailure):
             entries.append(
                 _entry_from_record(
                     record,
                     "error",
-                    message=pr_result.stderr or f"gh pr view exited {pr_result.returncode}",
+                    message=(
+                        pr_result.stderr
+                        or pr_result.stdout
+                        or f"gh pr view exited {pr_result.returncode}"
+                    ),
                 )
             )
             continue
