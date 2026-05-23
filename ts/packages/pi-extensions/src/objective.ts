@@ -107,9 +107,10 @@ export type ObjectiveList = {
 	groups: ObjectiveListGroup[];
 };
 
-export type ObjectiveDiffSuggestion = {
-	slug: string;
+export type ObjectiveDiffSelection = {
 	trunkBranch: string;
+	allChangedSlugs: string[];
+	changedOpenSlugs: string[];
 };
 
 export type ObjectiveListParsedArgs = {
@@ -376,12 +377,12 @@ async function listOpenObjectives(
 	}
 }
 
-async function objectiveDiffSuggestion(
+async function objectiveDiffSelection(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	objectiveList: ObjectiveList,
 	spec: ObjectiveCommandSpec,
-): Promise<ObjectiveDiffSuggestion | undefined> {
+): Promise<ObjectiveDiffSelection | undefined> {
 	const trunkBranch = objectiveList.trunkBranch.trim();
 	if (!trunkBranch) {
 		return undefined;
@@ -401,17 +402,20 @@ async function objectiveDiffSuggestion(
 			return undefined;
 		}
 
-		const changedSlugs = parseObjectiveDiffChangedSlugs(result.stdout);
-		if (changedSlugs.length !== 1) {
+		const allChangedSlugs = parseObjectiveDiffChangedSlugs(result.stdout);
+		if (allChangedSlugs.length === 0) {
 			return undefined;
 		}
 
-		const slug = changedSlugs[0];
-		if (!slug || !objectiveList.groups.some((group) => group.slug === slug)) {
+		const allChangedSlugSet = new Set(allChangedSlugs);
+		const changedOpenSlugs = objectiveList.groups
+			.filter((group) => allChangedSlugSet.has(group.slug))
+			.map((group) => group.slug);
+		if (changedOpenSlugs.length === 0) {
 			return undefined;
 		}
 
-		return { slug, trunkBranch };
+		return { trunkBranch, allChangedSlugs, changedOpenSlugs };
 	} catch {
 		return undefined;
 	} finally {
@@ -504,42 +508,69 @@ function maxAheadTrunk(group: ObjectiveListGroup): number {
 	return maxAhead;
 }
 
+function isChangedOpenObjective(
+	group: ObjectiveListGroup,
+	selection: ObjectiveDiffSelection | undefined,
+): boolean {
+	return selection?.changedOpenSlugs.includes(group.slug) ?? false;
+}
+
+function isOnlyChangedOpenObjective(
+	selection: ObjectiveDiffSelection | undefined,
+	group: ObjectiveListGroup,
+): boolean {
+	return Boolean(
+		selection &&
+			selection.allChangedSlugs.length === 1 &&
+			selection.changedOpenSlugs.length === 1 &&
+			selection.changedOpenSlugs[0] === group.slug,
+	);
+}
+
+function objectiveDiffPickerTitle(title: string, selection: ObjectiveDiffSelection): string {
+	const suffix = selection.allChangedSlugs.length === 1 && selection.changedOpenSlugs.length === 1
+		? `only Objective changed vs ${selection.trunkBranch}`
+		: `changed Objectives vs ${selection.trunkBranch}`;
+	return `${title} (${suffix})`;
+}
+
 export function formatObjectiveChoice(
 	group: ObjectiveListGroup,
-	suggestion: ObjectiveDiffSuggestion | undefined = undefined,
+	selection: ObjectiveDiffSelection | undefined = undefined,
 ): string {
 	const branchCount = group.branches.length;
 	const branchLabel = branchCount === 1 ? "1 branch" : `${branchCount} branches`;
 	const latestBranch = latestObjectiveBranch(group)?.branch ?? "(none)";
-	const suggestionLabel = suggestion?.slug === group.slug
-		? `suggested: only Objective changed vs ${suggestion.trunkBranch} — `
-		: "";
-	return `${group.slug} — ${suggestionLabel}${branchLabel} — latest ${latestBranch} — max +${maxAheadTrunk(group)} ahead trunk`;
+	let diffLabel = "";
+	if (selection && isOnlyChangedOpenObjective(selection, group)) {
+		diffLabel = `suggested: only Objective changed vs ${selection.trunkBranch} — `;
+	} else if (selection && isChangedOpenObjective(group, selection)) {
+		diffLabel = `changed vs ${selection.trunkBranch} — `;
+	}
+	return `${group.slug} — ${diffLabel}${branchLabel} — latest ${latestBranch} — max +${maxAheadTrunk(group)} ahead trunk`;
 }
 
-function objectiveGroupsWithSuggestionFirst(
+function objectiveGroupsWithChangedFirst(
 	groups: ObjectiveListGroup[],
-	suggestion: ObjectiveDiffSuggestion | undefined,
+	selection: ObjectiveDiffSelection | undefined,
 ): ObjectiveListGroup[] {
-	if (!suggestion) {
+	if (!selection) {
 		return groups;
 	}
 
-	const suggested = groups.find((group) => group.slug === suggestion.slug);
-	if (!suggested) {
-		return groups;
-	}
-
-	return [suggested, ...groups.filter((group) => group.slug !== suggestion.slug)];
+	const changedSet = new Set(selection.changedOpenSlugs);
+	const changedGroups = groups.filter((group) => changedSet.has(group.slug));
+	const otherGroups = groups.filter((group) => !changedSet.has(group.slug));
+	return [...changedGroups, ...otherGroups];
 }
 
 function objectiveChoiceMap(
 	groups: ObjectiveListGroup[],
-	suggestion: ObjectiveDiffSuggestion | undefined,
+	selection: ObjectiveDiffSelection | undefined,
 ): Map<string, string> {
 	const choices = new Map<string, string>();
 	for (const group of groups) {
-		choices.set(formatObjectiveChoice(group, suggestion), group.slug);
+		choices.set(formatObjectiveChoice(group, selection), group.slug);
 	}
 	return choices;
 }
@@ -548,9 +579,9 @@ async function selectObjectiveSlug(
 	ctx: CommandContext,
 	title: string,
 	groups: ObjectiveListGroup[],
-	suggestion: ObjectiveDiffSuggestion | undefined,
+	selection: ObjectiveDiffSelection | undefined,
 ): Promise<string | undefined> {
-	const choices = objectiveChoiceMap(groups, suggestion);
+	const choices = objectiveChoiceMap(groups, selection);
 	const selected = await ctx.ui.select(title, [...choices.keys()]);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
@@ -566,37 +597,42 @@ async function selectObjectiveSlug(
 	return slug;
 }
 
-async function selectSuggestedObjectiveOrOther(
+async function selectChangedObjectivesOrOther(
 	ctx: CommandContext,
 	spec: ObjectiveCommandSpec,
 	objectiveList: ObjectiveList,
-	suggestion: ObjectiveDiffSuggestion,
+	selection: ObjectiveDiffSelection,
 ): Promise<string | undefined> {
-	const suggested = objectiveList.groups.find((group) => group.slug === suggestion.slug);
-	if (!suggested) {
-		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.groups, suggestion);
+	const changedSet = new Set(selection.changedOpenSlugs);
+	const changedGroups = objectiveList.groups.filter((group) => changedSet.has(group.slug));
+	const otherGroups = objectiveList.groups.filter((group) => !changedSet.has(group.slug));
+	if (changedGroups.length === 0) {
+		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.groups, undefined);
 	}
 
-	const otherGroups = objectiveList.groups.filter((group) => group.slug !== suggestion.slug);
-	const choices = [formatObjectiveChoice(suggested, suggestion)];
+	const choices = objectiveChoiceMap(changedGroups, selection);
+	const items = [...choices.keys()];
 	if (otherGroups.length > 0) {
-		choices.push(VIEW_OTHER_OBJECTIVES_CHOICE);
+		items.push(VIEW_OTHER_OBJECTIVES_CHOICE);
 	}
 
-	const selected = await ctx.ui.select(
-		`${spec.selectionTitle} (only Objective changed vs ${suggestion.trunkBranch})`,
-		choices,
-	);
+	const selected = await ctx.ui.select(objectiveDiffPickerTitle(spec.selectionTitle, selection), items);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
 		return undefined;
 	}
 
-	if (selected !== VIEW_OTHER_OBJECTIVES_CHOICE) {
-		return suggestion.slug;
+	if (selected === VIEW_OTHER_OBJECTIVES_CHOICE) {
+		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other open Objectives)`, otherGroups, undefined);
 	}
 
-	return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other open Objectives)`, otherGroups, undefined);
+	const slug = choices.get(selected);
+	if (!slug) {
+		ctx.ui.notify("Objective selection could not be resolved.", "error");
+		return undefined;
+	}
+
+	return slug;
 }
 
 async function invokeObjectiveSkill(
@@ -639,19 +675,23 @@ async function chooseObjectiveAndInvoke(
 		return;
 	}
 
-	const suggestion = await objectiveDiffSuggestion(pi, ctx, objectiveList, spec);
+	const diffSelection = await objectiveDiffSelection(pi, ctx, objectiveList, spec);
 	let slug: string | undefined;
-	if (suggestion && spec.compactDiffSuggestion) {
-		slug = await selectSuggestedObjectiveOrOther(ctx, spec, objectiveList, suggestion);
+	if (diffSelection && spec.compactDiffSuggestion) {
+		slug = await selectChangedObjectivesOrOther(ctx, spec, objectiveList, diffSelection);
 	} else {
-		if (suggestion) {
-			ctx.ui.notify(`Suggested ${suggestion.slug} from objective diff vs ${suggestion.trunkBranch}.`, "info");
+		if (diffSelection) {
+			const plural = diffSelection.changedOpenSlugs.length === 1 ? "" : "s";
+			ctx.ui.notify(
+				`Found changed Objective${plural} ${diffSelection.changedOpenSlugs.join(", ")} from objective diff vs ${diffSelection.trunkBranch}.`,
+				"info",
+			);
 		}
 		slug = await selectObjectiveSlug(
 			ctx,
 			spec.selectionTitle,
-			objectiveGroupsWithSuggestionFirst(objectiveList.groups, suggestion),
-			suggestion,
+			objectiveGroupsWithChangedFirst(objectiveList.groups, diffSelection),
+			diffSelection,
 		);
 	}
 
