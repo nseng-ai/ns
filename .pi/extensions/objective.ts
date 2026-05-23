@@ -3,6 +3,15 @@ import { dirname } from "node:path";
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
+const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
+const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
+
+const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--current] [--names] [--view list|detail] [--help]
+
+Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
+
+const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--current", "--names", "--view", "--help", "-h"] as const;
+const OBJECTIVE_LIST_VIEW_VALUES = ["list", "detail"] as const;
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -11,6 +20,21 @@ type ExecResult = {
 	stderr: string;
 	code: number;
 	killed: boolean;
+};
+
+type AutocompleteItem = {
+	value: string;
+	label?: string;
+	description?: string;
+};
+
+type CustomMessageContent = string | Array<{ type: string; text?: string }>;
+
+type CustomMessage = {
+	customType: string;
+	content: CustomMessageContent;
+	display: boolean;
+	details?: unknown;
 };
 
 type CommandInfo = {
@@ -38,11 +62,13 @@ type ExtensionAPI = {
 		name: string,
 		options: {
 			description?: string;
+			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 	getCommands(): CommandInfo[];
+	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
 	sendUserMessage(content: string): void;
 };
 
@@ -58,17 +84,48 @@ type ObjectiveCommandSpec = {
 	actionPrompt: string;
 };
 
-type ObjectiveEntry = {
+type ObjectiveBranchEntry = {
+	branch: string;
+	tipHeadIso: string | null;
+	aheadTrunk: number;
+};
+
+type ObjectiveListGroup = {
 	slug: string;
-	path: string;
-	updateCount: number;
+	branches: ObjectiveBranchEntry[];
 };
 
 type ObjectiveList = {
-	rootPath: string;
-	rootExists: boolean;
-	entries: ObjectiveEntry[];
+	trunkBranch: string;
+	view: string;
+	currentBranch: string | null;
+	filteredToCurrent: boolean;
+	namesOnly: boolean;
+	groups: ObjectiveListGroup[];
 };
+
+type ObjectiveListParsedArgs = {
+	args: string[];
+	help: boolean;
+};
+
+type ObjectiveListMessageDetails = {
+	status: "success" | "failure" | "rejected";
+	command: string;
+	args: string[];
+	cwd: string;
+	code?: number;
+	killed?: boolean;
+	stdoutChars?: number;
+	stderrChars?: number;
+};
+
+class ObjectiveListUsageError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ObjectiveListUsageError";
+	}
+}
 
 const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	{
@@ -119,21 +176,45 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseObjectiveEntry(value: unknown, index: number): ObjectiveEntry {
+function parseObjectiveBranchEntry(value: unknown, groupIndex: number, branchIndex: number): ObjectiveBranchEntry {
 	if (!isRecord(value)) {
-		throw new Error(`Invalid Objective list entry at index ${index}: expected an object.`);
-	}
-
-	const slug = value.slug;
-	const path = value.path;
-	const updateCount = value.update_count;
-	if (typeof slug !== "string" || typeof path !== "string" || typeof updateCount !== "number") {
 		throw new Error(
-			`Invalid Objective list entry at index ${index}: expected slug, path, and update_count.`,
+			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected an object.`,
 		);
 	}
 
-	return { slug, path, updateCount };
+	const branch = value.branch;
+	const tipHeadIso = value.tip_head_iso;
+	const aheadTrunk = value.ahead_trunk;
+	if (
+		typeof branch !== "string" ||
+		(tipHeadIso !== null && typeof tipHeadIso !== "string") ||
+		typeof aheadTrunk !== "number" ||
+		!Number.isFinite(aheadTrunk)
+	) {
+		throw new Error(
+			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected branch, tip_head_iso, and ahead_trunk.`,
+		);
+	}
+
+	return { branch, tipHeadIso, aheadTrunk };
+}
+
+function parseObjectiveListGroup(value: unknown, index: number): ObjectiveListGroup {
+	if (!isRecord(value)) {
+		throw new Error(`Invalid Objective list group at index ${index}: expected an object.`);
+	}
+
+	const slug = value.slug;
+	const branches = value.branches;
+	if (typeof slug !== "string" || !Array.isArray(branches)) {
+		throw new Error(`Invalid Objective list group at index ${index}: expected slug and branches.`);
+	}
+
+	return {
+		slug,
+		branches: branches.map((branch, branchIndex) => parseObjectiveBranchEntry(branch, index, branchIndex)),
+	};
 }
 
 function parseObjectiveList(stdout: string): ObjectiveList {
@@ -159,25 +240,60 @@ function parseObjectiveList(stdout: string): ObjectiveList {
 		throw new Error("Invalid objective list JSON: expected a data object.");
 	}
 
-	const rootPath = data.root_path;
-	const rootExists = data.root_exists;
-	const entries = data.entries;
-	if (typeof rootPath !== "string" || typeof rootExists !== "boolean" || !Array.isArray(entries)) {
-		throw new Error("Invalid objective list JSON: expected root_path, root_exists, and entries.");
+	const trunkBranch = data.trunk_branch;
+	const view = data.view;
+	const currentBranch = data.current_branch;
+	const filteredToCurrent = data.filtered_to_current;
+	const namesOnly = data.names_only;
+	const groups = data.groups;
+	if (
+		typeof trunkBranch !== "string" ||
+		typeof view !== "string" ||
+		(currentBranch !== null && typeof currentBranch !== "string") ||
+		typeof filteredToCurrent !== "boolean" ||
+		typeof namesOnly !== "boolean" ||
+		!Array.isArray(groups)
+	) {
+		throw new Error(
+			"Invalid objective list JSON: expected trunk_branch, view, current_branch, filtered_to_current, names_only, and groups.",
+		);
 	}
 
 	return {
-		rootPath,
-		rootExists,
-		entries: entries.map(parseObjectiveEntry),
+		trunkBranch,
+		view,
+		currentBranch,
+		filteredToCurrent,
+		namesOnly,
+		groups: groups.map(parseObjectiveListGroup),
 	};
 }
 
-function formatObjectiveListFailure(result: ExecResult): string {
+function formatCommand(command: string, args: string[]): string {
+	return [command, ...args].map(shellQuote).join(" ");
+}
+
+function shellQuote(value: string): string {
+	if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) {
+		return value;
+	}
+
+	return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateTail(`objective list failed (${status}).\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`, MAX_ERROR_CHARS);
+	return truncateTail(
+		`objective command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
+		MAX_ERROR_CHARS,
+	);
+}
+
+function formatExecStartupFailure(commandDisplay: string, error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
 async function listOpenObjectives(
@@ -189,9 +305,10 @@ async function listOpenObjectives(
 		ctx.ui.setStatus(spec.statusKey, "listing open Objectives…");
 	}
 
+	const args = ["list", "--format", "json"];
 	let result: ExecResult;
 	try {
-		result = await pi.exec("objective", ["list", "--state", "open", "--format", "json"], {
+		result = await pi.exec("objective", args, {
 			cwd: ctx.cwd,
 			timeout: OBJECTIVE_LIST_TIMEOUT_MS,
 		});
@@ -202,7 +319,7 @@ async function listOpenObjectives(
 	}
 
 	if (result.code !== 0 || result.killed) {
-		throw new Error(formatObjectiveListFailure(result));
+		throw new Error(formatExecFailure(formatCommand("objective", args), result));
 	}
 
 	return parseObjectiveList(result.stdout);
@@ -249,9 +366,53 @@ ${objective}
 Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
 }
 
-function formatObjectiveChoice(entry: ObjectiveEntry): string {
-	const updateLabel = entry.updateCount === 1 ? "1 update" : `${entry.updateCount} updates`;
-	return `${entry.slug} — ${updateLabel} — ${entry.path}`;
+function latestObjectiveBranch(group: ObjectiveListGroup): ObjectiveBranchEntry | undefined {
+	let latest: ObjectiveBranchEntry | undefined;
+	for (const branch of group.branches) {
+		if (objectiveBranchTimestamp(branch) === undefined) {
+			continue;
+		}
+		if (!latest || compareObjectiveBranchesByLatest(branch, latest) > 0) {
+			latest = branch;
+		}
+	}
+	return latest;
+}
+
+function objectiveBranchTimestamp(branch: ObjectiveBranchEntry): number | undefined {
+	if (branch.tipHeadIso === null) {
+		return undefined;
+	}
+
+	const timestamp = Date.parse(branch.tipHeadIso);
+	return Number.isNaN(timestamp) ? undefined : timestamp;
+}
+
+function compareObjectiveBranchesByLatest(left: ObjectiveBranchEntry, right: ObjectiveBranchEntry): number {
+	const leftTimestamp = objectiveBranchTimestamp(left) ?? Number.NEGATIVE_INFINITY;
+	const rightTimestamp = objectiveBranchTimestamp(right) ?? Number.NEGATIVE_INFINITY;
+	if (leftTimestamp !== rightTimestamp) {
+		return leftTimestamp - rightTimestamp;
+	}
+
+	return right.branch.localeCompare(left.branch);
+}
+
+function maxAheadTrunk(group: ObjectiveListGroup): number {
+	let maxAhead = 0;
+	for (const branch of group.branches) {
+		if (branch.aheadTrunk > maxAhead) {
+			maxAhead = branch.aheadTrunk;
+		}
+	}
+	return maxAhead;
+}
+
+function formatObjectiveChoice(group: ObjectiveListGroup): string {
+	const branchCount = group.branches.length;
+	const branchLabel = branchCount === 1 ? "1 branch" : `${branchCount} branches`;
+	const latestBranch = latestObjectiveBranch(group)?.branch ?? "(none)";
+	return `${group.slug} — ${branchLabel} — latest ${latestBranch} — max +${maxAheadTrunk(group)} ahead trunk`;
 }
 
 async function invokeObjectiveSkill(
@@ -283,7 +444,7 @@ async function chooseObjectiveAndInvoke(
 	await ctx.waitForIdle();
 
 	const objectiveList = await listOpenObjectives(pi, ctx, spec);
-	if (objectiveList.entries.length === 0) {
+	if (objectiveList.groups.length === 0) {
 		if (ctx.hasUI) {
 			ctx.ui.notify("No open Objectives. Create one with /skill:objective-create.", "info");
 		}
@@ -295,8 +456,8 @@ async function chooseObjectiveAndInvoke(
 	}
 
 	const choices = new Map<string, string>();
-	for (const entry of objectiveList.entries) {
-		choices.set(formatObjectiveChoice(entry), entry.slug);
+	for (const group of objectiveList.groups) {
+		choices.set(formatObjectiveChoice(group), group.slug);
 	}
 
 	const selected = await ctx.ui.select(spec.selectionTitle, [...choices.keys()]);
@@ -336,7 +497,213 @@ async function handleObjectiveCommand(
 	}
 }
 
+function tokenizeArgumentString(args: string): string[] {
+	return args.trim().split(/\s+/).filter(Boolean);
+}
+
+function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs {
+	const tokens = tokenizeArgumentString(rawArgs);
+	assertNoForbiddenObjectiveListArgs(tokens);
+
+	const args: string[] = [];
+	let help = false;
+	for (let index = 0; index < tokens.length; index += 1) {
+		const token = tokens[index] ?? "";
+		if (token === "--help" || token === "-h") {
+			help = true;
+			continue;
+		}
+		if (token === "--current" || token === "--names") {
+			args.push(token);
+			continue;
+		}
+		if (token === "--view") {
+			const value = tokens[index + 1];
+			if (!value || value.startsWith("--")) {
+				throw new ObjectiveListUsageError("--view requires one of: list, detail.");
+			}
+			if (!isObjectiveListView(value)) {
+				throw new ObjectiveListUsageError(`Unsupported --view value: ${value}. Expected list or detail.`);
+			}
+			args.push("--view", value);
+			index += 1;
+			continue;
+		}
+		if (token.startsWith("--view=")) {
+			const value = token.slice("--view=".length);
+			if (!isObjectiveListView(value)) {
+				throw new ObjectiveListUsageError(`Unsupported --view value: ${value || "(empty)"}. Expected list or detail.`);
+			}
+			args.push("--view", value);
+			continue;
+		}
+
+		throw new ObjectiveListUsageError(`Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.`);
+	}
+
+	return { args, help };
+}
+
+function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
+	for (const token of tokens) {
+		if (token === "--format" || token.startsWith("--format=")) {
+			throw new ObjectiveListUsageError("--format is controlled by the Pi extension and is not supported here.");
+		}
+		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
+			throw new ObjectiveListUsageError("--json-schema is not supported by /objective-list.");
+		}
+	}
+}
+
+function isObjectiveListView(value: string): value is (typeof OBJECTIVE_LIST_VIEW_VALUES)[number] {
+	return (OBJECTIVE_LIST_VIEW_VALUES as readonly string[]).includes(value);
+}
+
+function objectiveListUsage(error: string): string {
+	return `Error: ${error}\n\n${OBJECTIVE_LIST_USAGE}`;
+}
+
+function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | null {
+	const tokens = tokenizeArgumentString(prefix);
+	const endsWithWhitespace = /\s$/.test(prefix);
+	const currentToken = endsWithWhitespace ? "" : (tokens[tokens.length - 1] ?? "");
+	const previousToken = endsWithWhitespace ? tokens[tokens.length - 1] : tokens[tokens.length - 2];
+
+	if (currentToken.startsWith("--view=")) {
+		const valuePrefix = currentToken.slice("--view=".length);
+		return matchingCompletions(
+			OBJECTIVE_LIST_VIEW_VALUES.map((value) => `--view=${value}`),
+			`--view=${valuePrefix}`,
+		);
+	}
+
+	const candidates = previousToken === "--view" ? OBJECTIVE_LIST_VIEW_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
+	return matchingCompletions(candidates, currentToken);
+}
+
+function matchingCompletions(candidates: readonly string[], currentToken: string): AutocompleteItem[] | null {
+	const filtered = candidates.filter((candidate) => candidate.startsWith(currentToken));
+	return filtered.length > 0 ? filtered.map((value) => ({ value, label: value })) : null;
+}
+
+async function handleObjectiveListCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
+	await ctx.waitForIdle();
+
+	let parsedArgs: ObjectiveListParsedArgs;
+	try {
+		parsedArgs = parseObjectiveListArgs(rawArgs);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		presentObjectiveListMessage(pi, ctx, objectiveListUsage(message), {
+			status: "rejected",
+			command: OBJECTIVE_LIST_COMMAND_NAME,
+			args: tokenizeArgumentString(rawArgs),
+			cwd: ctx.cwd,
+		}, "warning");
+		return;
+	}
+
+	const commandArgs = parsedArgs.help ? ["list", "--help"] : ["list", ...parsedArgs.args, "--format", "markdown"];
+	const commandDisplay = formatCommand("objective", commandArgs);
+
+	if (ctx.hasUI) {
+		ctx.ui.setStatus(OBJECTIVE_LIST_COMMAND_NAME, `running ${commandDisplay}…`);
+	}
+
+	let result: ExecResult;
+	try {
+		result = await pi.exec("objective", commandArgs, {
+			cwd: ctx.cwd,
+			timeout: OBJECTIVE_LIST_TIMEOUT_MS,
+		});
+	} catch (error) {
+		presentObjectiveListMessage(pi, ctx, formatExecStartupFailure(commandDisplay, error), {
+			status: "failure",
+			command: commandDisplay,
+			args: commandArgs,
+			cwd: ctx.cwd,
+		}, "error");
+		return;
+	} finally {
+		if (ctx.hasUI) {
+			ctx.ui.setStatus(OBJECTIVE_LIST_COMMAND_NAME, undefined);
+		}
+	}
+
+	if (result.code !== 0 || result.killed) {
+		presentObjectiveListMessage(pi, ctx, formatExecFailure(commandDisplay, result), objectiveListDetails("failure", commandDisplay, commandArgs, ctx, result), "error");
+		return;
+	}
+
+	presentObjectiveListMessage(pi, ctx, objectiveListOutputContent(result), objectiveListDetails("success", commandDisplay, commandArgs, ctx, result), "info");
+}
+
+function objectiveListDetails(
+	status: "success" | "failure",
+	command: string,
+	args: string[],
+	ctx: CommandContext,
+	result: ExecResult,
+): ObjectiveListMessageDetails {
+	return {
+		status,
+		command,
+		args,
+		cwd: ctx.cwd,
+		code: result.code,
+		killed: result.killed,
+		stdoutChars: result.stdout.length,
+		stderrChars: result.stderr.length,
+	};
+}
+
+function objectiveListOutputContent(result: ExecResult): string {
+	const stdout = result.stdout.trimEnd();
+	if (stdout) {
+		return stdout;
+	}
+
+	const stderr = result.stderr.trimEnd();
+	return stderr || "(empty)";
+}
+
+function presentObjectiveListMessage(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	content: string,
+	details: ObjectiveListMessageDetails,
+	level: NotifyLevel,
+): void {
+	if (pi.sendMessage) {
+		pi.sendMessage({
+			customType: OBJECTIVE_LIST_MESSAGE_TYPE,
+			content,
+			display: true,
+			details,
+		});
+		return;
+	}
+
+	if (ctx.hasUI) {
+		ctx.ui.notify(content, level);
+		return;
+	}
+
+	if (level === "error") {
+		console.error(content);
+		return;
+	}
+
+	console.log(content);
+}
+
 export default function objectiveExtension(pi: ExtensionAPI): void {
+	pi.registerCommand(OBJECTIVE_LIST_COMMAND_NAME, {
+		description: "List open Objectives in this repository without invoking the agent.",
+		getArgumentCompletions: completeObjectiveListArgs,
+		handler: async (args, ctx) => handleObjectiveListCommand(pi, args, ctx),
+	});
+
 	for (const spec of OBJECTIVE_COMMANDS) {
 		pi.registerCommand(spec.commandName, {
 			description: spec.description,
