@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -7,8 +8,13 @@ import click
 
 from vibechk.deps import CliDeps
 from vibechk.errors import VibechkError
-from vibechk.reports import render_comparison_report, render_run_report
-from vibechk.store import read_bundle, resolve_store_root
+from vibechk.reports import (
+    render_comparison_report,
+    render_run_report,
+    render_runs_table,
+    run_list_entry_to_json,
+)
+from vibechk.store import list_bundles, read_bundle, resolve_store_root
 from vibechk.workflow import execute_run
 
 
@@ -92,6 +98,43 @@ def build_cli(deps: CliDeps | None = None) -> click.Command:
             raise SystemExit(result.exit_code)
 
     @click.command(
+        name="runs",
+        context_settings={"help_option_names": ["-h", "--help"]},
+        help="List local vibechk run bundles from the configured store.",
+    )
+    @click.option(
+        "--store",
+        "store_path",
+        default=None,
+        type=click.Path(file_okay=False, path_type=Path),
+        help="Override vibechk store root.",
+    )
+    @click.option(
+        "--format",
+        "output_format",
+        type=click.Choice(["table", "json"]),
+        default="table",
+        show_default=True,
+        help="Output format.",
+    )
+    def runs_command(store_path: Path | None, output_format: str) -> None:
+        try:
+            store_root = resolve_store_root(store_path)
+            loaded = list_bundles(store_root)
+        except VibechkError as error:
+            raise click.ClickException(str(error)) from None
+
+        if output_format == "json":
+            click.echo(json.dumps([run_list_entry_to_json(item) for item in loaded], indent=2))
+            return
+
+        if not loaded:
+            click.echo("No vibechk runs found.")
+            return
+
+        click.echo(render_runs_table(loaded))
+
+    @click.command(
         name="show",
         context_settings={"help_option_names": ["-h", "--help"]},
         help="Render a Markdown report for a local run bundle.",
@@ -136,6 +179,7 @@ def build_cli(deps: CliDeps | None = None) -> click.Command:
         click.echo(render_comparison_report(baseline, treatment), nl=False)
 
     cli.add_command(run_command)
+    cli.add_command(runs_command)
     cli.add_command(show_command)
     cli.add_command(diff_command)
     return cli
