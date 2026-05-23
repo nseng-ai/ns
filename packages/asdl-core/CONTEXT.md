@@ -280,3 +280,93 @@ Graphite defines a **Graphite stack** as a sequence of PRs, each building off it
 #### GtGateway vs GitGateway
 
 Use **GitGateway** for ordinary repository and worktree facts: current branch, refs, worktrees, dirty state, history, and branch existence. Use **GtGateway** only for explicitly Graphite behavior: parent/children relationships, stack snapshots, Graphite trunk, restacking, syncing Graphite metadata, and raw Graphite branch diagnostics. `stack()` gets its structure from the **Graphite metadata store** via the **Stack slice query**; the other Graphite operations continue to use `gt` CLI commands.
+
+## Gh
+
+The Gh subdomain is the shared boundary for GitHub pull-request workflows. It keeps GitHub CLI/API calls behind a PR-centered gateway so asdl packages can reason about PR lifecycle, PR feedback, review threads, inline comments, discussion comments, reactions, and guarded merge behavior without adopting GitHub's lower-level API naming leaks.
+
+### Language
+
+**PRGateway** — The single canonical gateway boundary for current GitHub pull-request workflows, including PR lifecycle facts, PR feedback reads, review-thread mutations, discussion-comment mutations, reactions, and guarded merge operations.
+_Avoid:_ IssueGateway, PRConversationGateway, GitHub gateway, gh helper, PR service.
+
+**PRDiscussionComment** — A top-level comment in the PR discussion timeline, not attached to a diff line or review thread.
+_Avoid:_ IssueComment, discussion comment unqualified, issue comment, PR comment.
+
+**PRReview** — A submitted PR review event, whether fetched later or returned immediately after creation, that carries author, review state, optional body, and submission time; it is not an inline thread and not a top-level discussion comment.
+_Avoid:_ PRReviewSubmission, review comment, review thread, discussion comment, approval alone.
+
+**PRReviewState** — GitHub's full review-state vocabulary for PR reviews: `PENDING`, `COMMENTED`, `APPROVED`, `CHANGES_REQUESTED`, and `DISMISSED`.
+_Avoid:_ PR state, actionable review state, approval status.
+
+**Actionable PR review** — A submitted review surfaced as feedback because its state is `COMMENTED`, `APPROVED`, or `CHANGES_REQUESTED`.
+_Avoid:_ review, non-empty review, active review, PRReviewState.
+
+**PRState** — The actual lifecycle state of a pull request: `OPEN`, `CLOSED`, or `MERGED`.
+_Avoid:_ PRReviewState, status, state filter, lowercase state.
+
+**PRStateFilter** — A query filter for PR listing/search: `open`, `closed`, `merged`, or `all`, where `all` means no lifecycle-state restriction.
+_Avoid:_ PRState, lifecycle state, review state, status filter.
+
+**PRSummary** — The single PR metadata record used by current workflows, carrying identity, title/body/url, head/base refs, lifecycle state, and head commit OID.
+_Avoid:_ PRDetails, PR metadata, PR snapshot, merge details.
+
+**PR changed file** — One file entry in a PR diff, including path, GitHub file status, and optional patch text.
+_Avoid:_ changed file unqualified, diff, file status, patch.
+
+**PRLookupMiss** — A successful negative PR lookup indicating that no PR matches the requested branch or lookup key.
+_Avoid:_ PRLookupError, not found error, failure, gh error.
+
+**PRGatewayFailure** — A failed PR gateway operation caused by GitHub, `gh`, authentication, network, rate limiting, or an unexpected API response.
+_Avoid:_ PRLookupError, PRCommandError, lookup miss, negative result.
+
+**PRReviewThreadState** — The post-mutation resolved state of a PR review thread returned after resolving or unresolving it.
+_Avoid:_ ResolveReviewThreadResult, UnresolveReviewThreadResult, was-already result, no-op result.
+
+**PRMergeOutcome** — The accepted result of a guarded PR merge request, recording the PR number and whether auto-merge was enabled instead of merging immediately.
+_Avoid:_ PRMergeResult, command output, merge status, stdout/stderr result.
+
+**PRReviewThread** — A resolvable inline conversation anchored to a PR diff location.
+_Avoid:_ review comment, inline comment, conversation unqualified, discussion comment.
+
+**PRReviewComment** — One message inside a PR review thread, including the first inline comment and any replies.
+_Avoid:_ review thread, discussion comment, issue comment, inline thread.
+
+**PR diff anchor** — The file path plus optional line range that locates inline feedback on a PR diff.
+_Avoid:_ line, range, position, location unqualified.
+
+**PR inline comment draft** — One proposed inline message to submit as part of a PR review; it has a PR diff anchor and body but no GitHub comment id, author, timestamp, or thread state yet.
+_Avoid:_ PRReviewComment, finding, comment input, draft review comment.
+
+### Relationships
+
+#### PR-centered boundary
+
+Gh vocabulary is PR-centered and uses one **PRGateway** for both lifecycle and conversation operations. Even when GitHub implements part of the surface through issue APIs, asdl names the domain concept after the pull-request workflow it serves, not the backing endpoint.
+
+#### PR message surfaces
+
+A **PRDiscussionComment** is top-level PR discussion. Inline code feedback belongs to **PRReviewComment** inside a **PRReviewThread**. A submitted review body belongs to **PRReview**, which is a review event with a **PRReviewState** and may have an empty body. An **Actionable PR review** is the subset normally surfaced as feedback (`COMMENTED`, `APPROVED`, or `CHANGES_REQUESTED`); `PENDING` and `DISMISSED` remain valid **PRReviewState** values but are not feedback by default. Do not use "comment" unqualified when the surface matters.
+
+**PRState** and **PRStateFilter** are different surfaces, not casing variants of one concept: **PRState** is GitHub output about one PR's lifecycle, while **PRStateFilter** is an input accepted by PR list/search operations. `all` is a filter value, never a lifecycle state.
+
+A **PRLookupMiss** means the PR lookup ran and found no matching PR. A **PRGatewayFailure** means the gateway could not answer or mutate reliably. CLI callers should translate **PRLookupMiss** to a negative/empty domain result when that is expected, and **PRGatewayFailure** to a failure path.
+
+Resolving or unresolving a **PRReviewThread** returns **PRReviewThreadState**, which reports the trusted postcondition from GitHub (`is_resolved=True` after resolve, `False` after unresolve). It does not claim whether the mutation was a no-op; callers that need pre-state must read the thread before mutating.
+
+A successful guarded merge returns **PRMergeOutcome**. Raw stdout/stderr from `gh pr merge` are diagnostics, not success-domain fields; preserve them only on **PRGatewayFailure** or debug paths.
+
+A **PRReviewThread** owns the **PR diff anchor** and thread state: path, line range, resolved/unresolved, and outdated/fresh. A **PRReviewComment** owns message facts: body, author, timestamp, and comment id. Comment records may repeat path/line for API convenience, but semantically the anchor belongs to the thread. In the current data shape, `line` is the end line (or the only line for a single-line anchor), `start_line` is present only for multi-line anchors, and a missing line means file-level or outdated feedback.
+
+A **PR inline comment draft** is pre-submission data. After submission through a **PRReview**, GitHub may surface it as a **PRReviewComment** inside a **PRReviewThread**; do not use the persisted comment term for the draft.
+
+**PR changed files** are the source for deciding whether a **PR diff anchor** is commentable. Missing patch text means inline-commentability may be limited for that file; it is not a gateway failure by itself.
+
+### Flagged ambiguities
+
+- **IssueGateway** — current implementation name that leaks GitHub's issue/PR API model; resolved target language is **PRGateway** for all current PR-centered GitHub workflows.
+- **PRReviewSubmission** — current implementation split for the result of creating a review; resolved target language is **PRReview** because the created review is the same domain concept as a fetched submitted review. The unified create-review result should parse the author from GitHub's response rather than dropping it.
+- **PRDetails** — current implementation split for guarded-merge metadata; resolved target language is **PRSummary** with head commit OID included, accepting modest overfetching to keep one PR metadata concept.
+- **PRLookupError / PRCommandError** — current implementation conflates negative lookup answers with gateway failures; resolved target language is **PRLookupMiss** for a successful not-found answer and **PRGatewayFailure** for `gh`/GitHub/API failure.
+- **ResolveReviewThreadResult / UnresolveReviewThreadResult** — current implementation exposes fake-only pre-state booleans; resolved target language is **PRReviewThreadState**, a trusted post-mutation state record.
+- **PRMergeResult** — current implementation carries command-output-shaped success data; resolved target language is **PRMergeOutcome**, with stdout/stderr treated as diagnostics rather than domain fields.
