@@ -130,9 +130,24 @@ describe("loadGtStatus", () => {
 		expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");
 	});
 
+	test("falls back to the previously checked-out local branch when Graphite parent is unavailable", async () => {
+		const { pi, formatted } = await loadFormattedStatus([
+			gtParentStep({ code: 1, stderr: "not tracked by Graphite" }),
+			step("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], { stdout: "refs/heads/main\n" }),
+			step("git", ["show-ref", "--verify", "refs/heads/main"]),
+			gtChildrenStep(),
+			revListStep("main", 0),
+			dirtyStep(),
+		]);
+
+		pi.assertDone();
+		expect(formatted).toBe("[gt] (↓: main) (↑: -)");
+	});
+
 	test("reports unknown commits when Graphite parent is unavailable", async () => {
 		const { pi, formatted } = await loadFormattedStatus([
 			gtParentStep({ code: 1, stderr: "not tracked by Graphite" }),
+			step("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], { code: 1, stderr: "no previous checkout" }),
 			gtChildrenStep(),
 			dirtyStep(),
 		]);
