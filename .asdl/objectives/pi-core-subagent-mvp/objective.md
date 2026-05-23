@@ -15,8 +15,9 @@ This Objective therefore tracks a local extension/package child-session base lay
 This Objective covers a local child-session primitive implemented through Pi's extension and package systems:
 
 - Implement a reusable TypeScript helper, `runChildSession(pi, ctx, options)`, in `ts/packages/pi-extensions/` for use by local Pi extensions.
-- Treat the helper as a local package/export surface, not as a method added to `ExtensionCommandContext`.
-- Wire the local Pi package/plugin surface through `ts/packages/pi-extensions/package.json`, project `.pi/settings.json`, and/or thin `.pi/extensions/*` shims so the extension resources load through normal Pi mechanisms.
+- Treat the helper as a repo-local TypeScript helper surface, not as a method added to `ExtensionCommandContext`.
+- Do not add stable npm-style package exports or subpaths for `runChildSession` until a first real repo-local parent-facing extension consumer demonstrates the need; source-local imports are acceptable during the contract and runner slices.
+- Wire actual parent-facing extension resources, when they exist, through `ts/packages/pi-extensions/package.json`, project `.pi/settings.json`, and/or thin `.pi/extensions/*` shims so the extension resources load through normal Pi mechanisms.
 - Launch child sessions by spawning a separate `pi` process in JSON event stream mode with `--mode json -p`.
 - Use the same cwd and worktree by default, with sequential execution assumptions.
 - Start with fresh child conversation history while still letting Pi build normal cwd-aware context such as project instructions, date, skills when enabled, and working directory.
@@ -84,7 +85,8 @@ Assumptions:
 - The immediate platform need is an awaited function-call primitive for local extension workflows, not an interactive or background subagent system.
 - `pi-subagents` proves the extension/package pattern: parent extension registration, child `pi --mode json` process, injected runtime extension, JSONL event parsing, inspectable artifacts, and structured parent result.
 - A subprocess child runner is acceptable for the MVP and avoids upstream Pi core coupling.
-- PR 1 evidence supports that a local TypeScript helper/export surface is enough for first consumers to import and narrow the contract without Pi core changes; runtime behavior still needs later slices.
+- PR 1 evidence supports that a local TypeScript helper surface is enough for repo-local consumers to import and narrow the contract without Pi core changes; runtime behavior still needs later slices.
+- Stable npm-style package exports and subpaths are not valuable before a real repo-local parent-facing consumer exists; export or shim wiring belongs with that consumer rather than with the placeholder contract.
 - Fresh child context is sufficient when callers include all task context in the prompt.
 - Capture-only terminal tools are enough for structured completion because parent code performs domain side effects after the child returns.
 - Same-worktree child execution is safe for this MVP because child sessions are awaited sequentially.

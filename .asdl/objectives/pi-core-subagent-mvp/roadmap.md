@@ -2,7 +2,7 @@
 
 ## Work
 
-The Objective has pivoted from a Pi core primitive to a local Pi extension/package child-session base layer. The slug remains `pi-core-subagent-mvp` for continuity, but the implementation target is now `ts/packages/pi-extensions` and project Pi package wiring in this repository.
+The Objective has pivoted from a Pi core primitive to a local Pi extension/package child-session base layer. The slug remains `pi-core-subagent-mvp` for continuity, but the implementation target is now `ts/packages/pi-extensions` and repo-local Pi extension wiring in this repository. Stable npm-style package exports/subpaths are intentionally deferred until a first real parent-facing consumer needs them.
 
 The retired Pi-core plan is superseded: do not add `ctx.runChildSession()` to Pi core, do not export new child-session types from the Pi monorepo, and do not start from an in-process child `AgentSession` unless later evidence shows the extension-layer approach cannot satisfy the MVP.
 
@@ -12,7 +12,7 @@ Implementation is planned as four review slices. Branch names and handoff keys a
 
 Branch: `pi-core-subagent-mvp/extension-contract`
 Parent: current Objective branch.
-Tracking: Objective files, local extension/package type surface, and package wiring only.
+Tracking: Objective files and local helper/type surface. Stable package export/subpath wiring is explicitly deferred until a first real parent-facing consumer.
 Handoff: `handoffs/pi-core-subagent-mvp-pr1-extension-contract.md`
 
 Code/spec:
@@ -22,7 +22,7 @@ Code/spec:
 - [x] Supersede the Pi-monorepo public type export plan and the previous in-process child runtime roadmap.
 - [x] Add local public TypeScript types in `ts/packages/pi-extensions/src/run-child-session.ts` or a nearby module: terminal statuses, failure statuses, terminal tool definition, options, terminal capture, and result union.
 - [x] Define the local helper contract, `runChildSession(pi, ctx, options)`, without monkey-patching Pi's `ExtensionCommandContext`.
-- [ ] Add or update package/plugin wiring so the local extension resources are discoverable through Pi's supported package/extension mechanisms.
+- [x] Resolve package/plugin wiring for PR 1: no stable npm-style package export/subpath is needed yet because current consumers are repo-local source modules/tests; defer export/subpath or new Pi resource wiring until the first real parent-facing extension consumer exists.
 - [x] Add a type-only or fake-driven test proving the local type/helper surface is consumable from local extension code.
 
 Objective update:
@@ -30,17 +30,17 @@ Objective update:
 - [x] Record a Semantic Update for the strategy pivot from Pi core to extension/package layer.
 - [x] Mark the old public Pi core type-surface plan as superseded, not complete.
 - [x] Mark local type/helper surface complete only after code lands in `ts/packages/pi-extensions`.
+- [x] Record the stable package export/subpath deferral so later slices do not re-litigate it before a real consumer exists.
 
 Likely files:
 
 - `.asdl/objectives/pi-core-subagent-mvp/objective.md`
 - `.asdl/objectives/pi-core-subagent-mvp/roadmap.md`
 - `.asdl/objectives/pi-core-subagent-mvp/updates/...`
-- `ts/packages/pi-extensions/package.json`
+- `ts/packages/pi-extensions/package.json` only if a later real consumer needs package metadata/export changes
 - `ts/packages/pi-extensions/src/run-child-session.ts`
 - `ts/packages/pi-extensions/test/run-child-session.test.ts`
-- `.pi/settings.json`
-- `.pi/extensions/*.ts` if thin shims remain necessary
+- `.pi/settings.json` or `.pi/extensions/*.ts` only when a real parent-facing extension resource is wired
 
 Validation:
 
@@ -139,6 +139,7 @@ Code/docs:
 
 - [ ] Add a minimal local command, diagnostic command, or extension test harness that uses the child-session helper end to end.
 - [ ] Decide whether the first real consumer is a small demo command, the stack-run extension skeleton, or an Objective-stack closeout prototype.
+- [ ] Revisit stable package export/subpath or project shim wiring only if that first real consumer needs it; otherwise keep repo-local source imports.
 - [ ] Expose parent progress through an intentionally minimal UI path: status line, widget, custom message, or tool renderer integration.
 - [ ] Ensure parent UI or command output exposes child title/state and `sessionFile` path.
 - [ ] Preserve child session inspectability for blocked/error/cancelled outcomes when possible.
