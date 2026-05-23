@@ -62,7 +62,7 @@ This Objective closes only by explicit human decision. A suitable closure state 
 Assumptions:
 
 - The vibecoded-vs-engineered distinction is a useful seam for this repository's Pi extension work.
-- `docs/pi/README.md` is the right first documentation surface for repo-specific Pi extension layer guidance; `CONTEXT.md` should wait unless the terms become broader ASDL domain vocabulary.
+- `docs/pi/README.md` has been validated as the right first documentation surface for repo-specific Pi extension layer guidance; `CONTEXT.md` should wait unless the terms become broader ASDL domain vocabulary.
 - Promotion should be driven by stability, risk, reuse, or test need, not by the mere fact that an extension is checked in.
 - The existing `ts/packages/pi-extensions/` package can remain the home for engineered extension behavior and fake-driven tests.
 - Shared modules should be introduced only where the deletion test shows real leverage across callers.
@@ -78,7 +78,6 @@ Risks:
 
 ## Open Questions
 
-- What exact wording should `docs/pi/README.md` use for the vibecoded extension layer and engineered layer?
 - Which standalone extensions, if any, should be promoted first: `just-fix.ts`, `submit.ts`, both, or neither?
 - What is the smallest useful shared command runtime interface that provides leverage without becoming a shallow pass-through?
 - Should Objective skill expansion become a shared module immediately, or remain duplicated until another extension proves the seam?
