@@ -1,0 +1,39 @@
+# Roadmap
+
+## Work
+
+- [ ] Document the Pi extension layer distinction in `docs/pi/README.md`.
+  - Capture `.pi/extensions/*.ts` as the vibecoded extension layer: fast, repo-local, experimental, and allowed to be rough while dogfooding.
+  - Capture `ts/packages/pi-extensions/` as the engineered layer: stable, tested, reusable implementation for behavior that has proven durable.
+  - Include promotion criteria based on stability, risk, reuse, and test need.
+- [ ] Inventory the current authored project-local extensions and classify their current layer.
+  - Expected starting set: `.pi/extensions/objective.ts`, `.pi/extensions/land-stack.ts`, `.pi/extensions/just-fix.ts`, `.pi/extensions/submit.ts`, and `ts/packages/pi-extensions/src/*`.
+  - Note which files are thin discovery adapters, which are vibecoded implementations, and which are engineered implementations.
+- [ ] Resolve candidate 1: clarify the vibecoded-vs-engineered architecture.
+  - Decide whether additional docs, package metadata, or local conventions are needed beyond `docs/pi/README.md`.
+- [ ] Resolve candidate 2: shared Pi command runtime mechanics.
+  - Evaluate command execution, result normalization, output truncation, UI/non-UI presentation, custom messages, and fake adapters.
+  - Implement only if the module would provide real leverage across multiple extensions.
+- [ ] Resolve candidate 3: Objective selection deepening.
+  - Preserve the Objective rule that operations list candidates, optionally make one deterministic non-binding suggestion, and require explicit selection.
+  - Decide whether this becomes a dedicated engineered module or remains inside `objective.ts`.
+- [ ] Resolve candidate 4: `land-stack` internal module split.
+  - Explore separating stack facts, PR facts, landing orchestration, command streaming, and rendering while keeping `/land-stack` as the external command interface.
+  - Adjust tests only to improve locality and preserve safety invariants.
+- [ ] Resolve candidate 5: `/submit` layer decision.
+  - Decide whether `.pi/extensions/submit.ts` remains vibecoded, is partially promoted, or moves into engineered Graphite/PR machinery shared with `land-stack`.
+  - Review the old `@mariozechner/pi-coding-agent` import path while making this decision.
+- [ ] Resolve candidate 6: shared skill-invocation mechanics.
+  - Compare `objective.ts` and `just-fix.ts` skill expansion flows.
+  - Extract only if the seam has enough leverage and a fake-driven test surface.
+- [ ] Implement accepted refactors as they become clear.
+  - Keep each PR coherent and update this Objective when decisions, rejected candidates, or meaningful outcomes emerge.
+  - Validate relevant changes with `bun run --cwd ts check`, `bun run --cwd ts test`, and broader repo checks when needed.
+- [ ] Close by explicit human decision.
+  - Confirm each starting candidate is implemented, rejected with reason, parked, or split out.
+  - Record closure context in `objective.md` before adding a closure marker.
+
+## Parked
+
+- [ ] Decide later whether the vibecoded/engineered terms deserve promotion into `CONTEXT.md` as broader ASDL domain vocabulary.
+- [ ] Consider a future dedicated Objective for Pi package publication or install-layout cleanup if this architecture work uncovers package-distribution needs.
