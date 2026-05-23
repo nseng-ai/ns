@@ -16,6 +16,14 @@ _Avoid_: Workflow controller, state machine, task database
 The checked-in repository directory `.asdl/objectives/` that contains objective records keyed by directory slug.
 _Avoid_: `docs/objectives/`, hidden local cache, branch attachment registry
 
+**Objective Slug**:
+The directory name under the **Objective Root** that is the stable identity for one **Objective**.
+_Avoid_: title, branch name, PR name, package name
+
+**Objective Slug Migration**:
+An explicit move of an **Objective** from one slug directory to another after the user chooses a new canonical identity.
+_Avoid_: rename cleanup, path normalization, hidden remap
+
 **Semantic Update**:
 An update file that records meaningful objective information such as a finding, decision, blocker, completion evidence, changed plan, or follow-up.
 _Avoid_: Ceremonial update, status ping, branch changelog
@@ -39,7 +47,8 @@ _Avoid_: Hidden status, archive directory, deletion
 ## Relationships
 
 - An **Objective** lives under `.asdl/objectives/<slug>/` as checked-in durable markdown.
-- The `<slug>` directory name is the stable identity for an **Objective**; the markdown title may change.
+- The **Objective Slug** is the stable identity for an **Objective**; the markdown title may change.
+- Normal Objective workflows stop on possible **Objective Slug Migration** evidence rather than moving, deleting, recreating, or normalizing slug directories as cleanup.
 - `.asdl/objectives/` is first-class repository content, not local cache state.
 - `docs/objective-system.md` is the canonical operational specification for objective mechanics.
 - An **Objective** may span multiple branches or pull requests.
@@ -52,6 +61,8 @@ _Avoid_: Hidden status, archive directory, deletion
 - Closed **Objectives** are readable by `objective-current` but are not eligible for `objective-next` by default.
 - `objective-next` may apply a **Tracking Gate** but must not mutate objective files.
 - When no **Objective** is explicit, objective operations should list candidates and ask the user to choose rather than infer ownership from branch or worktree evidence.
+- `objective-update` has a narrow one-open-objective confirmation path, but it still asks before collecting evidence or mutating files.
+- `objective list` is deterministic read tooling over local branch tips; it uses git facts, does not parse Objective prose, and does not depend on Graphite.
 - An **Objective** does not have a branch attachment mechanism in v1.
 - V1 starts fresh from `.asdl/objectives/`; `docs/objectives/` is not a canonical objective root.
 
