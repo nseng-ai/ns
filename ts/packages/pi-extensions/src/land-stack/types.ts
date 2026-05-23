@@ -74,6 +74,7 @@ export type StackSnapshot = {
 export type PullRequestSnapshot = {
 	number: number;
 	title: string;
+	body: string | null;
 	state: string;
 	isDraft: boolean;
 	headRefName: string;

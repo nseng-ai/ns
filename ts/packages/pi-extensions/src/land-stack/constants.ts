@@ -11,7 +11,7 @@ export const SLOT_TIMEOUT_MS = 120_000;
 
 export const CURRENT_MARKER = "◉";
 export const OTHER_MARKER = "◯";
-export const PR_FIELDS = "number,title,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+export const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 export const MAX_OUTPUT_TAIL_LINES = 40;
 export const MAX_OUTPUT_TAIL_CHARS = 4_000;

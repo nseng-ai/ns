@@ -88,7 +88,7 @@ export function formatPlan(plan: LandingPlan): string {
 	lines.push(
 		"",
 		"For each merged PR:",
-		"  - gh pr merge <number> --squash --match-head-commit <sha>",
+		"  - gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
 		`  - verify PR is MERGED on ${stack.trunk}`,
 		"  - if another branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
 		"  - gt delete <landed-branch> -f -q",

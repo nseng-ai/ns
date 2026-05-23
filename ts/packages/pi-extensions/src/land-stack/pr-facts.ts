@@ -18,9 +18,11 @@ export async function loadPr(pi: ExtensionAPI, repoRoot: string, branchOrNumber:
 		fail(`Failed to parse gh pr view output for ${branchOrNumber}: ${errorMessage(error)}.`);
 	}
 
+	const body = raw.body;
 	if (
 		typeof raw.number !== "number" ||
 		typeof raw.title !== "string" ||
+		(typeof body !== "string" && body !== null) ||
 		typeof raw.state !== "string" ||
 		typeof raw.headRefName !== "string" ||
 		typeof raw.baseRefName !== "string" ||
@@ -32,6 +34,7 @@ export async function loadPr(pi: ExtensionAPI, repoRoot: string, branchOrNumber:
 	return {
 		number: raw.number,
 		title: raw.title,
+		body,
 		state: raw.state,
 		isDraft: Boolean(raw.isDraft),
 		headRefName: raw.headRefName,
