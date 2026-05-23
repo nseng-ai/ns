@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import (
     PRChangedFile,
@@ -170,6 +172,27 @@ def test_fake_pr_gateway_discussion_comment_round_trip() -> None:
     assert updated.body == "updated"
     assert fake.updated_comments == ((created.id, "updated"),)
     assert fake.comments == ((42, "<!-- marker --> new"),)
+
+
+def test_fake_pr_gateway_update_discussion_comment_missing_id_raises_key_error() -> None:
+    fake = FakePRGateway(
+        discussion_comments={
+            42: [
+                PRDiscussionComment(
+                    id=101,
+                    body="old",
+                    author="github-actions[bot]",
+                    url="https://example.com/101",
+                )
+            ]
+        }
+    )
+
+    with pytest.raises(KeyError, match="no fake PR discussion comment with id 404"):
+        fake.update_pr_discussion_comment(404, "updated")
+
+    assert fake.get_pr_discussion_comments(42)[0].body == "old"
+    assert fake.updated_comments == ()
 
 
 def test_fake_pr_gateway_adds_reaction_and_tracks_it() -> None:

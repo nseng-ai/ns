@@ -207,19 +207,33 @@ class FakePRGateway(PRGateway):
         return None
 
     def update_pr_discussion_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
+        slot = self._find_pr_discussion_comment_slot(comment_id)
+        if slot is None:
+            raise KeyError(f"no fake PR discussion comment with id {comment_id}")
+
+        comments, index = slot
+        updated = replace(comments[index], body=body)
+        comments[index] = updated
+        self._updated_comments.append((comment_id, body))
+        return updated
+
+    def _find_pr_discussion_comment_slot(
+        self, comment_id: int
+    ) -> tuple[list[PRDiscussionComment], int] | None:
         for comments in self._discussion_comments.values():
-            for index, comment in enumerate(comments):
-                if comment.id == comment_id:
-                    updated = PRDiscussionComment(
-                        id=comment.id,
-                        body=body,
-                        author=comment.author,
-                        url=comment.url,
-                    )
-                    comments[index] = updated
-                    self._updated_comments.append((comment_id, body))
-                    return updated
-        raise KeyError(f"no fake PR discussion comment with id {comment_id}")
+            index = self._find_pr_discussion_comment_index(comments, comment_id)
+            if index is not None:
+                return comments, index
+        return None
+
+    @staticmethod
+    def _find_pr_discussion_comment_index(
+        comments: Sequence[PRDiscussionComment], comment_id: int
+    ) -> int | None:
+        for index, comment in enumerate(comments):
+            if comment.id == comment_id:
+                return index
+        return None
 
     def add_pr_discussion_comment_reaction(self, comment_id: int, reaction: str) -> Reaction:
         reaction_id = self._next_reaction_id
