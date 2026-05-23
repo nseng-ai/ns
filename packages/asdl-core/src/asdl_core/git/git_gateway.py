@@ -51,6 +51,22 @@ class GitGateway(ABC):
         """Return the local branch names in the bound repo."""
 
     @abstractmethod
+    def list_directories_at_ref(
+        self,
+        ref: str,
+        path: str,
+    ) -> tuple[str, ...] | GitCommandFailure:
+        """Return direct child directory names at ``<ref>:<path>``.
+
+        Missing paths return an empty tuple. Unknown refs or unexpected git errors
+        return ``GitCommandFailure``.
+        """
+
+    @abstractmethod
+    def path_exists_at_ref(self, ref: str, path: str) -> bool:
+        """Return True when ``<ref>:<path>`` exists in the git object database."""
+
+    @abstractmethod
     def get_restructured_files(
         self,
         cwd: Path,

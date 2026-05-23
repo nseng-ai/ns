@@ -91,6 +91,15 @@ def _branch_exists(repo_root: Path, branch: str) -> bool:
     return result.returncode == 0
 
 
+def _ref_exists(repo_root: Path, ref: str) -> bool:
+    result = _run(
+        ["git", "rev-parse", "--verify", "--quiet", ref],
+        cwd=repo_root,
+        check=False,
+    )
+    return result.returncode == 0
+
+
 def resolve_repo_root(cwd: Path) -> Path | None:
     """Return the git working-tree root for ``cwd``; ``None`` outside a repo."""
 
@@ -322,6 +331,40 @@ class RealGitGateway(GitGateway):
             check=True,
         )
         return tuple(line for line in result.stdout.splitlines() if line)
+
+    def list_directories_at_ref(
+        self,
+        ref: str,
+        path: str,
+    ) -> tuple[str, ...] | GitCommandFailure:
+        repo_root = self._require_repo_root()
+        if not _ref_exists(repo_root, ref):
+            return GitCommandFailure(message=f"Unknown git ref: {ref}", returncode=1)
+
+        treeish = f"{ref}:{path}"
+        exists_result = _run(["git", "cat-file", "-e", treeish], cwd=repo_root, check=False)
+        if exists_result.returncode != 0:
+            return ()
+
+        result = _run(
+            ["git", "ls-tree", "-d", "--name-only", treeish],
+            cwd=repo_root,
+            check=False,
+        )
+        if result.returncode != 0:
+            return GitCommandFailure(
+                message=result.stderr.strip() or "git ls-tree failed",
+                returncode=result.returncode,
+            )
+        return tuple(line for line in result.stdout.splitlines() if line)
+
+    def path_exists_at_ref(self, ref: str, path: str) -> bool:
+        result = _run(
+            ["git", "cat-file", "-e", f"{ref}:{path}"],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        return result.returncode == 0
 
     def get_restructured_files(
         self,

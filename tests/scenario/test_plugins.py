@@ -89,6 +89,7 @@ def test_objective_plugin_integration() -> None:
     result = runner.invoke(parent, ["objective", "--help"])
     assert result.exit_code == 0
     assert "Work with checked-in Objective records." in result.output
+    assert "status" in result.output
     assert "list" in result.output
     assert "exec" not in result.output
 

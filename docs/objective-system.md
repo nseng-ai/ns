@@ -157,7 +157,25 @@ Outside that `objective-update` confirmation path, do not auto-select from candi
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. A small `objective exec` CLI surface (`list`, `read-objective`) ships deterministic read mechanics that the skills delegate to; mutations remain direct Markdown edits.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list`, `objective status`, and `objective exec read-objective`) ship deterministic read mechanics that the skills delegate to; mutations remain direct Markdown edits.
+
+### `objective status`
+
+Shows current open Objective status for the local repository by inspecting local branch tips.
+
+Contract:
+
+- Inspect local branch tips without checking out branches.
+- Treat an Objective as open on a branch when `.asdl/objectives/<slug>/` exists at that branch tip and `.asdl/objectives/<slug>/closed.md` does not.
+- Default to an Objective-level list view with branch count, latest tip age, and max ahead-of-trunk count.
+- Provide a detail view that groups by Objective slug and reports only branch, tip age, and ahead-of-trunk count.
+- Do not parse Markdown, summarize Objective bodies, show latest updates, choose a canonical branch, or list branches without open Objectives.
+- Use pure git facts, not Graphite.
+
+Shipped CLI:
+
+- Run `objective status` for the list view.
+- Run `objective status --view detail` for per-branch details.
 
 ### `objective-create`
 
@@ -305,6 +323,7 @@ Good CLI responsibilities:
 
 - Validate slugs and paths. _(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)_
 - List candidate objectives. _(shipped: `objective list`.)_
+- Inventory open Objective status across local branch tips. _(shipped: `objective status`.)_
 - Detect closed markers. _(shipped: `objective list` and `objective exec read-objective` both report closed state.)_
 - Scaffold required files and headings. _(future.)_
 - Detect missing `## Assumptions and Risks` sections. _(future.)_

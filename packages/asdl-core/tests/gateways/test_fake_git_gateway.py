@@ -46,3 +46,39 @@ def test_fake_restructured_files_returns_seeded_result() -> None:
     gateway = FakeGitGateway(restructured_files_by_key={(cwd, "main"): files})
 
     assert gateway.get_restructured_files(cwd, "main") == files
+
+
+def test_fake_list_directories_at_ref_defaults_to_empty() -> None:
+    gateway = FakeGitGateway()
+
+    assert gateway.list_directories_at_ref("refs/heads/feature", ".asdl/objectives") == ()
+
+
+def test_fake_list_directories_at_ref_returns_seeded_directories() -> None:
+    gateway = FakeGitGateway(
+        directories_by_ref_path={
+            ("refs/heads/feature", ".asdl/objectives"): ("alpha", "beta"),
+        }
+    )
+
+    assert gateway.list_directories_at_ref("refs/heads/feature", ".asdl/objectives") == (
+        "alpha",
+        "beta",
+    )
+
+
+def test_fake_path_exists_at_ref_returns_seeded_existence() -> None:
+    gateway = FakeGitGateway(
+        paths_at_ref={
+            ("refs/heads/feature", ".asdl/objectives/alpha/closed.md"),
+        }
+    )
+
+    assert gateway.path_exists_at_ref(
+        "refs/heads/feature",
+        ".asdl/objectives/alpha/closed.md",
+    )
+    assert not gateway.path_exists_at_ref(
+        "refs/heads/feature",
+        ".asdl/objectives/beta/closed.md",
+    )

@@ -153,3 +153,60 @@ def test_get_restructured_files_returns_failure(monkeypatch: pytest.MonkeyPatch)
         "fatal: bad revision 'origin/main...HEAD'",
         returncode=128,
     )
+
+
+def test_list_directories_at_ref_missing_tree_path_returns_empty(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "initial")
+
+    result = RealGitGateway(repo_root=repo).list_directories_at_ref("HEAD", ".asdl/objectives")
+
+    assert result == ()
+
+
+def test_list_directories_at_ref_returns_direct_child_directories(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    root = repo / ".asdl" / "objectives"
+    (root / "beta").mkdir(parents=True)
+    (root / "alpha").mkdir()
+    (root / "root-note.md").write_text("not a directory\n", encoding="utf-8")
+    (root / "alpha" / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    (root / "beta" / "objective.md").write_text("# Beta\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objectives")
+
+    result = RealGitGateway(repo_root=repo).list_directories_at_ref("HEAD", ".asdl/objectives")
+
+    assert result == ("alpha", "beta")
+
+
+def test_path_exists_at_ref_reports_file_existence(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    record = repo / ".asdl" / "objectives" / "alpha"
+    record.mkdir(parents=True)
+    (record / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objective")
+    gateway = RealGitGateway(repo_root=repo)
+
+    assert gateway.path_exists_at_ref("HEAD", ".asdl/objectives/alpha/objective.md")
+    assert not gateway.path_exists_at_ref("HEAD", ".asdl/objectives/alpha/closed.md")
+
+
+def _init_git_repo(path: Path) -> Path:
+    _git(path, "init")
+    _git(path, "config", "user.email", "test@example.com")
+    _git(path, "config", "user.name", "Test User")
+    return path
+
+
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
