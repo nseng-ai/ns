@@ -6,6 +6,7 @@ import { runCommand, type ExecFunction } from "./command.ts";
 import { escapeBranchForKey, deriveHandoffKey } from "./keys.ts";
 import { parseSliceLedgerMarkdown } from "./ledger.ts";
 import { parseStackPlanMarkdown } from "./plan.ts";
+import type { StackImplPlanResult } from "./stack-impl.ts";
 
 const COMMAND_TIMEOUT_MS = 30_000;
 
@@ -37,6 +38,7 @@ export type CloseoutResult = {
 	handoffKey: string;
 	handoffNamespace: string;
 	brmemOutput: string;
+	planResult: StackImplPlanResult;
 };
 
 async function defaultWriteTempFile(content: string): Promise<string> {
@@ -162,6 +164,20 @@ export async function closeoutStackSlice(
 			`Plan hash drift detected for ${ledger.plan.namespace}/${ledger.plan.key} on ${ledger.plan.branch}: ledger has ${ledger.plan.sha256}, current content has ${plan.sha256}.`,
 		);
 	}
+	if (!plan.plannedBranches.includes(branch)) {
+		throw new Error(`Current branch ${branch} is not in plan ${ledger.plan.key}.`);
+	}
+	const planResult: StackImplPlanResult = {
+		source: "branch-memory",
+		action: "loaded",
+		planBranch: ledger.plan.branch,
+		locator: {
+			namespace: ledger.plan.namespace,
+			key: ledger.plan.key,
+			branch: ledger.plan.branch,
+		},
+		plan,
+	};
 
 	const handoffLocator = { ...deriveHandoffKey(plan.objective, branch), branch };
 	const writeTempFile = deps.writeTempFile ?? defaultWriteTempFile;
@@ -191,6 +207,7 @@ export async function closeoutStackSlice(
 		handoffNamespace: handoffLocator.namespace,
 		handoffKey: handoffLocator.key,
 		brmemOutput: putResult.stdout.trimEnd(),
+		planResult,
 	};
 }
 

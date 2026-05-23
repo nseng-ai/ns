@@ -19,6 +19,16 @@ planned_branches:
 Branch: asdl-stack-impl-extension/extension-skeleton
 `;
 
+const PLAN_WITHOUT_CURRENT_BRANCH = `---
+schema: asdl.stack-plan.v1
+objective: asdl-stack-impl-extension
+planned_branches:
+  - asdl-stack-impl-extension/other-slice
+---
+
+Branch: asdl-stack-impl-extension/other-slice
+`;
+
 const CURRENT_BRANCH = "asdl-stack-impl-extension/extension-skeleton";
 const LEDGER_KEY = "asdl-stack-impl-extension/asdl-stack-impl-extension---extension-skeleton.md";
 const HANDOFF_KEY = "handoffs/asdl-stack-impl-extension-asdl-stack-impl-extension---extension-skeleton.md";
@@ -114,13 +124,52 @@ describe("stack slice closeout", () => {
 			},
 		});
 
-		expect(closeout).toEqual({
-			branch: CURRENT_BRANCH,
-			handoffNamespace: "session-artifacts",
-			handoffKey: HANDOFF_KEY,
-			brmemOutput: "Stored handoff\nCommit: abc",
+		expect(closeout.branch).toBe(CURRENT_BRANCH);
+		expect(closeout.handoffNamespace).toBe("session-artifacts");
+		expect(closeout.handoffKey).toBe(HANDOFF_KEY);
+		expect(closeout.brmemOutput).toBe("Stored handoff\nCommit: abc");
+		expect(closeout.planResult.source).toBe("branch-memory");
+		expect(closeout.planResult.action).toBe("loaded");
+		expect(closeout.planResult.planBranch).toBe("plan-branch");
+		expect(closeout.planResult.locator).toEqual({
+			namespace: "stack-plans",
+			key: "asdl-stack-impl-extension.md",
+			branch: "plan-branch",
 		});
+		expect(closeout.planResult.plan.plannedBranches).toEqual(plan.plannedBranches);
 		expect(storedHandoff).toBe("# Handoff\n\nDone.\n");
+		expect(commands).toEqual([]);
+	});
+
+	test("stops closeout when current branch is not in the loaded plan", async () => {
+		const plan = parseStackPlanMarkdown(PLAN_WITHOUT_CURRENT_BRANCH);
+		const ledger = formatSliceLedger({
+			planBranch: "plan-branch",
+			planKey: "asdl-stack-impl-extension.md",
+			planSha256: plan.sha256,
+		});
+		const commands: ExpectedCommand[] = [
+			{ command: "git", args: ["branch", "--show-current"], result: result(`${CURRENT_BRANCH}\n`) },
+			{
+				command: "brmem",
+				args: ["list", "--namespace", "stack-impls", "--branch", CURRENT_BRANCH, "--format", "json"],
+				result: result(brmemListStdout()),
+			},
+			{
+				command: "brmem",
+				args: ["get", LEDGER_KEY, "--namespace", "stack-impls", "--branch", CURRENT_BRANCH],
+				result: result(ledger),
+			},
+			{
+				command: "brmem",
+				args: ["get", "asdl-stack-impl-extension.md", "--namespace", "stack-plans", "--branch", "plan-branch"],
+				result: result(PLAN_WITHOUT_CURRENT_BRANCH),
+			},
+		];
+
+		await expect(closeoutStackSlice(payload(), { cwd: "/repo", exec: fakeExec(commands) })).rejects.toThrow(
+			/is not in plan/,
+		);
 		expect(commands).toEqual([]);
 	});
 

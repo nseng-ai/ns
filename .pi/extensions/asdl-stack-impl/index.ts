@@ -17,7 +17,11 @@ import {
 	type ObjectiveStackImplDependencies,
 } from "./src/objective-stack-impl.ts";
 import { startNextStackSlice } from "./src/orchestration.ts";
-import { formatStackImplPlanResult, loadOrStoreStackImplPlan } from "./src/stack-impl.ts";
+import {
+	formatStackImplPlanResult,
+	loadOrStoreStackImplPlan,
+	type StackImplPlanResult,
+} from "./src/stack-impl.ts";
 import { buildStackStatusReport, formatStackStatusReport } from "./src/status.ts";
 import { registerStackSliceTools } from "./src/tools.ts";
 
@@ -72,6 +76,27 @@ async function startFreshSessionWithPrompt(
 	}
 
 	await ctx.newSession(options);
+}
+
+async function startSliceOrReportComplete(
+	ctx: ExtensionCommandContext,
+	exec: ExecFunction,
+	planResult: StackImplPlanResult,
+): Promise<void> {
+	const slice = await startNextStackSlice(planResult, { cwd: ctx.cwd, exec });
+
+	if (ctx.hasUI) {
+		ctx.ui.notify(
+			slice.status === "complete" ? slice.message : `Started ${slice.plannedBranch}.`,
+			"info",
+		);
+	}
+
+	if (slice.status === "complete") {
+		return;
+	}
+
+	await startFreshSessionWithPrompt(ctx, slice.kickoffPrompt);
 }
 
 function assistantText(message: unknown): string {
@@ -161,18 +186,10 @@ export default function asdlStackImplExtension(pi: ExtensionAPI): void {
 						: undefined,
 				});
 
-				const slice = await startNextStackSlice(result, { cwd: ctx.cwd, exec });
-
 				if (ctx.hasUI) {
 					ctx.ui.notify(formatStackImplPlanResult(result), "info");
-					ctx.ui.notify(slice.status === "complete" ? slice.message : `Started ${slice.plannedBranch}.`, "info");
 				}
-
-				if (slice.status === "complete") {
-					return;
-				}
-
-				await startFreshSessionWithPrompt(ctx, slice.kickoffPrompt);
+				await startSliceOrReportComplete(ctx, exec, result);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				if (ctx.hasUI) {
@@ -212,18 +229,10 @@ export default function asdlStackImplExtension(pi: ExtensionAPI): void {
 					return;
 				}
 
-				const slice = await startNextStackSlice(prep.planResult, { cwd: ctx.cwd, exec });
-
 				if (ctx.hasUI) {
 					ctx.ui.notify(formatStackImplPlanResult(prep.planResult), "info");
-					ctx.ui.notify(slice.status === "complete" ? slice.message : `Started ${slice.plannedBranch}.`, "info");
 				}
-
-				if (slice.status === "complete") {
-					return;
-				}
-
-				await startFreshSessionWithPrompt(ctx, slice.kickoffPrompt);
+				await startSliceOrReportComplete(ctx, exec, prep.planResult);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				if (ctx.hasUI) {
@@ -276,6 +285,7 @@ export default function asdlStackImplExtension(pi: ExtensionAPI): void {
 				if (ctx.hasUI) {
 					ctx.ui.notify(formatCloseoutResult(closeout), "info");
 				}
+				await startSliceOrReportComplete(ctx, exec, closeout.planResult);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				if (ctx.hasUI) {
