@@ -12,6 +12,10 @@ Checked-in project-local Pi extensions live in:
 
 Use project-local extensions when the behavior is specific to this repo's workflows, CLIs, slots, or contributor conventions.
 
+## Specifications
+
+- [`land-stack-user-facing-spec.md`](./land-stack-user-facing-spec.md): user-facing behavior contract for `/land-stack`.
+
 ## Extension message linkification
 
 For clickable PR/issue links in custom Pi extension output, keep message content plain, carry URLs in `message.details`, and linkify in the registered renderer.
