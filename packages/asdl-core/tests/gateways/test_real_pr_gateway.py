@@ -296,41 +296,6 @@ def test_real_pr_gateway_returns_gateway_failure_for_lookup_command_failure(
     assert result.stderr == "gh auth failed"
 
 
-def test_real_pr_gateway_returns_details(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[list[str]] = []
-    monkeypatch.setattr(
-        real_gateway_helpers.subprocess,
-        "run",
-        _make_fake_run(
-            pr_view_response={
-                "number": 48,
-                "headRefName": "feature",
-                "baseRefName": "main",
-                "headRefOid": "abc123",
-            },
-            calls=calls,
-        ),
-    )
-
-    result = RealPRGateway().get_pr_details_for_branch("feature")
-
-    assert not isinstance(result, PRLookupMiss)
-    assert result.number == 48
-    assert result.head_ref_name == "feature"
-    assert result.base_ref_name == "main"
-    assert result.head_ref_oid == "abc123"
-    assert calls == [
-        [
-            "gh",
-            "pr",
-            "view",
-            "feature",
-            "--json",
-            "number,headRefName,baseRefName,headRefOid",
-        ]
-    ]
-
-
 def test_real_pr_gateway_review_thread_query_parses_multiline_and_deleted_author(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

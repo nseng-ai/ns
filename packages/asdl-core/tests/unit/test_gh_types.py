@@ -3,11 +3,8 @@
 import pytest
 
 from asdl_core.gh.types import (
-    Issue,
-    IssueComment,
     PRDiscussionComment,
     PRGatewayFailure,
-    PRLookupError,
     PRLookupMiss,
     PRMergeOutcome,
     PRReview,
@@ -66,7 +63,7 @@ def test_pr_review_comment_is_frozen():
 
 def test_pr_review_thread_construction():
     comment = PRReviewComment(
-        id=1, body="Issue here", author="rev", path="a.py", line=10, created_at=""
+        id=1, body="Concern here", author="rev", path="a.py", line=10, created_at=""
     )
     thread = PRReviewThread(
         id="PRRT_abc123",
@@ -138,15 +135,14 @@ def test_pr_discussion_comment_construction_and_freeze() -> None:
         comment.body = "changed"  # type: ignore[misc]
 
 
-def test_pr_lookup_miss_is_old_lookup_error_compatibility() -> None:
+def test_pr_lookup_miss_defaults_to_no_pr_found() -> None:
     miss = PRLookupMiss()
-    assert isinstance(miss, PRLookupError)
+    assert miss.stderr == "no PR found"
     assert miss.returncode == 1
 
 
 def test_pr_gateway_failure_preserves_diagnostics() -> None:
     failure = PRGatewayFailure(stderr="gh auth failed", returncode=4, stdout="debug")
-    assert isinstance(failure, PRLookupError)
     assert failure.stderr == "gh auth failed"
     assert failure.returncode == 4
     assert failure.stdout == "debug"
@@ -190,36 +186,3 @@ def test_pr_summary_head_ref_oid_can_be_populated() -> None:
         head_ref_oid="abc123",
     )
     assert summary.head_ref_oid == "abc123"
-
-
-def test_issue_comment_construction():
-    comment = IssueComment(
-        id=456,
-        body="Great work",
-        author="commenter",
-        url="https://github.com/org/repo/issues/1#issuecomment-456",
-    )
-    assert comment.id == 456
-    assert comment.url.startswith("https://")
-
-
-def test_issue_construction() -> None:
-    issue = Issue(
-        number=42,
-        title="Add gh.issue gateway",
-        state="open",
-        updated_at="2026-04-08T12:00:00Z",
-        url="https://github.com/org/repo/issues/42",
-    )
-    assert issue.number == 42
-    assert issue.title == "Add gh.issue gateway"
-    assert issue.state == "open"
-    assert issue.updated_at == "2026-04-08T12:00:00Z"
-    assert issue.url == "https://github.com/org/repo/issues/42"
-
-
-def test_issue_is_frozen() -> None:
-    issue = Issue(number=1, title="t", state="open", updated_at="", url="")
-    with pytest.raises(AttributeError):
-        # Test subject: mutating a frozen field.
-        issue.title = "changed"  # type: ignore[misc]

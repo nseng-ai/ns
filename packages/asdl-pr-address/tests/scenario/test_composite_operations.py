@@ -538,7 +538,7 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
     cli_group: ClinkrGroup,
 ) -> None:
     class FailingReactionGateway(FakePRGateway):
-        def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
+        def add_pr_discussion_comment_reaction(self, comment_id: int, reaction: str) -> Reaction:
             raise subprocess.CalledProcessError(
                 returncode=1,
                 cmd=["gh", "api", "-X", "POST"],

@@ -8,7 +8,6 @@ from dataclasses import replace
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import (
     PRChangedFile,
-    PRDetails,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -36,7 +35,6 @@ class FakePRGateway(PRGateway):
         pr_changed_files: dict[int, Sequence[PRChangedFile]] | None = None,
         pr_review_comments: dict[int, Sequence[PRReviewComment]] | None = None,
         prs_by_branch: dict[str, PRSummary] | None = None,
-        pr_details_by_branch: dict[str, PRDetails] | None = None,
         prs: Sequence[PRSummary] = (),
         lookup_failure: PRGatewayFailure | None = None,
         search_failure: PRGatewayFailure | None = None,
@@ -58,7 +56,6 @@ class FakePRGateway(PRGateway):
             pr_number: list(entries) for pr_number, entries in (pr_review_comments or {}).items()
         }
         self._prs_by_branch = prs_by_branch or {}
-        self._pr_details_by_branch = pr_details_by_branch or {}
         self._prs = tuple(prs)
         self._lookup_failure = lookup_failure
         self._search_failure = search_failure
@@ -84,26 +81,6 @@ class FakePRGateway(PRGateway):
         if pr is None:
             return PRLookupMiss()
         return pr
-
-    def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupMiss:
-        """Return seeded ``PRDetails`` or synthesize from a ``PRSummary``.
-
-        When only a ``PRSummary`` is seeded, the synthesized ``PRDetails`` uses
-        ``summary.head_ref_oid`` when present and ``"HEAD"`` as a temporary
-        compatibility placeholder otherwise.
-        """
-        pr = self._pr_details_by_branch.get(branch)
-        if pr is not None:
-            return pr
-        summary = self._prs_by_branch.get(branch)
-        if summary is None:
-            return PRLookupMiss()
-        return PRDetails(
-            number=summary.number,
-            head_ref_name=summary.head_ref_name,
-            base_ref_name=summary.base_ref_name,
-            head_ref_oid=summary.head_ref_oid or "HEAD",
-        )
 
     def search_prs(
         self, query: str, *, state: PRStateFilter
@@ -136,7 +113,7 @@ class FakePRGateway(PRGateway):
     def get_pr_review_comments(self, pr_number: int) -> tuple[PRReviewComment, ...]:
         return tuple(self._pr_review_comments.get(pr_number, ()))
 
-    def get_discussion_comments(self, pr_number: int) -> tuple[PRDiscussionComment, ...]:
+    def get_pr_discussion_comments(self, pr_number: int) -> tuple[PRDiscussionComment, ...]:
         return tuple(self._discussion_comments.get(pr_number, ()))
 
     # -- PR mutations --
@@ -208,7 +185,7 @@ class FakePRGateway(PRGateway):
         self._reviews[pr_number] = (*self._reviews[pr_number], review)
         return review
 
-    def add_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
+    def add_pr_discussion_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
         comment_id = self._next_comment_id
         self._next_comment_id += 1
         self._comments.append((pr_number, body))
@@ -221,7 +198,7 @@ class FakePRGateway(PRGateway):
         self._discussion_comments.setdefault(pr_number, []).append(comment)
         return comment
 
-    def find_comment_by_marker(
+    def find_pr_discussion_comment_by_marker(
         self, pr_number: int, marker: str, author_login: str
     ) -> PRDiscussionComment | None:
         for comment in self._discussion_comments.get(pr_number, ()):  # pragma: no branch
@@ -229,7 +206,7 @@ class FakePRGateway(PRGateway):
                 return comment
         return None
 
-    def update_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
+    def update_pr_discussion_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
         for comments in self._discussion_comments.values():
             for index, comment in enumerate(comments):
                 if comment.id == comment_id:
@@ -244,7 +221,7 @@ class FakePRGateway(PRGateway):
                     return updated
         raise KeyError(f"no fake PR discussion comment with id {comment_id}")
 
-    def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
+    def add_pr_discussion_comment_reaction(self, comment_id: int, reaction: str) -> Reaction:
         reaction_id = self._next_reaction_id
         self._next_reaction_id += 1
         self._reactions.append((comment_id, reaction))

@@ -2,9 +2,9 @@
 
 ## Thesis
 
-The `asdl-core.gh` boundary currently exposes two gateway names, `IssueGateway` and `PRGateway`, because GitHub implements pull-request conversation features through a mixture of PR, issue-comment, REST, GraphQL, and `gh` CLI surfaces. That implementation detail has leaked into asdl's domain language: current workflows are PR-centered, but consumers talk about `IssueGateway`, `IssueComment`, `PRDetails`, `PRReviewSubmission`, lookup errors, command errors, and fake-only thread-state booleans.
+The `asdl-core.gh` boundary historically exposed two gateway names, `IssueGateway` and `PRGateway`, because GitHub implements pull-request conversation features through a mixture of PR, issue-comment, REST, GraphQL, and `gh` CLI surfaces. That implementation detail leaked into asdl's domain language: workflows were PR-centered, but consumers talked about `IssueGateway`, `IssueComment`, `PRDetails`, `PRReviewSubmission`, lookup errors, command errors, and fake-only thread-state booleans.
 
-The refactor should make `PRGateway` the single canonical gateway for current GitHub pull-request workflows. It should unify lifecycle, review, thread, inline-comment, discussion-comment, reaction, changed-file, and guarded-merge operations behind PR-domain vocabulary while keeping GitHub's lower-level issue-comment endpoints private to the real implementation. The end state should match the Gh context language from the repo-ontology grilling: no `IssueGateway` in production API, no compatibility shims in the final state, and clear distinctions among PR review events, review threads, review comments, discussion comments, inline comment drafts, PR diff anchors, lookup misses, and gateway failures.
+The refactor makes `PRGateway` the single canonical gateway for current GitHub pull-request workflows. It unifies lifecycle, review, thread, inline-comment, discussion-comment, reaction, changed-file, and guarded-merge operations behind PR-domain vocabulary while keeping GitHub's lower-level issue-comment endpoints private to the real implementation. The end state matches the Gh context language from the repo-ontology grilling: no `IssueGateway` in production API, no compatibility shims in the final state, and clear distinctions among PR review events, review threads, review comments, discussion comments, inline comment drafts, PR diff anchors, lookup misses, and gateway failures.
 
 ## Scope
 
@@ -78,9 +78,23 @@ PR 1 evidence de-risks the additive core gateway shape: real and fake core tests
 
 PR 2 evidence de-risks the first production consumer migration and answers the CLI-result naming questions for `asdl-pr-address`: review-thread mutation outputs now expose `is_resolved` as trusted post-mutation state and drop fake-only `was_already_*` pre-state claims.
 
-PR 3 evidence de-risks the remaining consumer and wiring migration: reviewer contexts and publication flows, slots GC lookup handling, plugin smoke coverage, and live GitHub conformance wiring now use the unified PR gateway vocabulary. Final old-name deletion and final docs alignment remain active risks or follow-ups for PR 4.
+PR 3 evidence de-risks the remaining consumer and wiring migration: reviewer contexts and publication flows, slots GC lookup handling, plugin smoke coverage, and live GitHub conformance wiring now use the unified PR gateway vocabulary.
+
+PR 4 evidence de-risks final deletion and docs alignment: the old issue-gateway modules, compatibility types, direct issue-listing fake/real tests, and parallel-path shims are gone; `PRGateway`, `RealPRGateway`, and `FakePRGateway` expose the final PR-domain surface; old-name audits have no production/test hits; targeted tests and full `just` passed. Cross-Objective `repo-ontology` bookkeeping, if desired, should be handled by a separate explicit Objective update rather than mutating a sibling Objective from this selected update.
 
 ## Open Questions
 
-- Should direct `Issue` and issue-listing tests be deleted outright in the final deletion PR, or moved to parked notes explaining that true issue workflows are intentionally absent?
-- Does `CONTEXT-MAP.md` need a Phase 4 ambiguity entry for the historical Issue/PR naming leak after the final cleanup, or is the cleaned `## Gh` section enough?
+No remaining open questions for this Objective after PR 4 evidence.
+
+Resolved by PR 4:
+
+- Direct `Issue` and issue-listing tests were deleted outright; true issue workflows remain parked until a real issue-management use case exists.
+- `CONTEXT-MAP.md` now marks `asdl-core` `## Gh` as present and uses final PR discussion vocabulary; the cleaned `## Gh` section is the canonical source for the historical Issue/PR naming leak.
+
+## Closure
+
+Closed as completed on 2026-05-23. The four-PR stack delivered the unified PR-centered GitHub gateway surface, migrated all current consumers and live/plugin wiring, deleted the old issue-gateway API names and compatibility shims, and aligned the Gh context documentation with the final vocabulary.
+
+Key evidence is recorded in the PR 1 through PR 4 updates: targeted core, consumer, plugin, live-conformance collection, and docs checks passed, and full `just` passed at stack tip after final deletion. The completion criteria are satisfied for the selected Objective: `PRGateway`, `RealPRGateway`, and `FakePRGateway` are the canonical API; `PRDiscussionComment`, `PRSummary.head_ref_oid`, `PRReview`, `PRLookupMiss`, `PRGatewayFailure`, `PRReviewThreadState`, and `PRMergeOutcome` are the final PR-domain concepts; and no production/test consumers remain on the removed old names.
+
+Remaining caveats are intentionally parked rather than active work for this Objective. True GitHub issue-tracking workflows should get their own gateway only when a real issue-management workflow appears; a broad `GitHubGateway` or separate `PRConversationGateway` remains out of scope absent new pressure. If the sibling `repo-ontology` Objective should record the Gh-context implications, handle that as a separate explicitly selected Objective update.
