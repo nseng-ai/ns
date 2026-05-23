@@ -68,6 +68,11 @@ Global extensions live under:
 ~/.pi/agent/extensions/
 ```
 
+## Core subagent and Objective stack rewrite proposals
+
+- [Core Subagent MVP Spec](./core-subagent-mvp-spec.md): proposed Pi core primitive for foreground child sessions and terminal tools.
+- [Objective Stack Subagent Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on that primitive.
+
 ## Session `cwd` semantics
 
 Pi's working directory is **session-bound**, not shell-command-bound.
