@@ -11,9 +11,11 @@
   - Notes which files are thin discovery adapters, which are vibecoded implementations, and which are engineered implementations.
 - [x] Resolve candidate 1: clarify the vibecoded-vs-engineered architecture.
   - Resolved in `docs/pi/README.md`; no package metadata or additional local convention is needed for the first architecture pass.
-- [ ] Resolve candidate 2: shared Pi command runtime mechanics.
-  - Evaluate command execution, result normalization, output truncation, UI/non-UI presentation, custom messages, and fake adapters.
-  - Implement only if the module would provide real leverage across multiple extensions.
+- [x] Resolve candidate 2: shared Pi command runtime mechanics.
+  - Extracted `ts/packages/pi-extensions/src/command-runtime.ts` for shared `ExecResult` normalization, command display formatting, terminal escape stripping, output tailing, and output-section formatting.
+  - Updated engineered `objective` and `land-stack` implementations to consume the helpers, with `test/command-runtime.test.ts` covering the pure runtime seam.
+  - Intentionally left command orchestration, UI/non-UI presentation, and custom message streaming in callers until another deletion-test-backed seam appears.
+  - Evidence: local branch diff against `extract-command-runtime-utils`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [ ] Resolve candidate 3: Objective selection deepening.
   - Preserve the Objective rule that operations list candidates, optionally make one deterministic non-binding suggestion, and require explicit selection.
   - Decide whether this becomes a dedicated engineered module or remains inside `objective.ts`.
@@ -27,6 +29,7 @@
   - Compare `objective.ts` and `just-fix.ts` skill expansion flows.
   - Extract only if the seam has enough leverage and a fake-driven test surface.
 - [ ] Implement accepted refactors as they become clear.
+  - The command-runtime helper extraction is an accepted refactor for candidate 2; future refactors remain open for candidates 3-6.
   - Keep each PR coherent and update this Objective when decisions, rejected candidates, or meaningful outcomes emerge.
   - Validate relevant changes with `bun run --cwd ts check`, `bun run --cwd ts test`, and broader repo checks when needed.
 - [ ] Close by explicit human decision.

@@ -26,6 +26,7 @@ Useful discovered context to preserve:
 - Pi package docs recommend TypeScript packages declare Pi resources through `package.json` under `pi`, and keep Pi core packages such as `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` as peer dependencies when imported.
 - Repo validation for TypeScript Pi extensions is currently `bun run --cwd ts check` and `bun run --cwd ts test`; both passed at Objective creation time.
 - The existing engineered package has strong coverage for `objective` and `land-stack`; the standalone `just-fix.ts` and `submit.ts` are useful but not currently covered by that package's tests.
+- The shared command runtime seam is intentionally narrow: `ts/packages/pi-extensions/src/command-runtime.ts` owns pure result/text helpers, while command orchestration, UI/non-UI presentation, and custom message streaming remain caller-owned until another seam proves real leverage.
 - `submit.ts` currently imports the older `@mariozechner/pi-coding-agent` type path while current installed docs use `@earendil-works/pi-coding-agent`.
 
 Starting deepening candidates to resolve somehow:
@@ -66,11 +67,12 @@ Assumptions:
 - Promotion should be driven by stability, risk, reuse, or test need, not by the mere fact that an extension is checked in.
 - The existing `ts/packages/pi-extensions/` package can remain the home for engineered extension behavior and fake-driven tests.
 - Shared modules should be introduced only where the deletion test shows real leverage across callers.
+- The command runtime seam has proven narrow reuse across `objective` and `land-stack`: result normalization, command display formatting, terminal escape stripping, output tailing, and output-section formatting belong in shared pure helpers, while command orchestration and UI/custom-message presentation remain caller-owned until another deletion-test-backed seam appears.
 
 Risks:
 
 - The Objective could sprawl because completion is intentionally dynamic; the six starting candidates and explicit human closure rule are the guardrails.
-- Prematurely extracting common helpers could create shallow modules whose interfaces are as complex as their implementations.
+- Prematurely extracting common helpers could create shallow modules whose interfaces are as complex as their implementations; the command-runtime extraction mitigates this only for narrow pure helpers, not for broader orchestration or presentation abstractions.
 - Moving code between `.pi/extensions/` and `ts/packages/pi-extensions/` could break Pi hot reload, project-local discovery, or worktree availability if adapters and paths are mishandled.
 - GitHub and Graphite behaviors in `/submit` and `/land-stack` are risky; refactors must preserve safety checks and should consult the relevant GitHub/Graphite guidance before changing semantics.
 - Tests for `land-stack` may be too coupled to command order, making refactors look riskier than they are unless the test surface is improved carefully.
@@ -79,6 +81,5 @@ Risks:
 ## Open Questions
 
 - Which standalone extensions, if any, should be promoted first: `just-fix.ts`, `submit.ts`, both, or neither?
-- What is the smallest useful shared command runtime interface that provides leverage without becoming a shallow pass-through?
 - Should Objective skill expansion become a shared module immediately, or remain duplicated until another extension proves the seam?
 - How should `land-stack` tests evolve so they verify landing invariants without freezing every implementation detail?
