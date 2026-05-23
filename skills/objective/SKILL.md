@@ -67,7 +67,9 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one open Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple open Objectives exist, ask instead.
 
-Outside that confirmation path, do not auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
+A picker UI may make one non-binding suggestion by placing an open Objective first and labeling it suggested when direct changes under `.asdl/objectives/<slug>/` are the only Objective path changes compared with repository trunk. The user must still confirm the suggestion or choose another Objective. If the diff is unavailable, empty, touches multiple Objective slugs, or points at a slug that is not open, do not suggest.
+
+Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
 ## Repository status
 
