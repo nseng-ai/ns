@@ -60,5 +60,43 @@ def write_claim_project_files(project_dir: Path, spec: ClaimProjectSpec) -> None
     (module_dir / "__init__.py").write_text(render_claim_init_py(spec.version), encoding="utf-8")
 
 
+@dataclass(frozen=True)
+class NpmClaimProjectSpec:
+    package_name: str
+    description: str
+    version: str
+    license: str
+
+
+def render_npm_package_json(spec: NpmClaimProjectSpec) -> str:
+    manifest = {
+        "name": spec.package_name,
+        "version": spec.version,
+        "description": spec.description,
+        "license": spec.license,
+        "main": "index.js",
+        "files": ["README.md", "index.js"],
+    }
+    return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_npm_readme(spec: NpmClaimProjectSpec) -> str:
+    return f"# {spec.package_name}\n\nThis npm package name is claimed.\n"
+
+
+def render_npm_index_js() -> str:
+    return "// Claimed package name placeholder.\n"
+
+
+def write_npm_claim_project_files(project_dir: Path, spec: NpmClaimProjectSpec) -> None:
+    package_json_path = project_dir / "package.json"
+    if package_json_path.exists():
+        raise FileExistsError(f"package.json already exists: {package_json_path}")
+
+    package_json_path.write_text(render_npm_package_json(spec), encoding="utf-8")
+    (project_dir / "README.md").write_text(render_npm_readme(spec), encoding="utf-8")
+    (project_dir / "index.js").write_text(render_npm_index_js(), encoding="utf-8")
+
+
 def _format_toml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)

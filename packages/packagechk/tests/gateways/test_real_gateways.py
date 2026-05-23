@@ -4,6 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from packagechk.gateways.npm_publish.real import (
+    PublishCommandResult as NpmPublishCommandResult,
+)
+from packagechk.gateways.npm_publish.real import RealNpmPublishGateway
 from packagechk.gateways.pypi_publish.gateway import PypiPublishError
 from packagechk.gateways.pypi_publish.real import PublishCommandResult, RealPypiPublishGateway
 from packagechk.gateways.registries.real import RealPackageRegistryGateway, RegistryHttpResponse
@@ -176,10 +180,10 @@ def test_real_gateway_rejects_invalid_npm_name_before_fetching() -> None:
 
     gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
 
-    result = gateway.check_npm("@scope/name")
+    result = gateway.check_npm("Bad-Name")
 
     assert result.status is CheckStatus.INVALID
-    assert "scoped package names are not supported" in result.message
+    assert "lowercase" in result.message
     assert urls == []
 
 
@@ -270,3 +274,38 @@ def test_real_pypi_publish_gateway_publish_failure_returns_error(tmp_path: Path)
     )
 
     assert error == f"uvx uv-publish {artifacts[0]} failed with exit code 1: publish failed"
+
+
+def test_real_npm_publish_gateway_reports_missing_npm() -> None:
+    gateway = RealNpmPublishGateway(tool_finder=lambda _tool_name: False)
+
+    error = gateway.ensure_publish_tools_available()
+
+    assert error is not None
+    assert "npm" in error
+
+
+def test_real_npm_publish_gateway_publish_invokes_npm_publish(tmp_path: Path) -> None:
+    calls: list[tuple[list[str], Path]] = []
+
+    def run_command(command: list[str], cwd: Path) -> NpmPublishCommandResult:
+        calls.append((command, cwd))
+        return NpmPublishCommandResult(return_code=0, stdout="", stderr="")
+
+    error = RealNpmPublishGateway(command_runner=run_command).publish_project(tmp_path)
+
+    assert error is None
+    assert calls == [(["npm", "publish", "--access=public"], tmp_path)]
+
+
+def test_real_npm_publish_gateway_publish_failure_returns_error(tmp_path: Path) -> None:
+    def run_command(_command: list[str], _cwd: Path) -> NpmPublishCommandResult:
+        return NpmPublishCommandResult(
+            return_code=1, stdout="", stderr="npm ERR! code E403\nForbidden"
+        )
+
+    error = RealNpmPublishGateway(command_runner=run_command).publish_project(tmp_path)
+
+    assert error is not None
+    assert "npm publish --access=public failed with exit code 1" in error
+    assert "E403" in error

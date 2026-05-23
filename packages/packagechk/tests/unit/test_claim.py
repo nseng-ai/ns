@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from packagechk.claim import (
     ClaimProjectSpec,
+    NpmClaimProjectSpec,
     module_name_from_package,
     render_claim_init_py,
     render_claim_pyproject,
+    render_npm_index_js,
+    render_npm_package_json,
+    render_npm_readme,
     write_claim_project_files,
+    write_npm_claim_project_files,
 )
 
 
@@ -85,3 +91,73 @@ def test_write_claim_project_files_refuses_to_overwrite_existing_module_dir(tmp_
 
     with pytest.raises(FileExistsError, match="module directory already exists"):
         write_claim_project_files(tmp_path, spec)
+
+
+def test_render_npm_package_json_includes_required_fields() -> None:
+    spec = NpmClaimProjectSpec(
+        package_name="sample-name",
+        description="Reserved package name",
+        version="0.0.1",
+        license="MIT",
+    )
+
+    rendered = render_npm_package_json(spec)
+    manifest = json.loads(rendered)
+
+    assert manifest == {
+        "name": "sample-name",
+        "version": "0.0.1",
+        "description": "Reserved package name",
+        "license": "MIT",
+        "main": "index.js",
+        "files": ["README.md", "index.js"],
+    }
+    assert rendered.endswith("\n")
+
+
+def test_render_npm_readme_includes_package_name() -> None:
+    spec = NpmClaimProjectSpec(
+        package_name="sample-name",
+        description="Reserved package name",
+        version="0.0.1",
+        license="MIT",
+    )
+
+    readme = render_npm_readme(spec)
+
+    assert "# sample-name" in readme
+    assert "This npm package name is claimed." in readme
+
+
+def test_render_npm_index_js_returns_placeholder_comment() -> None:
+    assert render_npm_index_js() == "// Claimed package name placeholder.\n"
+
+
+def test_write_npm_claim_project_files_creates_expected_files(tmp_path: Path) -> None:
+    spec = NpmClaimProjectSpec(
+        package_name="sample-name",
+        description="Reserved package name",
+        version="0.0.1",
+        license="MIT",
+    )
+
+    write_npm_claim_project_files(tmp_path, spec)
+
+    assert (tmp_path / "package.json").read_text(encoding="utf-8") == render_npm_package_json(spec)
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == render_npm_readme(spec)
+    assert (tmp_path / "index.js").read_text(encoding="utf-8") == render_npm_index_js()
+
+
+def test_write_npm_claim_project_files_refuses_to_overwrite_existing_package_json(
+    tmp_path: Path,
+) -> None:
+    spec = NpmClaimProjectSpec(
+        package_name="sample-name",
+        description="Reserved package name",
+        version="0.0.1",
+        license="MIT",
+    )
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="package.json already exists"):
+        write_npm_claim_project_files(tmp_path, spec)

@@ -9,12 +9,21 @@ from pathlib import Path
 import click
 
 from packagechk.check import check_package_name, registry_selection
-from packagechk.claim import ClaimProjectSpec, module_name_from_package, write_claim_project_files
+from packagechk.claim import (
+    ClaimProjectSpec,
+    NpmClaimProjectSpec,
+    module_name_from_package,
+    write_claim_project_files,
+    write_npm_claim_project_files,
+)
+from packagechk.gateways.npm_publish.gateway import NpmPublishGateway
+from packagechk.gateways.npm_publish.real import RealNpmPublishGateway
 from packagechk.gateways.pypi_publish.gateway import PypiPublishError, PypiPublishGateway
 from packagechk.gateways.pypi_publish.real import RealPypiPublishGateway
 from packagechk.gateways.registries.gateway import PackageRegistryGateway
 from packagechk.gateways.registries.real import RealPackageRegistryGateway
 from packagechk.models import CheckStatus
+from packagechk.npm import npm_validation_error
 from packagechk.output import render_human, render_json
 from packagechk.pypi import normalize_pypi_name, pypi_validation_error
 
@@ -23,6 +32,7 @@ LEGACY_CHECK_COMMAND_NAME = "check"
 HELP_AND_VERSION_OPTIONS = {"-h", "--help", "--version"}
 DEFAULT_CLAIM_VERSION = "0.0.1"
 DEFAULT_CLAIM_DESCRIPTION = "Claimed package name"
+DEFAULT_NPM_CLAIM_LICENSE = "MIT"
 
 
 class PackagechkCommandGroup(click.Group):
@@ -52,9 +62,11 @@ def package_version() -> str:
 def build_cli(
     registry_gateway: PackageRegistryGateway | None = None,
     pypi_publish_gateway: PypiPublishGateway | None = None,
+    npm_publish_gateway: NpmPublishGateway | None = None,
 ) -> click.Command:
     registry = registry_gateway or RealPackageRegistryGateway()
     publisher = pypi_publish_gateway or RealPypiPublishGateway()
+    npm_publisher = npm_publish_gateway or RealNpmPublishGateway()
 
     @click.group(
         cls=PackagechkCommandGroup,
@@ -138,8 +150,53 @@ def build_cli(
             publish_gateway=publisher,
         )
 
+    @click.command(
+        name="claim-npm",
+        context_settings={"help_option_names": ["-h", "--help"]},
+        help=(
+            "Claim an npm package name by publishing a minimal placeholder package. "
+            "Requires `~/.npmrc` with a `_authToken` line (granular token with "
+            "publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`."
+        ),
+    )
+    @click.argument("name")
+    @click.option(
+        "--description",
+        default=None,
+        help="Package description. Defaults to a generic claim description.",
+    )
+    @click.option(
+        "--version",
+        "claim_version",
+        default=DEFAULT_CLAIM_VERSION,
+        show_default=True,
+        help="Version to publish.",
+    )
+    @click.option("--dry-run", is_flag=True, help="Show planned operations without effects.")
+    @click.option("--force", is_flag=True, help="Skip confirmation prompt.")
+    @click.option("--skip-check", is_flag=True, help="Skip npm availability pre-check.")
+    def claim_npm_command(
+        name: str,
+        description: str | None,
+        claim_version: str,
+        dry_run: bool,
+        force: bool,
+        skip_check: bool,
+    ) -> None:
+        _run_claim_npm_command(
+            name=name,
+            description=description,
+            claim_version=claim_version,
+            dry_run=dry_run,
+            force=force,
+            skip_check=skip_check,
+            registry_gateway=registry,
+            publish_gateway=npm_publisher,
+        )
+
     cli.add_command(check_command)
     cli.add_command(claim_pypi_command)
+    cli.add_command(claim_npm_command)
     return cli
 
 
@@ -267,6 +324,94 @@ def _render_claim_dry_run(*, spec: ClaimProjectSpec, lookup_name: str, skip_chec
 def _pypi_project_url(normalized_name: str) -> str:
     quoted_name = urllib.parse.quote(normalized_name, safe="")
     return f"https://pypi.org/project/{quoted_name}/"
+
+
+def _run_claim_npm_command(
+    *,
+    name: str,
+    description: str | None,
+    claim_version: str,
+    dry_run: bool,
+    force: bool,
+    skip_check: bool,
+    registry_gateway: PackageRegistryGateway,
+    publish_gateway: NpmPublishGateway,
+) -> None:
+    validation_error = npm_validation_error(name)
+    if validation_error is not None:
+        click.echo(f"npm: invalid: {validation_error}", err=True)
+        raise SystemExit(2)
+
+    spec = NpmClaimProjectSpec(
+        package_name=name,
+        description=description or DEFAULT_CLAIM_DESCRIPTION,
+        version=claim_version,
+        license=DEFAULT_NPM_CLAIM_LICENSE,
+    )
+
+    if dry_run:
+        _render_claim_npm_dry_run(spec=spec, skip_check=skip_check)
+        raise SystemExit(0)
+
+    if not skip_check:
+        check_result = registry_gateway.check_npm(name)
+        if check_result.status is CheckStatus.TAKEN:
+            click.echo(f"npm: taken: {check_result.message}", err=True)
+            if check_result.package_url is not None:
+                click.echo(check_result.package_url, err=True)
+            raise SystemExit(1)
+        if check_result.status is not CheckStatus.AVAILABLE:
+            click.echo(f"npm: {check_result.status.value}: {check_result.message}", err=True)
+            raise SystemExit(2)
+
+    tools_error = publish_gateway.ensure_publish_tools_available()
+    if tools_error is not None:
+        click.echo(tools_error, err=True)
+        raise SystemExit(2)
+
+    if not force:
+        click.echo("Warning: this will publish a real package to npm.", err=True)
+        click.echo(f"Package: {name} ({claim_version})", err=True)
+        sys.stderr.flush()
+        if not click.confirm("Continue?", default=False, err=True):
+            click.echo("Aborted by user.", err=True)
+            raise SystemExit(1)
+
+    with tempfile.TemporaryDirectory(prefix="packagechk-claim-npm-") as temporary_dir:
+        project_dir = Path(temporary_dir)
+        write_npm_claim_project_files(project_dir, spec)
+        click.echo("Publishing placeholder package with npm publish...", err=True)
+        publish_error = publish_gateway.publish_project(project_dir)
+        if publish_error is not None:
+            click.echo(publish_error, err=True)
+            raise SystemExit(2)
+
+    click.echo(f"✓ Claimed npm package name {name!r}.", err=True)
+    click.echo(f"View package: {_npm_package_url(name)}", err=True)
+    raise SystemExit(0)
+
+
+def _render_claim_npm_dry_run(*, spec: NpmClaimProjectSpec, skip_check: bool) -> None:
+    click.echo(f"[DRY RUN] Would claim npm package name {spec.package_name!r}.", err=True)
+    click.echo(f"Package name: {spec.package_name}", err=True)
+    click.echo(f"Version: {spec.version}", err=True)
+    click.echo(f"Description: {spec.description}", err=True)
+    click.echo(f"License: {spec.license}", err=True)
+    if skip_check:
+        click.echo("Availability check: skipped (--skip-check)", err=True)
+    else:
+        click.echo("Availability check: would check npm before publishing", err=True)
+    click.echo("Would create a temporary placeholder project directory", err=True)
+    click.echo("Would write: package.json", err=True)
+    click.echo("Would write: README.md", err=True)
+    click.echo("Would write: index.js", err=True)
+    click.echo("Would run: npm publish --access=public", err=True)
+    click.echo(f"npm URL: {_npm_package_url(spec.package_name)}", err=True)
+
+
+def _npm_package_url(package_name: str) -> str:
+    quoted_name = urllib.parse.quote(package_name, safe="@/")
+    return f"https://www.npmjs.com/package/{quoted_name}"
 
 
 def main() -> None:
