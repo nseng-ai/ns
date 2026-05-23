@@ -40,5 +40,5 @@ class GtGateway(ABC):
         """Sync Graphite metadata."""
 
     @abstractmethod
-    def stack(self, cwd: Path) -> StackInfo | GtCommandFailure:
-        """Return the stack snapshot around the branch checked out at ``cwd``."""
+    def stack(self, cwd: Path) -> StackInfo | UntrackedBranch | GtCommandFailure:
+        """Return a metadata-store stack snapshot for the branch checked out at ``cwd``."""

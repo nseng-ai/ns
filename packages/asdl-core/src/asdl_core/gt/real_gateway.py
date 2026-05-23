@@ -1,8 +1,23 @@
+"""Real Graphite gateway implementation.
+
+``RealGtGateway.stack()`` reads Graphite's SQLite metadata store at
+``<git-common-dir>/.graphite_metadata.db``. The supported schema contract is the
+named-column slice ``branch_name``, ``parent_branch_name``, ``children``, and
+``validation_result`` from ``branch_metadata``; callers must never depend on
+``SELECT *`` or other Graphite-owned columns. Graphite versions since 1.8.0 have
+kept this slice stable while adding nullable columns via Kysely migrations. If a
+future migration renames or removes one of these columns, stack reads return a
+schema-mismatch ``GtCommandFailure`` instead of falling back to human-facing
+``gt`` log text parsing.
+"""
+
 from __future__ import annotations
 
+import json
+import sqlite3
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple
 
 from asdl_core.gt.gateway import GtGateway
 from asdl_core.gt.types import (
@@ -14,15 +29,33 @@ from asdl_core.gt.types import (
 )
 
 
-class _StackEntry(NamedTuple):
-    line_idx: int
-    col: int
-    marker: str
-    branch: str
+@dataclass(frozen=True)
+class _BranchMetadataRow:
+    parent_branch_name: str | None
+    children: tuple[str, ...]
+    validation_result: str | None
 
 
 def _run_gt(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     cmd = ["gt", *args]
+    try:
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        return subprocess.CompletedProcess(
+            cmd,
+            127,
+            stdout="",
+            stderr=str(exc),
+        )
+
+
+def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    cmd = ["git", *args]
     try:
         return subprocess.run(
             cmd,
@@ -67,97 +100,231 @@ def _nonempty_lines(stdout: str) -> tuple[str, ...]:
     return tuple(line.strip() for line in stdout.splitlines() if line.strip())
 
 
-_CURRENT_MARKER = "◉"  # ◉
-_OTHER_MARKER = "◯"  # ◯
-
-
-def _marker_position(line: str) -> tuple[int, str] | None:
-    for idx, ch in enumerate(line):
-        if ch == _CURRENT_MARKER or ch == _OTHER_MARKER:
-            return idx, ch
-    return None
-
-
-def _branch_name_from_line(line: str, marker_idx: int) -> str:
-    # Strip the marker and the two-space gutter that follows it; trim any
-    # parens-annotation gt appends (e.g. ``(code/asdl)`` or ``(needs restack)``).
-    tail = line[marker_idx + 1 :].lstrip()
-    paren = tail.find(" (")
-    name = tail if paren == -1 else tail[:paren]
-    return name.strip()
-
-
-def parse_stack_output(stdout: str) -> StackInfo | None:
-    """Parse ``gt log short --stack -r --no-interactive`` output.
-
-    Linear stacks (every entry at the same column) parse deterministically:
-    the line with ``◉`` is current, lines above are ancestors trunk-first,
-    lines below are children-side. For non-linear visual layouts (sibling
-    branches off ancestors, multi-child forks), this parser keeps only
-    entries that share the current branch's marker column and emits a
-    warning. Returns ``None`` if no current marker is present.
-    """
-    raw_lines = [line for line in stdout.splitlines() if line.strip()]
-    entries: list[_StackEntry] = []
-    for idx, line in enumerate(raw_lines):
-        position = _marker_position(line)
-        if position is None:
-            continue
-        col, marker = position
-        branch = _branch_name_from_line(line, col)
-        if not branch:
-            continue
-        entries.append(_StackEntry(line_idx=idx, col=col, marker=marker, branch=branch))
-
-    current_entries = [e for e in entries if e.marker == _CURRENT_MARKER]
-    if not current_entries:
+def _resolve_git_common_dir(cwd: Path) -> Path | None:
+    result = _run_git(["rev-parse", "--git-common-dir"], cwd=cwd)
+    if result.returncode != 0:
         return None
-    current = current_entries[0]
-    current_idx = current.line_idx
-    current_col = current.col
-    current_name = current.branch
+    lines = _nonempty_lines(result.stdout)
+    if not lines:
+        return None
+    common_dir = Path(lines[0])
+    if common_dir.is_absolute():
+        return common_dir
+    return cwd / common_dir
 
-    warnings: list[str] = []
-    if len(current_entries) > 1:
-        warnings.append("multiple current markers found in gt log output")
 
-    off_column = sum(1 for e in entries if e.col != current_col)
-    if off_column:
+def _resolve_current_branch(cwd: Path) -> str | None:
+    result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
+    if result.returncode != 0:
+        return None
+    lines = _nonempty_lines(result.stdout)
+    if not lines:
+        return None
+    return lines[0]
+
+
+def _parse_children(
+    branch_name: str,
+    raw_children: object,
+    warnings: list[str],
+) -> tuple[str, ...]:
+    if raw_children is None:
+        return ()
+    if not isinstance(raw_children, str):
         warnings.append(
-            f"{off_column} branch(es) in gt log output sit outside the current "
-            "branch's column and were not included in the stack walk"
+            f"children metadata for {branch_name} is not JSON text; treating as no children"
+        )
+        return ()
+    if not raw_children:
+        return ()
+
+    try:
+        parsed = json.loads(raw_children)
+    except json.JSONDecodeError:
+        warnings.append(
+            f"children metadata for {branch_name} is not valid JSON; treating as no children"
+        )
+        return ()
+
+    if not isinstance(parsed, list):
+        warnings.append(
+            f"children metadata for {branch_name} is not a JSON list; treating as no children"
+        )
+        return ()
+
+    children = tuple(child for child in parsed if isinstance(child, str))
+    if len(children) != len(parsed):
+        warnings.append(f"children metadata for {branch_name} contains non-string entries")
+    return children
+
+
+def _load_branch_metadata(
+    db_path: Path,
+) -> tuple[dict[str, _BranchMetadataRow], list[str]] | GtCommandFailure:
+    warnings: list[str] = []
+    try:
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as connection:
+            records = connection.execute(
+                """
+                SELECT branch_name, parent_branch_name, children, validation_result
+                FROM branch_metadata
+                """
+            ).fetchall()
+    except sqlite3.OperationalError as exc:
+        return GtCommandFailure(
+            message=f"Graphite metadata schema mismatch: {exc}",
+            returncode=None,
+        )
+    except sqlite3.DatabaseError as exc:
+        return GtCommandFailure(
+            message=f"Graphite metadata store unreadable: {exc}",
+            returncode=None,
         )
 
-    aligned = [e for e in entries if e.col == current_col]
-    ancestors = tuple(e.branch for e in aligned if e.line_idx < current_idx)
-    descendants = tuple(e.branch for e in aligned if e.line_idx > current_idx)
-    # `children` here is the parser's view of immediate children: every
-    # aligned branch below current. The `gt children` cross-check in
-    # `RealGtGateway.stack` overrides this with the authoritative immediate
-    # set.
-    children = descendants
-
-    if not ancestors:
-        return StackInfo(
-            trunk=current_name,
-            current=current_name,
-            ancestors=(),
-            children=children,
-            warnings=tuple(warnings),
-            descendants=descendants,
+    rows: dict[str, _BranchMetadataRow] = {}
+    for record in records:
+        branch_name, parent_branch_name, raw_children, validation_result = record
+        if not isinstance(branch_name, str) or not branch_name:
+            warnings.append("Graphite metadata row has an empty branch_name; row ignored")
+            continue
+        parent = parent_branch_name if isinstance(parent_branch_name, str) else None
+        if parent == "":
+            parent = None
+        validation = validation_result if isinstance(validation_result, str) else None
+        rows[branch_name] = _BranchMetadataRow(
+            parent_branch_name=parent,
+            children=_parse_children(branch_name, raw_children, warnings),
+            validation_result=validation,
         )
+    return rows, warnings
+
+
+def _walk_ancestors(
+    rows: dict[str, _BranchMetadataRow],
+    current_branch: str,
+    warnings: list[str],
+) -> tuple[tuple[str, ...], str]:
+    ancestor_names_reversed: list[str] = []
+    branch = current_branch
+    visited = {current_branch}
+
+    while True:
+        row = rows[branch]
+        parent = row.parent_branch_name
+        if parent is None:
+            return tuple(reversed(ancestor_names_reversed)), branch
+        if parent in visited:
+            warnings.append(
+                f"cycle detected in Graphite parent metadata at {parent}; ancestor walk stopped"
+            )
+            return tuple(reversed(ancestor_names_reversed)), branch
+
+        ancestor_names_reversed.append(parent)
+        if parent not in rows:
+            warnings.append(
+                f"parent branch {parent} is missing from Graphite metadata; ancestor walk stopped"
+            )
+            return tuple(reversed(ancestor_names_reversed)), parent
+
+        visited.add(parent)
+        branch = parent
+
+
+def _walk_first_child_descendants(
+    rows: dict[str, _BranchMetadataRow],
+    current_branch: str,
+    warnings: list[str],
+) -> tuple[str, ...]:
+    descendants: list[str] = []
+    branch = current_branch
+    visited = {current_branch}
+
+    while True:
+        children = rows[branch].children
+        if len(children) > 1:
+            warnings.append(
+                f"branch {branch} has {len(children)} Graphite children; "
+                "descendants follow the first child only"
+            )
+        if not children:
+            return tuple(descendants)
+
+        child = children[0]
+        if child in visited:
+            warnings.append(
+                f"cycle detected in Graphite children metadata at {child}; descendant walk stopped"
+            )
+            return tuple(descendants)
+
+        descendants.append(child)
+        if child not in rows:
+            warnings.append(
+                f"child branch {child} is missing from Graphite metadata; descendant walk stopped"
+            )
+            return tuple(descendants)
+
+        visited.add(child)
+        branch = child
+
+
+def _add_trunk_marker_warnings(
+    rows: dict[str, _BranchMetadataRow],
+    terminus_branch: str,
+    warnings: list[str],
+) -> None:
+    marked_trunks = tuple(
+        branch for branch, row in rows.items() if row.validation_result == "TRUNK"
+    )
+    if terminus_branch not in rows:
+        warnings.append("trunk row marker missing")
+        return
+    if rows[terminus_branch].validation_result != "TRUNK":
+        warnings.append("trunk row marker missing")
+    if len(marked_trunks) > 1:
+        warnings.append("multiple Graphite metadata rows are marked as trunk")
+    if marked_trunks and terminus_branch not in marked_trunks:
+        warnings.append(
+            "Graphite metadata trunk marker differs from ancestor-walk terminus: "
+            f"{marked_trunks[0]} != {terminus_branch}"
+        )
+
+
+def _read_stack_from_metadata_db(
+    db_path: Path,
+    current_branch: str,
+) -> StackInfo | UntrackedBranch | GtCommandFailure:
+    if not db_path.exists():
+        return GtCommandFailure(
+            message=f"Graphite metadata store not found at {db_path}",
+            returncode=None,
+        )
+
+    loaded = _load_branch_metadata(db_path)
+    if isinstance(loaded, GtCommandFailure):
+        return loaded
+    rows, warnings = loaded
+
+    if current_branch not in rows:
+        return UntrackedBranch(
+            message=f"current branch is not tracked by Graphite: {current_branch}"
+        )
+
+    ancestors, terminus_branch = _walk_ancestors(rows, current_branch, warnings)
+    descendants = _walk_first_child_descendants(rows, current_branch, warnings)
+    _add_trunk_marker_warnings(rows, terminus_branch, warnings)
+
     return StackInfo(
-        trunk=ancestors[0],
-        current=current_name,
+        trunk=ancestors[0] if ancestors else current_branch,
+        current=current_branch,
         ancestors=ancestors,
-        children=children,
+        children=rows[current_branch].children,
         warnings=tuple(warnings),
         descendants=descendants,
     )
 
 
 class RealGtGateway(GtGateway):
-    """Real Graphite gateway backed by the ``gt`` CLI."""
+    """Real Graphite gateway backed by Graphite metadata and the ``gt`` CLI."""
 
     def parent_of(self, cwd: Path) -> str | NoParent | UntrackedBranch | GtCommandFailure:
         result = _run_gt(["parent", "--no-interactive"], cwd=cwd)
@@ -210,51 +377,22 @@ class RealGtGateway(GtGateway):
             return _failure(result)
         return None
 
-    def stack(self, cwd: Path) -> StackInfo | GtCommandFailure:
-        log_result = _run_gt(
-            ["log", "short", "--stack", "-r", "--no-interactive"],
-            cwd=cwd,
-        )
-        if log_result.returncode != 0:
-            return _failure(log_result)
-        parsed = parse_stack_output(log_result.stdout)
-        if parsed is None:
+    def stack(self, cwd: Path) -> StackInfo | UntrackedBranch | GtCommandFailure:
+        common_dir = _resolve_git_common_dir(cwd)
+        if common_dir is None:
             return GtCommandFailure(
-                message="gt log short --stack returned no current-branch marker",
-                returncode=0,
+                message=("Could not resolve git common dir with `git rev-parse --git-common-dir`"),
+                returncode=None,
             )
 
-        # `gt log short --stack` shows the current stack only; if the visual
-        # layout is non-linear (siblings of ancestors / fork children), the
-        # parser may drop or misclassify children. Cross-check immediate
-        # children with `gt children --no-interactive`, which is unambiguous
-        # for the cwd's branch.
-        children_result = _run_gt(["children", "--no-interactive"], cwd=cwd)
-        if children_result.returncode == 0:
-            authoritative_children = _nonempty_lines(children_result.stdout)
-            warnings = parsed.warnings
-            if set(authoritative_children) != set(parsed.children):
-                warnings = (
-                    *warnings,
-                    "stack children differ between gt log parse and gt children",
-                )
-            return StackInfo(
-                trunk=parsed.trunk,
-                current=parsed.current,
-                ancestors=parsed.ancestors,
-                children=authoritative_children,
-                warnings=warnings,
-                descendants=parsed.descendants,
+        current_branch = _resolve_current_branch(cwd)
+        if current_branch is None:
+            return GtCommandFailure(
+                message=("Could not resolve current branch with `git rev-parse --abbrev-ref HEAD`"),
+                returncode=None,
             )
-        # `gt children` failed; return parser output with a warning.
-        return StackInfo(
-            trunk=parsed.trunk,
-            current=parsed.current,
-            ancestors=parsed.ancestors,
-            children=parsed.children,
-            warnings=(
-                *parsed.warnings,
-                "gt children unavailable; falling back to gt log parse",
-            ),
-            descendants=parsed.descendants,
+
+        return _read_stack_from_metadata_db(
+            common_dir / ".graphite_metadata.db",
+            current_branch,
         )

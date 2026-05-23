@@ -215,6 +215,15 @@ _Avoid:_ unknown current, implicit trunk, detached head.
 **Graphite trunk** — The branch Graphite says stacks merge into, returned by `gt trunk`.
 _Avoid:_ Git default branch, remote HEAD, base branch.
 
+**Graphite metadata store** — Graphite-owned SQLite file at `<git-common-dir>/.graphite_metadata.db`, schema-versioned by Graphite's Kysely migrations. asdl reads it read-only for stack discovery.
+_Avoid:_ repo config, Git object database, asdl cache.
+
+**Stack slice query** — The canonical four-column metadata-store query (`branch_name`, `parent_branch_name`, `children`, `validation_result`) that defines asdl's stack schema contract.
+_Avoid:_ full Graphite schema, `SELECT *`, migration contract.
+
+**Graphite repo config** — Graphite-owned JSON file at `<git-common-dir>/.graphite_repo_config` that stores repository-level Graphite settings such as trunk name. It is distinct from the Graphite metadata store.
+_Avoid:_ metadata store, stack slice, Git config.
+
 **Graphite parent** — The immediate downstack branch returned by `gt parent` for the current branch.
 _Avoid:_ previous branch, base branch, Git parent.
 
@@ -248,10 +257,10 @@ _Avoid:_ git rebase, restack stack, sync.
 **Graphite sync** — Synchronize Graphite metadata with repository or remote state, optionally restacking affected branches.
 _Avoid:_ pull, fetch, metadata refresh.
 
-**Stack warning** — A non-fatal caveat attached to a successful `StackInfo` when Graphite log parsing was lossy or disagreed with an authoritative command.
+**Stack warning** — A non-fatal caveat attached to a successful `StackInfo` when metadata is forked, partially inconsistent, or missing an expected trunk marker.
 _Avoid:_ failure, validation error, lint.
 
-**GtCommandFailure** — A non-ideal Graphite state indicating that the `gt` CLI could not answer the requested stack question.
+**GtCommandFailure** — A non-ideal Graphite state indicating that Graphite's CLI or metadata store could not answer the requested stack question.
 _Avoid:_ negative result, no parent, untracked branch.
 
 ### Relationships
@@ -262,7 +271,7 @@ Graphite defines a **Graphite stack** as a sequence of PRs, each building off it
 
 #### Parent, children, ancestors, descendants
 
-**Graphite parent** and **Graphite children** are immediate relationships returned by `gt parent` and `gt children`. **Graphite ancestors** and **Graphite descendants** are recursive stack directions surfaced by `gt log --stack`; `StackInfo.ancestors` is trunk-first, includes **Graphite trunk** when trunk appears in the current stack walk, and excludes the current branch. `StackInfo.descendants` excludes the current branch and follows the stack walk away from trunk. `StackInfo.children` is immediate-only even though children are also upstack; do not say children when the recursive relationship is descendants.
+**Graphite parent** and **Graphite children** are immediate relationships; `parent_of` and `children_of` return them through `gt parent` and `gt children`, while `StackInfo` reads them from the **Graphite metadata store**. **Graphite ancestors** and **Graphite descendants** are recursive stack directions derived from the **Stack slice query**. `StackInfo.ancestors` is trunk-first, includes **Graphite trunk** when trunk appears in the current stack walk, and excludes the current branch. `StackInfo.descendants` excludes the current branch and follows the first-child stack walk away from trunk. `StackInfo.children` is immediate-only even though children are also upstack; do not say children when the recursive relationship is descendants.
 
 #### Graphite trunk vs Git trunk branch
 
@@ -270,4 +279,4 @@ Graphite defines a **Graphite stack** as a sequence of PRs, each building off it
 
 #### GtGateway vs GitGateway
 
-Use **GitGateway** for ordinary repository and worktree facts: current branch, refs, worktrees, dirty state, history, and branch existence. Use **GtGateway** only for explicitly Graphite behavior: parent/children relationships, stack snapshots, Graphite trunk, restacking, syncing Graphite metadata, and raw Graphite branch diagnostics.
+Use **GitGateway** for ordinary repository and worktree facts: current branch, refs, worktrees, dirty state, history, and branch existence. Use **GtGateway** only for explicitly Graphite behavior: parent/children relationships, stack snapshots, Graphite trunk, restacking, syncing Graphite metadata, and raw Graphite branch diagnostics. `stack()` gets its structure from the **Graphite metadata store** via the **Stack slice query**; the other Graphite operations continue to use `gt` CLI commands.

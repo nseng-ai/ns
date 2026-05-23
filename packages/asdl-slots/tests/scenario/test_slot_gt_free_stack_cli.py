@@ -13,7 +13,7 @@ from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo
 from asdl_core.gt.testing import FakeGtGateway
-from asdl_core.gt.types import GtCommandFailure, StackInfo
+from asdl_core.gt.types import GtCommandFailure, StackInfo, UntrackedBranch
 from asdl_slots.cli.main import build_cli
 from asdl_slots.cli.slot.gt.context import SlotGtContext
 from asdl_slots.context import SlotsCliContext
@@ -59,7 +59,7 @@ def _build_stack_fakes(
     assignments: tuple[tuple[str, str], ...],
     trunk: str = "main",
     file_status_by_slot: dict[str, FileStatus] | None = None,
-    stack_override: StackInfo | GtCommandFailure | None = None,
+    stack_override: StackInfo | UntrackedBranch | GtCommandFailure | None = None,
 ) -> _StackFakes:
     """Build a SlotGtContext seeded with a stack and slot assignments.
 
@@ -121,7 +121,7 @@ def _build_stack_fakes(
         slots_root=slots_root,
     )
 
-    stack_value: StackInfo | GtCommandFailure
+    stack_value: StackInfo | UntrackedBranch | GtCommandFailure
     if stack_override is not None:
         stack_value = stack_override
     else:
@@ -328,6 +328,31 @@ def test_free_stack_gt_stack_failure_surfaces(cli_group: ClinkrGroup, tmp_path: 
 
     assert result.exit_code == 2
     assert "not a gt repo" in result.output
+    assert set(_assigned_worktrees(fakes)) == {"slot-01"}
+    assert fakes.git._detach_head_calls == []
+
+
+def test_free_stack_untracked_current_branch_surfaces_track_hint(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    fakes = _build_stack_fakes(
+        tmp_path,
+        current_branch="feat/B",
+        ancestors=(),
+        descendants=(),
+        assignments=(("slot-01", "feat/A"),),
+        stack_override=UntrackedBranch(message="not tracked"),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "free-stack"],
+        obj=_obj(fakes.ctx),
+    )
+
+    assert result.exit_code == 2
+    assert "run `gt track` first" in result.output
     assert set(_assigned_worktrees(fakes)) == {"slot-01"}
     assert fakes.git._detach_head_calls == []
 
