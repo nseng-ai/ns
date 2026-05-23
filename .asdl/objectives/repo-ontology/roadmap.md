@@ -13,7 +13,7 @@ Phase 0.5 — rebaseline after repo thrash
 
 Phase 1 — finish `packages/asdl-core/CONTEXT.md` (append H2 sections to existing file)
 
-- [ ] Grill and append `## Git` — resolve `branch_exists` (bound repo) vs `get_current_branch(cwd)` (worktree at cwd); ref / branch / start_point usage; `NonIdealState` conformance for `DetachedHead`, `GitCommandFailure`
+- [x] Grill and append `## Git` — section now defines `GitGateway`, bound repo vs `cwd`-scoped worktree facts, branch/ref/start-point terminology, worktree inventory, dirty-state and history records, patch IDs, restructured files, and `NonIdealState` arms for `DetachedHead` / `GitCommandFailure`; `/CONTEXT-MAP.md` now links the Git anchor as present.
 - [ ] Grill and append `## Gt` — resolve `ancestors` vs `children` vs `descendants` recursion semantics; `StackInfo.current == None` sentinel; `NoParent` / `UntrackedBranch`
 - [ ] Grill and append `## Gh` — resolve `PRState` vs `PRStateFilter` (case + meaning); `PRReview` vs `PRReviewThread` vs `PRReviewComment` vs `IssueComment`; `PRSummary` vs `PRDetails`
 - [ ] Grill and append `## Top-level utilities` — `AsdlPluginSpec` + `context_factory` (plugin.py); `get_console` / `make_table` (console.py); `format_relative_time` / `state_badge` (format.py, interacts with `PRState`); `AliasedGroup` (click_utils.py)

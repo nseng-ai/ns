@@ -97,3 +97,99 @@ ClinkrGroup wraps each Operation as a `click.Command` at construction time, then
 4. Routes the returned `ClinkrExit[T]` to the Human renderer (default), the Markdown renderer when one is registered for `--format=markdown`/`md`, or the machine envelope (`--format=json`).
 
 ExitStatus drives the process exit code (`OK=0`, `NEGATIVE=1`, `FAILURE=2`) and the stderr behavior (`NEGATIVE` writes `message` to stderr; `FAILURE` writes `error: <message>` to stderr; both bypass renderers). NEGATIVE `data`, when present, is visible only in the machine envelope. The Typed context is constructed lazily — `context_factory()` runs only when an Operation calls `load_typed_context`, so `--help` and `--json-schema` paths skip it entirely.
+
+## Git
+
+The Git subdomain is the shared boundary for repository and worktree facts. It keeps subprocess-backed git operations behind a gateway so asdl packages can reason about branches, refs, worktrees, dirty state, history, and snapshot contents through typed results and fakes.
+
+### Language
+
+**GitGateway** — The shared interface for git-backed repository and worktree operations.
+_Avoid:_ "git helper," "subprocess wrapper," "git service."
+
+**Bound repo** — The repository root captured by a `RealGitGateway` instance for repo-wide operations such as local branch inventory, object-database reads, worktree listing, and history queries.
+_Avoid:_ current worktree, current directory, active checkout.
+
+**Repository root** — The top-level working tree directory resolved from a caller-provided `cwd`.
+_Avoid:_ git directory, git common dir, workspace root.
+
+**Git common dir** — The main `.git` directory shared by a repository and its linked worktrees.
+_Avoid:_ repository root, worktree path, slots root.
+
+**Worktree** — A checkout path registered with git, either attached to a local branch, detached at a ref, or bare.
+_Avoid:_ slot (slots may manage worktrees, but not every worktree is a slot), clone.
+
+**WorktreeInfo** — The typed inventory record for one git worktree: path, attached branch if any, and bare-ness.
+_Avoid:_ slot record, checkout record, worktree status.
+
+**Branch** — A local `refs/heads/<name>` branch in the bound repo.
+_Avoid:_ ref when the value may be a tag, OID, remote-tracking ref, or revision expression; Graphite stack node.
+
+**Current branch** — The local branch currently checked out at a specific worktree path.
+_Avoid:_ bound repo branch, active branch globally.
+
+**Previous branch** — Git's reflog shorthand for the branch checked out before the current worktree's branch.
+_Avoid:_ parent branch, base branch, Graphite ancestor.
+
+**Trunk branch** — The local branch used as the repository's integration baseline, resolved from `origin/HEAD` and then local `main` / `master` fallbacks.
+_Avoid:_ remote default branch, base ref, Graphite trunk.
+
+**Ref** — A git object name or revision expression used to read tree contents, position detached HEAD, update a local ref, or describe a commit range endpoint.
+_Avoid:_ branch when branch attachment is not required.
+
+**Start point** — The ref used as the initial target when creating or force-moving a local branch.
+_Avoid:_ parent, ancestor, base branch.
+
+**DetachedHead** — The `NonIdealState` sentinel for a worktree whose HEAD is not attached to a branch.
+_Avoid:_ missing branch, git failure, empty current branch.
+
+**GitCommandFailure** — The `NonIdealState` failure arm for a git command that could not produce a requested fact.
+_Avoid:_ negative result, subprocess exception, detached head.
+
+**FileStatus** — The dirty-state summary of one worktree, split into staged, modified, and untracked bits from porcelain status.
+_Avoid:_ diff, file list, cleanliness boolean.
+
+**LocalBranchTip** — A local branch name paired with its HEAD committer timestamp.
+_Avoid:_ current branch, last-touched file timestamp, remote branch tip.
+
+**CommitSummary** — One commit returned from a range query, represented by SHA, author timestamp, and subject.
+_Avoid:_ PR commit, patch id, changelog entry.
+
+**Patch ID** — Git's stable content fingerprint for a commit diff, used to compare patch-equivalent commits across ranges.
+_Avoid:_ SHA, commit identity, diff text.
+
+**RestructuredFile** — A rename or copy pair surfaced by git's similarity-based name-status detection.
+_Avoid:_ changed file, moved path, deleted file.
+
+### Relationships
+
+#### Bound repo vs. worktree path
+
+Repo-wide facts use the **Bound repo**: branch existence, local branch lists, branch tip timestamps, worktree inventory, ref/tree reads, branch HEAD facts, history ranges, patch IDs, and ancestor checks.
+
+Worktree-local facts take an explicit `cwd`: repository-root resolution, git-common-dir resolution, current/previous branch, dirty state, checkout, detach, fetch, pull, and ref update. This is the key split: `branch_exists("feat/x")` asks whether the bound repo has `refs/heads/feat/x`; `get_current_branch(cwd)` asks what the worktree at `cwd` currently has checked out.
+
+#### Branch, ref, and start point
+
+Use **Branch** only for local `refs/heads/*` names and branch-attached worktrees. Use **Ref** for object-database reads, detached worktrees, branch-head lookup inputs, local-ref updates, and range endpoints. Use **Start point** only for the ref that seeds `create_branch`; it does not imply Graphite parentage, merge-base ancestry, or PR base semantics.
+
+#### Non-ideal states
+
+**DetachedHead** and **GitCommandFailure** are Git's `NonIdealState` arms. CLI operations can pass them through `Ensure.ideal_state` when they need a hard failure, but planning code may also pattern-match them when detached HEAD is a valid domain branch of the decision tree.
+
+#### Snapshot and history reads
+
+Ref/tree readers return empty tuples or `False` for absent paths at known refs, and **GitCommandFailure** for unknown refs or unexpected command failures. History readers (`log_range`, `patch_ids_for_range`, `count_commits_in_range`) return typed summaries or a failure arm rather than raising at the gateway boundary.
+
+#### Worktrees and slots
+
+The Git subdomain knows only **WorktreeInfo**. The slots package may interpret worktree paths as managed slots and turn them into slot records, but that is slots vocabulary layered above Git, not a Git concern.
+
+### Example dialogue
+
+> **Dev:** "Can I use `branch_exists` to find the branch I'm currently on?"
+> **Domain expert:** "No. `branch_exists` checks the **Bound repo** for a local **Branch**. To ask what this checkout has attached, call `get_current_branch(cwd)` and handle **DetachedHead**."
+
+### Flagged ambiguities
+
+- **Branch / ref / start_point** — resolved locally: a **Branch** is a local `refs/heads/*` name, a **Ref** is any git object name or revision expression used for object/history operations, and a **Start point** is the ref used only to seed branch creation; Graphite parent/ancestor language belongs in the future `## Gt` section.
