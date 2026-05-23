@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
-from asdl_core.gh.testing import FakeIssueGateway
+from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_reviewer.cli.main import build_cli
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
@@ -24,7 +24,7 @@ def _context(
         catalog=FakeReviewCatalogGateway(),
         diff=FakeLocalDiffGateway(),
         harness_runtime=FakeHarnessRuntime(paths_by_binary=paths_by_binary),
-        issue_gateway=FakeIssueGateway(),
+        pr_gateway=FakePRGateway(),
         cwd=Path("/anywhere"),
     )
     return build_clinkr_context_object(lambda: ctx)

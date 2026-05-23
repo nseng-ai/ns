@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_core.gh.types import PRLookupError, PRState, PRSummary
+from asdl_core.gh.types import PRGatewayFailure, PRState, PRSummary
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo
 from asdl_slots.context import SlotsCliContext
@@ -120,13 +120,6 @@ def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
         base_ref_name="master",
         state=state,
     )
-
-
-class _BrokenPRGateway(FakePRGateway):
-    """PR gateway that returns a non-1 error to simulate a broken gh CLI."""
-
-    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
-        return PRLookupError(stderr="gh: command not found", returncode=4)
 
 
 def test_init_plan_creates_one_through_n() -> None:
@@ -821,7 +814,9 @@ def test_garbage_collect_slots_broken_pr_lookup_yields_error_entry(tmp_path: Pat
     ctx, git = _lifecycle_context(
         tmp_path,
         worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
-        pr_gateway=_BrokenPRGateway(),
+        pr_gateway=FakePRGateway(
+            lookup_failure=PRGatewayFailure(stderr="gh: command not found", returncode=4)
+        ),
     )
 
     outcome = garbage_collect_slots(ctx, dry_run=False)

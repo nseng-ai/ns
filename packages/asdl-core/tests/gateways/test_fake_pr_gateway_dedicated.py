@@ -71,6 +71,13 @@ def test_fake_pr_gateway_returns_lookup_miss_when_missing() -> None:
     assert result.returncode == 1
 
 
+def test_fake_pr_gateway_lookup_can_return_failure() -> None:
+    failure = PRGatewayFailure(stderr="gh: command not found", returncode=4)
+    fake = FakePRGateway(lookup_failure=failure)
+
+    assert fake.get_pr_for_branch("feature") == failure
+
+
 def test_fake_pr_gateway_search_prs_filters_by_state_and_title() -> None:
     open_pr = _make_pr("OPEN")
     merged_pr = _make_pr("MERGED")

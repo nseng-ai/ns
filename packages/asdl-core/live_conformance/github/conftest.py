@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from asdl_core.gh.issue_gateway import IssueGateway
 from asdl_core.gh.pr_gateway import PRGateway, RealPRGateway
-from asdl_core.gh.real_issue_gateway import RealIssueGateway
 from live_conformance.github.config import (
     ConformanceConfig,
     ConformanceConfigError,
@@ -107,8 +105,3 @@ def gh_cli(conformance_config: ConformanceConfig) -> GhCli:
 @pytest.fixture(scope="session")
 def pr_gateway(conformance_config: ConformanceConfig) -> PRGateway:
     return RealPRGateway(repo=conformance_config.repo)
-
-
-@pytest.fixture(scope="session")
-def issue_gateway(conformance_config: ConformanceConfig) -> IssueGateway:
-    return RealIssueGateway(repo=conformance_config.repo)
