@@ -34,18 +34,24 @@ class GtBranchInfo:
 class StackInfo:
     """A snapshot of the Graphite stack around the currently checked-out branch.
 
-    ``ancestors`` is the linear chain of parents from trunk down to (and
-    including) the immediate parent of ``current``. It is ordered trunk-first
-    and excludes ``current``. ``children`` lists the immediate children of
-    ``current`` only (no recursion into grandchildren). ``descendants`` lists
-    every aligned branch strictly below ``current`` in the gt log column,
-    ordered top-to-bottom; for a linear stack ``master → A → B(current) → C →
-    D`` it is ``("C", "D")``.
+    ``current`` is the branch checked out at the ``cwd`` used for the stack
+    read. A stack read that cannot identify the current Graphite branch is not
+    a ``StackInfo``; it is a ``GtCommandFailure``. ``ancestors`` is the linear
+    chain of parents from trunk down to (and including) the immediate parent of
+    ``current``. It is ordered trunk-first and excludes ``current``. ``children``
+    lists the immediate children of ``current`` only (no recursion into
+    grandchildren). ``descendants`` lists every aligned branch strictly below
+    ``current`` in the gt log column, ordered top-to-bottom; for a linear stack
+    ``master → A → B(current) → C → D`` it is ``("C", "D")``.
     """
 
     trunk: str
-    current: str | None
+    current: str
     ancestors: tuple[str, ...]
     children: tuple[str, ...]
     warnings: tuple[str, ...]
     descendants: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.current:
+            raise ValueError("StackInfo.current must name the current Graphite branch")

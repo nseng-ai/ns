@@ -99,9 +99,10 @@ class FakeGtGateway(GtGateway):
         if branch is not None and branch in self._stack_by_branch:
             return self._stack_by_branch[branch]
         trunk_name = self._trunk if isinstance(self._trunk, str) else "main"
+        current = branch if branch is not None else trunk_name
         return StackInfo(
             trunk=trunk_name,
-            current=branch,
+            current=current,
             ancestors=(),
             children=(),
             warnings=(),
