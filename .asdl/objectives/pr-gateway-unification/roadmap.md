@@ -23,12 +23,12 @@
   - Keep stack green after all production consumers no longer need `IssueGateway`.
   - Evidence: working-tree diff on `migrate-asdl-reviewer-and-slots-to-prgateway` against `origin/migrate-asdl-pr-address-to-pr-gateway`; old-name audit, targeted reviewer/slots/plugin/fake/live-conformance tests, and full `just` passed.
 
-- [ ] PR 4 — Delete old API names and finalize docs/Objectives
+- [x] PR 4 — Delete old API names and finalize docs/Objectives
   - Delete `IssueGateway`, `RealIssueGateway`, `FakeIssueGateway`, direct issue-listing surface, and old result/type names once no production/test consumer remains.
   - Remove temporary compatibility shims and parallel-path tests.
   - Finalize `packages/asdl-core/CONTEXT.md` `## Gh` vocabulary and update `CONTEXT-MAP.md` if the relationship/ambiguity map needs the final language.
-  - Update the `repo-ontology` Objective record if the refactor changes its Gh-context completion evidence, unresolved ambiguity list, or follow-up plan.
-  - Run `just` and apply repo autofix recipes (`just fix`, `just dprint-fix`) rather than hand-formatting when needed.
+  - Record that any `repo-ontology` Objective bookkeeping must be a separate explicit Objective update, not part of this selected Objective mutation.
+  - Evidence: local branch diff against Graphite parent `migrate-asdl-reviewer-and-slots-to-prgateway`; old-name audits, targeted core/consumer/live collection tests, docs checks, and full `just` passed.
 
 ## Parked
 
