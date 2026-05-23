@@ -85,7 +85,6 @@ class ClaudeRunner(Runner):
     def _command(self, request: RunnerRequest) -> list[str]:
         command = [
             "claude",
-            "--bare",
             "--print",
             "--permission-mode",
             "acceptEdits",
