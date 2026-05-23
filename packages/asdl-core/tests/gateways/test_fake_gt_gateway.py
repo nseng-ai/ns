@@ -69,19 +69,32 @@ def test_fake_gt_gateway_configured_failures() -> None:
     assert gateway.sync(Path("/wt"), restack=True) == sync_failure
 
 
-def test_fake_gt_gateway_stack_default_is_branchless_trunk() -> None:
+def test_fake_gt_gateway_stack_default_is_trunk_centered() -> None:
     gateway = FakeGtGateway(trunk="main")
 
     result = gateway.stack(Path("/repo"))
 
     assert result == StackInfo(
         trunk="main",
-        current=None,
+        current="main",
         ancestors=(),
         children=(),
         warnings=(),
     )
     assert gateway.stack_calls == (Path("/repo"),)
+
+
+def test_fake_gt_gateway_stack_default_uses_current_branch_mapping() -> None:
+    cwd = Path("/repo")
+    gateway = FakeGtGateway(
+        trunk="main",
+        branch_by_cwd={cwd: "feat/current"},
+    )
+
+    result = gateway.stack(cwd)
+
+    assert isinstance(result, StackInfo)
+    assert result.current == "feat/current"
 
 
 def test_fake_gt_gateway_stack_by_cwd_overrides() -> None:
