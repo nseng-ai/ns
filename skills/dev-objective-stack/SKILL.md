@@ -60,7 +60,7 @@ with branch handoffs. If the user asks only to plan, stop after the plan.
 ### 1. Select and read the Objective
 
 1. Use the explicit slug/path if the user provided one.
-2. If absent, run `objective list --format md` and ask the user to choose.
+2. If absent, run `objective list --status open --format md` and ask the user to choose.
 3. Run `objective exec read-objective <slug> --format md`.
 4. Stop if the Objective is closed unless the user explicitly says to amend it.
 5. Note missing required files, especially `updates/`, before planning repairs or updates.

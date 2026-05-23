@@ -22,6 +22,8 @@ from asdl_objectives.context import (
 
 OBJECTIVE_ROOT = ".asdl/objectives"
 ObjectiveListView = Literal["list", "detail"]
+ObjectiveStatus = Literal["open", "closed"]
+ObjectiveStatusFilter = Literal["all", "open", "closed"]
 
 
 class ObjectiveListRequest(ClinkrModel):
@@ -43,6 +45,16 @@ class ObjectiveListRequest(ClinkrModel):
             help="Output Objective slugs only, one per line.",
         ),
     ] = False
+    status: Annotated[
+        ObjectiveStatusFilter,
+        click.Option(
+            ["--status"],
+            type=click.Choice(["all", "open", "closed"]),
+            default="all",
+            show_default=True,
+            help="Filter Objectives by open/closed status.",
+        ),
+    ] = "all"
     view: Annotated[
         ObjectiveListView,
         click.Option(
@@ -57,18 +69,21 @@ class ObjectiveListRequest(ClinkrModel):
 
 class ObjectiveBranchEntry(ClinkrModel):
     branch: str
+    status: ObjectiveStatus
     tip_head_iso: str | None
     ahead_trunk: int
 
 
 class ObjectiveListGroup(ClinkrModel):
     slug: str
+    status: ObjectiveStatus
     branches: tuple[ObjectiveBranchEntry, ...]
 
 
 class ObjectiveListResult(ClinkrModel):
     trunk_branch: str
     view: ObjectiveListView
+    status_filter: ObjectiveStatusFilter
     current_branch: str | None
     filtered_to_current: bool
     names_only: bool
@@ -92,6 +107,7 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
     console.print(f"[bold]{_list_heading(result)}[/bold]")
     table = make_table()
     table.add_column("Objective", style="bold cyan", no_wrap=True)
+    table.add_column("Status", no_wrap=True, width=8)
     table.add_column("Latest branch", style="bold", no_wrap=True)
     table.add_column("Latest tip", no_wrap=True)
     table.add_column("Local branches", justify="right", no_wrap=True)
@@ -99,6 +115,7 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
     for group in result.groups:
         table.add_row(
             group.slug,
+            group.status,
             _latest_tip_branch(group),
             format_relative_time(_latest_tip_head_iso(group)),
             str(len(group.branches)),
@@ -115,11 +132,13 @@ def _render_objective_list_detail_human(result: ObjectiveListResult) -> None:
         console.print(f"[bold cyan]{group.slug}[/bold cyan]")
         table = make_table()
         table.add_column("Branch", style="bold", no_wrap=True)
+        table.add_column("Status", no_wrap=True, width=8)
         table.add_column("Tip age", no_wrap=True)
         table.add_column("Ahead trunk", justify="right", no_wrap=True)
         for entry in group.branches:
             table.add_row(
                 entry.branch,
+                entry.status,
                 format_relative_time(entry.tip_head_iso),
                 f"+{entry.ahead_trunk}",
             )
@@ -142,8 +161,10 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
         return
 
     click.echo()
-    click.echo("| objective | latest branch | latest tip | local branches | max ahead trunk |")
-    click.echo("| --- | --- | --- | ---: | ---: |")
+    click.echo(
+        "| objective | status | latest branch | latest tip | local branches | max ahead trunk |"
+    )
+    click.echo("| --- | --- | --- | --- | ---: | ---: |")
     for group in result.groups:
         latest_branch = _latest_tip_branch(group)
         if latest_branch != "":
@@ -151,6 +172,7 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
         click.echo(
             "| "
             f"{group.slug} | "
+            f"{group.status} | "
             f"{latest_branch} | "
             f"{format_relative_time(_latest_tip_head_iso(group))} | "
             f"{len(group.branches)} | "
@@ -169,11 +191,12 @@ def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
         click.echo()
         click.echo(f"## {group.slug}")
         click.echo()
-        click.echo("| branch | tip age | ahead trunk |")
-        click.echo("| --- | --- | ---: |")
+        click.echo("| branch | status | tip age | ahead trunk |")
+        click.echo("| --- | --- | --- | ---: |")
         for entry in group.branches:
             click.echo(
                 f"| `{entry.branch}` | "
+                f"{entry.status} | "
                 f"{format_relative_time(entry.tip_head_iso)} | "
                 f"+{entry.ahead_trunk} |"
             )
@@ -186,27 +209,38 @@ def _render_slugs(result: ObjectiveListResult) -> None:
 
 def _list_heading(result: ObjectiveListResult) -> str:
     if result.filtered_to_current and result.current_branch is not None:
-        return f"Open Objective status for current branch `{result.current_branch}`"
-    return "Open Objective status in this local repository"
+        return f"Objective status for current branch `{result.current_branch}`"
+    return "Objective status in this local repository"
 
 
 def _detail_heading(result: ObjectiveListResult) -> str:
     if result.filtered_to_current and result.current_branch is not None:
-        return f"Open Objective branch details for current branch `{result.current_branch}`"
-    return "Open Objective branch details in this local repository"
+        return f"Objective branch details for current branch `{result.current_branch}`"
+    return "Objective branch details in this local repository"
 
 
 def _empty_message(result: ObjectiveListResult) -> str:
     if result.filtered_to_current:
         if result.current_branch is None:
             return "No current branch (detached HEAD); nothing to list."
-        return f"No open Objectives associated with current branch `{result.current_branch}`."
-    return "No open Objective status found."
+        return (
+            f"No {_status_filter_objectives_phrase(result.status_filter)} associated with "
+            f"current branch `{result.current_branch}`."
+        )
+    if result.status_filter == "all":
+        return "No Objective status found."
+    return f"No {result.status_filter} Objective status found."
+
+
+def _status_filter_objectives_phrase(status_filter: ObjectiveStatusFilter) -> str:
+    if status_filter == "all":
+        return "Objectives"
+    return f"{status_filter} Objectives"
 
 
 @clinkr_operation(
     name="list",
-    help="List open Objectives across local branch tips in this repository.",
+    help="List Objective status across local branch tips in this repository.",
     human_renderer=render_objective_list_human,
     markdown_renderer=render_objective_list_markdown,
 )
@@ -221,6 +255,7 @@ def run_list_objectives(
         build_objective_list_result(
             objective_ctx,
             view=request.view,
+            status_filter=request.status,
             filter_current=request.current,
             names_only=request.names,
         )
@@ -231,6 +266,7 @@ def build_objective_list_result(
     ctx: ObjectiveCliContext,
     *,
     view: ObjectiveListView = "list",
+    status_filter: ObjectiveStatusFilter = "all",
     filter_current: bool = False,
     names_only: bool = False,
 ) -> ObjectiveListResult:
@@ -250,7 +286,7 @@ def build_objective_list_result(
 
     for branch_tip in ctx.git.list_local_branch_tips():
         branch = branch_tip.name
-        if branch == trunk:
+        if branch == trunk and (not filter_current or current_branch != trunk):
             continue
 
         ref = f"refs/heads/{branch}"
@@ -261,8 +297,13 @@ def build_objective_list_result(
                 message=paths_result.message,
             )
 
-        open_slugs = _open_objective_slugs_from_paths(paths_result)
-        if not open_slugs:
+        objective_statuses = _objective_statuses_from_paths(paths_result)
+        filtered_statuses = tuple(
+            (slug, status)
+            for slug, status in objective_statuses
+            if status_filter == "all" or status == status_filter
+        )
+        if not filtered_statuses:
             continue
 
         ahead_result = ctx.git.count_commits_in_range(f"{trunk}..{branch}")
@@ -272,10 +313,11 @@ def build_objective_list_result(
                 message=ahead_result.message,
             )
 
-        for slug in open_slugs:
+        for slug, status in filtered_statuses:
             rows_by_slug.setdefault(slug, []).append(
                 ObjectiveBranchEntry(
                     branch=branch,
+                    status=status,
                     tip_head_iso=branch_tip.head_iso,
                     ahead_trunk=ahead_result,
                 )
@@ -289,23 +331,31 @@ def build_objective_list_result(
             and any(entry.branch == current_branch for entry in entries)
         }
 
+    groups: list[ObjectiveListGroup] = []
+    for slug, entries in sorted(rows_by_slug.items()):
+        branches = tuple(sorted(entries, key=lambda entry: entry.branch))
+        groups.append(
+            ObjectiveListGroup(
+                slug=slug,
+                status=_group_status_from_branches(branches),
+                branches=branches,
+            )
+        )
+
     return ObjectiveListResult(
         trunk_branch=trunk,
         view=view,
+        status_filter=status_filter,
         current_branch=current_branch,
         filtered_to_current=filter_current,
         names_only=names_only,
-        groups=tuple(
-            ObjectiveListGroup(
-                slug=slug,
-                branches=tuple(sorted(entries, key=lambda entry: entry.branch)),
-            )
-            for slug, entries in sorted(rows_by_slug.items())
-        ),
+        groups=tuple(groups),
     )
 
 
-def _open_objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
+def _objective_statuses_from_paths(
+    paths: tuple[str, ...],
+) -> tuple[tuple[str, ObjectiveStatus], ...]:
     slugs: set[str] = set()
     closed_slugs: set[str] = set()
     prefix = f"{OBJECTIVE_ROOT}/"
@@ -321,7 +371,7 @@ def _open_objective_slugs_from_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
         if child_path == "closed.md":
             closed_slugs.add(slug)
 
-    return tuple(sorted(slugs - closed_slugs))
+    return tuple((slug, "closed" if slug in closed_slugs else "open") for slug in sorted(slugs))
 
 
 def _latest_tip_branch(group: ObjectiveListGroup) -> str:
@@ -338,9 +388,24 @@ def _latest_tip_head_iso(group: ObjectiveListGroup) -> str | None:
     return entry.tip_head_iso
 
 
+def _group_status_from_branches(branches: tuple[ObjectiveBranchEntry, ...]) -> ObjectiveStatus:
+    latest_entry = _latest_tip_entry_from_entries(branches)
+    if latest_entry is not None:
+        return latest_entry.status
+    if branches:
+        return branches[0].status
+    return "open"
+
+
 def _latest_tip_entry(group: ObjectiveListGroup) -> ObjectiveBranchEntry | None:
+    return _latest_tip_entry_from_entries(group.branches)
+
+
+def _latest_tip_entry_from_entries(
+    entries: tuple[ObjectiveBranchEntry, ...],
+) -> ObjectiveBranchEntry | None:
     parsed_tips: list[tuple[datetime, ObjectiveBranchEntry]] = []
-    for entry in group.branches:
+    for entry in entries:
         tip_head_iso = entry.tip_head_iso
         if tip_head_iso is None:
             continue

@@ -90,7 +90,7 @@ def test_objective_plugin_integration() -> None:
     assert result.exit_code == 0
     assert "Work with checked-in Objective records." in result.output
     assert "list" in result.output
-    assert "status" not in result.output
+    assert "List Objective status" in result.output
     assert "exec" not in result.output
 
     result = runner.invoke(parent, ["objective", "exec", "--help"])
@@ -110,6 +110,7 @@ def test_objective_plugin_integration() -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["data"]["trunk_branch"] == "master"
+    assert payload["data"]["status_filter"] == "all"
     assert payload["data"]["groups"] == []
 
 

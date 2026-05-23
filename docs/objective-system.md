@@ -165,25 +165,29 @@ V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list` and
 
 ### `objective list`
 
-Lists open Objectives for the local repository by inspecting local branch tips.
+Lists Objective status for the local repository by inspecting local branch tips.
 
 Contract:
 
 - Inspect local branch tips without checking out branches.
-- Treat an Objective as open on a branch when `.asdl/objectives/<slug>/` exists at that branch tip and `.asdl/objectives/<slug>/closed.md` does not.
-- Default to an Objective-level list view with latest branch by tip timestamp (ties by branch name), latest tip age, branch count, and max ahead-of-trunk count.
-- Provide a detail view that groups by Objective slug and reports only branch, tip age, and ahead-of-trunk count.
+- Report Objective status from git-tracked path presence at each branch tip: direct `.asdl/objectives/<slug>/closed.md` means `closed`; otherwise the Objective is `open` on that branch.
+- Do not treat nested files such as `.asdl/objectives/<slug>/updates/closed.md` as closure markers.
+- Default to an Objective-level list view with status, latest branch by tip timestamp (ties by branch name), latest tip age, branch count, and max ahead-of-trunk count.
+- Provide a detail view that groups by Objective slug and reports branch, status, tip age, and ahead-of-trunk count.
+- Provide a `--status {all,open,closed}` filter. The default is `all`; active-objective workflows should pass `--status open`.
 - Provide a `--current` filter that restricts the list to Objectives associated with the current branch.
-- Provide a `--names` flag that emits Objective slugs only, one per line.
-- Do not parse Markdown, summarize Objective bodies, show latest updates, choose a canonical branch, or list branches without open Objectives.
+- Provide a `--names` flag that emits Objective slugs only, one per line after the status/current filters are applied.
+- Do not parse Markdown, summarize Objective bodies, show latest updates, choose a canonical branch, or list branches without Objective records matching the selected status filter.
 - Use pure git facts, not Graphite.
 
 Shipped CLI:
 
-- Run `objective list` for the default list view.
+- Run `objective list` for the default status inventory list view.
+- Run `objective list --status open` for active/open Objective candidates.
+- Run `objective list --status closed` for closed Objective records.
 - Run `objective list --view detail` for per-branch details.
 - Run `objective list --current` to filter to Objectives associated with the current branch.
-- Run `objective list --names` to print just the slugs, one per line.
+- Run `objective list --status open --names` to print open slugs, one per line.
 
 ### `objective-create`
 
@@ -251,7 +255,7 @@ Contract:
 
 Shipped CLI:
 
-- Closed-objective filtering: `objective list` reports each record's closed state.
+- Active candidate filtering: `objective list --status open` lists open candidates; `objective list` reports each record's closed state.
 
 Future CLI pushdown candidates:
 

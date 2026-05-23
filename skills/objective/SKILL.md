@@ -62,7 +62,7 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --format md` to enumerate candidate open Objectives across local branch tips and ask the user to choose. Use `objective list --current --format md` to filter to Objectives associated with the current branch. Use `objective list --names` only for machine-readable slug extraction.
+2. If no slug or path is explicit, run `objective list --status open --format md` to enumerate candidate open Objectives across local branch tips and ask the user to choose. Use `objective list --current --status open --format md` to filter to open Objectives associated with the current branch. Use `objective list --status open --names` only for machine-readable open-slug extraction.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one open Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple open Objectives exist, ask instead.
@@ -73,7 +73,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Repository status
 
-Use `objective list` for the default objective-level list of open Objective records with local branch state across all branch tips. Use `objective list --view detail` for the per-branch detail view with branch, tip age, and ahead-of-trunk count. Use `objective list --current` to filter to Objectives associated with the current branch, and `objective list --names` to emit just slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without open Objectives.
+Use `objective list` for the default objective-level status inventory across local branch tips, including open and closed records. Use `objective list --status open` when selecting active/open candidates. Use `objective list --view detail` for the per-branch detail view with branch, status, tip age, and ahead-of-trunk count. Use `objective list --current --status open` to filter to open Objectives associated with the current branch, and `objective list --status open --names` to emit just open slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
 
 ## Tracking Gate
 
