@@ -29,7 +29,10 @@ def run_add_reaction(
     request: AddReactionRequest,
 ) -> ClinkrExit[AddReactionResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    result = pr_address_context.gh_issue_gateway.add_reaction(request.comment_id, request.reaction)
+    result = pr_address_context.pr_gateway.add_pr_discussion_comment_reaction(
+        request.comment_id,
+        request.reaction,
+    )
     return ClinkrExit.ok(
         AddReactionResult(
             id=result.id,

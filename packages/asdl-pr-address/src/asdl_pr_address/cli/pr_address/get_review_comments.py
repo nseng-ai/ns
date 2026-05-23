@@ -39,7 +39,7 @@ def run_get_review_comments(
     request: GetReviewCommentsRequest,
 ) -> ClinkrExit[GetReviewCommentsResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    threads = pr_address_context.gh_issue_gateway.get_review_threads(
+    threads = pr_address_context.pr_gateway.get_review_threads(
         request.pr_number, include_resolved=request.include_resolved
     )
     return ClinkrExit.ok(GetReviewCommentsResult(threads=threads))

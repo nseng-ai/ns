@@ -16,8 +16,9 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import (
-    IssueComment,
-    PRLookupError,
+    PRDiscussionComment,
+    PRGatewayFailure,
+    PRLookupMiss,
     PRReview,
     PRReviewThread,
     PRState,
@@ -28,6 +29,11 @@ from asdl_pr_address.cli.pr_address.reply_formatting import RESOLUTION_MARKER
 from asdl_pr_address.cli.pr_address.review_filtering import filter_empty_reviews
 
 RestructuredFiles = tuple[RestructuredFile, ...]
+
+
+def _gateway_failure_message(prefix: str, failure: PRGatewayFailure) -> str:
+    detail = failure.stderr or failure.stdout or f"exit code {failure.returncode}"
+    return f"{prefix}: {detail}"
 
 
 class PrepareRunRequest(ClinkrModel):
@@ -95,7 +101,7 @@ class PrepareRunResult(ClinkrModel):
     state: PRState | None = None
     reviews: tuple[PRReview, ...] = ()
     review_threads: tuple[PRReviewThread, ...] = ()
-    discussion_comments: tuple[IssueComment, ...] = ()
+    discussion_comments: tuple[PRDiscussionComment, ...] = ()
     reopened_thread_ids: tuple[str, ...] = ()
     restructured_files: RestructuredFiles = ()
     warnings: tuple[str, ...] = ()
@@ -156,8 +162,16 @@ def run_prepare_run(
         case str() as current_branch:
             pass
 
-    pr = pr_address_context.gh_issue_gateway.get_pr_for_branch(current_branch)
-    if isinstance(pr, PRLookupError):
+    pr = pr_address_context.pr_gateway.get_pr_for_branch(current_branch)
+    if isinstance(pr, PRGatewayFailure):
+        raise ClinkrFailure(
+            error_type="pr_gateway_failure",
+            message=_gateway_failure_message(
+                f"Failed to look up PR for current branch {current_branch!r}",
+                pr,
+            ),
+        )
+    if isinstance(pr, PRLookupMiss):
         return ClinkrExit.ok(
             PrepareRunResult(
                 found=False,
@@ -166,21 +180,21 @@ def run_prepare_run(
                 returncode=pr.returncode,
             )
         )
-    # pr is now guaranteed to be a PR object, not PRLookupError
+    # pr is now guaranteed to be a PR object, not PR lookup miss/failure.
 
-    raw_reviews = pr_address_context.gh_issue_gateway.get_reviews(pr.number)
+    raw_reviews = pr_address_context.pr_gateway.get_reviews(pr.number)
     reviews = raw_reviews if request.include_empty_reviews else filter_empty_reviews(raw_reviews)
-    snapshot_threads = pr_address_context.gh_issue_gateway.get_review_threads(
+    snapshot_threads = pr_address_context.pr_gateway.get_review_threads(
         pr.number,
         include_resolved=True,
     )
-    discussion_comments = pr_address_context.gh_issue_gateway.get_discussion_comments(pr.number)
+    discussion_comments = pr_address_context.pr_gateway.get_pr_discussion_comments(pr.number)
 
     warnings: list[str] = []
     reopened_thread_ids: list[str] = []
     for thread_id in _contested_thread_ids(snapshot_threads):
         try:
-            pr_address_context.gh_issue_gateway.unresolve_review_thread(thread_id)
+            pr_address_context.pr_gateway.unresolve_review_thread(thread_id)
         except Exception as exc:
             warnings.append(f"Failed to reopen contested thread {thread_id}: {exc}")
             continue

@@ -9,7 +9,7 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.gh.types import IssueComment
+from asdl_core.gh.types import PRDiscussionComment
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 
 
@@ -24,13 +24,13 @@ def _resolve_body(ctx: click.Context, param: click.Parameter, value: str) -> str
     return value
 
 
-class AddIssueCommentRequest(ClinkrModel):
+class AddDiscussionCommentRequest(ClinkrModel):
     pr_number: int
     body: Annotated[str, click.Argument(["body"], callback=_resolve_body)]
 
 
-class AddIssueCommentResult(ClinkrModel):
-    comment: IssueComment
+class AddDiscussionCommentResult(ClinkrModel):
+    comment: PRDiscussionComment
 
 
 @clinkr_operation(
@@ -39,8 +39,11 @@ class AddIssueCommentResult(ClinkrModel):
 )
 def run_add_issue_comment(
     ctx: click.Context,
-    request: AddIssueCommentRequest,
-) -> ClinkrExit[AddIssueCommentResult]:
+    request: AddDiscussionCommentRequest,
+) -> ClinkrExit[AddDiscussionCommentResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    comment = pr_address_context.gh_issue_gateway.add_comment(request.pr_number, request.body)
-    return ClinkrExit.ok(AddIssueCommentResult(comment=comment))
+    comment = pr_address_context.pr_gateway.add_pr_discussion_comment(
+        request.pr_number,
+        request.body,
+    )
+    return ClinkrExit.ok(AddDiscussionCommentResult(comment=comment))

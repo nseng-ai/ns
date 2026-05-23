@@ -15,7 +15,7 @@ class UnresolveThreadRequest(ClinkrModel):
 
 class UnresolveThreadResult(ClinkrModel):
     thread_id: str
-    was_already_unresolved: bool
+    is_resolved: bool
 
 
 @clinkr_operation(
@@ -27,10 +27,10 @@ def run_unresolve_thread(
     request: UnresolveThreadRequest,
 ) -> ClinkrExit[UnresolveThreadResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    result = pr_address_context.gh_issue_gateway.unresolve_review_thread(request.thread_id)
+    result = pr_address_context.pr_gateway.unresolve_review_thread(request.thread_id)
     return ClinkrExit.ok(
         UnresolveThreadResult(
             thread_id=result.thread_id,
-            was_already_unresolved=result.was_already_unresolved,
+            is_resolved=result.is_resolved,
         )
     )

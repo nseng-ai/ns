@@ -11,9 +11,11 @@ from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
-from asdl_core.gh.testing import FakeIssueGateway
+from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import (
-    IssueComment,
+    PRDiscussionComment,
+    PRGatewayFailure,
+    PRLookupMiss,
     PRReview,
     PRReviewComment,
     PRReviewThread,
@@ -39,13 +41,13 @@ def _obj(context: object) -> object:
 def _invoke_json(
     cli_group: ClinkrGroup,
     args: list[str],
-    fake: FakeIssueGateway,
+    fake: FakePRGateway,
     *,
     git_gateway: FakeGitGateway | None = None,
 ) -> tuple[int, dict]:
     runner = CliRunner()
     ctx = PrAddressCliContext(
-        gh_issue_gateway=fake,
+        pr_gateway=fake,
         git_gateway=git_gateway if git_gateway is not None else FakeGitGateway(),
     )
     # The operation name comes first; `--format json` goes next (before any
@@ -64,7 +66,7 @@ def _invoke_json(
 def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         prs_by_branch={
             "feature": PRSummary(
                 number=42,
@@ -117,7 +119,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
                         PRReviewComment(
                             id=2,
                             body=f"Fixed already.\n{RESOLUTION_MARKER}",
-                            author="fake-user",
+                            author="github-actions[bot]",
                             path="src/new.py",
                             line=11,
                             created_at="2026-04-15T12:00:00Z",
@@ -153,7 +155,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
         },
         discussion_comments={
             42: [
-                IssueComment(
+                PRDiscussionComment(
                     id=9001,
                     body="Please update the summary too.",
                     author="reviewer",
@@ -186,7 +188,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
     assert data["current_branch"] == "feature"
     assert data["number"] == 42
     assert data["reopened_thread_ids"] == ["PRRT_contested"]
-    assert fake._unresolved_thread_ids == ["PRRT_contested"]
+    assert fake.unresolved_thread_ids == ("PRRT_contested",)
     assert [thread["id"] for thread in data["review_threads"]] == ["PRRT_live", "PRRT_contested"]
     assert data["review_threads"][1]["is_resolved"] is False
     # Multi-line threads preserve start_line through to the JSON output;
@@ -211,7 +213,7 @@ def test_prepare_run_reopens_contested_threads_and_normalizes_feedback(
 def test_prepare_run_include_all_threads_keeps_still_resolved_threads(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         prs_by_branch={
             "feature": PRSummary(
                 number=42,
@@ -295,7 +297,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
         state="OPEN",
     )
 
-    fake_default = FakeIssueGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
+    fake_default = FakePRGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
     exit_default, out_default = _invoke_json(
         cli_group, ["prepare-run"], fake_default, git_gateway=git_gateway
@@ -303,7 +305,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
     assert exit_default == 0
     assert [r["id"] for r in out_default["data"]["reviews"]] == ["PRR_signal"]
 
-    fake_all = FakeIssueGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
+    fake_all = FakePRGateway(prs_by_branch={"feature": pr}, reviews={42: reviews})
     exit_all, out_all = _invoke_json(
         cli_group,
         ["prepare-run", "--include-empty-reviews"],
@@ -321,7 +323,7 @@ def test_prepare_run_filters_empty_reviews_by_default(
 def test_prepare_run_returns_found_false_when_branch_has_no_pr(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
 
     exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
@@ -334,10 +336,30 @@ def test_prepare_run_returns_found_false_when_branch_has_no_pr(
     assert data["error"] == "no PR found"
 
 
+class FailingLookupGateway(FakePRGateway):
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss | PRGatewayFailure:
+        return PRGatewayFailure(stderr="gh auth failed", returncode=4)
+
+
+def test_prepare_run_lookup_failure_returns_failure_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = FailingLookupGateway()
+    git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): "feature"})
+
+    exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
+
+    assert exit_code == 2
+    assert output["exit_code"] == 2
+    assert output["error_type"] == "pr_gateway_failure"
+    assert "current branch 'feature'" in output["message"]
+    assert "gh auth failed" in output["message"]
+
+
 def test_prepare_run_detached_head_returns_command_error(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
     git_gateway = FakeGitGateway(current_branch_by_path={Path.cwd(): DetachedHead()})
 
     exit_code, output = _invoke_json(cli_group, ["prepare-run"], fake, git_gateway=git_gateway)
@@ -352,7 +374,7 @@ def test_prepare_run_detached_head_returns_command_error(
 def test_prepare_run_warns_when_restructured_file_detection_fails(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway(
+    fake = FakePRGateway(
         prs_by_branch={
             "feature": PRSummary(
                 number=42,
@@ -391,7 +413,7 @@ def test_prepare_run_warns_when_restructured_file_detection_fails(
 def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
     git_gateway = FakeGitGateway(
         current_branch_by_path={
             Path.cwd(): GitCommandFailure(message="fatal: not a git repository", returncode=128)
@@ -409,7 +431,7 @@ def test_prepare_run_returns_git_failed_when_current_branch_lookup_fails(
 def test_resolve_thread_with_reply_fixed_uses_canonical_format(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -427,9 +449,10 @@ def test_resolve_thread_with_reply_fixed_uses_canonical_format(
     assert output["exit_code"] == 0
     data = output["data"]
     assert data["thread_id"] == "PRRT_abc"
-    assert fake._resolved_thread_ids == ["PRRT_abc"]
-    assert len(fake._thread_replies) == 1
-    assert fake._thread_replies[0][0] == "PRRT_abc"
+    assert data["is_resolved"] is True
+    assert fake.resolved_thread_ids == ("PRRT_abc",)
+    assert len(fake.thread_replies) == 1
+    assert fake.thread_replies[0][0] == "PRRT_abc"
     assert "Fixed in commit abc1234: Use the LBYL guard here." in data["body"]
     assert RESOLUTION_MARKER in data["body"]
     assert "Addressed via _pr-address_ at " in data["body"]
@@ -438,7 +461,7 @@ def test_resolve_thread_with_reply_fixed_uses_canonical_format(
 def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -449,6 +472,8 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
     assert exit_code == 0
     assert output["exit_code"] == 0
     data = output["data"]
+    assert data["thread_id"] == "PRRT_old"
+    assert data["is_resolved"] is True
     assert data["body"].startswith(PRE_EXISTING_REPLY)
     assert RESOLUTION_MARKER in data["body"]
 
@@ -456,7 +481,7 @@ def test_resolve_thread_with_reply_pre_existing_uses_standard_message(
 def test_reply_to_review_posts_formatted_summary(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -473,7 +498,7 @@ def test_reply_to_review_posts_formatted_summary(
     assert exit_code == 0
     assert output["exit_code"] == 0
     data = output["data"]
-    assert fake._comments == [(42, data["body"])]
+    assert fake.comments == ((42, data["body"]),)
     assert data["body"].startswith("Addressed review feedback from @reviewer:")
     assert "- Updated the helper flow" in data["body"]
     assert "_Addressed via pr-address at " in data["body"]
@@ -482,7 +507,7 @@ def test_reply_to_review_posts_formatted_summary(
 def test_reply_to_discussion_quotes_original_and_adds_reaction(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -501,8 +526,8 @@ def test_reply_to_discussion_quotes_original_and_adds_reaction(
     assert output["exit_code"] == 0
     data = output["data"]
     assert data["reaction_added"] is True
-    assert fake._reactions == [(9001, "+1")]
-    assert fake._comments == [(42, data["body"])]
+    assert fake.reactions == ((9001, "+1"),)
+    assert fake.comments == ((42, data["body"]),)
     assert "> @reviewer wrote:" in data["body"]
     assert "> Can you update this?" in data["body"]
     assert "> It still reads oddly." in data["body"]
@@ -512,7 +537,7 @@ def test_reply_to_discussion_quotes_original_and_adds_reaction(
 def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
     cli_group: ClinkrGroup,
 ) -> None:
-    class FailingReactionGateway(FakeIssueGateway):
+    class FailingReactionGateway(FakePRGateway):
         def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
             raise subprocess.CalledProcessError(
                 returncode=1,
@@ -543,7 +568,7 @@ def test_reply_to_discussion_warns_but_succeeds_when_reaction_fails(
 
 
 def test_reply_to_review_rejects_empty_summary(cli_group: ClinkrGroup) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -555,11 +580,11 @@ def test_reply_to_review_rejects_empty_summary(cli_group: ClinkrGroup) -> None:
     assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "summary_markdown" in output["message"]
-    assert fake._comments == []
+    assert fake.comments == ()
 
 
 def test_reply_to_discussion_rejects_empty_response(cli_group: ClinkrGroup) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -578,11 +603,11 @@ def test_reply_to_discussion_rejects_empty_response(cli_group: ClinkrGroup) -> N
     assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "response" in output["message"]
-    assert fake._comments == []
+    assert fake.comments == ()
 
 
 def test_resolve_thread_with_reply_fixed_requires_message(cli_group: ClinkrGroup) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -594,11 +619,11 @@ def test_resolve_thread_with_reply_fixed_requires_message(cli_group: ClinkrGroup
     assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "message" in output["message"]
-    assert fake._resolved_thread_ids == []
+    assert fake.resolved_thread_ids == ()
 
 
 def test_resolve_thread_with_reply_fixed_requires_commit_sha(cli_group: ClinkrGroup) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -616,11 +641,11 @@ def test_resolve_thread_with_reply_fixed_requires_commit_sha(cli_group: ClinkrGr
     assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "commit_sha" in output["message"]
-    assert fake._resolved_thread_ids == []
+    assert fake.resolved_thread_ids == ()
 
 
 def test_resolve_thread_with_reply_explained_requires_message(cli_group: ClinkrGroup) -> None:
-    fake = FakeIssueGateway()
+    fake = FakePRGateway()
 
     exit_code, output = _invoke_json(
         cli_group,
@@ -632,4 +657,4 @@ def test_resolve_thread_with_reply_explained_requires_message(cli_group: ClinkrG
     assert output["exit_code"] == 2
     assert output["error_type"] == "invalid_request"
     assert "message" in output["message"]
-    assert fake._resolved_thread_ids == []
+    assert fake.resolved_thread_ids == ()

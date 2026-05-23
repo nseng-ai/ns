@@ -14,7 +14,7 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.gh.types import IssueComment, Reaction
+from asdl_core.gh.types import PRDiscussionComment, Reaction
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import format_discussion_reply
 
@@ -29,7 +29,7 @@ class ReplyToDiscussionRequest(ClinkrModel):
 
 class ReplyToDiscussionResult(ClinkrModel):
     body: str
-    comment: IssueComment
+    comment: PRDiscussionComment
     reaction_added: bool
     reaction: Reaction | None = None
     warning: str | None = None
@@ -69,13 +69,16 @@ def run_reply_to_discussion(
         response=normalized_response,
     )
 
-    comment = pr_address_context.gh_issue_gateway.add_comment(request.pr_number, body)
+    comment = pr_address_context.pr_gateway.add_pr_discussion_comment(request.pr_number, body)
 
     reaction: Reaction | None = None
     warning: str | None = None
     reaction_added = False
     try:
-        reaction = pr_address_context.gh_issue_gateway.add_reaction(request.comment_id, "+1")
+        reaction = pr_address_context.pr_gateway.add_pr_discussion_comment_reaction(
+            request.comment_id,
+            "+1",
+        )
         reaction_added = True
     except subprocess.CalledProcessError as exc:
         warning = f"Failed to add reaction to comment {request.comment_id}: {exc}"

@@ -27,7 +27,7 @@ class ResolveThreadWithReplyResult(ClinkrModel):
     thread_id: str
     body: str
     comment: PRReviewComment
-    was_already_resolved: bool
+    is_resolved: bool
 
 
 @clinkr_operation(
@@ -66,13 +66,13 @@ def run_resolve_thread_with_reply(
         commit_sha=normalized_sha,
     )
 
-    comment = pr_address_context.gh_issue_gateway.add_review_thread_reply(request.thread_id, body)
-    resolve_result = pr_address_context.gh_issue_gateway.resolve_review_thread(request.thread_id)
+    comment = pr_address_context.pr_gateway.add_review_thread_reply(request.thread_id, body)
+    resolve_result = pr_address_context.pr_gateway.resolve_review_thread(request.thread_id)
     return ClinkrExit.ok(
         ResolveThreadWithReplyResult(
-            thread_id=request.thread_id,
+            thread_id=resolve_result.thread_id,
             body=body,
             comment=comment,
-            was_already_resolved=resolve_result.was_already_resolved,
+            is_resolved=resolve_result.is_resolved,
         )
     )

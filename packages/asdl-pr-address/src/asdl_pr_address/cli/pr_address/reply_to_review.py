@@ -9,7 +9,7 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_core.gh.types import IssueComment
+from asdl_core.gh.types import PRDiscussionComment
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_pr_address.cli.pr_address.reply_formatting import format_review_reply
 
@@ -22,7 +22,7 @@ class ReplyToReviewRequest(ClinkrModel):
 
 class ReplyToReviewResult(ClinkrModel):
     body: str
-    comment: IssueComment
+    comment: PRDiscussionComment
 
 
 @clinkr_operation(
@@ -45,5 +45,5 @@ def run_reply_to_review(
         summary_markdown=normalized_summary,
     )
 
-    comment = pr_address_context.gh_issue_gateway.add_comment(request.pr_number, body)
+    comment = pr_address_context.pr_gateway.add_pr_discussion_comment(request.pr_number, body)
     return ClinkrExit.ok(ReplyToReviewResult(body=body, comment=comment))

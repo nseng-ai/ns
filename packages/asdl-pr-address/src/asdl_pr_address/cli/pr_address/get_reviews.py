@@ -38,5 +38,5 @@ def run_get_reviews(
     request: GetReviewsRequest,
 ) -> ClinkrExit[GetReviewsResult]:
     pr_address_context = load_typed_context(ctx, PrAddressCliContext)
-    reviews = pr_address_context.gh_issue_gateway.get_reviews(request.pr_number)
+    reviews = pr_address_context.pr_gateway.get_reviews(request.pr_number)
     return ClinkrExit.ok(GetReviewsResult(reviews=reviews))
