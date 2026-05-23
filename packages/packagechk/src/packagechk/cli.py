@@ -405,12 +405,12 @@ def _render_claim_npm_dry_run(*, spec: NpmClaimProjectSpec, skip_check: bool) ->
     click.echo("Would write: package.json", err=True)
     click.echo("Would write: README.md", err=True)
     click.echo("Would write: index.js", err=True)
-    click.echo("Would run: npm publish", err=True)
+    click.echo("Would run: npm publish --access=public", err=True)
     click.echo(f"npm URL: {_npm_package_url(spec.package_name)}", err=True)
 
 
 def _npm_package_url(package_name: str) -> str:
-    quoted_name = urllib.parse.quote(package_name, safe="")
+    quoted_name = urllib.parse.quote(package_name, safe="@/")
     return f"https://www.npmjs.com/package/{quoted_name}"
 
 

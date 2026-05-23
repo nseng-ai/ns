@@ -205,12 +205,12 @@ def _pypi_project_url(normalized_name: str) -> str:
 
 
 def _npm_package_url(package_name: str) -> str:
-    quoted_name = urllib.parse.quote(package_name, safe="")
+    quoted_name = urllib.parse.quote(package_name, safe="@")
     return f"https://registry.npmjs.org/{quoted_name}"
 
 
 def _npm_package_page_url(package_name: str) -> str:
-    quoted_name = urllib.parse.quote(package_name, safe="")
+    quoted_name = urllib.parse.quote(package_name, safe="@/")
     return f"https://www.npmjs.com/package/{quoted_name}"
 
 

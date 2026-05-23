@@ -180,10 +180,10 @@ def test_real_gateway_rejects_invalid_npm_name_before_fetching() -> None:
 
     gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
 
-    result = gateway.check_npm("@scope/name")
+    result = gateway.check_npm("Bad-Name")
 
     assert result.status is CheckStatus.INVALID
-    assert "scoped package names are not supported" in result.message
+    assert "lowercase" in result.message
     assert urls == []
 
 
@@ -295,7 +295,7 @@ def test_real_npm_publish_gateway_publish_invokes_npm_publish(tmp_path: Path) ->
     error = RealNpmPublishGateway(command_runner=run_command).publish_project(tmp_path)
 
     assert error is None
-    assert calls == [(["npm", "publish"], tmp_path)]
+    assert calls == [(["npm", "publish", "--access=public"], tmp_path)]
 
 
 def test_real_npm_publish_gateway_publish_failure_returns_error(tmp_path: Path) -> None:
@@ -307,5 +307,5 @@ def test_real_npm_publish_gateway_publish_failure_returns_error(tmp_path: Path) 
     error = RealNpmPublishGateway(command_runner=run_command).publish_project(tmp_path)
 
     assert error is not None
-    assert "npm publish failed with exit code 1" in error
+    assert "npm publish --access=public failed with exit code 1" in error
     assert "E403" in error

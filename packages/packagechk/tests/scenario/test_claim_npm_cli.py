@@ -70,18 +70,61 @@ def test_claim_npm_invalid_name_exits_before_effects() -> None:
     assert publisher.published_project_dirs == []
 
 
-def test_claim_npm_scoped_name_rejected() -> None:
+def test_claim_npm_scoped_name_dry_run_preserves_name() -> None:
     registry = FakePackageRegistryGateway()
     publisher = FakeNpmPublishGateway()
 
     result = CliRunner().invoke(
         build_cli(registry_gateway=registry, npm_publish_gateway=publisher),
-        ["claim-npm", "@org/foo", "--dry-run"],
+        ["claim-npm", "@asdl-io/aretro", "--dry-run"],
+    )
+
+    assert result.exit_code == 0
+    assert "[DRY RUN]" in result.output
+    assert "Package name: @asdl-io/aretro" in result.output
+    assert "npm URL: https://www.npmjs.com/package/@asdl-io/aretro" in result.output
+    assert registry.npm_checked_names == []
+    assert publisher.tool_checks == 0
+    assert publisher.published_project_dirs == []
+
+
+def test_claim_npm_scoped_name_successful_claim_publishes() -> None:
+    registry = FakePackageRegistryGateway(
+        npm_results={
+            "@asdl-io/aretro": RegistryCheckResult.available(
+                Registry.NPM,
+                input_name="@asdl-io/aretro",
+                lookup_name="@asdl-io/aretro",
+            )
+        }
+    )
+    publisher = FakeNpmPublishGateway()
+
+    result = CliRunner().invoke(
+        build_cli(registry_gateway=registry, npm_publish_gateway=publisher),
+        ["claim-npm", "@asdl-io/aretro", "--force"],
+    )
+
+    assert result.exit_code == 0
+    assert "✓ Claimed npm package name '@asdl-io/aretro'." in result.output
+    assert "View package: https://www.npmjs.com/package/@asdl-io/aretro" in result.output
+    assert registry.npm_checked_names == ["@asdl-io/aretro"]
+    assert publisher.tool_checks == 1
+    assert len(publisher.published_project_dirs) == 1
+
+
+def test_claim_npm_malformed_scoped_name_rejected() -> None:
+    registry = FakePackageRegistryGateway()
+    publisher = FakeNpmPublishGateway()
+
+    result = CliRunner().invoke(
+        build_cli(registry_gateway=registry, npm_publish_gateway=publisher),
+        ["claim-npm", "@scope/Bad-Name", "--dry-run"],
     )
 
     assert result.exit_code == 2
     assert "npm: invalid" in result.output
-    assert "scoped package names are not supported" in result.output
+    assert "lowercase" in result.output
     assert registry.npm_checked_names == []
     assert publisher.tool_checks == 0
     assert publisher.published_project_dirs == []

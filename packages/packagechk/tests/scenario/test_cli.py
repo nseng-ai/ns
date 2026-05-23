@@ -201,14 +201,23 @@ def test_packagechk_npm_registry_reports_taken() -> None:
     )
 
 
-def test_packagechk_npm_registry_rejects_scoped_names() -> None:
+def test_packagechk_npm_registry_accepts_scoped_names() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
+
+    result = CliRunner().invoke(build_cli(gateway), ["@asdl-io/aretro", "--registry", "npm"])
+
+    assert result.exit_code == 0
+    assert result.output == "npm: available\n"
+
+
+def test_packagechk_npm_registry_rejects_malformed_scoped_names() -> None:
     gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 200)
 
-    result = CliRunner().invoke(build_cli(gateway), ["@scope/name", "--registry", "npm"])
+    result = CliRunner().invoke(build_cli(gateway), ["@scope/Bad-Name", "--registry", "npm"])
 
     assert result.exit_code == 2
     assert "npm: invalid" in result.output
-    assert "scoped package names are not supported in v1" in result.output
+    assert "lowercase" in result.output
 
 
 def test_packagechk_npm_registry_rejects_uppercase_names_without_rewriting() -> None:

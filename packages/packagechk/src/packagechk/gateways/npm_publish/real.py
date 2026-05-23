@@ -38,7 +38,7 @@ class RealNpmPublishGateway(NpmPublishGateway):
         return None
 
     def publish_project(self, project_dir: Path) -> str | None:
-        command = ["npm", "publish"]
+        command = ["npm", "publish", "--access=public"]
         try:
             result = self._command_runner(command, project_dir)
         except OSError as error:
