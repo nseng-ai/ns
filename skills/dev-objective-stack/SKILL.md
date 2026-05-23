@@ -33,6 +33,7 @@ with branch handoffs. If the user asks only to plan, stop after the plan.
 ## When to stop and ask
 
 - No explicit Objective slug/path was provided and Objective selection is needed.
+- `objective list` reports possible slug migrations relevant to the stack and the user has not resolved canonical identity.
 - The user wants multiple Objectives in one stack.
 - The stack base is ambiguous or not what `gt ls`/`gt branch info` shows.
 - Objective scaffold/base work exists on a branch, but the user has not confirmed
@@ -44,6 +45,7 @@ with branch handoffs. If the user asks only to plan, stop after the plan.
 ## Core invariants
 
 - One Objective only: `.asdl/objectives/<slug>/`.
+- The selected `<slug>` is durable identity. Command/package/product renames may change titles, prose, and implementation paths, but they must not move or recreate `.asdl/objectives/<slug>/` unless the user explicitly requests a slug migration.
 - One ordered branch per PR slice.
 - Each PR branch includes its own Objective update under that Objective directory.
 - Treat Objective edits with landed-state semantics: if this PR merged now, the
@@ -59,10 +61,11 @@ with branch handoffs. If the user asks only to plan, stop after the plan.
 ### 1. Select and read the Objective
 
 1. Use the explicit slug/path if the user provided one.
-2. If absent, run `objective list --state open --format md` and ask the user to choose.
-3. Run `objective exec read-objective <slug> --format md`.
-4. Stop if the Objective is closed unless the user explicitly says to amend it.
-5. Note missing required files, especially `updates/`, before planning repairs or updates.
+2. If absent, run `objective list --format md` and ask the user to choose.
+3. If the list reports possible Objective slug migrations relevant to the stack, stop and resolve canonical identity before planning.
+4. Run `objective exec read-objective <slug> --format md`.
+5. Stop if the Objective is closed unless the user explicitly says to amend it.
+6. Note missing required files, especially `updates/`, before planning repairs or updates.
 
 ### 2. Inspect stack state
 
@@ -183,6 +186,6 @@ Before reporting success:
 - `gt ls` shows the expected stack order.
 - Each branch has a Branch Memory handoff under `session-artifacts`.
 - New files are reflected in staged stats or an explicit file inventory.
-- Objective changes are only under `.asdl/objectives/<slug>/`.
+- Objective changes are only under `.asdl/objectives/<slug>/`; no sibling Objective slug was added, deleted, or moved unless this run was explicitly a slug migration.
 - Each Semantic Update filename is timestamped and human-readable.
 - Validation commands and failures/fixes are reported honestly.

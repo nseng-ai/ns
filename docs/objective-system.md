@@ -32,6 +32,8 @@ Rules:
 - `.asdl/objectives/` is first-class repository content and should be committed.
 - The `<slug>` directory name is the stable objective identity.
 - The markdown title may change without changing objective identity.
+- Command, product, branch, package, and prose renames do not imply Objective slug renames.
+- Moving `.asdl/objectives/<old>/` to `.asdl/objectives/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
 - Do not add YAML frontmatter, UUIDs, registries, or hidden attachment metadata.
 - V1 starts fresh from `.asdl/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
@@ -171,6 +173,7 @@ Contract:
 - Provide a detail view that groups by Objective slug and reports only branch, tip age, and ahead-of-trunk count.
 - Provide a `--current` filter that restricts the list to Objectives associated with the current branch.
 - Provide a `--names` flag that emits Objective slugs only, one per line.
+- Report possible slug migrations when a branch replaces Objective directory slugs relative to its nearest local ancestor. This warning is based only on git path facts and is a stop sign for agents, not an automatic canonical-slug decision.
 - Do not parse Markdown, summarize Objective bodies, show latest updates, choose a canonical branch, or list branches without open Objectives.
 - Use pure git facts, not Graphite.
 
@@ -179,7 +182,7 @@ Shipped CLI:
 - Run `objective list` for the default list view.
 - Run `objective list --view detail` for per-branch details.
 - Run `objective list --current` to filter to Objectives associated with the current branch.
-- Run `objective list --names` to print just the slugs, one per line.
+- Run `objective list --names` to print just the slugs, one per line. Prefer the full list for agent selection so slug-migration warnings are visible.
 
 ### `objective-create`
 

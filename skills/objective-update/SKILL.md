@@ -26,13 +26,16 @@ Canonical root: `.asdl/objectives/<slug>/`.
 
 Objective records are Markdown. Read/edit Markdown directly. Use `objective exec` for deterministic reads: candidate listing, inventory, closed-marker detection. Mutate files directly.
 
+The Objective slug directory is durable identity. Command/product/prose renames are ordinary Objective edits; they do not justify moving `.asdl/objectives/<slug>/` or creating a replacement Objective. Only rename an Objective slug when the user explicitly asks for an Objective slug migration.
+
 ## Resolve exactly one Objective
 
 1. Use an explicit user-provided slug/path under `.asdl/objectives/<slug>/`.
-2. Otherwise run `objective list --state open --format md` immediately.
-3. If exactly one open Objective exists and update intent is explicit, ask before evidence/mutation: `Only one open Objective exists: <slug>. Run objective-update for this Objective?`
-4. If multiple open Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
-5. If none exist, say so and suggest `objective-create` when appropriate.
+2. Otherwise run `objective list --format md` immediately.
+3. If the list reports possible Objective slug migrations relevant to this update, stop and ask the user to resolve the canonical slug or explicitly approve a migration before evidence or mutation.
+4. If exactly one open Objective exists and update intent is explicit, ask before evidence/mutation: `Only one open Objective exists: <slug>. Run objective-update for this Objective?`
+5. If multiple open Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
+6. If none exist, say so and suggest `objective-create` when appropriate.
 
 If update intent is ambiguous, ask the invocation-intent confirmation before any only-open-Objective confirmation.
 
@@ -146,7 +149,8 @@ The final response may include exact command output when useful; durable Objecti
 
 ## Stop / ask
 
-- Objective selection is ambiguous or absent after presenting `objective list --state open --format md` options.
+- Objective selection is ambiguous or absent after presenting `objective list --format md` options.
+- `objective list` reports possible slug migrations relevant to the update and the user has not resolved them.
 - Update intent remains ambiguous after the invocation-intent confirmation.
 - The exactly-one open Objective confirmation is pending.
 - The request would update more than one Objective.
@@ -156,7 +160,7 @@ The final response may include exact command output when useful; durable Objecti
 
 ## Verify
 
-- Changed Objective files all live under exactly one `.asdl/objectives/<slug>/` directory.
+- Changed Objective files all live under exactly one `.asdl/objectives/<slug>/` directory, with no added/deleted sibling Objective slug unless the user explicitly requested a slug migration.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - Amended update file, if any, is the existing Semantic Update for the same event, not a duplicate.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.

@@ -44,6 +44,8 @@ Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
 
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing files.
 - Use only `.asdl/objectives/<slug>/`. Do not create records under `docs/objectives/` or other locations.
+- Treat the slug directory as durable identity. Command/product/prose renames should update an existing Objective's title and body, not create a new slug.
+- Before creating a slug that appears to be a rename or replacement of existing work, run `objective list --format md`; if it reports possible slug migrations or shows a likely existing Objective, stop and ask whether the user meant `objective-current`, `objective-update`, or an explicit slug migration.
 - Do not add registries, YAML/frontmatter, UUIDs, hidden attachment metadata, or state-machine behavior.
 - If `.asdl/objectives/<slug>/` exists, stop and ask whether the user meant `objective-current` or `objective-update`; never overwrite. Use `objective exec read-objective <slug> --format md` to check: it returns a `not_found` envelope when the slug has no record, and otherwise emits the existing record.
 - Objective records are Markdown; read and edit Markdown directly. Use `objective exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
@@ -68,6 +70,7 @@ Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
 
 - The slug is missing, unconfirmed, invalid-looking, or points outside `.asdl/objectives/`.
 - The target Objective directory already exists.
+- The requested Objective looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration.
 - The user has not provided enough durable context to avoid inventing thesis, scope, completion criteria, assumptions, or risks.
 - The request appears to need multiple Objectives; create only one and ask the user to run the command again for others.
 

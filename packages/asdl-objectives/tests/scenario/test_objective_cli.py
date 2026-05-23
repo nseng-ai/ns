@@ -64,6 +64,7 @@ def test_objective_list_empty_result(cli_group: ClinkrGroup) -> None:
             "filtered_to_current": False,
             "names_only": False,
             "groups": [],
+            "slug_change_warnings": [],
         },
     }
 
@@ -191,6 +192,64 @@ def test_objective_list_excludes_closed_objectives(cli_group: ClinkrGroup) -> No
     groups = json.loads(result.output)["data"]["groups"]
     assert [group["slug"] for group in groups] == ["open-one"]
     assert "closed-one" not in result.output
+
+
+def test_objective_list_warns_on_possible_slug_migration(cli_group: ClinkrGroup) -> None:
+    ctx = _list_context(
+        branches=("master", "stack/base", "stack/rename"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/stack/base", ".asdl/objectives"): (
+                ".asdl/objectives/asdl-stack-run-extension/closed.md",
+                ".asdl/objectives/asdl-stack-run-extension/objective.md",
+                ".asdl/objectives/asdl-stack-run-extension/roadmap.md",
+                ".asdl/objectives/stack-run-e2e-smoke-test/objective.md",
+                ".asdl/objectives/stack-run-e2e-smoke-test/roadmap.md",
+            ),
+            ("refs/heads/stack/rename", ".asdl/objectives"): (
+                ".asdl/objectives/asdl-stack-impl-extension/closed.md",
+                ".asdl/objectives/asdl-stack-impl-extension/objective.md",
+                ".asdl/objectives/asdl-stack-impl-extension/roadmap.md",
+                ".asdl/objectives/stack-impl-e2e-smoke-test/objective.md",
+                ".asdl/objectives/stack-impl-e2e-smoke-test/roadmap.md",
+            ),
+        },
+        ancestors=(
+            ("master", "stack/base"),
+            ("master", "stack/rename"),
+            ("stack/base", "stack/rename"),
+        ),
+        commit_count_by_range={
+            "master..stack/base": 1,
+            "master..stack/rename": 2,
+            "stack/base..stack/rename": 1,
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx)
+
+    assert result.exit_code == 0, result.output
+    warnings = json.loads(result.output)["data"]["slug_change_warnings"]
+    assert warnings == [
+        {
+            "branch": "stack/rename",
+            "base_branch": "stack/base",
+            "removed_slugs": ["asdl-stack-run-extension", "stack-run-e2e-smoke-test"],
+            "added_slugs": ["asdl-stack-impl-extension", "stack-impl-e2e-smoke-test"],
+        }
+    ]
+
+    human = _invoke_list_human(cli_group, ctx)
+    assert human.exit_code == 0, human.output
+    assert "Possible Objective slug migrations detected" in human.output
+    assert "Objective directory slugs are durable identities" in human.output
+    assert "stack/rename vs stack/base" in human.output
+    assert "stack-run-e2e-smoke-test" in human.output
+    assert "stack-impl-e2e-smoke-test" in human.output
+
+    markdown = _invoke_list_md(cli_group, ctx)
+    assert markdown.exit_code == 0, markdown.output
+    assert "## Possible Objective slug migrations detected" in markdown.output
+    assert "`stack/rename` vs `stack/base`" in markdown.output
 
 
 def test_objective_list_excludes_trunk_and_no_objective_branches(
@@ -674,6 +733,7 @@ def _list_context(
     ) = None,
     branch_head_iso_by_branch: dict[str, str] | None = None,
     commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
+    ancestors: tuple[tuple[str, str], ...] = (),
 ) -> ObjectiveCliContext:
     repo_root = Path("/repo")
     current_by_path: dict[Path, str | DetachedHead | GitCommandFailure] | None = None
@@ -689,6 +749,7 @@ def _list_context(
             tracked_paths_by_ref_path=tracked_paths_by_ref_path,
             branch_head_iso_by_branch=branch_head_iso_by_branch,
             commit_count_by_range=commit_count_by_range,
+            ancestors=ancestors,
             current_branch_by_path=current_by_path,
         ),
     )
