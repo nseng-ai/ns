@@ -243,19 +243,67 @@ describe("objective picker suggestion", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("charlie");
 	});
 
-	test("does not suggest when multiple Objective slugs changed", async () => {
+	test("shows changed open Objectives before offering the rest", async () => {
+		const result = await runObjectiveNext("", [
+			listStep(["alpha", "bravo", "charlie", "delta"]),
+			diffStep([
+				"M\t.asdl/objectives/alpha/objective.md",
+				"M\t.asdl/objectives/charlie/roadmap.md",
+			].join("\n")),
+		]);
+
+		result.pi.assertDone();
+		expect(result.selections[0]).toEqual({
+			title: "Select an open Objective for next-work recommendation (changed Objectives vs master)",
+			items: [
+				"alpha — changed vs master — 1 branch — latest feature/alpha — max +1 ahead trunk",
+				"charlie — changed vs master — 1 branch — latest feature/charlie — max +3 ahead trunk",
+				"View other open Objectives…",
+			],
+		});
+		expect(result.selections).toHaveLength(1);
+		expect(result.pi.sentUserMessages[0]).toContain("alpha");
+	});
+
+	test("opens a second picker for non-changed Objectives after the changed Objectives menu", async () => {
+		const result = await runObjectiveNext(
+			"",
+			[
+				listStep(["alpha", "bravo", "charlie", "delta"]),
+				diffStep([
+					"M\t.asdl/objectives/alpha/objective.md",
+					"M\t.asdl/objectives/charlie/roadmap.md",
+				].join("\n")),
+			],
+			{ selectIndices: [2, 1] },
+		);
+
+		result.pi.assertDone();
+		expect(result.selections[1]).toEqual({
+			title: "Select an open Objective for next-work recommendation (other open Objectives)",
+			items: [
+				"bravo — 1 branch — latest feature/bravo — max +2 ahead trunk",
+				"delta — 1 branch — latest feature/delta — max +4 ahead trunk",
+			],
+		});
+		expect(result.pi.sentUserMessages[0]).toContain("delta");
+	});
+
+	test("omits the View other choice when all open Objectives changed", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/bravo/objective.md"].join("\n")),
 		]);
 
 		result.pi.assertDone();
-		const items = result.selections[0]?.items ?? [];
-		expect(items).toEqual([
-			"alpha — 1 branch — latest feature/alpha — max +1 ahead trunk",
-			"bravo — 1 branch — latest feature/bravo — max +2 ahead trunk",
-		]);
-		expect(items.some((item) => item.includes("suggested"))).toBe(false);
+		expect(result.selections[0]).toEqual({
+			title: "Select an open Objective for next-work recommendation (changed Objectives vs master)",
+			items: [
+				"alpha — changed vs master — 1 branch — latest feature/alpha — max +1 ahead trunk",
+				"bravo — changed vs master — 1 branch — latest feature/bravo — max +2 ahead trunk",
+			],
+		});
+		expect(result.pi.sentUserMessages[0]).toContain("alpha");
 	});
 
 	test("does not suggest when the changed Objective slug is not open", async () => {
@@ -271,6 +319,26 @@ describe("objective picker suggestion", () => {
 			"bravo — 1 branch — latest feature/bravo — max +2 ahead trunk",
 		]);
 		expect(items.some((item) => item.includes("suggested"))).toBe(false);
+	});
+
+	test("does not claim only Objective changed when a changed slug is not open", async () => {
+		const result = await runObjectiveNext("", [
+			listStep(["alpha", "bravo", "charlie"]),
+			diffStep([
+				"M\t.asdl/objectives/bravo/objective.md",
+				"M\t.asdl/objectives/closed-objective/objective.md",
+			].join("\n")),
+		]);
+
+		result.pi.assertDone();
+		expect(result.selections[0]).toEqual({
+			title: "Select an open Objective for next-work recommendation (changed Objectives vs master)",
+			items: [
+				"bravo — changed vs master — 1 branch — latest feature/bravo — max +2 ahead trunk",
+				"View other open Objectives…",
+			],
+		});
+		expect(result.pi.sentUserMessages[0]).toContain("bravo");
 	});
 
 	test("bypasses suggestion logic when an explicit slug is provided", async () => {
