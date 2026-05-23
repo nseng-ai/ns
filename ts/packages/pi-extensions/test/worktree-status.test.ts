@@ -88,8 +88,8 @@ async function loadFormattedStatus(script: ScriptedExec[]): Promise<{ pi: FakePi
 }
 
 describe("worktree status formatting", () => {
-	test("omits a zero-commit indicator", () => {
-		expect(formatGtStatus({ down: "main", up: "-", commits: "no", dirty: "no" })).toBe("[gt] (↓: main) (↑: -)");
+	test("formats the empty branch icon for zero branch-local commits", () => {
+		expect(formatGtStatus({ down: "main", up: "-", commits: "no", dirty: "no" })).toBe("[gt] (↓: main) (↑: -) ∅");
 	});
 
 	test("formats commits, unknown commits, and dirty state", () => {
@@ -100,13 +100,13 @@ describe("worktree status formatting", () => {
 			"[gt] (↓: main) (↑: -) (commits: ?)",
 		);
 		expect(formatGtStatus({ down: "main", up: "-", commits: "no", dirty: "yes" })).toBe(
-			"[gt] (↓: main) (↑: -) (x)",
+			"[gt] (↓: main) (↑: -) ∅ (x)",
 		);
 	});
 });
 
 describe("loadGtStatus", () => {
-	test("uses Graphite parent and omits a zero-commit indicator", async () => {
+	test("uses Graphite parent and shows the empty icon for zero commits", async () => {
 		const { pi, formatted } = await loadFormattedStatus([
 			gtParentStep({ stdout: "main\n" }),
 			gtChildrenStep(),
@@ -115,7 +115,7 @@ describe("loadGtStatus", () => {
 		]);
 
 		pi.assertDone();
-		expect(formatted).toBe("[gt] (↓: main) (↑: -)");
+		expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅");
 	});
 
 	test("uses Graphite parent and shows commits when branch-local commits exist", async () => {
@@ -128,6 +128,7 @@ describe("loadGtStatus", () => {
 
 		pi.assertDone();
 		expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");
+		expect(formatted).not.toContain("∅");
 	});
 
 	test("falls back to the previously checked-out local branch when Graphite parent is unavailable", async () => {
@@ -141,10 +142,10 @@ describe("loadGtStatus", () => {
 		]);
 
 		pi.assertDone();
-		expect(formatted).toBe("[gt] (↓: main) (↑: -)");
+		expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅");
 	});
 
-	test("reports unknown commits when Graphite parent is unavailable", async () => {
+	test("reports unknown commits rather than a false empty branch when no base is found", async () => {
 		const { pi, formatted } = await loadFormattedStatus([
 			gtParentStep({ code: 1, stderr: "not tracked by Graphite" }),
 			step("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], { code: 1, stderr: "no previous checkout" }),
@@ -154,9 +155,10 @@ describe("loadGtStatus", () => {
 
 		pi.assertDone();
 		expect(formatted).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
+		expect(formatted).not.toContain("∅");
 	});
 
-	test("combines dirty state with a zero-commit branch", async () => {
+	test("combines dirty state with empty state", async () => {
 		const { pi, formatted } = await loadFormattedStatus([
 			gtParentStep({ stdout: "main\n" }),
 			gtChildrenStep(),
@@ -165,6 +167,6 @@ describe("loadGtStatus", () => {
 		]);
 
 		pi.assertDone();
-		expect(formatted).toBe("[gt] (↓: main) (↑: -) (x)");
+		expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅ (x)");
 	});
 });

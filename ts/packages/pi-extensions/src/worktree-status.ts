@@ -2,6 +2,7 @@ import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatc
 import { basename, dirname, join, resolve } from "node:path";
 
 const UI_KEY = "worktree-status";
+const EMPTY_BRANCH_ICON = "∅";
 const LOCAL_BRANCH_REF_PREFIX = "refs/heads/";
 const COMMAND_TIMEOUT_MS = 5_000;
 const WATCH_DEBOUNCE_MS = 500;
@@ -699,7 +700,7 @@ export function formatWorktreeStatus(status: WorktreeStatus): string[] {
 }
 
 export function formatGtStatus(status: GtStatus): string {
-	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : "";
+	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
 	const dirty = status.dirty === "yes" ? " (x)" : "";
 	return `[gt] (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
 }
