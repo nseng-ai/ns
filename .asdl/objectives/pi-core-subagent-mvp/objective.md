@@ -14,7 +14,7 @@ This Objective therefore tracks a local extension/package child-session base lay
 
 This Objective covers a local child-session primitive implemented through Pi's extension and package systems:
 
-- Implement a reusable TypeScript helper, tentatively `runChildSession(pi, ctx, options)`, in `ts/packages/pi-extensions/` for use by local Pi extensions.
+- Implement a reusable TypeScript helper, `runChildSession(pi, ctx, options)`, in `ts/packages/pi-extensions/` for use by local Pi extensions.
 - Treat the helper as a local package/export surface, not as a method added to `ExtensionCommandContext`.
 - Wire the local Pi package/plugin surface through `ts/packages/pi-extensions/package.json`, project `.pi/settings.json`, and/or thin `.pi/extensions/*` shims so the extension resources load through normal Pi mechanisms.
 - Launch child sessions by spawning a separate `pi` process in JSON event stream mode with `--mode json -p`.
@@ -84,7 +84,7 @@ Assumptions:
 - The immediate platform need is an awaited function-call primitive for local extension workflows, not an interactive or background subagent system.
 - `pi-subagents` proves the extension/package pattern: parent extension registration, child `pi --mode json` process, injected runtime extension, JSONL event parsing, inspectable artifacts, and structured parent result.
 - A subprocess child runner is acceptable for the MVP and avoids upstream Pi core coupling.
-- A local TypeScript helper/export surface is enough for first consumers in this repository.
+- PR 1 evidence supports that a local TypeScript helper/export surface is enough for first consumers to import and narrow the contract without Pi core changes; runtime behavior still needs later slices.
 - Fresh child context is sufficient when callers include all task context in the prompt.
 - Capture-only terminal tools are enough for structured completion because parent code performs domain side effects after the child returns.
 - Same-worktree child execution is safe for this MVP because child sessions are awaited sequentially.
@@ -109,7 +109,7 @@ Risks:
 
 ## Open Questions
 
-- What exact helper signature should local extensions consume: `runChildSession(pi, ctx, options)`, a factory bound to `pi`, or a registered command/tool wrapper?
+- Should the local helper remain the direct `runChildSession(pi, ctx, options)` function as runtime complexity grows, or should a factory or wrapper be added later?
 - Should child processes default to `--no-extensions` plus explicit runtime extensions, or load normal extensions with child environment flags that make parent orchestration extensions no-op?
 - What is the most robust way to pass terminal tool schemas and result sinks to the child runtime: temp config file, environment variables, or generated runtime extension file?
 - Should the parent create an explicit child session file path up front, or discover the session file from child JSON events/artifacts?

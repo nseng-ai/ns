@@ -20,16 +20,16 @@ Code/spec:
 - [x] Reframe the Objective from Pi core `ctx.runChildSession()` to a local extension/package child-session primitive.
 - [x] Record `pi-subagents` as the architectural precedent: parent extension, child `pi --mode json`, injected child runtime, JSONL parser, inspectable session/artifact path, structured result.
 - [x] Supersede the Pi-monorepo public type export plan and the previous in-process child runtime roadmap.
-- [ ] Add local public TypeScript types in `ts/packages/pi-extensions/src/run-child-session.ts` or a nearby module: terminal statuses, failure statuses, terminal tool definition, options, terminal capture, and result union.
-- [ ] Define the local helper contract, tentatively `runChildSession(pi, ctx, options)`, without monkey-patching Pi's `ExtensionCommandContext`.
+- [x] Add local public TypeScript types in `ts/packages/pi-extensions/src/run-child-session.ts` or a nearby module: terminal statuses, failure statuses, terminal tool definition, options, terminal capture, and result union.
+- [x] Define the local helper contract, `runChildSession(pi, ctx, options)`, without monkey-patching Pi's `ExtensionCommandContext`.
 - [ ] Add or update package/plugin wiring so the local extension resources are discoverable through Pi's supported package/extension mechanisms.
-- [ ] Add a type-only or fake-driven test proving the local type/helper surface is consumable from local extension code.
+- [x] Add a type-only or fake-driven test proving the local type/helper surface is consumable from local extension code.
 
 Objective update:
 
 - [x] Record a Semantic Update for the strategy pivot from Pi core to extension/package layer.
 - [x] Mark the old public Pi core type-surface plan as superseded, not complete.
-- [ ] Mark local type/helper surface complete only after code lands in `ts/packages/pi-extensions`.
+- [x] Mark local type/helper surface complete only after code lands in `ts/packages/pi-extensions`.
 
 Likely files:
 
@@ -44,8 +44,8 @@ Likely files:
 
 Validation:
 
-- [ ] Run the targeted TypeScript package check or explain any existing workspace setup blocker.
-- [ ] Run targeted tests for the new local helper/type surface if a test file is added.
+- [x] Run the targeted TypeScript package check or explain any existing workspace setup blocker.
+- [x] Run targeted tests for the new local helper/type surface if a test file is added.
 
 ### PR 2 — Child process runner and JSON event parser
 
