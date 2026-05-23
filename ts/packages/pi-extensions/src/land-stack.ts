@@ -1,6 +1,19 @@
 import { existsSync, realpathSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
+import {
+	formatCommand,
+	formatOutputSection,
+	normalizeExecResult,
+	stripTerminalEscapes,
+	tailText,
+	type ExecResult,
+	type PiExecResultLike,
+} from "./command-runtime.ts";
+
+export { formatCommand } from "./command-runtime.ts";
+export type { ExecResult } from "./command-runtime.ts";
+
 const COMMAND_NAME = "land-stack";
 const STATUS_KEY = "land-stack";
 const COMMAND_STREAM_MESSAGE_TYPE = "land-stack-command-stream";
@@ -21,20 +34,6 @@ const MAX_OUTPUT_TAIL_CHARS = 4_000;
 const MAX_COMMAND_STREAM_OUTPUT_LINES = 4;
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
-
-export type ExecResult = {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed: boolean;
-};
-
-type PiExecResult = {
-	stdout?: string;
-	stderr?: string;
-	code: number;
-	killed?: boolean;
-};
 
 export type AutocompleteItem = {
 	value: string;
@@ -88,7 +87,7 @@ export type ExtensionAPI = {
 		message: CustomMessage,
 		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
 	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResult>;
+	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResultLike>;
 };
 
 export type ParsedArgs = {
@@ -1349,7 +1348,7 @@ function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackCommandS
 			commandStream.start(commandDisplay);
 			try {
 				const rawResult = await pi.exec(command, args, options);
-				const normalizedResult = normalizePiExecResult(rawResult);
+				const normalizedResult = normalizeExecResult(rawResult);
 				const finish = normalizeCommandFinish(command, args, normalizedResult);
 				commandStream.finish(commandDisplay, finish);
 				return finish.result;
@@ -1359,15 +1358,6 @@ function withCommandStreaming(pi: ExtensionAPI, commandStream: LandStackCommandS
 				throw error;
 			}
 		},
-	};
-}
-
-function normalizePiExecResult(result: PiExecResult): ExecResult {
-	return {
-		stdout: result.stdout ?? "",
-		stderr: result.stderr ?? "",
-		code: result.code,
-		killed: Boolean(result.killed),
 	};
 }
 
@@ -1527,7 +1517,7 @@ async function exec(pi: ExtensionAPI, command: string, args: string[], cwd: stri
 
 async function execRaw(pi: ExtensionAPI, command: string, args: string[], cwd: string, timeout: number): Promise<ExecResult> {
 	try {
-		return normalizePiExecResult(await pi.exec(command, args, { cwd, timeout }));
+		return normalizeExecResult(await pi.exec(command, args, { cwd, timeout }));
 	} catch (error) {
 		return {
 			stdout: "",
@@ -1554,37 +1544,15 @@ function formatCommandDetails(result: ExecResult, commandDisplay?: string): stri
 		lines.push(`$ ${commandDisplay}`);
 	}
 	lines.push(`exit ${result.code}${killed}`);
-	lines.push(formatOutputSection("stdout", result.stdout));
-	lines.push(formatOutputSection("stderr", result.stderr));
+	lines.push(formatOutputSection("stdout", result.stdout, { maxLines: MAX_OUTPUT_TAIL_LINES, maxChars: MAX_OUTPUT_TAIL_CHARS }));
+	lines.push(formatOutputSection("stderr", result.stderr, { maxLines: MAX_OUTPUT_TAIL_LINES, maxChars: MAX_OUTPUT_TAIL_CHARS }));
 	return lines.join("\n");
-}
-
-function formatOutputSection(name: "stdout" | "stderr", output: string): string {
-	const tail = outputTail(stripAnsi(output).replace(/\r/g, "\n"));
-	return [`----- ${name} tail -----`, tail || "(empty)"].join("\n");
 }
 
 export function outputTail(output: string): string {
 	const trimmed = output.trimEnd();
 	if (!trimmed) return "";
-	const lines = trimmed.split("\n");
-	let tail = lines.slice(-MAX_OUTPUT_TAIL_LINES).join("\n");
-	if (tail.length > MAX_OUTPUT_TAIL_CHARS) {
-		tail = `…${tail.slice(-MAX_OUTPUT_TAIL_CHARS)}`;
-	}
-	if (lines.length > MAX_OUTPUT_TAIL_LINES) {
-		return `… ${lines.length - MAX_OUTPUT_TAIL_LINES} earlier line(s) omitted\n${tail}`;
-	}
-	return tail;
-}
-
-export function formatCommand(command: string, args: string[]): string {
-	return [command, ...args].map(shellQuoteForDisplay).join(" ");
-}
-
-function shellQuoteForDisplay(value: string): string {
-	if (/^[A-Za-z0-9_./:=@%+-]+$/.test(value)) return value;
-	return `'${value.replaceAll("'", `'\\''`)}'`;
+	return tailText(trimmed, { maxLines: MAX_OUTPUT_TAIL_LINES, maxChars: MAX_OUTPUT_TAIL_CHARS });
 }
 
 function firstNonEmptyLine(output: string): string | undefined {
@@ -1656,7 +1624,7 @@ function emptyResult(): ExecResult {
 }
 
 export function stripAnsi(text: string): string {
-	return text.replace(/\x1B(?:\][^\x07]*(?:\x07|\x1B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, "");
+	return stripTerminalEscapes(text);
 }
 
 function errorMessage(error: unknown): string {

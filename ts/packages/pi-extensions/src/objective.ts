@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+
+export type { ExecResult } from "./command-runtime.ts";
+
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
@@ -16,13 +20,6 @@ const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--current", "--names", "--view", "--hel
 const OBJECTIVE_LIST_VIEW_VALUES = ["list", "detail"] as const;
 
 export type NotifyLevel = "info" | "warning" | "error";
-
-export type ExecResult = {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed: boolean;
-};
 
 export type AutocompleteItem = {
 	value: string;
@@ -175,11 +172,12 @@ function stripFrontmatter(markdown: string): string {
 }
 
 function truncateTail(text: string, maxChars: number): string {
-	if (text.length <= maxChars) {
+	const tail = tailText(text, { maxChars });
+	if (tail === text) {
 		return text;
 	}
 
-	return `[Output truncated to the last ${maxChars} characters.]\n\n${text.slice(text.length - maxChars)}`;
+	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -321,18 +319,6 @@ function objectiveSlugFromPath(path: string): string | undefined {
 
 	const slug = parts[2];
 	return slug ? slug : undefined;
-}
-
-function formatCommand(command: string, args: string[]): string {
-	return [command, ...args].map(shellQuote).join(" ");
-}
-
-function shellQuote(value: string): string {
-	if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) {
-		return value;
-	}
-
-	return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 function formatExecFailure(commandDisplay: string, result: ExecResult): string {
