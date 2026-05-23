@@ -99,7 +99,7 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function createContext(options: { cancelSelect?: boolean; selectIndex?: number } = {}): {
+function createContext(options: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {}): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	selections: Selection[];
@@ -117,11 +117,12 @@ function createContext(options: { cancelSelect?: boolean; selectIndex?: number }
 				notifications.push({ message, level });
 			},
 			async select(title: string, items: string[]): Promise<string | undefined> {
+				const callIndex = selections.length;
 				selections.push({ title, items: [...items] });
 				if (options.cancelSelect) {
 					return undefined;
 				}
-				return items[options.selectIndex ?? 0];
+				return items[options.selectIndices?.[callIndex] ?? options.selectIndex ?? 0];
 			},
 			setStatus(): void {},
 		},
@@ -136,7 +137,7 @@ function createContext(options: { cancelSelect?: boolean; selectIndex?: number }
 async function runObjectiveNext(
 	args: string,
 	script: ScriptedExec[],
-	contextOptions: { cancelSelect?: boolean; selectIndex?: number } = {},
+	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -203,23 +204,43 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 });
 
 describe("objective picker suggestion", () => {
-	test("puts exactly one changed open Objective first and labels it as suggested", async () => {
+	test("shows only the one changed open Objective before offering the rest", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
 		]);
 
 		result.pi.assertDone();
-		const items = result.selections[0]?.items ?? [];
-		expect(items[0]).toBe(
-			"bravo — suggested: only Objective changed vs master — 1 branch — latest feature/bravo — max +2 ahead trunk",
-		);
-		expect(items[1]).toBe("alpha — 1 branch — latest feature/alpha — max +1 ahead trunk");
-		expect(items[2]).toBe("charlie — 1 branch — latest feature/charlie — max +3 ahead trunk");
+		expect(result.selections[0]).toEqual({
+			title: "Select an open Objective for next-work recommendation (only Objective changed vs master)",
+			items: [
+				"bravo — suggested: only Objective changed vs master — 1 branch — latest feature/bravo — max +2 ahead trunk",
+				"View other open Objectives…",
+			],
+		});
+		expect(result.selections).toHaveLength(1);
 		expect(result.pi.sentUserMessages[0]).toContain("bravo");
 		expect(result.notifications.some((notification) => notification.message === "Suggested bravo from objective diff vs master.")).toBe(
-			true,
+			false,
 		);
+	});
+
+	test("opens a second picker for the other Objectives when requested", async () => {
+		const result = await runObjectiveNext(
+			"",
+			[listStep(["alpha", "bravo", "charlie"]), diffStep("M\t.asdl/objectives/bravo/objective.md\n")],
+			{ selectIndices: [1, 1] },
+		);
+
+		result.pi.assertDone();
+		expect(result.selections[1]).toEqual({
+			title: "Select an open Objective for next-work recommendation (other open Objectives)",
+			items: [
+				"alpha — 1 branch — latest feature/alpha — max +1 ahead trunk",
+				"charlie — 1 branch — latest feature/charlie — max +3 ahead trunk",
+			],
+		});
+		expect(result.pi.sentUserMessages[0]).toContain("charlie");
 	});
 
 	test("does not suggest when multiple Objective slugs changed", async () => {

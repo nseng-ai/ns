@@ -6,6 +6,7 @@ const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
+const VIEW_OTHER_OBJECTIVES_CHOICE = "View other open Objectives…";
 
 const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--current] [--names] [--view list|detail] [--help]
 
@@ -83,6 +84,7 @@ type ObjectiveCommandSpec = {
 	selectionTitle: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
+	compactDiffSuggestion?: boolean;
 };
 
 export type ObjectiveBranchEntry = {
@@ -143,6 +145,7 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		fallbackPrompt:
 			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below without mutating files.",
 		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
+		compactDiffSuggestion: true,
 	},
 	{
 		commandName: "objective-current",
@@ -530,6 +533,72 @@ function objectiveGroupsWithSuggestionFirst(
 	return [suggested, ...groups.filter((group) => group.slug !== suggestion.slug)];
 }
 
+function objectiveChoiceMap(
+	groups: ObjectiveListGroup[],
+	suggestion: ObjectiveDiffSuggestion | undefined,
+): Map<string, string> {
+	const choices = new Map<string, string>();
+	for (const group of groups) {
+		choices.set(formatObjectiveChoice(group, suggestion), group.slug);
+	}
+	return choices;
+}
+
+async function selectObjectiveSlug(
+	ctx: CommandContext,
+	title: string,
+	groups: ObjectiveListGroup[],
+	suggestion: ObjectiveDiffSuggestion | undefined,
+): Promise<string | undefined> {
+	const choices = objectiveChoiceMap(groups, suggestion);
+	const selected = await ctx.ui.select(title, [...choices.keys()]);
+	if (!selected) {
+		ctx.ui.notify("Objective selection cancelled.", "info");
+		return undefined;
+	}
+
+	const slug = choices.get(selected);
+	if (!slug) {
+		ctx.ui.notify("Objective selection could not be resolved.", "error");
+		return undefined;
+	}
+
+	return slug;
+}
+
+async function selectSuggestedObjectiveOrOther(
+	ctx: CommandContext,
+	spec: ObjectiveCommandSpec,
+	objectiveList: ObjectiveList,
+	suggestion: ObjectiveDiffSuggestion,
+): Promise<string | undefined> {
+	const suggested = objectiveList.groups.find((group) => group.slug === suggestion.slug);
+	if (!suggested) {
+		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.groups, suggestion);
+	}
+
+	const otherGroups = objectiveList.groups.filter((group) => group.slug !== suggestion.slug);
+	const choices = [formatObjectiveChoice(suggested, suggestion)];
+	if (otherGroups.length > 0) {
+		choices.push(VIEW_OTHER_OBJECTIVES_CHOICE);
+	}
+
+	const selected = await ctx.ui.select(
+		`${spec.selectionTitle} (only Objective changed vs ${suggestion.trunkBranch})`,
+		choices,
+	);
+	if (!selected) {
+		ctx.ui.notify("Objective selection cancelled.", "info");
+		return undefined;
+	}
+
+	if (selected !== VIEW_OTHER_OBJECTIVES_CHOICE) {
+		return suggestion.slug;
+	}
+
+	return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other open Objectives)`, otherGroups, undefined);
+}
+
 async function invokeObjectiveSkill(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
@@ -571,24 +640,22 @@ async function chooseObjectiveAndInvoke(
 	}
 
 	const suggestion = await objectiveDiffSuggestion(pi, ctx, objectiveList, spec);
-	if (suggestion) {
-		ctx.ui.notify(`Suggested ${suggestion.slug} from objective diff vs ${suggestion.trunkBranch}.`, "info");
+	let slug: string | undefined;
+	if (suggestion && spec.compactDiffSuggestion) {
+		slug = await selectSuggestedObjectiveOrOther(ctx, spec, objectiveList, suggestion);
+	} else {
+		if (suggestion) {
+			ctx.ui.notify(`Suggested ${suggestion.slug} from objective diff vs ${suggestion.trunkBranch}.`, "info");
+		}
+		slug = await selectObjectiveSlug(
+			ctx,
+			spec.selectionTitle,
+			objectiveGroupsWithSuggestionFirst(objectiveList.groups, suggestion),
+			suggestion,
+		);
 	}
 
-	const choices = new Map<string, string>();
-	for (const group of objectiveGroupsWithSuggestionFirst(objectiveList.groups, suggestion)) {
-		choices.set(formatObjectiveChoice(group, suggestion), group.slug);
-	}
-
-	const selected = await ctx.ui.select(spec.selectionTitle, [...choices.keys()]);
-	if (!selected) {
-		ctx.ui.notify("Objective selection cancelled.", "info");
-		return;
-	}
-
-	const slug = choices.get(selected);
 	if (!slug) {
-		ctx.ui.notify("Objective selection could not be resolved.", "error");
 		return;
 	}
 
