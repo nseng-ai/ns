@@ -23,6 +23,10 @@ Canonical root only:
 
 Do not use `docs/objectives/`.
 
+## Slug identity
+
+The `<slug>` directory name is the durable Objective identity. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate `.asdl/objectives/<slug>/` under a new slug unless the user explicitly asks for an Objective slug migration.
+
 ## Files
 
 `objective.md` contains durable purpose, boundaries, criteria, assumptions, risks, open questions, and closure context. Required headings:
@@ -58,7 +62,7 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --names` (or `objective list --format md` for the full table) to enumerate candidate open Objectives across local branch tips and ask the user to choose. Use `objective list --current` to filter to Objectives associated with the current branch.
+2. If no slug or path is explicit, run `objective list --format md` to enumerate candidate open Objectives across local branch tips and ask the user to choose. Use `objective list --current --format md` to filter to Objectives associated with the current branch. Use `objective list --names` only for machine-readable slug extraction.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one open Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple open Objectives exist, ask instead.

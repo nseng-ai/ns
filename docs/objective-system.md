@@ -32,6 +32,8 @@ Rules:
 - `.asdl/objectives/` is first-class repository content and should be committed.
 - The `<slug>` directory name is the stable objective identity.
 - The markdown title may change without changing objective identity.
+- Command, product, branch, package, and prose renames do not imply Objective slug renames.
+- Moving `.asdl/objectives/<old>/` to `.asdl/objectives/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
 - Do not add YAML frontmatter, UUIDs, registries, or hidden attachment metadata.
 - V1 starts fresh from `.asdl/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
