@@ -8,8 +8,8 @@ Phase 0 — scaffold
 
 Phase 0.5 — rebaseline after repo thrash
 
-- [ ] Update `/CONTEXT-MAP.md` against the current tracked package inventory: link the existing root `CONTEXT.md`, add `packagechk` as the seventh in-scope package context, keep `asdl-dispatcher` as the only tracked out-of-scope package while it has no operations, and remove or reword `asdl-initiatives` as an absent package rather than a package skip.
-- [ ] Update the scaffold's candidate Relationships and Flagged ambiguities: remove stale expected edges without import/runtime evidence (notably `asdl-objectives → brmem`), record `packagechk` as standalone/no-`asdl-core` edge, and add the `CheckStatus` vs PR state/rendered state-badge collision candidate.
+- [x] Update `/CONTEXT-MAP.md` against the current tracked package inventory — map now links the existing root `CONTEXT.md`, lists `packagechk` as the seventh in-scope package context, keeps `asdl-dispatcher` as the only tracked out-of-scope package while it has no operations, and frames `asdl-initiatives` as an absent/historical name rather than a tracked package skip.
+- [x] Update the scaffold's candidate Relationships and Flagged ambiguities — map now removes the stale `asdl-objectives → brmem` storage edge, records `packagechk` as standalone/no-`asdl-core`, and expands the State/status ambiguity candidate to include `packagechk.CheckStatus` / `PackageCheckReport.exit_code` alongside PR state and rendered state badges.
 
 Phase 1 — finish `packages/asdl-core/CONTEXT.md` (append H2 sections to existing file)
 
