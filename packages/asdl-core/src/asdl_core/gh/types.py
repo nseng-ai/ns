@@ -125,6 +125,20 @@ class PRReviewSubmission:
 
 
 @dataclass(frozen=True)
+class PRDiscussionComment:
+    """A top-level PR discussion comment.
+
+    GitHub stores these through issue-comment API endpoints, but this type is
+    named for the PR-domain concept exposed by the core gateway.
+    """
+
+    id: int
+    body: str
+    author: str
+    url: str
+
+
+@dataclass(frozen=True)
 class IssueComment:
     """A comment on a GitHub issue or PR discussion thread."""
 
@@ -180,6 +194,7 @@ class PRSummary:
     base_ref_name: str
     state: PRState
     body: str | None = None
+    head_ref_oid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -190,6 +205,14 @@ class PRDetails:
     head_ref_name: str
     base_ref_name: str
     head_ref_oid: str
+
+
+@dataclass(frozen=True)
+class PRMergeOutcome:
+    """Successful guarded merge or auto-merge outcome for a PR."""
+
+    number: int
+    auto: bool
 
 
 @dataclass(frozen=True)
@@ -220,6 +243,40 @@ class PRCommandError:
 
     stderr: str
     returncode: int
+
+
+@dataclass(frozen=True)
+class PRLookupMiss(PRLookupError):
+    """Successful negative lookup: no PR matched the requested branch or key.
+
+    Temporarily subclasses ``PRLookupError`` so existing PRGateway consumers
+    that still branch on the old compatibility type stay green until they move
+    to the unified PR-domain result types.
+    """
+
+    stderr: str = "no PR found"
+    returncode: int = 1
+
+
+@dataclass(frozen=True)
+class PRGatewayFailure(PRLookupError, PRCommandError):
+    """Failure while invoking gh/GitHub/auth/network/API operations.
+
+    Temporarily subclasses the old error types so current consumers can keep
+    recognizing failures while new PRGateway code switches to this name.
+    """
+
+    stderr: str
+    returncode: int
+    stdout: str = ""
+
+
+@dataclass(frozen=True)
+class PRReviewThreadState:
+    """Post-mutation state for a PR review thread."""
+
+    thread_id: str
+    is_resolved: bool
 
 
 @dataclass(frozen=True)
