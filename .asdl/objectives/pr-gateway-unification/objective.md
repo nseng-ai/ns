@@ -74,6 +74,8 @@ Risks:
 - Updating `repo-ontology` Objective files from this stack can blur Objective ownership. Mitigation: only update that Objective when the code refactor materially changes Gh-context completion evidence or follow-ups; keep `pr-gateway-unification` as the implementation Objective.
 - Public skills must not mention internal class/module names. Any skill/doc updates must describe CLI operations and user-facing behavior rather than `asdl_core.gh` internals unless the skill is internal.
 
+PR 1 evidence de-risks the additive core gateway shape: real and fake core tests now cover the unified PRGateway surface, PR discussion comment parsing, review creation author parsing, review-thread post-state parsing, `PRSummary.head_ref_oid` population, and guarded merge success/failure result semantics. Consumer migrations, final deletion, live breadth, and CLI output-field decisions remain active risks or follow-ups for later PRs.
+
 ## Open Questions
 
 - During migration, should old CLI JSON keys such as `was_already_resolved` be removed immediately in the `asdl-pr-address` PR, or temporarily mirrored with a deprecation note while adding the new post-state field?

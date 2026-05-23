@@ -1,15 +1,26 @@
-"""Test utilities for the narrow PRGateway."""
+"""Test utilities for the unified PRGateway."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import replace
+
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import (
-    PRCommandError,
+    PRChangedFile,
     PRDetails,
-    PRLookupError,
-    PRMergeResult,
+    PRDiscussionComment,
+    PRGatewayFailure,
+    PRInlineCommentInput,
+    PRLookupMiss,
+    PRMergeOutcome,
+    PRReview,
+    PRReviewComment,
+    PRReviewThread,
+    PRReviewThreadState,
     PRStateFilter,
     PRSummary,
+    Reaction,
 )
 
 
@@ -19,62 +30,112 @@ class FakePRGateway(PRGateway):
     def __init__(
         self,
         *,
+        discussion_comments: dict[int, Sequence[PRDiscussionComment]] | None = None,
+        reviews: dict[int, Sequence[PRReview]] | None = None,
+        review_threads: dict[int, Sequence[PRReviewThread]] | None = None,
+        pr_changed_files: dict[int, Sequence[PRChangedFile]] | None = None,
+        pr_review_comments: dict[int, Sequence[PRReviewComment]] | None = None,
         prs_by_branch: dict[str, PRSummary] | None = None,
         pr_details_by_branch: dict[str, PRDetails] | None = None,
-        prs: tuple[PRSummary, ...] = (),
-        search_failure: PRLookupError | None = None,
-        merge_failure: PRCommandError | None = None,
+        prs: Sequence[PRSummary] = (),
+        search_failure: PRGatewayFailure | None = None,
+        merge_failure: PRGatewayFailure | None = None,
     ) -> None:
+        self._discussion_comments: dict[int, list[PRDiscussionComment]] = {
+            pr_number: list(entries) for pr_number, entries in (discussion_comments or {}).items()
+        }
+        self._reviews = {
+            pr_number: tuple(entries) for pr_number, entries in (reviews or {}).items()
+        }
+        self._review_threads: dict[int, list[PRReviewThread]] = {
+            pr_number: list(entries) for pr_number, entries in (review_threads or {}).items()
+        }
+        self._pr_changed_files = {
+            pr_number: tuple(entries) for pr_number, entries in (pr_changed_files or {}).items()
+        }
+        self._pr_review_comments: dict[int, list[PRReviewComment]] = {
+            pr_number: list(entries) for pr_number, entries in (pr_review_comments or {}).items()
+        }
         self._prs_by_branch = prs_by_branch or {}
         self._pr_details_by_branch = pr_details_by_branch or {}
-        self._prs = prs
+        self._prs = tuple(prs)
         self._search_failure = search_failure
         self._merge_failure = merge_failure
+        self._next_comment_id = 1
+        self._next_reaction_id = 1
+
+        self._resolved_thread_ids: list[str] = []
+        self._unresolved_thread_ids: list[str] = []
+        self._thread_replies: list[tuple[str, str]] = []
+        self._comments: list[tuple[int, str]] = []
+        self._created_reviews: list[tuple[int, tuple[PRInlineCommentInput, ...]]] = []
+        self._updated_comments: list[tuple[int, str]] = []
+        self._reactions: list[tuple[int, str]] = []
         self._merge_calls: list[tuple[int, str, bool, bool]] = []
 
-    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupError:
+    # -- PR queries --
+
+    def get_pr_for_branch(self, branch: str) -> PRSummary | PRLookupMiss:
         pr = self._prs_by_branch.get(branch)
         if pr is None:
-            return PRLookupError(stderr="no PR found", returncode=1)
+            return PRLookupMiss()
         return pr
 
-    def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupError:
+    def get_pr_details_for_branch(self, branch: str) -> PRDetails | PRLookupMiss:
         """Return seeded ``PRDetails`` or synthesize from a ``PRSummary``.
 
         When only a ``PRSummary`` is seeded, the synthesized ``PRDetails`` uses
-        ``head_ref_oid="HEAD"`` as a placeholder. Tests exercising the
-        local-HEAD-vs-PR-head guardrail must seed ``pr_details_by_branch``
-        explicitly so the OID matches what ``FakeGitGateway.branch_head_oid``
-        returns; otherwise the synthesized ``"HEAD"`` will not match.
+        ``summary.head_ref_oid`` when present and ``"HEAD"`` as a temporary
+        compatibility placeholder otherwise.
         """
         pr = self._pr_details_by_branch.get(branch)
         if pr is not None:
             return pr
         summary = self._prs_by_branch.get(branch)
         if summary is None:
-            return PRLookupError(stderr="no PR found", returncode=1)
+            return PRLookupMiss()
         return PRDetails(
             number=summary.number,
             head_ref_name=summary.head_ref_name,
             base_ref_name=summary.base_ref_name,
-            head_ref_oid="HEAD",
+            head_ref_oid=summary.head_ref_oid or "HEAD",
         )
 
     def search_prs(
         self, query: str, *, state: PRStateFilter
-    ) -> tuple[PRSummary, ...] | PRLookupError:
+    ) -> tuple[PRSummary, ...] | PRGatewayFailure:
         if self._search_failure is not None:
             return self._search_failure
-        # Filter by lifecycle state first; "all" disables the state filter.
         if state == "all":
             scoped = self._prs
         else:
             scoped = tuple(pr for pr in self._prs if pr.state == state.upper())
-        # Match by case-insensitive substring of any whitespace-split token.
-        terms = [t.lower() for t in query.split() if t]
+        terms = [term.lower() for term in query.split() if term]
         if not terms:
             return scoped
-        return tuple(pr for pr in scoped if any(t in pr.title.lower() for t in terms))
+        return tuple(pr for pr in scoped if any(term in pr.title.lower() for term in terms))
+
+    def get_review_threads(
+        self, pr_number: int, *, include_resolved: bool = False
+    ) -> tuple[PRReviewThread, ...]:
+        threads = self._review_threads.get(pr_number, [])
+        if not include_resolved:
+            threads = [thread for thread in threads if not thread.is_resolved]
+        return tuple(threads)
+
+    def get_reviews(self, pr_number: int) -> tuple[PRReview, ...]:
+        return tuple(self._reviews.get(pr_number, ()))
+
+    def get_pr_changed_files(self, pr_number: int) -> tuple[PRChangedFile, ...]:
+        return tuple(self._pr_changed_files.get(pr_number, ()))
+
+    def get_pr_review_comments(self, pr_number: int) -> tuple[PRReviewComment, ...]:
+        return tuple(self._pr_review_comments.get(pr_number, ()))
+
+    def get_discussion_comments(self, pr_number: int) -> tuple[PRDiscussionComment, ...]:
+        return tuple(self._discussion_comments.get(pr_number, ()))
+
+    # -- PR mutations --
 
     def merge_pr(
         self,
@@ -83,11 +144,149 @@ class FakePRGateway(PRGateway):
         match_head_commit: str,
         admin: bool,
         auto: bool,
-    ) -> PRMergeResult | PRCommandError:
+    ) -> PRMergeOutcome | PRGatewayFailure:
         self._merge_calls.append((pr_number, match_head_commit, admin, auto))
         if self._merge_failure is not None:
             return self._merge_failure
-        return PRMergeResult(number=pr_number, auto=auto)
+        return PRMergeOutcome(number=pr_number, auto=auto)
+
+    def resolve_review_thread(self, thread_id: str) -> PRReviewThreadState:
+        self._resolved_thread_ids.append(thread_id)
+        self._set_thread_resolution(thread_id, is_resolved=True)
+        return PRReviewThreadState(thread_id=thread_id, is_resolved=True)
+
+    def unresolve_review_thread(self, thread_id: str) -> PRReviewThreadState:
+        self._unresolved_thread_ids.append(thread_id)
+        self._set_thread_resolution(thread_id, is_resolved=False)
+        return PRReviewThreadState(thread_id=thread_id, is_resolved=False)
+
+    def add_review_thread_reply(self, thread_id: str, body: str) -> PRReviewComment:
+        comment_id = self._next_comment_id
+        self._next_comment_id += 1
+        self._thread_replies.append((thread_id, body))
+        reply = PRReviewComment(
+            id=comment_id,
+            body=body,
+            author="github-actions[bot]",
+            path="",
+            line=None,
+            created_at="",
+        )
+        self._append_reply_to_seeded_thread(thread_id, reply)
+        return reply
+
+    def create_pr_review(
+        self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
+    ) -> PRReview:
+        self._created_reviews.append((pr_number, comments))
+        existing = self._pr_review_comments.setdefault(pr_number, [])
+        for comment in comments:
+            comment_id = self._next_comment_id
+            self._next_comment_id += 1
+            existing.append(
+                PRReviewComment(
+                    id=comment_id,
+                    body=comment.body,
+                    author="github-actions[bot]",
+                    path=comment.path,
+                    line=comment.line,
+                    created_at="",
+                )
+            )
+        review = PRReview(
+            id=f"fake-review-{len(self._created_reviews)}",
+            author="github-actions[bot]",
+            state="COMMENTED",
+            body="",
+            submitted_at="",
+        )
+        self._reviews.setdefault(pr_number, ())
+        self._reviews[pr_number] = (*self._reviews[pr_number], review)
+        return review
+
+    def add_comment(self, pr_number: int, body: str) -> PRDiscussionComment:
+        comment_id = self._next_comment_id
+        self._next_comment_id += 1
+        self._comments.append((pr_number, body))
+        comment = PRDiscussionComment(
+            id=comment_id,
+            body=body,
+            author="github-actions[bot]",
+            url=f"https://github.com/fake/fake/pull/{pr_number}#issuecomment-{comment_id}",
+        )
+        self._discussion_comments.setdefault(pr_number, []).append(comment)
+        return comment
+
+    def find_comment_by_marker(
+        self, pr_number: int, marker: str, author_login: str
+    ) -> PRDiscussionComment | None:
+        for comment in self._discussion_comments.get(pr_number, ()):  # pragma: no branch
+            if comment.author == author_login and marker in comment.body:
+                return comment
+        return None
+
+    def update_comment(self, comment_id: int, body: str) -> PRDiscussionComment:
+        for comments in self._discussion_comments.values():
+            for index, comment in enumerate(comments):
+                if comment.id == comment_id:
+                    updated = PRDiscussionComment(
+                        id=comment.id,
+                        body=body,
+                        author=comment.author,
+                        url=comment.url,
+                    )
+                    comments[index] = updated
+                    self._updated_comments.append((comment_id, body))
+                    return updated
+        raise KeyError(f"no fake PR discussion comment with id {comment_id}")
+
+    def add_reaction(self, comment_id: int, reaction: str) -> Reaction:
+        reaction_id = self._next_reaction_id
+        self._next_reaction_id += 1
+        self._reactions.append((comment_id, reaction))
+        return Reaction(id=reaction_id, comment_id=comment_id, content=reaction)
+
+    def _set_thread_resolution(self, thread_id: str, *, is_resolved: bool) -> None:
+        for _pr_number, threads in self._review_threads.items():
+            for index, thread in enumerate(threads):
+                if thread.id == thread_id:
+                    threads[index] = replace(thread, is_resolved=is_resolved)
+                    return
+
+    def _append_reply_to_seeded_thread(self, thread_id: str, reply: PRReviewComment) -> None:
+        for threads in self._review_threads.values():
+            for index, thread in enumerate(threads):
+                if thread.id == thread_id:
+                    threads[index] = replace(thread, comments=(*thread.comments, reply))
+                    return
+
+    @property
+    def resolved_thread_ids(self) -> tuple[str, ...]:
+        return tuple(self._resolved_thread_ids)
+
+    @property
+    def unresolved_thread_ids(self) -> tuple[str, ...]:
+        return tuple(self._unresolved_thread_ids)
+
+    @property
+    def thread_replies(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self._thread_replies)
+
+    @property
+    def comments(self) -> tuple[tuple[int, str], ...]:
+        return tuple(self._comments)
+
+    @property
+    def created_reviews(self) -> tuple[tuple[int, tuple[PRInlineCommentInput, ...]], ...]:
+        return tuple(self._created_reviews)
+
+    @property
+    def updated_comments(self) -> tuple[tuple[int, str], ...]:
+        return tuple(self._updated_comments)
+
+    @property
+    def reactions(self) -> tuple[tuple[int, str], ...]:
+        return tuple(self._reactions)
 
     @property
     def merge_calls(self) -> tuple[tuple[int, str, bool, bool], ...]:

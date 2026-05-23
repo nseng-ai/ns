@@ -5,9 +5,16 @@ import pytest
 from asdl_core.gh.types import (
     Issue,
     IssueComment,
+    PRDiscussionComment,
+    PRGatewayFailure,
+    PRLookupError,
+    PRLookupMiss,
+    PRMergeOutcome,
     PRReview,
     PRReviewComment,
     PRReviewThread,
+    PRReviewThreadState,
+    PRSummary,
 )
 
 
@@ -115,6 +122,74 @@ def test_pr_review_construction():
     )
     assert review.state == "APPROVED"
     assert review.author == "reviewer"
+
+
+def test_pr_discussion_comment_construction_and_freeze() -> None:
+    comment = PRDiscussionComment(
+        id=456,
+        body="Great work",
+        author="commenter",
+        url="https://github.com/org/repo/pull/1#issuecomment-456",
+    )
+    assert comment.id == 456
+    assert comment.url.startswith("https://")
+    with pytest.raises(AttributeError):
+        # Test subject: mutating a frozen field.
+        comment.body = "changed"  # type: ignore[misc]
+
+
+def test_pr_lookup_miss_is_old_lookup_error_compatibility() -> None:
+    miss = PRLookupMiss()
+    assert isinstance(miss, PRLookupError)
+    assert miss.returncode == 1
+
+
+def test_pr_gateway_failure_preserves_diagnostics() -> None:
+    failure = PRGatewayFailure(stderr="gh auth failed", returncode=4, stdout="debug")
+    assert isinstance(failure, PRLookupError)
+    assert failure.stderr == "gh auth failed"
+    assert failure.returncode == 4
+    assert failure.stdout == "debug"
+
+
+def test_pr_review_thread_state_construction_and_freeze() -> None:
+    state = PRReviewThreadState(thread_id="PRRT_1", is_resolved=True)
+    assert state.thread_id == "PRRT_1"
+    assert state.is_resolved is True
+    with pytest.raises(AttributeError):
+        # Test subject: mutating a frozen field.
+        state.is_resolved = False  # type: ignore[misc]
+
+
+def test_pr_merge_outcome_construction() -> None:
+    outcome = PRMergeOutcome(number=47, auto=True)
+    assert outcome.number == 47
+    assert outcome.auto is True
+
+
+def test_pr_summary_head_ref_oid_defaults_to_none() -> None:
+    summary = PRSummary(
+        number=47,
+        title="Add feature",
+        url="https://github.com/org/repo/pull/47",
+        head_ref_name="feature",
+        base_ref_name="main",
+        state="OPEN",
+    )
+    assert summary.head_ref_oid is None
+
+
+def test_pr_summary_head_ref_oid_can_be_populated() -> None:
+    summary = PRSummary(
+        number=47,
+        title="Add feature",
+        url="https://github.com/org/repo/pull/47",
+        head_ref_name="feature",
+        base_ref_name="main",
+        state="OPEN",
+        head_ref_oid="abc123",
+    )
+    assert summary.head_ref_oid == "abc123"
 
 
 def test_issue_comment_construction():

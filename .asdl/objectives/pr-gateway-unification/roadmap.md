@@ -2,11 +2,12 @@
 
 ## Work
 
-- [ ] PR 1 — Add unified core Gh API while keeping old names temporarily
+- [x] PR 1 — Add unified core Gh API while keeping old names temporarily
   - Add the new/reshaped PR-domain types: `PRDiscussionComment`, `PRLookupMiss`, `PRGatewayFailure`, `PRReviewThreadState`, `PRMergeOutcome`, enriched `PRSummary`, and unified `PRReview` creation result.
   - Expand `PRGateway`, `RealPRGateway`, and `FakePRGateway` to cover current lifecycle plus conversation operations now living behind `IssueGateway`.
   - Keep old `IssueGateway`/`RealIssueGateway`/`FakeIssueGateway` path alive only as a temporary parallel API so the PR is reviewable and green.
   - Update asdl-core unit, fake, real-sanity, and live-conformance tests for the additive unified API.
+  - Evidence: local branch diff against Graphite parent `add-unified-pr-gateway-core-gh-api`; targeted core gateway tests and full `just` passed.
 
 - [ ] PR 2 — Migrate `asdl-pr-address` to unified `PRGateway`
   - Replace `gh_issue_gateway` usage with `pr_gateway`.

@@ -26,3 +26,4 @@ def test_pr_gateway_lookup_by_branch_matches_persistent_fixture(
     assert result.head_ref_name == PR_BASIC_LOOKUP.head_branch
     assert result.state == PR_BASIC_LOOKUP.expected_state
     assert result.title.startswith(PR_BASIC_LOOKUP.expected_title_prefix)
+    assert result.head_ref_oid is not None
