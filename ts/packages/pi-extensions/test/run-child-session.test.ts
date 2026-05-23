@@ -195,7 +195,7 @@ describe("runChildSession local contract", () => {
 				sessionFile: "/tmp/contract-child.jsonl",
 			},
 			sessionFile: "/tmp/contract-child.jsonl",
-			diagnostic: "Child Pi stopped without terminal capture. Terminal capture outcomes are not implemented in this slice.",
+			diagnostic: "Child Pi stopped without terminal capture.",
 		});
 		expect(call.options.cwd).toBe("/repo/packages/example");
 	});

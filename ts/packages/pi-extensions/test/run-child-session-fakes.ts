@@ -5,6 +5,11 @@ import type {
 	SpawnChildProcessOptions,
 	SpawnedChildProcess,
 } from "../src/run-child-session/child-process.ts";
+import {
+	createRuntimeConfig,
+	type ChildSessionRuntimeFiles,
+	type RuntimeResultV1,
+} from "../src/run-child-session/child-runtime.ts";
 
 export type SpawnCall = {
 	command: string;
@@ -51,15 +56,35 @@ export class FakeSpawnedChildProcess implements SpawnedChildProcess {
 	}
 }
 
-export function createFakeChildRunner(options: { sessionFile?: string; now?: () => number } = {}): {
+export function createFakeChildRunner(
+	options: {
+		sessionFile?: string;
+		now?: () => number;
+		runtimeFiles?: ChildSessionRuntimeFiles;
+		runtimeResult?: RuntimeResultV1;
+	} = {},
+): {
 	dependencies: ChildSessionRunnerDependencies;
 	calls: SpawnCall[];
+	runtimeFiles: ChildSessionRuntimeFiles;
 } {
 	const calls: SpawnCall[] = [];
 	const sessionFile = options.sessionFile ?? "/tmp/pi-child-session.jsonl";
+	const runtimeFiles = options.runtimeFiles ?? {
+		runtimeDir: "/tmp/pi-child-runtime",
+		configPath: "/tmp/pi-child-runtime/config.json",
+		resultPath: "/tmp/pi-child-runtime/result.json",
+		extensionPath: "/tmp/pi-child-runtime/runtime-extension.ts",
+		cleanup: () => undefined,
+	};
 	const dependencies: ChildSessionRunnerDependencies = {
 		...(options.now === undefined ? {} : { now: options.now }),
 		createSessionFile: () => sessionFile,
+		createRuntimeFiles: (input) => {
+			createRuntimeConfig(input);
+			return runtimeFiles;
+		},
+		readRuntimeResult: () => options.runtimeResult,
 		processArgv: ["/usr/bin/node"],
 		processExecPath: "/usr/bin/node",
 		existsSync: () => false,
@@ -69,7 +94,7 @@ export function createFakeChildRunner(options: { sessionFile?: string; now?: () 
 			return process;
 		},
 	};
-	return { calls, dependencies };
+	return { calls, dependencies, runtimeFiles };
 }
 
 export async function waitForSpawn(calls: readonly SpawnCall[]): Promise<SpawnCall> {

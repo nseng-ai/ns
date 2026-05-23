@@ -6,21 +6,30 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 import type {
+	ChildSessionBlockedResult,
 	ChildSessionCancelledResult,
+	ChildSessionCompletedResult,
 	ChildSessionContext,
 	ChildSessionErrorResult,
 	ChildSessionOptions,
 	ChildSessionPi,
 	ChildSessionProgress,
+	ChildSessionProtocolErrorResult,
 	ChildSessionResult,
 	ChildSessionStoppedWithoutTerminalResult,
 } from "../run-child-session.ts";
-import { createChildSessionJsonEventParser } from "./json-events.ts";
+import {
+	createDefaultChildSessionRuntimeFiles,
+	readRuntimeResultFile,
+	type ChildSessionRuntimeFiles,
+	type CreateChildSessionRuntimeFilesInput,
+	type RuntimeResultV1,
+} from "./child-runtime.ts";
+import { createChildSessionJsonEventParser, type ChildSessionJsonEventParserSnapshot } from "./json-events.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
-const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC =
-	"Child Pi stopped without terminal capture. Terminal capture outcomes are not implemented in this slice.";
+const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Child Pi stopped without terminal capture.";
 
 export type PiInvocation = {
 	command: string;
@@ -47,10 +56,18 @@ export type SpawnedChildProcess = {
 
 export type SpawnChildProcess = (command: string, args: string[], options: SpawnChildProcessOptions) => SpawnedChildProcess;
 
+export type CreateChildSessionRuntimeFiles = (
+	input: CreateChildSessionRuntimeFilesInput,
+) => ChildSessionRuntimeFiles | Promise<ChildSessionRuntimeFiles>;
+
+export type ReadChildSessionRuntimeResult = (resultPath: string) => RuntimeResultV1 | undefined | Promise<RuntimeResultV1 | undefined>;
+
 export type ChildSessionRunnerDependencies = {
 	spawn?: SpawnChildProcess;
 	now?: () => number;
 	createSessionFile?: (input: { cwd: string; title?: string }) => string | Promise<string>;
+	createRuntimeFiles?: CreateChildSessionRuntimeFiles;
+	readRuntimeResult?: ReadChildSessionRuntimeResult;
 	processArgv?: readonly string[];
 	processExecPath?: string;
 	existsSync?: (path: string) => boolean;
@@ -77,22 +94,37 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 		return cancelledResult(title, stoppedProgress({ title, now, startTimeMs }), abortReason(abortSignals));
 	}
 
+	let runtimeFiles: ChildSessionRuntimeFiles;
+	try {
+		const createRuntimeFiles = dependencies.createRuntimeFiles ?? createDefaultChildSessionRuntimeFiles;
+		runtimeFiles = await createRuntimeFiles({
+			...(title === undefined ? {} : { title }),
+			terminalTools: options.terminalTools,
+		});
+	} catch (error) {
+		const progress = stoppedProgress({ title, now, startTimeMs });
+		return errorResult(title, progress, `Invalid child terminal runtime configuration: ${errorMessage(error)}`, error);
+	}
+
 	let sessionFile: string;
 	try {
 		sessionFile = await createSessionFile(cwd, title, dependencies);
 	} catch (error) {
+		await cleanupRuntimeFiles(runtimeFiles);
 		const progress = stoppedProgress({ title, now, startTimeMs });
 		return errorResult(title, progress, `Failed to create child Pi session file: ${errorMessage(error)}`, error);
 	}
 
+	const terminalToolNames = options.terminalTools.map((tool) => tool.name);
 	const parser = createChildSessionJsonEventParser({
 		...(title === undefined ? {} : { title }),
 		sessionFile,
 		now,
 		startTimeMs,
+		terminalToolNames,
 	});
 	const stderr = new BoundedTextBuffer(dependencies.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT_BYTES);
-	const childArgs = buildChildPiArgs(options.prompt, sessionFile);
+	const childArgs = buildChildPiArgs(options.prompt, sessionFile, runtimeFiles.extensionPath);
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawn = dependencies.spawn ?? defaultSpawnChildProcess;
 	const timers = {
@@ -110,6 +142,7 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 		});
 	} catch (error) {
 		parser.markStopped();
+		await cleanupRuntimeFiles(runtimeFiles);
 		return errorResult(title, parser.getProgress(), `Failed to spawn child Pi process: ${errorMessage(error)}`, error);
 	}
 
@@ -126,7 +159,7 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 			settled = true;
 			for (const remove of removeAbortListeners) remove();
 			if (killTimer !== undefined) timers.clearTimeout(killTimer);
-			resolve(result);
+			void cleanupRuntimeFiles(runtimeFiles).finally(() => resolve(result));
 		};
 
 		const terminateChild = () => {
@@ -156,7 +189,7 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 		child.stdout?.on("data", (chunk) => {
 			parser.pushChunk(chunk);
 			const snapshot = parser.getSnapshot();
-			if (snapshot.error && !cancelled) {
+			if ((snapshot.error || snapshot.protocolError) && !cancelled) {
 				terminateChild();
 			}
 		});
@@ -175,36 +208,28 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 			if (killTimer !== undefined) timers.clearTimeout(killTimer);
 			parser.finish();
 			const snapshot = parser.getSnapshot();
-			const progress = snapshot.progress;
 
-			if (cancelled) {
-				finish(cancelledResult(title, progress, abortReason(abortSignals)));
-				return;
-			}
-
-			if (snapshot.error) {
-				finish(errorResult(title, progress, snapshot.error.message, snapshot.error));
-				return;
-			}
-
-			if (code !== 0) {
-				finish(errorResult(title, progress, nonzeroExitDiagnostic(code, closeSignal, stderr.toString())));
-				return;
-			}
-
-			if (snapshot.stopReason === "error" || snapshot.stopReason === "aborted") {
-				const message = snapshot.errorMessage ?? `Child Pi stopped with stopReason ${snapshot.stopReason}.`;
-				finish(errorResult(title, progress, message, new Error(message)));
-				return;
-			}
-
-			finish(stoppedWithoutTerminalResult(title, progress, snapshot.stopReason));
+			void resolveClosedChildResult<TTerminalInput>({
+				title,
+				snapshot,
+				code,
+				closeSignal,
+				stderr: stderr.toString(),
+				cancelled,
+				abortSignals,
+				runtimeFiles,
+				readRuntimeResult: dependencies.readRuntimeResult ?? readRuntimeResultFile,
+				terminalToolStatuses: new Map(options.terminalTools.map((tool) => [tool.name, tool.status] as const)),
+			}).then(finish, (error: unknown) => {
+				const progress = parser.getProgress();
+				finish(errorResult(title, progress, `Failed to resolve child Pi result: ${errorMessage(error)}`, error));
+			});
 		});
 	});
 }
 
-export function buildChildPiArgs(prompt: string, sessionFile: string): string[] {
-	return ["--mode", "json", "-p", "--session", sessionFile, prompt];
+export function buildChildPiArgs(prompt: string, sessionFile: string, runtimeExtensionPath: string): string[] {
+	return ["--mode", "json", "-p", "--no-extensions", "--extension", runtimeExtensionPath, "--session", sessionFile, prompt];
 }
 
 export function resolvePiInvocation(args: string[], dependencies: ChildSessionRunnerDependencies = {}): PiInvocation {
@@ -224,6 +249,146 @@ export function resolvePiInvocation(args: string[], dependencies: ChildSessionRu
 	}
 
 	return { command: "pi", args };
+}
+
+type ResolveClosedChildResultInput = {
+	title: string | undefined;
+	snapshot: ChildSessionJsonEventParserSnapshot;
+	code: number | null;
+	closeSignal: NodeJS.Signals | null;
+	stderr: string;
+	cancelled: boolean;
+	abortSignals: readonly AbortSignal[];
+	runtimeFiles: ChildSessionRuntimeFiles;
+	readRuntimeResult: ReadChildSessionRuntimeResult;
+	terminalToolStatuses: ReadonlyMap<string, "completed" | "blocked">;
+};
+
+async function resolveClosedChildResult<TTerminalInput>(
+	input: ResolveClosedChildResultInput,
+): Promise<ChildSessionResult<TTerminalInput>> {
+	const { title, snapshot } = input;
+	const progress = snapshot.progress;
+
+	if (input.cancelled) {
+		return cancelledResult(title, progress, abortReason(input.abortSignals));
+	}
+
+	if (snapshot.error) {
+		return errorResult(title, progress, snapshot.error.message, snapshot.error);
+	}
+
+	const runtimeRead = await readRuntimeResultOutcome(input.runtimeFiles.resultPath, input.readRuntimeResult);
+	if (runtimeRead.result?.kind === "runtime-error") {
+		return errorResult(
+			title,
+			progress,
+			`Child terminal runtime failed (${runtimeRead.result.code}): ${runtimeRead.result.message}`,
+			new Error(runtimeRead.result.message),
+		);
+	}
+
+	if (snapshot.protocolError) {
+		return protocolErrorResult(title, progress, snapshot.protocolError.message, snapshot.protocolError.event);
+	}
+
+	if (input.code !== 0) {
+		return errorResult(title, progress, nonzeroExitDiagnostic(input.code, input.closeSignal, input.stderr));
+	}
+
+	if (runtimeRead.error) {
+		if (snapshot.terminalAttempted) {
+			return protocolErrorResult(
+				title,
+				progress,
+				`Terminal tool was attempted, but the child runtime result sink was invalid: ${errorMessage(runtimeRead.error)}`,
+				runtimeRead.error,
+			);
+		}
+		return errorResult(title, progress, `Failed to read child terminal runtime result: ${errorMessage(runtimeRead.error)}`, runtimeRead.error);
+	}
+
+	if (runtimeRead.result?.kind === "terminal-capture") {
+		const protocolDiagnostic = validateTerminalCapture(runtimeRead.result, input.terminalToolStatuses);
+		if (protocolDiagnostic) {
+			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
+		}
+		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
+	}
+
+	if (snapshot.stopReason === "error" || snapshot.stopReason === "aborted") {
+		const message = snapshot.errorMessage ?? `Child Pi stopped with stopReason ${snapshot.stopReason}.`;
+		return errorResult(title, progress, message, new Error(message));
+	}
+
+	if (snapshot.terminalExecutionError) {
+		return protocolErrorResult(title, progress, snapshot.terminalExecutionError.message, snapshot.terminalExecutionError.event);
+	}
+
+	if (snapshot.terminalAttempted) {
+		return protocolErrorResult(
+			title,
+			progress,
+			"Terminal tool was attempted, but no valid terminal capture was written by the child runtime.",
+		);
+	}
+
+	return stoppedWithoutTerminalResult(title, progress, snapshot.stopReason);
+}
+
+async function readRuntimeResultOutcome(
+	resultPath: string,
+	readRuntimeResult: ReadChildSessionRuntimeResult,
+): Promise<{ result?: RuntimeResultV1; error?: unknown }> {
+	try {
+		const result = await readRuntimeResult(resultPath);
+		return result === undefined ? {} : { result };
+	} catch (error) {
+		return { error };
+	}
+}
+
+function validateTerminalCapture(
+	capture: Extract<RuntimeResultV1, { kind: "terminal-capture" }>,
+	terminalToolStatuses: ReadonlyMap<string, "completed" | "blocked">,
+): string | undefined {
+	const expectedStatus = terminalToolStatuses.get(capture.toolName);
+	if (!expectedStatus) return `Child runtime captured unknown terminal tool: ${capture.toolName}.`;
+	if (expectedStatus !== capture.status) {
+		return `Child runtime captured terminal tool ${capture.toolName} with unexpected status ${capture.status}; expected ${expectedStatus}.`;
+	}
+	return undefined;
+}
+
+function terminalCaptureResult<TTerminalInput>(
+	title: string | undefined,
+	progress: ChildSessionProgress,
+	capture: Extract<RuntimeResultV1, { kind: "terminal-capture" }>,
+): ChildSessionCompletedResult<TTerminalInput> | ChildSessionBlockedResult<TTerminalInput> {
+	const terminal = {
+		toolName: capture.toolName,
+		...(capture.toolCallId === undefined ? {} : { toolCallId: capture.toolCallId }),
+		status: capture.status,
+		input: capture.input as TTerminalInput,
+	};
+	const base = {
+		...(title === undefined ? {} : { title }),
+		elapsedMs: progress.elapsedMs,
+		progress,
+		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
+	};
+	if (capture.status === "completed") {
+		return {
+			...base,
+			status: "completed",
+			terminal: { ...terminal, status: "completed" },
+		};
+	}
+	return {
+		...base,
+		status: "blocked",
+		terminal: { ...terminal, status: "blocked" },
+	};
 }
 
 async function createSessionFile(cwd: string, title: string | undefined, dependencies: ChildSessionRunnerDependencies): Promise<string> {
@@ -291,6 +456,34 @@ function errorResult(
 		diagnostic,
 		error: errorPayload(error, diagnostic),
 	};
+}
+
+function protocolErrorResult(
+	title: string | undefined,
+	progress: ChildSessionProgress,
+	message: string,
+	event?: unknown,
+): ChildSessionProtocolErrorResult {
+	return {
+		...(title === undefined ? {} : { title }),
+		status: "protocol-error",
+		elapsedMs: progress.elapsedMs,
+		progress,
+		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
+		diagnostic: message,
+		protocolError: {
+			message,
+			...(event === undefined ? {} : { event }),
+		},
+	};
+}
+
+async function cleanupRuntimeFiles(runtimeFiles: ChildSessionRuntimeFiles): Promise<void> {
+	try {
+		await runtimeFiles.cleanup?.();
+	} catch {
+		// Best-effort cleanup must never change the child-session result.
+	}
 }
 
 function stoppedProgress(input: {

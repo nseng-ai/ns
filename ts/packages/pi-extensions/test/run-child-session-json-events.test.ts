@@ -78,4 +78,37 @@ describe("child session JSON event parser", () => {
 		expect(snapshot.error?.message).toContain("Malformed child Pi JSONL output");
 		expect(snapshot.progress.state).toBe("stopped");
 	});
+
+	test("detects terminal tool calls mixed with sibling tools in the same turn", () => {
+		const parser = createChildSessionJsonEventParser({ terminalToolNames: ["complete_child_session"] });
+
+		parser.pushChunk(jsonLine({ type: "turn_start" }));
+		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: {} }));
+		parser.pushChunk(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "complete_child_session", args: {} }),
+		);
+
+		const snapshot = parser.getSnapshot();
+		expect(snapshot.terminalAttempted).toBe(true);
+		expect(snapshot.protocolError?.message).toContain("mixed with sibling tool calls");
+	});
+
+	test("captures terminal execution errors without treating them as malformed JSONL", () => {
+		const parser = createChildSessionJsonEventParser({ terminalToolNames: ["complete_child_session"] });
+
+		parser.pushChunk(jsonLine({ type: "turn_start" }));
+		parser.pushChunk(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+		);
+		parser.pushChunk(
+			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_child_session", isError: true }),
+		);
+
+		const snapshot = parser.getSnapshot();
+		expect(snapshot.error).toBeUndefined();
+		expect(snapshot.terminalAttempted).toBe(true);
+		expect(snapshot.terminalExecutionError).toEqual(
+			expect.objectContaining({ toolName: "complete_child_session", toolCallId: "tool-1" }),
+		);
+	});
 });
