@@ -155,7 +155,9 @@ When an operation needs an existing objective, resolve it in this order:
 
 Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the open-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple open objectives exist, still present the options and ask the user to choose.
 
-Outside that `objective-update` confirmation path, do not auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
+Non-binding picker suggestion exception: when a UI picker has already listed open objectives, it may place one objective first and label it as suggested if deterministic git facts show that exactly one open objective has direct file changes under `.asdl/objectives/<slug>/` compared with the repository trunk. The user must still confirm the suggested objective or choose another objective. If the diff is unavailable, empty, touches multiple objective slugs, or points at a slug that is not open, the picker should show the normal ordering with no suggestion.
+
+Do not silently auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
 
 ## Operations
 
