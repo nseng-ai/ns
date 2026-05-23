@@ -2,36 +2,43 @@
 
 ## Work
 
+The standalone `docs/pi/core-subagent-mvp-spec.md` has been retired. The Objective is the canonical MVP contract, and implementation docs should link to or extract from it rather than maintaining a second drifting spec.
+
 Implementation is planned as four review slices. Add a fifth slice only if parent-session progress rendering becomes too large for the final UI/tests/docs polish PR. Branch names and handoff keys are planning defaults; adjust them to the actual repository/workflow when the slice is implemented.
 
-### PR 1 — Spec and public API contract
+### PR 1 — Canonical Objective contract and public API surface
 
 Branch: `pi-core-subagent-mvp/spec-api`
-Parent: current Objective scaffold in `asdl-tools` for spec work; `main` in the Pi monorepo if exported Pi types land there.
-Tracking: Objective files only, unless Pi API type files change in the same review slice.
+Parent: current Objective scaffold in `asdl-tools` for Objective/spec-canonicalization work; `main` in the Pi monorepo if exported Pi types land there.
+Tracking: Objective files and deletion of the superseded standalone spec; Pi API type files only if that surface lands in the same review slice.
 Handoff: `handoffs/pi-core-subagent-mvp-pr1-spec-api.md`
 
 Code/spec:
 
-- [ ] Reconcile `docs/pi/core-subagent-mvp-spec.md` with resolved Objective decisions.
-- [ ] Make the spec explicit that `runChildSession()` is available only on `ExtensionCommandContext`.
-- [ ] Specify child-local terminal capture tools supplied inline with name, status, description, and parameter schema.
-- [ ] Specify capture-only terminal semantics: validate and return terminal input; do not execute arbitrary extension tool code.
-- [ ] Specify validated terminal input as the canonical structured payload, with no terminal `details` contract.
-- [ ] Specify fresh child context only for MVP; parent-context inheritance remains parked.
-- [ ] Specify terminal tool plus sibling tool calls as an MVP protocol error.
-- [ ] Specify awaited, non-interactive foreground function-call semantics.
+- [x] Retire `docs/pi/core-subagent-mvp-spec.md`; the Objective is the canonical design/spec record.
+- [x] Incorporate the former spec's relevant motivation, prior-subagent lessons, session model, child boundary, UI, terminal-capture, and implementation guidance into `objective.md` and `roadmap.md`.
+- [x] Make the Objective explicit that `runChildSession()` is available only on `ExtensionCommandContext`.
+- [x] Specify child-local terminal capture tools supplied inline with name, status, description, and parameter schema.
+- [x] Specify capture-only terminal semantics: validate and return terminal input; do not execute arbitrary extension tool code.
+- [x] Specify validated terminal input as the canonical structured payload, with no terminal `details` contract.
+- [x] Specify fresh child context only for MVP; parent-context inheritance remains parked.
+- [x] Specify terminal tool plus sibling tool calls as an MVP protocol error.
+- [x] Specify awaited, non-interactive foreground function-call semantics.
 - [ ] Add/export public `runChildSession()` types if this slice includes Pi code: terminal tool definition, options, result, and result status taxonomy.
 
 Objective update:
 
-- [ ] Record a Semantic Update for the reconciled spec/API contract.
-- [ ] Mark the spec roadmap item complete when the spec actually reflects the resolved decisions.
+- [x] Record a Semantic Update for the canonical Objective contract and retired standalone spec.
+- [x] Mark the Objective/spec consolidation roadmap items complete because the Objective now reflects the resolved decisions.
 - [ ] Mark public API types complete only if the exported type surface lands in the same slice.
 
 Likely files:
 
-- `docs/pi/core-subagent-mvp-spec.md`
+- `.asdl/objectives/pi-core-subagent-mvp/objective.md`
+- `.asdl/objectives/pi-core-subagent-mvp/roadmap.md`
+- `.asdl/objectives/pi-core-subagent-mvp/updates/...`
+- `docs/pi/README.md`
+- `docs/pi/objective-stack-subagent-rewrite-brief.md`
 - `packages/coding-agent/src/core/extensions/types.ts`
 - `packages/coding-agent/src/core/extensions/runner.ts`
 - `packages/coding-agent/src/core/sdk.ts`
@@ -40,7 +47,7 @@ Likely files:
 
 Validation:
 
-- [ ] For spec-only work, run the repository's Markdown/doc validation or formatter check.
+- [x] For Objective/docs-only work, run the repository's Markdown/doc validation or formatter check.
 - [ ] For Pi type/API work, run `npm run check` from the Pi monorepo root.
 - [ ] Add or run a targeted type/API test if behavior is introduced with the type surface.
 
@@ -56,12 +63,13 @@ Code:
 - [ ] Implement a non-replacing child-session runner in Pi core.
 - [ ] Create a child `AgentSession` without replacing the parent runtime/session.
 - [ ] Use the same cwd and worktree as the parent command.
-- [ ] Start with fresh child conversation history.
+- [ ] Start with fresh child conversation history while still using normal Pi cwd-aware system context.
 - [ ] Persist the child session under a parent-derived session path.
 - [ ] Return the child `sessionFile` to the parent command.
 - [ ] Await child completion from the parent command.
 - [ ] Ensure child prompting does not depend on slash-command expansion or queued slash text.
 - [ ] Inject generic child boundary instructions for one delegated task.
+- [ ] Keep the full child transcript out of parent LLM context by default.
 - [ ] Return initial non-terminal statuses such as `stopped`, `error`, and `cancelled` even before terminal capture is complete.
 
 Objective update:
@@ -92,10 +100,12 @@ Handoff: `handoffs/pi-core-subagent-mvp-pr3-terminal-capture.md`
 Code:
 
 - [ ] Implement child-local terminal capture tools from `runChildSession({ terminalTools })`.
+- [ ] Define each terminal tool with name, status, description, and parameter schema.
 - [ ] Validate terminal tool input against the supplied schema before capture.
 - [ ] Capture validated params as the canonical terminal payload.
 - [ ] Map terminal tool status to parent result statuses such as `completed` and `blocked`.
-- [ ] Return terminal tool metadata including name, tool call id, and validated input.
+- [ ] Return terminal tool metadata including name, tool call id, mapped status, and validated input.
+- [ ] Avoid a terminal `details` or result-content contract for the MVP.
 - [ ] Fail before the child run starts when a child-local terminal tool name collides with any built-in, extension, or SDK tool available to the child runtime.
 - [ ] Stop the child run immediately after terminal capture without requesting another model turn.
 - [ ] Return a clear protocol error when an assistant message contains a terminal tool call plus sibling tool calls.
@@ -134,12 +144,13 @@ Code/UI/docs:
 
 - [ ] Add compact parent-session progress rendering or explicitly settle the accepted minimal MVP UI.
 - [ ] Ensure parent UI exposes child title, state, and `sessionFile` path.
-- [ ] Include useful foreground progress such as current tool, tool count, turn count, and terminal outcome when feasible.
+- [ ] Include useful foreground progress such as current tool, tool count, turn count, elapsed time, and terminal outcome when feasible.
 - [ ] Keep the full child transcript out of the parent LLM context by default.
 - [ ] Preserve child session inspectability for blocked/error/cancelled outcomes when possible.
 - [ ] Add regression coverage that child completion does not rely on `sendUserMessage("/slash-command")` or slash-command handoff text.
 - [ ] Add end-to-end extension-command coverage using faux provider behavior and terminal capture.
-- [ ] Update Pi extension docs with function-call mental model, command-context-only availability, fresh context, child-local terminal capture schemas, collision rules, protocol-error rule, and parked non-goals.
+- [ ] Update Pi extension docs with function-call mental model, command-context-only availability, fresh context, child boundary instructions, child-local terminal capture schemas, collision rules, protocol-error rule, and parked non-goals.
+- [ ] Ensure any user-facing docs extract from or link to this Objective instead of recreating a second standalone design spec.
 - [ ] Add or update an example command that uses `ctx.runChildSession()`.
 
 Objective update:
