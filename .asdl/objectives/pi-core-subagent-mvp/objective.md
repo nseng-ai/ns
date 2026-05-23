@@ -62,6 +62,9 @@ Assumptions:
 - Capture-only terminal tools are enough for structured completion because parent commands can perform side effects after `await runChildSession()`.
 - Existing Pi session/runtime machinery can be reused to create a child runtime without replacing the active parent session.
 - A parent-derived child session path is practical without disrupting ordinary session listing or resume behavior.
+- The remaining work is reviewable as a four-slice stack: spec/API contract, child runtime/session MVP, terminal capture/protocol semantics, and UI/tests/docs polish.
+- A fifth slice should be added only if parent-session progress rendering requires enough TUI plumbing to blur the final polish PR.
+- The Objective record and spec live in `asdl-tools`, while Pi core implementation lives in the Pi monorepo. Review boundaries may need to respect that repository split even when the semantic plan describes one slice.
 
 Risks:
 
@@ -70,9 +73,13 @@ Risks:
 - Terminal tool batch handling may interact with provider/tool-call streaming internals in ways that make pre-execution protocol errors difficult.
 - Same-worktree child execution is safe only because MVP is sequential; future parallel use would need separate worktree isolation.
 - If child sessions are too hidden in nested paths, recovery and inspection may be harder unless the parent result and UI make the session path obvious.
+- If public API/type changes and spec/Objective edits cannot land together because they belong to different repositories, the first slice may need a coordination PR in `asdl-tools` plus a Pi implementation PR.
+- If sibling-tool protocol errors require pre-execution batch inspection, terminal capture work may need low-level changes in `packages/agent` as well as `packages/coding-agent`.
 
 ## Open Questions
 
 - What is the minimum acceptable parent UI for MVP closure: a real compact foreground progress block, or a simpler first version that still exposes title, state, and session path?
 - Should child session files appear in normal session lists, and if so how should nested child paths be labeled?
 - What exact result status taxonomy should distinguish protocol errors, model/provider errors, stopped-without-terminal, and cancellation?
+- Should the first planned slice be split across repository boundaries, or can the spec/API contract be reviewed as one coordinated change?
+- Can compact child-run progress stay in the final polish slice, or should UI become a dedicated fifth PR after implementation reveals the TUI surface area?
