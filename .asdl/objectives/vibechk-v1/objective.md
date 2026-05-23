@@ -68,7 +68,7 @@ Design choices from the issue should not be accidentally reversed during impleme
 
 Assumptions:
 
-- A standalone `packages/vibechk` package is the right home for v1 and does not need to be an `asdl` plugin.
+- A standalone `packages/vibechk` package remains the right home for v1 and does not need to be an `asdl` plugin; the initial scaffold validated that home with workspace wiring, help/version behavior, and repo validation passing.
 - Users preparing baseline and treatment workdirs outside the tool is acceptable and keeps v1 composable.
 - The `claude`, `codex`, and `pi` CLIs can each be driven non-interactively from Python in a supplied clean workdir, even if their output formats and available metrics differ.
 - Treating Pi through the uniform runner interface is acceptable for v1; direct Pi SDK session forking/resource-manifest evaluation can wait until after the first Python CLI proves the bundle/report workflow.
