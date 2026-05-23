@@ -200,14 +200,74 @@ The Gt subdomain is the shared boundary for Graphite stack metadata and stack op
 
 ### Language
 
-**StackInfo** — A focused snapshot of the Graphite stack around the branch checked out at a `cwd`; it is not a complete Graphite branch graph.
-_Avoid:_ stack graph, branch tree, full stack inventory.
+**GtGateway** — The interface for Graphite stack metadata and Graphite stack operations.
+_Avoid:_ git gateway, branch gateway, stack graph service.
 
-**Downstack branch** — The immediate Graphite parent of the current branch, toward trunk.
+**Graphite stack** — Graphite's tracked sequence of branches or PRs rooted at trunk, where each entry builds off its Graphite parent.
+_Avoid:_ Git history, branch tree, arbitrary DAG.
+
+**StackInfo** — A successful focused snapshot of the Graphite stack around the branch checked out at a `cwd`; it always names the current Graphite branch and is not a complete branch graph.
+_Avoid:_ stack graph, branch tree, full stack inventory, nullable stack snapshot.
+
+**Current stack branch** — The Graphite branch marked current in a successful stack snapshot for a `cwd`.
+_Avoid:_ unknown current, implicit trunk, detached head.
+
+**Graphite trunk** — The branch Graphite says stacks merge into, returned by `gt trunk`.
+_Avoid:_ Git default branch, remote HEAD, base branch.
+
+**Graphite parent** — The immediate downstack branch returned by `gt parent` for the current branch.
 _Avoid:_ previous branch, base branch, Git parent.
 
-**Upstack branch** — An immediate Graphite child of the current branch, away from trunk.
-_Avoid:_ next branch, descendant, child worktree.
+**Graphite children** — The immediate upstack branches returned by `gt children` for the current branch.
+_Avoid:_ descendants, next branch, child worktree.
 
-**Upstack descendants** — The recursive Graphite children below a branch, ordered along the visible stack walk.
-_Avoid:_ children, dependents, branch tree.
+**Graphite ancestors** — The downstack branches below the current branch in a stack, toward trunk.
+_Avoid:_ parents, previous branches, Git ancestors.
+
+**Graphite descendants** — The upstack branches above the current branch in a stack, away from trunk.
+_Avoid:_ children, next branches, dependents.
+
+**Downstack** — The direction toward trunk through Graphite ancestors.
+_Avoid:_ previous, before, below.
+
+**Upstack** — The direction away from trunk through Graphite descendants.
+_Avoid:_ next, after, above.
+
+**NoParent** — A successful Graphite answer indicating that the current branch is tracked but has no Graphite parent.
+_Avoid:_ untracked branch, Graphite failure, trunk branch.
+
+**UntrackedBranch** — A non-ideal Graphite state indicating that the current Git branch has no Graphite stack metadata.
+_Avoid:_ no parent, detached head, missing branch.
+
+**GtBranchInfo** — Raw Graphite branch diagnostics returned by `gt branch info` for the current branch.
+_Avoid:_ stack snapshot, parsed branch metadata, PR details.
+
+**Restack upstack** — Rebase a branch and its upstack descendants according to Graphite parentage.
+_Avoid:_ git rebase, restack stack, sync.
+
+**Graphite sync** — Synchronize Graphite metadata with repository or remote state, optionally restacking affected branches.
+_Avoid:_ pull, fetch, metadata refresh.
+
+**Stack warning** — A non-fatal caveat attached to a successful `StackInfo` when Graphite log parsing was lossy or disagreed with an authoritative command.
+_Avoid:_ failure, validation error, lint.
+
+**GtCommandFailure** — A non-ideal Graphite state indicating that the `gt` CLI could not answer the requested stack question.
+_Avoid:_ negative result, no parent, untracked branch.
+
+### Relationships
+
+#### Graphite's documented stack directions
+
+Graphite defines a **Graphite stack** as a sequence of PRs, each building off its parent, rooted at **Graphite trunk**. **Downstack** means ancestors below the current branch toward trunk; **upstack** means descendants above the current branch away from trunk. The gateway uses branch names because local `gt` commands operate on branches, but the direction vocabulary follows Graphite's PR-stack docs.
+
+#### Parent, children, ancestors, descendants
+
+**Graphite parent** and **Graphite children** are immediate relationships returned by `gt parent` and `gt children`. **Graphite ancestors** and **Graphite descendants** are recursive stack directions surfaced by `gt log --stack`; `StackInfo.ancestors` is trunk-first, includes **Graphite trunk** when trunk appears in the current stack walk, and excludes the current branch. `StackInfo.descendants` excludes the current branch and follows the stack walk away from trunk. `StackInfo.children` is immediate-only even though children are also upstack; do not say children when the recursive relationship is descendants.
+
+#### Graphite trunk vs Git trunk branch
+
+**Graphite trunk** should usually match Git's **Trunk branch**, but the source of truth differs: Graphite trunk comes from `gt trunk`, while Git's Trunk branch is resolved from `origin/HEAD` and local `main` / `master` fallbacks. If they differ, treat it as Graphite configuration drift or an intentional non-default Graphite setup, not as two synonyms for one fact.
+
+#### GtGateway vs GitGateway
+
+Use **GitGateway** for ordinary repository and worktree facts: current branch, refs, worktrees, dirty state, history, and branch existence. Use **GtGateway** only for explicitly Graphite behavior: parent/children relationships, stack snapshots, Graphite trunk, restacking, syncing Graphite metadata, and raw Graphite branch diagnostics.
