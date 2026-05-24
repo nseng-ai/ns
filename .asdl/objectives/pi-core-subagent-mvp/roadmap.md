@@ -53,38 +53,43 @@ Branch: `pi-core-subagent-mvp/child-process-runner`
 Parent: PR 1.
 Tracking: local extension package implementation only.
 Handoff: `handoffs/pi-core-subagent-mvp-pr2-child-process-runner.md`
+Evidence: local branch diff against Graphite parent `add-run-child-session-placeholder-and-tests`; PR #552 corroborates the same file set. Verification: targeted Bun runner/parser/contract tests and the `@asdl/pi-extensions` TypeScript check passed.
 
 Code:
 
-- [ ] Implement robust Pi command resolution for spawning the current Pi executable or installed `pi` fallback.
-- [ ] Launch child runs with `--mode json -p` from the parent cwd.
-- [ ] Use the same cwd and worktree by default.
-- [ ] Create or discover an inspectable child session path and return `sessionFile?: string` when available.
-- [ ] Parse child JSONL events for assistant messages, tool execution starts/ends, tool results, usage, errors, and final stop reasons.
-- [ ] Track lightweight progress: state, current tool, tool count, turn count, elapsed time, session path, and final status.
-- [ ] Propagate parent abort/cancellation to the child process and report `cancelled` when distinguishable.
-- [ ] Return `stopped-without-terminal` when the child stops cleanly without a terminal capture.
-- [ ] Return `error` for spawn failures, provider/runtime errors, malformed JSONL that prevents reliable interpretation, and session setup failures.
-- [ ] Keep the full child transcript out of parent LLM context by default.
-- [ ] Cover parser and process-runner behavior with mocked child stdout/stderr/process exits; do not call real providers.
+- [x] Implement robust Pi command resolution for spawning the current Pi executable or installed `pi` fallback.
+- [x] Launch child runs with `--mode json -p` from the parent cwd.
+- [x] Use the same cwd and worktree by default.
+- [x] Create or discover an inspectable child session path and return `sessionFile?: string` when available.
+- [x] Parse child JSONL events for session headers, assistant message stop reasons, tool execution starts/updates/ends, parser errors, and final stop reasons.
+- [x] Track lightweight progress: state, current tool, tool count, turn count, elapsed time, and session path.
+- [x] Propagate parent abort/cancellation to the child process and report `cancelled` when distinguishable.
+- [x] Return `stopped-without-terminal` when the child stops cleanly without a terminal capture.
+- [x] Return `error` for spawn failures, provider/runtime errors, malformed JSONL that prevents reliable interpretation, and session setup failures.
+- [x] Keep the full child transcript out of parent LLM context by default.
+- [x] Cover parser and process-runner behavior with mocked child stdout/stderr/process exits; do not call real providers.
+
+PR 2 intentionally keeps parent progress narrow: it does not retain usage accounting or full tool-result payloads in the public result. Terminal capture payloads and protocol semantics remain PR 3 work.
 
 Objective update:
 
-- [ ] Record a Semantic Update for the subprocess runner, event parser, session path, and cancellation behavior.
-- [ ] Mark child runner/parser roadmap items complete when fake-driven tests prove the behavior.
+- [x] Record a Semantic Update for the subprocess runner, event parser, session path, and cancellation behavior.
+- [x] Mark child runner/parser roadmap items complete when fake-driven tests prove the behavior.
 
 Likely files:
 
 - `ts/packages/pi-extensions/src/run-child-session.ts`
 - `ts/packages/pi-extensions/src/run-child-session/child-process.ts`
 - `ts/packages/pi-extensions/src/run-child-session/json-events.ts`
+- `ts/packages/pi-extensions/test/run-child-session-fakes.ts`
 - `ts/packages/pi-extensions/test/run-child-session.test.ts`
 - `ts/packages/pi-extensions/test/run-child-session-json-events.test.ts`
+- `ts/packages/pi-extensions/test/run-child-session-runner.test.ts`
 
 Validation:
 
-- [ ] Run targeted Bun/TypeScript tests for process-runner and JSON parser behavior.
-- [ ] Run the TypeScript package check after code changes, or record the workspace setup blocker if unrelated.
+- [x] Run targeted Bun/TypeScript tests for process-runner and JSON parser behavior.
+- [x] Run the TypeScript package check after code changes, or record the workspace setup blocker if unrelated.
 
 ### PR 3 — Injected child terminal-capture runtime
 

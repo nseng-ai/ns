@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	CHILD_SESSION_RUNNER_DEPENDENCIES,
 	runChildSession,
 	type ChildSessionBlockedResult,
 	type ChildSessionCompletedResult,
@@ -9,6 +10,7 @@ import {
 	type ChildSessionResult,
 	type ChildSessionTerminalToolDefinition,
 } from "../src/run-child-session.ts";
+import { createFakeChildRunner, waitForSpawn } from "./run-child-session-fakes.ts";
 
 type CompletionInput = {
 	summary: string;
@@ -86,16 +88,19 @@ function describeResult(result: ChildSessionResult<CompletionInput>): string {
 
 describe("runChildSession local contract", () => {
 	test("is importable and callable from fake local extension code", async () => {
-		const pi: ChildSessionPi = {};
+		const runner = createFakeChildRunner();
+		const pi: ChildSessionPi = { [CHILD_SESSION_RUNNER_DEPENDENCIES]: runner.dependencies };
 		const ctx: ChildSessionContext = { cwd: "/repo" };
 		const invoke = fakeLocalExtension(pi);
 
-		const result = await invoke(ctx);
+		const running = invoke(ctx);
+		const call = await waitForSpawn(runner.calls);
+		call.process.close(0);
+		const result = await running;
 
-		if (result.status !== "error") {
-			throw new Error(`Expected placeholder error, got ${result.status}`);
-		}
-		expect(result.diagnostic).toContain("not implemented yet");
+		expect(result.status).toBe("stopped-without-terminal");
+		if (result.status !== "stopped-without-terminal") return;
+		expect(result.diagnostic).toContain("without terminal capture");
 	});
 
 	test("allows callers to define schema-shaped terminal tools", () => {
@@ -162,37 +167,36 @@ describe("runChildSession local contract", () => {
 		expect(describeResult(blocked)).toBe("blocked by block_child_session");
 	});
 
-	test("returns a deterministic not-implemented error without provider or subprocess work", async () => {
-		const pi: ChildSessionPi = {
-			exec() {
-				throw new Error("runChildSession must not execute commands in the contract slice");
-			},
-		};
+	test("returns a deterministic stopped-without-terminal result through the injectable runner", async () => {
+		const runner = createFakeChildRunner({ sessionFile: "/tmp/contract-child.jsonl", now: () => 0 });
+		const pi: ChildSessionPi = { [CHILD_SESSION_RUNNER_DEPENDENCIES]: runner.dependencies };
 		const ctx: ChildSessionContext = { cwd: "/repo" };
 
-		const result = await runChildSession(pi, ctx, {
+		const running = runChildSession(pi, ctx, {
 			title: "Child task",
 			prompt: "Do the child task.",
 			cwd: "/repo/packages/example",
 			terminalTools: [completionTool, blockedTool],
 		});
+		const call = await waitForSpawn(runner.calls);
+		call.process.close(0);
+		const result = await running;
 
 		expect(result).toEqual({
-			status: "error",
+			status: "stopped-without-terminal",
 			title: "Child task",
 			elapsedMs: 0,
 			progress: {
 				title: "Child task",
 				state: "stopped",
-				toolCount: 2,
+				toolCount: 0,
 				turnCount: 0,
 				elapsedMs: 0,
+				sessionFile: "/tmp/contract-child.jsonl",
 			},
-			diagnostic: "runChildSession is not implemented yet; child process execution will be added in a later slice.",
-			error: {
-				message: "runChildSession is not implemented yet; child process execution will be added in a later slice.",
-				name: "NotImplementedError",
-			},
+			sessionFile: "/tmp/contract-child.jsonl",
+			diagnostic: "Child Pi stopped without terminal capture. Terminal capture outcomes are not implemented in this slice.",
 		});
+		expect(call.options.cwd).toBe("/repo/packages/example");
 	});
 });

@@ -84,37 +84,37 @@ Assumptions:
 
 - The immediate platform need is an awaited function-call primitive for local extension workflows, not an interactive or background subagent system.
 - `pi-subagents` proves the extension/package pattern: parent extension registration, child `pi --mode json` process, injected runtime extension, JSONL event parsing, inspectable artifacts, and structured parent result.
-- A subprocess child runner is acceptable for the MVP and avoids upstream Pi core coupling.
-- PR 1 evidence supports that a local TypeScript helper surface is enough for repo-local consumers to import and narrow the contract without Pi core changes; runtime behavior still needs later slices.
+- A subprocess child runner is acceptable for the MVP and avoids upstream Pi core coupling; PR 2 fake-driven tests de-risked command resolution, cwd/session-file setup, JSONL progress parsing, cancellation, stderr-bounded errors, and clean no-terminal stops without real provider calls.
+- PR 1 evidence supports that a local TypeScript helper surface is enough for repo-local consumers to import and narrow the contract without Pi core changes; PR 2 evidence replaces the not-implemented placeholder with an awaited child process runner, while terminal capture, injected child runtime behavior, and first-consumer wiring still need later slices.
 - Stable npm-style package exports and subpaths are not valuable before a real repo-local parent-facing consumer exists; export or shim wiring belongs with that consumer rather than with the placeholder contract.
 - Fresh child context is sufficient when callers include all task context in the prompt.
 - Capture-only terminal tools are enough for structured completion because parent code performs domain side effects after the child returns.
 - Same-worktree child execution is safe for this MVP because child sessions are awaited sequentially.
 - Child environment flags can prevent local parent-facing orchestration tools from recursively registering in ordinary child runs.
 - A temp-file or environment-mediated child runtime configuration can pass terminal tool definitions and result sink paths safely enough for local use.
-- Lightweight progress parsed from JSON events is enough for first inspectability.
+- Lightweight progress parsed from JSON events is enough for first inspectability; PR 2 proves title/state/current tool/tool count/turn count/elapsed/session path/stop-reason progress without returning the full transcript.
 - Parent extensions remain responsible for domain-specific validation after a child returns, including Objective stack slice validation.
 - The Objective slug remains `pi-core-subagent-mvp` for continuity even though the title and strategy now refer to the extension-layer MVP.
 
 Risks:
 
 - Public Pi extension APIs may not allow a mixed terminal-plus-sibling tool batch to be blocked before sibling tool side effects occur; exact no-side-effect protocol enforcement may require a future Pi core hook or a documented limitation.
-- Child process command resolution may differ across installed Pi versions, local source runs, Bun/Node wrappers, and package-installed extensions.
+- Child process command resolution may still differ across installed Pi versions, local source runs, Bun/Node wrappers, and package-installed extensions. PR 2 narrows this with safe current-script reuse and installed-`pi` fallback tests, but live environment coverage remains useful.
 - Child extension loading can accidentally include parent orchestration extensions unless child flags and launch arguments are carefully controlled.
-- JSON event shapes can drift across Pi versions; the parser needs narrow, tested assumptions and clear error handling.
-- Session file discovery can be unreliable if the child runs with `--no-session` or if Pi changes session header/event behavior; explicit child session paths may be preferable.
+- JSON event shapes can drift across Pi versions; PR 2 narrows parser assumptions to session, agent, turn, message, and tool execution events with malformed-line failure handling, but version drift remains a compatibility risk.
+- Session file discovery can be unreliable if Pi changes `--session` behavior or session header/event fields. PR 2 mitigates this by creating an explicit parent-side session path and allowing parser header events to update the returned path.
 - TypeBox schema validation inside the child runtime must avoid relying on unavailable bundled dependencies when loaded as a Pi package.
-- Subprocess cleanup on abort, provider failure, or terminal capture may leave partial sessions or temp files; the MVP needs best-effort cleanup and durable diagnostics.
+- Subprocess cleanup on abort, provider failure, or terminal capture may leave partial sessions or temp files; PR 2 tests abort-triggered child termination and bounded diagnostics, while durable cleanup policy remains best-effort.
 - Fresh child context may fail if early callers omit necessary task context from prompts; examples and docs need to show complete kickoff prompts.
 - If inherited active tools are too broad for some users, allowlist support may need to move earlier than planned.
 - If the extension-layer abstraction later proves insufficient, the Objective may need a narrow upstream Pi hook, but that should be evidence-driven rather than the default plan.
 
 ## Open Questions
 
-- Should the local helper remain the direct `runChildSession(pi, ctx, options)` function as runtime complexity grows, or should a factory or wrapper be added later?
+- The helper remains the direct `runChildSession(pi, ctx, options)` function through PR 2; should a factory or wrapper be added when a real consumer needs more ergonomics?
 - Should child processes default to `--no-extensions` plus explicit runtime extensions, or load normal extensions with child environment flags that make parent orchestration extensions no-op?
 - What is the most robust way to pass terminal tool schemas and result sinks to the child runtime: temp config file, environment variables, or generated runtime extension file?
-- Should the parent create an explicit child session file path up front, or discover the session file from child JSON events/artifacts?
+- Should the explicit parent-created child session path remain the long-term default, or should a later consumer prefer discovery-only behavior?
 - How much parent UI is needed for the MVP: status line only, chat custom message, widget, or tool renderer integration?
 - Can terminal tool collisions be checked completely through public Pi extension APIs before registration, or only detected in the child runtime?
 - Is mixed terminal-plus-sibling protocol enforcement acceptable as detect-and-report in the extension-layer MVP, or does it require an upstream Pi hook before Objective closure?
