@@ -111,7 +111,7 @@ Assumptions:
 Risks:
 
 - The storage-contract risk is de-risked for the new workflow by the decision that canonical branch-stashed plans use namespace `brmem-plans` with key `<slug>.md` and by the no-backwards-compatibility decision. Old base `plans/<slug>.md` and namespace `plans` entries are intentionally unsupported by the new reader/writer path.
-- Renaming commands, tools, skills, and prompt plugins together can break hidden references. The skill/prompt rename slice de-risked the local skill, prompt, installer, README, lockfile, and symlink references for the old Branch Memory helper names; the cleanup PR still needs to search broader canonical docs/code for other legacy command/tool names and preserve intentional historical notes.
+- Renaming commands, tools, skills, and prompt plugins together can break hidden references. The skill/prompt rename slice and legacy cleanup slice de-risked the local skill, prompt, installer, README, lockfile, symlink, TypeScript source, and prompt/test-reference paths for the old Branch Memory helper names. Remaining old-name mentions should be limited to historical Objective/update prose or explicit absence/removal assertions.
 - Branch creation policy is partly prompt/plugin driven today. Moving too much policy into TypeScript could make repo-specific adaptation harder; leaving too much in prose could keep behavior duplicated and under-tested.
 - Graphite integration is tempting for branch creation, but generic runtime helpers should not depend on Graphite unless the command contract says so. The stack must respect the repo's Graphite workflow without violating the runtime Graphite dependency boundary.
 - The accepted no-backwards-compatibility cutover may break old invocations and old Branch Memory entries. This is intentional for this stack, but removal errors should be clear enough for users to discover the new names.
@@ -127,3 +127,11 @@ Risks:
 - Resolved: the branch policy prompt should be renamed to `.brmem/prompts/create-brmem-plan-branch.md` with no fallback to `.brmem/prompts/dev-brmem-branch-create.md`.
 - Resolved: `brmem-plan-impl` should prefer the canonical `brmem-plans/<slug>.md` entry contract and should not auto-load legacy plan locations as compatibility behavior.
 - No open compatibility questions remain before the first extraction PR. Implementation may still choose local module filenames and helper boundaries as long as they preserve these product decisions.
+
+## Closure
+
+Closed as completed. The brmem-plans work is split into the reviewable Graphite stack recorded in the roadmap; the final stack PRs document each slice boundary, validation evidence, and the intentional no-backwards-compatibility cutover.
+
+Completion evidence includes the shared `brmem-plans` primitive extraction, the tested branch-from-plan-file core, the `/create-brmem-plan-branch` command/tool wiring, skill and prompt renames, legacy naming cleanup, and green top-of-stack GitHub checks. A precise legacy-name audit leaves only the intentional test assertion that the removed `persist_brmem_plan` tool is not registered.
+
+Remaining items are parked future work rather than active scope: automatic PR submission for branches created from plans, Branch Memory-backed stack ledgers, a general workflow engine, live Pi/model end-to-end smoke tests, and broader Objective workflow changes.

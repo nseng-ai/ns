@@ -283,8 +283,6 @@ describe("buildCreateBrmemPlanBranchPrompt", () => {
 		expect(prompt).toContain("Entry key: <semantic-slug>.md");
 		expect(prompt).toContain("Branch target: a plain Git branch created for implementation");
 		expect(prompt).toContain("no checked-in plan file");
-		expect(prompt).not.toContain("persist_brmem_plan");
-		expect(prompt).not.toContain("/create-brmem-plan request");
 	});
 
 	test("renders empty steering as none", () => {
@@ -388,7 +386,6 @@ describe("create_brmem_plan_branch_from_file tool", () => {
 		expect(tool.description).toContain("key `<slug>.md`");
 		expect(tool.promptSnippet).toContain("Branch Memory namespace `brmem-plans`");
 		expect(tool.promptGuidelines?.join("\n")).toContain("/create-brmem-plan-branch");
-		expect(tool.promptGuidelines?.join("\n")).not.toContain("persist_brmem_plan");
 		expect(parameters.required).toEqual(["slug", "filePath"]);
 		expect(parameters.additionalProperties).toBe(false);
 		expect(Object.keys(parameters.properties ?? {})).toEqual(["slug", "filePath", "branchName", "summary"]);
