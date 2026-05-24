@@ -179,7 +179,7 @@ Use **Branch** only for local `refs/heads/*` names and branch-attached worktrees
 
 #### Snapshot and history reads
 
-Ref/tree readers return empty tuples or `False` for absent paths at known refs, and **GitCommandFailure** for unknown refs or unexpected command failures. History readers (`log_range`, `patch_ids_for_range`, `count_commits_in_range`) return typed summaries or a failure arm rather than raising at the gateway boundary.
+Ref/tree readers return empty tuples or `False` for absent paths at known refs, and **GitCommandFailure** for unknown refs or unexpected command failures. History readers (`log_range`, `patch_ids_for_range`, `count_commits_in_range`) return typed summaries or a failure arm rather than raising at the gateway boundary. Path-touch history readers return the latest touching commit/time for a ref+path, or `None` when no such touch is available.
 
 #### Worktrees and slots
 

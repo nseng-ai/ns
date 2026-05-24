@@ -9,7 +9,7 @@ from click.testing import CliRunner, Result
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import DetachedHead, GitCommandFailure
+from asdl_core.git.types import DetachedHead, GitCommandFailure, PathTouch
 from asdl_objectives.context import ObjectiveCliContext, ObjectiveCliUnavailable
 from asdl_objectives.main import build_cli
 
@@ -43,7 +43,7 @@ def test_objective_list_help(cli_group: ClinkrGroup) -> None:
 
     assert result.exit_code == 0
     assert "Usage: objective list" in result.output
-    assert "List Objective status across local branch tips" in result.output
+    assert "List Objective status from base/current status and local work branches" in result.output
     assert "--current" in result.output
     assert "--names" in result.output
     assert "--status" in result.output
@@ -59,9 +59,12 @@ def test_objective_list_empty_result(cli_group: ClinkrGroup) -> None:
     assert json.loads(result.output) == {
         "exit_code": 0,
         "data": {
+            "base_branch": "master",
             "trunk_branch": "master",
+            "status_source": "base",
+            "status_source_branch": "master",
             "view": "list",
-            "status_filter": "open",
+            "status_filter": "active",
             "current_branch": None,
             "filtered_to_current": False,
             "names_only": False,
@@ -71,31 +74,45 @@ def test_objective_list_empty_result(cli_group: ClinkrGroup) -> None:
 
     human = _invoke_list_human(cli_group, ctx)
     assert human.exit_code == 0, human.output
-    assert "No open Objective status found." in human.output
+    assert "Objective status in this local repository" in human.output
+    assert "Base branch: master" in human.output
+    assert "Status filter: active" in human.output
+    assert "No active Objective status found." in human.output
 
     all_human = _invoke_list_human(cli_group, ctx, status="all")
     open_human = _invoke_list_human(cli_group, ctx, status="open")
     closed_human = _invoke_list_human(cli_group, ctx, status="closed")
+    in_flight_human = _invoke_list_human(cli_group, ctx, status="in-flight")
     assert all_human.exit_code == 0, all_human.output
     assert open_human.exit_code == 0, open_human.output
     assert closed_human.exit_code == 0, closed_human.output
+    assert in_flight_human.exit_code == 0, in_flight_human.output
     assert "No Objective status found." in all_human.output
     assert "No open Objective status found." in open_human.output
     assert "No closed Objective status found." in closed_human.output
+    assert "No in-flight Objective status found." in in_flight_human.output
 
 
-def test_objective_list_groups_multiple_branches_under_one_objective(
+def test_objective_list_groups_work_branches_under_base_status(
     cli_group: ClinkrGroup,
 ) -> None:
     ctx = _list_context(
         branches=("master", "feat/b", "feat/a"),
         tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
             ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
-        branch_head_iso_by_branch={
-            "feat/a": "2026-05-20T10:44:08-04:00",
-            "feat/b": "2026-05-20T11:15:42-04:00",
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T09:00:00-04:00"
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+                "a-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+                "b-alpha", "2026-05-20T11:15:42-04:00"
+            ),
         },
         commit_count_by_range={
             "master..feat/a": 3,
@@ -107,7 +124,10 @@ def test_objective_list_groups_multiple_branches_under_one_objective(
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
+    assert payload["data"]["base_branch"] == "master"
+    assert payload["data"]["trunk_branch"] == "master"
     assert payload["data"]["view"] == "list"
+    assert payload["data"]["status_filter"] == "active"
     assert payload["data"]["filtered_to_current"] is False
     assert payload["data"]["current_branch"] is None
     assert payload["data"]["names_only"] is False
@@ -115,94 +135,140 @@ def test_objective_list_groups_multiple_branches_under_one_objective(
         {
             "slug": "alpha",
             "status": "open",
+            "status_source_entry": {
+                "branch": "master",
+                "status": "open",
+                "updated_iso": "2026-05-20T09:00:00-04:00",
+                "present": True,
+            },
             "branches": [
                 {
                     "branch": "feat/a",
                     "status": "open",
-                    "tip_head_iso": "2026-05-20T10:44:08-04:00",
-                    "ahead_trunk": 3,
+                    "updated_iso": "2026-05-20T10:44:08-04:00",
+                    "ahead_base": 3,
                 },
                 {
                     "branch": "feat/b",
                     "status": "open",
-                    "tip_head_iso": "2026-05-20T11:15:42-04:00",
-                    "ahead_trunk": 18,
+                    "updated_iso": "2026-05-20T11:15:42-04:00",
+                    "ahead_base": 18,
                 },
             ],
+            "latest_update_iso": "2026-05-20T11:15:42-04:00",
+            "latest_work_branch": "feat/b",
         }
     ]
-    assert "tip_age" not in payload["data"]["groups"][0]["branches"][0]
+    assert "tip_head_iso" not in payload["data"]["groups"][0]["branches"][0]
+    assert "ahead_trunk" not in payload["data"]["groups"][0]["branches"][0]
 
-    human = _invoke_list_human(cli_group, ctx)
+    human = _invoke_list_human(cli_group, ctx, terminal_columns=120)
     assert human.exit_code == 0, human.output
     assert "Status" in human.output
+    assert "Latest work" in human.output
+    assert "Latest update" in human.output
+    assert "Work branches" in human.output
+    assert "Max ahead base" in human.output
     assert "○ open" in human.output
     assert "feat/b" in human.output
     assert "feat/a" not in human.output
 
     markdown = _invoke_list_md(cli_group, ctx)
     assert markdown.exit_code == 0, markdown.output
+    assert (
+        "| objective | status | latest work | latest update | work branches | max ahead base |"
+        in markdown.output
+    )
     assert "| alpha | ○ open | `feat/b` |" in markdown.output
     assert "`feat/a`" not in markdown.output
 
 
-def test_objective_list_latest_branch_tie_breaks_by_branch_name(
-    cli_group: ClinkrGroup,
-) -> None:
+def test_objective_list_in_flight_default_inclusion(cli_group: ClinkrGroup) -> None:
     ctx = _list_context(
-        branches=("master", "feat/b", "feat/a"),
+        branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
-            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
-        branch_head_iso_by_branch={
-            "feat/a": "2026-05-20T10:44:08-04:00",
-            "feat/b": "2026-05-20T10:44:08-04:00",
+        path_touch_by_ref_path={
+            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+                "a-alpha", "2026-05-20T10:44:08-04:00"
+            ),
         },
     )
 
-    markdown = _invoke_list_md(cli_group, ctx)
+    default_result = _invoke_list_json(cli_group, ctx)
+    active_result = _invoke_list_json(cli_group, ctx, status="active")
+    open_result = _invoke_list_json(cli_group, ctx, status="open")
+    in_flight_result = _invoke_list_json(cli_group, ctx, status="in-flight")
 
-    assert markdown.exit_code == 0, markdown.output
-    assert "| alpha | ○ open | `feat/a` |" in markdown.output
-    assert "`feat/b`" not in markdown.output
+    assert default_result.exit_code == 0, default_result.output
+    assert active_result.exit_code == 0, active_result.output
+    assert open_result.exit_code == 0, open_result.output
+    assert in_flight_result.exit_code == 0, in_flight_result.output
+    default_group = json.loads(default_result.output)["data"]["groups"][0]
+    assert default_group["slug"] == "alpha"
+    assert default_group["status"] == "in-flight"
+    assert default_group["status_source_entry"] == {
+        "branch": "master",
+        "status": "in-flight",
+        "updated_iso": None,
+        "present": False,
+    }
+    assert [group["slug"] for group in json.loads(active_result.output)["data"]["groups"]] == [
+        "alpha"
+    ]
+    assert json.loads(open_result.output)["data"]["groups"] == []
+    assert [group["slug"] for group in json.loads(in_flight_result.output)["data"]["groups"]] == [
+        "alpha"
+    ]
+
+    human = _invoke_list_human(cli_group, ctx)
+    assert human.exit_code == 0, human.output
+    assert "◇ in-flight" in human.output
 
 
-def test_objective_list_group_status_follows_latest_branch_tie_break(
+def test_objective_list_base_status_wins_over_work_branch_status(
     cli_group: ClinkrGroup,
 ) -> None:
     ctx = _list_context(
-        branches=("master", "feat/b-open", "feat/a-closed"),
+        branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
-            ("refs/heads/feat/a-closed", ".asdl/objectives"): (
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/a", ".asdl/objectives"): (
                 ".asdl/objectives/alpha/objective.md",
                 ".asdl/objectives/alpha/closed.md",
             ),
-            ("refs/heads/feat/b-open", ".asdl/objectives"): (
-                ".asdl/objectives/alpha/objective.md",
-            ),
-        },
-        branch_head_iso_by_branch={
-            "feat/a-closed": "2026-05-20T10:44:08-04:00",
-            "feat/b-open": "2026-05-20T10:44:08-04:00",
         },
     )
 
-    result = _invoke_list_json(cli_group, ctx, status="all")
-    markdown = _invoke_list_md(cli_group, ctx, status="all")
+    result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
     group = json.loads(result.output)["data"]["groups"][0]
-    assert group["status"] == "closed"
-    assert [(entry["branch"], entry["status"]) for entry in group["branches"]] == [
-        ("feat/a-closed", "closed"),
-        ("feat/b-open", "open"),
-    ]
-    assert markdown.exit_code == 0, markdown.output
-    assert "| alpha | ✓ closed | `feat/a-closed` |" in markdown.output
+    assert group["status"] == "open"
+    assert group["branches"][0]["status"] == "closed"
+
+    closed_base_ctx = _list_context(
+        branches=("master", "feat/a"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (
+                ".asdl/objectives/alpha/objective.md",
+                ".asdl/objectives/alpha/closed.md",
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+    )
+
+    active_result = _invoke_list_json(cli_group, closed_base_ctx)
+    closed_result = _invoke_list_json(cli_group, closed_base_ctx, status="closed")
+
+    assert active_result.exit_code == 0, active_result.output
+    assert closed_result.exit_code == 0, closed_result.output
+    assert json.loads(active_result.output)["data"]["groups"] == []
+    assert json.loads(closed_result.output)["data"]["groups"][0]["status"] == "closed"
 
 
-def test_objective_list_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
+def test_objective_list_sorts_groups_and_work_branch_rows(cli_group: ClinkrGroup) -> None:
     ctx = _list_context(
         branches=("master", "feat/b", "feat/a"),
         tracked_paths_by_ref_path={
@@ -223,86 +289,200 @@ def test_objective_list_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> 
     assert [entry["branch"] for entry in groups[1]["branches"]] == ["feat/a"]
 
 
-def test_objective_list_includes_status_for_open_and_closed_objectives(
+def test_objective_list_status_filters_active_open_in_flight_closed_and_all(
     cli_group: ClinkrGroup,
 ) -> None:
     ctx = _list_context(
         branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives"): (
+            ("refs/heads/master", ".asdl/objectives"): (
                 ".asdl/objectives/closed-one/objective.md",
                 ".asdl/objectives/closed-one/closed.md",
                 ".asdl/objectives/open-one/objective.md",
             ),
-        },
-    )
-
-    result = _invoke_list_json(cli_group, ctx, status="all")
-
-    assert result.exit_code == 0, result.output
-    groups = json.loads(result.output)["data"]["groups"]
-    assert [(group["slug"], group["status"]) for group in groups] == [
-        ("closed-one", "closed"),
-        ("open-one", "open"),
-    ]
-    assert groups[0]["branches"][0]["status"] == "closed"
-    assert groups[1]["branches"][0]["status"] == "open"
-
-    human = _invoke_list_human(cli_group, ctx, status="all")
-    assert human.exit_code == 0, human.output
-    assert "Status" in human.output
-    assert "✓ closed" in human.output
-    assert "○ open" in human.output
-
-    markdown = _invoke_list_md(cli_group, ctx, status="all")
-    assert markdown.exit_code == 0, markdown.output
-    assert "| objective | status | latest branch |" in markdown.output
-    assert "| closed-one | ✓ closed |" in markdown.output
-    assert "| open-one | ○ open |" in markdown.output
-
-
-def test_objective_list_status_filters_open_and_closed(cli_group: ClinkrGroup) -> None:
-    ctx = _list_context(
-        branches=("master", "feat/a"),
-        tracked_paths_by_ref_path={
             ("refs/heads/feat/a", ".asdl/objectives"): (
-                ".asdl/objectives/closed-one/objective.md",
-                ".asdl/objectives/closed-one/closed.md",
+                ".asdl/objectives/in-flight-one/objective.md",
                 ".asdl/objectives/open-one/objective.md",
             ),
         },
     )
 
     default_result = _invoke_list_json(cli_group, ctx)
+    active_result = _invoke_list_json(cli_group, ctx, status="active")
     open_result = _invoke_list_json(cli_group, ctx, status="open")
+    in_flight_result = _invoke_list_json(cli_group, ctx, status="in-flight")
     closed_result = _invoke_list_json(cli_group, ctx, status="closed")
     all_result = _invoke_list_json(cli_group, ctx, status="all")
 
     assert default_result.exit_code == 0, default_result.output
+    assert active_result.exit_code == 0, active_result.output
     assert open_result.exit_code == 0, open_result.output
+    assert in_flight_result.exit_code == 0, in_flight_result.output
     assert closed_result.exit_code == 0, closed_result.output
     assert all_result.exit_code == 0, all_result.output
-    assert json.loads(default_result.output)["data"]["status_filter"] == "open"
-    assert json.loads(open_result.output)["data"]["status_filter"] == "open"
+    assert json.loads(default_result.output)["data"]["status_filter"] == "active"
     assert [group["slug"] for group in json.loads(default_result.output)["data"]["groups"]] == [
-        "open-one"
+        "in-flight-one",
+        "open-one",
+    ]
+    assert [group["slug"] for group in json.loads(active_result.output)["data"]["groups"]] == [
+        "in-flight-one",
+        "open-one",
     ]
     assert [group["slug"] for group in json.loads(open_result.output)["data"]["groups"]] == [
         "open-one"
+    ]
+    assert [group["slug"] for group in json.loads(in_flight_result.output)["data"]["groups"]] == [
+        "in-flight-one"
     ]
     assert [group["slug"] for group in json.loads(closed_result.output)["data"]["groups"]] == [
         "closed-one"
     ]
     assert [group["slug"] for group in json.loads(all_result.output)["data"]["groups"]] == [
         "closed-one",
+        "in-flight-one",
         "open-one",
     ]
+
+
+def test_objective_list_latest_update_uses_objective_path_touch_not_branch_head(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/a", "feat/b"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        branch_head_iso_by_branch={
+            "feat/a": "2026-05-21T12:00:00-04:00",
+            "feat/b": "2026-05-20T12:00:00-04:00",
+        },
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T08:00:00-04:00"
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+                "a-alpha", "2026-05-20T09:00:00-04:00"
+            ),
+            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+                "b-alpha", "2026-05-20T11:00:00-04:00"
+            ),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx)
+
+    assert result.exit_code == 0, result.output
+    group = json.loads(result.output)["data"]["groups"][0]
+    assert group["latest_work_branch"] == "feat/b"
+    assert group["latest_update_iso"] == "2026-05-20T11:00:00-04:00"
+
+
+def test_objective_list_latest_work_blank_when_latest_update_is_on_base(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/old"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/old", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T12:00:00-04:00"
+            ),
+            ("refs/heads/feat/old", ".asdl/objectives/alpha"): _touch(
+                "old-alpha", "2026-05-20T09:00:00-04:00"
+            ),
+        },
+        commit_count_by_range={"master..feat/old": 2},
+    )
+
+    result = _invoke_list_json(cli_group, ctx)
+    markdown = _invoke_list_md(cli_group, ctx)
+
+    assert result.exit_code == 0, result.output
+    group = json.loads(result.output)["data"]["groups"][0]
+    assert group["latest_update_iso"] == "2026-05-20T12:00:00-04:00"
+    assert group["latest_work_branch"] is None
+    assert len(group["branches"]) == 1
+    assert markdown.exit_code == 0, markdown.output
+    assert "| alpha | ○ open | — |" in markdown.output
+
+
+def test_objective_list_latest_work_tie_break_uses_nearest_branch(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/b", "feat/a"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T08:00:00-04:00"
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+                "shared-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+                "shared-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+        },
+        commit_count_by_range={
+            "shared-alpha..feat/a": 0,
+            "shared-alpha..feat/b": 3,
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx)
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["data"]["groups"][0]["latest_work_branch"] == "feat/a"
+
+
+def test_objective_list_latest_work_tie_break_uses_branch_name_after_distance(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/b", "feat/a"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T08:00:00-04:00"
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+                "shared-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+                "shared-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+        },
+        commit_count_by_range={
+            "shared-alpha..feat/a": 2,
+            "shared-alpha..feat/b": 2,
+        },
+    )
+
+    markdown = _invoke_list_md(cli_group, ctx)
+
+    assert markdown.exit_code == 0, markdown.output
+    assert "| alpha | ○ open | `feat/a` |" in markdown.output
+    assert "`feat/b`" not in markdown.output
 
 
 def test_objective_list_human_keeps_status_column_with_long_names(
     cli_group: ClinkrGroup,
 ) -> None:
-    head_iso = "2026-05-20T10:44:08-04:00"
+    updated_iso = "2026-05-20T10:44:08-04:00"
     ctx = _list_context(
         branches=(
             "master",
@@ -311,14 +491,16 @@ def test_objective_list_human_keeps_status_column_with_long_names(
             "add-objective-stack-impl-command-and-planning-workflow",
         ),
         tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (
+                ".asdl/objectives/architecture-deepening/objective.md",
+                ".asdl/objectives/brmem-handoff-workflow/objective.md",
+            ),
             ("refs/heads/add-objective-status-column-and-filter", ".asdl/objectives"): (
                 ".asdl/objectives/architecture-deepening/objective.md",
                 ".asdl/objectives/architecture-deepening/closed.md",
                 ".asdl/objectives/brmem-handoff-workflow/objective.md",
             ),
             ("refs/heads/stack-impl-e2e-smoke-test/extend-fixture", ".asdl/objectives"): (
-                ".asdl/objectives/asdl-stack-impl-extension/objective.md",
-                ".asdl/objectives/asdl-stack-impl-extension/closed.md",
                 ".asdl/objectives/pi-extension-architecture-deepening/objective.md",
             ),
             (
@@ -329,10 +511,14 @@ def test_objective_list_human_keeps_status_column_with_long_names(
                 ".asdl/objectives/asdl-stack-run-extension/closed.md",
             ),
         },
-        branch_head_iso_by_branch={
-            "add-objective-status-column-and-filter": head_iso,
-            "stack-impl-e2e-smoke-test/extend-fixture": head_iso,
-            "add-objective-stack-impl-command-and-planning-workflow": head_iso,
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/architecture-deepening"): _touch(
+                "base-architecture", updated_iso
+            ),
+            (
+                "refs/heads/add-objective-status-column-and-filter",
+                ".asdl/objectives/architecture-deepening",
+            ): _touch("work-architecture", updated_iso),
         },
         commit_count_by_range={
             "master..add-objective-status-column-and-filter": 13,
@@ -345,17 +531,18 @@ def test_objective_list_human_keeps_status_column_with_long_names(
 
     assert human.exit_code == 0, human.output
     assert "Status" in human.output
-    assert "✓ closed" in human.output
+    assert "✓ closed" in human.output or "◇ in-flight" in human.output
     assert "○ open" in human.output
 
 
-def test_objective_list_excludes_trunk_and_no_objective_branches(
-    cli_group: ClinkrGroup,
-) -> None:
+def test_objective_list_base_only_objective_and_work_branches(cli_group: ClinkrGroup) -> None:
     ctx = _list_context(
         branches=("master", "feat/active", "feat/empty"),
         tracked_paths_by_ref_path={
-            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/master", ".asdl/objectives"): (
+                ".asdl/objectives/alpha/objective.md",
+                ".asdl/objectives/base-only/objective.md",
+            ),
             ("refs/heads/feat/active", ".asdl/objectives"): (
                 ".asdl/objectives/alpha/objective.md",
             ),
@@ -365,13 +552,19 @@ def test_objective_list_excludes_trunk_and_no_objective_branches(
     result = _invoke_list_json(cli_group, ctx)
 
     assert result.exit_code == 0, result.output
-    branches = json.loads(result.output)["data"]["groups"][0]["branches"]
-    assert [entry["branch"] for entry in branches] == ["feat/active"]
+    groups = json.loads(result.output)["data"]["groups"]
+    group_branches = [
+        (group["slug"], [entry["branch"] for entry in group["branches"]]) for group in groups
+    ]
+    assert group_branches == [
+        ("alpha", ["feat/active"]),
+        ("base-only", []),
+    ]
 
     human = _invoke_list_human(cli_group, ctx, view="detail")
     assert human.exit_code == 0, human.output
+    assert "Base branch: master — ○ open" in human.output
     assert "feat/active" in human.output
-    assert "master" not in human.output
     assert "feat/empty" not in human.output
 
 
@@ -381,29 +574,47 @@ def test_objective_list_default_human_and_markdown_are_list_view(
     ctx = _list_context(
         branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
-        branch_head_iso_by_branch={"feat/a": "2026-05-20T10:44:08-04:00"},
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T09:00:00-04:00"
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+                "a-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+        },
         commit_count_by_range={"master..feat/a": 7},
     )
 
-    human = _invoke_list_human(cli_group, ctx)
+    human = _invoke_list_human(cli_group, ctx, terminal_columns=120)
 
     assert human.exit_code == 0, human.output
     assert "Objective status in this local repository" in human.output
+    assert "Base branch: master" in human.output
+    assert "Status filter: active" in human.output
     assert "Objective" in human.output
     assert "Status" in human.output
+    assert "Latest work" in human.output
+    assert "Latest update" in human.output
+    assert "Work branches" in human.output
+    assert "Max ahead base" in human.output
     assert "○ open" in human.output
     assert "alpha" in human.output
     assert "feat/a" in human.output
     assert "+7" in human.output
     assert "Tip age" not in human.output
+    assert "Latest branch" not in human.output
+    assert "Latest tip" not in human.output
 
     markdown = _invoke_list_md(cli_group, ctx)
     assert markdown.exit_code == 0, markdown.output
     assert "# Objective status in this local repository" in markdown.output
+    assert "Base branch: `master`" in markdown.output
+    assert "Status filter: `active`" in markdown.output
     assert (
-        "| objective | status | latest branch | latest tip | local branches | max ahead trunk |"
+        "| objective | status | latest work | latest update | work branches | max ahead base |"
         in markdown.output
     )
     assert "| alpha | ○ open | `feat/a` |" in markdown.output
@@ -416,9 +627,17 @@ def test_objective_list_detail_human_and_markdown_column_shape(
     ctx = _list_context(
         branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
-        branch_head_iso_by_branch={"feat/a": "2026-05-20T10:44:08-04:00"},
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T09:00:00-04:00"
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+                "a-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+        },
         commit_count_by_range={"master..feat/a": 7},
     )
 
@@ -426,21 +645,30 @@ def test_objective_list_detail_human_and_markdown_column_shape(
 
     assert human.exit_code == 0, human.output
     assert "Objective branch details in this local repository" in human.output
-    assert "Branch" in human.output
-    assert "Status" in human.output
-    assert "Tip age" in human.output
-    assert "Ahead trunk" in human.output
+    assert "Base branch: master" in human.output
+    assert "alpha" in human.output
+    assert "Base branch: master — ○ open — updated" in human.output
+    assert "Work branches" in human.output
+    assert "Branch status" in human.output
+    assert "Update age" in human.output
+    assert "Ahead base" in human.output
     assert "feat/a" in human.output
     assert "+7" in human.output
+    assert "Ahead trunk" not in human.output
+    assert "Tip age" not in human.output
 
     markdown = _invoke_list_md(cli_group, ctx, view="detail")
     assert markdown.exit_code == 0, markdown.output
     assert "# Objective branch details in this local repository" in markdown.output
-    assert "| branch | status | tip age | ahead trunk |" in markdown.output
+    assert "Base branch: `master`" in markdown.output
+    assert "Base branch: master — ○ open — updated" in markdown.output
+    assert "| branch | branch status | update age | ahead base |" in markdown.output
     assert "| `feat/a` | ○ open |" in markdown.output
 
 
-def test_objective_list_current_filters_to_current_branch(cli_group: ClinkrGroup) -> None:
+def test_objective_list_current_uses_current_status_source_and_filters_to_current(
+    cli_group: ClinkrGroup,
+) -> None:
     ctx = _list_context(
         branches=("master", "feat/here", "feat/other"),
         current_branch="feat/here",
@@ -448,15 +676,30 @@ def test_objective_list_current_filters_to_current_branch(cli_group: ClinkrGroup
             ("refs/heads/feat/here", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
             ("refs/heads/feat/other", ".asdl/objectives"): (".asdl/objectives/beta/objective.md",),
         },
+        path_touch_by_ref_path={
+            ("refs/heads/feat/here", ".asdl/objectives/alpha"): _touch(
+                "here-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+        },
     )
 
     result = _invoke_list_json(cli_group, ctx, current=True)
+    human = _invoke_list_human(cli_group, ctx, current=True)
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
     assert data["filtered_to_current"] is True
+    assert data["status_source"] == "current"
+    assert data["status_source_branch"] == "feat/here"
     assert data["current_branch"] == "feat/here"
-    assert [group["slug"] for group in data["groups"]] == ["alpha"]
+    assert [(group["slug"], group["status"]) for group in data["groups"]] == [("alpha", "open")]
+    assert data["groups"][0]["status_source_entry"]["branch"] == "feat/here"
+    assert data["groups"][0]["status_source_entry"]["present"] is True
+    assert data["groups"][0]["latest_work_branch"] == "feat/here"
+    assert human.exit_code == 0, human.output
+    assert "Objective status for current branch `feat/here`" in human.output
+    assert "Status source: current branch" in human.output
+    assert "◇ in-flight" not in human.output
 
 
 def test_objective_list_current_empty_when_branch_unrelated(cli_group: ClinkrGroup) -> None:
@@ -473,12 +716,14 @@ def test_objective_list_current_empty_when_branch_unrelated(cli_group: ClinkrGro
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
     assert data["filtered_to_current"] is True
+    assert data["status_source"] == "current"
+    assert data["status_source_branch"] == "feat/here"
     assert data["current_branch"] == "feat/here"
     assert data["groups"] == []
 
     human = _invoke_list_human(cli_group, ctx, current=True)
     assert human.exit_code == 0, human.output
-    assert "No open Objectives associated with current branch" in human.output
+    assert "No active Objectives associated with current branch" in human.output
     assert "feat/here" in human.output
 
 
@@ -499,9 +744,12 @@ def test_objective_list_current_includes_trunk_when_current_branch_is_trunk(
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
     assert data["current_branch"] == "master"
-    assert [(group["slug"], group["branches"][0]["branch"]) for group in data["groups"]] == [
-        ("alpha", "master")
+    assert data["status_source"] == "current"
+    group_sources = [
+        (group["slug"], group["status_source_entry"]["branch"]) for group in data["groups"]
     ]
+    assert group_sources == [("alpha", "master")]
+    assert data["groups"][0]["branches"] == []
 
 
 def test_objective_list_current_detached_head_is_empty(cli_group: ClinkrGroup) -> None:
@@ -518,12 +766,16 @@ def test_objective_list_current_detached_head_is_empty(cli_group: ClinkrGroup) -
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
     assert data["filtered_to_current"] is True
+    assert data["status_source"] == "current"
+    assert data["status_source_branch"] is None
     assert data["current_branch"] is None
+    assert data["status_filter"] == "active"
     assert data["groups"] == []
 
     human = _invoke_list_human(cli_group, ctx, current=True)
     assert human.exit_code == 0, human.output
     assert "detached head" in human.output.lower()
+    assert "active Objectives" in human.output
 
 
 def test_objective_list_names_outputs_slugs_one_per_line(cli_group: ClinkrGroup) -> None:
@@ -541,31 +793,42 @@ def test_objective_list_names_outputs_slugs_one_per_line(cli_group: ClinkrGroup)
     lines = [line for line in result.output.splitlines() if line.strip()]
     assert lines == ["alpha", "beta"]
     assert "Objective" not in result.output
-    assert "Latest branch" not in result.output
-    assert "Latest tip" not in result.output
+    assert "Latest work" not in result.output
+    assert "Latest update" not in result.output
 
 
 def test_objective_list_names_respects_status_filter(cli_group: ClinkrGroup) -> None:
     ctx = _list_context(
         branches=("master", "feat/a"),
         tracked_paths_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives"): (
+            ("refs/heads/master", ".asdl/objectives"): (
                 ".asdl/objectives/closed-one/objective.md",
                 ".asdl/objectives/closed-one/closed.md",
                 ".asdl/objectives/open-one/objective.md",
+            ),
+            ("refs/heads/feat/a", ".asdl/objectives"): (
+                ".asdl/objectives/in-flight-one/objective.md",
             ),
         },
     )
 
     default_result = _invoke_list_human(cli_group, ctx, names=True)
     open_result = _invoke_list_human(cli_group, ctx, names=True, status="open")
+    in_flight_result = _invoke_list_human(cli_group, ctx, names=True, status="in-flight")
     closed_result = _invoke_list_human(cli_group, ctx, names=True, status="closed")
 
     assert default_result.exit_code == 0, default_result.output
     assert open_result.exit_code == 0, open_result.output
+    assert in_flight_result.exit_code == 0, in_flight_result.output
     assert closed_result.exit_code == 0, closed_result.output
-    assert [line for line in default_result.output.splitlines() if line.strip()] == ["open-one"]
+    assert [line for line in default_result.output.splitlines() if line.strip()] == [
+        "in-flight-one",
+        "open-one",
+    ]
     assert [line for line in open_result.output.splitlines() if line.strip()] == ["open-one"]
+    assert [line for line in in_flight_result.output.splitlines() if line.strip()] == [
+        "in-flight-one"
+    ]
     assert [line for line in closed_result.output.splitlines() if line.strip()] == ["closed-one"]
 
 
@@ -865,6 +1128,10 @@ def test_objective_exec_read_json_omits_raw_markdown_content(
     assert "private update body sentinel" not in result.output
 
 
+def _touch(oid: str, committed_iso: str) -> PathTouch:
+    return PathTouch(oid=oid, committed_iso=committed_iso)
+
+
 def _list_context(
     *,
     branches: tuple[str, ...],
@@ -873,6 +1140,7 @@ def _list_context(
     tracked_paths_by_ref_path: (
         dict[tuple[str, str], tuple[str, ...] | GitCommandFailure] | None
     ) = None,
+    path_touch_by_ref_path: dict[tuple[str, str], PathTouch] | None = None,
     branch_head_iso_by_branch: dict[str, str] | None = None,
     commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
 ) -> ObjectiveCliContext:
@@ -888,6 +1156,7 @@ def _list_context(
             branches=branches,
             trunk_branch=trunk_branch,
             tracked_paths_by_ref_path=tracked_paths_by_ref_path,
+            path_touch_by_ref_path=path_touch_by_ref_path,
             branch_head_iso_by_branch=branch_head_iso_by_branch,
             commit_count_by_range=commit_count_by_range,
             current_branch_by_path=current_by_path,

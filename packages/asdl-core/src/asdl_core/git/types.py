@@ -44,6 +44,14 @@ class LocalBranchTip:
 
 
 @dataclass(frozen=True)
+class PathTouch:
+    """Latest commit touching one path reachable from a ref."""
+
+    oid: str
+    committed_iso: str
+
+
+@dataclass(frozen=True)
 class RestructuredFile:
     """A file pair surfaced by git's rename/copy detection."""
 

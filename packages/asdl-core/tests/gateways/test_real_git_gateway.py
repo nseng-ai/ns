@@ -10,8 +10,15 @@ from asdl_core.git.real_git_gateway import (
     RealGitGateway,
     parse_local_branch_tip_output,
     parse_name_status_output,
+    parse_path_touch_output,
 )
-from asdl_core.git.types import DetachedHead, GitCommandFailure, LocalBranchTip, RestructuredFile
+from asdl_core.git.types import (
+    DetachedHead,
+    GitCommandFailure,
+    LocalBranchTip,
+    PathTouch,
+    RestructuredFile,
+)
 
 
 def test_get_current_branch_returns_branch_name(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -185,6 +192,33 @@ def test_list_local_branch_tips_returns_branch_names_and_timestamps(tmp_path: Pa
     assert tuple(tip.name for tip in result) == ("feat/x", "main")
     assert all(tip.head_iso is not None for tip in result)
     assert all("T" in tip.head_iso for tip in result if tip.head_iso is not None)
+
+
+def test_parse_path_touch_output_returns_touch() -> None:
+    assert parse_path_touch_output("abc123\x002026-05-20T10:44:08-04:00\n") == PathTouch(
+        oid="abc123",
+        committed_iso="2026-05-20T10:44:08-04:00",
+    )
+
+
+def test_parse_path_touch_output_rejects_empty_or_malformed_rows() -> None:
+    assert parse_path_touch_output("") is None
+    assert parse_path_touch_output("abc123 2026-05-20T10:44:08-04:00") is None
+
+
+def test_path_last_touched_returns_latest_touch(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    record = repo / ".asdl" / "objectives" / "alpha"
+    record.mkdir(parents=True)
+    (record / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objective")
+
+    result = RealGitGateway(repo_root=repo).path_last_touched("HEAD", ".asdl/objectives/alpha")
+
+    assert result is not None
+    assert len(result.oid) == 40
+    assert "T" in result.committed_iso
 
 
 def test_list_tracked_paths_at_ref_returns_recursive_paths(tmp_path: Path) -> None:

@@ -61,8 +61,8 @@ _Avoid_: Hidden status, archive directory, deletion
 - Closed **Objectives** are readable by `objective-current` but are not eligible for `objective-next` by default.
 - `objective-next` may apply a **Tracking Gate**; it does not silently mutate objective files, and any files changed after a gate block must be through an explicit **Objective Update** handoff.
 - When no **Objective** is explicit, objective operations should list candidates and ask the user to choose rather than infer ownership from branch or worktree evidence.
-- `objective-update` has a narrow one-open-objective confirmation path, but it still asks before collecting evidence or mutating files.
-- `objective list` is deterministic read tooling over local branch tips; it uses git facts, does not parse Objective prose, and does not depend on Graphite.
+- `objective-update` has a narrow one-active-objective confirmation path, but it still asks before collecting evidence or mutating files.
+- `objective list` is deterministic read tooling over base-branch Objective status, current-branch status mode, and work-branch update facts; it uses git facts, does not parse Objective prose, and does not depend on Graphite.
 - An **Objective** does not have a branch attachment mechanism in v1.
 - V1 starts fresh from `.asdl/objectives/`; `docs/objectives/` is not a canonical objective root.
 

@@ -15,9 +15,9 @@ const OBJECTIVE_COMMAND_NAMES = ["objective-next", "objective-current", "objecti
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
 
 const SELECTION_TITLES: Record<ObjectiveCommandName, string> = {
-	"objective-next": "Select an open Objective for next-work recommendation",
-	"objective-current": "Select an open Objective to summarize",
-	"objective-update": "Select an open Objective to update",
+	"objective-next": "Select an active Objective for next-work recommendation",
+	"objective-current": "Select an active Objective to summarize",
+	"objective-update": "Select an active Objective to update",
 };
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
@@ -192,7 +192,7 @@ async function runObjectiveCommand(
 	return { pi, ...context };
 }
 
-function expectListOpenObjectivesCall(result: { pi: FakePi }): void {
+function expectListActiveObjectivesCall(result: { pi: FakePi }): void {
 	expect(result.pi.execCalls[0]).toEqual({
 		command: "objective",
 		args: ["list", "--format", "json"],
@@ -214,18 +214,25 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
+			base_branch: trunkBranch,
 			trunk_branch: trunkBranch,
+			status_source: "base",
+			status_source_branch: trunkBranch,
 			view: "list",
+			status_filter: "active",
 			current_branch: "feature/current",
 			filtered_to_current: false,
 			names_only: false,
 			groups: slugs.map((slug, index) => ({
 				slug,
+				status: "open",
+				latest_update_iso: `2026-01-0${index + 1}T00:00:00Z`,
+				latest_work_branch: `feature/${slug}`,
 				branches: [
 					{
 						branch: `feature/${slug}`,
-						tip_head_iso: `2026-01-0${index + 1}T00:00:00Z`,
-						ahead_trunk: index + 1,
+						updated_iso: `2026-01-0${index + 1}T00:00:00Z`,
+						ahead_base: index + 1,
 					},
 				],
 			})),
@@ -261,7 +268,7 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 });
 
 describe("objective picker suggestion", () => {
-	test("shows only the one changed open Objective before offering the rest", async () => {
+	test("shows only the one changed active Objective before offering the rest", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
@@ -269,10 +276,10 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an open Objective for next-work recommendation (only Objective changed vs master)",
+			title: "Select an active Objective for next-work recommendation (only Objective changed vs master)",
 			items: [
-				"bravo — suggested: only Objective changed vs master — 1 branch — latest feature/bravo — max +2 ahead trunk",
-				"View other open Objectives…",
+				"bravo — suggested: only Objective changed vs master — 1 branch — latest work feature/bravo — max +2 ahead base",
+				"View other active Objectives…",
 			],
 		});
 		expect(result.selections).toHaveLength(1);
@@ -291,16 +298,16 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[1]).toEqual({
-			title: "Select an open Objective for next-work recommendation (other open Objectives)",
+			title: "Select an active Objective for next-work recommendation (other active Objectives)",
 			items: [
-				"alpha — 1 branch — latest feature/alpha — max +1 ahead trunk",
-				"charlie — 1 branch — latest feature/charlie — max +3 ahead trunk",
+				"alpha — 1 branch — latest work feature/alpha — max +1 ahead base",
+				"charlie — 1 branch — latest work feature/charlie — max +3 ahead base",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("charlie");
 	});
 
-	test("shows changed open Objectives before offering the rest", async () => {
+	test("shows changed active Objectives before offering the rest", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
 			diffStep([
@@ -311,11 +318,11 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an open Objective for next-work recommendation (changed Objectives vs master)",
+			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — 1 branch — latest feature/alpha — max +1 ahead trunk",
-				"charlie — changed vs master — 1 branch — latest feature/charlie — max +3 ahead trunk",
-				"View other open Objectives…",
+				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 ahead base",
+				"charlie — changed vs master — 1 branch — latest work feature/charlie — max +3 ahead base",
+				"View other active Objectives…",
 			],
 		});
 		expect(result.selections).toHaveLength(1);
@@ -337,16 +344,16 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[1]).toEqual({
-			title: "Select an open Objective for next-work recommendation (other open Objectives)",
+			title: "Select an active Objective for next-work recommendation (other active Objectives)",
 			items: [
-				"bravo — 1 branch — latest feature/bravo — max +2 ahead trunk",
-				"delta — 1 branch — latest feature/delta — max +4 ahead trunk",
+				"bravo — 1 branch — latest work feature/bravo — max +2 ahead base",
+				"delta — 1 branch — latest work feature/delta — max +4 ahead base",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("delta");
 	});
 
-	test("omits the View other choice when all open Objectives changed", async () => {
+	test("omits the View other choice when all active Objectives changed", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/bravo/objective.md"].join("\n")),
@@ -354,16 +361,16 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an open Objective for next-work recommendation (changed Objectives vs master)",
+			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — 1 branch — latest feature/alpha — max +1 ahead trunk",
-				"bravo — changed vs master — 1 branch — latest feature/bravo — max +2 ahead trunk",
+				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 ahead base",
+				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 ahead base",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("alpha");
 	});
 
-	test("does not suggest when the changed Objective slug is not open", async () => {
+	test("does not suggest when the changed Objective slug is not active", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep("M\t.asdl/objectives/closed-objective/objective.md\n"),
@@ -372,13 +379,13 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — 1 branch — latest feature/alpha — max +1 ahead trunk",
-			"bravo — 1 branch — latest feature/bravo — max +2 ahead trunk",
+			"alpha — 1 branch — latest work feature/alpha — max +1 ahead base",
+			"bravo — 1 branch — latest work feature/bravo — max +2 ahead base",
 		]);
 		expect(items.some((item) => item.includes("suggested"))).toBe(false);
 	});
 
-	test("does not claim only Objective changed when a changed slug is not open", async () => {
+	test("does not claim only Objective changed when a changed slug is not active", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep([
@@ -389,10 +396,10 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an open Objective for next-work recommendation (changed Objectives vs master)",
+			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"bravo — changed vs master — 1 branch — latest feature/bravo — max +2 ahead trunk",
-				"View other open Objectives…",
+				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 ahead base",
+				"View other active Objectives…",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("bravo");
@@ -417,8 +424,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — 1 branch — latest feature/alpha — max +1 ahead trunk",
-			"bravo — 1 branch — latest feature/bravo — max +2 ahead trunk",
+			"alpha — 1 branch — latest work feature/alpha — max +1 ahead base",
+			"bravo — 1 branch — latest work feature/bravo — max +2 ahead base",
 		]);
 		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
 		expect(result.pi.sentUserMessages).toEqual([]);
@@ -446,7 +453,7 @@ describe("objective command shared selection policy", () => {
 				});
 			});
 
-			test("empty args load open candidates with objective list json", async () => {
+			test("empty args load active candidates with objective list json", async () => {
 				const result = await runObjectiveCommand(
 					commandName,
 					"",
@@ -455,19 +462,19 @@ describe("objective command shared selection policy", () => {
 				);
 
 				result.pi.assertDone();
-				expectListOpenObjectivesCall(result);
+				expectListActiveObjectivesCall(result);
 				expect(result.selections).toHaveLength(1);
 				expect(result.pi.sentUserMessages).toEqual([]);
 			});
 
-			test("zero open Objectives notify and send no prompt", async () => {
+			test("zero active Objectives notify and send no prompt", async () => {
 				const result = await runObjectiveCommand(commandName, "", [listStep([])]);
 
 				result.pi.assertDone();
 				expect(result.pi.execCalls).toHaveLength(1);
-				expectListOpenObjectivesCall(result);
+				expectListActiveObjectivesCall(result);
 				expect(result.notifications).toEqual([
-					{ message: "No open Objectives. Create one with /skill:objective-create.", level: "info" },
+					{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
 				]);
 				expect(result.selections).toEqual([]);
 				expect(result.pi.sentUserMessages).toEqual([]);
