@@ -112,6 +112,17 @@ export type WorktreeConflict = {
 	kind: "current" | "managed-slot" | "manual-worktree";
 };
 
+export type DescendantMaintenancePlan =
+	| { kind: "none"; branches: [] }
+	| { kind: "auto"; branches: string[]; targetBranch: string }
+	| {
+			kind: "skipped";
+			branches: string[];
+			targetBranch: string | undefined;
+			conflicts: WorktreeConflict[];
+			reason: string;
+		};
+
 export type WorktreeEntry = {
 	path: string;
 	branch?: string;
@@ -132,6 +143,7 @@ export type LandingPlan = {
 	prSubmitRequirements: PrSubmitRequirement[];
 	submitRestackRequirements: RestackRequirement[];
 	managedSlotConflicts: WorktreeConflict[];
+	descendantMaintenance: DescendantMaintenancePlan;
 };
 
 export type LandedPr = {

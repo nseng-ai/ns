@@ -7,13 +7,14 @@ import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import type {
 	CommandStreamMessageDetails,
+	DescendantMaintenancePlan,
 	ExtensionCommandContext,
 	LandedPr,
 	LandingPlan,
 	LandingWarning,
 	NotifyLevel,
 } from "./types.ts";
-import { formatSlotConflict } from "./worktrees.ts";
+import { formatConflict, formatSlotConflict } from "./worktrees.ts";
 
 export function formatPlan(plan: LandingPlan): string {
 	const { stack, branchPlans, prSubmitRequirements, managedSlotConflicts } = plan;
@@ -33,14 +34,7 @@ export function formatPlan(plan: LandingPlan): string {
 	});
 
 	lines.push("");
-	if (stack.descendantBranches.length > 0) {
-		lines.push("Will leave open/restack but not merge:");
-		for (const branch of stack.descendantBranches) {
-			lines.push(`  - ${branch}`);
-		}
-	} else {
-		lines.push("No descendant PRs above the current branch will be merged.");
-	}
+	lines.push(...formatDescendantMaintenancePlan(plan.descendantMaintenance));
 
 	if (stack.warnings.length > 0) {
 		lines.push("", "Warnings:");
@@ -75,14 +69,12 @@ export function formatPlan(plan: LandingPlan): string {
 
 	lines.push("");
 	if (managedSlotConflicts.length > 0) {
-		lines.push(
-			"Before merging, this command will ask before running slot gt free-stack because these stack branches are checked out in managed slots:",
-		);
+		lines.push("Before merging, this command will ask before freeing these landing-branch slots only:");
 		for (const conflict of managedSlotConflicts) {
 			lines.push(`  - ${formatSlotConflict(conflict)}`);
 		}
 	} else {
-		lines.push("No managed slot cleanup is required before merging.");
+		lines.push("No landing-branch managed slot cleanup is required before merging.");
 	}
 
 	lines.push(
@@ -90,14 +82,32 @@ export function formatPlan(plan: LandingPlan): string {
 		"For each merged PR:",
 		"  - gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
 		`  - verify PR is MERGED on ${stack.trunk}`,
-		"  - if another branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
-		"  - gt delete <landed-branch> -f -q",
-		"  - restack/submit the next branch only, if one remains",
+		"  - if another landing branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
+		"  - gt delete <landed-branch> -f -q, except when descendant maintenance is skipped to avoid collateral child restacks",
+		"  - restack/submit the next landing branch when required; descendant restack/update is optional after target PRs land",
 		"",
-		"Will not merge descendants above current, will not delete remote branches, will not run global gt sync --delete-all, will not wait for checks or enable auto-merge, and will stop on first failure.",
+		"Will not merge descendants above current, will not delete remote branches, will not run global gt sync --delete-all, will not wait for checks or enable auto-merge, and will stop on first failure before all target PRs land.",
 	);
 
 	return lines.join("\n");
+}
+
+function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan): string[] {
+	if (maintenance.kind === "none") {
+		return ["No descendant PRs above the current branch will be merged."];
+	}
+
+	if (maintenance.kind === "auto") {
+		return [
+			"Will leave open and try to restack/update after target PRs land:",
+			...maintenance.branches.map((branch) => `  - ${branch}`),
+		];
+	}
+
+	return [
+		"Will leave open without automatic restack/update because these descendants are checked out elsewhere:",
+		...maintenance.conflicts.map((conflict) => `  - ${formatConflict(conflict)}`),
+	];
 }
 
 export function usage(): string {
@@ -106,20 +116,31 @@ export function usage(): string {
 		`/${COMMAND_NAME} [--yes] [--dry-run] [--help]`,
 		"",
 		"Lands the current Graphite stack path from bottom branch through the current branch, one PR at a time.",
-		"Requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no manual worktree conflicts; can offer to run gt restack + submit/update for stale PR heads before merging.",
+		"Requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
 		"",
 		"Options:",
-		"  --yes, -y    Skip the main landing confirmation. PR submit/update and managed slot cleanup still require explicit UI confirmation.",
+		"  --yes, -y    Skip the main landing confirmation. PR submit/update and landing-branch managed slot cleanup still require explicit UI confirmation.",
 		"  --dry-run    Show the plan and exit before mutating anything.",
 		"  --help, -h   Show this help.",
 	].join("\n");
 }
 
-export function formatSuccessSummary(landed: LandedPr[], descendants: string[], warnings: LandingWarning[] = []): string {
+export function formatSuccessSummary(
+	landed: LandedPr[],
+	descendantMaintenance: DescendantMaintenancePlan,
+	warnings: LandingWarning[] = [],
+): string {
 	const landedText = landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
 	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
-	if (descendants.length > 0) {
-		lines.push(`Left open/restacked: ${descendants.join(", ")}.`);
+	if (descendantMaintenance.kind === "auto" && descendantMaintenance.branches.length > 0) {
+		lines.push(
+			hasDescendantMaintenanceWarning(warnings)
+				? `Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`
+				: `Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`,
+		);
+	} else if (descendantMaintenance.kind === "skipped") {
+		lines.push(`Left open; restack/update skipped: ${descendantMaintenance.branches.join(", ")}.`);
+		lines.push(`Reason: ${descendantMaintenance.reason}.`);
 	}
 	lines.push("Remote branches were not deleted.");
 	lines.push("Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
@@ -130,6 +151,10 @@ export function formatSuccessSummary(landed: LandedPr[], descendants: string[], 
 		}
 	}
 	return lines.join("\n");
+}
+
+function hasDescendantMaintenanceWarning(warnings: LandingWarning[]): boolean {
+	return warnings.some((warning) => warning.message.toLowerCase().includes("descendant"));
 }
 
 export function formatLandingWarning(warning: LandingWarning): string[] {

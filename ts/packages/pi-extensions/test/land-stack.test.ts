@@ -320,14 +320,16 @@ function initialBranchPlans(options: { featureBBase?: string | undefined } = {})
 }
 
 function featureStackPreflight(options: { stackOutput?: string | undefined; worktrees?: string | undefined; featureBBase?: string | undefined } = {}): ScriptedExec[] {
+	const stackOutput = options.stackOutput ?? STACK_WITH_DESCENDANT;
+	const hasDescendants = stackOutput.includes(DESCENDANT);
+	const worktrees = options.worktrees ?? worktreeOutput([{ path: ROOT, branch: CURRENT }]);
 	return [
 		...repoIntro({ stackOutput: options.stackOutput }),
 		...cleanRepoChecks(),
-		...localBranchChecks(options.stackOutput === STACK_TO_CURRENT ? ["feature-a", "feature-b"] : ["feature-a", "feature-b", DESCENDANT]),
+		...localBranchChecks(["feature-a", "feature-b"]),
 		...initialBranchPlans({ featureBBase: options.featureBBase }),
-		step("git", ["worktree", "list", "--porcelain"], {
-			stdout: options.worktrees ?? worktreeOutput([{ path: ROOT, branch: CURRENT }]),
-		}),
+		step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees }),
+		...(hasDescendants ? [step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees })] : []),
 	];
 }
 
@@ -385,7 +387,7 @@ function mergeFeatureA(
 	return steps;
 }
 
-function mergeFeatureBWithDescendant(): ScriptedExec[] {
+function mergeFeatureBThroughVerification(): ScriptedExec[] {
 	return [
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], { stdout: `${SHA_B}\n` }),
 		step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
@@ -404,10 +406,28 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 				}),
 			),
 		}),
+	];
+}
+
+function mergeFeatureBWithDescendant(): ScriptedExec[] {
+	return [
+		...mergeFeatureBThroughVerification(),
 		step("gt", ["get", DESCENDANT, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 		step("gt", ["submit", "--branch", DESCENDANT, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"]),
+	];
+}
+
+function mergeFeatureBWithDescendantRestackFailure(): ScriptedExec[] {
+	return [
+		...mergeFeatureBThroughVerification(),
+		step("gt", ["get", DESCENDANT, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+		step("gt", ["delete", "feature-b", "-f", "-q"]),
+		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"], {
+			code: 1,
+			stderr: "restack failed",
+		}),
 	];
 }
 
@@ -604,10 +624,11 @@ describe("land-stack pure helpers", () => {
 			prSubmitRequirements: [],
 			submitRestackRequirements: [],
 			managedSlotConflicts: [{ branch: "feature-a", path: "/Users/me/.slots/repos/repo/worktrees/slot-01", kind: "managed-slot" }],
+			descendantMaintenance: { kind: "auto", branches: [DESCENDANT], targetBranch: DESCENDANT },
 		};
 		const formatted = formatPlan(plan);
 		expect(formatted).toContain("Land Graphite stack path: main -> feature-a -> feature-b");
-		expect(formatted).toContain("Will leave open/restack but not merge:");
+		expect(formatted).toContain("Will leave open and try to restack/update after target PRs land:");
 		expect(formatted).toContain("slot-01 feature-a");
 		expect(formatted).toContain(
 			"gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
@@ -679,6 +700,28 @@ describe("land-stack command scenarios", () => {
 		expect(notifications[0]?.message).toContain("Dry run only; no PRs or local refs were changed.");
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(false);
+	});
+
+	test("--dry-run treats descendant slot checkouts as skipped maintenance", async () => {
+		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const { pi, notifications, confirmations } = await runLandStack(
+			"--dry-run",
+			featureStackPreflight({
+				worktrees: worktreeOutput([
+					{ path: ROOT, branch: CURRENT },
+					{ path: descendantSlotPath, branch: DESCENDANT },
+				]),
+			}),
+		);
+
+		pi.assertDone();
+		expect(confirmations).toEqual([]);
+		expect(notifications[0]?.message).toContain(
+			"Will leave open without automatic restack/update because these descendants are checked out elsewhere:",
+		);
+		expect(notifications[0]?.message).toContain("slot-07 feature-c");
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(false);
 	});
 
 	test("non-interactive mode without --yes refuses before mutation", async () => {
@@ -759,6 +802,137 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
+	});
+
+	test("descendant managed slot does not block landing and skips descendant maintenance", async () => {
+		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const script = [
+			...featureStackPreflight({
+				worktrees: worktreeOutput([
+					{ path: ROOT, branch: CURRENT },
+					{ path: descendantSlotPath, branch: DESCENDANT },
+				]),
+			}),
+			...mergeFeatureA(),
+			...mergeFeatureBThroughVerification(),
+		];
+		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(confirmations).toEqual([]);
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
+				.map((call) => call.args[2]),
+		).toEqual(["101", "102"]);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get" && call.args[1] === DESCENDANT)).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete" && call.args[1] === "feature-b")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack" && call.args[2] === DESCENDANT)).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT)).toBe(false);
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Left open; restack/update skipped: feature-c.");
+		expect(streamText).toContain("Final local Graphite cleanup for feature-b and descendant restack/update were skipped");
+		expect(streamText).toContain("slot-07 feature-c");
+	});
+
+	test("descendant manual worktree does not block landing and skips descendant maintenance", async () => {
+		const script = [
+			...featureStackPreflight({
+				worktrees: worktreeOutput([
+					{ path: ROOT, branch: CURRENT },
+					{ path: "/tmp/manual-descendant", branch: DESCENDANT },
+				]),
+			}),
+			...mergeFeatureA(),
+			...mergeFeatureBThroughVerification(),
+		];
+		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(confirmations).toEqual([]);
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
+				.map((call) => call.args[2]),
+		).toEqual(["101", "102"]);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack" && call.args[2] === DESCENDANT)).toBe(false);
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Left open; restack/update skipped: feature-c.");
+		expect(streamText).toContain("/tmp/manual-descendant");
+	});
+
+	test("landing-scope managed slot cleanup is targeted and leaves descendant slots alone", async () => {
+		const landingSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-01";
+		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const initialWorktrees = worktreeOutput([
+			{ path: ROOT, branch: CURRENT },
+			{ path: landingSlotPath, branch: "feature-a" },
+			{ path: descendantSlotPath, branch: DESCENDANT },
+		]);
+		const script = [
+			...featureStackPreflight({ worktrees: initialWorktrees }),
+			step("slot", ["free", "--wt", "slot-01"]),
+			...cleanRepoChecks(),
+			step("git", ["worktree", "list", "--porcelain"], {
+				stdout: worktreeOutput([
+					{ path: ROOT, branch: CURRENT },
+					{ path: descendantSlotPath, branch: DESCENDANT },
+				]),
+			}),
+			...mergeFeatureA(),
+			...mergeFeatureBThroughVerification(),
+		];
+		const { pi, notifications, confirmations } = await runLandStack("--yes", script, { confirms: [true] });
+
+		pi.assertDone();
+		expect(confirmations).toHaveLength(1);
+		expect(confirmations[0]?.title).toBe("Free landing slots?");
+		expect(confirmations[0]?.message).toContain("slot-01 feature-a");
+		expect(confirmations[0]?.message).not.toContain("slot-07 feature-c");
+		expect(pi.execCalls.some((call) => call.command === "slot" && sameArgs(call.args, ["free", "--wt", "slot-01"]))).toBe(true);
+		expect(pi.execCalls.some((call) => call.command === "slot" && sameArgs(call.args, ["gt", "free-stack"]))).toBe(false);
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
+	});
+
+	test("non-interactive descendant-only slot conflict proceeds with --yes", async () => {
+		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const script = [
+			...featureStackPreflight({
+				worktrees: worktreeOutput([
+					{ path: ROOT, branch: CURRENT },
+					{ path: descendantSlotPath, branch: DESCENDANT },
+				]),
+			}),
+			...mergeFeatureA(),
+			...mergeFeatureBThroughVerification(),
+		];
+		const { pi } = await captureConsole(() => runLandStack("--yes", script, { hasUI: false }));
+
+		pi.assertDone();
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")
+				.map((call) => call.args[2]),
+		).toEqual(["101", "102"]);
+	});
+
+	test("optional descendant maintenance failure completes with a warning", async () => {
+		const script = [...featureStackPreflight(), ...mergeFeatureA(), ...mergeFeatureBWithDescendantRestackFailure()];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 2 PRs: #101 feature-a, #102 feature-b.");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Completed with 1 warning:");
+		expect(streamText).toContain("Restack failed after merging #102; descendant branch feature-c was left for manual restack/update.");
+		expect(streamText).not.toContain("land-stack stopped");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT)).toBe(false);
 	});
 
 	test("streams command execution as normal scrollback messages", async () => {
@@ -1076,14 +1250,14 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(false);
 	});
 
-	test("managed slot conflict asks for confirmation and frees slots before merging", async () => {
+	test("managed slot conflict asks for confirmation and frees targeted slots before merging", async () => {
 		const managedWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
 			{ path: "/Users/me/.slots/repos/repo/worktrees/slot-01", branch: "feature-a" },
 		]);
 		const script = [
 			...singleBranchPreflight(managedWorktrees),
-			step("slot", ["gt", "free-stack"]),
+			step("slot", ["free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
@@ -1094,11 +1268,13 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(confirmations).toHaveLength(1);
-		expect(confirmations[0]?.title).toBe("Run slot gt free-stack?");
+		expect(confirmations[0]?.title).toBe("Free landing slots?");
 		expect(confirmations[0]?.message).toContain("slot-01 feature-a");
+		expect(confirmations[0]?.message).toContain("Command: slot free --wt slot-01");
 		expect(pi.execCalls.findIndex((call) => call.command === "slot")).toBeLessThan(
 			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
 		);
+		expect(pi.execCalls.some((call) => call.command === "slot" && sameArgs(call.args, ["gt", "free-stack"]))).toBe(false);
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Landed 1 PR: #101 feature-a.");
 	});
 

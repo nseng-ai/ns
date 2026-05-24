@@ -38,6 +38,7 @@ export { parseGtStackOutput } from "./land-stack/stack-facts.ts";
 export type {
 	AutocompleteItem,
 	BranchPlan,
+	DescendantMaintenancePlan,
 	ExtensionAPI,
 	ExtensionCommandContext,
 	LandedPr,
@@ -116,7 +117,7 @@ export default function landStackExtension(pi: ExtensionAPI): void {
 
 				await runMergeLoop(runtimePi, ctx, plan, landed, warnings, { commandStream, unstreamedPi: pi });
 
-				const successSummary = formatSuccessSummary(landed, plan.stack.descendantBranches, warnings);
+				const successSummary = formatSuccessSummary(landed, plan.descendantMaintenance, warnings);
 				const completionLevel = warnings.length > 0 ? "warning" : "success";
 				const commandStreamDetails = commandStreamDetailsForLanded(landed);
 				commandStream.finishSuccess(successSummary, commandStreamDetails);
