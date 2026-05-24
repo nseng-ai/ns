@@ -124,8 +124,8 @@ def test_branch_slice_candidates_not_ahead_of_base_are_ignored() -> None:
     assert _slice_for(slices, "feat/child").parent_branch == "master"
 
 
-def test_branch_slice_parent_discovery_uses_one_base_count_per_branch() -> None:
-    git = _CountingGitGateway(
+def test_branch_slice_parent_discovery_uses_one_batched_commit_graph() -> None:
+    git = FakeGitGateway(
         ancestors={
             ("feat/a", "feat/b"),
             ("feat/a", "feat/c"),
@@ -153,12 +153,9 @@ def test_branch_slice_parent_discovery_uses_one_base_count_per_branch() -> None:
         range_spec="feat/b..feat/c",
         slice_commits=1,
     )
-    assert git.counted_ranges == (
-        "master..feat/a",
-        "master..feat/b",
-        "master..feat/c",
-    )
-    assert git.ancestor_checks == ()
+    assert git.commit_graph_from_base_calls == (("master", ("feat/a", "feat/b", "feat/c")),)
+    assert git.count_commits_in_range_calls == ()
+    assert git.list_branches_merged_into_calls == ()
 
 
 def test_branch_slice_tie_breaks_by_branch_name() -> None:
@@ -185,7 +182,7 @@ def test_branch_slice_tie_breaks_by_branch_name() -> None:
     assert _slice_for(slices, "feat/child").parent_branch == "feat/a"
 
 
-def test_branch_slice_final_slice_count_failure_raises_clinkr_failure() -> None:
+def test_branch_slice_commit_graph_failure_raises_clinkr_failure() -> None:
     git = FakeGitGateway(
         commit_count_by_range={
             "master..feat/a": GitCommandFailure(message="rev-list failed", returncode=128)
@@ -199,36 +196,8 @@ def test_branch_slice_final_slice_count_failure_raises_clinkr_failure() -> None:
             base_branch="master",
         )
 
-    assert exc_info.value.error_type == "git_slice_count_failed"
+    assert exc_info.value.error_type == "git_commit_graph_failed"
     assert exc_info.value.message == "rev-list failed"
-
-
-class _CountingGitGateway(FakeGitGateway):
-    def __init__(
-        self,
-        *,
-        ancestors: set[tuple[str, str]],
-        commit_count_by_range: dict[str, int | GitCommandFailure],
-    ) -> None:
-        super().__init__(ancestors=ancestors, commit_count_by_range=commit_count_by_range)
-        self._counted_ranges: list[str] = []
-        self._ancestor_checks: list[tuple[str, str]] = []
-
-    def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
-        self._counted_ranges.append(range_spec)
-        return super().count_commits_in_range(range_spec)
-
-    def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
-        self._ancestor_checks.append((maybe_ancestor, descendant))
-        return super().is_ancestor(maybe_ancestor, descendant)
-
-    @property
-    def counted_ranges(self) -> tuple[str, ...]:
-        return tuple(self._counted_ranges)
-
-    @property
-    def ancestor_checks(self) -> tuple[tuple[str, str], ...]:
-        return tuple(self._ancestor_checks)
 
 
 def _slice_for(

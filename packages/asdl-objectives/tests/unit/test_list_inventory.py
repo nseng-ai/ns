@@ -125,9 +125,64 @@ def test_objective_branch_inventory_branch_has_slug_returns_boolean() -> None:
     assert inventory.branch_has_slug("missing", "alpha") is False
 
 
-def test_build_objective_branch_inventory_raises_clinkr_failure_on_git_failure() -> None:
+def test_build_objective_branch_inventory_caches_by_objective_tree_oid() -> None:
     git = FakeGitGateway(
+        tree_oid_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): "tree-a",
+            ("refs/heads/feat/same", ".asdl/objectives"): "tree-a",
+            ("refs/heads/feat/other", ".asdl/objectives"): "tree-b",
+        },
         tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/other", ".asdl/objectives"): (
+                ".asdl/objectives/beta/objective.md",
+                ".asdl/objectives/beta/closed.md",
+            ),
+        },
+    )
+
+    inventory = build_objective_branch_inventory(
+        git,
+        ("master", "feat/same", "feat/other"),
+    )
+
+    assert inventory.records_by_branch == {
+        "master": {"alpha": "open"},
+        "feat/same": {"alpha": "open"},
+        "feat/other": {"beta": "closed"},
+    }
+    assert git.tree_oids_at_refs_calls == (
+        (
+            (
+                "refs/heads/master",
+                "refs/heads/feat/same",
+                "refs/heads/feat/other",
+            ),
+            ".asdl/objectives",
+        ),
+    )
+    assert git.list_tracked_paths_at_ref_calls == (
+        ("refs/heads/master", ".asdl/objectives"),
+        ("refs/heads/feat/other", ".asdl/objectives"),
+    )
+
+
+def test_build_objective_branch_inventory_missing_tree_maps_to_empty_records() -> None:
+    git = FakeGitGateway(
+        tree_oid_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): None,
+        },
+    )
+
+    inventory = build_objective_branch_inventory(git, ("master",))
+
+    assert inventory.records_by_branch == {"master": {}}
+    assert git.list_tracked_paths_at_ref_calls == ()
+
+
+def test_build_objective_branch_inventory_raises_clinkr_failure_on_tree_oid_failure() -> None:
+    git = FakeGitGateway(
+        tree_oid_by_ref_path={
             ("refs/heads/master", ".asdl/objectives"): GitCommandFailure(
                 message="fatal: unknown ref",
                 returncode=128,
@@ -138,5 +193,25 @@ def test_build_objective_branch_inventory_raises_clinkr_failure_on_git_failure()
     with pytest.raises(ClinkrFailure) as exc_info:
         build_objective_branch_inventory(git, ("master",))
 
-    assert exc_info.value.error_type == "git_list_objective_paths_failed"
+    assert exc_info.value.error_type == "git_objective_tree_oid_failed"
     assert exc_info.value.message == "fatal: unknown ref"
+
+
+def test_build_objective_branch_inventory_raises_clinkr_failure_on_path_list_failure() -> None:
+    git = FakeGitGateway(
+        tree_oid_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): "tree-a",
+        },
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): GitCommandFailure(
+                message="fatal: ls-tree failed",
+                returncode=128,
+            )
+        },
+    )
+
+    with pytest.raises(ClinkrFailure) as exc_info:
+        build_objective_branch_inventory(git, ("master",))
+
+    assert exc_info.value.error_type == "git_list_objective_paths_failed"
+    assert exc_info.value.message == "fatal: ls-tree failed"

@@ -9,11 +9,15 @@ from typing import Final
 
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import (
+    BranchCommitGraph,
+    CommitGraphNode,
     CommitSummary,
     DetachedHead,
     FileStatus,
     GitCommandFailure,
     LocalBranchTip,
+    LocalBranchTipRef,
+    PathChangeTouch,
     PathTouch,
     RestructuredFile,
     WorktreeInfo,
@@ -25,6 +29,36 @@ class _Unset:
 
 
 _UNSET: Final = _Unset()
+
+
+def _path_is_under(candidate: str, path: str) -> bool:
+    normalized = path.rstrip("/")
+    return candidate == normalized or candidate.startswith(f"{normalized}/")
+
+
+def _fake_tree_oid_for_paths(path: str, paths: tuple[str, ...]) -> str:
+    return f"fake-tree:{path}:{'|'.join(paths)}"
+
+
+def _nearest_seeded_ancestor(
+    *,
+    branch: str,
+    branch_set: set[str],
+    ancestors: set[tuple[str, str]],
+    ahead_counts: dict[str, int],
+) -> str | None:
+    branch_ahead_count = ahead_counts[branch]
+    eligible: list[tuple[int, str]] = []
+    for candidate, descendant in ancestors:
+        if descendant != branch or candidate not in branch_set:
+            continue
+        candidate_ahead_count = ahead_counts[candidate]
+        if candidate_ahead_count <= 0 or candidate_ahead_count >= branch_ahead_count:
+            continue
+        eligible.append((branch_ahead_count - candidate_ahead_count, candidate))
+    if not eligible:
+        return None
+    return min(eligible)[1]
 
 
 class FakeGitGateway(GitGateway):
@@ -51,9 +85,13 @@ class FakeGitGateway(GitGateway):
         tracked_paths_by_ref_path: (
             dict[tuple[str, str], tuple[str, ...] | GitCommandFailure] | None
         ) = None,
+        tree_oid_by_ref_path: dict[tuple[str, str], str | None | GitCommandFailure] | None = None,
         paths_at_ref: Iterable[tuple[str, str]] = (),
         file_last_touched_by_ref_path: dict[tuple[str, str], str] | None = None,
         path_touch_by_ref_path: dict[tuple[str, str], PathTouch] | None = None,
+        path_change_touches_by_ref_path: (
+            dict[tuple[str, str], tuple[PathChangeTouch, ...] | GitCommandFailure] | None
+        ) = None,
         branch_head_iso_by_branch: dict[str, str] | None = None,
         branch_head_oid_by_branch: dict[str, str] | None = None,
         fetch_failure_by_args: dict[tuple[Path, str, str], GitCommandFailure] | None = None,
@@ -63,6 +101,9 @@ class FakeGitGateway(GitGateway):
         log_range_failure: GitCommandFailure | None = None,
         patch_ids_by_range: dict[str, tuple[tuple[str, str | None], ...]] | None = None,
         patch_ids_failure: GitCommandFailure | None = None,
+        commit_graph_by_base_branches: (
+            dict[tuple[str, tuple[str, ...]], BranchCommitGraph | GitCommandFailure] | None
+        ) = None,
         ancestors: Iterable[tuple[str, str]] = (),
         commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
         on_add_worktree: Callable[[Path], None] | None = None,
@@ -84,9 +125,11 @@ class FakeGitGateway(GitGateway):
         self._restructured_files_by_key = dict(restructured_files_by_key or {})
         self._directories_by_ref_path = dict(directories_by_ref_path or {})
         self._tracked_paths_by_ref_path = dict(tracked_paths_by_ref_path or {})
+        self._tree_oid_by_ref_path = dict(tree_oid_by_ref_path or {})
         self._paths_at_ref = set(paths_at_ref)
         self._file_last_touched_by_ref_path = dict(file_last_touched_by_ref_path or {})
         self._path_touch_by_ref_path = dict(path_touch_by_ref_path or {})
+        self._path_change_touches_by_ref_path = dict(path_change_touches_by_ref_path or {})
         self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
         self._branch_head_oid_by_branch = dict(branch_head_oid_by_branch or {})
         self._fetch_failure_by_args = dict(fetch_failure_by_args or {})
@@ -96,6 +139,7 @@ class FakeGitGateway(GitGateway):
         self._log_range_failure = log_range_failure
         self._patch_ids_by_range = dict(patch_ids_by_range or {})
         self._patch_ids_failure = patch_ids_failure
+        self._commit_graph_by_base_branches = dict(commit_graph_by_base_branches or {})
         self._ancestors = {(maybe_ancestor, descendant) for maybe_ancestor, descendant in ancestors}
         self._commit_count_by_range: dict[str, int | GitCommandFailure] = dict(
             commit_count_by_range or {}
@@ -111,6 +155,13 @@ class FakeGitGateway(GitGateway):
         self._fetch_calls: list[tuple[Path, str, str]] = []
         self._pull_calls: list[Path] = []
         self._update_ref_calls: list[tuple[Path, str, str]] = []
+        self._list_tracked_paths_at_ref_calls: list[tuple[str, str]] = []
+        self._tree_oids_at_refs_calls: list[tuple[tuple[str, ...], str]] = []
+        self._path_last_touched_calls: list[tuple[str, str]] = []
+        self._path_touches_under_calls: list[tuple[str, str]] = []
+        self._list_branches_merged_into_calls: list[str] = []
+        self._count_commits_in_range_calls: list[str] = []
+        self._commit_graph_from_base_calls: list[tuple[str, tuple[str, ...]]] = []
 
     def path_exists(self, path: Path) -> bool:
         if path in self._existing_paths:
@@ -157,6 +208,7 @@ class FakeGitGateway(GitGateway):
         ref: str,
         path: str,
     ) -> tuple[str, ...] | GitCommandFailure:
+        self._list_tracked_paths_at_ref_calls.append((ref, path))
         return self._tracked_paths_by_ref_path.get((ref, path), ())
 
     def list_directories_at_ref(
@@ -165,6 +217,29 @@ class FakeGitGateway(GitGateway):
         path: str,
     ) -> tuple[str, ...] | GitCommandFailure:
         return self._directories_by_ref_path.get((ref, path), ())
+
+    def tree_oids_at_refs(
+        self,
+        refs: tuple[str, ...],
+        path: str,
+    ) -> dict[str, str | None] | GitCommandFailure:
+        self._tree_oids_at_refs_calls.append((refs, path))
+        tree_oids: dict[str, str | None] = {}
+        for ref in refs:
+            result = self._tree_oid_by_ref_path.get((ref, path))
+            if isinstance(result, GitCommandFailure):
+                return result
+            if result is not None or (ref, path) in self._tree_oid_by_ref_path:
+                tree_oids[ref] = result
+                continue
+            paths_result = self._tracked_paths_by_ref_path.get((ref, path))
+            if isinstance(paths_result, GitCommandFailure):
+                return paths_result
+            if paths_result is None:
+                tree_oids[ref] = None
+            else:
+                tree_oids[ref] = _fake_tree_oid_for_paths(path, paths_result)
+        return tree_oids
 
     def path_exists_at_ref(self, ref: str, path: str) -> bool:
         return (ref, path) in self._paths_at_ref
@@ -255,6 +330,7 @@ class FakeGitGateway(GitGateway):
         return self._file_last_touched_by_ref_path.get((ref, path))
 
     def path_last_touched(self, ref: str, path: str) -> PathTouch | None:
+        self._path_last_touched_calls.append((ref, path))
         key = (ref, path)
         touch = self._path_touch_by_ref_path.get(key)
         if touch is not None:
@@ -263,6 +339,44 @@ class FakeGitGateway(GitGateway):
         if committed_iso is None:
             return None
         return PathTouch(oid=f"{ref}:{path}", committed_iso=committed_iso)
+
+    def path_touches_under(
+        self,
+        ref_or_range: str,
+        path: str,
+    ) -> tuple[PathChangeTouch, ...] | GitCommandFailure:
+        self._path_touches_under_calls.append((ref_or_range, path))
+        key = (ref_or_range, path)
+        seeded = self._path_change_touches_by_ref_path.get(key)
+        if seeded is not None:
+            return seeded
+        return self._synthesized_path_change_touches_under(ref_or_range, path)
+
+    def _synthesized_path_change_touches_under(
+        self,
+        ref_or_range: str,
+        path: str,
+    ) -> tuple[PathChangeTouch, ...]:
+        touches: list[PathChangeTouch] = []
+        for (touch_ref, touch_path), touch in self._path_touch_by_ref_path.items():
+            if touch_ref == ref_or_range and _path_is_under(touch_path, path):
+                touches.append(
+                    PathChangeTouch(
+                        oid=touch.oid,
+                        committed_iso=touch.committed_iso,
+                        paths=(f"{touch_path.rstrip('/')}/__fake_touch__",),
+                    )
+                )
+        for (touch_ref, touch_path), committed_iso in self._file_last_touched_by_ref_path.items():
+            if touch_ref == ref_or_range and _path_is_under(touch_path, path):
+                touches.append(
+                    PathChangeTouch(
+                        oid=f"{touch_ref}:{touch_path}",
+                        committed_iso=committed_iso,
+                        paths=(f"{touch_path.rstrip('/')}/__fake_touch__",),
+                    )
+                )
+        return tuple(sorted(touches, key=lambda touch: touch.committed_iso, reverse=True))
 
     def branch_head_iso(self, branch: str) -> str | None:
         if branch not in self._branches:
@@ -308,10 +422,97 @@ class FakeGitGateway(GitGateway):
             return self._patch_ids_failure
         return self._patch_ids_by_range.get(range_spec, ())
 
+    def commit_graph_from_base(
+        self,
+        *,
+        base_branch: str,
+        branches: tuple[str, ...],
+    ) -> BranchCommitGraph | GitCommandFailure:
+        key = (base_branch, tuple(sorted(set(branches))))
+        self._commit_graph_from_base_calls.append(key)
+        seeded = self._commit_graph_by_base_branches.get(key)
+        if seeded is not None:
+            return seeded
+        return self._synthesize_commit_graph_from_counts(
+            base_branch=base_branch,
+            branches=key[1],
+        )
+
+    def _synthesize_commit_graph_from_counts(
+        self,
+        *,
+        base_branch: str,
+        branches: tuple[str, ...],
+    ) -> BranchCommitGraph | GitCommandFailure:
+        ahead_counts: dict[str, int] = {}
+        for branch in branches:
+            count = self._commit_count_by_range.get(f"{base_branch}..{branch}", 0)
+            if isinstance(count, GitCommandFailure):
+                return count
+            ahead_counts[branch] = count
+
+        nodes_by_oid: dict[str, CommitGraphNode] = {}
+        tip_oid_by_branch: dict[str, str] = {}
+        visiting: set[str] = set()
+
+        def build_tip(branch: str) -> str:
+            if branch in tip_oid_by_branch:
+                return tip_oid_by_branch[branch]
+            if branch in visiting:
+                tip_oid_by_branch[branch] = f"{branch}@cycle"
+                return tip_oid_by_branch[branch]
+
+            visiting.add(branch)
+            ahead_count = ahead_counts[branch]
+            if ahead_count <= 0:
+                tip_oid = f"{branch}@base"
+                tip_oid_by_branch[branch] = tip_oid
+                visiting.remove(branch)
+                return tip_oid
+
+            parent_branch = _nearest_seeded_ancestor(
+                branch=branch,
+                branch_set=set(branches),
+                ancestors=self._ancestors,
+                ahead_counts=ahead_counts,
+            )
+            parent_count = 0
+            previous_oid: str | None = None
+            if parent_branch is not None:
+                parent_count = ahead_counts[parent_branch]
+                previous_oid = build_tip(parent_branch)
+
+            for commit_number in range(parent_count + 1, ahead_count + 1):
+                oid = f"{branch}@{commit_number}"
+                if previous_oid is None or previous_oid not in nodes_by_oid:
+                    parent_oids: tuple[str, ...] = ()
+                else:
+                    parent_oids = (previous_oid,)
+                nodes_by_oid[oid] = CommitGraphNode(oid=oid, parent_oids=parent_oids)
+                previous_oid = oid
+
+            assert previous_oid is not None
+            tip_oid_by_branch[branch] = previous_oid
+            visiting.remove(branch)
+            return previous_oid
+
+        for branch in branches:
+            build_tip(branch)
+
+        return BranchCommitGraph(
+            base_branch=base_branch,
+            branch_tips=tuple(
+                LocalBranchTipRef(branch=branch, oid=tip_oid_by_branch[branch])
+                for branch in branches
+            ),
+            commits=tuple(nodes_by_oid[oid] for oid in sorted(nodes_by_oid)),
+        )
+
     def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
         return (maybe_ancestor, descendant) in self._ancestors
 
     def list_branches_merged_into(self, branch: str) -> tuple[str, ...] | GitCommandFailure:
+        self._list_branches_merged_into_calls.append(branch)
         branches = {branch}
         branches.update(
             maybe_ancestor for maybe_ancestor, descendant in self._ancestors if descendant == branch
@@ -319,9 +520,38 @@ class FakeGitGateway(GitGateway):
         return tuple(sorted(branches))
 
     def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
+        self._count_commits_in_range_calls.append(range_spec)
         if range_spec not in self._commit_count_by_range:
             return 0
         return self._commit_count_by_range[range_spec]
+
+    @property
+    def list_tracked_paths_at_ref_calls(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self._list_tracked_paths_at_ref_calls)
+
+    @property
+    def tree_oids_at_refs_calls(self) -> tuple[tuple[tuple[str, ...], str], ...]:
+        return tuple(self._tree_oids_at_refs_calls)
+
+    @property
+    def path_last_touched_calls(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self._path_last_touched_calls)
+
+    @property
+    def path_touches_under_calls(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self._path_touches_under_calls)
+
+    @property
+    def list_branches_merged_into_calls(self) -> tuple[str, ...]:
+        return tuple(self._list_branches_merged_into_calls)
+
+    @property
+    def count_commits_in_range_calls(self) -> tuple[str, ...]:
+        return tuple(self._count_commits_in_range_calls)
+
+    @property
+    def commit_graph_from_base_calls(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
+        return tuple(self._commit_graph_from_base_calls)
 
     @property
     def fetch_calls(self) -> tuple[tuple[Path, str, str], ...]:

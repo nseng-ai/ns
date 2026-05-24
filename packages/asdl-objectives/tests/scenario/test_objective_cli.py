@@ -996,6 +996,77 @@ def test_objective_list_names_markdown_also_emits_slugs(cli_group: ClinkrGroup) 
     assert "|" not in result.output
 
 
+def test_objective_list_names_json_skips_branch_slices_and_touches(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/a"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/beta/objective.md",),
+            ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, names=True)
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["data"]["groups"] == [
+        {
+            "slug": "alpha",
+            "status": "in-flight",
+            "status_source_entry": {
+                "branch": "master",
+                "status": "in-flight",
+                "updated_iso": None,
+                "present": False,
+            },
+            "branches": [],
+            "latest_update_iso": None,
+            "latest_work_branch": None,
+        },
+        {
+            "slug": "beta",
+            "status": "open",
+            "status_source_entry": {
+                "branch": "master",
+                "status": "open",
+                "updated_iso": None,
+                "present": True,
+            },
+            "branches": [],
+            "latest_update_iso": None,
+            "latest_work_branch": None,
+        },
+    ]
+    fake_git = _fake_git(ctx)
+    assert fake_git.path_last_touched_calls == ()
+    assert fake_git.count_commits_in_range_calls == ()
+    assert fake_git.list_branches_merged_into_calls == ()
+
+
+def test_objective_list_empty_projection_skips_branch_slices_and_touches(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/a"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/open-one/objective.md",),
+            ("refs/heads/feat/a", ".asdl/objectives"): (
+                ".asdl/objectives/in-flight-one/objective.md",
+            ),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, status="closed")
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["data"]["groups"] == []
+    fake_git = _fake_git(ctx)
+    assert fake_git.path_last_touched_calls == ()
+    assert fake_git.count_commits_in_range_calls == ()
+    assert fake_git.list_branches_merged_into_calls == ()
+
+
 def test_objective_list_unavailable_context_returns_failure_envelope(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -1348,6 +1419,11 @@ def test_objective_exec_read_json_omits_raw_markdown_content(
 
 def _touch(oid: str, committed_iso: str) -> PathTouch:
     return PathTouch(oid=oid, committed_iso=committed_iso)
+
+
+def _fake_git(ctx: ObjectiveCliContext) -> FakeGitGateway:
+    assert isinstance(ctx.git, FakeGitGateway)
+    return ctx.git
 
 
 def _list_context(
