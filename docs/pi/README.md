@@ -83,11 +83,11 @@ For clickable PR/issue links in custom Pi extension output, keep message content
 
 See [Extension message linkification](./extension-message-linkification.md).
 
-## Child session helper
+## Runner subagent helper
 
-The local child-session helper lets project extensions await a fresh child Pi process and receive a structured terminal result without slash-command handoff text.
+The local runner subagent helper lets project extensions await a fresh runner subagent and receive a structured terminal result without slash-command handoff text.
 
-See [Child Session Helper](./child-session-helper.md).
+See [Runner Subagent Helper](./runner-subagent-helper.md).
 
 ## Checked-in extensions and worktrees
 
@@ -141,9 +141,9 @@ Global extensions live under:
 
 ## Core subagent and Objective stack rewrite proposals
 
-- [Pi Core Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md): canonical design record for the proposed Pi core foreground child-session primitive and terminal capture semantics.
+- [Pi Core Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md): canonical design record for the proposed Pi core foreground runner subagent primitive and terminal capture semantics.
 - [Pi Core Subagent MVP Roadmap](../../.asdl/objectives/pi-core-subagent-mvp/roadmap.md): review-slice plan for landing the primitive.
-- [Objective Stack Child-Session Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on the repo-local child-session helper.
+- [Objective Stack Child-Session Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on the repo-local runner subagent helper.
 
 ## Session `cwd` semantics
 

@@ -1,3 +1,3 @@
-import childSessionDemoExtension from "../../ts/packages/pi-extensions/src/child-session-demo.ts";
+import runnerSubagentDemoExtension from "../../ts/packages/pi-extensions/src/runner-subagent-demo.ts";
 
-export default childSessionDemoExtension;
+export default runnerSubagentDemoExtension;

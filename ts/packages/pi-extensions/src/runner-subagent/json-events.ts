@@ -1,6 +1,6 @@
-import type { ChildSessionProgress } from "../run-child-session.ts";
+import type { RunnerSubagentProgress } from "../runner-subagent.ts";
 
-export type ChildSessionJsonEventParserOptions = {
+export type RunnerSubagentJsonEventParserOptions = {
 	title?: string;
 	sessionFile?: string;
 	now?: () => number;
@@ -8,7 +8,7 @@ export type ChildSessionJsonEventParserOptions = {
 	terminalToolNames?: Iterable<string>;
 };
 
-export type ChildSessionJsonSessionHeader = {
+export type RunnerSubagentJsonSessionHeader = {
 	type: "session";
 	version?: number;
 	id?: string;
@@ -17,47 +17,47 @@ export type ChildSessionJsonSessionHeader = {
 	[key: string]: unknown;
 };
 
-export type ChildSessionJsonProtocolError = {
+export type RunnerSubagentJsonProtocolError = {
 	message: string;
 	event?: unknown;
 };
 
-export type ChildSessionJsonTerminalExecutionError = {
+export type RunnerSubagentJsonTerminalExecutionError = {
 	message: string;
 	toolName: string;
 	toolCallId?: string;
 	event?: unknown;
 };
 
-export type ChildSessionJsonEventParserSnapshot = {
-	progress: ChildSessionProgress;
+export type RunnerSubagentJsonEventParserSnapshot = {
+	progress: RunnerSubagentProgress;
 	terminalAttempted: boolean;
-	sessionHeader?: ChildSessionJsonSessionHeader;
+	sessionHeader?: RunnerSubagentJsonSessionHeader;
 	stopReason?: string;
 	errorMessage?: string;
 	finalAssistantText?: string;
-	error?: ChildSessionJsonEventParserError;
-	protocolError?: ChildSessionJsonProtocolError;
-	terminalExecutionError?: ChildSessionJsonTerminalExecutionError;
+	error?: RunnerSubagentJsonEventParserError;
+	protocolError?: RunnerSubagentJsonProtocolError;
+	terminalExecutionError?: RunnerSubagentJsonTerminalExecutionError;
 };
 
-export class ChildSessionJsonEventParserError extends Error {
+export class RunnerSubagentJsonEventParserError extends Error {
 	readonly line: string;
 	readonly cause: unknown;
 
 	constructor(message: string, line: string, cause: unknown) {
 		super(message);
-		this.name = "ChildSessionJsonEventParserError";
+		this.name = "RunnerSubagentJsonEventParserError";
 		this.line = line;
 		this.cause = cause;
 	}
 }
 
-type ParserState = ChildSessionProgress["state"];
+type ParserState = RunnerSubagentProgress["state"];
 
 type JsonRecord = Record<string, unknown>;
 
-export class ChildSessionJsonEventParser {
+export class RunnerSubagentJsonEventParser {
 	private readonly title: string | undefined;
 	private readonly now: () => number;
 	private readonly startTimeMs: number;
@@ -69,17 +69,17 @@ export class ChildSessionJsonEventParser {
 	private executedToolCount = 0;
 	private turnCount = 0;
 	private sessionFile: string | undefined;
-	private sessionHeader: ChildSessionJsonSessionHeader | undefined;
+	private sessionHeader: RunnerSubagentJsonSessionHeader | undefined;
 	private stopReason: string | undefined;
 	private errorMessage: string | undefined;
 	private finalAssistantText: string | undefined;
-	private parseError: ChildSessionJsonEventParserError | undefined;
+	private parseError: RunnerSubagentJsonEventParserError | undefined;
 	private terminalAttempted = false;
-	private protocolError: ChildSessionJsonProtocolError | undefined;
-	private terminalExecutionError: ChildSessionJsonTerminalExecutionError | undefined;
+	private protocolError: RunnerSubagentJsonProtocolError | undefined;
+	private terminalExecutionError: RunnerSubagentJsonTerminalExecutionError | undefined;
 	private currentTurnToolStarts: Array<{ toolName: string; toolCallId?: string }> = [];
 
-	constructor(options: ChildSessionJsonEventParserOptions = {}) {
+	constructor(options: RunnerSubagentJsonEventParserOptions = {}) {
 		this.title = options.title;
 		this.now = options.now ?? Date.now;
 		this.startTimeMs = options.startTimeMs ?? this.now();
@@ -112,8 +112,8 @@ export class ChildSessionJsonEventParser {
 		this.currentToolCallId = undefined;
 	}
 
-	getSnapshot(): ChildSessionJsonEventParserSnapshot {
-		const snapshot: ChildSessionJsonEventParserSnapshot = {
+	getSnapshot(): RunnerSubagentJsonEventParserSnapshot {
+		const snapshot: RunnerSubagentJsonEventParserSnapshot = {
 			progress: this.getProgress(),
 			terminalAttempted: this.terminalAttempted,
 		};
@@ -127,7 +127,7 @@ export class ChildSessionJsonEventParser {
 		return snapshot;
 	}
 
-	getProgress(): ChildSessionProgress {
+	getProgress(): RunnerSubagentProgress {
 		return {
 			...(this.title === undefined ? {} : { title: this.title }),
 			state: this.state,
@@ -213,7 +213,7 @@ export class ChildSessionJsonEventParser {
 	}
 
 	private captureSessionHeader(event: JsonRecord & { type: string }): void {
-		const header: ChildSessionJsonSessionHeader = { type: "session" };
+		const header: RunnerSubagentJsonSessionHeader = { type: "session" };
 		for (const [key, value] of Object.entries(event)) {
 			header[key] = value;
 		}
@@ -318,7 +318,7 @@ export class ChildSessionJsonEventParser {
 	}
 
 	private fail(line: string, cause: unknown): void {
-		this.parseError = new ChildSessionJsonEventParserError(`Malformed child Pi JSONL output: ${errorMessage(cause)}`, line, cause);
+		this.parseError = new RunnerSubagentJsonEventParserError(`Malformed subagent Pi JSONL output: ${errorMessage(cause)}`, line, cause);
 		this.markStopped();
 	}
 
@@ -327,10 +327,10 @@ export class ChildSessionJsonEventParser {
 	}
 }
 
-export function createChildSessionJsonEventParser(
-	options: ChildSessionJsonEventParserOptions = {},
-): ChildSessionJsonEventParser {
-	return new ChildSessionJsonEventParser(options);
+export function createRunnerSubagentJsonEventParser(
+	options: RunnerSubagentJsonEventParserOptions = {},
+): RunnerSubagentJsonEventParser {
+	return new RunnerSubagentJsonEventParser(options);
 }
 
 export function captureAssistantTextFromMessage(message: unknown): string | undefined {

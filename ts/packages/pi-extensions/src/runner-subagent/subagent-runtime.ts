@@ -5,21 +5,21 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type {
-	ChildSessionTerminalStatus,
-	ChildSessionTerminalToolDefinition,
+	RunnerSubagentTerminalStatus,
+	RunnerSubagentTerminalToolDefinition,
 	TypeBoxLikeSchema,
-} from "../run-child-session.ts";
+} from "../runner-subagent.ts";
 
 const RUNTIME_VERSION = 1;
 const TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-const RUNTIME_ROOT_PREFIX = "pi-child-session-runtime-";
+const RUNTIME_ROOT_PREFIX = "pi-runner-subagent-runtime-";
 
 export type RuntimeConfigV1 = {
 	version: 1;
 	title?: string;
 	terminalTools: Array<{
 		name: string;
-		status: ChildSessionTerminalStatus;
+		status: RunnerSubagentTerminalStatus;
 		description: string;
 		parameters: TypeBoxLikeSchema;
 	}>;
@@ -31,7 +31,7 @@ export type RuntimeResultV1 =
 			kind: "terminal-capture";
 			toolName: string;
 			toolCallId?: string;
-			status: ChildSessionTerminalStatus;
+			status: RunnerSubagentTerminalStatus;
 			input: unknown;
 	  }
 	| {
@@ -41,12 +41,12 @@ export type RuntimeResultV1 =
 			message: string;
 	  };
 
-export type CreateChildSessionRuntimeFilesInput = {
+export type CreateRunnerSubagentRuntimeFilesInput = {
 	title?: string;
-	terminalTools: readonly ChildSessionTerminalToolDefinition[];
+	terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
 };
 
-export type ChildSessionRuntimeFiles = {
+export type RunnerSubagentRuntimeFiles = {
 	runtimeDir: string;
 	configPath: string;
 	resultPath: string;
@@ -68,7 +68,7 @@ export class RuntimeResultParseError extends Error {
 	}
 }
 
-export function createRuntimeConfig(input: CreateChildSessionRuntimeFilesInput): RuntimeConfigV1 {
+export function createRuntimeConfig(input: CreateRunnerSubagentRuntimeFilesInput): RuntimeConfigV1 {
 	const terminalTools = validateTerminalToolDefinitions(input.terminalTools);
 	return {
 		version: RUNTIME_VERSION,
@@ -77,9 +77,9 @@ export function createRuntimeConfig(input: CreateChildSessionRuntimeFilesInput):
 	};
 }
 
-export async function createDefaultChildSessionRuntimeFiles(
-	input: CreateChildSessionRuntimeFilesInput,
-): Promise<ChildSessionRuntimeFiles> {
+export async function createDefaultRunnerSubagentRuntimeFiles(
+	input: CreateRunnerSubagentRuntimeFilesInput,
+): Promise<RunnerSubagentRuntimeFiles> {
 	const config = createRuntimeConfig(input);
 	const root = join(tmpdir(), RUNTIME_ROOT_PREFIX);
 	await mkdir(root, { recursive: true, mode: 0o700 });
@@ -89,7 +89,7 @@ export async function createDefaultChildSessionRuntimeFiles(
 	const configPath = join(runtimeDir, "config.json");
 	const resultPath = join(runtimeDir, "result.json");
 	const extensionPath = join(runtimeDir, "runtime-extension.ts");
-	const runtimeFactoryPath = fileURLToPath(new URL("./child-runtime-extension.ts", import.meta.url));
+	const runtimeFactoryPath = fileURLToPath(new URL("./subagent-runtime-extension.ts", import.meta.url));
 
 	try {
 		await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
@@ -148,23 +148,23 @@ export function parseRuntimeConfigJson(raw: string): RuntimeConfigV1 {
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		throw new RuntimeConfigValidationError(`Invalid child runtime config JSON: ${errorMessage(error)}`);
+		throw new RuntimeConfigValidationError(`Invalid runner subagent runtime config JSON: ${errorMessage(error)}`);
 	}
 	return parseRuntimeConfigValue(value);
 }
 
 export function parseRuntimeConfigValue(value: unknown): RuntimeConfigV1 {
 	if (!isRecord(value)) {
-		throw new RuntimeConfigValidationError("Child runtime config must be an object.");
+		throw new RuntimeConfigValidationError("Runner subagent runtime config must be an object.");
 	}
 	if (value.version !== RUNTIME_VERSION) {
-		throw new RuntimeConfigValidationError("Unsupported child runtime config version.");
+		throw new RuntimeConfigValidationError("Unsupported runner subagent runtime config version.");
 	}
 	if (value.title !== undefined && typeof value.title !== "string") {
-		throw new RuntimeConfigValidationError("Child runtime config title must be a string when present.");
+		throw new RuntimeConfigValidationError("Runner subagent runtime config title must be a string when present.");
 	}
 	if (!Array.isArray(value.terminalTools)) {
-		throw new RuntimeConfigValidationError("Child runtime config terminalTools must be an array.");
+		throw new RuntimeConfigValidationError("Runner subagent runtime config terminalTools must be an array.");
 	}
 	return {
 		version: RUNTIME_VERSION,
@@ -178,17 +178,17 @@ export function parseRuntimeResultJson(raw: string): RuntimeResultV1 {
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		throw new RuntimeResultParseError(`Invalid child runtime result JSON: ${errorMessage(error)}`);
+		throw new RuntimeResultParseError(`Invalid runner subagent runtime result JSON: ${errorMessage(error)}`);
 	}
 	return parseRuntimeResultValue(value);
 }
 
 export function parseRuntimeResultValue(value: unknown): RuntimeResultV1 {
 	if (!isRecord(value)) {
-		throw new RuntimeResultParseError("Child runtime result must be an object.");
+		throw new RuntimeResultParseError("Runner subagent runtime result must be an object.");
 	}
 	if (value.version !== RUNTIME_VERSION) {
-		throw new RuntimeResultParseError("Unsupported child runtime result version.");
+		throw new RuntimeResultParseError("Unsupported runner subagent runtime result version.");
 	}
 	if (value.kind === "terminal-capture") {
 		if (typeof value.toolName !== "string" || value.toolName.length === 0) {
@@ -226,14 +226,14 @@ export function parseRuntimeResultValue(value: unknown): RuntimeResultV1 {
 			message: value.message,
 		};
 	}
-	throw new RuntimeResultParseError("Child runtime result has an invalid kind.");
+	throw new RuntimeResultParseError("Runner subagent runtime result has an invalid kind.");
 }
 
 export function validateTerminalToolDefinitions(
 	terminalTools: readonly unknown[],
 ): RuntimeConfigV1["terminalTools"] {
 	if (terminalTools.length === 0) {
-		throw new RuntimeConfigValidationError("At least one child terminal tool must be provided.");
+		throw new RuntimeConfigValidationError("At least one runner subagent terminal tool must be provided.");
 	}
 
 	const names = new Set<string>();
@@ -274,9 +274,9 @@ export function validateTerminalToolDefinitions(
 
 function generatedRuntimeExtensionSource(runtimeFactoryPath: string, configPath: string, resultPath: string): string {
 	return [
-		`import { createChildSessionRuntimeExtension } from ${JSON.stringify(runtimeFactoryPath)};`,
+		`import { createRunnerSubagentRuntimeExtension } from ${JSON.stringify(runtimeFactoryPath)};`,
 		"",
-		"export default createChildSessionRuntimeExtension({",
+		"export default createRunnerSubagentRuntimeExtension({",
 		`\tconfigPath: ${JSON.stringify(configPath)},`,
 		`\tresultPath: ${JSON.stringify(resultPath)},`,
 		"});",
@@ -297,7 +297,7 @@ function cloneJsonSerializable(value: unknown, label: string): TypeBoxLikeSchema
 	return JSON.parse(raw) as TypeBoxLikeSchema;
 }
 
-function isTerminalStatus(value: unknown): value is ChildSessionTerminalStatus {
+function isTerminalStatus(value: unknown): value is RunnerSubagentTerminalStatus {
 	return value === "completed" || value === "blocked";
 }
 

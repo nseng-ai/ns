@@ -18,18 +18,18 @@ Objective argument: `$ARGUMENTS`
   recovery keys, or completion records.
 - Do not use stack-specific child terminal tools such as
   `stack_impl_slice_done` or `stack_impl_slice_blocked`.
-- Use the generic `run_child_session_text` tool for delegated implementation
+- Use the generic `dispatch_runner_subagent` tool for delegated implementation
   slices.
-- Run only one child session at a time in this same worktree. Do not launch
-  parallel same-worktree children.
+- Run only one runner subagent at a time in this same worktree. Do not launch
+  parallel same-worktree subagents.
 - Do not submit PRs automatically. Leave PR submission to an explicit user
   request.
 - Do not invent hidden state, YAML registries, durable stack schemas, or
-  deterministic parsing of freeform child text.
+  deterministic parsing of freeform subagent text.
 
-The parent LLM owns planning, slice selection, child prompt construction, child
-result interpretation, validation, Objective updates, commits/amends, and the
-decision to continue or stop.
+The parent LLM owns planning, slice selection, subagent prompt construction,
+subagent result interpretation, validation, Objective updates, commits/amends,
+and the decision to continue or stop.
 
 ## Resolve the Objective
 
@@ -83,7 +83,7 @@ a short note.
 
 ## Plan a small Graphite stack in conversation
 
-Before launching children, draft a short in-conversation stack plan:
+Before dispatching subagents, draft a short in-conversation stack plan:
 
 - 1 to 3 coherent slices by default;
 - one Graphite branch per slice;
@@ -99,13 +99,15 @@ durable stack schema or side ledger.
 
 For each planned slice:
 
-1. Check worktree state before branch or child work. Stop if it is unsafe for a
-   child launch.
+1. Check worktree state before branch or subagent work. Stop if it is unsafe
+   for a subagent launch.
 2. Create, navigate to, or amend the appropriate Graphite branch using the
    repo's normal Graphite workflow.
-3. Build a complete child prompt for exactly one focused implementation slice.
-4. Call `run_child_session_text` with a concise `title` and the full `prompt`.
-5. Wait for the child result. Do not launch another child while it runs.
+3. Build a complete subagent prompt for exactly one focused implementation
+   slice.
+4. Call `dispatch_runner_subagent` with a concise `title` and the full
+   `prompt`.
+5. Wait for the subagent result. Do not launch another subagent while it runs.
 6. Inspect the returned status, final text, diagnostics, progress, and
    `sessionFile`.
 7. Immediately record a current-session slice result entry before interpreting
@@ -113,18 +115,18 @@ For each planned slice:
 
    - slice title;
    - branch;
-   - child status;
-   - child `sessionFile` path when present;
+   - subagent status;
+   - subagent `sessionFile` path when present;
    - whether useful final text was available;
    - parent validation commands and pass/fail/skipped results;
    - Objective update recorded, if any;
    - commit hash if committed;
    - blockers or ambiguity.
 
-8. Treat only `status: final-text` as a successful child-return candidate.
+8. Treat only `status: final-text` as a successful subagent-return candidate.
 9. Even for `final-text`, verify the work yourself with file inspection, git
    diff, and appropriate tests or checks.
-10. For any non-final or ambiguous status, inspect diagnostics and the child
+10. For any non-final or ambiguous status, inspect diagnostics and the subagent
     `sessionFile` before deciding whether to retry, ask the user, or stop.
 11. If meaningful progress was made and validated, run `objective-update` with
     evidence from the slice.
@@ -132,10 +134,10 @@ For each planned slice:
     Graphite workflow.
 13. Decide whether to continue to the next slice or stop for user inspection.
 
-## Child prompt requirements
+## Subagent prompt requirements
 
-Every child prompt must include all context the child needs. Do not rely on
-hidden parent context.
+Every subagent prompt must include all context the subagent needs. Do not rely
+on hidden parent context.
 
 Include:
 
@@ -151,16 +153,16 @@ Include:
   - blockers or ambiguities;
   - recommended next step.
 
-## Interpret `run_child_session_text` statuses
+## Interpret `dispatch_runner_subagent` statuses
 
 - `final-text`: read the prose and verify independently. Do not blindly trust
   completion claims.
 - `stopped-without-useful-text` or `stopped-without-terminal`: inspect the
-  child session file and do not advance the stack until you understand what
+  subagent session file and do not advance the stack until you understand what
   happened.
 - `cancelled`, `error`, or `protocol-error`: stop or retry only after
   diagnosing the status, diagnostics, and session file. Record blockers if the
-  child made material progress or exposed a real issue.
+  subagent made material progress or exposed a real issue.
 - Terminal-capture statuses such as `completed` or `blocked` are not expected
   for this prompt. Do not treat them as completion without inspection.
 
@@ -186,18 +188,19 @@ Autofix policy:
 - Objective selection is absent or ambiguous;
 - the selected Objective is closed;
 - material progress appears unrecorded in the Objective;
-- the worktree is unsafe for branch or child work;
-- a child result is non-final or ambiguous and cannot be safely interpreted;
+- the worktree is unsafe for branch or subagent work;
+- a subagent result is non-final or ambiguous and cannot be safely interpreted;
 - validation fails in a way that needs product or design input;
 - all planned work is complete and the remaining action is user inspection,
   Objective closure, or PR submission.
 
 ## Manual recovery notes
 
-If this session or a child fails, recover manually from inspectable artifacts:
+If this session or a subagent fails, recover manually from inspectable
+artifacts:
 
 - `git status`, diffs, commits, and Graphite stack state;
-- child `sessionFile` paths returned by `run_child_session_text`;
+- subagent `sessionFile` paths returned by `dispatch_runner_subagent`;
 - Objective files and updates;
 - the current parent session transcript.
 
@@ -207,18 +210,18 @@ schemas for this v1 workflow.
 ## Stack implementation digest telemetry
 
 Before the final response, use the current-session slice result list to collect
-all non-empty child `sessionFile` paths.
+all non-empty subagent `sessionFile` paths.
 
-If no child session files are available:
+If no subagent session files are available:
 
-- do not run `objective exec child-session-usage`;
-- state: `Child session usage telemetry unavailable: no child sessionFile paths
-  were returned.`
+- do not run `objective exec runner-subagent-usage`;
+- state: `Runner subagent usage telemetry unavailable: no subagent
+  sessionFile paths were returned.`
 
-If one or more child session files are available, run:
+If one or more subagent session files are available, run:
 
 ```bash
-objective exec child-session-usage --format md <session-file>...
+objective exec runner-subagent-usage --format md <session-file>...
 ```
 
 If the command succeeds, include its Markdown output directly when compact
@@ -230,14 +233,14 @@ failure text, and state that telemetry is unavailable due to command failure.
 
 If the command reports rows such as `missing`, `not_file`, `read_error`,
 `invalid_json`, or `no_usage`, keep the overall digest. Call out unavailable
-child rows and trust the command aggregate for ok sessions only.
+subagent rows and trust the command aggregate for ok sessions only.
 
-Use telemetry only for factual usage accounting: per-child and aggregate tokens,
-cost, peak observed token usage, model refs, and unavailable/error statuses. Do
-not use telemetry to infer child completion, code correctness, test sufficiency,
-or Objective closure. Do not claim a configured context-window capacity unless
-the child session logs expose it. Do not parse freeform child final text for
-usage metrics.
+Use telemetry only for factual usage accounting: per-subagent and aggregate
+tokens, cost, peak observed token usage, model refs, and unavailable/error
+statuses. Do not use telemetry to infer subagent completion, code correctness,
+test sufficiency, or Objective closure. Do not claim a configured
+context-window capacity unless the subagent session logs expose it. Do not
+parse freeform subagent final text for usage metrics.
 
 ## Final response requirements
 
@@ -259,9 +262,9 @@ Use this structure, adapting details honestly to the run:
 
 ### Slices attempted
 
-| slice     | branch     | child status | session file            | validation | commit           |
-| --------- | ---------- | ------------ | ----------------------- | ---------- | ---------------- |
-| `<slice>` | `<branch>` | `<status>`   | `<path-or-unavailable>` | `<result>` | `<hash-or-none>` |
+| slice     | branch     | subagent status | session file            | validation | commit           |
+| --------- | ---------- | --------------- | ----------------------- | ---------- | ---------------- |
+| `<slice>` | `<branch>` | `<status>`      | `<path-or-unavailable>` | `<result>` | `<hash-or-none>` |
 
 ### What changed
 
@@ -272,10 +275,10 @@ Use this structure, adapting details honestly to the run:
 
 - `<command>` — passed/failed/skipped, with short interpretation.
 
-### Child session usage
+### Runner subagent usage
 
-- Include `objective exec child-session-usage --format md ...` output, a compact
-  transcription, or the explicit unavailable reason.
+- Include `objective exec runner-subagent-usage --format md ...` output, a
+  compact transcription, or the explicit unavailable reason.
 - Keep telemetry separate from validation evidence.
 
 ### Objective tracking

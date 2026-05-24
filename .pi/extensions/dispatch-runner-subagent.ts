@@ -1,3 +1,3 @@
-import runChildSessionTextExtension from "../../ts/packages/pi-extensions/src/run-child-session-text.ts";
+import dispatchRunnerSubagentExtension from "../../ts/packages/pi-extensions/src/dispatch-runner-subagent.ts";
 
-export default runChildSessionTextExtension;
+export default dispatchRunnerSubagentExtension;

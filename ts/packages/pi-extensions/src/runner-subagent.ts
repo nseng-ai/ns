@@ -1,27 +1,27 @@
-import { runChildSessionProcess, type ChildSessionRunnerDependencies } from "./run-child-session/child-process.ts";
+import { dispatchRunnerSubagentProcess, type RunnerSubagentDispatcherDependencies } from "./runner-subagent/subagent-process.ts";
 
 export type JsonObject = Record<string, unknown>;
 export type TypeBoxLikeSchema = object;
 
-export type ChildSessionReturnMode = "terminal" | "final-text";
-export type ChildSessionTerminalStatus = "completed" | "blocked";
-export type ChildSessionFinalTextStatus = "final-text";
-export type ChildSessionFailureStatus =
+export type RunnerSubagentReturnMode = "terminal" | "final-text";
+export type RunnerSubagentTerminalStatus = "completed" | "blocked";
+export type RunnerSubagentFinalTextStatus = "final-text";
+export type RunnerSubagentFailureStatus =
 	| "stopped-without-terminal"
 	| "stopped-without-useful-text"
 	| "cancelled"
 	| "error"
 	| "protocol-error";
-export type ChildSessionStatus = ChildSessionTerminalStatus | ChildSessionFinalTextStatus | ChildSessionFailureStatus;
+export type RunnerSubagentStatus = RunnerSubagentTerminalStatus | RunnerSubagentFinalTextStatus | RunnerSubagentFailureStatus;
 
-export type ChildSessionTerminalToolDefinition<TInput = unknown> = {
+export type RunnerSubagentTerminalToolDefinition<TInput = unknown> = {
 	name: string;
-	status: ChildSessionTerminalStatus;
+	status: RunnerSubagentTerminalStatus;
 	description: string;
 	parameters: TypeBoxLikeSchema;
 };
 
-export type ChildSessionOptions = {
+export type RunnerSubagentOptions = {
 	title?: string;
 	prompt: string;
 	cwd?: string;
@@ -29,15 +29,15 @@ export type ChildSessionOptions = {
 } & (
 	| {
 			returnMode?: "terminal";
-			terminalTools: readonly ChildSessionTerminalToolDefinition[];
+			terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
 	  }
 	| {
 			returnMode: "final-text";
-			terminalTools?: readonly ChildSessionTerminalToolDefinition[];
+			terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 	  }
 );
 
-export type ChildSessionProgress = {
+export type RunnerSubagentProgress = {
 	title?: string;
 	state: "starting" | "running" | "terminating" | "stopped";
 	currentTool?: string;
@@ -47,9 +47,9 @@ export type ChildSessionProgress = {
 	sessionFile?: string;
 };
 
-export type ChildSessionTerminalCapture<
+export type RunnerSubagentTerminalCapture<
 	TInput = unknown,
-	TStatus extends ChildSessionTerminalStatus = ChildSessionTerminalStatus,
+	TStatus extends RunnerSubagentTerminalStatus = RunnerSubagentTerminalStatus,
 > = {
 	toolName: string;
 	toolCallId?: string;
@@ -57,44 +57,44 @@ export type ChildSessionTerminalCapture<
 	input: TInput;
 };
 
-type ChildSessionResultBase<TStatus extends ChildSessionStatus> = {
+type RunnerSubagentResultBase<TStatus extends RunnerSubagentStatus> = {
 	status: TStatus;
 	title?: string;
 	elapsedMs: number;
-	progress: ChildSessionProgress;
+	progress: RunnerSubagentProgress;
 	sessionFile?: string;
 };
 
-export type ChildSessionCompletedResult<TInput = unknown> = ChildSessionResultBase<"completed"> & {
-	terminal: ChildSessionTerminalCapture<TInput, "completed">;
+export type RunnerSubagentCompletedResult<TInput = unknown> = RunnerSubagentResultBase<"completed"> & {
+	terminal: RunnerSubagentTerminalCapture<TInput, "completed">;
 };
 
-export type ChildSessionBlockedResult<TInput = unknown> = ChildSessionResultBase<"blocked"> & {
-	terminal: ChildSessionTerminalCapture<TInput, "blocked">;
+export type RunnerSubagentBlockedResult<TInput = unknown> = RunnerSubagentResultBase<"blocked"> & {
+	terminal: RunnerSubagentTerminalCapture<TInput, "blocked">;
 };
 
-export type ChildSessionFinalTextResult = ChildSessionResultBase<"final-text"> & {
+export type RunnerSubagentFinalTextResult = RunnerSubagentResultBase<"final-text"> & {
 	finalText: string;
 	stopReason?: string;
 };
 
-type ChildSessionFailureResultBase<TStatus extends ChildSessionFailureStatus> = ChildSessionResultBase<TStatus> & {
+type RunnerSubagentFailureResultBase<TStatus extends RunnerSubagentFailureStatus> = RunnerSubagentResultBase<TStatus> & {
 	diagnostic: string;
 };
 
-export type ChildSessionStoppedWithoutTerminalResult = ChildSessionFailureResultBase<"stopped-without-terminal"> & {
+export type RunnerSubagentStoppedWithoutTerminalResult = RunnerSubagentFailureResultBase<"stopped-without-terminal"> & {
 	stopReason?: string;
 };
 
-export type ChildSessionStoppedWithoutUsefulTextResult = ChildSessionFailureResultBase<"stopped-without-useful-text"> & {
+export type RunnerSubagentStoppedWithoutUsefulTextResult = RunnerSubagentFailureResultBase<"stopped-without-useful-text"> & {
 	stopReason?: string;
 };
 
-export type ChildSessionCancelledResult = ChildSessionFailureResultBase<"cancelled"> & {
+export type RunnerSubagentCancelledResult = RunnerSubagentFailureResultBase<"cancelled"> & {
 	reason?: string;
 };
 
-export type ChildSessionErrorResult = ChildSessionFailureResultBase<"error"> & {
+export type RunnerSubagentErrorResult = RunnerSubagentFailureResultBase<"error"> & {
 	error: {
 		message: string;
 		name?: string;
@@ -102,39 +102,39 @@ export type ChildSessionErrorResult = ChildSessionFailureResultBase<"error"> & {
 	};
 };
 
-export type ChildSessionProtocolErrorResult = ChildSessionFailureResultBase<"protocol-error"> & {
+export type RunnerSubagentProtocolErrorResult = RunnerSubagentFailureResultBase<"protocol-error"> & {
 	protocolError: {
 		message: string;
 		event?: unknown;
 	};
 };
 
-export type ChildSessionResult<TInput = unknown> =
-	| ChildSessionCompletedResult<TInput>
-	| ChildSessionBlockedResult<TInput>
-	| ChildSessionFinalTextResult
-	| ChildSessionStoppedWithoutTerminalResult
-	| ChildSessionStoppedWithoutUsefulTextResult
-	| ChildSessionCancelledResult
-	| ChildSessionErrorResult
-	| ChildSessionProtocolErrorResult;
+export type RunnerSubagentResult<TInput = unknown> =
+	| RunnerSubagentCompletedResult<TInput>
+	| RunnerSubagentBlockedResult<TInput>
+	| RunnerSubagentFinalTextResult
+	| RunnerSubagentStoppedWithoutTerminalResult
+	| RunnerSubagentStoppedWithoutUsefulTextResult
+	| RunnerSubagentCancelledResult
+	| RunnerSubagentErrorResult
+	| RunnerSubagentProtocolErrorResult;
 
-export const CHILD_SESSION_RUNNER_DEPENDENCIES = Symbol("runChildSessionRunnerDependencies");
+export const RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES = Symbol("dispatchRunnerSubagentDispatcherDependencies");
 
-export type ChildSessionPi = {
-	[CHILD_SESSION_RUNNER_DEPENDENCIES]?: ChildSessionRunnerDependencies;
+export type RunnerSubagentPi = {
+	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	[key: string]: unknown;
 };
 
-export type ChildSessionContext = {
+export type RunnerSubagentContext = {
 	cwd: string;
 	signal?: AbortSignal;
 };
 
-export async function runChildSession<TTerminalInput = unknown>(
-	pi: ChildSessionPi,
-	ctx: ChildSessionContext,
-	options: ChildSessionOptions,
-): Promise<ChildSessionResult<TTerminalInput>> {
-	return await runChildSessionProcess<TTerminalInput>(pi, ctx, options, pi[CHILD_SESSION_RUNNER_DEPENDENCIES]);
+export async function dispatchRunnerSubagent<TTerminalInput = unknown>(
+	pi: RunnerSubagentPi,
+	ctx: RunnerSubagentContext,
+	options: RunnerSubagentOptions,
+): Promise<RunnerSubagentResult<TTerminalInput>> {
+	return await dispatchRunnerSubagentProcess<TTerminalInput>(pi, ctx, options, pi[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]);
 }
