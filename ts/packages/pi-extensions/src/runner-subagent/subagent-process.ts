@@ -94,9 +94,12 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
+	const progressEmitter = createProgressEmitter(options.onProgress);
 
 	if (abortSignals.some((signal) => signal.aborted)) {
-		return cancelledResult(title, stoppedProgress({ title, now, startTimeMs }), abortReason(abortSignals));
+		const progress = stoppedProgress({ title, now, startTimeMs });
+		progressEmitter.emit(progress, { force: true });
+		return cancelledResult(title, progress, abortReason(abortSignals));
 	}
 
 	const returnMode = runnerSubagentReturnMode(options);
@@ -111,6 +114,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			});
 		} catch (error) {
 			const progress = stoppedProgress({ title, now, startTimeMs });
+			progressEmitter.emit(progress, { force: true });
 			return errorResult(title, progress, `Invalid subagent terminal runtime configuration: ${errorMessage(error)}`, error);
 		}
 	}
@@ -121,6 +125,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	} catch (error) {
 		await cleanupRuntimeFiles(runtimeFiles);
 		const progress = stoppedProgress({ title, now, startTimeMs });
+		progressEmitter.emit(progress, { force: true });
 		return errorResult(title, progress, `Failed to create subagent session file: ${errorMessage(error)}`, error);
 	}
 
@@ -132,6 +137,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		startTimeMs,
 		terminalToolNames,
 	});
+	progressEmitter.emit(parser.getProgress(), { force: true });
 	const stderr = new BoundedTextBuffer(dependencies.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT_BYTES);
 	const childArgs = buildChildPiArgs(options.prompt, sessionFile, runtimeFiles?.extensionPath);
 	const invocation = resolvePiInvocation(childArgs, dependencies);
@@ -151,6 +157,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		});
 	} catch (error) {
 		parser.markStopped();
+		progressEmitter.emit(parser.getProgress(), { force: true });
 		await cleanupRuntimeFiles(runtimeFiles);
 		return errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${errorMessage(error)}`, error);
 	}
@@ -174,6 +181,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		const terminateChild = () => {
 			if (killRequested) return;
 			killRequested = true;
+			parser.markTerminating();
+			progressEmitter.emit(parser.getProgress(), { force: true });
 			child.kill("SIGTERM");
 			killTimer = timers.setTimeout(() => {
 				if (!closed) child.kill("SIGKILL");
@@ -198,6 +207,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		child.stdout?.on("data", (chunk) => {
 			parser.pushChunk(chunk);
 			const snapshot = parser.getSnapshot();
+			progressEmitter.emit(snapshot.progress);
 			if ((snapshot.error || snapshot.protocolError) && !cancelled) {
 				terminateChild();
 			}
@@ -209,6 +219,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 		child.on("error", (error) => {
 			parser.markStopped();
+			progressEmitter.emit(parser.getProgress(), { force: true });
 			finish(errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${error.message}`, error));
 		});
 
@@ -217,6 +228,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			if (killTimer !== undefined) timers.clearTimeout(killTimer);
 			parser.finish();
 			const snapshot = parser.getSnapshot();
+			progressEmitter.emit(snapshot.progress, { force: true });
 
 			void resolveClosedRunnerSubagentResult<TTerminalInput>({
 				title,
@@ -251,6 +263,36 @@ function runnerSubagentReturnMode(options: RunnerSubagentOptions): RunnerSubagen
 
 function runnerSubagentTerminalTools(options: RunnerSubagentOptions): readonly RunnerSubagentTerminalToolDefinition[] {
 	return options.terminalTools ?? [];
+}
+
+function createProgressEmitter(onProgress: ((progress: RunnerSubagentProgress) => void) | undefined): {
+	emit(progress: RunnerSubagentProgress, options?: { force?: boolean }): void;
+} {
+	let lastSignature: string | undefined;
+	return {
+		emit(progress: RunnerSubagentProgress, options: { force?: boolean } = {}): void {
+			if (!onProgress) return;
+			const signature = progressSignature(progress);
+			if (options.force !== true && signature === lastSignature) return;
+			lastSignature = signature;
+			try {
+				onProgress(progress);
+			} catch {
+				// Progress display is best-effort and must not affect the child run.
+			}
+		},
+	};
+}
+
+function progressSignature(progress: RunnerSubagentProgress): string {
+	return [
+		progress.title ?? "",
+		progress.state,
+		progress.currentTool ?? "",
+		String(progress.toolCount),
+		String(progress.turnCount),
+		progress.sessionFile ?? "",
+	].join("\0");
 }
 
 export function resolvePiInvocation(args: string[], dependencies: RunnerSubagentDispatcherDependencies = {}): PiInvocation {

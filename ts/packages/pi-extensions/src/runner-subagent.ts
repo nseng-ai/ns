@@ -21,11 +21,24 @@ export type RunnerSubagentTerminalToolDefinition<TInput = unknown> = {
 	parameters: TypeBoxLikeSchema;
 };
 
+export type RunnerSubagentProgress = {
+	title?: string;
+	state: "starting" | "running" | "terminating" | "stopped";
+	currentTool?: string;
+	toolCount: number;
+	turnCount: number;
+	elapsedMs: number;
+	sessionFile?: string;
+};
+
+export type RunnerSubagentProgressCallback = (progress: RunnerSubagentProgress) => void;
+
 export type RunnerSubagentOptions = {
 	title?: string;
 	prompt: string;
 	cwd?: string;
 	signal?: AbortSignal;
+	onProgress?: RunnerSubagentProgressCallback;
 } & (
 	| {
 			returnMode?: "terminal";
@@ -36,16 +49,6 @@ export type RunnerSubagentOptions = {
 			terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 	  }
 );
-
-export type RunnerSubagentProgress = {
-	title?: string;
-	state: "starting" | "running" | "terminating" | "stopped";
-	currentTool?: string;
-	toolCount: number;
-	turnCount: number;
-	elapsedMs: number;
-	sessionFile?: string;
-};
 
 export type RunnerSubagentTerminalCapture<
 	TInput = unknown,

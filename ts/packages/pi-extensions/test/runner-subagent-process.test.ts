@@ -5,6 +5,7 @@ import type {
 	RunnerSubagentContext,
 	RunnerSubagentOptions,
 	RunnerSubagentPi,
+	RunnerSubagentProgress,
 	RunnerSubagentTerminalToolDefinition,
 } from "../src/runner-subagent.ts";
 import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
@@ -187,6 +188,90 @@ describe("runner subagent process dispatcher", () => {
 		});
 	});
 
+	test("emits progress while parsing child JSONL", async () => {
+		let now = 1_000;
+		const progress: RunnerSubagentProgress[] = [];
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{
+				prompt: "Do the delegated task.",
+				returnMode: "final-text",
+				title: "Progress task",
+				onProgress: (snapshot) => progress.push(snapshot),
+			},
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(progress[0]).toEqual({
+			title: "Progress task",
+			state: "starting",
+			toolCount: 0,
+			turnCount: 0,
+			elapsedMs: 0,
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+
+		call.process.emitStdout(jsonLine({ type: "agent_start" }));
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: {} }));
+		call.process.emitStdout(jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "read", result: {}, isError: false }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Done." }], stopReason: "stop" },
+			}),
+		);
+		now = 1_250;
+		call.process.close(0);
+		const result = await running;
+
+		expect(progress.some((snapshot) => snapshot.state === "running" && snapshot.turnCount === 1)).toBe(true);
+		expect(progress.some((snapshot) => snapshot.currentTool === "read")).toBe(true);
+		expect(progress.some((snapshot) => snapshot.toolCount === 1 && snapshot.currentTool === undefined)).toBe(true);
+		expect(progress.at(-1)).toEqual({
+			title: "Progress task",
+			state: "stopped",
+			toolCount: 1,
+			turnCount: 1,
+			elapsedMs: 250,
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		expect(result.status).toBe("final-text");
+	});
+
+	test("progress callback failures do not fail the child result", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{
+				prompt: "Do the delegated task.",
+				returnMode: "final-text",
+				onProgress: () => {
+					throw new Error("display failed");
+				},
+			},
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Still done." }], stopReason: "stop" },
+			}),
+		);
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+		if (result.status !== "final-text") return;
+		expect(result.finalText).toBe("Still done.");
+	});
+
 	test("returns stopped-without-useful-text in final-text mode when clean subagent has no useful assistant text", async () => {
 		const runner = createFakeRunnerSubagentDispatcher();
 		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
@@ -274,6 +359,35 @@ describe("runner subagent process dispatcher", () => {
 		if (result.status !== "cancelled") return;
 		expect(result.reason).toBe("user cancelled");
 		expect(result.sessionFile).toBe("/tmp/pi-runner-subagent.jsonl");
+	});
+
+	test("emits terminating progress before cancelled result on parent abort", async () => {
+		const controller = new AbortController();
+		const progress: RunnerSubagentProgress[] = [];
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{
+				prompt: "Do the delegated task.",
+				returnMode: "final-text",
+				signal: controller.signal,
+				onProgress: (snapshot) => progress.push(snapshot),
+			},
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "agent_start" }));
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: {} }));
+		controller.abort("user cancelled");
+		call.process.close(null, "SIGTERM");
+		const result = await running;
+
+		expect(progress.some((snapshot) => snapshot.state === "terminating" && snapshot.currentTool === "read")).toBe(true);
+		expect(progress.at(-1)?.state).toBe("stopped");
+		expect(result.status).toBe("cancelled");
 	});
 
 	test("preserves valid terminal captures when terminal tools are supplied in final-text mode", async () => {
