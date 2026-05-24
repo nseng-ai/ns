@@ -1,0 +1,85 @@
+# Roadmap
+
+## Work
+
+- [x] Establish the replacement Objective identity.
+  - Use slug `pi-extension-deepening` because it names the desired outcome rather than the initial triage process.
+  - Supersede `pi-extension-architecture-deepening` rather than continuing under the older process-oriented scope.
+- [x] Preserve the architecture assessment context.
+  - Add `assessment.md` as the durable evidence file for how the candidate list was derived.
+  - Include the docs, source files, tests, validation commands, focused subagent exploration, and post-`git pull` Objective-list changes that informed the assessment.
+- [x] Close the superseded Objective.
+  - Add `## Closure` to `.asdl/objectives/pi-extension-architecture-deepening/objective.md`.
+  - Add `.asdl/objectives/pi-extension-architecture-deepening/closed.md` as a Closure Marker.
+- [x] Rank candidates by cost/benefit.
+  - Add `candidate-cost-benefit-ranking.md` as the durable prioritization document.
+  - Use cost/benefit order as this roadmap's working order, while still recording explicit disposition for every candidate.
+- [ ] Triage the candidate list in ranked order.
+  - For each candidate in `assessment.md`, choose exactly one disposition: implement, reject with reason, park with rationale, or split into a follow-on Objective.
+  - Use `candidate-cost-benefit-ranking.md` as the default ordering and reasoning source.
+  - Record meaningful decisions through Objective updates as work proceeds.
+- [ ] Candidate 6 — decide and implement presentation/linkification policy first.
+  - Compare `docs/pi/extension-message-linkification.md`, `land-stack/command-stream.ts`, `worktree-status.ts`, `runner-subagent-demo.ts`, and `.pi/extensions/submit.ts`.
+  - Prefer a small shared presentation Module for URL validation, OSC 8 construction, ANSI/OSC stripping, custom-message text extraction, truncation, and PR-reference linkification.
+  - Keep status-line rendering and chat-message rendering local unless a deeper shared Interface emerges.
+- [ ] Candidate 4 — decide and implement the Branch Memory CLI Adapter.
+  - Concentrate Branch Memory CLI discovery, candidate fallback, command display, and execution plumbing currently duplicated by `create-brmem-plan.ts` and `worktree-status.ts`.
+  - Preserve caller policy differences: `persist_brmem_plan` needs detailed fatal errors; status display should degrade nonfatally.
+  - Make fake-driven tests cover candidate ordering, unavailable commands, and caller-specific failure handling.
+- [ ] Candidate 3 — decide and implement the Clinkr Machine envelope parser.
+  - Create a small parser for framework envelope facts such as JSON parsing, `exit_code`, `data`, and malformed-envelope diagnostics.
+  - Keep Objective-list and Branch Memory domain payload validation near their domain modules.
+  - Reuse the parser from Objective and Branch Memory consumers after Candidate 4 or alongside it.
+- [ ] Candidate 9 — decide runner subagent contract cleanup.
+  - Preserve the deep runner subagent helper.
+  - Resolve naming drift, result presentation duplication, final-text vs terminal-capture wording, and stale child-session terminology in docs and code.
+  - Keep this as a small cleanup unless Objective-stack work creates a stronger requirement.
+- [ ] Candidate 5 — decide skill expansion and prompt handoff.
+  - Evaluate Objective commands and `/just` skill-loading duplication.
+  - If accepted, extract only a narrow pure helper that resolves a skill command, strips frontmatter, computes provenance, and returns a structured skill block.
+  - Do not move Objective selection, `just` failure-output formatting, or `sendUserMessage()` domain policy into the shared helper.
+- [ ] Candidate 10 — decide vibecoded extension promotion / retirement.
+  - Classify `.pi/extensions/submit.ts`, `.pi/extensions/land.ts`, and `.pi/extensions/just-fix.ts` as promote, retire, keep vibecoded, or split.
+  - Treat `/submit` as the likely highest-safety promotion candidate because it mutates Graphite/GitHub state and currently has raw process handling without package tests.
+  - Consult Graphite/GitHub guidance before changing `/submit` or landing behavior.
+  - Consider splitting `/submit` promotion into a follow-on Objective if the fake-driven test and workflow surface is too large for this Objective.
+- [ ] Candidate 1 — decide a narrow Pi host seam, folding Candidate 12 only where useful.
+  - Evaluate whether shared project-local Pi host types or test adapters should own common `ExtensionAPI`, command context, UI, message renderer, tool context, and fake host shapes.
+  - Start from common behavior used by at least two callers; avoid a broad universal host Interface.
+  - Include `.pi/extensions/land.ts` and `.pi/extensions/submit.ts` import-path drift in the decision.
+- [ ] Candidate 11 — decide Objective extension and Objective-list integration.
+  - Keep tracking the TS/Python `objective list` contract, especially `parent_branch` / `slice_commits` vocabulary.
+  - Prefer contract tests and Machine-envelope reuse over broad splitting of `objective.ts`.
+  - Park broader Objective command extraction unless a deeper Module appears through the deletion test.
+- [ ] Candidate 7 — decide `worktree-status` internal seams after foundations land.
+  - Preserve the small external status Interface.
+  - Reuse accepted presentation and Branch Memory helpers rather than inventing local seams.
+  - Explore internal Seams for observation/watchers, status gathering, and rendering only with characterization tests for session replacement, stale UI, and watcher behavior.
+- [ ] Candidate 8 — decide `land-stack` test-surface and internal seam work.
+  - Keep `/land-stack` as the external Interface.
+  - Improve locality around stack facts, PR facts, worktree conflicts, landing orchestration, command streaming, and presentation only where tests and the deletion test justify it.
+  - Defer broad test-surface cleanup until landing behavior changes or lower-level helpers reduce the cost.
+- [ ] Candidate 2 — decide command execution runtime beyond pure helpers last.
+  - Preserve the old decision that pure text/result helpers in `command-runtime.ts` already earn their keep.
+  - Do not create a broad generic command runtime before `/submit` promotion or another concrete consumer proves shared lifecycle semantics.
+  - If revisited, separate buffered execution, streamed presentation, timeout/kill policy, and domain-specific semantic failure interpretation.
+- [ ] Candidate 12 — record standalone test fake consolidation disposition.
+  - Do not implement standalone fake consolidation by default.
+  - Fold selective fake-host helpers into Candidate 1 only when they clarify common Pi host behavior.
+  - Reject or park any universal test DSL that is broader than the production seam.
+- [ ] Implement accepted refactors in coherent slices.
+  - Add or update fake-driven tests before or with risky behavior changes.
+  - Validate TypeScript changes with `bun run --cwd ts check` and `bun run --cwd ts test`.
+  - Run broader repo checks when Python, Objective, docs, or repo-wide behavior changes require it.
+- [ ] Close by explicit human decision.
+  - Confirm every candidate has a disposition.
+  - Confirm accepted refactors and documentation updates are complete enough.
+  - Add closure context to `objective.md`, then add a Closure Marker.
+
+## Parked
+
+- [ ] Decide later whether the terms vibecoded extension layer and engineered extension layer belong in `CONTEXT.md` as broader ASDL domain vocabulary.
+- [ ] Consider a separate Objective for Pi package publication or install-layout cleanup if extension distribution becomes a real seam.
+- [ ] Consider a separate Objective for Python Objective-list architecture only if new Objective-list work appears; the current `master` implementation is already deeply split into list models, render, status, inventory, updates, touches, and branch slices.
+- [ ] Keep broad generic command execution runtime work parked until `/submit` promotion or another concrete consumer proves repeated lifecycle semantics.
+- [ ] Keep standalone universal fake-host consolidation parked unless the narrow Pi host seam proves a shared production Interface.
