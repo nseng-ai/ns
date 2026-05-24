@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import { type Component, truncateToWidth } from "@mariozechner/pi-tui";
 
 const COMMAND_NAME = "submit";
-const STATUS_KEY = "submit";
 const WIDGET_ID = "submit-output";
 const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
 const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
@@ -14,7 +14,7 @@ const SUBMIT_TIMEOUT_MS = 600_000;
 const RESTACK_TIMEOUT_MS = 600_000;
 const CURRENT_PR_TIMEOUT_MS = 60_000;
 const GIT_CHECK_TIMEOUT_MS = 30_000;
-const STATUS_THROTTLE_MS = 100;
+const PROGRESS_THROTTLE_MS = 100;
 const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
 const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
 
@@ -24,8 +24,9 @@ export default function submitExtension(pi: ExtensionAPI) {
 		handler: async (_args, ctx) => {
 			await ctx.waitForIdle();
 			ctx.ui.setWidget(WIDGET_ID, undefined);
+			const progress = createSubmitProgress(ctx);
 
-			const ready = await ensureStackReadyForSubmit(ctx);
+			const ready = await ensureStackReadyForSubmit(ctx, progress);
 			if (!ready) return;
 
 			const stdoutChunks: string[] = [];
@@ -33,26 +34,26 @@ export default function submitExtension(pi: ExtensionAPI) {
 			let stdoutRemainder = "";
 			let stderrRemainder = "";
 			let latestLine = "running…";
-			let statusTimer: ReturnType<typeof setTimeout> | undefined;
+			let progressTimer: ReturnType<typeof setTimeout> | undefined;
 			let startupError: string | undefined;
 
-			const renderStatus = () => {
-				ctx.ui.setStatus(STATUS_KEY, `gt submit: ${latestLine}`);
+			const renderProgress = () => {
+				progress.show(`gt submit: ${latestLine}`);
 			};
 
-			const scheduleStatus = () => {
-				if (statusTimer) return;
-				statusTimer = setTimeout(() => {
-					statusTimer = undefined;
-					renderStatus();
-				}, STATUS_THROTTLE_MS);
+			const scheduleProgress = () => {
+				if (progressTimer) return;
+				progressTimer = setTimeout(() => {
+					progressTimer = undefined;
+					renderProgress();
+				}, PROGRESS_THROTTLE_MS);
 			};
 
 			const noteLine = (_source: "stdout" | "stderr", line: string) => {
-				const trimmed = line.trim();
-				if (!trimmed) return;
-				latestLine = trimmed;
-				scheduleStatus();
+				const sanitized = sanitizeProgressText(line);
+				if (!sanitized) return;
+				latestLine = sanitized;
+				scheduleProgress();
 			};
 
 			const appendOutput = (source: "stdout" | "stderr", chunk: string) => {
@@ -86,7 +87,7 @@ export default function submitExtension(pi: ExtensionAPI) {
 				stderrRemainder = "";
 			};
 
-			renderStatus();
+			renderProgress();
 
 			const result = await new Promise<{ code: number; killed: boolean }>((resolve) => {
 				const child = spawn("gt", [...SUBMIT_ARGS], {
@@ -111,7 +112,7 @@ export default function submitExtension(pi: ExtensionAPI) {
 					if (killed) return;
 					killed = true;
 					latestLine = `timed out after ${SUBMIT_TIMEOUT_MS / 1000}s; sent SIGTERM`;
-					scheduleStatus();
+					scheduleProgress();
 					child.kill("SIGTERM");
 					forceKillTimeoutId = setTimeout(() => {
 						if (!settled) {
@@ -132,16 +133,16 @@ export default function submitExtension(pi: ExtensionAPI) {
 				child.on("close", (code) => finish(code));
 			});
 
-			if (statusTimer) {
-				clearTimeout(statusTimer);
-				statusTimer = undefined;
+			if (progressTimer) {
+				clearTimeout(progressTimer);
+				progressTimer = undefined;
 			}
 			flushRemainders();
-			if (statusTimer) {
-				clearTimeout(statusTimer);
-				statusTimer = undefined;
+			if (progressTimer) {
+				clearTimeout(progressTimer);
+				progressTimer = undefined;
 			}
-			ctx.ui.setStatus(STATUS_KEY, undefined);
+			progress.clear();
 
 			const stdout = stdoutChunks.join("");
 			const stderr = stderrChunks.join("");
@@ -150,9 +151,9 @@ export default function submitExtension(pi: ExtensionAPI) {
 			const semanticFailure = detectSubmitSemanticFailure(submitOutput);
 
 			if (result.code === 0 && !result.killed) {
-				ctx.ui.setStatus(STATUS_KEY, "gt pr: verifying current branch…");
-				const currentPrCheck = await runBufferedCommand("gt", [...CURRENT_PR_ARGS], ctx.cwd, CURRENT_PR_TIMEOUT_MS).finally(
-					() => ctx.ui.setStatus(STATUS_KEY, undefined),
+				progress.show("gt pr: verifying current branch…");
+				const currentPrCheck = await runBufferedCommand("gt", [...CURRENT_PR_ARGS], ctx.cwd, CURRENT_PR_TIMEOUT_MS).finally(() =>
+					progress.clear(),
 				);
 				const currentPrFailure = detectCurrentPrFailure(currentPrCheck);
 
@@ -174,6 +175,7 @@ export default function submitExtension(pi: ExtensionAPI) {
 				const prLinks = extractPrLinks(`${submitOutput}\n${currentPrCheck.stdout}\n${currentPrCheck.stderr}`);
 				const successOutput = prLinks.length > 0 ? formatSubmitSuccessText(prLinks) : formatSubmitSuccessFallbackText(stdout, stderr);
 
+				progress.clear();
 				if (!ctx.hasUI) {
 					console.log(successOutput);
 				}
@@ -210,10 +212,65 @@ type BufferedCommandResult = {
 	startupError: string | undefined;
 };
 
-async function ensureStackReadyForSubmit(ctx: ExtensionCommandContext): Promise<boolean> {
-	ctx.ui.setStatus(STATUS_KEY, "gt submit --dry-run: checking…");
+type SubmitProgress = {
+	show(line: string): void;
+	clear(): void;
+};
+
+function createSubmitProgress(ctx: ExtensionCommandContext): SubmitProgress {
+	return {
+		show(line: string): void {
+			setProgressWidget(ctx, line);
+		},
+		clear(): void {
+			ctx.ui.setWidget(WIDGET_ID, undefined);
+		},
+	};
+}
+
+function setProgressWidget(ctx: ExtensionCommandContext, line: string): void {
+	const progressLine = sanitizeProgressText(line);
+	if (!progressLine) {
+		ctx.ui.setWidget(WIDGET_ID, undefined);
+		return;
+	}
+
+	ctx.ui.setWidget(
+		WIDGET_ID,
+		(_tui, theme): Component => ({
+			render(width: number): string[] {
+				if (width <= 0) return [""];
+
+				const { label, details } = splitProgressLine(progressLine);
+				const content = details
+					? theme.fg("accent", label) + theme.fg("dim", details)
+					: theme.fg("accent", label);
+				return [truncateToWidth(content, width, theme.fg("dim", "…"))];
+			},
+			invalidate(): void {},
+		}),
+		{ placement: "aboveEditor" },
+	);
+}
+
+function splitProgressLine(line: string): { label: string; details: string } {
+	const separatorIndex = line.indexOf(":");
+	if (separatorIndex === -1) return { label: line, details: "" };
+	return { label: line.slice(0, separatorIndex), details: line.slice(separatorIndex) };
+}
+
+function sanitizeProgressText(text: string): string {
+	return stripAnsi(text)
+		.replace(/[\r\n\t]/g, " ")
+		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+		.replace(/ +/g, " ")
+		.trim();
+}
+
+async function ensureStackReadyForSubmit(ctx: ExtensionCommandContext, progress: SubmitProgress): Promise<boolean> {
+	progress.show("gt submit --dry-run: checking…");
 	const dryRun = await runBufferedCommand("gt", [...SUBMIT_DRY_RUN_ARGS], ctx.cwd, CURRENT_PR_TIMEOUT_MS).finally(() =>
-		ctx.ui.setStatus(STATUS_KEY, undefined),
+		progress.clear(),
 	);
 
 	if (dryRun.code === 0 && !dryRun.killed && !dryRun.startupError) {
@@ -241,13 +298,14 @@ async function ensureStackReadyForSubmit(ctx: ExtensionCommandContext): Promise<
 		"Graphite says this stack must be restacked before submission. Run `gt restack` now?",
 	);
 	if (!confirmed) {
+		progress.clear();
 		ctx.ui.notify("Submission cancelled. Run `gt restack` when ready, then /submit again.", "warning");
 		return false;
 	}
 
-	ctx.ui.setStatus(STATUS_KEY, "gt restack: running…");
+	progress.show("gt restack: running…");
 	const restack = await runBufferedCommand("gt", [...RESTACK_ARGS], ctx.cwd, RESTACK_TIMEOUT_MS).finally(() =>
-		ctx.ui.setStatus(STATUS_KEY, undefined),
+		progress.clear(),
 	);
 
 	if (restack.code === 0 && !restack.killed && !restack.startupError) {
@@ -255,8 +313,8 @@ async function ensureStackReadyForSubmit(ctx: ExtensionCommandContext): Promise<
 		return true;
 	}
 
-	ctx.ui.setStatus(STATUS_KEY, "git: checking for merge conflicts…");
-	const conflictedFiles = await getConflictedFiles(ctx.cwd).finally(() => ctx.ui.setStatus(STATUS_KEY, undefined));
+	progress.show("git: checking for merge conflicts…");
+	const conflictedFiles = await getConflictedFiles(ctx.cwd).finally(() => progress.clear());
 	if (detectRestackMergeConflict(`${restack.stdout}\n${restack.stderr}`, conflictedFiles)) {
 		displayFailureOutput(ctx, formatRestackConflictOutput(restack, conflictedFiles));
 		return false;
