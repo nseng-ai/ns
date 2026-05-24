@@ -1,6 +1,6 @@
 import { formatCommand } from "../command-runtime.ts";
+import { linkifyPrReferences, prLinksFromDetails } from "../terminal-presentation.ts";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
-import { commandStreamPrLinks, linkifyPrReferences } from "./command-stream.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, errorMessage, LandStackError } from "./errors.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
@@ -225,7 +225,7 @@ export function formatFailedTarget(error: LandStackError): string {
 
 export function formatSuccessNotification(message: string, details?: CommandStreamMessageDetails): string {
 	const firstLine = firstNonEmptyLine(message) ?? "land-stack completed.";
-	return details ? linkifyPrReferences(firstLine, commandStreamPrLinks(details)) : firstLine;
+	return details ? linkifyPrReferences(firstLine, prLinksFromDetails(details)) : firstLine;
 }
 
 export function formatFailureNotification(error: unknown): string {

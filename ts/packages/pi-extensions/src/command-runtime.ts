@@ -1,3 +1,7 @@
+import { stripTerminalEscapes } from "./terminal-presentation.ts";
+
+export { stripTerminalEscapes } from "./terminal-presentation.ts";
+
 export type ExecResult = {
 	stdout: string;
 	stderr: string;
@@ -36,10 +40,6 @@ function shellQuoteForDisplay(value: string): string {
 	}
 
 	return `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
-export function stripTerminalEscapes(text: string): string {
-	return text.replace(/\x1B(?:\][^\x07]*(?:\x07|\x1B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, "");
 }
 
 export function tailText(text: string, options: TailTextOptions): string {

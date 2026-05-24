@@ -1,3 +1,5 @@
+import { customMessageText, truncateDisplayLine } from "./terminal-presentation.ts";
+
 import {
 	dispatchRunnerSubagent,
 	type RunnerSubagentContext,
@@ -303,27 +305,12 @@ function stringList(value: unknown): string[] {
 	return value.filter((item): item is string => typeof item === "string" && item.length > 0);
 }
 
-function customMessageText(content: CustomMessageContent): string {
-	if (typeof content === "string") return content;
-	return content
-		.filter((part) => part.type === "text")
-		.map((part) => part.text ?? "")
-		.join("\n");
-}
-
 function resultLineColor(line: string): string {
 	if (line.startsWith("✓")) return "success";
 	if (line.startsWith("⚠")) return "warning";
 	if (line.startsWith("✗")) return "error";
 	if (line.startsWith("Session file:")) return "accent";
 	return "dim";
-}
-
-function truncateDisplayLine(line: string, width: number): string {
-	if (width <= 0) return "";
-	if (line.length <= width) return line;
-	if (width === 1) return "…";
-	return `${line.slice(0, width - 1)}…`;
 }
 
 function formatElapsed(elapsedMs: number): string {
