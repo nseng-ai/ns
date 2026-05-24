@@ -1,16 +1,22 @@
 import { spawn } from "node:child_process";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 
 const COMMAND_NAME = "submit";
 const STATUS_KEY = "submit";
 const WIDGET_ID = "submit-output";
 const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
+const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
+const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
+const CURRENT_PR_ARGS = ["pr"] as const;
+const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
+const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const SUBMIT_TIMEOUT_MS = 600_000;
+const RESTACK_TIMEOUT_MS = 600_000;
+const CURRENT_PR_TIMEOUT_MS = 60_000;
+const GIT_CHECK_TIMEOUT_MS = 30_000;
 const STATUS_THROTTLE_MS = 100;
 const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
 const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
-const CURRENT_PR_ARGS = ["pr"] as const;
-const CURRENT_PR_TIMEOUT_MS = 60_000;
 
 export default function submitExtension(pi: ExtensionAPI) {
 	pi.registerCommand(COMMAND_NAME, {
@@ -18,6 +24,9 @@ export default function submitExtension(pi: ExtensionAPI) {
 		handler: async (_args, ctx) => {
 			await ctx.waitForIdle();
 			ctx.ui.setWidget(WIDGET_ID, undefined);
+
+			const ready = await ensureStackReadyForSubmit(ctx);
+			if (!ready) return;
 
 			const stdoutChunks: string[] = [];
 			const stderrChunks: string[] = [];
@@ -201,6 +210,77 @@ type BufferedCommandResult = {
 	startupError: string | undefined;
 };
 
+async function ensureStackReadyForSubmit(ctx: ExtensionCommandContext): Promise<boolean> {
+	ctx.ui.setStatus(STATUS_KEY, "gt submit --dry-run: checking…");
+	const dryRun = await runBufferedCommand("gt", [...SUBMIT_DRY_RUN_ARGS], ctx.cwd, CURRENT_PR_TIMEOUT_MS).finally(() =>
+		ctx.ui.setStatus(STATUS_KEY, undefined),
+	);
+
+	if (dryRun.code === 0 && !dryRun.killed && !dryRun.startupError) {
+		return true;
+	}
+
+	if (dryRun.startupError || dryRun.killed) {
+		displayFailureOutput(ctx, formatPreflightFailureOutput(dryRun));
+		return false;
+	}
+
+	const dryRunOutput = `${dryRun.stdout}\n${dryRun.stderr}`;
+	if (!detectRestackNeeded(dryRunOutput)) {
+		displayFailureOutput(ctx, formatPreflightFailureOutput(dryRun));
+		return false;
+	}
+
+	if (!ctx.hasUI) {
+		displayFailureOutput(ctx, formatRestackRequiredNoUiOutput(dryRun));
+		return false;
+	}
+
+	const confirmed = await ctx.ui.confirm(
+		"Restack required",
+		"Graphite says this stack must be restacked before submission. Run `gt restack` now?",
+	);
+	if (!confirmed) {
+		ctx.ui.notify("Submission cancelled. Run `gt restack` when ready, then /submit again.", "warning");
+		return false;
+	}
+
+	ctx.ui.setStatus(STATUS_KEY, "gt restack: running…");
+	const restack = await runBufferedCommand("gt", [...RESTACK_ARGS], ctx.cwd, RESTACK_TIMEOUT_MS).finally(() =>
+		ctx.ui.setStatus(STATUS_KEY, undefined),
+	);
+
+	if (restack.code === 0 && !restack.killed && !restack.startupError) {
+		ctx.ui.notify("Restack succeeded; continuing submit…", "info");
+		return true;
+	}
+
+	ctx.ui.setStatus(STATUS_KEY, "git: checking for merge conflicts…");
+	const conflictedFiles = await getConflictedFiles(ctx.cwd).finally(() => ctx.ui.setStatus(STATUS_KEY, undefined));
+	if (detectRestackMergeConflict(`${restack.stdout}\n${restack.stderr}`, conflictedFiles)) {
+		displayFailureOutput(ctx, formatRestackConflictOutput(restack, conflictedFiles));
+		return false;
+	}
+
+	displayFailureOutput(ctx, formatRestackFailureOutput(restack));
+	return false;
+}
+
+function displayFailureOutput(ctx: ExtensionCommandContext, output: string): void {
+	ctx.ui.setWidget(WIDGET_ID, output.split("\n"));
+	if (!ctx.hasUI) {
+		console.error(output);
+	}
+	ctx.ui.notify(output, "error");
+}
+
+async function getConflictedFiles(cwd: string): Promise<string[]> {
+	const unmerged = await runBufferedCommand("git", [...GIT_UNMERGED_ARGS], cwd, GIT_CHECK_TIMEOUT_MS);
+	const status = await runBufferedCommand("git", [...GIT_STATUS_PORCELAIN_ARGS], cwd, GIT_CHECK_TIMEOUT_MS);
+
+	return uniqueNonEmpty([...parseConflictedFiles(unmerged.stdout), ...parsePorcelainConflictedFiles(status.stdout)]);
+}
+
 function runBufferedCommand(command: string, args: readonly string[], cwd: string, timeoutMs: number): Promise<BufferedCommandResult> {
 	return new Promise((resolve) => {
 		const stdoutChunks: string[] = [];
@@ -338,6 +418,65 @@ function formatSubmitOutputTail(stdout: string, stderr: string): string {
 	return tail;
 }
 
+function detectRestackNeeded(output: string): boolean {
+	const strippedOutput = stripAnsi(output).replace(/\r/g, "\n");
+	const mentionsRestack = /\brestack(?:ed|ing)?\b/i.test(strippedOutput);
+	const requiresRestackBeforeSubmit =
+		/before submit(?:ting|sion)?/i.test(strippedOutput) ||
+		/need(?:s|ed)? to be restacked/i.test(strippedOutput) ||
+		/must be restacked/i.test(strippedOutput) ||
+		/requires? (?:a )?restack/i.test(strippedOutput) ||
+		/restack (?:is )?required/i.test(strippedOutput);
+
+	return mentionsRestack && requiresRestackBeforeSubmit;
+}
+
+function detectRestackMergeConflict(output: string, conflictedFiles: string[]): boolean {
+	const strippedOutput = stripAnsi(output);
+	return (
+		conflictedFiles.length > 0 ||
+		/CONFLICT \(/i.test(strippedOutput) ||
+		/merge conflict/i.test(strippedOutput) ||
+		/fix conflicts/i.test(strippedOutput) ||
+		/resolve conflicts/i.test(strippedOutput)
+	);
+}
+
+function parseConflictedFiles(output: string): string[] {
+	return uniqueNonEmpty(stripAnsi(output).replace(/\r/g, "\n").split("\n"));
+}
+
+function parsePorcelainConflictedFiles(output: string): string[] {
+	const conflictStatuses = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
+	const files: string[] = [];
+
+	for (const line of stripAnsi(output).replace(/\r/g, "\n").split("\n")) {
+		if (line.length < 4) continue;
+
+		const status = line.slice(0, 2);
+		if (!conflictStatuses.has(status)) continue;
+
+		files.push(line.slice(3));
+	}
+
+	return uniqueNonEmpty(files);
+}
+
+function uniqueNonEmpty(values: string[]): string[] {
+	const seen = new Set<string>();
+	const unique: string[] = [];
+
+	for (const value of values) {
+		const trimmed = value.trim();
+		if (!trimmed || seen.has(trimmed)) continue;
+
+		seen.add(trimmed);
+		unique.push(trimmed);
+	}
+
+	return unique;
+}
+
 function detectSubmitSemanticFailure(output: string): string | undefined {
 	const strippedOutput = stripAnsi(output).replace(/\r/g, "\n");
 	const emptyBranchWarning = /This branch does not introduce any changes:/i.test(strippedOutput);
@@ -425,6 +564,76 @@ function formatClickablePrLabel(link: PrLink): string {
 
 function sanitizeOsc8Url(url: string): string {
 	return url.replace(/[\x00-\x1f\x7f]/g, "");
+}
+
+function formatPreflightFailureOutput(result: BufferedCommandResult): string {
+	const reason = result.startupError
+		? `gt submit --dry-run could not start: ${result.startupError}. Submission was not attempted.`
+		: result.killed
+			? `gt submit --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
+			: `gt submit -nps --ai --dry-run failed with exit code ${result.code}. Submission was not attempted.`;
+
+	return [
+		reason,
+		"",
+		"$ gt submit -nps --ai --dry-run",
+		"",
+		formatOutputSection("stdout", result.stdout),
+		formatOutputSection("stderr", result.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatRestackRequiredNoUiOutput(result: BufferedCommandResult): string {
+	return [
+		"Graphite requires a restack before submission. Run `gt restack`, resolve any conflicts, then run /submit again.",
+		"Submission was not attempted.",
+		"",
+		"$ gt submit -nps --ai --dry-run",
+		"",
+		formatOutputSection("stdout", result.stdout),
+		formatOutputSection("stderr", result.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatRestackConflictOutput(result: BufferedCommandResult, conflictedFiles: string[]): string {
+	const fileLines = conflictedFiles.length > 0 ? ["Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`), ""] : [];
+
+	return [
+		"`gt restack` hit merge conflicts. Submission was not attempted.",
+		"",
+		...fileLines,
+		"Resolve the conflicts, continue or abort the rebase as appropriate, then run /submit again.",
+		"",
+		"$ gt restack --no-interactive",
+		"",
+		formatOutputSection("stdout", result.stdout),
+		formatOutputSection("stderr", result.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatRestackFailureOutput(result: BufferedCommandResult): string {
+	const reason = result.startupError
+		? `gt restack could not start: ${result.startupError}. Submission was not attempted.`
+		: result.killed
+			? `gt restack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.`
+			: `gt restack --no-interactive failed with exit code ${result.code}. Submission was not attempted.`;
+
+	return [
+		reason,
+		"",
+		"$ gt restack --no-interactive",
+		"",
+		formatOutputSection("stdout", result.stdout),
+		formatOutputSection("stderr", result.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
 }
 
 function formatFailureOutput({
