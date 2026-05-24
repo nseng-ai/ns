@@ -226,6 +226,15 @@ class GitGateway(ABC):
         """
 
     @abstractmethod
+    def list_branches_merged_into(self, branch: str) -> tuple[str, ...] | GitCommandFailure:
+        """Return local branches whose tips are reachable from ``branch``.
+
+        Wraps ``git for-each-ref --merged=<branch> refs/heads/``. The result
+        includes ``branch`` itself when it exists. A non-zero exit returns
+        :class:`GitCommandFailure`.
+        """
+
+    @abstractmethod
     def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
         """Return the commit count for ``range_spec`` (``git rev-list --count``).
 

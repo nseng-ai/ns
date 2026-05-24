@@ -103,6 +103,22 @@ def test_fake_list_local_branch_tips_returns_sorted_branches_and_seeded_timestam
     )
 
 
+def test_fake_list_branches_merged_into_returns_branch_and_seeded_ancestors() -> None:
+    gateway = FakeGitGateway(
+        branches=("main", "feat/base", "feat/child", "feat/sibling"),
+        ancestors={
+            ("main", "feat/child"),
+            ("feat/base", "feat/child"),
+        },
+    )
+
+    assert gateway.list_branches_merged_into("feat/child") == (
+        "feat/base",
+        "feat/child",
+        "main",
+    )
+
+
 def test_fake_list_tracked_paths_at_ref_defaults_to_empty() -> None:
     gateway = FakeGitGateway()
 

@@ -625,6 +625,26 @@ class RealGitGateway(GitGateway):
         )
         return result.returncode == 0
 
+    def list_branches_merged_into(self, branch: str) -> tuple[str, ...] | GitCommandFailure:
+        result = _run(
+            [
+                "git",
+                "for-each-ref",
+                "--format=%(refname:short)",
+                f"--merged={branch}",
+                "refs/heads/",
+            ],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            return GitCommandFailure(
+                message=stderr or "git for-each-ref failed",
+                returncode=result.returncode,
+            )
+        return tuple(line for line in result.stdout.splitlines() if line)
+
     def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
         result = _run(
             ["git", "rev-list", "--count", range_spec],
