@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import objectiveExtension, {
-	parseObjectiveDiffChangedSlugs,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
@@ -250,22 +249,6 @@ function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExe
 		...result,
 	});
 }
-
-describe("parseObjectiveDiffChangedSlugs", () => {
-	test("extracts Objective slugs and counts both sides of rename/copy statuses", () => {
-		const stdout = [
-			"M\t.asdl/objectives/alpha/objective.md",
-			"D\t.asdl/objectives/alpha/roadmap.md",
-			"R100\t.asdl/objectives/bravo/objective.md\t.asdl/objectives/charlie/objective.md",
-			"C075\t.asdl/objectives/delta/roadmap.md\t.asdl/objectives/echo/roadmap.md",
-			"M\tdocs/readme.md",
-			"M\t.asdl/objectives",
-			"",
-		].join("\n");
-
-		expect(parseObjectiveDiffChangedSlugs(stdout)).toEqual(["alpha", "bravo", "charlie", "delta", "echo"]);
-	});
-});
 
 describe("objective picker suggestion", () => {
 	test("shows only the one changed active Objective before offering the rest", async () => {

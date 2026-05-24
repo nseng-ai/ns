@@ -2,6 +2,16 @@ import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { parseObjectiveList, type ObjectiveList, type ObjectiveListGroup } from "./objective-list.ts";
+import {
+	VIEW_OTHER_OBJECTIVES_CHOICE,
+	changedActiveObjectiveSelection,
+	objectiveChoiceMap,
+	objectiveDiffPickerTitle,
+	objectiveGroupsWithChangedFirst,
+	parseObjectiveDiffChangedSlugs,
+	type ObjectiveDiffSelection,
+} from "./objective-picker.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
 
@@ -10,7 +20,6 @@ const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
-const VIEW_OTHER_OBJECTIVES_CHOICE = "View other active Objectives…";
 
 const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--current] [--names] [--view list|detail] [--help]
 
@@ -84,37 +93,6 @@ type ObjectiveCommandSpec = {
 	compactDiffSuggestion?: boolean;
 };
 
-export type ObjectiveBranchEntry = {
-	branch: string;
-	updatedIso: string | null;
-	aheadBase: number;
-};
-
-export type ObjectiveListGroup = {
-	slug: string;
-	status: string;
-	latestUpdateIso: string | null;
-	latestWorkBranch: string | null;
-	branches: ObjectiveBranchEntry[];
-};
-
-export type ObjectiveList = {
-	baseBranch: string;
-	trunkBranch: string;
-	view: string;
-	statusFilter: string;
-	currentBranch: string | null;
-	filteredToCurrent: boolean;
-	namesOnly: boolean;
-	groups: ObjectiveListGroup[];
-};
-
-export type ObjectiveDiffSelection = {
-	trunkBranch: string;
-	allChangedSlugs: string[];
-	changedActiveSlugs: string[];
-};
-
 export type ObjectiveListParsedArgs = {
 	args: string[];
 	help: boolean;
@@ -185,167 +163,6 @@ function truncateTail(text: string, maxChars: number): string {
 	return `[Output truncated to the last ${maxChars} characters.]\n\n${tail.slice(1)}`;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseObjectiveBranchEntry(value: unknown, groupIndex: number, branchIndex: number): ObjectiveBranchEntry {
-	if (!isRecord(value)) {
-		throw new Error(
-			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected an object.`,
-		);
-	}
-
-	const branch = value.branch;
-	const updatedIso = "updated_iso" in value ? value.updated_iso : value.tip_head_iso;
-	const aheadBase = "ahead_base" in value ? value.ahead_base : value.ahead_trunk;
-	if (
-		typeof branch !== "string" ||
-		(updatedIso !== null && typeof updatedIso !== "string") ||
-		typeof aheadBase !== "number" ||
-		!Number.isFinite(aheadBase)
-	) {
-		throw new Error(
-			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected branch, updated_iso, and ahead_base.`,
-		);
-	}
-
-	return { branch, updatedIso, aheadBase };
-}
-
-function parseObjectiveListGroup(value: unknown, index: number): ObjectiveListGroup {
-	if (!isRecord(value)) {
-		throw new Error(`Invalid Objective list group at index ${index}: expected an object.`);
-	}
-
-	const slug = value.slug;
-	const status = value.status ?? "";
-	const latestUpdateIso = "latest_update_iso" in value ? value.latest_update_iso : null;
-	const latestWorkBranch = "latest_work_branch" in value ? value.latest_work_branch : null;
-	const branches = value.branches;
-	if (
-		typeof slug !== "string" ||
-		typeof status !== "string" ||
-		(latestUpdateIso !== null && typeof latestUpdateIso !== "string") ||
-		(latestWorkBranch !== null && typeof latestWorkBranch !== "string") ||
-		!Array.isArray(branches)
-	) {
-		throw new Error(
-			`Invalid Objective list group at index ${index}: expected slug, status, latest_update_iso, latest_work_branch, and branches.`,
-		);
-	}
-
-	return {
-		slug,
-		status,
-		latestUpdateIso,
-		latestWorkBranch,
-		branches: branches.map((branch, branchIndex) => parseObjectiveBranchEntry(branch, index, branchIndex)),
-	};
-}
-
-export function parseObjectiveList(stdout: string): ObjectiveList {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`Failed to parse objective list JSON: ${message}`);
-	}
-
-	if (!isRecord(parsed)) {
-		throw new Error("Invalid objective list JSON: expected an envelope object.");
-	}
-
-	const envelopeExitCode = parsed.exit_code;
-	if (typeof envelopeExitCode === "number" && envelopeExitCode !== 0) {
-		throw new Error(`objective list returned envelope exit_code ${envelopeExitCode}.`);
-	}
-
-	const data = parsed.data;
-	if (!isRecord(data)) {
-		throw new Error("Invalid objective list JSON: expected a data object.");
-	}
-
-	const trunkBranch = data.trunk_branch;
-	const baseBranch = data.base_branch ?? trunkBranch;
-	const view = data.view;
-	const statusFilter = data.status_filter ?? "";
-	const currentBranch = data.current_branch;
-	const filteredToCurrent = data.filtered_to_current;
-	const namesOnly = data.names_only;
-	const groups = data.groups;
-	if (
-		typeof trunkBranch !== "string" ||
-		typeof baseBranch !== "string" ||
-		typeof view !== "string" ||
-		typeof statusFilter !== "string" ||
-		(currentBranch !== null && typeof currentBranch !== "string") ||
-		typeof filteredToCurrent !== "boolean" ||
-		typeof namesOnly !== "boolean" ||
-		!Array.isArray(groups)
-	) {
-		throw new Error(
-			"Invalid objective list JSON: expected base_branch, trunk_branch, view, status_filter, current_branch, filtered_to_current, names_only, and groups.",
-		);
-	}
-
-	return {
-		baseBranch,
-		trunkBranch,
-		view,
-		statusFilter,
-		currentBranch,
-		filteredToCurrent,
-		namesOnly,
-		groups: groups.map(parseObjectiveListGroup),
-	};
-}
-
-export function parseObjectiveDiffChangedSlugs(stdout: string): string[] {
-	const slugs = new Set<string>();
-	for (const line of stdout.split(/\r?\n/)) {
-		const trimmedLine = line.trimEnd();
-		if (!trimmedLine) {
-			continue;
-		}
-
-		for (const path of changedObjectivePathsFromNameStatusLine(trimmedLine)) {
-			const slug = objectiveSlugFromPath(path);
-			if (slug) {
-				slugs.add(slug);
-			}
-		}
-	}
-
-	return [...slugs].sort((left, right) => left.localeCompare(right));
-}
-
-function changedObjectivePathsFromNameStatusLine(line: string): string[] {
-	const fields = line.split("\t");
-	const status = fields[0] ?? "";
-	if (!status) {
-		return [];
-	}
-
-	if (status.startsWith("R") || status.startsWith("C")) {
-		return fields.slice(1).filter(Boolean);
-	}
-
-	const path = fields[1];
-	return path ? [path] : [];
-}
-
-function objectiveSlugFromPath(path: string): string | undefined {
-	const parts = path.split("/");
-	if (parts.length < 4 || parts[0] !== ".asdl" || parts[1] !== "objectives") {
-		return undefined;
-	}
-
-	const slug = parts[2];
-	return slug ? slug : undefined;
-}
-
 function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
 	const stdout = result.stdout.trimEnd() || "(empty)";
@@ -413,20 +230,11 @@ async function objectiveDiffSelection(
 			return undefined;
 		}
 
-		const allChangedSlugs = parseObjectiveDiffChangedSlugs(result.stdout);
-		if (allChangedSlugs.length === 0) {
-			return undefined;
-		}
-
-		const allChangedSlugSet = new Set(allChangedSlugs);
-		const changedActiveSlugs = objectiveList.groups
-			.filter((group) => allChangedSlugSet.has(group.slug))
-			.map((group) => group.slug);
-		if (changedActiveSlugs.length === 0) {
-			return undefined;
-		}
-
-		return { trunkBranch, allChangedSlugs, changedActiveSlugs };
+		return changedActiveObjectiveSelection(
+			objectiveList,
+			trunkBranch,
+			parseObjectiveDiffChangedSlugs(result.stdout),
+		);
 	} catch {
 		return undefined;
 	} finally {
@@ -475,115 +283,6 @@ ${objective}
 \`\`\`
 
 Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
-}
-
-function latestObjectiveBranch(group: ObjectiveListGroup): ObjectiveBranchEntry | undefined {
-	let latest: ObjectiveBranchEntry | undefined;
-	for (const branch of group.branches) {
-		if (objectiveBranchTimestamp(branch) === undefined) {
-			continue;
-		}
-		if (!latest || compareObjectiveBranchesByLatest(branch, latest) > 0) {
-			latest = branch;
-		}
-	}
-	return latest;
-}
-
-function objectiveBranchTimestamp(branch: ObjectiveBranchEntry): number | undefined {
-	if (branch.updatedIso === null) {
-		return undefined;
-	}
-
-	const timestamp = Date.parse(branch.updatedIso);
-	return Number.isNaN(timestamp) ? undefined : timestamp;
-}
-
-function compareObjectiveBranchesByLatest(left: ObjectiveBranchEntry, right: ObjectiveBranchEntry): number {
-	const leftTimestamp = objectiveBranchTimestamp(left) ?? Number.NEGATIVE_INFINITY;
-	const rightTimestamp = objectiveBranchTimestamp(right) ?? Number.NEGATIVE_INFINITY;
-	if (leftTimestamp !== rightTimestamp) {
-		return leftTimestamp - rightTimestamp;
-	}
-
-	return right.branch.localeCompare(left.branch);
-}
-
-function maxAheadBase(group: ObjectiveListGroup): number {
-	let maxAhead = 0;
-	for (const branch of group.branches) {
-		if (branch.aheadBase > maxAhead) {
-			maxAhead = branch.aheadBase;
-		}
-	}
-	return maxAhead;
-}
-
-function isChangedActiveObjective(
-	group: ObjectiveListGroup,
-	selection: ObjectiveDiffSelection | undefined,
-): boolean {
-	return selection?.changedActiveSlugs.includes(group.slug) ?? false;
-}
-
-function isOnlyChangedActiveObjective(
-	selection: ObjectiveDiffSelection | undefined,
-	group: ObjectiveListGroup,
-): boolean {
-	return Boolean(
-		selection &&
-			selection.allChangedSlugs.length === 1 &&
-			selection.changedActiveSlugs.length === 1 &&
-			selection.changedActiveSlugs[0] === group.slug,
-	);
-}
-
-function objectiveDiffPickerTitle(title: string, selection: ObjectiveDiffSelection): string {
-	const suffix = selection.allChangedSlugs.length === 1 && selection.changedActiveSlugs.length === 1
-		? `only Objective changed vs ${selection.trunkBranch}`
-		: `changed Objectives vs ${selection.trunkBranch}`;
-	return `${title} (${suffix})`;
-}
-
-export function formatObjectiveChoice(
-	group: ObjectiveListGroup,
-	selection: ObjectiveDiffSelection | undefined = undefined,
-): string {
-	const branchCount = group.branches.length;
-	const branchLabel = branchCount === 1 ? "1 branch" : `${branchCount} branches`;
-	const latestBranch = group.latestWorkBranch ?? latestObjectiveBranch(group)?.branch ?? "(none)";
-	let diffLabel = "";
-	if (selection && isOnlyChangedActiveObjective(selection, group)) {
-		diffLabel = `suggested: only Objective changed vs ${selection.trunkBranch} — `;
-	} else if (selection && isChangedActiveObjective(group, selection)) {
-		diffLabel = `changed vs ${selection.trunkBranch} — `;
-	}
-	return `${group.slug} — ${diffLabel}${branchLabel} — latest work ${latestBranch} — max +${maxAheadBase(group)} ahead base`;
-}
-
-function objectiveGroupsWithChangedFirst(
-	groups: ObjectiveListGroup[],
-	selection: ObjectiveDiffSelection | undefined,
-): ObjectiveListGroup[] {
-	if (!selection) {
-		return groups;
-	}
-
-	const changedSet = new Set(selection.changedActiveSlugs);
-	const changedGroups = groups.filter((group) => changedSet.has(group.slug));
-	const otherGroups = groups.filter((group) => !changedSet.has(group.slug));
-	return [...changedGroups, ...otherGroups];
-}
-
-function objectiveChoiceMap(
-	groups: ObjectiveListGroup[],
-	selection: ObjectiveDiffSelection | undefined,
-): Map<string, string> {
-	const choices = new Map<string, string>();
-	for (const group of groups) {
-		choices.set(formatObjectiveChoice(group, selection), group.slug);
-	}
-	return choices;
 }
 
 async function selectObjectiveSlug(
