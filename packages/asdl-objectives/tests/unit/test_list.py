@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from asdl_objectives.list import _objective_statuses_from_paths
+from asdl_objectives.list_inventory import objective_statuses_from_paths
 
 
 def test_objective_statuses_from_paths_reports_statuses_sorted_by_slug() -> None:
@@ -13,7 +13,7 @@ def test_objective_statuses_from_paths_reports_statuses_sorted_by_slug() -> None
         ".asdl/objectives/alpha/objective.md",
     )
 
-    assert _objective_statuses_from_paths(paths) == (
+    assert objective_statuses_from_paths(paths) == (
         ("alpha", "open"),
         ("closed", "closed"),
         ("zeta", "open"),
