@@ -152,7 +152,9 @@ def run_runner_subagent_usage(
 def summarize_runner_subagent_usage(
     session_files: tuple[Path, ...],
 ) -> RunnerSubagentUsageResult:
-    sessions = tuple(summarize_runner_subagent_session_file(session_file) for session_file in session_files)
+    sessions = tuple(
+        summarize_runner_subagent_session_file(session_file) for session_file in session_files
+    )
     return RunnerSubagentUsageResult(
         sessions=sessions,
         aggregate=_build_aggregate(sessions),

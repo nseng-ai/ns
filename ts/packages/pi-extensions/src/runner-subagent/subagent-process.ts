@@ -33,8 +33,8 @@ import { createRunnerSubagentJsonEventParser, type RunnerSubagentJsonEventParser
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
-const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent stopped without terminal capture.";
-const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC = "Subagent stopped without useful final assistant text.";
+const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
+const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC = "Subagent Pi stopped without useful final assistant text.";
 
 export type PiInvocation = {
 	command: string;
@@ -152,7 +152,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	} catch (error) {
 		parser.markStopped();
 		await cleanupRuntimeFiles(runtimeFiles);
-		return errorResult(title, parser.getProgress(), `Failed to spawn subagent process: ${errorMessage(error)}`, error);
+		return errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${errorMessage(error)}`, error);
 	}
 
 	return await new Promise<RunnerSubagentResult<TTerminalInput>>((resolve) => {
@@ -209,7 +209,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 		child.on("error", (error) => {
 			parser.markStopped();
-			finish(errorResult(title, parser.getProgress(), `Failed to spawn subagent process: ${error.message}`, error));
+			finish(errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${error.message}`, error));
 		});
 
 		child.on("close", (code, closeSignal) => {
@@ -581,7 +581,7 @@ function nonzeroExitDiagnostic(code: number | null, signal: NodeJS.Signals | nul
 	const exitText = code === null ? "without an exit code" : `with exit code ${code}`;
 	const signalText = signal ? ` after signal ${signal}` : "";
 	const stderrText = stderr.trim().length > 0 ? `\n\nstderr:\n${stderr}` : "";
-	return `Subagent exited ${exitText}${signalText}.${stderrText}`;
+	return `Subagent Pi exited ${exitText}${signalText}.${stderrText}`;
 }
 
 function uniqueAbortSignals(...signals: Array<AbortSignal | undefined>): AbortSignal[] {

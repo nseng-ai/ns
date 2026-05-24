@@ -84,7 +84,7 @@ export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void 
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
 			onUpdate?.({
-				content: [{ type: "text", text: `Dispatching subagent: ${input.title}` }],
+				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
 				details: { status: "starting", title: input.title },
 			});
 

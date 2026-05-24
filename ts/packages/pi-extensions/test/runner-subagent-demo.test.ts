@@ -1,22 +1,22 @@
 import { describe, expect, test } from "bun:test";
 
-import childSessionDemoExtension, {
-	CHILD_SESSION_DEMO_COMMAND_NAME,
-	CHILD_SESSION_DEMO_MESSAGE_TYPE,
-	buildChildSessionDemoPrompt,
+import runnerSubagentDemoExtension, {
+	RUNNER_SUBAGENT_DEMO_COMMAND_NAME,
+	RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE,
+	buildRunnerSubagentDemoPrompt,
 	type CustomMessage,
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 	type MessageRenderer,
 	type NotifyLevel,
-} from "../src/child-session-demo.ts";
-import { CHILD_SESSION_RUNNER_DEPENDENCIES } from "../src/run-child-session.ts";
-import type { ChildSessionRunnerDependencies } from "../src/run-child-session/child-process.ts";
-import type { RuntimeResultV1 } from "../src/run-child-session/child-runtime.ts";
-import { createFakeChildRunner, waitForSpawn } from "./run-child-session-fakes.ts";
+} from "../src/runner-subagent-demo.ts";
+import { RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES } from "../src/runner-subagent.ts";
+import type { RunnerSubagentDispatcherDependencies } from "../src/runner-subagent/subagent-process.ts";
+import type { RuntimeResultV1 } from "../src/runner-subagent/subagent-runtime.ts";
+import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
 
 const ROOT = "/repo";
-const SESSION_FILE = "/tmp/demo-child-session.jsonl";
+const SESSION_FILE = "/tmp/demo-runner-subagent.jsonl";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type SentMessage = CustomMessage & {
@@ -44,12 +44,12 @@ class FakePi implements ExtensionAPI {
 	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly messages: SentMessage[] = [];
 	readonly sentUserMessages: string[] = [];
-	[CHILD_SESSION_RUNNER_DEPENDENCIES]?: ChildSessionRunnerDependencies;
+	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	[key: string]: unknown;
 
-	constructor(dependencies?: ChildSessionRunnerDependencies) {
+	constructor(dependencies?: RunnerSubagentDispatcherDependencies) {
 		if (dependencies) {
-			this[CHILD_SESSION_RUNNER_DEPENDENCIES] = dependencies;
+			this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = dependencies;
 		}
 	}
 
@@ -104,7 +104,7 @@ function createContext(options: { hasUI?: boolean } = {}): {
 	return { ctx, notifications, statuses, widgets, waitForIdleCalls: () => waits };
 }
 
-async function runChildSessionDemo(
+async function runRunnerSubagentDemo(
 	args: string,
 	runtimeResult: RuntimeResultV1 | undefined,
 	options: { hasUI?: boolean } = {},
@@ -117,12 +117,12 @@ async function runChildSessionDemo(
 	messages: SentMessage[];
 	spawnArgs: string[];
 }> {
-	const runner = createFakeChildRunner(
+	const runner = createFakeRunnerSubagentDispatcher(
 		runtimeResult === undefined ? { sessionFile: SESSION_FILE } : { sessionFile: SESSION_FILE, runtimeResult },
 	);
 	const pi = new FakePi(runner.dependencies);
-	childSessionDemoExtension(pi);
-	const command = pi.commands.get(CHILD_SESSION_DEMO_COMMAND_NAME);
+	runnerSubagentDemoExtension(pi);
+	const command = pi.commands.get(RUNNER_SUBAGENT_DEMO_COMMAND_NAME);
 	expect(command).toBeDefined();
 	const context = createContext(options);
 	const running = Promise.resolve(command?.handler(args, context.ctx));
@@ -141,35 +141,35 @@ function messageText(message: SentMessage): string {
 		.join("\n");
 }
 
-describe("child-session-demo extension", () => {
-	test("registers /child-session-demo and the custom message renderer", () => {
+describe("runner-subagent-demo extension", () => {
+	test("registers /runner-subagent-demo and the custom message renderer", () => {
 		const pi = new FakePi();
-		childSessionDemoExtension(pi);
+		runnerSubagentDemoExtension(pi);
 
-		expect(pi.commands.get(CHILD_SESSION_DEMO_COMMAND_NAME)?.description).toContain("child Pi session");
-		expect(pi.messageRenderers.has(CHILD_SESSION_DEMO_MESSAGE_TYPE)).toBe(true);
+		expect(pi.commands.get(RUNNER_SUBAGENT_DEMO_COMMAND_NAME)?.description).toContain("runner subagent Pi");
+		expect(pi.messageRenderers.has(RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE)).toBe(true);
 
-		const renderer = pi.messageRenderers.get(CHILD_SESSION_DEMO_MESSAGE_TYPE);
+		const renderer = pi.messageRenderers.get(RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE);
 		expect(renderer).toBeDefined();
 		const component = renderer?.(
-			{ customType: CHILD_SESSION_DEMO_MESSAGE_TYPE, content: "✓ ok\nSession file: /tmp/session.jsonl", display: true },
+			{ customType: RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE, content: "✓ ok\nSession file: /tmp/session.jsonl", display: true },
 			{ expanded: false },
 			{ fg: (color, text) => `${color}:${text}` },
 		);
 		expect(component?.render(80)).toEqual(["success:✓ ok", "accent:Session file: /tmp/session.jsonl"]);
 	});
 
-	test("empty args show usage and do not start a child", async () => {
-		const runner = createFakeChildRunner();
+	test("empty args show usage and do not start a runner subagent", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
 		const pi = new FakePi(runner.dependencies);
-		childSessionDemoExtension(pi);
-		const command = pi.commands.get(CHILD_SESSION_DEMO_COMMAND_NAME);
+		runnerSubagentDemoExtension(pi);
+		const command = pi.commands.get(RUNNER_SUBAGENT_DEMO_COMMAND_NAME);
 		const context = createContext();
 
 		await command?.handler("   ", context.ctx);
 
 		expect(context.notifications).toEqual([
-			{ message: expect.stringContaining("Usage: /child-session-demo <task>"), level: "info" },
+			{ message: expect.stringContaining("Usage: /runner-subagent-demo <task>"), level: "info" },
 		]);
 		expect(context.waitForIdleCalls()).toBe(0);
 		expect(runner.calls).toEqual([]);
@@ -177,11 +177,11 @@ describe("child-session-demo extension", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 
-	test("completed child result sends summary, evidence, and session file", async () => {
-		const result = await runChildSessionDemo("Summarize the test fixture", {
+	test("completed runner subagent result sends summary, evidence, and session file", async () => {
+		const result = await runRunnerSubagentDemo("Summarize the test fixture", {
 			version: 1,
 			kind: "terminal-capture",
-			toolName: "child_session_demo_complete",
+			toolName: "runner_subagent_demo_complete",
 			toolCallId: "tool-1",
 			status: "completed",
 			input: { summary: "Fixture summarized", evidence: ["read README", "checked tests"] },
@@ -189,9 +189,9 @@ describe("child-session-demo extension", () => {
 
 		expect(result.waitForIdleCalls()).toBe(1);
 		expect(result.pi.messages).toHaveLength(1);
-		expect(result.pi.messages[0]?.customType).toBe(CHILD_SESSION_DEMO_MESSAGE_TYPE);
+		expect(result.pi.messages[0]?.customType).toBe(RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE);
 		const text = messageText(result.pi.messages[0]!);
-		expect(text).toContain("✓ Child session completed: Fixture summarized");
+		expect(text).toContain("✓ Runner subagent completed: Fixture summarized");
 		expect(text).toContain("- read README");
 		expect(text).toContain(`Session file: ${SESSION_FILE}`);
 		expect(result.spawnArgs.at(-1)).toContain("Summarize the test fixture");
@@ -199,25 +199,25 @@ describe("child-session-demo extension", () => {
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
-	test("blocked child result sends blocker details and session file", async () => {
-		const result = await runChildSessionDemo("Find the missing dependency", {
+	test("blocked runner subagent result sends blocker details and session file", async () => {
+		const result = await runRunnerSubagentDemo("Find the missing dependency", {
 			version: 1,
 			kind: "terminal-capture",
-			toolName: "child_session_demo_blocked",
+			toolName: "runner_subagent_demo_blocked",
 			status: "blocked",
 			input: { reason: "Need credentials", needs: ["API token", "target account"] },
 		});
 
 		expect(result.pi.messages).toHaveLength(1);
 		const text = messageText(result.pi.messages[0]!);
-		expect(text).toContain("⚠ Child session blocked: Need credentials");
+		expect(text).toContain("⚠ Runner subagent blocked: Need credentials");
 		expect(text).toContain("- API token");
 		expect(text).toContain(`Session file: ${SESSION_FILE}`);
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
 	test("protocol-error result is surfaced without pretending success", async () => {
-		const result = await runChildSessionDemo("Trigger protocol failure", {
+		const result = await runRunnerSubagentDemo("Trigger protocol failure", {
 			version: 1,
 			kind: "terminal-capture",
 			toolName: "unknown_terminal_tool",
@@ -227,41 +227,41 @@ describe("child-session-demo extension", () => {
 
 		expect(result.pi.messages).toHaveLength(1);
 		const text = messageText(result.pi.messages[0]!);
-		expect(text).toContain("✗ Child session protocol-error");
+		expect(text).toContain("✗ Runner subagent protocol-error");
 		expect(text).toContain("unknown_terminal_tool");
 		expect(text).toContain(`Session file: ${SESSION_FILE}`);
-		expect(text).not.toContain("✓ Child session completed");
+		expect(text).not.toContain("✓ Runner subagent completed");
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
 	test("UI status and widget are set while running and cleared after completion", async () => {
-		const result = await runChildSessionDemo("Report progress", {
+		const result = await runRunnerSubagentDemo("Report progress", {
 			version: 1,
 			kind: "terminal-capture",
-			toolName: "child_session_demo_complete",
+			toolName: "runner_subagent_demo_complete",
 			status: "completed",
 			input: { summary: "Done" },
 		});
 
-		expect(result.statuses[0]).toEqual({ key: CHILD_SESSION_DEMO_COMMAND_NAME, value: "child-session-demo: launching child session..." });
-		expect(result.statuses.some((status) => status.value === "child-session-demo: running child session...")).toBe(true);
-		expect(result.statuses.at(-1)).toEqual({ key: CHILD_SESSION_DEMO_COMMAND_NAME, value: undefined });
-		expect(result.widgets[0]?.value?.[0]).toContain("Child demo: Report progress");
+		expect(result.statuses[0]).toEqual({ key: RUNNER_SUBAGENT_DEMO_COMMAND_NAME, value: "runner-subagent-demo: dispatching runner subagent..." });
+		expect(result.statuses.some((status) => status.value === "runner-subagent-demo: running runner subagent...")).toBe(true);
+		expect(result.statuses.at(-1)).toEqual({ key: RUNNER_SUBAGENT_DEMO_COMMAND_NAME, value: undefined });
+		expect(result.widgets[0]?.value?.[0]).toContain("Runner subagent demo: Report progress");
 		expect(result.widgets.some((widget) => widget.value?.some((line) => line === `Session: ${SESSION_FILE}`))).toBe(true);
 		expect(result.widgets.at(-1)).toEqual({
-			key: CHILD_SESSION_DEMO_COMMAND_NAME,
+			key: RUNNER_SUBAGENT_DEMO_COMMAND_NAME,
 			value: undefined,
 			options: { placement: "belowEditor" },
 		});
 	});
 
 	test("no UI calls are required when ctx.hasUI is false", async () => {
-		const result = await runChildSessionDemo(
+		const result = await runRunnerSubagentDemo(
 			"Run headless",
 			{
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "child_session_demo_complete",
+				toolName: "runner_subagent_demo_complete",
 				status: "completed",
 				input: { summary: "Headless done" },
 			},
@@ -277,11 +277,11 @@ describe("child-session-demo extension", () => {
 	});
 
 	test("prompt instructs terminal capture completion instead of slash-command handoff", () => {
-		const prompt = buildChildSessionDemoPrompt("Check docs");
+		const prompt = buildRunnerSubagentDemoPrompt("Check docs");
 
 		expect(prompt).toContain("exactly one terminal tool");
-		expect(prompt).toContain("child_session_demo_complete");
-		expect(prompt).toContain("child_session_demo_blocked");
+		expect(prompt).toContain("runner_subagent_demo_complete");
+		expect(prompt).toContain("runner_subagent_demo_blocked");
 		expect(prompt).toContain("Do not use slash-command text as a completion handoff");
 		expect(prompt).not.toContain("sendUserMessage");
 	});

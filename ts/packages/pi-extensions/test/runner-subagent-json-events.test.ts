@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
-import { createChildSessionJsonEventParser } from "../src/run-child-session/json-events.ts";
+import { createRunnerSubagentJsonEventParser } from "../src/runner-subagent/json-events.ts";
 
 function jsonLine(value: unknown): string {
 	return `${JSON.stringify(value)}\n`;
 }
 
-describe("child session JSON event parser", () => {
+describe("runner subagent JSON event parser", () => {
 	test("parses chunked JSONL and captures the session header", () => {
 		let now = 1_000;
-		const parser = createChildSessionJsonEventParser({ title: "Child", sessionFile: "/tmp/child.jsonl", now: () => now });
+		const parser = createRunnerSubagentJsonEventParser({ title: "Child", sessionFile: "/tmp/child.jsonl", now: () => now });
 		const header = { type: "session", version: 3, id: "session-id", timestamp: "2026-05-23T00:00:00Z", cwd: "/repo" } as const;
 		const line = jsonLine(header);
 
@@ -31,7 +31,7 @@ describe("child session JSON event parser", () => {
 
 	test("tracks agent, turn, tool, elapsed, and stop-reason progress", () => {
 		let now = 10;
-		const parser = createChildSessionJsonEventParser({ now: () => now });
+		const parser = createRunnerSubagentJsonEventParser({ now: () => now });
 
 		parser.pushChunk(jsonLine({ type: "agent_start" }));
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
@@ -68,24 +68,24 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("treats malformed JSONL as an error", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk('{"type":"agent_start"}\n{"type":');
 		parser.finish();
 
 		const snapshot = parser.getSnapshot();
-		expect(snapshot.error?.name).toBe("ChildSessionJsonEventParserError");
-		expect(snapshot.error?.message).toContain("Malformed child Pi JSONL output");
+		expect(snapshot.error?.name).toBe("RunnerSubagentJsonEventParserError");
+		expect(snapshot.error?.message).toContain("Malformed runner subagent Pi JSONL output");
 		expect(snapshot.progress.state).toBe("stopped");
 	});
 
 	test("detects terminal tool calls mixed with sibling tools in the same turn", () => {
-		const parser = createChildSessionJsonEventParser({ terminalToolNames: ["complete_child_session"] });
+		const parser = createRunnerSubagentJsonEventParser({ terminalToolNames: ["complete_runner_subagent"] });
 
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
 		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: {} }));
 		parser.pushChunk(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "complete_child_session", args: {} }),
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "complete_runner_subagent", args: {} }),
 		);
 
 		const snapshot = parser.getSnapshot();
@@ -94,26 +94,26 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("captures terminal execution errors without treating them as malformed JSONL", () => {
-		const parser = createChildSessionJsonEventParser({ terminalToolNames: ["complete_child_session"] });
+		const parser = createRunnerSubagentJsonEventParser({ terminalToolNames: ["complete_runner_subagent"] });
 
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
 		parser.pushChunk(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
 		);
 		parser.pushChunk(
-			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_child_session", isError: true }),
+			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_runner_subagent", isError: true }),
 		);
 
 		const snapshot = parser.getSnapshot();
 		expect(snapshot.error).toBeUndefined();
 		expect(snapshot.terminalAttempted).toBe(true);
 		expect(snapshot.terminalExecutionError).toEqual(
-			expect.objectContaining({ toolName: "complete_child_session", toolCallId: "tool-1" }),
+			expect.objectContaining({ toolName: "complete_runner_subagent", toolCallId: "tool-1" }),
 		);
 	});
 
 	test("captures final assistant text from message_end text blocks", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(
 			jsonLine({
@@ -130,7 +130,7 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("captures final assistant text from turn_end message", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(
 			jsonLine({
@@ -144,7 +144,7 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("captures final assistant text from the last assistant in agent_end messages", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(
 			jsonLine({
@@ -161,7 +161,7 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("ignores text from non-assistant messages", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "user", content: [{ type: "text", text: "Nope." }] } }));
 
@@ -169,7 +169,7 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("ignores thinking and tool-call content blocks", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(
 			jsonLine({
@@ -189,7 +189,7 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("preserves the latest non-empty assistant text across turns", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "First." }] } }));
 		parser.pushChunk(jsonLine({ type: "turn_end", message: { role: "assistant", content: [{ type: "text", text: "Second." }] } }));
@@ -198,7 +198,7 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("does not clear final assistant text when later assistant content is empty", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Useful." }] } }));
 		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "   " }] } }));
@@ -208,7 +208,7 @@ describe("child session JSON event parser", () => {
 	});
 
 	test("handles string and malformed content defensively", () => {
-		const parser = createChildSessionJsonEventParser();
+		const parser = createRunnerSubagentJsonEventParser();
 
 		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: "plain string" } }));
 		expect(parser.getSnapshot().error).toBeUndefined();

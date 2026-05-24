@@ -154,7 +154,7 @@ export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRunt
 			if (!terminalCaptured || terminalToolNames.has(event.toolName)) return;
 			return {
 				block: true,
-				reason: "A subagent terminal capture has already been recorded; no further non-terminal tools may run.",
+				reason: "A runner subagent terminal capture has already been recorded; no further non-terminal tools may run.",
 			};
 		});
 	};

@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from asdl_objectives.exec.child_session_usage import (
-    summarize_child_session_file,
-    summarize_child_session_usage,
+from asdl_objectives.exec.runner_subagent_usage import (
+    summarize_runner_subagent_session_file,
+    summarize_runner_subagent_usage,
 )
 
 
-def test_summarizes_multiple_assistant_usage_messages(tmp_path: Path) -> None:
+def test_summarizes_multiple_assistant_usage_messages_runner_subagent(tmp_path: Path) -> None:
     session_file = tmp_path / "slice.jsonl"
     _write_jsonl(
         session_file,
@@ -41,7 +41,7 @@ def test_summarizes_multiple_assistant_usage_messages(tmp_path: Path) -> None:
         ),
     )
 
-    summary = summarize_child_session_file(session_file)
+    summary = summarize_runner_subagent_session_file(session_file)
 
     assert summary.status == "ok"
     assert summary.assistant_response_count == 2
@@ -63,7 +63,7 @@ def test_summarizes_multiple_assistant_usage_messages(tmp_path: Path) -> None:
     ]
 
 
-def test_ignores_non_assistant_and_no_usage_messages(tmp_path: Path) -> None:
+def test_ignores_non_assistant_and_no_usage_messages_runner_subagent(tmp_path: Path) -> None:
     session_file = tmp_path / "slice.jsonl"
     _write_jsonl(
         session_file,
@@ -83,7 +83,7 @@ def test_ignores_non_assistant_and_no_usage_messages(tmp_path: Path) -> None:
         _assistant_record(input_tokens=11, output_tokens=7, total_tokens=18),
     )
 
-    summary = summarize_child_session_file(session_file)
+    summary = summarize_runner_subagent_session_file(session_file)
 
     assert summary.status == "ok"
     assert summary.assistant_response_count == 1
@@ -92,7 +92,7 @@ def test_ignores_non_assistant_and_no_usage_messages(tmp_path: Path) -> None:
     assert summary.tokens.total_tokens == 18
 
 
-def test_deduplicates_models_preserving_first_seen_order(tmp_path: Path) -> None:
+def test_deduplicates_models_preserving_first_seen_order_runner_subagent(tmp_path: Path) -> None:
     session_file = tmp_path / "slice.jsonl"
     _write_jsonl(
         session_file,
@@ -101,7 +101,7 @@ def test_deduplicates_models_preserving_first_seen_order(tmp_path: Path) -> None
         _assistant_record(provider="anthropic", api="messages", model="claude-sonnet"),
     )
 
-    summary = summarize_child_session_file(session_file)
+    summary = summarize_runner_subagent_session_file(session_file)
 
     assert [(model.provider, model.api, model.model) for model in summary.models] == [
         ("openai", "responses", "gpt-5.5"),
@@ -109,8 +109,8 @@ def test_deduplicates_models_preserving_first_seen_order(tmp_path: Path) -> None
     ]
 
 
-def test_missing_file_returns_missing_summary(tmp_path: Path) -> None:
-    summary = summarize_child_session_file(tmp_path / "missing.jsonl")
+def test_missing_file_returns_missing_summary_runner_subagent(tmp_path: Path) -> None:
+    summary = summarize_runner_subagent_session_file(tmp_path / "missing.jsonl")
 
     assert summary.status == "missing"
     assert summary.assistant_response_count == 0
@@ -118,22 +118,22 @@ def test_missing_file_returns_missing_summary(tmp_path: Path) -> None:
     assert summary.cost.total_usd == 0.0
 
 
-def test_directory_returns_not_file_summary(tmp_path: Path) -> None:
-    summary = summarize_child_session_file(tmp_path)
+def test_directory_returns_not_file_summary_runner_subagent(tmp_path: Path) -> None:
+    summary = summarize_runner_subagent_session_file(tmp_path)
 
     assert summary.status == "not_file"
     assert summary.assistant_response_count == 0
     assert summary.tokens.total_tokens == 0
 
 
-def test_invalid_json_reports_line_number(tmp_path: Path) -> None:
+def test_invalid_json_reports_line_number_runner_subagent(tmp_path: Path) -> None:
     session_file = tmp_path / "broken.jsonl"
     session_file.write_text(
         json.dumps(_assistant_record(input_tokens=100, total_tokens=100)) + "\n\n" + "{not json}\n",
         encoding="utf-8",
     )
 
-    summary = summarize_child_session_file(session_file)
+    summary = summarize_runner_subagent_session_file(session_file)
 
     assert summary.status == "invalid_json"
     assert summary.error_line == 3
@@ -144,7 +144,7 @@ def test_invalid_json_reports_line_number(tmp_path: Path) -> None:
     assert summary.cost.total_usd == 0.0
 
 
-def test_no_usage_returns_no_usage_summary(tmp_path: Path) -> None:
+def test_no_usage_returns_no_usage_summary_runner_subagent(tmp_path: Path) -> None:
     session_file = tmp_path / "no-usage.jsonl"
     _write_jsonl(
         session_file,
@@ -153,7 +153,7 @@ def test_no_usage_returns_no_usage_summary(tmp_path: Path) -> None:
         {"event": "unknown"},
     )
 
-    summary = summarize_child_session_file(session_file)
+    summary = summarize_runner_subagent_session_file(session_file)
 
     assert summary.status == "no_usage"
     assert summary.assistant_response_count == 0
@@ -162,7 +162,7 @@ def test_no_usage_returns_no_usage_summary(tmp_path: Path) -> None:
     assert summary.peak_observed_prompt_tokens is None
 
 
-def test_aggregate_combines_only_ok_usage_sessions(tmp_path: Path) -> None:
+def test_aggregate_combines_only_ok_runner_subagent_sessions(tmp_path: Path) -> None:
     ok_file = tmp_path / "ok.jsonl"
     no_usage_file = tmp_path / "no-usage.jsonl"
     missing_file = tmp_path / "missing.jsonl"
@@ -172,7 +172,7 @@ def test_aggregate_combines_only_ok_usage_sessions(tmp_path: Path) -> None:
     )
     _write_jsonl(no_usage_file, {"message": {"role": "assistant", "content": "no usage"}})
 
-    result = summarize_child_session_usage((ok_file, no_usage_file, missing_file))
+    result = summarize_runner_subagent_usage((ok_file, no_usage_file, missing_file))
 
     assert [session.status for session in result.sessions] == ["ok", "no_usage", "missing"]
     assert result.aggregate.session_count == 3

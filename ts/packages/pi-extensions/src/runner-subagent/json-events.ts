@@ -318,7 +318,7 @@ export class RunnerSubagentJsonEventParser {
 	}
 
 	private fail(line: string, cause: unknown): void {
-		this.parseError = new RunnerSubagentJsonEventParserError(`Malformed subagent Pi JSONL output: ${errorMessage(cause)}`, line, cause);
+		this.parseError = new RunnerSubagentJsonEventParserError(`Malformed runner subagent Pi JSONL output: ${errorMessage(cause)}`, line, cause);
 		this.markStopped();
 	}
 

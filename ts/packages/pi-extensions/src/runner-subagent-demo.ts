@@ -115,7 +115,7 @@ export default function runnerSubagentDemoExtension(pi: ExtensionAPI & RunnerSub
 	pi.registerMessageRenderer?.(RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE, renderRunnerSubagentDemoResult);
 
 	pi.registerCommand(RUNNER_SUBAGENT_DEMO_COMMAND_NAME, {
-		description: "Run a small task in an awaited runner subagent and display the structured terminal result",
+		description: "Run a small task in an awaited runner subagent Pi and display the structured terminal result",
 		handler: async (rawArgs: string, ctx: ExtensionCommandContext) => {
 			const task = rawArgs.trim();
 			if (!task || task === "--help" || task === "-h") {
@@ -126,11 +126,11 @@ export default function runnerSubagentDemoExtension(pi: ExtensionAPI & RunnerSub
 			await ctx.waitForIdle();
 
 			const title = subagentTitle(task);
-			setStatus(ctx, "launching subagent...");
+			setStatus(ctx, "dispatching runner subagent...");
 			setWidget(ctx, widgetLines({ title, state: "starting", toolCount: 0, turnCount: 0, elapsedMs: 0 }));
 
 			try {
-				setStatus(ctx, "running subagent...");
+				setStatus(ctx, "running runner subagent...");
 				const result = await dispatchRunnerSubagent<RunnerSubagentDemoTerminalInput>(pi, subagentContext(ctx), {
 					title,
 					prompt: buildRunnerSubagentDemoPrompt(task),
@@ -249,15 +249,15 @@ function widgetLines(progress: RunnerSubagentProgress): string[] {
 
 function resultHeadline(result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>): string {
 	if (result.status === "completed") {
-		return `✓ Subagent completed: ${stringValue(readRecord(result.terminal.input).summary, "completed")}`;
+		return `✓ Runner subagent completed: ${stringValue(readRecord(result.terminal.input).summary, "completed")}`;
 	}
 	if (result.status === "blocked") {
-		return `⚠ Subagent blocked: ${stringValue(readRecord(result.terminal.input).reason, "blocked")}`;
+		return `⚠ Runner subagent blocked: ${stringValue(readRecord(result.terminal.input).reason, "blocked")}`;
 	}
 	if (result.status === "final-text") {
-		return `✓ Subagent final text: ${firstNonEmptyLine(result.finalText) ?? "captured"}`;
+		return `✓ Runner subagent final text: ${firstNonEmptyLine(result.finalText) ?? "captured"}`;
 	}
-	return `✗ Subagent ${result.status}: ${result.diagnostic}`;
+	return `✗ Runner subagent ${result.status}: ${result.diagnostic}`;
 }
 
 function formatProgressLine(progress: RunnerSubagentProgress): string {
@@ -283,7 +283,7 @@ function resultLevel(status: RunnerSubagentStatus): NotifyLevel {
 function subagentTitle(task: string): string {
 	const singleLine = task.replace(/\s+/g, " ").trim();
 	const shortTask = singleLine.length > 60 ? `${singleLine.slice(0, 59)}…` : singleLine;
-	return `Subagent demo: ${shortTask}`;
+	return `Runner subagent demo: ${shortTask}`;
 }
 
 function readRecord(value: unknown): Record<string, unknown> {
