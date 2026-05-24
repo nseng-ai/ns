@@ -10,9 +10,9 @@
 - [x] Remove or rename `/create-brmem-plan` and `persist_brmem_plan` into the new branch-creating command/tool names; do not add compatibility aliases.
 - [x] Create `brmem-plans/rename-plan-branch-skills`: migrate `dev-brmem-branch-create` to `brmem-create-plan-branch-from-file` and `dev-brmem-branch-impl` to `brmem-plan-impl`, updating frontmatter, descriptions, references, metadata, and symlink layout.
 - [x] Rename the repo-local branch policy prompt and packaged default prompt to the new `create-brmem-plan-branch` naming; do not keep a `dev-brmem-branch-create` fallback.
-- [ ] Create `brmem-plans/legacy-cleanup-docs`: search for old names, update docs/references/changelog material where appropriate, and leave no compatibility aliases.
-- [~] Run relevant validation for each stack slice, including `cd ts/packages/pi-extensions && bun test && bun run check`, Markdown/TOML formatting checks, and broader `just` checks when appropriate.
-- [ ] Prepare the stack for review with clear PR descriptions that explain the semantic boundary of each slice and any remaining open decisions.
+- [x] Create `brmem-plans/legacy-cleanup-docs`: search for old names, update docs/references/changelog material where appropriate, and leave no compatibility aliases.
+- [x] Run relevant validation for each stack slice, including `cd ts/packages/pi-extensions && bun test && bun run check`, Markdown/TOML formatting checks, and broader `just` checks when appropriate.
+- [x] Prepare the stack for review with clear PR descriptions that explain the semantic boundary of each slice and any remaining open decisions.
 
 ## Parked
 
