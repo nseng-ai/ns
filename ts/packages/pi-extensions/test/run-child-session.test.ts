@@ -6,6 +6,7 @@ import {
 	type ChildSessionBlockedResult,
 	type ChildSessionCompletedResult,
 	type ChildSessionContext,
+	type ChildSessionFinalTextResult,
 	type ChildSessionPi,
 	type ChildSessionResult,
 	type ChildSessionTerminalToolDefinition,
@@ -71,7 +72,11 @@ function describeResult(result: ChildSessionResult<CompletionInput>): string {
 			return result.terminal.input.summary;
 		case "blocked":
 			return `blocked by ${result.terminal.toolName}`;
+		case "final-text":
+			return result.finalText;
 		case "stopped-without-terminal":
+			return result.diagnostic;
+		case "stopped-without-useful-text":
 			return result.diagnostic;
 		case "cancelled":
 			return result.reason ?? result.diagnostic;
@@ -101,6 +106,30 @@ describe("runChildSession local contract", () => {
 		expect(result.status).toBe("stopped-without-terminal");
 		if (result.status !== "stopped-without-terminal") return;
 		expect(result.diagnostic).toContain("without terminal capture");
+	});
+
+	test("allows callers to invoke final-text mode without terminal tools", async () => {
+		const runner = createFakeChildRunner({ sessionFile: "/tmp/final-text-child.jsonl" });
+		const pi: ChildSessionPi = { [CHILD_SESSION_RUNNER_DEPENDENCIES]: runner.dependencies };
+		const ctx: ChildSessionContext = { cwd: "/repo" };
+
+		const running = runChildSession(pi, ctx, {
+			title: "Final-text child",
+			prompt: "Do the child task and answer in final text.",
+			returnMode: "final-text",
+		});
+		const call = await waitForSpawn(runner.calls);
+		call.process.emitStdout(
+			`${JSON.stringify({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Done." }], stopReason: "stop" } })}\n`,
+		);
+		call.process.close(0);
+		const result = await running;
+
+		expect(call.args).not.toContain("--extension");
+		expect(result.status).toBe("final-text");
+		if (result.status !== "final-text") return;
+		expect(result.finalText).toBe("Done.");
+		expect(result.sessionFile).toBe("/tmp/final-text-child.jsonl");
 	});
 
 	test("allows callers to define schema-shaped terminal tools", () => {
@@ -162,9 +191,22 @@ describe("runChildSession local contract", () => {
 				input: { summary: "needs input" },
 			},
 		};
+		const finalText: ChildSessionFinalTextResult = {
+			status: "final-text",
+			elapsedMs: 7,
+			progress: {
+				state: "stopped",
+				toolCount: 0,
+				turnCount: 1,
+				elapsedMs: 7,
+			},
+			finalText: "done in prose",
+			stopReason: "stop",
+		};
 
 		expect(describeResult(completed)).toBe("done");
 		expect(describeResult(blocked)).toBe("blocked by block_child_session");
+		expect(describeResult(finalText)).toBe("done in prose");
 	});
 
 	test("returns a deterministic stopped-without-terminal result through the injectable runner", async () => {

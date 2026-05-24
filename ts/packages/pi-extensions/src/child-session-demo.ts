@@ -176,6 +176,8 @@ export function formatChildSessionDemoResult(result: ChildSessionResult<ChildSes
 	} else if (result.status === "blocked") {
 		const needs = stringList(readRecord(result.terminal.input).needs);
 		if (needs.length > 0) lines.push("Needs:", ...needs.map((item) => `- ${item}`));
+	} else if (result.status === "final-text") {
+		lines.push("Final text:", result.finalText);
 	} else {
 		lines.push(`Diagnostic: ${result.diagnostic}`);
 	}
@@ -252,6 +254,9 @@ function resultHeadline(result: ChildSessionResult<ChildSessionDemoTerminalInput
 	if (result.status === "blocked") {
 		return `⚠ Child session blocked: ${stringValue(readRecord(result.terminal.input).reason, "blocked")}`;
 	}
+	if (result.status === "final-text") {
+		return `✓ Child session final text: ${firstNonEmptyLine(result.finalText) ?? "captured"}`;
+	}
 	return `✗ Child session ${result.status}: ${result.diagnostic}`;
 }
 
@@ -270,7 +275,7 @@ function childSessionDemoDetails(result: ChildSessionResult<ChildSessionDemoTerm
 }
 
 function resultLevel(status: ChildSessionStatus): NotifyLevel {
-	if (status === "completed") return "success";
+	if (status === "completed" || status === "final-text") return "success";
 	if (status === "blocked") return "warning";
 	return "error";
 }
@@ -287,6 +292,10 @@ function readRecord(value: unknown): Record<string, unknown> {
 
 function stringValue(value: unknown, fallback: string): string {
 	return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function firstNonEmptyLine(value: string): string | undefined {
+	return value.split(/\r?\n/).find((line) => line.trim().length > 0)?.trim();
 }
 
 function stringList(value: unknown): string[] {

@@ -111,4 +111,117 @@ describe("child session JSON event parser", () => {
 			expect.objectContaining({ toolName: "complete_child_session", toolCallId: "tool-1" }),
 		);
 	});
+
+	test("captures final assistant text from message_end text blocks", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Done.\nEvidence: tests passed." }],
+					stopReason: "stop",
+				},
+			}),
+		);
+
+		expect(parser.getSnapshot().finalAssistantText).toBe("Done.\nEvidence: tests passed.");
+	});
+
+	test("captures final assistant text from turn_end message", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(
+			jsonLine({
+				type: "turn_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Turn answer." }], stopReason: "stop" },
+				toolResults: [],
+			}),
+		);
+
+		expect(parser.getSnapshot().finalAssistantText).toBe("Turn answer.");
+	});
+
+	test("captures final assistant text from the last assistant in agent_end messages", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(
+			jsonLine({
+				type: "agent_end",
+				messages: [
+					{ role: "assistant", content: [{ type: "text", text: "Earlier answer." }] },
+					{ role: "user", content: [{ type: "text", text: "Ignore me." }] },
+					{ role: "assistant", content: [{ type: "text", text: "Final answer." }], stopReason: "stop" },
+				],
+			}),
+		);
+
+		expect(parser.getSnapshot().finalAssistantText).toBe("Final answer.");
+	});
+
+	test("ignores text from non-assistant messages", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "user", content: [{ type: "text", text: "Nope." }] } }));
+
+		expect(parser.getSnapshot().finalAssistantText).toBeUndefined();
+	});
+
+	test("ignores thinking and tool-call content blocks", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: {
+					role: "assistant",
+					content: [
+						{ type: "thinking", text: "private reasoning" },
+						{ type: "toolCall", name: "bash", input: {} },
+						{ type: "text", text: "Visible answer." },
+					],
+				},
+			}),
+		);
+
+		expect(parser.getSnapshot().finalAssistantText).toBe("Visible answer.");
+	});
+
+	test("preserves the latest non-empty assistant text across turns", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "First." }] } }));
+		parser.pushChunk(jsonLine({ type: "turn_end", message: { role: "assistant", content: [{ type: "text", text: "Second." }] } }));
+
+		expect(parser.getSnapshot().finalAssistantText).toBe("Second.");
+	});
+
+	test("does not clear final assistant text when later assistant content is empty", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Useful." }] } }));
+		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "   " }] } }));
+		parser.pushChunk(jsonLine({ type: "turn_end", message: { role: "assistant", content: [] } }));
+
+		expect(parser.getSnapshot().finalAssistantText).toBe("Useful.");
+	});
+
+	test("handles string and malformed content defensively", () => {
+		const parser = createChildSessionJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: "plain string" } }));
+		expect(parser.getSnapshot().error).toBeUndefined();
+		expect(parser.getSnapshot().finalAssistantText).toBeUndefined();
+
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [null, "bad", { type: "text", text: 42 }, { type: "text", text: " Recovered. " }] },
+			}),
+		);
+
+		expect(parser.getSnapshot().error).toBeUndefined();
+		expect(parser.getSnapshot().finalAssistantText).toBe("Recovered.");
+	});
 });
