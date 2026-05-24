@@ -145,6 +145,17 @@ def test_fake_path_last_touched_returns_seeded_touch() -> None:
     )
 
 
+def test_fake_path_last_touched_accepts_revision_range_key() -> None:
+    touch = PathTouch(oid="abc123", committed_iso="2026-05-20T10:44:08-04:00")
+    gateway = FakeGitGateway(
+        path_touch_by_ref_path={
+            ("main..feature", ".asdl/objectives/alpha"): touch,
+        }
+    )
+
+    assert gateway.path_last_touched("main..feature", ".asdl/objectives/alpha") == touch
+
+
 def test_fake_path_last_touched_falls_back_to_seeded_timestamp() -> None:
     gateway = FakeGitGateway(
         file_last_touched_by_ref_path={

@@ -221,6 +221,33 @@ def test_path_last_touched_returns_latest_touch(tmp_path: Path) -> None:
     assert "T" in result.committed_iso
 
 
+def test_path_last_touched_accepts_revision_range(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "branch", "-M", "main")
+    record = repo / ".asdl" / "objectives" / "alpha"
+    updates = record / "updates"
+    updates.mkdir(parents=True)
+    (record / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objective")
+    _git(repo, "checkout", "-b", "feature")
+    (updates / "progress.md").write_text("# Progress\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objective progress")
+    _git(repo, "checkout", "main")
+    _git(repo, "checkout", "-b", "inherited")
+
+    gateway = RealGitGateway(repo_root=repo)
+
+    touched = gateway.path_last_touched("main..feature", ".asdl/objectives/alpha")
+    inherited = gateway.path_last_touched("main..inherited", ".asdl/objectives/alpha")
+
+    assert touched is not None
+    assert len(touched.oid) == 40
+    assert "T" in touched.committed_iso
+    assert inherited is None
+
+
 def test_list_tracked_paths_at_ref_returns_recursive_paths(tmp_path: Path) -> None:
     repo = _init_git_repo(tmp_path)
     root = repo / ".asdl" / "objectives"

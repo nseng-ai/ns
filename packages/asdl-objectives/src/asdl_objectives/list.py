@@ -182,9 +182,10 @@ def _build_objective_group(
     local_branches: tuple[str, ...],
     base_branch: str,
 ) -> ObjectiveListGroup:
+    record_path = objective_path(projection_entry.slug)
     source_touch = git.path_last_touched(
         branch_ref(projection_entry.status_source_branch),
-        objective_path(projection_entry.slug),
+        record_path,
     )
     source_entry = ObjectiveStatusSourceEntry(
         branch=projection_entry.status_source_branch,
@@ -201,7 +202,7 @@ def _build_objective_group(
                 branch=projection_entry.status_source_branch,
                 ref_name=branch_ref(projection_entry.status_source_branch),
                 touch=source_touch,
-                is_work_branch=projection_entry.status_source_branch != base_branch,
+                is_work_branch=False,
             )
         )
 
@@ -212,9 +213,11 @@ def _build_objective_group(
         if branch_status is None:
             continue
         branch_touch = git.path_last_touched(
-            branch_ref(branch),
-            objective_path(projection_entry.slug),
+            _objective_update_range(base_branch=base_branch, branch=branch),
+            record_path,
         )
+        if branch_touch is None:
+            continue
         branch_entries.append(
             ObjectiveBranchEntry(
                 branch=branch,
@@ -223,15 +226,14 @@ def _build_objective_group(
                 ahead_base=_ahead_base(git, base_branch=base_branch, branch=branch),
             )
         )
-        if branch_touch is not None:
-            touch_candidates.append(
-                ObjectiveTouchCandidate(
-                    branch=branch,
-                    ref_name=branch_ref(branch),
-                    touch=branch_touch,
-                    is_work_branch=True,
-                )
+        touch_candidates.append(
+            ObjectiveTouchCandidate(
+                branch=branch,
+                ref_name=branch_ref(branch),
+                touch=branch_touch,
+                is_work_branch=True,
             )
+        )
 
     attribution = attribute_latest_objective_update(git, tuple(touch_candidates))
     return ObjectiveListGroup(
@@ -244,8 +246,14 @@ def _build_objective_group(
     )
 
 
+def _objective_update_range(*, base_branch: str, branch: str) -> str:
+    return f"{base_branch}..{branch}"
+
+
 def _ahead_base(git: GitGateway, *, base_branch: str, branch: str) -> int:
-    ahead_result = git.count_commits_in_range(f"{base_branch}..{branch}")
+    ahead_result = git.count_commits_in_range(
+        _objective_update_range(base_branch=base_branch, branch=branch)
+    )
     if isinstance(ahead_result, GitCommandFailure):
         raise ClinkrFailure(
             error_type="git_ahead_count_failed",
