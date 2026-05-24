@@ -141,7 +141,7 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		statusKey: "objective-next",
 		selectionTitle: "Select an open Objective for next-work recommendation",
 		fallbackPrompt:
-			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below without mutating files.",
+			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below. If likely unrecorded progress blocks the recommendation, ask whether to run objective-update for the same Objective and only mutate through that explicit handoff.",
 		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
 		compactDiffSuggestion: true,
 	},
