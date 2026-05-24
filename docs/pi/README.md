@@ -143,7 +143,7 @@ Global extensions live under:
 
 - [Pi Core Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md): canonical design record for the proposed Pi core foreground child-session primitive and terminal capture semantics.
 - [Pi Core Subagent MVP Roadmap](../../.asdl/objectives/pi-core-subagent-mvp/roadmap.md): review-slice plan for landing the primitive.
-- [Objective Stack Subagent Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on that primitive.
+- [Objective Stack Child-Session Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on the repo-local child-session helper.
 
 ## Session `cwd` semantics
 

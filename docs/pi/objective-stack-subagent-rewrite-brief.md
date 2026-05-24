@@ -1,19 +1,34 @@
-# Objective Stack Subagent Rewrite Brief
+# Objective Stack Child-Session Rewrite Brief
 
 ## Why this document exists
 
-This brief captures the current Objective stack implementation workflow, the failure mode that prompted a redesign, and the intended rewrite on top of a minimal Pi core subagent primitive.
+This brief captures the current Objective stack implementation workflow, the failure mode that prompted a redesign, and the intended rewrite on top of the repo-local Pi extension child-session helper.
 
 It is written for a fresh agent so they do **not** need to rediscover:
 
 - what the Objective stack command is supposed to do;
 - what arguments and artifacts it owns;
-- how the current implementation works;
+- how the old implementation worked;
 - what broke in the old tool/command handoff path;
-- how the same feature should work over first-class child sessions/subagents;
+- how the same feature should work over awaited child sessions;
 - what risks and design decisions remain open.
 
-Read this together with the [Pi Core Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md), which is the canonical design record for the core child-session primitive.
+Read this together with the [Pi Extension Child Session MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md) and the [Child Session Helper](./child-session-helper.md). The original Pi-core `ctx.runChildSession()` design is superseded for this repository: use the local `runChildSession(pi, ctx, options)` helper from `ts/packages/pi-extensions`, not a Pi core API.
+
+## Current child-session implementation facts
+
+The base child-session abstraction now exists in this repository. These facts should guide the Objective stack rewrite:
+
+- The helper is `runChildSession(pi, { cwd, signal }, options)` from `ts/packages/pi-extensions/src/run-child-session.ts`.
+- Child runs are subprocesses shaped like `pi --mode json -p --no-extensions --extension <generated-runtime> --session <file> <prompt>`.
+- Children start with fresh conversation history in the same cwd/worktree by default.
+- Ordinary project extensions are not loaded in the child; only the generated terminal-capture runtime is injected.
+- Terminal tools are capture-only. They validate and record input, request termination, and do not perform domain side effects.
+- Completed/blocked payloads are returned at `result.terminal.input`; there is no public `details`, `content`, or `isError` terminal-result contract.
+- Result statuses are `completed`, `blocked`, `stopped-without-terminal`, `cancelled`, `error`, and `protocol-error`.
+- The helper is non-interactive: it cannot receive additional user replies while the child is running.
+- There are no stable package exports or subpaths yet; current consumers use source-local imports plus thin `.pi/extensions/*` shims.
+- Mixed terminal-plus-sibling tool batches return `protocol-error`; an earlier sibling side effect may already have occurred before the parent can observe the violation.
 
 ## Glossary
 
@@ -25,7 +40,7 @@ Read this together with the [Pi Core Subagent MVP Objective](../../.asdl/objecti
 - **Slice branch**: a git/Graphite branch for one slice.
 - **Slice ledger**: branch-local Branch Memory pointer from a slice branch back to the canonical stack plan and plan hash.
 - **Completion handoff**: Branch Memory artifact whose existence marks a slice complete.
-- **Terminal tool**: child-session tool that ends the subagent run and returns structured data to the parent orchestrator.
+- **Terminal tool**: child-session tool that ends the child run and returns structured data to the parent orchestrator.
 
 ## Broad product goal
 
@@ -59,7 +74,7 @@ The Objective stack feature should **not**:
 
 ## Current command surface
 
-The current extension is `.pi/extensions/asdl-stack-impl`.
+The old prototype extension was `.pi/extensions/asdl-stack-impl`. In this worktree that code is not a tracked current implementation; the rewrite should live in the engineered `ts/packages/pi-extensions` layer with a thin `.pi/extensions/*` shim, following the child-session demo pattern.
 
 ### Primary Objective command
 
@@ -122,7 +137,7 @@ Current behavior:
 /stack-impl-closeout <tool-call-id>
 ```
 
-This is an implementation detail of the old design. It should disappear in the subagent rewrite.
+This is an implementation detail of the old design. It should disappear in the child-session rewrite.
 
 ## Current artifact contracts
 
@@ -239,7 +254,7 @@ stack_impl_slice_blocked({
 })
 ```
 
-These schemas are good starting points for terminal tools in the subagent rewrite.
+These schemas are good starting points for terminal tools in the child-session rewrite.
 
 ## What was not working before
 
@@ -290,14 +305,16 @@ Other limitations of the old design:
 - the extension uses command/message choreography instead of a real child-run lifecycle;
 - user-facing failure mode is confusing because the literal slash text looks like it should have worked.
 
-## Desired subagent-based architecture
+## Desired child-session-based architecture
 
 The Objective stack command becomes a parent orchestrator. It should run child sessions and await structured terminal results directly.
 
-High-level shape:
+High-level shape over the implemented helper:
 
 ```ts
-async function objectiveStackImpl(args, ctx) {
+import { runChildSession } from "./run-child-session.ts";
+
+async function objectiveStackImpl(pi, args, ctx) {
   const objective = await resolveObjective(args);
   const plan = await loadOrPlanStack(objective, ctx);
 
@@ -307,17 +324,22 @@ async function objectiveStackImpl(args, ctx) {
 
     await prepareSliceBranchAndLedger(slice);
 
-    const result = await ctx.runChildSession({
-      title: `${objective.slug}: ${slice.branch}`,
-      prompt: buildSlicePrompt(slice),
-      terminalTools: [
-        { name: "stack_impl_slice_done", status: "completed" },
-        { name: "stack_impl_slice_blocked", status: "blocked" },
-      ],
-    });
+    const result = await runChildSession<StackSliceTerminalInput>(
+      pi,
+      { cwd: ctx.cwd, signal: ctx.signal },
+      {
+        title: `${objective.slug}: ${slice.branch}`,
+        prompt: buildSlicePrompt(slice),
+        cwd: ctx.cwd,
+        terminalTools: [
+          { name: "stack_impl_slice_done", status: "completed", description, parameters: doneSchema },
+          { name: "stack_impl_slice_blocked", status: "blocked", description, parameters: blockedSchema },
+        ],
+      },
+    );
 
     if (result.status === "completed") {
-      await closeoutStackSlice(result.terminalTool!.input /* or details */);
+      await closeoutStackSlice(result.terminal.input);
       continue;
     }
 
@@ -333,19 +355,29 @@ The old internal command disappears:
 /stack-impl-closeout <tool-call-id>  // remove
 ```
 
-The parent already has command-context capabilities and receives the terminal tool payload directly.
+The parent already has command-context capabilities and receives the terminal tool payload directly. Domain side effects such as Branch Memory handoff writes happen in parent code after `runChildSession` returns.
 
-## Planning phase over subagents
+## Planning phase over child sessions
 
 The planning phase can also be represented as a child session, but it has one extra UX requirement: the planner may need to collaborate with the user before final confirmation.
 
-There are two possible MVP-compatible designs.
+The implemented helper is non-interactive, so the first rewrite must not depend on an interactive planning child. Use child sessions for implementation slices first. Planning should remain parent-driven or command/UI-driven until interactive child replies exist.
 
-### Preferred: interactive foreground child session
+### Current MVP path: planning remains parent/session-based initially
 
-Core `runChildSession()` supports a foreground child that can receive user replies until it calls a terminal tool.
+For the first rewrite, keep planning as a normal command-driven or parent-UI flow and use child sessions only for implementation slices.
 
-Planning terminal tools:
+This is less clean than interactive planning but still fixes the main completion auto-advance problem.
+
+Avoid `sendUserMessage("/objective-stack-impl ...")`; use a real queued-command API if one exists, perform the continuation directly in parent code, or ask the user to rerun explicitly. The parent must validate and store/reuse/rewrite plans in Branch Memory.
+
+A non-interactive child may be useful later to draft a candidate plan, but explicit user confirmation and Branch Memory writes still belong to the parent command.
+
+### Future option: interactive foreground child session
+
+If a future child-session primitive can receive user replies until a terminal tool is called, planning can move into a foreground child.
+
+Future planning terminal tools:
 
 ```ts
 objective_stack_plan_confirmed({
@@ -359,7 +391,7 @@ objective_stack_plan_blocked({
 })
 ```
 
-Flow:
+Future flow:
 
 1. `/objective-stack-impl <slug>` detects no existing plan or `--replan`.
 2. Parent launches a planning child session with Objective contents, roadmap, Semantic Updates, destination, schema, and replacement mode if applicable.
@@ -368,17 +400,9 @@ Flow:
 5. Parent validates the plan markdown and asks controlled UI confirmation before storing/replacing Branch Memory.
 6. Parent continues directly to slice implementation.
 
-This removes XML marker scraping and slash-command auto-continuation.
+This would remove XML marker scraping and slash-command auto-continuation from planning too.
 
-### Simpler fallback: planning remains command/session-based initially
-
-If the core subagent MVP does not support interactive child/user continuation, keep planning as a normal command-driven flow temporarily and use child sessions only for implementation slices.
-
-This is less clean but still fixes the main completion auto-advance problem.
-
-In that fallback, avoid `sendUserMessage("/objective-stack-impl ...")`; use a real queued-command API or ask the user to rerun explicitly until planning can use terminal tools.
-
-## Slice phase over subagents
+## Slice phase over child sessions
 
 For each slice:
 
@@ -402,7 +426,7 @@ For each slice:
    - verify current branch is in the plan;
    - store `handoff_markdown` under the derived session-artifacts handoff key;
    - continue to the next incomplete slice.
-8. On blocked/cancelled/stopped/error:
+8. On blocked/cancelled/stopped-without-terminal/error/protocol-error:
    - do not auto-advance;
    - notify and preserve session path/status for recovery.
 
@@ -415,6 +439,8 @@ You are implementing one Objective stack slice in a child session.
 Do not start or plan another slice.
 Do not submit PRs.
 Finish only by calling stack_impl_slice_done or stack_impl_slice_blocked.
+Do not call a terminal tool in the same assistant turn as any sibling tool call.
+The terminal tool is capture-only; parent code stores handoffs and advances the stack after you return.
 
 Objective slug: <slug>
 Objective path: .asdl/objectives/<slug>/
@@ -463,31 +489,39 @@ Child slice session:
 - drafts handoff markdown;
 - calls terminal done/blocked tool.
 
-Core Pi subagent primitive:
+Local child-session helper:
 
-- creates persisted child session;
-- streams child progress;
-- exposes child session path;
-- detects terminal tools;
+- spawns a fresh child Pi process in JSON mode;
+- injects only the generated terminal-capture runtime;
+- creates or discovers an inspectable child session path;
+- parses lightweight child progress into the final result;
+- detects terminal capture tools and protocol violations;
 - stops child after terminal state;
-- returns structured terminal payload to parent;
-- handles cancellation.
+- returns structured terminal input to parent as `result.terminal.input`;
+- handles cancellation best-effort.
 
-## Minimal core requirements for this rewrite
+## Minimal child-session requirements for this rewrite
 
-Required:
+Available now:
 
-- `ctx.runChildSession({ prompt, title, terminalTools })` on `ExtensionCommandContext`.
+- `runChildSession(pi, { cwd: ctx.cwd, signal: ctx.signal }, { prompt, title, cwd: ctx.cwd, terminalTools })`.
 - Same cwd/worktree sequential child sessions.
 - Fresh child context by default.
-- Child session file returned in result.
-- Terminal tool result returned to parent with input/details/content/isError.
-- Child progress visible in parent UI.
-- Cancellation returns `status: "cancelled"`.
+- Child session file returned when available.
+- Terminal payload returned as canonical validated `result.terminal.input`.
+- Result statuses: `completed`, `blocked`, `stopped-without-terminal`, `cancelled`, `error`, and `protocol-error`.
+- Lightweight progress in the final result; callers can show their own status/widget while waiting.
+- Cancellation returns `status: "cancelled"` when distinguishable.
+- Collision checks at child startup through `pi.getAllTools()`.
+- Mixed terminal-plus-sibling tool batches surface as `protocol-error`.
 
-Strongly desired for full current UX:
+Not available in the current helper:
 
-- interactive foreground child sessions that can receive user replies before terminal tool completion, especially for planning.
+- `ctx.runChildSession()` on `ExtensionCommandContext`.
+- Interactive foreground child sessions that can receive user replies before terminal tool completion.
+- Live runner-level `onProgress` callbacks.
+- A public terminal `details`, `content`, or `isError` result contract.
+- Stable package exports/subpaths for helper imports.
 
 Not required for v1 rewrite:
 
@@ -501,20 +535,21 @@ Not required for v1 rewrite:
 
 ## Testing targets for the rewrite
 
-Core Pi tests:
+Child-session helper tests already cover the base abstraction under `ts/packages/pi-extensions/test/`:
 
 - child session starts with a prompt and persists a session file;
-- child progress reports current tool/tool count;
-- terminal tool returns structured input/details to parent;
+- child progress tracks current tool/tool count;
+- terminal tool returns structured validated input to parent;
 - terminal tool stops the child without another model turn;
-- child stopping without terminal tool returns `status: "stopped"`;
+- child stopping without terminal tool returns `status: "stopped-without-terminal"`;
 - cancellation returns `status: "cancelled"`;
+- protocol violations return `status: "protocol-error"`;
 - slash-command text is not involved in child completion.
 
-Objective stack extension tests:
+Objective stack rewrite tests:
 
 - existing plan loads and first incomplete slice starts in a child session;
-- no-plan path starts planning child or controlled fallback;
+- no-plan path starts controlled parent/session planning fallback;
 - confirmed plan stores to `stack-plans/<slug>.md` on plan branch;
 - slice done terminal result stores derived handoff and advances to next slice;
 - final slice done reports complete and does not start another child;
@@ -539,37 +574,43 @@ Do not test this by directly calling the closeout handler; the bug was in the ha
 
 ### Planning interactivity
 
-The full current planning UX assumes user collaboration before final plan confirmation. If `runChildSession()` is single-prompt only, planning needs a fallback. Preferred fix is interactive foreground child support.
+Resolved for the current helper: interactive child replies are not available. The first Objective stack rewrite should keep planning parent/session-based and use child sessions for implementation slices. Interactive foreground planning remains a future option.
 
 ### Terminal tool payload source
 
-`stack_impl_slice_done` currently returns the payload as tool input and result details. The rewrite should return both input and details and choose one canonical contract. Recommendation: treat the validated tool input as canonical, because it is schema-checked before execution.
+Resolved: the canonical terminal contract is validated tool input at `result.terminal.input`. Do not rely on result `details`, `content`, or `isError` for domain data.
 
 ### Multiple tool calls in one child assistant message
 
-If a terminal tool appears with sibling tools, core must define deterministic behavior. Recommendation: execute/record the current batch consistently, then stop before any further model turn.
+Resolved for the current helper: terminal-plus-sibling tool batches return `protocol-error`. Public Pi event ordering may still allow an earlier sibling side effect before the violation is observed, so child prompts should explicitly forbid sibling terminal batches and parent code must treat `protocol-error` as non-complete.
 
 ### Same-worktree sequencing
 
-The Objective stack must remain sequential. Starting PR child sessions concurrently in the same worktree is unsafe.
+Still required: the Objective stack must remain sequential. Starting PR child sessions concurrently in the same worktree is unsafe.
 
 ### Runtime isolation
 
-Child extension runtime should not share mutable parent session state. Any parent state needed after the child must be plain serialized data or the structured terminal result.
+Resolved for the base helper: children run with `--no-extensions` plus only the generated terminal runtime. Future Objective stack children that need ordinary child extensions must opt in deliberately and re-open isolation/collision decisions.
+
+### Helper import/package boundary
+
+Resolved for the MVP: use repo-local source imports and thin `.pi/extensions/*` shims. Add stable package exports or subpaths only if the Objective stack consumer proves they are needed.
 
 ### Recovery after Pi restart
 
-The MVP can rely on git state, Branch Memory, and child session files for recovery. Durable in-flight child job resume is out of scope.
+Still out of scope: rely on git state, Branch Memory, and child session files for recovery. Durable in-flight child job resume is not implemented.
 
 ## Recommended implementation sequence
 
-1. Implement Pi core `runChildSession()` MVP with terminal tool detection.
-2. Add core tests using a simple terminal tool fixture.
-3. Rebuild Objective stack implementation slice closeout on `runChildSession()`.
-4. Remove `/stack-impl-closeout` and pending closeout map.
-5. Add the full done -> closeout -> next-child regression test.
-6. Rework planning to use a planning terminal tool if interactive child sessions are available; otherwise use a controlled fallback without slash injection.
-7. Update docs and skills to describe the new parent/child lifecycle.
+1. Implement the Objective stack command in the engineered `ts/packages/pi-extensions` layer and expose it through a thin `.pi/extensions/*` shim.
+2. Port or rebuild plan validation, Branch Memory plan storage, branch/Graphite setup, ledger writes, and status diagnostics in testable modules.
+3. Keep planning parent/session-based for the first rewrite; avoid slash-command auto-continuation and do not depend on interactive child replies.
+4. Launch each implementation slice with `runChildSession(pi, { cwd: ctx.cwd, signal: ctx.signal }, options)` and child-local `stack_impl_slice_done` / `stack_impl_slice_blocked` terminal tools.
+5. On `completed`, close out from `result.terminal.input`: validate ledger/plan hash/current branch, store the derived completion handoff, and continue to the next incomplete slice.
+6. On `blocked`, `cancelled`, `stopped-without-terminal`, `error`, or `protocol-error`, stop without writing a completion handoff and surface diagnostics plus the child session path when available.
+7. Remove `/stack-impl-closeout`, pending closeout maps, `sendUserMessage("/..." )` continuation hacks, and any tests that only exercise the old closeout command directly.
+8. Add the full done -> closeout -> next-child regression test using the real parent handoff path and a fake child-session runner.
+9. Update docs and skills to describe the new parent/child lifecycle.
 
 ## Summary
 
@@ -577,4 +618,4 @@ The Objective stack extension wants to be a deterministic parent orchestrator fo
 
 The old design approximated that with fresh sessions plus slash-command follow-ups, but `sendUserMessage()` intentionally bypasses slash-command dispatch. That made auto-advance unreliable.
 
-The new design should use a core child-session primitive. Each child returns a terminal tool result directly to the parent, letting the parent store handoffs and continue the stack without command-text hacks.
+The new design should use the repo-local child-session helper. Each child returns a terminal tool result directly to the parent, letting the parent store handoffs and continue the stack without command-text hacks.
