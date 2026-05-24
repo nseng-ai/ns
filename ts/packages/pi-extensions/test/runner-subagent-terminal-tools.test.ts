@@ -4,21 +4,21 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import {
-	createDefaultChildSessionRuntimeFiles,
+	createDefaultRunnerSubagentRuntimeFiles,
 	createRuntimeConfig,
 	parseRuntimeConfigJson,
 	parseRuntimeResultJson,
 	readRuntimeResultFile,
 	writeRuntimeResultFileSync,
 	type RuntimeResultV1,
-} from "../src/run-child-session/child-runtime.ts";
-import { createChildSessionRuntimeExtension } from "../src/run-child-session/child-runtime-extension.ts";
-import type { ChildSessionTerminalToolDefinition } from "../src/run-child-session.ts";
+} from "../src/runner-subagent/subagent-runtime.ts";
+import { createRunnerSubagentRuntimeExtension } from "../src/runner-subagent/subagent-runtime-extension.ts";
+import type { RunnerSubagentTerminalToolDefinition } from "../src/runner-subagent.ts";
 
-const completionTool: ChildSessionTerminalToolDefinition<{ summary: string }> = {
-	name: "complete_child_session",
+const completionTool: RunnerSubagentTerminalToolDefinition<{ summary: string }> = {
+	name: "complete_runner_subagent",
 	status: "completed",
-	description: "Finish the child session with a summary.",
+	description: "Finish the runner subagent with a summary.",
 	parameters: {
 		type: "object",
 		properties: { summary: { type: "string" } },
@@ -27,10 +27,10 @@ const completionTool: ChildSessionTerminalToolDefinition<{ summary: string }> = 
 	},
 };
 
-const blockedTool: ChildSessionTerminalToolDefinition<{ reason: string }> = {
-	name: "block_child_session",
+const blockedTool: RunnerSubagentTerminalToolDefinition<{ reason: string }> = {
+	name: "block_runner_subagent",
 	status: "blocked",
-	description: "Block the child session with a reason.",
+	description: "Block the runner subagent with a reason.",
 	parameters: {
 		type: "object",
 		properties: { reason: { type: "string" } },
@@ -83,7 +83,7 @@ class FakePi {
 }
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-	const dir = await mkdtemp(join(tmpdir(), "pi-child-runtime-test-"));
+	const dir = await mkdtemp(join(tmpdir(), "pi-runner-subagent-runtime-test-"));
 	try {
 		return await fn(dir);
 	} finally {
@@ -91,9 +91,9 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
 	}
 }
 
-describe("child runtime config and result helpers", () => {
+describe("runner subagent runtime config and result helpers", () => {
 	test("validates terminal tool definitions before spawn", () => {
-		expect(() => createRuntimeConfig({ terminalTools: [] })).toThrow("At least one child terminal tool");
+		expect(() => createRuntimeConfig({ terminalTools: [] })).toThrow("At least one runner subagent terminal tool");
 		expect(() =>
 			createRuntimeConfig({
 				terminalTools: [completionTool, { ...blockedTool, name: completionTool.name }],
@@ -106,7 +106,7 @@ describe("child runtime config and result helpers", () => {
 		).toThrow("non-empty name");
 		expect(() =>
 			createRuntimeConfig({
-				terminalTools: [{ ...completionTool, status: "done" } as unknown as ChildSessionTerminalToolDefinition],
+				terminalTools: [{ ...completionTool, status: "done" } as unknown as RunnerSubagentTerminalToolDefinition],
 			}),
 		).toThrow("invalid status");
 	});
@@ -128,12 +128,12 @@ describe("child runtime config and result helpers", () => {
 			expect(await readRuntimeResultFile(resultPath)).toBeUndefined();
 
 			await writeFile(resultPath, "{bad json", "utf8");
-			await expect(readRuntimeResultFile(resultPath)).rejects.toThrow("Invalid child runtime result JSON");
+			await expect(readRuntimeResultFile(resultPath)).rejects.toThrow("Invalid runner subagent runtime result JSON");
 
 			const capture: RuntimeResultV1 = {
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "complete_child_session",
+				toolName: "complete_runner_subagent",
 				toolCallId: "tool-1",
 				status: "completed",
 				input: { summary: "done" },
@@ -144,13 +144,13 @@ describe("child runtime config and result helpers", () => {
 	});
 
 	test("creates a private runtime config and generated extension shim", async () => {
-		const files = await createDefaultChildSessionRuntimeFiles({ title: "Child", terminalTools: [completionTool] });
+		const files = await createDefaultRunnerSubagentRuntimeFiles({ title: "Runner Subagent", terminalTools: [completionTool] });
 		try {
 			expect(parseRuntimeConfigJson(await readFile(files.configPath, "utf8"))).toEqual(
-				expect.objectContaining({ title: "Child", terminalTools: [expect.objectContaining({ name: "complete_child_session" })] }),
+				expect.objectContaining({ title: "Runner Subagent", terminalTools: [expect.objectContaining({ name: "complete_runner_subagent" })] }),
 			);
 			const shim = await readFile(files.extensionPath, "utf8");
-			expect(shim).toContain("createChildSessionRuntimeExtension");
+			expect(shim).toContain("createRunnerSubagentRuntimeExtension");
 			expect(shim).toContain(JSON.stringify(files.configPath));
 			expect(shim).toContain(JSON.stringify(files.resultPath));
 			expect(await readRuntimeResultFile(files.resultPath)).toBeUndefined();
@@ -165,7 +165,7 @@ describe("child runtime config and result helpers", () => {
 			const first: RuntimeResultV1 = {
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "complete_child_session",
+				toolName: "complete_runner_subagent",
 				status: "completed",
 				input: { summary: "first" },
 			};
@@ -183,18 +183,18 @@ describe("child runtime config and result helpers", () => {
 	});
 });
 
-describe("child runtime extension", () => {
+describe("runner subagent runtime extension", () => {
 	test("registers terminal capture tools and writes captures during execution", async () => {
 		await withTempDir(async (dir) => {
 			const configPath = join(dir, "config.json");
 			const resultPath = join(dir, "result.json");
 			await writeFile(configPath, JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })), "utf8");
 			const fakePi = new FakePi();
-			createChildSessionRuntimeExtension({ configPath, resultPath })(fakePi as never);
+			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
 
 			await fakePi.emit("session_start");
 			expect(fakePi.tools.map((tool) => [tool.name, tool.executionMode])).toEqual([
-				["complete_child_session", "sequential"],
+				["complete_runner_subagent", "sequential"],
 			]);
 
 			let abortCount = 0;
@@ -209,7 +209,7 @@ describe("child runtime extension", () => {
 			expect(await readRuntimeResultFile(resultPath)).toEqual({
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "complete_child_session",
+				toolName: "complete_runner_subagent",
 				toolCallId: "tool-1",
 				status: "completed",
 				input: { summary: "done" },
@@ -222,8 +222,8 @@ describe("child runtime extension", () => {
 			const configPath = join(dir, "config.json");
 			const resultPath = join(dir, "result.json");
 			await writeFile(configPath, JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })), "utf8");
-			const fakePi = new FakePi([{ name: "complete_child_session" }]);
-			createChildSessionRuntimeExtension({ configPath, resultPath })(fakePi as never);
+			const fakePi = new FakePi([{ name: "complete_runner_subagent" }]);
+			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
 
 			await fakePi.emit("session_start");
 
@@ -232,7 +232,7 @@ describe("child runtime extension", () => {
 				version: 1,
 				kind: "runtime-error",
 				code: "tool-collision",
-				message: "Child terminal tool name collision: complete_child_session.",
+				message: "Subagent terminal tool name collision: complete_runner_subagent.",
 			});
 		});
 	});
@@ -243,7 +243,7 @@ describe("child runtime extension", () => {
 			const resultPath = join(dir, "result.json");
 			await writeFile(configPath, JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })), "utf8");
 			const fakePi = new FakePi();
-			createChildSessionRuntimeExtension({ configPath, resultPath })(fakePi as never);
+			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
 			await fakePi.emit("session_start");
 			await fakePi.tools[0]!.execute("tool-1", { summary: "done" }, undefined, undefined, {});
 
@@ -252,7 +252,7 @@ describe("child runtime extension", () => {
 			expect(results).toEqual([
 				{
 					block: true,
-					reason: "A child-session terminal capture has already been recorded; no further non-terminal tools may run.",
+					reason: "A runner subagent terminal capture has already been recorded; no further non-terminal tools may run.",
 				},
 			]);
 		});

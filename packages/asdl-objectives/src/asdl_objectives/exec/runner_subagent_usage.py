@@ -1,4 +1,4 @@
-"""``objective exec child-session-usage`` Pi child-session usage summarizer."""
+"""``objective exec runner-subagent-usage`` Pi runner subagent usage summarizer."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 
-ChildSessionUsageStatus = Literal[
+RunnerSubagentUsageStatus = Literal[
     "ok",
     "missing",
     "not_file",
@@ -23,7 +23,7 @@ ChildSessionUsageStatus = Literal[
 ]
 
 
-class ChildSessionCostTotals(ClinkrModel):
+class RunnerSubagentCostTotals(ClinkrModel):
     input_usd: float
     output_usd: float
     cache_read_usd: float
@@ -31,7 +31,7 @@ class ChildSessionCostTotals(ClinkrModel):
     total_usd: float
 
 
-class ChildSessionTokenTotals(ClinkrModel):
+class RunnerSubagentTokenTotals(ClinkrModel):
     input_tokens: int
     output_tokens: int
     cache_read_tokens: int
@@ -39,43 +39,43 @@ class ChildSessionTokenTotals(ClinkrModel):
     total_tokens: int
 
 
-class ChildSessionModelRef(ClinkrModel):
+class RunnerSubagentModelRef(ClinkrModel):
     provider: str | None
     api: str | None
     model: str | None
 
 
-class ChildSessionUsageSummary(ClinkrModel):
+class RunnerSubagentUsageSummary(ClinkrModel):
     session_file: str
-    status: ChildSessionUsageStatus
+    status: RunnerSubagentUsageStatus
     error: str | None
     error_line: int | None
     assistant_response_count: int
-    models: tuple[ChildSessionModelRef, ...]
-    tokens: ChildSessionTokenTotals
-    cost: ChildSessionCostTotals
+    models: tuple[RunnerSubagentModelRef, ...]
+    tokens: RunnerSubagentTokenTotals
+    cost: RunnerSubagentCostTotals
     peak_observed_total_tokens: int | None
     peak_observed_prompt_tokens: int | None
     configured_context_window_tokens: int | None
 
 
-class ChildSessionUsageAggregate(ClinkrModel):
+class RunnerSubagentUsageAggregate(ClinkrModel):
     session_count: int
     ok_session_count: int
     usage_response_count: int
-    tokens: ChildSessionTokenTotals
-    cost: ChildSessionCostTotals
+    tokens: RunnerSubagentTokenTotals
+    cost: RunnerSubagentCostTotals
     peak_observed_total_tokens: int | None
     peak_observed_prompt_tokens: int | None
     configured_context_window_tokens: int | None
 
 
-class ChildSessionUsageResult(ClinkrModel):
-    sessions: tuple[ChildSessionUsageSummary, ...]
-    aggregate: ChildSessionUsageAggregate
+class RunnerSubagentUsageResult(ClinkrModel):
+    sessions: tuple[RunnerSubagentUsageSummary, ...]
+    aggregate: RunnerSubagentUsageAggregate
 
 
-class ChildSessionUsageRequest(ClinkrModel):
+class RunnerSubagentUsageRequest(ClinkrModel):
     session_files: Annotated[
         tuple[Path, ...],
         click.Argument(
@@ -86,8 +86,8 @@ class ChildSessionUsageRequest(ClinkrModel):
     ]
 
 
-def render_child_session_usage_markdown(result: ChildSessionUsageResult) -> None:
-    click.echo("# Child Session Usage")
+def render_runner_subagent_usage_markdown(result: RunnerSubagentUsageResult) -> None:
+    click.echo("# Runner Subagent Usage")
     click.echo()
     click.echo(
         "| session | status | responses | model(s) | input | output | cache read | "
@@ -129,37 +129,39 @@ def render_child_session_usage_markdown(result: ChildSessionUsageResult) -> None
 
 
 @clinkr_operation(
-    name="child-session-usage",
-    help="Summarize Pi child session JSONL usage telemetry for Objective stack digests.",
-    human_renderer=render_child_session_usage_markdown,
+    name="runner-subagent-usage",
+    help="Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
+    human_renderer=render_runner_subagent_usage_markdown,
 )
-def run_child_session_usage(
+def run_runner_subagent_usage(
     ctx: click.Context,
-    request: ChildSessionUsageRequest,
-) -> ClinkrExit[ChildSessionUsageResult]:
+    request: RunnerSubagentUsageRequest,
+) -> ClinkrExit[RunnerSubagentUsageResult]:
     del ctx
     if not request.session_files:
         raise ClinkrExit.negative(
-            summarize_child_session_usage(()),
+            summarize_runner_subagent_usage(()),
             message=(
                 "Missing session file (missing_session_file). "
-                "Pass at least one Pi child session JSONL file."
+                "Pass at least one Pi runner subagent JSONL file."
             ),
         )
-    return ClinkrExit.ok(summarize_child_session_usage(request.session_files))
+    return ClinkrExit.ok(summarize_runner_subagent_usage(request.session_files))
 
 
-def summarize_child_session_usage(
+def summarize_runner_subagent_usage(
     session_files: tuple[Path, ...],
-) -> ChildSessionUsageResult:
-    sessions = tuple(summarize_child_session_file(session_file) for session_file in session_files)
-    return ChildSessionUsageResult(
+) -> RunnerSubagentUsageResult:
+    sessions = tuple(
+        summarize_runner_subagent_session_file(session_file) for session_file in session_files
+    )
+    return RunnerSubagentUsageResult(
         sessions=sessions,
         aggregate=_build_aggregate(sessions),
     )
 
 
-def summarize_child_session_file(session_file: Path) -> ChildSessionUsageSummary:
+def summarize_runner_subagent_session_file(session_file: Path) -> RunnerSubagentUsageSummary:
     if not session_file.exists():
         return _empty_summary(
             session_file,
@@ -204,13 +206,13 @@ def summarize_child_session_file(session_file: Path) -> ChildSessionUsageSummary
 def _summary_from_records(
     session_file: Path,
     records: list[Mapping[str, object]],
-) -> ChildSessionUsageSummary:
+) -> RunnerSubagentUsageSummary:
     tokens = _zero_tokens()
     cost = _zero_cost()
     assistant_response_count = 0
     peak_observed_total_tokens: int | None = None
     peak_observed_prompt_tokens: int | None = None
-    model_refs: list[ChildSessionModelRef] = []
+    model_refs: list[RunnerSubagentModelRef] = []
     seen_model_keys: set[tuple[str | None, str | None, str | None]] = set()
 
     for record in records:
@@ -251,7 +253,7 @@ def _summary_from_records(
             error="no assistant usage records found",
         )
 
-    return ChildSessionUsageSummary(
+    return RunnerSubagentUsageSummary(
         session_file=str(session_file),
         status="ok",
         error=None,
@@ -267,8 +269,8 @@ def _summary_from_records(
 
 
 def _build_aggregate(
-    sessions: tuple[ChildSessionUsageSummary, ...],
-) -> ChildSessionUsageAggregate:
+    sessions: tuple[RunnerSubagentUsageSummary, ...],
+) -> RunnerSubagentUsageAggregate:
     tokens = _zero_tokens()
     cost = _zero_cost()
     usage_response_count = 0
@@ -290,7 +292,7 @@ def _build_aggregate(
             session.peak_observed_prompt_tokens,
         )
 
-    return ChildSessionUsageAggregate(
+    return RunnerSubagentUsageAggregate(
         session_count=len(sessions),
         ok_session_count=sum(1 for session in sessions if session.status == "ok"),
         usage_response_count=usage_response_count,
@@ -305,11 +307,11 @@ def _build_aggregate(
 def _empty_summary(
     session_file: Path,
     *,
-    status: ChildSessionUsageStatus,
+    status: RunnerSubagentUsageStatus,
     error: str | None,
     error_line: int | None = None,
-) -> ChildSessionUsageSummary:
-    return ChildSessionUsageSummary(
+) -> RunnerSubagentUsageSummary:
+    return RunnerSubagentUsageSummary(
         session_file=str(session_file),
         status=status,
         error=error,
@@ -324,8 +326,8 @@ def _empty_summary(
     )
 
 
-def _tokens_from_usage(usage: Mapping[str, object]) -> ChildSessionTokenTotals:
-    return ChildSessionTokenTotals(
+def _tokens_from_usage(usage: Mapping[str, object]) -> RunnerSubagentTokenTotals:
+    return RunnerSubagentTokenTotals(
         input_tokens=_int_field(usage, "input"),
         output_tokens=_int_field(usage, "output"),
         cache_read_tokens=_int_field(usage, "cacheRead"),
@@ -334,11 +336,11 @@ def _tokens_from_usage(usage: Mapping[str, object]) -> ChildSessionTokenTotals:
     )
 
 
-def _cost_from_usage(usage: Mapping[str, object]) -> ChildSessionCostTotals:
+def _cost_from_usage(usage: Mapping[str, object]) -> RunnerSubagentCostTotals:
     cost = _mapping_field(usage, "cost")
     if cost is None:
         cost = {}
-    return ChildSessionCostTotals(
+    return RunnerSubagentCostTotals(
         input_usd=_float_field(cost, "input"),
         output_usd=_float_field(cost, "output"),
         cache_read_usd=_float_field(cost, "cacheRead"),
@@ -351,8 +353,8 @@ def _model_ref_from_record(
     record: Mapping[str, object],
     message: Mapping[str, object],
     usage: Mapping[str, object],
-) -> ChildSessionModelRef:
-    return ChildSessionModelRef(
+) -> RunnerSubagentModelRef:
+    return RunnerSubagentModelRef(
         provider=_first_string_field(record, message, usage, key="provider"),
         api=_first_string_field(record, message, usage, key="api"),
         model=_first_string_field(record, message, usage, key="model"),
@@ -424,8 +426,8 @@ def _float_field(data: Mapping[str, object], key: str) -> float:
     return 0.0
 
 
-def _zero_tokens() -> ChildSessionTokenTotals:
-    return ChildSessionTokenTotals(
+def _zero_tokens() -> RunnerSubagentTokenTotals:
+    return RunnerSubagentTokenTotals(
         input_tokens=0,
         output_tokens=0,
         cache_read_tokens=0,
@@ -434,8 +436,8 @@ def _zero_tokens() -> ChildSessionTokenTotals:
     )
 
 
-def _zero_cost() -> ChildSessionCostTotals:
-    return ChildSessionCostTotals(
+def _zero_cost() -> RunnerSubagentCostTotals:
+    return RunnerSubagentCostTotals(
         input_usd=0.0,
         output_usd=0.0,
         cache_read_usd=0.0,
@@ -445,10 +447,10 @@ def _zero_cost() -> ChildSessionCostTotals:
 
 
 def _add_tokens(
-    left: ChildSessionTokenTotals,
-    right: ChildSessionTokenTotals,
-) -> ChildSessionTokenTotals:
-    return ChildSessionTokenTotals(
+    left: RunnerSubagentTokenTotals,
+    right: RunnerSubagentTokenTotals,
+) -> RunnerSubagentTokenTotals:
+    return RunnerSubagentTokenTotals(
         input_tokens=left.input_tokens + right.input_tokens,
         output_tokens=left.output_tokens + right.output_tokens,
         cache_read_tokens=left.cache_read_tokens + right.cache_read_tokens,
@@ -458,10 +460,10 @@ def _add_tokens(
 
 
 def _add_cost(
-    left: ChildSessionCostTotals,
-    right: ChildSessionCostTotals,
-) -> ChildSessionCostTotals:
-    return ChildSessionCostTotals(
+    left: RunnerSubagentCostTotals,
+    right: RunnerSubagentCostTotals,
+) -> RunnerSubagentCostTotals:
+    return RunnerSubagentCostTotals(
         input_usd=left.input_usd + right.input_usd,
         output_usd=left.output_usd + right.output_usd,
         cache_read_usd=left.cache_read_usd + right.cache_read_usd,
@@ -478,7 +480,7 @@ def _max_optional(left: int | None, right: int | None) -> int | None:
     return left
 
 
-def _render_session_row(session: ChildSessionUsageSummary) -> str:
+def _render_session_row(session: RunnerSubagentUsageSummary) -> str:
     return (
         "| "
         f"{_markdown_cell(session.session_file)} | "
@@ -496,7 +498,7 @@ def _render_session_row(session: ChildSessionUsageSummary) -> str:
     )
 
 
-def _status_text(session: ChildSessionUsageSummary) -> str:
+def _status_text(session: RunnerSubagentUsageSummary) -> str:
     if session.error is None:
         return session.status
     if session.error_line is not None:
@@ -504,27 +506,27 @@ def _status_text(session: ChildSessionUsageSummary) -> str:
     return f"{session.status} ({session.error})"
 
 
-def _models_text(models: tuple[ChildSessionModelRef, ...]) -> str:
+def _models_text(models: tuple[RunnerSubagentModelRef, ...]) -> str:
     if not models:
         return "—"
     return ", ".join(_model_text(model_ref) for model_ref in models)
 
 
-def _model_text(model_ref: ChildSessionModelRef) -> str:
+def _model_text(model_ref: RunnerSubagentModelRef) -> str:
     parts = [part for part in (model_ref.provider, model_ref.api, model_ref.model) if part]
     if not parts:
         return "—"
     return "/".join(parts)
 
 
-def _format_session_int(session: ChildSessionUsageSummary, value: int) -> str:
+def _format_session_int(session: RunnerSubagentUsageSummary, value: int) -> str:
     if session.status != "ok":
         return "—"
     return f"{value:,}"
 
 
 def _format_session_optional_int(
-    session: ChildSessionUsageSummary,
+    session: RunnerSubagentUsageSummary,
     value: int | None,
 ) -> str:
     if session.status != "ok" or value is None:
@@ -532,7 +534,7 @@ def _format_session_optional_int(
     return f"{value:,}"
 
 
-def _format_session_cost(session: ChildSessionUsageSummary) -> str:
+def _format_session_cost(session: RunnerSubagentUsageSummary) -> str:
     if session.status != "ok":
         return "—"
     return _format_cost(session.cost.total_usd)
@@ -550,7 +552,7 @@ def _format_cost(value: float) -> str:
 
 def _format_configured_context_window(value: int | None) -> str:
     if value is None:
-        return "unavailable in child session logs"
+        return "unavailable in runner subagent logs"
     return f"{value:,} tokens"
 
 

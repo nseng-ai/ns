@@ -3,9 +3,9 @@ import {
 	writeRuntimeResultFileSync,
 	type RuntimeConfigV1,
 	type RuntimeResultV1,
-} from "./child-runtime.ts";
+} from "./subagent-runtime.ts";
 
-export type ChildSessionRuntimeExtensionOptions = {
+export type RunnerSubagentRuntimeExtensionOptions = {
 	configPath: string;
 	resultPath: string;
 };
@@ -69,8 +69,8 @@ type ExtensionApiLike = {
 	getAllTools(): Array<{ name: string }>;
 };
 
-export function createChildSessionRuntimeExtension(options: ChildSessionRuntimeExtensionOptions) {
-	return function childSessionRuntimeExtension(pi: ExtensionApiLike): void {
+export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRuntimeExtensionOptions) {
+	return function runnerSubagentRuntimeExtension(pi: ExtensionApiLike): void {
 		let config: RuntimeConfigV1 | undefined;
 		let startupError: Error | undefined;
 		let terminalCaptured = false;
@@ -81,7 +81,7 @@ export function createChildSessionRuntimeExtension(options: ChildSessionRuntimeE
 			terminalToolNames = new Set(config.terminalTools.map((tool) => tool.name));
 		} catch (error) {
 			startupError = toError(error);
-			writeRuntimeError(options.resultPath, "config-error", `Invalid child terminal runtime config: ${startupError.message}`);
+			writeRuntimeError(options.resultPath, "config-error", `Invalid subagent terminal runtime config: ${startupError.message}`);
 		}
 
 		pi.on("session_start", () => {
@@ -90,7 +90,7 @@ export function createChildSessionRuntimeExtension(options: ChildSessionRuntimeE
 			const existingTools = new Set(pi.getAllTools().map((tool) => tool.name));
 			const collisions = config.terminalTools.filter((tool) => existingTools.has(tool.name)).map((tool) => tool.name);
 			if (collisions.length > 0) {
-				startupError = new Error(`Child terminal tool name collision: ${collisions.join(", ")}.`);
+				startupError = new Error(`Subagent terminal tool name collision: ${collisions.join(", ")}.`);
 				writeRuntimeError(options.resultPath, "tool-collision", startupError.message);
 				return;
 			}
@@ -100,7 +100,7 @@ export function createChildSessionRuntimeExtension(options: ChildSessionRuntimeE
 					name: terminalTool.name,
 					label: terminalToolLabel(terminalTool.name, terminalTool.status),
 					description: terminalTool.description,
-					promptSnippet: `${terminalTool.name} captures the final child-session ${terminalTool.status} outcome and then stops.`,
+					promptSnippet: `${terminalTool.name} captures the final subagent ${terminalTool.status} outcome and then stops.`,
 					promptGuidelines: terminalPromptGuidelines(terminalTool.name, terminalTool.status),
 					parameters: terminalTool.parameters,
 					executionMode: "sequential",
@@ -118,7 +118,7 @@ export function createChildSessionRuntimeExtension(options: ChildSessionRuntimeE
 							writeRuntimeResultFileSync(options.resultPath, capture);
 							terminalCaptured = true;
 						} catch (error) {
-							const message = `Failed to write child terminal capture: ${errorMessage(error)}`;
+							const message = `Failed to write subagent terminal capture: ${errorMessage(error)}`;
 							writeRuntimeError(options.resultPath, "write-error", message);
 							throw new Error(message);
 						}
@@ -128,7 +128,7 @@ export function createChildSessionRuntimeExtension(options: ChildSessionRuntimeE
 							content: [
 								{
 									type: "text",
-									text: `Captured ${terminalTool.status} child-session outcome with ${terminalTool.name}.`,
+									text: `Captured ${terminalTool.status} subagent outcome with ${terminalTool.name}.`,
 								},
 							],
 							details: {},
@@ -143,33 +143,33 @@ export function createChildSessionRuntimeExtension(options: ChildSessionRuntimeE
 			if (startupError) {
 				ctx.abort?.();
 				return {
-					systemPrompt: `${event.systemPrompt}\n\nChild terminal-capture runtime failed before agent start: ${startupError.message}`,
+					systemPrompt: `${event.systemPrompt}\n\nSubagent terminal-capture runtime failed before agent start: ${startupError.message}`,
 				};
 			}
 			if (!config) return;
-			return { systemPrompt: `${event.systemPrompt}\n\n${childBoundaryInstructions(config)}` };
+			return { systemPrompt: `${event.systemPrompt}\n\n${runnerSubagentBoundaryInstructions(config)}` };
 		});
 
 		pi.on("tool_call", (event) => {
 			if (!terminalCaptured || terminalToolNames.has(event.toolName)) return;
 			return {
 				block: true,
-				reason: "A child-session terminal capture has already been recorded; no further non-terminal tools may run.",
+				reason: "A runner subagent terminal capture has already been recorded; no further non-terminal tools may run.",
 			};
 		});
 	};
 }
 
-function childBoundaryInstructions(config: RuntimeConfigV1): string {
+function runnerSubagentBoundaryInstructions(config: RuntimeConfigV1): string {
 	const tools = config.terminalTools
 		.map((tool) => `- ${tool.name}: report ${tool.status} when ${tool.description}`)
 		.join("\n");
 	return [
-		"Child session terminal-capture protocol:",
-		"- When you have a final outcome for the delegated child task, call exactly one terminal capture tool.",
+		"Subagent terminal-capture protocol:",
+		"- When you have a final outcome for the delegated subagent task, call exactly one terminal capture tool.",
 		"- Do not call any other tool in the same assistant message as a terminal capture tool.",
 		"- Terminal capture tools are capture-only and final; they do not perform domain side effects.",
-		"- Use a completed terminal tool only when the requested child task reached its structured terminal condition.",
+		"- Use a completed terminal tool only when the requested subagent task reached its structured terminal condition.",
 		"- Use a blocked terminal tool when parent or user follow-up is needed; include blockers in the structured payload.",
 		"Available terminal capture tools:",
 		tools,
@@ -177,12 +177,12 @@ function childBoundaryInstructions(config: RuntimeConfigV1): string {
 }
 
 function terminalToolLabel(name: string, status: string): string {
-	return `${status === "completed" ? "Complete" : "Block"} Child Session (${name})`;
+	return `${status === "completed" ? "Complete" : "Block"} Subagent (${name})`;
 }
 
 function terminalPromptGuidelines(name: string, status: string): string[] {
 	return [
-		`Use ${name} only as the final child-session capture tool for a ${status} outcome.`,
+		`Use ${name} only as the final subagent capture tool for a ${status} outcome.`,
 		`When calling ${name}, do not call any other tool in the same assistant message.`,
 	];
 }
@@ -200,7 +200,7 @@ function writeRuntimeError(
 			message,
 		});
 	} catch {
-		// The parent also observes child stderr/exit; avoid corrupting JSON stdout from inside the runtime.
+		// The parent also observes subagent stderr/exit; avoid corrupting JSON stdout from inside the runtime.
 	}
 }
 

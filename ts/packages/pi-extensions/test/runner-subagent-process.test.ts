@@ -1,32 +1,32 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolvePiInvocation, runChildSessionProcess } from "../src/run-child-session/child-process.ts";
+import { resolvePiInvocation, dispatchRunnerSubagentProcess } from "../src/runner-subagent/subagent-process.ts";
 import type {
-	ChildSessionContext,
-	ChildSessionOptions,
-	ChildSessionPi,
-	ChildSessionTerminalToolDefinition,
-} from "../src/run-child-session.ts";
-import { createFakeChildRunner, waitForSpawn } from "./run-child-session-fakes.ts";
+	RunnerSubagentContext,
+	RunnerSubagentOptions,
+	RunnerSubagentPi,
+	RunnerSubagentTerminalToolDefinition,
+} from "../src/runner-subagent.ts";
+import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
 
-const ctx: ChildSessionContext = { cwd: "/repo" };
-const pi: ChildSessionPi = {};
+const ctx: RunnerSubagentContext = { cwd: "/repo" };
+const pi: RunnerSubagentPi = {};
 
-const completionTool: ChildSessionTerminalToolDefinition = {
-	name: "complete_child_session",
+const completionTool: RunnerSubagentTerminalToolDefinition = {
+	name: "complete_runner_subagent",
 	status: "completed",
-	description: "Finish the child session.",
+	description: "Finish the subagent task.",
 	parameters: { type: "object", properties: {}, additionalProperties: false },
 };
 
-const blockedTool: ChildSessionTerminalToolDefinition = {
-	name: "block_child_session",
+const blockedTool: RunnerSubagentTerminalToolDefinition = {
+	name: "block_runner_subagent",
 	status: "blocked",
-	description: "Block the child session.",
+	description: "Block the subagent task.",
 	parameters: { type: "object", properties: { reason: { type: "string" } }, required: ["reason"] },
 };
 
-function options(overrides: Partial<ChildSessionOptions> = {}): ChildSessionOptions {
+function options(overrides: Partial<RunnerSubagentOptions> = {}): RunnerSubagentOptions {
 	return {
 		prompt: "Do the delegated task.",
 		terminalTools: [completionTool],
@@ -39,9 +39,9 @@ function finalTextOptions(
 		title?: string;
 		cwd?: string;
 		signal?: AbortSignal;
-		terminalTools?: readonly ChildSessionTerminalToolDefinition[];
+		terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 	} = {},
-): ChildSessionOptions {
+): RunnerSubagentOptions {
 	return {
 		prompt: "Do the delegated task.",
 		returnMode: "final-text",
@@ -53,7 +53,7 @@ function jsonLine(value: unknown): string {
 	return `${JSON.stringify(value)}\n`;
 }
 
-describe("child session process runner", () => {
+describe("runner subagent process dispatcher", () => {
 	test("resolves a safely discoverable current Pi command before falling back to installed pi", () => {
 		const args = ["--mode", "json"];
 
@@ -74,8 +74,8 @@ describe("child session process runner", () => {
 	});
 
 	test("spawns Pi in JSON print mode with cwd, prompt, and explicit session path", async () => {
-		const runner = createFakeChildRunner({ sessionFile: "/tmp/child-session.jsonl" });
-		const running = runChildSessionProcess(pi, ctx, options({ cwd: "/repo/packages/example" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ cwd: "/repo/packages/example" }), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		expect(call.command).toBe("pi");
@@ -85,9 +85,9 @@ describe("child session process runner", () => {
 			"-p",
 			"--no-extensions",
 			"--extension",
-			"/tmp/pi-child-runtime/runtime-extension.ts",
+			"/tmp/pi-runner-subagent-runtime/runtime-extension.ts",
 			"--session",
-			"/tmp/child-session.jsonl",
+			"/tmp/runner-subagent.jsonl",
 			"Do the delegated task.",
 		]);
 		expect(call.options).toEqual({ cwd: "/repo/packages/example", shell: false, stdio: ["ignore", "pipe", "pipe"] });
@@ -97,13 +97,13 @@ describe("child session process runner", () => {
 		const result = await running;
 
 		expect(result.status).toBe("stopped-without-terminal");
-		expect(result.sessionFile).toBe("/tmp/child-session.jsonl");
+		expect(result.sessionFile).toBe("/tmp/runner-subagent.jsonl");
 	});
 
-	test("returns stopped-without-terminal for clean child completion", async () => {
+	test("returns stopped-without-terminal for clean subagent completion", async () => {
 		let now = 1_000;
-		const runner = createFakeChildRunner({ sessionFile: "/tmp/child-session.jsonl", now: () => now });
-		const running = runChildSessionProcess(pi, ctx, options({ title: "Child task" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ title: "Subagent task" }), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo" }));
@@ -120,26 +120,26 @@ describe("child session process runner", () => {
 
 		expect(result).toEqual({
 			status: "stopped-without-terminal",
-			title: "Child task",
+			title: "Subagent task",
 			elapsedMs: 345,
 			progress: {
-				title: "Child task",
+				title: "Subagent task",
 				state: "stopped",
 				toolCount: 1,
 				turnCount: 1,
 				elapsedMs: 345,
-				sessionFile: "/tmp/child-session.jsonl",
+				sessionFile: "/tmp/runner-subagent.jsonl",
 			},
-			sessionFile: "/tmp/child-session.jsonl",
-			diagnostic: "Child Pi stopped without terminal capture.",
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			diagnostic: "Subagent Pi stopped without terminal capture.",
 			stopReason: "end",
 		});
 	});
 
-	test("returns final assistant text for clean child completion in final-text mode", async () => {
+	test("returns final assistant text for clean subagent completion in final-text mode", async () => {
 		let now = 1_000;
-		const runner = createFakeChildRunner({ sessionFile: "/tmp/child-session.jsonl", now: () => now });
-		const running = runChildSessionProcess(pi, ctx, finalTextOptions({ title: "Child task" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ title: "Subagent task" }), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		expect(call.args).toEqual([
@@ -148,7 +148,7 @@ describe("child session process runner", () => {
 			"-p",
 			"--no-extensions",
 			"--session",
-			"/tmp/child-session.jsonl",
+			"/tmp/runner-subagent.jsonl",
 			"Do the delegated task.",
 		]);
 
@@ -171,25 +171,25 @@ describe("child session process runner", () => {
 
 		expect(result).toEqual({
 			status: "final-text",
-			title: "Child task",
+			title: "Subagent task",
 			elapsedMs: 345,
 			progress: {
-				title: "Child task",
+				title: "Subagent task",
 				state: "stopped",
 				toolCount: 0,
 				turnCount: 1,
 				elapsedMs: 345,
-				sessionFile: "/tmp/child-session.jsonl",
+				sessionFile: "/tmp/runner-subagent.jsonl",
 			},
-			sessionFile: "/tmp/child-session.jsonl",
+			sessionFile: "/tmp/runner-subagent.jsonl",
 			finalText: "Done.\nEvidence: tests passed.",
 			stopReason: "stop",
 		});
 	});
 
-	test("returns stopped-without-useful-text in final-text mode when clean child has no useful assistant text", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+	test("returns stopped-without-useful-text in final-text mode when clean subagent has no useful assistant text", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(
@@ -200,13 +200,13 @@ describe("child session process runner", () => {
 
 		expect(result.status).toBe("stopped-without-useful-text");
 		if (result.status !== "stopped-without-useful-text") return;
-		expect(result.diagnostic).toBe("Child Pi stopped without useful final assistant text.");
+		expect(result.diagnostic).toBe("Subagent Pi stopped without useful final assistant text.");
 		expect(result.stopReason).toBe("stop");
 	});
 
-	test("maps child stopReason error to error in final-text mode", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+	test("maps subagent stopReason error to error in final-text mode", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(
@@ -228,9 +228,9 @@ describe("child session process runner", () => {
 		expect(result.diagnostic).toBe("model failed");
 	});
 
-	test("maps malformed JSONL output to error and kills child in final-text mode", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+	test("maps malformed JSONL output to error and kills subagent in final-text mode", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout("{bad json}\n");
@@ -240,12 +240,12 @@ describe("child session process runner", () => {
 		expect(call.process.killSignals).toContain("SIGTERM");
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Malformed child Pi JSONL output");
+		expect(result.diagnostic).toContain("Malformed runner subagent Pi JSONL output");
 	});
 
 	test("maps nonzero exit and bounded stderr to error in final-text mode", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), { ...runner.dependencies, stderrLimitBytes: 30 });
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), { ...runner.dependencies, stderrLimitBytes: 30 });
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStderr("first diagnostic line\nsecond diagnostic line\n");
@@ -254,15 +254,15 @@ describe("child session process runner", () => {
 
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Child Pi exited with exit code 2.");
+		expect(result.diagnostic).toContain("Subagent Pi exited with exit code 2.");
 		expect(result.diagnostic).toContain("second diagnostic line");
 		expect(result.diagnostic).not.toContain("first diagnostic line");
 	});
 
-	test("kills the child and returns cancelled on parent abort in final-text mode", async () => {
+	test("kills the subagent and returns cancelled on parent abort in final-text mode", async () => {
 		const controller = new AbortController();
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, finalTextOptions({ signal: controller.signal }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ signal: controller.signal }), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		controller.abort("user cancelled");
@@ -273,20 +273,20 @@ describe("child session process runner", () => {
 		expect(result.status).toBe("cancelled");
 		if (result.status !== "cancelled") return;
 		expect(result.reason).toBe("user cancelled");
-		expect(result.sessionFile).toBe("/tmp/pi-child-session.jsonl");
+		expect(result.sessionFile).toBe("/tmp/pi-runner-subagent.jsonl");
 	});
 
 	test("preserves valid terminal captures when terminal tools are supplied in final-text mode", async () => {
-		const runner = createFakeChildRunner({
+		const runner = createFakeRunnerSubagentDispatcher({
 			runtimeResult: {
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "complete_child_session",
+				toolName: "complete_runner_subagent",
 				status: "completed",
 				input: { summary: "done" },
 			},
 		});
-		const running = runChildSessionProcess<{ summary: string }>(
+		const running = dispatchRunnerSubagentProcess<{ summary: string }>(
 			pi,
 			ctx,
 			finalTextOptions({ terminalTools: [completionTool] }),
@@ -303,9 +303,9 @@ describe("child session process runner", () => {
 		expect(result.terminal.input).toEqual({ summary: "done" });
 	});
 
-	test("maps child stopReason error to error when no terminal capture exists", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+	test("maps subagent stopReason error to error when no terminal capture exists", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [], stopReason: "error", errorMessage: "model failed" } }));
@@ -318,25 +318,25 @@ describe("child session process runner", () => {
 	});
 
 	test("maps a completed terminal capture sink to a completed result", async () => {
-		const runner = createFakeChildRunner({
+		const runner = createFakeRunnerSubagentDispatcher({
 			runtimeResult: {
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "complete_child_session",
+				toolName: "complete_runner_subagent",
 				toolCallId: "tool-1",
 				status: "completed",
 				input: { summary: "done" },
 			},
 		});
-		const running = runChildSessionProcess<{ summary: string }>(pi, ctx, options(), runner.dependencies);
+		const running = dispatchRunnerSubagentProcess<{ summary: string }>(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
 		);
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_child_session", result: {}, isError: false }),
+			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_runner_subagent", result: {}, isError: false }),
 		);
 		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [], stopReason: "aborted" } }));
 		call.process.close(0);
@@ -345,25 +345,25 @@ describe("child session process runner", () => {
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") return;
 		expect(result.terminal).toEqual({
-			toolName: "complete_child_session",
+			toolName: "complete_runner_subagent",
 			toolCallId: "tool-1",
 			status: "completed",
 			input: { summary: "done" },
 		});
-		expect(result.sessionFile).toBe("/tmp/pi-child-session.jsonl");
+		expect(result.sessionFile).toBe("/tmp/pi-runner-subagent.jsonl");
 	});
 
 	test("maps a blocked terminal capture sink to a blocked result", async () => {
-		const runner = createFakeChildRunner({
+		const runner = createFakeRunnerSubagentDispatcher({
 			runtimeResult: {
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "block_child_session",
+				toolName: "block_runner_subagent",
 				status: "blocked",
 				input: { reason: "need input" },
 			},
 		});
-		const running = runChildSessionProcess<{ reason: string }>(
+		const running = dispatchRunnerSubagentProcess<{ reason: string }>(
 			pi,
 			ctx,
 			options({ terminalTools: [completionTool, blockedTool] }),
@@ -377,22 +377,22 @@ describe("child session process runner", () => {
 		expect(result.status).toBe("blocked");
 		if (result.status !== "blocked") return;
 		expect(result.terminal).toEqual({
-			toolName: "block_child_session",
+			toolName: "block_runner_subagent",
 			status: "blocked",
 			input: { reason: "need input" },
 		});
 	});
 
-	test("maps child runtime startup failures to deterministic errors", async () => {
-		const runner = createFakeChildRunner({
+	test("maps subagent runtime startup failures to deterministic errors", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
 			runtimeResult: {
 				version: 1,
 				kind: "runtime-error",
 				code: "tool-collision",
-				message: "Child terminal tool name collision: complete_child_session.",
+				message: "Subagent terminal tool name collision: complete_runner_subagent.",
 			},
 		});
-		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.close(0);
@@ -401,45 +401,45 @@ describe("child session process runner", () => {
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
 		expect(result.diagnostic).toContain("tool-collision");
-		expect(result.diagnostic).toContain("complete_child_session");
+		expect(result.diagnostic).toContain("complete_runner_subagent");
 	});
 
 	test("returns protocol-error when terminal validation fails before the runtime writes a capture", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
 		);
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_child_session", result: {}, isError: true }),
+			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_runner_subagent", result: {}, isError: true }),
 		);
 		call.process.close(0);
 		const result = await running;
 
 		expect(result.status).toBe("protocol-error");
 		if (result.status !== "protocol-error") return;
-		expect(result.protocolError.message).toContain("Terminal tool complete_child_session failed");
+		expect(result.protocolError.message).toContain("Terminal tool complete_runner_subagent failed");
 	});
 
 	test("returns protocol-error when terminal tools are mixed with sibling tool calls", async () => {
-		const runner = createFakeChildRunner({
+		const runner = createFakeRunnerSubagentDispatcher({
 			runtimeResult: {
 				version: 1,
 				kind: "terminal-capture",
-				toolName: "complete_child_session",
+				toolName: "complete_runner_subagent",
 				status: "completed",
 				input: { summary: "done" },
 			},
 		});
-		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
 		);
 		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "bash", args: {} }));
 		call.process.close(0);
@@ -452,8 +452,8 @@ describe("child session process runner", () => {
 	});
 
 	test("returns an error before spawn for invalid terminal runtime config", async () => {
-		const runner = createFakeChildRunner();
-		const result = await runChildSessionProcess(
+		const runner = createFakeRunnerSubagentDispatcher();
+		const result = await dispatchRunnerSubagentProcess(
 			pi,
 			ctx,
 			options({ terminalTools: [{ ...completionTool, name: "" }] }),
@@ -467,8 +467,8 @@ describe("child session process runner", () => {
 	});
 
 	test("maps spawn failure to error", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.fail(new Error("ENOENT pi"));
@@ -476,13 +476,13 @@ describe("child session process runner", () => {
 
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Failed to spawn child Pi process: ENOENT pi");
+		expect(result.diagnostic).toContain("Failed to spawn subagent Pi process: ENOENT pi");
 		expect(result.error.message).toBe("ENOENT pi");
 	});
 
 	test("maps nonzero exit and bounded stderr to error", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, options(), { ...runner.dependencies, stderrLimitBytes: 30 });
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), { ...runner.dependencies, stderrLimitBytes: 30 });
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStderr("first diagnostic line\nsecond diagnostic line\n");
@@ -491,15 +491,15 @@ describe("child session process runner", () => {
 
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Child Pi exited with exit code 2.");
+		expect(result.diagnostic).toContain("Subagent Pi exited with exit code 2.");
 		expect(result.diagnostic).toContain("stderr:");
 		expect(result.diagnostic).toContain("second diagnostic line");
 		expect(result.diagnostic).not.toContain("first diagnostic line");
 	});
 
 	test("maps malformed JSONL output to error", async () => {
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout("{bad json}\n");
@@ -509,13 +509,13 @@ describe("child session process runner", () => {
 		expect(call.process.killSignals).toContain("SIGTERM");
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Malformed child Pi JSONL output");
+		expect(result.diagnostic).toContain("Malformed runner subagent Pi JSONL output");
 	});
 
-	test("kills the child and returns cancelled on parent abort", async () => {
+	test("kills the subagent and returns cancelled on parent abort", async () => {
 		const controller = new AbortController();
-		const runner = createFakeChildRunner();
-		const running = runChildSessionProcess(pi, ctx, options({ signal: controller.signal }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ signal: controller.signal }), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		controller.abort("user cancelled");
@@ -526,6 +526,6 @@ describe("child session process runner", () => {
 		expect(result.status).toBe("cancelled");
 		if (result.status !== "cancelled") return;
 		expect(result.reason).toBe("user cancelled");
-		expect(result.sessionFile).toBe("/tmp/pi-child-session.jsonl");
+		expect(result.sessionFile).toBe("/tmp/pi-runner-subagent.jsonl");
 	});
 });

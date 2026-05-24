@@ -1,25 +1,25 @@
 import {
-	runChildSession,
-	type ChildSessionContext,
-	type ChildSessionPi,
-	type ChildSessionProgress,
-	type ChildSessionResult,
-	type ChildSessionStatus,
-	type ChildSessionTerminalToolDefinition,
-} from "./run-child-session.ts";
+	dispatchRunnerSubagent,
+	type RunnerSubagentContext,
+	type RunnerSubagentPi,
+	type RunnerSubagentProgress,
+	type RunnerSubagentResult,
+	type RunnerSubagentStatus,
+	type RunnerSubagentTerminalToolDefinition,
+} from "./runner-subagent.ts";
 
-export const CHILD_SESSION_DEMO_COMMAND_NAME = "child-session-demo";
-export const CHILD_SESSION_DEMO_MESSAGE_TYPE = "child-session-demo-result";
+export const RUNNER_SUBAGENT_DEMO_COMMAND_NAME = "runner-subagent-demo";
+export const RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE = "runner-subagent-demo-result";
 
-const STATUS_KEY = CHILD_SESSION_DEMO_COMMAND_NAME;
-const WIDGET_KEY = CHILD_SESSION_DEMO_COMMAND_NAME;
+const STATUS_KEY = RUNNER_SUBAGENT_DEMO_COMMAND_NAME;
+const WIDGET_KEY = RUNNER_SUBAGENT_DEMO_COMMAND_NAME;
 
-const COMPLETE_TOOL_NAME = "child_session_demo_complete";
-const BLOCKED_TOOL_NAME = "child_session_demo_blocked";
+const COMPLETE_TOOL_NAME = "runner_subagent_demo_complete";
+const BLOCKED_TOOL_NAME = "runner_subagent_demo_blocked";
 
-const USAGE = `Usage: /child-session-demo <task>
+const USAGE = `Usage: /runner-subagent-demo <task>
 
-Launches a fresh child Pi session for <task>. The child must finish by calling exactly one terminal capture tool, then the parent displays the structured result and child session file.`;
+Launches a fresh runner subagent for <task>. The subagent must finish by calling exactly one terminal capture tool, then the parent displays the structured result and subagent session file.`;
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -68,23 +68,23 @@ export type ExtensionAPI = {
 	sendUserMessage?(content: string): void;
 };
 
-export type ChildSessionDemoCompleteInput = {
+export type RunnerSubagentDemoCompleteInput = {
 	summary: string;
 	evidence?: string[];
 };
 
-export type ChildSessionDemoBlockedInput = {
+export type RunnerSubagentDemoBlockedInput = {
 	reason: string;
 	needs?: string[];
 };
 
-export type ChildSessionDemoTerminalInput = ChildSessionDemoCompleteInput | ChildSessionDemoBlockedInput;
+export type RunnerSubagentDemoTerminalInput = RunnerSubagentDemoCompleteInput | RunnerSubagentDemoBlockedInput;
 
 const TERMINAL_TOOLS = [
 	{
 		name: COMPLETE_TOOL_NAME,
 		status: "completed",
-		description: "Finish the child-session demo with a concise summary and optional evidence items.",
+		description: "Finish the runner-subagent demo with a concise summary and optional evidence items.",
 		parameters: {
 			type: "object",
 			properties: {
@@ -98,7 +98,7 @@ const TERMINAL_TOOLS = [
 	{
 		name: BLOCKED_TOOL_NAME,
 		status: "blocked",
-		description: "Stop the child-session demo as blocked, with the blocker and optional needed inputs.",
+		description: "Stop the runner-subagent demo as blocked, with the blocker and optional needed inputs.",
 		parameters: {
 			type: "object",
 			properties: {
@@ -109,13 +109,13 @@ const TERMINAL_TOOLS = [
 			additionalProperties: false,
 		},
 	},
-] as const satisfies readonly ChildSessionTerminalToolDefinition[];
+] as const satisfies readonly RunnerSubagentTerminalToolDefinition[];
 
-export default function childSessionDemoExtension(pi: ExtensionAPI & ChildSessionPi): void {
-	pi.registerMessageRenderer?.(CHILD_SESSION_DEMO_MESSAGE_TYPE, renderChildSessionDemoResult);
+export default function runnerSubagentDemoExtension(pi: ExtensionAPI & RunnerSubagentPi): void {
+	pi.registerMessageRenderer?.(RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE, renderRunnerSubagentDemoResult);
 
-	pi.registerCommand(CHILD_SESSION_DEMO_COMMAND_NAME, {
-		description: "Run a small task in an awaited child Pi session and display the structured terminal result",
+	pi.registerCommand(RUNNER_SUBAGENT_DEMO_COMMAND_NAME, {
+		description: "Run a small task in an awaited runner subagent Pi and display the structured terminal result",
 		handler: async (rawArgs: string, ctx: ExtensionCommandContext) => {
 			const task = rawArgs.trim();
 			if (!task || task === "--help" || task === "-h") {
@@ -125,15 +125,15 @@ export default function childSessionDemoExtension(pi: ExtensionAPI & ChildSessio
 
 			await ctx.waitForIdle();
 
-			const title = childTitle(task);
-			setStatus(ctx, "launching child session...");
+			const title = subagentTitle(task);
+			setStatus(ctx, "dispatching runner subagent...");
 			setWidget(ctx, widgetLines({ title, state: "starting", toolCount: 0, turnCount: 0, elapsedMs: 0 }));
 
 			try {
-				setStatus(ctx, "running child session...");
-				const result = await runChildSession<ChildSessionDemoTerminalInput>(pi, childContext(ctx), {
+				setStatus(ctx, "running runner subagent...");
+				const result = await dispatchRunnerSubagent<RunnerSubagentDemoTerminalInput>(pi, subagentContext(ctx), {
 					title,
-					prompt: buildChildSessionDemoPrompt(task),
+					prompt: buildRunnerSubagentDemoPrompt(task),
 					cwd: ctx.cwd,
 					...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
 					terminalTools: TERMINAL_TOOLS,
@@ -148,9 +148,9 @@ export default function childSessionDemoExtension(pi: ExtensionAPI & ChildSessio
 	});
 }
 
-export function buildChildSessionDemoPrompt(task: string): string {
+export function buildRunnerSubagentDemoPrompt(task: string): string {
 	return [
-		"You are a fresh child Pi session launched by the local child-session demo extension.",
+		"You are a fresh runner subagent launched by the local runner-subagent demo extension.",
 		"Complete the delegated task using the current repository working directory as context.",
 		`Delegated task:\n${task}`,
 		[
@@ -165,8 +165,8 @@ export function buildChildSessionDemoPrompt(task: string): string {
 	].join("\n\n");
 }
 
-export function formatChildSessionDemoResult(result: ChildSessionResult<ChildSessionDemoTerminalInput>): string {
-	const lines = [resultHeadline(result), `Title: ${result.title ?? result.progress.title ?? "(untitled child session)"}`];
+export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>): string {
+	const lines = [resultHeadline(result), `Title: ${result.title ?? result.progress.title ?? "(untitled subagent)"}`];
 	lines.push(formatProgressLine(result.progress));
 	lines.push(`Session file: ${result.sessionFile ?? result.progress.sessionFile ?? "(not available)"}`);
 
@@ -185,7 +185,7 @@ export function formatChildSessionDemoResult(result: ChildSessionResult<ChildSes
 	return lines.join("\n");
 }
 
-export function renderChildSessionDemoResult(
+export function renderRunnerSubagentDemoResult(
 	message: CustomMessage,
 	_options: { expanded: boolean },
 	theme: RenderTheme,
@@ -199,7 +199,7 @@ export function renderChildSessionDemoResult(
 	};
 }
 
-function childContext(ctx: ExtensionCommandContext): ChildSessionContext {
+function subagentContext(ctx: ExtensionCommandContext): RunnerSubagentContext {
 	return {
 		cwd: ctx.cwd,
 		...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
@@ -209,15 +209,15 @@ function childContext(ctx: ExtensionCommandContext): ChildSessionContext {
 function presentResult(
 	pi: ExtensionAPI,
 	ctx: ExtensionCommandContext,
-	result: ChildSessionResult<ChildSessionDemoTerminalInput>,
+	result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>,
 ): void {
-	const content = formatChildSessionDemoResult(result);
+	const content = formatDispatchRunnerSubagentResult(result);
 	if (pi.sendMessage) {
 		pi.sendMessage({
-			customType: CHILD_SESSION_DEMO_MESSAGE_TYPE,
+			customType: RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE,
 			content,
 			display: true,
-			details: childSessionDemoDetails(result),
+			details: runnerSubagentDemoDetails(result),
 		});
 		return;
 	}
@@ -231,7 +231,7 @@ function present(ctx: ExtensionCommandContext, message: string, level: NotifyLev
 
 function setStatus(ctx: ExtensionCommandContext, message: string | undefined): void {
 	if (!ctx.hasUI) return;
-	ctx.ui.setStatus?.(STATUS_KEY, message ? `child-session-demo: ${message}` : undefined);
+	ctx.ui.setStatus?.(STATUS_KEY, message ? `runner-subagent-demo: ${message}` : undefined);
 }
 
 function setWidget(ctx: ExtensionCommandContext, lines: string[] | undefined): void {
@@ -239,33 +239,33 @@ function setWidget(ctx: ExtensionCommandContext, lines: string[] | undefined): v
 	ctx.ui.setWidget?.(WIDGET_KEY, lines, { placement: "belowEditor" });
 }
 
-function widgetLines(progress: ChildSessionProgress): string[] {
-	const lines = [`Child: ${progress.title ?? "(untitled)"}`, `State: ${progress.state}`];
+function widgetLines(progress: RunnerSubagentProgress): string[] {
+	const lines = [`Subagent: ${progress.title ?? "(untitled)"}`, `State: ${progress.state}`];
 	if (progress.currentTool) lines.push(`Tool: ${progress.currentTool}`);
 	lines.push(`Turns/tools: ${progress.turnCount}/${progress.toolCount}`);
 	if (progress.sessionFile) lines.push(`Session: ${progress.sessionFile}`);
 	return lines;
 }
 
-function resultHeadline(result: ChildSessionResult<ChildSessionDemoTerminalInput>): string {
+function resultHeadline(result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>): string {
 	if (result.status === "completed") {
-		return `✓ Child session completed: ${stringValue(readRecord(result.terminal.input).summary, "completed")}`;
+		return `✓ Runner subagent completed: ${stringValue(readRecord(result.terminal.input).summary, "completed")}`;
 	}
 	if (result.status === "blocked") {
-		return `⚠ Child session blocked: ${stringValue(readRecord(result.terminal.input).reason, "blocked")}`;
+		return `⚠ Runner subagent blocked: ${stringValue(readRecord(result.terminal.input).reason, "blocked")}`;
 	}
 	if (result.status === "final-text") {
-		return `✓ Child session final text: ${firstNonEmptyLine(result.finalText) ?? "captured"}`;
+		return `✓ Runner subagent final text: ${firstNonEmptyLine(result.finalText) ?? "captured"}`;
 	}
-	return `✗ Child session ${result.status}: ${result.diagnostic}`;
+	return `✗ Runner subagent ${result.status}: ${result.diagnostic}`;
 }
 
-function formatProgressLine(progress: ChildSessionProgress): string {
+function formatProgressLine(progress: RunnerSubagentProgress): string {
 	const currentTool = progress.currentTool ? `, current tool: ${progress.currentTool}` : "";
 	return `State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}; elapsed: ${formatElapsed(progress.elapsedMs)}${currentTool}`;
 }
 
-function childSessionDemoDetails(result: ChildSessionResult<ChildSessionDemoTerminalInput>): Record<string, unknown> {
+function runnerSubagentDemoDetails(result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>): Record<string, unknown> {
 	return {
 		status: result.status,
 		title: result.title ?? result.progress.title,
@@ -274,16 +274,16 @@ function childSessionDemoDetails(result: ChildSessionResult<ChildSessionDemoTerm
 	};
 }
 
-function resultLevel(status: ChildSessionStatus): NotifyLevel {
+function resultLevel(status: RunnerSubagentStatus): NotifyLevel {
 	if (status === "completed" || status === "final-text") return "success";
 	if (status === "blocked") return "warning";
 	return "error";
 }
 
-function childTitle(task: string): string {
+function subagentTitle(task: string): string {
 	const singleLine = task.replace(/\s+/g, " ").trim();
 	const shortTask = singleLine.length > 60 ? `${singleLine.slice(0, 59)}…` : singleLine;
-	return `Child demo: ${shortTask}`;
+	return `Runner subagent demo: ${shortTask}`;
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

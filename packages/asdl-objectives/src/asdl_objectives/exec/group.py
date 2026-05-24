@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from asdl_core.clinkr.group import ClinkrGroup
-from asdl_objectives.exec.child_session_usage import run_child_session_usage
 from asdl_objectives.exec.read_objective import run_read_objective
+from asdl_objectives.exec.runner_subagent_usage import run_runner_subagent_usage
 
 
 def build_exec_group() -> ClinkrGroup:
     return ClinkrGroup(
         name="exec",
         help="Commands for use by objective skills.",
-        operations=[run_read_objective, run_child_session_usage],
+        operations=[run_read_objective, run_runner_subagent_usage],
         hidden=True,
     )

@@ -6,35 +6,35 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 import type {
-	ChildSessionBlockedResult,
-	ChildSessionCancelledResult,
-	ChildSessionCompletedResult,
-	ChildSessionContext,
-	ChildSessionErrorResult,
-	ChildSessionFinalTextResult,
-	ChildSessionOptions,
-	ChildSessionPi,
-	ChildSessionProgress,
-	ChildSessionProtocolErrorResult,
-	ChildSessionResult,
-	ChildSessionReturnMode,
-	ChildSessionStoppedWithoutTerminalResult,
-	ChildSessionStoppedWithoutUsefulTextResult,
-	ChildSessionTerminalToolDefinition,
-} from "../run-child-session.ts";
+	RunnerSubagentBlockedResult,
+	RunnerSubagentCancelledResult,
+	RunnerSubagentCompletedResult,
+	RunnerSubagentContext,
+	RunnerSubagentErrorResult,
+	RunnerSubagentFinalTextResult,
+	RunnerSubagentOptions,
+	RunnerSubagentPi,
+	RunnerSubagentProgress,
+	RunnerSubagentProtocolErrorResult,
+	RunnerSubagentResult,
+	RunnerSubagentReturnMode,
+	RunnerSubagentStoppedWithoutTerminalResult,
+	RunnerSubagentStoppedWithoutUsefulTextResult,
+	RunnerSubagentTerminalToolDefinition,
+} from "../runner-subagent.ts";
 import {
-	createDefaultChildSessionRuntimeFiles,
+	createDefaultRunnerSubagentRuntimeFiles,
 	readRuntimeResultFile,
-	type ChildSessionRuntimeFiles,
-	type CreateChildSessionRuntimeFilesInput,
+	type RunnerSubagentRuntimeFiles,
+	type CreateRunnerSubagentRuntimeFilesInput,
 	type RuntimeResultV1,
-} from "./child-runtime.ts";
-import { createChildSessionJsonEventParser, type ChildSessionJsonEventParserSnapshot } from "./json-events.ts";
+} from "./subagent-runtime.ts";
+import { createRunnerSubagentJsonEventParser, type RunnerSubagentJsonEventParserSnapshot } from "./json-events.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
-const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Child Pi stopped without terminal capture.";
-const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC = "Child Pi stopped without useful final assistant text.";
+const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
+const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC = "Subagent Pi stopped without useful final assistant text.";
 
 export type PiInvocation = {
 	command: string;
@@ -61,18 +61,18 @@ export type SpawnedChildProcess = {
 
 export type SpawnChildProcess = (command: string, args: string[], options: SpawnChildProcessOptions) => SpawnedChildProcess;
 
-export type CreateChildSessionRuntimeFiles = (
-	input: CreateChildSessionRuntimeFilesInput,
-) => ChildSessionRuntimeFiles | Promise<ChildSessionRuntimeFiles>;
+export type CreateRunnerSubagentRuntimeFiles = (
+	input: CreateRunnerSubagentRuntimeFilesInput,
+) => RunnerSubagentRuntimeFiles | Promise<RunnerSubagentRuntimeFiles>;
 
-export type ReadChildSessionRuntimeResult = (resultPath: string) => RuntimeResultV1 | undefined | Promise<RuntimeResultV1 | undefined>;
+export type ReadRunnerSubagentRuntimeResult = (resultPath: string) => RuntimeResultV1 | undefined | Promise<RuntimeResultV1 | undefined>;
 
-export type ChildSessionRunnerDependencies = {
+export type RunnerSubagentDispatcherDependencies = {
 	spawn?: SpawnChildProcess;
 	now?: () => number;
 	createSessionFile?: (input: { cwd: string; title?: string }) => string | Promise<string>;
-	createRuntimeFiles?: CreateChildSessionRuntimeFiles;
-	readRuntimeResult?: ReadChildSessionRuntimeResult;
+	createRuntimeFiles?: CreateRunnerSubagentRuntimeFiles;
+	readRuntimeResult?: ReadRunnerSubagentRuntimeResult;
 	processArgv?: readonly string[];
 	processExecPath?: string;
 	existsSync?: (path: string) => boolean;
@@ -82,12 +82,12 @@ export type ChildSessionRunnerDependencies = {
 	stderrLimitBytes?: number;
 };
 
-export async function runChildSessionProcess<TTerminalInput = unknown>(
-	pi: ChildSessionPi,
-	ctx: ChildSessionContext,
-	options: ChildSessionOptions,
-	dependencies: ChildSessionRunnerDependencies = {},
-): Promise<ChildSessionResult<TTerminalInput>> {
+export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
+	pi: RunnerSubagentPi,
+	ctx: RunnerSubagentContext,
+	options: RunnerSubagentOptions,
+	dependencies: RunnerSubagentDispatcherDependencies = {},
+): Promise<RunnerSubagentResult<TTerminalInput>> {
 	void pi;
 	const now = dependencies.now ?? Date.now;
 	const startTimeMs = now();
@@ -99,19 +99,19 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 		return cancelledResult(title, stoppedProgress({ title, now, startTimeMs }), abortReason(abortSignals));
 	}
 
-	const returnMode = childSessionReturnMode(options);
-	const terminalTools = childSessionTerminalTools(options);
-	let runtimeFiles: ChildSessionRuntimeFiles | undefined;
+	const returnMode = runnerSubagentReturnMode(options);
+	const terminalTools = runnerSubagentTerminalTools(options);
+	let runtimeFiles: RunnerSubagentRuntimeFiles | undefined;
 	if (returnMode === "terminal" || terminalTools.length > 0) {
 		try {
-			const createRuntimeFiles = dependencies.createRuntimeFiles ?? createDefaultChildSessionRuntimeFiles;
+			const createRuntimeFiles = dependencies.createRuntimeFiles ?? createDefaultRunnerSubagentRuntimeFiles;
 			runtimeFiles = await createRuntimeFiles({
 				...(title === undefined ? {} : { title }),
 				terminalTools,
 			});
 		} catch (error) {
 			const progress = stoppedProgress({ title, now, startTimeMs });
-			return errorResult(title, progress, `Invalid child terminal runtime configuration: ${errorMessage(error)}`, error);
+			return errorResult(title, progress, `Invalid subagent terminal runtime configuration: ${errorMessage(error)}`, error);
 		}
 	}
 
@@ -121,11 +121,11 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 	} catch (error) {
 		await cleanupRuntimeFiles(runtimeFiles);
 		const progress = stoppedProgress({ title, now, startTimeMs });
-		return errorResult(title, progress, `Failed to create child Pi session file: ${errorMessage(error)}`, error);
+		return errorResult(title, progress, `Failed to create subagent session file: ${errorMessage(error)}`, error);
 	}
 
 	const terminalToolNames = terminalTools.map((tool) => tool.name);
-	const parser = createChildSessionJsonEventParser({
+	const parser = createRunnerSubagentJsonEventParser({
 		...(title === undefined ? {} : { title }),
 		sessionFile,
 		now,
@@ -152,10 +152,10 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 	} catch (error) {
 		parser.markStopped();
 		await cleanupRuntimeFiles(runtimeFiles);
-		return errorResult(title, parser.getProgress(), `Failed to spawn child Pi process: ${errorMessage(error)}`, error);
+		return errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${errorMessage(error)}`, error);
 	}
 
-	return await new Promise<ChildSessionResult<TTerminalInput>>((resolve) => {
+	return await new Promise<RunnerSubagentResult<TTerminalInput>>((resolve) => {
 		let settled = false;
 		let closed = false;
 		let cancelled = false;
@@ -163,7 +163,7 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 		let killTimer: ReturnType<typeof setTimeout> | undefined;
 		const removeAbortListeners: Array<() => void> = [];
 
-		const finish = (result: ChildSessionResult<TTerminalInput>) => {
+		const finish = (result: RunnerSubagentResult<TTerminalInput>) => {
 			if (settled) return;
 			settled = true;
 			for (const remove of removeAbortListeners) remove();
@@ -209,7 +209,7 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 
 		child.on("error", (error) => {
 			parser.markStopped();
-			finish(errorResult(title, parser.getProgress(), `Failed to spawn child Pi process: ${error.message}`, error));
+			finish(errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${error.message}`, error));
 		});
 
 		child.on("close", (code, closeSignal) => {
@@ -218,7 +218,7 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 			parser.finish();
 			const snapshot = parser.getSnapshot();
 
-			void resolveClosedChildResult<TTerminalInput>({
+			void resolveClosedRunnerSubagentResult<TTerminalInput>({
 				title,
 				snapshot,
 				code,
@@ -232,7 +232,7 @@ export async function runChildSessionProcess<TTerminalInput = unknown>(
 				terminalToolStatuses: new Map(terminalTools.map((tool) => [tool.name, tool.status] as const)),
 			}).then(finish, (error: unknown) => {
 				const progress = parser.getProgress();
-				finish(errorResult(title, progress, `Failed to resolve child Pi result: ${errorMessage(error)}`, error));
+				finish(errorResult(title, progress, `Failed to resolve subagent result: ${errorMessage(error)}`, error));
 			});
 		});
 	});
@@ -245,15 +245,15 @@ export function buildChildPiArgs(prompt: string, sessionFile: string, runtimeExt
 	return args;
 }
 
-function childSessionReturnMode(options: ChildSessionOptions): ChildSessionReturnMode {
+function runnerSubagentReturnMode(options: RunnerSubagentOptions): RunnerSubagentReturnMode {
 	return options.returnMode ?? "terminal";
 }
 
-function childSessionTerminalTools(options: ChildSessionOptions): readonly ChildSessionTerminalToolDefinition[] {
+function runnerSubagentTerminalTools(options: RunnerSubagentOptions): readonly RunnerSubagentTerminalToolDefinition[] {
 	return options.terminalTools ?? [];
 }
 
-export function resolvePiInvocation(args: string[], dependencies: ChildSessionRunnerDependencies = {}): PiInvocation {
+export function resolvePiInvocation(args: string[], dependencies: RunnerSubagentDispatcherDependencies = {}): PiInvocation {
 	const processArgv = dependencies.processArgv ?? process.argv;
 	const processExecPath = dependencies.processExecPath ?? process.execPath;
 	const existsSync = dependencies.existsSync ?? nodeExistsSync;
@@ -272,23 +272,23 @@ export function resolvePiInvocation(args: string[], dependencies: ChildSessionRu
 	return { command: "pi", args };
 }
 
-type ResolveClosedChildResultInput = {
+type ResolveClosedRunnerSubagentResultInput = {
 	title: string | undefined;
-	snapshot: ChildSessionJsonEventParserSnapshot;
+	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	code: number | null;
 	closeSignal: NodeJS.Signals | null;
 	stderr: string;
 	cancelled: boolean;
 	abortSignals: readonly AbortSignal[];
-	runtimeFiles?: ChildSessionRuntimeFiles;
-	readRuntimeResult: ReadChildSessionRuntimeResult;
-	returnMode: ChildSessionReturnMode;
+	runtimeFiles?: RunnerSubagentRuntimeFiles;
+	readRuntimeResult: ReadRunnerSubagentRuntimeResult;
+	returnMode: RunnerSubagentReturnMode;
 	terminalToolStatuses: ReadonlyMap<string, "completed" | "blocked">;
 };
 
-async function resolveClosedChildResult<TTerminalInput>(
-	input: ResolveClosedChildResultInput,
-): Promise<ChildSessionResult<TTerminalInput>> {
+async function resolveClosedRunnerSubagentResult<TTerminalInput>(
+	input: ResolveClosedRunnerSubagentResultInput,
+): Promise<RunnerSubagentResult<TTerminalInput>> {
 	const { title, snapshot } = input;
 	const progress = snapshot.progress;
 
@@ -307,7 +307,7 @@ async function resolveClosedChildResult<TTerminalInput>(
 		return errorResult(
 			title,
 			progress,
-			`Child terminal runtime failed (${runtimeRead.result.code}): ${runtimeRead.result.message}`,
+			`Subagent terminal runtime failed (${runtimeRead.result.code}): ${runtimeRead.result.message}`,
 			new Error(runtimeRead.result.message),
 		);
 	}
@@ -325,11 +325,11 @@ async function resolveClosedChildResult<TTerminalInput>(
 			return protocolErrorResult(
 				title,
 				progress,
-				`Terminal tool was attempted, but the child runtime result sink was invalid: ${errorMessage(runtimeRead.error)}`,
+				`Terminal tool was attempted, but the subagent runtime result sink was invalid: ${errorMessage(runtimeRead.error)}`,
 				runtimeRead.error,
 			);
 		}
-		return errorResult(title, progress, `Failed to read child terminal runtime result: ${errorMessage(runtimeRead.error)}`, runtimeRead.error);
+		return errorResult(title, progress, `Failed to read subagent terminal runtime result: ${errorMessage(runtimeRead.error)}`, runtimeRead.error);
 	}
 
 	if (runtimeRead.result?.kind === "terminal-capture") {
@@ -341,7 +341,7 @@ async function resolveClosedChildResult<TTerminalInput>(
 	}
 
 	if (snapshot.stopReason === "error" || snapshot.stopReason === "aborted") {
-		const message = snapshot.errorMessage ?? `Child Pi stopped with stopReason ${snapshot.stopReason}.`;
+		const message = snapshot.errorMessage ?? `Subagent stopped with stopReason ${snapshot.stopReason}.`;
 		return errorResult(title, progress, message, new Error(message));
 	}
 
@@ -353,7 +353,7 @@ async function resolveClosedChildResult<TTerminalInput>(
 		return protocolErrorResult(
 			title,
 			progress,
-			"Terminal tool was attempted, but no valid terminal capture was written by the child runtime.",
+			"Terminal tool was attempted, but no valid terminal capture was written by the subagent runtime.",
 		);
 	}
 
@@ -369,7 +369,7 @@ async function resolveClosedChildResult<TTerminalInput>(
 
 async function readRuntimeResultOutcome(
 	resultPath: string,
-	readRuntimeResult: ReadChildSessionRuntimeResult,
+	readRuntimeResult: ReadRunnerSubagentRuntimeResult,
 ): Promise<{ result?: RuntimeResultV1; error?: unknown }> {
 	try {
 		const result = await readRuntimeResult(resultPath);
@@ -384,18 +384,18 @@ function validateTerminalCapture(
 	terminalToolStatuses: ReadonlyMap<string, "completed" | "blocked">,
 ): string | undefined {
 	const expectedStatus = terminalToolStatuses.get(capture.toolName);
-	if (!expectedStatus) return `Child runtime captured unknown terminal tool: ${capture.toolName}.`;
+	if (!expectedStatus) return `Subagent runtime captured unknown terminal tool: ${capture.toolName}.`;
 	if (expectedStatus !== capture.status) {
-		return `Child runtime captured terminal tool ${capture.toolName} with unexpected status ${capture.status}; expected ${expectedStatus}.`;
+		return `Subagent runtime captured terminal tool ${capture.toolName} with unexpected status ${capture.status}; expected ${expectedStatus}.`;
 	}
 	return undefined;
 }
 
 function terminalCaptureResult<TTerminalInput>(
 	title: string | undefined,
-	progress: ChildSessionProgress,
+	progress: RunnerSubagentProgress,
 	capture: Extract<RuntimeResultV1, { kind: "terminal-capture" }>,
-): ChildSessionCompletedResult<TTerminalInput> | ChildSessionBlockedResult<TTerminalInput> {
+): RunnerSubagentCompletedResult<TTerminalInput> | RunnerSubagentBlockedResult<TTerminalInput> {
 	const terminal = {
 		toolName: capture.toolName,
 		...(capture.toolCallId === undefined ? {} : { toolCallId: capture.toolCallId }),
@@ -422,7 +422,7 @@ function terminalCaptureResult<TTerminalInput>(
 	};
 }
 
-async function createSessionFile(cwd: string, title: string | undefined, dependencies: ChildSessionRunnerDependencies): Promise<string> {
+async function createSessionFile(cwd: string, title: string | undefined, dependencies: RunnerSubagentDispatcherDependencies): Promise<string> {
 	if (dependencies.createSessionFile) {
 		return await dependencies.createSessionFile({ cwd, ...(title === undefined ? {} : { title }) });
 	}
@@ -430,7 +430,7 @@ async function createSessionFile(cwd: string, title: string | undefined, depende
 }
 
 async function createDefaultSessionFile(): Promise<string> {
-	const root = join(tmpdir(), "pi-child-sessions");
+	const root = join(tmpdir(), "pi-runner-subagents");
 	await mkdir(root, { recursive: true, mode: 0o700 });
 	const dir = await mkdtemp(join(root, "session-"));
 	return join(dir, `${randomUUID()}.jsonl`);
@@ -442,10 +442,10 @@ function defaultSpawnChildProcess(command: string, args: string[], options: Spaw
 
 function finalTextResult(
 	title: string | undefined,
-	progress: ChildSessionProgress,
+	progress: RunnerSubagentProgress,
 	finalText: string,
 	stopReason: string | undefined,
-): ChildSessionFinalTextResult {
+): RunnerSubagentFinalTextResult {
 	return {
 		...(title === undefined ? {} : { title }),
 		status: "final-text",
@@ -459,9 +459,9 @@ function finalTextResult(
 
 function stoppedWithoutTerminalResult(
 	title: string | undefined,
-	progress: ChildSessionProgress,
+	progress: RunnerSubagentProgress,
 	stopReason: string | undefined,
-): ChildSessionStoppedWithoutTerminalResult {
+): RunnerSubagentStoppedWithoutTerminalResult {
 	return {
 		...(title === undefined ? {} : { title }),
 		status: "stopped-without-terminal",
@@ -475,9 +475,9 @@ function stoppedWithoutTerminalResult(
 
 function stoppedWithoutUsefulTextResult(
 	title: string | undefined,
-	progress: ChildSessionProgress,
+	progress: RunnerSubagentProgress,
 	stopReason: string | undefined,
-): ChildSessionStoppedWithoutUsefulTextResult {
+): RunnerSubagentStoppedWithoutUsefulTextResult {
 	return {
 		...(title === undefined ? {} : { title }),
 		status: "stopped-without-useful-text",
@@ -491,26 +491,26 @@ function stoppedWithoutUsefulTextResult(
 
 function cancelledResult(
 	title: string | undefined,
-	progress: ChildSessionProgress,
+	progress: RunnerSubagentProgress,
 	reason: string | undefined,
-): ChildSessionCancelledResult {
+): RunnerSubagentCancelledResult {
 	return {
 		...(title === undefined ? {} : { title }),
 		status: "cancelled",
 		elapsedMs: progress.elapsedMs,
 		progress,
 		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
-		diagnostic: "Child Pi cancelled by parent abort signal.",
+		diagnostic: "Subagent cancelled by parent abort signal.",
 		...(reason === undefined ? {} : { reason }),
 	};
 }
 
 function errorResult(
 	title: string | undefined,
-	progress: ChildSessionProgress,
+	progress: RunnerSubagentProgress,
 	diagnostic: string,
 	error: unknown = new Error(diagnostic),
-): ChildSessionErrorResult {
+): RunnerSubagentErrorResult {
 	return {
 		...(title === undefined ? {} : { title }),
 		status: "error",
@@ -524,10 +524,10 @@ function errorResult(
 
 function protocolErrorResult(
 	title: string | undefined,
-	progress: ChildSessionProgress,
+	progress: RunnerSubagentProgress,
 	message: string,
 	event?: unknown,
-): ChildSessionProtocolErrorResult {
+): RunnerSubagentProtocolErrorResult {
 	return {
 		...(title === undefined ? {} : { title }),
 		status: "protocol-error",
@@ -542,12 +542,12 @@ function protocolErrorResult(
 	};
 }
 
-async function cleanupRuntimeFiles(runtimeFiles: ChildSessionRuntimeFiles | undefined): Promise<void> {
+async function cleanupRuntimeFiles(runtimeFiles: RunnerSubagentRuntimeFiles | undefined): Promise<void> {
 	if (runtimeFiles === undefined) return;
 	try {
 		await runtimeFiles.cleanup?.();
 	} catch {
-		// Best-effort cleanup must never change the child-session result.
+		// Best-effort cleanup must never change the subagent result.
 	}
 }
 
@@ -556,7 +556,7 @@ function stoppedProgress(input: {
 	now: () => number;
 	startTimeMs: number;
 	sessionFile?: string;
-}): ChildSessionProgress {
+}): RunnerSubagentProgress {
 	const elapsedMs = Math.max(0, input.now() - input.startTimeMs);
 	return {
 		...(input.title === undefined ? {} : { title: input.title }),
@@ -568,7 +568,7 @@ function stoppedProgress(input: {
 	};
 }
 
-function errorPayload(error: unknown, fallbackMessage: string): ChildSessionErrorResult["error"] {
+function errorPayload(error: unknown, fallbackMessage: string): RunnerSubagentErrorResult["error"] {
 	if (!(error instanceof Error)) return { message: fallbackMessage };
 	return {
 		message: error.message || fallbackMessage,
@@ -581,7 +581,7 @@ function nonzeroExitDiagnostic(code: number | null, signal: NodeJS.Signals | nul
 	const exitText = code === null ? "without an exit code" : `with exit code ${code}`;
 	const signalText = signal ? ` after signal ${signal}` : "";
 	const stderrText = stderr.trim().length > 0 ? `\n\nstderr:\n${stderr}` : "";
-	return `Child Pi exited ${exitText}${signalText}.${stderrText}`;
+	return `Subagent Pi exited ${exitText}${signalText}.${stderrText}`;
 }
 
 function uniqueAbortSignals(...signals: Array<AbortSignal | undefined>): AbortSignal[] {
