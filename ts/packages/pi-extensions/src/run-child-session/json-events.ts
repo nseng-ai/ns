@@ -5,6 +5,7 @@ export type ChildSessionJsonEventParserOptions = {
 	sessionFile?: string;
 	now?: () => number;
 	startTimeMs?: number;
+	terminalToolNames?: Iterable<string>;
 };
 
 export type ChildSessionJsonSessionHeader = {
@@ -16,12 +17,27 @@ export type ChildSessionJsonSessionHeader = {
 	[key: string]: unknown;
 };
 
+export type ChildSessionJsonProtocolError = {
+	message: string;
+	event?: unknown;
+};
+
+export type ChildSessionJsonTerminalExecutionError = {
+	message: string;
+	toolName: string;
+	toolCallId?: string;
+	event?: unknown;
+};
+
 export type ChildSessionJsonEventParserSnapshot = {
 	progress: ChildSessionProgress;
+	terminalAttempted: boolean;
 	sessionHeader?: ChildSessionJsonSessionHeader;
 	stopReason?: string;
 	errorMessage?: string;
 	error?: ChildSessionJsonEventParserError;
+	protocolError?: ChildSessionJsonProtocolError;
+	terminalExecutionError?: ChildSessionJsonTerminalExecutionError;
 };
 
 export class ChildSessionJsonEventParserError extends Error {
@@ -44,6 +60,7 @@ export class ChildSessionJsonEventParser {
 	private readonly title: string | undefined;
 	private readonly now: () => number;
 	private readonly startTimeMs: number;
+	private readonly terminalToolNames: Set<string>;
 	private buffer = "";
 	private state: ParserState = "starting";
 	private currentTool: string | undefined;
@@ -55,11 +72,16 @@ export class ChildSessionJsonEventParser {
 	private stopReason: string | undefined;
 	private errorMessage: string | undefined;
 	private parseError: ChildSessionJsonEventParserError | undefined;
+	private terminalAttempted = false;
+	private protocolError: ChildSessionJsonProtocolError | undefined;
+	private terminalExecutionError: ChildSessionJsonTerminalExecutionError | undefined;
+	private currentTurnToolStarts: Array<{ toolName: string; toolCallId?: string }> = [];
 
 	constructor(options: ChildSessionJsonEventParserOptions = {}) {
 		this.title = options.title;
 		this.now = options.now ?? Date.now;
 		this.startTimeMs = options.startTimeMs ?? this.now();
+		this.terminalToolNames = new Set(options.terminalToolNames ?? []);
 		this.sessionFile = options.sessionFile;
 	}
 
@@ -91,11 +113,14 @@ export class ChildSessionJsonEventParser {
 	getSnapshot(): ChildSessionJsonEventParserSnapshot {
 		const snapshot: ChildSessionJsonEventParserSnapshot = {
 			progress: this.getProgress(),
+			terminalAttempted: this.terminalAttempted,
 		};
 		if (this.sessionHeader) snapshot.sessionHeader = this.sessionHeader;
 		if (this.stopReason) snapshot.stopReason = this.stopReason;
 		if (this.errorMessage) snapshot.errorMessage = this.errorMessage;
 		if (this.parseError) snapshot.error = this.parseError;
+		if (this.protocolError) snapshot.protocolError = this.protocolError;
+		if (this.terminalExecutionError) snapshot.terminalExecutionError = this.terminalExecutionError;
 		return snapshot;
 	}
 
@@ -146,6 +171,7 @@ export class ChildSessionJsonEventParser {
 			case "turn_start":
 				this.state = "running";
 				this.turnCount += 1;
+				this.currentTurnToolStarts = [];
 				return;
 			case "turn_end":
 				this.state = "running";
@@ -160,6 +186,7 @@ export class ChildSessionJsonEventParser {
 			case "tool_execution_start":
 				this.state = "running";
 				this.captureCurrentTool(event);
+				this.recordToolStart(event);
 				return;
 			case "tool_execution_update":
 				this.state = "running";
@@ -168,6 +195,7 @@ export class ChildSessionJsonEventParser {
 			case "tool_execution_end":
 				this.state = "running";
 				this.executedToolCount += 1;
+				this.recordToolEnd(event);
 				this.clearCurrentTool(event);
 				return;
 			default:
@@ -197,6 +225,57 @@ export class ChildSessionJsonEventParser {
 		if (!eventToolCallId || eventToolCallId === this.currentToolCallId) {
 			this.currentTool = undefined;
 			this.currentToolCallId = undefined;
+		}
+	}
+
+	private recordToolStart(event: JsonRecord): void {
+		if (typeof event.toolName !== "string") return;
+		const toolCallId = typeof event.toolCallId === "string" ? event.toolCallId : undefined;
+		const start = {
+			toolName: event.toolName,
+			...(toolCallId === undefined ? {} : { toolCallId }),
+		};
+		this.currentTurnToolStarts.push(start);
+		if (!this.terminalToolNames.has(event.toolName)) {
+			this.detectMixedTerminalBatch(event);
+			return;
+		}
+
+		this.terminalAttempted = true;
+		this.detectMixedTerminalBatch(event);
+	}
+
+	private recordToolEnd(event: JsonRecord): void {
+		if (typeof event.toolName !== "string" || !this.terminalToolNames.has(event.toolName)) return;
+		if (event.isError !== true || this.terminalExecutionError) return;
+		const toolCallId = typeof event.toolCallId === "string" ? event.toolCallId : undefined;
+		this.terminalExecutionError = {
+			message: `Terminal tool ${event.toolName} failed during execution before producing a valid capture.`,
+			toolName: event.toolName,
+			...(toolCallId === undefined ? {} : { toolCallId }),
+			event,
+		};
+	}
+
+	private detectMixedTerminalBatch(event: JsonRecord): void {
+		// Pi exposes sibling tool calls to the parent as execution starts. We can detect
+		// and fail a mixed terminal batch deterministically, but an earlier sibling may
+		// already have run before the terminal protocol violation is observable.
+		if (this.protocolError || this.terminalToolNames.size === 0) return;
+		const terminalStarts = this.currentTurnToolStarts.filter((start) => this.terminalToolNames.has(start.toolName));
+		if (terminalStarts.length === 0) return;
+		if (terminalStarts.length > 1) {
+			this.protocolError = {
+				message: "Multiple terminal tools were called in the same assistant turn.",
+				event,
+			};
+			return;
+		}
+		if (this.currentTurnToolStarts.length > terminalStarts.length) {
+			this.protocolError = {
+				message: "Terminal tool was mixed with sibling tool calls in the same assistant turn.",
+				event,
+			};
 		}
 	}
 

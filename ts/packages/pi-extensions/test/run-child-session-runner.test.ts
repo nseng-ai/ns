@@ -1,16 +1,35 @@
 import { describe, expect, test } from "bun:test";
 
 import { resolvePiInvocation, runChildSessionProcess } from "../src/run-child-session/child-process.ts";
-import type { ChildSessionContext, ChildSessionOptions, ChildSessionPi } from "../src/run-child-session.ts";
+import type {
+	ChildSessionContext,
+	ChildSessionOptions,
+	ChildSessionPi,
+	ChildSessionTerminalToolDefinition,
+} from "../src/run-child-session.ts";
 import { createFakeChildRunner, waitForSpawn } from "./run-child-session-fakes.ts";
 
 const ctx: ChildSessionContext = { cwd: "/repo" };
 const pi: ChildSessionPi = {};
 
+const completionTool: ChildSessionTerminalToolDefinition = {
+	name: "complete_child_session",
+	status: "completed",
+	description: "Finish the child session.",
+	parameters: { type: "object", properties: {}, additionalProperties: false },
+};
+
+const blockedTool: ChildSessionTerminalToolDefinition = {
+	name: "block_child_session",
+	status: "blocked",
+	description: "Block the child session.",
+	parameters: { type: "object", properties: { reason: { type: "string" } }, required: ["reason"] },
+};
+
 function options(overrides: Partial<ChildSessionOptions> = {}): ChildSessionOptions {
 	return {
 		prompt: "Do the delegated task.",
-		terminalTools: [],
+		terminalTools: [completionTool],
 		...overrides,
 	};
 }
@@ -45,7 +64,17 @@ describe("child session process runner", () => {
 		const call = await waitForSpawn(runner.calls);
 
 		expect(call.command).toBe("pi");
-		expect(call.args).toEqual(["--mode", "json", "-p", "--session", "/tmp/child-session.jsonl", "Do the delegated task."]);
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--extension",
+			"/tmp/pi-child-runtime/runtime-extension.ts",
+			"--session",
+			"/tmp/child-session.jsonl",
+			"Do the delegated task.",
+		]);
 		expect(call.options).toEqual({ cwd: "/repo/packages/example", shell: false, stdio: ["ignore", "pipe", "pipe"] });
 
 		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo/packages/example" }));
@@ -87,9 +116,172 @@ describe("child session process runner", () => {
 				sessionFile: "/tmp/child-session.jsonl",
 			},
 			sessionFile: "/tmp/child-session.jsonl",
-			diagnostic: "Child Pi stopped without terminal capture. Terminal capture outcomes are not implemented in this slice.",
+			diagnostic: "Child Pi stopped without terminal capture.",
 			stopReason: "end",
 		});
+	});
+
+	test("maps child stopReason error to error when no terminal capture exists", async () => {
+		const runner = createFakeChildRunner();
+		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [], stopReason: "error", errorMessage: "model failed" } }));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toBe("model failed");
+	});
+
+	test("maps a completed terminal capture sink to a completed result", async () => {
+		const runner = createFakeChildRunner({
+			runtimeResult: {
+				version: 1,
+				kind: "terminal-capture",
+				toolName: "complete_child_session",
+				toolCallId: "tool-1",
+				status: "completed",
+				input: { summary: "done" },
+			},
+		});
+		const running = runChildSessionProcess<{ summary: string }>(pi, ctx, options(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_child_session", result: {}, isError: false }),
+		);
+		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [], stopReason: "aborted" } }));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") return;
+		expect(result.terminal).toEqual({
+			toolName: "complete_child_session",
+			toolCallId: "tool-1",
+			status: "completed",
+			input: { summary: "done" },
+		});
+		expect(result.sessionFile).toBe("/tmp/pi-child-session.jsonl");
+	});
+
+	test("maps a blocked terminal capture sink to a blocked result", async () => {
+		const runner = createFakeChildRunner({
+			runtimeResult: {
+				version: 1,
+				kind: "terminal-capture",
+				toolName: "block_child_session",
+				status: "blocked",
+				input: { reason: "need input" },
+			},
+		});
+		const running = runChildSessionProcess<{ reason: string }>(
+			pi,
+			ctx,
+			options({ terminalTools: [completionTool, blockedTool] }),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("blocked");
+		if (result.status !== "blocked") return;
+		expect(result.terminal).toEqual({
+			toolName: "block_child_session",
+			status: "blocked",
+			input: { reason: "need input" },
+		});
+	});
+
+	test("maps child runtime startup failures to deterministic errors", async () => {
+		const runner = createFakeChildRunner({
+			runtimeResult: {
+				version: 1,
+				kind: "runtime-error",
+				code: "tool-collision",
+				message: "Child terminal tool name collision: complete_child_session.",
+			},
+		});
+		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toContain("tool-collision");
+		expect(result.diagnostic).toContain("complete_child_session");
+	});
+
+	test("returns protocol-error when terminal validation fails before the runtime writes a capture", async () => {
+		const runner = createFakeChildRunner();
+		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_child_session", result: {}, isError: true }),
+		);
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("protocol-error");
+		if (result.status !== "protocol-error") return;
+		expect(result.protocolError.message).toContain("Terminal tool complete_child_session failed");
+	});
+
+	test("returns protocol-error when terminal tools are mixed with sibling tool calls", async () => {
+		const runner = createFakeChildRunner({
+			runtimeResult: {
+				version: 1,
+				kind: "terminal-capture",
+				toolName: "complete_child_session",
+				status: "completed",
+				input: { summary: "done" },
+			},
+		});
+		const running = runChildSessionProcess(pi, ctx, options(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_child_session", args: {} }),
+		);
+		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "bash", args: {} }));
+		call.process.close(0);
+		const result = await running;
+
+		expect(call.process.killSignals).toContain("SIGTERM");
+		expect(result.status).toBe("protocol-error");
+		if (result.status !== "protocol-error") return;
+		expect(result.protocolError.message).toContain("mixed with sibling tool calls");
+	});
+
+	test("returns an error before spawn for invalid terminal runtime config", async () => {
+		const runner = createFakeChildRunner();
+		const result = await runChildSessionProcess(
+			pi,
+			ctx,
+			options({ terminalTools: [{ ...completionTool, name: "" }] }),
+			runner.dependencies,
+		);
+
+		expect(runner.calls).toEqual([]);
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toContain("non-empty name");
 	});
 
 	test("maps spawn failure to error", async () => {

@@ -93,45 +93,51 @@ Validation:
 
 ### PR 3 — Injected child terminal-capture runtime
 
-Branch: `pi-core-subagent-mvp/terminal-capture-runtime`
-Parent: PR 2.
+Branch: `update-child-session-runtime-result-resolution`
+Parent: `add-jsonl-child-session-runner`.
 Tracking: child runtime extension and protocol semantics.
 Handoff: `handoffs/pi-core-subagent-mvp-pr3-terminal-capture-runtime.md`
+Evidence: local branch diff against Graphite parent `add-jsonl-child-session-runner`; PR #556 corroborates the same file set. Verification: targeted Bun contract/runtime/parser/runner/terminal-tool tests and the `@asdl/pi-extensions` TypeScript check passed.
 
 Code:
 
-- [ ] Implement the injected child runtime extension used only inside child sessions.
-- [ ] Pass terminal tool definitions and result sink information to the child runtime through a temp config file, generated runtime extension, or explicitly documented equivalent.
-- [ ] Register child-local terminal capture tools with name, status, description, and TypeBox parameter schema.
-- [ ] Validate terminal tool inputs in the child runtime before accepting a capture.
-- [ ] Capture validated params as the canonical terminal payload.
-- [ ] Map terminal tool statuses to parent result statuses such as `completed` and `blocked`.
-- [ ] Return terminal metadata including name, tool call id, mapped status, and validated input.
-- [ ] Avoid a public terminal `details` or result-content contract.
-- [ ] Fail early when a terminal tool name collides with a built-in, extension, or SDK tool visible to the child runtime, to the extent public Pi APIs expose this.
-- [ ] Request child termination immediately after a valid terminal capture.
-- [ ] Detect terminal tool calls mixed with sibling tool calls and report `protocol-error`.
-- [ ] Test and document whether sibling side effects can be prevented before detection through public extension APIs; if not, record the limitation and mitigation.
-- [ ] Preserve deterministic handling for stopped-without-terminal, provider/model errors, malformed terminal payloads, collision failures, protocol errors, and cancellation.
+- [x] Implement the injected child runtime extension used only inside child sessions.
+- [x] Pass terminal tool definitions and result sink information to the child runtime through a private temp config file, generated runtime extension shim, and result file.
+- [x] Register child-local terminal capture tools with name, status, description, and TypeBox-like parameter schema.
+- [x] Validate terminal tool definitions and JSON-serializable schemas before spawn; terminal input validation flows through the registered Pi custom-tool parameter schema before capture.
+- [x] Capture validated params as the canonical terminal payload.
+- [x] Map terminal tool statuses to parent result statuses such as `completed` and `blocked`.
+- [x] Return terminal metadata including name, tool call id, mapped status, and validated input.
+- [x] Avoid a public terminal `details` or result-content contract.
+- [x] Fail early when a terminal tool name collides with a built-in, extension, or SDK tool visible to the child runtime through `pi.getAllTools()` at child startup.
+- [x] Request child termination immediately after a valid terminal capture.
+- [x] Detect terminal tool calls mixed with sibling tool calls and report `protocol-error`.
+- [x] Test and document that mixed terminal-plus-sibling batches are detect-and-report under public extension events; an earlier sibling side effect may already have happened before the violation is observable.
+- [x] Preserve deterministic handling for stopped-without-terminal, provider/model errors, malformed terminal payloads, collision failures, protocol errors, and cancellation.
 
 Objective update:
 
-- [ ] Record a Semantic Update for terminal capture semantics and the final result taxonomy.
-- [ ] Resolve or narrow the open question about mixed terminal-plus-sibling enforcement.
-- [ ] Mark terminal capture roadmap items complete when tests cover the behavior and limitations.
+- [x] Record a Semantic Update for terminal capture semantics and the final result taxonomy.
+- [x] Resolve or narrow the open question about mixed terminal-plus-sibling enforcement.
+- [x] Mark terminal capture roadmap items complete when tests cover the behavior and limitations.
 
-Likely files:
+Files:
 
 - `ts/packages/pi-extensions/src/run-child-session.ts`
+- `ts/packages/pi-extensions/src/run-child-session/child-process.ts`
 - `ts/packages/pi-extensions/src/run-child-session/child-runtime.ts`
-- `ts/packages/pi-extensions/src/run-child-session/terminal-tools.ts`
+- `ts/packages/pi-extensions/src/run-child-session/child-runtime-extension.ts`
+- `ts/packages/pi-extensions/src/run-child-session/json-events.ts`
+- `ts/packages/pi-extensions/test/run-child-session-fakes.ts`
+- `ts/packages/pi-extensions/test/run-child-session.test.ts`
+- `ts/packages/pi-extensions/test/run-child-session-json-events.test.ts`
+- `ts/packages/pi-extensions/test/run-child-session-runner.test.ts`
 - `ts/packages/pi-extensions/test/run-child-session-terminal-tools.test.ts`
-- `ts/packages/pi-extensions/test/run-child-session-protocol.test.ts`
 
 Validation:
 
-- [ ] Run targeted terminal-capture and protocol tests.
-- [ ] Run the TypeScript package check after code changes, or record the workspace setup blocker if unrelated.
+- [x] Run targeted terminal-capture and protocol tests.
+- [x] Run the TypeScript package check after code changes, or record the workspace setup blocker if unrelated.
 
 ### PR 4 — Parent integration, docs, and first consumer proof
 
