@@ -194,6 +194,33 @@ def test_list_local_branch_tips_returns_branch_names_and_timestamps(tmp_path: Pa
     assert all("T" in tip.head_iso for tip in result if tip.head_iso is not None)
 
 
+def test_list_branches_merged_into_returns_local_ancestor_branches(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "initial")
+    _git(repo, "branch", "-M", "main")
+    _git(repo, "branch", "feat/base")
+    _git(repo, "checkout", "-b", "feat/child")
+    (repo / "child.txt").write_text("child\n", encoding="utf-8")
+    _git(repo, "add", "child.txt")
+    _git(repo, "commit", "-m", "child")
+    _git(repo, "branch", "feat/sibling", "main")
+
+    result = RealGitGateway(repo_root=repo).list_branches_merged_into("feat/child")
+
+    assert result == ("feat/base", "feat/child", "feat/sibling", "main")
+
+
+def test_list_branches_merged_into_returns_failure_for_unknown_branch(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+
+    result = RealGitGateway(repo_root=repo).list_branches_merged_into("missing")
+
+    assert isinstance(result, GitCommandFailure)
+    assert result.returncode != 0
+
+
 def test_parse_path_touch_output_returns_touch() -> None:
     assert parse_path_touch_output("abc123\x002026-05-20T10:44:08-04:00\n") == PathTouch(
         oid="abc123",

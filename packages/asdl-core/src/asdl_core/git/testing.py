@@ -311,6 +311,13 @@ class FakeGitGateway(GitGateway):
     def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
         return (maybe_ancestor, descendant) in self._ancestors
 
+    def list_branches_merged_into(self, branch: str) -> tuple[str, ...] | GitCommandFailure:
+        branches = {branch}
+        branches.update(
+            maybe_ancestor for maybe_ancestor, descendant in self._ancestors if descendant == branch
+        )
+        return tuple(sorted(branches))
+
     def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
         if range_spec not in self._commit_count_by_range:
             return 0

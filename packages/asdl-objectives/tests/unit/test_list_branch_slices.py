@@ -124,29 +124,41 @@ def test_branch_slice_candidates_not_ahead_of_base_are_ignored() -> None:
     assert _slice_for(slices, "feat/child").parent_branch == "master"
 
 
-def test_branch_slice_candidate_count_failures_skip_only_that_candidate() -> None:
-    failure = GitCommandFailure(message="bad range", returncode=128)
-    git = FakeGitGateway(
+def test_branch_slice_parent_discovery_uses_one_base_count_per_branch() -> None:
+    git = _CountingGitGateway(
         ancestors={
-            ("feat/bad", "feat/child"),
-            ("feat/good", "feat/child"),
+            ("feat/a", "feat/b"),
+            ("feat/a", "feat/c"),
+            ("feat/b", "feat/c"),
         },
         commit_count_by_range={
-            "master..feat/bad": 5,
-            "master..feat/good": 4,
-            "master..feat/child": 6,
-            "feat/bad..feat/child": failure,
-            "feat/good..feat/child": 2,
+            "master..feat/a": 2,
+            "master..feat/b": 4,
+            "master..feat/c": 5,
+            "feat/a..feat/b": 999,
+            "feat/a..feat/c": 999,
+            "feat/b..feat/c": 999,
         },
     )
 
     slices = build_objective_branch_slices(
         git,
-        local_branches=("master", "feat/bad", "feat/good", "feat/child"),
+        local_branches=("master", "feat/a", "feat/b", "feat/c"),
         base_branch="master",
     )
 
-    assert _slice_for(slices, "feat/child").parent_branch == "feat/good"
+    assert _slice_for(slices, "feat/c") == ObjectiveBranchSlice(
+        branch="feat/c",
+        parent_branch="feat/b",
+        range_spec="feat/b..feat/c",
+        slice_commits=1,
+    )
+    assert git.counted_ranges == (
+        "master..feat/a",
+        "master..feat/b",
+        "master..feat/c",
+    )
+    assert git.ancestor_checks == ()
 
 
 def test_branch_slice_tie_breaks_by_branch_name() -> None:
@@ -189,6 +201,34 @@ def test_branch_slice_final_slice_count_failure_raises_clinkr_failure() -> None:
 
     assert exc_info.value.error_type == "git_slice_count_failed"
     assert exc_info.value.message == "rev-list failed"
+
+
+class _CountingGitGateway(FakeGitGateway):
+    def __init__(
+        self,
+        *,
+        ancestors: set[tuple[str, str]],
+        commit_count_by_range: dict[str, int | GitCommandFailure],
+    ) -> None:
+        super().__init__(ancestors=ancestors, commit_count_by_range=commit_count_by_range)
+        self._counted_ranges: list[str] = []
+        self._ancestor_checks: list[tuple[str, str]] = []
+
+    def count_commits_in_range(self, range_spec: str) -> int | GitCommandFailure:
+        self._counted_ranges.append(range_spec)
+        return super().count_commits_in_range(range_spec)
+
+    def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
+        self._ancestor_checks.append((maybe_ancestor, descendant))
+        return super().is_ancestor(maybe_ancestor, descendant)
+
+    @property
+    def counted_ranges(self) -> tuple[str, ...]:
+        return tuple(self._counted_ranges)
+
+    @property
+    def ancestor_checks(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self._ancestor_checks)
 
 
 def _slice_for(
