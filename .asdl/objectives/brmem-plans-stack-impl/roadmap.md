@@ -3,7 +3,7 @@
 ## Work
 
 - [x] Confirm compatibility decisions before broad edits: canonical Branch Memory location is namespace `brmem-plans` with key `<slug>.md`; no backwards compatibility, no legacy entry reads/writes, no old command/tool aliases, and no old prompt-plugin fallback.
-- [ ] Create `brmem-plans/extract-shared-plan-primitives`: extract reusable slug, temp-file, `brmem` command, JSON parsing, and success/error formatting helpers from `create-brmem-plan.ts` without behavior changes; keep existing tests green.
+- [x] Create `brmem-plans/extract-shared-plan-primitives`: extract reusable slug, temp-file, `brmem` command, JSON parsing, and success/error formatting helpers from `create-brmem-plan.ts` without behavior changes; keep existing tests green.
 - [ ] Create `brmem-plans/add-plan-branch-from-file-core`: implement the shared branch-from-plan-file operation with branch preflight, Branch Memory preflight against namespace `brmem-plans`, branch creation/registration, plan stash to key `<slug>.md`, structured result evidence, and partial-failure reporting.
 - [ ] Add fake-driven tests for the shared branch-from-plan-file operation, covering success, invalid inputs, existing branch, existing Branch Memory entry, branch creation failure, `brmem put` failure, and returned evidence.
 - [ ] Create `brmem-plans/wire-create-plan-branch-command`: add the `create-brmem-plan-branch` Pi extension shim and TypeScript command/tool wiring that writes a temp plan, inspects it, and calls the shared branch-from-plan-file operation.
