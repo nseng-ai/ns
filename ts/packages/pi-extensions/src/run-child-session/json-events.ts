@@ -35,6 +35,7 @@ export type ChildSessionJsonEventParserSnapshot = {
 	sessionHeader?: ChildSessionJsonSessionHeader;
 	stopReason?: string;
 	errorMessage?: string;
+	finalAssistantText?: string;
 	error?: ChildSessionJsonEventParserError;
 	protocolError?: ChildSessionJsonProtocolError;
 	terminalExecutionError?: ChildSessionJsonTerminalExecutionError;
@@ -71,6 +72,7 @@ export class ChildSessionJsonEventParser {
 	private sessionHeader: ChildSessionJsonSessionHeader | undefined;
 	private stopReason: string | undefined;
 	private errorMessage: string | undefined;
+	private finalAssistantText: string | undefined;
 	private parseError: ChildSessionJsonEventParserError | undefined;
 	private terminalAttempted = false;
 	private protocolError: ChildSessionJsonProtocolError | undefined;
@@ -118,6 +120,7 @@ export class ChildSessionJsonEventParser {
 		if (this.sessionHeader) snapshot.sessionHeader = this.sessionHeader;
 		if (this.stopReason) snapshot.stopReason = this.stopReason;
 		if (this.errorMessage) snapshot.errorMessage = this.errorMessage;
+		if (this.finalAssistantText !== undefined) snapshot.finalAssistantText = this.finalAssistantText;
 		if (this.parseError) snapshot.error = this.parseError;
 		if (this.protocolError) snapshot.protocolError = this.protocolError;
 		if (this.terminalExecutionError) snapshot.terminalExecutionError = this.terminalExecutionError;
@@ -166,6 +169,7 @@ export class ChildSessionJsonEventParser {
 				return;
 			case "agent_end":
 				this.captureStopReasonFromMessages(event.messages);
+				this.captureFinalAssistantTextFromMessages(event.messages);
 				this.markStopped();
 				return;
 			case "turn_start":
@@ -176,12 +180,17 @@ export class ChildSessionJsonEventParser {
 			case "turn_end":
 				this.state = "running";
 				this.captureStopReasonFromMessage(event.message);
+				this.captureFinalAssistantTextFromMessage(event.message);
 				return;
 			case "message_start":
 			case "message_update":
+				this.state = "running";
+				this.captureStopReasonFromMessage(event.message);
+				return;
 			case "message_end":
 				this.state = "running";
 				this.captureStopReasonFromMessage(event.message);
+				this.captureFinalAssistantTextFromMessage(event.message);
 				return;
 			case "tool_execution_start":
 				this.state = "running";
@@ -286,6 +295,18 @@ export class ChildSessionJsonEventParser {
 		}
 	}
 
+	private captureFinalAssistantTextFromMessages(messages: unknown): void {
+		if (!Array.isArray(messages)) return;
+		for (const message of messages) {
+			this.captureFinalAssistantTextFromMessage(message);
+		}
+	}
+
+	private captureFinalAssistantTextFromMessage(message: unknown): void {
+		const text = captureAssistantTextFromMessage(message);
+		if (text !== undefined) this.finalAssistantText = text;
+	}
+
 	private captureStopReasonFromMessage(message: unknown): void {
 		if (!isRecord(message) || message.role !== "assistant") return;
 		if (typeof message.stopReason === "string" && message.stopReason.length > 0) {
@@ -310,6 +331,22 @@ export function createChildSessionJsonEventParser(
 	options: ChildSessionJsonEventParserOptions = {},
 ): ChildSessionJsonEventParser {
 	return new ChildSessionJsonEventParser(options);
+}
+
+export function captureAssistantTextFromMessage(message: unknown): string | undefined {
+	if (!isRecord(message) || message.role !== "assistant") return undefined;
+	return assistantTextFromContent(message.content);
+}
+
+export function assistantTextFromContent(content: unknown): string | undefined {
+	if (!Array.isArray(content)) return undefined;
+	const textBlocks: string[] = [];
+	for (const block of content) {
+		if (!isRecord(block) || block.type !== "text" || typeof block.text !== "string") continue;
+		textBlocks.push(block.text);
+	}
+	const text = textBlocks.join("\n\n").trim();
+	return text.length > 0 ? text : undefined;
 }
 
 function chunkToString(chunk: string | Uint8Array): string {

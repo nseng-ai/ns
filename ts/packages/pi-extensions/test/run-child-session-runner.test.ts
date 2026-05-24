@@ -34,6 +34,21 @@ function options(overrides: Partial<ChildSessionOptions> = {}): ChildSessionOpti
 	};
 }
 
+function finalTextOptions(
+	overrides: {
+		title?: string;
+		cwd?: string;
+		signal?: AbortSignal;
+		terminalTools?: readonly ChildSessionTerminalToolDefinition[];
+	} = {},
+): ChildSessionOptions {
+	return {
+		prompt: "Do the delegated task.",
+		returnMode: "final-text",
+		...overrides,
+	};
+}
+
 function jsonLine(value: unknown): string {
 	return `${JSON.stringify(value)}\n`;
 }
@@ -119,6 +134,173 @@ describe("child session process runner", () => {
 			diagnostic: "Child Pi stopped without terminal capture.",
 			stopReason: "end",
 		});
+	});
+
+	test("returns final assistant text for clean child completion in final-text mode", async () => {
+		let now = 1_000;
+		const runner = createFakeChildRunner({ sessionFile: "/tmp/child-session.jsonl", now: () => now });
+		const running = runChildSessionProcess(pi, ctx, finalTextOptions({ title: "Child task" }), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--session",
+			"/tmp/child-session.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo" }));
+		call.process.emitStdout(jsonLine({ type: "agent_start" }));
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Done.\nEvidence: tests passed." }],
+					stopReason: "stop",
+				},
+			}),
+		);
+		now = 1_345;
+		call.process.close(0);
+		const result = await running;
+
+		expect(result).toEqual({
+			status: "final-text",
+			title: "Child task",
+			elapsedMs: 345,
+			progress: {
+				title: "Child task",
+				state: "stopped",
+				toolCount: 0,
+				turnCount: 1,
+				elapsedMs: 345,
+				sessionFile: "/tmp/child-session.jsonl",
+			},
+			sessionFile: "/tmp/child-session.jsonl",
+			finalText: "Done.\nEvidence: tests passed.",
+			stopReason: "stop",
+		});
+	});
+
+	test("returns stopped-without-useful-text in final-text mode when clean child has no useful assistant text", async () => {
+		const runner = createFakeChildRunner();
+		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(
+			jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "   " }], stopReason: "stop" } }),
+		);
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("stopped-without-useful-text");
+		if (result.status !== "stopped-without-useful-text") return;
+		expect(result.diagnostic).toBe("Child Pi stopped without useful final assistant text.");
+		expect(result.stopReason).toBe("stop");
+	});
+
+	test("maps child stopReason error to error in final-text mode", async () => {
+		const runner = createFakeChildRunner();
+		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "I tried but failed." }],
+					stopReason: "error",
+					errorMessage: "model failed",
+				},
+			}),
+		);
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toBe("model failed");
+	});
+
+	test("maps malformed JSONL output to error and kills child in final-text mode", async () => {
+		const runner = createFakeChildRunner();
+		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout("{bad json}\n");
+		call.process.close(0);
+		const result = await running;
+
+		expect(call.process.killSignals).toContain("SIGTERM");
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toContain("Malformed child Pi JSONL output");
+	});
+
+	test("maps nonzero exit and bounded stderr to error in final-text mode", async () => {
+		const runner = createFakeChildRunner();
+		const running = runChildSessionProcess(pi, ctx, finalTextOptions(), { ...runner.dependencies, stderrLimitBytes: 30 });
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStderr("first diagnostic line\nsecond diagnostic line\n");
+		call.process.close(2);
+		const result = await running;
+
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toContain("Child Pi exited with exit code 2.");
+		expect(result.diagnostic).toContain("second diagnostic line");
+		expect(result.diagnostic).not.toContain("first diagnostic line");
+	});
+
+	test("kills the child and returns cancelled on parent abort in final-text mode", async () => {
+		const controller = new AbortController();
+		const runner = createFakeChildRunner();
+		const running = runChildSessionProcess(pi, ctx, finalTextOptions({ signal: controller.signal }), runner.dependencies);
+		const call = await waitForSpawn(runner.calls);
+
+		controller.abort("user cancelled");
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+		call.process.close(null, "SIGTERM");
+		const result = await running;
+
+		expect(result.status).toBe("cancelled");
+		if (result.status !== "cancelled") return;
+		expect(result.reason).toBe("user cancelled");
+		expect(result.sessionFile).toBe("/tmp/pi-child-session.jsonl");
+	});
+
+	test("preserves valid terminal captures when terminal tools are supplied in final-text mode", async () => {
+		const runner = createFakeChildRunner({
+			runtimeResult: {
+				version: 1,
+				kind: "terminal-capture",
+				toolName: "complete_child_session",
+				status: "completed",
+				input: { summary: "done" },
+			},
+		});
+		const running = runChildSessionProcess<{ summary: string }>(
+			pi,
+			ctx,
+			finalTextOptions({ terminalTools: [completionTool] }),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toContain("--extension");
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") return;
+		expect(result.terminal.input).toEqual({ summary: "done" });
 	});
 
 	test("maps child stopReason error to error when no terminal capture exists", async () => {

@@ -3,9 +3,16 @@ import { runChildSessionProcess, type ChildSessionRunnerDependencies } from "./r
 export type JsonObject = Record<string, unknown>;
 export type TypeBoxLikeSchema = object;
 
+export type ChildSessionReturnMode = "terminal" | "final-text";
 export type ChildSessionTerminalStatus = "completed" | "blocked";
-export type ChildSessionFailureStatus = "stopped-without-terminal" | "cancelled" | "error" | "protocol-error";
-export type ChildSessionStatus = ChildSessionTerminalStatus | ChildSessionFailureStatus;
+export type ChildSessionFinalTextStatus = "final-text";
+export type ChildSessionFailureStatus =
+	| "stopped-without-terminal"
+	| "stopped-without-useful-text"
+	| "cancelled"
+	| "error"
+	| "protocol-error";
+export type ChildSessionStatus = ChildSessionTerminalStatus | ChildSessionFinalTextStatus | ChildSessionFailureStatus;
 
 export type ChildSessionTerminalToolDefinition<TInput = unknown> = {
 	name: string;
@@ -18,9 +25,17 @@ export type ChildSessionOptions = {
 	title?: string;
 	prompt: string;
 	cwd?: string;
-	terminalTools: readonly ChildSessionTerminalToolDefinition[];
 	signal?: AbortSignal;
-};
+} & (
+	| {
+			returnMode?: "terminal";
+			terminalTools: readonly ChildSessionTerminalToolDefinition[];
+	  }
+	| {
+			returnMode: "final-text";
+			terminalTools?: readonly ChildSessionTerminalToolDefinition[];
+	  }
+);
 
 export type ChildSessionProgress = {
 	title?: string;
@@ -58,11 +73,20 @@ export type ChildSessionBlockedResult<TInput = unknown> = ChildSessionResultBase
 	terminal: ChildSessionTerminalCapture<TInput, "blocked">;
 };
 
+export type ChildSessionFinalTextResult = ChildSessionResultBase<"final-text"> & {
+	finalText: string;
+	stopReason?: string;
+};
+
 type ChildSessionFailureResultBase<TStatus extends ChildSessionFailureStatus> = ChildSessionResultBase<TStatus> & {
 	diagnostic: string;
 };
 
 export type ChildSessionStoppedWithoutTerminalResult = ChildSessionFailureResultBase<"stopped-without-terminal"> & {
+	stopReason?: string;
+};
+
+export type ChildSessionStoppedWithoutUsefulTextResult = ChildSessionFailureResultBase<"stopped-without-useful-text"> & {
 	stopReason?: string;
 };
 
@@ -88,7 +112,9 @@ export type ChildSessionProtocolErrorResult = ChildSessionFailureResultBase<"pro
 export type ChildSessionResult<TInput = unknown> =
 	| ChildSessionCompletedResult<TInput>
 	| ChildSessionBlockedResult<TInput>
+	| ChildSessionFinalTextResult
 	| ChildSessionStoppedWithoutTerminalResult
+	| ChildSessionStoppedWithoutUsefulTextResult
 	| ChildSessionCancelledResult
 	| ChildSessionErrorResult
 	| ChildSessionProtocolErrorResult;
