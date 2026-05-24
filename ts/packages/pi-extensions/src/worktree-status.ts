@@ -114,11 +114,17 @@ type GitPaths = {
 	headPath: string;
 };
 
+export type GtPrStatus = {
+	number: number;
+	url: string;
+};
+
 export type GtStatus = {
 	down: string;
 	up: string;
 	commits: "yes" | "no" | "?";
 	dirty: "yes" | "no";
+	pr?: GtPrStatus;
 };
 
 export type WorktreeStatus = {
@@ -279,14 +285,16 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		// commits and staging commonly update it without changing HEAD.
 		const gitDirPath = dirname(gitPaths.headPath);
 		watchPath(session, gitDirPath, (filename) => {
-			if (!filename || filename === "HEAD" || filename === "index") scheduleRefresh(session);
+			if (!filename || filename === "HEAD" || filename === "index" || filename === ".graphite_pr_info") {
+				scheduleRefresh(session);
+			}
 			if (!filename || filename === "HEAD") setupGitWatchers(session);
 		});
 
 		// Packed refs live in the common git dir. In linked worktrees this differs
 		// from the worktree-local git dir above.
 		watchPath(session, gitPaths.commonGitDir, (filename) => {
-			if (!filename || filename === "packed-refs") scheduleRefresh(session);
+			if (!filename || filename === "packed-refs" || filename === ".graphite_pr_info") scheduleRefresh(session);
 		});
 
 		watchCurrentBranchRef(session, gitPaths);
@@ -515,13 +523,16 @@ export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: 
 
 export async function loadGtStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtStatus> {
 	const down = await loadDownBranch(pi, cwd, signal);
-	const [up, commits, dirty] = await Promise.all([
+	const [up, commits, dirty, pr] = await Promise.all([
 		loadUpBranch(pi, cwd, signal),
 		loadHasCommits(pi, cwd, down, signal),
 		loadDirty(pi, cwd, signal),
+		loadGraphitePrStatus(cwd, signal),
 	]);
 
-	return { down, up, commits, dirty };
+	const status: GtStatus = { down, up, commits, dirty };
+	if (pr !== undefined) status.pr = pr;
+	return status;
 }
 
 async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
@@ -679,6 +690,99 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	}
 }
 
+async function loadGraphitePrStatus(cwd: string, signal?: AbortSignal): Promise<GtPrStatus | undefined> {
+	if (signal?.aborted) return undefined;
+
+	const gitPaths = findGitPaths(cwd);
+	if (!gitPaths) return undefined;
+
+	const branch = currentBranchName(gitPaths);
+	if (!branch) return undefined;
+
+	for (const prInfoPath of uniqueStrings([
+		join(gitPaths.commonGitDir, ".graphite_pr_info"),
+		join(gitPaths.gitDir, ".graphite_pr_info"),
+	])) {
+		if (signal?.aborted) return undefined;
+		if (!existsSync(prInfoPath)) continue;
+
+		const pr = loadGraphitePrStatusFromFile(prInfoPath, branch);
+		if (pr !== undefined) return pr;
+	}
+
+	return undefined;
+}
+
+function loadGraphitePrStatusFromFile(path: string, branch: string): GtPrStatus | undefined {
+	try {
+		const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+		if (!isRecord(parsed) || !Array.isArray(parsed.prInfos)) return undefined;
+
+		for (const rawPrInfo of parsed.prInfos) {
+			if (!isRecord(rawPrInfo) || rawPrInfo.headRefName !== branch) continue;
+
+			const number = rawPrInfo.prNumber;
+			const url = rawPrInfo.url;
+			if (typeof number !== "number" || !Number.isInteger(number) || number <= 0 || typeof url !== "string") {
+				continue;
+			}
+
+			const sanitizedUrl = sanitizeTerminalHyperlinkUrl(url);
+			if (!sanitizedUrl) continue;
+
+			return { number, url: sanitizedUrl };
+		}
+	} catch {
+		return undefined;
+	}
+
+	return undefined;
+}
+
+function currentBranchName(gitPaths: GitPaths): string | undefined {
+	try {
+		const head = readFileSync(gitPaths.headPath, "utf8").trim();
+		const refPrefix = "ref: refs/heads/";
+		if (!head.startsWith(refPrefix)) return undefined;
+
+		const branch = head.slice(refPrefix.length).trim();
+		return branch.length > 0 ? branch : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function sanitizeTerminalHyperlinkUrl(url: string): string | undefined {
+	if (/\p{Cc}/u.test(url)) return undefined;
+
+	try {
+		const parsed = new URL(url);
+		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+		return parsed.toString();
+	} catch {
+		return undefined;
+	}
+}
+
+function terminalHyperlink(text: string, url: string): string {
+	return `\x1B]8;;${url}\x07${text}\x1B]8;;\x07`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function uniqueStrings(values: string[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const value of values) {
+		if (seen.has(value)) continue;
+		seen.add(value);
+		out.push(value);
+	}
+	return out;
+}
+
 function execOptions(cwd: string, signal?: AbortSignal) {
 	return signal === undefined
 		? { cwd, timeout: COMMAND_TIMEOUT_MS }
@@ -695,9 +799,10 @@ export function formatWorktreeStatus(status: WorktreeStatus): string[] {
 }
 
 export function formatGtStatus(status: GtStatus): string {
+	const pr = status.pr ? ` ${terminalHyperlink(`#${status.pr.number}`, status.pr.url)}` : "";
 	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
 	const dirty = status.dirty === "yes" ? " (x)" : "";
-	return `[gt] (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+	return `[gt]${pr} (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
 }
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
