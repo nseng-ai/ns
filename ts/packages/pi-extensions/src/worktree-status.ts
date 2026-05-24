@@ -53,9 +53,7 @@ export type ExtensionContext = {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
-		theme: {
-			fg(color: "dim", value: string): string;
-		};
+		theme: StatusTheme;
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget(key: string, value: undefined): void;
@@ -114,11 +112,17 @@ type GitPaths = {
 	headPath: string;
 };
 
+export type GtPrStatus = {
+	number: number;
+	url: string;
+};
+
 export type GtStatus = {
 	down: string;
 	up: string;
 	commits: "yes" | "no" | "?";
 	dirty: "yes" | "no";
+	pr?: GtPrStatus;
 };
 
 export type WorktreeStatus = {
@@ -191,7 +195,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		const status = await loadWorktreeStatus(pi, session.cwd, session.abortController.signal);
 		if (sequence !== refreshSequence || !isActiveSession(session)) return;
 
-		const lines = formatWorktreeStatus(status);
+		const lines = formatWorktreeStatus(status, session.ctx.ui.theme);
 		const linesKey = JSON.stringify(lines);
 		if (linesKey === lastLinesKey) return;
 		if (renderSessionLines(session, lines)) lastLinesKey = linesKey;
@@ -447,11 +451,12 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	async function showStatus(ctx: ExtensionContext): Promise<void> {
 		const cwd = ctx.cwd;
 		const status = await loadWorktreeStatus(pi, cwd);
-		const lines = formatWorktreeStatus(status);
+		const lines = formatWorktreeStatus(status, ctx.ui.theme);
+		const messageLines = formatWorktreeStatus(status);
 		try {
 			renderLines(ctx, lines);
 			lastLinesKey = JSON.stringify(lines);
-			pi.sendMessage?.({ customType: "worktree-status", content: lines.join("\n"), display: true });
+			pi.sendMessage?.({ customType: "worktree-status", content: messageLines.join("\n"), display: true });
 		} catch {
 			// Ignore command-display races during session replacement/reload.
 		}
@@ -515,13 +520,16 @@ export async function loadWorktreeStatus(pi: ExecGateway, cwd: string, signal?: 
 
 export async function loadGtStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtStatus> {
 	const down = await loadDownBranch(pi, cwd, signal);
-	const [up, commits, dirty] = await Promise.all([
+	const [up, commits, dirty, pr] = await Promise.all([
 		loadUpBranch(pi, cwd, signal),
 		loadHasCommits(pi, cwd, down, signal),
 		loadDirty(pi, cwd, signal),
+		loadGraphitePrStatus(pi, cwd, signal),
 	]);
 
-	return { down, up, commits, dirty };
+	const status: GtStatus = { down, up, commits, dirty };
+	if (pr !== undefined) status.pr = pr;
+	return status;
 }
 
 async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
@@ -679,30 +687,136 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	}
 }
 
+async function loadGraphitePrStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtPrStatus | undefined> {
+	if (signal?.aborted) return undefined;
+
+	const gitPaths = findGitPaths(cwd);
+	if (!gitPaths) return undefined;
+
+	const branch = currentBranchName(gitPaths);
+	if (!branch) return undefined;
+
+	return loadGraphitePrStatusFromBranchInfo(pi, cwd, branch, signal);
+}
+
+async function loadGraphitePrStatusFromBranchInfo(
+	pi: ExecGateway,
+	cwd: string,
+	branch: string,
+	signal?: AbortSignal,
+): Promise<GtPrStatus | undefined> {
+	if (signal?.aborted) return undefined;
+
+	try {
+		const result = await pi.exec("gt", ["branch", "info", branch, "--no-interactive"], execOptions(cwd, signal));
+		if (result.code !== 0) return undefined;
+		return parseGraphitePrStatusFromBranchInfo(result.stdout);
+	} catch {
+		return undefined;
+	}
+}
+
+function parseGraphitePrStatusFromBranchInfo(stdout: string): GtPrStatus | undefined {
+	const lines = stdout.split(/\r?\n/).map((line) => line.trim());
+	for (let index = 0; index < lines.length; index += 1) {
+		const line = lines[index] ?? "";
+		const match = /^PR #(\d+)\b/.exec(line);
+		if (!match?.[1]) continue;
+
+		const number = Number.parseInt(match[1], 10);
+		if (!Number.isInteger(number) || number <= 0) return undefined;
+
+		for (const candidate of lines.slice(index + 1, index + 6)) {
+			const sanitizedUrl = sanitizeTerminalHyperlinkUrl(candidate);
+			if (sanitizedUrl) return { number, url: sanitizedUrl };
+		}
+	}
+
+	return undefined;
+}
+
+function currentBranchName(gitPaths: GitPaths): string | undefined {
+	try {
+		const head = readFileSync(gitPaths.headPath, "utf8").trim();
+		const refPrefix = "ref: refs/heads/";
+		if (!head.startsWith(refPrefix)) return undefined;
+
+		const branch = head.slice(refPrefix.length).trim();
+		return branch.length > 0 ? branch : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function sanitizeTerminalHyperlinkUrl(url: string): string | undefined {
+	if (/\p{Cc}/u.test(url)) return undefined;
+
+	try {
+		const parsed = new URL(url);
+		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+		return parsed.toString();
+	} catch {
+		return undefined;
+	}
+}
+
+function terminalHyperlink(text: string, url: string): string {
+	return `\x1B]8;;${url}\x07${text}\x1B]8;;\x07`;
+}
+
 function execOptions(cwd: string, signal?: AbortSignal) {
 	return signal === undefined
 		? { cwd, timeout: COMMAND_TIMEOUT_MS }
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
 }
 
-export function formatWorktreeStatus(status: WorktreeStatus): string[] {
+export type StatusTheme = {
+	fg(color: "dim" | "accent", value: string): string;
+	underline?(value: string): string;
+};
+
+export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme): string[] {
 	const lines: string[] = [];
 	if (status.brmem !== undefined) {
-		lines.push(`[brmem] ${status.brmem}`);
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
 	}
-	lines.push(formatGtStatus(status.gt));
+	lines.push(formatGtStatus(status.gt, theme));
 	return lines;
 }
 
-export function formatGtStatus(status: GtStatus): string {
+export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
 	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
 	const dirty = status.dirty === "yes" ? " (x)" : "";
-	return `[gt] (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+	const rest = ` (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+
+	if (theme) {
+		const pr = status.pr
+			? `${formatStatusSegment(" (pr: ", theme)}${formatPrNumber(status.pr, theme)}${formatStatusSegment(")", theme)}`
+			: "";
+		const line = `${formatStatusSegment("[gt]", theme)}${pr}${formatStatusSegment(rest, theme)}`;
+		return status.pr ? terminalHyperlink(line, status.pr.url) : line;
+	}
+
+	const pr = status.pr ? ` (pr: ${formatPrNumber(status.pr, theme)})` : "";
+	const line = `[gt]${pr}${rest}`;
+	return status.pr ? terminalHyperlink(line, status.pr.url) : line;
+}
+
+function formatPrNumber(pr: GtPrStatus, theme: StatusTheme | undefined): string {
+	const text = `#${pr.number}`;
+	if (!theme) return text;
+
+	const underlined = theme.underline ? theme.underline(text) : text;
+	return theme.fg("accent", underlined);
+}
+
+function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {
+	return theme ? theme.fg("dim", text) : text;
 }
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
 	ctx.ui.setWidget(UI_KEY, undefined);
-	ctx.ui.setStatus(UI_KEY, ctx.ui.theme.fg("dim", lines.join(" ")));
+	ctx.ui.setStatus(UI_KEY, lines.join(" "));
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {
