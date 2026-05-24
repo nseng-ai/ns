@@ -1,3 +1,4 @@
+import { composePiAgentPrompt, loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import {
 	dispatchRunnerSubagent,
 	type RunnerSubagentPi,
@@ -77,6 +78,11 @@ export interface ExtensionAPI extends RunnerSubagentPi {
 	registerTool(tool: ToolDefinition): void;
 }
 
+export type DispatchRunnerSubagentExtensionOptions = {
+	cwd?: string;
+	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
+};
+
 export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	type: "object",
 	properties: {
@@ -93,20 +99,28 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	additionalProperties: false,
 } as const;
 
-export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void {
+export default function dispatchRunnerSubagentExtension(
+	pi: ExtensionAPI,
+	options: DispatchRunnerSubagentExtensionOptions = {},
+): void {
+	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
+	const runnerDefinition = loadAgentDefinition("runner", options.cwd ?? process.cwd());
+	if (runnerDefinition.toolName !== DISPATCH_RUNNER_SUBAGENT_TOOL_NAME) {
+		throw new Error(
+			`Runner agent definition ${runnerDefinition.filePath} declares toolName "${runnerDefinition.toolName}"; expected "${DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}".`,
+		);
+	}
+
 	pi.registerTool({
 		name: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
-		label: "Dispatch Runner Subagent",
-		description: "Launch a focused subagent Pi session in the current cwd and return its final assistant text/status evidence.",
-		promptSnippet: "Launch a focused subagent Pi session in the current cwd and return final assistant text",
-		promptGuidelines: [
-			"Use dispatch_runner_subagent only for a focused delegated task where the subagent prompt includes all necessary context.",
-			"Use dispatch_runner_subagent sequentially in a shared worktree; inspect the returned status and sessionFile before deciding that work is complete.",
-			"Do not treat non-final-text statuses from dispatch_runner_subagent as completion; inspect diagnostics and the subagent session file first.",
-		],
+		label: runnerDefinition.label,
+		description: runnerDefinition.description,
+		...(runnerDefinition.promptSnippet === undefined ? {} : { promptSnippet: runnerDefinition.promptSnippet }),
+		promptGuidelines: runnerDefinition.promptGuidelines,
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
+			const childPrompt = composePiAgentPrompt(runnerDefinition, input);
 			const initialUpdate: RunnerSubagentUpdate = {
 				progress: initialDispatchProgress(input.title),
 				activity: emptyRunnerSubagentActivity(),
@@ -120,7 +134,7 @@ export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void 
 			try {
 				const result = await dispatchRunnerSubagent(pi, { cwd: ctx.cwd, ...(signal === undefined ? {} : { signal }) }, {
 					title: input.title,
-					prompt: input.prompt,
+					prompt: childPrompt,
 					returnMode: "final-text",
 					onProgress: (update) => {
 						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
