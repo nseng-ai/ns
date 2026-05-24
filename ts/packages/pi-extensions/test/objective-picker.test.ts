@@ -84,7 +84,7 @@ describe("Objective picker policy", () => {
 
 	test("ordinary label uses latestWorkBranch", () => {
 		expect(formatObjectiveChoice(group("alpha", { latestWorkBranch: "feat/latest" }))).toBe(
-			"alpha — 1 branch — latest work feat/latest — max +3 ahead base",
+			"alpha — 1 branch — latest work feat/latest — max +3 slice commits",
 		);
 	});
 
@@ -124,14 +124,14 @@ describe("Objective picker policy", () => {
 		expect(choice).toContain("latest work (none)");
 	});
 
-	test("max ahead base is maximum across branches", () => {
+	test("max slice commits is maximum across branches", () => {
 		const choice = formatObjectiveChoice(
 			group("alpha", {
 				branches: [branch("feat/a", "2026-05-20T10:00:00Z", 2), branch("feat/b", "2026-05-20T11:00:00Z", 9)],
 			}),
 		);
 
-		expect(choice).toContain("max +9 ahead base");
+		expect(choice).toContain("max +9 slice commits");
 	});
 
 	test("branch count pluralization", () => {
@@ -159,7 +159,7 @@ describe("Objective picker policy", () => {
 
 	test("unchanged group has no diff label", () => {
 		expect(formatObjectiveChoice(group("bravo"), selection(["alpha"], ["alpha"]))).toBe(
-			"bravo — 1 branch — latest work feat/bravo — max +3 ahead base",
+			"bravo — 1 branch — latest work feat/bravo — max +3 slice commits",
 		);
 	});
 
@@ -176,8 +176,8 @@ describe("Objective picker policy", () => {
 	test("choice map maps labels to slugs", () => {
 		const choices = objectiveChoiceMap([group("alpha"), group("bravo")], undefined);
 
-		expect(choices.get("alpha — 1 branch — latest work feat/alpha — max +3 ahead base")).toBe("alpha");
-		expect(choices.get("bravo — 1 branch — latest work feat/bravo — max +3 ahead base")).toBe("bravo");
+		expect(choices.get("alpha — 1 branch — latest work feat/alpha — max +3 slice commits")).toBe("alpha");
+		expect(choices.get("bravo — 1 branch — latest work feat/bravo — max +3 slice commits")).toBe("bravo");
 	});
 
 	test("picker title variants", () => {
@@ -213,8 +213,8 @@ function group(slug: string, options: { latestWorkBranch?: string | null; branch
 	};
 }
 
-function branch(name: string, updatedIso: string | null, aheadBase: number): ObjectiveBranchEntry {
-	return { branch: name, updatedIso, aheadBase };
+function branch(name: string, updatedIso: string | null, sliceCommits: number): ObjectiveBranchEntry {
+	return { branch: name, parentBranch: "master", updatedIso, sliceCommits };
 }
 
 function selection(allChangedSlugs: string[], changedActiveSlugs: string[]): ObjectiveDiffSelection {

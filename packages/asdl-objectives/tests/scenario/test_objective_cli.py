@@ -144,15 +144,17 @@ def test_objective_list_groups_work_branches_under_base_status(
             "branches": [
                 {
                     "branch": "feat/a",
+                    "parent_branch": "master",
                     "status": "open",
                     "updated_iso": "2026-05-20T10:44:08-04:00",
-                    "ahead_base": 3,
+                    "slice_commits": 3,
                 },
                 {
                     "branch": "feat/b",
+                    "parent_branch": "master",
                     "status": "open",
                     "updated_iso": "2026-05-20T11:15:42-04:00",
-                    "ahead_base": 18,
+                    "slice_commits": 18,
                 },
             ],
             "latest_update_iso": "2026-05-20T11:15:42-04:00",
@@ -168,7 +170,7 @@ def test_objective_list_groups_work_branches_under_base_status(
     assert "Latest work" in human.output
     assert "Latest update" in human.output
     assert "Work branches" in human.output
-    assert "Max ahead base" in human.output
+    assert "Max slice commits" in human.output
     assert "○ open" in human.output
     assert "feat/b" in human.output
     assert "feat/a" not in human.output
@@ -176,7 +178,7 @@ def test_objective_list_groups_work_branches_under_base_status(
     markdown = _invoke_list_md(cli_group, ctx)
     assert markdown.exit_code == 0, markdown.output
     assert (
-        "| objective | status | latest work | latest update | work branches | max ahead base |"
+        "| objective | status | latest work | latest update | work branches | max slice commits |"
         in markdown.output
     )
     assert "| alpha | ○ open | `feat/b` |" in markdown.output
@@ -589,21 +591,20 @@ def test_objective_list_base_only_objective_and_work_branches(cli_group: ClinkrG
     assert "feat/empty" not in human.output
 
 
-def test_objective_list_counts_only_branches_with_objective_updates(
+def test_objective_list_counts_only_branches_whose_local_slice_updates_objective(
     cli_group: ClinkrGroup,
 ) -> None:
     ctx = _list_context(
-        branches=("master", "feat/inherited", "feat/updated"),
+        branches=("master", "feat/base-update", "feat/child-no-update", "feat/child-update"),
         tracked_paths_by_ref_path={
-            ("refs/heads/master", ".asdl/objectives"): (
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/base-update", ".asdl/objectives"): (
                 ".asdl/objectives/alpha/objective.md",
-                ".asdl/objectives/inherited-only/objective.md",
             ),
-            ("refs/heads/feat/inherited", ".asdl/objectives"): (
+            ("refs/heads/feat/child-no-update", ".asdl/objectives"): (
                 ".asdl/objectives/alpha/objective.md",
-                ".asdl/objectives/inherited-only/objective.md",
             ),
-            ("refs/heads/feat/updated", ".asdl/objectives"): (
+            ("refs/heads/feat/child-update", ".asdl/objectives"): (
                 ".asdl/objectives/alpha/objective.md",
             ),
         },
@@ -611,16 +612,25 @@ def test_objective_list_counts_only_branches_with_objective_updates(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T09:00:00-04:00"
             ),
-            ("refs/heads/master", ".asdl/objectives/inherited-only"): _touch(
-                "base-inherited", "2026-05-20T09:30:00-04:00"
+            ("master..feat/base-update", ".asdl/objectives/alpha"): _touch(
+                "base-update-alpha", "2026-05-20T10:00:00-04:00"
             ),
-            ("master..feat/updated", ".asdl/objectives/alpha"): _touch(
-                "updated-alpha", "2026-05-20T10:00:00-04:00"
+            ("feat/child-no-update..feat/child-update", ".asdl/objectives/alpha"): _touch(
+                "child-update-alpha", "2026-05-20T11:00:00-04:00"
             ),
         },
+        ancestors=(
+            ("feat/base-update", "feat/child-no-update"),
+            ("feat/base-update", "feat/child-update"),
+            ("feat/child-no-update", "feat/child-update"),
+        ),
         commit_count_by_range={
-            "master..feat/inherited": 99,
-            "master..feat/updated": 2,
+            "master..feat/base-update": 2,
+            "master..feat/child-no-update": 5,
+            "master..feat/child-update": 6,
+            "feat/base-update..feat/child-no-update": 3,
+            "feat/base-update..feat/child-update": 4,
+            "feat/child-no-update..feat/child-update": 1,
         },
     )
 
@@ -631,19 +641,29 @@ def test_objective_list_counts_only_branches_with_objective_updates(
     groups = {group["slug"]: group for group in json.loads(result.output)["data"]["groups"]}
     assert groups["alpha"]["branches"] == [
         {
-            "branch": "feat/updated",
+            "branch": "feat/base-update",
+            "parent_branch": "master",
             "status": "open",
             "updated_iso": "2026-05-20T10:00:00-04:00",
-            "ahead_base": 2,
-        }
+            "slice_commits": 2,
+        },
+        {
+            "branch": "feat/child-update",
+            "parent_branch": "feat/child-no-update",
+            "status": "open",
+            "updated_iso": "2026-05-20T11:00:00-04:00",
+            "slice_commits": 1,
+        },
     ]
-    assert groups["alpha"]["latest_work_branch"] == "feat/updated"
-    assert groups["inherited-only"]["branches"] == []
-    assert groups["inherited-only"]["latest_work_branch"] is None
+    assert [entry["branch"] for entry in groups["alpha"]["branches"]] == [
+        "feat/base-update",
+        "feat/child-update",
+    ]
+    assert groups["alpha"]["latest_work_branch"] == "feat/child-update"
     assert detail.exit_code == 0, detail.output
-    assert "feat/updated" in detail.output
-    assert "feat/inherited" not in detail.output
-    assert "No work branches." in detail.output
+    assert "| branch | parent | branch status | update age | slice commits |" in detail.output
+    assert "| `feat/base-update` | `master` | ○ open |" in detail.output
+    assert "| `feat/child-update` | `feat/child-no-update` | ○ open |" in detail.output
 
 
 def test_objective_list_default_human_and_markdown_are_list_view(
@@ -677,7 +697,7 @@ def test_objective_list_default_human_and_markdown_are_list_view(
     assert "Latest work" in human.output
     assert "Latest update" in human.output
     assert "Work branches" in human.output
-    assert "Max ahead base" in human.output
+    assert "Max slice commits" in human.output
     assert "○ open" in human.output
     assert "alpha" in human.output
     assert "feat/a" in human.output
@@ -692,7 +712,7 @@ def test_objective_list_default_human_and_markdown_are_list_view(
     assert "Base branch: `master`" in markdown.output
     assert "Status filter: `active`" in markdown.output
     assert (
-        "| objective | status | latest work | latest update | work branches | max ahead base |"
+        "| objective | status | latest work | latest update | work branches | max slice commits |"
         in markdown.output
     )
     assert "| alpha | ○ open | `feat/a` |" in markdown.output
@@ -727,9 +747,10 @@ def test_objective_list_detail_human_and_markdown_column_shape(
     assert "alpha" in human.output
     assert "Base branch: master — ○ open — updated" in human.output
     assert "Work branches" in human.output
+    assert "Parent" in human.output
     assert "Branch status" in human.output
     assert "Update age" in human.output
-    assert "Ahead base" in human.output
+    assert "Slice commits" in human.output
     assert "feat/a" in human.output
     assert "+7" in human.output
     assert "Ahead trunk" not in human.output
@@ -740,8 +761,8 @@ def test_objective_list_detail_human_and_markdown_column_shape(
     assert "# Objective branch details in this local repository" in markdown.output
     assert "Base branch: `master`" in markdown.output
     assert "Base branch: master — ○ open — updated" in markdown.output
-    assert "| branch | branch status | update age | ahead base |" in markdown.output
-    assert "| `feat/a` | ○ open |" in markdown.output
+    assert "| branch | parent | branch status | update age | slice commits |" in markdown.output
+    assert "| `feat/a` | `master` | ○ open |" in markdown.output
 
 
 def test_objective_list_current_uses_current_status_source_and_filters_to_current(
@@ -1339,6 +1360,7 @@ def _list_context(
     ) = None,
     path_touch_by_ref_path: dict[tuple[str, str], PathTouch] | None = None,
     branch_head_iso_by_branch: dict[str, str] | None = None,
+    ancestors: tuple[tuple[str, str], ...] = (),
     commit_count_by_range: dict[str, int | GitCommandFailure] | None = None,
 ) -> ObjectiveCliContext:
     repo_root = Path("/repo")
@@ -1355,6 +1377,7 @@ def _list_context(
             tracked_paths_by_ref_path=tracked_paths_by_ref_path,
             path_touch_by_ref_path=path_touch_by_ref_path,
             branch_head_iso_by_branch=branch_head_iso_by_branch,
+            ancestors=ancestors,
             commit_count_by_range=commit_count_by_range,
             current_branch_by_path=current_by_path,
         ),

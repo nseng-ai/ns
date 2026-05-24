@@ -230,8 +230,9 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 				branches: [
 					{
 						branch: `feature/${slug}`,
+						parent_branch: trunkBranch,
 						updated_iso: `2026-01-0${index + 1}T00:00:00Z`,
-						ahead_base: index + 1,
+						slice_commits: index + 1,
 					},
 				],
 			})),
@@ -261,7 +262,7 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (only Objective changed vs master)",
 			items: [
-				"bravo — suggested: only Objective changed vs master — 1 branch — latest work feature/bravo — max +2 ahead base",
+				"bravo — suggested: only Objective changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
 				"View other active Objectives…",
 			],
 		});
@@ -283,8 +284,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[1]).toEqual({
 			title: "Select an active Objective for next-work recommendation (other active Objectives)",
 			items: [
-				"alpha — 1 branch — latest work feature/alpha — max +1 ahead base",
-				"charlie — 1 branch — latest work feature/charlie — max +3 ahead base",
+				"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
+				"charlie — 1 branch — latest work feature/charlie — max +3 slice commits",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("charlie");
@@ -303,8 +304,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 ahead base",
-				"charlie — changed vs master — 1 branch — latest work feature/charlie — max +3 ahead base",
+				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 slice commits",
+				"charlie — changed vs master — 1 branch — latest work feature/charlie — max +3 slice commits",
 				"View other active Objectives…",
 			],
 		});
@@ -329,8 +330,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[1]).toEqual({
 			title: "Select an active Objective for next-work recommendation (other active Objectives)",
 			items: [
-				"bravo — 1 branch — latest work feature/bravo — max +2 ahead base",
-				"delta — 1 branch — latest work feature/delta — max +4 ahead base",
+				"bravo — 1 branch — latest work feature/bravo — max +2 slice commits",
+				"delta — 1 branch — latest work feature/delta — max +4 slice commits",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("delta");
@@ -346,8 +347,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 ahead base",
-				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 ahead base",
+				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 slice commits",
+				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("alpha");
@@ -362,8 +363,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — 1 branch — latest work feature/alpha — max +1 ahead base",
-			"bravo — 1 branch — latest work feature/bravo — max +2 ahead base",
+			"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
+			"bravo — 1 branch — latest work feature/bravo — max +2 slice commits",
 		]);
 		expect(items.some((item) => item.includes("suggested"))).toBe(false);
 	});
@@ -381,7 +382,7 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 ahead base",
+				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
 				"View other active Objectives…",
 			],
 		});
@@ -407,8 +408,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — 1 branch — latest work feature/alpha — max +1 ahead base",
-			"bravo — 1 branch — latest work feature/bravo — max +2 ahead base",
+			"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
+			"bravo — 1 branch — latest work feature/bravo — max +2 slice commits",
 		]);
 		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
 		expect(result.pi.sentUserMessages).toEqual([]);

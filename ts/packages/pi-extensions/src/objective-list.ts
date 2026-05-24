@@ -1,7 +1,8 @@
 export type ObjectiveBranchEntry = {
 	branch: string;
+	parentBranch: string;
 	updatedIso: string | null;
-	aheadBase: number;
+	sliceCommits: number;
 };
 
 export type ObjectiveListGroup = {
@@ -35,20 +36,22 @@ function parseObjectiveBranchEntry(value: unknown, groupIndex: number, branchInd
 	}
 
 	const branch = value.branch;
-	const updatedIso = "updated_iso" in value ? value.updated_iso : value.tip_head_iso;
-	const aheadBase = "ahead_base" in value ? value.ahead_base : value.ahead_trunk;
+	const parentBranch = value.parent_branch;
+	const updatedIso = value.updated_iso;
+	const sliceCommits = value.slice_commits;
 	if (
 		typeof branch !== "string" ||
+		typeof parentBranch !== "string" ||
 		(updatedIso !== null && typeof updatedIso !== "string") ||
-		typeof aheadBase !== "number" ||
-		!Number.isFinite(aheadBase)
+		typeof sliceCommits !== "number" ||
+		!Number.isFinite(sliceCommits)
 	) {
 		throw new Error(
-			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected branch, updated_iso, and ahead_base.`,
+			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected branch, parent_branch, updated_iso, and slice_commits.`,
 		);
 	}
 
-	return { branch, updatedIso, aheadBase };
+	return { branch, parentBranch, updatedIso, sliceCommits };
 }
 
 function parseObjectiveListGroup(value: unknown, index: number): ObjectiveListGroup {

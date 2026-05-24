@@ -73,7 +73,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Repository status
 
-Use `objective list` for the default objective-level status inventory, filtered to active Objectives (`○ open` plus `◇ in-flight`). Closed Objectives display as `✓ closed` when included with `--status closed` or `--status all`. The list view shows latest work, latest Objective update age, work-branch count, and max ahead-of-base count. Use `objective list --view detail` for the base/current status source plus per-work-branch details. Use `objective list --current` to use the current branch as the status source, and `objective list --names` to emit just active slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
+Use `objective list` for the default objective-level status inventory, filtered to active Objectives (`○ open` plus `◇ in-flight`). Closed Objectives display as `✓ closed` when included with `--status closed` or `--status all`. The list view shows latest work, latest Objective update age, work-branch count, and max slice-commit count. Work branches are counted only when the branch’s local slice, not inherited lower-stack history, touches the Objective record. Use `objective list --view detail` for the base/current status source plus per-work-branch details. Use `objective list --current` to use the current branch as the status source, and `objective list --names` to emit just active slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
 
 ## Tracking Gate
 

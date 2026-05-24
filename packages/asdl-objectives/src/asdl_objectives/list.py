@@ -14,6 +14,10 @@ from asdl_objectives.context import (
     ObjectiveCliUnavailable,
     load_objective_context,
 )
+from asdl_objectives.list_branch_slices import (
+    ObjectiveBranchSlice,
+    build_objective_branch_slices,
+)
 from asdl_objectives.list_inventory import (
     ObjectiveBranchInventory,
     branch_ref,
@@ -99,6 +103,11 @@ def build_objective_list_result(
         )
 
     local_branches = tuple(tip.name for tip in ctx.git.list_local_branch_tips())
+    branch_slices = build_objective_branch_slices(
+        ctx.git,
+        local_branches=local_branches,
+        base_branch=base_branch,
+    )
     scan_branches = branches_to_scan(
         local_branches,
         base_branch=base_branch,
@@ -117,8 +126,7 @@ def build_objective_list_result(
             ctx.git,
             projection_entry=entry,
             inventory=inventory,
-            local_branches=local_branches,
-            base_branch=base_branch,
+            branch_slices=branch_slices,
         )
         for entry in projection.entries
     )
@@ -179,8 +187,7 @@ def _build_objective_group(
     *,
     projection_entry: ObjectiveStatusProjectionEntry,
     inventory: ObjectiveBranchInventory,
-    local_branches: tuple[str, ...],
-    base_branch: str,
+    branch_slices: tuple[ObjectiveBranchSlice, ...],
 ) -> ObjectiveListGroup:
     record_path = objective_path(projection_entry.slug)
     source_touch = git.path_last_touched(
@@ -206,24 +213,21 @@ def _build_objective_group(
             )
         )
 
-    for branch in sorted(local_branches):
-        if branch == base_branch:
-            continue
+    for branch_slice in branch_slices:
+        branch = branch_slice.branch
         branch_status = inventory.status_on_branch(branch, projection_entry.slug)
         if branch_status is None:
             continue
-        branch_touch = git.path_last_touched(
-            _objective_update_range(base_branch=base_branch, branch=branch),
-            record_path,
-        )
+        branch_touch = git.path_last_touched(branch_slice.range_spec, record_path)
         if branch_touch is None:
             continue
         branch_entries.append(
             ObjectiveBranchEntry(
                 branch=branch,
+                parent_branch=branch_slice.parent_branch,
                 status=branch_status,
                 updated_iso=touch_updated_iso(branch_touch),
-                ahead_base=_ahead_base(git, base_branch=base_branch, branch=branch),
+                slice_commits=branch_slice.slice_commits,
             )
         )
         touch_candidates.append(
@@ -244,19 +248,3 @@ def _build_objective_group(
         latest_update_iso=attribution.latest_update_iso,
         latest_work_branch=attribution.latest_work_branch,
     )
-
-
-def _objective_update_range(*, base_branch: str, branch: str) -> str:
-    return f"{base_branch}..{branch}"
-
-
-def _ahead_base(git: GitGateway, *, base_branch: str, branch: str) -> int:
-    ahead_result = git.count_commits_in_range(
-        _objective_update_range(base_branch=base_branch, branch=branch)
-    )
-    if isinstance(ahead_result, GitCommandFailure):
-        raise ClinkrFailure(
-            error_type="git_ahead_count_failed",
-            message=ahead_result.message,
-        )
-    return ahead_result
