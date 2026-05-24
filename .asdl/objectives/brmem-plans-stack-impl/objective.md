@@ -111,7 +111,7 @@ Assumptions:
 Risks:
 
 - The storage-contract risk is de-risked for the new workflow by the decision that canonical branch-stashed plans use namespace `brmem-plans` with key `<slug>.md` and by the no-backwards-compatibility decision. Old base `plans/<slug>.md` and namespace `plans` entries are intentionally unsupported by the new reader/writer path.
-- Renaming commands, tools, skills, and prompt plugins together can break hidden references. The cleanup PR must search the repo and preserve intentional aliases where useful.
+- Renaming commands, tools, skills, and prompt plugins together can break hidden references. The skill/prompt rename slice de-risked the local skill, prompt, installer, README, lockfile, and symlink references for the old Branch Memory helper names; the cleanup PR still needs to search broader canonical docs/code for other legacy command/tool names and preserve intentional historical notes.
 - Branch creation policy is partly prompt/plugin driven today. Moving too much policy into TypeScript could make repo-specific adaptation harder; leaving too much in prose could keep behavior duplicated and under-tested.
 - Graphite integration is tempting for branch creation, but generic runtime helpers should not depend on Graphite unless the command contract says so. The stack must respect the repo's Graphite workflow without violating the runtime Graphite dependency boundary.
 - The accepted no-backwards-compatibility cutover may break old invocations and old Branch Memory entries. This is intentional for this stack, but removal errors should be clear enough for users to discover the new names.
