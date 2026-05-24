@@ -194,7 +194,7 @@ async function runObjectiveCommand(
 function expectListActiveObjectivesCall(result: { pi: FakePi }): void {
 	expect(result.pi.execCalls[0]).toEqual({
 		command: "objective",
-		args: ["list", "--format", "json"],
+		args: ["list", "--current", "--format", "json"],
 		options: { cwd: ROOT, timeout: 30_000 },
 	});
 }
@@ -215,12 +215,12 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 		data: {
 			base_branch: trunkBranch,
 			trunk_branch: trunkBranch,
-			status_source: "base",
-			status_source_branch: trunkBranch,
+			status_source: "current",
+			status_source_branch: "feature/current",
 			view: "list",
 			status_filter: "active",
 			current_branch: "feature/current",
-			filtered_to_current: false,
+			filtered_to_current: true,
 			names_only: false,
 			groups: slugs.map((slug, index) => ({
 				slug,
@@ -241,7 +241,7 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 }
 
 function listStep(slugs: string[]): ScriptedExec {
-	return step("objective", ["list", "--format", "json"], { stdout: objectiveList(slugs) });
+	return step("objective", ["list", "--current", "--format", "json"], { stdout: objectiveList(slugs) });
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
@@ -369,6 +369,25 @@ describe("objective picker suggestion", () => {
 		expect(items.some((item) => item.includes("suggested"))).toBe(false);
 	});
 
+	test("filters branch-closed Objectives before diff suggestions", async () => {
+		const result = await runObjectiveNext("", [
+			listStep(["pi-extension-deepening"]),
+			diffStep([
+				"A\t.asdl/objectives/pi-extension-architecture-deepening/closed.md",
+				"M\t.asdl/objectives/pi-extension-deepening/objective.md",
+			].join("\n")),
+		]);
+
+		result.pi.assertDone();
+		const items = result.selections[0]?.items ?? [];
+		expect(items).toEqual([
+			"pi-extension-deepening — changed vs master — 1 branch — latest work feature/pi-extension-deepening — max +1 slice commits",
+		]);
+		expect(items.some((item) => item.includes("pi-extension-architecture-deepening"))).toBe(false);
+		expect(result.pi.sentUserMessages[0]).toContain("pi-extension-deepening");
+		expect(result.pi.sentUserMessages[0]).not.toContain("pi-extension-architecture-deepening");
+	});
+
 	test("does not claim only Objective changed when a changed slug is not active", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
@@ -437,7 +456,7 @@ describe("objective command shared selection policy", () => {
 				});
 			});
 
-			test("empty args load active candidates with objective list json", async () => {
+			test("empty args load current active candidates with objective list json", async () => {
 				const result = await runObjectiveCommand(
 					commandName,
 					"",
