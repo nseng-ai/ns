@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import objectiveExtension, {
+	buildObjectiveStackImplPrompt,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
@@ -26,6 +30,7 @@ const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 };
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type CommandInfo = ReturnType<ExtensionAPI["getCommands"]>[number];
 
 type ExecCall = {
 	command: string;
@@ -55,9 +60,11 @@ class FakePi implements ExtensionAPI {
 	readonly errors: string[] = [];
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedExec[];
+	private readonly commandInfos: ReturnType<ExtensionAPI["getCommands"]>;
 
-	constructor(script: ScriptedExec[] = []) {
+	constructor(script: ScriptedExec[] = [], commandInfos: ReturnType<ExtensionAPI["getCommands"]> = []) {
 		this.script = [...script];
+		this.commandInfos = [...commandInfos];
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
@@ -83,7 +90,7 @@ class FakePi implements ExtensionAPI {
 	}
 
 	getCommands(): ReturnType<ExtensionAPI["getCommands"]> {
-		return [];
+		return this.commandInfos;
 	}
 
 	sendUserMessage(content: string): void {
@@ -146,6 +153,63 @@ function createContext(options: { cancelSelect?: boolean; selectIndex?: number; 
 	};
 
 	return { ctx, notifications, selections, waitForIdleCalls: () => waits };
+}
+
+const STACK_PROMPT_TEMPLATE = `---
+description: Test stack prompt
+argument-hint: "[objective-slug]"
+---
+# Test Objective Stack Prompt
+Objective argument: \`$ARGUMENTS\`
+Again: $ARGUMENTS
+`;
+
+function promptCommandInfo(promptPath: string): CommandInfo {
+	return {
+		name: "objective-stack-impl",
+		source: "prompt",
+		sourceInfo: {
+			path: promptPath,
+			source: "project",
+			scope: "project",
+			origin: "top-level",
+		},
+	};
+}
+
+async function withTempPrompt<T>(callback: (promptPath: string) => Promise<T>): Promise<T> {
+	const dir = await mkdtemp(join(tmpdir(), "objective-stack-impl-"));
+	const promptPath = join(dir, "objective-stack-impl.md");
+	await writeFile(promptPath, STACK_PROMPT_TEMPLATE, "utf8");
+	try {
+		return await callback(promptPath);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+}
+
+async function runObjectiveStackImpl(
+	args: string,
+	script: ScriptedExec[] = [],
+	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
+	commandInfos: CommandInfo[] = [],
+): Promise<{
+	pi: FakePi;
+	notifications: Notification[];
+	selections: Selection[];
+	waitForIdleCalls: () => number;
+}> {
+	const pi = new FakePi(script, commandInfos);
+	objectiveExtension(pi);
+	const command = pi.commands.get("objective-stack-impl");
+	expect(command).toBeDefined();
+	if (!command) {
+		throw new Error("objective-stack-impl was not registered");
+	}
+
+	const context = createContext(contextOptions);
+	await command.handler(args, context.ctx);
+	return { pi, ...context };
 }
 
 async function runObjectiveNext(
@@ -250,6 +314,152 @@ function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExe
 		...result,
 	});
 }
+
+describe("objective-stack-impl command", () => {
+	test("registers the prompt-backed wrapper command", () => {
+		const pi = new FakePi();
+
+		objectiveExtension(pi);
+
+		expect(pi.commands.has("objective-stack-impl")).toBe(true);
+	});
+
+	test("expands the prompt template by stripping frontmatter and replacing arguments", () => {
+		const prompt = buildObjectiveStackImplPrompt(STACK_PROMPT_TEMPLATE, "bravo$1");
+
+		expect(prompt.startsWith("# Test Objective Stack Prompt")).toBe(true);
+		expect(prompt).toContain("Objective argument: `bravo$1`");
+		expect(prompt).toContain("Again: bravo$1");
+		expect(prompt).not.toContain("$ARGUMENTS");
+	});
+
+	test("explicit slug bypasses objective list, git diff, and recursive slash dispatch", async () => {
+		await withTempPrompt(async (promptPath) => {
+			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [promptCommandInfo(promptPath)]);
+
+			result.pi.assertDone();
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.selections).toEqual([]);
+			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `bravo`");
+			expect(result.pi.sentUserMessages[0]).toContain("Again: bravo");
+			expect(result.pi.sentUserMessages[0]?.startsWith("/objective-stack-impl")).toBe(false);
+			expect(result.notifications).toContainEqual({
+				message: "Invoking objective-stack-impl for bravo.",
+				level: "info",
+			});
+		});
+	});
+
+	test("empty args load active candidates with objective list json and objective diff", async () => {
+		await withTempPrompt(async (promptPath) => {
+			const result = await runObjectiveStackImpl(
+				"",
+				[listStep(["alpha", "bravo"]), diffStep("")],
+				{},
+				[promptCommandInfo(promptPath)],
+			);
+
+			result.pi.assertDone();
+			expectListActiveObjectivesCall(result);
+			expect(result.pi.execCalls[1]).toEqual({
+				command: "git",
+				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".asdl/objectives"],
+				options: { cwd: ROOT, timeout: 30_000 },
+			});
+			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `alpha`");
+		});
+	});
+
+	test("changed Objective grouping matches objective-next", async () => {
+		await withTempPrompt(async (promptPath) => {
+			const result = await runObjectiveStackImpl(
+				"",
+				[listStep(["alpha", "bravo", "charlie"]), diffStep("M\t.asdl/objectives/bravo/objective.md\n")],
+				{},
+				[promptCommandInfo(promptPath)],
+			);
+
+			result.pi.assertDone();
+			expect(result.selections[0]).toEqual({
+				title: "Select an active Objective for stack implementation (only Objective changed vs master)",
+				items: [
+					"bravo — suggested: only Objective changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
+					"View other active Objectives…",
+				],
+			});
+			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `bravo`");
+		});
+	});
+
+	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
+		await withTempPrompt(async (promptPath) => {
+			const result = await runObjectiveStackImpl(
+				"",
+				[listStep(["alpha", "bravo", "charlie"]), diffStep("M\t.asdl/objectives/bravo/objective.md\n")],
+				{ selectIndices: [1, 1] },
+				[promptCommandInfo(promptPath)],
+			);
+
+			result.pi.assertDone();
+			expect(result.selections[1]).toEqual({
+				title: "Select an active Objective for stack implementation (other active Objectives)",
+				items: [
+					"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
+					"charlie — 1 branch — latest work feature/charlie — max +3 slice commits",
+				],
+			});
+			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `charlie`");
+		});
+	});
+
+	test("picker cancellation sends no prompt", async () => {
+		await withTempPrompt(async (promptPath) => {
+			const result = await runObjectiveStackImpl(
+				"",
+				[listStep(["alpha", "bravo"]), diffStep("")],
+				{ cancelSelect: true },
+				[promptCommandInfo(promptPath)],
+			);
+
+			result.pi.assertDone();
+			expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
+			expect(result.pi.sentUserMessages).toEqual([]);
+		});
+	});
+
+	test("zero active Objectives sends no prompt", async () => {
+		await withTempPrompt(async (promptPath) => {
+			const result = await runObjectiveStackImpl("", [listStep([])], {}, [promptCommandInfo(promptPath)]);
+
+			result.pi.assertDone();
+			expect(result.notifications).toEqual([
+				{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
+			]);
+			expect(result.selections).toEqual([]);
+			expect(result.pi.sentUserMessages).toEqual([]);
+		});
+	});
+
+	test("missing prompt template fails visibly and sends no prompt", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "objective-stack-impl-missing-"));
+		try {
+			const missingPromptPath = join(dir, "objective-stack-impl.md");
+			const result = await runObjectiveStackImpl("bravo", [], {}, [promptCommandInfo(missingPromptPath)]);
+
+			result.pi.assertDone();
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.pi.sentUserMessages).toEqual([]);
+			expect(result.notifications).toHaveLength(1);
+			expect(result.notifications[0]?.level).toBe("error");
+			expect(result.notifications[0]?.message).toContain("Failed to read /objective-stack-impl prompt template");
+			expect(result.notifications[0]?.message).toContain(missingPromptPath);
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+});
 
 describe("objective picker suggestion", () => {
 	test("shows only the one changed active Objective before offering the rest", async () => {

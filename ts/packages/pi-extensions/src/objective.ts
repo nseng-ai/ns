@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListGroup } from "./objective-list.ts";
@@ -50,6 +50,9 @@ type CommandInfo = {
 	source: string;
 	sourceInfo: {
 		path: string;
+		source?: string;
+		scope?: string;
+		origin?: string;
 		baseDir?: string;
 	};
 };
@@ -82,15 +85,24 @@ export type ExtensionAPI = {
 
 type ObjectiveCommandName = "objective-next" | "objective-current" | "objective-update";
 
-type ObjectiveCommandSpec = {
+type ObjectiveSelectionSpec = {
+	statusKey: string;
+	selectionTitle: string;
+	compactDiffSuggestion?: boolean;
+};
+
+type ObjectiveCommandSpec = ObjectiveSelectionSpec & {
 	commandName: ObjectiveCommandName;
 	skillName: ObjectiveCommandName;
 	description: string;
-	statusKey: string;
-	selectionTitle: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
-	compactDiffSuggestion?: boolean;
+};
+
+type ObjectiveStackImplCommandSpec = ObjectiveSelectionSpec & {
+	commandName: "objective-stack-impl";
+	description: string;
+	promptTemplateName: "objective-stack-impl";
 };
 
 export type ObjectiveListParsedArgs = {
@@ -150,6 +162,15 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	},
 ];
 
+const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
+	commandName: "objective-stack-impl",
+	description: "Pick an active Objective, then invoke the Objective stack implementation prompt for the selected slug.",
+	statusKey: "objective-stack-impl",
+	selectionTitle: "Select an active Objective for stack implementation",
+	compactDiffSuggestion: true,
+	promptTemplateName: "objective-stack-impl",
+};
+
 function stripFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
 }
@@ -181,7 +202,7 @@ function formatExecStartupFailure(commandDisplay: string, error: unknown): strin
 async function listCurrentActiveObjectives(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
-	spec: ObjectiveCommandSpec,
+	spec: ObjectiveSelectionSpec,
 ): Promise<ObjectiveList> {
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(spec.statusKey, "listing current active Objectives…");
@@ -209,7 +230,7 @@ async function objectiveDiffSelection(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	objectiveList: ObjectiveList,
-	spec: ObjectiveCommandSpec,
+	spec: ObjectiveSelectionSpec,
 ): Promise<ObjectiveDiffSelection | undefined> {
 	const trunkBranch = objectiveList.trunkBranch.trim();
 	if (!trunkBranch) {
@@ -285,6 +306,48 @@ ${objective}
 Treat this as an explicit user selection. Do not auto-select a different Objective.${updateReminder}`;
 }
 
+function findPromptTemplatePath(pi: ExtensionAPI, ctx: CommandContext, promptTemplateName: string): string {
+	const command = pi
+		.getCommands()
+		.find((candidate) => candidate.source === "prompt" && candidate.name === promptTemplateName);
+	return command?.sourceInfo.path ?? resolve(ctx.cwd, ".pi/prompts", `${promptTemplateName}.md`);
+}
+
+export function buildObjectiveStackImplPrompt(templateMarkdown: string, objective: string): string {
+	return stripFrontmatter(templateMarkdown).replace(/\$ARGUMENTS/g, () => objective);
+}
+
+function formatPromptTemplateReadError(promptTemplateName: string, promptPath: string, error: unknown): string {
+	const detail = error instanceof Error ? error.message : String(error);
+	return `Failed to read /${promptTemplateName} prompt template at ${promptPath}: ${detail}`;
+}
+
+async function invokeObjectiveStackImplPrompt(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveStackImplCommandSpec,
+	objective: string,
+): Promise<void> {
+	await ctx.waitForIdle();
+
+	const promptPath = findPromptTemplatePath(pi, ctx, spec.promptTemplateName);
+	let templateMarkdown: string;
+	try {
+		templateMarkdown = await readFile(promptPath, "utf8");
+	} catch (error) {
+		if (ctx.hasUI) {
+			ctx.ui.notify(formatPromptTemplateReadError(spec.promptTemplateName, promptPath, error), "error");
+		}
+		return;
+	}
+
+	if (ctx.hasUI) {
+		ctx.ui.notify(`Invoking ${spec.commandName} for ${objective}.`, "info");
+	}
+
+	pi.sendUserMessage(buildObjectiveStackImplPrompt(templateMarkdown, objective));
+}
+
 async function selectObjectiveSlug(
 	ctx: CommandContext,
 	title: string,
@@ -309,7 +372,7 @@ async function selectObjectiveSlug(
 
 async function selectChangedObjectivesOrOther(
 	ctx: CommandContext,
-	spec: ObjectiveCommandSpec,
+	spec: ObjectiveSelectionSpec,
 	objectiveList: ObjectiveList,
 	selection: ObjectiveDiffSelection,
 ): Promise<string | undefined> {
@@ -366,11 +429,11 @@ async function invokeObjectiveSkill(
 	pi.sendUserMessage(buildObjectiveSkillPrompt(spec, skill?.block, objective));
 }
 
-async function chooseObjectiveAndInvoke(
+async function chooseActiveObjectiveSlug(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
-	spec: ObjectiveCommandSpec,
-): Promise<void> {
+	spec: ObjectiveSelectionSpec,
+): Promise<string | undefined> {
 	await ctx.waitForIdle();
 
 	const objectiveList = await listCurrentActiveObjectives(pi, ctx, spec);
@@ -378,33 +441,39 @@ async function chooseObjectiveAndInvoke(
 		if (ctx.hasUI) {
 			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
 		}
-		return;
+		return undefined;
 	}
 
 	if (!ctx.hasUI) {
-		return;
+		return undefined;
 	}
 
 	const diffSelection = await objectiveDiffSelection(pi, ctx, objectiveList, spec);
-	let slug: string | undefined;
 	if (diffSelection && spec.compactDiffSuggestion) {
-		slug = await selectChangedObjectivesOrOther(ctx, spec, objectiveList, diffSelection);
-	} else {
-		if (diffSelection) {
-			const plural = diffSelection.changedActiveSlugs.length === 1 ? "" : "s";
-			ctx.ui.notify(
-				`Found changed Objective${plural} ${diffSelection.changedActiveSlugs.join(", ")} from objective diff vs ${diffSelection.trunkBranch}.`,
-				"info",
-			);
-		}
-		slug = await selectObjectiveSlug(
-			ctx,
-			spec.selectionTitle,
-			objectiveGroupsWithChangedFirst(objectiveList.groups, diffSelection),
-			diffSelection,
-		);
+		return selectChangedObjectivesOrOther(ctx, spec, objectiveList, diffSelection);
 	}
 
+	if (diffSelection) {
+		const plural = diffSelection.changedActiveSlugs.length === 1 ? "" : "s";
+		ctx.ui.notify(
+			`Found changed Objective${plural} ${diffSelection.changedActiveSlugs.join(", ")} from objective diff vs ${diffSelection.trunkBranch}.`,
+			"info",
+		);
+	}
+	return selectObjectiveSlug(
+		ctx,
+		spec.selectionTitle,
+		objectiveGroupsWithChangedFirst(objectiveList.groups, diffSelection),
+		diffSelection,
+	);
+}
+
+async function chooseObjectiveAndInvoke(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveCommandSpec,
+): Promise<void> {
+	const slug = await chooseActiveObjectiveSlug(pi, ctx, spec);
 	if (!slug) {
 		return;
 	}
@@ -426,6 +495,33 @@ async function handleObjectiveCommand(
 		}
 
 		await chooseObjectiveAndInvoke(pi, ctx, spec);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (ctx.hasUI) {
+			ctx.ui.notify(message, "error");
+		}
+	}
+}
+
+async function handleObjectiveStackImplCommand(
+	pi: ExtensionAPI,
+	spec: ObjectiveStackImplCommandSpec,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
+	const explicitObjective = args.trim();
+	try {
+		if (explicitObjective) {
+			await invokeObjectiveStackImplPrompt(pi, ctx, spec, explicitObjective);
+			return;
+		}
+
+		const slug = await chooseActiveObjectiveSlug(pi, ctx, spec);
+		if (!slug) {
+			return;
+		}
+
+		await invokeObjectiveStackImplPrompt(pi, ctx, spec, slug);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (ctx.hasUI) {
@@ -647,4 +743,9 @@ export default function objectiveExtension(pi: ExtensionAPI): void {
 			handler: async (args, ctx) => handleObjectiveCommand(pi, spec, args, ctx),
 		});
 	}
+
+	pi.registerCommand(OBJECTIVE_STACK_IMPL_COMMAND.commandName, {
+		description: OBJECTIVE_STACK_IMPL_COMMAND.description,
+		handler: async (args, ctx) => handleObjectiveStackImplCommand(pi, OBJECTIVE_STACK_IMPL_COMMAND, args, ctx),
+	});
 }
