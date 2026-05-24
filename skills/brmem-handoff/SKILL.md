@@ -1,5 +1,5 @@
 ---
-name: branch-handoff
+name: brmem-handoff
 description: "Create, store, list, or recover branch/session handoff artifacts in Branch Memory. Use when the user asks for a branch handoff, session handoff, Branch Memory handoff, durable handoff artifact, or to continue from a stored handoff."
 allowed-tools:
   - "Bash(git branch *)"
@@ -8,7 +8,7 @@ allowed-tools:
   - "Write"
 ---
 
-# branch-handoff
+# brmem-handoff
 
 Use this skill to create or recover concise Markdown handoff artifacts stored in
 Branch Memory for the current branch. This is an artifact workflow, not a task
