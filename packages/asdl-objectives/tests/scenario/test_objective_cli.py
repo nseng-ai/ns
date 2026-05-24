@@ -889,6 +889,7 @@ def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: objective exec" in result.output
     assert "Commands for use by objective skills." in result.output
+    assert "child-session-usage" in result.output
     assert "read-objective" in result.output
 
     result = CliRunner().invoke(cli_group, ["exec", "read-objective", "--help"])
@@ -896,6 +897,94 @@ def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0
     assert "Usage: objective exec read-objective" in result.output
     assert "Read one Objective record by explicit slug" in result.output
+
+
+def test_objective_exec_child_session_usage_json(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    session_file = tmp_path / "slice.jsonl"
+    _write_child_session_jsonl(session_file)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "child-session-usage", str(session_file), "--format", "json"],
+        obj=build_clinkr_context_object(lambda: object()),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    session = payload["data"]["sessions"][0]
+    assert session["session_file"] == str(session_file)
+    assert session["status"] == "ok"
+    assert session["assistant_response_count"] == 1
+    assert session["models"] == [
+        {"provider": "openai-codex", "api": "responses", "model": "gpt-5.5"}
+    ]
+    assert session["tokens"] == {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cache_read_tokens": 30,
+        "cache_write_tokens": 0,
+        "total_tokens": 150,
+    }
+    assert payload["data"]["aggregate"]["usage_response_count"] == 1
+    assert payload["data"]["aggregate"]["cost"]["total_usd"] == 0.006
+
+
+def test_objective_exec_child_session_usage_markdown(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    session_file = tmp_path / "slice.jsonl"
+    _write_child_session_jsonl(session_file)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "child-session-usage", str(session_file), "--format", "md"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "# Child Session Usage" in result.output
+    assert (
+        "| session | status | responses | model(s) | input | output | cache read |" in result.output
+    )
+    assert str(session_file) in result.output
+    assert "openai-codex/responses/gpt-5.5" in result.output
+    assert "| 100 | 20 | 30 | 0 | 150 | 150 | 130 | $0.006000 |" in result.output
+    assert "## Aggregate" in result.output
+    assert "- sessions: 1 total, 1 with usage" in result.output
+    assert "- configured context window: unavailable in child session logs" in result.output
+    assert "- cost: $0.006000" in result.output
+
+
+def test_objective_exec_child_session_usage_no_args_is_negative(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "child-session-usage"])
+
+    assert result.exit_code == 1
+    assert "Missing session file" in result.stderr
+    assert "missing_session_file" in result.output
+
+    json_result = CliRunner().invoke(
+        cli_group,
+        ["exec", "child-session-usage", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: object()),
+    )
+    assert json_result.exit_code == 1
+    payload = json.loads(json_result.output)
+    assert "missing_session_file" in payload["message"]
+    assert payload["data"]["sessions"] == []
+
+
+def test_objective_exec_child_session_usage_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["exec", "child-session-usage", "--help"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective exec child-session-usage" in result.output
+    assert "Summarize Pi child session JSONL usage telemetry" in result.output
 
 
 def test_objective_exec_read_missing_slug_returns_stable_json(
@@ -1287,6 +1376,37 @@ def _empty_read_data(
         "updates": [],
         "update_count": 0,
     }
+
+
+def _write_child_session_jsonl(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "message": {
+                    "role": "assistant",
+                    "provider": "openai-codex",
+                    "api": "responses",
+                    "model": "gpt-5.5",
+                    "usage": {
+                        "input": 100,
+                        "output": 20,
+                        "cacheRead": 30,
+                        "cacheWrite": 0,
+                        "totalTokens": 150,
+                        "cost": {
+                            "input": 0.001,
+                            "output": 0.004,
+                            "cacheRead": 0.001,
+                            "cacheWrite": 0.0,
+                            "total": 0.006,
+                        },
+                    },
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _write_objective(

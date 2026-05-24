@@ -108,16 +108,19 @@ For each planned slice:
 5. Wait for the child result. Do not launch another child while it runs.
 6. Inspect the returned status, final text, diagnostics, progress, and
    `sessionFile`.
-7. Treat only `status: final-text` as a successful child-return candidate.
-8. Even for `final-text`, verify the work yourself with file inspection, git
+7. Record a current-session slice result entry with the slice title, branch,
+   child status, child `sessionFile` path when present, validation result, and
+   commit hash if committed.
+8. Treat only `status: final-text` as a successful child-return candidate.
+9. Even for `final-text`, verify the work yourself with file inspection, git
    diff, and appropriate tests or checks.
-9. For any non-final or ambiguous status, inspect diagnostics and the child
-   `sessionFile` before deciding whether to retry, ask the user, or stop.
-10. If meaningful progress was made and validated, run `objective-update` with
+10. For any non-final or ambiguous status, inspect diagnostics and the child
+    `sessionFile` before deciding whether to retry, ask the user, or stop.
+11. If meaningful progress was made and validated, run `objective-update` with
     evidence from the slice.
-11. Commit or amend only after parent-side validation, using the repo's
+12. Commit or amend only after parent-side validation, using the repo's
     Graphite workflow.
-12. Decide whether to continue to the next slice or stop for user inspection.
+13. Decide whether to continue to the next slice or stop for user inspection.
 
 ## Child prompt requirements
 
@@ -191,13 +194,30 @@ If this session or a child fails, recover manually from inspectable artifacts:
 Do not expect Branch Memory ledgers, hidden extension state, or durable stack
 schemas for this v1 workflow.
 
+## Stack implementation digest telemetry
+
+Before the final response, use the current-session slice result list to collect
+all child `sessionFile` paths that are available. If any are present, run:
+
+```bash
+objective exec child-session-usage --format md <session-file>...
+```
+
+Include the command output, or a compact transcription of it, in the final run
+digest. If no child session files are available, explicitly state that telemetry
+is unavailable because no child `sessionFile` paths were returned. If the command
+fails, state telemetry is unavailable and include the failure reason. Do not
+parse freeform child final text for usage metrics.
+
 ## Final response requirements
 
-When you stop, summarize:
+When you stop, produce a **Stack implementation digest** that summarizes:
 
 - selected Objective slug;
 - branches and slices attempted;
 - child session files and statuses;
+- child session usage telemetry from `objective exec child-session-usage`, or
+  why telemetry is unavailable;
 - files changed;
 - validations run and results;
 - Objective updates recorded or still needed;
