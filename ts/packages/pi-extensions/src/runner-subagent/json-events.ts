@@ -106,6 +106,11 @@ export class RunnerSubagentJsonEventParser {
 		this.markStopped();
 	}
 
+	markTerminating(): void {
+		if (this.state === "stopped") return;
+		this.state = "terminating";
+	}
+
 	markStopped(): void {
 		this.state = "stopped";
 		this.currentTool = undefined;
