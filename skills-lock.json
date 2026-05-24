@@ -1,8 +1,8 @@
 {
   "version": 1,
   "skills": {
-    "branch-handoff": {
-      "source": "skills/branch-handoff",
+    "brmem-handoff": {
+      "source": "skills/brmem-handoff",
       "sourceType": "local",
       "computedHash": "f152cdf4b8c62ed1406b6ab8f1023cf47624ac8af1f4c2d3d4c42f7ab7cbd694"
     },
