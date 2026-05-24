@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { stripTerminalEscapes } from "../src/command-runtime.ts";
-import { formatGtStatus, loadGtStatus, type ExecResult, type StatusTheme } from "../src/worktree-status.ts";
+import { formatGtStatus, loadGtStatus, renderWorktreeStatusMessage, type ExecResult, type StatusTheme } from "../src/worktree-status.ts";
 
 const ROOT = "/repo";
 
@@ -121,6 +121,40 @@ const TEST_THEME: StatusTheme = {
 		return `\x1B[4m${value}\x1B[24m`;
 	},
 };
+
+describe("worktree status message rendering", () => {
+	test("renders PR references from message details as terminal hyperlinks", () => {
+		const component = renderWorktreeStatusMessage(
+			{
+				customType: "worktree-status",
+				content: "[gt] (pr: #489) (↓: main) (↑: -) (commits)",
+				display: true,
+				details: { prLinks: [{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/489" }] },
+			},
+			{ expanded: false },
+			{ fg: (_color, text) => text },
+		);
+
+		expect(component.render(200)).toEqual([
+			"[gt] (pr: \x1B]8;;https://app.graphite.com/github/pr/dagster-io/asdl-tools/489\x07#489\x1B]8;;\x07) (↓: main) (↑: -) (commits)",
+		]);
+	});
+
+	test("ignores unsafe PR link details while rendering", () => {
+		const component = renderWorktreeStatusMessage(
+			{
+				customType: "worktree-status",
+				content: "[gt] (pr: #489) (↓: main) (↑: -) (commits)",
+				display: true,
+				details: { prLinks: [{ number: 489, url: "javascript:alert(1)" }] },
+			},
+			{ expanded: false },
+			{ fg: (_color, text) => text },
+		);
+
+		expect(component.render(200)).toEqual(["[gt] (pr: #489) (↓: main) (↑: -) (commits)"]);
+	});
+});
 
 describe("worktree status formatting", () => {
 	test("formats the empty branch icon for zero branch-local commits", () => {

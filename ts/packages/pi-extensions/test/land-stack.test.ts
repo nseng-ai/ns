@@ -1014,6 +1014,29 @@ describe("land-stack command scenarios", () => {
 		expect(rendered).toContain("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07 feature-a");
 	});
 
+	test("command stream renderer ignores unsafe PR link URLs in details", () => {
+		const pi = new FakePi();
+		landStackExtension(pi);
+		const renderer = pi.messageRenderers.get("land-stack-command-stream");
+		expect(renderer).toBeDefined();
+
+		const rendered = renderer?.(
+			{
+				customType: "land-stack-command-stream",
+				content: "✓ Landed 1 PR: #101 feature-a.",
+				display: true,
+				details: { prLinks: [{ number: 101, url: "javascript:alert(1)" }] },
+			},
+			{ expanded: false },
+			{ fg: (_color: string, text: string) => text },
+		)
+			.render(200)
+			.join("\n");
+
+		expect(rendered).toBe("✓ Landed 1 PR: #101 feature-a.");
+		expect(rendered).not.toContain("\x1B]8;;");
+	});
+
 	test("treats missing local branch during Graphite delete as successful cleanup", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [

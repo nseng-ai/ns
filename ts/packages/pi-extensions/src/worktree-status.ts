@@ -1,6 +1,17 @@
 import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatchFile, watch, watchFile } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
+import {
+	customMessageText,
+	linkifyPrReferences,
+	prLinksDetailsFor,
+	prLinksFromDetails,
+	sanitizeTerminalHyperlinkUrl,
+	terminalHyperlink,
+	truncateDisplayLine,
+	type CustomMessageContent,
+} from "./terminal-presentation.ts";
+
 const UI_KEY = "worktree-status";
 const EMPTY_BRANCH_ICON = "∅";
 const LOCAL_BRANCH_REF_PREFIX = "refs/heads/";
@@ -62,9 +73,21 @@ export type ExtensionContext = {
 
 type CustomMessage = {
 	customType: string;
-	content: string;
+	content: CustomMessageContent;
 	display: boolean;
+	details?: unknown;
 };
+
+type RenderTheme = {
+	fg(color: string, text: string): string;
+};
+
+type RenderComponent = {
+	render(width: number): string[];
+	invalidate(): void;
+};
+
+type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
 
 type ToolResultEvent = {
 	toolName: string;
@@ -83,6 +106,7 @@ export type ExtensionAPI = {
 	on(event: "tool_result", handler: (event: ToolResultEvent) => Promise<void> | void): void;
 	on(event: "agent_end" | "session_shutdown", handler: () => Promise<void> | void): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;
 };
 
@@ -140,6 +164,8 @@ type ActiveSession = {
 };
 
 export default function worktreeStatusExtension(pi: ExtensionAPI) {
+	pi.registerMessageRenderer?.(UI_KEY, renderWorktreeStatusMessage);
+
 	let nextSessionId = 0;
 	let activeSession: ActiveSession | undefined;
 	let refreshSequence = 0;
@@ -452,11 +478,11 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		const cwd = ctx.cwd;
 		const status = await loadWorktreeStatus(pi, cwd);
 		const lines = formatWorktreeStatus(status, ctx.ui.theme);
-		const messageLines = formatWorktreeStatus(status);
+		const messageLines = formatPlainWorktreeStatus(status);
 		try {
 			renderLines(ctx, lines);
 			lastLinesKey = JSON.stringify(lines);
-			pi.sendMessage?.({ customType: "worktree-status", content: messageLines.join("\n"), display: true });
+			sendWorktreeStatusMessage(pi, messageLines, worktreeStatusDetails(status));
 		} catch {
 			// Ignore command-display races during session replacement/reload.
 		}
@@ -768,26 +794,73 @@ function currentBranchName(gitPaths: GitPaths): string | undefined {
 	}
 }
 
-function sanitizeTerminalHyperlinkUrl(url: string): string | undefined {
-	if (/\p{Cc}/u.test(url)) return undefined;
-
-	try {
-		const parsed = new URL(url);
-		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
-		return parsed.toString();
-	} catch {
-		return undefined;
-	}
-}
-
-function terminalHyperlink(text: string, url: string): string {
-	return `\x1B]8;;${url}\x07${text}\x1B]8;;\x07`;
-}
-
 function execOptions(cwd: string, signal?: AbortSignal) {
 	return signal === undefined
 		? { cwd, timeout: COMMAND_TIMEOUT_MS }
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
+}
+
+export function renderWorktreeStatusMessage(
+	message: CustomMessage,
+	_options: { expanded: boolean },
+	theme: RenderTheme,
+): RenderComponent {
+	const content = customMessageText(message.content);
+	const prLinks = prLinksFromDetails(message.details);
+	return {
+		render(width: number): string[] {
+			return content
+				.split("\n")
+				.map((line) => theme.fg(worktreeStatusLineColor(line), renderWorktreeStatusLine(line, prLinks, width)));
+		},
+		invalidate(): void {},
+	};
+}
+
+function renderWorktreeStatusLine(line: string, prLinks: ReadonlyMap<number, string>, width: number): string {
+	const truncated = truncateDisplayLine(line, width);
+	if (prLinks.size === 0) return truncated;
+	return linkifyPrReferences(truncated, prLinks);
+}
+
+function worktreeStatusLineColor(line: string): string {
+	return line.startsWith("[gt]") ? "accent" : "dim";
+}
+
+function sendWorktreeStatusMessage(
+	pi: ExtensionAPI,
+	messageLines: string[],
+	details: ReturnType<typeof worktreeStatusDetails>,
+): void {
+	const message: CustomMessage = {
+		customType: UI_KEY,
+		content: messageLines.join("\n"),
+		display: true,
+	};
+	if (details) {
+		message.details = details;
+	}
+	pi.sendMessage?.(message);
+}
+
+function worktreeStatusDetails(status: WorktreeStatus): ReturnType<typeof prLinksDetailsFor> {
+	return status.gt.pr ? prLinksDetailsFor([status.gt.pr]) : undefined;
+}
+
+function formatPlainWorktreeStatus(status: WorktreeStatus): string[] {
+	const lines: string[] = [];
+	if (status.brmem !== undefined) {
+		lines.push(`[brmem] ${status.brmem}`);
+	}
+	lines.push(formatPlainGtStatus(status.gt));
+	return lines;
+}
+
+function formatPlainGtStatus(status: GtStatus): string {
+	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
+	const dirty = status.dirty === "yes" ? " (x)" : "";
+	const pr = status.pr ? ` (pr: #${status.pr.number})` : "";
+	return `[gt]${pr} (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
 }
 
 export type StatusTheme = {
@@ -822,12 +895,18 @@ export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
 			? `${formatStatusSegment(" (pr: ", theme)}${formatPrNumber(status.pr, theme)}${formatStatusSegment(")", theme)}`
 			: "";
 		const line = `${formatStatusSegment("[gt]", theme)}${pr}${formatStatusSegment(rest, theme)}`;
-		return status.pr ? terminalHyperlink(line, status.pr.url) : line;
+		return linkStatusLine(line, status.pr);
 	}
 
 	const pr = status.pr ? ` (pr: ${formatPrNumber(status.pr, theme)})` : "";
 	const line = `[gt]${pr}${rest}`;
-	return status.pr ? terminalHyperlink(line, status.pr.url) : line;
+	return linkStatusLine(line, status.pr);
+}
+
+function linkStatusLine(line: string, pr: GtPrStatus | undefined): string {
+	if (!pr) return line;
+	const sanitizedUrl = sanitizeTerminalHyperlinkUrl(pr.url);
+	return sanitizedUrl ? terminalHyperlink(line, sanitizedUrl) : line;
 }
 
 function formatPrNumber(pr: GtPrStatus, theme: StatusTheme | undefined): string {
