@@ -178,16 +178,16 @@ function formatExecStartupFailure(commandDisplay: string, error: unknown): strin
 	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
-async function listActiveObjectives(
+async function listCurrentActiveObjectives(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveCommandSpec,
 ): Promise<ObjectiveList> {
 	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.statusKey, "listing active Objectives…");
+		ctx.ui.setStatus(spec.statusKey, "listing current active Objectives…");
 	}
 
-	const args = ["list", "--format", "json"];
+	const args = ["list", "--current", "--format", "json"];
 	try {
 		const result = await pi.exec("objective", args, {
 			cwd: ctx.cwd,
@@ -373,7 +373,7 @@ async function chooseObjectiveAndInvoke(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	const objectiveList = await listActiveObjectives(pi, ctx, spec);
+	const objectiveList = await listCurrentActiveObjectives(pi, ctx, spec);
 	if (objectiveList.groups.length === 0) {
 		if (ctx.hasUI) {
 			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
