@@ -54,7 +54,7 @@ Risks:
 - The smoke test may be too simple to expose issues that only appear in real code changes. That is acceptable for a first end-to-end prompt test, but follow-up tests may need richer fixtures.
 - If `.pi/prompts/objective-stack-impl.md` is not present or not wired into Pi prompt discovery, this Objective will block before implementation work starts.
 - If the prompt creates branches or commits outside the isolated docs fixture, the test loses its easy-revert property and should be stopped or corrected.
-- If child sessions return vague final text, the parent may need to inspect child session files manually before deciding whether to advance.
+- The first smoke-test run de-risked vague child returns for this fixture: both child sessions returned actionable `final-text`, and the parent verified the work with file inspection and targeted `dprint` checks before advancing. Future richer tests may still need manual session-file inspection if a child return is ambiguous.
 
 ## Open Questions
 
