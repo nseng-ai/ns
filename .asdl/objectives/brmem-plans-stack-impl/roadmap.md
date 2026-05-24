@@ -6,8 +6,8 @@
 - [x] Create `brmem-plans/extract-shared-plan-primitives`: extract reusable slug, temp-file, `brmem` command, JSON parsing, and success/error formatting helpers from `create-brmem-plan.ts` without behavior changes; keep existing tests green.
 - [x] Create `brmem-plans/add-plan-branch-from-file-core`: implement the shared branch-from-plan-file operation with branch preflight, Branch Memory preflight against namespace `brmem-plans`, branch creation/registration, plan stash to key `<slug>.md`, structured result evidence, and partial-failure reporting.
 - [x] Add fake-driven tests for the shared branch-from-plan-file operation, covering success, invalid inputs, existing branch, existing Branch Memory entry, branch creation failure, `brmem put` failure, and returned evidence.
-- [ ] Create `brmem-plans/wire-create-plan-branch-command`: add the `create-brmem-plan-branch` Pi extension shim and TypeScript command/tool wiring that writes a temp plan, inspects it, and calls the shared branch-from-plan-file operation.
-- [ ] Remove or rename `/create-brmem-plan` and `persist_brmem_plan` into the new branch-creating command/tool names; do not add compatibility aliases.
+- [x] Create `brmem-plans/wire-create-plan-branch-command`: add the `create-brmem-plan-branch` Pi extension shim and TypeScript command/tool wiring that writes a temp plan, inspects it, and calls the shared branch-from-plan-file operation.
+- [x] Remove or rename `/create-brmem-plan` and `persist_brmem_plan` into the new branch-creating command/tool names; do not add compatibility aliases.
 - [ ] Create `brmem-plans/rename-plan-branch-skills`: migrate `dev-brmem-branch-create` to `brmem-create-plan-branch-from-file` and `dev-brmem-branch-impl` to `brmem-plan-impl`, updating frontmatter, descriptions, references, metadata, and symlink layout.
 - [ ] Rename the repo-local branch policy prompt and packaged default prompt to the new `create-brmem-plan-branch` naming; do not keep a `dev-brmem-branch-create` fallback.
 - [ ] Create `brmem-plans/legacy-cleanup-docs`: search for old names, update docs/references/changelog material where appropriate, and leave no compatibility aliases.
