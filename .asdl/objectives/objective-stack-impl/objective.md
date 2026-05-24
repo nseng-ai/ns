@@ -78,6 +78,7 @@ Risks:
 - Freeform child text can be ambiguous or overconfident. The parent prompt must ask for explicit state, evidence, and blockers, but the parent LLM still has to interpret prose.
 - Without Branch Memory ledgers or handoffs, automatic recovery and status reporting are limited. This is accepted for v1 but may need revisiting if the workflow becomes frequent or long-running.
 - Capturing final assistant text depends on Pi JSON event shapes. Parser tests should pin only the event fields needed for useful text extraction and diagnostics.
+- Evidence from the local stack establishes a terminal-capture baseline, not a final-text implementation: `runChildSession` still requires `terminalTools`, the demo extension reports structured terminal captures, and `.pi/prompts/objective-stack-impl.md` is not present. This keeps the final-text contract, generic text tool, and prompt as active de-risking work.
 - A generic child-session text tool may be too permissive for risky repository operations. The Objective-stack prompt must keep same-worktree child runs sequential and require parent-side git/worktree checks.
 - Current-session-only orchestration can inherit noisy or stale context. The prompt should explicitly ask the parent agent to compact relevant context and discard distractions before planning.
 - If the child stops without useful final text, the parent must treat it as non-complete and inspect the child session file rather than advancing blindly.
