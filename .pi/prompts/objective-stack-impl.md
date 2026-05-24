@@ -34,9 +34,12 @@ and the decision to continue or stop.
 ## Resolve the Objective
 
 1. If `Objective argument` is non-empty, treat it as the explicit Objective
-   slug or path.
-2. If `Objective argument` is empty, do not infer the Objective from branch
-   name, changed files, package names, PR titles, or keyword matches. Run:
+   slug or path. The `/objective-stack-impl` extension wrapper normally
+   preselects this value before this prompt runs.
+2. If `Objective argument` is empty, this prompt was invoked without the
+   extension picker wrapper, or the wrapper could not supply a slug. In this
+   fallback mode, do not infer the Objective from branch name, changed files,
+   package names, PR titles, or keyword matches. Run:
 
    ```bash
    objective list --format md
