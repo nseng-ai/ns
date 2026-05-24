@@ -49,21 +49,16 @@ type AutocompleteItem = {
 	description?: string;
 };
 
-type StatusWidget = (
-	tui: unknown,
-	theme: { fg(color: "dim", value: string): string },
-) => {
-	render(width: number): string[];
-	invalidate(): void;
-};
-
 export type ExtensionContext = {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
+		theme: {
+			fg(color: "dim", value: string): string;
+		};
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		setWidget(key: string, value: StatusWidget | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
+		setWidget(key: string, value: undefined): void;
 	};
 };
 
@@ -706,26 +701,8 @@ export function formatGtStatus(status: GtStatus): string {
 }
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
-	ctx.ui.setStatus(UI_KEY, undefined);
-	ctx.ui.setWidget(UI_KEY, dimLinesWidget(lines), { placement: "belowEditor" });
-}
-
-function dimLinesWidget(lines: string[]): StatusWidget {
-	return (_tui, theme) => ({
-		render: (width: number) => lines.map((line) => theme.fg("dim", truncateToWidth(line, width, "…"))),
-		invalidate: () => {},
-	});
-}
-
-function truncateToWidth(value: string, width: number, ellipsis: string): string {
-	if (width <= 0) return "";
-	const characters = Array.from(value);
-	if (characters.length <= width) return value;
-
-	const ellipsisCharacters = Array.from(ellipsis);
-	if (width <= ellipsisCharacters.length) return ellipsisCharacters.slice(0, width).join("");
-
-	return `${characters.slice(0, width - ellipsisCharacters.length).join("")}${ellipsis}`;
+	ctx.ui.setWidget(UI_KEY, undefined);
+	ctx.ui.setStatus(UI_KEY, ctx.ui.theme.fg("dim", lines.join(" ")));
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {
