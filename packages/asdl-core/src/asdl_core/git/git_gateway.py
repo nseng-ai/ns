@@ -146,11 +146,13 @@ class GitGateway(ABC):
 
     @abstractmethod
     def path_last_touched(self, ref: str, path: str) -> PathTouch | None:
-        """Return the latest commit touching ``path`` reachable from ``ref``.
+        """Return the latest commit touching ``path`` in ``ref`` or a revision range.
 
-        Wraps ``git log -1 --format=%H%x00%cI <ref> -- <path>``. Returns
-        ``None`` when the ref does not exist, the path is not present in the
-        ref's history, or the underlying command fails.
+        Wraps ``git log -1 --format=%H%x00%cI <ref> -- <path>``. ``ref`` may
+        be a single ref such as ``HEAD`` or a revision range such as
+        ``main..feature``. Returns ``None`` when the ref/range does not exist,
+        no commit in the selected history touches the path, or the underlying
+        command fails.
         """
 
     @abstractmethod

@@ -107,10 +107,10 @@ def test_objective_list_groups_work_branches_under_base_status(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T09:00:00-04:00"
             ),
-            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
                 "a-alpha", "2026-05-20T10:44:08-04:00"
             ),
-            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/b", ".asdl/objectives/alpha"): _touch(
                 "b-alpha", "2026-05-20T11:15:42-04:00"
             ),
         },
@@ -190,7 +190,7 @@ def test_objective_list_in_flight_default_inclusion(cli_group: ClinkrGroup) -> N
             ("refs/heads/feat/a", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
         },
         path_touch_by_ref_path={
-            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
                 "a-alpha", "2026-05-20T10:44:08-04:00"
             ),
         },
@@ -239,6 +239,11 @@ def test_objective_list_base_status_wins_over_work_branch_status(
                 ".asdl/objectives/alpha/closed.md",
             ),
         },
+        path_touch_by_ref_path={
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
+                "a-alpha", "2026-05-20T10:44:08-04:00"
+            ),
+        },
     )
 
     result = _invoke_list_json(cli_group, ctx)
@@ -277,6 +282,17 @@ def test_objective_list_sorts_groups_and_work_branch_rows(cli_group: ClinkrGroup
                 ".asdl/objectives/alpha/objective.md",
             ),
             ("refs/heads/feat/b", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        path_touch_by_ref_path={
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
+                "a-alpha", "2026-05-20T10:00:00-04:00"
+            ),
+            ("master..feat/b", ".asdl/objectives/alpha"): _touch(
+                "b-alpha", "2026-05-20T10:00:00-04:00"
+            ),
+            ("master..feat/a", ".asdl/objectives/beta"): _touch(
+                "a-beta", "2026-05-20T10:00:00-04:00"
+            ),
         },
     )
 
@@ -363,10 +379,10 @@ def test_objective_list_latest_update_uses_objective_path_touch_not_branch_head(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T08:00:00-04:00"
             ),
-            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
                 "a-alpha", "2026-05-20T09:00:00-04:00"
             ),
-            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/b", ".asdl/objectives/alpha"): _touch(
                 "b-alpha", "2026-05-20T11:00:00-04:00"
             ),
         },
@@ -393,7 +409,7 @@ def test_objective_list_latest_work_blank_when_latest_update_is_on_base(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T12:00:00-04:00"
             ),
-            ("refs/heads/feat/old", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/old", ".asdl/objectives/alpha"): _touch(
                 "old-alpha", "2026-05-20T09:00:00-04:00"
             ),
         },
@@ -426,10 +442,10 @@ def test_objective_list_latest_work_tie_break_uses_nearest_branch(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T08:00:00-04:00"
             ),
-            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
                 "shared-alpha", "2026-05-20T10:44:08-04:00"
             ),
-            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/b", ".asdl/objectives/alpha"): _touch(
                 "shared-alpha", "2026-05-20T10:44:08-04:00"
             ),
         },
@@ -459,10 +475,10 @@ def test_objective_list_latest_work_tie_break_uses_branch_name_after_distance(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T08:00:00-04:00"
             ),
-            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
                 "shared-alpha", "2026-05-20T10:44:08-04:00"
             ),
-            ("refs/heads/feat/b", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/b", ".asdl/objectives/alpha"): _touch(
                 "shared-alpha", "2026-05-20T10:44:08-04:00"
             ),
         },
@@ -516,7 +532,7 @@ def test_objective_list_human_keeps_status_column_with_long_names(
                 "base-architecture", updated_iso
             ),
             (
-                "refs/heads/add-objective-status-column-and-filter",
+                "master..add-objective-status-column-and-filter",
                 ".asdl/objectives/architecture-deepening",
             ): _touch("work-architecture", updated_iso),
         },
@@ -547,6 +563,11 @@ def test_objective_list_base_only_objective_and_work_branches(cli_group: ClinkrG
                 ".asdl/objectives/alpha/objective.md",
             ),
         },
+        path_touch_by_ref_path={
+            ("master..feat/active", ".asdl/objectives/alpha"): _touch(
+                "active-alpha", "2026-05-20T10:00:00-04:00"
+            ),
+        },
     )
 
     result = _invoke_list_json(cli_group, ctx)
@@ -568,6 +589,63 @@ def test_objective_list_base_only_objective_and_work_branches(cli_group: ClinkrG
     assert "feat/empty" not in human.output
 
 
+def test_objective_list_counts_only_branches_with_objective_updates(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/inherited", "feat/updated"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (
+                ".asdl/objectives/alpha/objective.md",
+                ".asdl/objectives/inherited-only/objective.md",
+            ),
+            ("refs/heads/feat/inherited", ".asdl/objectives"): (
+                ".asdl/objectives/alpha/objective.md",
+                ".asdl/objectives/inherited-only/objective.md",
+            ),
+            ("refs/heads/feat/updated", ".asdl/objectives"): (
+                ".asdl/objectives/alpha/objective.md",
+            ),
+        },
+        path_touch_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T09:00:00-04:00"
+            ),
+            ("refs/heads/master", ".asdl/objectives/inherited-only"): _touch(
+                "base-inherited", "2026-05-20T09:30:00-04:00"
+            ),
+            ("master..feat/updated", ".asdl/objectives/alpha"): _touch(
+                "updated-alpha", "2026-05-20T10:00:00-04:00"
+            ),
+        },
+        commit_count_by_range={
+            "master..feat/inherited": 99,
+            "master..feat/updated": 2,
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx)
+    detail = _invoke_list_md(cli_group, ctx, view="detail")
+
+    assert result.exit_code == 0, result.output
+    groups = {group["slug"]: group for group in json.loads(result.output)["data"]["groups"]}
+    assert groups["alpha"]["branches"] == [
+        {
+            "branch": "feat/updated",
+            "status": "open",
+            "updated_iso": "2026-05-20T10:00:00-04:00",
+            "ahead_base": 2,
+        }
+    ]
+    assert groups["alpha"]["latest_work_branch"] == "feat/updated"
+    assert groups["inherited-only"]["branches"] == []
+    assert groups["inherited-only"]["latest_work_branch"] is None
+    assert detail.exit_code == 0, detail.output
+    assert "feat/updated" in detail.output
+    assert "feat/inherited" not in detail.output
+    assert "No work branches." in detail.output
+
+
 def test_objective_list_default_human_and_markdown_are_list_view(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -581,7 +659,7 @@ def test_objective_list_default_human_and_markdown_are_list_view(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T09:00:00-04:00"
             ),
-            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
                 "a-alpha", "2026-05-20T10:44:08-04:00"
             ),
         },
@@ -634,7 +712,7 @@ def test_objective_list_detail_human_and_markdown_column_shape(
             ("refs/heads/master", ".asdl/objectives/alpha"): _touch(
                 "base-alpha", "2026-05-20T09:00:00-04:00"
             ),
-            ("refs/heads/feat/a", ".asdl/objectives/alpha"): _touch(
+            ("master..feat/a", ".asdl/objectives/alpha"): _touch(
                 "a-alpha", "2026-05-20T10:44:08-04:00"
             ),
         },
@@ -680,6 +758,9 @@ def test_objective_list_current_uses_current_status_source_and_filters_to_curren
             ("refs/heads/feat/here", ".asdl/objectives/alpha"): _touch(
                 "here-alpha", "2026-05-20T10:44:08-04:00"
             ),
+            ("master..feat/here", ".asdl/objectives/alpha"): _touch(
+                "here-alpha", "2026-05-20T10:44:08-04:00"
+            ),
         },
     )
 
@@ -700,6 +781,33 @@ def test_objective_list_current_uses_current_status_source_and_filters_to_curren
     assert "Objective status for current branch `feat/here`" in human.output
     assert "Status source: current branch" in human.output
     assert "◇ in-flight" not in human.output
+
+
+def test_objective_list_current_inherited_objective_has_no_work_branch_row(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master", "feat/here"),
+        current_branch="feat/here",
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+            ("refs/heads/feat/here", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        path_touch_by_ref_path={
+            ("refs/heads/feat/here", ".asdl/objectives/alpha"): _touch(
+                "base-alpha", "2026-05-20T09:00:00-04:00"
+            ),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, current=True)
+
+    assert result.exit_code == 0, result.output
+    group = json.loads(result.output)["data"]["groups"][0]
+    assert group["slug"] == "alpha"
+    assert group["branches"] == []
+    assert group["latest_update_iso"] == "2026-05-20T09:00:00-04:00"
+    assert group["latest_work_branch"] is None
 
 
 def test_objective_list_current_empty_when_branch_unrelated(cli_group: ClinkrGroup) -> None:
