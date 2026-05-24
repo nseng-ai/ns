@@ -46,11 +46,6 @@
       "sourceType": "local",
       "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
-    "dev-objective-stack": {
-      "source": "skills/dev-objective-stack",
-      "sourceType": "local",
-      "computedHash": "25851f22d80f1286a3cc3e7a55014eace2746626a5e1958e87d8c03c6aeaa504"
-    },
     "dev-stacker-agent": {
       "source": "skills/dev-stacker-agent",
       "sourceType": "local",
