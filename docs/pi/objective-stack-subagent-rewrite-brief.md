@@ -13,7 +13,7 @@ It is written for a fresh agent so they do **not** need to rediscover:
 - how the same feature should work over first-class child sessions/subagents;
 - what risks and design decisions remain open.
 
-Read this together with [Core Subagent MVP Spec](./core-subagent-mvp-spec.md).
+Read this together with the [Pi Core Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md), which is the canonical design record for the core child-session primitive.
 
 ## Glossary
 

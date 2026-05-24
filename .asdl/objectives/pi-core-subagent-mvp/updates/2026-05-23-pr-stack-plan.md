@@ -19,7 +19,7 @@ Durable planning decisions added to the Objective:
 
 - Keep the default implementation plan at four PRs.
 - Split to five PRs only if UI complexity would blur the final polish slice.
-- Treat `asdl-tools` Objective/spec files and Pi monorepo implementation files as a repository-boundary risk; the semantic first slice may need separate repo-specific reviews.
+- Treat the `asdl-tools` Objective record and Pi monorepo implementation files as a repository-boundary risk; the semantic first slice may need separate repo-specific reviews.
 - Expect terminal sibling-tool protocol semantics may require low-level `packages/agent` changes, not only `packages/coding-agent` changes.
 - Preserve landed-state Objective updates per slice, including one Semantic Update and branch handoff per implemented PR.
 
@@ -27,6 +27,6 @@ Evidence considered: local `asdl-tools` branch diff against Graphite parent `mas
 
 ## Follow-Ups
 
-- Start with PR 1: reconcile `docs/pi/core-subagent-mvp-spec.md` with command-context-only `runChildSession()`, child-local capture-only terminal tools, canonical validated input, fresh-context-only MVP, sibling-tool protocol error, and awaited non-interactive semantics.
-- When implementation moves to the Pi monorepo, verify the local repo workflow and whether public API type changes should land with the spec slice or as the first Pi-only implementation slice.
+- Start with PR 1: keep the Objective as the canonical contract for command-context-only `runChildSession()`, child-local capture-only terminal tools, canonical validated input, fresh-context-only MVP, sibling-tool protocol error, and awaited non-interactive semantics.
+- When implementation moves to the Pi monorepo, verify the local repo workflow and whether public API type changes should land with the Objective/API slice or as the first Pi-only implementation slice.
 - Revisit the four-vs-five PR decision after the runtime and terminal capture slices reveal the actual parent UI surface area.
