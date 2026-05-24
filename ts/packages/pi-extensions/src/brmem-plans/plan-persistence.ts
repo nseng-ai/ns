@@ -43,13 +43,13 @@ export type BrmemRun = {
 	displayCommand: string;
 };
 
-export type PersistBrmemPlanParams = {
+export type BrmemPlanStorageParams = {
 	slug: string;
 	filePath: string;
 	summary?: string;
 };
 
-export type PersistBrmemPlanDetails = {
+export type BrmemPlanStorageDetails = {
 	namespace: string;
 	key: string;
 	slug: string;
@@ -69,22 +69,22 @@ export type BrmemPutData = {
 	sourceFile: string;
 };
 
-export type PersistBrmemPlanResult = {
+export type BrmemPlanStorageResult = {
 	content: string;
-	details: PersistBrmemPlanDetails;
+	details: BrmemPlanStorageDetails;
 };
 
-export type PersistBrmemPlanOptions = {
+export type BrmemPlanStorageOptions = {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 };
 
-export async function persistBrmemPlan(
+export async function storeBrmemPlanFromFile(
 	pi: BrmemPlanExecApi,
 	rawParams: unknown,
-	options: PersistBrmemPlanOptions,
-): Promise<PersistBrmemPlanResult> {
-	const params = parsePersistBrmemPlanParams(rawParams);
+	options: BrmemPlanStorageOptions,
+): Promise<BrmemPlanStorageResult> {
+	const params = parseBrmemPlanStorageParams(rawParams);
 	const slug = params.slug.trim();
 	const slugError = validatePlanSlug(slug);
 	if (slugError !== undefined) {
@@ -178,22 +178,22 @@ export function isPathInside(parent: string, child: string): boolean {
 	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
-export function parsePersistBrmemPlanParams(params: unknown): PersistBrmemPlanParams {
+export function parseBrmemPlanStorageParams(params: unknown): BrmemPlanStorageParams {
 	if (!isRecord(params)) {
-		throw new Error("persist_brmem_plan parameters must be an object.");
+		throw new Error("Branch Memory plan storage parameters must be an object.");
 	}
 
 	const slug = params.slug;
 	const filePath = params.filePath;
 	const summary = params.summary;
 	if (typeof slug !== "string") {
-		throw new Error("persist_brmem_plan requires string parameter `slug`.");
+		throw new Error("Branch Memory plan storage requires string parameter `slug`.");
 	}
 	if (typeof filePath !== "string") {
-		throw new Error("persist_brmem_plan requires string parameter `filePath`.");
+		throw new Error("Branch Memory plan storage requires string parameter `filePath`.");
 	}
 	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error("persist_brmem_plan parameter `summary` must be a string when provided.");
+		throw new Error("Branch Memory plan storage parameter `summary` must be a string when provided.");
 	}
 
 	if (summary === undefined) {
@@ -366,7 +366,7 @@ export function normalizeSummary(summary: string | undefined): string | undefine
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function buildDetails(input: { data: BrmemPutData; slug: string; summary: string | undefined }): PersistBrmemPlanDetails {
+export function buildDetails(input: { data: BrmemPutData; slug: string; summary: string | undefined }): BrmemPlanStorageDetails {
 	const details = {
 		namespace: input.data.namespace,
 		key: input.data.key,
@@ -383,7 +383,7 @@ export function buildDetails(input: { data: BrmemPutData; slug: string; summary:
 	return { ...details, summary: input.summary };
 }
 
-export function formatSuccessContent(details: PersistBrmemPlanDetails): string {
+export function formatSuccessContent(details: BrmemPlanStorageDetails): string {
 	const lines = [
 		"Stored Branch Memory plan.",
 		`Namespace: ${details.namespace}`,
