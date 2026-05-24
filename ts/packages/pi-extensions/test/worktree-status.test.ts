@@ -92,17 +92,20 @@ async function loadFormattedStatus(script: ScriptedExec[], root = ROOT): Promise
 	return { pi, formatted: formatGtStatus(status) };
 }
 
-function makeGitRepo(branch: string, prInfos: unknown[]): string {
+function makeGitRepo(branch: string): string {
 	const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
 	const gitDir = join(root, ".git");
 	mkdirSync(gitDir);
 	writeFileSync(join(gitDir, "HEAD"), `ref: refs/heads/${branch}\n`);
-	writeFileSync(join(gitDir, ".graphite_pr_info"), `${JSON.stringify({ prInfos })}\n`);
 	return root;
 }
 
-function basicGtScript(): ScriptedExec[] {
-	return [gtParentStep({ stdout: "main\n" }), gtChildrenStep(), revListStep("main", 1), dirtyStep()];
+function basicGtScript(extraSteps: ScriptedExec[] = []): ScriptedExec[] {
+	return [gtParentStep({ stdout: "main\n" }), gtChildrenStep(), revListStep("main", 1), dirtyStep(), ...extraSteps];
+}
+
+function gtBranchInfoStep(branch: string, stdout = ""): ScriptedExec {
+	return step("gt", ["branch", "info", branch, "--no-interactive"], { stdout });
 }
 
 describe("worktree status formatting", () => {
@@ -203,39 +206,44 @@ describe("loadGtStatus", () => {
 		expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅ (x)");
 	});
 
-	test("loads current branch Graphite PR metadata as a hyperlink", async () => {
-		const root = makeGitRepo("feature/current", [
-			{
-				prNumber: 488,
-				headRefName: "feature/current",
-				url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/488",
-			},
-		]);
+	test("loads current branch Graphite PR from gt branch info as a hyperlink", async () => {
+		const root = makeGitRepo("feature/current");
 
 		try {
-			const { pi, formatted } = await loadFormattedStatus(basicGtScript(), root);
+			const { pi, formatted } = await loadFormattedStatus(
+				basicGtScript([
+					gtBranchInfoStep(
+						"feature/current",
+						[
+							"feature/current",
+							"2 hours ago",
+							"",
+							"PR #489 (Ready to merge as stack) Add sessions library",
+							"https://app.graphite.com/github/pr/dagster-io/asdl-tools/489",
+						].join("\n"),
+					),
+				]),
+				root,
+			);
 
 			pi.assertDone();
 			expect(formatted).toContain(
-				"\x1B]8;;https://app.graphite.com/github/pr/dagster-io/asdl-tools/488\x07#488\x1B]8;;\x07",
+				"\x1B]8;;https://app.graphite.com/github/pr/dagster-io/asdl-tools/489\x07#489\x1B]8;;\x07",
 			);
-			expect(stripTerminalEscapes(formatted)).toBe("[gt] #488 (↓: main) (↑: -) (commits)");
+			expect(stripTerminalEscapes(formatted)).toBe("[gt] #489 (↓: main) (↑: -) (commits)");
 		} finally {
 			rmSync(root, { recursive: true, force: true });
 		}
 	});
 
-	test("ignores Graphite PR metadata for other branches", async () => {
-		const root = makeGitRepo("feature/current", [
-			{
-				prNumber: 488,
-				headRefName: "feature/other",
-				url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/488",
-			},
-		]);
+	test("omits PR status when gt branch info has no PR", async () => {
+		const root = makeGitRepo("feature/current");
 
 		try {
-			const { pi, formatted } = await loadFormattedStatus(basicGtScript(), root);
+			const { pi, formatted } = await loadFormattedStatus(
+				basicGtScript([gtBranchInfoStep("feature/current", "feature/current\n")]),
+				root,
+			);
 
 			pi.assertDone();
 			expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");
@@ -244,13 +252,14 @@ describe("loadGtStatus", () => {
 		}
 	});
 
-	test("ignores unsafe Graphite PR URLs", async () => {
-		const root = makeGitRepo("feature/current", [
-			{ prNumber: 488, headRefName: "feature/current", url: "javascript:alert(1)" },
-		]);
+	test("ignores unsafe Graphite PR URLs from gt branch info", async () => {
+		const root = makeGitRepo("feature/current");
 
 		try {
-			const { pi, formatted } = await loadFormattedStatus(basicGtScript(), root);
+			const { pi, formatted } = await loadFormattedStatus(
+				basicGtScript([gtBranchInfoStep("feature/current", "PR #488 Bad\njavascript:alert(1)\n")]),
+				root,
+			);
 
 			pi.assertDone();
 			expect(formatted).toBe("[gt] (↓: main) (↑: -) (commits)");

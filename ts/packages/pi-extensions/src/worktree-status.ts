@@ -285,16 +285,14 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		// commits and staging commonly update it without changing HEAD.
 		const gitDirPath = dirname(gitPaths.headPath);
 		watchPath(session, gitDirPath, (filename) => {
-			if (!filename || filename === "HEAD" || filename === "index" || filename === ".graphite_pr_info") {
-				scheduleRefresh(session);
-			}
+			if (!filename || filename === "HEAD" || filename === "index") scheduleRefresh(session);
 			if (!filename || filename === "HEAD") setupGitWatchers(session);
 		});
 
 		// Packed refs live in the common git dir. In linked worktrees this differs
 		// from the worktree-local git dir above.
 		watchPath(session, gitPaths.commonGitDir, (filename) => {
-			if (!filename || filename === "packed-refs" || filename === ".graphite_pr_info") scheduleRefresh(session);
+			if (!filename || filename === "packed-refs") scheduleRefresh(session);
 		});
 
 		watchCurrentBranchRef(session, gitPaths);
@@ -527,7 +525,7 @@ export async function loadGtStatus(pi: ExecGateway, cwd: string, signal?: AbortS
 		loadUpBranch(pi, cwd, signal),
 		loadHasCommits(pi, cwd, down, signal),
 		loadDirty(pi, cwd, signal),
-		loadGraphitePrStatus(cwd, signal),
+		loadGraphitePrStatus(pi, cwd, signal),
 	]);
 
 	const status: GtStatus = { down, up, commits, dirty };
@@ -690,7 +688,7 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	}
 }
 
-async function loadGraphitePrStatus(cwd: string, signal?: AbortSignal): Promise<GtPrStatus | undefined> {
+async function loadGraphitePrStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<GtPrStatus | undefined> {
 	if (signal?.aborted) return undefined;
 
 	const gitPaths = findGitPaths(cwd);
@@ -699,41 +697,40 @@ async function loadGraphitePrStatus(cwd: string, signal?: AbortSignal): Promise<
 	const branch = currentBranchName(gitPaths);
 	if (!branch) return undefined;
 
-	for (const prInfoPath of uniqueStrings([
-		join(gitPaths.commonGitDir, ".graphite_pr_info"),
-		join(gitPaths.gitDir, ".graphite_pr_info"),
-	])) {
-		if (signal?.aborted) return undefined;
-		if (!existsSync(prInfoPath)) continue;
-
-		const pr = loadGraphitePrStatusFromFile(prInfoPath, branch);
-		if (pr !== undefined) return pr;
-	}
-
-	return undefined;
+	return loadGraphitePrStatusFromBranchInfo(pi, cwd, branch, signal);
 }
 
-function loadGraphitePrStatusFromFile(path: string, branch: string): GtPrStatus | undefined {
+async function loadGraphitePrStatusFromBranchInfo(
+	pi: ExecGateway,
+	cwd: string,
+	branch: string,
+	signal?: AbortSignal,
+): Promise<GtPrStatus | undefined> {
+	if (signal?.aborted) return undefined;
+
 	try {
-		const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
-		if (!isRecord(parsed) || !Array.isArray(parsed.prInfos)) return undefined;
-
-		for (const rawPrInfo of parsed.prInfos) {
-			if (!isRecord(rawPrInfo) || rawPrInfo.headRefName !== branch) continue;
-
-			const number = rawPrInfo.prNumber;
-			const url = rawPrInfo.url;
-			if (typeof number !== "number" || !Number.isInteger(number) || number <= 0 || typeof url !== "string") {
-				continue;
-			}
-
-			const sanitizedUrl = sanitizeTerminalHyperlinkUrl(url);
-			if (!sanitizedUrl) continue;
-
-			return { number, url: sanitizedUrl };
-		}
+		const result = await pi.exec("gt", ["branch", "info", branch, "--no-interactive"], execOptions(cwd, signal));
+		if (result.code !== 0) return undefined;
+		return parseGraphitePrStatusFromBranchInfo(result.stdout);
 	} catch {
 		return undefined;
+	}
+}
+
+function parseGraphitePrStatusFromBranchInfo(stdout: string): GtPrStatus | undefined {
+	const lines = stdout.split(/\r?\n/).map((line) => line.trim());
+	for (let index = 0; index < lines.length; index += 1) {
+		const line = lines[index] ?? "";
+		const match = /^PR #(\d+)\b/.exec(line);
+		if (!match?.[1]) continue;
+
+		const number = Number.parseInt(match[1], 10);
+		if (!Number.isInteger(number) || number <= 0) return undefined;
+
+		for (const candidate of lines.slice(index + 1, index + 6)) {
+			const sanitizedUrl = sanitizeTerminalHyperlinkUrl(candidate);
+			if (sanitizedUrl) return { number, url: sanitizedUrl };
+		}
 	}
 
 	return undefined;
@@ -766,21 +763,6 @@ function sanitizeTerminalHyperlinkUrl(url: string): string | undefined {
 
 function terminalHyperlink(text: string, url: string): string {
 	return `\x1B]8;;${url}\x07${text}\x1B]8;;\x07`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
-}
-
-function uniqueStrings(values: string[]): string[] {
-	const seen = new Set<string>();
-	const out: string[] = [];
-	for (const value of values) {
-		if (seen.has(value)) continue;
-		seen.add(value);
-		out.push(value);
-	}
-	return out;
 }
 
 function execOptions(cwd: string, signal?: AbortSignal) {
