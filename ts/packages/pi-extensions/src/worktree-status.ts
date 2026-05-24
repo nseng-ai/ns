@@ -53,9 +53,7 @@ export type ExtensionContext = {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
-		theme: {
-			fg(color: "dim", value: string): string;
-		};
+		theme: StatusTheme;
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget(key: string, value: undefined): void;
@@ -197,7 +195,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		const status = await loadWorktreeStatus(pi, session.cwd, session.abortController.signal);
 		if (sequence !== refreshSequence || !isActiveSession(session)) return;
 
-		const lines = formatWorktreeStatus(status);
+		const lines = formatWorktreeStatus(status, session.ctx.ui.theme);
 		const linesKey = JSON.stringify(lines);
 		if (linesKey === lastLinesKey) return;
 		if (renderSessionLines(session, lines)) lastLinesKey = linesKey;
@@ -453,11 +451,12 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	async function showStatus(ctx: ExtensionContext): Promise<void> {
 		const cwd = ctx.cwd;
 		const status = await loadWorktreeStatus(pi, cwd);
-		const lines = formatWorktreeStatus(status);
+		const lines = formatWorktreeStatus(status, ctx.ui.theme);
+		const messageLines = formatWorktreeStatus(status);
 		try {
 			renderLines(ctx, lines);
 			lastLinesKey = JSON.stringify(lines);
-			pi.sendMessage?.({ customType: "worktree-status", content: lines.join("\n"), display: true });
+			pi.sendMessage?.({ customType: "worktree-status", content: messageLines.join("\n"), display: true });
 		} catch {
 			// Ignore command-display races during session replacement/reload.
 		}
@@ -771,26 +770,53 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
 }
 
-export function formatWorktreeStatus(status: WorktreeStatus): string[] {
+export type StatusTheme = {
+	fg(color: "dim" | "accent", value: string): string;
+	underline?(value: string): string;
+};
+
+export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme): string[] {
 	const lines: string[] = [];
 	if (status.brmem !== undefined) {
-		lines.push(`[brmem] ${status.brmem}`);
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
 	}
-	lines.push(formatGtStatus(status.gt));
+	lines.push(formatGtStatus(status.gt, theme));
 	return lines;
 }
 
-export function formatGtStatus(status: GtStatus): string {
-	const pr = status.pr ? ` #${status.pr.number}` : "";
+export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
 	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
 	const dirty = status.dirty === "yes" ? " (x)" : "";
-	const line = `[gt]${pr} (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+	const rest = ` (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+
+	if (theme) {
+		const pr = status.pr
+			? `${formatStatusSegment(" (pr: ", theme)}${formatPrNumber(status.pr, theme)}${formatStatusSegment(")", theme)}`
+			: "";
+		const line = `${formatStatusSegment("[gt]", theme)}${pr}${formatStatusSegment(rest, theme)}`;
+		return status.pr ? terminalHyperlink(line, status.pr.url) : line;
+	}
+
+	const pr = status.pr ? ` (pr: ${formatPrNumber(status.pr, theme)})` : "";
+	const line = `[gt]${pr}${rest}`;
 	return status.pr ? terminalHyperlink(line, status.pr.url) : line;
+}
+
+function formatPrNumber(pr: GtPrStatus, theme: StatusTheme | undefined): string {
+	const text = `#${pr.number}`;
+	if (!theme) return text;
+
+	const underlined = theme.underline ? theme.underline(text) : text;
+	return theme.fg("accent", underlined);
+}
+
+function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {
+	return theme ? theme.fg("dim", text) : text;
 }
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
 	ctx.ui.setWidget(UI_KEY, undefined);
-	ctx.ui.setStatus(UI_KEY, ctx.ui.theme.fg("dim", lines.join(" ")));
+	ctx.ui.setStatus(UI_KEY, lines.join(" "));
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {
