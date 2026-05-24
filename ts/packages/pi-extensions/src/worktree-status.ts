@@ -1,6 +1,7 @@
 import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatchFile, watch, watchFile } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
+import { resolveBrmemCommandCandidates, runBrmemCandidate } from "./brmem-cli.ts";
 import {
 	customMessageText,
 	linkifyPrReferences,
@@ -122,11 +123,6 @@ type BrmemListEnvelope = {
 	data?: {
 		entries?: BrmemEntry[];
 	};
-};
-
-type BrmemCommandCandidate = {
-	command: string;
-	prefixArgs: string[];
 };
 
 type GitPaths = {
@@ -562,16 +558,15 @@ async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSigna
 	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
 		if (signal?.aborted) return undefined;
 
+		const run = await runBrmemCandidate(pi, cwd, candidate, ["list", "--format", "json"], {
+			timeoutMs: COMMAND_TIMEOUT_MS,
+			signal,
+		});
+		if (run.type === "unavailable") continue;
+		if (run.result.killed || run.result.code !== 0) continue;
+
 		try {
-			const result = await pi.exec(
-				candidate.command,
-				[...candidate.prefixArgs, "list", "--format", "json"],
-				execOptions(cwd, signal),
-			);
-
-			if (result.code !== 0) continue;
-
-			const parsed = JSON.parse(result.stdout) as BrmemListEnvelope;
+			const parsed = JSON.parse(run.result.stdout) as BrmemListEnvelope;
 			const entries = parsed.data?.entries ?? [];
 			const status = formatBrmemScopes(entries);
 			return status.length > 0 ? status : undefined;
@@ -1024,47 +1019,6 @@ function shouldIgnoreWorktreeChange(filename: string | undefined): boolean {
 function normalizeWatchFilename(filename: string | Buffer | null): string | undefined {
 	if (filename === null) return undefined;
 	return typeof filename === "string" ? filename : filename.toString();
-}
-
-function findAncestorContaining(startDir: string, relativePath: string): string | undefined {
-	let current = resolve(startDir);
-	for (;;) {
-		if (existsSync(join(current, relativePath))) {
-			return current;
-		}
-		const parent = dirname(current);
-		if (parent === current) {
-			return undefined;
-		}
-		current = parent;
-	}
-}
-
-function resolveBrmemCommandCandidates(cwd: string): BrmemCommandCandidate[] {
-	const candidates: BrmemCommandCandidate[] = [];
-	const seen = new Set<string>();
-
-	const add = (candidate: BrmemCommandCandidate) => {
-		const key = JSON.stringify(candidate);
-		if (!seen.has(key)) {
-			seen.add(key);
-			candidates.push(candidate);
-		}
-	};
-
-	const venvRoot = findAncestorContaining(cwd, join(".venv", "bin", "brmem"));
-	if (venvRoot) {
-		add({ command: join(venvRoot, ".venv", "bin", "brmem"), prefixArgs: [] });
-	}
-
-	add({ command: "brmem", prefixArgs: [] });
-
-	const projectRoot = findAncestorContaining(cwd, "pyproject.toml");
-	if (projectRoot) {
-		add({ command: "uv", prefixArgs: ["run", "--directory", projectRoot, "brmem"] });
-	}
-
-	return candidates;
 }
 
 function firstNonEmptyLine(value: string): string | undefined {

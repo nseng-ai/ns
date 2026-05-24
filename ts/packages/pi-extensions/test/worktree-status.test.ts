@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { stripTerminalEscapes } from "../src/command-runtime.ts";
-import { formatGtStatus, loadGtStatus, renderWorktreeStatusMessage, type ExecResult, type StatusTheme } from "../src/worktree-status.ts";
+import { formatGtStatus, loadGtStatus, loadWorktreeStatus, renderWorktreeStatusMessage, type ExecResult, type StatusTheme } from "../src/worktree-status.ts";
 
 const ROOT = "/repo";
 
@@ -45,6 +45,34 @@ class FakePi {
 		}
 
 		return execResult(expected.result);
+	}
+
+	assertDone(): void {
+		expect(this.errors).toEqual([]);
+		expect(this.script).toEqual([]);
+	}
+}
+
+class OrderlessFakePi {
+	readonly calls: ExecCall[] = [];
+	readonly errors: string[] = [];
+	private readonly script: ScriptedExec[];
+
+	constructor(script: ScriptedExec[]) {
+		this.script = [...script];
+	}
+
+	async exec(command: string, args: string[]): Promise<ExecResult> {
+		this.calls.push({ command, args: [...args] });
+		const index = this.script.findIndex((expected) => expected.command === command && sameArgs(expected.args, args));
+		if (index === -1) {
+			const message = `unexpected exec: ${command} ${args.join(" ")}`;
+			this.errors.push(message);
+			return execResult({ code: 99, stderr: message });
+		}
+
+		const [expected] = this.script.splice(index, 1);
+		return execResult(expected?.result);
 	}
 
 	assertDone(): void {
@@ -104,12 +132,26 @@ function makeGitRepo(branch: string): string {
 	return root;
 }
 
+function makePyprojectRoot(): string {
+	const root = mkdtempSync(join(tmpdir(), "worktree-status-"));
+	writeFileSync(join(root, "pyproject.toml"), "[project]\nname = \"example\"\n", "utf8");
+	return root;
+}
+
 function basicGtScript(extraSteps: ScriptedExec[] = []): ScriptedExec[] {
 	return [gtParentStep({ stdout: "main\n" }), gtChildrenStep(), revListStep("main", 1), dirtyStep(), ...extraSteps];
 }
 
 function gtBranchInfoStep(branch: string, stdout = ""): ScriptedExec {
 	return step("gt", ["branch", "info", branch, "--no-interactive"], { stdout });
+}
+
+function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
+	return step("brmem", ["list", "--format", "json"], result);
+}
+
+function uvBrmemListStep(projectRoot: string, result: Partial<ExecResult>): ScriptedExec {
+	return step("uv", ["run", "--directory", projectRoot, "brmem", "list", "--format", "json"], result);
 }
 
 const TEST_THEME: StatusTheme = {
@@ -209,6 +251,53 @@ describe("worktree status formatting", () => {
 		expect(formatted).toContain("\x1B[36m\x1B[4m#488\x1B[24m\x1B[39m");
 		expect(formatted).toContain("\x1B[90m[gt]\x1B[39m");
 		expect(stripTerminalEscapes(formatted)).toBe("[gt] (pr: #488) (↓: main) (↑: -) (commits)");
+	});
+});
+
+describe("loadWorktreeStatus", () => {
+	test("returns unavailable brmem status without throwing when the CLI is unavailable", async () => {
+		const pi = new OrderlessFakePi([
+			brmemListStep({ code: 127, stderr: "brmem: command not found" }),
+			...basicGtScript(),
+		]);
+
+		const status = await loadWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.brmem).toBe("unavailable");
+		expect(status.gt).toEqual({ down: "main", up: "-", commits: "yes", dirty: "no" });
+	});
+
+	test("uses a later brmem candidate after an earlier candidate is unavailable", async () => {
+		const root = makePyprojectRoot();
+		try {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
+				uvBrmemListStep(root, {
+					stdout: JSON.stringify({
+						data: { entries: [{ namespace: "plans", key: "adapter/details.md" }] },
+					}),
+				}),
+				...basicGtScript(),
+			]);
+
+			const status = await loadWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expect(status.brmem).toBe("(plans: adapter)");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("degrades malformed brmem JSON output nonfatally", async () => {
+		const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ...basicGtScript()]);
+
+		const status = await loadWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.brmem).toBe("unavailable");
+		expect(status.gt.down).toBe("main");
 	});
 });
 
