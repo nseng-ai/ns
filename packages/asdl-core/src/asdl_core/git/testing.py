@@ -14,6 +14,7 @@ from asdl_core.git.types import (
     FileStatus,
     GitCommandFailure,
     LocalBranchTip,
+    PathTouch,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -52,6 +53,7 @@ class FakeGitGateway(GitGateway):
         ) = None,
         paths_at_ref: Iterable[tuple[str, str]] = (),
         file_last_touched_by_ref_path: dict[tuple[str, str], str] | None = None,
+        path_touch_by_ref_path: dict[tuple[str, str], PathTouch] | None = None,
         branch_head_iso_by_branch: dict[str, str] | None = None,
         branch_head_oid_by_branch: dict[str, str] | None = None,
         fetch_failure_by_args: dict[tuple[Path, str, str], GitCommandFailure] | None = None,
@@ -84,6 +86,7 @@ class FakeGitGateway(GitGateway):
         self._tracked_paths_by_ref_path = dict(tracked_paths_by_ref_path or {})
         self._paths_at_ref = set(paths_at_ref)
         self._file_last_touched_by_ref_path = dict(file_last_touched_by_ref_path or {})
+        self._path_touch_by_ref_path = dict(path_touch_by_ref_path or {})
         self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
         self._branch_head_oid_by_branch = dict(branch_head_oid_by_branch or {})
         self._fetch_failure_by_args = dict(fetch_failure_by_args or {})
@@ -246,7 +249,20 @@ class FakeGitGateway(GitGateway):
         )
 
     def file_last_touched_iso(self, ref: str, path: str) -> str | None:
+        touch = self.path_last_touched(ref, path)
+        if touch is not None:
+            return touch.committed_iso
         return self._file_last_touched_by_ref_path.get((ref, path))
+
+    def path_last_touched(self, ref: str, path: str) -> PathTouch | None:
+        key = (ref, path)
+        touch = self._path_touch_by_ref_path.get(key)
+        if touch is not None:
+            return touch
+        committed_iso = self._file_last_touched_by_ref_path.get(key)
+        if committed_iso is None:
+            return None
+        return PathTouch(oid=f"{ref}:{path}", committed_iso=committed_iso)
 
     def branch_head_iso(self, branch: str) -> str | None:
         if branch not in self._branches:

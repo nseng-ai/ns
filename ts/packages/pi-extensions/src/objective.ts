@@ -10,7 +10,7 @@ const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
-const VIEW_OTHER_OBJECTIVES_CHOICE = "View other open Objectives…";
+const VIEW_OTHER_OBJECTIVES_CHOICE = "View other active Objectives…";
 
 const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--current] [--names] [--view list|detail] [--help]
 
@@ -86,18 +86,23 @@ type ObjectiveCommandSpec = {
 
 export type ObjectiveBranchEntry = {
 	branch: string;
-	tipHeadIso: string | null;
-	aheadTrunk: number;
+	updatedIso: string | null;
+	aheadBase: number;
 };
 
 export type ObjectiveListGroup = {
 	slug: string;
+	status: string;
+	latestUpdateIso: string | null;
+	latestWorkBranch: string | null;
 	branches: ObjectiveBranchEntry[];
 };
 
 export type ObjectiveList = {
+	baseBranch: string;
 	trunkBranch: string;
 	view: string;
+	statusFilter: string;
 	currentBranch: string | null;
 	filteredToCurrent: boolean;
 	namesOnly: boolean;
@@ -107,7 +112,7 @@ export type ObjectiveList = {
 export type ObjectiveDiffSelection = {
 	trunkBranch: string;
 	allChangedSlugs: string[];
-	changedOpenSlugs: string[];
+	changedActiveSlugs: string[];
 };
 
 export type ObjectiveListParsedArgs = {
@@ -137,9 +142,9 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	{
 		commandName: "objective-next",
 		skillName: "objective-next",
-		description: "Pick an open Objective, then invoke objective-next for the selected slug.",
+		description: "Pick an active Objective, then invoke objective-next for the selected slug.",
 		statusKey: "objective-next",
-		selectionTitle: "Select an open Objective for next-work recommendation",
+		selectionTitle: "Select an active Objective for next-work recommendation",
 		fallbackPrompt:
 			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: recommend the next useful work for the explicit Objective below. If likely unrecorded progress blocks the recommendation, ask whether to run objective-update for the same Objective and only mutate through that explicit handoff.",
 		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
@@ -148,9 +153,9 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	{
 		commandName: "objective-current",
 		skillName: "objective-current",
-		description: "Pick an open Objective, then invoke objective-current for the selected slug.",
+		description: "Pick an active Objective, then invoke objective-current for the selected slug.",
 		statusKey: "objective-current",
-		selectionTitle: "Select an open Objective to summarize",
+		selectionTitle: "Select an active Objective to summarize",
 		fallbackPrompt:
 			"The objective-current skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: summarize the current state of the explicit Objective below without mutating files.",
 		actionPrompt: "Run objective-current for this explicitly selected Objective slug or path:",
@@ -158,9 +163,9 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	{
 		commandName: "objective-update",
 		skillName: "objective-update",
-		description: "Pick an open Objective, then invoke objective-update for the selected slug.",
+		description: "Pick an active Objective, then invoke objective-update for the selected slug.",
 		statusKey: "objective-update",
-		selectionTitle: "Select an open Objective to update",
+		selectionTitle: "Select an active Objective to update",
 		fallbackPrompt:
 			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
 		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
@@ -192,20 +197,20 @@ function parseObjectiveBranchEntry(value: unknown, groupIndex: number, branchInd
 	}
 
 	const branch = value.branch;
-	const tipHeadIso = value.tip_head_iso;
-	const aheadTrunk = value.ahead_trunk;
+	const updatedIso = "updated_iso" in value ? value.updated_iso : value.tip_head_iso;
+	const aheadBase = "ahead_base" in value ? value.ahead_base : value.ahead_trunk;
 	if (
 		typeof branch !== "string" ||
-		(tipHeadIso !== null && typeof tipHeadIso !== "string") ||
-		typeof aheadTrunk !== "number" ||
-		!Number.isFinite(aheadTrunk)
+		(updatedIso !== null && typeof updatedIso !== "string") ||
+		typeof aheadBase !== "number" ||
+		!Number.isFinite(aheadBase)
 	) {
 		throw new Error(
-			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected branch, tip_head_iso, and ahead_trunk.`,
+			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected branch, updated_iso, and ahead_base.`,
 		);
 	}
 
-	return { branch, tipHeadIso, aheadTrunk };
+	return { branch, updatedIso, aheadBase };
 }
 
 function parseObjectiveListGroup(value: unknown, index: number): ObjectiveListGroup {
@@ -214,13 +219,27 @@ function parseObjectiveListGroup(value: unknown, index: number): ObjectiveListGr
 	}
 
 	const slug = value.slug;
+	const status = value.status ?? "";
+	const latestUpdateIso = "latest_update_iso" in value ? value.latest_update_iso : null;
+	const latestWorkBranch = "latest_work_branch" in value ? value.latest_work_branch : null;
 	const branches = value.branches;
-	if (typeof slug !== "string" || !Array.isArray(branches)) {
-		throw new Error(`Invalid Objective list group at index ${index}: expected slug and branches.`);
+	if (
+		typeof slug !== "string" ||
+		typeof status !== "string" ||
+		(latestUpdateIso !== null && typeof latestUpdateIso !== "string") ||
+		(latestWorkBranch !== null && typeof latestWorkBranch !== "string") ||
+		!Array.isArray(branches)
+	) {
+		throw new Error(
+			`Invalid Objective list group at index ${index}: expected slug, status, latest_update_iso, latest_work_branch, and branches.`,
+		);
 	}
 
 	return {
 		slug,
+		status,
+		latestUpdateIso,
+		latestWorkBranch,
 		branches: branches.map((branch, branchIndex) => parseObjectiveBranchEntry(branch, index, branchIndex)),
 	};
 }
@@ -249,27 +268,33 @@ export function parseObjectiveList(stdout: string): ObjectiveList {
 	}
 
 	const trunkBranch = data.trunk_branch;
+	const baseBranch = data.base_branch ?? trunkBranch;
 	const view = data.view;
+	const statusFilter = data.status_filter ?? "";
 	const currentBranch = data.current_branch;
 	const filteredToCurrent = data.filtered_to_current;
 	const namesOnly = data.names_only;
 	const groups = data.groups;
 	if (
 		typeof trunkBranch !== "string" ||
+		typeof baseBranch !== "string" ||
 		typeof view !== "string" ||
+		typeof statusFilter !== "string" ||
 		(currentBranch !== null && typeof currentBranch !== "string") ||
 		typeof filteredToCurrent !== "boolean" ||
 		typeof namesOnly !== "boolean" ||
 		!Array.isArray(groups)
 	) {
 		throw new Error(
-			"Invalid objective list JSON: expected trunk_branch, view, current_branch, filtered_to_current, names_only, and groups.",
+			"Invalid objective list JSON: expected base_branch, trunk_branch, view, status_filter, current_branch, filtered_to_current, names_only, and groups.",
 		);
 	}
 
 	return {
+		baseBranch,
 		trunkBranch,
 		view,
+		statusFilter,
 		currentBranch,
 		filteredToCurrent,
 		namesOnly,
@@ -336,13 +361,13 @@ function formatExecStartupFailure(commandDisplay: string, error: unknown): strin
 	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
-async function listOpenObjectives(
+async function listActiveObjectives(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveCommandSpec,
 ): Promise<ObjectiveList> {
 	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.statusKey, "listing open Objectives…");
+		ctx.ui.setStatus(spec.statusKey, "listing active Objectives…");
 	}
 
 	const args = ["list", "--format", "json"];
@@ -394,14 +419,14 @@ async function objectiveDiffSelection(
 		}
 
 		const allChangedSlugSet = new Set(allChangedSlugs);
-		const changedOpenSlugs = objectiveList.groups
+		const changedActiveSlugs = objectiveList.groups
 			.filter((group) => allChangedSlugSet.has(group.slug))
 			.map((group) => group.slug);
-		if (changedOpenSlugs.length === 0) {
+		if (changedActiveSlugs.length === 0) {
 			return undefined;
 		}
 
-		return { trunkBranch, allChangedSlugs, changedOpenSlugs };
+		return { trunkBranch, allChangedSlugs, changedActiveSlugs };
 	} catch {
 		return undefined;
 	} finally {
@@ -466,11 +491,11 @@ function latestObjectiveBranch(group: ObjectiveListGroup): ObjectiveBranchEntry 
 }
 
 function objectiveBranchTimestamp(branch: ObjectiveBranchEntry): number | undefined {
-	if (branch.tipHeadIso === null) {
+	if (branch.updatedIso === null) {
 		return undefined;
 	}
 
-	const timestamp = Date.parse(branch.tipHeadIso);
+	const timestamp = Date.parse(branch.updatedIso);
 	return Number.isNaN(timestamp) ? undefined : timestamp;
 }
 
@@ -484,37 +509,37 @@ function compareObjectiveBranchesByLatest(left: ObjectiveBranchEntry, right: Obj
 	return right.branch.localeCompare(left.branch);
 }
 
-function maxAheadTrunk(group: ObjectiveListGroup): number {
+function maxAheadBase(group: ObjectiveListGroup): number {
 	let maxAhead = 0;
 	for (const branch of group.branches) {
-		if (branch.aheadTrunk > maxAhead) {
-			maxAhead = branch.aheadTrunk;
+		if (branch.aheadBase > maxAhead) {
+			maxAhead = branch.aheadBase;
 		}
 	}
 	return maxAhead;
 }
 
-function isChangedOpenObjective(
+function isChangedActiveObjective(
 	group: ObjectiveListGroup,
 	selection: ObjectiveDiffSelection | undefined,
 ): boolean {
-	return selection?.changedOpenSlugs.includes(group.slug) ?? false;
+	return selection?.changedActiveSlugs.includes(group.slug) ?? false;
 }
 
-function isOnlyChangedOpenObjective(
+function isOnlyChangedActiveObjective(
 	selection: ObjectiveDiffSelection | undefined,
 	group: ObjectiveListGroup,
 ): boolean {
 	return Boolean(
 		selection &&
 			selection.allChangedSlugs.length === 1 &&
-			selection.changedOpenSlugs.length === 1 &&
-			selection.changedOpenSlugs[0] === group.slug,
+			selection.changedActiveSlugs.length === 1 &&
+			selection.changedActiveSlugs[0] === group.slug,
 	);
 }
 
 function objectiveDiffPickerTitle(title: string, selection: ObjectiveDiffSelection): string {
-	const suffix = selection.allChangedSlugs.length === 1 && selection.changedOpenSlugs.length === 1
+	const suffix = selection.allChangedSlugs.length === 1 && selection.changedActiveSlugs.length === 1
 		? `only Objective changed vs ${selection.trunkBranch}`
 		: `changed Objectives vs ${selection.trunkBranch}`;
 	return `${title} (${suffix})`;
@@ -526,14 +551,14 @@ export function formatObjectiveChoice(
 ): string {
 	const branchCount = group.branches.length;
 	const branchLabel = branchCount === 1 ? "1 branch" : `${branchCount} branches`;
-	const latestBranch = latestObjectiveBranch(group)?.branch ?? "(none)";
+	const latestBranch = group.latestWorkBranch ?? latestObjectiveBranch(group)?.branch ?? "(none)";
 	let diffLabel = "";
-	if (selection && isOnlyChangedOpenObjective(selection, group)) {
+	if (selection && isOnlyChangedActiveObjective(selection, group)) {
 		diffLabel = `suggested: only Objective changed vs ${selection.trunkBranch} — `;
-	} else if (selection && isChangedOpenObjective(group, selection)) {
+	} else if (selection && isChangedActiveObjective(group, selection)) {
 		diffLabel = `changed vs ${selection.trunkBranch} — `;
 	}
-	return `${group.slug} — ${diffLabel}${branchLabel} — latest ${latestBranch} — max +${maxAheadTrunk(group)} ahead trunk`;
+	return `${group.slug} — ${diffLabel}${branchLabel} — latest work ${latestBranch} — max +${maxAheadBase(group)} ahead base`;
 }
 
 function objectiveGroupsWithChangedFirst(
@@ -544,7 +569,7 @@ function objectiveGroupsWithChangedFirst(
 		return groups;
 	}
 
-	const changedSet = new Set(selection.changedOpenSlugs);
+	const changedSet = new Set(selection.changedActiveSlugs);
 	const changedGroups = groups.filter((group) => changedSet.has(group.slug));
 	const otherGroups = groups.filter((group) => !changedSet.has(group.slug));
 	return [...changedGroups, ...otherGroups];
@@ -589,7 +614,7 @@ async function selectChangedObjectivesOrOther(
 	objectiveList: ObjectiveList,
 	selection: ObjectiveDiffSelection,
 ): Promise<string | undefined> {
-	const changedSet = new Set(selection.changedOpenSlugs);
+	const changedSet = new Set(selection.changedActiveSlugs);
 	const changedGroups = objectiveList.groups.filter((group) => changedSet.has(group.slug));
 	const otherGroups = objectiveList.groups.filter((group) => !changedSet.has(group.slug));
 	if (changedGroups.length === 0) {
@@ -609,7 +634,7 @@ async function selectChangedObjectivesOrOther(
 	}
 
 	if (selected === VIEW_OTHER_OBJECTIVES_CHOICE) {
-		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other open Objectives)`, otherGroups, undefined);
+		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other active Objectives)`, otherGroups, undefined);
 	}
 
 	const slug = choices.get(selected);
@@ -649,10 +674,10 @@ async function chooseObjectiveAndInvoke(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	const objectiveList = await listOpenObjectives(pi, ctx, spec);
+	const objectiveList = await listActiveObjectives(pi, ctx, spec);
 	if (objectiveList.groups.length === 0) {
 		if (ctx.hasUI) {
-			ctx.ui.notify("No open Objectives. Create one with /skill:objective-create.", "info");
+			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
 		}
 		return;
 	}
@@ -667,9 +692,9 @@ async function chooseObjectiveAndInvoke(
 		slug = await selectChangedObjectivesOrOther(ctx, spec, objectiveList, diffSelection);
 	} else {
 		if (diffSelection) {
-			const plural = diffSelection.changedOpenSlugs.length === 1 ? "" : "s";
+			const plural = diffSelection.changedActiveSlugs.length === 1 ? "" : "s";
 			ctx.ui.notify(
-				`Found changed Objective${plural} ${diffSelection.changedOpenSlugs.join(", ")} from objective diff vs ${diffSelection.trunkBranch}.`,
+				`Found changed Objective${plural} ${diffSelection.changedActiveSlugs.join(", ")} from objective diff vs ${diffSelection.trunkBranch}.`,
 				"info",
 			);
 		}
@@ -912,7 +937,7 @@ function presentObjectiveListMessage(
 
 export default function objectiveExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(OBJECTIVE_LIST_COMMAND_NAME, {
-		description: "List open Objectives in this repository without invoking the agent.",
+		description: "List active Objectives in this repository without invoking the agent.",
 		getArgumentCompletions: completeObjectiveListArgs,
 		handler: async (args, ctx) => handleObjectiveListCommand(pi, args, ctx),
 	});

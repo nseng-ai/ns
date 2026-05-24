@@ -12,6 +12,7 @@ from asdl_core.git.types import (
     FileStatus,
     GitCommandFailure,
     LocalBranchTip,
+    PathTouch,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -150,6 +151,18 @@ def resolve_trunk_branch(repo_root: Path) -> str | None:
         if _branch_exists(repo_root, candidate):
             return candidate
     return None
+
+
+def parse_path_touch_output(stdout: str) -> PathTouch | None:
+    """Parse one NUL-delimited ``git log`` path-touch row."""
+
+    raw = stdout.strip()
+    if not raw:
+        return None
+    oid, separator, committed_iso = raw.partition("\x00")
+    if separator == "" or oid == "" or committed_iso == "":
+        return None
+    return PathTouch(oid=oid, committed_iso=committed_iso)
 
 
 def parse_log_range_output(stdout: str) -> tuple[CommitSummary, ...]:
@@ -491,15 +504,20 @@ class RealGitGateway(GitGateway):
         return parse_porcelain_status(result.stdout)
 
     def file_last_touched_iso(self, ref: str, path: str) -> str | None:
+        touch = self.path_last_touched(ref, path)
+        if touch is None:
+            return None
+        return touch.committed_iso
+
+    def path_last_touched(self, ref: str, path: str) -> PathTouch | None:
         result = _run(
-            ["git", "log", "-1", "--format=%cI", ref, "--", path],
+            ["git", "log", "-1", "--format=%H%x00%cI", ref, "--", path],
             cwd=self._require_repo_root(),
             check=False,
         )
         if result.returncode != 0:
             return None
-        stamp = result.stdout.strip()
-        return stamp or None
+        return parse_path_touch_output(result.stdout)
 
     def branch_head_iso(self, branch: str) -> str | None:
         result = _run(

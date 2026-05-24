@@ -33,9 +33,9 @@ The selected Objective slug directory is immutable during `objective-update`. Co
 ## Resolve exactly one Objective
 
 1. Use an explicit user-provided slug/path under `.asdl/objectives/<slug>/`.
-2. Otherwise run `objective list --status open --format md` immediately.
-3. If exactly one open Objective exists and update intent is explicit, ask before evidence/mutation: `Only one open Objective exists: <slug>. Run objective-update for this Objective?`
-4. If multiple open Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
+2. Otherwise run `objective list --format md` immediately.
+3. If exactly one active Objective exists and update intent is explicit, ask before evidence/mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
+4. If multiple active Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
 5. If none exist, say so and suggest `objective-create` when appropriate.
 
 If update intent is ambiguous, ask the invocation-intent confirmation before any only-open-Objective confirmation.
@@ -167,7 +167,7 @@ The final response may include exact command output when useful; durable Objecti
 
 ## Stop / ask
 
-- Objective selection is ambiguous or absent after presenting `objective list --status open --format md` options.
+- Objective selection is ambiguous or absent after presenting `objective list --format md` options.
 - Update intent remains ambiguous after the invocation-intent confirmation.
 - The exactly-one open Objective confirmation is pending.
 - The request would update more than one Objective.

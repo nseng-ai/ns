@@ -150,12 +150,12 @@ Rules:
 When an operation needs an existing objective, resolve it in this order:
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, list candidate objective directories under `.asdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as open objectives for active-objective workflows.
+2. If no slug or path is explicit, list candidate objective directories under `.asdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
 3. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
 
-Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the open-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple open objectives exist, still present the options and ask the user to choose.
+Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the active-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple active objectives exist, still present the options and ask the user to choose.
 
-Non-binding picker grouping exception: when a UI picker has already listed open objectives, it may use deterministic git facts to group changed open objectives first when direct changes under `.asdl/objectives/<slug>/` are present compared with the repository trunk. If exactly one open objective is the only objective slug changed, the picker may label it as suggested. If multiple open objectives changed, the picker may show those changed open objectives in the first menu and offer a separate option to view the remaining open objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed slugs that are open objectives, the picker should show the normal ordering with no suggestion.
+Non-binding picker grouping exception: when a UI picker has already listed active objectives, it may use deterministic git facts to group changed active objectives first when direct changes under `.asdl/objectives/<slug>/` are present compared with the repository trunk. If exactly one active objective is the only objective slug changed, the picker may label it as suggested. If multiple active objectives changed, the picker may show those changed active objectives in the first menu and offer a separate option to view the remaining active objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed slugs that are active objectives, the picker should show the normal ordering with no suggestion.
 
 Do not silently auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
 
@@ -165,29 +165,30 @@ V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list` and
 
 ### `objective list`
 
-Lists Objective status for the local repository by inspecting local branch tips.
+Lists Objective status for the local repository by inspecting local branches without checking them out.
 
 Contract:
 
-- Inspect local branch tips without checking out branches.
-- Report Objective status from git-tracked path presence at each branch tip: direct `.asdl/objectives/<slug>/closed.md` means `closed`; otherwise the Objective is `open` on that branch.
+- Use the repository base branch (currently the configured trunk branch) as the default status source.
+- Report displayed status from the status source: direct `.asdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`; an Objective present only on non-base local work branches means `in-flight`.
 - Do not treat nested files such as `.asdl/objectives/<slug>/updates/closed.md` as closure markers.
-- Default to an Objective-level list view of open Objectives with a `status` column (`○ open` / `✓ closed`), latest branch by tip timestamp (ties by branch name), latest tip age, branch count, and max ahead-of-trunk count.
-- Provide a detail view that groups by Objective slug and reports branch, `status` (`○ open` / `✓ closed`), tip age, and ahead-of-trunk count.
-- Provide a `--status {all,open,closed}` filter. The default is `open`; pass `--status all` to include closed Objectives.
-- Provide a `--current` filter that restricts the list to Objectives associated with the current branch.
+- Default to an Objective-level list view filtered to active Objectives (`open` + `in-flight`) with `status` labels (`○ open`, `✓ closed`, `◇ in-flight`), latest work branch, latest Objective update age, work-branch count, and max ahead-of-base count.
+- Compute latest Objective update from the newest commit touching `.asdl/objectives/<slug>/`, not from branch HEAD timestamps. If the newest Objective update is represented only by the base/status source, latest work is blank.
+- Provide a detail view that shows the base/current status source separately, then work-branch rows with branch status, Objective update age, and ahead-of-base count.
+- Provide a `--status {all,active,open,in-flight,closed}` filter. The default is `active`; pass `--status all` to include closed Objectives.
+- Provide a `--current` mode that uses the current branch as the status source and lists only Objectives with records on the current branch. Detached HEAD returns no rows.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status/current filters are applied.
-- Do not parse Markdown, summarize Objective bodies, show latest updates, choose a canonical branch, or list branches without Objective records matching the selected status filter.
+- Do not parse Markdown, summarize Objective bodies, choose a canonical branch, or list branches without Objective records matching the selected status filter.
 - Use pure git facts, not Graphite.
 
 Shipped CLI:
 
-- Run `objective list` for the default open Objective inventory list view.
-- Run `objective list --status all` to include open and closed Objective records.
+- Run `objective list` for the default active Objective inventory list view.
+- Run `objective list --status all` to include active and closed Objective records.
 - Run `objective list --status closed` for closed Objective records.
-- Run `objective list --view detail` for per-branch details.
-- Run `objective list --current` to filter to Objectives associated with the current branch.
-- Run `objective list --status open --names` to print open slugs, one per line.
+- Run `objective list --view detail` for base/current status plus per-work-branch details.
+- Run `objective list --current` to use the current branch as the status source.
+- Run `objective list --names` to print active slugs, one per line.
 
 ### `objective-create`
 
@@ -255,7 +256,7 @@ Contract:
 
 Shipped CLI:
 
-- Active candidate filtering: `objective list --status open` lists open candidates; `objective list` reports each record's closed state.
+- Active candidate filtering: `objective list` lists active candidates (`open` plus `in-flight`); `objective list --status all` reports closed records too.
 
 Future CLI pushdown candidates:
 
@@ -336,7 +337,7 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 Good CLI responsibilities:
 
 - Validate slugs and paths. _(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)_
-- List candidate objectives across local branch tips. _(shipped: `objective list`.)_
+- List candidate objectives from base/current status and local work-branch facts. _(shipped: `objective list`.)_
 - Detect closed markers. _(shipped: `objective list` and `objective exec read-objective` both report closed state.)_
 - Scaffold required files and headings. _(future.)_
 - Detect missing `## Assumptions and Risks` sections. _(future.)_

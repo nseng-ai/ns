@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import DetachedHead, GitCommandFailure, LocalBranchTip, RestructuredFile
+from asdl_core.git.types import (
+    DetachedHead,
+    GitCommandFailure,
+    LocalBranchTip,
+    PathTouch,
+    RestructuredFile,
+)
 
 
 def test_fake_current_branch_defaults_to_detached_head() -> None:
@@ -122,3 +128,31 @@ def test_fake_list_tracked_paths_at_ref_returns_seeded_failure() -> None:
     )
 
     assert gateway.list_tracked_paths_at_ref("refs/heads/feature", ".asdl/objectives") == failure
+
+
+def test_fake_path_last_touched_returns_seeded_touch() -> None:
+    touch = PathTouch(oid="abc123", committed_iso="2026-05-20T10:44:08-04:00")
+    gateway = FakeGitGateway(
+        path_touch_by_ref_path={
+            ("refs/heads/feature", ".asdl/objectives/alpha"): touch,
+        }
+    )
+
+    assert gateway.path_last_touched("refs/heads/feature", ".asdl/objectives/alpha") == touch
+    assert (
+        gateway.file_last_touched_iso("refs/heads/feature", ".asdl/objectives/alpha")
+        == "2026-05-20T10:44:08-04:00"
+    )
+
+
+def test_fake_path_last_touched_falls_back_to_seeded_timestamp() -> None:
+    gateway = FakeGitGateway(
+        file_last_touched_by_ref_path={
+            ("refs/heads/feature", ".asdl/objectives/alpha"): "2026-05-20T10:44:08-04:00",
+        }
+    )
+
+    assert gateway.path_last_touched("refs/heads/feature", ".asdl/objectives/alpha") == PathTouch(
+        oid="refs/heads/feature:.asdl/objectives/alpha",
+        committed_iso="2026-05-20T10:44:08-04:00",
+    )

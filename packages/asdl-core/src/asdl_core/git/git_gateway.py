@@ -11,6 +11,7 @@ from asdl_core.git.types import (
     FileStatus,
     GitCommandFailure,
     LocalBranchTip,
+    PathTouch,
     RestructuredFile,
     WorktreeInfo,
 )
@@ -141,6 +142,15 @@ class GitGateway(ABC):
         when the ref does not exist, the file is not present at the ref, or
         the underlying command fails. Useful for per-file timing on multi-file
         snapshot refs where the ref's head commit time would be misleading.
+        """
+
+    @abstractmethod
+    def path_last_touched(self, ref: str, path: str) -> PathTouch | None:
+        """Return the latest commit touching ``path`` reachable from ``ref``.
+
+        Wraps ``git log -1 --format=%H%x00%cI <ref> -- <path>``. Returns
+        ``None`` when the ref does not exist, the path is not present in the
+        ref's history, or the underlying command fails.
         """
 
     @abstractmethod
