@@ -145,38 +145,39 @@ Branch: `pi-core-subagent-mvp/integration-docs`
 Parent: PR 3.
 Tracking: local extension integration, docs, and first consumer proof.
 Handoff: `handoffs/pi-core-subagent-mvp-pr4-integration-docs.md`
+Evidence: local branch diff against Graphite parent `update-child-session-runtime-result-resolution`; the current branch is `add-child-session-demo-command-with-docs-and-tests`. Verification: targeted child-session/demo Bun tests passed, the `@asdl/pi-extensions` TypeScript check passed, and full `just` passed. Manual live smoke was skipped because paid/model use was not explicitly authorized.
 
 Code/docs:
 
-- [ ] Add a minimal local command, diagnostic command, or extension test harness that uses the child-session helper end to end.
-- [ ] Decide whether the first real consumer is a small demo command, the stack-run extension skeleton, or an Objective-stack closeout prototype.
-- [ ] Revisit stable package export/subpath or project shim wiring only if that first real consumer needs it; otherwise keep repo-local source imports.
-- [ ] Expose parent progress through an intentionally minimal UI path: status line, widget, custom message, or tool renderer integration.
-- [ ] Ensure parent UI or command output exposes child title/state and `sessionFile` path.
-- [ ] Preserve child session inspectability for blocked/error/cancelled outcomes when possible.
-- [ ] Add regression coverage that child completion does not rely on `sendUserMessage("/slash-command")` or slash-command handoff text.
-- [ ] Document the extension/package-layer function-call mental model, child process architecture, fresh context, terminal capture schemas, collision handling, protocol-error handling, cancellation, session artifacts, and non-goals.
-- [ ] Document why Pi core changes were intentionally avoided and what evidence would justify revisiting that decision.
-- [ ] Keep any user-facing docs linked to or extracted from this Objective rather than recreating a second drifting design spec.
+- [x] Add a minimal local command, diagnostic command, or extension test harness that uses the child-session helper end to end.
+- [x] Decide whether the first real consumer is a small demo command, the stack-run extension skeleton, or an Objective-stack closeout prototype: PR 4 uses the small demo command.
+- [x] Revisit stable package export/subpath or project shim wiring only if that first real consumer needs it; the demo uses a `.pi/extensions` shim and repo-local source import, so no stable export/subpath is needed.
+- [x] Expose parent progress through an intentionally minimal UI path: status line, widget, custom message, or tool renderer integration.
+- [x] Ensure parent UI or command output exposes child title/state and `sessionFile` path.
+- [x] Preserve child session inspectability for blocked/error/cancelled outcomes when possible by always surfacing the returned `sessionFile` in the final parent result.
+- [x] Add regression coverage that child completion does not rely on `sendUserMessage("/slash-command")` or slash-command handoff text.
+- [x] Document the extension/package-layer function-call mental model, child process architecture, fresh context, terminal capture schemas, collision handling, protocol-error handling, cancellation, session artifacts, and non-goals.
+- [x] Document why Pi core changes were intentionally avoided and what evidence would justify revisiting that decision.
+- [x] Keep user-facing docs linked to the Objective rather than recreating a second drifting design spec.
 
 Objective update:
 
-- [ ] Record a Semantic Update for integration, docs, UI/progress, and first consumer evidence.
-- [ ] Mark UI/progress, regression-test, docs, and first-consumer roadmap items complete when evidence lands.
-- [ ] Ask before closing the Objective; do not create `closed.md` implicitly.
+- [x] Record a Semantic Update for integration, docs, UI/progress, and first consumer evidence.
+- [x] Mark UI/progress, regression-test, docs, and first-consumer roadmap items complete when evidence lands.
+- [x] Leave the Objective open; closure still requires a separate explicit request.
 
-Likely files:
+Files:
 
-- `ts/packages/pi-extensions/src/run-child-session.ts`
-- `ts/packages/pi-extensions/src/<first-consumer>.ts`
-- `ts/packages/pi-extensions/test/...`
-- `docs/pi/...` if user-facing docs are needed in this repository
-- `.pi/extensions/...` if project shims are part of the integration surface
+- `ts/packages/pi-extensions/src/child-session-demo.ts`
+- `ts/packages/pi-extensions/test/child-session-demo.test.ts`
+- `.pi/extensions/child-session-demo.ts`
+- `docs/pi/child-session-helper.md`
+- `docs/pi/README.md`
 
 Validation:
 
-- [ ] Run targeted integration tests for the first consumer.
-- [ ] Run the TypeScript package check after code changes, or record the workspace setup blocker if unrelated.
+- [x] Run targeted integration tests for the first consumer.
+- [x] Run the TypeScript package check after code changes, or record the workspace setup blocker if unrelated.
 
 ## Parked
 

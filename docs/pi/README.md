@@ -83,6 +83,12 @@ For clickable PR/issue links in custom Pi extension output, keep message content
 
 See [Extension message linkification](./extension-message-linkification.md).
 
+## Child session helper
+
+The local child-session helper lets project extensions await a fresh child Pi process and receive a structured terminal result without slash-command handoff text.
+
+See [Child Session Helper](./child-session-helper.md).
+
 ## Checked-in extensions and worktrees
 
 If a project-local extension participates in worktree switching, it must be present in the target worktree too.

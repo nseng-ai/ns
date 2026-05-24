@@ -85,14 +85,14 @@ Assumptions:
 - The immediate platform need is an awaited function-call primitive for local extension workflows, not an interactive or background subagent system.
 - `pi-subagents` proves the extension/package pattern: parent extension registration, child `pi --mode json` process, injected runtime extension, JSONL event parsing, inspectable artifacts, and structured parent result.
 - A subprocess child runner is acceptable for the MVP and avoids upstream Pi core coupling; PR 2 fake-driven tests de-risked command resolution, cwd/session-file setup, JSONL progress parsing, cancellation, stderr-bounded errors, and clean no-terminal stops without real provider calls.
-- PR 1 evidence supports that a local TypeScript helper surface is enough for repo-local consumers to import and narrow the contract without Pi core changes; PR 2 evidence replaces the not-implemented placeholder with an awaited child process runner; PR 3 evidence adds the generated injected child runtime extension, temp config/result files, terminal capture tools, result status mapping, collision startup failures, terminal-execution protocol errors, and mixed terminal-plus-sibling detection. First-consumer wiring and user-facing docs remain later slices.
-- Stable npm-style package exports and subpaths are not valuable before a real repo-local parent-facing consumer exists; export or shim wiring belongs with that consumer rather than with the placeholder contract.
+- PR 1 evidence supports that a local TypeScript helper surface is enough for repo-local consumers to import and narrow the contract without Pi core changes; PR 2 evidence replaces the not-implemented placeholder with an awaited child process runner; PR 3 evidence adds the generated injected child runtime extension, temp config/result files, terminal capture tools, result status mapping, collision startup failures, terminal-execution protocol errors, and mixed terminal-plus-sibling detection; PR 4 evidence adds the first parent-facing demo command, project shim wiring, user-facing docs, and slash-command handoff regression coverage.
+- Stable npm-style package exports and subpaths remain unnecessary for the MVP after the first real repo-local consumer: the demo command loads through a `.pi/extensions` shim and uses source-local imports.
 - Fresh child context is sufficient when callers include all task context in the prompt.
 - Capture-only terminal tools are enough for structured completion because parent code performs domain side effects after the child returns.
 - Same-worktree child execution is safe for this MVP because child sessions are awaited sequentially.
 - The base runner's `--no-extensions` plus explicit generated runtime extension launch de-risks recursive registration of parent orchestration tools for the MVP; future ordinary child extension loading should be explicit.
 - A private temp config file, generated runtime extension shim, and first-writer-wins result sink are sufficient to pass terminal tool definitions and capture results for local use.
-- Lightweight progress parsed from JSON events is enough for first inspectability; PR 2 proves title/state/current tool/tool count/turn count/elapsed/session path/stop-reason progress; PR 3 adds deterministic terminal/protocol outcome mapping without returning the full transcript.
+- Lightweight progress parsed from JSON events is enough for first inspectability; PR 2 proves title/state/current tool/tool count/turn count/elapsed/session path/stop-reason progress; PR 3 adds deterministic terminal/protocol outcome mapping without returning the full transcript; PR 4 exposes final parsed progress through parent output plus a minimal status/widget path rather than adding live streaming callbacks.
 - Parent extensions remain responsible for domain-specific validation after a child returns, including Objective stack slice validation.
 - The Objective slug remains `pi-core-subagent-mvp` for continuity even though the title and strategy now refer to the extension-layer MVP.
 
@@ -111,11 +111,11 @@ Risks:
 
 ## Open Questions
 
-- The helper remains the direct `runChildSession(pi, ctx, options)` function through PR 3; should a factory or wrapper be added when a real consumer needs more ergonomics?
+- The helper remains the direct `runChildSession(pi, ctx, options)` function through PR 4; the first demo consumer did not need a factory or wrapper, but future non-demo consumers may revisit ergonomics.
 - The base runner has chosen `--no-extensions` plus a generated runtime extension for terminal-capture child runs; should a first consumer need an allowlist for ordinary child extensions?
 - The MVP uses a private temp config file, generated runtime extension shim, and result sink; should this remain the long-term default once package loading and first-consumer constraints are known?
 - Should the explicit parent-created child session path remain the long-term default, or should a later consumer prefer discovery-only behavior?
-- How much parent UI is needed for the MVP: status line only, chat custom message, widget, or tool renderer integration?
+- The first MVP parent UI path is a status line plus small widget while waiting and a displayed custom message/renderer for the final result; future consumers can add richer UI only if their workflow needs it.
 - Runtime collision checks use `pi.getAllTools()` at child `session_start`; are there extension/tool surfaces not visible through that API that need additional collision safeguards?
 - Mixed terminal-plus-sibling enforcement is currently detect-and-report, with a documented limitation that an earlier sibling may already have run; should a first consumer require a Pi core hook before closure?
-- Which first local consumer should prove the base layer: a small diagnostic/demo command, the stack-run extension skeleton, or a minimal Objective-stack closeout prototype?
+- The first local consumer is a small diagnostic `/child-session-demo <task>` command; rewriting Objective-stack workflows remains parked until explicitly pulled forward.
