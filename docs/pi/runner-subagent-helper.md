@@ -26,6 +26,23 @@ Important details:
 
 The helper keeps the full subagent transcript out of the parent LLM context. Parent code receives the structured result and can decide what summary, diagnostics, or session path to display.
 
+## Runner agent definition
+
+The `dispatch_runner_subagent` tool is backed by `.asdl/pi/agents/runner.md`. The TypeScript extension owns execution, progress, cancellation, diagnostics, truncation, and result formatting; the Markdown definition owns runner-facing metadata and the child prompt wrapper.
+
+Supported frontmatter fields for this slice:
+
+- `schema`: must be `asdl.pi-agent.v1`.
+- `name`: must be `runner`.
+- `toolName`: must be `dispatch_runner_subagent`.
+- `label` and `description`: shown through `pi.registerTool`.
+- `promptSnippet`: optional one-line system-prompt snippet.
+- `promptGuidelines`: optional list of tool-specific guideline bullets.
+
+The Markdown body is the child prompt wrapper. `{{prompt}}` is replaced with the delegated prompt exactly as provided after tool-input validation. `{{title}}` is replaced with the validated title. If the body does not include `{{prompt}}`, the extension appends a `## Delegated task` section containing the prompt.
+
+The definition is loaded when the extension registers, so edits to `.asdl/pi/agents/runner.md` require `/reload` or restarting Pi before the active tool metadata/prompt wrapper changes. Only `runner.md` is supported by this slice; additional agent variants remain future work.
+
 ## Terminal capture tools
 
 Callers provide terminal tools with:
