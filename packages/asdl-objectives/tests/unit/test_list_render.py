@@ -37,14 +37,14 @@ def test_render_objective_list_markdown_empty_current_detached_message(
     assert "No current branch (detached HEAD); no active Objectives to list." in output
 
 
-def test_render_objective_list_markdown_list_header_includes_latest_work_and_ahead_columns(
+def test_render_objective_list_markdown_list_header_includes_latest_work_and_slice_columns(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     render_objective_list_markdown(_result(groups=(_group("alpha"),)))
 
     output = capsys.readouterr().out
     assert (
-        "| objective | status | latest work | latest update | work branches | max ahead base |"
+        "| objective | status | latest work | latest update | work branches | max slice commits |"
         in output
     )
     assert "| alpha | ○ open | `feat/alpha` |" in output
@@ -60,7 +60,7 @@ def test_render_objective_list_markdown_detail_includes_status_source_and_work_b
     assert "# Objective branch details in this local repository" in output
     assert "Base branch: master — ○ open — updated" in output
     assert "### Work branches" in output
-    assert "| `feat/alpha` | ○ open |" in output
+    assert "| `feat/alpha` | `master` | ○ open |" in output
 
 
 def _group(slug: str) -> ObjectiveListGroup:
@@ -76,9 +76,10 @@ def _group(slug: str) -> ObjectiveListGroup:
         branches=(
             ObjectiveBranchEntry(
                 branch=f"feat/{slug}",
+                parent_branch="master",
                 status="open",
                 updated_iso="2026-05-20T11:00:00Z",
-                ahead_base=3,
+                slice_commits=3,
             ),
         ),
         latest_update_iso="2026-05-20T11:00:00Z",

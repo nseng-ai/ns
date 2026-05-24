@@ -60,9 +60,10 @@ class ObjectiveListRequest(ClinkrModel):
 
 class ObjectiveBranchEntry(ClinkrModel):
     branch: str
+    parent_branch: str
     status: ObjectiveRecordStatus
     updated_iso: str | None
-    ahead_base: int
+    slice_commits: int
 
 
 class ObjectiveStatusSourceEntry(ClinkrModel):

@@ -23,36 +23,13 @@ describe("parseObjectiveList", () => {
 					branches: [
 						{
 							branch: "feat/alpha",
+							parentBranch: "main",
 							updatedIso: "2026-05-20T10:00:00Z",
-							aheadBase: 3,
+							sliceCommits: 3,
 						},
 					],
 				},
 			],
-		});
-	});
-
-	test("parses legacy branch fields", () => {
-		const parsed = parseObjectiveList(
-			envelope({
-				groups: [
-					group({
-						branches: [
-							{
-								branch: "feat/legacy",
-								tip_head_iso: "2026-05-19T10:00:00Z",
-								ahead_trunk: 7,
-							},
-						],
-					}),
-				],
-			}),
-		);
-
-		expect(parsed.groups[0]?.branches[0]).toEqual({
-			branch: "feat/legacy",
-			updatedIso: "2026-05-19T10:00:00Z",
-			aheadBase: 7,
 		});
 	});
 
@@ -97,13 +74,15 @@ describe("parseObjectiveList", () => {
 		expect(() =>
 			parseObjectiveList(
 				envelope({
-					groups: [group({ branches: [{ branch: "feat/a", updated_iso: null, ahead_base: "3" }] })],
+					groups: [
+						group({ branches: [{ branch: "feat/a", parent_branch: "main", updated_iso: null, slice_commits: "3" }] }),
+					],
 				}),
 			),
 		).toThrow(/Invalid Objective list branch/);
 	});
 
-	test("rejects non-finite ahead_base", () => {
+	test("rejects non-finite slice_commits", () => {
 		const stdout = `{
 			"exit_code": 0,
 			"data": {
@@ -119,7 +98,7 @@ describe("parseObjectiveList", () => {
 					"status": "open",
 					"latest_update_iso": null,
 					"latest_work_branch": null,
-					"branches": [{"branch": "feat/a", "updated_iso": null, "ahead_base": 1e999}]
+					"branches": [{"branch": "feat/a", "parent_branch": "main", "updated_iso": null, "slice_commits": 1e999}]
 				}]
 			}
 		}`;
@@ -154,8 +133,9 @@ function group(overrides: Record<string, unknown> = {}): Record<string, unknown>
 		branches: [
 			{
 				branch: "feat/alpha",
+				parent_branch: "main",
 				updated_iso: "2026-05-20T10:00:00Z",
-				ahead_base: 3,
+				slice_commits: 3,
 			},
 		],
 		...overrides,

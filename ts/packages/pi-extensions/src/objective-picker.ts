@@ -60,7 +60,7 @@ export function formatObjectiveChoice(
 	} else if (selection && isChangedActiveObjective(group, selection)) {
 		diffLabel = `changed vs ${selection.trunkBranch} — `;
 	}
-	return `${group.slug} — ${diffLabel}${branchLabel} — latest work ${latestBranch} — max +${maxAheadBase(group)} ahead base`;
+	return `${group.slug} — ${diffLabel}${branchLabel} — latest work ${latestBranch} — max +${maxSliceCommits(group)} slice commits`;
 }
 
 export function objectiveGroupsWithChangedFirst(
@@ -152,14 +152,14 @@ function compareObjectiveBranchesByLatest(left: ObjectiveBranchEntry, right: Obj
 	return right.branch.localeCompare(left.branch);
 }
 
-function maxAheadBase(group: ObjectiveListGroup): number {
-	let maxAhead = 0;
+function maxSliceCommits(group: ObjectiveListGroup): number {
+	let maxSliceCommits = 0;
 	for (const branch of group.branches) {
-		if (branch.aheadBase > maxAhead) {
-			maxAhead = branch.aheadBase;
+		if (branch.sliceCommits > maxSliceCommits) {
+			maxSliceCommits = branch.sliceCommits;
 		}
 	}
-	return maxAhead;
+	return maxSliceCommits;
 }
 
 function isChangedActiveObjective(

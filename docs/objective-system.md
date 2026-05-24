@@ -172,13 +172,14 @@ Contract:
 - Use the repository base branch (currently the configured trunk branch) as the default status source.
 - Report displayed status from the status source: direct `.asdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`; an Objective present only on non-base local work branches means `in-flight`.
 - Do not treat nested files such as `.asdl/objectives/<slug>/updates/closed.md` as closure markers.
-- Default to an Objective-level list view filtered to active Objectives (`open` + `in-flight`) with `status` labels (`○ open`, `✓ closed`, `◇ in-flight`), latest work branch, latest Objective update age, work-branch count, and max ahead-of-base count.
+- Default to an Objective-level list view filtered to active Objectives (`open` + `in-flight`) with `status` labels (`○ open`, `✓ closed`, `◇ in-flight`), latest work branch, latest Objective update age, work-branch count, and max slice-commit count.
 - Compute latest Objective update from the newest commit touching `.asdl/objectives/<slug>/`, not from branch HEAD timestamps. If the newest Objective update is represented only by the base/status source, latest work is blank.
-- Provide a detail view that shows the base/current status source separately, then work-branch rows with branch status, Objective update age, and ahead-of-base count.
+- Provide a detail view that shows the base/current status source separately, then work-branch rows with branch parent, branch status, Objective update age, and slice-commit count.
 - Provide a `--status {all,active,open,in-flight,closed}` filter. The default is `active`; pass `--status all` to include closed Objectives.
 - Provide a `--current` mode that uses the current branch as the status source and lists only Objectives with records on the current branch. Detached HEAD returns no rows.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status/current filters are applied.
 - Do not parse Markdown, summarize Objective bodies, choose a canonical branch, or list branches without Objective records matching the selected status filter.
+- Count a work branch only when its local branch slice, not inherited lower-stack history, touches the Objective record.
 - Use pure git facts, not Graphite.
 
 Shipped CLI:

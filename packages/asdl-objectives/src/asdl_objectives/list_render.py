@@ -45,7 +45,7 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
     )
     table.add_column("Latest update", no_wrap=True)
     table.add_column("Work branches", justify="right", no_wrap=True)
-    table.add_column("Max ahead base", justify="right", no_wrap=True)
+    table.add_column("Max slice commits", justify="right", no_wrap=True)
     for group in result.groups:
         table.add_row(
             group.slug,
@@ -53,7 +53,7 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
             _format_optional_branch(group.latest_work_branch),
             _format_age(group.latest_update_iso),
             str(len(group.branches)),
-            f"+{_max_ahead_base(group)}",
+            f"+{_max_slice_commits(group)}",
         )
     console.print(table)
 
@@ -83,15 +83,17 @@ def _render_objective_list_detail_human(result: ObjectiveListResult) -> None:
             overflow="ellipsis",
             ratio=1,
         )
+        table.add_column("Parent", no_wrap=True, overflow="ellipsis", ratio=1)
         table.add_column("Branch status", no_wrap=True, width=13)
         table.add_column("Update age", no_wrap=True)
-        table.add_column("Ahead base", justify="right", no_wrap=True)
+        table.add_column("Slice commits", justify="right", no_wrap=True)
         for entry in group.branches:
             table.add_row(
                 entry.branch,
+                entry.parent_branch,
                 _status_label(entry.status),
                 _format_age(entry.updated_iso),
-                f"+{entry.ahead_base}",
+                f"+{entry.slice_commits}",
             )
         console.print(table)
 
@@ -115,7 +117,7 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
 
     click.echo()
     click.echo(
-        "| objective | status | latest work | latest update | work branches | max ahead base |"
+        "| objective | status | latest work | latest update | work branches | max slice commits |"
     )
     click.echo("| --- | --- | --- | --- | ---: | ---: |")
     for group in result.groups:
@@ -126,7 +128,7 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
             f"{_format_optional_branch_md(group.latest_work_branch)} | "
             f"{_format_age(group.latest_update_iso)} | "
             f"{len(group.branches)} | "
-            f"+{_max_ahead_base(group)} |"
+            f"+{_max_slice_commits(group)} |"
         )
 
 
@@ -151,14 +153,15 @@ def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
             click.echo("No work branches.")
             continue
         click.echo()
-        click.echo("| branch | branch status | update age | ahead base |")
-        click.echo("| --- | --- | --- | ---: |")
+        click.echo("| branch | parent | branch status | update age | slice commits |")
+        click.echo("| --- | --- | --- | --- | ---: |")
         for entry in group.branches:
             click.echo(
                 f"| `{entry.branch}` | "
+                f"`{entry.parent_branch}` | "
                 f"{_status_label(entry.status)} | "
                 f"{_format_age(entry.updated_iso)} | "
-                f"+{entry.ahead_base} |"
+                f"+{entry.slice_commits} |"
             )
 
 
@@ -253,5 +256,5 @@ def _format_age(iso_timestamp: str | None) -> str:
     return formatted
 
 
-def _max_ahead_base(group: ObjectiveListGroup) -> int:
-    return max((entry.ahead_base for entry in group.branches), default=0)
+def _max_slice_commits(group: ObjectiveListGroup) -> int:
+    return max((entry.slice_commits for entry in group.branches), default=0)
