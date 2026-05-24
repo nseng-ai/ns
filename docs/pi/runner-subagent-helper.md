@@ -54,7 +54,11 @@ Mixed terminal-plus-sibling behavior is deterministic from the parent's perspect
 
 ## Progress and UI
 
-The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, and session path. The first demo consumer displays final parsed progress in parent output and a minimal status/widget while waiting. It does not currently stream live `onProgress` callbacks from the dispatcher.
+The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, and session path. Callers may pass `onProgress(progress)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced progress snapshots while the child Pi process is running.
+
+`onProgress` is intentionally limited to parsed progress metadata. It never streams the child transcript, assistant content history, raw JSONL, or tool outputs into the parent. Parent tools should surface this metadata through display-only channels such as partial tool `onUpdate(...)` updates and/or `ctx.ui.setStatus(...)` / `ctx.ui.setWidget(...)`.
+
+Do not use `pi.sendMessage(...)` for transient subagent progress: custom messages participate in the parent session and LLM context. Do not write raw progress to stdout from the extension either; child stdout is the JSONL protocol stream and parent Pi/TUI output is managed by Pi.
 
 ## Demo command
 

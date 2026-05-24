@@ -60,6 +60,13 @@ function finalTextMessage(text: string, stopReason = "stop"): string {
 	});
 }
 
+type UiRecord = { key: string; value: string | undefined };
+type WidgetRecord = { key: string; value: string[] | undefined; options?: { placement?: "aboveEditor" | "belowEditor" } };
+
+function updateTexts(updates: readonly ToolResult[]): string {
+	return updates.map((update) => update.content[0]?.text ?? "").join("\n---\n");
+}
+
 describe("dispatch_runner_subagent extension", () => {
 	test("registers the custom tool with a strict title/prompt schema", () => {
 		const pi = new FakePi();
@@ -108,6 +115,64 @@ describe("dispatch_runner_subagent extension", () => {
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
 		await running;
+	});
+
+	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {
+		let now = 1_000;
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, now: () => now });
+		const pi = new FakePi(runner.dependencies);
+		const tool = registerTool(pi);
+		const updates: ToolResult[] = [];
+		const statuses: UiRecord[] = [];
+		const widgets: WidgetRecord[] = [];
+
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Slice subagent", prompt: "Do focused work." },
+			undefined,
+			(partial) => updates.push(partial),
+			{
+				cwd: ROOT,
+				hasUI: true,
+				ui: {
+					setStatus(key: string, value: string | undefined): void {
+						statuses.push({ key, value });
+					},
+					setWidget(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void {
+						widgets.push({ key, value, ...(options === undefined ? {} : { options }) });
+					},
+				},
+			},
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "agent_start" }));
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-a", toolName: "read", args: {} }));
+		call.process.emitStdout(jsonLine({ type: "tool_execution_end", toolCallId: "tool-a", toolName: "read", result: {}, isError: false }));
+		call.process.emitStdout(finalTextMessage("Subagent final answer."));
+		now = 2_250;
+		call.process.close(0);
+
+		const result = await running;
+		const partialText = updateTexts(updates);
+		const finalText = result.content[0]?.text ?? "";
+
+		expect(partialText).toContain("Dispatching runner subagent: Slice subagent");
+		expect(partialText).toContain("State: running");
+		expect(partialText).toContain("current tool: read");
+		expect(partialText).toContain("turns: 1");
+		expect(partialText).toContain("tools: 1");
+		expect(partialText).toContain(`Session file: ${SESSION_FILE}`);
+		expect(statuses.some((status) => status.value?.includes("read"))).toBe(true);
+		expect(widgets.some((widget) => widget.value?.includes("Tool: read"))).toBe(true);
+		expect(statuses.at(-1)).toEqual({ key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME, value: undefined });
+		expect(widgets.at(-1)?.key).toBe(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
+		expect(widgets.at(-1)?.value).toBeUndefined();
+		expect(finalText).toContain("dispatch_runner_subagent result");
+		expect(finalText).toContain("Status: final-text");
+		expect(finalText).toContain("Subagent final answer.");
+		expect(finalText).not.toContain("Running runner subagent:");
 	});
 
 	test("returns final text, status, session path, progress, and details as an ordinary tool result", async () => {
@@ -188,6 +253,64 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.status).toBe("error");
 		expect(details.sessionFile).toBe(SESSION_FILE);
 		expect(details.error).toEqual(expect.objectContaining({ message: expect.stringContaining("Subagent Pi exited with exit code 2") }));
+	});
+
+	test("does not require UI", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies);
+		const tool = registerTool(pi);
+
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Headless subagent", prompt: "Report back." },
+			undefined,
+			undefined,
+			{ cwd: ROOT, hasUI: false },
+		);
+		const call = await waitForSpawn(runner.calls);
+		call.process.emitStdout(finalTextMessage("Headless done."));
+		call.process.close(0);
+
+		const result = await running;
+		expect(result.content[0]?.text).toContain("Status: final-text");
+		expect(result.content[0]?.text).toContain("Headless done.");
+	});
+
+	test("clears UI after error result", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies);
+		const tool = registerTool(pi);
+		const statuses: UiRecord[] = [];
+		const widgets: WidgetRecord[] = [];
+
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Error subagent", prompt: "Report back." },
+			undefined,
+			undefined,
+			{
+				cwd: ROOT,
+				hasUI: true,
+				ui: {
+					setStatus(key: string, value: string | undefined): void {
+						statuses.push({ key, value });
+					},
+					setWidget(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void {
+						widgets.push({ key, value, ...(options === undefined ? {} : { options }) });
+					},
+				},
+			},
+		);
+		const call = await waitForSpawn(runner.calls);
+		call.process.emitStderr("subagent failed\n");
+		call.process.close(2);
+
+		const result = await running;
+		const details = result.details as Record<string, unknown>;
+		expect(details.status).toBe("error");
+		expect(statuses.at(-1)).toEqual({ key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME, value: undefined });
+		expect(widgets.at(-1)?.key).toBe(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
+		expect(widgets.at(-1)?.value).toBeUndefined();
 	});
 
 	test("rejects blank title or prompt before spawning a subagent", async () => {
