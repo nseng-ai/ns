@@ -781,10 +781,11 @@ export function formatWorktreeStatus(status: WorktreeStatus): string[] {
 }
 
 export function formatGtStatus(status: GtStatus): string {
-	const pr = status.pr ? ` ${terminalHyperlink(`#${status.pr.number}`, status.pr.url)}` : "";
+	const pr = status.pr ? ` #${status.pr.number}` : "";
 	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
 	const dirty = status.dirty === "yes" ? " (x)" : "";
-	return `[gt]${pr} (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+	const line = `[gt]${pr} (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+	return status.pr ? terminalHyperlink(line, status.pr.url) : line;
 }
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
