@@ -77,7 +77,7 @@ Use `objective list` for the default objective-level list of open Objective reco
 
 ## Tracking Gate
 
-Before `objective-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If so, ask for `objective-update` before recommending new work. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
+Before `objective-next` recommends work, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If so, ask whether to run `objective-update` for the same selected Objective before recommending new work. If the user confirms or preauthorized update-and-continue, perform the explicit Objective Update workflow, reread the Objective and repo evidence, and then continue `objective-next`. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
 
 ## Non-goals
 

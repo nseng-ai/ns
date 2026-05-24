@@ -29,7 +29,7 @@ An update file that records meaningful objective information such as a finding, 
 _Avoid_: Ceremonial update, status ping, branch changelog
 
 **Tracking Gate**:
-A read-only check that blocks next-work recommendations when branch or worktree evidence suggests objective progress has not been recorded.
+A read-only check that blocks next-work recommendations when branch or worktree evidence suggests objective progress has not been recorded, until an explicit **Objective Update** handoff is confirmed.
 _Avoid_: Auto-refresh, auto-update, hidden reconciliation
 
 **Objective Update**:
@@ -59,7 +59,7 @@ _Avoid_: Hidden status, archive directory, deletion
 - **Objective Update** is the explicit mutation workflow for objective tracking.
 - **Objective Close** preserves the objective directory in place, updates `objective.md` with closure context, and writes a **Closure Marker** for non-LM filtering.
 - Closed **Objectives** are readable by `objective-current` but are not eligible for `objective-next` by default.
-- `objective-next` may apply a **Tracking Gate** but must not mutate objective files.
+- `objective-next` may apply a **Tracking Gate**; it does not silently mutate objective files, and any files changed after a gate block must be through an explicit **Objective Update** handoff.
 - When no **Objective** is explicit, objective operations should list candidates and ask the user to choose rather than infer ownership from branch or worktree evidence.
 - `objective-update` has a narrow one-open-objective confirmation path, but it still asks before collecting evidence or mutating files.
 - `objective list` is deterministic read tooling over local branch tips; it uses git facts, does not parse Objective prose, and does not depend on Graphite.

@@ -246,8 +246,8 @@ Contract:
 - Read `objective.md`, `roadmap.md`, and relevant updates.
 - Apply the **Tracking Gate** before recommending next work.
 - Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
-- If the Tracking Gate indicates likely unrecorded progress, stop and ask for an `objective-update` instead of recommending next work.
-- Do not mutate files.
+- If the Tracking Gate indicates likely unrecorded progress, ask whether to run `objective-update` for the same selected objective before recommending next work. If the user confirms or explicitly preauthorized update-and-continue, perform that update, reread the objective and repo evidence, then continue `objective-next`; otherwise stop without a recommendation.
+- Do not mutate files except through that explicit `objective-update` handoff.
 
 Shipped CLI:
 
@@ -303,17 +303,19 @@ Future CLI pushdown candidates:
 
 ## Tracking Gate
 
-The **Tracking Gate** is a read-only check used by `objective-next`. Its purpose is to avoid recommending new work when branch or worktree evidence suggests meaningful objective progress has not been recorded.
+The **Tracking Gate** is a read-only check phase used by `objective-next`. Its purpose is to avoid recommending new work when branch or worktree evidence suggests meaningful objective progress has not been recorded.
 
 Markdown-only v1 behavior:
 
 - Inspect current uncommitted changes and branch diff when available.
 - Look for material non-objective changes that plausibly advance the selected objective.
 - Look for corresponding changes under `.asdl/objectives/<slug>/`.
-- If material objective progress appears unrecorded, block next-work recommendation and ask the user to run `objective-update`.
+- If material objective progress appears unrecorded, block next-work recommendation and ask whether to run `objective-update` for the same selected objective.
+- If the user confirms or preauthorized update-and-continue, perform the explicit update workflow, reread the objective and repo evidence, and then continue `objective-next`.
+- If confirmation is pending or declined, stop without a next-work recommendation.
 - If evidence is absent, ambiguous, or clearly unrelated, proceed with a concise note.
 
-The Tracking Gate must not mutate files, auto-refresh objective state, or perform hidden reconciliation.
+The Tracking Gate check must not mutate files, auto-refresh objective state, or perform hidden reconciliation. When it blocks, `objective-next` may offer a user-confirmed handoff to `objective-update`; any file changes belong to that explicit update workflow, not to the read-only gate.
 
 Deterministic git comparison and changed-path scope facts for the Tracking Gate are left as future CLI work; collection of branch evidence and semantic materiality both remain LM/human-authored in v1.
 

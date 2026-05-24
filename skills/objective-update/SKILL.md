@@ -13,6 +13,8 @@ Use the `objective` skill for shared vocabulary/system rules when available. Thi
 
 Run when the user explicitly asks to update Objective tracking, says branch/PR changes need an Objective update, invokes `$objective-update`, or provides a `<skill name="objective-update">` block as an action cue.
 
+Also run when `objective-next` has selected a slug/path, its Tracking Gate blocks, and the user confirms or preauthorizes updating that same Objective before continuing.
+
 If the user only asks about the skill or pastes it with no clear update intent, ask: `Do you want me to run objective-update for the current branch now?`
 
 ## Required shape
