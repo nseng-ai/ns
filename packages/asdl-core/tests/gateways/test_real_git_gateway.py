@@ -8,14 +8,22 @@ import pytest
 from asdl_core.git import real_git_gateway
 from asdl_core.git.real_git_gateway import (
     RealGitGateway,
+    parse_commit_graph_output,
     parse_local_branch_tip_output,
+    parse_local_branch_tip_ref_output,
     parse_name_status_output,
+    parse_path_change_touches_output,
     parse_path_touch_output,
+    parse_tree_oid_batch_check_output,
 )
 from asdl_core.git.types import (
+    BranchCommitGraph,
+    CommitGraphNode,
     DetachedHead,
     GitCommandFailure,
     LocalBranchTip,
+    LocalBranchTipRef,
+    PathChangeTouch,
     PathTouch,
     RestructuredFile,
 )
@@ -179,6 +187,43 @@ def test_parse_local_branch_tip_output_parses_nul_delimited_lines() -> None:
     )
 
 
+def test_parse_local_branch_tip_ref_output_parses_nul_delimited_lines() -> None:
+    assert parse_local_branch_tip_ref_output(
+        "main\x00abc123\nfeat/x\x00def456\nmissing-separator\nmissing-oid\x00\n"
+    ) == (
+        LocalBranchTipRef(branch="main", oid="abc123"),
+        LocalBranchTipRef(branch="feat/x", oid="def456"),
+    )
+
+
+def test_parse_commit_graph_output_parses_parent_lines() -> None:
+    assert parse_commit_graph_output(
+        "child base other-parent\nbase root\nmalformed-but-still-an-oid\n\n"
+    ) == (
+        CommitGraphNode(oid="child", parent_oids=("base", "other-parent")),
+        CommitGraphNode(oid="base", parent_oids=("root",)),
+        CommitGraphNode(oid="malformed-but-still-an-oid", parent_oids=()),
+    )
+
+
+def test_parse_tree_oid_batch_check_output_maps_only_trees() -> None:
+    assert parse_tree_oid_batch_check_output(
+        "treeoid tree\nbloboid blob\nrefs/heads/missing:.asdl/objectives missing\n",
+        ("refs/heads/tree", "refs/heads/blob", "refs/heads/missing"),
+    ) == {
+        "refs/heads/tree": "treeoid",
+        "refs/heads/blob": None,
+        "refs/heads/missing": None,
+    }
+
+
+def test_parse_tree_oid_batch_check_output_returns_failure_on_row_count_mismatch() -> None:
+    result = parse_tree_oid_batch_check_output("treeoid tree\n", ("a", "b"))
+
+    assert isinstance(result, GitCommandFailure)
+    assert "unexpected number of rows" in result.message
+
+
 def test_list_local_branch_tips_returns_branch_names_and_timestamps(tmp_path: Path) -> None:
     repo = _init_git_repo(tmp_path)
     (repo / "README.md").write_text("hello\n", encoding="utf-8")
@@ -192,6 +237,61 @@ def test_list_local_branch_tips_returns_branch_names_and_timestamps(tmp_path: Pa
     assert tuple(tip.name for tip in result) == ("feat/x", "main")
     assert all(tip.head_iso is not None for tip in result)
     assert all("T" in tip.head_iso for tip in result if tip.head_iso is not None)
+
+
+def test_commit_graph_from_base_returns_requested_branch_tips_and_graph(
+    tmp_path: Path,
+) -> None:
+    repo = _init_git_repo(tmp_path)
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "initial")
+    _git(repo, "branch", "-M", "main")
+    _git(repo, "checkout", "-b", "feat/base")
+    (repo / "base.txt").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "base.txt")
+    _git(repo, "commit", "-m", "base")
+    _git(repo, "checkout", "-b", "feat/child")
+    (repo / "child.txt").write_text("child\n", encoding="utf-8")
+    _git(repo, "add", "child.txt")
+    _git(repo, "commit", "-m", "child")
+    _git(repo, "branch", "feat/zero", "main")
+
+    result = RealGitGateway(repo_root=repo).commit_graph_from_base(
+        base_branch="main",
+        branches=("feat/child", "feat/base", "feat/zero"),
+    )
+
+    assert isinstance(result, BranchCommitGraph)
+    assert result.base_branch == "main"
+    assert tuple(tip.branch for tip in result.branch_tips) == (
+        "feat/base",
+        "feat/child",
+        "feat/zero",
+    )
+    base_oid = _git(repo, "rev-parse", "feat/base").stdout.strip()
+    child_oid = _git(repo, "rev-parse", "feat/child").stdout.strip()
+    assert {commit.oid for commit in result.commits} == {base_oid, child_oid}
+    assert child_oid in {tip.oid for tip in result.branch_tips}
+    child_node = _commit_node(result, child_oid)
+    assert base_oid in child_node.parent_oids
+
+
+def test_commit_graph_from_base_returns_failure_for_unknown_branch(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "initial")
+    _git(repo, "branch", "-M", "main")
+
+    result = RealGitGateway(repo_root=repo).commit_graph_from_base(
+        base_branch="main",
+        branches=("missing",),
+    )
+
+    assert isinstance(result, GitCommandFailure)
+    assert result.returncode == 1
+    assert "missing" in result.message
 
 
 def test_list_branches_merged_into_returns_local_ancestor_branches(tmp_path: Path) -> None:
@@ -231,6 +331,50 @@ def test_parse_path_touch_output_returns_touch() -> None:
 def test_parse_path_touch_output_rejects_empty_or_malformed_rows() -> None:
     assert parse_path_touch_output("") is None
     assert parse_path_touch_output("abc123 2026-05-20T10:44:08-04:00") is None
+
+
+def test_parse_path_change_touches_output_groups_commit_paths() -> None:
+    assert parse_path_change_touches_output(
+        "newer\x002026-05-20T11:00:00-04:00\n"
+        "\n"
+        ".asdl/objectives/alpha/objective.md\n"
+        ".asdl/objectives/alpha/updates/progress.md\n"
+        "outside.txt\n"
+        "older\x002026-05-20T10:00:00-04:00\n"
+        ".asdl/objectives/beta/objective.md\n",
+        ".asdl/objectives",
+    ) == (
+        PathChangeTouch(
+            oid="newer",
+            committed_iso="2026-05-20T11:00:00-04:00",
+            paths=(
+                ".asdl/objectives/alpha/objective.md",
+                ".asdl/objectives/alpha/updates/progress.md",
+            ),
+        ),
+        PathChangeTouch(
+            oid="older",
+            committed_iso="2026-05-20T10:00:00-04:00",
+            paths=(".asdl/objectives/beta/objective.md",),
+        ),
+    )
+
+
+def test_parse_path_change_touches_output_skips_malformed_blocks() -> None:
+    assert parse_path_change_touches_output(
+        ".asdl/objectives/before-header/objective.md\n"
+        "missing-iso\x00\n"
+        ".asdl/objectives/bad/objective.md\n"
+        "ok\x002026-05-20T10:00:00-04:00\n"
+        ".asdl/objectives/good/objective.md\n",
+        ".asdl/objectives",
+    ) == (
+        PathChangeTouch(
+            oid="ok",
+            committed_iso="2026-05-20T10:00:00-04:00",
+            paths=(".asdl/objectives/good/objective.md",),
+        ),
+    )
 
 
 def test_path_last_touched_returns_latest_touch(tmp_path: Path) -> None:
@@ -273,6 +417,39 @@ def test_path_last_touched_accepts_revision_range(tmp_path: Path) -> None:
     assert len(touched.oid) == 40
     assert "T" in touched.committed_iso
     assert inherited is None
+
+
+def test_path_touches_under_returns_newest_first_commits_with_paths(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "branch", "-M", "main")
+    alpha = repo / ".asdl" / "objectives" / "alpha"
+    beta = repo / ".asdl" / "objectives" / "beta"
+    alpha.mkdir(parents=True)
+    beta.mkdir(parents=True)
+    (alpha / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "alpha")
+    (beta / "objective.md").write_text("# Beta\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "beta")
+
+    result = RealGitGateway(repo_root=repo).path_touches_under("HEAD", ".asdl/objectives")
+
+    assert not isinstance(result, GitCommandFailure)
+    assert [touch.paths for touch in result] == [
+        (".asdl/objectives/beta/objective.md",),
+        (".asdl/objectives/alpha/objective.md",),
+    ]
+    assert all(len(touch.oid) == 40 for touch in result)
+
+
+def test_path_touches_under_returns_failure_for_bad_ref(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+
+    result = RealGitGateway(repo_root=repo).path_touches_under("missing", ".asdl/objectives")
+
+    assert isinstance(result, GitCommandFailure)
+    assert result.returncode != 0
 
 
 def test_list_tracked_paths_at_ref_returns_recursive_paths(tmp_path: Path) -> None:
@@ -345,6 +522,42 @@ def test_list_directories_at_ref_returns_direct_child_directories(tmp_path: Path
     assert result == ("alpha", "beta")
 
 
+def test_tree_oids_at_refs_returns_shared_tree_oids_and_missing_paths(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    root = repo / ".asdl" / "objectives"
+    (root / "alpha").mkdir(parents=True)
+    (root / "alpha" / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objectives")
+    _git(repo, "branch", "-M", "main")
+    _git(repo, "branch", "feat/same")
+    _git(repo, "checkout", "-b", "feat/other")
+    (root / "beta").mkdir()
+    (root / "beta" / "objective.md").write_text("# Beta\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "beta")
+    _git(repo, "checkout", "main")
+    _git(repo, "checkout", "-b", "feat/no-objectives")
+    _git(repo, "rm", "-r", ".asdl")
+    _git(repo, "commit", "-m", "remove objectives")
+
+    result = RealGitGateway(repo_root=repo).tree_oids_at_refs(
+        (
+            "refs/heads/main",
+            "refs/heads/feat/same",
+            "refs/heads/feat/other",
+            "refs/heads/feat/no-objectives",
+        ),
+        ".asdl/objectives",
+    )
+
+    assert not isinstance(result, GitCommandFailure)
+    assert result["refs/heads/main"] is not None
+    assert result["refs/heads/main"] == result["refs/heads/feat/same"]
+    assert result["refs/heads/feat/other"] != result["refs/heads/main"]
+    assert result["refs/heads/feat/no-objectives"] is None
+
+
 def test_path_exists_at_ref_reports_file_existence(tmp_path: Path) -> None:
     repo = _init_git_repo(tmp_path)
     record = repo / ".asdl" / "objectives" / "alpha"
@@ -356,6 +569,12 @@ def test_path_exists_at_ref_reports_file_existence(tmp_path: Path) -> None:
 
     assert gateway.path_exists_at_ref("HEAD", ".asdl/objectives/alpha/objective.md")
     assert not gateway.path_exists_at_ref("HEAD", ".asdl/objectives/alpha/closed.md")
+
+
+def _commit_node(graph: BranchCommitGraph, oid: str) -> CommitGraphNode:
+    matches = [commit for commit in graph.commits if commit.oid == oid]
+    assert len(matches) == 1
+    return matches[0]
 
 
 def _init_git_repo(path: Path) -> Path:

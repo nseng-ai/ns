@@ -6,11 +6,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from asdl_core.git.types import (
+    BranchCommitGraph,
     CommitSummary,
     DetachedHead,
     FileStatus,
     GitCommandFailure,
     LocalBranchTip,
+    PathChangeTouch,
     PathTouch,
     RestructuredFile,
     WorktreeInfo,
@@ -78,6 +80,18 @@ class GitGateway(ABC):
 
         Missing paths return an empty tuple. Unknown refs or unexpected git errors
         return ``GitCommandFailure``.
+        """
+
+    @abstractmethod
+    def tree_oids_at_refs(
+        self,
+        refs: tuple[str, ...],
+        path: str,
+    ) -> dict[str, str | None] | GitCommandFailure:
+        """Return the tree object ID for ``<ref>:<path>`` across refs.
+
+        Missing paths and non-tree objects map to ``None``. Unexpected git
+        command failures return :class:`GitCommandFailure`.
         """
 
     @abstractmethod
@@ -156,6 +170,19 @@ class GitGateway(ABC):
         """
 
     @abstractmethod
+    def path_touches_under(
+        self,
+        ref_or_range: str,
+        path: str,
+    ) -> tuple[PathChangeTouch, ...] | GitCommandFailure:
+        """Return commits newest-first with paths touched under ``path``.
+
+        Wraps ``git log --format=%H%x00%cI --name-only <ref_or_range> -- <path>``.
+        Empty output returns an empty tuple. A non-zero exit returns
+        :class:`GitCommandFailure`.
+        """
+
+    @abstractmethod
     def branch_head_iso(self, branch: str) -> str | None:
         """Return ISO-8601 committer time of ``branch``'s HEAD commit.
 
@@ -211,6 +238,20 @@ class GitGateway(ABC):
         (where ``git patch-id --stable`` produces no output). A non-zero exit
         from either the underlying ``git log`` or ``git patch-id`` returns
         :class:`GitCommandFailure`.
+        """
+
+    @abstractmethod
+    def commit_graph_from_base(
+        self,
+        *,
+        base_branch: str,
+        branches: tuple[str, ...],
+    ) -> BranchCommitGraph | GitCommandFailure:
+        """Return branch tips and commits reachable from those tips but not from base.
+
+        ``branches`` are local branch names. The result includes a tip entry for
+        each requested branch and commit nodes from ``git rev-list --parents``
+        over those tips with ``base_branch`` excluded.
         """
 
     @abstractmethod

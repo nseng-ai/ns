@@ -4,9 +4,13 @@ from pathlib import Path
 
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import (
+    BranchCommitGraph,
+    CommitGraphNode,
     DetachedHead,
     GitCommandFailure,
     LocalBranchTip,
+    LocalBranchTipRef,
+    PathChangeTouch,
     PathTouch,
     RestructuredFile,
 )
@@ -119,6 +123,45 @@ def test_fake_list_branches_merged_into_returns_branch_and_seeded_ancestors() ->
     )
 
 
+def test_fake_tree_oids_at_refs_returns_seeded_tree_oids() -> None:
+    gateway = FakeGitGateway(
+        tree_oid_by_ref_path={
+            ("refs/heads/feature", ".asdl/objectives"): "tree-a",
+            ("refs/heads/empty", ".asdl/objectives"): None,
+        }
+    )
+
+    assert gateway.tree_oids_at_refs(
+        ("refs/heads/feature", "refs/heads/empty"),
+        ".asdl/objectives",
+    ) == {
+        "refs/heads/feature": "tree-a",
+        "refs/heads/empty": None,
+    }
+    assert gateway.tree_oids_at_refs_calls == (
+        (("refs/heads/feature", "refs/heads/empty"), ".asdl/objectives"),
+    )
+
+
+def test_fake_tree_oids_at_refs_synthesizes_stable_tree_oid_from_tracked_paths() -> None:
+    paths = (".asdl/objectives/alpha/objective.md",)
+    gateway = FakeGitGateway(
+        tracked_paths_by_ref_path={
+            ("refs/heads/a", ".asdl/objectives"): paths,
+            ("refs/heads/b", ".asdl/objectives"): paths,
+        }
+    )
+
+    result = gateway.tree_oids_at_refs(
+        ("refs/heads/a", "refs/heads/b", "refs/heads/missing"),
+        ".asdl/objectives",
+    )
+
+    assert not isinstance(result, GitCommandFailure)
+    assert result["refs/heads/a"] == result["refs/heads/b"]
+    assert result["refs/heads/missing"] is None
+
+
 def test_fake_list_tracked_paths_at_ref_defaults_to_empty() -> None:
     gateway = FakeGitGateway()
 
@@ -144,6 +187,20 @@ def test_fake_list_tracked_paths_at_ref_returns_seeded_failure() -> None:
     )
 
     assert gateway.list_tracked_paths_at_ref("refs/heads/feature", ".asdl/objectives") == failure
+
+
+def test_fake_tracks_read_calls() -> None:
+    gateway = FakeGitGateway()
+
+    gateway.list_tracked_paths_at_ref("refs/heads/feature", ".asdl/objectives")
+    gateway.path_last_touched("main..feature", ".asdl/objectives/alpha")
+    gateway.list_branches_merged_into("feature")
+    gateway.count_commits_in_range("main..feature")
+
+    assert gateway.list_tracked_paths_at_ref_calls == (("refs/heads/feature", ".asdl/objectives"),)
+    assert gateway.path_last_touched_calls == (("main..feature", ".asdl/objectives/alpha"),)
+    assert gateway.list_branches_merged_into_calls == ("feature",)
+    assert gateway.count_commits_in_range_calls == ("main..feature",)
 
 
 def test_fake_path_last_touched_returns_seeded_touch() -> None:
@@ -183,3 +240,100 @@ def test_fake_path_last_touched_falls_back_to_seeded_timestamp() -> None:
         oid="refs/heads/feature:.asdl/objectives/alpha",
         committed_iso="2026-05-20T10:44:08-04:00",
     )
+
+
+def test_fake_path_touches_under_returns_seeded_touches() -> None:
+    touch = PathChangeTouch(
+        oid="abc123",
+        committed_iso="2026-05-20T10:44:08-04:00",
+        paths=(".asdl/objectives/alpha/objective.md",),
+    )
+    gateway = FakeGitGateway(
+        path_change_touches_by_ref_path={
+            ("main..feature", ".asdl/objectives"): (touch,),
+        }
+    )
+
+    assert gateway.path_touches_under("main..feature", ".asdl/objectives") == (touch,)
+    assert gateway.path_touches_under_calls == (("main..feature", ".asdl/objectives"),)
+
+
+def test_fake_path_touches_under_synthesizes_from_path_last_touches() -> None:
+    gateway = FakeGitGateway(
+        path_touch_by_ref_path={
+            ("main..feature", ".asdl/objectives/alpha"): PathTouch(
+                oid="alpha-oid",
+                committed_iso="2026-05-20T10:44:08-04:00",
+            ),
+            ("main..feature", "other/path"): PathTouch(
+                oid="other-oid",
+                committed_iso="2026-05-20T11:00:00-04:00",
+            ),
+        }
+    )
+
+    assert gateway.path_touches_under("main..feature", ".asdl/objectives") == (
+        PathChangeTouch(
+            oid="alpha-oid",
+            committed_iso="2026-05-20T10:44:08-04:00",
+            paths=(".asdl/objectives/alpha/__fake_touch__",),
+        ),
+    )
+
+
+def test_fake_commit_graph_from_base_returns_seeded_graph() -> None:
+    graph = BranchCommitGraph(
+        base_branch="main",
+        branch_tips=(LocalBranchTipRef(branch="feature", oid="b"),),
+        commits=(CommitGraphNode(oid="b", parent_oids=("a",)),),
+    )
+    gateway = FakeGitGateway(
+        commit_graph_by_base_branches={
+            ("main", ("feature",)): graph,
+        }
+    )
+
+    assert gateway.commit_graph_from_base(base_branch="main", branches=("feature",)) == graph
+    assert gateway.commit_graph_from_base_calls == (("main", ("feature",)),)
+
+
+def test_fake_commit_graph_from_base_synthesizes_from_counts_and_ancestors() -> None:
+    gateway = FakeGitGateway(
+        ancestors={("feat/base", "feat/child")},
+        commit_count_by_range={
+            "main..feat/base": 2,
+            "main..feat/child": 3,
+            "main..feat/zero": 0,
+        },
+    )
+
+    graph = gateway.commit_graph_from_base(
+        base_branch="main",
+        branches=("feat/child", "feat/zero", "feat/base"),
+    )
+
+    assert isinstance(graph, BranchCommitGraph)
+    assert tuple(tip.branch for tip in graph.branch_tips) == (
+        "feat/base",
+        "feat/child",
+        "feat/zero",
+    )
+    assert _tip_oid(graph, "feat/base") == "feat/base@2"
+    assert _tip_oid(graph, "feat/child") == "feat/child@3"
+    assert _tip_oid(graph, "feat/zero") == "feat/zero@base"
+    assert _node(graph, "feat/child@3") == CommitGraphNode(
+        oid="feat/child@3",
+        parent_oids=("feat/base@2",),
+    )
+
+
+def _tip_oid(graph: BranchCommitGraph, branch: str) -> str:
+    matches = [tip for tip in graph.branch_tips if tip.branch == branch]
+    assert len(matches) == 1
+    return matches[0].oid
+
+
+def _node(graph: BranchCommitGraph, oid: str) -> CommitGraphNode:
+    matches = [commit for commit in graph.commits if commit.oid == oid]
+    assert len(matches) == 1
+    return matches[0]

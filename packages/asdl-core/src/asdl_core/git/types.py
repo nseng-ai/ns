@@ -44,11 +44,45 @@ class LocalBranchTip:
 
 
 @dataclass(frozen=True)
+class LocalBranchTipRef:
+    """A local branch name and its HEAD object ID."""
+
+    branch: str
+    oid: str
+
+
+@dataclass(frozen=True)
+class CommitGraphNode:
+    """One commit and its parent object IDs from a commit graph walk."""
+
+    oid: str
+    parent_oids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class BranchCommitGraph:
+    """Commit graph reachable from local branch tips and not reachable from base."""
+
+    base_branch: str
+    branch_tips: tuple[LocalBranchTipRef, ...]
+    commits: tuple[CommitGraphNode, ...]
+
+
+@dataclass(frozen=True)
 class PathTouch:
     """Latest commit touching one path reachable from a ref."""
 
     oid: str
     committed_iso: str
+
+
+@dataclass(frozen=True)
+class PathChangeTouch:
+    """One commit and changed paths under a pathspec."""
+
+    oid: str
+    committed_iso: str
+    paths: tuple[str, ...]
 
 
 @dataclass(frozen=True)

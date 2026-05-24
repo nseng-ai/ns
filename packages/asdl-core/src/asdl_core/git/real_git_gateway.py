@@ -7,11 +7,15 @@ from pathlib import Path
 
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import (
+    BranchCommitGraph,
+    CommitGraphNode,
     CommitSummary,
     DetachedHead,
     FileStatus,
     GitCommandFailure,
     LocalBranchTip,
+    LocalBranchTipRef,
+    PathChangeTouch,
     PathTouch,
     RestructuredFile,
     WorktreeInfo,
@@ -60,6 +64,59 @@ def parse_local_branch_tip_output(stdout: str) -> tuple[LocalBranchTip, ...]:
             continue
         tips.append(LocalBranchTip(name=name, head_iso=head_iso or None))
     return tuple(tips)
+
+
+def parse_local_branch_tip_ref_output(stdout: str) -> tuple[LocalBranchTipRef, ...]:
+    """Parse NUL-delimited local branch tip OID output from ``git for-each-ref``."""
+
+    tips: list[LocalBranchTipRef] = []
+    for raw_line in stdout.splitlines():
+        if not raw_line:
+            continue
+        name, separator, oid = raw_line.partition("\x00")
+        if separator == "" or name == "" or oid == "":
+            continue
+        tips.append(LocalBranchTipRef(branch=name, oid=oid))
+    return tuple(tips)
+
+
+def parse_commit_graph_output(stdout: str) -> tuple[CommitGraphNode, ...]:
+    """Parse ``git rev-list --parents`` output into commit graph nodes."""
+
+    nodes: list[CommitGraphNode] = []
+    for raw_line in stdout.splitlines():
+        parts = raw_line.split()
+        if not parts:
+            continue
+        nodes.append(CommitGraphNode(oid=parts[0], parent_oids=tuple(parts[1:])))
+    return tuple(nodes)
+
+
+def parse_tree_oid_batch_check_output(
+    stdout: str,
+    refs: tuple[str, ...],
+) -> dict[str, str | None] | GitCommandFailure:
+    """Parse ``git cat-file --batch-check`` tree oid output for refs."""
+
+    lines = stdout.splitlines()
+    if len(lines) != len(refs):
+        return GitCommandFailure(
+            message="git cat-file returned an unexpected number of rows",
+            returncode=0,
+        )
+
+    tree_oids: dict[str, str | None] = {}
+    for ref, raw_line in zip(refs, lines, strict=True):
+        parts = raw_line.split()
+        if len(parts) != 2:
+            tree_oids[ref] = None
+            continue
+        object_name, object_type = parts
+        if object_type == "tree":
+            tree_oids[ref] = object_name
+        else:
+            tree_oids[ref] = None
+    return tree_oids
 
 
 def parse_worktree_list_output(stdout: str) -> tuple[WorktreeInfo, ...]:
@@ -163,6 +220,52 @@ def parse_path_touch_output(stdout: str) -> PathTouch | None:
     if separator == "" or oid == "" or committed_iso == "":
         return None
     return PathTouch(oid=oid, committed_iso=committed_iso)
+
+
+def parse_path_change_touches_output(stdout: str, path: str) -> tuple[PathChangeTouch, ...]:
+    """Parse ``git log --format=%H%x00%cI --name-only`` path touch output."""
+
+    touches: list[PathChangeTouch] = []
+    current_oid: str | None = None
+    current_committed_iso: str | None = None
+    current_paths: list[str] = []
+
+    def flush_current() -> None:
+        if current_oid is None or current_committed_iso is None or not current_paths:
+            return
+        touches.append(
+            PathChangeTouch(
+                oid=current_oid,
+                committed_iso=current_committed_iso,
+                paths=tuple(current_paths),
+            )
+        )
+
+    for raw_line in stdout.splitlines():
+        if "\x00" in raw_line:
+            flush_current()
+            current_paths = []
+            oid, separator, committed_iso = raw_line.partition("\x00")
+            if separator == "" or oid == "" or committed_iso == "":
+                current_oid = None
+                current_committed_iso = None
+            else:
+                current_oid = oid
+                current_committed_iso = committed_iso
+            continue
+
+        if raw_line == "" or current_oid is None or current_committed_iso is None:
+            continue
+        if _path_is_under(raw_line, path):
+            current_paths.append(raw_line)
+
+    flush_current()
+    return tuple(touches)
+
+
+def _path_is_under(candidate: str, path: str) -> bool:
+    normalized = path.rstrip("/")
+    return candidate == normalized or candidate.startswith(f"{normalized}/")
 
 
 def parse_log_range_output(stdout: str) -> tuple[CommitSummary, ...]:
@@ -416,6 +519,32 @@ class RealGitGateway(GitGateway):
             )
         return tuple(line for line in result.stdout.splitlines() if line)
 
+    def tree_oids_at_refs(
+        self,
+        refs: tuple[str, ...],
+        path: str,
+    ) -> dict[str, str | None] | GitCommandFailure:
+        if not refs:
+            return {}
+
+        repo_root = self._require_repo_root()
+        batch_input = "".join(f"{ref}:{path}\n" for ref in refs)
+        proc = subprocess.Popen(
+            ["git", "cat-file", "--batch-check=%(objectname) %(objecttype)"],
+            cwd=repo_root,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        stdout, stderr = proc.communicate(batch_input)
+        if proc.returncode != 0:
+            return GitCommandFailure(
+                message=stderr.strip() or "git cat-file failed",
+                returncode=proc.returncode,
+            )
+        return parse_tree_oid_batch_check_output(stdout, refs)
+
     def path_exists_at_ref(self, ref: str, path: str) -> bool:
         result = _run(
             ["git", "cat-file", "-e", f"{ref}:{path}"],
@@ -519,6 +648,23 @@ class RealGitGateway(GitGateway):
             return None
         return parse_path_touch_output(result.stdout)
 
+    def path_touches_under(
+        self,
+        ref_or_range: str,
+        path: str,
+    ) -> tuple[PathChangeTouch, ...] | GitCommandFailure:
+        result = _run(
+            ["git", "log", "--format=%H%x00%cI", "--name-only", ref_or_range, "--", path],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode != 0:
+            return GitCommandFailure(
+                message=result.stderr.strip() or "git log failed",
+                returncode=result.returncode,
+            )
+        return parse_path_change_touches_output(result.stdout, path)
+
     def branch_head_iso(self, branch: str) -> str | None:
         result = _run(
             ["git", "log", "-1", "--format=%cI", branch],
@@ -616,6 +762,75 @@ class RealGitGateway(GitGateway):
             return failure
         pid_by_sha = dict(pid_pairs)
         return tuple((sha, pid_by_sha.get(sha)) for sha in shas)
+
+    def commit_graph_from_base(
+        self,
+        *,
+        base_branch: str,
+        branches: tuple[str, ...],
+    ) -> BranchCommitGraph | GitCommandFailure:
+        requested_branches = set(branches)
+        if not requested_branches:
+            return BranchCommitGraph(base_branch=base_branch, branch_tips=(), commits=())
+
+        repo_root = self._require_repo_root()
+        tips_result = _run(
+            [
+                "git",
+                "for-each-ref",
+                "--format=%(refname:short)%00%(objectname)",
+                "refs/heads/",
+            ],
+            cwd=repo_root,
+            check=False,
+        )
+        if tips_result.returncode != 0:
+            return GitCommandFailure(
+                message=tips_result.stderr.strip() or "git for-each-ref failed",
+                returncode=tips_result.returncode,
+            )
+
+        tips = tuple(
+            sorted(
+                (
+                    tip
+                    for tip in parse_local_branch_tip_ref_output(tips_result.stdout)
+                    if tip.branch in requested_branches
+                ),
+                key=lambda tip: tip.branch,
+            )
+        )
+        found_branches = {tip.branch for tip in tips}
+        missing_branches = tuple(sorted(requested_branches - found_branches))
+        if missing_branches:
+            return GitCommandFailure(
+                message=f"Missing local branch refs: {', '.join(missing_branches)}",
+                returncode=1,
+            )
+
+        rev_list_result = _run(
+            [
+                "git",
+                "rev-list",
+                "--parents",
+                "--topo-order",
+                *(tip.oid for tip in tips),
+                f"^{base_branch}",
+            ],
+            cwd=repo_root,
+            check=False,
+        )
+        if rev_list_result.returncode != 0:
+            return GitCommandFailure(
+                message=rev_list_result.stderr.strip() or "git rev-list failed",
+                returncode=rev_list_result.returncode,
+            )
+
+        return BranchCommitGraph(
+            base_branch=base_branch,
+            branch_tips=tips,
+            commits=parse_commit_graph_output(rev_list_result.stdout),
+        )
 
     def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
         result = _run(

@@ -23,7 +23,6 @@ from asdl_objectives.list_inventory import (
     branch_ref,
     branches_to_scan,
     build_objective_branch_inventory,
-    objective_path,
 )
 from asdl_objectives.list_models import (
     ObjectiveBranchEntry,
@@ -44,6 +43,7 @@ from asdl_objectives.list_status import (
     project_objective_statuses,
     select_status_source,
 )
+from asdl_objectives.list_touches import ObjectivePathTouchIndex, build_objective_touch_index
 from asdl_objectives.list_updates import (
     ObjectiveTouchCandidate,
     attribute_latest_objective_update,
@@ -103,11 +103,6 @@ def build_objective_list_result(
         )
 
     local_branches = tuple(tip.name for tip in ctx.git.list_local_branch_tips())
-    branch_slices = build_objective_branch_slices(
-        ctx.git,
-        local_branches=local_branches,
-        base_branch=base_branch,
-    )
     scan_branches = branches_to_scan(
         local_branches,
         base_branch=base_branch,
@@ -121,15 +116,35 @@ def build_objective_list_result(
         source=source,
         status_filter=status_filter,
     )
-    groups = tuple(
-        _build_objective_group(
+    if not projection.entries:
+        groups: tuple[ObjectiveListGroup, ...] = ()
+    elif names_only:
+        groups = tuple(_build_names_only_group(entry) for entry in projection.entries)
+    else:
+        status_source_branch = projection.source.status_source_branch
+        assert status_source_branch is not None
+        branch_slices = build_objective_branch_slices(
             ctx.git,
-            projection_entry=entry,
-            inventory=inventory,
-            branch_slices=branch_slices,
+            local_branches=local_branches,
+            base_branch=base_branch,
         )
-        for entry in projection.entries
-    )
+        touch_index = build_objective_touch_index(
+            ctx.git,
+            status_source_branch=status_source_branch,
+            branch_slices=branch_slices,
+            projected_slugs=tuple(entry.slug for entry in projection.entries),
+            inventory=inventory,
+        )
+        groups = tuple(
+            _build_objective_group(
+                ctx.git,
+                projection_entry=entry,
+                inventory=inventory,
+                branch_slices=branch_slices,
+                touch_index=touch_index,
+            )
+            for entry in projection.entries
+        )
 
     return ObjectiveListResult(
         base_branch=base_branch,
@@ -182,18 +197,31 @@ def _empty_result(
     )
 
 
+def _build_names_only_group(entry: ObjectiveStatusProjectionEntry) -> ObjectiveListGroup:
+    return ObjectiveListGroup(
+        slug=entry.slug,
+        status=entry.status,
+        status_source_entry=ObjectiveStatusSourceEntry(
+            branch=entry.status_source_branch,
+            status=entry.status,
+            updated_iso=None,
+            present=entry.present_on_status_source,
+        ),
+        branches=(),
+        latest_update_iso=None,
+        latest_work_branch=None,
+    )
+
+
 def _build_objective_group(
     git: GitGateway,
     *,
     projection_entry: ObjectiveStatusProjectionEntry,
     inventory: ObjectiveBranchInventory,
     branch_slices: tuple[ObjectiveBranchSlice, ...],
+    touch_index: ObjectivePathTouchIndex,
 ) -> ObjectiveListGroup:
-    record_path = objective_path(projection_entry.slug)
-    source_touch = git.path_last_touched(
-        branch_ref(projection_entry.status_source_branch),
-        record_path,
-    )
+    source_touch = touch_index.source_touches.get(projection_entry.slug)
     source_entry = ObjectiveStatusSourceEntry(
         branch=projection_entry.status_source_branch,
         status=projection_entry.status,
@@ -218,7 +246,7 @@ def _build_objective_group(
         branch_status = inventory.status_on_branch(branch, projection_entry.slug)
         if branch_status is None:
             continue
-        branch_touch = git.path_last_touched(branch_slice.range_spec, record_path)
+        branch_touch = touch_index.slice_touches_by_branch_slug.get((branch, projection_entry.slug))
         if branch_touch is None:
             continue
         branch_entries.append(
