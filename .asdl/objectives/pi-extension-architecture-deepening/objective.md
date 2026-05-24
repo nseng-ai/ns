@@ -84,3 +84,13 @@ Risks:
 - Which standalone extensions, if any, should be promoted first: `just-fix.ts`, `submit.ts`, both, or neither?
 - Should Objective skill expansion become a shared module immediately, or remain duplicated until another extension proves the seam?
 - How should `land-stack` tests evolve so they verify landing invariants without freezing every implementation detail?
+
+## Closure
+
+Outcome: intentionally superseded.
+
+The user chose to replace this Objective with `.asdl/objectives/pi-extension-deepening/` because the durable Objective name should describe the intended outcome, not the initial architecture-review process. The replacement Objective preserves this record's completed findings, adds the broader TypeScript Pi extension deepening assessment, and incorporates the latest `objective list` changes from `master`.
+
+Remaining work moved to `pi-extension-deepening`: triage and disposition of the broader candidate list, including Pi host seams, command execution, Machine envelope parsing, Branch Memory CLI access, presentation/linkification, `worktree-status`, `land-stack`, runner subagent contract cleanup, and vibecoded extension promotion decisions.
+
+This Objective remains in place as checked-in history and is no longer eligible for `objective-next` by default.
