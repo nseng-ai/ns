@@ -4,7 +4,7 @@ import { GH_MERGE_TIMEOUT_MS, GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./
 import { errorMessage, fail } from "./errors.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
 import { formatPrSubmitRequirement, loadPr, validateStrictMergeGate } from "./pr-facts.ts";
-import { assertCleanRepo, loadLocalSha, unique } from "./stack-facts.ts";
+import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
 import type {
 	CommandStreamFinish,
 	ExtensionAPI,
@@ -14,10 +14,17 @@ import type {
 	LandingWarning,
 	PullRequestSnapshot,
 	PrSubmitRequirement,
+	WorktreeConflict,
 } from "./types.ts";
-import { detectWorktreeConflicts, formatConflict, formatSlotConflict } from "./worktrees.ts";
+import { detectWorktreeConflicts, formatConflict, formatSlotConflict, slotNameFromPath } from "./worktrees.ts";
 import { formatCommandForDisplay, type LandStackCommandStream } from "./command-stream.ts";
 import { formatRestackFailureMessage, formatSubmitFailureMessage, setStatus } from "./presentation.ts";
+
+type NextGraphiteMaintenance =
+	| { kind: "required-next-landing"; branch: string }
+	| { kind: "optional-descendant"; branch: string }
+	| { kind: "skip-descendant" }
+	| { kind: "none" };
 
 export async function confirmAndSubmitRequiredPrUpdates(
 	pi: ExtensionAPI,
@@ -118,52 +125,79 @@ export async function confirmAndFreeManagedSlots(
 	ctx: ExtensionCommandContext,
 	plan: LandingPlan,
 ): Promise<void> {
+	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
+	const commandDisplay = formatCommand("slot", freeArgs);
 	const details = [
-		"Run slot gt free-stack? This detaches/frees managed slots for stack branches.",
+		"Run targeted slot cleanup? This detaches/frees managed slots for landing branches only.",
 		"",
 		...plan.managedSlotConflicts.map((conflict) => `- ${formatSlotConflict(conflict)}`),
+		"",
+		`Command: ${commandDisplay}`,
 	].join("\n");
 
 	if (!ctx.hasUI) {
 		fail(
 			[
-				"Managed slot worktrees block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
+				"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
 				details,
-				"No PRs were landed. Run `slot gt free-stack` manually if appropriate, then rerun /land-stack --yes.",
+				`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /land-stack --yes.`,
 			].join("\n"),
 		);
 	}
 
-	const confirmed = await ctx.ui.confirm("Run slot gt free-stack?", details);
+	const confirmed = await ctx.ui.confirm("Free landing slots?", details);
 	if (!confirmed) {
 		fail("Cancelled before merge; no PRs were landed.", { level: "info" });
 	}
 
-	setStatus(ctx, "freeing slots...");
-	const result = await exec(pi, "slot", ["gt", "free-stack"], plan.repoRoot, SLOT_TIMEOUT_MS);
+	setStatus(ctx, "freeing landing slots...");
+	const result = await exec(pi, "slot", freeArgs, plan.repoRoot, SLOT_TIMEOUT_MS);
 	if (result.code !== 0) {
-		fail("slot gt free-stack failed before any PRs were landed.", {
-			commandDisplay: formatCommand("slot", ["gt", "free-stack"]),
+		fail("Targeted slot cleanup failed before any PRs were landed.", {
+			commandDisplay,
 			result,
-			suggestedAction: "Inspect the slot state, free or detach blocking worktrees manually, then rerun /land-stack.",
+			suggestedAction: "Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /land-stack.",
 		});
 	}
 
-	setStatus(ctx, "rechecking worktrees...");
+	setStatus(ctx, "rechecking landing worktrees...");
 	await assertCleanRepo(pi, plan.repoRoot);
-	const relevantBranches = unique([...plan.stack.landingBranches, ...plan.stack.descendantBranches]);
-	const conflicts = await detectWorktreeConflicts(pi, plan.repoRoot, plan.stack.current, relevantBranches);
+	const conflicts = await detectWorktreeConflicts(pi, plan.repoRoot, plan.stack.current, plan.stack.landingBranches);
 	const remaining = conflicts.filter((conflict) => conflict.kind !== "current");
 	if (remaining.length > 0) {
 		fail(
 			[
-				"slot gt free-stack completed, but relevant branches are still checked out in other worktrees.",
+				"slot free completed, but landing branches are still checked out in other worktrees.",
 				...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
 				"No PRs were landed.",
 			].join("\n"),
-			{ suggestedAction: "Resolve the remaining worktree checkouts manually, then rerun /land-stack." },
+			{ suggestedAction: "Resolve the remaining landing-branch worktree checkouts manually, then rerun /land-stack." },
 		);
 	}
+}
+
+function slotFreeArgs(conflicts: WorktreeConflict[]): string[] {
+	const args = ["free"];
+	const seenSlots = new Set<string>();
+	const seenBranches = new Set<string>();
+
+	for (const conflict of conflicts) {
+		const slotName = slotNameFromPath(conflict.path);
+		if (slotName) {
+			if (!seenSlots.has(slotName)) {
+				seenSlots.add(slotName);
+				args.push("--wt", slotName);
+			}
+			continue;
+		}
+
+		if (!seenBranches.has(conflict.branch)) {
+			seenBranches.add(conflict.branch);
+			args.push("--branch", conflict.branch);
+		}
+	}
+
+	return args;
 }
 
 function squashMergeArgs(pr: PullRequestSnapshot): string[] {
@@ -193,8 +227,7 @@ export async function runMergeLoop(
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
-		const nextLandingBranch = stack.landingBranches[index + 1];
-		const nextRestackBranch = nextLandingBranch ?? (index === stack.landingBranches.length - 1 ? stack.descendantBranches[0] : undefined);
+		const maintenance = nextGraphiteMaintenance(plan, index);
 
 		const localSha = await loadLocalSha(pi, repoRoot, branch);
 		const pr = await loadPr(pi, repoRoot, branch);
@@ -235,73 +268,145 @@ export async function runMergeLoop(
 		const prUrl = verified.url ?? pr.url;
 		landed.push({ branch, number: pr.number, title: pr.title, ...(prUrl ? { url: prUrl } : {}) });
 
-		if (nextRestackBranch) {
-			setStatus(ctx, `refreshing stack through ${nextRestackBranch}...`);
-			const getArgs = ["get", nextRestackBranch, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
+		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
+			setStatus(ctx, `refreshing stack through ${maintenance.branch}...`);
+			const getArgs = ["get", maintenance.branch, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"];
 			const got = await exec(pi, "gt", getArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 			if (got.code !== 0) {
-				fail(`PR #${pr.number} merged, but targeted Graphite refresh failed.`, {
+				if (maintenance.kind === "required-next-landing") {
+					fail(`PR #${pr.number} merged, but targeted Graphite refresh failed.`, {
+						commandDisplay: formatCommand("gt", getArgs),
+						result: got,
+						failedBranch: branch,
+						failedPr: pr.number,
+						suggestedAction: `Run ${formatCommand("gt", getArgs)} manually, inspect the stack, and rerun /land-stack if appropriate.`,
+					});
+				}
+
+				warnings.push({
+					message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenance.branch} failed; local branch ${branch} cleanup and descendant restack/update were skipped.`,
 					commandDisplay: formatCommand("gt", getArgs),
 					result: got,
-					failedBranch: branch,
-					failedPr: pr.number,
-					suggestedAction: `Run ${formatCommand("gt", getArgs)} manually, inspect the stack, and rerun /land-stack if appropriate.`,
+					suggestedAction: `Run ${formatCommand("gt", getArgs)} manually, restack/update ${maintenance.branch}, and delete local branch ${branch} when safe.`,
 				});
+				continue;
 			}
+		}
+
+		if (maintenance.kind === "skip-descendant") {
+			warnings.push(skippedDescendantMaintenanceWarning(plan, branch));
+			continue;
 		}
 
 		setStatus(ctx, `deleting local Graphite branch ${branch}...`);
 		const deleteArgs = ["delete", branch, "-f", "-q"];
 		const deleted =
-			!nextRestackBranch && options.commandStream && options.unstreamedPi
+			maintenance.kind === "none" && options.commandStream && options.unstreamedPi
 				? await deleteFinalLocalGraphiteBranch(options.unstreamedPi, options.commandStream, repoRoot, branch)
 				: await exec(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 		if (deleted.code !== 0) {
-			if (!nextRestackBranch) {
-				warnings.push({
-					message: `All target PRs were merged, but deleting the local Graphite branch ${branch} failed.`,
+			if (maintenance.kind === "required-next-landing") {
+				fail(`PR #${pr.number} merged, but deleting the local Graphite branch ${branch} failed.`, {
 					commandDisplay: formatCommand("gt", deleteArgs),
 					result: deleted,
-					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack.`,
+					failedBranch: branch,
+					failedPr: pr.number,
+					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /land-stack.`,
+				});
+			}
+
+			warnings.push({
+				message:
+					maintenance.kind === "optional-descendant"
+						? `All target PRs were merged, but deleting the local Graphite branch ${branch} failed; descendant restack/update was skipped.`
+						: `All target PRs were merged, but deleting the local Graphite branch ${branch} failed.`,
+				commandDisplay: formatCommand("gt", deleteArgs),
+				result: deleted,
+				suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack.`,
+			});
+			continue;
+		}
+
+		if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
+			setStatus(ctx, `restacking ${maintenance.branch}...`);
+			const restackArgs = ["restack", "--branch", maintenance.branch, "--upstack", "--no-interactive"];
+			const restacked = await exec(pi, "gt", restackArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
+			if (restacked.code !== 0) {
+				if (maintenance.kind === "required-next-landing") {
+					fail(formatRestackFailureMessage(pr.number, maintenance.branch, true), {
+						commandDisplay: formatCommand("gt", restackArgs),
+						result: restacked,
+						failedBranch: maintenance.branch,
+						suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /land-stack if appropriate.`,
+					});
+				}
+
+				warnings.push({
+					message: formatRestackFailureMessage(pr.number, maintenance.branch, false),
+					commandDisplay: formatCommand("gt", restackArgs),
+					result: restacked,
+					suggestedAction: `Resolve restack failures for ${maintenance.branch}, then update that PR manually.`,
 				});
 				continue;
 			}
 
-			fail(`PR #${pr.number} merged, but deleting the local Graphite branch ${branch} failed.`, {
-				commandDisplay: formatCommand("gt", deleteArgs),
-				result: deleted,
-				failedBranch: branch,
-				failedPr: pr.number,
-				suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /land-stack.`,
-			});
-		}
-
-		if (nextRestackBranch) {
-			setStatus(ctx, `restacking ${nextRestackBranch}...`);
-			const restackArgs = ["restack", "--branch", nextRestackBranch, "--upstack", "--no-interactive"];
-			const restacked = await exec(pi, "gt", restackArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
-			if (restacked.code !== 0) {
-				fail(formatRestackFailureMessage(pr.number, nextRestackBranch, Boolean(nextLandingBranch)), {
-					commandDisplay: formatCommand("gt", restackArgs),
-					result: restacked,
-					failedBranch: nextRestackBranch,
-					suggestedAction: `Resolve restack failures for ${nextRestackBranch}, run gt submit/update, then rerun /land-stack if appropriate.`,
-				});
-			}
-
-			setStatus(ctx, `submitting ${nextRestackBranch}...`);
-			const submitArgs = ["submit", "--branch", nextRestackBranch, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
+			setStatus(ctx, `submitting ${maintenance.branch}...`);
+			const submitArgs = ["submit", "--branch", maintenance.branch, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
 			const submitted = await exec(pi, "gt", submitArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
 			if (submitted.code !== 0) {
-				fail(formatSubmitFailureMessage(pr.number, nextRestackBranch, Boolean(nextLandingBranch)), {
+				if (maintenance.kind === "required-next-landing") {
+					fail(formatSubmitFailureMessage(pr.number, maintenance.branch, true), {
+						commandDisplay: formatCommand("gt", submitArgs),
+						result: submitted,
+						failedBranch: maintenance.branch,
+						suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /land-stack if appropriate.`,
+					});
+				}
+
+				warnings.push({
+					message: formatSubmitFailureMessage(pr.number, maintenance.branch, false),
 					commandDisplay: formatCommand("gt", submitArgs),
 					result: submitted,
-					failedBranch: nextRestackBranch,
-					suggestedAction: `Update PR for ${nextRestackBranch} manually, verify it targets ${stack.trunk}, then rerun /land-stack if appropriate.`,
+					suggestedAction: `Update PR for ${maintenance.branch} manually and verify it targets ${stack.trunk}.`,
 				});
 			}
 		}
 	}
+}
+
+function nextGraphiteMaintenance(plan: LandingPlan, index: number): NextGraphiteMaintenance {
+	const nextLandingBranch = plan.stack.landingBranches[index + 1];
+	if (nextLandingBranch) {
+		return { kind: "required-next-landing", branch: nextLandingBranch };
+	}
+
+	if (index !== plan.stack.landingBranches.length - 1) {
+		return { kind: "none" };
+	}
+
+	if (plan.descendantMaintenance.kind === "auto") {
+		return { kind: "optional-descendant", branch: plan.descendantMaintenance.targetBranch };
+	}
+	if (plan.descendantMaintenance.kind === "skipped") {
+		return { kind: "skip-descendant" };
+	}
+	return { kind: "none" };
+}
+
+function skippedDescendantMaintenanceWarning(plan: LandingPlan, branch: string): LandingWarning {
+	const maintenance = plan.descendantMaintenance;
+	if (maintenance.kind !== "skipped") {
+		return {
+			message: `Descendant restack/update was skipped for ${branch}.`,
+			suggestedAction: "Inspect the stack and update descendant PRs manually if needed.",
+		};
+	}
+
+	const conflictText = maintenance.conflicts.map(formatConflict).join("; ");
+	return {
+		message: `Final local Graphite cleanup for ${branch} and descendant restack/update were skipped because ${maintenance.reason}: ${conflictText}.`,
+		suggestedAction: `Detach or free the descendant worktrees, then restack/update ${maintenance.branches.join(", ")} and delete local branch ${branch} manually if appropriate.`,
+	};
 }
 
 async function deleteFinalLocalGraphiteBranch(

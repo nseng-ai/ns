@@ -11,9 +11,16 @@ import {
 	loadRepoRoot,
 	loadStackSnapshot,
 	loadTrunk,
-	unique,
 } from "./stack-facts.ts";
-import type { BranchPlan, ExtensionAPI, LandingPlan, RestackRequirement, StackSnapshot } from "./types.ts";
+import type {
+	BranchPlan,
+	DescendantMaintenancePlan,
+	ExtensionAPI,
+	LandingPlan,
+	RestackRequirement,
+	StackSnapshot,
+	WorktreeConflict,
+} from "./types.ts";
 import { detectWorktreeConflicts, formatManualWorktreeConflict } from "./worktrees.ts";
 
 export async function buildLandingPlan(
@@ -32,8 +39,9 @@ export async function buildLandingPlan(
 
 	await assertCleanRepo(pi, repoRoot);
 
-	const relevantBranches = unique([...stack.landingBranches, ...stack.descendantBranches]);
-	for (const branch of relevantBranches) {
+	const landingBranches = stack.landingBranches;
+	const descendantBranches = stack.descendantBranches;
+	for (const branch of landingBranches) {
 		await assertLocalBranchExists(pi, repoRoot, branch);
 	}
 
@@ -46,13 +54,17 @@ export async function buildLandingPlan(
 	validateInitialPrPreflight(branchPlans, stack.trunk, { allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState) });
 	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.trunk);
 
-	const conflicts = await detectWorktreeConflicts(pi, repoRoot, current, relevantBranches);
-	const manualConflicts = conflicts.filter((conflict) => conflict.kind === "manual-worktree");
-	if (manualConflicts.length > 0) {
-		fail(formatManualWorktreeConflict(manualConflicts), {
-			suggestedAction: "Detach those worktrees or check out unrelated branches, then rerun /land-stack.",
+	const landingConflicts = await detectWorktreeConflicts(pi, repoRoot, current, landingBranches);
+	const landingManualConflicts = landingConflicts.filter((conflict) => conflict.kind === "manual-worktree");
+	if (landingManualConflicts.length > 0) {
+		fail(formatManualWorktreeConflict(landingManualConflicts), {
+			suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /land-stack.",
 		});
 	}
+
+	const descendantConflicts =
+		descendantBranches.length > 0 ? await detectWorktreeConflicts(pi, repoRoot, current, descendantBranches) : [];
+	const descendantMaintenance = buildDescendantMaintenancePlan(descendantBranches, descendantConflicts);
 
 	const submitRestackRequirements =
 		prSubmitRequirements.length > 0 ? await collectSubmitRestackRequirements(pi, repoRoot, stack) : [];
@@ -63,8 +75,32 @@ export async function buildLandingPlan(
 		branchPlans,
 		prSubmitRequirements,
 		submitRestackRequirements,
-		managedSlotConflicts: conflicts.filter((conflict) => conflict.kind === "managed-slot"),
+		managedSlotConflicts: landingConflicts.filter((conflict) => conflict.kind === "managed-slot"),
+		descendantMaintenance,
 	};
+}
+
+function buildDescendantMaintenancePlan(
+	descendantBranches: string[],
+	conflicts: WorktreeConflict[],
+): DescendantMaintenancePlan {
+	if (descendantBranches.length === 0) {
+		return { kind: "none", branches: [] };
+	}
+
+	const targetBranch = descendantBranches[0] ?? "";
+	const blockingConflicts = conflicts.filter((conflict) => conflict.kind !== "current");
+	if (blockingConflicts.length > 0) {
+		return {
+			kind: "skipped",
+			branches: descendantBranches,
+			targetBranch,
+			conflicts: blockingConflicts,
+			reason: "descendant branches are checked out elsewhere",
+		};
+	}
+
+	return { kind: "auto", branches: descendantBranches, targetBranch };
 }
 
 export async function collectSubmitRestackRequirements(
