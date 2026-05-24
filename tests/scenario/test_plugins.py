@@ -110,7 +110,7 @@ def test_objective_plugin_integration() -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["data"]["trunk_branch"] == "master"
-    assert payload["data"]["status_filter"] == "all"
+    assert payload["data"]["status_filter"] == "open"
     assert payload["data"]["groups"] == []
 
 

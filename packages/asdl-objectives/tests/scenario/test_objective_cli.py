@@ -61,7 +61,7 @@ def test_objective_list_empty_result(cli_group: ClinkrGroup) -> None:
         "data": {
             "trunk_branch": "master",
             "view": "list",
-            "status_filter": "all",
+            "status_filter": "open",
             "current_branch": None,
             "filtered_to_current": False,
             "names_only": False,
@@ -71,12 +71,15 @@ def test_objective_list_empty_result(cli_group: ClinkrGroup) -> None:
 
     human = _invoke_list_human(cli_group, ctx)
     assert human.exit_code == 0, human.output
-    assert "No Objective status found." in human.output
+    assert "No open Objective status found." in human.output
 
+    all_human = _invoke_list_human(cli_group, ctx, status="all")
     open_human = _invoke_list_human(cli_group, ctx, status="open")
     closed_human = _invoke_list_human(cli_group, ctx, status="closed")
+    assert all_human.exit_code == 0, all_human.output
     assert open_human.exit_code == 0, open_human.output
     assert closed_human.exit_code == 0, closed_human.output
+    assert "No Objective status found." in all_human.output
     assert "No open Objective status found." in open_human.output
     assert "No closed Objective status found." in closed_human.output
 
@@ -133,13 +136,13 @@ def test_objective_list_groups_multiple_branches_under_one_objective(
     human = _invoke_list_human(cli_group, ctx)
     assert human.exit_code == 0, human.output
     assert "Status" in human.output
-    assert "open" in human.output
+    assert "○ open" in human.output
     assert "feat/b" in human.output
     assert "feat/a" not in human.output
 
     markdown = _invoke_list_md(cli_group, ctx)
     assert markdown.exit_code == 0, markdown.output
-    assert "| alpha | open | `feat/b` |" in markdown.output
+    assert "| alpha | ○ open | `feat/b` |" in markdown.output
     assert "`feat/a`" not in markdown.output
 
 
@@ -161,7 +164,7 @@ def test_objective_list_latest_branch_tie_breaks_by_branch_name(
     markdown = _invoke_list_md(cli_group, ctx)
 
     assert markdown.exit_code == 0, markdown.output
-    assert "| alpha | open | `feat/a` |" in markdown.output
+    assert "| alpha | ○ open | `feat/a` |" in markdown.output
     assert "`feat/b`" not in markdown.output
 
 
@@ -185,8 +188,8 @@ def test_objective_list_group_status_follows_latest_branch_tie_break(
         },
     )
 
-    result = _invoke_list_json(cli_group, ctx)
-    markdown = _invoke_list_md(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx, status="all")
+    markdown = _invoke_list_md(cli_group, ctx, status="all")
 
     assert result.exit_code == 0, result.output
     group = json.loads(result.output)["data"]["groups"][0]
@@ -196,7 +199,7 @@ def test_objective_list_group_status_follows_latest_branch_tie_break(
         ("feat/b-open", "open"),
     ]
     assert markdown.exit_code == 0, markdown.output
-    assert "| alpha | closed | `feat/a-closed` |" in markdown.output
+    assert "| alpha | ✓ closed | `feat/a-closed` |" in markdown.output
 
 
 def test_objective_list_sorts_groups_and_branch_rows(cli_group: ClinkrGroup) -> None:
@@ -234,7 +237,7 @@ def test_objective_list_includes_status_for_open_and_closed_objectives(
         },
     )
 
-    result = _invoke_list_json(cli_group, ctx)
+    result = _invoke_list_json(cli_group, ctx, status="all")
 
     assert result.exit_code == 0, result.output
     groups = json.loads(result.output)["data"]["groups"]
@@ -245,17 +248,17 @@ def test_objective_list_includes_status_for_open_and_closed_objectives(
     assert groups[0]["branches"][0]["status"] == "closed"
     assert groups[1]["branches"][0]["status"] == "open"
 
-    human = _invoke_list_human(cli_group, ctx)
+    human = _invoke_list_human(cli_group, ctx, status="all")
     assert human.exit_code == 0, human.output
     assert "Status" in human.output
-    assert "closed" in human.output
-    assert "open" in human.output
+    assert "✓ closed" in human.output
+    assert "○ open" in human.output
 
-    markdown = _invoke_list_md(cli_group, ctx)
+    markdown = _invoke_list_md(cli_group, ctx, status="all")
     assert markdown.exit_code == 0, markdown.output
     assert "| objective | status | latest branch |" in markdown.output
-    assert "| closed-one | closed |" in markdown.output
-    assert "| open-one | open |" in markdown.output
+    assert "| closed-one | ✓ closed |" in markdown.output
+    assert "| open-one | ○ open |" in markdown.output
 
 
 def test_objective_list_status_filters_open_and_closed(cli_group: ClinkrGroup) -> None:
@@ -270,14 +273,20 @@ def test_objective_list_status_filters_open_and_closed(cli_group: ClinkrGroup) -
         },
     )
 
+    default_result = _invoke_list_json(cli_group, ctx)
     open_result = _invoke_list_json(cli_group, ctx, status="open")
     closed_result = _invoke_list_json(cli_group, ctx, status="closed")
     all_result = _invoke_list_json(cli_group, ctx, status="all")
 
+    assert default_result.exit_code == 0, default_result.output
     assert open_result.exit_code == 0, open_result.output
     assert closed_result.exit_code == 0, closed_result.output
     assert all_result.exit_code == 0, all_result.output
+    assert json.loads(default_result.output)["data"]["status_filter"] == "open"
     assert json.loads(open_result.output)["data"]["status_filter"] == "open"
+    assert [group["slug"] for group in json.loads(default_result.output)["data"]["groups"]] == [
+        "open-one"
+    ]
     assert [group["slug"] for group in json.loads(open_result.output)["data"]["groups"]] == [
         "open-one"
     ]
@@ -288,6 +297,56 @@ def test_objective_list_status_filters_open_and_closed(cli_group: ClinkrGroup) -
         "closed-one",
         "open-one",
     ]
+
+
+def test_objective_list_human_keeps_status_column_with_long_names(
+    cli_group: ClinkrGroup,
+) -> None:
+    head_iso = "2026-05-20T10:44:08-04:00"
+    ctx = _list_context(
+        branches=(
+            "master",
+            "add-objective-status-column-and-filter",
+            "stack-impl-e2e-smoke-test/extend-fixture",
+            "add-objective-stack-impl-command-and-planning-workflow",
+        ),
+        tracked_paths_by_ref_path={
+            ("refs/heads/add-objective-status-column-and-filter", ".asdl/objectives"): (
+                ".asdl/objectives/architecture-deepening/objective.md",
+                ".asdl/objectives/architecture-deepening/closed.md",
+                ".asdl/objectives/brmem-handoff-workflow/objective.md",
+            ),
+            ("refs/heads/stack-impl-e2e-smoke-test/extend-fixture", ".asdl/objectives"): (
+                ".asdl/objectives/asdl-stack-impl-extension/objective.md",
+                ".asdl/objectives/asdl-stack-impl-extension/closed.md",
+                ".asdl/objectives/pi-extension-architecture-deepening/objective.md",
+            ),
+            (
+                "refs/heads/add-objective-stack-impl-command-and-planning-workflow",
+                ".asdl/objectives",
+            ): (
+                ".asdl/objectives/asdl-stack-run-extension/objective.md",
+                ".asdl/objectives/asdl-stack-run-extension/closed.md",
+            ),
+        },
+        branch_head_iso_by_branch={
+            "add-objective-status-column-and-filter": head_iso,
+            "stack-impl-e2e-smoke-test/extend-fixture": head_iso,
+            "add-objective-stack-impl-command-and-planning-workflow": head_iso,
+        },
+        commit_count_by_range={
+            "master..add-objective-status-column-and-filter": 13,
+            "master..stack-impl-e2e-smoke-test/extend-fixture": 13,
+            "master..add-objective-stack-impl-command-and-planning-workflow": 8,
+        },
+    )
+
+    human = _invoke_list_human(cli_group, ctx, status="all", terminal_columns=120)
+
+    assert human.exit_code == 0, human.output
+    assert "Status" in human.output
+    assert "✓ closed" in human.output
+    assert "○ open" in human.output
 
 
 def test_objective_list_excludes_trunk_and_no_objective_branches(
@@ -334,7 +393,7 @@ def test_objective_list_default_human_and_markdown_are_list_view(
     assert "Objective status in this local repository" in human.output
     assert "Objective" in human.output
     assert "Status" in human.output
-    assert "open" in human.output
+    assert "○ open" in human.output
     assert "alpha" in human.output
     assert "feat/a" in human.output
     assert "+7" in human.output
@@ -347,7 +406,7 @@ def test_objective_list_default_human_and_markdown_are_list_view(
         "| objective | status | latest branch | latest tip | local branches | max ahead trunk |"
         in markdown.output
     )
-    assert "| alpha | open | `feat/a` |" in markdown.output
+    assert "| alpha | ○ open | `feat/a` |" in markdown.output
     assert "+7" in markdown.output
 
 
@@ -378,7 +437,7 @@ def test_objective_list_detail_human_and_markdown_column_shape(
     assert markdown.exit_code == 0, markdown.output
     assert "# Objective branch details in this local repository" in markdown.output
     assert "| branch | status | tip age | ahead trunk |" in markdown.output
-    assert "| `feat/a` | open |" in markdown.output
+    assert "| `feat/a` | ○ open |" in markdown.output
 
 
 def test_objective_list_current_filters_to_current_branch(cli_group: ClinkrGroup) -> None:
@@ -419,7 +478,7 @@ def test_objective_list_current_empty_when_branch_unrelated(cli_group: ClinkrGro
 
     human = _invoke_list_human(cli_group, ctx, current=True)
     assert human.exit_code == 0, human.output
-    assert "No Objectives associated with current branch" in human.output
+    assert "No open Objectives associated with current branch" in human.output
     assert "feat/here" in human.output
 
 
@@ -498,11 +557,14 @@ def test_objective_list_names_respects_status_filter(cli_group: ClinkrGroup) -> 
         },
     )
 
+    default_result = _invoke_list_human(cli_group, ctx, names=True)
     open_result = _invoke_list_human(cli_group, ctx, names=True, status="open")
     closed_result = _invoke_list_human(cli_group, ctx, names=True, status="closed")
 
+    assert default_result.exit_code == 0, default_result.output
     assert open_result.exit_code == 0, open_result.output
     assert closed_result.exit_code == 0, closed_result.output
+    assert [line for line in default_result.output.splitlines() if line.strip()] == ["open-one"]
     assert [line for line in open_result.output.splitlines() if line.strip()] == ["open-one"]
     assert [line for line in closed_result.output.splitlines() if line.strip()] == ["closed-one"]
 
@@ -858,12 +920,17 @@ def _invoke_list_human(
     status: str | None = None,
     current: bool = False,
     names: bool = False,
+    terminal_columns: int | None = None,
 ) -> Result:
     args = _list_args(view=view, status=status, current=current, names=names)
+    env = None
+    if terminal_columns is not None:
+        env = {"COLUMNS": str(terminal_columns)}
     return CliRunner().invoke(
         cli_group,
         args,
         obj=build_clinkr_context_object(lambda: ctx),
+        env=env,
     )
 
 

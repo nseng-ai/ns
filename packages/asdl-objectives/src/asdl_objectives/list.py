@@ -50,11 +50,11 @@ class ObjectiveListRequest(ClinkrModel):
         click.Option(
             ["--status"],
             type=click.Choice(["all", "open", "closed"]),
-            default="all",
+            default="open",
             show_default=True,
             help="Filter Objectives by open/closed status.",
         ),
-    ] = "all"
+    ] = "open"
     view: Annotated[
         ObjectiveListView,
         click.Option(
@@ -106,16 +106,28 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
 
     console.print(f"[bold]{_list_heading(result)}[/bold]")
     table = make_table()
-    table.add_column("Objective", style="bold cyan", no_wrap=True)
+    table.add_column(
+        "Objective",
+        style="bold cyan",
+        no_wrap=True,
+        overflow="ellipsis",
+        ratio=1,
+    )
     table.add_column("Status", no_wrap=True, width=8)
-    table.add_column("Latest branch", style="bold", no_wrap=True)
+    table.add_column(
+        "Latest branch",
+        style="bold",
+        no_wrap=True,
+        overflow="ellipsis",
+        ratio=2,
+    )
     table.add_column("Latest tip", no_wrap=True)
     table.add_column("Local branches", justify="right", no_wrap=True)
     table.add_column("Max ahead trunk", justify="right", no_wrap=True)
     for group in result.groups:
         table.add_row(
             group.slug,
-            group.status,
+            _status_label(group.status),
             _latest_tip_branch(group),
             format_relative_time(_latest_tip_head_iso(group)),
             str(len(group.branches)),
@@ -131,14 +143,20 @@ def _render_objective_list_detail_human(result: ObjectiveListResult) -> None:
         console.print()
         console.print(f"[bold cyan]{group.slug}[/bold cyan]")
         table = make_table()
-        table.add_column("Branch", style="bold", no_wrap=True)
+        table.add_column(
+            "Branch",
+            style="bold",
+            no_wrap=True,
+            overflow="ellipsis",
+            ratio=1,
+        )
         table.add_column("Status", no_wrap=True, width=8)
         table.add_column("Tip age", no_wrap=True)
         table.add_column("Ahead trunk", justify="right", no_wrap=True)
         for entry in group.branches:
             table.add_row(
                 entry.branch,
-                entry.status,
+                _status_label(entry.status),
                 format_relative_time(entry.tip_head_iso),
                 f"+{entry.ahead_trunk}",
             )
@@ -172,7 +190,7 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
         click.echo(
             "| "
             f"{group.slug} | "
-            f"{group.status} | "
+            f"{_status_label(group.status)} | "
             f"{latest_branch} | "
             f"{format_relative_time(_latest_tip_head_iso(group))} | "
             f"{len(group.branches)} | "
@@ -196,7 +214,7 @@ def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
         for entry in group.branches:
             click.echo(
                 f"| `{entry.branch}` | "
-                f"{entry.status} | "
+                f"{_status_label(entry.status)} | "
                 f"{format_relative_time(entry.tip_head_iso)} | "
                 f"+{entry.ahead_trunk} |"
             )
@@ -205,6 +223,12 @@ def _render_objective_list_detail_markdown(result: ObjectiveListResult) -> None:
 def _render_slugs(result: ObjectiveListResult) -> None:
     for group in result.groups:
         click.echo(group.slug)
+
+
+def _status_label(status: ObjectiveStatus) -> str:
+    if status == "closed":
+        return "✓ closed"
+    return "○ open"
 
 
 def _list_heading(result: ObjectiveListResult) -> str:
@@ -266,7 +290,7 @@ def build_objective_list_result(
     ctx: ObjectiveCliContext,
     *,
     view: ObjectiveListView = "list",
-    status_filter: ObjectiveStatusFilter = "all",
+    status_filter: ObjectiveStatusFilter = "open",
     filter_current: bool = False,
     names_only: bool = False,
 ) -> ObjectiveListResult:

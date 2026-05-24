@@ -73,7 +73,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Repository status
 
-Use `objective list` for the default objective-level status inventory across local branch tips, including open and closed records. Use `objective list --status open` when selecting active/open candidates. Use `objective list --view detail` for the per-branch detail view with branch, status, tip age, and ahead-of-trunk count. Use `objective list --current --status open` to filter to open Objectives associated with the current branch, and `objective list --status open --names` to emit just open slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
+Use `objective list` for the default objective-level status inventory across local branch tips, filtered to open Objectives; rendered tables use `status` with `○ open` and `✓ closed`. Use `objective list --status all` to include closed records. Use `objective list --view detail` for the per-branch detail view with branch, `status`, tip age, and ahead-of-trunk count. Use `objective list --current` to filter to open Objectives associated with the current branch, and `objective list --names` to emit just open slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
 
 ## Tracking Gate
 

@@ -172,9 +172,9 @@ Contract:
 - Inspect local branch tips without checking out branches.
 - Report Objective status from git-tracked path presence at each branch tip: direct `.asdl/objectives/<slug>/closed.md` means `closed`; otherwise the Objective is `open` on that branch.
 - Do not treat nested files such as `.asdl/objectives/<slug>/updates/closed.md` as closure markers.
-- Default to an Objective-level list view with status, latest branch by tip timestamp (ties by branch name), latest tip age, branch count, and max ahead-of-trunk count.
-- Provide a detail view that groups by Objective slug and reports branch, status, tip age, and ahead-of-trunk count.
-- Provide a `--status {all,open,closed}` filter. The default is `all`; active-objective workflows should pass `--status open`.
+- Default to an Objective-level list view of open Objectives with a `status` column (`○ open` / `✓ closed`), latest branch by tip timestamp (ties by branch name), latest tip age, branch count, and max ahead-of-trunk count.
+- Provide a detail view that groups by Objective slug and reports branch, `status` (`○ open` / `✓ closed`), tip age, and ahead-of-trunk count.
+- Provide a `--status {all,open,closed}` filter. The default is `open`; pass `--status all` to include closed Objectives.
 - Provide a `--current` filter that restricts the list to Objectives associated with the current branch.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status/current filters are applied.
 - Do not parse Markdown, summarize Objective bodies, show latest updates, choose a canonical branch, or list branches without Objective records matching the selected status filter.
@@ -182,8 +182,8 @@ Contract:
 
 Shipped CLI:
 
-- Run `objective list` for the default status inventory list view.
-- Run `objective list --status open` for active/open Objective candidates.
+- Run `objective list` for the default open Objective inventory list view.
+- Run `objective list --status all` to include open and closed Objective records.
 - Run `objective list --status closed` for closed Objective records.
 - Run `objective list --view detail` for per-branch details.
 - Run `objective list --current` to filter to Objectives associated with the current branch.
