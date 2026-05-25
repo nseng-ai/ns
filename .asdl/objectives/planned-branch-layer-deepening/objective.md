@@ -67,9 +67,9 @@ Assumptions:
 
 Risks:
 
-- This work overlaps with `pi-extension-deepening`, especially its Branch Memory CLI Adapter candidate. Without an explicit disposition, future agents may duplicate or contradict that Objective's roadmap.
+- The overlap with `pi-extension-deepening` is resolved by layer ownership: this Objective owns planned-branch domain policy and focused attached-plan read/write seams, while `pi-extension-deepening` may later own generic Branch Memory CLI discovery/execution plumbing for `worktree-status` or future consumers.
 - Over-correcting the naming could hide important recovery evidence. Partial failures may create a branch before Branch Memory attachment fails, and users still need precise diagnostics.
-- A generic Branch Memory Adapter could sprawl beyond the planned-branch layer. The deletion test should be applied before extracting shared helpers beyond the planning workflow.
+- If a future generic Branch Memory Adapter lands under `pi-extension-deepening`, it must preserve planned-branch caller policy: fatal attachment/read diagnostics, planning-level vocabulary, and the `brmem-plans` namespace/key contract stay local to planned-branch code.
 - Skill cleanup no longer depends on a rename: the repo-local `brmem-plan-impl` source, `.agents`/`.claude` symlinks, lockfile entry, and installer references have been removed. The residual caveat is that already-running Pi sessions may still have startup-loaded skill context until reload or a new session.
 - Graphite branch creation remains repo-specific policy. Changes must respect the runtime Graphite dependency boundary and keep Graphite usage behind explicit planned-branch configuration or command semantics.
 - The docs-relocation discoverability risk is mitigated by `docs/pi/planned-branch-workflow.md`, its `docs/pi/README.md` index link, and a concise `packages/brmem/README.md` pointer; future command-help improvements are optional rather than required for this Objective.
@@ -78,5 +78,5 @@ Risks:
 
 - What should the final engineered module path and exported names be: `planned-branch`, `planning`, `saved-plans`, or another planning-layer term?
 - Which Branch Memory details should remain in normal success output, and which should move to diagnostics for failure or expanded evidence?
-- Should any generic Branch Memory CLI Adapter work be updated in `pi-extension-deepening`, or split into a later Objective after this focused planned-branch layer is complete?
+- Answered: generic Branch Memory CLI Adapter work belongs to `pi-extension-deepening` as shared CLI plumbing, not to this Objective; planned-branch closure does not wait on generic Adapter extraction.
 - Answered: durable planning workflow documentation now lives in `docs/pi/planned-branch-workflow.md`, linked from `docs/pi/README.md`, with a concise pointer from `packages/brmem/README.md`; command help expansion can remain optional follow-up work.

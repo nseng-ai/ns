@@ -22,9 +22,10 @@
   - Compare `docs/pi/extension-message-linkification.md`, `land-stack/command-stream.ts`, `worktree-status.ts`, `runner-subagent-demo.ts`, and `.pi/extensions/submit.ts`.
   - Prefer a small shared presentation Module for URL validation, OSC 8 construction, ANSI/OSC stripping, custom-message text extraction, truncation, and PR-reference linkification.
   - Keep status-line rendering and chat-message rendering local unless a deeper shared Interface emerges.
-- [ ] Candidate 4 — decide and implement the Branch Memory CLI Adapter.
-  - Concentrate Branch Memory CLI discovery, candidate fallback, command display, and execution plumbing currently duplicated by `create-brmem-plan.ts` and `worktree-status.ts`.
-  - Preserve caller policy differences: `persist_brmem_plan` needs detailed fatal errors; status display should degrade nonfatally.
+- [~] Candidate 4 — decide and implement the Branch Memory CLI Adapter.
+  - Boundary decision: `planned-branch-layer-deepening` owns saved-plan/planned-branch/attached-plan policy; this candidate may own only generic Branch Memory CLI discovery/execution plumbing.
+  - Concentrate Branch Memory CLI discovery, candidate fallback, command display, and execution plumbing currently duplicated by planned-branch helpers and `worktree-status.ts` only if the shared Interface preserves caller policy differences.
+  - Preserve caller policy differences: planned-branch attachment/read paths need detailed fatal errors and planning-level diagnostics; status display should degrade nonfatally.
   - Make fake-driven tests cover candidate ordering, unavailable commands, and caller-specific failure handling.
 - [ ] Candidate 3 — decide and implement the Clinkr Machine envelope parser.
   - Create a small parser for framework envelope facts such as JSON parsing, `exit_code`, `data`, and malformed-envelope diagnostics.

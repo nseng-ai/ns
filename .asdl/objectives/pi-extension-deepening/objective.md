@@ -62,6 +62,7 @@ Assumptions:
 - The architecture vocabulary from the deepening review is useful for this work: Modules should be deep, the Interface is the test surface, and new Seams should be introduced only when they create real leverage.
 - The latest Objective-list changes on `master` are the current ground truth: `slice_commits` and `parent_branch` are the intended branch-entry fields, and Python Objective-list modularization has already addressed some architecture friction in that area.
 - The TypeScript extension package remains the right engineered home for durable project-local Pi extension behavior.
+- `planned-branch-layer-deepening` owns planned-branch domain policy; this Objective's Branch Memory CLI Adapter candidate may own only generic CLI discovery/execution plumbing when that creates shared leverage.
 - The old `@mariozechner/pi-coding-agent` imports in vibecoded extensions are drift against the current `@earendil-works/pi-coding-agent` docs and should be reviewed during triage.
 
 Risks:
@@ -71,6 +72,7 @@ Risks:
 - The risky extensions, especially `/submit`, touch Graphite and GitHub workflows; changes there require the relevant Graphite and GitHub guidance and careful fake-driven tests.
 - `land-stack` tests currently encode substantial command choreography; refactoring without first choosing better test surfaces could make safe changes look riskier than they are.
 - `worktree-status.ts` mixes session lifecycle, watchers, Git facts, Branch Memory facts, Graphite facts, and rendering; changing watcher behavior without internal Seams could create stale UI or session replacement bugs.
+- Branch Memory Adapter work could accidentally absorb planned-branch workflow policy; keep planned-branch namespace/key semantics, fatal diagnostics, and planning-level presentation in the planned-branch layer.
 - Runner subagent terminology has drifted in docs and code from child-session naming; stale names can mislead future agents unless cleaned up deliberately.
 - The new Objective may duplicate old completed work unless roadmap items distinguish inherited context from still-open decisions.
 
@@ -78,6 +80,6 @@ Risks:
 
 - Which deepening candidate should be implemented first: Pi host seam, presentation/linkification, Branch Memory CLI Adapter, `/submit` promotion, `worktree-status` internal seams, `land-stack` test-surface cleanup, or runner subagent contract cleanup?
 - Should the old command-runtime seam stay narrow, or has `/submit` and command streaming now proven a deeper command execution Module?
-- Should Branch Memory CLI discovery/execution become a shared Module before another Branch Memory extension appears, or wait for a second live consumer beyond `create-brmem-plan` and `worktree-status`?
+- Partially answered: the planned-branch workflow is not the reason to force a generic Adapter now; Candidate 4 remains this Objective's decision for shared Branch Memory CLI plumbing across `worktree-status` or future consumers, and must not own planned-branch domain policy.
 - Should skill expansion become shared now that both Objective commands and `just-fix` use it, or is that still a shallow hypothetical Seam?
 - How much of `/submit` should be promoted into the engineered layer, and should any overlap with `land-stack` become shared Graphite/PR machinery?
