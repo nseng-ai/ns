@@ -11,7 +11,7 @@ Read-only grounding for Objective skills. Do not mutate files from this skill.
 
 An Objective is a checked-in durable narrative roadmap for multi-session, multi-branch, or multi-PR work.
 
-Canonical root only:
+Active root:
 
 ```text
 .asdl/objectives/<slug>/
@@ -21,11 +21,23 @@ Canonical root only:
   closed.md  # optional marker
 ```
 
+Archive root:
+
+```text
+.asdl/objective-archive/<slug>/
+  objective.md
+  roadmap.md
+  updates/
+  closed.md  # optional marker, preserved when present
+```
+
 Do not use `docs/objectives/`.
+
+Archive state is represented by location. `objective archive <slug>` moves the whole record out of active discovery; `objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory.
 
 ## Slug identity
 
-The `<slug>` directory name is the durable Objective identity. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate `.asdl/objectives/<slug>/` under a new slug unless the user explicitly asks for an Objective slug migration.
+The `<slug>` directory name is the durable Objective identity. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate an Objective under a new slug unless the user explicitly asks for an Objective slug migration. Archive/unarchive is an explicit location move for the same slug identity, not a slug migration.
 
 ## Files
 
@@ -73,7 +85,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Repository status
 
-Use `objective list` for the default objective-level status inventory, filtered to active Objectives (`○ open` plus `◇ in-flight`). Closed Objectives display as `✓ closed` when included with `--status closed` or `--status all`. The list view shows latest work, latest Objective update age, work-branch count, and max slice-commit count. Work branches are counted only when the branch’s local slice, not inherited lower-stack history, touches the Objective record. Use `objective list --view detail` for the base/current status source plus per-work-branch details. Use `objective list --current` to use the current branch as the status source, and `objective list --names` to emit just active slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
+Use `objective list` for the default objective-level status inventory, filtered to active Objectives (`○ open` plus `◇ in-flight`). It inventories only `.asdl/objectives/`; archived records under `.asdl/objective-archive/` are physically outside active discovery. `objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` when included with `--status closed` or `--status all`. The list view shows latest work, latest Objective update age, work-branch count, and max slice-commit count. Work branches are counted only when the branch’s local slice, not inherited lower-stack history, touches the active Objective record. Use `objective list --view detail` for the base/current status source plus per-work-branch details. Use `objective list --current` to use the current branch as the status source, and `objective list --names` to emit just active slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
 
 ## Tracking Gate
 

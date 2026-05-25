@@ -19,7 +19,7 @@ If the user only asks about the skill or pastes it with no clear update intent, 
 
 ## Required shape
 
-Canonical root: `.asdl/objectives/<slug>/`.
+Active root: `.asdl/objectives/<slug>/`. Archived records under `.asdl/objective-archive/<slug>/` are not active update candidates.
 
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
@@ -33,10 +33,11 @@ The selected Objective slug directory is immutable during `objective-update`. Co
 ## Resolve exactly one Objective
 
 1. Use an explicit user-provided slug/path under `.asdl/objectives/<slug>/`.
-2. Otherwise run `objective list --format md` immediately.
-3. If exactly one active Objective exists and update intent is explicit, ask before evidence/mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
-4. If multiple active Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
-5. If none exist, say so and suggest `objective-create` when appropriate.
+2. If the selected path is under `.asdl/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
+3. Otherwise run `objective list --format md` immediately.
+4. If exactly one active Objective exists and update intent is explicit, ask before evidence/mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
+5. If multiple active Objectives exist, present the command output and ask for one slug/path. Do not ask a generic question before showing options.
+6. If none exist, say so and suggest `objective-create` when appropriate.
 
 If update intent is ambiguous, ask the invocation-intent confirmation before any only-open-Objective confirmation.
 
@@ -168,6 +169,7 @@ The final response may include exact command output when useful; durable Objecti
 ## Stop / ask
 
 - Objective selection is ambiguous or absent after presenting `objective list --format md` options.
+- The selected path is under `.asdl/objective-archive/`; ask whether to unarchive before updating Objective tracking.
 - Update intent remains ambiguous after the invocation-intent confirmation.
 - The exactly-one open Objective confirmation is pending.
 - The request would update more than one Objective.

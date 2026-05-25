@@ -8,8 +8,9 @@ from typing import Literal
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure
+from asdl_objectives.objective_paths import ACTIVE_OBJECTIVE_ROOT
 
-OBJECTIVE_ROOT = ".asdl/objectives"
+OBJECTIVE_ROOT = ACTIVE_OBJECTIVE_ROOT.as_posix()
 ObjectiveRecordStatus = Literal["open", "closed"]
 
 

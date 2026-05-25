@@ -26,6 +26,8 @@ def test_objective_help(cli_group: ClinkrGroup) -> None:
     assert "Usage: objective" in result.output
     assert "Work with checked-in Objective records." in result.output
     assert "--version" in result.output
+    assert "archive" in result.output
+    assert "Archive or unarchive an Objective record" in result.output
     assert "list" in result.output
     assert "List Objective status" in result.output
     assert "exec" not in result.output
@@ -48,6 +50,16 @@ def test_objective_list_help(cli_group: ClinkrGroup) -> None:
     assert "--names" in result.output
     assert "--status" in result.output
     assert "--view" in result.output
+
+
+def test_objective_archive_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["archive", "--help"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective archive" in result.output
+    assert "Archive or unarchive an Objective record by moving its directory" in result.output
+    assert "SLUG" in result.output
+    assert "--unarchive" in result.output
 
 
 def test_objective_list_empty_result(cli_group: ClinkrGroup) -> None:
@@ -1083,6 +1095,354 @@ def test_objective_list_unavailable_context_returns_failure_envelope(
     }
 
 
+def test_objective_archive_open_record_json_moves_from_active_to_archive(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    active_root = tmp_path / ".asdl" / "objectives"
+    archive_root = tmp_path / ".asdl" / "objective-archive"
+    _write_objective(active_root, "alpha")
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    monkeypatch.chdir(subdir)
+    ctx = _archive_context(tmp_path)
+
+    result = _invoke_archive_json(cli_group, ctx, "alpha")
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {
+        "exit_code": 0,
+        "data": _archive_data(
+            status="archived",
+            error=None,
+            slug="alpha",
+            direction="archive",
+            source_path=".asdl/objectives/alpha",
+            destination_path=".asdl/objective-archive/alpha",
+            source_exists=False,
+            destination_exists=True,
+            moved=True,
+        ),
+    }
+    assert not (active_root / "alpha").exists()
+    assert (archive_root / "alpha" / "objective.md").is_file()
+
+
+def test_objective_archive_human_output_lists_moved_paths(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    ctx = _archive_context(tmp_path)
+
+    result = _invoke_archive_human(cli_group, ctx, "alpha")
+
+    assert result.exit_code == 0, result.output
+    assert "Archived Objective `alpha`." in result.output
+    assert ".asdl/objectives/alpha" in result.output
+    assert "-> .asdl/objective-archive/alpha" in result.output
+
+
+def test_objective_archive_closed_record_preserves_closed_marker(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "done", closed=True)
+    ctx = _archive_context(tmp_path)
+
+    result = _invoke_archive_json(cli_group, ctx, "done")
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / ".asdl" / "objective-archive" / "done" / "closed.md").read_text(
+        encoding="utf-8"
+    ) == "closed\n"
+
+
+def test_objective_archive_creates_archive_root_when_absent(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    archive_root = tmp_path / ".asdl" / "objective-archive"
+    assert not archive_root.exists()
+
+    result = _invoke_archive_json(cli_group, _archive_context(tmp_path), "alpha")
+
+    assert result.exit_code == 0, result.output
+    assert archive_root.is_dir()
+
+
+def test_objective_archive_absent_source_returns_stable_json_without_creating_destination(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    ctx = _archive_context(tmp_path)
+
+    result = _invoke_archive_json(cli_group, ctx, "ghost")
+
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": "No active Objective record found for slug 'ghost' at .asdl/objectives/ghost.",
+        "data": _archive_data(
+            status="source_not_found",
+            error="source_not_found",
+            slug="ghost",
+            direction="archive",
+            source_path=".asdl/objectives/ghost",
+            destination_path=".asdl/objective-archive/ghost",
+            source_exists=False,
+            destination_exists=False,
+            moved=False,
+        ),
+    }
+    assert not (tmp_path / ".asdl" / "objective-archive" / "ghost").exists()
+
+
+def test_objective_archive_destination_collision_fails_without_mutation(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    active_record = _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    archived_record = _write_objective(tmp_path / ".asdl" / "objective-archive", "alpha")
+    (active_record / "objective.md").write_text("active sentinel\n", encoding="utf-8")
+    (archived_record / "objective.md").write_text("archived sentinel\n", encoding="utf-8")
+
+    result = _invoke_archive_json(cli_group, _archive_context(tmp_path), "alpha")
+
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": (
+            "Destination already exists for slug 'alpha': .asdl/objective-archive/alpha. "
+            "Refusing to merge or overwrite."
+        ),
+        "data": _archive_data(
+            status="destination_exists",
+            error="destination_exists",
+            slug="alpha",
+            direction="archive",
+            source_path=".asdl/objectives/alpha",
+            destination_path=".asdl/objective-archive/alpha",
+            source_exists=True,
+            destination_exists=True,
+            moved=False,
+        ),
+    }
+    assert (active_record / "objective.md").read_text(encoding="utf-8") == "active sentinel\n"
+    assert (archived_record / "objective.md").read_text(encoding="utf-8") == "archived sentinel\n"
+
+
+@pytest.mark.parametrize("slug", ("foo/bar", ".asdl/objectives/foo", ".", ".."))
+def test_objective_archive_rejects_invalid_slug_without_mutation(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    slug: str,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+
+    result = _invoke_archive_json(cli_group, _archive_context(tmp_path), slug)
+
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": f"Invalid Objective slug {slug!r}. Pass a single slug, not a path.",
+        "data": _archive_data(
+            status="invalid_slug",
+            error="invalid_slug",
+            slug=None,
+            direction="archive",
+            source_path=".asdl/objectives",
+            destination_path=".asdl/objective-archive",
+            source_exists=False,
+            destination_exists=False,
+            moved=False,
+        ),
+    }
+    assert (tmp_path / ".asdl" / "objectives" / "alpha").is_dir()
+    assert not (tmp_path / ".asdl" / "objective-archive").exists()
+
+
+def test_objective_archive_missing_slug_returns_negative_without_click_usage(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    result = _invoke_archive_json(cli_group, _archive_context(tmp_path), slug=None)
+
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Usage:" not in result.stderr
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": "Missing Objective slug. Pass an explicit slug.",
+        "data": _archive_data(
+            status="missing_slug",
+            error="missing_slug",
+            slug=None,
+            direction="archive",
+            source_path=".asdl/objectives",
+            destination_path=".asdl/objective-archive",
+            source_exists=False,
+            destination_exists=False,
+            moved=False,
+        ),
+    }
+
+
+def test_objective_unarchive_json_moves_from_archive_to_active(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objective-archive", "alpha")
+    active_root = tmp_path / ".asdl" / "objectives"
+    ctx = _archive_context(tmp_path)
+
+    result = _invoke_archive_json(cli_group, ctx, "alpha", unarchive=True)
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {
+        "exit_code": 0,
+        "data": _archive_data(
+            status="unarchived",
+            error=None,
+            slug="alpha",
+            direction="unarchive",
+            source_path=".asdl/objective-archive/alpha",
+            destination_path=".asdl/objectives/alpha",
+            source_exists=False,
+            destination_exists=True,
+            moved=True,
+        ),
+    }
+    assert (active_root / "alpha" / "objective.md").is_file()
+    assert not (tmp_path / ".asdl" / "objective-archive" / "alpha").exists()
+
+
+def test_objective_unarchive_human_output_lists_moved_paths(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objective-archive", "alpha")
+
+    result = _invoke_archive_human(cli_group, _archive_context(tmp_path), "alpha", unarchive=True)
+
+    assert result.exit_code == 0, result.output
+    assert "Unarchived Objective `alpha`." in result.output
+    assert ".asdl/objective-archive/alpha" in result.output
+    assert "-> .asdl/objectives/alpha" in result.output
+
+
+def test_objective_unarchive_creates_active_root_when_absent(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objective-archive", "alpha")
+    active_root = tmp_path / ".asdl" / "objectives"
+    assert not active_root.exists()
+
+    result = _invoke_archive_json(cli_group, _archive_context(tmp_path), "alpha", unarchive=True)
+
+    assert result.exit_code == 0, result.output
+    assert active_root.is_dir()
+
+
+def test_objective_unarchive_absent_source_returns_stable_json(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    result = _invoke_archive_json(cli_group, _archive_context(tmp_path), "ghost", unarchive=True)
+
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": (
+            "No archived Objective record found for slug 'ghost' at .asdl/objective-archive/ghost."
+        ),
+        "data": _archive_data(
+            status="source_not_found",
+            error="source_not_found",
+            slug="ghost",
+            direction="unarchive",
+            source_path=".asdl/objective-archive/ghost",
+            destination_path=".asdl/objectives/ghost",
+            source_exists=False,
+            destination_exists=False,
+            moved=False,
+        ),
+    }
+
+
+def test_objective_unarchive_destination_collision_fails_without_mutation(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    archived_record = _write_objective(tmp_path / ".asdl" / "objective-archive", "alpha")
+    active_record = _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    (archived_record / "objective.md").write_text("archived sentinel\n", encoding="utf-8")
+    (active_record / "objective.md").write_text("active sentinel\n", encoding="utf-8")
+
+    result = _invoke_archive_json(cli_group, _archive_context(tmp_path), "alpha", unarchive=True)
+
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": (
+            "Destination already exists for slug 'alpha': .asdl/objectives/alpha. "
+            "Refusing to merge or overwrite."
+        ),
+        "data": _archive_data(
+            status="destination_exists",
+            error="destination_exists",
+            slug="alpha",
+            direction="unarchive",
+            source_path=".asdl/objective-archive/alpha",
+            destination_path=".asdl/objectives/alpha",
+            source_exists=True,
+            destination_exists=True,
+            moved=False,
+        ),
+    }
+    assert (archived_record / "objective.md").read_text(encoding="utf-8") == "archived sentinel\n"
+    assert (active_record / "objective.md").read_text(encoding="utf-8") == "active sentinel\n"
+
+
+def test_objective_archive_unavailable_context_returns_failure_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = _invoke_archive_json(
+        cli_group,
+        ObjectiveCliUnavailable("Not inside a git repository."),
+        "alpha",
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.output) == {
+        "exit_code": 2,
+        "error_type": "not_in_repo",
+        "message": "Not inside a git repository.",
+    }
+
+
+def test_objective_list_status_all_excludes_archive_only_paths(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _list_context(
+        branches=("master",),
+        tracked_paths_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (
+                ".asdl/objective-archive/alpha/objective.md",
+                ".asdl/objectives/beta/objective.md",
+            ),
+        },
+    )
+
+    result = _invoke_list_json(cli_group, ctx, status="all")
+
+    assert result.exit_code == 0, result.output
+    assert [group["slug"] for group in json.loads(result.output)["data"]["groups"]] == ["beta"]
+
+
 def test_objective_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["exec", "--help"])
 
@@ -1243,6 +1603,29 @@ def test_objective_exec_read_absent_record_returns_facts(
             error="not_found",
             slug="ghost",
             path=".asdl/objectives/ghost",
+        ),
+    }
+
+
+def test_objective_exec_read_does_not_read_archive_only_record(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_objective(tmp_path / ".asdl" / "objective-archive", "alpha")
+
+    result = _invoke_read_json(cli_group, "alpha")
+
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {
+        "exit_code": 1,
+        "message": "No Objective record found for slug 'alpha'.",
+        "data": _empty_read_data(
+            status="not_found",
+            error="not_found",
+            slug="alpha",
+            path=".asdl/objectives/alpha",
         ),
     }
 
@@ -1426,6 +1809,14 @@ def _fake_git(ctx: ObjectiveCliContext) -> FakeGitGateway:
     return ctx.git
 
 
+def _archive_context(repo_root: Path) -> ObjectiveCliContext:
+    return ObjectiveCliContext(
+        repo_root=repo_root,
+        trunk_branch="master",
+        git=FakeGitGateway(repo_root=repo_root, branches=("master",), trunk_branch="master"),
+    )
+
+
 def _list_context(
     *,
     branches: tuple[str, ...],
@@ -1458,6 +1849,68 @@ def _list_context(
             current_branch_by_path=current_by_path,
         ),
     )
+
+
+def _invoke_archive_json(
+    cli_group: ClinkrGroup,
+    ctx: ObjectiveCliContext | ObjectiveCliUnavailable,
+    slug: str | None,
+    *,
+    unarchive: bool = False,
+) -> Result:
+    args = ["archive"]
+    if slug is not None:
+        args.append(slug)
+    if unarchive:
+        args.append("--unarchive")
+    args.extend(("--format", "json"))
+    return CliRunner().invoke(
+        cli_group,
+        args,
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
+
+
+def _invoke_archive_human(
+    cli_group: ClinkrGroup,
+    ctx: ObjectiveCliContext,
+    slug: str,
+    *,
+    unarchive: bool = False,
+) -> Result:
+    args = ["archive", slug]
+    if unarchive:
+        args.append("--unarchive")
+    return CliRunner().invoke(
+        cli_group,
+        args,
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
+
+
+def _archive_data(
+    *,
+    status: str,
+    error: str | None,
+    slug: str | None,
+    direction: str,
+    source_path: str,
+    destination_path: str,
+    source_exists: bool,
+    destination_exists: bool,
+    moved: bool,
+) -> dict[str, object]:
+    return {
+        "status": status,
+        "error": error,
+        "slug": slug,
+        "direction": direction,
+        "source_path": source_path,
+        "destination_path": destination_path,
+        "source_exists": source_exists,
+        "destination_exists": destination_exists,
+        "moved": moved,
+    }
 
 
 def _invoke_list_json(
