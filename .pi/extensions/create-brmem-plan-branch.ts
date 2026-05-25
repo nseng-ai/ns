@@ -1,3 +1,5 @@
 import createBrmemPlanBranchExtension from "../../ts/packages/pi-extensions/src/create-brmem-plan-branch.ts";
 
-export default createBrmemPlanBranchExtension;
+export default function createBrmemPlanBranchProjectExtension(pi) {
+	createBrmemPlanBranchExtension(pi, { latestPlanBranchDefaultCreation: "graphite" });
+}
