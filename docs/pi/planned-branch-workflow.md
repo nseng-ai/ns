@@ -93,7 +93,7 @@ Memory use remains generic branch-scoped text storage.
 ## Branch Creation Policy
 
 Branch creation is repo-specific Pi extension policy. In this repo, the
-project-local shim at `.pi/extensions/create-brmem-plan-branch.ts` configures the
+project-local shim at `.pi/extensions/planned-branch.ts` configures the
 planned-branch workflow to default to Graphite branch creation and to use the plan
 slug as the target branch name unless the user passes an explicit branch.
 
@@ -132,7 +132,7 @@ Common recovery paths:
 - If the target Branch Memory entry already exists, the workflow refuses to
   overwrite it; inspect the existing `brmem-plans/<slug>.md` entry before
   deciding what to do next.
-- If Graphite tracking fails after local branch creation, no Branch Memory plan is
+- If Graphite tracking fails after local branch creation, no attached plan is
   stored and no cleanup is attempted; inspect the created branch manually.
 - If `/impl-planned-branch` reports multiple attached plans, rerun it with the
   desired key or slug.
@@ -148,15 +148,15 @@ brmem get <key> --namespace brmem-plans --branch <branch>
 
 Implementation lives in the engineered Pi extension package under
 `ts/packages/pi-extensions/`. The checked-in project-local discovery shim is
-`.pi/extensions/create-brmem-plan-branch.ts`.
+`.pi/extensions/planned-branch.ts`.
 
 Useful related files:
 
-- `ts/packages/pi-extensions/src/create-brmem-plan-branch.ts`: command wiring for
+- `ts/packages/pi-extensions/src/planned-branch-extension.ts`: command wiring for
   `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch`.
-- `ts/packages/pi-extensions/src/brmem-plans/`: planned-branch storage, branch
+- `ts/packages/pi-extensions/src/planned-branch/`: planned-branch storage, branch
   creation, saved-plan, and attached-plan helpers.
-- `ts/packages/pi-extensions/src/brmem-plans/prompts/impl-planned-branch.md`:
+- `ts/packages/pi-extensions/src/planned-branch/prompts/impl-planned-branch.md`:
   implementation prompt text injected by `/impl-planned-branch`.
 - `packages/brmem/README.md`: generic Branch Memory CLI documentation with a
   pointer back to this workflow.

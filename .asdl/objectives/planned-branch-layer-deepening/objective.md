@@ -12,14 +12,16 @@ The desired outcome is better locality and leverage: naming, docs, tests, and de
 
 In scope:
 
-- The project-local Pi extension shim at `.pi/extensions/create-brmem-plan-branch.ts`.
+- The project-local Pi extension shim at `.pi/extensions/planned-branch.ts`.
 - The engineered planning implementation and tests under `ts/packages/pi-extensions/`, especially:
-  - `src/create-brmem-plan-branch.ts`
-  - `src/brmem-plans/plan-branch.ts`
-  - `src/brmem-plans/plan-persistence.ts`
-  - `src/brmem-plans/source-plan-file.ts`
-  - `test/create-brmem-plan-branch.test.ts`
-  - `test/brmem-plan-branch.test.ts`
+  - `src/planned-branch-extension.ts`
+  - `src/planned-branch/planned-branch-creation.ts`
+  - `src/planned-branch/plan-persistence.ts`
+  - `src/planned-branch/source-plan-file.ts`
+  - `src/planned-branch/attached-plan.ts`
+  - `test/planned-branch-extension.test.ts`
+  - `test/planned-branch-creation.test.ts`
+  - `test/attached-plan.test.ts`
 - The `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` slash-command behavior, while keeping those slash-command names stable unless the user explicitly decides otherwise later.
 - Internal module, file, type, helper, doc, and skill naming that still makes Branch Memory appear to be the planning domain rather than a lower Adapter.
 - The local plan store contract at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`, including slug validation, source-branch directory resolution, newest-plan selection, and exclusive writes.
@@ -65,6 +67,7 @@ Assumptions:
 - A tested attached-plan reader plus extension-owned Markdown prompt can preserve the useful behavior formerly carried by `brmem-plan-impl` while eliminating a confusing discoverable skill surface; current evidence confirms this for branch safety, key selection, attached-plan loading, prompt injection, and implementation guardrails.
 - The local plan store path convention remains the right pre-branch place for reviewed plans created by `/write-plan`.
 - Current cleanup evidence confirms `/write-plan` persists only to the local plan store; the old direct Branch Memory `plans` namespace and archive compatibility aliases are deleted rather than retained.
+- The final naming disposition is to use planned-branch module, shim, type, and exported function names for the planning layer while retaining `brmem-plans` as the explicit Branch Memory attachment namespace and retaining `brmem` helper names only where code crosses the Adapter seam.
 
 Risks:
 
@@ -74,12 +77,20 @@ Risks:
 - Skill cleanup no longer depends on a rename: the repo-local `brmem-plan-impl` source, `.agents`/`.claude` symlinks, lockfile entry, and installer references have been removed. The residual caveat is that already-running Pi sessions may still have startup-loaded skill context until reload or a new session.
 - Graphite branch creation remains repo-specific policy. Changes must respect the runtime Graphite dependency boundary and keep Graphite usage behind explicit planned-branch configuration or command semantics.
 - The docs-relocation discoverability risk is mitigated by `docs/pi/planned-branch-workflow.md`, its `docs/pi/README.md` index link, and a concise `packages/brmem/README.md` pointer; future command-help improvements are optional rather than required for this Objective.
-- Remaining `brmem` names are intentional entrypoint, namespace, active command, or diagnostic labels rather than a second Branch Memory plan-storage workflow.
+- The residual naming risk is de-risked by the final naming pass: remaining `brmem` names are limited to the persisted `brmem-plans` namespace/key contract, Branch Memory command helpers and JSON parsers, recovery diagnostics, historical Objective evidence, or unrelated Branch Memory extension surfaces.
 
 ## Open Questions
 
-- What should the final engineered module path and exported names be: `planned-branch`, `planning`, `saved-plans`, or another planning-layer term?
-- Which Branch Memory details should remain in normal success output, and which should move to diagnostics for failure or expanded evidence?
+- Answered: final engineered module, shim, type, and exported function names use planned-branch vocabulary (`.pi/extensions/planned-branch.ts`, `planned-branch-extension.ts`, `src/planned-branch/`, `createPlannedBranchFromFile`, `PlannedBranchEvidence`, and `PlanCommandExecApi`); `brmem-plans` remains only as the persisted attachment namespace contract.
+- Answered: normal success output may include namespace, key, ref, commit, source-file, selected-key, and byte-count evidence because those are attached-plan recovery facts; raw lower-command output remains failure or diagnostic evidence.
 - Answered: generic Branch Memory CLI Adapter work belongs to `pi-extension-deepening` as shared CLI plumbing, not to this Objective; planned-branch closure does not wait on generic Adapter extraction.
 - Answered: durable planning workflow documentation now lives in `docs/pi/planned-branch-workflow.md`, linked from `docs/pi/README.md`, with a concise pointer from `packages/brmem/README.md`; command help expansion can remain optional follow-up work.
 - Answered: stale direct Branch Memory `plans` storage and old archive vocabulary should not be retained; active names now use local plan store terminology for saved plans and the explicit `brmem-plans` contract for attached plans.
+
+## Closure
+
+Closed as completed. The planned-branch planning layer is now visibly stacked above Branch Memory: `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` stay stable, while implementation names, docs, tests, and deterministic behavior now center on saved plans, planned branches, attached plans, and the local plan store.
+
+Completion evidence includes the separated local plan store, deleted stale direct Branch Memory `plans` storage and archive compatibility aliases, planned-branch presentation for branch creation, a tested attached-plan reader, removal of the former `brmem-plan-impl` discovery surface, documentation relocation into `docs/pi/planned-branch-workflow.md`, explicit overlap disposition with `pi-extension-deepening`, and the final planned-branch naming pass. Validation for the accepted slices includes `bun run --cwd ts check`, `bun run --cwd ts test`, `git diff --check`, and `just dprint-check`.
+
+Remaining items are parked future work rather than active scope: a generic Branch Memory CLI Adapter for unrelated Pi extensions, automatic PR submission or stack landing for generated branches, Objective integration for generated plans, and live Pi/model end-to-end smoke tests.

@@ -8,7 +8,7 @@ import {
 	formatCommandFailure,
 	normalizeSummary,
 	validatePlanSlug,
-	type BrmemPlanExecApi,
+	type PlanCommandExecApi,
 	type ExecOptions,
 } from "./plan-persistence.ts";
 
@@ -148,7 +148,7 @@ export function formatSourceBranchPlanFileEvidence(evidence: SourceBranchPlanFil
 }
 
 export async function resolvePlanStoreDirectory(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	options: SourceBranchPlanFileOptions,
 ): Promise<PlanStoreDirectoryEvidence> {
 	const repoRoot = await resolveRequiredGitRepoRoot(pi, options.cwd, options.signal);
@@ -170,7 +170,7 @@ export async function resolvePlanStoreDirectory(
 }
 
 export async function findLatestSourceBranchPlanFile(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	options: SourceBranchPlanFileOptions,
 ): Promise<LatestSourceBranchPlanFileEvidence> {
 	const directory = await resolvePlanStoreDirectory(pi, options);
@@ -228,7 +228,7 @@ export async function findLatestSourceBranchPlanFile(
 }
 
 export async function writeSourceBranchPlanFile(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	rawParams: unknown,
 	options: SourceBranchPlanFileOptions,
 ): Promise<SourceBranchPlanFileEvidence> {
@@ -285,7 +285,7 @@ function parseSourceBranchPlanFileParams(params: unknown): SourceBranchPlanFileP
 }
 
 async function resolveRequiredGitRepoRoot(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	signal: AbortSignal | undefined,
 ): Promise<string> {
@@ -301,7 +301,7 @@ async function resolveRequiredGitRepoRoot(
 	return realpathIfPossible(repoRoot);
 }
 
-async function resolveCurrentBranch(pi: BrmemPlanExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveCurrentBranch(pi: PlanCommandExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const branch = await runGit(pi, cwd, ["branch", "--show-current"], signal);
 	if (branch.result.code !== 0 || branch.result.killed) {
 		throw new Error(formatCommandFailure("git branch --show-current failed", branch.displayCommand, branch.result));
@@ -315,7 +315,7 @@ async function resolveCurrentBranch(pi: BrmemPlanExecApi, cwd: string, signal: A
 }
 
 async function resolveRepoIdentity(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	repoRoot: string,
 	signal: AbortSignal | undefined,
@@ -388,7 +388,7 @@ async function writeExclusiveFile(filePath: string, content: string): Promise<vo
 }
 
 async function runGit(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	args: string[],
 	signal: AbortSignal | undefined,

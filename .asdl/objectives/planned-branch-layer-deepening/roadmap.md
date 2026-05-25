@@ -2,11 +2,11 @@
 
 ## Work
 
-- [~] Establish the planning-layer vocabulary and target module shape.
+- [x] Establish the planning-layer vocabulary and target module shape.
   - Keep the user-facing slash commands `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` stable.
-  - Decide the internal module/file/type naming for saved plans, planned branches, attached plans, and the Branch Memory Adapter.
-  - Local plan-store helper and option names now use planning terminology, including `buildRepoPlanStoreKey`; the remaining naming question is whether module paths or extension entrypoint names need a broader planned-branch rename before closure.
-  - Record any chosen naming changes in docs or Objective updates before broad renames.
+  - Planning-layer module and shim names now use planned-branch vocabulary: `.pi/extensions/planned-branch.ts`, `src/planned-branch-extension.ts`, and `src/planned-branch/`.
+  - Planning-layer exported names now use planned-branch vocabulary, including `createPlannedBranchFromFile`, `PlannedBranchEvidence`, `CreatePlannedBranchFromFileParams`, `PlannedBranchExtensionOptions`, and `PlanCommandExecApi`.
+  - Local plan-store helper and option names use planning terminology, including `buildRepoPlanStoreKey`; retained `brmem` names are confined to the `brmem-plans` namespace contract, Branch Memory command helpers/parsers, and diagnostics.
 - [x] Separate the local plan store Module from Branch Memory persistence.
   - Make `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` behavior read as planning-layer local storage, not Branch Memory storage.
   - The stale direct Branch Memory `plans` namespace storage API, `storeBrmemPlanFromFile`, `BrmemPlanStorage*` types, and storage formatting helpers have been deleted.
@@ -16,7 +16,7 @@
   - Keep the canonical attachment contract: namespace `brmem-plans`, key `<slug>.md`, target implementation branch.
   - Concentrate Branch Memory command discovery, `check`, `put`, JSON parsing, and partial-failure diagnostics where the planning layer crosses the storage Seam.
   - The attached-plan reader now reuses the existing `runBrmem` discovery/fallback seam and owns read-path JSON validation without extracting a broad generic Adapter.
-  - Remaining Branch Memory references in the planned-branch code and tests are limited to the explicit `brmem-plans` attachment/read contract, recovery diagnostics, active entrypoint names, or unrelated brmem extension surfaces.
+  - Remaining Branch Memory references in the planned-branch code and tests are limited to the explicit `brmem-plans` attachment/read contract, recovery diagnostics, Branch Memory command helpers/parsers, historical negative assertions for removed command/tool registration, or unrelated brmem extension surfaces.
   - Avoid extracting a broad generic Branch Memory Adapter unless the planned-branch workflow proves it through the deletion test.
 - [x] Improve `/create-planned-branch` presentation around planning concepts.
   - Preview saved plan, target planned branch, branch creation method, and attached-plan outcome as planning facts.
@@ -30,7 +30,7 @@
 - [x] Decide and apply skill naming cleanup.
   - Decision: replace `brmem-plan-impl` with slash-command-only `/impl-planned-branch` usage; do not rename it and do not keep a compatibility skill.
   - Remove the skill source, `.agents`/`.claude` discovery symlinks, `skills-lock.json` entry, `just install-tools` global-link behavior, tests, and docs references.
-  - Keep implementation-prompt prose in `ts/packages/pi-extensions/src/brmem-plans/prompts/impl-planned-branch.md`, loaded by the extension.
+  - Keep implementation-prompt prose in `ts/packages/pi-extensions/src/planned-branch/prompts/impl-planned-branch.md`, loaded by the extension.
   - Verification includes `npx skills list --json` showing `brmem-plan-impl` is no longer listed.
 - [x] Move planned-branch workflow docs out of the brmem README.
   - Durable planning workflow docs now live at `docs/pi/planned-branch-workflow.md` and are linked from `docs/pi/README.md`.
@@ -40,15 +40,15 @@
   - This Objective owns the focused planned-branch layer slice: saved plans, planned branches, attached plans, and the `brmem-plans` namespace/key contract.
   - `pi-extension-deepening` owns any future generic Branch Memory CLI Adapter for shared discovery/execution plumbing; planned-branch closure does not wait on that extraction.
   - Future Adapter migration must preserve planned-branch domain policy, fatal diagnostics, planning-level presentation, and read/write tests.
-- [~] Validate the accepted implementation slices.
+- [x] Validate the accepted implementation slices.
   - `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check` passed for the attached-plan reader slice.
   - `just ts-check`, `just ts-test`, `just dprint-check`, `git diff --check`, and the targeted attached-plan/create-plan-branch tests passed for the skill-removal and prompt-template slice.
   - `npx skills list --json` no longer lists `brmem-plan-impl`.
   - `just dprint-check` passed for the docs relocation and Objective update slice.
   - `just dprint-check` passed for the overlap-boundary Objective updates.
   - `bun run --cwd ts check`, `bun run --cwd ts test`, `git diff --check`, and `just dprint-check` passed for the storage-compatibility deletion and Objective update slice.
-  - Run broader repo validation when Python, repo-wide docs, skill layout, or installer behavior changes require it.
-- [ ] Close by explicit human decision.
+  - `bun run --cwd ts check`, `bun run --cwd ts test`, `git diff --check`, and `just dprint-check` passed for the final naming-disposition slice.
+- [x] Close by explicit human decision.
   - Confirm the planning layer is visibly stacked on top of Branch Memory rather than integrated with it.
   - Confirm the read and write paths have symmetric tested behavior.
   - Add closure context to `objective.md`, then add a Closure Marker.

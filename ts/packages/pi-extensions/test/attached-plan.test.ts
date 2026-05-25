@@ -8,14 +8,14 @@ import {
 	parseBrmemListEntries,
 	selectAttachedPlanKey,
 	type AttachedPlanEntry,
-} from "../src/brmem-plans/attached-plan.ts";
-import { PLAN_BRANCH_NAMESPACE } from "../src/brmem-plans/plan-branch.ts";
-import type { BrmemPlanExecApi, ExecOptions } from "../src/brmem-plans/plan-persistence.ts";
+} from "../src/planned-branch/attached-plan.ts";
+import { PLAN_BRANCH_NAMESPACE } from "../src/planned-branch/planned-branch-creation.ts";
+import type { PlanCommandExecApi, ExecOptions } from "../src/planned-branch/plan-persistence.ts";
 import type { ExecResult } from "../src/command-runtime.ts";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
-const PLAN_BRANCH = `brmem-plans/${PLAN_SLUG}`;
+const PLAN_BRANCH = `planned-branches/${PLAN_SLUG}`;
 const PLAN_KEY = `${PLAN_SLUG}.md`;
 const PLAN_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${PLAN_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const PLAN_CONTENT = "# Attached Plan\n\n- Preserve all Markdown.\n- Then implement.\n";
@@ -38,7 +38,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class FakePi implements BrmemPlanExecApi {
+class FakePi implements PlanCommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];
@@ -220,7 +220,7 @@ describe("loadAttachedPlan", () => {
 	});
 
 	test("falls back to the only entry when branch segment does not match", async () => {
-		const branch = "brmem-plans/different-segment";
+		const branch = "planned-branches/different-segment";
 		const pi = new FakePi(successfulLoadScript({ branch, key: PLAN_KEY, entries: [{ key: PLAN_KEY }] }));
 
 		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT });
@@ -233,7 +233,7 @@ describe("loadAttachedPlan", () => {
 	test("reports multiple entry ambiguity with available keys", () => {
 		expect(() =>
 			selectAttachedPlanKey({
-				branch: "brmem-plans/no-match",
+				branch: "planned-branches/no-match",
 				entries: [attachedPlanEntry("beta.md"), attachedPlanEntry("alpha.md")],
 			}),
 		).toThrow(/Multiple attached plans[\s\S]*- alpha\.md[\s\S]*- beta\.md[\s\S]*\/impl-planned-branch <key>/);

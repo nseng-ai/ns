@@ -6,15 +6,15 @@ import {
 	formatLoadedAttachedPlanEvidence,
 	loadAttachedPlan,
 	type LoadedAttachedPlan,
-} from "./brmem-plans/attached-plan.ts";
+} from "./planned-branch/attached-plan.ts";
 import {
 	PLAN_BRANCH_NAMESPACE,
-	createBrmemPlanBranchFromFile as createBrmemPlanBranchFromFilePrimitive,
+	createPlannedBranchFromFile as createPlannedBranchFromFilePrimitive,
 	deriveTargetBranch,
 	type BranchCreationMethod,
-	type BrmemPlanBranchEvidence,
-} from "./brmem-plans/plan-branch.ts";
-import { isPathInside, normalizePlanFilePath, validatePlanSlug, type ExecOptions } from "./brmem-plans/plan-persistence.ts";
+	type PlannedBranchEvidence,
+} from "./planned-branch/planned-branch-creation.ts";
+import { isPathInside, normalizePlanFilePath, validatePlanSlug, type ExecOptions } from "./planned-branch/plan-persistence.ts";
 import {
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
@@ -23,18 +23,18 @@ import {
 	type LatestSourceBranchPlanFileEvidence,
 	type PlanStoreDirectoryEvidence,
 	type SourceBranchPlanFileEvidence,
-} from "./brmem-plans/source-plan-file.ts";
+} from "./planned-branch/source-plan-file.ts";
 import type { ExecResult } from "./command-runtime.ts";
 
 export type { ExecResult } from "./command-runtime.ts";
-export { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./brmem-plans/plan-persistence.ts";
+export { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./planned-branch/plan-persistence.ts";
 export {
 	PLAN_BRANCH_NAMESPACE,
-	createBrmemPlanBranchFromFile,
+	createPlannedBranchFromFile,
 	deriveTargetBranch,
 	validateTargetBranchName,
-} from "./brmem-plans/plan-branch.ts";
-export type { BranchCreationMethod, BrmemPlanBranchEvidence, CreateBrmemPlanBranchParams } from "./brmem-plans/plan-branch.ts";
+} from "./planned-branch/planned-branch-creation.ts";
+export type { BranchCreationMethod, PlannedBranchEvidence, CreatePlannedBranchFromFileParams } from "./planned-branch/planned-branch-creation.ts";
 export {
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,
@@ -45,7 +45,7 @@ export {
 	resolvePlanStoreDirectory,
 	sanitizePlanPathSegment,
 	writeSourceBranchPlanFile,
-} from "./brmem-plans/source-plan-file.ts";
+} from "./planned-branch/source-plan-file.ts";
 export type {
 	LatestSourceBranchPlanFileEvidence,
 	PlanStoreDirectoryEvidence,
@@ -53,7 +53,7 @@ export type {
 	SourceBranchPlanFileEvidence,
 	SourceBranchPlanFileOptions,
 	SourceBranchPlanFileParams,
-} from "./brmem-plans/source-plan-file.ts";
+} from "./planned-branch/source-plan-file.ts";
 
 const WRITE_PLAN_COMMAND_NAME = "write-plan";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "create-planned-branch";
@@ -91,7 +91,7 @@ type SessionManagerLike = {
 	getEntries?(): SessionHistoryEntry[];
 };
 
-export type CreateBrmemPlanBranchExtensionOptions = {
+export type PlannedBranchExtensionOptions = {
 	plannedBranchDefaultCreation?: BranchCreationMethod;
 	plannedBranchPrefix?: string;
 	planStoreRoot?: string;
@@ -202,7 +202,7 @@ Workflow:
 Local plan store contract:
 - Path convention: ~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, brmem-plans/add-widget becomes brmem-plans---add-widget)
+- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, planned-branches/add-widget becomes planned-branches---add-widget)
 - <slug>: semantic kebab-case slug without .md
 - Existing saved plan file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.
 - Working-tree behavior: no checked-in plan file is created.
@@ -319,7 +319,7 @@ export async function resolveCreatePlannedBranchPreview(
 	pi: ExtensionAPI,
 	args: CreatePlannedBranchArgs,
 	ctx: CommandContext,
-	options: CreateBrmemPlanBranchExtensionOptions = {},
+	options: PlannedBranchExtensionOptions = {},
 ): Promise<CreatePlannedBranchPreview> {
 	const selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
 	const branchCreation = args.branchCreation ?? resolvePlannedBranchDefaultCreation(options);
@@ -380,9 +380,9 @@ export function formatCreatePlannedBranchPreview(preview: CreatePlannedBranchPre
 	return lines.join("\n");
 }
 
-export default function createBrmemPlanBranchExtension(
+export default function registerPlannedBranchExtension(
 	pi: ExtensionAPI,
-	options: CreateBrmemPlanBranchExtensionOptions = {},
+	options: PlannedBranchExtensionOptions = {},
 ): void {
 	pi.registerCommand(WRITE_PLAN_COMMAND_NAME, {
 		description: "Write and save a reviewed implementation plan in the local plan store.",
@@ -435,7 +435,7 @@ async function handleCreatePlannedBranchCommand(
 	pi: ExtensionAPI,
 	rawArgs: string,
 	ctx: CommandContext,
-	options: CreateBrmemPlanBranchExtensionOptions,
+	options: PlannedBranchExtensionOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
 
@@ -489,7 +489,7 @@ async function handleCreatePlannedBranchCommand(
 			params.branchName = preview.targetBranch;
 		}
 
-		const evidence = await createBrmemPlanBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
+		const evidence = await createPlannedBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
 		presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
 	} catch (error) {
 		presentPlannedBranchFailure(pi, ctx, "Failed to create planned branch and attach the plan.", error, preview);
@@ -498,7 +498,7 @@ async function handleCreatePlannedBranchCommand(
 	}
 }
 
-function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: CreateBrmemPlanBranchExtensionOptions): ToolDefinition {
+function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExtensionOptions): ToolDefinition {
 	return {
 		name: WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
@@ -557,7 +557,7 @@ type SelectedSavedPlanFile =
 type PlannedBranchMessageDetails = {
 	status: "usage" | "dry-run" | "success" | "failure";
 	preview?: CreatePlannedBranchPreview;
-	evidence?: BrmemPlanBranchEvidence;
+	evidence?: PlannedBranchEvidence;
 	loadedPlan?: LoadedAttachedPlan;
 	error?: string;
 };
@@ -566,7 +566,7 @@ async function resolveSelectedSavedPlanFile(
 	pi: ExtensionAPI,
 	args: CreatePlannedBranchArgs,
 	ctx: CommandContext,
-	options: CreateBrmemPlanBranchExtensionOptions,
+	options: PlannedBranchExtensionOptions,
 ): Promise<SelectedSavedPlanFile> {
 	if (args.filePath === undefined) {
 		const sessionEvidence = await findLatestSavedPlanFileFromSessionHistory(pi, ctx, options);
@@ -603,7 +603,7 @@ async function resolveSelectedSavedPlanFile(
 async function findLatestSavedPlanFileFromSessionHistory(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
-	options: CreateBrmemPlanBranchExtensionOptions,
+	options: PlannedBranchExtensionOptions,
 ): Promise<(LatestSourceBranchPlanFileEvidence & { mode: "session" }) | undefined> {
 	const entries = ctx.sessionManager?.getBranch?.();
 	if (entries === undefined) {
@@ -736,18 +736,18 @@ async function validateSessionSavedPlanCandidate(
 	};
 }
 
-function resolvePlannedBranchDefaultCreation(options: CreateBrmemPlanBranchExtensionOptions): BranchCreationMethod {
+function resolvePlannedBranchDefaultCreation(options: PlannedBranchExtensionOptions): BranchCreationMethod {
 	return options.plannedBranchDefaultCreation ?? options.latestPlanBranchDefaultCreation ?? "plain-git";
 }
 
-function resolvePlanStoreRootOption(options: CreateBrmemPlanBranchExtensionOptions): string | undefined {
+function resolvePlanStoreRootOption(options: PlannedBranchExtensionOptions): string | undefined {
 	return options.planStoreRoot;
 }
 
 function derivePlannedTargetBranch(
 	args: CreatePlannedBranchArgs,
 	slug: string,
-	options: CreateBrmemPlanBranchExtensionOptions,
+	options: PlannedBranchExtensionOptions,
 ): string {
 	if (args.branchName !== undefined) {
 		return deriveTargetBranch(args.branchName, slug);
@@ -809,7 +809,7 @@ function presentPlannedBranchMessage(
 	console.log(content);
 }
 
-export function formatPlanBranchEvidence(evidence: BrmemPlanBranchEvidence): string {
+export function formatPlanBranchEvidence(evidence: PlannedBranchEvidence): string {
 	const lines = [
 		"Created planned branch and attached plan.",
 		`Branch: ${evidence.branch}`,
