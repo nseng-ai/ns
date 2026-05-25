@@ -26,38 +26,14 @@ for code review and project history.
 
 Architecture and import rules for contributors live in [`AGENTS.md`](./AGENTS.md).
 
-## Planned-Branch Helper Workflow
+## Planned-Branch Workflow Pointer
 
-This repo also carries Pi extension commands that exercise `brmem` as worked
-examples.
+The repo-local Pi planned-branch workflow uses `brmem` as its lower storage
+Adapter for attached plans, but the workflow itself belongs to the Pi/planning
+layer rather than the generic Branch Memory CLI.
 
-It supports this pattern:
-
-1. Write and save a plan on a parent branch with `/write-plan`.
-2. Create a planned branch from that saved plan with `/create-planned-branch`.
-3. Attach the plan to that branch in Branch Memory namespace `brmem-plans` with
-   key `<slug>.md`.
-4. Switch or open the planned branch, then begin implementation with
-   `/impl-planned-branch`.
-
-A saved plan lives in the local plan store at
-`~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. No checked-in plan file
-is created. `/create-planned-branch` selects a saved plan, creates the target
-implementation branch, and then attaches the plan to that branch in Branch
-Memory.
-
-Branch naming and branch creation policy are repo-specific extension
-configuration. In this repo, planned branches default to `<slug>`, branch
-creation defaults to Graphite, and the plan is attached in Branch Memory
-namespace `brmem-plans` with key `<slug>.md`.
-
-Graphite branch creation uses `git branch <target> HEAD` followed by `gt track
-<target> --parent <current-branch>`, so it does not switch the current checkout.
-The helper still passes `--branch <target-branch>` when storing Branch Memory, so
-storage does not depend on the current checkout.
-
-Use `/impl-planned-branch` on the implementation branch to load the canonical
-attached plan from namespace `brmem-plans` and begin work.
+See [Planned Branch Workflow](../../docs/pi/planned-branch-workflow.md) for
+`/write-plan`, `/create-planned-branch`, and `/impl-planned-branch`.
 
 ## Mental Model
 
@@ -99,9 +75,6 @@ directory you provide.
 | Remove one Entry                            | `brmem delete`              | Branch     |
 | Copy a Namespace from one branch to another | `brmem copy`                | Branch     |
 | Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing    |
-
-The planned-branch Pi commands are helper workflows and double as worked
-examples of how to use `brmem`.
 
 ## Normal Workflow
 
@@ -259,6 +232,5 @@ working tree.
 ## See Also
 
 - [`AGENTS.md`](./AGENTS.md): contributor rules for this package.
-- `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch`: Pi
-  extension commands for saving a plan, creating a planned branch, attaching the
-  plan, and starting implementation.
+- [Planned Branch Workflow](../../docs/pi/planned-branch-workflow.md): repo-local
+  Pi workflow that uses `brmem` as the lower storage Adapter for attached plans.

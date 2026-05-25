@@ -79,6 +79,12 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `ts/packages/pi-extensions/src/land-stack.ts`    | Engineered implementation                      | Package-tested landing behavior; later refactors may split internals without changing `/land-stack`. |
 | `ts/packages/pi-extensions/src/brmem-handoff.ts` | Engineered implementation                      | Package-tested Branch Memory handoff command selection and prompt handoff behavior.                  |
 
+## Planned branch workflow
+
+The planned-branch workflow uses `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` to save reviewed plans, create implementation branches, attach plans through Branch Memory, and load them for implementation.
+
+See [Planned Branch Workflow](./planned-branch-workflow.md).
+
 ## Extension message linkification
 
 For clickable PR/issue links in custom Pi extension output, keep message content plain, carry URLs in `message.details`, and linkify in the registered renderer.
