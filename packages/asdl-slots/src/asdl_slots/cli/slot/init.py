@@ -17,13 +17,14 @@ from asdl_slots.repo_context import NoRepoSentinel
 
 class SlotInitRequest(ClinkrModel):
     size: Annotated[
-        int,
+        int | None,
         click.Option(
             ["--size"],
-            required=True,
+            required=False,
+            type=click.INT,
             help="Number of slots to create (1..99).",
         ),
-    ]
+    ] = None
 
 
 class SlotInitResult(ClinkrModel):
@@ -60,6 +61,12 @@ def run_init_slots(ctx: click.Context, request: SlotInitRequest) -> ClinkrExit[S
     if isinstance(slots_ctx_result, NoRepoSentinel):
         Ensure.fail(error_type="not_in_repo", message=slots_ctx_result.message)
     slots_ctx = slots_ctx_result
+
+    if request.size is None:
+        return ClinkrExit.failure(
+            error_type="invalid_size",
+            message="--size must be between 1 and 99.",
+        )
 
     outcome = initialize_pool(slots_ctx, request.size)
     if isinstance(outcome, SlotLifecycleFailure):

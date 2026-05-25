@@ -174,6 +174,30 @@ def test_slot_init_rejects_invalid_size(cli_group: ClinkrGroup, tmp_path: Path, 
     assert payload["error_type"] == "invalid_size"
 
 
+def test_slot_init_missing_size_machine_invalid_size(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    ctx = _fake_for_repo(tmp_path)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["init", "--format", "json"],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 2
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["exit_code"] == 2
+    assert payload["error_type"] == "invalid_size"
+    assert payload["message"] == "--size must be between 1 and 99."
+
+    git = ctx.git
+    assert isinstance(git, FakeGitGateway)
+    assert git._add_detached_worktree_calls == []
+
+
 def test_slot_init_refuses_when_pool_already_initialized(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
