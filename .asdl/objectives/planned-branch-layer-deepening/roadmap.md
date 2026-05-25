@@ -10,18 +10,20 @@
   - Make `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` behavior read as planning-layer local storage, not Branch Memory storage.
   - Remove or isolate deprecated archive vocabulary and stale direct Branch Memory plan-storage paths that fail the deletion test.
   - Preserve slug validation, repo identity, branch encoding, newest-plan selection, and exclusive-write behavior.
-- [ ] Isolate Branch Memory attachment behind a lower Adapter.
+- [~] Isolate Branch Memory attachment behind a lower Adapter.
   - Keep the canonical attachment contract: namespace `brmem-plans`, key `<slug>.md`, target implementation branch.
   - Concentrate Branch Memory command discovery, `check`, `put`, JSON parsing, and partial-failure diagnostics where the planning layer crosses the storage Seam.
+  - The attached-plan reader now reuses the existing `runBrmem` discovery/fallback seam and owns read-path JSON validation without extracting a broad generic Adapter.
   - Avoid extracting a broad generic Branch Memory Adapter unless the planned-branch workflow proves it through the deletion test.
 - [~] Improve `/create-planned-branch` presentation around planning concepts.
   - Preview saved plan, target planned branch, branch creation method, and attached-plan outcome as planning facts.
   - Keep Branch Memory namespace, key, ref, commit, and source-file evidence available where it helps diagnose or recover from failures.
   - Update fake-driven tests to assert the planning-level Interface rather than overfitting to storage internals.
-- [ ] Implement a tested attached-plan reader for `/impl-planned-branch`.
+- [x] Implement a tested attached-plan reader for `/impl-planned-branch`.
   - Move deterministic branch safety checks, canonical `brmem-plans` listing, key normalization, branch-final-segment matching, single-entry fallback, multiple-entry ambiguity, and selected-plan loading into tested code.
   - Cover detached HEAD, trunk/default branch refusal, no entries, invalid requested key, multiple entries, selected key loading, and malformed Branch Memory output.
-  - Make the skill call or describe this tested operation instead of owning the shell workflow in prose.
+  - `/impl-planned-branch` now loads the selected attached plan and injects an authoritative implementation prompt instead of dispatching `/skill:brmem-plan-impl`.
+  - `brmem-plan-impl` now describes `/impl-planned-branch` usage instead of owning the shell workflow in prose.
 - [ ] Decide and apply skill naming cleanup.
   - Decide whether `brmem-plan-impl` should be renamed, kept as a thin compatibility entry, or replaced by `/impl-planned-branch` usage.
   - Update skill frontmatter, symlink/install layout, `skills-lock.json`, and references consistently if a rename is accepted.
@@ -33,7 +35,8 @@
 - [~] Resolve overlap with `pi-extension-deepening`.
   - Record that this Objective owns the focused planned-branch layer slice.
   - Update or cross-reference `pi-extension-deepening` when a candidate is implemented, parked, or split out by this work.
-- [ ] Validate the accepted implementation slices.
+- [~] Validate the accepted implementation slices.
+  - `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check` passed for the attached-plan reader slice.
   - Run `bun run --cwd ts check` and focused `bun run --cwd ts test` coverage for TypeScript changes.
   - Run `just dprint-check` for Markdown/TOML changes and use `just dprint-fix` if formatting fails.
   - Run broader repo validation when Python, repo-wide docs, skill layout, or installer behavior changes require it.

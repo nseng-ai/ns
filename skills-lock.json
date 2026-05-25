@@ -16,11 +16,6 @@
       "sourceType": "local",
       "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
-    "brmem-plan-impl": {
-      "source": "skills/brmem-plan-impl",
-      "sourceType": "local",
-      "computedHash": "926c73c4d36acb7c4676353140694b95035e28f024d0cb2c733c5fa87f3bb16e"
-    },
     "dev-checkpoint": {
       "source": "skills/dev-checkpoint",
       "sourceType": "local",

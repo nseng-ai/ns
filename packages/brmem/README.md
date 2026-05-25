@@ -28,8 +28,8 @@ Architecture and import rules for contributors live in [`AGENTS.md`](./AGENTS.md
 
 ## Planned-Branch Helper Workflow
 
-This repo also carries Pi extension commands and a helper skill that exercise
-`brmem` as worked examples.
+This repo also carries Pi extension commands that exercise `brmem` as worked
+examples.
 
 It supports this pattern:
 
@@ -56,8 +56,8 @@ Graphite branch creation uses `git branch <target> HEAD` followed by `gt track
 The helper still passes `--branch <target-branch>` when storing Branch Memory, so
 storage does not depend on the current checkout.
 
-Use `brmem-plan-impl` or `/impl-planned-branch` on the implementation branch to
-load the canonical attached plan from namespace `brmem-plans` and begin work.
+Use `/impl-planned-branch` on the implementation branch to load the canonical
+attached plan from namespace `brmem-plans` and begin work.
 
 ## Mental Model
 
@@ -100,8 +100,8 @@ directory you provide.
 | Copy a Namespace from one branch to another | `brmem copy`                | Branch     |
 | Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing    |
 
-The planned-branch Pi commands and `brmem-plan-impl` skill are helper workflows
-and double as worked examples of how to use `brmem`.
+The planned-branch Pi commands are helper workflows and double as worked
+examples of how to use `brmem`.
 
 ## Normal Workflow
 
@@ -262,6 +262,3 @@ working tree.
 - `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch`: Pi
   extension commands for saving a plan, creating a planned branch, attaching the
   plan, and starting implementation.
-- [`skills/brmem-plan-impl`](../../skills/brmem-plan-impl/): a helper that loads
-  a canonical plan from `brmem-plans` on the current branch and starts
-  implementation.
