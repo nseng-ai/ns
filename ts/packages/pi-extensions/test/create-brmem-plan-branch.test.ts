@@ -823,7 +823,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).toContain(`Bytes: ${new TextEncoder().encode(IMPL_PLAN_CONTENT).length}`);
 		expect(pi.sentUserMessages[0]).toContain(IMPL_PLAN_CONTENT);
 		expect(pi.sentUserMessages[0]).toContain("Create an implementation checklist");
-		expect(pi.sentUserMessages[0]).not.toContain("/skill:brmem-plan-impl");
+		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
 	test("impl-planned-branch passes a requested slug into attached-plan selection", async () => {
@@ -837,7 +837,7 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain(`Selected key: ${PLAN_KEY}`);
-		expect(pi.sentUserMessages[0]).not.toContain("/skill:brmem-plan-impl");
+		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
 	test("impl-planned-branch presents load failures without sending an implementation prompt", async () => {

@@ -387,6 +387,7 @@ describe("buildImplPlannedBranchPrompt", () => {
 		expect(prompt).toContain(`Ref: ${PLAN_REF}`);
 		expect(prompt).toContain(`Bytes: ${new TextEncoder().encode(PLAN_CONTENT).length}`);
 		expect(prompt).toContain("Create an implementation checklist");
+		expect(prompt).toContain("Do not call `brmem put`, `brmem copy`, `brmem delete`");
 		expect(prompt).toContain(`----- BEGIN ATTACHED PLAN -----\n${PLAN_CONTENT}\n----- END ATTACHED PLAN -----`);
 	});
 });

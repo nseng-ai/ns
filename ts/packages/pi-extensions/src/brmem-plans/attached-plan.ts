@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { TextEncoder } from "node:util";
 
 import { formatCommand, tailText, type ExecResult } from "../command-runtime.ts";
@@ -6,6 +7,7 @@ import { formatCommandFailure, runBrmem, type BrmemPlanExecApi, type ExecOptions
 
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
+const IMPL_PLANNED_BRANCH_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/impl-planned-branch.md", import.meta.url), "utf8").trimEnd();
 
 export type AttachedPlanEntry = {
 	namespace: string;
@@ -208,21 +210,22 @@ export function parseBrmemGetContent(stdout: string, expected: { namespace: stri
 }
 
 export function buildImplPlannedBranchPrompt(plan: LoadedAttachedPlan): string {
-	return [
-		"This is a /impl-planned-branch request. The attached planned-branch plan has been loaded by the planning-layer reader.",
-		"",
-		`Branch: ${plan.branch}`,
-		`Namespace: ${plan.namespace}`,
-		`Selected key: ${plan.selectedKey}`,
-		`Ref: ${plan.refName}`,
-		`Bytes: ${plan.byteCount}`,
-		"",
-		"Treat the following plan as authoritative. Create an implementation checklist, then begin implementation unless the plan is ambiguous or internally inconsistent.",
-		"",
-		"----- BEGIN ATTACHED PLAN -----",
-		plan.content,
-		"----- END ATTACHED PLAN -----",
-	].join("\n");
+	return renderTemplate(IMPL_PLANNED_BRANCH_PROMPT_TEMPLATE, {
+		branch: plan.branch,
+		namespace: plan.namespace,
+		selected_key: plan.selectedKey,
+		ref: plan.refName,
+		byte_count: String(plan.byteCount),
+		attached_plan: plan.content,
+	});
+}
+
+function renderTemplate(template: string, values: Record<string, string>): string {
+	let rendered = template;
+	for (const [key, value] of Object.entries(values)) {
+		rendered = rendered.split(`{{${key}}}`).join(value);
+	}
+	return rendered;
 }
 
 export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): string {
