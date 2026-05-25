@@ -27,8 +27,6 @@ export type SourceBranchPlanFileOptions = {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
-	/** @deprecated Use planStoreRoot. */
-	archiveRoot?: string | undefined;
 };
 
 export type PlanStoreDirectoryEvidence = {
@@ -39,9 +37,6 @@ export type PlanStoreDirectoryEvidence = {
 	branchKey: string;
 	directoryPath: string;
 };
-
-/** @deprecated Use PlanStoreDirectoryEvidence. */
-export type SourceBranchPlanArchiveDirectoryEvidence = PlanStoreDirectoryEvidence;
 
 export type LatestSourceBranchPlanFileEvidence = PlanStoreDirectoryEvidence & {
 	slug: string;
@@ -75,11 +70,6 @@ export function defaultPlanStoreRoot(): string {
 	return join(homedir(), ".asdl", "plans");
 }
 
-/** @deprecated Use defaultPlanStoreRoot. */
-export function defaultPlanArchiveRoot(): string {
-	return defaultPlanStoreRoot();
-}
-
 export function normalizeRepoOriginUrl(rawUrl: string): string {
 	const trimmed = rawUrl.trim();
 	if (trimmed.length === 0) {
@@ -96,7 +86,7 @@ export function normalizeRepoOriginUrl(rawUrl: string): string {
 	return stripGitSuffix(stripTrailingSlashes(candidate));
 }
 
-export function buildRepoArchiveKey(repoRoot: string, normalizedIdentity: string): string {
+export function buildRepoPlanStoreKey(repoRoot: string, normalizedIdentity: string): string {
 	const identity = normalizeRepoOriginUrl(normalizedIdentity);
 	const githubIdentity = parseGitHubRepoIdentity(identity);
 	if (githubIdentity !== undefined) {
@@ -164,9 +154,9 @@ export async function resolvePlanStoreDirectory(
 	const repoRoot = await resolveRequiredGitRepoRoot(pi, options.cwd, options.signal);
 	const sourceBranch = await resolveCurrentBranch(pi, options.cwd, options.signal);
 	const repoIdentity = await resolveRepoIdentity(pi, options.cwd, repoRoot, options.signal);
-	const repoKey = buildRepoArchiveKey(repoRoot, repoIdentity.identity);
+	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
-	const planStoreRoot = options.planStoreRoot ?? options.archiveRoot ?? defaultPlanStoreRoot();
+	const planStoreRoot = options.planStoreRoot ?? defaultPlanStoreRoot();
 	const directoryPath = join(planStoreRoot, repoKey, branchKey);
 
 	return {
@@ -177,14 +167,6 @@ export async function resolvePlanStoreDirectory(
 		branchKey,
 		directoryPath,
 	};
-}
-
-/** @deprecated Use resolvePlanStoreDirectory. */
-export async function resolveSourceBranchPlanArchiveDirectory(
-	pi: BrmemPlanExecApi,
-	options: SourceBranchPlanFileOptions,
-): Promise<PlanStoreDirectoryEvidence> {
-	return resolvePlanStoreDirectory(pi, options);
 }
 
 export async function findLatestSourceBranchPlanFile(

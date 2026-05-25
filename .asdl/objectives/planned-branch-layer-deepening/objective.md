@@ -64,6 +64,7 @@ Assumptions:
 - The stable slash-command Interface is already useful and should remain centered on planning terms.
 - A tested attached-plan reader plus extension-owned Markdown prompt can preserve the useful behavior formerly carried by `brmem-plan-impl` while eliminating a confusing discoverable skill surface; current evidence confirms this for branch safety, key selection, attached-plan loading, prompt injection, and implementation guardrails.
 - The local plan store path convention remains the right pre-branch place for reviewed plans created by `/write-plan`.
+- Current cleanup evidence confirms `/write-plan` persists only to the local plan store; the old direct Branch Memory `plans` namespace and archive compatibility aliases are deleted rather than retained.
 
 Risks:
 
@@ -73,6 +74,7 @@ Risks:
 - Skill cleanup no longer depends on a rename: the repo-local `brmem-plan-impl` source, `.agents`/`.claude` symlinks, lockfile entry, and installer references have been removed. The residual caveat is that already-running Pi sessions may still have startup-loaded skill context until reload or a new session.
 - Graphite branch creation remains repo-specific policy. Changes must respect the runtime Graphite dependency boundary and keep Graphite usage behind explicit planned-branch configuration or command semantics.
 - The docs-relocation discoverability risk is mitigated by `docs/pi/planned-branch-workflow.md`, its `docs/pi/README.md` index link, and a concise `packages/brmem/README.md` pointer; future command-help improvements are optional rather than required for this Objective.
+- Remaining `brmem` names are intentional entrypoint, namespace, active command, or diagnostic labels rather than a second Branch Memory plan-storage workflow.
 
 ## Open Questions
 
@@ -80,3 +82,4 @@ Risks:
 - Which Branch Memory details should remain in normal success output, and which should move to diagnostics for failure or expanded evidence?
 - Answered: generic Branch Memory CLI Adapter work belongs to `pi-extension-deepening` as shared CLI plumbing, not to this Objective; planned-branch closure does not wait on generic Adapter extraction.
 - Answered: durable planning workflow documentation now lives in `docs/pi/planned-branch-workflow.md`, linked from `docs/pi/README.md`, with a concise pointer from `packages/brmem/README.md`; command help expansion can remain optional follow-up work.
+- Answered: stale direct Branch Memory `plans` storage and old archive vocabulary should not be retained; active names now use local plan store terminology for saved plans and the explicit `brmem-plans` contract for attached plans.
