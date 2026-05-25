@@ -6,6 +6,11 @@
       "sourceType": "local",
       "computedHash": "f152cdf4b8c62ed1406b6ab8f1023cf47624ac8af1f4c2d3d4c42f7ab7cbd694"
     },
+    "brmem-pickup-handoff": {
+      "source": "skills/brmem-pickup-handoff",
+      "sourceType": "local",
+      "computedHash": "02e9525fbf0101e3f336efb7ff3afd3afe90fd5a336bd2d4b9a2c1974ac5070d"
+    },
     "brmem": {
       "source": "skills/brmem",
       "sourceType": "local",
