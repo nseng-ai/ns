@@ -12,10 +12,10 @@ import { isPathInside, normalizePlanFilePath, validatePlanSlug, type ExecOptions
 import {
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
-	resolveSourceBranchPlanArchiveDirectory,
+	resolvePlanStoreDirectory,
 	writeSourceBranchPlanFile as writeSourceBranchPlanFilePrimitive,
 	type LatestSourceBranchPlanFileEvidence,
-	type SourceBranchPlanArchiveDirectoryEvidence,
+	type PlanStoreDirectoryEvidence,
 	type SourceBranchPlanFileEvidence,
 } from "./brmem-plans/source-plan-file.ts";
 import type { ExecResult } from "./command-runtime.ts";
@@ -32,16 +32,19 @@ export type { BranchCreationMethod, BrmemPlanBranchEvidence, CreateBrmemPlanBran
 export {
 	buildRepoArchiveKey,
 	defaultPlanArchiveRoot,
+	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
 	normalizeRepoOriginUrl,
+	resolvePlanStoreDirectory,
 	resolveSourceBranchPlanArchiveDirectory,
 	sanitizePlanPathSegment,
 	writeSourceBranchPlanFile,
 } from "./brmem-plans/source-plan-file.ts";
 export type {
 	LatestSourceBranchPlanFileEvidence,
+	PlanStoreDirectoryEvidence,
 	RepoIdentitySource,
 	SourceBranchPlanArchiveDirectoryEvidence,
 	SourceBranchPlanFileEvidence,
@@ -49,13 +52,14 @@ export type {
 	SourceBranchPlanFileParams,
 } from "./brmem-plans/source-plan-file.ts";
 
-const CREATE_BRMEM_PLAN_BRANCH_COMMAND_NAME = "create-brmem-plan-branch";
-const CREATE_PLAN_FILE_COMMAND_NAME = "create-plan-file";
-const CREATE_LATEST_PLAN_BRANCH_COMMAND_NAME = "create-latest-plan-branch";
-const CREATE_BRMEM_PLAN_BRANCH_TOOL_NAME = "create_brmem_plan_branch_from_file";
+const WRITE_PLAN_COMMAND_NAME = "write-plan";
+const CREATE_PLANNED_BRANCH_COMMAND_NAME = "create-planned-branch";
+const IMPL_PLANNED_BRANCH_COMMAND_NAME = "impl-planned-branch";
 const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
-const LATEST_PLAN_BRANCH_MESSAGE_TYPE = "latest-plan-branch-output";
-const LATEST_PLAN_BRANCH_STATUS_KEY = "create-latest-plan-branch";
+const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
+const PLANNED_BRANCH_STATUS_KEY = "create-planned-branch";
+
+const BRMEM_PLAN_IMPL_SKILL_COMMAND = "/skill:brmem-plan-impl";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -86,11 +90,16 @@ type SessionManagerLike = {
 };
 
 export type CreateBrmemPlanBranchExtensionOptions = {
+	plannedBranchDefaultCreation?: BranchCreationMethod;
+	plannedBranchPrefix?: string;
+	planStoreRoot?: string;
+	/** @deprecated Use plannedBranchDefaultCreation. */
 	latestPlanBranchDefaultCreation?: BranchCreationMethod;
+	/** @deprecated Use planStoreRoot. */
 	sourcePlanArchiveRoot?: string;
 };
 
-export type CreateLatestPlanBranchArgs = {
+export type CreatePlannedBranchArgs = {
 	help: boolean;
 	dryRun: boolean;
 	yes: boolean;
@@ -99,7 +108,7 @@ export type CreateLatestPlanBranchArgs = {
 	filePath?: string;
 };
 
-export type CreateLatestPlanBranchPreview = {
+export type CreatePlannedBranchPreview = {
 	mode: "latest" | "explicit" | "session";
 	slug: string;
 	filePath: string;
@@ -162,9 +171,9 @@ export type ExtensionAPI = {
 	sendUserMessage(content: string): void;
 };
 
-export const CREATE_LATEST_PLAN_BRANCH_USAGE = `Usage: /create-latest-plan-branch [options] [absolute-plan-file.md]
+export const CREATE_PLANNED_BRANCH_USAGE = `Usage: /create-planned-branch [options] [absolute-plan-file.md]
 
-Create a Branch Memory plan branch from the latest source-branch plan archive.
+Create a planned branch from a saved plan, then attach that plan to the branch in Branch Memory.
 
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
@@ -174,11 +183,11 @@ Options:
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 
-With no file path, the command prefers the most recent valid source plan created in the current session, then falls back to the newest .md file under ~/.asdl/plans/<repo>/<current-branch>/.
+With no file path, the command prefers the most recent valid saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
 An explicit file path must be absolute; a leading @ is accepted and stripped.`;
 
-export function buildCreatePlanFilePrompt(steering: string): string {
-	return `This is a /create-plan-file request. Create a detailed implementation plan and write only the source-branch plan archive file.
+export function buildWritePlanPrompt(steering: string): string {
+	return `This is a /write-plan request. Write a detailed implementation plan and save it in the local plan store.
 
 ${formatSteeringBlock(steering)}
 
@@ -187,15 +196,15 @@ Workflow:
 2. Produce a detailed Markdown implementation plan.
 3. Review the final Markdown plan content and choose a semantic kebab-case slug from that final content.
 4. Call write_source_branch_plan_file with the slug, full Markdown content, and optional one-sentence summary.
-5. Report the created file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, and summary when present.
-6. Stop. Do not create an implementation branch and do not call any Branch Memory plan-branch tool.
+5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, and summary when present.
+6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any plan-branch tool.
 
-Canonical source-branch archive contract:
-- Path convention: ~/.asdl/plans/<repo>/<source-branch>/<slug>.md
+Local plan store contract:
+- Path convention: ~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, brmem-plans/add-widget becomes brmem-plans---add-widget)
+- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, brmem-plans/add-widget becomes brmem-plans---add-widget)
 - <slug>: semantic kebab-case slug without .md
-- Existing archive file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.
+- Existing saved plan file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.
 - Working-tree behavior: no checked-in plan file is created.
 
 Slug rules:
@@ -223,108 +232,15 @@ Exact tool call shape:
 If summary is not useful, omit it from the tool call rather than passing an empty string. Do not create target branches or write Branch Memory in this workflow.`;
 }
 
-export function buildCreateBrmemPlanBranchPrompt(steering: string): string {
-	return `This is a /create-brmem-plan-branch request. Create a detailed implementation plan, archive it for the source branch, store it in Branch Memory, and create the target branch for implementation.
-
-${formatSteeringBlock(steering)}
-
-Workflow:
-1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
-2. Resolve repo/user Markdown policy when available:
-
-   \`\`\`text
-   brmem exec resolve-prompt create-brmem-plan-branch --format json
-   \`\`\`
-
-   If resolution succeeds, read the returned \`data.path\`. Treat that file as policy guidance only: follow its branch naming and branch creation instructions when choosing tool arguments, but do not run mutation commands yourself. If no policy is available, continue with the default branch creation method, \`plain-git\`.
-3. Produce a detailed Markdown implementation plan.
-4. Review the final Markdown plan content and choose a semantic kebab-case slug from that final content.
-5. Call write_source_branch_plan_file with the slug, full Markdown content, and optional one-sentence summary. This creates the stable source-branch archive file outside the repository.
-6. Call create_brmem_plan_branch_from_file using the same slug, the filePath returned by write_source_branch_plan_file, optional branchName only when needed, optional branchCreation only when policy requests it, and the same optional summary.
-7. Report both source-branch plan archive evidence and target branch + Branch Memory evidence.
-
-Canonical source-branch archive contract:
-- Path convention: ~/.asdl/plans/<repo>/<source-branch>/<slug>.md
-- <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, brmem-plans/add-widget becomes brmem-plans---add-widget)
-- <slug>: semantic kebab-case slug without .md
-- Existing archive file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.
-- Working-tree behavior: no checked-in plan file is created.
-
-Canonical target storage contract:
-- Branch Memory namespace: ${PLAN_BRANCH_NAMESPACE}
-- Entry key: <semantic-slug>.md
-- Source file for Branch Memory: the archive file path returned by write_source_branch_plan_file
-- Branch target: created by create_brmem_plan_branch_from_file using the branchCreation backend requested by Markdown policy, defaulting to plain-git unless branchCreation is provided
-- Branch Memory write: stored for the target branch with an explicit --branch <target-branch>
-- Working-tree behavior: no checked-in plan file is created
-
-Slug rules:
-- The command did not provide a slug; you must generate the final slug.
-- Use kebab-case.
-- Use 3–7 words.
-- Make it specific to the work described by the final plan.
-- Do not use dates or random IDs.
-- Do not use generic-only slugs such as plan, task, implementation-plan, or work-plan.
-
-Branch-name rules:
-- Omit branchName unless user steering or repository policy requires an explicit name.
-- If branchName is provided, it must be the exact local branch name to create for implementation.
-- branchName may include a semantic prefix such as brmem-plans/... when that is the repo convention.
-- The Branch Memory key remains <semantic-slug>.md even when branchName differs from the slug.
-
-Branch-creation rules:
-- Omit branchCreation unless Markdown policy requests a backend.
-- If policy requests plain Git, pass \`branchCreation: "plain-git"\` or omit branchCreation.
-- If policy requests Graphite, pass \`branchCreation: "graphite"\`.
-- Never manually run git branch, gt track, brmem check, or brmem put for this workflow; the tools own all mutations.
-
-When the source archive plan is ready, call write_source_branch_plan_file with:
-- slug: the semantic slug, without .md
-- content: the complete reviewed Markdown plan content
-- summary: optional one-sentence summary of the plan
-
-Then call create_brmem_plan_branch_from_file with:
-- slug: the same semantic slug, without .md
-- filePath: the absolute filePath returned by write_source_branch_plan_file
-- branchName: optional explicit target branch name, only when needed
-- branchCreation: optional branch creation backend requested by Markdown policy (\`plain-git\` or \`graphite\`)
-- summary: the same optional one-sentence summary of the plan
-
-Exact write_source_branch_plan_file tool call shape:
-\`\`\`json
-{
-  "slug": "semantic-kebab-case-slug",
-  "content": "# Plan\\n...",
-  "summary": "One-sentence summary of the plan."
-}
-\`\`\`
-
-Exact create_brmem_plan_branch_from_file tool call shape:
-\`\`\`json
-{
-  "slug": "semantic-kebab-case-slug",
-  "filePath": "/absolute/path/returned/by/write_source_branch_plan_file.md",
-  "branchName": "optional/target-branch-name",
-  "branchCreation": "plain-git-or-graphite-when-policy-requests-it",
-  "summary": "One-sentence summary of the plan."
-}
-\`\`\`
-
-If branchName, branchCreation, or summary is not needed, omit it from the relevant tool call rather than passing an empty string.
-
-If branch creation or Branch Memory storage fails, stop and surface the error. Do not retry with a different slug, branch name, or backend unless the error clearly asks for a corrected value and the corrected value still reflects the final plan content and Markdown policy. The create_brmem_plan_branch_from_file tool may report partial failure after creating the branch; if so, report the partial state exactly.`;
-}
-
-class CreateLatestPlanBranchUsageError extends Error {
+class CreatePlannedBranchUsageError extends Error {
 	constructor(message: string) {
 		super(message);
-		this.name = "CreateLatestPlanBranchUsageError";
+		this.name = "CreatePlannedBranchUsageError";
 	}
 }
 
-export function parseCreateLatestPlanBranchArgs(rawArgs: string): CreateLatestPlanBranchArgs {
-	const parsed: CreateLatestPlanBranchArgs = { help: false, dryRun: false, yes: false };
+export function parseCreatePlannedBranchArgs(rawArgs: string): CreatePlannedBranchArgs {
+	const parsed: CreatePlannedBranchArgs = { help: false, dryRun: false, yes: false };
 	const tokens = rawArgs
 		.trim()
 		.split(/\s+/)
@@ -360,7 +276,7 @@ export function parseCreateLatestPlanBranchArgs(rawArgs: string): CreateLatestPl
 		if (token === "--branch") {
 			const value = tokens[index + 1];
 			if (value === undefined || value.startsWith("-")) {
-				throw new CreateLatestPlanBranchUsageError("Missing value for --branch.");
+				throw new CreatePlannedBranchUsageError("Missing value for --branch.");
 			}
 			parsed.branchName = value;
 			index += 1;
@@ -369,20 +285,20 @@ export function parseCreateLatestPlanBranchArgs(rawArgs: string): CreateLatestPl
 		if (token.startsWith("--branch=")) {
 			const value = token.slice("--branch=".length);
 			if (value.length === 0) {
-				throw new CreateLatestPlanBranchUsageError("Missing value for --branch.");
+				throw new CreatePlannedBranchUsageError("Missing value for --branch.");
 			}
 			parsed.branchName = value;
 			continue;
 		}
 		if (token.startsWith("-")) {
-			throw new CreateLatestPlanBranchUsageError(`Unknown flag: ${token}`);
+			throw new CreatePlannedBranchUsageError(`Unknown flag: ${token}`);
 		}
 
 		positional.push(token);
 	}
 
 	if (positional.length > 1) {
-		throw new CreateLatestPlanBranchUsageError("Expected at most one plan file path.");
+		throw new CreatePlannedBranchUsageError("Expected at most one plan file path.");
 	}
 	const filePath = positional[0];
 	if (filePath !== undefined) {
@@ -392,22 +308,22 @@ export function parseCreateLatestPlanBranchArgs(rawArgs: string): CreateLatestPl
 	return parsed;
 }
 
-function setBranchCreation(args: CreateLatestPlanBranchArgs, branchCreation: BranchCreationMethod): void {
+function setBranchCreation(args: CreatePlannedBranchArgs, branchCreation: BranchCreationMethod): void {
 	if (args.branchCreation !== undefined && args.branchCreation !== branchCreation) {
-		throw new CreateLatestPlanBranchUsageError("Cannot pass both --graphite and --plain-git.");
+		throw new CreatePlannedBranchUsageError("Cannot pass both --graphite and --plain-git.");
 	}
 	args.branchCreation = branchCreation;
 }
 
-export async function resolveCreateLatestPlanBranchPreview(
+export async function resolveCreatePlannedBranchPreview(
 	pi: ExtensionAPI,
-	args: CreateLatestPlanBranchArgs,
+	args: CreatePlannedBranchArgs,
 	ctx: CommandContext,
 	options: CreateBrmemPlanBranchExtensionOptions = {},
-): Promise<CreateLatestPlanBranchPreview> {
-	const selected = await resolveSelectedLatestPlanFile(pi, args, ctx, options);
-	const branchCreation = args.branchCreation ?? options.latestPlanBranchDefaultCreation ?? "plain-git";
-	const targetBranch = deriveTargetBranch(args.branchName, selected.slug);
+): Promise<CreatePlannedBranchPreview> {
+	const selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
+	const branchCreation = args.branchCreation ?? resolvePlannedBranchDefaultCreation(options);
+	const targetBranch = derivePlannedTargetBranch(args, selected.slug, options);
 	const base = {
 		slug: selected.slug,
 		filePath: selected.filePath,
@@ -434,13 +350,13 @@ export async function resolveCreateLatestPlanBranchPreview(
 	};
 }
 
-export function formatLatestPlanBranchPreview(preview: CreateLatestPlanBranchPreview): string {
+export function formatCreatePlannedBranchPreview(preview: CreatePlannedBranchPreview): string {
 	const lines = [
 		preview.mode === "explicit"
-			? "Explicit source plan file:"
+			? "Explicit saved plan file:"
 			: preview.mode === "session"
-				? "Latest source-branch plan from session history:"
-				: "Latest source-branch plan:",
+				? "Saved plan from current session:"
+				: "Latest saved plan from local plan store:",
 	];
 	lines.push(`Path: ${preview.filePath}`);
 	lines.push(`Slug: ${preview.slug}`);
@@ -458,6 +374,7 @@ export function formatLatestPlanBranchPreview(preview: CreateLatestPlanBranchPre
 	lines.push("Target:");
 	lines.push(`Branch: ${preview.targetBranch}`);
 	lines.push(`Branch creation: ${preview.branchCreation}`);
+	lines.push("Attach plan as:");
 	lines.push(`Branch Memory namespace: ${preview.namespace}`);
 	lines.push(`Branch Memory key: ${preview.key}`);
 	return lines.join("\n");
@@ -467,44 +384,44 @@ export default function createBrmemPlanBranchExtension(
 	pi: ExtensionAPI,
 	options: CreateBrmemPlanBranchExtensionOptions = {},
 ): void {
-	pi.registerCommand(CREATE_BRMEM_PLAN_BRANCH_COMMAND_NAME, {
-		description: "Create an implementation plan, archive it, store it in Branch Memory, and create the target branch.",
-		handler: async (args, ctx) => handleCreateBrmemPlanBranchCommand(pi, args, ctx),
+	pi.registerCommand(WRITE_PLAN_COMMAND_NAME, {
+		description: "Write and save a reviewed implementation plan in the local plan store.",
+		handler: async (args, ctx) => handleWritePlanCommand(pi, args, ctx),
 	});
 
-	pi.registerCommand(CREATE_PLAN_FILE_COMMAND_NAME, {
-		description: "Create a reviewed implementation plan file in the local source-branch archive.",
-		handler: async (args, ctx) => handleCreatePlanFileCommand(pi, args, ctx),
+	pi.registerCommand(CREATE_PLANNED_BRANCH_COMMAND_NAME, {
+		description: "Create a planned branch from a saved plan, then attach the plan in Branch Memory.",
+		handler: async (args, ctx) => handleCreatePlannedBranchCommand(pi, args, ctx, options),
 	});
 
-	pi.registerCommand(CREATE_LATEST_PLAN_BRANCH_COMMAND_NAME, {
-		description: "Create a Branch Memory plan branch from the latest source-branch plan archive.",
-		handler: async (args, ctx) => handleCreateLatestPlanBranchCommand(pi, args, ctx, options),
+	pi.registerCommand(IMPL_PLANNED_BRANCH_COMMAND_NAME, {
+		description: "Implement from the attached planned-branch plan.",
+		handler: async (args, ctx) => handleImplPlannedBranchCommand(pi, args, ctx),
 	});
 
-	pi.registerTool(buildWriteSourceBranchPlanFileTool(pi));
-	pi.registerTool(buildCreateBrmemPlanBranchTool(pi));
+	pi.registerTool(buildWriteSourceBranchPlanFileTool(pi, options));
 }
 
-async function handleCreatePlanFileCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting source plan-file planning turn…", "info");
+		ctx.ui.notify("Starting /write-plan planning turn…", "info");
 	}
-	pi.sendUserMessage(buildCreatePlanFilePrompt(steering));
+	pi.sendUserMessage(buildWritePlanPrompt(steering));
 }
 
-async function handleCreateBrmemPlanBranchCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+async function handleImplPlannedBranchCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
-	const steering = args.trim();
+	const trimmedArgs = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting brmem plan-branch planning turn…", "info");
+		ctx.ui.notify("Starting implementation from the attached plan…", "info");
 	}
-	pi.sendUserMessage(buildCreateBrmemPlanBranchPrompt(steering));
+	const command = trimmedArgs.length > 0 ? `${BRMEM_PLAN_IMPL_SKILL_COMMAND} ${trimmedArgs}` : BRMEM_PLAN_IMPL_SKILL_COMMAND;
+	pi.sendUserMessage(command);
 }
 
-async function handleCreateLatestPlanBranchCommand(
+async function handleCreatePlannedBranchCommand(
 	pi: ExtensionAPI,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -512,39 +429,39 @@ async function handleCreateLatestPlanBranchCommand(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	let args: CreateLatestPlanBranchArgs;
+	let args: CreatePlannedBranchArgs;
 	try {
-		args = parseCreateLatestPlanBranchArgs(rawArgs);
+		args = parseCreatePlannedBranchArgs(rawArgs);
 	} catch (error) {
-		if (error instanceof CreateLatestPlanBranchUsageError) {
-			presentLatestPlanBranchMessage(pi, ctx, `Usage error: ${error.message}\n\n${CREATE_LATEST_PLAN_BRANCH_USAGE}`, { status: "usage" }, "error");
+		if (error instanceof CreatePlannedBranchUsageError) {
+			presentPlannedBranchMessage(pi, ctx, `Usage error: ${error.message}\n\n${CREATE_PLANNED_BRANCH_USAGE}`, { status: "usage" }, "error");
 			return;
 		}
 		throw error;
 	}
 
 	if (args.help) {
-		presentLatestPlanBranchMessage(pi, ctx, CREATE_LATEST_PLAN_BRANCH_USAGE, { status: "usage" }, "info");
+		presentPlannedBranchMessage(pi, ctx, CREATE_PLANNED_BRANCH_USAGE, { status: "usage" }, "info");
 		return;
 	}
 
-	let preview: CreateLatestPlanBranchPreview;
-	ctx.ui.setStatus(LATEST_PLAN_BRANCH_STATUS_KEY, "finding latest source-branch plan…");
+	let preview: CreatePlannedBranchPreview;
+	ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, "finding saved plan…");
 	try {
-		preview = await resolveCreateLatestPlanBranchPreview(pi, args, ctx, options);
+		preview = await resolveCreatePlannedBranchPreview(pi, args, ctx, options);
 	} catch (error) {
-		presentLatestPlanBranchFailure(pi, ctx, "Failed to resolve source plan file.", error);
+		presentPlannedBranchFailure(pi, ctx, "Failed to resolve saved plan file.", error);
 		return;
 	} finally {
-		ctx.ui.setStatus(LATEST_PLAN_BRANCH_STATUS_KEY, undefined);
+		ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, undefined);
 	}
 
-	const previewText = formatLatestPlanBranchPreview(preview);
+	const previewText = formatCreatePlannedBranchPreview(preview);
 	if (args.dryRun) {
-		presentLatestPlanBranchMessage(
+		presentPlannedBranchMessage(
 			pi,
 			ctx,
-			`Dry run: no branch or Branch Memory entry was created.\n\n${previewText}`,
+			`Dry run: no branch was created and no plan was attached.\n\n${previewText}`,
 			{ status: "dry-run", preview },
 			"info",
 		);
@@ -553,22 +470,22 @@ async function handleCreateLatestPlanBranchCommand(
 
 	if (!args.yes) {
 		if (!ctx.hasUI || ctx.ui.confirm === undefined) {
-			presentLatestPlanBranchMessage(
+			presentPlannedBranchMessage(
 				pi,
 				ctx,
-				`Refusing to create a Branch Memory plan branch without interactive confirmation. Re-run with --yes to execute.\n\n${previewText}`,
+				`Refusing to create a planned branch without interactive confirmation. Re-run with --yes to execute.\n\n${previewText}`,
 				{ status: "confirmation-required", preview },
 				"warning",
 			);
 			return;
 		}
 
-		const confirmed = await ctx.ui.confirm("Create Branch Memory plan branch?", previewText);
+		const confirmed = await ctx.ui.confirm("Create planned branch?", previewText);
 		if (!confirmed) {
-			presentLatestPlanBranchMessage(
+			presentPlannedBranchMessage(
 				pi,
 				ctx,
-				`Cancelled: no branch or Branch Memory entry was created.\n\n${previewText}`,
+				`Cancelled: no branch was created and no plan was attached.\n\n${previewText}`,
 				{ status: "cancelled", preview },
 				"info",
 			);
@@ -576,38 +493,38 @@ async function handleCreateLatestPlanBranchCommand(
 		}
 	}
 
-	ctx.ui.setStatus(LATEST_PLAN_BRANCH_STATUS_KEY, "creating Branch Memory plan branch…");
+	ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, "creating branch and attaching plan…");
 	try {
 		const params: { slug: string; filePath: string; branchCreation: BranchCreationMethod; branchName?: string } = {
 			slug: preview.slug,
 			filePath: preview.filePath,
 			branchCreation: preview.branchCreation,
 		};
-		if (args.branchName !== undefined) {
-			params.branchName = args.branchName;
+		if (preview.targetBranch !== preview.slug) {
+			params.branchName = preview.targetBranch;
 		}
 
 		const evidence = await createBrmemPlanBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd });
-		presentLatestPlanBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
+		presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", preview, evidence }, "info");
 	} catch (error) {
-		presentLatestPlanBranchFailure(pi, ctx, "Failed to create Branch Memory plan branch.", error, preview);
+		presentPlannedBranchFailure(pi, ctx, "Failed to create planned branch and attach the plan.", error, preview);
 	} finally {
-		ctx.ui.setStatus(LATEST_PLAN_BRANCH_STATUS_KEY, undefined);
+		ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, undefined);
 	}
 }
 
-function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI): ToolDefinition {
+function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: CreateBrmemPlanBranchExtensionOptions): ToolDefinition {
 	return {
 		name: WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
-		label: "Write Source Branch Plan File",
+		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed Markdown implementation plan file in the local source-branch plan archive at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed Markdown implementation plan file in the local plan store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
-			"Create a reviewed Markdown implementation plan file in the local source-branch archive under `~/.asdl/plans/<repo>/<source-branch>/<slug>.md`.",
+			"Create a reviewed Markdown implementation plan file in the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
-			"Use write_source_branch_plan_file for `/create-plan-file` and `/create-brmem-plan-branch` after producing a reviewed final Markdown plan.",
-			"write_source_branch_plan_file writes the local source-branch archive under `~/.asdl/plans/<repo>/<source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
-			"If write_source_branch_plan_file reports that the archive file already exists, choose a different semantic slug that still reflects the final plan content; never overwrite the existing file.",
+			"Use write_source_branch_plan_file for `/write-plan` after producing a reviewed final Markdown plan.",
+			"write_source_branch_plan_file writes the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"If write_source_branch_plan_file reports that the saved plan file already exists, choose a different semantic slug that still reflects the final plan content; never overwrite the existing file.",
 		],
 		parameters: {
 			type: "object",
@@ -629,7 +546,11 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI): ToolDefinition {
 			required: ["slug", "content"],
 		},
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const evidence = await writeSourceBranchPlanFilePrimitive(pi, params, { cwd: ctx.cwd, signal });
+			const evidence = await writeSourceBranchPlanFilePrimitive(pi, params, {
+				cwd: ctx.cwd,
+				signal,
+				planStoreRoot: resolvePlanStoreRootOption(options),
+			});
 			return {
 				content: [{ type: "text", text: formatSourceBranchPlanFileEvidence(evidence) }],
 				details: evidence,
@@ -638,62 +559,7 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI): ToolDefinition {
 	};
 }
 
-function buildCreateBrmemPlanBranchTool(pi: ExtensionAPI): ToolDefinition {
-	return {
-		name: CREATE_BRMEM_PLAN_BRANCH_TOOL_NAME,
-		label: "Create brmem Plan Branch",
-		description:
-			"Create an implementation branch and store a reviewed source plan file outside the repository in Branch Memory namespace `brmem-plans` with key `<slug>.md` for that target branch. Branch creation defaults to plain Git, or may use Graphite when Markdown policy explicitly requests `branchCreation: \"graphite\"`. Use only after creating the source-branch archive with write_source_branch_plan_file and choosing a semantic slug from the final plan content. No checked-in plan file is created.",
-		promptSnippet:
-			"Create an implementation branch and store a reviewed source plan file in Branch Memory namespace `brmem-plans`.",
-		promptGuidelines: [
-			"Use create_brmem_plan_branch_from_file only for `/create-brmem-plan-branch` workflows after write_source_branch_plan_file has created the source-branch plan archive.",
-			"Pass create_brmem_plan_branch_from_file the filePath returned by write_source_branch_plan_file; the Branch Memory key remains `<slug>.md`.",
-			"If Markdown policy specifies a branch creation backend, pass branchCreation accordingly; use `branchCreation: \"graphite\"` only when policy explicitly says to.",
-			"create_brmem_plan_branch_from_file stores plans in Branch Memory namespace `brmem-plans` with key `<slug>.md` for the target branch; do not create a checked-in plan file.",
-			"Do not manually run `git branch`, `gt track`, `brmem check`, or `brmem put` for this workflow.",
-		],
-		parameters: {
-			type: "object",
-			additionalProperties: false,
-			properties: {
-				slug: {
-					type: "string",
-					description: "Semantic kebab-case slug without the .md suffix; also used as the default branch name.",
-				},
-				filePath: {
-					type: "string",
-					description: "Absolute path to the completed reviewed source plan file outside the repository.",
-				},
-				branchName: {
-					type: "string",
-					description:
-						"Optional explicit local target branch name to create for implementation. Omit to use slug as the branch name.",
-				},
-				branchCreation: {
-					type: "string",
-					enum: ["plain-git", "graphite"],
-					description:
-						"Optional branch creation backend requested by Markdown policy. Defaults to plain-git. Use graphite only when repo/user policy explicitly says to.",
-				},
-				summary: {
-					type: "string",
-					description: "Optional one-sentence summary of the plan.",
-				},
-			},
-			required: ["slug", "filePath"],
-		},
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const evidence = await createBrmemPlanBranchFromFilePrimitive(pi, params, { cwd: ctx.cwd, signal });
-			return {
-				content: [{ type: "text", text: formatPlanBranchEvidence(evidence) }],
-				details: evidence,
-			};
-		},
-	};
-}
-
-type SelectedLatestPlanFile =
+type SelectedSavedPlanFile =
 	| {
 			mode: "explicit";
 			slug: string;
@@ -703,35 +569,35 @@ type SelectedLatestPlanFile =
 	| (LatestSourceBranchPlanFileEvidence & { mode: "latest" })
 	| (LatestSourceBranchPlanFileEvidence & { mode: "session" });
 
-type LatestPlanBranchMessageDetails = {
+type PlannedBranchMessageDetails = {
 	status: "usage" | "dry-run" | "confirmation-required" | "cancelled" | "success" | "failure";
-	preview?: CreateLatestPlanBranchPreview;
+	preview?: CreatePlannedBranchPreview;
 	evidence?: BrmemPlanBranchEvidence;
 	error?: string;
 };
 
-async function resolveSelectedLatestPlanFile(
+async function resolveSelectedSavedPlanFile(
 	pi: ExtensionAPI,
-	args: CreateLatestPlanBranchArgs,
+	args: CreatePlannedBranchArgs,
 	ctx: CommandContext,
 	options: CreateBrmemPlanBranchExtensionOptions,
-): Promise<SelectedLatestPlanFile> {
+): Promise<SelectedSavedPlanFile> {
 	if (args.filePath === undefined) {
-		const sessionEvidence = await findLatestSourcePlanFileFromSessionHistory(pi, ctx, options);
+		const sessionEvidence = await findLatestSavedPlanFileFromSessionHistory(pi, ctx, options);
 		if (sessionEvidence !== undefined) {
 			return sessionEvidence;
 		}
 
 		const evidence = await findLatestSourceBranchPlanFile(pi, {
 			cwd: ctx.cwd,
-			archiveRoot: options.sourcePlanArchiveRoot,
+			planStoreRoot: resolvePlanStoreRootOption(options),
 		});
 		return { ...evidence, mode: "latest" };
 	}
 
 	const filePath = normalizePlanFilePath(args.filePath);
 	if (!isAbsolute(filePath)) {
-		throw new Error(`Plan file path must be absolute for /create-latest-plan-branch; got ${filePath || "(empty)"}.`);
+		throw new Error(`Plan file path must be absolute for /create-planned-branch; got ${filePath || "(empty)"}.`);
 	}
 
 	const fileName = basename(filePath);
@@ -748,7 +614,7 @@ async function resolveSelectedLatestPlanFile(
 	return { mode: "explicit", slug, filePath, fileName };
 }
 
-async function findLatestSourcePlanFileFromSessionHistory(
+async function findLatestSavedPlanFileFromSessionHistory(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	options: CreateBrmemPlanBranchExtensionOptions,
@@ -758,9 +624,9 @@ async function findLatestSourcePlanFileFromSessionHistory(
 		return undefined;
 	}
 
-	const directory = await resolveSourceBranchPlanArchiveDirectory(pi, {
+	const directory = await resolvePlanStoreDirectory(pi, {
 		cwd: ctx.cwd,
-		archiveRoot: options.sourcePlanArchiveRoot,
+		planStoreRoot: resolvePlanStoreRootOption(options),
 	});
 
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
@@ -770,7 +636,7 @@ async function findLatestSourcePlanFileFromSessionHistory(
 			continue;
 		}
 
-		const candidate = await validateSessionSourcePlanCandidate(evidence, directory);
+		const candidate = await validateSessionSavedPlanCandidate(evidence, directory);
 		if (candidate !== undefined) {
 			return { ...candidate, mode: "session" };
 		}
@@ -837,9 +703,9 @@ function extractSourcePlanEvidenceFromSessionEntry(entry: unknown): SourceBranch
 	return { ...evidence, summary };
 }
 
-async function validateSessionSourcePlanCandidate(
+async function validateSessionSavedPlanCandidate(
 	evidence: SourceBranchPlanFileEvidence,
-	directory: SourceBranchPlanArchiveDirectoryEvidence,
+	directory: PlanStoreDirectoryEvidence,
 ): Promise<LatestSourceBranchPlanFileEvidence | undefined> {
 	if (validatePlanSlug(evidence.slug) !== undefined) {
 		return undefined;
@@ -884,35 +750,60 @@ async function validateSessionSourcePlanCandidate(
 	};
 }
 
+function resolvePlannedBranchDefaultCreation(options: CreateBrmemPlanBranchExtensionOptions): BranchCreationMethod {
+	return options.plannedBranchDefaultCreation ?? options.latestPlanBranchDefaultCreation ?? "plain-git";
+}
+
+function resolvePlanStoreRootOption(options: CreateBrmemPlanBranchExtensionOptions): string | undefined {
+	return options.planStoreRoot ?? options.sourcePlanArchiveRoot;
+}
+
+function derivePlannedTargetBranch(
+	args: CreatePlannedBranchArgs,
+	slug: string,
+	options: CreateBrmemPlanBranchExtensionOptions,
+): string {
+	if (args.branchName !== undefined) {
+		return deriveTargetBranch(args.branchName, slug);
+	}
+
+	const prefix = options.plannedBranchPrefix?.trim();
+	if (prefix !== undefined && prefix.length > 0) {
+		return `${prefix}${slug}`;
+	}
+
+	return deriveTargetBranch(undefined, slug);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function presentLatestPlanBranchFailure(
+function presentPlannedBranchFailure(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	title: string,
 	error: unknown,
-	preview?: CreateLatestPlanBranchPreview,
+	preview?: CreatePlannedBranchPreview,
 ): void {
 	const message = error instanceof Error ? error.message : String(error);
-	const details: LatestPlanBranchMessageDetails = { status: "failure", error: message };
+	const details: PlannedBranchMessageDetails = { status: "failure", error: message };
 	if (preview !== undefined) {
 		details.preview = preview;
 	}
-	presentLatestPlanBranchMessage(pi, ctx, `${title}\n\n${message}`, details, "error");
+	presentPlannedBranchMessage(pi, ctx, `${title}\n\n${message}`, details, "error");
 }
 
-function presentLatestPlanBranchMessage(
+function presentPlannedBranchMessage(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	content: string,
-	details: LatestPlanBranchMessageDetails,
+	details: PlannedBranchMessageDetails,
 	level: NotifyLevel,
 ): void {
 	if (pi.sendMessage) {
 		pi.sendMessage({
-			customType: LATEST_PLAN_BRANCH_MESSAGE_TYPE,
+			customType: PLANNED_BRANCH_MESSAGE_TYPE,
 			content,
 			display: true,
 			details,
@@ -934,7 +825,7 @@ function presentLatestPlanBranchMessage(
 
 export function formatPlanBranchEvidence(evidence: BrmemPlanBranchEvidence): string {
 	const lines = [
-		"Created Branch Memory plan branch.",
+		"Created planned branch and attached plan.",
 		`Branch: ${evidence.branch}`,
 		`Branch creation: ${evidence.branchCreation}`,
 		`Start point: ${evidence.startPoint}`,

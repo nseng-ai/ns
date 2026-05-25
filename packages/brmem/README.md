@@ -26,50 +26,38 @@ for code review and project history.
 
 Architecture and import rules for contributors live in [`AGENTS.md`](./AGENTS.md).
 
-## Plan-Branch Helper Workflow
+## Planned-Branch Helper Workflow
 
-This repo also carries helper skills that exercise `brmem` as worked examples.
+This repo also carries Pi extension commands and a helper skill that exercise
+`brmem` as worked examples.
 
 It supports this pattern:
 
-1. Plan changes on a parent branch.
-2. Create the implementation branch.
-3. Store the plan in that branch's `brmem`.
-4. Implement in that branch, typically in its own worktree.
+1. Write and save a plan on a parent branch with `/write-plan`.
+2. Create a planned branch from that saved plan with `/create-planned-branch`.
+3. Attach the plan to that branch in Branch Memory namespace `brmem-plans` with
+   key `<slug>.md`.
+4. Switch or open the planned branch, then begin implementation with
+   `/impl-planned-branch`.
 
-This is useful when you want to plan several pieces of work from a parent
-branch, usually `main` or `master`, and then start independent implementation
-sessions in separate worktrees.
+A saved plan lives in the local plan store at
+`~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. No checked-in plan file
+is created. `/create-planned-branch` selects a saved plan, creates the target
+implementation branch, and then attaches the plan to that branch in Branch
+Memory.
 
-`brmem-create-plan-branch-from-file` creates a local implementation branch from
-a reviewed temp Markdown plan and stores that plan in Branch Memory namespace
-`brmem-plans` with key `<slug>.md`. The source plan file stays outside the repo;
-no checked-in plan file is created.
-
-Branch naming and branch creation policy are repo-specific. A repo might use the
-slug directly, add a prefix, request Graphite branch creation, or require extra
-review checks before branch creation. That policy belongs in a prompt file and is
-passed to the shared tool through safe parameters such as `branchName` and
-`branchCreation`; branch creation and Branch Memory storage remain owned by the
-shared tool.
-
-In this repo:
-
-- The packaged default policy prompt is
-  [`skills/brmem-create-plan-branch-from-file/default-prompt.md`](../../skills/brmem-create-plan-branch-from-file/default-prompt.md).
-- The repo-local policy prompt is
-  [`.brmem/prompts/create-brmem-plan-branch.md`](../../.brmem/prompts/create-brmem-plan-branch.md).
-- The repo-local policy names implementation branches `brmem-plans/<slug>`,
-  requests `branchCreation: "graphite"`, and keeps the Branch Memory key
-  `<slug>.md`.
+Branch naming and branch creation policy are repo-specific extension
+configuration. In this repo, planned branches default to `brmem-plans/<slug>`,
+branch creation defaults to Graphite, and the Branch Memory key remains
+`<slug>.md`.
 
 Graphite branch creation uses `git branch <target> HEAD` followed by `gt track
 <target> --parent <current-branch>`, so it does not switch the current checkout.
-The shared tool still passes `--branch <target-branch>` when storing Branch
-Memory, so storage does not depend on the current checkout.
+The helper still passes `--branch <target-branch>` when storing Branch Memory, so
+storage does not depend on the current checkout.
 
-Use `brmem-plan-impl` on the implementation branch to load the canonical plan
-from namespace `brmem-plans` and begin work.
+Use `brmem-plan-impl` or `/impl-planned-branch` on the implementation branch to
+load the canonical attached plan from namespace `brmem-plans` and begin work.
 
 ## Mental Model
 
@@ -112,8 +100,8 @@ directory you provide.
 | Copy a Namespace from one branch to another | `brmem copy`                | Branch     |
 | Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing    |
 
-The `brmem-create-plan-branch-from-file` and `brmem-plan-impl` skills are
-helper workflows and double as worked examples of how to use `brmem`.
+The planned-branch Pi commands and `brmem-plan-impl` skill are helper workflows
+and double as worked examples of how to use `brmem`.
 
 ## Normal Workflow
 
@@ -271,9 +259,9 @@ working tree.
 ## See Also
 
 - [`AGENTS.md`](./AGENTS.md): contributor rules for this package.
-- [`skills/brmem-create-plan-branch-from-file`](../../skills/brmem-create-plan-branch-from-file/):
-  a helper that creates a plan branch and stores its canonical plan in Branch
-  Memory namespace `brmem-plans`.
+- `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch`: Pi
+  extension commands for saving a plan, creating a planned branch, attaching the
+  plan, and starting implementation.
 - [`skills/brmem-plan-impl`](../../skills/brmem-plan-impl/): a helper that loads
   a canonical plan from `brmem-plans` on the current branch and starts
   implementation.
