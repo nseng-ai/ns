@@ -3,11 +3,13 @@ import { describe, expect, test } from "bun:test";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentPi,
+	type RunnerSubagentResult,
 } from "../src/runner-subagent.ts";
 import type { RunnerSubagentDispatcherDependencies } from "../src/runner-subagent/subagent-process.ts";
 import dispatchRunnerSubagentExtension, {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+	formatDispatchRunnerSubagentResult,
 	type ExtensionAPI,
 	type ToolDefinition,
 	type ToolResult,
@@ -234,6 +236,56 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(text).toContain("Inspect the session file before treating this delegated task as complete.");
 		expect(details.status).toBe("stopped-without-useful-text");
 		expect(details.diagnostic).toBe("Subagent Pi stopped without useful final assistant text.");
+	});
+
+	test("formats non-final-text statuses as diagnostics instead of completion", () => {
+		const progress = {
+			title: "Diagnostic subagent",
+			state: "stopped" as const,
+			toolCount: 1,
+			turnCount: 2,
+			elapsedMs: 1_250,
+			sessionFile: SESSION_FILE,
+		};
+		const completed: RunnerSubagentResult = {
+			status: "completed",
+			elapsedMs: 1_250,
+			progress,
+			sessionFile: SESSION_FILE,
+			terminal: { toolName: "done", status: "completed", input: { summary: "Done" } },
+		};
+		const blocked: RunnerSubagentResult = {
+			status: "blocked",
+			elapsedMs: 1_250,
+			progress,
+			sessionFile: SESSION_FILE,
+			terminal: { toolName: "blocked", status: "blocked", input: { reason: "Need input" } },
+		};
+		const error: RunnerSubagentResult = {
+			status: "error",
+			elapsedMs: 1_250,
+			progress,
+			sessionFile: SESSION_FILE,
+			diagnostic: "Subagent Pi exited with exit code 2.",
+			error: { message: "Subagent Pi exited with exit code 2." },
+		};
+		const protocolError: RunnerSubagentResult = {
+			status: "protocol-error",
+			elapsedMs: 1_250,
+			progress,
+			sessionFile: SESSION_FILE,
+			diagnostic: "Terminal tool was mixed with sibling tool calls.",
+			protocolError: { message: "Terminal tool was mixed with sibling tool calls." },
+		};
+
+		for (const result of [completed, blocked, error, protocolError]) {
+			const text = formatDispatchRunnerSubagentResult(result);
+			expect(text).toContain(`Status: ${result.status}`);
+			expect(text).not.toContain("Final text:");
+			expect(text).toContain("Inspect the session file before treating this delegated task as complete.");
+		}
+		expect(formatDispatchRunnerSubagentResult(completed)).toContain("completed with a terminal capture instead of final assistant text");
+		expect(formatDispatchRunnerSubagentResult(blocked)).toContain("blocked with a terminal capture instead of final assistant text");
 	});
 
 	test("preserves subagent error statuses as ordinary diagnostic tool results", async () => {

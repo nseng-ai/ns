@@ -35,10 +35,12 @@
   - Migrated `objective-list.ts` and `brmem-plans/plan-persistence.ts` while keeping Objective-list fields and Branch Memory `put` payload validation near their domain modules.
   - Migrated `worktree-status.ts` to the parser for Branch Memory list envelopes while preserving candidate fallback and nonfatal degradation.
   - Evidence: local branch diff against Graphite parent `extract-brmem-cli-adapter-and-migrate-callers`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
-- [ ] Candidate 9 — decide runner subagent contract cleanup.
-  - Preserve the deep runner subagent helper.
-  - Resolve naming drift, result presentation duplication, final-text vs terminal-capture wording, and stale child-session terminology in docs and code.
-  - Keep this as a small cleanup unless Objective-stack work creates a stronger requirement.
+- [x] Candidate 9 — decide and implement runner subagent contract cleanup.
+  - Preserved the deep runner subagent helper and public `dispatchRunnerSubagent(...)` API while clarifying the parent-facing contract.
+  - Updated docs to distinguish terminal-capture mode from final-text mode, include `stopped-without-useful-text`, label `runChildSession(...)` as historical terminology, and keep Objective-stack guidance on runner subagents.
+  - Added `runner-subagent/presentation.ts` as a narrow pure helper for elapsed formatting, title/session extraction, and generic progress widget lines; migrated `dispatch_runner_subagent` and `/runner-subagent-demo` to it while keeping domain payload rendering local.
+  - Added focused tests for the helper and strengthened non-`final-text` diagnostic expectations.
+  - Evidence: local working diff against Graphite parent `clinkr-machine-envelope-parser`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [ ] Candidate 5 — decide skill expansion and prompt handoff.
   - Evaluate Objective commands and `/just` skill-loading duplication.
   - If accepted, extract only a narrow pure helper that resolves a skill command, strips frontmatter, computes provenance, and returns a structured skill block.

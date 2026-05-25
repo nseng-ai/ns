@@ -73,7 +73,7 @@ Risks:
 - `land-stack` tests currently encode substantial command choreography; refactoring without first choosing better test surfaces could make safe changes look riskier than they are.
 - `worktree-status.ts` mixes session lifecycle, watchers, Git facts, Branch Memory facts, Graphite facts, and rendering; changing watcher behavior without internal Seams could create stale UI or session replacement bugs.
 - Branch Memory Adapter work could accidentally absorb planned-branch workflow policy; keep planned-branch namespace/key semantics, fatal diagnostics, and planning-level presentation in the planned-branch layer.
-- Runner subagent terminology has drifted in docs and code from child-session naming; stale names can mislead future agents unless cleaned up deliberately.
+- Runner subagent terminology had drifted in docs and code from child-session naming; Candidate 9 de-risked the current guidance by labeling `runChildSession(...)` as historical, documenting final-text vs terminal-capture mode separately, and adding a small shared presentation helper. Future Objective-stack work should keep using the runner-subagent vocabulary.
 - The new Objective may duplicate old completed work unless roadmap items distinguish inherited context from still-open decisions.
 
 ## Open Questions

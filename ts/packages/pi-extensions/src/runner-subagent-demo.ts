@@ -1,4 +1,11 @@
 import { customMessageText, truncateDisplayLine } from "./terminal-presentation.ts";
+import {
+	formatRunnerSubagentElapsed,
+	formatRunnerSubagentProgressWidgetLines,
+	runnerSubagentDisplayTitle,
+	runnerSubagentSessionFile,
+	runnerSubagentSessionFileText,
+} from "./runner-subagent/presentation.ts";
 
 import {
 	dispatchRunnerSubagent,
@@ -164,9 +171,9 @@ export function buildRunnerSubagentDemoPrompt(task: string): string {
 }
 
 export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>): string {
-	const lines = [resultHeadline(result), `Title: ${result.title ?? result.progress.title ?? "(untitled subagent)"}`];
+	const lines = [resultHeadline(result), `Title: ${runnerSubagentDisplayTitle(result, "(untitled subagent)")}`];
 	lines.push(formatProgressLine(result.progress));
-	lines.push(`Session file: ${result.sessionFile ?? result.progress.sessionFile ?? "(not available)"}`);
+	lines.push(`Session file: ${runnerSubagentSessionFileText(result)}`);
 
 	if (result.status === "completed") {
 		const evidence = stringList(readRecord(result.terminal.input).evidence);
@@ -233,11 +240,7 @@ function setWidget(ctx: ExtensionCommandContext, lines: string[] | undefined): v
 }
 
 function widgetLines(progress: RunnerSubagentProgress): string[] {
-	const lines = [`Subagent: ${progress.title ?? "(untitled)"}`, `State: ${progress.state}`];
-	if (progress.currentTool) lines.push(`Tool: ${progress.currentTool}`);
-	lines.push(`Turns/tools: ${progress.turnCount}/${progress.toolCount}`);
-	if (progress.sessionFile) lines.push(`Session: ${progress.sessionFile}`);
-	return lines;
+	return formatRunnerSubagentProgressWidgetLines(progress, { fallbackTitle: "(untitled)", includeElapsed: false });
 }
 
 function resultHeadline(result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>): string {
@@ -255,14 +258,14 @@ function resultHeadline(result: RunnerSubagentResult<RunnerSubagentDemoTerminalI
 
 function formatProgressLine(progress: RunnerSubagentProgress): string {
 	const currentTool = progress.currentTool ? `, current tool: ${progress.currentTool}` : "";
-	return `State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}; elapsed: ${formatElapsed(progress.elapsedMs)}${currentTool}`;
+	return `State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}; elapsed: ${formatRunnerSubagentElapsed(progress.elapsedMs)}${currentTool}`;
 }
 
 function runnerSubagentDemoDetails(result: RunnerSubagentResult<RunnerSubagentDemoTerminalInput>): Record<string, unknown> {
 	return {
 		status: result.status,
 		title: result.title ?? result.progress.title,
-		sessionFile: result.sessionFile ?? result.progress.sessionFile,
+		sessionFile: runnerSubagentSessionFile(result),
 		progress: result.progress,
 	};
 }
@@ -302,11 +305,6 @@ function resultLineColor(line: string): string {
 	if (line.startsWith("✗")) return "error";
 	if (line.startsWith("Session file:")) return "accent";
 	return "dim";
-}
-
-function formatElapsed(elapsedMs: number): string {
-	if (elapsedMs < 1_000) return `${elapsedMs}ms`;
-	return `${(elapsedMs / 1_000).toFixed(1)}s`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
