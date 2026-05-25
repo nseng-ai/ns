@@ -1,12 +1,17 @@
 import { formatCommand, normalizeExecResult, type ExecResult } from "../command-runtime.ts";
+import {
+	customMessageText,
+	linkifyPrReferences,
+	prLinksDetailsFor,
+	prLinksFromDetails,
+	truncateDisplayLine,
+} from "../terminal-presentation.ts";
 import { commandStreamOutputLines, normalizeCommandFinish } from "./command-exec.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE } from "./constants.ts";
 import { errorMessage } from "./errors.ts";
 import type {
 	CommandStreamMessageDetails,
-	CommandStreamPrLink,
 	CustomMessage,
-	CustomMessageContent,
 	ExtensionAPI,
 	ExtensionCommandContext,
 	LandedPr,
@@ -110,7 +115,7 @@ export function renderCommandStreamMessage(
 	theme: RenderTheme,
 ): RenderComponent {
 	const content = customMessageText(message.content);
-	const prLinks = commandStreamPrLinks(message.details);
+	const prLinks = prLinksFromDetails(message.details);
 	return {
 		render(width: number): string[] {
 			return content
@@ -121,71 +126,14 @@ export function renderCommandStreamMessage(
 	};
 }
 
-export function renderCommandStreamLine(line: string, prLinks: Map<number, string>, width: number): string {
+export function renderCommandStreamLine(line: string, prLinks: ReadonlyMap<number, string>, width: number): string {
 	const truncated = truncateDisplayLine(line, width);
 	if (prLinks.size === 0) return truncated;
 	return linkifyPrReferences(truncated, prLinks);
 }
 
-export function linkifyPrReferences(line: string, prLinks: Map<number, string>): string {
-	return line.replace(/#(\d+)\b/g, (match, numberText: string) => {
-		const url = prLinks.get(Number(numberText));
-		return url ? terminalHyperlink(match, url) : match;
-	});
-}
-
-export function terminalHyperlink(text: string, url: string): string {
-	return `\x1B]8;;${url}\x07${text}\x1B]8;;\x07`;
-}
-
-export function commandStreamPrLinks(details: unknown): Map<number, string> {
-	const links = new Map<number, string>();
-	if (!isRecord(details) || !Array.isArray(details.prLinks)) return links;
-
-	for (const rawLink of details.prLinks) {
-		if (!isRecord(rawLink)) continue;
-		const number = rawLink.number;
-		const url = rawLink.url;
-		if (typeof number !== "number" || !Number.isInteger(number) || typeof url !== "string") continue;
-		const sanitizedUrl = sanitizeTerminalHyperlinkUrl(url);
-		if (sanitizedUrl) {
-			links.set(number, sanitizedUrl);
-		}
-	}
-	return links;
-}
-
-export function sanitizeTerminalHyperlinkUrl(url: string): string | undefined {
-	if (/\p{Cc}/u.test(url)) return undefined;
-	try {
-		const parsed = new URL(url);
-		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
-		return parsed.toString();
-	} catch {
-		return undefined;
-	}
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
-}
-
 export function commandStreamDetailsForLanded(landed: LandedPr[]): CommandStreamMessageDetails | undefined {
-	const prLinks: CommandStreamPrLink[] = [];
-	for (const entry of landed) {
-		if (entry.url) {
-			prLinks.push({ number: entry.number, url: entry.url });
-		}
-	}
-	return prLinks.length > 0 ? { prLinks } : undefined;
-}
-
-export function customMessageText(content: CustomMessageContent): string {
-	if (typeof content === "string") return content;
-	return content
-		.filter((part) => part.type === "text")
-		.map((part) => part.text ?? "")
-		.join("\n");
+	return prLinksDetailsFor(landed);
 }
 
 export function commandStreamLineColor(line: string): string {
@@ -193,13 +141,6 @@ export function commandStreamLineColor(line: string): string {
 	if (line.startsWith("✗")) return "error";
 	if (line.startsWith("→")) return "accent";
 	return "dim";
-}
-
-export function truncateDisplayLine(line: string, width: number): string {
-	if (width <= 0) return "";
-	if (line.length <= width) return line;
-	if (width === 1) return "…";
-	return `${line.slice(0, width - 1)}…`;
 }
 
 export function formatCommandStreamBlock(icon: string, message: string): string {

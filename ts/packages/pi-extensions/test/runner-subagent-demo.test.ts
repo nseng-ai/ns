@@ -157,6 +157,21 @@ describe("runner-subagent-demo extension", () => {
 			{ fg: (color, text) => `${color}:${text}` },
 		);
 		expect(component?.render(80)).toEqual(["success:✓ ok", "accent:Session file: /tmp/session.jsonl"]);
+
+		const arrayContentComponent = renderer?.(
+			{
+				customType: RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE,
+				content: [
+					{ type: "text", text: "✓ ok" },
+					{ type: "image", text: "ignored" },
+					{ type: "text", text: "Session file: /tmp/session.jsonl" },
+				],
+				display: true,
+			},
+			{ expanded: false },
+			{ fg: (color, text) => `${color}:${text}` },
+		);
+		expect(arrayContentComponent?.render(80)).toEqual(["success:✓ ok", "accent:Session file: /tmp/session.jsonl"]);
 	});
 
 	test("empty args show usage and do not start a runner subagent", async () => {
