@@ -118,9 +118,9 @@ export type GtPrStatus = {
 };
 
 export type GtStatus = {
-	down: string;
+	down: string | undefined;
 	up: string;
-	commits: "yes" | "no" | "?";
+	commits: "yes" | "no" | "?" | "n/a";
 	dirty: "yes" | "no";
 	pr?: GtPrStatus;
 };
@@ -600,7 +600,7 @@ function scopeFromEntry(entry: BrmemEntry): { namespace: string; key: string } |
 	return topLevelKey ? { namespace, key: topLevelKey } : undefined;
 }
 
-async function loadDownBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string> {
+async function loadDownBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
 	if (signal?.aborted) return "-";
 
 	try {
@@ -610,10 +610,29 @@ async function loadDownBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal
 			if (parent) return parent;
 		}
 	} catch {
-		// Fall back to the previously checked-out local branch when Graphite is unavailable.
+		// Fall back below when Graphite parent lookup is unavailable.
+	}
+
+	const gitPaths = findGitPaths(cwd);
+	const currentBranch = gitPaths ? currentBranchName(gitPaths) : undefined;
+	if (currentBranch !== undefined) {
+		const trunk = await loadGraphiteTrunk(pi, cwd, signal);
+		if (trunk === currentBranch) return undefined;
 	}
 
 	return (await loadPreviousCheckoutLocalBranch(pi, cwd, signal)) ?? "-";
+}
+
+async function loadGraphiteTrunk(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
+	if (signal?.aborted) return undefined;
+
+	try {
+		const result = await pi.exec("gt", ["trunk", "--no-interactive"], execOptions(cwd, signal));
+		if (result.code !== 0) return undefined;
+		return firstNonEmptyLine(result.stdout);
+	} catch {
+		return undefined;
+	}
 }
 
 async function loadPreviousCheckoutLocalBranch(
@@ -659,9 +678,10 @@ async function loadUpBranch(pi: ExecGateway, cwd: string, signal?: AbortSignal):
 async function loadHasCommits(
 	pi: ExecGateway,
 	cwd: string,
-	down: string,
+	down: string | undefined,
 	signal?: AbortSignal,
-): Promise<"yes" | "no" | "?"> {
+): Promise<"yes" | "no" | "?" | "n/a"> {
+	if (down === undefined) return "n/a";
 	if (down === "-" || signal?.aborted) return "?";
 
 	try {
@@ -785,9 +805,17 @@ export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme
 }
 
 export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
-	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
+	const down = status.down === undefined ? "" : ` (↓: ${status.down})`;
+	const commits =
+		status.commits === "n/a"
+			? ""
+			: status.commits === "yes"
+				? " (commits)"
+				: status.commits === "?"
+					? " (commits: ?)"
+					: ` ${EMPTY_BRANCH_ICON}`;
 	const dirty = status.dirty === "yes" ? " (x)" : "";
-	const rest = ` (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
+	const rest = `${down} (↑: ${status.up})${commits}${dirty}`;
 
 	if (theme) {
 		const pr = status.pr
