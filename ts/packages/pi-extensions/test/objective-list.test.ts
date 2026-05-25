@@ -82,6 +82,16 @@ describe("parseObjectiveList", () => {
 		).toThrow(/Invalid Objective list branch/);
 	});
 
+	test("rejects legacy ahead_base branch shape", () => {
+		expect(() =>
+			parseObjectiveList(
+				envelope({
+					groups: [group({ branches: [{ branch: "feat/a", updated_iso: null, ahead_base: 3 }] })],
+				}),
+			),
+		).toThrow(/expected branch, parent_branch, updated_iso, and slice_commits/);
+	});
+
 	test("rejects non-finite slice_commits", () => {
 		const stdout = `{
 			"exit_code": 0,

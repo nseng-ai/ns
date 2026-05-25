@@ -59,10 +59,11 @@
   - Rationale: upstream Pi tests use real `ExtensionRunner` / `AgentSession` harnesses for runtime behavior and tiny local stubs for isolated example extensions; no generic `FakePi` pattern was found.
   - For `/submit` promotion, prefer minimal local extension-host stubs plus domain-specific Graphite/GitHub process fakes. Extract shared test support only after the exact same host shape appears in multiple concrete tests.
   - Import-path drift was resolved during Candidate 10, so Candidate 1 is complete as a parked/rejected seam decision rather than an implementation slice.
-- [ ] Candidate 11 — decide Objective extension and Objective-list integration.
-  - Keep tracking the TS/Python `objective list` contract, especially `parent_branch` / `slice_commits` vocabulary.
-  - Prefer contract tests and Machine-envelope reuse over broad splitting of `objective.ts`.
-  - Park broader Objective command extraction unless a deeper Module appears through the deletion test.
+- [x] Candidate 11 — decide Objective extension and Objective-list integration.
+  - Confirmed the TS/Python `objective list` contract is current: Python emits `parent_branch` / `slice_commits`, TypeScript maps them to `parentBranch` / `sliceCommits`, and picker labels use `max +N slice commits`.
+  - Confirmed Machine-envelope reuse is sufficient: `objective-list.ts` uses `parseMachineEnvelopeData` for Clinkr framework facts while keeping Objective-list payload validation local.
+  - Added a focused regression test that rejects legacy `ahead_base` branch fixtures instead of reopening old vocabulary.
+  - Parked broader `objective.ts` extraction; the existing `objective-list.ts` and `objective-picker.ts` modules pass the deletion test, while remaining Objective command complexity is UI selection, skill prompt handoff, and command wiring.
 - [ ] Candidate 7 — decide `worktree-status` internal seams after foundations land.
   - Preserve the small external status Interface.
   - Reuse accepted presentation and Branch Memory helpers rather than inventing local seams.
