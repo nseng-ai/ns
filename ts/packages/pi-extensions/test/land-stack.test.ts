@@ -1,31 +1,28 @@
 import { describe, expect, test } from "bun:test";
 
-import landStackExtension, {
-	LandStackError,
-	formatCommand,
-	formatFailure,
-	formatPlan,
-	isManagedSlotPath,
-	outputTail,
-	parseArgs,
-	parseGtStackOutput,
-	parseWorktreeList,
-	shortSha,
-	slotNameFromPath,
+import { formatCommand, type ExecResult } from "../src/command-runtime.ts";
+import {
 	isGtDeleteCheckedOutElsewhere,
 	isGtDeleteMissingBranch,
+	outputTail,
+	shortSha,
 	stripAnsi,
-	validateInitialPrPreflight,
-	validateOpenPrBasics,
-	type BranchPlan,
-	type ExecResult,
-	type ExtensionAPI,
-	type ExtensionCommandContext,
-	type LandedPr,
-	type LandingPlan,
-	type NotifyLevel,
-	type PullRequestSnapshot,
-} from "../src/land-stack.ts";
+} from "../src/land-stack/command-exec.ts";
+import { LandStackError } from "../src/land-stack/errors.ts";
+import landStackExtension, { parseArgs } from "../src/land-stack.ts";
+import { validateInitialPrPreflight, validateOpenPrBasics } from "../src/land-stack/pr-facts.ts";
+import { formatFailure, formatPlan } from "../src/land-stack/presentation.ts";
+import { parseGtStackOutput } from "../src/land-stack/stack-facts.ts";
+import type {
+	BranchPlan,
+	ExtensionAPI,
+	ExtensionCommandContext,
+	LandedPr,
+	LandingPlan,
+	NotifyLevel,
+	PullRequestSnapshot,
+} from "../src/land-stack/types.ts";
+import { isManagedSlotPath, parseWorktreeList, slotNameFromPath } from "../src/land-stack/worktrees.ts";
 
 const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const ROOT = "/repo";

@@ -68,10 +68,11 @@
   - Disposition: park/reject internal seam work for now.
   - Keep the current status command local/vibecoded; any status feature shipped to users should likely have a different product shape instead of inheriting this implementation.
   - Continue reusing accepted presentation, Branch Memory, and Machine-envelope helpers where already proven, but do not introduce observation/watchers, status-gathering, or rendering seams without a concrete future need and characterization tests first.
-- [ ] Candidate 8 — decide `land-stack` test-surface and internal seam work.
-  - Keep `/land-stack` as the external Interface.
-  - Improve locality around stack facts, PR facts, worktree conflicts, landing orchestration, command streaming, and presentation only where tests and the deletion test justify it.
-  - Defer broad test-surface cleanup until landing behavior changes or lower-level helpers reduce the cost.
+- [x] Candidate 8 — decide `land-stack` test-surface and internal seam work.
+  - Disposition: park broad production refactor; keep `/land-stack` as the external Interface and keep the existing internal stage Modules.
+  - Rationale: `stack-facts`, `pr-facts`, `worktrees`, `landing-plan`, `landing-operations`, `command-stream`, and `presentation` already pass the deletion test; new Graphite/GitHub or command-runtime seams are premature before `/submit` promotion or another concrete consumer proves repeated lifecycle semantics.
+  - Implemented a small test Interface cleanup by importing `land-stack.test.ts` helper coverage from canonical internal Modules and removing root `land-stack.ts` re-exports that existed only for tests.
+  - Preserved full scenario tests and command-order assertions as safety evidence for landing behavior.
 - [ ] Candidate 2 — decide command execution runtime beyond pure helpers last.
   - Preserve the old decision that pure text/result helpers in `command-runtime.ts` already earn their keep.
   - Do not create a broad generic command runtime before `/submit` promotion or another concrete consumer proves shared lifecycle semantics.

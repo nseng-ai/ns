@@ -27,34 +27,6 @@ import {
 } from "./land-stack/presentation.ts";
 import type { ExtensionAPI, ExtensionCommandContext, LandedPr, LandingWarning, ParsedArgs } from "./land-stack/types.ts";
 
-export { formatCommand } from "./command-runtime.ts";
-export type { ExecResult } from "./command-runtime.ts";
-export { isGtDeleteCheckedOutElsewhere, isGtDeleteMissingBranch, outputTail, shortSha, stripAnsi } from "./land-stack/command-exec.ts";
-export { LandStackError } from "./land-stack/errors.ts";
-export type { LandStackErrorOptions } from "./land-stack/errors.ts";
-export { validateInitialPrPreflight, validateOpenPrBasics, validateStrictMergeGate } from "./land-stack/pr-facts.ts";
-export { formatFailure, formatPlan } from "./land-stack/presentation.ts";
-export { parseGtStackOutput } from "./land-stack/stack-facts.ts";
-export type {
-	AutocompleteItem,
-	BranchPlan,
-	DescendantMaintenancePlan,
-	ExtensionAPI,
-	ExtensionCommandContext,
-	LandedPr,
-	LandingPlan,
-	NotifyLevel,
-	ParsedArgs,
-	ParsedStackOutput,
-	PrSubmitRequirement,
-	PullRequestSnapshot,
-	RestackRequirement,
-	StackSnapshot,
-	WorktreeConflict,
-	WorktreeEntry,
-} from "./land-stack/types.ts";
-export { isManagedSlotPath, parseWorktreeList, slotNameFromPath } from "./land-stack/worktrees.ts";
-
 export default function landStackExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(COMMAND_STREAM_MESSAGE_TYPE, renderCommandStreamMessage);
 
