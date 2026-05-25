@@ -33,14 +33,16 @@
   - Durable planning workflow docs now live at `docs/pi/planned-branch-workflow.md` and are linked from `docs/pi/README.md`.
   - `packages/brmem/README.md` is focused on Branch Memory concepts and generic CLI operations, with only a concise pointer to the higher-level Pi/planning workflow.
   - Skill references and helper-skill language have been removed from the brmem README.
-- [~] Resolve overlap with `pi-extension-deepening`.
-  - Record that this Objective owns the focused planned-branch layer slice.
-  - Update or cross-reference `pi-extension-deepening` when a candidate is implemented, parked, or split out by this work.
+- [x] Resolve overlap with `pi-extension-deepening`.
+  - This Objective owns the focused planned-branch layer slice: saved plans, planned branches, attached plans, and the `brmem-plans` namespace/key contract.
+  - `pi-extension-deepening` owns any future generic Branch Memory CLI Adapter for shared discovery/execution plumbing; planned-branch closure does not wait on that extraction.
+  - Future Adapter migration must preserve planned-branch domain policy, fatal diagnostics, planning-level presentation, and read/write tests.
 - [~] Validate the accepted implementation slices.
   - `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check` passed for the attached-plan reader slice.
   - `just ts-check`, `just ts-test`, `just dprint-check`, `git diff --check`, and the targeted attached-plan/create-plan-branch tests passed for the skill-removal and prompt-template slice.
   - `npx skills list --json` no longer lists `brmem-plan-impl`.
   - `just dprint-check` passed for the docs relocation and Objective update slice.
+  - `just dprint-check` passed for the overlap-boundary Objective updates.
   - Run broader repo validation when Python, repo-wide docs, skill layout, or installer behavior changes require it.
 - [ ] Close by explicit human decision.
   - Confirm the planning layer is visibly stacked on top of Branch Memory rather than integrated with it.
@@ -49,7 +51,7 @@
 
 ## Parked
 
-- [ ] Generic Branch Memory CLI Adapter extraction shared across unrelated Pi extensions.
+- [ ] Generic Branch Memory CLI Adapter extraction shared across unrelated Pi extensions; owned by `pi-extension-deepening`, not required for planned-branch closure.
 - [ ] Broader `pi-extension-deepening` candidates such as presentation/linkification, `/submit` promotion, `worktree-status`, and `land-stack` test-surface cleanup.
 - [ ] Automatic PR submission or stack landing for branches created from saved plans.
 - [ ] Objective integration or checked-in Objective records for generated implementation plans.
