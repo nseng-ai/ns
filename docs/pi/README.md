@@ -73,8 +73,9 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `.pi/extensions/objective.ts`                    | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates Objective behavior to package code.                   |
 | `.pi/extensions/land-stack.ts`                   | Project-local adapter over engineered behavior | Keeps `/land-stack` discovery local while durable behavior lives in the package.                     |
 | `.pi/extensions/brmem-handoff.ts`                | Project-local adapter over engineered behavior | Adds `/brmem-handoff` and `/brmem-pickup-handoff` Branch Memory handoff frontends.                   |
-| `.pi/extensions/just-fix.ts`                     | Vibecoded implementation                       | Useful repo-local workflow; not yet promoted or package-tested.                                      |
-| `.pi/extensions/submit.ts`                       | Vibecoded implementation                       | Candidate for a future promotion decision; also carries the import-path review question.             |
+| `.pi/extensions/land.ts`                         | Vibecoded implementation                       | Intentional fast path for non-Graphite users; kept local and direct.                                 |
+| `.pi/extensions/just-fix.ts`                     | Vibecoded implementation                       | Useful repo-local workflow; kept vibecoded while reusing the package skill-expansion helper.         |
+| `.pi/extensions/submit.ts`                       | Vibecoded implementation pending promotion     | Accepted for promotion to engineered code because it mutates Graphite/GitHub state and needs tests.  |
 | `ts/packages/pi-extensions/src/objective.ts`     | Engineered implementation                      | Package-tested Objective extension behavior.                                                         |
 | `ts/packages/pi-extensions/src/land-stack.ts`    | Engineered implementation                      | Package-tested landing behavior; later refactors may split internals without changing `/land-stack`. |
 | `ts/packages/pi-extensions/src/brmem-handoff.ts` | Engineered implementation                      | Package-tested Branch Memory handoff command selection and prompt handoff behavior.                  |
