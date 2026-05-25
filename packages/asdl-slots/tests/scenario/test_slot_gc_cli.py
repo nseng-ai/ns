@@ -360,7 +360,8 @@ def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> 
     )
 
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
+    assert result.stderr == ""
     assert payload["exit_code"] == 0
     data = payload["data"]
     assert data["freed_count"] == 1
@@ -373,22 +374,83 @@ def test_slot_gc_format_json_payload(cli_group: ClinkrGroup, tmp_path: Path) -> 
     assert actions_by_slot == {"slot-01": "freed", "slot-02": "kept_open_pr"}
 
 
-def test_slot_gc_format_json_without_force_aborts(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+def test_slot_gc_format_json_interactive_cancel_has_json_stdout(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
     slots_root = tmp_path / "slots"
     fakes = _fake_for_repo(tmp_path)
     _seed_assigned(fakes, slots_root, branch="feat/done")
     pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
 
-    # Machine mode still reaches the interactive confirm path without `-f`,
-    # so the prompt aborts when no stdin answer is provided.
     result = CliRunner().invoke(
         cli_group,
         ["gc", "--format", "json"],
         obj=_make_obj(fakes, slots_root, pr=pr),
+        input="no\n",
     )
 
-    assert result.exit_code != 0
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert "would free" in result.stderr.lower()
+    assert "Free 1 slot(s)? [Y/n]" in result.stderr
+    data = payload["data"]
+    assert data["cancelled"] is True
+    assert data["freed_count"] == 0
+    assert fakes.git._detach_head_calls == []
     assert _assigned_worktrees(fakes) == {"slot-01": "feat/done"}
+
+
+def test_slot_gc_format_json_interactive_yes_has_json_stdout(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+        input="yes\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert "would free" in result.stderr.lower()
+    assert "Free 1 slot(s)? [Y/n]" in result.stderr
+    data = payload["data"]
+    assert data["cancelled"] is False
+    assert data["freed_count"] == 1
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+
+
+def test_slot_gc_format_json_interactive_blank_defaults_to_yes(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root, branch="feat/done")
+    pr = FakePRGateway(prs_by_branch={"feat/done": _make_pr(7, "MERGED", "feat/done")})
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gc", "--format", "json"],
+        obj=_make_obj(fakes, slots_root, pr=pr),
+        input="\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert "would free" in result.stderr.lower()
+    assert "Free 1 slot(s)? [Y/n]" in result.stderr
+    data = payload["data"]
+    assert data["cancelled"] is False
+    assert data["freed_count"] == 1
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
 
 
 def test_slot_gc_schema(cli_group: ClinkrGroup) -> None:

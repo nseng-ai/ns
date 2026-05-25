@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Annotated
 
 import click
+from rich.console import Console
 
 from asdl_core import get_console
 from asdl_core.clinkr.ensure import Ensure
@@ -54,8 +56,14 @@ _ACTION_LABELS: dict[SlotGcAction, tuple[str, str]] = {
 }
 
 
-def render_slot_gc(result: SlotGcResult) -> None:
-    console = get_console()
+def _gc_console(*, err: bool = False) -> Console:
+    if err:
+        return Console(file=sys.stderr)
+    return get_console()
+
+
+def render_slot_gc(result: SlotGcResult, *, err: bool = False) -> None:
+    console = _gc_console(err=err)
     if result.cancelled:
         console.print("[yellow]Cancelled — no slots freed.[/yellow]")
         return
@@ -84,6 +92,22 @@ def render_slot_gc(result: SlotGcResult) -> None:
     )
 
 
+def _confirm_free_slots(count: int) -> bool:
+    """Confirm on stderr without leaking echoed test input into stdout."""
+    while True:
+        click.echo(f"Free {count} slot(s)? [Y/n]: ", err=True, nl=False)
+        sys.stderr.flush()
+        raw_value = sys.stdin.readline()
+        if raw_value == "":
+            raise click.Abort()
+        value = raw_value.strip().lower()
+        if value in ("", "y", "yes"):
+            return True
+        if value in ("n", "no"):
+            return False
+        click.echo("Error: invalid input", err=True)
+
+
 def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> SlotGcResult:
     return SlotGcResult(
         entries=tuple(
@@ -99,7 +123,7 @@ def _result_from_outcome(outcome: SlotGcOutcome, *, cancelled: bool = False) -> 
             )
             for e in outcome.entries
         ),
-        freed_count=outcome.freed_count,
+        freed_count=0 if cancelled else outcome.freed_count,
         kept_count=outcome.kept_count,
         skipped_count=outcome.skipped_count,
         error_count=outcome.error_count,
@@ -138,11 +162,9 @@ def run_slot_gc(ctx: click.Context, request: SlotGcRequest) -> ClinkrExit[SlotGc
         return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
 
     preview = _result_from_outcome(outcome_from_gc_plan(plan, dry_run=True))
-    render_slot_gc(preview)
-    proceed = click.confirm(
-        f"Free {plan.would_free_count} slot(s)?",
-        default=True,
-    )
+    render_slot_gc(preview, err=True)
+    sys.stderr.flush()
+    proceed = _confirm_free_slots(plan.would_free_count)
     if proceed:
         return ClinkrExit.ok(_result_from_outcome(execute_gc_plan(slots_ctx, plan)))
     return ClinkrExit.ok(
