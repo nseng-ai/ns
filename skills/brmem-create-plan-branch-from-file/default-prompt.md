@@ -14,13 +14,17 @@ create branches, run `git`, run `gt`, run `brmem put`, publish work, or perform
 any other mutation.
 
 The invoking skill remains responsible for creating and reviewing the temporary
-plan file, selecting the slug, and calling `create_brmem_plan_branch_from_file`.
-The tool creates the local branch and stores the plan.
+plan file, selecting the slug, and calling `create_brmem_plan_branch_from_file`
+with any policy-requested tool parameters. The tool creates the local branch and
+stores the plan. Markdown policy may instruct the caller to pass
+`branchCreation: "graphite"`; the Markdown itself does not run Graphite.
 
 ## Default behavior
 
 - Use the slug as the target branch name unless the caller's repo policy
   requires an explicit `branchName`.
+- Use the default branch creation backend, `plain-git`, unless repo/user policy
+  explicitly instructs the caller to pass `branchCreation: "graphite"`.
 - Let `create_brmem_plan_branch_from_file` create the branch and store the plan.
 - Store the plan in Branch Memory namespace `brmem-plans` with key `<slug>.md`.
 - Require the source plan to be an absolute temp Markdown file outside the repo.
@@ -31,6 +35,9 @@ The tool creates the local branch and stores the plan.
 - **Prefix target branches** — for example, tell the caller to pass
   `branchName: brmem-plans/<slug>` while keeping the Branch Memory key
   `<slug>.md`.
+- **Use Graphite branch creation** — tell the caller to pass
+  `branchCreation: "graphite"` when the repo's workflow requires Graphite
+  metadata; the tool still owns the `gt create` invocation.
 - **Enforce naming conventions** — require lowercase kebab-case, a maximum slug
   length, or approved branch prefixes.
 - **Add plan review checks** — require the temp plan to include validation steps,

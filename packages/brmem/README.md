@@ -46,10 +46,12 @@ a reviewed temp Markdown plan and stores that plan in Branch Memory namespace
 `brmem-plans` with key `<slug>.md`. The source plan file stays outside the repo;
 no checked-in plan file is created.
 
-Branch naming policy is repo-specific. A repo might use the slug directly, add a
-prefix, or require extra review checks before branch creation. That policy
-belongs in a prompt file, while branch creation and Branch Memory storage remain
-owned by the shared tool.
+Branch naming and branch creation policy are repo-specific. A repo might use the
+slug directly, add a prefix, request Graphite branch creation, or require extra
+review checks before branch creation. That policy belongs in a prompt file and is
+passed to the shared tool through safe parameters such as `branchName` and
+`branchCreation`; branch creation and Branch Memory storage remain owned by the
+shared tool.
 
 In this repo:
 
@@ -57,8 +59,13 @@ In this repo:
   [`skills/brmem-create-plan-branch-from-file/default-prompt.md`](../../skills/brmem-create-plan-branch-from-file/default-prompt.md).
 - The repo-local policy prompt is
   [`.brmem/prompts/create-brmem-plan-branch.md`](../../.brmem/prompts/create-brmem-plan-branch.md).
-- The repo-local policy names implementation branches `brmem-plans/<slug>` while
-  keeping the Branch Memory key `<slug>.md`.
+- The repo-local policy names implementation branches `brmem-plans/<slug>`,
+  requests `branchCreation: "graphite"`, and keeps the Branch Memory key
+  `<slug>.md`.
+
+Graphite branch creation may switch the current checkout to the new branch. The
+shared tool still passes `--branch <target-branch>` when storing Branch Memory,
+so storage does not depend on the current checkout.
 
 Use `brmem-plan-impl` on the implementation branch to load the canonical plan
 from namespace `brmem-plans` and begin work.

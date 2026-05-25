@@ -121,6 +121,14 @@ function gitBranchStep(branch: string, result: Partial<ExecResult> = {}): Script
 	return step("git", ["branch", branch, "HEAD"], result);
 }
 
+function gitStatusStep(result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("git", ["status", "--porcelain=v1", "--untracked-files=normal"], result);
+}
+
+function gtCreateStep(branch: string, message: string, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("gt", ["create", branch, "--no-interactive", "--no-ai", "-m", message], result);
+}
+
 function brmemPutStep(branch: string, key: string, filePath: string, result: Partial<ExecResult>): ScriptedExec {
 	return step(
 		"brmem",
@@ -164,6 +172,27 @@ function successScript(input: { branch: string; key: string; filePath: string; p
 		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
 		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
 		gitBranchStep(input.branch),
+		brmemPutStep(input.branch, input.key, input.filePath, {
+			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
+		}),
+	];
+}
+
+function graphiteSuccessScript(input: {
+	branch: string;
+	key: string;
+	filePath: string;
+	message: string;
+	putStdout?: string;
+}): ScriptedExec[] {
+	return [
+		gitRootStep(),
+		refFormatStep(input.branch),
+		headStep(),
+		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
+		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
+		gitStatusStep(),
+		gtCreateStep(input.branch, input.message),
 		brmemPutStep(input.branch, input.key, input.filePath, {
 			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
 		}),
@@ -218,6 +247,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 		expect(evidence).toEqual({
 			slug: PLAN_SLUG,
 			branch: PLAN_SLUG,
+			branchCreation: "plain-git",
 			startPoint: START_POINT,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			key: PLAN_KEY,
@@ -226,6 +256,18 @@ describe("createBrmemPlanBranchFromFile", () => {
 			sourceFile: filePath,
 			summary: "Store the plan on a new branch.",
 		});
+	});
+
+	test("accepts explicit plain Git branch creation", async () => {
+		const filePath = await makePlanFile();
+		const { pi, evidence } = await runCreate(
+			{ slug: PLAN_SLUG, filePath, branchCreation: "plain-git" },
+			successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }),
+		);
+
+		pi.assertDone();
+		expect(evidence.branchCreation).toBe("plain-git");
+		expect(pi.execCalls.map((call) => call.args)).toContainEqual(["branch", PLAN_SLUG, "HEAD"]);
 	});
 
 	test("uses an explicit branch name without changing the storage key", async () => {
@@ -254,7 +296,153 @@ describe("createBrmemPlanBranchFromFile", () => {
 		]);
 	});
 
-	test("rejects invalid slug, parameter shape, and missing path before running commands", async () => {
+	test("creates a Graphite plan branch when policy requests graphite", async () => {
+		const filePath = await makePlanFile();
+		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const { pi, evidence } = await runCreate(
+			{
+				slug: PLAN_SLUG,
+				filePath,
+				branchName: branch,
+				branchCreation: "graphite",
+				summary: "Store the plan on a Graphite branch.",
+			},
+			graphiteSuccessScript({ branch, key: PLAN_KEY, filePath, message: "Plan: Store the plan on a Graphite branch." }),
+		);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
+			{ command: "git", args: ["check-ref-format", "--branch", branch] },
+			{ command: "git", args: ["rev-parse", "HEAD"] },
+			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${branch}`] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"] },
+			{ command: "git", args: ["status", "--porcelain=v1", "--untracked-files=normal"] },
+			{
+				command: "gt",
+				args: ["create", branch, "--no-interactive", "--no-ai", "-m", "Plan: Store the plan on a Graphite branch."],
+			},
+			{
+				command: "brmem",
+				args: ["put", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--file", filePath, "--format", "json"],
+			},
+		]);
+		expect(evidence.branchCreation).toBe("graphite");
+		expect(evidence.branch).toBe(branch);
+	});
+
+	test("refuses Graphite branch creation when the worktree is dirty", async () => {
+		const filePath = await makePlanFile();
+		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const pi = new FakePi([
+			gitRootStep(),
+			refFormatStep(branch),
+			headStep(),
+			localBranchCheckStep(branch, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			gitStatusStep({ stdout: " M ts/packages/pi-extensions/src/create-brmem-plan-branch.ts\n?? scratch.md\n" }),
+		]);
+
+		await expect(
+			createBrmemPlanBranchFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT }),
+		).rejects.toThrow(/Graphite branch creation requires a clean worktree[\s\S]*Dirty paths:[\s\S]*scratch\.md/);
+
+		pi.assertDone();
+		expect(pi.execCalls.some((call) => call.command === "gt")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
+	});
+
+	test("surfaces Graphite create failures before storing Branch Memory", async () => {
+		const filePath = await makePlanFile();
+		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const pi = new FakePi([
+			gitRootStep(),
+			refFormatStep(branch),
+			headStep(),
+			localBranchCheckStep(branch, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			gitStatusStep(),
+			gtCreateStep(branch, "Plan: Store the plan on a Graphite branch.", { code: 1, stderr: "current branch is not tracked" }),
+		]);
+
+		await expect(
+			createBrmemPlanBranchFromFile(
+				pi,
+				{
+					slug: PLAN_SLUG,
+					filePath,
+					branchName: branch,
+					branchCreation: "graphite",
+					summary: "Store the plan on a Graphite branch.",
+				},
+				{ cwd: ROOT },
+			),
+		).rejects.toThrow("gt create failed");
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual([
+			"put",
+			PLAN_KEY,
+			"--namespace",
+			PLAN_BRANCH_NAMESPACE,
+			"--branch",
+			branch,
+			"--file",
+			filePath,
+			"--format",
+			"json",
+		]);
+	});
+
+	test("reports partial state when brmem put fails after Graphite branch creation", async () => {
+		const filePath = await makePlanFile();
+		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const pi = new FakePi([
+			gitRootStep(),
+			refFormatStep(branch),
+			headStep(),
+			localBranchCheckStep(branch, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			gitStatusStep(),
+			gtCreateStep(branch, "Plan: Store the plan on a Graphite branch."),
+			brmemPutStep(branch, PLAN_KEY, filePath, { code: 2, stderr: "write failed" }),
+		]);
+
+		await expect(
+			createBrmemPlanBranchFromFile(
+				pi,
+				{
+					slug: PLAN_SLUG,
+					filePath,
+					branchName: branch,
+					branchCreation: "graphite",
+					summary: "Store the plan on a Graphite branch.",
+				},
+				{ cwd: ROOT },
+			),
+		).rejects.toThrow(
+			new RegExp(
+				`Partial failure:[\\s\\S]*Created branch: ${branch}[\\s\\S]*Branch creation: graphite[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}`,
+			),
+		);
+
+		pi.assertDone();
+	});
+
+	test("falls back to the slug for Graphite messages without a summary", async () => {
+		const filePath = await makePlanFile();
+		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const { pi, evidence } = await runCreate(
+			{ slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite", summary: "   " },
+			graphiteSuccessScript({ branch, key: PLAN_KEY, filePath, message: `Plan: ${PLAN_SLUG}` }),
+		);
+
+		pi.assertDone();
+		expect(evidence.branchCreation).toBe("graphite");
+		expect(evidence.summary).toBeUndefined();
+	});
+
+	test("rejects invalid slug, parameter shape, branchCreation, and missing path before running commands", async () => {
 		const filePath = await makePlanFile();
 		const invalidSlugPi = new FakePi();
 		await expect(
@@ -267,6 +455,12 @@ describe("createBrmemPlanBranchFromFile", () => {
 			"requires string parameter `filePath`",
 		);
 		expect(invalidShapePi.execCalls).toEqual([]);
+
+		const invalidBranchCreationPi = new FakePi();
+		await expect(
+			createBrmemPlanBranchFromFile(invalidBranchCreationPi, { slug: PLAN_SLUG, filePath, branchCreation: "hg" }, { cwd: ROOT }),
+		).rejects.toThrow("parameter `branchCreation` must be one of `plain-git` or `graphite`");
+		expect(invalidBranchCreationPi.execCalls).toEqual([]);
 
 		const missingPathPi = new FakePi();
 		await expect(
