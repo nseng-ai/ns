@@ -62,7 +62,7 @@ Assumptions:
 - This Objective is intentionally split out from the broader open `pi-extension-deepening` Objective because the planned-branch workflow needs focused treatment.
 - Branch Memory is the correct lower storage Adapter for attached plans; the architecture problem is not that Branch Memory is used, but that current naming, docs, and read-path behavior make the planning layer look integrated with it.
 - The stable slash-command Interface is already useful and should remain centered on planning terms.
-- A tested attached-plan reader can preserve the useful behavior currently described by `brmem-plan-impl` while improving locality and reducing prose-owned logic.
+- A tested attached-plan reader can preserve the useful behavior currently described by `brmem-plan-impl` while improving locality and reducing prose-owned logic; the initial reader implementation confirms this for branch safety, key selection, attached-plan loading, and prompt injection.
 - The local plan store path convention remains the right pre-branch place for reviewed plans created by `/write-plan`.
 
 Risks:
@@ -70,7 +70,7 @@ Risks:
 - This work overlaps with `pi-extension-deepening`, especially its Branch Memory CLI Adapter candidate. Without an explicit disposition, future agents may duplicate or contradict that Objective's roadmap.
 - Over-correcting the naming could hide important recovery evidence. Partial failures may create a branch before Branch Memory attachment fails, and users still need precise diagnostics.
 - A generic Branch Memory Adapter could sprawl beyond the planned-branch layer. The deletion test should be applied before extracting shared helpers beyond the planning workflow.
-- Skill renaming can break installed-skill symlinks, `skills-lock.json`, command references, and user muscle memory if done casually.
+- Skill renaming can break installed-skill symlinks, `skills-lock.json`, command references, and user muscle memory if done casually; this remains open because the current slice thins `brmem-plan-impl` without renaming it.
 - Graphite branch creation remains repo-specific policy. Changes must respect the runtime Graphite dependency boundary and keep Graphite usage behind explicit planned-branch configuration or command semantics.
 - Moving docs out of the brmem README may reduce discoverability for users who start from Branch Memory docs unless a concise pointer remains.
 

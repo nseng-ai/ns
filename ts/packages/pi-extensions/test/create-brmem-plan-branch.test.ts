@@ -32,6 +32,9 @@ const PLAN_KEY = `${PLAN_SLUG}.md`;
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const SOURCE_BRANCH = "source-branch";
 const TARGET_BRANCH = "brmem-plans/wire-create-plan-branch-command";
+const IMPL_BRANCH = `brmem-plans/${PLAN_SLUG}`;
+const IMPL_REF = `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${IMPL_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
+const IMPL_PLAN_CONTENT = "# Impl Plan\n\n- Load the attached plan.\n- Implement from it.\n";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type SendMessage = NonNullable<ExtensionAPI["sendMessage"]>;
@@ -193,6 +196,22 @@ function brmemPutStep(branch: string, key: string, filePath: string, result: Par
 	);
 }
 
+function gitSymbolicHeadStep(branch: string = IMPL_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${branch}\n`, ...result });
+}
+
+function gitDefaultSymbolicStep(result: Partial<ExecResult> = { stdout: "origin/master\n" }): ScriptedExec {
+	return step("git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"], result);
+}
+
+function brmemListStep(branch: string, result: Partial<ExecResult>): ScriptedExec {
+	return step("brmem", ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"], result);
+}
+
+function brmemGetStep(branch: string, key: string, result: Partial<ExecResult>): ScriptedExec {
+	return step("brmem", ["get", key, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"], result);
+}
+
 async function makeTempDir(prefix = "create-brmem-plan-branch-"): Promise<string> {
 	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
 	tempDirs.push(dir);
@@ -271,6 +290,60 @@ function putEnvelope(input: { branch: string; key: string; filePath: string; com
 			source_file: input.filePath,
 		},
 	});
+}
+
+function listEnvelope(
+	branch: string,
+	entries: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>,
+): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			namespace: PLAN_BRANCH_NAMESPACE,
+			key: null,
+			branch,
+			base: false,
+			entries: entries.map((entry) => {
+				const entryBranch = entry.branch ?? branch;
+				return {
+					namespace: entry.namespace ?? PLAN_BRANCH_NAMESPACE,
+					key: entry.key,
+					branch: entryBranch,
+					ref_name: entry.refName ?? `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${entryBranch.replaceAll("/", "---")}:${entry.key}`,
+				};
+			}),
+		},
+	});
+}
+
+function getEnvelope(input: { branch: string; key: string; content: string; refName?: string }): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			namespace: PLAN_BRANCH_NAMESPACE,
+			key: input.key,
+			branch: input.branch,
+			content: input.content,
+			ref_name: input.refName ?? `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
+			target: input.refName ?? `refs/brmem/ns/${PLAN_BRANCH_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
+			at: null,
+		},
+	});
+}
+
+function implLoadSuccessScript(input: { branch?: string; key?: string; content?: string; refName?: string } = {}): ScriptedExec[] {
+	const branch = input.branch ?? IMPL_BRANCH;
+	const key = input.key ?? PLAN_KEY;
+	const content = input.content ?? IMPL_PLAN_CONTENT;
+	const listEntry = input.refName === undefined ? { key } : { key, refName: input.refName };
+	const getStdout = input.refName === undefined ? getEnvelope({ branch, key, content }) : getEnvelope({ branch, key, content, refName: input.refName });
+	return [
+		gitRootStep(),
+		gitSymbolicHeadStep(branch),
+		gitDefaultSymbolicStep(),
+		brmemListStep(branch, { stdout: listEnvelope(branch, [listEntry]) }),
+		brmemGetStep(branch, key, { stdout: getStdout }),
+	];
 }
 
 function successScript(input: { branch: string; key: string; filePath: string; putStdout?: string }): ScriptedExec[] {
@@ -709,21 +782,80 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
 	});
 
-	test("impl-planned-branch waits for idle and dispatches the brmem-plan-impl skill", async () => {
+	test("impl-planned-branch waits, loads the attached plan, and sends an implementation prompt", async () => {
 		const events: string[] = [];
-		const pi = new FakePi([], events);
+		const pi = new FakePi(implLoadSuccessScript({ refName: IMPL_REF }), events);
 		createBrmemPlanBranchExtension(pi);
 		const command = pi.commands.get("impl-planned-branch");
 		expect(command).toBeDefined();
 		const context = createContext(events);
 
-		await command?.handler("  foo  ", context.ctx);
+		await command?.handler("   ", context.ctx);
 
+		pi.assertDone();
 		expect(context.waits()).toBe(1);
 		expect(events[0]).toBe("wait");
-		expect(events.at(-1)).toBe("send");
-		expect(pi.sentUserMessages).toEqual(["/skill:brmem-plan-impl foo"]);
-		expect(context.notifications).toEqual([{ message: "Starting implementation from the attached plan…", level: "info" }]);
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
+			{ command: "git", args: ["symbolic-ref", "--short", "HEAD"] },
+			{ command: "git", args: ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"] },
+			{ command: "brmem", args: ["list", "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
+			{ command: "brmem", args: ["get", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
+		]);
+		expect(context.notifications).toEqual([{ message: "Loading attached planned-branch plan…", level: "info" }]);
+		expect(context.statuses).toEqual([
+			{ key: "impl-planned-branch", value: "loading attached plan…" },
+			{ key: "impl-planned-branch", value: undefined },
+		]);
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.customType).toBe("planned-branch-output");
+		expect(pi.sentMessages[0]?.content).toContain("Loaded attached planned-branch plan.");
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${IMPL_BRANCH}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Selected key: ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Ref: ${IMPL_REF}`);
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("This is a /impl-planned-branch request");
+		expect(pi.sentUserMessages[0]).toContain(`Branch: ${IMPL_BRANCH}`);
+		expect(pi.sentUserMessages[0]).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
+		expect(pi.sentUserMessages[0]).toContain(`Selected key: ${PLAN_KEY}`);
+		expect(pi.sentUserMessages[0]).toContain(`Ref: ${IMPL_REF}`);
+		expect(pi.sentUserMessages[0]).toContain(`Bytes: ${new TextEncoder().encode(IMPL_PLAN_CONTENT).length}`);
+		expect(pi.sentUserMessages[0]).toContain(IMPL_PLAN_CONTENT);
+		expect(pi.sentUserMessages[0]).toContain("Create an implementation checklist");
+		expect(pi.sentUserMessages[0]).not.toContain("/skill:brmem-plan-impl");
+	});
+
+	test("impl-planned-branch passes a requested slug into attached-plan selection", async () => {
+		const pi = new FakePi(implLoadSuccessScript());
+		createBrmemPlanBranchExtension(pi);
+		const command = pi.commands.get("impl-planned-branch");
+		const context = createContext();
+
+		await command?.handler(`  ${PLAN_SLUG}  `, context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain(`Selected key: ${PLAN_KEY}`);
+		expect(pi.sentUserMessages[0]).not.toContain("/skill:brmem-plan-impl");
+	});
+
+	test("impl-planned-branch presents load failures without sending an implementation prompt", async () => {
+		const pi = new FakePi([gitRootStep(), gitSymbolicHeadStep("main"), gitDefaultSymbolicStep({ stdout: "origin/main\n" })]);
+		createBrmemPlanBranchExtension(pi);
+		const command = pi.commands.get("impl-planned-branch");
+		const context = createContext();
+
+		await command?.handler("", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.customType).toBe("planned-branch-output");
+		expect(pi.sentMessages[0]?.content).toContain("Failed to load attached planned-branch plan.");
+		expect(pi.sentMessages[0]?.content).toContain("Refusing to implement directly on trunk (`main`)");
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+		expect(context.statuses.at(-1)).toEqual({ key: "impl-planned-branch", value: undefined });
 	});
 
 	test("create-planned-branch help displays usage without mutation", async () => {

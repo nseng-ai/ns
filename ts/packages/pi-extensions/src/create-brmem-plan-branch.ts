@@ -2,6 +2,12 @@ import { stat } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
 
 import {
+	buildImplPlannedBranchPrompt,
+	formatLoadedAttachedPlanEvidence,
+	loadAttachedPlan,
+	type LoadedAttachedPlan,
+} from "./brmem-plans/attached-plan.ts";
+import {
 	PLAN_BRANCH_NAMESPACE,
 	createBrmemPlanBranchFromFile as createBrmemPlanBranchFromFilePrimitive,
 	deriveTargetBranch,
@@ -58,8 +64,7 @@ const IMPL_PLANNED_BRANCH_COMMAND_NAME = "impl-planned-branch";
 const WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME = "write_source_branch_plan_file";
 const PLANNED_BRANCH_MESSAGE_TYPE = "planned-branch-output";
 const PLANNED_BRANCH_STATUS_KEY = "create-planned-branch";
-
-const BRMEM_PLAN_IMPL_SKILL_COMMAND = "/skill:brmem-plan-impl";
+const IMPL_PLANNED_BRANCH_STATUS_KEY = "impl-planned-branch";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -415,10 +420,20 @@ async function handleImplPlannedBranchCommand(pi: ExtensionAPI, args: string, ct
 	await ctx.waitForIdle();
 	const trimmedArgs = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting implementation from the attached plan…", "info");
+		ctx.ui.notify("Loading attached planned-branch plan…", "info");
 	}
-	const command = trimmedArgs.length > 0 ? `${BRMEM_PLAN_IMPL_SKILL_COMMAND} ${trimmedArgs}` : BRMEM_PLAN_IMPL_SKILL_COMMAND;
-	pi.sendUserMessage(command);
+
+	ctx.ui.setStatus(IMPL_PLANNED_BRANCH_STATUS_KEY, "loading attached plan…");
+	try {
+		const params = trimmedArgs.length > 0 ? { requestedKey: trimmedArgs } : {};
+		const plan = await loadAttachedPlan(pi, params, { cwd: ctx.cwd });
+		presentPlannedBranchMessage(pi, ctx, formatLoadedAttachedPlanEvidence(plan), { status: "success", loadedPlan: plan }, "info");
+		pi.sendUserMessage(buildImplPlannedBranchPrompt(plan));
+	} catch (error) {
+		presentPlannedBranchFailure(pi, ctx, "Failed to load attached planned-branch plan.", error);
+	} finally {
+		ctx.ui.setStatus(IMPL_PLANNED_BRANCH_STATUS_KEY, undefined);
+	}
 }
 
 async function handleCreatePlannedBranchCommand(
@@ -548,6 +563,7 @@ type PlannedBranchMessageDetails = {
 	status: "usage" | "dry-run" | "success" | "failure";
 	preview?: CreatePlannedBranchPreview;
 	evidence?: BrmemPlanBranchEvidence;
+	loadedPlan?: LoadedAttachedPlan;
 	error?: string;
 };
 
