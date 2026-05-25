@@ -1,0 +1,51 @@
+# Roadmap
+
+## Work
+
+- [ ] Establish the planning-layer vocabulary and target module shape.
+  - Keep the user-facing slash commands `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` stable.
+  - Decide the internal module/file/type naming for saved plans, planned branches, attached plans, and the Branch Memory Adapter.
+  - Record any chosen naming changes in docs or Objective updates before broad renames.
+- [ ] Separate the local plan store Module from Branch Memory persistence.
+  - Make `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` behavior read as planning-layer local storage, not Branch Memory storage.
+  - Remove or isolate deprecated archive vocabulary and stale direct Branch Memory plan-storage paths that fail the deletion test.
+  - Preserve slug validation, repo identity, branch encoding, newest-plan selection, and exclusive-write behavior.
+- [ ] Isolate Branch Memory attachment behind a lower Adapter.
+  - Keep the canonical attachment contract: namespace `brmem-plans`, key `<slug>.md`, target implementation branch.
+  - Concentrate Branch Memory command discovery, `check`, `put`, JSON parsing, and partial-failure diagnostics where the planning layer crosses the storage Seam.
+  - Avoid extracting a broad generic Branch Memory Adapter unless the planned-branch workflow proves it through the deletion test.
+- [ ] Improve `/create-planned-branch` presentation around planning concepts.
+  - Preview saved plan, target planned branch, branch creation method, and attached-plan outcome as planning facts.
+  - Keep Branch Memory namespace, key, ref, commit, and source-file evidence available where it helps diagnose or recover from failures.
+  - Update fake-driven tests to assert the planning-level Interface rather than overfitting to storage internals.
+- [ ] Implement a tested attached-plan reader for `/impl-planned-branch`.
+  - Move deterministic branch safety checks, canonical `brmem-plans` listing, key normalization, branch-final-segment matching, single-entry fallback, multiple-entry ambiguity, and selected-plan loading into tested code.
+  - Cover detached HEAD, trunk/default branch refusal, no entries, invalid requested key, multiple entries, selected key loading, and malformed Branch Memory output.
+  - Make the skill call or describe this tested operation instead of owning the shell workflow in prose.
+- [ ] Decide and apply skill naming cleanup.
+  - Decide whether `brmem-plan-impl` should be renamed, kept as a thin compatibility entry, or replaced by `/impl-planned-branch` usage.
+  - Update skill frontmatter, symlink/install layout, `skills-lock.json`, and references consistently if a rename is accepted.
+  - Keep public skill prose user-facing and avoid leaking implementation internals.
+- [ ] Move planned-branch workflow docs out of the brmem README.
+  - Put durable planning workflow docs next to the Pi extension/planning layer, likely under `docs/pi/` plus concise command help and skill text.
+  - Leave `packages/brmem/README.md` focused on Branch Memory: Entry, Entry Key, Namespace, branch-scoped storage, and generic CLI operations.
+  - Keep a short pointer from brmem docs to the higher-level planned-branch workflow if needed for discoverability.
+- [ ] Resolve overlap with `pi-extension-deepening`.
+  - Record that this Objective owns the focused planned-branch layer slice.
+  - Update or cross-reference `pi-extension-deepening` when a candidate is implemented, parked, or split out by this work.
+- [ ] Validate the accepted implementation slices.
+  - Run `bun run --cwd ts check` and focused `bun run --cwd ts test` coverage for TypeScript changes.
+  - Run `just dprint-check` for Markdown/TOML changes and use `just dprint-fix` if formatting fails.
+  - Run broader repo validation when Python, repo-wide docs, skill layout, or installer behavior changes require it.
+- [ ] Close by explicit human decision.
+  - Confirm the planning layer is visibly stacked on top of Branch Memory rather than integrated with it.
+  - Confirm the read and write paths have symmetric tested behavior.
+  - Add closure context to `objective.md`, then add a Closure Marker.
+
+## Parked
+
+- [ ] Generic Branch Memory CLI Adapter extraction shared across unrelated Pi extensions.
+- [ ] Broader `pi-extension-deepening` candidates such as presentation/linkification, `/submit` promotion, `worktree-status`, and `land-stack` test-surface cleanup.
+- [ ] Automatic PR submission or stack landing for branches created from saved plans.
+- [ ] Objective integration or checked-in Objective records for generated implementation plans.
+- [ ] Live Pi/model end-to-end smoke tests as a prerequisite for the initial architecture cleanup.
