@@ -21,12 +21,14 @@ In scope:
   - `ts/packages/pi-extensions/src/checkpoint-pi.ts`
   - `ts/packages/pi-extensions/src/pending-worktree.ts`
   - `ts/packages/pi-extensions/src/newbr-flow.ts`
+  - `ts/packages/pi-extensions/src/newbr-transaction.ts`
   - `ts/packages/pi-extensions/src/branch-slug.ts`
 - The tests for those Modules:
   - `ts/packages/pi-extensions/test/checkpoint-flow.test.ts`
   - `ts/packages/pi-extensions/test/checkpoint-message.test.ts`
   - `ts/packages/pi-extensions/test/pending-worktree.test.ts`
   - `ts/packages/pi-extensions/test/newbr-flow.test.ts`
+  - `ts/packages/pi-extensions/test/newbr-transaction.test.ts`
 - Prioritizing and dispositioning the six PR #649 deepening candidates:
   1. Checkpoint command Module seam and pending worktree snapshot.
   2. New-branch transaction safety and test surface.
@@ -66,19 +68,19 @@ Assumptions:
 - The highest-leverage first slice is the checkpoint seam plus pending worktree snapshot because both `/cp` and `/newbr` depend on checkpoint preparation and worktree facts; implementation evidence now confirms the seam passes the deletion test for branch/status/diff/clean/detached-head facts and shared checkpoint preparation.
 - The existing TypeScript package style supports local fake adapters and harnesses; Candidate 1 used local harnesses without requiring a universal fake framework.
 - Some command-order assertions remain appropriate when ordering is itself the safety invariant, such as prepare-before-stash, stash-before-Graphite-create, and restore-before-commit.
-- `/newbr`'s Graphite dependency is acceptable because Graphite is part of the explicit user-facing command contract.
+- Candidate 2 confirms the new-branch transaction seam passes the deletion test: removing `newbr-transaction.ts` would push stash-ref lookup, Graphite-create rollback, restore-failure handling, typed transaction outcomes, and commit-stop rules back into `newbr-flow.ts` and its tests.
+- `/newbr`'s Graphite dependency is acceptable because Graphite is part of the explicit user-facing command contract; Candidate 2 kept `gt create` local to `/newbr` rather than introducing a generic Graphite adapter.
 
 Risks:
 
 - Premature extraction remains the main architectural risk for later candidates. Candidate 1 is de-risked by the deletion test: removing `pending-worktree.ts` or `checkpoint-pi.ts` would push shared git fact gathering or checkpoint Pi adapter behavior back into `/cp`, `/newbr`, and their tests.
-- Graphite/stash rollback behavior is safety-critical. Refactors that obscure the transaction order could make failures harder to reason about.
+- Graphite/stash rollback behavior remains safety-critical, but Candidate 2 de-risked the main failure edges by making stash failure, missing stash refs, Graphite-create rollback, restore failures, and commit failures explicit typed outcomes.
 - Model-auth and provider policy could drift if checkpoint message drafting and branch slug drafting continue to use unrelated implementations. Candidate 1 now centralizes checkpoint drafting policy in `checkpoint-pi.ts`, but branch slug drafting remains separate pending later evidence.
 - Branch naming could stay shallow if sanitation, fallback, suffixing, and availability checks remain split across tiny Modules.
-- Tests could overfit shell choreography instead of workflow outcomes, making safe refactors look risky.
+- Tests could still overfit shell choreography instead of workflow outcomes, but Candidate 2 moved detailed rollback/outcome coverage into transaction-level tests and kept flow-level assertions focused on user-visible messages and safety ordering.
 
 ## Open Questions
 
-- How much deeper should the new-branch transaction Module become after Candidate 1, and which shell details are safety guarantees rather than incidental choreography?
 - Should small-model drafting become one shared Module after checkpoint drafting moved to `checkpoint-pi.ts`, or wait until branch naming work proves a common policy with slug drafting?
-- Should Graphite branch creation become an explicit Adapter in this Objective, or be parked after transaction safety tests are clarified?
+- How deep should branch naming policy become after the transaction boundary is explicit?
 - Which candidates should be split into follow-on Objectives if the narrow PR #649 follow-up grows too large?

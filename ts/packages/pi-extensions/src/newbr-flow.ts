@@ -9,13 +9,13 @@ import {
 	type PendingWorktreeSnapshot,
 } from "./pending-worktree.ts";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength } from "./branch-slug.ts";
+import { runNewBranchTransaction, type NewBranchTransactionResult } from "./newbr-transaction.ts";
 
 export const NEWBR_COMMAND_NAME = "newbr";
 const GPT_NANO_PROVIDER = "openai";
 const GPT_NANO_MODEL = "gpt-5.4-nano";
 const SLUG_TIMEOUT_MS = 60_000;
 const GIT_TIMEOUT_MS = 30_000;
-const GT_TIMEOUT_MS = 120_000;
 const MAX_DIFF_CHARS = 24_000;
 const MAX_UNTRACKED_FILES = 12;
 const MAX_UNTRACKED_FILE_CHARS = 4_000;
@@ -93,51 +93,17 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 		return;
 	}
 
-	const stashMessage = `pi-newbr:${input.now?.() ?? Date.now()}:${branchName.name}`;
-	const stashed = await stashPendingChanges(input, stashMessage);
-	if ("error" in stashed) {
-		input.notify(stashed.error, "error");
-		return;
-	}
-
-	input.setStatus(`creating ${branchName.name}…`);
-	try {
-		const created = await input.exec("gt", ["create", branchName.name, "--no-interactive", "--no-ai"], input.cwd, GT_TIMEOUT_MS);
-		if (created.code !== 0) {
-			const restored = await restoreStash(input, stashed.ref);
-			input.notify(
-				[
-					`Failed to create Graphite branch ${branchName.name}.`,
-					formatCommandDetails(created),
-					restored.ok ? "Restored pending changes to the original branch." : `Could not restore pending changes: ${restored.error}`,
-				]
-					.filter(Boolean)
-					.join("\n"),
-				"error",
-			);
-			return;
-		}
-	} finally {
-		input.setStatus(undefined);
-	}
-
-	const restored = await restoreStash(input, stashed.ref);
-	if (!restored.ok) {
-		input.notify(
-			[
-				`Created branch ${branchName.name}, but failed to restore pending changes from the stash.`,
-				restored.error,
-				"Inspect `git stash list` before continuing.",
-			].join("\n"),
-			"error",
-		);
-		return;
-	}
-
-	input.notify(`Created ${branchName.name}; creating checkpoint commit…`, "info");
-	const committed = await input.commitPreparedCheckpointMessage(prepared.message);
-	if ("error" in committed) {
-		input.notify(`Branch ${branchName.name} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${committed.error}`, "error");
+	const transaction = await runNewBranchTransaction({
+		cwd: input.cwd,
+		branchName: branchName.name,
+		checkpointMessage: prepared.message,
+		exec: input.exec,
+		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
+		setStatus: input.setStatus,
+		...(input.now ? { now: input.now } : {}),
+	});
+	if (!transaction.ok) {
+		input.notify(formatNewBranchTransactionFailure(transaction, branchName.name), "error");
 		return;
 	}
 
@@ -149,7 +115,7 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 		[
 			`New branch: ${branchName.name}${suffix}`,
 			`Stacked on: ${snapshot.branch}`,
-			`Commit: ${committed.summary}`,
+			`Commit: ${transaction.commitSummary}`,
 			clean ? "Working directory is clean." : "Warning: working directory is not clean after checkpoint.",
 		].join("\n"),
 		clean ? "success" : "warning",
@@ -327,49 +293,34 @@ async function chooseAvailableBranchName(
 	return { error: `Could not find an available branch name based on ${baseSlug}.` };
 }
 
-async function stashPendingChanges(input: NewBranchFlowInput, message: string): Promise<{ ok: true; ref: string } | { error: string }> {
-	input.setStatus("stashing pending changes…");
-	try {
-		const stashed = await input.exec("git", ["stash", "push", "--include-untracked", "-m", message], input.cwd, GT_TIMEOUT_MS);
-		if (stashed.code !== 0) {
-			return { error: `Failed to stash pending changes before branch creation.\n${formatCommandDetails(stashed)}` };
-		}
+type NewBranchTransactionFailure = Extract<NewBranchTransactionResult, { ok: false }>;
 
-		const ref = await findStashRef(input, message);
-		if (!ref) {
-			return { error: `Stashed pending changes, but could not find the new stash entry for ${message}. Inspect \`git stash list\`.` };
-		}
-		return { ok: true, ref };
-	} finally {
-		input.setStatus(undefined);
+function formatNewBranchTransactionFailure(result: NewBranchTransactionFailure, branchName: string): string {
+	if (result.kind === "stash_failed") {
+		return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
 	}
-}
-
-async function findStashRef(input: NewBranchFlowInput, message: string): Promise<string | undefined> {
-	const listed = await input.exec("git", ["stash", "list", "--format=%gd%x00%s"], input.cwd, GIT_TIMEOUT_MS);
-	if (listed.code !== 0) {
-		return undefined;
+	if (result.kind === "stash_ref_missing") {
+		return [
+			`Stashed pending changes, but could not find the new stash entry for ${result.stashMessage}.`,
+			"Inspect `git stash list` before continuing.",
+			result.error,
+		].join("\n");
 	}
-	for (const line of listed.stdout.split("\n")) {
-		const [ref, subject] = line.split("\0");
-		if (ref && subject?.includes(message)) {
-			return ref;
-		}
+	if (result.kind === "graphite_create_failed") {
+		return [
+			`Failed to create Graphite branch ${branchName}.`,
+			result.createError,
+			result.restored ? "Restored pending changes to the original branch." : `Could not restore pending changes: ${result.restoreError}`,
+		].join("\n");
 	}
-	return undefined;
-}
-
-async function restoreStash(input: NewBranchFlowInput, ref: string): Promise<{ ok: true } | { ok: false; error: string }> {
-	input.setStatus("restoring pending changes…");
-	try {
-		const restored = await input.exec("git", ["stash", "pop", ref], input.cwd, GT_TIMEOUT_MS);
-		if (restored.code !== 0) {
-			return { ok: false, error: formatCommandDetails(restored) };
-		}
-		return { ok: true };
-	} finally {
-		input.setStatus(undefined);
+	if (result.kind === "restore_failed_after_branch_create") {
+		return [
+			`Created branch ${branchName}, but failed to restore pending changes from the stash.`,
+			result.restoreError,
+			"Inspect `git stash list` before continuing.",
+		].join("\n");
 	}
+	return `Branch ${branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
 }
 
 function truncate(text: string, maxChars: number): string {

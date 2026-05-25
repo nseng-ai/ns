@@ -1,0 +1,143 @@
+import { describe, expect, test } from "bun:test";
+import type { CommandResult } from "../src/checkpoint-flow.ts";
+import { runNewBranchTransaction, type NewBranchTransactionInput } from "../src/newbr-transaction.ts";
+
+function ok(stdout = "", stderr = ""): CommandResult {
+	return { code: 0, stdout, stderr };
+}
+
+function fail(stderr: string): CommandResult {
+	return { code: 1, stdout: "", stderr };
+}
+
+type HarnessOptions = {
+	stashPushFails?: boolean;
+	stashRefMissing?: boolean;
+	gtCreateFails?: boolean;
+	stashPopFails?: boolean;
+	commitResult?: { summary: string } | { error: string };
+};
+
+function createHarness(options: HarnessOptions = {}) {
+	const events: string[] = [];
+	let stashMessage = "";
+	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
+	const input: NewBranchTransactionInput = {
+		cwd: "/repo",
+		branchName: "test-branch",
+		checkpointMessage: "[cp] Update checkpoint tests\n\n- Add coverage",
+		now: () => 123,
+		exec: async (command, args) => {
+			events.push(`exec:${command} ${args.join(" ")}`);
+			if (command === "git" && args[0] === "stash" && args[1] === "push") {
+				stashMessage = args.at(-1) ?? "";
+				return options.stashPushFails ? fail("stash push failed") : ok("Saved working directory\n");
+			}
+			if (command === "git" && args[0] === "stash" && args[1] === "list") {
+				return options.stashRefMissing ? ok("stash@{0}\0On base-branch: unrelated stash\n") : ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
+			}
+			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
+				return options.stashPopFails ? fail("stash conflict") : ok("restored\n");
+			}
+			if (command === "gt" && args[0] === "create") {
+				return options.gtCreateFails ? fail("gt create failed") : ok("created\n");
+			}
+			return ok();
+		},
+		commitPreparedCheckpointMessage: async (message) => {
+			events.push(`commit:${message}`);
+			return commitResult;
+		},
+		setStatus: (message) => {
+			events.push(`status:${message ?? "clear"}`);
+		},
+	};
+	return { input, events };
+}
+
+function eventIndex(events: string[], prefix: string): number {
+	return events.findIndex((event) => event.startsWith(prefix));
+}
+
+describe("runNewBranchTransaction", () => {
+	test("success returns the checkpoint commit summary", async () => {
+		const harness = createHarness();
+
+		const result = await runNewBranchTransaction(harness.input);
+
+		expect(result).toEqual({ ok: true, commitSummary: "abc123 [cp] Update checkpoint tests" });
+		expect(eventIndex(harness.events, "exec:git stash push")).toBeLessThan(eventIndex(harness.events, "exec:git stash list"));
+		expect(eventIndex(harness.events, "exec:git stash list")).toBeLessThan(eventIndex(harness.events, "exec:gt create"));
+		expect(eventIndex(harness.events, "exec:gt create")).toBeLessThan(eventIndex(harness.events, "exec:git stash pop"));
+		expect(eventIndex(harness.events, "exec:git stash pop")).toBeLessThan(eventIndex(harness.events, "commit:"));
+	});
+
+	test("stash failure returns stash_failed and does not call Graphite", async () => {
+		const harness = createHarness({ stashPushFails: true });
+
+		const result = await runNewBranchTransaction(harness.input);
+
+		expect(result).toEqual({ ok: false, kind: "stash_failed", error: "exit 1: stash push failed" });
+		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
+		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
+	});
+
+	test("missing stash ref returns stash_ref_missing and does not call Graphite", async () => {
+		const harness = createHarness({ stashRefMissing: true });
+
+		const result = await runNewBranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: false,
+			kind: "stash_ref_missing",
+			stashMessage: "pi-newbr:123:test-branch",
+			error: "No matching stash entry found.",
+		});
+		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
+		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
+	});
+
+	test("Graphite failure restores the stash and returns restored true", async () => {
+		const harness = createHarness({ gtCreateFails: true });
+
+		const result = await runNewBranchTransaction(harness.input);
+
+		expect(result).toEqual({ ok: false, kind: "graphite_create_failed", createError: "exit 1: gt create failed", restored: true });
+		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
+		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
+	});
+
+	test("Graphite failure plus restore failure returns restored false", async () => {
+		const harness = createHarness({ gtCreateFails: true, stashPopFails: true });
+
+		const result = await runNewBranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: false,
+			kind: "graphite_create_failed",
+			createError: "exit 1: gt create failed",
+			restored: false,
+			restoreError: "exit 1: stash conflict",
+		});
+		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
+	});
+
+	test("restore failure after branch creation does not commit", async () => {
+		const harness = createHarness({ stashPopFails: true });
+
+		const result = await runNewBranchTransaction(harness.input);
+
+		expect(result).toEqual({ ok: false, kind: "restore_failed_after_branch_create", restoreError: "exit 1: stash conflict" });
+		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
+		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
+	});
+
+	test("commit failure returns commit_failed_after_branch_create", async () => {
+		const harness = createHarness({ commitResult: { error: "commit failed" } });
+
+		const result = await runNewBranchTransaction(harness.input);
+
+		expect(result).toEqual({ ok: false, kind: "commit_failed_after_branch_create", commitError: "commit failed" });
+		expect(eventIndex(harness.events, "commit:")).toBeGreaterThan(eventIndex(harness.events, "exec:git stash pop"));
+	});
+});

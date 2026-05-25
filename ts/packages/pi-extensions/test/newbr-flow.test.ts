@@ -14,6 +14,9 @@ function fail(stderr: string): CommandResult {
 type HarnessOptions = {
 	prepareResult?: { ok: true; message: string } | { ok: false; error: string };
 	commitResult?: { summary: string } | { error: string };
+	stashPushFails?: boolean;
+	stashListFails?: boolean;
+	stashRefMissing?: boolean;
 	gtCreateFails?: boolean;
 	stashPopFails?: boolean;
 	detachedHead?: boolean;
@@ -59,10 +62,13 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {
 				stashMessage = args.at(-1) ?? "";
-				return ok("Saved working directory\n");
+				return options.stashPushFails ? fail("stash push failed") : ok("Saved working directory\n");
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "list") {
-				return ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
+				if (options.stashListFails) {
+					return fail("stash list failed");
+				}
+				return options.stashRefMissing ? ok("stash@{0}\0On base-branch: unrelated stash\n") : ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
 				return options.stashPopFails ? fail("stash conflict") : ok("restored\n");
@@ -150,6 +156,37 @@ describe("createNewBranchCheckpointFlow", () => {
 		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
+	test("stash push failure stops before Graphite branch creation", async () => {
+		const harness = createHarness({ stashPushFails: true });
+
+		await createNewBranchCheckpointFlow(harness.input);
+
+		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
+		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
+		expect(harness.events).not.toContain("commit");
+		expect(
+			harness.notifications.some((notice) =>
+				notice.message.includes("Failed to stash pending changes before branch creation.") && notice.message.includes("stash push failed"),
+			),
+		).toBe(true);
+	});
+
+	test("missing stash ref stops before Graphite branch creation", async () => {
+		const harness = createHarness({ stashRefMissing: true });
+
+		await createNewBranchCheckpointFlow(harness.input);
+
+		expect(eventIndex(harness.events, "exec:git stash list")).toBeGreaterThan(eventIndex(harness.events, "exec:git stash push"));
+		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
+		expect(harness.events).not.toContain("commit");
+		expect(
+			harness.notifications.some((notice) =>
+				notice.message.includes("Stashed pending changes, but could not find the new stash entry") &&
+				notice.message.includes("Inspect `git stash list` before continuing."),
+			),
+		).toBe(true);
+	});
+
 	test("Graphite creation failure attempts stash restoration and skips final commit", async () => {
 		const harness = createHarness({ gtCreateFails: true });
 
@@ -159,6 +196,23 @@ describe("createNewBranchCheckpointFlow", () => {
 		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
 		expect(harness.events).not.toContain("commit");
 		expect(harness.notifications.some((notice) => notice.message.includes("Failed to create Graphite branch test-branch"))).toBe(true);
+	});
+
+	test("Graphite creation failure plus stash restoration failure reports both problems", async () => {
+		const harness = createHarness({ gtCreateFails: true, stashPopFails: true });
+
+		await createNewBranchCheckpointFlow(harness.input);
+
+		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
+		expect(harness.events).not.toContain("commit");
+		expect(
+			harness.notifications.some((notice) =>
+				notice.message.includes("Failed to create Graphite branch test-branch") &&
+				notice.message.includes("gt create failed") &&
+				notice.message.includes("Could not restore pending changes") &&
+				notice.message.includes("stash conflict"),
+			),
+		).toBe(true);
 	});
 
 	test("stash restoration failure after branch creation stops before commit", async () => {
