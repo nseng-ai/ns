@@ -29,10 +29,10 @@
   - Remove the skill source, `.agents`/`.claude` discovery symlinks, `skills-lock.json` entry, `just install-tools` global-link behavior, tests, and docs references.
   - Keep implementation-prompt prose in `ts/packages/pi-extensions/src/brmem-plans/prompts/impl-planned-branch.md`, loaded by the extension.
   - Verification includes `npx skills list --json` showing `brmem-plan-impl` is no longer listed.
-- [~] Move planned-branch workflow docs out of the brmem README.
-  - Put durable planning workflow docs next to the Pi extension/planning layer, likely under `docs/pi/` plus concise command help.
-  - Leave `packages/brmem/README.md` focused on Branch Memory: Entry, Entry Key, Namespace, branch-scoped storage, and generic CLI operations.
-  - Skill references and helper-skill language are removed from the brmem README, but the higher-level planned-branch workflow text still needs relocation or reduction to a concise pointer.
+- [x] Move planned-branch workflow docs out of the brmem README.
+  - Durable planning workflow docs now live at `docs/pi/planned-branch-workflow.md` and are linked from `docs/pi/README.md`.
+  - `packages/brmem/README.md` is focused on Branch Memory concepts and generic CLI operations, with only a concise pointer to the higher-level Pi/planning workflow.
+  - Skill references and helper-skill language have been removed from the brmem README.
 - [~] Resolve overlap with `pi-extension-deepening`.
   - Record that this Objective owns the focused planned-branch layer slice.
   - Update or cross-reference `pi-extension-deepening` when a candidate is implemented, parked, or split out by this work.
@@ -40,6 +40,7 @@
   - `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check` passed for the attached-plan reader slice.
   - `just ts-check`, `just ts-test`, `just dprint-check`, `git diff --check`, and the targeted attached-plan/create-plan-branch tests passed for the skill-removal and prompt-template slice.
   - `npx skills list --json` no longer lists `brmem-plan-impl`.
+  - `just dprint-check` passed for the docs relocation and Objective update slice.
   - Run broader repo validation when Python, repo-wide docs, skill layout, or installer behavior changes require it.
 - [ ] Close by explicit human decision.
   - Confirm the planning layer is visibly stacked on top of Branch Memory rather than integrated with it.
