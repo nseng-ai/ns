@@ -5,20 +5,23 @@
 - [~] Establish the planning-layer vocabulary and target module shape.
   - Keep the user-facing slash commands `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` stable.
   - Decide the internal module/file/type naming for saved plans, planned branches, attached plans, and the Branch Memory Adapter.
+  - Local plan-store helper and option names now use planning terminology, including `buildRepoPlanStoreKey`; the remaining naming question is whether module paths or extension entrypoint names need a broader planned-branch rename before closure.
   - Record any chosen naming changes in docs or Objective updates before broad renames.
-- [~] Separate the local plan store Module from Branch Memory persistence.
+- [x] Separate the local plan store Module from Branch Memory persistence.
   - Make `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md` behavior read as planning-layer local storage, not Branch Memory storage.
-  - Remove or isolate deprecated archive vocabulary and stale direct Branch Memory plan-storage paths that fail the deletion test.
+  - The stale direct Branch Memory `plans` namespace storage API, `storeBrmemPlanFromFile`, `BrmemPlanStorage*` types, and storage formatting helpers have been deleted.
+  - Deprecated archive vocabulary and compatibility aliases (`archiveRoot`, `sourcePlanArchiveRoot`, `defaultPlanArchiveRoot`, `resolveSourceBranchPlanArchiveDirectory`, and `SourceBranchPlanArchiveDirectoryEvidence`) have been deleted.
   - Preserve slug validation, repo identity, branch encoding, newest-plan selection, and exclusive-write behavior.
-- [~] Isolate Branch Memory attachment behind a lower Adapter.
+- [x] Isolate Branch Memory attachment behind a lower Adapter.
   - Keep the canonical attachment contract: namespace `brmem-plans`, key `<slug>.md`, target implementation branch.
   - Concentrate Branch Memory command discovery, `check`, `put`, JSON parsing, and partial-failure diagnostics where the planning layer crosses the storage Seam.
   - The attached-plan reader now reuses the existing `runBrmem` discovery/fallback seam and owns read-path JSON validation without extracting a broad generic Adapter.
+  - Remaining Branch Memory references in the planned-branch code and tests are limited to the explicit `brmem-plans` attachment/read contract, recovery diagnostics, active entrypoint names, or unrelated brmem extension surfaces.
   - Avoid extracting a broad generic Branch Memory Adapter unless the planned-branch workflow proves it through the deletion test.
-- [~] Improve `/create-planned-branch` presentation around planning concepts.
+- [x] Improve `/create-planned-branch` presentation around planning concepts.
   - Preview saved plan, target planned branch, branch creation method, and attached-plan outcome as planning facts.
   - Keep Branch Memory namespace, key, ref, commit, and source-file evidence available where it helps diagnose or recover from failures.
-  - Update fake-driven tests to assert the planning-level Interface rather than overfitting to storage internals.
+  - Fake-driven tests assert the planning-level Interface and negative legacy tool registration instead of preserving deleted storage compatibility behavior.
 - [x] Implement a tested attached-plan reader for `/impl-planned-branch`.
   - Move deterministic branch safety checks, canonical `brmem-plans` listing, key normalization, branch-final-segment matching, single-entry fallback, multiple-entry ambiguity, and selected-plan loading into tested code.
   - Cover detached HEAD, trunk/default branch refusal, no entries, invalid requested key, multiple entries, selected key loading, and malformed Branch Memory output.
@@ -43,6 +46,7 @@
   - `npx skills list --json` no longer lists `brmem-plan-impl`.
   - `just dprint-check` passed for the docs relocation and Objective update slice.
   - `just dprint-check` passed for the overlap-boundary Objective updates.
+  - `bun run --cwd ts check`, `bun run --cwd ts test`, `git diff --check`, and `just dprint-check` passed for the storage-compatibility deletion and Objective update slice.
   - Run broader repo validation when Python, repo-wide docs, skill layout, or installer behavior changes require it.
 - [ ] Close by explicit human decision.
   - Confirm the planning layer is visibly stacked on top of Branch Memory rather than integrated with it.

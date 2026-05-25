@@ -36,15 +36,13 @@ export {
 } from "./brmem-plans/plan-branch.ts";
 export type { BranchCreationMethod, BrmemPlanBranchEvidence, CreateBrmemPlanBranchParams } from "./brmem-plans/plan-branch.ts";
 export {
-	buildRepoArchiveKey,
-	defaultPlanArchiveRoot,
+	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
 	normalizeRepoOriginUrl,
 	resolvePlanStoreDirectory,
-	resolveSourceBranchPlanArchiveDirectory,
 	sanitizePlanPathSegment,
 	writeSourceBranchPlanFile,
 } from "./brmem-plans/source-plan-file.ts";
@@ -52,7 +50,6 @@ export type {
 	LatestSourceBranchPlanFileEvidence,
 	PlanStoreDirectoryEvidence,
 	RepoIdentitySource,
-	SourceBranchPlanArchiveDirectoryEvidence,
 	SourceBranchPlanFileEvidence,
 	SourceBranchPlanFileOptions,
 	SourceBranchPlanFileParams,
@@ -100,8 +97,6 @@ export type CreateBrmemPlanBranchExtensionOptions = {
 	planStoreRoot?: string;
 	/** @deprecated Use plannedBranchDefaultCreation. */
 	latestPlanBranchDefaultCreation?: BranchCreationMethod;
-	/** @deprecated Use planStoreRoot. */
-	sourcePlanArchiveRoot?: string;
 };
 
 export type CreatePlannedBranchArgs = {
@@ -746,7 +741,7 @@ function resolvePlannedBranchDefaultCreation(options: CreateBrmemPlanBranchExten
 }
 
 function resolvePlanStoreRootOption(options: CreateBrmemPlanBranchExtensionOptions): string | undefined {
-	return options.planStoreRoot ?? options.sourcePlanArchiveRoot;
+	return options.planStoreRoot;
 }
 
 function derivePlannedTargetBranch(

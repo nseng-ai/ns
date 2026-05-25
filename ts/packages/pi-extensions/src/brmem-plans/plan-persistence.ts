@@ -4,8 +4,6 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "../command-runtime.ts";
 
-export const PLAN_NAMESPACE = "plans";
-
 const BRMEM_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
@@ -43,23 +41,6 @@ export type BrmemRun = {
 	displayCommand: string;
 };
 
-export type BrmemPlanStorageParams = {
-	slug: string;
-	filePath: string;
-	summary?: string;
-};
-
-export type BrmemPlanStorageDetails = {
-	namespace: string;
-	key: string;
-	slug: string;
-	branch: string;
-	refName: string;
-	commit: string;
-	sourceFile: string;
-	summary?: string;
-};
-
 export type BrmemPutData = {
 	namespace: string;
 	key: string;
@@ -68,67 +49,6 @@ export type BrmemPutData = {
 	commit: string;
 	sourceFile: string;
 };
-
-export type BrmemPlanStorageResult = {
-	content: string;
-	details: BrmemPlanStorageDetails;
-};
-
-export type BrmemPlanStorageOptions = {
-	cwd: string;
-	signal?: AbortSignal | undefined;
-};
-
-export async function storeBrmemPlanFromFile(
-	pi: BrmemPlanExecApi,
-	rawParams: unknown,
-	options: BrmemPlanStorageOptions,
-): Promise<BrmemPlanStorageResult> {
-	const params = parseBrmemPlanStorageParams(rawParams);
-	const slug = params.slug.trim();
-	const slugError = validatePlanSlug(slug);
-	if (slugError !== undefined) {
-		throw new Error(`Invalid Branch Memory plan slug: ${slugError}`);
-	}
-
-	const sourceFile = await resolvePlanSourceFile(pi, options.cwd, params.filePath, options.signal);
-	const key = `${slug}.md`;
-
-	const check = await runBrmem(pi, options.cwd, ["check", key, "--namespace", PLAN_NAMESPACE, "--format", "json"], options.signal);
-	if (check.result.killed) {
-		throw new Error(formatCommandFailure("brmem check timed out or was killed", check.displayCommand, check.result));
-	}
-	if (check.result.code === 0) {
-		throw new Error(
-			[
-				"Branch Memory plan already exists; refusing to overwrite.",
-				`Namespace: ${PLAN_NAMESPACE}`,
-				`Key: ${key}`,
-				`Command: ${check.displayCommand}`,
-			].join("\n"),
-		);
-	}
-	if (check.result.code !== 1) {
-		throw new Error(formatCommandFailure("brmem check failed", check.displayCommand, check.result));
-	}
-
-	const put = await runBrmem(
-		pi,
-		options.cwd,
-		["put", key, "--namespace", PLAN_NAMESPACE, "--file", sourceFile, "--format", "json"],
-		options.signal,
-	);
-	if (put.result.code !== 0 || put.result.killed) {
-		throw new Error(formatCommandFailure("brmem put failed", put.displayCommand, put.result));
-	}
-
-	const data = parseBrmemPutData(put.result.stdout);
-	const summary = normalizeSummary(params.summary);
-	const details = buildDetails({ data, slug, summary });
-	const content = formatSuccessContent(details);
-
-	return { content, details };
-}
 
 export function validatePlanSlug(slug: string): string | undefined {
 	const normalized = slug.trim();
@@ -176,30 +96,6 @@ export function normalizePlanFilePath(rawPath: string): string {
 export function isPathInside(parent: string, child: string): boolean {
 	const relativePath = relative(resolve(parent), resolve(child));
 	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
-}
-
-export function parseBrmemPlanStorageParams(params: unknown): BrmemPlanStorageParams {
-	if (!isRecord(params)) {
-		throw new Error("Branch Memory plan storage parameters must be an object.");
-	}
-
-	const slug = params.slug;
-	const filePath = params.filePath;
-	const summary = params.summary;
-	if (typeof slug !== "string") {
-		throw new Error("Branch Memory plan storage requires string parameter `slug`.");
-	}
-	if (typeof filePath !== "string") {
-		throw new Error("Branch Memory plan storage requires string parameter `filePath`.");
-	}
-	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error("Branch Memory plan storage parameter `summary` must be a string when provided.");
-	}
-
-	if (summary === undefined) {
-		return { slug, filePath };
-	}
-	return { slug, filePath, summary };
 }
 
 export async function resolvePlanSourceFile(
@@ -364,39 +260,6 @@ export function normalizeSummary(summary: string | undefined): string | undefine
 	}
 	const trimmed = summary.trim();
 	return trimmed.length > 0 ? trimmed : undefined;
-}
-
-export function buildDetails(input: { data: BrmemPutData; slug: string; summary: string | undefined }): BrmemPlanStorageDetails {
-	const details = {
-		namespace: input.data.namespace,
-		key: input.data.key,
-		slug: input.slug,
-		branch: input.data.branch,
-		refName: input.data.refName,
-		commit: input.data.commit,
-		sourceFile: input.data.sourceFile,
-	};
-
-	if (input.summary === undefined) {
-		return details;
-	}
-	return { ...details, summary: input.summary };
-}
-
-export function formatSuccessContent(details: BrmemPlanStorageDetails): string {
-	const lines = [
-		"Stored Branch Memory plan.",
-		`Namespace: ${details.namespace}`,
-		`Key: ${details.key}`,
-		`Branch: ${details.branch}`,
-		`Ref: ${details.refName}`,
-		`Commit: ${details.commit}`,
-		`Source file: ${details.sourceFile}`,
-	];
-	if (details.summary !== undefined) {
-		lines.push(`Summary: ${details.summary}`);
-	}
-	return lines.join("\n");
 }
 
 export function formatCommandFailure(title: string, displayCommand: string, result: ExecResult): string {
