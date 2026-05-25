@@ -994,38 +994,60 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("create-planned-branch extension options default to Graphite and a branch prefix", async () => {
-		const graphiteFilePath = await makeNamedPlanFile();
+	test("create-planned-branch extension options default to Graphite without a branch prefix", async () => {
+		const filePath = await makeNamedPlanFile();
+		const pi = new FakePi(graphiteSuccessScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }));
+		createBrmemPlanBranchExtension(pi, {
+			plannedBranchDefaultCreation: "graphite",
+		});
+		const command = pi.commands.get("create-planned-branch");
+
+		await command?.handler(`${filePath} --yes`, createContext().ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.command)).toContain("gt");
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
+			command: "gt",
+			args: ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"],
+		});
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
+	});
+
+	test("create-planned-branch --plain-git override keeps the slug branch under the Graphite default", async () => {
+		const filePath = await makeNamedPlanFile();
+		const pi = new FakePi(successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }));
+		createBrmemPlanBranchExtension(pi, {
+			plannedBranchDefaultCreation: "graphite",
+		});
+		const command = pi.commands.get("create-planned-branch");
+
+		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.command)).not.toContain("gt");
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
+		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
+	});
+
+	test("create-planned-branch plannedBranchPrefix remains opt-in", async () => {
+		const filePath = await makeNamedPlanFile();
 		const prefixedBranch = `brmem-plans/${PLAN_SLUG}`;
-		const graphitePi = new FakePi(graphiteSuccessScript({ branch: prefixedBranch, key: PLAN_KEY, filePath: graphiteFilePath }));
-		createBrmemPlanBranchExtension(graphitePi, {
+		const pi = new FakePi(graphiteSuccessScript({ branch: prefixedBranch, key: PLAN_KEY, filePath }));
+		createBrmemPlanBranchExtension(pi, {
 			plannedBranchDefaultCreation: "graphite",
 			plannedBranchPrefix: "brmem-plans/",
 		});
-		const graphiteCommand = graphitePi.commands.get("create-planned-branch");
+		const command = pi.commands.get("create-planned-branch");
 
-		await graphiteCommand?.handler(`${graphiteFilePath} --yes`, createContext().ctx);
+		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
-		graphitePi.assertDone();
-		expect(graphitePi.execCalls.map((call) => call.command)).toContain("gt");
-		expect(graphitePi.sentMessages[0]?.content).toContain(`Branch: ${prefixedBranch}`);
-		expect(graphitePi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
-		expect(graphitePi.sentMessages[0]?.content).toContain("Branch creation: graphite");
-
-		const plainFilePath = await makeNamedPlanFile();
-		const plainPi = new FakePi(successScript({ branch: prefixedBranch, key: PLAN_KEY, filePath: plainFilePath }));
-		createBrmemPlanBranchExtension(plainPi, {
-			plannedBranchDefaultCreation: "graphite",
-			plannedBranchPrefix: "brmem-plans/",
-		});
-		const plainCommand = plainPi.commands.get("create-planned-branch");
-
-		await plainCommand?.handler(`${plainFilePath} --yes --plain-git`, createContext().ctx);
-
-		plainPi.assertDone();
-		expect(plainPi.execCalls.map((call) => call.command)).not.toContain("gt");
-		expect(plainPi.sentMessages[0]?.content).toContain(`Branch: ${prefixedBranch}`);
-		expect(plainPi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.command)).toContain("gt");
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${prefixedBranch}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
 	test("create-planned-branch passes explicit target branch while keeping key from slug", async () => {

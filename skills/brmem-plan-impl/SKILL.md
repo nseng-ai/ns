@@ -145,8 +145,8 @@ ambiguity instead of guessing.
 
 ## Manual verification scenarios
 
-1. **Prefixed branch with canonical key** — on branch `brmem-plans/<slug>`, with
-   key `<slug>.md` in namespace `brmem-plans`, the skill selects the key,
+1. **Slug branch with canonical key** — on branch `<slug>`, with key
+   `<slug>.md` in namespace `brmem-plans`, the skill selects the key,
    summarizes it, creates a checklist, and begins implementation.
 2. **No canonical entries** — a branch with no `brmem-plans` entries aborts with
    guidance to create or supply a canonical plan.

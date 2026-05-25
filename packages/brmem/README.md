@@ -47,9 +47,9 @@ implementation branch, and then attaches the plan to that branch in Branch
 Memory.
 
 Branch naming and branch creation policy are repo-specific extension
-configuration. In this repo, planned branches default to `brmem-plans/<slug>`,
-branch creation defaults to Graphite, and the Branch Memory key remains
-`<slug>.md`.
+configuration. In this repo, planned branches default to `<slug>`, branch
+creation defaults to Graphite, and the plan is attached in Branch Memory
+namespace `brmem-plans` with key `<slug>.md`.
 
 Graphite branch creation uses `git branch <target> HEAD` followed by `gt track
 <target> --parent <current-branch>`, so it does not switch the current checkout.

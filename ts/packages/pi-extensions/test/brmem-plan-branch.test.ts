@@ -292,7 +292,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 		]);
 	});
 
-	test("creates a Graphite plan branch when policy requests graphite", async () => {
+	test("creates a Graphite plan branch with an explicit prefixed branch name", async () => {
 		const filePath = await makePlanFile();
 		const branch = `brmem-plans/${PLAN_SLUG}`;
 		const { pi, evidence } = await runCreate(
