@@ -1,6 +1,6 @@
 ---
 name: brmem-handoff
-description: "Create, store, list, or recover branch/session handoff artifacts in Branch Memory. Use when the user asks for a branch handoff, session handoff, Branch Memory handoff, durable handoff artifact, or to continue from a stored handoff."
+description: "Create and store branch/session handoff artifacts in Branch Memory. Use when the user asks to create, write, save, or stash a durable handoff artifact for a future session."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git status *)"
@@ -10,25 +10,25 @@ allowed-tools:
 
 # brmem-handoff
 
-Use this skill to create or recover concise Markdown handoff artifacts stored in
-Branch Memory for the current branch. This is an artifact workflow, not a task
-system.
+Use this skill to create and store concise Markdown handoff artifacts in Branch
+Memory for the current branch. This is the write-side complement to
+`brmem-pickup-handoff`, and it is an artifact workflow, not a task system.
 
 ## Storage contract
 
 - Namespace: `session-artifacts`
-- Entry key shape: `handoffs/<slug>.md`
+- Entry key shape: `handoffs/<semantic-slug>.md`
 - Store from a file:
 
 ```bash
-brmem put handoffs/<slug>.md --namespace session-artifacts --branch <branch> --file <artifact.md>
+brmem put handoffs/<semantic-slug>.md --namespace session-artifacts --branch <branch> --file <artifact.md>
 ```
 
 Use Branch Memory only for UTF-8 text that is safe to keep with branch-local
 project context. Do not store secrets, credentials, binary data, generated build
 output, or large logs.
 
-## Choose the branch and slug
+## Choose the branch and semantic slug
 
 1. If the user names a branch, use it explicitly with `--branch <branch>`.
 2. Otherwise confirm the current branch before writing:
@@ -39,16 +39,24 @@ git branch --show-current
 
 Stop if the repo is in detached HEAD.
 
-For `<slug>`:
+For `<semantic-slug>`:
 
-- Use an explicit slug if the user provides one.
-- Otherwise derive it from the requested handoff focus or title:
+- Use an explicit slug if the user provides one and it is specific enough to
+  recognize later.
+- Otherwise derive it from the requested handoff focus or title. The slug is the
+  future pickup hint, so include the subject and likely resume action when
+  possible.
+- Format it as:
   - lowercase
   - replace punctuation and whitespace with `-`
   - remove remaining non-alphanumeric characters except `-`
   - collapse repeated `-`
   - trim leading/trailing `-`
   - keep it concise, usually 3-8 words
+- Avoid generic slugs like `handoff`, `session`, `work`, `follow-up`, or
+  `continue`.
+- Prefer semantic slugs like `address-review-feedback`,
+  `add-pickup-handoff-skill`, or `resume-brmem-plan-impl`.
 - If there is no meaningful focus or title, ask the user for one.
 
 ## Prevent accidental overwrites
@@ -56,7 +64,7 @@ For `<slug>`:
 Before writing, check for an existing artifact:
 
 ```bash
-brmem check handoffs/<slug>.md --namespace session-artifacts --branch <branch>
+brmem check handoffs/<semantic-slug>.md --namespace session-artifacts --branch <branch>
 ```
 
 Interpret the result:
@@ -106,30 +114,18 @@ hidden metadata, or workflow-state machinery.
 Store the artifact:
 
 ```bash
-brmem put handoffs/<slug>.md --namespace session-artifacts --branch <branch> --file <artifact.md>
+brmem put handoffs/<semantic-slug>.md --namespace session-artifacts --branch <branch> --file <artifact.md>
 ```
 
 Report the mutation to the user, including:
 
 - Branch
 - Namespace: `session-artifacts`
-- Entry: `handoffs/<slug>.md`
+- Entry: `handoffs/<semantic-slug>.md`
 - Locator/ref and commit printed by `brmem`
 
-## Recover handoffs in a later session
+## Pick up handoffs in a later session
 
-Discover stored artifacts:
-
-```bash
-brmem list --namespace session-artifacts --branch <branch>
-```
-
-Read one artifact:
-
-```bash
-brmem get handoffs/<slug>.md --namespace session-artifacts --branch <branch>
-```
-
-When a user asks to continue from handoffs and does not provide a slug, list the
-namespace first, pick the relevant `handoffs/*.md` entry if unambiguous, then read
-it. If several entries could apply, ask which one to load.
+When a user asks to resume from an existing Branch Memory handoff, prefer the
+`brmem-pickup-handoff` skill. Pickup relies on the semantic slug rather than a
+separate summary or index.
