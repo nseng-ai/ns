@@ -26,7 +26,6 @@ export {
 	formatSourceBranchPlanFileEvidence,
 	normalizeRepoOriginUrl,
 	sanitizePlanPathSegment,
-	shortIdentityHash,
 	writeSourceBranchPlanFile,
 } from "./brmem-plans/source-plan-file.ts";
 export type {
@@ -111,7 +110,7 @@ Workflow:
 
 Canonical source-branch archive contract:
 - Path convention: ~/.asdl/plans/<repo>/<source-branch>/<slug>.md
-- <repo>: sanitized git root basename plus a short hash of normalized remote.origin.url, falling back to the real repo root path when no origin exists
+- <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, brmem-plans/add-widget becomes brmem-plans---add-widget)
 - <slug>: semantic kebab-case slug without .md
 - Existing archive file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.
@@ -164,7 +163,7 @@ Workflow:
 
 Canonical source-branch archive contract:
 - Path convention: ~/.asdl/plans/<repo>/<source-branch>/<slug>.md
-- <repo>: sanitized git root basename plus a short hash of normalized remote.origin.url, falling back to the real repo root path when no origin exists
+- <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, brmem-plans/add-widget becomes brmem-plans---add-widget)
 - <slug>: semantic kebab-case slug without .md
 - Existing archive file: write_source_branch_plan_file refuses to overwrite it; choose a different semantic slug that still reflects the final plan content.

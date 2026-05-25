@@ -13,7 +13,6 @@ import createBrmemPlanBranchExtension, {
 	formatSourceBranchPlanFileEvidence,
 	isPathInside,
 	normalizeRepoOriginUrl,
-	shortIdentityHash,
 	validatePlanSlug,
 	writeSourceBranchPlanFile,
 	type CommandContext,
@@ -318,15 +317,23 @@ describe("source branch plan path helpers", () => {
 		expect(encodeBranchForPlanPath("feature/add widget+docs")).toBe("feature---add-widget-docs");
 	});
 
-	test("builds repo archive keys from basename and deterministic identity hash", () => {
-		const identity = normalizeRepoOriginUrl("git@github.com:owner/repo.git");
-		const same = buildRepoArchiveKey("/workspace/repo", identity);
-		const again = buildRepoArchiveKey("/workspace/repo", identity);
+	test("builds GitHub repo archive keys from owner and repo", () => {
+		const scpLike = buildRepoArchiveKey("/workspace/repo", normalizeRepoOriginUrl("git@github.com:owner/repo.git"));
+		const https = buildRepoArchiveKey("/workspace/repo", normalizeRepoOriginUrl("https://github.com/owner/repo.git"));
+		const mixedCaseHttps = buildRepoArchiveKey("/workspace/repo", normalizeRepoOriginUrl("HTTPS://github.com/Owner/Repo.git"));
 		const different = buildRepoArchiveKey("/workspace/repo", normalizeRepoOriginUrl("git@github.com:owner/other.git"));
 
-		expect(same).toBe(again);
-		expect(same).toBe(`repo-${shortIdentityHash(identity)}`);
-		expect(different).not.toBe(same);
+		expect(scpLike).toBe("gh--owner--repo");
+		expect(https).toBe(scpLike);
+		expect(mixedCaseHttps).toBe(scpLike);
+		expect(different).toBe("gh--owner--other");
+	});
+
+	test("builds deterministic non-GitHub fallback archive keys without hashes", () => {
+		expect(buildRepoArchiveKey("/workspace/repo", normalizeRepoOriginUrl("git@gitlab.com:Owner/Repo.git"))).toBe(
+			"ssh-git-gitlab.com-Owner-Repo",
+		);
+		expect(buildRepoArchiveKey("/repo", "/repo")).toBe("repo");
 	});
 });
 
@@ -411,17 +418,17 @@ describe("formatSourceBranchPlanFileEvidence", () => {
 		const text = formatSourceBranchPlanFileEvidence({
 			slug: PLAN_SLUG,
 			repoRoot: ROOT,
-			repoKey: "repo-abc123def456",
+			repoKey: "gh--owner--repo",
 			repoIdentitySource: "origin-url",
 			sourceBranch: "brmem-plans/add-widget",
 			branchKey: "brmem-plans---add-widget",
-			filePath: "/archive/repo-abc123def456/brmem-plans---add-widget/branch-scoped-plan-extension.md",
+			filePath: "/archive/gh--owner--repo/brmem-plans---add-widget/branch-scoped-plan-extension.md",
 			summary: "Plan the archived source plan file.",
 		});
 
 		expect(text).toContain("Created source-branch plan file.");
-		expect(text).toContain("Path: /archive/repo-abc123def456/brmem-plans---add-widget/branch-scoped-plan-extension.md");
-		expect(text).toContain("Repo key: repo-abc123def456");
+		expect(text).toContain("Path: /archive/gh--owner--repo/brmem-plans---add-widget/branch-scoped-plan-extension.md");
+		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain(`Repo root: ${ROOT}`);
 		expect(text).toContain("Repo identity source: origin-url");
 		expect(text).toContain("Source branch: brmem-plans/add-widget");

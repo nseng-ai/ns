@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { open, mkdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -13,7 +12,6 @@ import {
 } from "./plan-persistence.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
-const IDENTITY_HASH_CHARS = 12;
 const MAX_SEGMENT_LENGTH = 120;
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
@@ -71,13 +69,16 @@ export function normalizeRepoOriginUrl(rawUrl: string): string {
 	return stripGitSuffix(stripTrailingSlashes(candidate));
 }
 
-export function shortIdentityHash(value: string): string {
-	return createHash("sha256").update(value).digest("hex").slice(0, IDENTITY_HASH_CHARS);
-}
-
 export function buildRepoArchiveKey(repoRoot: string, normalizedIdentity: string): string {
-	const repoName = basename(resolve(repoRoot));
-	return `${sanitizePlanPathSegment(repoName, "repo")}-${shortIdentityHash(normalizedIdentity)}`;
+	const identity = normalizeRepoOriginUrl(normalizedIdentity);
+	const githubIdentity = parseGitHubRepoIdentity(identity);
+	if (githubIdentity !== undefined) {
+		const owner = sanitizePlanPathSegment(githubIdentity.owner.toLowerCase(), "owner");
+		const repo = sanitizePlanPathSegment(githubIdentity.repo.toLowerCase(), "repo");
+		return `gh--${owner}--${repo}`;
+	}
+
+	return sanitizePlanPathSegment(identity, basename(resolve(repoRoot)) || "repo");
 }
 
 export function encodeBranchForPlanPath(branch: string): string {
@@ -304,6 +305,35 @@ function normalizeAsUrl(value: string): string | undefined {
 		return `${protocol}//${username}${host}${port}`;
 	}
 	return `${protocol}//${username}${host}${port}/${path}`;
+}
+
+type GitHubRepoIdentity = {
+	owner: string;
+	repo: string;
+};
+
+function parseGitHubRepoIdentity(normalizedIdentity: string): GitHubRepoIdentity | undefined {
+	let url: URL;
+	try {
+		url = new URL(normalizedIdentity);
+	} catch {
+		return undefined;
+	}
+
+	if (url.hostname.toLowerCase() !== "github.com") {
+		return undefined;
+	}
+
+	const pathSegments = stripGitSuffix(stripTrailingSlashes(url.pathname))
+		.replace(/^\/+/, "")
+		.split("/")
+		.filter((segment) => segment.length > 0);
+	const [owner, repo] = pathSegments;
+	if (owner === undefined || repo === undefined) {
+		return undefined;
+	}
+
+	return { owner, repo };
 }
 
 function parseScpLikeRemote(value: string): string | undefined {
