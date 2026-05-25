@@ -177,7 +177,7 @@ Create a planned branch from a saved plan, then attach that plan to the branch i
 
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
-  --yes, -y          Skip interactive confirmation.
+  --yes, -y          Compatibility no-op; resolved planned branches create without confirmation.
   --graphite         Create the target branch with Graphite.
   --plain-git        Create the target branch with plain Git.
   --branch <name>    Use an explicit target branch name.
@@ -456,8 +456,8 @@ async function handleCreatePlannedBranchCommand(
 		ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, undefined);
 	}
 
-	const previewText = formatCreatePlannedBranchPreview(preview);
 	if (args.dryRun) {
+		const previewText = formatCreatePlannedBranchPreview(preview);
 		presentPlannedBranchMessage(
 			pi,
 			ctx,
@@ -466,31 +466,6 @@ async function handleCreatePlannedBranchCommand(
 			"info",
 		);
 		return;
-	}
-
-	if (!args.yes) {
-		if (!ctx.hasUI || ctx.ui.confirm === undefined) {
-			presentPlannedBranchMessage(
-				pi,
-				ctx,
-				`Refusing to create a planned branch without interactive confirmation. Re-run with --yes to execute.\n\n${previewText}`,
-				{ status: "confirmation-required", preview },
-				"warning",
-			);
-			return;
-		}
-
-		const confirmed = await ctx.ui.confirm("Create planned branch?", previewText);
-		if (!confirmed) {
-			presentPlannedBranchMessage(
-				pi,
-				ctx,
-				`Cancelled: no branch was created and no plan was attached.\n\n${previewText}`,
-				{ status: "cancelled", preview },
-				"info",
-			);
-			return;
-		}
 	}
 
 	ctx.ui.setStatus(PLANNED_BRANCH_STATUS_KEY, "creating branch and attaching plan…");
@@ -570,7 +545,7 @@ type SelectedSavedPlanFile =
 	| (LatestSourceBranchPlanFileEvidence & { mode: "session" });
 
 type PlannedBranchMessageDetails = {
-	status: "usage" | "dry-run" | "confirmation-required" | "cancelled" | "success" | "failure";
+	status: "usage" | "dry-run" | "success" | "failure";
 	preview?: CreatePlannedBranchPreview;
 	evidence?: BrmemPlanBranchEvidence;
 	error?: string;
