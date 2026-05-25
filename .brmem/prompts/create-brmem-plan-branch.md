@@ -13,11 +13,25 @@ repository.
 
 ## Scope
 
-This prompt is guidance only. It must not create branches, run `git`, run `gt`,
-run `brmem put`, submit PRs, or publish anything. The shared tool
-`create_brmem_plan_branch_from_file` owns all mutations for this workflow:
-creating the plain local Git branch and storing the reviewed plan in Branch
-Memory.
+This prompt provides policy guidance only. It must not create branches, run
+`git`, run `gt`, run `brmem put`, submit PRs, or publish anything. The shared
+tool `create_brmem_plan_branch_from_file` owns all mutations for this workflow:
+branch creation and Branch Memory storage. The tool may use Graphite when
+`branchCreation: "graphite"` is passed.
+
+## Branch creation policy
+
+This repository uses Graphite for contributor branch workflows.
+
+When calling `create_brmem_plan_branch_from_file`:
+
+- pass `branchCreation: "graphite"`
+- pass `branchName: brmem-plans/<slug>` unless the user supplied a different
+  explicit branch name
+- keep the Branch Memory namespace `brmem-plans`
+- keep the Branch Memory key `<slug>.md`
+- do not run `gt create`, `gt track`, `git branch`, or `brmem put` yourself; the
+  tool owns mutations
 
 ## ASDL branch and storage policy
 
@@ -44,10 +58,3 @@ Before invoking the tool, read the temp plan file back and confirm it includes:
 
 If the plan is incomplete, update the temp file and review it again before
 calling the tool.
-
-## Graphite note
-
-This repository normally uses Graphite for contributor branch and PR workflows,
-but this plan-branch tool intentionally creates a plain local Git branch and
-does not register Graphite metadata. Do not add `gt track` or other Graphite
-commands to this prompt.

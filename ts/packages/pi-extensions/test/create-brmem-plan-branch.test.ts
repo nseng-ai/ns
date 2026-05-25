@@ -150,6 +150,14 @@ function gitBranchStep(branch: string, result: Partial<ExecResult> = {}): Script
 	return step("git", ["branch", branch, "HEAD"], result);
 }
 
+function gitStatusStep(result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("git", ["status", "--porcelain=v1", "--untracked-files=normal"], result);
+}
+
+function gtCreateStep(branch: string, message: string, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("gt", ["create", branch, "--no-interactive", "--no-ai", "-m", message], result);
+}
+
 function brmemPutStep(branch: string, key: string, filePath: string, result: Partial<ExecResult>): ScriptedExec {
 	return step(
 		"brmem",
@@ -193,6 +201,21 @@ function successScript(input: { branch: string; key: string; filePath: string; p
 		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
 		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
 		gitBranchStep(input.branch),
+		brmemPutStep(input.branch, input.key, input.filePath, {
+			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
+		}),
+	];
+}
+
+function graphiteSuccessScript(input: { branch: string; key: string; filePath: string; message: string; putStdout?: string }): ScriptedExec[] {
+	return [
+		gitRootStep(),
+		refFormatStep(input.branch),
+		headStep(),
+		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
+		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
+		gitStatusStep(),
+		gtCreateStep(input.branch, input.message),
 		brmemPutStep(input.branch, input.key, input.filePath, {
 			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
 		}),
@@ -274,14 +297,18 @@ describe("buildCreateBrmemPlanBranchPrompt", () => {
 		expect(prompt).toContain("/create-brmem-plan-branch request");
 		expect(prompt).toContain("look at docs/pi/core-subagent-mvp-spec.md");
 		expect(prompt).toContain("Inspect the repository and documentation");
+		expect(prompt).toContain("brmem exec resolve-prompt create-brmem-plan-branch --format json");
+		expect(prompt).toContain("read the returned `data.path`");
+		expect(prompt).toContain("Treat that file as policy guidance only");
 		expect(prompt).toContain("temporary Markdown file outside the repository");
 		expect(prompt).toContain("Read or otherwise inspect the completed temp file");
 		expect(prompt).toContain("Choose a semantic slug from the final plan content");
 		expect(prompt).toContain("Optionally choose and pass an explicit target branch name");
+		expect(prompt).toContain("Pass branchCreation only when policy specifies a backend");
 		expect(prompt).toContain("call create_brmem_plan_branch_from_file with");
 		expect(prompt).toContain(`Branch Memory namespace: ${PLAN_BRANCH_NAMESPACE}`);
 		expect(prompt).toContain("Entry key: <semantic-slug>.md");
-		expect(prompt).toContain("Branch target: a plain Git branch created for implementation");
+		expect(prompt).toContain("Branch target: created by the tool using the branchCreation backend requested by Markdown policy");
 		expect(prompt).toContain("no checked-in plan file");
 	});
 
@@ -295,6 +322,7 @@ describe("formatPlanBranchEvidence", () => {
 		const text = formatPlanBranchEvidence({
 			slug: PLAN_SLUG,
 			branch: TARGET_BRANCH,
+			branchCreation: "graphite",
 			startPoint: START_POINT,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			key: PLAN_KEY,
@@ -306,6 +334,7 @@ describe("formatPlanBranchEvidence", () => {
 
 		expect(text).toContain("Created Branch Memory plan branch.");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
+		expect(text).toContain("Branch creation: graphite");
 		expect(text).toContain(`Start point: ${START_POINT}`);
 		expect(text).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
 		expect(text).toContain(`Key: ${PLAN_KEY}`);
@@ -381,14 +410,23 @@ describe("create_brmem_plan_branch_from_file tool", () => {
 			additionalProperties?: boolean;
 		};
 
-		expect(tool.description).toContain("plain Git implementation branch");
+		expect(tool.description).toContain("Branch creation defaults to plain Git");
+		expect(tool.description).toContain("branchCreation: \"graphite\"");
 		expect(tool.description).toContain("namespace `brmem-plans`");
 		expect(tool.description).toContain("key `<slug>.md`");
 		expect(tool.promptSnippet).toContain("Branch Memory namespace `brmem-plans`");
 		expect(tool.promptGuidelines?.join("\n")).toContain("/create-brmem-plan-branch");
+		expect(tool.promptGuidelines?.join("\n")).toContain("branchCreation: \"graphite\"");
+		expect(tool.promptGuidelines?.join("\n")).toContain("Do not manually run `git branch`");
 		expect(parameters.required).toEqual(["slug", "filePath"]);
 		expect(parameters.additionalProperties).toBe(false);
-		expect(Object.keys(parameters.properties ?? {})).toEqual(["slug", "filePath", "branchName", "summary"]);
+		expect(Object.keys(parameters.properties ?? {})).toEqual(["slug", "filePath", "branchName", "branchCreation", "summary"]);
+		expect(parameters.properties?.branchCreation).toEqual({
+			type: "string",
+			enum: ["plain-git", "graphite"],
+			description:
+				"Optional branch creation backend requested by Markdown policy. Defaults to plain-git. Use graphite only when repo/user policy explicitly says to.",
+		});
 	});
 
 	test("rejects invalid slug before running commands", async () => {
@@ -433,6 +471,7 @@ describe("create_brmem_plan_branch_from_file tool", () => {
 		]);
 		expect(result.content[0]?.text).toContain("Created Branch Memory plan branch.");
 		expect(result.content[0]?.text).toContain(`Branch: ${TARGET_BRANCH}`);
+		expect(result.content[0]?.text).toContain("Branch creation: plain-git");
 		expect(result.content[0]?.text).toContain(`Start point: ${START_POINT}`);
 		expect(result.content[0]?.text).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
 		expect(result.content[0]?.text).toContain(`Key: ${PLAN_KEY}`);
@@ -443,6 +482,7 @@ describe("create_brmem_plan_branch_from_file tool", () => {
 		expect(result.details).toEqual({
 			slug: PLAN_SLUG,
 			branch: TARGET_BRANCH,
+			branchCreation: "plain-git",
 			startPoint: START_POINT,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			key: PLAN_KEY,
@@ -450,6 +490,37 @@ describe("create_brmem_plan_branch_from_file tool", () => {
 			commit: "abc123",
 			sourceFile: filePath,
 			summary: "Plan the brmem-backed branch command.",
+		});
+	});
+
+	test("flows Graphite branch creation through the tool and formats evidence", async () => {
+		const filePath = await makePlanFile();
+		const { pi, result } = await executePlanBranchTool(
+			{
+				slug: PLAN_SLUG,
+				filePath,
+				branchName: TARGET_BRANCH,
+				branchCreation: "graphite",
+				summary: "Plan the brmem-backed branch command.",
+			},
+			graphiteSuccessScript({
+				branch: TARGET_BRANCH,
+				key: PLAN_KEY,
+				filePath,
+				message: "Plan: Plan the brmem-backed branch command.",
+			}),
+		);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
+			command: "gt",
+			args: ["create", TARGET_BRANCH, "--no-interactive", "--no-ai", "-m", "Plan: Plan the brmem-backed branch command."],
+		});
+		expect(result.content[0]?.text).toContain("Branch creation: graphite");
+		expect(result.details).toMatchObject({
+			branch: TARGET_BRANCH,
+			branchCreation: "graphite",
+			key: PLAN_KEY,
 		});
 	});
 

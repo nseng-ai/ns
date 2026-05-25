@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "../command-runtime.ts";
+import { formatCommand, tailText, type ExecResult } from "../command-runtime.ts";
 import {
 	formatCommandFailure,
 	normalizeSummary,
@@ -14,12 +14,16 @@ import {
 export const PLAN_BRANCH_NAMESPACE = "brmem-plans";
 
 const GIT_TIMEOUT_MS = 10_000;
+const GT_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
+
+export type BranchCreationMethod = "plain-git" | "graphite";
 
 export type CreateBrmemPlanBranchParams = {
 	slug: string;
 	filePath: string;
 	branchName?: string;
+	branchCreation?: BranchCreationMethod;
 	summary?: string;
 };
 
@@ -31,6 +35,7 @@ export type CreateBrmemPlanBranchOptions = {
 export type BrmemPlanBranchEvidence = {
 	slug: string;
 	branch: string;
+	branchCreation: BranchCreationMethod;
 	startPoint: string;
 	namespace: string;
 	key: string;
@@ -40,7 +45,7 @@ export type BrmemPlanBranchEvidence = {
 	summary?: string;
 };
 
-type GitRun = {
+type CommandRun = {
 	result: ExecResult;
 	displayCommand: string;
 };
@@ -57,6 +62,7 @@ export async function createBrmemPlanBranchFromFile(
 		throw new Error(`Invalid Branch Memory plan slug: ${slugError}`);
 	}
 
+	const branchCreation = params.branchCreation ?? "plain-git";
 	const targetBranch = deriveTargetBranch(params.branchName, slug);
 	const branchError = validateTargetBranchName(targetBranch);
 	if (branchError !== undefined) {
@@ -70,7 +76,13 @@ export async function createBrmemPlanBranchFromFile(
 	const startPoint = await resolveStartPoint(pi, options.cwd, options.signal);
 	await assertLocalBranchAbsent(pi, options.cwd, targetBranch, options.signal);
 	await assertBrmemEntryAbsent(pi, options.cwd, targetBranch, key, options.signal);
-	await createLocalBranch(pi, options.cwd, targetBranch, options.signal);
+	await createPlanBranch(pi, options.cwd, {
+		method: branchCreation,
+		branch: targetBranch,
+		slug,
+		summary: params.summary,
+		signal: options.signal,
+	});
 
 	const put = await runBrmem(
 		pi,
@@ -82,6 +94,7 @@ export async function createBrmemPlanBranchFromFile(
 		throw partialFailureError({
 			title: "Created branch but failed to store Branch Memory plan.",
 			branch: targetBranch,
+			branchCreation,
 			startPoint,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			key,
@@ -94,11 +107,12 @@ export async function createBrmemPlanBranchFromFile(
 		const data = parseBrmemPutData(put.result.stdout);
 		assertPutDataMatchesCommand(data, { branch: targetBranch, key, sourceFile });
 		const summary = normalizeSummary(params.summary);
-		return buildEvidence({ data, slug, startPoint, summary });
+		return buildEvidence({ data, slug, branchCreation, startPoint, summary });
 	} catch (error) {
 		throw partialFailureError({
 			title: "Created branch but could not parse Branch Memory storage result.",
 			branch: targetBranch,
+			branchCreation,
 			startPoint,
 			namespace: PLAN_BRANCH_NAMESPACE,
 			key,
@@ -116,6 +130,7 @@ export function parseCreateBrmemPlanBranchParams(params: unknown): CreateBrmemPl
 	const slug = params.slug;
 	const filePath = params.filePath;
 	const branchName = params.branchName;
+	const branchCreation = params.branchCreation;
 	const summary = params.summary;
 	if (typeof slug !== "string") {
 		throw new Error("createBrmemPlanBranchFromFile requires string parameter `slug`.");
@@ -126,6 +141,7 @@ export function parseCreateBrmemPlanBranchParams(params: unknown): CreateBrmemPl
 	if (branchName !== undefined && typeof branchName !== "string") {
 		throw new Error("createBrmemPlanBranchFromFile parameter `branchName` must be a string when provided.");
 	}
+	const normalizedBranchCreation = normalizeBranchCreationMethod(branchCreation);
 	if (summary !== undefined && typeof summary !== "string") {
 		throw new Error("createBrmemPlanBranchFromFile parameter `summary` must be a string when provided.");
 	}
@@ -134,10 +150,26 @@ export function parseCreateBrmemPlanBranchParams(params: unknown): CreateBrmemPl
 	if (branchName !== undefined) {
 		parsed.branchName = branchName;
 	}
+	if (branchCreation !== undefined) {
+		parsed.branchCreation = normalizedBranchCreation;
+	}
 	if (summary !== undefined) {
 		parsed.summary = summary;
 	}
 	return parsed;
+}
+
+export function normalizeBranchCreationMethod(value: unknown): BranchCreationMethod {
+	if (value === undefined) {
+		return "plain-git";
+	}
+	if (value === "plain-git" || value === "graphite") {
+		return value;
+	}
+	if (typeof value !== "string") {
+		throw new Error("createBrmemPlanBranchFromFile parameter `branchCreation` must be a string when provided.");
+	}
+	throw new Error("createBrmemPlanBranchFromFile parameter `branchCreation` must be one of `plain-git` or `graphite`.");
 }
 
 export function deriveTargetBranch(branchName: string | undefined, slug: string): string {
@@ -267,7 +299,25 @@ async function assertBrmemEntryAbsent(
 	}
 }
 
-async function createLocalBranch(
+async function createPlanBranch(
+	pi: BrmemPlanExecApi,
+	cwd: string,
+	input: {
+		method: BranchCreationMethod;
+		branch: string;
+		slug: string;
+		summary: string | undefined;
+		signal: AbortSignal | undefined;
+	},
+): Promise<void> {
+	if (input.method === "graphite") {
+		await createGraphiteBranch(pi, cwd, input);
+		return;
+	}
+	await createPlainGitBranch(pi, cwd, input.branch, input.signal);
+}
+
+async function createPlainGitBranch(
 	pi: BrmemPlanExecApi,
 	cwd: string,
 	targetBranch: string,
@@ -279,15 +329,61 @@ async function createLocalBranch(
 	}
 }
 
+async function createGraphiteBranch(
+	pi: BrmemPlanExecApi,
+	cwd: string,
+	input: { branch: string; slug: string; summary: string | undefined; signal: AbortSignal | undefined },
+): Promise<void> {
+	await assertCleanWorktreeForGraphite(pi, cwd, input.signal);
+	const create = await runGt(
+		pi,
+		cwd,
+		["create", input.branch, "--no-interactive", "--no-ai", "-m", planBranchCommitMessage(input.slug, input.summary)],
+		input.signal,
+	);
+	if (create.result.code !== 0 || create.result.killed) {
+		throw new Error(formatCommandFailure("gt create failed", create.displayCommand, create.result));
+	}
+}
+
+async function assertCleanWorktreeForGraphite(
+	pi: BrmemPlanExecApi,
+	cwd: string,
+	signal: AbortSignal | undefined,
+): Promise<void> {
+	const status = await runGit(pi, cwd, ["status", "--porcelain=v1", "--untracked-files=normal"], signal);
+	if (status.result.code !== 0 || status.result.killed) {
+		throw new Error(formatCommandFailure("git status failed", status.displayCommand, status.result));
+	}
+
+	const dirtyPaths = status.result.stdout.trimEnd();
+	if (dirtyPaths.length > 0) {
+		throw new Error(
+			[
+				"Graphite branch creation requires a clean worktree; refusing to run gt create because it may stage or commit unrelated changes.",
+				"",
+				"Dirty paths:",
+				tailText(dirtyPaths, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
+			].join("\n"),
+		);
+	}
+}
+
+function planBranchCommitMessage(slug: string, summary: string | undefined): string {
+	return `Plan: ${normalizeSummary(summary) ?? slug}`;
+}
+
 function buildEvidence(input: {
 	data: BrmemPutData;
 	slug: string;
+	branchCreation: BranchCreationMethod;
 	startPoint: string;
 	summary: string | undefined;
 }): BrmemPlanBranchEvidence {
 	const evidence = {
 		slug: input.slug,
 		branch: input.data.branch,
+		branchCreation: input.branchCreation,
 		startPoint: input.startPoint,
 		namespace: input.data.namespace,
 		key: input.data.key,
@@ -324,6 +420,7 @@ function assertPutDataMatchesCommand(data: BrmemPutData, expected: { branch: str
 function partialFailureError(input: {
 	title: string;
 	branch: string;
+	branchCreation: BranchCreationMethod;
 	startPoint: string;
 	namespace: string;
 	key: string;
@@ -334,6 +431,7 @@ function partialFailureError(input: {
 		[
 			`Partial failure: ${input.title}`,
 			`Created branch: ${input.branch}`,
+			`Branch creation: ${input.branchCreation}`,
 			`Start point: ${input.startPoint}`,
 			`Namespace: ${input.namespace}`,
 			`Key: ${input.key}`,
@@ -350,7 +448,7 @@ async function runGit(
 	cwd: string,
 	args: string[],
 	signal: AbortSignal | undefined,
-): Promise<GitRun> {
+): Promise<CommandRun> {
 	const displayCommand = formatCommand("git", args);
 	try {
 		const result = await pi.exec("git", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
@@ -358,6 +456,22 @@ async function runGit(
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		throw new Error(`git command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`);
+	}
+}
+
+async function runGt(
+	pi: BrmemPlanExecApi,
+	cwd: string,
+	args: string[],
+	signal: AbortSignal | undefined,
+): Promise<CommandRun> {
+	const displayCommand = formatCommand("gt", args);
+	try {
+		const result = await pi.exec("gt", args, execOptions(cwd, GT_TIMEOUT_MS, signal));
+		return { result, displayCommand };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		throw new Error(`gt command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`);
 	}
 }
 
