@@ -14,9 +14,9 @@ allowed-tools:
 Load the canonical Branch Memory plan attached to the current implementation
 branch and begin implementation.
 
-Use `brmem-create-plan-branch-from-file` or `/create-brmem-plan-branch` to create
-new plan branches. This skill is read-only with respect to Branch Memory and is
-only for picking up an existing plan.
+Use `/write-plan` followed by `/create-planned-branch` to create new planned
+branches. This skill is read-only with respect to Branch Memory and is only for
+picking up an existing attached plan.
 
 ## Rules
 
@@ -75,8 +75,8 @@ Parse the returned entries. If there are no entries, abort with:
 ```text
 No brmem-plans entries on branch `<current-branch>`.
 
-Create a plan branch with `brmem-create-plan-branch-from-file` or
-`/create-brmem-plan-branch`, or provide a branch/key that already has a canonical plan.
+Create a saved plan with `/write-plan`, attach it to a planned branch with
+`/create-planned-branch`, or provide a branch/key that already has a canonical plan.
 ```
 
 ### 3. Select the plan key

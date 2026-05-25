@@ -11,11 +11,6 @@
       "sourceType": "local",
       "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
-    "brmem-create-plan-branch-from-file": {
-      "source": "skills/brmem-create-plan-branch-from-file",
-      "sourceType": "local",
-      "computedHash": "066d8fdd3ac736f5752611fbaf0d75001f92b60273ef2d35ccaa58b7f15676f7"
-    },
     "brmem-plan-impl": {
       "source": "skills/brmem-plan-impl",
       "sourceType": "local",

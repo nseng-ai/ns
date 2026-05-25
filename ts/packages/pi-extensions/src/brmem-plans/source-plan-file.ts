@@ -26,10 +26,12 @@ export type SourceBranchPlanFileParams = {
 export type SourceBranchPlanFileOptions = {
 	cwd: string;
 	signal?: AbortSignal | undefined;
+	planStoreRoot?: string | undefined;
+	/** @deprecated Use planStoreRoot. */
 	archiveRoot?: string | undefined;
 };
 
-export type SourceBranchPlanArchiveDirectoryEvidence = {
+export type PlanStoreDirectoryEvidence = {
 	repoRoot: string;
 	repoKey: string;
 	repoIdentitySource: RepoIdentitySource;
@@ -38,7 +40,10 @@ export type SourceBranchPlanArchiveDirectoryEvidence = {
 	directoryPath: string;
 };
 
-export type LatestSourceBranchPlanFileEvidence = SourceBranchPlanArchiveDirectoryEvidence & {
+/** @deprecated Use PlanStoreDirectoryEvidence. */
+export type SourceBranchPlanArchiveDirectoryEvidence = PlanStoreDirectoryEvidence;
+
+export type LatestSourceBranchPlanFileEvidence = PlanStoreDirectoryEvidence & {
 	slug: string;
 	filePath: string;
 	fileName: string;
@@ -66,8 +71,13 @@ type RepoIdentity = {
 	identity: string;
 };
 
-export function defaultPlanArchiveRoot(): string {
+export function defaultPlanStoreRoot(): string {
 	return join(homedir(), ".asdl", "plans");
+}
+
+/** @deprecated Use defaultPlanStoreRoot. */
+export function defaultPlanArchiveRoot(): string {
+	return defaultPlanStoreRoot();
 }
 
 export function normalizeRepoOriginUrl(rawUrl: string): string {
@@ -132,7 +142,7 @@ export function sanitizePlanPathSegment(value: string, fallback: string): string
 
 export function formatSourceBranchPlanFileEvidence(evidence: SourceBranchPlanFileEvidence): string {
 	const lines = [
-		"Created source-branch plan file.",
+		"Saved plan file in local plan store.",
 		`Path: ${evidence.filePath}`,
 		`Repo key: ${evidence.repoKey}`,
 		`Repo root: ${evidence.repoRoot}`,
@@ -147,17 +157,17 @@ export function formatSourceBranchPlanFileEvidence(evidence: SourceBranchPlanFil
 	return lines.join("\n");
 }
 
-export async function resolveSourceBranchPlanArchiveDirectory(
+export async function resolvePlanStoreDirectory(
 	pi: BrmemPlanExecApi,
 	options: SourceBranchPlanFileOptions,
-): Promise<SourceBranchPlanArchiveDirectoryEvidence> {
+): Promise<PlanStoreDirectoryEvidence> {
 	const repoRoot = await resolveRequiredGitRepoRoot(pi, options.cwd, options.signal);
 	const sourceBranch = await resolveCurrentBranch(pi, options.cwd, options.signal);
 	const repoIdentity = await resolveRepoIdentity(pi, options.cwd, repoRoot, options.signal);
 	const repoKey = buildRepoArchiveKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
-	const archiveRoot = options.archiveRoot ?? defaultPlanArchiveRoot();
-	const directoryPath = join(archiveRoot, repoKey, branchKey);
+	const planStoreRoot = options.planStoreRoot ?? options.archiveRoot ?? defaultPlanStoreRoot();
+	const directoryPath = join(planStoreRoot, repoKey, branchKey);
 
 	return {
 		repoRoot,
@@ -169,12 +179,20 @@ export async function resolveSourceBranchPlanArchiveDirectory(
 	};
 }
 
+/** @deprecated Use resolvePlanStoreDirectory. */
+export async function resolveSourceBranchPlanArchiveDirectory(
+	pi: BrmemPlanExecApi,
+	options: SourceBranchPlanFileOptions,
+): Promise<PlanStoreDirectoryEvidence> {
+	return resolvePlanStoreDirectory(pi, options);
+}
+
 export async function findLatestSourceBranchPlanFile(
 	pi: BrmemPlanExecApi,
 	options: SourceBranchPlanFileOptions,
 ): Promise<LatestSourceBranchPlanFileEvidence> {
-	const directory = await resolveSourceBranchPlanArchiveDirectory(pi, options);
-	const entries = await readSourcePlanArchiveDirectory(directory);
+	const directory = await resolvePlanStoreDirectory(pi, options);
+	const entries = await readPlanStoreDirectory(directory);
 	const candidates: Array<{ fileName: string; filePath: string; modifiedTimeMs: number }> = [];
 
 	for (const entry of entries) {
@@ -193,16 +211,16 @@ export async function findLatestSourceBranchPlanFile(
 	if (candidates.length === 0) {
 		throw new Error(
 			[
-				"No Markdown source-branch plan files exist for the current repository and branch.",
-				`Directory: ${directory.directoryPath}`,
-				"Run /create-plan-file first, or pass an explicit absolute plan file path.",
+				"No Markdown saved plan files exist in the local plan store for the current repository and branch.",
+				`Plan store directory: ${directory.directoryPath}`,
+				"Run /write-plan first, or pass an explicit absolute plan file path.",
 			].join("\n"),
 		);
 	}
 
 	const latest = candidates.sort(compareLatestSourcePlanCandidates)[0];
 	if (latest === undefined) {
-		throw new Error(`No Markdown source-branch plan files exist in ${directory.directoryPath}.`);
+		throw new Error(`No Markdown saved plan files exist in the local plan store directory ${directory.directoryPath}.`);
 	}
 
 	const slug = latest.fileName.slice(0, -".md".length);
@@ -210,7 +228,7 @@ export async function findLatestSourceBranchPlanFile(
 	if (slugError !== undefined) {
 		throw new Error(
 			[
-				"Latest source-branch plan filename has an invalid slug.",
+				"Latest saved plan filename has an invalid slug.",
 				`Path: ${latest.filePath}`,
 				`Slug: ${slug}`,
 				`Reason: ${slugError}`,
@@ -236,10 +254,10 @@ export async function writeSourceBranchPlanFile(
 	const slug = params.slug.trim();
 	const slugError = validatePlanSlug(slug);
 	if (slugError !== undefined) {
-		throw new Error(`Invalid source-branch plan slug: ${slugError}`);
+		throw new Error(`Invalid saved plan slug: ${slugError}`);
 	}
 
-	const directory = await resolveSourceBranchPlanArchiveDirectory(pi, options);
+	const directory = await resolvePlanStoreDirectory(pi, options);
 	const filePath = join(directory.directoryPath, `${slug}.md`);
 
 	await writeExclusiveFile(filePath, params.content);
@@ -340,19 +358,19 @@ async function resolveRepoIdentity(
 	throw new Error(formatCommandFailure("git config --get remote.origin.url failed", origin.displayCommand, origin.result));
 }
 
-async function readSourcePlanArchiveDirectory(directory: SourceBranchPlanArchiveDirectoryEvidence): Promise<Dirent[]> {
+async function readPlanStoreDirectory(directory: PlanStoreDirectoryEvidence): Promise<Dirent[]> {
 	try {
 		return await readdir(directory.directoryPath, { withFileTypes: true });
 	} catch (error) {
 		if (isNodeError(error) && error.code === "ENOENT") {
 			throw new Error(
 				[
-					"No source-branch plan archive exists for the current repository and branch.",
-					`Directory: ${directory.directoryPath}`,
+					"No local plan store directory exists for the current repository and branch.",
+					`Plan store directory: ${directory.directoryPath}`,
 					`Repo key: ${directory.repoKey}`,
 					`Source branch: ${directory.sourceBranch}`,
 					`Branch path segment: ${directory.branchKey}`,
-					"Run /create-plan-file first, or pass an explicit absolute plan file path.",
+					"Run /write-plan first, or pass an explicit absolute plan file path.",
 				].join("\n"),
 			);
 		}
@@ -379,7 +397,7 @@ async function writeExclusiveFile(filePath: string, content: string): Promise<vo
 		await file.writeFile(content, "utf8");
 	} catch (error) {
 		if (isNodeError(error) && error.code === "EEXIST") {
-			throw new Error(`Source-branch plan file already exists; refusing to overwrite.\nPath: ${filePath}`);
+			throw new Error(`Saved plan file already exists in the local plan store; refusing to overwrite.\nPath: ${filePath}`);
 		}
 		throw error;
 	} finally {
