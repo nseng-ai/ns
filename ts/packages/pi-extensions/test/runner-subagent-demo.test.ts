@@ -249,7 +249,7 @@ describe("runner-subagent-demo extension", () => {
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
-	test("UI status and widget are set while running and cleared after completion", async () => {
+	test("above-editor widget is set while running and cleared after completion", async () => {
 		const result = await runRunnerSubagentDemo("Report progress", {
 			version: 1,
 			kind: "terminal-capture",
@@ -258,15 +258,14 @@ describe("runner-subagent-demo extension", () => {
 			input: { summary: "Done" },
 		});
 
-		expect(result.statuses[0]).toEqual({ key: RUNNER_SUBAGENT_DEMO_COMMAND_NAME, value: "runner-subagent-demo: dispatching runner subagent..." });
-		expect(result.statuses.some((status) => status.value === "runner-subagent-demo: running runner subagent...")).toBe(true);
-		expect(result.statuses.at(-1)).toEqual({ key: RUNNER_SUBAGENT_DEMO_COMMAND_NAME, value: undefined });
+		expect(result.statuses).toEqual([]);
 		expect(result.widgets[0]?.value?.[0]).toContain("Runner subagent demo: Report progress");
+		expect(result.widgets[0]?.options).toEqual({ placement: "aboveEditor" });
 		expect(result.widgets.some((widget) => widget.value?.some((line) => line === `Session: ${SESSION_FILE}`))).toBe(true);
 		expect(result.widgets.at(-1)).toEqual({
 			key: RUNNER_SUBAGENT_DEMO_COMMAND_NAME,
 			value: undefined,
-			options: { placement: "belowEditor" },
+			options: { placement: "aboveEditor" },
 		});
 	});
 

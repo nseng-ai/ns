@@ -164,11 +164,14 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(partialText).toContain("turns: 1");
 		expect(partialText).toContain("tools: 1");
 		expect(partialText).toContain(`Session file: ${SESSION_FILE}`);
-		expect(statuses.some((status) => status.value?.includes("read"))).toBe(true);
+		expect(statuses).toEqual([]);
 		expect(widgets.some((widget) => widget.value?.includes("Tool: read"))).toBe(true);
-		expect(statuses.at(-1)).toEqual({ key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME, value: undefined });
-		expect(widgets.at(-1)?.key).toBe(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
-		expect(widgets.at(-1)?.value).toBeUndefined();
+		expect(widgets.some((widget) => widget.options?.placement === "aboveEditor")).toBe(true);
+		expect(widgets.at(-1)).toEqual({
+			key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+			value: undefined,
+			options: { placement: "aboveEditor" },
+		});
 		expect(finalText).toContain("dispatch_runner_subagent result");
 		expect(finalText).toContain("Status: final-text");
 		expect(finalText).toContain("Subagent final answer.");
@@ -308,9 +311,12 @@ describe("dispatch_runner_subagent extension", () => {
 		const result = await running;
 		const details = result.details as Record<string, unknown>;
 		expect(details.status).toBe("error");
-		expect(statuses.at(-1)).toEqual({ key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME, value: undefined });
-		expect(widgets.at(-1)?.key).toBe(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
-		expect(widgets.at(-1)?.value).toBeUndefined();
+		expect(statuses).toEqual([]);
+		expect(widgets.at(-1)).toEqual({
+			key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+			value: undefined,
+			options: { placement: "aboveEditor" },
+		});
 	});
 
 	test("rejects blank title or prompt before spawning a subagent", async () => {
