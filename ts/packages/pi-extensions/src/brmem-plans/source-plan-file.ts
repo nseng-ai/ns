@@ -1,4 +1,5 @@
-import { open, mkdir, realpath } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { mkdir, open, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
@@ -26,6 +27,22 @@ export type SourceBranchPlanFileOptions = {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	archiveRoot?: string | undefined;
+};
+
+export type SourceBranchPlanArchiveDirectoryEvidence = {
+	repoRoot: string;
+	repoKey: string;
+	repoIdentitySource: RepoIdentitySource;
+	sourceBranch: string;
+	branchKey: string;
+	directoryPath: string;
+};
+
+export type LatestSourceBranchPlanFileEvidence = SourceBranchPlanArchiveDirectoryEvidence & {
+	slug: string;
+	filePath: string;
+	fileName: string;
+	modifiedTimeMs: number;
 };
 
 export type SourceBranchPlanFileEvidence = {
@@ -130,6 +147,86 @@ export function formatSourceBranchPlanFileEvidence(evidence: SourceBranchPlanFil
 	return lines.join("\n");
 }
 
+export async function resolveSourceBranchPlanArchiveDirectory(
+	pi: BrmemPlanExecApi,
+	options: SourceBranchPlanFileOptions,
+): Promise<SourceBranchPlanArchiveDirectoryEvidence> {
+	const repoRoot = await resolveRequiredGitRepoRoot(pi, options.cwd, options.signal);
+	const sourceBranch = await resolveCurrentBranch(pi, options.cwd, options.signal);
+	const repoIdentity = await resolveRepoIdentity(pi, options.cwd, repoRoot, options.signal);
+	const repoKey = buildRepoArchiveKey(repoRoot, repoIdentity.identity);
+	const branchKey = encodeBranchForPlanPath(sourceBranch);
+	const archiveRoot = options.archiveRoot ?? defaultPlanArchiveRoot();
+	const directoryPath = join(archiveRoot, repoKey, branchKey);
+
+	return {
+		repoRoot,
+		repoKey,
+		repoIdentitySource: repoIdentity.source,
+		sourceBranch,
+		branchKey,
+		directoryPath,
+	};
+}
+
+export async function findLatestSourceBranchPlanFile(
+	pi: BrmemPlanExecApi,
+	options: SourceBranchPlanFileOptions,
+): Promise<LatestSourceBranchPlanFileEvidence> {
+	const directory = await resolveSourceBranchPlanArchiveDirectory(pi, options);
+	const entries = await readSourcePlanArchiveDirectory(directory);
+	const candidates: Array<{ fileName: string; filePath: string; modifiedTimeMs: number }> = [];
+
+	for (const entry of entries) {
+		if (!entry.isFile() || !entry.name.endsWith(".md")) {
+			continue;
+		}
+
+		const filePath = join(directory.directoryPath, entry.name);
+		const fileStat = await stat(filePath);
+		if (!fileStat.isFile()) {
+			continue;
+		}
+		candidates.push({ fileName: entry.name, filePath, modifiedTimeMs: fileStat.mtimeMs });
+	}
+
+	if (candidates.length === 0) {
+		throw new Error(
+			[
+				"No Markdown source-branch plan files exist for the current repository and branch.",
+				`Directory: ${directory.directoryPath}`,
+				"Run /create-plan-file first, or pass an explicit absolute plan file path.",
+			].join("\n"),
+		);
+	}
+
+	const latest = candidates.sort(compareLatestSourcePlanCandidates)[0];
+	if (latest === undefined) {
+		throw new Error(`No Markdown source-branch plan files exist in ${directory.directoryPath}.`);
+	}
+
+	const slug = latest.fileName.slice(0, -".md".length);
+	const slugError = validatePlanSlug(slug);
+	if (slugError !== undefined) {
+		throw new Error(
+			[
+				"Latest source-branch plan filename has an invalid slug.",
+				`Path: ${latest.filePath}`,
+				`Slug: ${slug}`,
+				`Reason: ${slugError}`,
+			].join("\n"),
+		);
+	}
+
+	return {
+		...directory,
+		slug,
+		filePath: latest.filePath,
+		fileName: latest.fileName,
+		modifiedTimeMs: latest.modifiedTimeMs,
+	};
+}
+
 export async function writeSourceBranchPlanFile(
 	pi: BrmemPlanExecApi,
 	rawParams: unknown,
@@ -142,23 +239,18 @@ export async function writeSourceBranchPlanFile(
 		throw new Error(`Invalid source-branch plan slug: ${slugError}`);
 	}
 
-	const repoRoot = await resolveRequiredGitRepoRoot(pi, options.cwd, options.signal);
-	const sourceBranch = await resolveCurrentBranch(pi, options.cwd, options.signal);
-	const repoIdentity = await resolveRepoIdentity(pi, options.cwd, repoRoot, options.signal);
-	const repoKey = buildRepoArchiveKey(repoRoot, repoIdentity.identity);
-	const branchKey = encodeBranchForPlanPath(sourceBranch);
-	const archiveRoot = options.archiveRoot ?? defaultPlanArchiveRoot();
-	const filePath = join(archiveRoot, repoKey, branchKey, `${slug}.md`);
+	const directory = await resolveSourceBranchPlanArchiveDirectory(pi, options);
+	const filePath = join(directory.directoryPath, `${slug}.md`);
 
 	await writeExclusiveFile(filePath, params.content);
 
 	const evidence = {
 		slug,
-		repoRoot,
-		repoKey,
-		repoIdentitySource: repoIdentity.source,
-		sourceBranch,
-		branchKey,
+		repoRoot: directory.repoRoot,
+		repoKey: directory.repoKey,
+		repoIdentitySource: directory.repoIdentitySource,
+		sourceBranch: directory.sourceBranch,
+		branchKey: directory.branchKey,
 		filePath,
 	};
 	const summary = normalizeSummary(params.summary);
@@ -246,6 +338,36 @@ async function resolveRepoIdentity(
 	}
 
 	throw new Error(formatCommandFailure("git config --get remote.origin.url failed", origin.displayCommand, origin.result));
+}
+
+async function readSourcePlanArchiveDirectory(directory: SourceBranchPlanArchiveDirectoryEvidence): Promise<Dirent[]> {
+	try {
+		return await readdir(directory.directoryPath, { withFileTypes: true });
+	} catch (error) {
+		if (isNodeError(error) && error.code === "ENOENT") {
+			throw new Error(
+				[
+					"No source-branch plan archive exists for the current repository and branch.",
+					`Directory: ${directory.directoryPath}`,
+					`Repo key: ${directory.repoKey}`,
+					`Source branch: ${directory.sourceBranch}`,
+					`Branch path segment: ${directory.branchKey}`,
+					"Run /create-plan-file first, or pass an explicit absolute plan file path.",
+				].join("\n"),
+			);
+		}
+		throw error;
+	}
+}
+
+function compareLatestSourcePlanCandidates(
+	left: { fileName: string; filePath: string; modifiedTimeMs: number },
+	right: { fileName: string; filePath: string; modifiedTimeMs: number },
+): number {
+	if (left.modifiedTimeMs !== right.modifiedTimeMs) {
+		return right.modifiedTimeMs - left.modifiedTimeMs;
+	}
+	return right.filePath.localeCompare(left.filePath);
 }
 
 async function writeExclusiveFile(filePath: string, content: string): Promise<void> {
