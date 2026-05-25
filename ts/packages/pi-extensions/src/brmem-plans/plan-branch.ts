@@ -1,4 +1,4 @@
-import { formatCommand, tailText, type ExecResult } from "../command-runtime.ts";
+import { formatCommand, type ExecResult } from "../command-runtime.ts";
 import {
 	formatCommandFailure,
 	normalizeSummary,
@@ -79,8 +79,6 @@ export async function createBrmemPlanBranchFromFile(
 	await createPlanBranch(pi, options.cwd, {
 		method: branchCreation,
 		branch: targetBranch,
-		slug,
-		summary: params.summary,
 		signal: options.signal,
 	});
 
@@ -305,13 +303,11 @@ async function createPlanBranch(
 	input: {
 		method: BranchCreationMethod;
 		branch: string;
-		slug: string;
-		summary: string | undefined;
 		signal: AbortSignal | undefined;
 	},
 ): Promise<void> {
 	if (input.method === "graphite") {
-		await createGraphiteBranch(pi, cwd, input);
+		await createGraphiteBranch(pi, cwd, input.branch, input.signal);
 		return;
 	}
 	await createPlainGitBranch(pi, cwd, input.branch, input.signal);
@@ -332,45 +328,37 @@ async function createPlainGitBranch(
 async function createGraphiteBranch(
 	pi: BrmemPlanExecApi,
 	cwd: string,
-	input: { branch: string; slug: string; summary: string | undefined; signal: AbortSignal | undefined },
-): Promise<void> {
-	await assertCleanWorktreeForGraphite(pi, cwd, input.signal);
-	const create = await runGt(
-		pi,
-		cwd,
-		["create", input.branch, "--no-interactive", "--no-ai", "-m", planBranchCommitMessage(input.slug, input.summary)],
-		input.signal,
-	);
-	if (create.result.code !== 0 || create.result.killed) {
-		throw new Error(formatCommandFailure("gt create failed", create.displayCommand, create.result));
-	}
-}
-
-async function assertCleanWorktreeForGraphite(
-	pi: BrmemPlanExecApi,
-	cwd: string,
+	targetBranch: string,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const status = await runGit(pi, cwd, ["status", "--porcelain=v1", "--untracked-files=normal"], signal);
-	if (status.result.code !== 0 || status.result.killed) {
-		throw new Error(formatCommandFailure("git status failed", status.displayCommand, status.result));
-	}
-
-	const dirtyPaths = status.result.stdout.trimEnd();
-	if (dirtyPaths.length > 0) {
+	const parentBranch = await resolveCurrentBranch(pi, cwd, signal);
+	await createPlainGitBranch(pi, cwd, targetBranch, signal);
+	const track = await runGt(pi, cwd, ["track", targetBranch, "--parent", parentBranch, "--no-interactive"], signal);
+	if (track.result.code !== 0 || track.result.killed) {
 		throw new Error(
 			[
-				"Graphite branch creation requires a clean worktree; refusing to run gt create because it may stage or commit unrelated changes.",
+				"Created local Git branch but failed to track it with Graphite.",
+				`Branch: ${targetBranch}`,
+				"No Branch Memory plan was stored.",
+				"No cleanup was attempted; inspect the created branch manually.",
 				"",
-				"Dirty paths:",
-				tailText(dirtyPaths, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
+				formatCommandFailure("gt track failed", track.displayCommand, track.result),
 			].join("\n"),
 		);
 	}
 }
 
-function planBranchCommitMessage(slug: string, summary: string | undefined): string {
-	return `Plan: ${normalizeSummary(summary) ?? slug}`;
+async function resolveCurrentBranch(pi: BrmemPlanExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+	const branch = await runGit(pi, cwd, ["branch", "--show-current"], signal);
+	if (branch.result.code !== 0 || branch.result.killed) {
+		throw new Error(formatCommandFailure("git branch --show-current failed", branch.displayCommand, branch.result));
+	}
+
+	const currentBranch = firstNonEmptyLine(branch.result.stdout);
+	if (currentBranch === undefined) {
+		throw new Error("Graphite branch creation requires a named current branch; the current checkout appears to be detached.");
+	}
+	return currentBranch;
 }
 
 function buildEvidence(input: {

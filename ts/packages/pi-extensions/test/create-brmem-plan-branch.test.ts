@@ -30,6 +30,7 @@ const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
+const SOURCE_BRANCH = "source-branch";
 const TARGET_BRANCH = "brmem-plans/wire-create-plan-branch-command";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
@@ -152,7 +153,7 @@ function gitRootStep(root: string = ROOT): ScriptedExec {
 	return step("git", ["rev-parse", "--show-toplevel"], { stdout: `${root}\n` });
 }
 
-function gitCurrentBranchStep(branch: string, result: Partial<ExecResult> = {}): ScriptedExec {
+function gitCurrentBranchStep(branch: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
 	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n`, ...result });
 }
 
@@ -180,12 +181,8 @@ function gitBranchStep(branch: string, result: Partial<ExecResult> = {}): Script
 	return step("git", ["branch", branch, "HEAD"], result);
 }
 
-function gitStatusStep(result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1", "--untracked-files=normal"], result);
-}
-
-function gtCreateStep(branch: string, message: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("gt", ["create", branch, "--no-interactive", "--no-ai", "-m", message], result);
+function gtTrackStep(branch: string, parent: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("gt", ["track", branch, "--parent", parent, "--no-interactive"], result);
 }
 
 function brmemPutStep(branch: string, key: string, filePath: string, result: Partial<ExecResult>): ScriptedExec {
@@ -256,15 +253,16 @@ function successScript(input: { branch: string; key: string; filePath: string; p
 	];
 }
 
-function graphiteSuccessScript(input: { branch: string; key: string; filePath: string; message: string; putStdout?: string }): ScriptedExec[] {
+function graphiteSuccessScript(input: { branch: string; key: string; filePath: string; putStdout?: string }): ScriptedExec[] {
 	return [
 		gitRootStep(),
 		refFormatStep(input.branch),
 		headStep(),
 		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
 		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
-		gitStatusStep(),
-		gtCreateStep(input.branch, input.message),
+		gitCurrentBranchStep(),
+		gitBranchStep(input.branch),
+		gtTrackStep(input.branch),
 		brmemPutStep(input.branch, input.key, input.filePath, {
 			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
 		}),
@@ -805,9 +803,7 @@ describe("plan workflow commands", () => {
 
 	test("create-latest-plan-branch --graphite uses Graphite branch creation", async () => {
 		const filePath = await makeNamedPlanFile();
-		const pi = new FakePi(
-			graphiteSuccessScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath, message: `Plan: ${PLAN_SLUG}` }),
-		);
+		const pi = new FakePi(graphiteSuccessScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }));
 		createBrmemPlanBranchExtension(pi);
 		const command = pi.commands.get("create-latest-plan-branch");
 		const context = createContext();
@@ -817,20 +813,25 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
 			command: "git",
-			args: ["status", "--porcelain=v1", "--untracked-files=normal"],
+			args: ["branch", "--show-current"],
+		});
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
+			command: "git",
+			args: ["branch", PLAN_SLUG, "HEAD"],
 		});
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
 			command: "gt",
-			args: ["create", PLAN_SLUG, "--no-interactive", "--no-ai", "-m", `Plan: ${PLAN_SLUG}`],
+			args: ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"],
 		});
+		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["status", "--porcelain=v1", "--untracked-files=normal"]);
+		expect(pi.execCalls.map((call) => call.args[0])).not.toContain("create");
+		expect(pi.execCalls.map((call) => call.args[0])).not.toContain("checkout");
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
 	test("create-latest-plan-branch extension option defaults to Graphite and --plain-git overrides it", async () => {
 		const graphiteFilePath = await makeNamedPlanFile();
-		const graphitePi = new FakePi(
-			graphiteSuccessScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath: graphiteFilePath, message: `Plan: ${PLAN_SLUG}` }),
-		);
+		const graphitePi = new FakePi(graphiteSuccessScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath: graphiteFilePath }));
 		createBrmemPlanBranchExtension(graphitePi, { latestPlanBranchDefaultCreation: "graphite" });
 		const graphiteCommand = graphitePi.commands.get("create-latest-plan-branch");
 
@@ -1133,14 +1134,13 @@ describe("create_brmem_plan_branch_from_file tool", () => {
 				branch: TARGET_BRANCH,
 				key: PLAN_KEY,
 				filePath,
-				message: "Plan: Plan the brmem-backed branch command.",
 			}),
 		);
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({
 			command: "gt",
-			args: ["create", TARGET_BRANCH, "--no-interactive", "--no-ai", "-m", "Plan: Plan the brmem-backed branch command."],
+			args: ["track", TARGET_BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"],
 		});
 		expect(result.content[0]?.text).toContain("Branch creation: graphite");
 		expect(result.details).toMatchObject({

@@ -37,7 +37,7 @@ stores the plan. Markdown policy may instruct the caller to pass
   `<slug>.md`.
 - **Use Graphite branch creation** — tell the caller to pass
   `branchCreation: "graphite"` when the repo's workflow requires Graphite
-  metadata; the tool still owns the `gt create` invocation.
+  metadata; the tool still owns local branch creation and Graphite tracking.
 - **Enforce naming conventions** — require lowercase kebab-case, a maximum slug
   length, or approved branch prefixes.
 - **Add plan review checks** — require the temp plan to include validation steps,

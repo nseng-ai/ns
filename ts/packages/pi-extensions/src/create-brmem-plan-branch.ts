@@ -265,7 +265,7 @@ Branch-creation rules:
 - Omit branchCreation unless Markdown policy requests a backend.
 - If policy requests plain Git, pass \`branchCreation: "plain-git"\` or omit branchCreation.
 - If policy requests Graphite, pass \`branchCreation: "graphite"\`.
-- Never manually run git branch, gt create, gt track, brmem check, or brmem put for this workflow; the tools own all mutations.
+- Never manually run git branch, gt track, brmem check, or brmem put for this workflow; the tools own all mutations.
 
 When the source archive plan is ready, call write_source_branch_plan_file with:
 - slug: the semantic slug, without .md
@@ -633,7 +633,7 @@ function buildCreateBrmemPlanBranchTool(pi: ExtensionAPI): ToolDefinition {
 			"Pass create_brmem_plan_branch_from_file the filePath returned by write_source_branch_plan_file; the Branch Memory key remains `<slug>.md`.",
 			"If Markdown policy specifies a branch creation backend, pass branchCreation accordingly; use `branchCreation: \"graphite\"` only when policy explicitly says to.",
 			"create_brmem_plan_branch_from_file stores plans in Branch Memory namespace `brmem-plans` with key `<slug>.md` for the target branch; do not create a checked-in plan file.",
-			"Do not manually run `git branch`, `gt create`, `gt track`, `brmem check`, or `brmem put` for this workflow.",
+			"Do not manually run `git branch`, `gt track`, `brmem check`, or `brmem put` for this workflow.",
 		],
 		parameters: {
 			type: "object",

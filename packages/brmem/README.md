@@ -63,9 +63,10 @@ In this repo:
   requests `branchCreation: "graphite"`, and keeps the Branch Memory key
   `<slug>.md`.
 
-Graphite branch creation may switch the current checkout to the new branch. The
-shared tool still passes `--branch <target-branch>` when storing Branch Memory,
-so storage does not depend on the current checkout.
+Graphite branch creation uses `git branch <target> HEAD` followed by `gt track
+<target> --parent <current-branch>`, so it does not switch the current checkout.
+The shared tool still passes `--branch <target-branch>` when storing Branch
+Memory, so storage does not depend on the current checkout.
 
 Use `brmem-plan-impl` on the implementation branch to load the canonical plan
 from namespace `brmem-plans` and begin work.

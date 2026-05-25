@@ -37,7 +37,7 @@ explicitly requests it) and storing the reviewed plan in Branch Memory namespace
 ## Rules
 
 - **Use the canonical tool.** Do not manually run `git branch`, `git switch`,
-  `gt create`, `gt track`, `brmem check`, or `brmem put` for this workflow.
+  `gt track`, `brmem check`, or `brmem put` for this workflow.
 - **Use a temp Markdown file outside the repository.** Do not create a checked-in
   plan file. Prefer a path under the system temp directory.
 - **Review before persisting.** After writing the temp file, read it back and
@@ -167,7 +167,8 @@ starting implementation with `brmem-plan-impl`.
    brmem-plans/<slug>` and verify the Branch Memory key remains `<slug>.md`.
 3. **Markdown-driven Graphite backend** — use repo policy that instructs
    `branchCreation: "graphite"` and verify the tool reports `Branch creation:
-   graphite` without any manual `gt create` or `brmem put` commands.
+   graphite` without changing the current checkout or running manual `gt track`
+   or `brmem put` commands.
 4. **Invalid source file rejected** — pass a missing, relative, non-Markdown, or
    in-repo path and verify the tool refuses before creating a branch or entry.
 5. **Existing target refused** — try an existing branch or existing `<slug>.md`
