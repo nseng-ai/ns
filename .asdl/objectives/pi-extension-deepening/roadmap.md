@@ -64,10 +64,10 @@
   - Confirmed Machine-envelope reuse is sufficient: `objective-list.ts` uses `parseMachineEnvelopeData` for Clinkr framework facts while keeping Objective-list payload validation local.
   - Added a focused regression test that rejects legacy `ahead_base` branch fixtures instead of reopening old vocabulary.
   - Parked broader `objective.ts` extraction; the existing `objective-list.ts` and `objective-picker.ts` modules pass the deletion test, while remaining Objective command complexity is UI selection, skill prompt handoff, and command wiring.
-- [ ] Candidate 7 — decide `worktree-status` internal seams after foundations land.
-  - Preserve the small external status Interface.
-  - Reuse accepted presentation and Branch Memory helpers rather than inventing local seams.
-  - Explore internal Seams for observation/watchers, status gathering, and rendering only with characterization tests for session replacement, stale UI, and watcher behavior.
+- [x] Candidate 7 — decide `worktree-status` internal seams after foundations land.
+  - Disposition: park/reject internal seam work for now.
+  - Keep the current status command local/vibecoded; any status feature shipped to users should likely have a different product shape instead of inheriting this implementation.
+  - Continue reusing accepted presentation, Branch Memory, and Machine-envelope helpers where already proven, but do not introduce observation/watchers, status-gathering, or rendering seams without a concrete future need and characterization tests first.
 - [ ] Candidate 8 — decide `land-stack` test-surface and internal seam work.
   - Keep `/land-stack` as the external Interface.
   - Improve locality around stack facts, PR facts, worktree conflicts, landing orchestration, command streaming, and presentation only where tests and the deletion test justify it.
@@ -95,4 +95,5 @@
 - [ ] Consider a separate Objective for Pi package publication or install-layout cleanup if extension distribution becomes a real seam.
 - [ ] Consider a separate Objective for Python Objective-list architecture only if new Objective-list work appears; the current `master` implementation is already deeply split into list models, render, status, inventory, updates, touches, and branch slices.
 - [ ] Keep broad generic command execution runtime work parked until `/submit` promotion or another concrete consumer proves repeated lifecycle semantics.
+- [ ] Keep `worktree-status` internal seam work parked while the command remains project-local/vibecoded; design any future user-shipped status feature around its own product shape.
 - [ ] Keep any future fake-host helper local or domain-specific until repeated concrete tests prove the same host shape should be shared.
