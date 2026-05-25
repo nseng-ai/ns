@@ -74,6 +74,10 @@ function gtParentStep(result: Partial<ExecResult>): ScriptedExec {
 	return step("gt", ["parent"], result);
 }
 
+function gtTrunkStep(result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("gt", ["trunk", "--no-interactive"], result);
+}
+
 function gtChildrenStep(result: Partial<ExecResult> = {}): ScriptedExec {
 	return step("gt", ["children"], result);
 }
@@ -132,6 +136,12 @@ describe("worktree status formatting", () => {
 		);
 		expect(formatGtStatus({ down: "main", up: "-", commits: "no", dirty: "yes" })).toBe(
 			"[gt] (↓: main) (↑: -) ∅ (x)",
+		);
+	});
+
+	test("omits downstack and commit marker when no downstack branch applies", () => {
+		expect(formatGtStatus({ down: undefined, up: "<multiple>", commits: "n/a", dirty: "no" })).toBe(
+			"[gt] (↑: <multiple>)",
 		);
 	});
 
@@ -219,6 +229,58 @@ describe("loadGtStatus", () => {
 		pi.assertDone();
 		expect(formatted).toBe("[gt] (↓: -) (↑: -) (commits: ?)");
 		expect(formatted).not.toContain("∅");
+	});
+
+	test("omits downstack and skips previous-checkout fallback on Graphite trunk", async () => {
+		const root = makeGitRepo("master");
+
+		try {
+			const { pi, formatted } = await loadFormattedStatus(
+				[
+					gtParentStep({ stdout: "\n" }),
+					gtTrunkStep({ stdout: "master\n" }),
+					gtChildrenStep({ stdout: "feature/one\nfeature/two\n" }),
+					dirtyStep(),
+					gtBranchInfoStep("master", "master\n"),
+				],
+				root,
+			);
+
+			pi.assertDone();
+			expect(formatted).toBe("[gt] (↑: <multiple>)");
+			expect(formatted).not.toContain("(↓:");
+			expect(formatted).not.toContain("commits");
+			expect(formatted).not.toContain("∅");
+			expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
+			expect(pi.calls.some((call) => call.command === "git" && call.args[0] === "rev-list")).toBe(false);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("preserves previous-checkout fallback when Graphite parent is unavailable off trunk", async () => {
+		const root = makeGitRepo("feature/current");
+
+		try {
+			const { pi, formatted } = await loadFormattedStatus(
+				[
+					gtParentStep({ code: 1, stderr: "not tracked by Graphite" }),
+					gtTrunkStep({ stdout: "master\n" }),
+					step("git", ["rev-parse", "--symbolic-full-name", "@{-1}"], { stdout: "refs/heads/main\n" }),
+					step("git", ["show-ref", "--verify", "refs/heads/main"]),
+					gtChildrenStep(),
+					revListStep("main", 0),
+					dirtyStep(),
+					gtBranchInfoStep("feature/current", "feature/current\n"),
+				],
+				root,
+			);
+
+			pi.assertDone();
+			expect(formatted).toBe("[gt] (↓: main) (↑: -) ∅");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 
 	test("combines dirty state with empty state", async () => {
