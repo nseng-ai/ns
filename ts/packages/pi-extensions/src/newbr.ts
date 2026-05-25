@@ -1,5 +1,5 @@
-import { commitPreparedCheckpointMessage, prepareCheckpointMessageForPi, type ExtensionAPI, type ExtensionCommandContext } from "./cp.ts";
 import type { CommandResult } from "./checkpoint-flow.ts";
+import { commitPreparedCheckpointMessage, prepareCheckpointMessageForPi, type ExtensionAPI, type ExtensionCommandContext } from "./checkpoint-pi.ts";
 import { createNewBranchCheckpointFlow, parseNewBranchArgs, type ParsedNewBranchArgs } from "./newbr-flow.ts";
 
 const COMMAND_NAME = "newbr";
@@ -20,7 +20,7 @@ async function createNewBranchCheckpoint(pi: ExtensionAPI, ctx: ExtensionCommand
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, cwd, timeout) => exec(pi, command, commandArgs, cwd, timeout),
-		prepareCheckpointMessage: (status, diff) => prepareCheckpointMessageForPi(pi, ctx, status, diff),
+		prepareCheckpointMessage: (snapshot) => prepareCheckpointMessageForPi(pi, ctx, snapshot),
 		commitPreparedCheckpointMessage: (message) => commitPreparedCheckpointMessage(pi, ctx.cwd, message),
 		notify: (message, level) => notify(ctx, message, level),
 		setStatus: (message) => setStatus(ctx, message),
