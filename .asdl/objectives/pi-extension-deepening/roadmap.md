@@ -30,10 +30,11 @@
   - Migrated `create-brmem-plan.ts` and `worktree-status.ts` to the adapter while preserving caller policy differences: `persist_brmem_plan` still surfaces detailed fatal errors, while status display still degrades nonfatally to `unavailable`.
   - Added fake-driven tests for candidate ordering, ancestor `.venv` / `pyproject.toml` discovery, unavailable commands, fallback to `uv run --directory ... brmem`, detailed fatal errors, and nonfatal worktree-status degradation.
   - Evidence: PR #628; Graphite parent `terminal-presentation/worktree-status-renderer`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
-- [ ] Candidate 3 — decide and implement the Clinkr Machine envelope parser.
-  - Create a small parser for framework envelope facts such as JSON parsing, `exit_code`, `data`, and malformed-envelope diagnostics.
-  - Keep Objective-list and Branch Memory domain payload validation near their domain modules.
-  - Reuse the parser from Objective and Branch Memory consumers after Candidate 4 or alongside it.
+- [x] Candidate 3 — decide and implement the Clinkr Machine envelope parser.
+  - Implemented `machine-envelope.ts` as a narrow shared parser for framework envelope facts: JSON parsing, non-array envelope shape, strict numeric `exit_code`, nonzero status diagnostics with message/error text, and non-array object `data` extraction.
+  - Migrated `objective-list.ts` and `brmem-plans/plan-persistence.ts` while keeping Objective-list fields and Branch Memory `put` payload validation near their domain modules.
+  - Migrated `worktree-status.ts` to the parser for Branch Memory list envelopes while preserving candidate fallback and nonfatal degradation.
+  - Evidence: local working-tree diff against Graphite parent `extract-brmem-cli-adapter-and-migrate-callers`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [ ] Candidate 9 — decide runner subagent contract cleanup.
   - Preserve the deep runner subagent helper.
   - Resolve naming drift, result presentation duplication, final-text vs terminal-capture wording, and stale child-session terminology in docs and code.

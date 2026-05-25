@@ -275,6 +275,7 @@ describe("loadWorktreeStatus", () => {
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
 				uvBrmemListStep(root, {
 					stdout: JSON.stringify({
+						exit_code: 0,
 						data: { entries: [{ namespace: "plans", key: "adapter/details.md" }] },
 					}),
 				}),
@@ -285,6 +286,29 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expect(status.brmem).toBe("(plans: adapter)");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("uses a later brmem candidate after an earlier candidate returns a nonzero envelope", async () => {
+		const root = makePyprojectRoot();
+		try {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 2, message: "candidate failed", data: {} }) }),
+				uvBrmemListStep(root, {
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: { entries: [{ namespace: "plans", key: "fallback/details.md" }] },
+					}),
+				}),
+				...basicGtScript(),
+			]);
+
+			const status = await loadWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expect(status.brmem).toBe("(plans: fallback)");
 		} finally {
 			rmSync(root, { recursive: true, force: true });
 		}

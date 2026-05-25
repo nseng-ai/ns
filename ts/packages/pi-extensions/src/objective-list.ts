@@ -1,3 +1,5 @@
+import { parseMachineEnvelopeData } from "./machine-envelope.ts";
+
 export type ObjectiveBranchEntry = {
 	branch: string;
 	parentBranch: string;
@@ -86,27 +88,7 @@ function parseObjectiveListGroup(value: unknown, index: number): ObjectiveListGr
 }
 
 export function parseObjectiveList(stdout: string): ObjectiveList {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`Failed to parse objective list JSON: ${message}`);
-	}
-
-	if (!isRecord(parsed)) {
-		throw new Error("Invalid objective list JSON: expected an envelope object.");
-	}
-
-	const envelopeExitCode = parsed.exit_code;
-	if (typeof envelopeExitCode === "number" && envelopeExitCode !== 0) {
-		throw new Error(`objective list returned envelope exit_code ${envelopeExitCode}.`);
-	}
-
-	const data = parsed.data;
-	if (!isRecord(data)) {
-		throw new Error("Invalid objective list JSON: expected a data object.");
-	}
+	const data = parseMachineEnvelopeData(stdout, { label: "objective list JSON" });
 
 	const trunkBranch = data.trunk_branch;
 	const baseBranch = data.base_branch ?? trunkBranch;
