@@ -2,11 +2,11 @@
 
 ## Work
 
-- [ ] Establish the candidate inventory and disposition log.
-  - Preserve the six PR #649 deepening candidates from the architecture review.
-  - Use the dispositions: implement, reject with reason, park with rationale, or split into a follow-on Objective.
-  - Keep this Objective narrow to `/cp` and `/newbr`.
-- [ ] Implement or reject the checkpoint seam plus pending worktree snapshot first.
+- [x] Establish the candidate inventory and disposition log.
+  - Preserved the six PR #649 deepening candidates in `candidate-dispositions.md`.
+  - Recorded working dispositions: implement, reject, park, or fold into another candidate.
+  - Kept this Objective narrow to `/cp` and `/newbr`.
+- [~] Implement or reject the checkpoint seam plus pending worktree snapshot first.
   - Deepen checkpoint behavior so `/cp` and `/newbr` do not need to pass the full Pi runtime through the shared seam.
   - Decide what pending worktree facts belong behind the snapshot Interface: branch, status, diff, untracked files, clean state, detached-head state, and trunk refusal.
   - Preserve checkpoint message validation, repair feedback, deterministic fallback, and commit creation behavior.
