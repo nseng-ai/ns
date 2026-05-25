@@ -41,10 +41,12 @@
   - Added `runner-subagent/presentation.ts` as a narrow pure helper for elapsed formatting, title/session extraction, and generic progress widget lines; migrated `dispatch_runner_subagent` and `/runner-subagent-demo` to it while keeping domain payload rendering local.
   - Added focused tests for the helper and strengthened non-`final-text` diagnostic expectations.
   - Evidence: local working diff against Graphite parent `clinkr-machine-envelope-parser`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
-- [ ] Candidate 5 — decide skill expansion and prompt handoff.
-  - Evaluate Objective commands and `/just` skill-loading duplication.
-  - If accepted, extract only a narrow pure helper that resolves a skill command, strips frontmatter, computes provenance, and returns a structured skill block.
-  - Do not move Objective selection, `just` failure-output formatting, or `sendUserMessage()` domain policy into the shared helper.
+- [x] Candidate 5 — decide and implement skill expansion and prompt handoff.
+  - Implemented `skill-expansion.ts` as a narrow helper for Pi skill command provenance: exact `skill:<name>` lookup, skill Markdown reading, frontmatter stripping, `baseDir` fallback, structured expansion data, and `<skill ...>` block formatting.
+  - Migrated Objective command handoffs and project-local `/just` in place while leaving Objective selection, prompt-template frontmatter, `just` execution/output formatting, notifications, and `sendUserMessage()` policy caller-owned.
+  - Inspected `create-brmem-plan-branch.ts` and left it unchanged because it does not perform Pi skill expansion.
+  - Added focused helper tests, Objective integration coverage, and `/just` integration coverage through a dynamic import that avoids making `.pi/extensions` part of the TypeScript package check.
+  - Evidence: local working diff against Graphite parent `brmem-plans/runner-subagent-contract-cleanup`; deletion-test search found no remaining non-test caller manually expanding skill commands; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [ ] Candidate 10 — decide vibecoded extension promotion / retirement.
   - Classify `.pi/extensions/submit.ts`, `.pi/extensions/land.ts`, and `.pi/extensions/just-fix.ts` as promote, retire, keep vibecoded, or split.
   - Treat `/submit` as the likely highest-safety promotion candidate because it mutates Graphite/GitHub state and currently has raw process handling without package tests.

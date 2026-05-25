@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
+import { expandSkillBlock } from "./skill-expansion.ts";
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListGroup } from "./objective-list.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
@@ -171,7 +172,7 @@ const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
 	promptTemplateName: "objective-stack-impl",
 };
 
-function stripFrontmatter(markdown: string): string {
+function stripPromptTemplateFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
 }
 
@@ -265,26 +266,6 @@ async function objectiveDiffSelection(
 	}
 }
 
-async function expandSkill(
-	pi: ExtensionAPI,
-	skillName: ObjectiveCommandName,
-): Promise<{ name: string; block: string } | undefined> {
-	const command = pi
-		.getCommands()
-		.find((candidate) => candidate.source === "skill" && candidate.name === `skill:${skillName}`);
-	if (!command) {
-		return undefined;
-	}
-
-	const skillPath = command.sourceInfo.path;
-	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
-	const body = stripFrontmatter(await readFile(skillPath, "utf8"));
-	return {
-		name: skillName,
-		block: `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
-	};
-}
-
 function buildObjectiveSkillPrompt(
 	spec: ObjectiveCommandSpec,
 	skillBlock: string | undefined,
@@ -314,7 +295,7 @@ function findPromptTemplatePath(pi: ExtensionAPI, ctx: CommandContext, promptTem
 }
 
 export function buildObjectiveStackImplPrompt(templateMarkdown: string, objective: string): string {
-	return stripFrontmatter(templateMarkdown).replace(/\$ARGUMENTS/g, () => objective);
+	return stripPromptTemplateFrontmatter(templateMarkdown).replace(/\$ARGUMENTS/g, () => objective);
 }
 
 function formatPromptTemplateReadError(promptTemplateName: string, promptPath: string, error: unknown): string {
@@ -416,7 +397,7 @@ async function invokeObjectiveSkill(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	const skill = await expandSkill(pi, spec.skillName);
+	const skill = await expandSkillBlock(pi, spec.skillName);
 	if (ctx.hasUI) {
 		ctx.ui.notify(
 			skill

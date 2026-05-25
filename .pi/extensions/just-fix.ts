@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { expandSkillBlock, type SkillCommandInfo } from "../../ts/packages/pi-extensions/src/skill-expansion.ts";
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_OUTPUT_CHARS = 24_000;
@@ -12,15 +11,6 @@ type ExecResult = {
 	stderr: string;
 	code: number;
 	killed: boolean;
-};
-
-type CommandInfo = {
-	name: string;
-	source: string;
-	sourceInfo: {
-		path: string;
-		baseDir?: string;
-	};
 };
 
 type CommandContext = {
@@ -42,13 +32,9 @@ type ExtensionAPI = {
 		},
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
-	getCommands(): CommandInfo[];
+	getCommands(): SkillCommandInfo[];
 	sendUserMessage(content: string): void;
 };
-
-function stripFrontmatter(markdown: string): string {
-	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
-}
 
 function truncateTail(text: string, maxChars: number): { text: string; truncated: boolean } {
 	if (text.length <= maxChars) {
@@ -72,23 +58,6 @@ function formatJustOutput(result: ExecResult): string {
 	}
 
 	return `[Output truncated to the last ${MAX_OUTPUT_CHARS} characters.]\n\n${text}`;
-}
-
-async function expandSkill(pi: ExtensionAPI): Promise<{ name: string; block: string } | undefined> {
-	const command = pi
-		.getCommands()
-		.find((candidate) => candidate.source === "skill" && candidate.name === `skill:${SKILL_NAME}`);
-	if (!command) {
-		return undefined;
-	}
-
-	const skillPath = command.sourceInfo.path;
-	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
-	const body = stripFrontmatter(await readFile(skillPath, "utf8"));
-	return {
-		name: SKILL_NAME,
-		block: `<skill name="${SKILL_NAME}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
-	};
 }
 
 function buildFailurePrompt(skillBlock: string | undefined, result: ExecResult, cwd: string): string {
@@ -132,7 +101,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 		return;
 	}
 
-	const skill = await expandSkill(pi);
+	const skill = await expandSkillBlock(pi, SKILL_NAME);
 	if (ctx.hasUI) {
 		ctx.ui.notify(
 			skill ? `\`just\` failed; invoking ${skill.name}.` : "`just` failed; dev-just-fix was not found.",

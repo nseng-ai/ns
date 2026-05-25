@@ -68,7 +68,7 @@ Assumptions:
 Risks:
 
 - The candidate list is broad enough to sprawl. The roadmap must force explicit disposition before implementation expands.
-- Premature extraction could create shallow Modules whose Interfaces are nearly as complex as their Implementations. Candidate 6 confirmed this risk: the shared terminal helper Module is useful for security-sensitive URL/OSC policy, but the attempted worktree-status message-renderer expansion was removed because it was a separate behavior change rather than helper consolidation. Candidate 4 refined the Branch Memory command boundary around CLI discovery and candidate fallback. Candidate 3 then proved a narrow Machine-envelope parser: framework JSON parsing, `exit_code`, diagnostics, and `data` extraction are shared, while Objective-list fields, Branch Memory `put` fields, and Branch Memory status-entry validation remain caller-local.
+- Premature extraction could create shallow Modules whose Interfaces are nearly as complex as their Implementations. Candidate 6 confirmed this risk: the shared terminal helper Module is useful for security-sensitive URL/OSC policy, but the attempted worktree-status message-renderer expansion was removed because it was a separate behavior change rather than helper consolidation. Candidate 4 refined the Branch Memory command boundary around CLI discovery and candidate fallback. Candidate 3 then proved a narrow Machine-envelope parser: framework JSON parsing, `exit_code`, diagnostics, and `data` extraction are shared, while Objective-list fields, Branch Memory `put` fields, and Branch Memory status-entry validation remain caller-local. Candidate 5 accepted the same constraint for Pi skill expansion: command provenance, Markdown reading, frontmatter stripping, base-directory fallback, and block formatting are shared, while Objective selection, `/just` failure policy, notifications, and prompt dispatch remain caller-owned.
 - The risky extensions, especially `/submit`, touch Graphite and GitHub workflows; changes there require the relevant Graphite and GitHub guidance and careful fake-driven tests.
 - `land-stack` tests currently encode substantial command choreography; refactoring without first choosing better test surfaces could make safe changes look riskier than they are.
 - `worktree-status.ts` mixes session lifecycle, watchers, Git facts, Branch Memory facts, Graphite facts, and rendering; changing watcher behavior without internal Seams could create stale UI or session replacement bugs.
@@ -78,7 +78,7 @@ Risks:
 
 ## Open Questions
 
-- After Candidates 6, 4, and 3, which ranked candidate should be implemented next: runner subagent contract cleanup, skill expansion, `/submit` promotion, Pi host seam, Objective integration, `worktree-status` internal seams, or `land-stack` test-surface cleanup?
+- After Candidates 6, 4, 3, 9, and 5, which ranked candidate should be implemented next: `/submit` promotion, Pi host seam, Objective integration, `worktree-status` internal seams, or `land-stack` test-surface cleanup?
 - Should the old command-runtime seam stay narrow, or has `/submit` and command streaming now proven a deeper command execution Module?
-- Should skill expansion become shared now that both Objective commands and `just-fix` use it, or is that still a shallow hypothetical Seam?
+- How should the new skill-expansion helper evolve if future skill handoffs appear, without becoming a generic Markdown or prompt-dispatch utility?
 - How much of `/submit` should be promoted into the engineered layer, and should any overlap with `land-stack` become shared Graphite/PR machinery?
