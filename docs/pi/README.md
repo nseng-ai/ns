@@ -68,14 +68,16 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 
 ### Current inventory
 
-| Area/file                                     | Current layer                                  | Notes                                                                                                |
-| --------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `.pi/extensions/objective.ts`                 | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates Objective behavior to package code.                   |
-| `.pi/extensions/land-stack.ts`                | Project-local adapter over engineered behavior | Keeps `/land-stack` discovery local while durable behavior lives in the package.                     |
-| `.pi/extensions/just-fix.ts`                  | Vibecoded implementation                       | Useful repo-local workflow; not yet promoted or package-tested.                                      |
-| `.pi/extensions/submit.ts`                    | Vibecoded implementation                       | Candidate for a future promotion decision; also carries the import-path review question.             |
-| `ts/packages/pi-extensions/src/objective.ts`  | Engineered implementation                      | Package-tested Objective extension behavior.                                                         |
-| `ts/packages/pi-extensions/src/land-stack.ts` | Engineered implementation                      | Package-tested landing behavior; later refactors may split internals without changing `/land-stack`. |
+| Area/file                                        | Current layer                                  | Notes                                                                                                |
+| ------------------------------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `.pi/extensions/objective.ts`                    | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates Objective behavior to package code.                   |
+| `.pi/extensions/land-stack.ts`                   | Project-local adapter over engineered behavior | Keeps `/land-stack` discovery local while durable behavior lives in the package.                     |
+| `.pi/extensions/brmem-handoff.ts`                | Project-local adapter over engineered behavior | Adds `/brmem-handoff` and `/brmem-pickup-handoff` Branch Memory handoff frontends.                   |
+| `.pi/extensions/just-fix.ts`                     | Vibecoded implementation                       | Useful repo-local workflow; not yet promoted or package-tested.                                      |
+| `.pi/extensions/submit.ts`                       | Vibecoded implementation                       | Candidate for a future promotion decision; also carries the import-path review question.             |
+| `ts/packages/pi-extensions/src/objective.ts`     | Engineered implementation                      | Package-tested Objective extension behavior.                                                         |
+| `ts/packages/pi-extensions/src/land-stack.ts`    | Engineered implementation                      | Package-tested landing behavior; later refactors may split internals without changing `/land-stack`. |
+| `ts/packages/pi-extensions/src/brmem-handoff.ts` | Engineered implementation                      | Package-tested Branch Memory handoff command selection and prompt handoff behavior.                  |
 
 ## Extension message linkification
 
