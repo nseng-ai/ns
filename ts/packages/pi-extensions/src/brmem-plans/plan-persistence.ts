@@ -228,7 +228,7 @@ export async function resolvePlanSourceFile(
 	if (repoRoot !== undefined) {
 		const realRepoRoot = await realpathIfPossible(repoRoot);
 		if (isPathInside(realRepoRoot, realFilePath)) {
-			throw new Error(`Plan file must be a temp file outside the repository; got ${realFilePath} inside ${realRepoRoot}.`);
+			throw new Error(`Plan file must be outside the repository; got ${realFilePath} inside ${realRepoRoot}.`);
 		}
 	}
 
