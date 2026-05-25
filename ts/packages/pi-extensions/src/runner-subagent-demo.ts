@@ -13,7 +13,6 @@ import {
 export const RUNNER_SUBAGENT_DEMO_COMMAND_NAME = "runner-subagent-demo";
 export const RUNNER_SUBAGENT_DEMO_MESSAGE_TYPE = "runner-subagent-demo-result";
 
-const STATUS_KEY = RUNNER_SUBAGENT_DEMO_COMMAND_NAME;
 const WIDGET_KEY = RUNNER_SUBAGENT_DEMO_COMMAND_NAME;
 
 const COMPLETE_TOOL_NAME = "runner_subagent_demo_complete";
@@ -128,11 +127,9 @@ export default function runnerSubagentDemoExtension(pi: ExtensionAPI & RunnerSub
 			await ctx.waitForIdle();
 
 			const title = subagentTitle(task);
-			setStatus(ctx, "dispatching runner subagent...");
 			setWidget(ctx, widgetLines({ title, state: "starting", toolCount: 0, turnCount: 0, elapsedMs: 0 }));
 
 			try {
-				setStatus(ctx, "running runner subagent...");
 				const result = await dispatchRunnerSubagent<RunnerSubagentDemoTerminalInput>(pi, subagentContext(ctx), {
 					title,
 					prompt: buildRunnerSubagentDemoPrompt(task),
@@ -143,7 +140,6 @@ export default function runnerSubagentDemoExtension(pi: ExtensionAPI & RunnerSub
 				setWidget(ctx, widgetLines(result.progress));
 				presentResult(pi, ctx, result);
 			} finally {
-				setStatus(ctx, undefined);
 				setWidget(ctx, undefined);
 			}
 		},
@@ -231,14 +227,9 @@ function present(ctx: ExtensionCommandContext, message: string, level: NotifyLev
 	ctx.ui.notify(message, level);
 }
 
-function setStatus(ctx: ExtensionCommandContext, message: string | undefined): void {
-	if (!ctx.hasUI) return;
-	ctx.ui.setStatus?.(STATUS_KEY, message ? `runner-subagent-demo: ${message}` : undefined);
-}
-
 function setWidget(ctx: ExtensionCommandContext, lines: string[] | undefined): void {
 	if (!ctx.hasUI) return;
-	ctx.ui.setWidget?.(WIDGET_KEY, lines, { placement: "belowEditor" });
+	ctx.ui.setWidget?.(WIDGET_KEY, lines, { placement: "aboveEditor" });
 }
 
 function widgetLines(progress: RunnerSubagentProgress): string[] {

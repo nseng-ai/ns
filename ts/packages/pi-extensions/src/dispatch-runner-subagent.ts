@@ -3,7 +3,6 @@ import { dispatchRunnerSubagent, type RunnerSubagentPi, type RunnerSubagentProgr
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
-const STATUS_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 
 type TextContent = { type: "text"; text: string };
@@ -96,7 +95,6 @@ export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void 
 				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
 				details: { status: "starting", title: input.title, progress: initialProgress },
 			});
-			setStatus(ctx, progressStatusLine(initialProgress));
 			setWidget(ctx, progressWidgetLines(initialProgress));
 
 			try {
@@ -110,7 +108,6 @@ export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void 
 							content: [{ type: "text", text: update }],
 							details: { status: "running", title: input.title, progress },
 						});
-						setStatus(ctx, progressStatusLine(progress));
 						setWidget(ctx, progressWidgetLines(progress));
 					},
 				});
@@ -120,7 +117,6 @@ export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void 
 					details: dispatchRunnerSubagentDetails(result),
 				};
 			} finally {
-				setStatus(ctx, undefined);
 				setWidget(ctx, undefined);
 			}
 		},
@@ -233,11 +229,6 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 	].join("\n");
 }
 
-export function progressStatusLine(progress: RunnerSubagentProgress): string {
-	const currentTool = progress.currentTool === undefined ? "" : ` · ${progress.currentTool}`;
-	return `${DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}: ${progress.state} · turns ${progress.turnCount} · tools ${progress.toolCount}${currentTool}`;
-}
-
 export function progressWidgetLines(progress: RunnerSubagentProgress): string[] {
 	const lines = [
 		`Subagent: ${progress.title ?? "(untitled subagent session)"}`,
@@ -281,19 +272,10 @@ function initialDispatchProgress(title: string): RunnerSubagentProgress {
 	};
 }
 
-function setStatus(ctx: ExtensionContext, message: string | undefined): void {
-	if (ctx.hasUI === false) return;
-	try {
-		ctx.ui?.setStatus?.(STATUS_KEY, message);
-	} catch {
-		// UI updates are display-only and must not affect tool execution.
-	}
-}
-
 function setWidget(ctx: ExtensionContext, lines: string[] | undefined): void {
 	if (ctx.hasUI === false) return;
 	try {
-		ctx.ui?.setWidget?.(WIDGET_KEY, lines, { placement: "belowEditor" });
+		ctx.ui?.setWidget?.(WIDGET_KEY, lines, { placement: "aboveEditor" });
 	} catch {
 		// UI updates are display-only and must not affect tool execution.
 	}
