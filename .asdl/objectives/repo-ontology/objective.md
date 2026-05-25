@@ -47,7 +47,7 @@ Assumptions:
 - `asdl-core`'s labs subpackages (`clinkr`, `gh`, `git`, `gt`) will not graduate to standalone packages during this Objective, so keeping them as H2 sections in one file is stable.
 - `asdl-dispatcher` remains out of scope while its tracked group has no operations. `asdl-initiatives` is not a tracked package in the current workspace; if it is reintroduced with real implementation, that is a fresh rebaseline signal rather than a standing package skip.
 - Bottom-up dependency ordering will let vocabulary established earlier flow forward into later sessions. If a later session forces a rename in an earlier section, those edits are cheap because Markdown is the only artifact.
-- A roughly 10-session sweep is acceptable across many user turns. This is not a single-session deliverable.
+- A roughly 10-session sweep is acceptable across many user turns; this is not a single-session deliverable. Some sections may also be satisfied by an adjacent Objective that owns the underlying code rather than by a dedicated repo-ontology grilling session — the `## Gh` section landed this way via the pr-gateway-unification Objective (#555/#580). repo-ontology accepts such externally-authored sections when they conform to the section criteria (Language + `Avoid:` aliases + Relationships) rather than re-grilling, which lowers the remaining session count below the original ~10 estimate; the trade-off is that those sections must be re-checked against the criteria rather than assumed conformant.
 - The `grill-with-docs` ADR criteria (hard to reverse, surprising, real trade-off) are correctly tuned. Most sessions will produce zero ADRs and that is the expected outcome.
 
 Risks:
