@@ -34,7 +34,7 @@
   - Implemented `machine-envelope.ts` as a narrow shared parser for framework envelope facts: JSON parsing, non-array envelope shape, strict numeric `exit_code`, nonzero status diagnostics with message/error text, and non-array object `data` extraction.
   - Migrated `objective-list.ts` and `brmem-plans/plan-persistence.ts` while keeping Objective-list fields and Branch Memory `put` payload validation near their domain modules.
   - Migrated `worktree-status.ts` to the parser for Branch Memory list envelopes while preserving candidate fallback and nonfatal degradation.
-  - Evidence: local working-tree diff against Graphite parent `extract-brmem-cli-adapter-and-migrate-callers`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
+  - Evidence: local branch diff against Graphite parent `extract-brmem-cli-adapter-and-migrate-callers`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [ ] Candidate 9 — decide runner subagent contract cleanup.
   - Preserve the deep runner subagent helper.
   - Resolve naming drift, result presentation duplication, final-text vs terminal-capture wording, and stale child-session terminology in docs and code.

@@ -18,7 +18,7 @@ Candidate 3 is complete. The accepted seam is the Clinkr Machine framework envel
 
 The strict `exit_code` choice means test fixtures that represent Machine envelopes should include `exit_code: 0`; loose or malformed status output still degrades nonfatally in `worktree-status` by trying later candidates and then returning `unavailable`.
 
-Evidence: local working-tree diff against Graphite parent `extract-brmem-cli-adapter-and-migrate-callers`.
+Evidence: local branch diff against Graphite parent `extract-brmem-cli-adapter-and-migrate-callers`.
 
 ## Follow-Ups
 
