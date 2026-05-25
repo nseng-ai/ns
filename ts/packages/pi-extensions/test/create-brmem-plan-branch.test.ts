@@ -910,32 +910,49 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain(`Path: ${stalePath}`);
 	});
 
-	test("create-planned-branch cancellation does not mutate", async () => {
+	test("create-planned-branch creates without interactive confirmation", async () => {
 		const filePath = await makeNamedPlanFile();
-		const pi = new FakePi();
+		const events: string[] = [];
+		const pi = new FakePi(successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath }), events);
 		createBrmemPlanBranchExtension(pi);
 		const command = pi.commands.get("create-planned-branch");
-		const context = createContext([], { confirm: async () => false });
+		const context = createContext(events, { confirm: async () => false });
 
 		await command?.handler(filePath, context.ctx);
 
-		expect(pi.execCalls).toEqual([]);
+		pi.assertDone();
+		expect(events).not.toContain("confirm");
 		expect(pi.sentMessages).toHaveLength(1);
-		expect(pi.sentMessages[0]?.content).toContain("Cancelled: no branch was created and no plan was attached.");
+		expect(pi.sentMessages[0]?.content).toContain("Created planned branch and attached plan.");
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 	});
 
-	test("create-planned-branch refuses without confirm UI unless --yes is passed", async () => {
+	test("create-planned-branch fails on target branch collision without prompting", async () => {
 		const filePath = await makeNamedPlanFile();
-		const pi = new FakePi();
+		const events: string[] = [];
+		const pi = new FakePi([
+			gitRootStep(),
+			refFormatStep(PLAN_SLUG),
+			headStep(),
+			localBranchCheckStep(PLAN_SLUG, { code: 0, stdout: `${START_POINT}\n` }),
+		], events);
 		createBrmemPlanBranchExtension(pi);
 		const command = pi.commands.get("create-planned-branch");
-		const context = createContext([], { hasUI: true });
+		const context = createContext(events, { confirm: async () => false });
 
 		await command?.handler(filePath, context.ctx);
 
-		expect(pi.execCalls).toEqual([]);
+		pi.assertDone();
+		expect(events).not.toContain("confirm");
+		expect(pi.execCalls.map((call) => call.args)).toEqual([
+			["rev-parse", "--show-toplevel"],
+			["check-ref-format", "--branch", PLAN_SLUG],
+			["rev-parse", "HEAD"],
+			["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`],
+		]);
+		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", PLAN_SLUG, "HEAD"]);
 		expect(pi.sentMessages).toHaveLength(1);
-		expect(pi.sentMessages[0]?.content).toContain("Re-run with --yes");
+		expect(pi.sentMessages[0]?.content).toContain("Target branch already exists; refusing to overwrite.");
 	});
 
 	test("create-planned-branch --yes creates a plain-git plan branch from an explicit file", async () => {
