@@ -22,6 +22,7 @@ import createBrmemPlanBranchExtension, {
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
+	type SourceBranchPlanFileEvidence,
 	type ToolDefinition,
 } from "../src/create-brmem-plan-branch.ts";
 import type { ExecOptions } from "../src/brmem-plans/plan-persistence.ts";
@@ -225,6 +226,44 @@ async function writeArchivePlanFile(directoryPath: string, fileName: string, mod
 	return filePath;
 }
 
+function sourcePlanEvidence(input: { slug: string; filePath: string; sourceBranch: string; origin?: string }): SourceBranchPlanFileEvidence {
+	const origin = input.origin ?? "git@github.com:owner/repo.git";
+	return {
+		slug: input.slug,
+		repoRoot: ROOT,
+		repoKey: buildRepoArchiveKey(ROOT, normalizeRepoOriginUrl(origin)),
+		repoIdentitySource: "origin-url",
+		sourceBranch: input.sourceBranch,
+		branchKey: encodeBranchForPlanPath(input.sourceBranch),
+		filePath: input.filePath,
+	};
+}
+
+function sourcePlanToolResultEntry(evidence: SourceBranchPlanFileEvidence): unknown {
+	return {
+		type: "message",
+		message: {
+			role: "toolResult",
+			toolName: "write_source_branch_plan_file",
+			isError: false,
+			content: [],
+			details: evidence,
+		},
+	};
+}
+
+function latestPlanBranchCustomMessageEntry(content: string): unknown {
+	return {
+		type: "message",
+		message: {
+			role: "custom",
+			customType: "latest-plan-branch-output",
+			display: true,
+			content,
+		},
+	};
+}
+
 function putEnvelope(input: { branch: string; key: string; filePath: string; commit?: string; refName?: string }): string {
 	return JSON.stringify({
 		exit_code: 0,
@@ -271,7 +310,12 @@ function graphiteSuccessScript(input: { branch: string; key: string; filePath: s
 
 function createContext(
 	events: string[] = [],
-	options: { hasUI?: boolean; cwd?: string; confirm?: (title: string, message?: string) => Promise<boolean> } = {},
+	options: {
+		hasUI?: boolean;
+		cwd?: string;
+		confirm?: (title: string, message?: string) => Promise<boolean>;
+		sessionEntries?: unknown[];
+	} = {},
 ): { ctx: CommandContext; notifications: Notification[]; statuses: Array<{ key: string; value: string | undefined }>; waits: () => number } {
 	const notifications: Notification[] = [];
 	const statuses: Array<{ key: string; value: string | undefined }> = [];
@@ -302,6 +346,12 @@ function createContext(
 			waitCount += 1;
 		},
 	};
+	const sessionEntries = options.sessionEntries;
+	if (sessionEntries !== undefined) {
+		ctx.sessionManager = {
+			getBranch: () => [...sessionEntries],
+		};
+	}
 	return { ctx, notifications, statuses, waits: () => waitCount };
 }
 
@@ -569,6 +619,30 @@ describe("formatLatestPlanBranchPreview", () => {
 		expect(text).toContain("Branch creation: graphite");
 		expect(text).toContain(`Branch Memory key: ${PLAN_KEY}`);
 	});
+
+	test("reports session-derived latest source plan", () => {
+		const text = formatLatestPlanBranchPreview({
+			mode: "session",
+			slug: PLAN_SLUG,
+			filePath: `/archive/gh--owner--repo/main/${PLAN_KEY}`,
+			fileName: PLAN_KEY,
+			targetBranch: TARGET_BRANCH,
+			branchCreation: "plain-git",
+			namespace: PLAN_BRANCH_NAMESPACE,
+			key: PLAN_KEY,
+			repoRoot: ROOT,
+			repoKey: "gh--owner--repo",
+			repoIdentitySource: "origin-url",
+			sourceBranch: "main",
+			branchKey: "main",
+			modifiedTimeMs: 1_800_000_000_000,
+		});
+
+		expect(text).toContain("Latest source-branch plan from session history:");
+		expect(text).toContain("Repo key: gh--owner--repo");
+		expect(text).toContain("Source branch: main");
+		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
+	});
 });
 
 describe("formatPlanBranchEvidence", () => {
@@ -743,6 +817,150 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 		expect(context.statuses.at(-1)).toEqual({ key: "create-latest-plan-branch", value: undefined });
+	});
+
+	test("create-latest-plan-branch dry-run prefers session-created plan over newer disk mtime", async () => {
+		const archiveRoot = await makeTempDir("source-plan-archive-");
+		const sourceBranch = "main";
+		const directoryPath = sourceArchiveDirectory(archiveRoot, sourceBranch);
+		const sessionSlug = "submit-dirty-worktree-checkpoint";
+		const newerDiskSlug = "harden-cp-newbr-validation";
+		const sessionPath = await writeArchivePlanFile(directoryPath, `${sessionSlug}.md`, 1_700_000_000_000);
+		await writeArchivePlanFile(directoryPath, `${newerDiskSlug}.md`, 1_800_000_000_000);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
+		createBrmemPlanBranchExtension(pi, { sourcePlanArchiveRoot: archiveRoot });
+		const command = pi.commands.get("create-latest-plan-branch");
+		const context = createContext([], {
+			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }))],
+		});
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.content).toContain("Latest source-branch plan from session history:");
+		expect(pi.sentMessages[0]?.content).toContain(`Path: ${sessionPath}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${sessionSlug}`);
+		expect(pi.sentMessages[0]?.content).not.toContain(`${newerDiskSlug}.md`);
+	});
+
+	test("create-latest-plan-branch explicit path wins over session evidence", async () => {
+		const archiveRoot = await makeTempDir("source-plan-archive-");
+		const sourceBranch = "main";
+		const directoryPath = sourceArchiveDirectory(archiveRoot, sourceBranch);
+		const sessionSlug = "submit-dirty-worktree-checkpoint";
+		const explicitSlug = "harden-cp-newbr-validation";
+		const sessionPath = await writeArchivePlanFile(directoryPath, `${sessionSlug}.md`, 1_700_000_000_000);
+		const explicitPath = await writeArchivePlanFile(directoryPath, `${explicitSlug}.md`, 1_800_000_000_000);
+		const pi = new FakePi();
+		createBrmemPlanBranchExtension(pi, { sourcePlanArchiveRoot: archiveRoot });
+		const command = pi.commands.get("create-latest-plan-branch");
+		const context = createContext([], {
+			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }))],
+		});
+
+		await command?.handler(`--dry-run ${explicitPath}`, context.ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.sentMessages[0]?.content).toContain("Explicit source plan file:");
+		expect(pi.sentMessages[0]?.content).toContain(`Path: ${explicitPath}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${explicitSlug}`);
+		expect(pi.sentMessages[0]?.content).not.toContain("Latest source-branch plan from session history:");
+	});
+
+	test("create-latest-plan-branch ignores missing session file and falls back to disk latest", async () => {
+		const archiveRoot = await makeTempDir("source-plan-archive-");
+		const sourceBranch = "main";
+		const directoryPath = sourceArchiveDirectory(archiveRoot, sourceBranch);
+		const missingSlug = "submit-dirty-worktree-checkpoint";
+		const diskSlug = "harden-cp-newbr-validation";
+		const missingPath = join(directoryPath, `${missingSlug}.md`);
+		const diskPath = await writeArchivePlanFile(directoryPath, `${diskSlug}.md`, 1_800_000_000_000);
+		const pi = new FakePi([
+			gitRootStep(),
+			gitCurrentBranchStep(sourceBranch),
+			gitOriginStep(),
+			gitRootStep(),
+			gitCurrentBranchStep(sourceBranch),
+			gitOriginStep(),
+		]);
+		createBrmemPlanBranchExtension(pi, { sourcePlanArchiveRoot: archiveRoot });
+		const command = pi.commands.get("create-latest-plan-branch");
+		const context = createContext([], {
+			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: missingSlug, filePath: missingPath, sourceBranch }))],
+		});
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.content).toContain("Latest source-branch plan:");
+		expect(pi.sentMessages[0]?.content).toContain(`Path: ${diskPath}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${diskSlug}`);
+		expect(pi.sentMessages[0]?.content).not.toContain("Latest source-branch plan from session history:");
+	});
+
+	test("create-latest-plan-branch ignores wrong repo or branch session evidence", async () => {
+		const archiveRoot = await makeTempDir("source-plan-archive-");
+		const sourceBranch = "main";
+		const directoryPath = sourceArchiveDirectory(archiveRoot, sourceBranch);
+		const sessionSlug = "submit-dirty-worktree-checkpoint";
+		const diskSlug = "harden-cp-newbr-validation";
+		const sessionPath = await writeArchivePlanFile(directoryPath, `${sessionSlug}.md`, 1_700_000_000_000);
+		const diskPath = await writeArchivePlanFile(directoryPath, `${diskSlug}.md`, 1_800_000_000_000);
+		const wrongBranchEvidence = {
+			...sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }),
+			sourceBranch: "other-branch",
+			branchKey: "other-branch",
+		};
+		const pi = new FakePi([
+			gitRootStep(),
+			gitCurrentBranchStep(sourceBranch),
+			gitOriginStep(),
+			gitRootStep(),
+			gitCurrentBranchStep(sourceBranch),
+			gitOriginStep(),
+		]);
+		createBrmemPlanBranchExtension(pi, { sourcePlanArchiveRoot: archiveRoot });
+		const command = pi.commands.get("create-latest-plan-branch");
+		const context = createContext([], { sessionEntries: [sourcePlanToolResultEntry(wrongBranchEvidence)] });
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.content).toContain("Latest source-branch plan:");
+		expect(pi.sentMessages[0]?.content).toContain(`Path: ${diskPath}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${diskSlug}`);
+		expect(pi.sentMessages[0]?.content).not.toContain("Latest source-branch plan from session history:");
+	});
+
+	test("create-latest-plan-branch ignores stale cancellation output while using tool result evidence", async () => {
+		const archiveRoot = await makeTempDir("source-plan-archive-");
+		const sourceBranch = "main";
+		const directoryPath = sourceArchiveDirectory(archiveRoot, sourceBranch);
+		const sessionSlug = "submit-dirty-worktree-checkpoint";
+		const staleSlug = "harden-cp-newbr-validation";
+		const sessionPath = await writeArchivePlanFile(directoryPath, `${sessionSlug}.md`, 1_700_000_000_000);
+		const stalePath = await writeArchivePlanFile(directoryPath, `${staleSlug}.md`, 1_800_000_000_000);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
+		createBrmemPlanBranchExtension(pi, { sourcePlanArchiveRoot: archiveRoot });
+		const command = pi.commands.get("create-latest-plan-branch");
+		const context = createContext([], {
+			sessionEntries: [
+				sourcePlanToolResultEntry(sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch })),
+				latestPlanBranchCustomMessageEntry(
+					`Cancelled: no branch or Branch Memory entry was created.\n\nLatest source-branch plan:\nPath: ${stalePath}\nSlug: ${staleSlug}`,
+				),
+			],
+		});
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.content).toContain("Latest source-branch plan from session history:");
+		expect(pi.sentMessages[0]?.content).toContain(`Path: ${sessionPath}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${sessionSlug}`);
+		expect(pi.sentMessages[0]?.content).not.toContain(`Path: ${stalePath}`);
 	});
 
 	test("create-latest-plan-branch cancellation does not mutate", async () => {

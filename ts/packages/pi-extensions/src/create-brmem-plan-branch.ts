@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
 
 import {
@@ -7,12 +8,15 @@ import {
 	type BranchCreationMethod,
 	type BrmemPlanBranchEvidence,
 } from "./brmem-plans/plan-branch.ts";
-import { normalizePlanFilePath, validatePlanSlug, type ExecOptions } from "./brmem-plans/plan-persistence.ts";
+import { isPathInside, normalizePlanFilePath, validatePlanSlug, type ExecOptions } from "./brmem-plans/plan-persistence.ts";
 import {
 	findLatestSourceBranchPlanFile,
 	formatSourceBranchPlanFileEvidence,
+	resolveSourceBranchPlanArchiveDirectory,
 	writeSourceBranchPlanFile as writeSourceBranchPlanFilePrimitive,
 	type LatestSourceBranchPlanFileEvidence,
+	type SourceBranchPlanArchiveDirectoryEvidence,
+	type SourceBranchPlanFileEvidence,
 } from "./brmem-plans/source-plan-file.ts";
 import type { ExecResult } from "./command-runtime.ts";
 
@@ -74,6 +78,13 @@ type ToolResult = {
 	details?: unknown;
 };
 
+type SessionHistoryEntry = unknown;
+
+type SessionManagerLike = {
+	getBranch?(): SessionHistoryEntry[];
+	getEntries?(): SessionHistoryEntry[];
+};
+
 export type CreateBrmemPlanBranchExtensionOptions = {
 	latestPlanBranchDefaultCreation?: BranchCreationMethod;
 	sourcePlanArchiveRoot?: string;
@@ -89,7 +100,7 @@ export type CreateLatestPlanBranchArgs = {
 };
 
 export type CreateLatestPlanBranchPreview = {
-	mode: "latest" | "explicit";
+	mode: "latest" | "explicit" | "session";
 	slug: string;
 	filePath: string;
 	fileName: string;
@@ -134,6 +145,7 @@ export type CommandContext = {
 		confirm?(title: string, message?: string): Promise<boolean>;
 	};
 	waitForIdle(): Promise<void>;
+	sessionManager?: SessionManagerLike;
 };
 
 export type ExtensionAPI = {
@@ -162,7 +174,7 @@ Options:
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 
-With no file path, the command selects the newest .md file under ~/.asdl/plans/<repo>/<current-branch>/.
+With no file path, the command prefers the most recent valid source plan created in the current session, then falls back to the newest .md file under ~/.asdl/plans/<repo>/<current-branch>/.
 An explicit file path must be absolute; a leading @ is accepted and stripped.`;
 
 export function buildCreatePlanFilePrompt(steering: string): string {
@@ -412,7 +424,7 @@ export async function resolveCreateLatestPlanBranchPreview(
 
 	return {
 		...base,
-		mode: "latest",
+		mode: selected.mode,
 		repoRoot: selected.repoRoot,
 		repoKey: selected.repoKey,
 		repoIdentitySource: selected.repoIdentitySource,
@@ -423,10 +435,16 @@ export async function resolveCreateLatestPlanBranchPreview(
 }
 
 export function formatLatestPlanBranchPreview(preview: CreateLatestPlanBranchPreview): string {
-	const lines = [preview.mode === "latest" ? "Latest source-branch plan:" : "Explicit source plan file:"];
+	const lines = [
+		preview.mode === "explicit"
+			? "Explicit source plan file:"
+			: preview.mode === "session"
+				? "Latest source-branch plan from session history:"
+				: "Latest source-branch plan:",
+	];
 	lines.push(`Path: ${preview.filePath}`);
 	lines.push(`Slug: ${preview.slug}`);
-	if (preview.mode === "latest") {
+	if (preview.mode !== "explicit") {
 		lines.push(`Repo key: ${preview.repoKey}`);
 		lines.push(`Repo root: ${preview.repoRoot}`);
 		lines.push(`Repo identity source: ${preview.repoIdentitySource}`);
@@ -682,7 +700,8 @@ type SelectedLatestPlanFile =
 			filePath: string;
 			fileName: string;
 	  }
-	| (LatestSourceBranchPlanFileEvidence & { mode: "latest" });
+	| (LatestSourceBranchPlanFileEvidence & { mode: "latest" })
+	| (LatestSourceBranchPlanFileEvidence & { mode: "session" });
 
 type LatestPlanBranchMessageDetails = {
 	status: "usage" | "dry-run" | "confirmation-required" | "cancelled" | "success" | "failure";
@@ -698,6 +717,11 @@ async function resolveSelectedLatestPlanFile(
 	options: CreateBrmemPlanBranchExtensionOptions,
 ): Promise<SelectedLatestPlanFile> {
 	if (args.filePath === undefined) {
+		const sessionEvidence = await findLatestSourcePlanFileFromSessionHistory(pi, ctx, options);
+		if (sessionEvidence !== undefined) {
+			return sessionEvidence;
+		}
+
 		const evidence = await findLatestSourceBranchPlanFile(pi, {
 			cwd: ctx.cwd,
 			archiveRoot: options.sourcePlanArchiveRoot,
@@ -722,6 +746,146 @@ async function resolveSelectedLatestPlanFile(
 	}
 
 	return { mode: "explicit", slug, filePath, fileName };
+}
+
+async function findLatestSourcePlanFileFromSessionHistory(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	options: CreateBrmemPlanBranchExtensionOptions,
+): Promise<(LatestSourceBranchPlanFileEvidence & { mode: "session" }) | undefined> {
+	const entries = ctx.sessionManager?.getBranch?.();
+	if (entries === undefined) {
+		return undefined;
+	}
+
+	const directory = await resolveSourceBranchPlanArchiveDirectory(pi, {
+		cwd: ctx.cwd,
+		archiveRoot: options.sourcePlanArchiveRoot,
+	});
+
+	for (let index = entries.length - 1; index >= 0; index -= 1) {
+		const entry = entries[index];
+		const evidence = extractSourcePlanEvidenceFromSessionEntry(entry);
+		if (evidence === undefined) {
+			continue;
+		}
+
+		const candidate = await validateSessionSourcePlanCandidate(evidence, directory);
+		if (candidate !== undefined) {
+			return { ...candidate, mode: "session" };
+		}
+	}
+
+	return undefined;
+}
+
+function extractSourcePlanEvidenceFromSessionEntry(entry: unknown): SourceBranchPlanFileEvidence | undefined {
+	if (!isRecord(entry) || entry.type !== "message") {
+		return undefined;
+	}
+
+	const message = entry.message;
+	if (!isRecord(message) || message.role !== "toolResult") {
+		return undefined;
+	}
+	if (message.toolName !== WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME || message.isError === true) {
+		return undefined;
+	}
+
+	const details = message.details;
+	if (!isRecord(details)) {
+		return undefined;
+	}
+
+	const slug = details.slug;
+	const repoRoot = details.repoRoot;
+	const repoKey = details.repoKey;
+	const repoIdentitySource = details.repoIdentitySource;
+	const sourceBranch = details.sourceBranch;
+	const branchKey = details.branchKey;
+	const filePath = details.filePath;
+	if (
+		typeof slug !== "string" ||
+		typeof repoRoot !== "string" ||
+		typeof repoKey !== "string" ||
+		typeof sourceBranch !== "string" ||
+		typeof branchKey !== "string" ||
+		typeof filePath !== "string"
+	) {
+		return undefined;
+	}
+	if (repoIdentitySource !== "origin-url" && repoIdentitySource !== "repo-root") {
+		return undefined;
+	}
+
+	const evidence: SourceBranchPlanFileEvidence = {
+		slug,
+		repoRoot,
+		repoKey,
+		repoIdentitySource,
+		sourceBranch,
+		branchKey,
+		filePath,
+	};
+	const summary = details.summary;
+	if (summary === undefined) {
+		return evidence;
+	}
+	if (typeof summary !== "string") {
+		return undefined;
+	}
+	return { ...evidence, summary };
+}
+
+async function validateSessionSourcePlanCandidate(
+	evidence: SourceBranchPlanFileEvidence,
+	directory: SourceBranchPlanArchiveDirectoryEvidence,
+): Promise<LatestSourceBranchPlanFileEvidence | undefined> {
+	if (validatePlanSlug(evidence.slug) !== undefined) {
+		return undefined;
+	}
+	if (!isAbsolute(evidence.filePath) || !evidence.filePath.endsWith(".md")) {
+		return undefined;
+	}
+
+	const fileName = basename(evidence.filePath);
+	if (fileName !== `${evidence.slug}.md`) {
+		return undefined;
+	}
+	if (!isPathInside(directory.directoryPath, evidence.filePath)) {
+		return undefined;
+	}
+	if (
+		evidence.repoRoot !== directory.repoRoot ||
+		evidence.repoKey !== directory.repoKey ||
+		evidence.repoIdentitySource !== directory.repoIdentitySource ||
+		evidence.sourceBranch !== directory.sourceBranch ||
+		evidence.branchKey !== directory.branchKey
+	) {
+		return undefined;
+	}
+
+	let fileStat: Awaited<ReturnType<typeof stat>>;
+	try {
+		fileStat = await stat(evidence.filePath);
+	} catch {
+		return undefined;
+	}
+	if (!fileStat.isFile()) {
+		return undefined;
+	}
+
+	return {
+		...directory,
+		slug: evidence.slug,
+		filePath: evidence.filePath,
+		fileName,
+		modifiedTimeMs: fileStat.mtimeMs,
+	};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function presentLatestPlanBranchFailure(
