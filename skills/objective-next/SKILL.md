@@ -11,7 +11,7 @@ For shared vocabulary and system-wide rules, use the `objective` skill when avai
 
 ## Required shape
 
-Canonical root: `.asdl/objectives/<slug>/`.
+Active root: `.asdl/objectives/<slug>/`. Archived records under `.asdl/objective-archive/<slug>/` are not active work candidates.
 
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
@@ -25,8 +25,9 @@ The Objective slug directory is durable identity. Command/product/prose renames 
 ## Resolve the Objective
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --format md` to enumerate active candidates (`open` plus `in-flight`) and ask the user to choose.
-3. If no candidates exist, say so and suggest `objective-create` when appropriate.
+2. If the selected path is under `.asdl/objective-archive/`, stop and ask whether to unarchive before recommending next work.
+3. If no slug or path is explicit, run `objective list --format md` to enumerate active candidates (`open` plus `in-flight`) and ask the user to choose.
+4. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.
 
@@ -54,6 +55,7 @@ Before recommending work:
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
+- The selected path is under `.asdl/objective-archive/`; ask whether to unarchive before recommending next work.
 - The selected Objective is closed.
 - The Tracking Gate finds likely unrecorded material progress and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.

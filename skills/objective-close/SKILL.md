@@ -11,7 +11,7 @@ For shared vocabulary and system-wide rules, use the `objective` skill when avai
 
 ## Required shape
 
-Canonical root: `.asdl/objectives/<slug>/`.
+Active root: `.asdl/objectives/<slug>/`.
 
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; add `## Closure` when closing.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
@@ -37,7 +37,7 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
 3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale.
 4. Add or update `## Closure` in `objective.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.
 5. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
-6. Leave `.asdl/objectives/<slug>/` in place. Do not archive, delete, move, or implement a reopen workflow.
+6. Leave `.asdl/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `objective archive <slug>` after or instead of closure, depending on intent.
 
 ## Closure timing
 
@@ -49,7 +49,7 @@ Closure does not have to wait for the closing work to land on the trunk branch. 
 - Required Objective files are missing.
 - The closure outcome or rationale is unclear.
 - The Objective is already closed and the user did not ask to amend closure context.
-- The user asks to delete, archive, move, or reopen the Objective.
+- The user asks to delete, move, or reopen the Objective as part of close. If they explicitly want retirement from active discovery, redirect to `objective archive <slug>` after or instead of closure, depending on intent.
 
 ## Verify
 

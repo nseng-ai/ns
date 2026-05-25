@@ -11,7 +11,7 @@ For shared vocabulary and system-wide rules, use the `objective` skill when avai
 
 ## Required shape
 
-Canonical root: `.asdl/objectives/<slug>/`.
+Active root: `.asdl/objectives/<slug>/`. Archive root: `.asdl/objective-archive/<slug>/`.
 
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
@@ -25,8 +25,9 @@ The Objective slug directory is durable identity. Command/product/prose renames 
 ## Resolve the Objective
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --status all --format md` to enumerate active and closed candidates and ask the user to choose.
-3. If no candidates exist, say so and suggest `objective-create` when appropriate.
+2. If the user explicitly provides a path under `.asdl/objective-archive/<slug>/`, summarize it by direct file read when reasonable, or ask whether they want to unarchive first. Do not expect `objective exec read-objective` to read archive-only records in v1.
+3. If no slug or path is explicit, run `objective list --status all --format md` to enumerate active and closed candidates and ask the user to choose.
+4. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
 
@@ -41,7 +42,7 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
-- The selected path is outside `.asdl/objectives/`.
+- The selected path is outside `.asdl/objectives/` and `.asdl/objective-archive/`.
 - The user asks for mutation; redirect to `objective-update`, `objective-create`, or `objective-close`.
 
 ## Verify

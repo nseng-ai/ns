@@ -17,6 +17,10 @@ def test_objective_statuses_from_paths_ignores_gitkeep() -> None:
     assert objective_statuses_from_paths((".asdl/objectives/.gitkeep",)) == ()
 
 
+def test_objective_statuses_from_paths_ignores_archive_root_paths() -> None:
+    assert objective_statuses_from_paths((".asdl/objective-archive/alpha/objective.md",)) == ()
+
+
 def test_objective_statuses_from_paths_includes_slugs_with_child_files() -> None:
     assert objective_statuses_from_paths((".asdl/objectives/alpha/objective.md",)) == (
         ("alpha", "open"),

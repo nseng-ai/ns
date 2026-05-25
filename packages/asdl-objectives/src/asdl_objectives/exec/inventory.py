@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.clinkr.models import ClinkrModel
+from asdl_objectives.objective_paths import ACTIVE_OBJECTIVE_ROOT, active_objective_record_path
 
 
 class ObjectiveFiles(ClinkrModel):
@@ -20,11 +21,11 @@ class ObjectiveUpdateFile(ClinkrModel):
 
 
 def relative_root_path() -> Path:
-    return Path(".asdl") / "objectives"
+    return ACTIVE_OBJECTIVE_ROOT
 
 
 def relative_record_path(slug: str) -> Path:
-    return relative_root_path() / slug
+    return active_objective_record_path(slug)
 
 
 def build_objective_files(path: Path) -> ObjectiveFiles:

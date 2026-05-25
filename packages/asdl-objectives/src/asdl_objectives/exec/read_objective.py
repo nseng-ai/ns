@@ -20,6 +20,7 @@ from asdl_objectives.exec.inventory import (
     relative_root_path,
     render_file_presence,
 )
+from asdl_objectives.objective_paths import is_valid_objective_slug
 
 ReadObjectiveStatus = Literal["ok", "missing_slug", "invalid_slug", "not_found"]
 
@@ -94,7 +95,7 @@ def run_read_objective(
             message="Missing Objective slug. Pass an explicit slug.",
         )
 
-    if not _is_valid_slug(request.slug):
+    if not is_valid_objective_slug(request.slug):
         raise ClinkrExit.negative(
             _empty_result(
                 status="invalid_slug",
@@ -137,10 +138,6 @@ def run_read_objective(
             update_count=len(updates),
         )
     )
-
-
-def _is_valid_slug(slug: str) -> bool:
-    return slug not in {"", ".", ".."} and "/" not in slug and "\\" not in slug
 
 
 def _empty_result(
