@@ -27,7 +27,7 @@ export type ExecOptions = {
 	signal?: AbortSignal;
 };
 
-export type BrmemPlanExecApi = {
+export type PlanCommandExecApi = {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 };
 
@@ -99,7 +99,7 @@ export function isPathInside(parent: string, child: string): boolean {
 }
 
 export async function resolvePlanSourceFile(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	rawFilePath: string,
 	signal: AbortSignal | undefined,
@@ -132,7 +132,7 @@ export async function resolvePlanSourceFile(
 }
 
 export async function resolveGitRepoRoot(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	signal: AbortSignal | undefined,
 ): Promise<string | undefined> {
@@ -152,7 +152,7 @@ export async function resolveGitRepoRoot(
 }
 
 export async function runBrmem(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	args: string[],
 	signal: AbortSignal | undefined,

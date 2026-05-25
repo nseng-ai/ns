@@ -6,7 +6,7 @@ import {
 	resolvePlanSourceFile,
 	runBrmem,
 	validatePlanSlug,
-	type BrmemPlanExecApi,
+	type PlanCommandExecApi,
 	type BrmemPutData,
 	type ExecOptions,
 } from "./plan-persistence.ts";
@@ -19,7 +19,7 @@ const MAX_ERROR_CHARS = 4_000;
 
 export type BranchCreationMethod = "plain-git" | "graphite";
 
-export type CreateBrmemPlanBranchParams = {
+export type CreatePlannedBranchFromFileParams = {
 	slug: string;
 	filePath: string;
 	branchName?: string;
@@ -27,12 +27,12 @@ export type CreateBrmemPlanBranchParams = {
 	summary?: string;
 };
 
-export type CreateBrmemPlanBranchOptions = {
+export type CreatePlannedBranchFromFileOptions = {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 };
 
-export type BrmemPlanBranchEvidence = {
+export type PlannedBranchEvidence = {
 	slug: string;
 	branch: string;
 	branchCreation: BranchCreationMethod;
@@ -50,16 +50,16 @@ type CommandRun = {
 	displayCommand: string;
 };
 
-export async function createBrmemPlanBranchFromFile(
-	pi: BrmemPlanExecApi,
+export async function createPlannedBranchFromFile(
+	pi: PlanCommandExecApi,
 	rawParams: unknown,
-	options: CreateBrmemPlanBranchOptions,
-): Promise<BrmemPlanBranchEvidence> {
-	const params = parseCreateBrmemPlanBranchParams(rawParams);
+	options: CreatePlannedBranchFromFileOptions,
+): Promise<PlannedBranchEvidence> {
+	const params = parseCreatePlannedBranchFromFileParams(rawParams);
 	const slug = params.slug.trim();
 	const slugError = validatePlanSlug(slug);
 	if (slugError !== undefined) {
-		throw new Error(`Invalid Branch Memory plan slug: ${slugError}`);
+		throw new Error(`Invalid plan slug: ${slugError}`);
 	}
 
 	const branchCreation = params.branchCreation ?? "plain-git";
@@ -90,7 +90,7 @@ export async function createBrmemPlanBranchFromFile(
 	);
 	if (put.result.code !== 0 || put.result.killed) {
 		throw partialFailureError({
-			title: "Created branch but failed to store Branch Memory plan.",
+			title: "Created branch but failed to attach the plan in Branch Memory.",
 			branch: targetBranch,
 			branchCreation,
 			startPoint,
@@ -120,9 +120,9 @@ export async function createBrmemPlanBranchFromFile(
 	}
 }
 
-export function parseCreateBrmemPlanBranchParams(params: unknown): CreateBrmemPlanBranchParams {
+export function parseCreatePlannedBranchFromFileParams(params: unknown): CreatePlannedBranchFromFileParams {
 	if (!isRecord(params)) {
-		throw new Error("createBrmemPlanBranchFromFile parameters must be an object.");
+		throw new Error("createPlannedBranchFromFile parameters must be an object.");
 	}
 
 	const slug = params.slug;
@@ -131,20 +131,20 @@ export function parseCreateBrmemPlanBranchParams(params: unknown): CreateBrmemPl
 	const branchCreation = params.branchCreation;
 	const summary = params.summary;
 	if (typeof slug !== "string") {
-		throw new Error("createBrmemPlanBranchFromFile requires string parameter `slug`.");
+		throw new Error("createPlannedBranchFromFile requires string parameter `slug`.");
 	}
 	if (typeof filePath !== "string") {
-		throw new Error("createBrmemPlanBranchFromFile requires string parameter `filePath`.");
+		throw new Error("createPlannedBranchFromFile requires string parameter `filePath`.");
 	}
 	if (branchName !== undefined && typeof branchName !== "string") {
-		throw new Error("createBrmemPlanBranchFromFile parameter `branchName` must be a string when provided.");
+		throw new Error("createPlannedBranchFromFile parameter `branchName` must be a string when provided.");
 	}
 	const normalizedBranchCreation = normalizeBranchCreationMethod(branchCreation);
 	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error("createBrmemPlanBranchFromFile parameter `summary` must be a string when provided.");
+		throw new Error("createPlannedBranchFromFile parameter `summary` must be a string when provided.");
 	}
 
-	const parsed: CreateBrmemPlanBranchParams = { slug, filePath };
+	const parsed: CreatePlannedBranchFromFileParams = { slug, filePath };
 	if (branchName !== undefined) {
 		parsed.branchName = branchName;
 	}
@@ -165,9 +165,9 @@ export function normalizeBranchCreationMethod(value: unknown): BranchCreationMet
 		return value;
 	}
 	if (typeof value !== "string") {
-		throw new Error("createBrmemPlanBranchFromFile parameter `branchCreation` must be a string when provided.");
+		throw new Error("createPlannedBranchFromFile parameter `branchCreation` must be a string when provided.");
 	}
-	throw new Error("createBrmemPlanBranchFromFile parameter `branchCreation` must be one of `plain-git` or `graphite`.");
+	throw new Error("createPlannedBranchFromFile parameter `branchCreation` must be one of `plain-git` or `graphite`.");
 }
 
 export function deriveTargetBranch(branchName: string | undefined, slug: string): string {
@@ -214,7 +214,7 @@ export function validateTargetBranchName(branch: string): string | undefined {
 }
 
 async function checkBranchRefFormat(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
@@ -225,7 +225,7 @@ async function checkBranchRefFormat(
 	}
 }
 
-async function resolveStartPoint(pi: BrmemPlanExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveStartPoint(pi: PlanCommandExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const head = await runGit(pi, cwd, ["rev-parse", "HEAD"], signal);
 	if (head.result.code !== 0 || head.result.killed) {
 		throw new Error(formatCommandFailure("git rev-parse HEAD failed", head.displayCommand, head.result));
@@ -239,7 +239,7 @@ async function resolveStartPoint(pi: BrmemPlanExecApi, cwd: string, signal: Abor
 }
 
 async function assertLocalBranchAbsent(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
@@ -266,7 +266,7 @@ async function assertLocalBranchAbsent(
 }
 
 async function assertBrmemEntryAbsent(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	targetBranch: string,
 	key: string,
@@ -284,7 +284,7 @@ async function assertBrmemEntryAbsent(
 	if (check.result.code === 0) {
 		throw new Error(
 			[
-				"Branch Memory plan already exists on target branch; refusing to overwrite.",
+				"Attached plan already exists on target branch; refusing to overwrite.",
 				`Namespace: ${PLAN_BRANCH_NAMESPACE}`,
 				`Branch: ${targetBranch}`,
 				`Key: ${key}`,
@@ -298,7 +298,7 @@ async function assertBrmemEntryAbsent(
 }
 
 async function createPlanBranch(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	input: {
 		method: BranchCreationMethod;
@@ -314,7 +314,7 @@ async function createPlanBranch(
 }
 
 async function createPlainGitBranch(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
@@ -326,7 +326,7 @@ async function createPlainGitBranch(
 }
 
 async function createGraphiteBranch(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	targetBranch: string,
 	signal: AbortSignal | undefined,
@@ -339,7 +339,7 @@ async function createGraphiteBranch(
 			[
 				"Created local Git branch but failed to track it with Graphite.",
 				`Branch: ${targetBranch}`,
-				"No Branch Memory plan was stored.",
+				"No attached plan was stored.",
 				"No cleanup was attempted; inspect the created branch manually.",
 				"",
 				formatCommandFailure("gt track failed", track.displayCommand, track.result),
@@ -348,7 +348,7 @@ async function createGraphiteBranch(
 	}
 }
 
-async function resolveCurrentBranch(pi: BrmemPlanExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveCurrentBranch(pi: PlanCommandExecApi, cwd: string, signal: AbortSignal | undefined): Promise<string> {
 	const branch = await runGit(pi, cwd, ["branch", "--show-current"], signal);
 	if (branch.result.code !== 0 || branch.result.killed) {
 		throw new Error(formatCommandFailure("git branch --show-current failed", branch.displayCommand, branch.result));
@@ -367,7 +367,7 @@ function buildEvidence(input: {
 	branchCreation: BranchCreationMethod;
 	startPoint: string;
 	summary: string | undefined;
-}): BrmemPlanBranchEvidence {
+}): PlannedBranchEvidence {
 	const evidence = {
 		slug: input.slug,
 		branch: input.data.branch,
@@ -432,7 +432,7 @@ function partialFailureError(input: {
 }
 
 async function runGit(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	args: string[],
 	signal: AbortSignal | undefined,
@@ -448,7 +448,7 @@ async function runGit(
 }
 
 async function runGt(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	args: string[],
 	signal: AbortSignal | undefined,

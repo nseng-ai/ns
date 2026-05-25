@@ -5,12 +5,12 @@ import { join } from "node:path";
 
 import {
 	PLAN_BRANCH_NAMESPACE,
-	createBrmemPlanBranchFromFile,
+	createPlannedBranchFromFile,
 	deriveTargetBranch,
 	validateTargetBranchName,
-	type CreateBrmemPlanBranchParams,
-} from "../src/brmem-plans/plan-branch.ts";
-import type { BrmemPlanExecApi, ExecOptions } from "../src/brmem-plans/plan-persistence.ts";
+	type CreatePlannedBranchFromFileParams,
+} from "../src/planned-branch/planned-branch-creation.ts";
+import type { PlanCommandExecApi, ExecOptions } from "../src/planned-branch/plan-persistence.ts";
 import type { ExecResult } from "../src/command-runtime.ts";
 
 const ROOT = "/repo";
@@ -37,7 +37,7 @@ type ScriptedExec =
 			error: Error;
 	  };
 
-class FakePi implements BrmemPlanExecApi {
+class FakePi implements PlanCommandExecApi {
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];
@@ -196,11 +196,11 @@ function graphiteSuccessScript(input: { branch: string; key: string; filePath: s
 }
 
 async function runCreate(
-	params: CreateBrmemPlanBranchParams,
+	params: CreatePlannedBranchFromFileParams,
 	script: ScriptedExec[],
-): Promise<{ pi: FakePi; evidence: Awaited<ReturnType<typeof createBrmemPlanBranchFromFile>> }> {
+): Promise<{ pi: FakePi; evidence: Awaited<ReturnType<typeof createPlannedBranchFromFile>> }> {
 	const pi = new FakePi(script);
-	const evidence = await createBrmemPlanBranchFromFile(pi, params, { cwd: ROOT });
+	const evidence = await createPlannedBranchFromFile(pi, params, { cwd: ROOT });
 	return { pi, evidence };
 }
 
@@ -208,18 +208,18 @@ describe("branch name helpers", () => {
 	test("deriveTargetBranch defaults to slug and trims explicit branch names", () => {
 		expect(deriveTargetBranch(undefined, PLAN_SLUG)).toBe(PLAN_SLUG);
 		expect(deriveTargetBranch("   ", PLAN_SLUG)).toBe(PLAN_SLUG);
-		expect(deriveTargetBranch("  brmem-plans/add-branch-core  ", PLAN_SLUG)).toBe("brmem-plans/add-branch-core");
+		expect(deriveTargetBranch("  planned-branches/add-branch-core  ", PLAN_SLUG)).toBe("planned-branches/add-branch-core");
 	});
 
 	test("validateTargetBranchName catches deterministic unsafe names", () => {
 		for (const branch of ["", "-bad", "bad branch", "/bad", "bad/", "bad//branch", "bad..branch", "bad@{1}", "bad.lock"]) {
 			expect(validateTargetBranchName(branch)).toBeDefined();
 		}
-		expect(validateTargetBranchName("brmem-plans/add-branch-core")).toBeUndefined();
+		expect(validateTargetBranchName("planned-branches/add-branch-core")).toBeUndefined();
 	});
 });
 
-describe("createBrmemPlanBranchFromFile", () => {
+describe("createPlannedBranchFromFile", () => {
 	test("creates a plan branch with the default branch name equal to the slug", async () => {
 		const filePath = await makePlanFile();
 		const { pi, evidence } = await runCreate(
@@ -268,7 +268,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 
 	test("uses an explicit branch name without changing the storage key", async () => {
 		const filePath = await makePlanFile();
-		const branch = "brmem-plans/add-plan-branch-core";
+		const branch = "planned-branches/add-plan-branch-core";
 		const { pi, evidence } = await runCreate(
 			{ slug: PLAN_SLUG, filePath, branchName: `  ${branch}  ` },
 			successScript({ branch, key: PLAN_KEY, filePath }),
@@ -294,7 +294,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 
 	test("creates a Graphite plan branch with an explicit prefixed branch name", async () => {
 		const filePath = await makePlanFile();
-		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const branch = `planned-branches/${PLAN_SLUG}`;
 		const { pi, evidence } = await runCreate(
 			{
 				slug: PLAN_SLUG,
@@ -327,7 +327,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 
 	test("refuses Graphite branch creation from a detached checkout before creating the branch", async () => {
 		const filePath = await makePlanFile();
-		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const branch = `planned-branches/${PLAN_SLUG}`;
 		const pi = new FakePi([
 			gitRootStep(),
 			refFormatStep(branch),
@@ -338,7 +338,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 		]);
 
 		await expect(
-			createBrmemPlanBranchFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT }),
+			createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT }),
 		).rejects.toThrow("Graphite branch creation requires a named current branch");
 
 		pi.assertDone();
@@ -349,7 +349,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 
 	test("surfaces Graphite track failures before storing Branch Memory", async () => {
 		const filePath = await makePlanFile();
-		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const branch = `planned-branches/${PLAN_SLUG}`;
 		const pi = new FakePi([
 			gitRootStep(),
 			refFormatStep(branch),
@@ -362,7 +362,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 		]);
 
 		await expect(
-			createBrmemPlanBranchFromFile(
+			createPlannedBranchFromFile(
 				pi,
 				{
 					slug: PLAN_SLUG,
@@ -392,7 +392,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 
 	test("reports partial state when brmem put fails after Graphite branch creation", async () => {
 		const filePath = await makePlanFile();
-		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const branch = `planned-branches/${PLAN_SLUG}`;
 		const pi = new FakePi([
 			gitRootStep(),
 			refFormatStep(branch),
@@ -406,7 +406,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 		]);
 
 		await expect(
-			createBrmemPlanBranchFromFile(
+			createPlannedBranchFromFile(
 				pi,
 				{
 					slug: PLAN_SLUG,
@@ -428,7 +428,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 
 	test("trims blank summaries from Graphite evidence", async () => {
 		const filePath = await makePlanFile();
-		const branch = `brmem-plans/${PLAN_SLUG}`;
+		const branch = `planned-branches/${PLAN_SLUG}`;
 		const { pi, evidence } = await runCreate(
 			{ slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite", summary: "   " },
 			graphiteSuccessScript({ branch, key: PLAN_KEY, filePath }),
@@ -443,25 +443,25 @@ describe("createBrmemPlanBranchFromFile", () => {
 		const filePath = await makePlanFile();
 		const invalidSlugPi = new FakePi();
 		await expect(
-			createBrmemPlanBranchFromFile(invalidSlugPi, { slug: "Branch Scoped Plan", filePath }, { cwd: ROOT }),
-		).rejects.toThrow("Invalid Branch Memory plan slug");
+			createPlannedBranchFromFile(invalidSlugPi, { slug: "Branch Scoped Plan", filePath }, { cwd: ROOT }),
+		).rejects.toThrow("Invalid plan slug");
 		expect(invalidSlugPi.execCalls).toEqual([]);
 
 		const invalidShapePi = new FakePi();
-		await expect(createBrmemPlanBranchFromFile(invalidShapePi, { slug: PLAN_SLUG }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createPlannedBranchFromFile(invalidShapePi, { slug: PLAN_SLUG }, { cwd: ROOT })).rejects.toThrow(
 			"requires string parameter `filePath`",
 		);
 		expect(invalidShapePi.execCalls).toEqual([]);
 
 		const invalidBranchCreationPi = new FakePi();
 		await expect(
-			createBrmemPlanBranchFromFile(invalidBranchCreationPi, { slug: PLAN_SLUG, filePath, branchCreation: "hg" }, { cwd: ROOT }),
+			createPlannedBranchFromFile(invalidBranchCreationPi, { slug: PLAN_SLUG, filePath, branchCreation: "hg" }, { cwd: ROOT }),
 		).rejects.toThrow("parameter `branchCreation` must be one of `plain-git` or `graphite`");
 		expect(invalidBranchCreationPi.execCalls).toEqual([]);
 
 		const missingPathPi = new FakePi();
 		await expect(
-			createBrmemPlanBranchFromFile(missingPathPi, { slug: PLAN_SLUG, filePath: join(await makeTempDir(), "missing.md") }, { cwd: ROOT }),
+			createPlannedBranchFromFile(missingPathPi, { slug: PLAN_SLUG, filePath: join(await makeTempDir(), "missing.md") }, { cwd: ROOT }),
 		).rejects.toThrow("Plan file does not exist");
 		expect(missingPathPi.execCalls).toEqual([]);
 	});
@@ -475,7 +475,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 			localBranchCheckStep(PLAN_SLUG, { code: 0, stdout: START_POINT }),
 		]);
 
-		await expect(createBrmemPlanBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
 			"Target branch already exists",
 		);
 
@@ -503,8 +503,8 @@ describe("createBrmemPlanBranchFromFile", () => {
 			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 0, stdout: "{}" }),
 		]);
 
-		await expect(createBrmemPlanBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
-			"Branch Memory plan already exists on target branch",
+		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+			"Attached plan already exists on target branch",
 		);
 
 		pi.assertDone();
@@ -522,7 +522,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 			gitBranchStep(PLAN_SLUG, { code: 128, stderr: "cannot lock ref" }),
 		]);
 
-		await expect(createBrmemPlanBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
 			"git branch failed",
 		);
 
@@ -541,7 +541,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 2, stderr: "write failed" }),
 		]);
 
-		await expect(createBrmemPlanBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
 			new RegExp(`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}`),
 		);
 
@@ -552,7 +552,7 @@ describe("createBrmemPlanBranchFromFile", () => {
 		const filePath = await makePlanFile();
 		const pi = new FakePi(successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath, putStdout: "not json" }));
 
-		await expect(createBrmemPlanBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
+		await expect(createPlannedBranchFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT })).rejects.toThrow(
 			/Partial failure:[\s\S]*No cleanup was attempted[\s\S]*Malformed brmem put JSON/,
 		);
 

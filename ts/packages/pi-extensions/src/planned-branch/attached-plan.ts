@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { TextEncoder } from "node:util";
 
 import { formatCommand, tailText, type ExecResult } from "../command-runtime.ts";
-import { PLAN_BRANCH_NAMESPACE } from "./plan-branch.ts";
-import { formatCommandFailure, runBrmem, type BrmemPlanExecApi, type ExecOptions } from "./plan-persistence.ts";
+import { PLAN_BRANCH_NAMESPACE } from "./planned-branch-creation.ts";
+import { formatCommandFailure, runBrmem, type PlanCommandExecApi, type ExecOptions } from "./plan-persistence.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
@@ -46,7 +46,7 @@ type BrmemGetContent = {
 };
 
 export async function loadAttachedPlan(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
@@ -240,7 +240,7 @@ export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): stri
 }
 
 async function resolveSafeImplementationBranch(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	signal: AbortSignal | undefined,
 ): Promise<string> {
@@ -293,7 +293,7 @@ async function resolveSafeImplementationBranch(
 }
 
 async function resolveDefaultBranch(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	signal: AbortSignal | undefined,
 ): Promise<string | undefined> {
@@ -314,7 +314,7 @@ async function resolveDefaultBranch(
 }
 
 async function runGit(
-	pi: BrmemPlanExecApi,
+	pi: PlanCommandExecApi,
 	cwd: string,
 	args: string[],
 	signal: AbortSignal | undefined,
