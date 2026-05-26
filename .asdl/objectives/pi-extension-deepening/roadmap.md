@@ -93,7 +93,7 @@
   - Validate TypeScript changes with `bun run --cwd ts check` and `bun run --cwd ts test`.
   - Run broader repo checks when Python, Objective, docs, or repo-wide behavior changes require it.
   - `/submit` promotion is implemented with fake-driven tests and package validation; remaining generic command-runtime ideas are parked rather than accepted refactors.
-- [ ] Close by explicit human decision.
+- [x] Close by explicit human decision.
   - Confirm every candidate has a disposition.
   - Confirm accepted refactors and documentation updates are complete enough.
   - Add closure context to `objective.md`, then add a Closure Marker.
