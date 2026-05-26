@@ -119,3 +119,11 @@ Risks:
 - Runtime collision checks use `pi.getAllTools()` at child `session_start`; are there extension/tool surfaces not visible through that API that need additional collision safeguards?
 - Mixed terminal-plus-sibling enforcement is currently detect-and-report, with a documented limitation that an earlier sibling may already have run; should a first consumer require a Pi core hook before closure?
 - The first local consumer is a small diagnostic `/child-session-demo <task>` command; rewriting Objective-stack workflows remains parked until explicitly pulled forward.
+
+## Closure
+
+Closed on 2026-05-26 as completed.
+
+The extension-layer MVP is complete: all four planned slices are recorded complete in the roadmap, covering the local helper contract, subprocess JSONL runner, injected terminal-capture runtime, and first parent-facing demo command with docs and regression coverage. Recorded verification includes targeted Bun tests, the `@asdl/pi-extensions` TypeScript check, and full `just` for the integration/docs slice, with no real provider or paid-model calls required.
+
+The closure accepts the documented MVP caveats: manual live `/child-session-demo` smoke remains optional until paid/model use is authorized, mixed terminal-plus-sibling enforcement remains detect-and-report under public Pi APIs, and richer subagent features or an Objective-stack rewrite remain parked out of scope. If those follow-ups become active work, track them in a new Objective rather than reopening this one.
