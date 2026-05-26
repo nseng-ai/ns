@@ -7,7 +7,7 @@ description: "Command: objective-update"
 
 Update Objective tracking for exactly one Objective.
 
-Use the `objective` skill for shared vocabulary/system rules when available. This command remains self-contained.
+For shared vocabulary and system-wide rules, use the `objective` skill when available; this command remains self-contained.
 
 ## Invocation intent
 
@@ -28,7 +28,7 @@ Active root: `.asdl/objectives/<slug>/`. Archived records under `.asdl/objective
 
 Objective records are Markdown. Read/edit Markdown directly. Use `objective exec` for deterministic reads: candidate listing, inventory, closed-marker detection. Mutate files directly.
 
-The selected Objective slug directory is immutable during `objective-update`. Command/product/prose renames are ordinary Objective edits inside `.asdl/objectives/<slug>/`; update titles, prose, roadmap rows, and Semantic Updates in place. Do not move, delete, recreate, or normalize Objective slug directories as part of an update. If the user explicitly wants an Objective slug migration, stop and handle that as a separate, explicit migration decision before any normal update work.
+The selected slug directory is durable identity and immutable during an update: edit titles, prose, roadmap rows, and Semantic Updates in place; never move, delete, recreate, or normalize slug directories. Treat an explicit slug migration as a separate decision handled before any update work.
 
 ## Resolve exactly one Objective
 
@@ -100,7 +100,7 @@ Use working-tree and branch `name-status` evidence as an Objective path integrit
 
 Update only when selected Objective content clearly matches the user request and evidence. If evidence is ambiguous, unrelated, or maps to multiple roadmap rows, ask instead of writing.
 
-Final response must say whether PR evidence was considered, unavailable, or irrelevant. In durable Objective files, avoid temporal absence statements unless materially important. Prefer durable wording:
+In durable Objective files, avoid temporal absence statements unless materially important. Prefer durable wording:
 
 - `Evidence: local branch diff against <base>; full gate passed.`
 - `PR evidence was not required; local branch commits were sufficient.`
@@ -131,7 +131,7 @@ After normal update evidence and durable Objective edits, evaluate whether the s
 
 Closure-ready means the Objective is not already closed; the outcome is clear (`completed` or intentionally `abandoned`); completion criteria or abandonment rationale are evidenced; no active non-parked roadmap work remains; important risks/open questions are resolved, accepted, or carried as follow-ups/caveats; and a concise `## Closure` can record outcome, evidence, caveats, and follow-ups.
 
-Never close automatically. Never close merely because roadmap checkboxes are all `[x]`, or from branch names, PR titles, package names, candidate count, or other selection hints. If closure-ready, ask: `Objective <slug> appears ready to close as <completed|abandoned>. Close it now?` Include a one- or two-line rationale when helpful.
+Never close automatically, merely because roadmap checkboxes are all `[x]`, or from any selection hint. If closure-ready, ask: `Objective <slug> appears ready to close as <completed|abandoned>. Close it now?` Include a one- or two-line rationale when helpful.
 
 If the user confirms, perform `objective-close` semantics inline: add/update `## Closure` in `objective.md`, write minimal `closed.md`, keep the Objective directory in place, and put closure meaning in `objective.md` rather than `closed.md`. If the user already explicitly requested update-and-close in this invocation, treat confirmation as granted only when outcome and rationale are clear.
 
@@ -150,21 +150,18 @@ The final response may include exact command output when useful; durable Objecti
 
 1. Run `objective exec read-objective <slug> --format md` per Objective read scope.
 2. If closed, stop unless the user explicitly asks to amend the closed record; v1 has no reopen workflow.
-3. Collect post-selection repo evidence.
-4. Confirm Objective path integrity: normal update edits must remain under the selected `.asdl/objectives/<slug>/` directory and must not add/delete/move sibling Objective slug directories.
-5. Compare user request, evidence, and existing Objective files to decide what durable tracking changed.
-6. Edit `objective.md` for durable narrative, boundaries, completion criteria, assumptions, risks, open questions, or closure-adjacent context.
-7. Update `## Assumptions and Risks` when evidence changes risk knowledge:
+3. Collect post-selection repo evidence, including the path-integrity check.
+4. Compare user request, evidence, and existing Objective files to decide what durable tracking changed.
+5. Edit `objective.md` for durable narrative, boundaries, completion criteria, assumptions, risks, open questions, or closure-adjacent context.
+6. Update `## Assumptions and Risks` when evidence changes risk knowledge:
    - mark assumptions incorrect, revised, or still active;
    - mark risks de-risked, not de-risked, materialized, accepted, or still open;
    - add new assumptions/risks that affect scope, sequencing, confidence, or completion evidence;
    - preserve useful history; do not silently delete disproven assumptions or de-risked risks.
-8. Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
-9. Create or amend a Semantic Update for meaningful findings, decisions, blockers, assumption/risk changes, completion evidence, plan changes, or follow-ups.
-10. Apply the Closure Gate. If closure-ready, ask for confirmation unless the user already explicitly granted update-and-close permission in this invocation.
-11. If closure is confirmed, add/update `## Closure` in `objective.md` and write minimal `closed.md` using `objective-close` semantics. If closure is declined, ambiguous, or not ready, leave the Objective open.
-12. Explain why durable files changed, why they remained correct, and whether closure was not evaluated, not ready, offered, declined/skipped, or completed.
-13. For maintenance-only durable edits with no new semantic information, do not create/amend an update file; say so explicitly.
+7. Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
+8. Create or amend a Semantic Update per Amend vs new Semantic Update. For maintenance-only durable edits with no new semantic information, write none and say so explicitly.
+9. Apply the Closure Gate. If closure is confirmed, perform closure inline; otherwise leave the Objective open.
+10. Report per Verify: why durable files changed or stayed correct, and the closure-gate result.
 
 ## Stop / ask
 
@@ -174,8 +171,7 @@ The final response may include exact command output when useful; durable Objecti
 - The exactly-one open Objective confirmation is pending.
 - The request would update more than one Objective.
 - The selected Objective is closed and the user did not explicitly ask to amend its closed record; v1 has no reopen workflow.
-- Closure appears ready but confirmation is pending.
-- Closure outcome/rationale is unclear after normal update evidence; leave open unless the user clarifies.
+- Closure appears ready but confirmation is pending, or closure outcome/rationale is unclear; leave open unless the user clarifies.
 - The update would add, delete, move, recreate, or normalize any Objective slug directory instead of editing the selected slug in place.
 - The user asks for a ceremonial status ping, branch changelog, registry, YAML/frontmatter, UUID, hidden metadata, or state-machine behavior.
 - Information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
@@ -186,6 +182,5 @@ The final response may include exact command output when useful; durable Objecti
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - Amended update file, if any, is the existing Semantic Update for the same event, not a duplicate.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
-- If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists under the selected Objective directory.
-- If closure was not performed, confirm no `closed.md` was created by this invocation.
+- If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists under the selected Objective directory; if not, confirm no `closed.md` was created by this invocation.
 - Final response includes: selected Objective slug/path; durable files edited; whether a Semantic Update was created, amended, or intentionally not written; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; closure gate result (not evaluated, not ready, offered, declined/skipped, or completed) and whether `closed.md` was written; verification run or skipped.
