@@ -2,6 +2,12 @@ import { Buffer } from "node:buffer";
 import { readFile as nodeReadFile, stat as nodeStat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import type { CommandResult } from "./checkpoint-flow.ts";
+import {
+	formatPendingWorktreeCommandDetails,
+	loadPendingWorktreeSnapshot,
+	type PendingWorktreeError,
+	type PendingWorktreeSnapshot,
+} from "./pending-worktree.ts";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength } from "./branch-slug.ts";
 
 export const NEWBR_COMMAND_NAME = "newbr";
@@ -18,11 +24,7 @@ export type ParsedNewBranchArgs = {
 	slug?: string;
 };
 
-export type GitSnapshot = {
-	root: string;
-	branch: string;
-	status: string;
-	diff: string;
+export type NewBranchSnapshot = PendingWorktreeSnapshot & {
 	untracked: string;
 };
 
@@ -35,7 +37,7 @@ export type NewBranchFlowInput = {
 	cwd: string;
 	args: ParsedNewBranchArgs;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
-	prepareCheckpointMessage: (status: string, diff: string) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
+	prepareCheckpointMessage: (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
 	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
 	notify: (message: string, level: "info" | "warning" | "error" | "success") => void;
 	setStatus: (message: string | undefined) => void;
@@ -45,12 +47,17 @@ export type NewBranchFlowInput = {
 };
 
 export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): Promise<void> {
-	const snapshot = await loadGitSnapshot(input);
-	if ("error" in snapshot) {
-		input.notify(snapshot.error, "error");
+	const loaded = await loadPendingWorktreeSnapshot({
+		cwd: input.cwd,
+		execGit: (args, timeout) => input.exec("git", args, input.cwd, timeout),
+	});
+	if (!loaded.ok) {
+		input.notify(formatNewBranchSnapshotError(loaded.error), "error");
 		return;
 	}
-	if (snapshot.status.trim().length === 0) {
+
+	const snapshot = loaded.snapshot;
+	if (snapshot.clean) {
 		input.notify("Working tree is clean; nothing to move to a new branch.", "warning");
 		return;
 	}
@@ -65,7 +72,8 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 	if (requestedSlug) {
 		baseSlug = requestedSlug;
 	} else {
-		const generated = await generateSlugFromChanges(input, snapshot);
+		const untracked = await readUntrackedSnippets(input, snapshot.root);
+		const generated = await generateSlugFromChanges(input, { ...snapshot, untracked });
 		if ("error" in generated) {
 			input.notify(generated.error, "error");
 			return;
@@ -79,7 +87,7 @@ export async function createNewBranchCheckpointFlow(input: NewBranchFlowInput): 
 		return;
 	}
 
-	const prepared = await input.prepareCheckpointMessage(snapshot.status, snapshot.diff);
+	const prepared = await input.prepareCheckpointMessage(snapshot);
 	if (!prepared.ok) {
 		input.notify(prepared.error, "error");
 		return;
@@ -167,35 +175,18 @@ export function parseNewBranchArgs(argsText: string): ParsedNewBranchArgs {
 	return parsed;
 }
 
-async function loadGitSnapshot(input: NewBranchFlowInput): Promise<GitSnapshot | { error: string }> {
-	const root = await input.exec("git", ["rev-parse", "--show-toplevel"], input.cwd, GIT_TIMEOUT_MS);
-	if (root.code !== 0) {
-		return { error: `Not inside a git repository.\n${formatCommandDetails(root)}` };
+function formatNewBranchSnapshotError(error: PendingWorktreeError): string {
+	const details = formatPendingWorktreeCommandDetails(error.result);
+	if (error.kind === "not_git_repo") {
+		return `Not inside a git repository.\n${details}`;
 	}
-
-	const branch = await input.exec("git", ["symbolic-ref", "--short", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
-	if (branch.code !== 0) {
-		return { error: `Detached HEAD; check out a branch before running /${NEWBR_COMMAND_NAME}.\n${formatCommandDetails(branch)}` };
+	if (error.kind === "detached_head") {
+		return `Detached HEAD; check out a branch before running /${NEWBR_COMMAND_NAME}.\n${details}`;
 	}
-
-	const status = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
-	if (status.code !== 0) {
-		return { error: `Could not read git status.\n${formatCommandDetails(status)}` };
+	if (error.kind === "status_failed") {
+		return `Could not read git status.\n${details}`;
 	}
-
-	const diff = await input.exec("git", ["diff", "HEAD", "--no-ext-diff"], input.cwd, GIT_TIMEOUT_MS);
-	if (diff.code !== 0) {
-		return { error: `Could not read git diff.\n${formatCommandDetails(diff)}` };
-	}
-
-	const untracked = await readUntrackedSnippets(input, root.stdout.trim());
-	return {
-		root: root.stdout.trim(),
-		branch: branch.stdout.trim(),
-		status: status.stdout,
-		diff: diff.stdout,
-		untracked,
-	};
+	return `Could not read git diff.\n${details}`;
 }
 
 async function readUntrackedSnippets(input: NewBranchFlowInput, root: string): Promise<string> {
@@ -236,7 +227,7 @@ async function readUntrackedSnippets(input: NewBranchFlowInput, root: string): P
 	return snippets.join("\n\n");
 }
 
-async function generateSlugFromChanges(input: NewBranchFlowInput, snapshot: GitSnapshot): Promise<{ slug: string } | { error: string }> {
+async function generateSlugFromChanges(input: NewBranchFlowInput, snapshot: NewBranchSnapshot): Promise<{ slug: string } | { error: string }> {
 	input.setStatus("generating branch slug…");
 	try {
 		const prompt = buildSlugPrompt(snapshot);
@@ -279,7 +270,7 @@ async function generateSlugFromChanges(input: NewBranchFlowInput, snapshot: GitS
 	}
 }
 
-function buildSlugPrompt(snapshot: GitSnapshot): string {
+function buildSlugPrompt(snapshot: NewBranchSnapshot): string {
 	return [
 		"Generate a concise git branch slug for the pending changes below.",
 		"Infer the actual code, docs, or product change from the diff contents.",
@@ -304,7 +295,7 @@ function buildSlugPrompt(snapshot: GitSnapshot): string {
 		.join("\n");
 }
 
-function fallbackSlugFromSnapshot(snapshot: GitSnapshot): string | undefined {
+function fallbackSlugFromSnapshot(snapshot: NewBranchSnapshot): string | undefined {
 	const changedPaths = snapshot.status
 		.split("\n")
 		.map((line) => line.slice(3).trim())
@@ -389,9 +380,7 @@ function truncate(text: string, maxChars: number): string {
 }
 
 function formatCommandDetails(result: CommandResult): string {
-	const details = result.stderr.trim() || result.stdout.trim();
-	const killed = result.killed ? " (killed or timed out)" : "";
-	return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
+	return formatPendingWorktreeCommandDetails(result);
 }
 
 function errorMessage(error: unknown): string {

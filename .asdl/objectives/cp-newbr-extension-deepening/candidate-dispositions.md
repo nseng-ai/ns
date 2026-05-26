@@ -4,26 +4,28 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 ## Current Priority Order
 
-1. Candidate 1 — Checkpoint seam and pending worktree snapshot.
-2. Candidate 2 — New-branch transaction Module shape.
-3. Candidate 5 — Branch naming policy depth.
-4. Candidate 3 — Shared small-model drafting policy.
-5. Candidate 4 — Explicit Graphite branch-creation Adapter, likely folded into Candidate 2.
-6. Candidate 6 — Test surface cleanup, applied continuously rather than as a standalone refactor.
+1. Candidate 2 — New-branch transaction Module shape.
+2. Candidate 5 — Branch naming policy depth.
+3. Candidate 3 — Shared small-model drafting policy.
+4. Candidate 4 — Explicit Graphite branch-creation Adapter, likely folded into Candidate 2.
+5. Candidate 6 — Test surface cleanup, applied continuously rather than as a standalone refactor.
+6. Candidate 1 — Checkpoint seam and pending worktree snapshot, implemented.
 
 ## Candidate 1 — Checkpoint Seam and Pending Worktree Snapshot
 
-**Disposition:** Implement first.
+**Disposition:** Implemented as the first slice.
 
-**Files:** `ts/packages/pi-extensions/src/cp.ts`, `ts/packages/pi-extensions/src/checkpoint-flow.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/test/checkpoint-flow.test.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
+**Files:** `ts/packages/pi-extensions/src/cp.ts`, `ts/packages/pi-extensions/src/checkpoint-pi.ts`, `ts/packages/pi-extensions/src/pending-worktree.ts`, `ts/packages/pi-extensions/src/checkpoint-flow.ts`, `ts/packages/pi-extensions/src/newbr.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/test/pending-worktree.test.ts`, `ts/packages/pi-extensions/test/checkpoint-flow.test.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
 
-**Problem:** `/cp` and `/newbr` both depend on pending worktree facts and checkpoint preparation, but the shared seam currently requires callers to pass Pi runtime objects or low-level status/diff strings. `cp.ts` owns branch preflight and git diff loading, while `newbr-flow.ts` owns a separate snapshot path plus untracked snippets.
+**Problem:** `/cp` and `/newbr` both depend on pending worktree facts and checkpoint preparation, but the first implementation required `/newbr` to import shared checkpoint behavior from the `/cp` command module and gathered git facts through separate paths.
 
-**Deletion test:** Positive. If a deeper checkpoint/snapshot Module is deleted, branch/status/diff/clean-tree/detached-head/trunk-refusal behavior reappears across both commands and their tests.
+**Deletion test:** Positive and now evidenced. If `pending-worktree.ts` is deleted, branch/status/diff/clean-tree/detached-head fact gathering reappears across both commands and tests. If `checkpoint-pi.ts` is deleted, Pi model drafting, spinner/status handling, preparation-source notification, prompt building, and commit adapter behavior reappear in `/cp` or `/newbr`.
 
-**Working Interface sketch:** expose a small pending-worktree snapshot and checkpoint-preparation Interface that callers can use without knowing Pi runtime details. The snapshot should likely own branch, status, diff, clean state, and detached-head errors. Untracked snippets should be considered carefully: they are required for branch slug generation but not necessarily for `/cp` commit-message fallback.
+**Implemented Interface:** `pending-worktree.ts` exposes `loadPendingWorktreeSnapshot`, `PendingWorktreeSnapshot`, structured `PendingWorktreeError` variants, and command-detail formatting. The snapshot owns repository facts: root, branch, status, diff, and clean state. `checkpoint-pi.ts` owns the Pi-facing checkpoint adapter: shared `ExtensionAPI`/`ExtensionCommandContext` types, `prepareCheckpointMessageForPi`, and `commitPreparedCheckpointMessage`.
 
-**Implementation direction:** move toward a Module where `/cp` can ask for “create a checkpoint from this worktree” and `/newbr` can ask for “prepare checkpoint message from this snapshot,” while Pi-specific model drafting and UI notification stay in an Adapter at the command edge unless they pass the deletion test too.
+**Boundary decisions:** trunk refusal remains `/cp` policy, not a snapshot fact. Clean state is reported by the snapshot and interpreted by each command. Detached HEAD and non-repository states are structured errors formatted by each command. Untracked file contents remain local to `/newbr` slug generation and are read only when a slug must be generated. The shared diff command uses `git diff HEAD --no-ext-diff` for deterministic snapshot input.
+
+**Validation:** `bun run --cwd ts check` and `bun run --cwd ts test` passed after implementation.
 
 ## Candidate 2 — New-Branch Transaction Module Shape
 
@@ -39,15 +41,15 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 ## Candidate 3 — Shared Small-Model Drafting Policy
 
-**Disposition:** Park until Candidates 1 and 5 clarify the shared drafting need.
+**Disposition:** Park until Candidate 5 clarifies the shared drafting need.
 
 **Files:** `ts/packages/pi-extensions/src/cp.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/pi-runtime-modules.d.ts`.
 
 **Problem:** checkpoint message drafting uses Pi model registry and `completeSimple`; branch slug drafting shells out to `pi --print`. That creates two model-selection and failure-reporting paths.
 
-**Deletion test:** Partial. There is real duplication in provider/model/timeout/output policy, but the two call paths may have different host constraints. A shared Module now could become shallow or force the wrong Adapter shape.
+**Deletion test:** Partial. Candidate 1 moved checkpoint model drafting into `checkpoint-pi.ts`, but branch slug drafting still shells out to `pi --print`; the two call paths may have different host constraints.
 
-**Implementation direction:** revisit after Candidate 1 separates checkpoint behavior from Pi runtime and Candidate 5 clarifies branch naming. If both still need the same small-drafting Interface, promote it then.
+**Implementation direction:** revisit after Candidate 5 clarifies branch naming. If checkpoint drafting and branch slug drafting still need the same small-drafting Interface, promote it then.
 
 ## Candidate 4 — Explicit Graphite Branch-Creation Adapter
 
@@ -83,4 +85,4 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 **Deletion test:** Positive as a testing policy, not as a production Module. A universal fake DSL is not justified by current evidence.
 
-**Implementation direction:** use local fake adapters and harnesses consistent with the existing TypeScript package. Assert workflow outcomes and safety invariants first; assert command order only where order is itself the safety guarantee.
+**Implementation direction:** use local fake adapters and harnesses consistent with the existing TypeScript package. Assert workflow outcomes and safety invariants first; assert command order only where order is itself the safety guarantee. Candidate 1 followed this policy with direct `pending-worktree.test.ts` coverage and retained `/newbr` order assertions only for safety sequencing.

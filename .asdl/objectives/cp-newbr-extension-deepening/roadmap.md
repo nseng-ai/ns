@@ -6,10 +6,11 @@
   - Preserved the six PR #649 deepening candidates in `candidate-dispositions.md`.
   - Recorded working dispositions: implement, reject, park, or fold into another candidate.
   - Kept this Objective narrow to `/cp` and `/newbr`.
-- [~] Implement or reject the checkpoint seam plus pending worktree snapshot first.
-  - Deepen checkpoint behavior so `/cp` and `/newbr` do not need to pass the full Pi runtime through the shared seam.
-  - Decide what pending worktree facts belong behind the snapshot Interface: branch, status, diff, untracked files, clean state, detached-head state, and trunk refusal.
-  - Preserve checkpoint message validation, repair feedback, deterministic fallback, and commit creation behavior.
+- [x] Implement or reject the checkpoint seam plus pending worktree snapshot first.
+  - Added `pending-worktree.ts` for root, branch, status, diff, clean state, and structured git snapshot errors.
+  - Kept trunk refusal as `/cp` command policy and untracked file snippets as `/newbr` slug-generation input, not generic snapshot facts.
+  - Added `checkpoint-pi.ts` as the neutral Pi checkpoint adapter used by both `/cp` and `/newbr`; `/newbr` no longer imports from `cp.ts`.
+  - Preserved checkpoint message validation, repair feedback, deterministic fallback, and commit creation behavior.
 - [ ] Decide the new-branch transaction Module shape.
   - Keep safety-critical sequencing visible: prepare before stash, stash before Graphite create, restore before commit.
   - Improve locality around stash, restore, branch creation, rollback reporting, and final checkpoint commit.
@@ -23,14 +24,15 @@
 - [ ] Decide branch naming policy depth.
   - Evaluate whether `branch-slug.ts` should grow into a deeper branch-name policy Module that owns generation, sanitation, fallback, suffixing, and availability checks.
   - Reject or park this if it remains a shallow string-helper extraction.
-- [ ] Align tests with behavior-first fakes.
-  - Use local fake adapters or harnesses consistent with existing TypeScript package tests.
+- [~] Align tests with behavior-first fakes.
+  - Candidate 1 added a local pending-worktree harness and kept `/newbr` safety-order assertions for prepare, stash, Graphite create, restore, and commit.
+  - Continue using local fake adapters or harnesses consistent with existing TypeScript package tests.
   - Keep command-order assertions only where ordering is the safety guarantee.
   - Add regression coverage before or alongside accepted refactors.
-- [ ] Validate accepted TypeScript changes.
-  - Run `bun run --cwd ts check`.
-  - Run `bun run --cwd ts test`.
-  - Run broader validation only if changes escape the TypeScript Pi extension package.
+- [x] Validate accepted TypeScript changes.
+  - `bun run --cwd ts check` passed for Candidate 1.
+  - `bun run --cwd ts test` passed for Candidate 1.
+  - Run broader validation only if later changes escape the TypeScript Pi extension package.
 - [ ] Close by explicit human decision.
   - Confirm every candidate has a disposition.
   - Confirm accepted refactors are implemented or split.

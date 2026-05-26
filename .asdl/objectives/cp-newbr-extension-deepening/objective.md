@@ -18,11 +18,14 @@ In scope:
 - The core Modules added for checkpoint and new-branch behavior:
   - `ts/packages/pi-extensions/src/checkpoint-flow.ts`
   - `ts/packages/pi-extensions/src/checkpoint-message.ts`
+  - `ts/packages/pi-extensions/src/checkpoint-pi.ts`
+  - `ts/packages/pi-extensions/src/pending-worktree.ts`
   - `ts/packages/pi-extensions/src/newbr-flow.ts`
   - `ts/packages/pi-extensions/src/branch-slug.ts`
 - The tests for those Modules:
   - `ts/packages/pi-extensions/test/checkpoint-flow.test.ts`
   - `ts/packages/pi-extensions/test/checkpoint-message.test.ts`
+  - `ts/packages/pi-extensions/test/pending-worktree.test.ts`
   - `ts/packages/pi-extensions/test/newbr-flow.test.ts`
 - Prioritizing and dispositioning the six PR #649 deepening candidates:
   1. Checkpoint command Module seam and pending worktree snapshot.
@@ -60,23 +63,22 @@ This Objective can close when all of the following are true:
 Assumptions:
 
 - `cp-newbr-extension-deepening` is a durable Objective identity for the narrow PR #649 follow-up, not a replacement for `pi-extension-deepening`.
-- The highest-leverage first slice is the checkpoint seam plus pending worktree snapshot because both `/cp` and `/newbr` depend on checkpoint preparation and worktree facts.
-- The existing TypeScript package style supports local fake adapters and harnesses; a single universal fake framework is not required for this Objective.
+- The highest-leverage first slice is the checkpoint seam plus pending worktree snapshot because both `/cp` and `/newbr` depend on checkpoint preparation and worktree facts; implementation evidence now confirms the seam passes the deletion test for branch/status/diff/clean/detached-head facts and shared checkpoint preparation.
+- The existing TypeScript package style supports local fake adapters and harnesses; Candidate 1 used local harnesses without requiring a universal fake framework.
 - Some command-order assertions remain appropriate when ordering is itself the safety invariant, such as prepare-before-stash, stash-before-Graphite-create, and restore-before-commit.
 - `/newbr`'s Graphite dependency is acceptable because Graphite is part of the explicit user-facing command contract.
 
 Risks:
 
-- Premature extraction is the main architectural risk. The guardrail is the deletion test: a new seam should concentrate behavior that would otherwise reappear across `/cp`, `/newbr`, or their tests.
+- Premature extraction remains the main architectural risk for later candidates. Candidate 1 is de-risked by the deletion test: removing `pending-worktree.ts` or `checkpoint-pi.ts` would push shared git fact gathering or checkpoint Pi adapter behavior back into `/cp`, `/newbr`, and their tests.
 - Graphite/stash rollback behavior is safety-critical. Refactors that obscure the transaction order could make failures harder to reason about.
-- Model-auth and provider policy could drift if checkpoint message drafting and branch slug drafting continue to use unrelated implementations.
+- Model-auth and provider policy could drift if checkpoint message drafting and branch slug drafting continue to use unrelated implementations. Candidate 1 now centralizes checkpoint drafting policy in `checkpoint-pi.ts`, but branch slug drafting remains separate pending later evidence.
 - Branch naming could stay shallow if sanitation, fallback, suffixing, and availability checks remain split across tiny Modules.
 - Tests could overfit shell choreography instead of workflow outcomes, making safe refactors look risky.
 
 ## Open Questions
 
-- What exact Interface should the checkpoint seam expose so `/cp` and `/newbr` can share behavior without leaking the full Pi runtime through the seam?
-- Should pending worktree snapshot own trunk refusal, clean-worktree detection, detached-head handling, untracked snippets, or only raw repository facts?
-- Should small-model drafting become one shared Module now, or wait until checkpoint and branch naming work prove the common policy?
+- How much deeper should the new-branch transaction Module become after Candidate 1, and which shell details are safety guarantees rather than incidental choreography?
+- Should small-model drafting become one shared Module after checkpoint drafting moved to `checkpoint-pi.ts`, or wait until branch naming work proves a common policy with slug drafting?
 - Should Graphite branch creation become an explicit Adapter in this Objective, or be parked after transaction safety tests are clarified?
 - Which candidates should be split into follow-on Objectives if the narrow PR #649 follow-up grows too large?

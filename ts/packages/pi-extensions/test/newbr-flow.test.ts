@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createNewBranchCheckpointFlow, type NewBranchFlowInput } from "../src/newbr-flow.ts";
 import type { CommandResult } from "../src/checkpoint-flow.ts";
+import type { PendingWorktreeSnapshot } from "../src/pending-worktree.ts";
 
 function ok(stdout = "", stderr = ""): CommandResult {
 	return { code: 0, stdout, stderr };
@@ -15,11 +16,14 @@ type HarnessOptions = {
 	commitResult?: { summary: string } | { error: string };
 	gtCreateFails?: boolean;
 	stashPopFails?: boolean;
+	detachedHead?: boolean;
+	cleanWorktree?: boolean;
 };
 
 function createHarness(options: HarnessOptions = {}) {
 	const events: string[] = [];
 	const notifications: Array<{ message: string; level: string }> = [];
+	const preparedSnapshots: Array<Pick<PendingWorktreeSnapshot, "status" | "diff">> = [];
 	let stashMessage = "";
 	let statusCalls = 0;
 	const prepareResult = options.prepareResult ?? { ok: true, message: `[cp] Update checkpoint tests\n\n- Add coverage` };
@@ -35,11 +39,11 @@ function createHarness(options: HarnessOptions = {}) {
 				return ok("/repo\n");
 			}
 			if (command === "git" && args[0] === "symbolic-ref") {
-				return ok("base-branch\n");
+				return options.detachedHead ? fail("not a symbolic ref") : ok("base-branch\n");
 			}
 			if (command === "git" && args[0] === "status") {
 				statusCalls += 1;
-				return ok(statusCalls === 1 ? " M file.ts\n" : "");
+				return ok(statusCalls === 1 ? (options.cleanWorktree ? "" : " M file.ts\n") : "");
 			}
 			if (command === "git" && args[0] === "diff") {
 				return ok("diff --git a/file.ts b/file.ts\n");
@@ -68,8 +72,9 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			return ok();
 		},
-		prepareCheckpointMessage: async () => {
+		prepareCheckpointMessage: async (snapshot) => {
 			events.push("prepare");
+			preparedSnapshots.push(snapshot);
 			return prepareResult;
 		},
 		commitPreparedCheckpointMessage: async () => {
@@ -86,7 +91,7 @@ function createHarness(options: HarnessOptions = {}) {
 		},
 	};
 
-	return { input, events, notifications };
+	return { input, events, notifications, preparedSnapshots };
 }
 
 function eventIndex(events: string[], prefix: string): number {
@@ -105,6 +110,25 @@ describe("createNewBranchCheckpointFlow", () => {
 		expect(harness.notifications).toContainEqual({ message: "checkpoint prep failed", level: "error" });
 	});
 
+	test("clean worktree reports nothing to move and stops before preparation", async () => {
+		const harness = createHarness({ cleanWorktree: true });
+
+		await createNewBranchCheckpointFlow(harness.input);
+
+		expect(harness.events).not.toContain("prepare");
+		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
+		expect(harness.notifications).toContainEqual({ message: "Working tree is clean; nothing to move to a new branch.", level: "warning" });
+	});
+
+	test("detached HEAD reports the newbr-specific checkout guidance", async () => {
+		const harness = createHarness({ detachedHead: true });
+
+		await createNewBranchCheckpointFlow(harness.input);
+
+		expect(harness.events).not.toContain("prepare");
+		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /newbr."))).toBe(true);
+	});
+
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {
 		const harness = createHarness();
 
@@ -121,6 +145,8 @@ describe("createNewBranchCheckpointFlow", () => {
 		expect(stash).toBeLessThan(create);
 		expect(create).toBeLessThan(restore);
 		expect(restore).toBeLessThan(commit);
+		expect(harness.preparedSnapshots.at(0)?.status).toBe(" M file.ts\n");
+		expect(harness.preparedSnapshots.at(0)?.diff).toBe("diff --git a/file.ts b/file.ts\n");
 		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
