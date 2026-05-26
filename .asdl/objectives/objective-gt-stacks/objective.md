@@ -66,8 +66,8 @@ Risks:
 
 - The existing `GtGateway.stack()` shape is centered on the current branch, so `objective gt stacks` may require a deeper Graphite graph model before CLI work can proceed cleanly.
 - Segment construction for many-to-many Objective/branch relationships can become complex if the implementation tries to mimic `gt ls` too early. Mitigation: v1 uses a simpler indented layout and relies on JSON for structural completeness.
-- Removing old `objective list` JSON fields will break the TypeScript Objective picker until the Pi Objective extension is updated in the same stack.
-- Dirty-state detection for `(x)` must account for staged, unstaged, and untracked paths without turning `objective list` into a full `git status` clone.
+- Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, and verifies the picker/list flows against the new contract. The remaining Pi extension risk is the separate `/objective-gt-stacks` wrapper, which still waits for the Graphite command.
+- Dirty-state detection for `(x)` must account for staged, unstaged, and untracked paths without turning `objective list` into a full `git status` clone. The Pi picker still cannot combine checkout-local outstanding-change facts into suggestions until this slice lands.
 - Ignoring archive-root paths while including active-root deletions is subtle and needs explicit tests to avoid accidentally resurrecting archived Objectives in stack output.
 - A future TUI may need richer graph data than the first human CLI renderer. Mitigation: design JSON around semantic graph facts rather than terminal glyphs.
 
