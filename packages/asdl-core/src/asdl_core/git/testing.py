@@ -94,6 +94,10 @@ class FakeGitGateway(GitGateway):
         ) = None,
         branch_head_iso_by_branch: dict[str, str] | None = None,
         branch_head_oid_by_branch: dict[str, str] | None = None,
+        delete_local_branch_failure_by_branch: dict[str, GitCommandFailure] | None = None,
+        delete_remote_branch_failure_by_args: (
+            dict[tuple[str, str], GitCommandFailure] | None
+        ) = None,
         fetch_failure_by_args: dict[tuple[Path, str, str], GitCommandFailure] | None = None,
         pull_failure_by_cwd: dict[Path, GitCommandFailure] | None = None,
         update_ref_failure_by_args: (dict[tuple[Path, str, str], GitCommandFailure] | None) = None,
@@ -132,6 +136,12 @@ class FakeGitGateway(GitGateway):
         self._path_change_touches_by_ref_path = dict(path_change_touches_by_ref_path or {})
         self._branch_head_iso_by_branch = dict(branch_head_iso_by_branch or {})
         self._branch_head_oid_by_branch = dict(branch_head_oid_by_branch or {})
+        self._delete_local_branch_failure_by_branch = dict(
+            delete_local_branch_failure_by_branch or {}
+        )
+        self._delete_remote_branch_failure_by_args = dict(
+            delete_remote_branch_failure_by_args or {}
+        )
         self._fetch_failure_by_args = dict(fetch_failure_by_args or {})
         self._pull_failure_by_cwd = dict(pull_failure_by_cwd or {})
         self._update_ref_failure_by_args = dict(update_ref_failure_by_args or {})
@@ -151,6 +161,8 @@ class FakeGitGateway(GitGateway):
         self._remove_worktree_calls: list[tuple[Path, Path]] = []
         self._checkout_calls: list[tuple[Path, str]] = []
         self._create_branch_calls: list[tuple[str, str, bool]] = []
+        self._delete_local_branch_calls: list[str] = []
+        self._delete_remote_branch_calls: list[tuple[str, str]] = []
         self._detach_head_calls: list[tuple[Path, str]] = []
         self._fetch_calls: list[tuple[Path, str, str]] = []
         self._pull_calls: list[Path] = []
@@ -313,6 +325,20 @@ class FakeGitGateway(GitGateway):
             raise AssertionError(f"branch {branch!r} already exists; pass force=True to move it")
         self._create_branch_calls.append((branch, start_point, force))
         self._branches.add(branch)
+
+    def delete_local_branch(self, branch: str) -> GitCommandFailure | None:
+        self._delete_local_branch_calls.append(branch)
+        failure = self._delete_local_branch_failure_by_branch.get(branch)
+        if failure is not None:
+            return failure
+        if branch not in self._branches:
+            return GitCommandFailure(message=f"unknown branch: {branch}", returncode=1)
+        self._branches.remove(branch)
+        return None
+
+    def delete_remote_branch(self, remote: str, branch: str) -> GitCommandFailure | None:
+        self._delete_remote_branch_calls.append((remote, branch))
+        return self._delete_remote_branch_failure_by_args.get((remote, branch))
 
     def has_uncommitted_changes(self, cwd: Path) -> bool:
         status = self.get_file_status(cwd)
@@ -564,3 +590,11 @@ class FakeGitGateway(GitGateway):
     @property
     def update_ref_calls(self) -> tuple[tuple[Path, str, str], ...]:
         return tuple(self._update_ref_calls)
+
+    @property
+    def delete_local_branch_calls(self) -> tuple[str, ...]:
+        return tuple(self._delete_local_branch_calls)
+
+    @property
+    def delete_remote_branch_calls(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self._delete_remote_branch_calls)

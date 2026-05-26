@@ -166,8 +166,30 @@ Refuses if the slot is detached, missing, or out of range.
 
 Detaches one or more assigned managed slots back to trunk and keeps the
 worktree directories for reuse. Targets are passed via `-n/--num`,
-`-w/--wt`, or `-c/--current`, and may be combined; duplicates are
-removed and the rest are processed in first-seen order.
+`-w/--wt`, `-b/--branch`, or `-c/--current`, and may be combined;
+duplicates are removed and the rest are processed in first-seen order.
+
+By default, freeing only detaches the slot worktree. Add explicit cleanup
+when you also want to close the PR and/or delete the branch:
+
+```
+slot free -c --cleanup branch --yes
+slot free -c --cleanup pr --yes
+slot free -c --cleanup remote-branch --yes
+slot free -n 1 -n 3 --cleanup all --dry-run
+slot free -n 1 -n 3 --cleanup all --yes
+```
+
+Cleanup modes may be repeated and are deduped. `--cleanup all` expands to
+PR close, remote branch delete, and local branch delete. PRs are closed,
+not deleted. Local branch cleanup uses safe `git branch -d <branch>`;
+remote branch cleanup deletes `origin/<branch>` with
+`git push origin --delete <branch>`. Trunk is refused for branch cleanup.
+
+Destructive cleanup prompts in human mode unless `-y/--yes` is passed.
+Use `--dry-run` to show the free/cleanup plan without detaching, closing
+PRs, or deleting branches. JSON mode never prompts: pass `--yes` for
+mutating cleanup, or use `--dry-run` first.
 
 `slot free` refuses dirty worktrees and unassigned slots up front, then
 rechecks each target immediately before detach so a concurrent change

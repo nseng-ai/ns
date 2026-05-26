@@ -70,6 +70,54 @@ def test_get_current_branch_returns_failure(monkeypatch: pytest.MonkeyPatch) -> 
     )
 
 
+def test_delete_local_branch_invokes_safe_git_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], Path | None]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        cwd = kwargs.get("cwd")
+        assert cwd is None or isinstance(cwd, Path)
+        calls.append((cmd, cwd))
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    result = RealGitGateway(repo_root=Path("/repo")).delete_local_branch("feature")
+
+    assert result is None
+    assert calls == [(["git", "branch", "-d", "feature"], Path("/repo"))]
+
+
+def test_delete_remote_branch_invokes_origin_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], Path | None]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        cwd = kwargs.get("cwd")
+        assert cwd is None or isinstance(cwd, Path)
+        calls.append((cmd, cwd))
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    result = RealGitGateway(repo_root=Path("/repo")).delete_remote_branch("origin", "feature")
+
+    assert result is None
+    assert calls == [(["git", "push", "origin", "--delete", "feature"], Path("/repo"))]
+
+
+def test_delete_branch_methods_return_command_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="not merged\n")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+    gateway = RealGitGateway(repo_root=Path("/repo"))
+
+    local_result = gateway.delete_local_branch("feature")
+    remote_result = gateway.delete_remote_branch("origin", "feature")
+
+    assert local_result == GitCommandFailure(message="not merged", returncode=1)
+    assert remote_result == GitCommandFailure(message="not merged", returncode=1)
+
+
 @pytest.mark.parametrize(
     ("stdout", "expected"),
     [

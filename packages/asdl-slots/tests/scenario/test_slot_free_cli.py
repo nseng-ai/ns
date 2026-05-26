@@ -12,6 +12,7 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.types import PRState, PRSummary
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import (
     DetachedHead,
@@ -36,6 +37,7 @@ class _SlotFakes:
     git: FakeGitGateway
     storage: FakeSlotsStorageGateway
     clipboard: FakeClipboardGateway
+    pr: FakePRGateway
     repo_root: Path
 
 
@@ -47,7 +49,7 @@ def _make_obj(fakes: _SlotFakes, slots_root: Path) -> ClinkrContextObject:
         git=fakes.git,
         storage=fakes.storage,
         clipboard=fakes.clipboard,
-        pr=FakePRGateway(),
+        pr=fakes.pr,
         slots_root=slots_root,
     )
     return build_clinkr_context_object(lambda: ctx)
@@ -62,6 +64,7 @@ def _fake_for_repo(
     file_status_by_path: dict[Path, FileStatus] | None = None,
     extra_existing: Iterable[Path] = (),
     trunk_branch: str = "main",
+    pr_gateway: FakePRGateway | None = None,
 ) -> _SlotFakes:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(exist_ok=True)
@@ -84,6 +87,7 @@ def _fake_for_repo(
         git=git,
         storage=storage,
         clipboard=FakeClipboardGateway(),
+        pr=pr_gateway or FakePRGateway(),
         repo_root=repo_root,
     )
 
@@ -162,6 +166,17 @@ def _assigned_worktrees(fakes: _SlotFakes) -> dict[str, str]:
     }
 
 
+def _make_pr(number: int, state: PRState, branch: str) -> PRSummary:
+    return PRSummary(
+        number=number,
+        title=f"PR {number}",
+        url=f"https://github.com/dagster-io/asdl/pull/{number}",
+        head_ref_name=branch,
+        base_ref_name="master",
+        state=state,
+    )
+
+
 # -- help / shape -----------------------------------------------------------
 
 
@@ -179,6 +194,9 @@ def test_slot_free_help(cli_group: ClinkrGroup) -> None:
     assert "-b" in result.output
     assert "--branch" in result.output
     assert "-c" in result.output
+    assert "--cleanup" in result.output
+    assert "--dry-run" in result.output
+    assert "--yes" in result.output
 
 
 def test_slot_free_appears_in_group_help(cli_group: ClinkrGroup) -> None:
@@ -523,6 +541,308 @@ def test_slot_free_combined_flags_were_legal_now_succeeds(
     assert result.exit_code == 0, result.output
     assert "slot-01" in result.output
     assert "slot-02" in result.output
+
+
+# -- cleanup modes ----------------------------------------------------------
+
+
+def test_slot_free_cleanup_branch_deletes_local_branch(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01", "--cleanup", "branch", "--yes"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Deleted local branch feat/x" in result.output
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert fakes.git.delete_local_branch_calls == ("feat/x",)
+    assert not fakes.git.branch_exists("feat/x")
+
+
+def test_slot_free_cleanup_pr_closes_matching_pr(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(123, "OPEN", "feat/x")})
+    fakes = _fake_for_repo(tmp_path, pr_gateway=pr)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01", "--cleanup", "pr", "--yes"],
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Closed PR #123" in result.output
+    assert pr.close_calls == (123,)
+
+
+def test_slot_free_cleanup_all_runs_actions_in_order(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(123, "OPEN", "feat/x")})
+    fakes = _fake_for_repo(tmp_path, pr_gateway=pr)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "free",
+            "--wt",
+            "slot-01",
+            "--cleanup",
+            "all",
+            "--yes",
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    cleanup = payload["data"]["cleanup"]
+    assert [entry["action"] for entry in cleanup] == ["pr", "remote_branch", "local_branch"]
+    assert [entry["status"] for entry in cleanup] == ["success", "success", "success"]
+    assert pr.close_calls == (123,)
+    assert fakes.git.delete_remote_branch_calls == (("origin", "feat/x"),)
+    assert fakes.git.delete_local_branch_calls == ("feat/x",)
+
+
+def test_slot_free_repeated_cleanup_flags_are_deduped(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(123, "OPEN", "feat/x")})
+    fakes = _fake_for_repo(tmp_path, pr_gateway=pr)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "free",
+            "--wt",
+            "slot-01",
+            "--cleanup",
+            "branch",
+            "--cleanup",
+            "all",
+            "--cleanup",
+            "pr",
+            "--yes",
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert [entry["action"] for entry in payload["data"]["cleanup"]] == [
+        "pr",
+        "remote_branch",
+        "local_branch",
+    ]
+    assert pr.close_calls == (123,)
+    assert fakes.git.delete_remote_branch_calls == (("origin", "feat/x"),)
+    assert fakes.git.delete_local_branch_calls == ("feat/x",)
+
+
+def test_slot_free_cleanup_dry_run_plans_without_mutating(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(123, "OPEN", "feat/x")})
+    fakes = _fake_for_repo(tmp_path, pr_gateway=pr)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "free",
+            "--wt",
+            "slot-01",
+            "--cleanup",
+            "all",
+            "--dry-run",
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["freed"] == []
+    assert payload["data"]["would_free"][0]["slot_name"] == "slot-01"
+    assert [entry["status"] for entry in payload["data"]["cleanup"]] == [
+        "planned",
+        "planned",
+        "planned",
+    ]
+    assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_remote_branch_calls == ()
+    assert fakes.git.delete_local_branch_calls == ()
+    assert pr.close_calls == ()
+
+
+def test_slot_free_cleanup_prompts_and_accepting_proceeds(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01", "--cleanup", "branch"],
+        input="y\n",
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Free 1 slot(s) and run cleanup?" in result.output
+    assert fakes.git.delete_local_branch_calls == ("feat/x",)
+
+
+def test_slot_free_cleanup_prompt_decline_cancels_without_mutating(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01", "--cleanup", "branch"],
+        input="n\n",
+        obj=_make_obj(fakes, slots_root),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Cancelled; no changes made." in result.output
+    assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_local_branch_calls == ()
+    assert _assigned_worktrees(fakes) == {"slot-01": "feat/x"}
+
+
+def test_slot_free_json_cleanup_without_yes_requires_confirmation(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01", "--cleanup", "branch", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 2, result.output
+    assert payload["error_type"] == "confirmation_required"
+    assert fakes.git._detach_head_calls == []
+    assert fakes.git.delete_local_branch_calls == ()
+
+
+def test_slot_free_json_cleanup_with_yes_includes_cleanup_entries(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "free",
+            "--wt",
+            "slot-01",
+            "--cleanup",
+            "branch",
+            "--yes",
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["cleanup"] == [
+        {
+            "slot_name": "slot-01",
+            "branch_name": "feat/x",
+            "action": "local_branch",
+            "status": "success",
+            "pr_number": None,
+            "message": None,
+        }
+    ]
+
+
+def test_slot_free_cleanup_pr_lookup_miss_is_skipped(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    _seed_assigned(fakes, slots_root)
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["free", "--wt", "slot-01", "--cleanup", "pr", "--yes", "--format", "json"],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert payload["data"]["cleanup"][0]["status"] == "skipped"
+    assert payload["data"]["cleanup"][0]["message"] == "no matching PR"
+    assert fakes.pr.close_calls == ()
+
+
+def test_slot_free_cleanup_error_after_detach_returns_exit_one_with_data(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    slots_root = tmp_path / "slots"
+    fakes = _fake_for_repo(tmp_path)
+    worktree_path = _seed_assigned(fakes, slots_root)
+    fakes.git._delete_local_branch_failure_by_branch["feat/x"] = GitCommandFailure(
+        message="branch is not fully merged",
+        returncode=1,
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "free",
+            "--wt",
+            "slot-01",
+            "--cleanup",
+            "branch",
+            "--yes",
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(fakes, slots_root),
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 1, result.output
+    assert payload["exit_code"] == 1
+    assert payload["data"]["cleanup_error_count"] == 1
+    assert payload["data"]["cleanup"][0]["status"] == "error"
+    assert "not fully merged" in payload["data"]["cleanup"][0]["message"]
+    assert fakes.git._detach_head_calls == [(worktree_path, "main")]
+    assert fakes.git.branch_exists("feat/x")
 
 
 # -- machine mode -----------------------------------------------------------

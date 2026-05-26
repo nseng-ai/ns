@@ -7,6 +7,7 @@ import pytest
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import (
     PRChangedFile,
+    PRCloseOutcome,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -245,6 +246,29 @@ def test_fake_pr_gateway_merge_returns_outcome_and_tracks_calls() -> None:
 
     assert result == PRMergeOutcome(number=42, auto=True)
     assert fake.merge_calls == ((42, "abc123", True, True),)
+
+
+def test_fake_pr_gateway_close_returns_outcome_tracks_calls_and_updates_pr_state() -> None:
+    fake = FakePRGateway(prs_by_branch={"feature": _make_pr("OPEN")})
+
+    result = fake.close_pr(42)
+
+    assert result == PRCloseOutcome(number=42)
+    assert fake.close_calls == (42,)
+    looked_up = fake.get_pr_for_branch("feature")
+    assert not isinstance(looked_up, PRLookupMiss)
+    assert not isinstance(looked_up, PRGatewayFailure)
+    assert looked_up.state == "CLOSED"
+
+
+def test_fake_pr_gateway_close_can_return_failure() -> None:
+    failure = PRGatewayFailure(stderr="auth failed", returncode=4)
+    fake = FakePRGateway(close_failure=failure)
+
+    result = fake.close_pr(42)
+
+    assert result == failure
+    assert fake.close_calls == (42,)
 
 
 def test_fake_pr_gateway_merge_can_return_failure() -> None:
