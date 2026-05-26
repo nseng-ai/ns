@@ -5,8 +5,8 @@ import pytest
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import GitCommandFailure, PathChangeTouch, PathTouch
+from asdl_objectives.list_branch_inventory import ObjectiveBranchInventory
 from asdl_objectives.list_branch_slices import ObjectiveBranchSlice
-from asdl_objectives.list_inventory import ObjectiveBranchInventory
 from asdl_objectives.list_touches import (
     build_objective_touch_index,
     objective_slug_from_path,

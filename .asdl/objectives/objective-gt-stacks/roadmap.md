@@ -9,11 +9,12 @@ Phase 0 — durable design baseline
 
 Phase 1 — checkout-local `objective list`
 
-- [ ] Replace branch-projected `objective list` inventory with filesystem-local discovery of `.asdl/objectives/<slug>/` in the current checkout.
-- [ ] Simplify `objective list` statuses to checkout-local record status and remove `in-flight` from the list command.
-- [ ] Simplify list renderers to Objective, status, and latest update; remove latest work, work branches, and max slice commit columns.
+- [x] Replace branch-projected `objective list` inventory with filesystem-local discovery of `.asdl/objectives/<slug>/` in the current checkout.
+- [x] Simplify `objective list` statuses to checkout-local record status and remove `in-flight` from the list command.
+- [x] Simplify list renderers to Objective, status, and latest update; remove latest work, work branches, and max slice commit columns.
 - [ ] Add `(x)` latest-update prefix when an Objective record has outstanding working-tree changes, including staged, unstaged, and untracked paths.
-- [ ] Update `objective list` JSON and Markdown tests for untracked Objective directories, dirty markers, closed records, active/archive root separation, and lack of branch-wide data.
+- [x] Update `objective list` JSON and Markdown tests for untracked Objective directories, closed records, active/archive root separation, and lack of branch-wide data.
+- [ ] Add dirty-marker tests for `(x)` once outstanding-change detection lands.
 
 Phase 2 — structured Graphite graph support
 

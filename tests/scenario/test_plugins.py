@@ -75,7 +75,7 @@ def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec()
     assert len(parent.commands) == 0
 
 
-def test_objective_plugin_integration() -> None:
+def test_objective_plugin_integration(tmp_path: Path) -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
         name="objective",
@@ -92,7 +92,7 @@ def test_objective_plugin_integration() -> None:
     assert "archive" in result.output
     assert "Archive or unarchive an Objective record" in result.output
     assert "list" in result.output
-    assert "List Objective status" in result.output
+    assert "List Objective records" in result.output
     assert "exec" not in result.output
 
     result = runner.invoke(parent, ["objective", "exec", "--help"])
@@ -100,9 +100,9 @@ def test_objective_plugin_integration() -> None:
     assert "Commands for use by objective skills." in result.output
 
     ctx = ObjectiveCliContext(
-        repo_root=Path("/repo"),
+        repo_root=tmp_path,
         trunk_branch="master",
-        git=FakeGitGateway(repo_root=Path("/repo"), branches=("master",), trunk_branch="master"),
+        git=FakeGitGateway(repo_root=tmp_path, branches=("master",), trunk_branch="master"),
     )
     result = runner.invoke(
         parent,
@@ -111,10 +111,13 @@ def test_objective_plugin_integration() -> None:
     )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["data"]["base_branch"] == "master"
-    assert payload["data"]["trunk_branch"] == "master"
-    assert payload["data"]["status_filter"] == "active"
-    assert payload["data"]["groups"] == []
+    assert payload["data"] == {
+        "trunk_branch": "master",
+        "root_path": ".asdl/objectives",
+        "status_filter": "active",
+        "names_only": False,
+        "records": [],
+    }
 
 
 def test_aretro_is_not_mounted_as_parent_asdl_plugin() -> None:
