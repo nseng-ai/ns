@@ -12,6 +12,7 @@ Each in-incubation subpackage owns its own `AGENTS.md` codifying allowed imports
 | `git`      | (none — stdlib only)         |
 | `gh`       | (none — stdlib only)         |
 | `gt`       | (none — stdlib only)         |
+| `sessions` | (none — stdlib only)         |
 
 Dependencies are strictly one-way down the layer order; no upward or sideways imports.
 
