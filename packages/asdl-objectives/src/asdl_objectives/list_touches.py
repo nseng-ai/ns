@@ -7,8 +7,12 @@ from dataclasses import dataclass
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure, PathChangeTouch, PathTouch
+from asdl_objectives.list_branch_inventory import (
+    OBJECTIVE_ROOT,
+    ObjectiveBranchInventory,
+    branch_ref,
+)
 from asdl_objectives.list_branch_slices import ObjectiveBranchSlice
-from asdl_objectives.list_inventory import OBJECTIVE_ROOT, ObjectiveBranchInventory, branch_ref
 
 
 @dataclass(frozen=True)
