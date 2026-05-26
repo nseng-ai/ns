@@ -53,10 +53,12 @@
   - `/just` disposition: keep vibecoded; Candidate 5 already extracted the shared skill-expansion helper, and the remaining behavior is repo-local workflow glue.
   - Fixed kept vibecoded import-path drift from the old `@mariozechner/*` Pi packages to the current `@earendil-works/*` packages in `.pi/extensions/land.ts` and `.pi/extensions/submit.ts`.
   - Consulted Graphite/GitHub guidance for the disposition; promotion should start with `/submit` characterization/fake-driven tests rather than a broad generic command runtime.
-- [ ] Candidate 1 — decide a narrow Pi host seam, folding Candidate 12 only where useful.
-  - Evaluate whether shared project-local Pi host types or test adapters should own common `ExtensionAPI`, command context, UI, message renderer, tool context, and fake host shapes.
-  - Start from common behavior used by at least two callers; avoid a broad universal host Interface.
-  - Import-path drift was resolved during Candidate 10; keep this decision focused on common Pi host behavior rather than package-name cleanup.
+- [x] Candidate 1 — decide a narrow Pi host seam, folding Candidate 12 only where useful.
+  - Inspected the upstream Pi codebase's extension testing patterns in `/Users/schrockn/code/githubs/badlogic/pi-mono`.
+  - Decision: do not introduce a broad shared project-local Pi host seam or maintained generic `FakePi` host now.
+  - Rationale: upstream Pi tests use real `ExtensionRunner` / `AgentSession` harnesses for runtime behavior and tiny local stubs for isolated example extensions; no generic `FakePi` pattern was found.
+  - For `/submit` promotion, prefer minimal local extension-host stubs plus domain-specific Graphite/GitHub process fakes. Extract shared test support only after the exact same host shape appears in multiple concrete tests.
+  - Import-path drift was resolved during Candidate 10, so Candidate 1 is complete as a parked/rejected seam decision rather than an implementation slice.
 - [ ] Candidate 11 — decide Objective extension and Objective-list integration.
   - Keep tracking the TS/Python `objective list` contract, especially `parent_branch` / `slice_commits` vocabulary.
   - Prefer contract tests and Machine-envelope reuse over broad splitting of `objective.ts`.
@@ -73,10 +75,10 @@
   - Preserve the old decision that pure text/result helpers in `command-runtime.ts` already earn their keep.
   - Do not create a broad generic command runtime before `/submit` promotion or another concrete consumer proves shared lifecycle semantics.
   - If revisited, separate buffered execution, streamed presentation, timeout/kill policy, and domain-specific semantic failure interpretation.
-- [ ] Candidate 12 — record standalone test fake consolidation disposition.
-  - Do not implement standalone fake consolidation by default.
-  - Fold selective fake-host helpers into Candidate 1 only when they clarify common Pi host behavior.
-  - Reject or park any universal test DSL that is broader than the production seam.
+- [x] Candidate 12 — record standalone test fake consolidation disposition.
+  - Do not implement standalone fake consolidation.
+  - Candidate 1 considered the test-fake angle and rejected a universal `FakePi` host / test DSL as broader than the proven production seam.
+  - Keep extension-host stubs local and minimal unless repeated `/submit` or future extension tests prove an exact shared helper shape.
 - [ ] Implement accepted refactors in coherent slices.
   - Add or update fake-driven tests before or with risky behavior changes.
   - Validate TypeScript changes with `bun run --cwd ts check` and `bun run --cwd ts test`.
@@ -92,4 +94,4 @@
 - [ ] Consider a separate Objective for Pi package publication or install-layout cleanup if extension distribution becomes a real seam.
 - [ ] Consider a separate Objective for Python Objective-list architecture only if new Objective-list work appears; the current `master` implementation is already deeply split into list models, render, status, inventory, updates, touches, and branch slices.
 - [ ] Keep broad generic command execution runtime work parked until `/submit` promotion or another concrete consumer proves repeated lifecycle semantics.
-- [ ] Keep standalone universal fake-host consolidation parked unless the narrow Pi host seam proves a shared production Interface.
+- [ ] Keep any future fake-host helper local or domain-specific until repeated concrete tests prove the same host shape should be shared.
