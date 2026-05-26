@@ -9,6 +9,7 @@ import {
 	type DraftCheckpointRequest,
 } from "./checkpoint-flow.ts";
 import type { PendingWorktreeSnapshot } from "./pending-worktree.ts";
+import { truncateDisplayLine } from "./terminal-presentation.ts";
 
 const HARNESS_ENV = "PI_CP_HARNESS";
 const DEFAULT_HARNESS = "gpt-nano-pi";
@@ -37,6 +38,19 @@ Given git status and diff, output exactly one git commit message:
 type DraftHarness = "gpt-nano-pi" | "codex-pi" | "claude-cli";
 type NotifyLevel = "info" | "warning" | "error";
 
+type WidgetPlacement = "aboveEditor" | "belowEditor";
+
+type Theme = {
+	fg(color: string, text: string): string;
+};
+
+type Component = {
+	render(width: number): string[];
+	invalidate(): void;
+};
+
+type WidgetContent = string[] | ((tui: unknown, theme: Theme) => Component) | undefined;
+
 type ModelAuth =
 	| { ok: true; apiKey?: string; headers?: Record<string, string> }
 	| { ok: false; error: string };
@@ -52,9 +66,8 @@ export type ExtensionCommandContext = {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		theme?: {
-			fg(color: string, text: string): string;
-		};
+		setWidget?(key: string, value: WidgetContent, options?: { placement?: WidgetPlacement }): void;
+		theme?: Theme;
 	};
 	waitForIdle(): Promise<void>;
 };
@@ -315,8 +328,7 @@ async function withSpinner<T>(
 	const render = () => {
 		const frame = SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length];
 		frameIndex += 1;
-		const status = `${frame} ${message}`;
-		ctx.ui.setStatus(SPINNER_STATUS_KEY, ctx.ui.theme?.fg("accent", status) ?? status);
+		setProgress(ctx, `${frame} ${message}`);
 	};
 
 	render();
@@ -325,8 +337,33 @@ async function withSpinner<T>(
 		return await operation();
 	} finally {
 		clearInterval(timer);
-		ctx.ui.setStatus(SPINNER_STATUS_KEY, undefined);
+		clearProgress(ctx);
 	}
+}
+
+function setProgress(ctx: ExtensionCommandContext, status: string): void {
+	if (ctx.ui.setWidget) {
+		ctx.ui.setWidget(SPINNER_STATUS_KEY, makeProgressWidget(status), { placement: "aboveEditor" });
+		ctx.ui.setStatus(SPINNER_STATUS_KEY, undefined);
+		return;
+	}
+
+	ctx.ui.setStatus(SPINNER_STATUS_KEY, ctx.ui.theme?.fg("accent", status) ?? status);
+}
+
+function makeProgressWidget(text: string): (tui: unknown, theme: Theme) => Component {
+	return (_tui, theme) => ({
+		render(width: number): string[] {
+			if (width <= 0) return [""];
+			return [theme.fg("accent", truncateDisplayLine(text, width))];
+		},
+		invalidate(): void {},
+	});
+}
+
+function clearProgress(ctx: ExtensionCommandContext): void {
+	ctx.ui.setWidget?.(SPINNER_STATUS_KEY, undefined);
+	ctx.ui.setStatus(SPINNER_STATUS_KEY, undefined);
 }
 
 async function exec(
