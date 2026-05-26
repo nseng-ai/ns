@@ -1,11 +1,18 @@
-import { dispatchRunnerSubagent, type RunnerSubagentPi, type RunnerSubagentProgress, type RunnerSubagentResult } from "./runner-subagent.ts";
+import {
+	dispatchRunnerSubagent,
+	type RunnerSubagentPi,
+	type RunnerSubagentProgress,
+	type RunnerSubagentResult,
+	type RunnerSubagentUpdate,
+} from "./runner-subagent.ts";
+import { emptyRunnerSubagentActivity } from "./runner-subagent/activity.ts";
 import {
 	formatRunnerSubagentElapsed,
-	formatRunnerSubagentProgressWidgetLines,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
 } from "./runner-subagent/presentation.ts";
+import { formatRunnerSubagentActivityWidgetLines } from "./runner-subagent/widget.ts";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
@@ -97,25 +104,28 @@ export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void 
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
-			const initialProgress = initialDispatchProgress(input.title);
+			const initialUpdate: RunnerSubagentUpdate = {
+				progress: initialDispatchProgress(input.title),
+				activity: emptyRunnerSubagentActivity(),
+			};
 			onUpdate?.({
 				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
-				details: { status: "starting", title: input.title, progress: initialProgress },
+				details: { status: "starting", title: input.title, progress: initialUpdate.progress },
 			});
-			setWidget(ctx, progressWidgetLines(initialProgress));
+			setWidget(ctx, formatRunnerSubagentActivityWidgetLines(initialUpdate));
 
 			try {
 				const result = await dispatchRunnerSubagent(pi, { cwd: ctx.cwd, ...(signal === undefined ? {} : { signal }) }, {
 					title: input.title,
 					prompt: input.prompt,
 					returnMode: "final-text",
-					onProgress: (progress) => {
-						const update = formatDispatchRunnerSubagentProgress(progress);
+					onProgress: (update) => {
+						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
 						onUpdate?.({
-							content: [{ type: "text", text: update }],
-							details: { status: "running", title: input.title, progress },
+							content: [{ type: "text", text: progressText }],
+							details: { status: "running", title: input.title, progress: update.progress },
 						});
-						setWidget(ctx, progressWidgetLines(progress));
+						setWidget(ctx, formatRunnerSubagentActivityWidgetLines(update));
 					},
 				});
 
@@ -233,10 +243,6 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
 		`Session file: ${runnerSubagentSessionFileText(progress)}`,
 	].join("\n");
-}
-
-export function progressWidgetLines(progress: RunnerSubagentProgress): string[] {
-	return formatRunnerSubagentProgressWidgetLines(progress);
 }
 
 export function resultDiagnostic(result: RunnerSubagentResult): string | undefined {

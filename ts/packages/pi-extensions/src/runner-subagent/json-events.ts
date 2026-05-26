@@ -1,4 +1,11 @@
 import type { RunnerSubagentProgress } from "../runner-subagent.ts";
+import type { RunnerSubagentActivity } from "./activity.ts";
+import {
+	assistantVisibleTextFromMessage,
+	emptyRunnerSubagentActivity,
+	toolInputPreviewFromEvent,
+	toolResultPreviewFromEvent,
+} from "./activity.ts";
 
 export type RunnerSubagentJsonEventParserOptions = {
 	title?: string;
@@ -31,6 +38,7 @@ export type RunnerSubagentJsonTerminalExecutionError = {
 
 export type RunnerSubagentJsonEventParserSnapshot = {
 	progress: RunnerSubagentProgress;
+	activity: RunnerSubagentActivity;
 	terminalAttempted: boolean;
 	sessionHeader?: RunnerSubagentJsonSessionHeader;
 	stopReason?: string;
@@ -73,6 +81,7 @@ export class RunnerSubagentJsonEventParser {
 	private stopReason: string | undefined;
 	private errorMessage: string | undefined;
 	private finalAssistantText: string | undefined;
+	private activity: RunnerSubagentActivity = emptyRunnerSubagentActivity();
 	private parseError: RunnerSubagentJsonEventParserError | undefined;
 	private terminalAttempted = false;
 	private protocolError: RunnerSubagentJsonProtocolError | undefined;
@@ -120,6 +129,7 @@ export class RunnerSubagentJsonEventParser {
 	getSnapshot(): RunnerSubagentJsonEventParserSnapshot {
 		const snapshot: RunnerSubagentJsonEventParserSnapshot = {
 			progress: this.getProgress(),
+			activity: { ...this.activity },
 			terminalAttempted: this.terminalAttempted,
 		};
 		if (this.sessionHeader) snapshot.sessionHeader = this.sessionHeader;
@@ -173,6 +183,7 @@ export class RunnerSubagentJsonEventParser {
 				this.state = "running";
 				return;
 			case "agent_end":
+				this.captureAssistantPreviewFromMessages(event.messages);
 				this.captureStopReasonFromMessages(event.messages);
 				this.captureFinalAssistantTextFromMessages(event.messages);
 				this.markStopped();
@@ -184,32 +195,38 @@ export class RunnerSubagentJsonEventParser {
 				return;
 			case "turn_end":
 				this.state = "running";
+				this.captureAssistantPreviewFromMessage(event.message);
 				this.captureStopReasonFromMessage(event.message);
 				this.captureFinalAssistantTextFromMessage(event.message);
 				return;
 			case "message_start":
 			case "message_update":
 				this.state = "running";
+				this.captureAssistantPreviewFromMessage(event.message);
 				this.captureStopReasonFromMessage(event.message);
 				return;
 			case "message_end":
 				this.state = "running";
+				this.captureAssistantPreviewFromMessage(event.message);
 				this.captureStopReasonFromMessage(event.message);
 				this.captureFinalAssistantTextFromMessage(event.message);
 				return;
 			case "tool_execution_start":
 				this.state = "running";
 				this.captureCurrentTool(event);
+				this.captureCurrentToolInput(event, { resetOnMissing: true });
 				this.recordToolStart(event);
 				return;
 			case "tool_execution_update":
 				this.state = "running";
 				this.captureCurrentTool(event);
+				this.captureCurrentToolInput(event, { resetOnMissing: false });
 				return;
 			case "tool_execution_end":
 				this.state = "running";
 				this.executedToolCount += 1;
 				this.recordToolEnd(event);
+				this.captureLastToolResult(event);
 				this.clearCurrentTool(event);
 				return;
 			default:
@@ -239,7 +256,38 @@ export class RunnerSubagentJsonEventParser {
 		if (!eventToolCallId || eventToolCallId === this.currentToolCallId) {
 			this.currentTool = undefined;
 			this.currentToolCallId = undefined;
+			delete this.activity.currentToolInputPreview;
 		}
+	}
+
+	private captureCurrentToolInput(event: JsonRecord, options: { resetOnMissing: boolean }): void {
+		if (!hasToolInputValue(event)) {
+			if (options.resetOnMissing) delete this.activity.currentToolInputPreview;
+			return;
+		}
+
+		const preview = toolInputPreviewFromEvent(event);
+		if (preview === undefined) {
+			delete this.activity.currentToolInputPreview;
+			return;
+		}
+		this.activity.currentToolInputPreview = preview;
+	}
+
+	private captureLastToolResult(event: JsonRecord): void {
+		if (typeof event.toolName === "string") {
+			this.activity.lastToolName = event.toolName;
+		} else {
+			delete this.activity.lastToolName;
+		}
+
+		const preview = toolResultPreviewFromEvent(event);
+		if (preview === undefined) {
+			delete this.activity.lastToolResultPreview;
+		} else {
+			this.activity.lastToolResultPreview = preview;
+		}
+		this.activity.lastToolResultIsError = event.isError === true;
 	}
 
 	private recordToolStart(event: JsonRecord): void {
@@ -298,6 +346,18 @@ export class RunnerSubagentJsonEventParser {
 		for (const message of messages) {
 			this.captureStopReasonFromMessage(message);
 		}
+	}
+
+	private captureAssistantPreviewFromMessages(messages: unknown): void {
+		if (!Array.isArray(messages)) return;
+		for (const message of messages) {
+			this.captureAssistantPreviewFromMessage(message);
+		}
+	}
+
+	private captureAssistantPreviewFromMessage(message: unknown): void {
+		const preview = assistantVisibleTextFromMessage(message);
+		if (preview !== undefined) this.activity.assistantPreview = preview;
 	}
 
 	private captureFinalAssistantTextFromMessages(messages: unknown): void {
@@ -360,6 +420,10 @@ function chunkToString(chunk: string | Uint8Array): string {
 
 function isRecord(value: unknown): value is JsonRecord {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasToolInputValue(event: JsonRecord): boolean {
+	return ["args", "arguments", "input"].some((key) => Object.prototype.hasOwnProperty.call(event, key));
 }
 
 function errorMessage(error: unknown): string {

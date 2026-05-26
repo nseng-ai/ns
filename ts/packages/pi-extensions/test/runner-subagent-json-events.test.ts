@@ -67,6 +67,107 @@ describe("runner subagent JSON event parser", () => {
 		});
 	});
 
+	test("captures streaming assistant preview from visible assistant text", () => {
+		const parser = createRunnerSubagentJsonEventParser();
+
+		parser.pushChunk(
+			jsonLine({
+				type: "message_update",
+				message: { role: "assistant", content: [{ type: "text", text: "Reading\nfiles" }] },
+			}),
+		);
+		expect(parser.getSnapshot().activity.assistantPreview).toBe("Reading files");
+
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Done.\nEvidence: tests passed." }] },
+			}),
+		);
+		expect(parser.getSnapshot().activity.assistantPreview).toBe("Done. Evidence: tests passed.");
+
+		parser.pushChunk(
+			jsonLine({
+				type: "turn_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Turn final." }] },
+			}),
+		);
+		expect(parser.getSnapshot().activity.assistantPreview).toBe("Turn final.");
+	});
+
+	test("ignores non-visible assistant activity blocks", () => {
+		const parser = createRunnerSubagentJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "message_update", message: { role: "user", content: [{ type: "text", text: "Nope." }] } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "message_update",
+				message: {
+					role: "assistant",
+					content: [
+						{ type: "thinking", text: "private reasoning" },
+						{ type: "toolCall", name: "bash", input: {} },
+						null,
+						{ type: "text", text: 42 },
+					],
+				},
+			}),
+		);
+
+		expect(parser.getSnapshot().activity.assistantPreview).toBeUndefined();
+	});
+
+	test("captures current tool input and last tool result activity", () => {
+		const parser = createRunnerSubagentJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: { path: "README.md" } }));
+		expect(parser.getSnapshot().activity.currentToolInputPreview).toBe('{"path":"README.md"}');
+
+		parser.pushChunk(jsonLine({ type: "tool_execution_update", toolCallId: "tool-1", toolName: "read", partialResult: {} }));
+		expect(parser.getSnapshot().activity.currentToolInputPreview).toBe('{"path":"README.md"}');
+
+		parser.pushChunk(jsonLine({ type: "tool_execution_update", toolCallId: "tool-1", toolName: "read", input: { path: "README.md", offset: 10 } }));
+		expect(parser.getSnapshot().activity.currentToolInputPreview).toBe('{"path":"README.md","offset":10}');
+
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "read",
+				result: { content: [{ type: "text", text: "file contents\nline 2" }] },
+				isError: false,
+			}),
+		);
+		const activity = parser.getSnapshot().activity;
+		expect(activity.currentToolInputPreview).toBeUndefined();
+		expect(activity.lastToolName).toBe("read");
+		expect(activity.lastToolResultPreview).toBe("file contents line 2");
+		expect(activity.lastToolResultIsError).toBe(false);
+	});
+
+	test("records error tool result activity", () => {
+		const parser = createRunnerSubagentJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: { command: "exit 1" } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "bash",
+				result: { content: [{ type: "text", text: "failed" }] },
+				isError: true,
+			}),
+		);
+
+		expect(parser.getSnapshot().activity).toEqual(
+			expect.objectContaining({
+				lastToolName: "bash",
+				lastToolResultPreview: "failed",
+				lastToolResultIsError: true,
+			}),
+		);
+	});
+
 	test("treats malformed JSONL as an error", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 

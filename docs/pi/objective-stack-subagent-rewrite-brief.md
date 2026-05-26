@@ -510,7 +510,7 @@ Available now:
 - Runner subagent session file returned when available.
 - Terminal payload returned as canonical validated `result.terminal.input`.
 - Result statuses: `completed`, `blocked`, `final-text`, `stopped-without-terminal`, `stopped-without-useful-text`, `cancelled`, `error`, and `protocol-error`.
-- Lightweight progress in the final result and via `onProgress(progress)` callbacks; callers can show their own status/widget while waiting.
+- Lightweight progress in the final result and via `onProgress(update)` callbacks; callers can show progress plus UI-only activity in their own status/widget while waiting.
 - Cancellation returns `status: "cancelled"` when distinguishable.
 - Collision checks at subagent startup through `pi.getAllTools()`.
 - Mixed terminal-plus-sibling tool batches surface as `protocol-error`.

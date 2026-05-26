@@ -16,6 +16,7 @@ import type {
 	RunnerSubagentPi,
 	RunnerSubagentProgress,
 	RunnerSubagentProtocolErrorResult,
+	RunnerSubagentUpdate,
 	RunnerSubagentResult,
 	RunnerSubagentReturnMode,
 	RunnerSubagentStoppedWithoutTerminalResult,
@@ -29,6 +30,7 @@ import {
 	type CreateRunnerSubagentRuntimeFilesInput,
 	type RuntimeResultV1,
 } from "./subagent-runtime.ts";
+import { emptyRunnerSubagentActivity } from "./activity.ts";
 import { createRunnerSubagentJsonEventParser, type RunnerSubagentJsonEventParserSnapshot } from "./json-events.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
@@ -94,11 +96,11 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
-	const progressEmitter = createProgressEmitter(options.onProgress);
+	const updateEmitter = createUpdateEmitter(options.onProgress);
 
 	if (abortSignals.some((signal) => signal.aborted)) {
 		const progress = stoppedProgress({ title, now, startTimeMs });
-		progressEmitter.emit(progress, { force: true });
+		updateEmitter.emit(updateFromProgress(progress), { force: true });
 		return cancelledResult(title, progress, abortReason(abortSignals));
 	}
 
@@ -114,7 +116,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			});
 		} catch (error) {
 			const progress = stoppedProgress({ title, now, startTimeMs });
-			progressEmitter.emit(progress, { force: true });
+			updateEmitter.emit(updateFromProgress(progress), { force: true });
 			return errorResult(title, progress, `Invalid subagent terminal runtime configuration: ${errorMessage(error)}`, error);
 		}
 	}
@@ -125,7 +127,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	} catch (error) {
 		await cleanupRuntimeFiles(runtimeFiles);
 		const progress = stoppedProgress({ title, now, startTimeMs });
-		progressEmitter.emit(progress, { force: true });
+		updateEmitter.emit(updateFromProgress(progress), { force: true });
 		return errorResult(title, progress, `Failed to create subagent session file: ${errorMessage(error)}`, error);
 	}
 
@@ -137,7 +139,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		startTimeMs,
 		terminalToolNames,
 	});
-	progressEmitter.emit(parser.getProgress(), { force: true });
+	updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 	const stderr = new BoundedTextBuffer(dependencies.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT_BYTES);
 	const childArgs = buildChildPiArgs(options.prompt, sessionFile, runtimeFiles?.extensionPath);
 	const invocation = resolvePiInvocation(childArgs, dependencies);
@@ -157,7 +159,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		});
 	} catch (error) {
 		parser.markStopped();
-		progressEmitter.emit(parser.getProgress(), { force: true });
+		updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 		await cleanupRuntimeFiles(runtimeFiles);
 		return errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${errorMessage(error)}`, error);
 	}
@@ -182,7 +184,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			if (killRequested) return;
 			killRequested = true;
 			parser.markTerminating();
-			progressEmitter.emit(parser.getProgress(), { force: true });
+			updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 			child.kill("SIGTERM");
 			killTimer = timers.setTimeout(() => {
 				if (!closed) child.kill("SIGKILL");
@@ -207,7 +209,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		child.stdout?.on("data", (chunk) => {
 			parser.pushChunk(chunk);
 			const snapshot = parser.getSnapshot();
-			progressEmitter.emit(snapshot.progress);
+			updateEmitter.emit(updateFromSnapshot(snapshot));
 			if ((snapshot.error || snapshot.protocolError) && !cancelled) {
 				terminateChild();
 			}
@@ -219,7 +221,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 		child.on("error", (error) => {
 			parser.markStopped();
-			progressEmitter.emit(parser.getProgress(), { force: true });
+			updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 			finish(errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${error.message}`, error));
 		});
 
@@ -228,7 +230,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			if (killTimer !== undefined) timers.clearTimeout(killTimer);
 			parser.finish();
 			const snapshot = parser.getSnapshot();
-			progressEmitter.emit(snapshot.progress, { force: true });
+			updateEmitter.emit(updateFromSnapshot(snapshot), { force: true });
 
 			void resolveClosedRunnerSubagentResult<TTerminalInput>({
 				title,
@@ -265,18 +267,18 @@ function runnerSubagentTerminalTools(options: RunnerSubagentOptions): readonly R
 	return options.terminalTools ?? [];
 }
 
-function createProgressEmitter(onProgress: ((progress: RunnerSubagentProgress) => void) | undefined): {
-	emit(progress: RunnerSubagentProgress, options?: { force?: boolean }): void;
+function createUpdateEmitter(onProgress: ((update: RunnerSubagentUpdate) => void) | undefined): {
+	emit(update: RunnerSubagentUpdate, options?: { force?: boolean }): void;
 } {
 	let lastSignature: string | undefined;
 	return {
-		emit(progress: RunnerSubagentProgress, options: { force?: boolean } = {}): void {
+		emit(update: RunnerSubagentUpdate, options: { force?: boolean } = {}): void {
 			if (!onProgress) return;
-			const signature = progressSignature(progress);
+			const signature = updateSignature(update);
 			if (options.force !== true && signature === lastSignature) return;
 			lastSignature = signature;
 			try {
-				onProgress(progress);
+				onProgress(update);
 			} catch {
 				// Progress display is best-effort and must not affect the child run.
 			}
@@ -284,14 +286,27 @@ function createProgressEmitter(onProgress: ((progress: RunnerSubagentProgress) =
 	};
 }
 
-function progressSignature(progress: RunnerSubagentProgress): string {
+function updateFromProgress(progress: RunnerSubagentProgress): RunnerSubagentUpdate {
+	return { progress, activity: emptyRunnerSubagentActivity() };
+}
+
+function updateFromSnapshot(snapshot: RunnerSubagentJsonEventParserSnapshot): RunnerSubagentUpdate {
+	return { progress: snapshot.progress, activity: snapshot.activity };
+}
+
+function updateSignature(update: RunnerSubagentUpdate): string {
 	return [
-		progress.title ?? "",
-		progress.state,
-		progress.currentTool ?? "",
-		String(progress.toolCount),
-		String(progress.turnCount),
-		progress.sessionFile ?? "",
+		update.progress.title ?? "",
+		update.progress.state,
+		update.progress.currentTool ?? "",
+		String(update.progress.toolCount),
+		String(update.progress.turnCount),
+		update.progress.sessionFile ?? "",
+		update.activity.assistantPreview ?? "",
+		update.activity.currentToolInputPreview ?? "",
+		update.activity.lastToolName ?? "",
+		update.activity.lastToolResultPreview ?? "",
+		String(update.activity.lastToolResultIsError ?? false),
 	].join("\0");
 }
 
