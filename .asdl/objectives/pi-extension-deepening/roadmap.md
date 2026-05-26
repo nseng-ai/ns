@@ -14,7 +14,7 @@
 - [x] Rank candidates by cost/benefit.
   - Add `candidate-cost-benefit-ranking.md` as the durable prioritization document.
   - Use cost/benefit order as this roadmap's working order, while still recording explicit disposition for every candidate.
-- [ ] Triage the candidate list in ranked order.
+- [x] Triage the candidate list in ranked order.
   - For each candidate in `assessment.md`, choose exactly one disposition: implement, reject with reason, park with rationale, or split into a follow-on Objective.
   - Use `candidate-cost-benefit-ranking.md` as the default ordering and reasoning source.
   - Record meaningful decisions through Objective updates as work proceeds.
@@ -53,6 +53,13 @@
   - `/just` disposition: keep vibecoded; Candidate 5 already extracted the shared skill-expansion helper, and the remaining behavior is repo-local workflow glue.
   - Fixed kept vibecoded import-path drift from the old `@mariozechner/*` Pi packages to the current `@earendil-works/*` packages in `.pi/extensions/land.ts` and `.pi/extensions/submit.ts`.
   - Consulted Graphite/GitHub guidance for the disposition; promotion should start with `/submit` characterization/fake-driven tests rather than a broad generic command runtime.
+- [x] Candidate 10 implementation — promote `/submit` with a minimal runner seam.
+  - Moved `/submit` behavior into `ts/packages/pi-extensions/src/submit.ts` and left `.pi/extensions/submit.ts` as the thin project-local discovery adapter.
+  - Added a `/submit`-specific `SubmitCommandRunner` seam for buffered and streamed Graphite/git commands, with a production Node `spawn` adapter and fake-driven tests.
+  - Preserved existing command choreography: dry-run, optional restack, streamed submit, current-PR verification, restack conflict checks, semantic empty-branch failure detection, PR-link extraction, and no-UI fallback output.
+  - Added package tests for registration, happy-path PR links, dry-run failure, restack decline/success/conflict, semantic failure, current-PR failure, startup error, timeout, and no-URL success fallback.
+  - Updated `docs/pi/README.md` so `/submit` is recorded as a project-local adapter over engineered behavior.
+  - Evidence: local branch diff against Graphite parent `update-land-stack-test-interface-cleanup`; focused submit tests passed; `bun run --cwd ts check` passed; `bun run --cwd ts test` passed.
 - [x] Candidate 1 — decide a narrow Pi host seam, folding Candidate 12 only where useful.
   - Inspected the upstream Pi codebase's extension testing patterns in `/Users/schrockn/code/githubs/badlogic/pi-mono`.
   - Decision: do not introduce a broad shared project-local Pi host seam or maintained generic `FakePi` host now.
@@ -73,18 +80,19 @@
   - Rationale: `stack-facts`, `pr-facts`, `worktrees`, `landing-plan`, `landing-operations`, `command-stream`, and `presentation` already pass the deletion test; new Graphite/GitHub or command-runtime seams are premature before `/submit` promotion or another concrete consumer proves repeated lifecycle semantics.
   - Implemented a small test Interface cleanup by importing `land-stack.test.ts` helper coverage from canonical internal Modules and removing root `land-stack.ts` re-exports that existed only for tests.
   - Preserved full scenario tests and command-order assertions as safety evidence for landing behavior.
-- [ ] Candidate 2 — decide command execution runtime beyond pure helpers last.
+- [x] Candidate 2 — decide command execution runtime beyond pure helpers last.
   - Preserve the old decision that pure text/result helpers in `command-runtime.ts` already earn their keep.
-  - Do not create a broad generic command runtime before `/submit` promotion or another concrete consumer proves shared lifecycle semantics.
-  - If revisited, separate buffered execution, streamed presentation, timeout/kill policy, and domain-specific semantic failure interpretation.
+  - Do not create a broad generic command runtime now. `/submit` promotion proved a narrow domain-specific runner seam, not a general command lifecycle Module.
+  - Keep buffered execution, streamed presentation, timeout/kill policy, and Graphite semantic interpretation caller-owned until another concrete consumer proves repeated lifecycle semantics.
 - [x] Candidate 12 — record standalone test fake consolidation disposition.
   - Do not implement standalone fake consolidation.
   - Candidate 1 considered the test-fake angle and rejected a universal `FakePi` host / test DSL as broader than the proven production seam.
   - Keep extension-host stubs local and minimal unless repeated `/submit` or future extension tests prove an exact shared helper shape.
-- [ ] Implement accepted refactors in coherent slices.
+- [x] Implement accepted refactors in coherent slices.
   - Add or update fake-driven tests before or with risky behavior changes.
   - Validate TypeScript changes with `bun run --cwd ts check` and `bun run --cwd ts test`.
   - Run broader repo checks when Python, Objective, docs, or repo-wide behavior changes require it.
+  - `/submit` promotion is implemented with fake-driven tests and package validation; remaining generic command-runtime ideas are parked rather than accepted refactors.
 - [ ] Close by explicit human decision.
   - Confirm every candidate has a disposition.
   - Confirm accepted refactors and documentation updates are complete enough.
@@ -95,6 +103,6 @@
 - [ ] Decide later whether the terms vibecoded extension layer and engineered extension layer belong in `CONTEXT.md` as broader ASDL domain vocabulary.
 - [ ] Consider a separate Objective for Pi package publication or install-layout cleanup if extension distribution becomes a real seam.
 - [ ] Consider a separate Objective for Python Objective-list architecture only if new Objective-list work appears; the current `master` implementation is already deeply split into list models, render, status, inventory, updates, touches, and branch slices.
-- [ ] Keep broad generic command execution runtime work parked until `/submit` promotion or another concrete consumer proves repeated lifecycle semantics.
+- [ ] Keep broad generic command execution runtime work parked until another concrete consumer proves repeated lifecycle semantics beyond the `/submit`-specific runner seam.
 - [ ] Keep `worktree-status` internal seam work parked while the command remains project-local/vibecoded; design any future user-shipped status feature around its own product shape.
 - [ ] Keep any future fake-host helper local or domain-specific until repeated concrete tests prove the same host shape should be shared.

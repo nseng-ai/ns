@@ -75,10 +75,11 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `.pi/extensions/brmem-handoff.ts`                | Project-local adapter over engineered behavior | Adds `/brmem-handoff` and `/brmem-pickup-handoff` Branch Memory handoff frontends.                   |
 | `.pi/extensions/land.ts`                         | Vibecoded implementation                       | Intentional fast path for non-Graphite users; kept local and direct.                                 |
 | `.pi/extensions/just-fix.ts`                     | Vibecoded implementation                       | Useful repo-local workflow; kept vibecoded while reusing the package skill-expansion helper.         |
-| `.pi/extensions/submit.ts`                       | Vibecoded implementation pending promotion     | Accepted for promotion to engineered code because it mutates Graphite/GitHub state and needs tests.  |
+| `.pi/extensions/submit.ts`                       | Project-local adapter over engineered behavior | Keeps `/submit` discovery local while durable behavior lives in the package.                         |
 | `ts/packages/pi-extensions/src/objective.ts`     | Engineered implementation                      | Package-tested Objective extension behavior.                                                         |
 | `ts/packages/pi-extensions/src/land-stack.ts`    | Engineered implementation                      | Package-tested landing behavior; later refactors may split internals without changing `/land-stack`. |
 | `ts/packages/pi-extensions/src/brmem-handoff.ts` | Engineered implementation                      | Package-tested Branch Memory handoff command selection and prompt handoff behavior.                  |
+| `ts/packages/pi-extensions/src/submit.ts`        | Engineered implementation                      | Package-tested Graphite submit behavior with a `/submit`-specific runner seam.                       |
 
 ## Planned branch workflow
 
