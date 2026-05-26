@@ -10,12 +10,12 @@ Validation passed with targeted session tests, the Pi JSONL integration test, an
 
 ## Objective Impact
 
-This completes roadmap PR 2 and de-risks the shared core boundary that later `branch-retro exec collect-evidence` work should consume. The Objective language now uses `harness-neutral` for Pi/Claude/Codex runtime adapters and reserves `provider` for model/API metadata observed inside logs.
+This completes roadmap PR 2 and de-risks the shared core boundary that later `aretro exec collect-evidence` work should consume. The Objective language now uses `harness-neutral` for Pi/Claude/Codex runtime adapters and reserves `provider` for model/API metadata observed inside logs.
 
-The remaining Objective work shifts to the collector and aggregation layers: `asdl-retro` should stay thin, call the shared session source contract, and avoid owning harness-specific parser logic.
+The remaining Objective work shifts to the collector and aggregation layers: `aretro` should stay thin, call the shared session source contract, and avoid owning harness-specific parser logic.
 
 ## Follow-Ups
 
-- Implement PR 3: `branch-retro exec collect-evidence` as a thin consumer of `asdl_core.sessions` with a stable JSON envelope.
+- Implement PR 3: `aretro exec collect-evidence` as a thin consumer of `asdl_core.sessions` with a stable JSON envelope.
 - Implement PR 4 aggregation over normalized facts for repeated reads, repeated shell commands, failed tools, token usage, and large outputs.
 - Validate the Pi adapter against reduced structural examples from real local logs before adding Claude or Codex adapters.

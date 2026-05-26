@@ -1,9 +1,9 @@
-"""Explicit builder for the hidden ``branch-retro exec`` CLI subgroup."""
+"""Explicit builder for the hidden ``aretro exec`` CLI subgroup."""
 
 from __future__ import annotations
 
+from aretro.exec.collect_evidence import run_collect_evidence
 from asdl_core.clinkr.group import ClinkrGroup
-from asdl_retro.exec.collect_evidence import run_collect_evidence
 
 
 def build_exec_group() -> ClinkrGroup:

@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from aretro.context import AretroCliContext
+from aretro.main import build_cli
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
@@ -24,8 +26,6 @@ from asdl_core.sessions.types import (
     SessionUsage,
     SessionWarning,
 )
-from asdl_retro.context import BranchRetroCliContext
-from asdl_retro.main import build_cli
 
 
 @pytest.fixture(scope="module")
@@ -33,36 +33,36 @@ def cli_group() -> ClinkrGroup:
     return build_cli()
 
 
-def test_branch_retro_help(cli_group: ClinkrGroup) -> None:
+def test_aretro_help(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["-h"])
 
     assert result.exit_code == 0
-    assert "Usage: branch-retro" in result.output
+    assert "Usage: aretro" in result.output
     assert "Branch session retrospective evidence operations." in result.output
     assert "--version" in result.output
     assert "exec" not in result.output
 
 
-def test_branch_retro_version(cli_group: ClinkrGroup) -> None:
+def test_aretro_version(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["--version"])
 
     assert result.exit_code == 0
     assert "version" in result.output.lower()
 
 
-def test_branch_retro_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
+def test_aretro_exec_is_hidden_but_invocable(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["exec", "--help"])
 
     assert result.exit_code == 0
-    assert "Usage: branch-retro exec" in result.output
+    assert "Usage: aretro exec" in result.output
     assert "Commands for use by branch retrospective skills." in result.output
 
 
-def test_branch_retro_exec_lists_collect_evidence_help(cli_group: ClinkrGroup) -> None:
+def test_aretro_exec_lists_collect_evidence_help(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(cli_group, ["exec", "collect-evidence", "--help"])
 
     assert result.exit_code == 0
-    assert "Usage: branch-retro exec collect-evidence" in result.output
+    assert "Usage: aretro exec collect-evidence" in result.output
     for option in ("--repo", "--branch", "--session-root", "--max-sessions", "--format"):
         assert option in result.output
 
@@ -78,7 +78,7 @@ def test_collect_evidence_returns_json_from_fake_session_source(cli_group: Clink
     result = CliRunner().invoke(
         cli_group,
         ["exec", "collect-evidence", "--repo", str(repo_root), "--format", "json"],
-        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
     )
 
     assert result.exit_code == 0, result.output
@@ -132,7 +132,7 @@ def test_collect_evidence_includes_factual_items_without_raw_outputs(
     result = CliRunner().invoke(
         cli_group,
         ["exec", "collect-evidence", "--repo", str(repo_root), "--format", "json"],
-        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
     )
 
     assert result.exit_code == 0, result.output
@@ -179,7 +179,7 @@ def test_collect_evidence_passes_query_to_session_source(
             "--format",
             "json",
         ],
-        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
     )
 
     assert result.exit_code == 0, result.output
@@ -209,7 +209,7 @@ def test_collect_evidence_uses_explicit_branch_without_graphite_or_stack_metadat
             "--format",
             "json",
         ],
-        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
     )
 
     assert result.exit_code == 0, result.output
@@ -248,7 +248,7 @@ def test_collect_evidence_missing_session_root_warning_is_success(
     result = CliRunner().invoke(
         cli_group,
         ["exec", "collect-evidence", "--repo", str(repo_root), "--format", "json"],
-        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
     )
 
     assert result.exit_code == 0, result.output
@@ -271,7 +271,7 @@ def test_collect_evidence_detached_head_without_branch_is_negative(cli_group: Cl
     result = CliRunner().invoke(
         cli_group,
         ["exec", "collect-evidence", "--repo", str(repo_root), "--format", "json"],
-        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
     )
 
     assert result.exit_code == 1
@@ -294,7 +294,7 @@ def test_collect_evidence_not_a_git_repo_is_negative(cli_group: ClinkrGroup) -> 
     result = CliRunner().invoke(
         cli_group,
         ["exec", "collect-evidence", "--repo", "/not-a-repo", "--format", "json"],
-        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
     )
 
     assert result.exit_code == 1
@@ -306,7 +306,7 @@ def test_collect_evidence_not_a_git_repo_is_negative(cli_group: ClinkrGroup) -> 
     assert source.queries == ()
 
 
-def _obj(context: BranchRetroCliContext) -> ClinkrContextObject:
+def _obj(context: AretroCliContext) -> ClinkrContextObject:
     return build_clinkr_context_object(lambda: context)
 
 

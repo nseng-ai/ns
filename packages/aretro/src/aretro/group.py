@@ -1,14 +1,14 @@
-"""Explicit builder for the ``branch-retro`` CLI group."""
+"""Explicit builder for the ``aretro`` CLI group."""
 
 from __future__ import annotations
 
+from aretro.exec.group import build_exec_group
 from asdl_core.clinkr.group import ClinkrGroup
-from asdl_retro.exec.group import build_exec_group
 
 
-def build_branch_retro_group() -> ClinkrGroup:
+def build_aretro_group() -> ClinkrGroup:
     outer = ClinkrGroup(
-        name="branch-retro",
+        name="aretro",
         help="Branch session retrospective evidence operations.",
     )
     outer.add_command(build_exec_group())

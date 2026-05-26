@@ -1,5 +1,5 @@
 [project]
-name = "asdl-retro"
+name = "aretro"
 version = "0.1.0"
 description = "Branch session retrospective evidence operations for asdl"
 requires-python = ">=3.11"
@@ -9,14 +9,14 @@ dependencies = [
 ]
 
 [project.scripts]
-branch-retro = "asdl_retro.main:main"
+aretro = "aretro.main:main"
 
 [project.entry-points."asdl.plugins"]
-branch_retro = "asdl_retro.plugin:build_branch_retro_plugin"
+aretro = "aretro.plugin:build_aretro_plugin"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/asdl_retro"]
+packages = ["src/aretro"]

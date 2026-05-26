@@ -1,4 +1,4 @@
-"""Build the typed branch-retro CLI context."""
+"""Build the typed aretro CLI context."""
 
 from __future__ import annotations
 
@@ -11,16 +11,16 @@ from asdl_core.sessions.source import SessionSource
 
 
 @dataclass(frozen=True)
-class BranchRetroCliContext:
-    """Typed context for the ``branch-retro`` CLI."""
+class AretroCliContext:
+    """Typed context for the ``aretro`` CLI."""
 
     git_gateway: GitGateway
     session_source: SessionSource
 
 
-def build_branch_retro_context() -> BranchRetroCliContext:
-    """Assemble a :class:`BranchRetroCliContext` from real gateways."""
-    return BranchRetroCliContext(
+def build_aretro_context() -> AretroCliContext:
+    """Assemble a :class:`AretroCliContext` from real gateways."""
+    return AretroCliContext(
         git_gateway=RealGitGateway(),
         session_source=PiJsonlSessionSource(),
     )

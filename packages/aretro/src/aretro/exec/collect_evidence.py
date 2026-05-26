@@ -1,4 +1,4 @@
-"""Collect compact branch-retro evidence from shared session sources."""
+"""Collect compact aretro evidence from shared session sources."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Annotated, Literal, TypeAlias
 
 import click
 
+from aretro.gateway_access import get_git_gateway, get_session_source
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
@@ -25,7 +26,6 @@ from asdl_core.sessions.types import (
     SessionSourceRef,
     SessionWarning,
 )
-from asdl_retro.gateway_access import get_git_gateway, get_session_source
 
 BranchSource: TypeAlias = Literal["explicit", "git_current_branch", "detached", "unresolved"]
 
