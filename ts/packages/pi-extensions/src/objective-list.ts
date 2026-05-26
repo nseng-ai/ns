@@ -1,126 +1,69 @@
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 
-export type ObjectiveBranchEntry = {
-	branch: string;
-	parentBranch: string;
-	updatedIso: string | null;
-	sliceCommits: number;
-};
-
-export type ObjectiveListGroup = {
+export type ObjectiveListRecord = {
 	slug: string;
 	status: string;
 	latestUpdateIso: string | null;
-	latestWorkBranch: string | null;
-	branches: ObjectiveBranchEntry[];
 };
 
 export type ObjectiveList = {
-	baseBranch: string;
 	trunkBranch: string;
-	view: string;
+	rootPath: string;
 	statusFilter: string;
-	currentBranch: string | null;
-	filteredToCurrent: boolean;
 	namesOnly: boolean;
-	groups: ObjectiveListGroup[];
+	records: ObjectiveListRecord[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseObjectiveBranchEntry(value: unknown, groupIndex: number, branchIndex: number): ObjectiveBranchEntry {
+function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListRecord {
 	if (!isRecord(value)) {
-		throw new Error(
-			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected an object.`,
-		);
-	}
-
-	const branch = value.branch;
-	const parentBranch = value.parent_branch;
-	const updatedIso = value.updated_iso;
-	const sliceCommits = value.slice_commits;
-	if (
-		typeof branch !== "string" ||
-		typeof parentBranch !== "string" ||
-		(updatedIso !== null && typeof updatedIso !== "string") ||
-		typeof sliceCommits !== "number" ||
-		!Number.isFinite(sliceCommits)
-	) {
-		throw new Error(
-			`Invalid Objective list branch at group ${groupIndex}, branch ${branchIndex}: expected branch, parent_branch, updated_iso, and slice_commits.`,
-		);
-	}
-
-	return { branch, parentBranch, updatedIso, sliceCommits };
-}
-
-function parseObjectiveListGroup(value: unknown, index: number): ObjectiveListGroup {
-	if (!isRecord(value)) {
-		throw new Error(`Invalid Objective list group at index ${index}: expected an object.`);
+		throw new Error(`Invalid Objective list record at index ${index}: expected an object.`);
 	}
 
 	const slug = value.slug;
-	const status = value.status ?? "";
-	const latestUpdateIso = "latest_update_iso" in value ? value.latest_update_iso : null;
-	const latestWorkBranch = "latest_work_branch" in value ? value.latest_work_branch : null;
-	const branches = value.branches;
+	const status = value.status;
+	const latestUpdateIso = value.latest_update_iso;
 	if (
 		typeof slug !== "string" ||
 		typeof status !== "string" ||
-		(latestUpdateIso !== null && typeof latestUpdateIso !== "string") ||
-		(latestWorkBranch !== null && typeof latestWorkBranch !== "string") ||
-		!Array.isArray(branches)
+		(latestUpdateIso !== null && typeof latestUpdateIso !== "string")
 	) {
 		throw new Error(
-			`Invalid Objective list group at index ${index}: expected slug, status, latest_update_iso, latest_work_branch, and branches.`,
+			`Invalid Objective list record at index ${index}: expected slug, status, and latest_update_iso.`,
 		);
 	}
 
-	return {
-		slug,
-		status,
-		latestUpdateIso,
-		latestWorkBranch,
-		branches: branches.map((branch, branchIndex) => parseObjectiveBranchEntry(branch, index, branchIndex)),
-	};
+	return { slug, status, latestUpdateIso };
 }
 
 export function parseObjectiveList(stdout: string): ObjectiveList {
 	const data = parseMachineEnvelopeData(stdout, { label: "objective list JSON" });
 
 	const trunkBranch = data.trunk_branch;
-	const baseBranch = data.base_branch ?? trunkBranch;
-	const view = data.view;
-	const statusFilter = data.status_filter ?? "";
-	const currentBranch = data.current_branch;
-	const filteredToCurrent = data.filtered_to_current;
+	const rootPath = data.root_path;
+	const statusFilter = data.status_filter;
 	const namesOnly = data.names_only;
-	const groups = data.groups;
+	const records = data.records;
 	if (
 		typeof trunkBranch !== "string" ||
-		typeof baseBranch !== "string" ||
-		typeof view !== "string" ||
+		typeof rootPath !== "string" ||
 		typeof statusFilter !== "string" ||
-		(currentBranch !== null && typeof currentBranch !== "string") ||
-		typeof filteredToCurrent !== "boolean" ||
 		typeof namesOnly !== "boolean" ||
-		!Array.isArray(groups)
+		!Array.isArray(records)
 	) {
 		throw new Error(
-			"Invalid objective list JSON: expected base_branch, trunk_branch, view, status_filter, current_branch, filtered_to_current, names_only, and groups.",
+			"Invalid objective list JSON: expected trunk_branch, root_path, status_filter, names_only, and records.",
 		);
 	}
 
 	return {
-		baseBranch,
 		trunkBranch,
-		view,
+		rootPath,
 		statusFilter,
-		currentBranch,
-		filteredToCurrent,
 		namesOnly,
-		groups: groups.map(parseObjectiveListGroup),
+		records: records.map(parseObjectiveListRecord),
 	};
 }

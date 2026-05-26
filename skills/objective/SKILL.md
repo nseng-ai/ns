@@ -74,7 +74,7 @@ Use only `[ ]`, `[~]`, and `[x]` statuses.
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --format md` to enumerate active Objectives (`open` plus `in-flight`) and ask the user to choose. Use `objective list --current --format md` to filter to active Objectives associated with the current branch. Use `objective list --names` only for machine-readable active-slug extraction.
+2. If no slug or path is explicit, run `objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.asdl/objectives/`) and ask the user to choose. Use `objective list --names` only for machine-readable active-slug extraction.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one active Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple active Objectives exist, ask instead.
@@ -85,7 +85,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Repository status
 
-Use `objective list` for the default objective-level status inventory, filtered to active Objectives (`○ open` plus `◇ in-flight`). It inventories only `.asdl/objectives/`; archived records under `.asdl/objective-archive/` are physically outside active discovery. `objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` when included with `--status closed` or `--status all`. The list view shows latest work, latest Objective update age, work-branch count, and max slice-commit count. Work branches are counted only when the branch’s local slice, not inherited lower-stack history, touches the active Objective record. Use `objective list --view detail` for the base/current status source plus per-work-branch details. Use `objective list --current` to use the current branch as the status source, and `objective list --names` to emit just active slugs, one per line. It does not parse Markdown, choose a canonical branch, or list branches without Objective records matching the selected status filter.
+Use `objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.asdl/objectives/`. Archived records under `.asdl/objective-archive/` are physically outside active discovery. `objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The shipped list command has no branch projection, current-branch mode, detail view, or third active status. Use `objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
 
 ## Tracking Gate
 

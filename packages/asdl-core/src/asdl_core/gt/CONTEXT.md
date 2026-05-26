@@ -2,55 +2,77 @@
 
 ## Graphite metadata store contract
 
-### Data source
+### Data sources
 
-`RealGtGateway.stack()` resolves the Git common directory with:
+`RealGtGateway.stack()` and `RealGtGateway.branch_graph()` resolve the Git common directory with:
 
 ```sh
 git rev-parse --git-common-dir
 ```
 
-It then reads Graphite's SQLite metadata store at:
+They then read Graphite-owned files below that common directory:
 
 ```text
 <git-common-dir>/.graphite_metadata.db
+<git-common-dir>/.graphite_repo_config
 ```
 
-The database is opened read-only with SQLite URI `mode=ro`.
+The SQLite metadata database is opened read-only with URI `mode=ro`. The repo config is read as
+JSON and only the non-empty string `trunk` field is part of asdl's contract.
 
 ### Stable query slice
 
-The only Graphite schema surface `stack()` depends on is this named-column query:
+The required Graphite schema surface these metadata readers depend on is this named-column query:
 
 ```sql
 SELECT branch_name, parent_branch_name, children, validation_result
 FROM branch_metadata
 ```
 
-Do not use `SELECT *`. Do not depend on Graphite-owned columns outside this slice.
+Do not use `SELECT *`. Do not require Graphite-owned columns outside this slice.
+
+When Graphite's optional parent revision columns are present, `branch_graph()` also reads
+`parent_branch_revision` and `parent_head_revision`. If both values are non-empty and differ, the
+branch row is marked as needing restack. These columns are optional display metadata, not part of the
+required stack/graph schema contract.
+
+### `stack()` vs `branch_graph()`
+
+- `stack()` is current-branch-centered. It reads the metadata store for the branch checked out at
+  `cwd`, returns a `StackInfo`, and reports `UntrackedBranch` when the current branch is not present
+  in Graphite metadata.
+- `branch_graph()` is repo/trunk-centered. It reads `.graphite_repo_config` for the configured
+  Graphite trunk, reads `.graphite_metadata.db` for branch rows, and returns a `GtBranchGraph` for
+  the metadata component reachable from that configured trunk. It does not resolve the current
+  branch, so an untracked checkout does not block graph discovery.
 
 ### Migration policy assumption
 
 Graphite versions since the SQLite metadata store shipped have used additive Kysely migrations for
-this table: new nullable columns may appear, while the four-column stack slice remains stable. Future
-additive columns are tolerated because the query names its columns explicitly.
+this table: new nullable columns may appear, while the four-column stack/graph slice remains stable.
+Future additive columns are tolerated because queries name their columns explicitly. The optional
+parent revision pair is used only when both columns are present.
 
-If Graphite renames one of these columns, removes one, or drops the table, `stack()` returns a
+If Graphite renames one of these columns, removes one, or drops the table, metadata reads return a
 `GtCommandFailure` whose message starts with `Graphite metadata schema mismatch:`.
 
 ### What lives where
 
 - `stack()` reads the SQLite metadata store and never mutates it.
+- `branch_graph()` reads the repo config and SQLite metadata store and never mutates either.
 - `parent_of`, `children_of`, `trunk`, `branch_info`, `restack_upstack`, and `sync` still shell out
   to `gt`.
-- Graphite owns both the metadata database and any mutation of it; asdl reads the stack snapshot only.
+- Graphite owns both the metadata database and repo config; asdl only reads structured snapshots.
 
-### Why no legacy fallback
+### Why no human-output fallback
 
-The old human-facing stack text parser is gone. If the metadata store is unavailable or has an
-unsupported schema, callers get a structured failure instead of a degraded best-effort stack walk.
+There is no `gt ls` parser and no fallback to other human-facing Graphite output. If the metadata
+store, repo config, or supported schema is unavailable, callers get a structured `GtCommandFailure`
+instead of a degraded best-effort stack or graph walk.
 
 ### What we do not read
 
-`stack()` does not read any columns outside `branch_name`, `parent_branch_name`, `children`, and
-`validation_result`. Future Graphite columns are intentionally ignored.
+Metadata readers do not require any columns outside `branch_name`, `parent_branch_name`, `children`,
+and `validation_result`. `branch_graph()` may additionally read `parent_branch_revision` and
+`parent_head_revision` to derive `needs_restack`; every other future Graphite column is intentionally
+ignored.

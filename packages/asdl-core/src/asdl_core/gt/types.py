@@ -31,6 +31,38 @@ class GtBranchInfo:
 
 
 @dataclass(frozen=True)
+class GtTrackedBranch:
+    """One Graphite-tracked branch row in a trunk-scoped branch graph."""
+
+    name: str
+    parent: str | None
+    children: tuple[str, ...]
+    validation_result: str | None
+    needs_restack: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("GtTrackedBranch.name must name a Graphite branch")
+
+
+@dataclass(frozen=True)
+class GtBranchGraph:
+    """A Graphite branch graph rooted at the configured Graphite trunk."""
+
+    trunk: str
+    branches: tuple[GtTrackedBranch, ...]
+    warnings: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.trunk:
+            raise ValueError("GtBranchGraph.trunk must name the configured Graphite trunk")
+
+        branch_names = tuple(branch.name for branch in self.branches)
+        if len(set(branch_names)) != len(branch_names):
+            raise ValueError("GtBranchGraph.branches must not contain duplicate branch names")
+
+
+@dataclass(frozen=True)
 class StackInfo:
     """A snapshot of the Graphite stack around the currently checked-out branch.
 

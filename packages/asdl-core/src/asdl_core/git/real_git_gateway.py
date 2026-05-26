@@ -223,7 +223,7 @@ def parse_path_touch_output(stdout: str) -> PathTouch | None:
 
 
 def parse_path_change_touches_output(stdout: str, path: str) -> tuple[PathChangeTouch, ...]:
-    """Parse ``git log --format=%H%x00%cI --name-only`` path touch output."""
+    """Parse ``git log --format=%H%x00%cI --name-status -M`` path touch output."""
 
     touches: list[PathChangeTouch] = []
     current_oid: str | None = None
@@ -256,11 +256,31 @@ def parse_path_change_touches_output(stdout: str, path: str) -> tuple[PathChange
 
         if raw_line == "" or current_oid is None or current_committed_iso is None:
             continue
-        if _path_is_under(raw_line, path):
-            current_paths.append(raw_line)
+        for changed_path in _path_change_paths(raw_line):
+            if _path_is_under(changed_path, path):
+                current_paths.append(changed_path)
 
     flush_current()
     return tuple(touches)
+
+
+def _path_change_paths(raw_line: str) -> tuple[str, ...]:
+    if "\t" not in raw_line:
+        return (raw_line,)
+
+    parts = raw_line.split("\t")
+    if not parts or parts[0] == "":
+        return ()
+
+    status = parts[0][:1]
+    if status in {"R", "C"}:
+        if len(parts) < 3:
+            return ()
+        return (parts[1], parts[2])
+
+    if len(parts) < 2:
+        return ()
+    return (parts[1],)
 
 
 def _path_is_under(candidate: str, path: str) -> bool:
@@ -651,6 +671,14 @@ class RealGitGateway(GitGateway):
         status = self.get_file_status(cwd)
         return status.staged or status.modified or status.untracked
 
+    def has_uncommitted_changes_under(self, cwd: Path, path: str) -> bool:
+        result = _run(
+            ["git", "status", "--porcelain", "--untracked-files=all", "--", path],
+            cwd=cwd,
+            check=True,
+        )
+        return result.stdout.strip() != ""
+
     def get_file_status(self, cwd: Path) -> FileStatus:
         result = _run(["git", "status", "--porcelain"], cwd=cwd, check=True)
         return parse_porcelain_status(result.stdout)
@@ -677,7 +705,16 @@ class RealGitGateway(GitGateway):
         path: str,
     ) -> tuple[PathChangeTouch, ...] | GitCommandFailure:
         result = _run(
-            ["git", "log", "--format=%H%x00%cI", "--name-only", ref_or_range, "--", path],
+            [
+                "git",
+                "log",
+                "--format=%H%x00%cI",
+                "--name-status",
+                "-M",
+                ref_or_range,
+                "--",
+                path,
+            ],
             cwd=self._require_repo_root(),
             check=False,
         )

@@ -4,8 +4,10 @@ from pathlib import Path
 
 from asdl_core.gt.gateway import GtGateway
 from asdl_core.gt.types import (
+    GtBranchGraph,
     GtBranchInfo,
     GtCommandFailure,
+    GtTrackedBranch,
     NoParent,
     StackInfo,
     UntrackedBranch,
@@ -14,6 +16,7 @@ from asdl_core.gt.types import (
 ParentResult = str | NoParent | UntrackedBranch | GtCommandFailure
 ChildrenResult = tuple[str, ...] | UntrackedBranch | GtCommandFailure
 StackResult = StackInfo | UntrackedBranch | GtCommandFailure
+BranchGraphResult = GtBranchGraph | GtCommandFailure
 
 
 class FakeGtGateway(GtGateway):
@@ -34,6 +37,8 @@ class FakeGtGateway(GtGateway):
         sync_failure: GtCommandFailure | None = None,
         stack_by_cwd: dict[Path, StackResult] | None = None,
         stack_by_branch: dict[str, StackResult] | None = None,
+        branch_graph: BranchGraphResult | None = None,
+        branch_graph_by_cwd: dict[Path, BranchGraphResult] | None = None,
     ) -> None:
         self._parent_by_cwd = dict(parent_by_cwd or {})
         self._parent_by_branch = dict(parent_by_branch or {})
@@ -46,6 +51,8 @@ class FakeGtGateway(GtGateway):
         self._sync_failure = sync_failure
         self._stack_by_cwd = dict(stack_by_cwd or {})
         self._stack_by_branch = dict(stack_by_branch or {})
+        self._branch_graph = branch_graph
+        self._branch_graph_by_cwd = dict(branch_graph_by_cwd or {})
         self._parent_calls: list[Path] = []
         self._children_calls: list[Path] = []
         self._trunk_calls: list[Path] = []
@@ -53,6 +60,7 @@ class FakeGtGateway(GtGateway):
         self._restack_calls: list[tuple[Path, str]] = []
         self._sync_calls: list[tuple[Path, bool]] = []
         self._stack_calls: list[Path] = []
+        self._branch_graph_calls: list[Path] = []
 
     def _branch_for_cwd(self, cwd: Path) -> str | None:
         return self._branch_by_cwd.get(cwd)
@@ -108,6 +116,27 @@ class FakeGtGateway(GtGateway):
             warnings=(),
         )
 
+    def branch_graph(self, cwd: Path) -> GtBranchGraph | GtCommandFailure:
+        self._branch_graph_calls.append(cwd)
+        if cwd in self._branch_graph_by_cwd:
+            return self._branch_graph_by_cwd[cwd]
+        if self._branch_graph is not None:
+            return self._branch_graph
+        if isinstance(self._trunk, GtCommandFailure):
+            return self._trunk
+        return GtBranchGraph(
+            trunk=self._trunk,
+            branches=(
+                GtTrackedBranch(
+                    name=self._trunk,
+                    parent=None,
+                    children=(),
+                    validation_result=None,
+                ),
+            ),
+            warnings=(),
+        )
+
     @property
     def parent_calls(self) -> tuple[Path, ...]:
         return tuple(self._parent_calls)
@@ -127,3 +156,7 @@ class FakeGtGateway(GtGateway):
     @property
     def stack_calls(self) -> tuple[Path, ...]:
         return tuple(self._stack_calls)
+
+    @property
+    def branch_graph_calls(self) -> tuple[Path, ...]:
+        return tuple(self._branch_graph_calls)

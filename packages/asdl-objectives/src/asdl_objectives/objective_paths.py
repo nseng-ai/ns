@@ -18,3 +18,15 @@ def archived_objective_record_path(slug: str) -> Path:
 
 def is_valid_objective_slug(slug: str) -> bool:
     return slug not in {"", ".", ".."} and "/" not in slug and "\\" not in slug
+
+
+def objective_slug_from_active_path(path: str) -> str | None:
+    prefix = f"{ACTIVE_OBJECTIVE_ROOT.as_posix()}/"
+    if not path.startswith(prefix):
+        return None
+
+    rest = path.removeprefix(prefix)
+    slug, separator, child_path = rest.partition("/")
+    if separator == "" or child_path == "" or not is_valid_objective_slug(slug):
+        return None
+    return slug

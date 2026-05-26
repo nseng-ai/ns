@@ -179,32 +179,32 @@ V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list`, `o
 
 ### `objective list`
 
-Lists Objective status for the local repository by inspecting local branches without checking them out.
+Lists Objective records in the current checkout.
 
 Contract:
 
-- Use the repository base branch (currently the configured trunk branch) as the default status source.
-- Read active Objective records only from `.asdl/objectives/`; archived records under `.asdl/objective-archive/` are excluded even when `--status all` is passed.
-- Report displayed status from the status source: direct `.asdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`; an Objective present only on non-base local work branches means `in-flight`.
+- Read active Objective records only from `.asdl/objectives/` in the current working tree; archived records under `.asdl/objective-archive/` are excluded even when `--status all` is passed.
+- Report checkout-local status from the active record: direct `.asdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
 - Do not treat nested files such as `.asdl/objectives/<slug>/updates/closed.md` as closure markers.
-- Default to an Objective-level list view filtered to active Objectives (`open` + `in-flight`) with `status` labels (`○ open`, `✓ closed`, `◇ in-flight`), latest work branch, latest Objective update age, work-branch count, and max slice-commit count.
-- Compute latest Objective update from the newest commit touching `.asdl/objectives/<slug>/`, not from branch HEAD timestamps. If the newest Objective update is represented only by the base/status source, latest work is blank.
-- Provide a detail view that shows the base/current status source separately, then work-branch rows with branch parent, branch status, Objective update age, and slice-commit count.
-- Provide a `--status {all,active,open,in-flight,closed}` filter. The default is `active`; pass `--status all` to include closed Objectives.
-- Provide a `--current` mode that uses the current branch as the status source and lists only Objectives with records on the current branch. Detached HEAD returns no rows.
-- Provide a `--names` flag that emits Objective slugs only, one per line after the status/current filters are applied.
-- Do not parse Markdown, summarize Objective bodies, choose a canonical branch, or list branches without Objective records matching the selected status filter.
-- Count a work branch only when its local branch slice, not inherited lower-stack history, touches the Objective record.
-- Use pure git facts, not Graphite.
+- Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
+- Provide a `--status {all,active,open,closed}` filter. The default is `active`.
+- Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
+- Compute `latest_update_iso` from the newest committed update touching `.asdl/objectives/<slug>/` when available; otherwise report `null`.
+- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.asdl/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
+- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state.
+- Do not parse Markdown prose, summarize Objective bodies, project records across branches, choose a canonical branch, or depend on Graphite.
+- The shipped command has no branch projection, third active status, current-branch mode, or detail view.
 
 Shipped CLI:
 
-- Run `objective list` for the default active Objective inventory list view.
-- Run `objective list --status all` to include open, in-flight, and closed active-root Objective records.
+- Run `objective list` for the default active/open Objective inventory.
+- Run `objective list --format md` for markdown output.
+- Run `objective list --format json` for the machine envelope.
+- Run `objective list --status all` to include open and closed active-root Objective records.
 - Run `objective list --status closed` for closed active-root Objective records.
-- Run `objective list --view detail` for base/current status plus per-work-branch details.
-- Run `objective list --current` to use the current branch as the status source.
 - Run `objective list --names` to print active slugs, one per line.
+
+Related Graphite projection: `objective gt stacks` reports Objective work distributed across local Graphite-tracked stack branches. Its observable contract is specified separately in [Objective GT stacks](specs/objective-gt-stacks.md).
 
 ### `objective-create`
 
@@ -272,7 +272,7 @@ Contract:
 
 Shipped CLI:
 
-- Active candidate filtering: `objective list` lists active-root candidates with active statuses (`open` plus `in-flight`); `objective list --status all` reports active-root closed records too.
+- Active candidate filtering: `objective list` lists active-root open candidates by default; `objective list --status all` reports active-root closed records too.
 
 Future CLI pushdown candidates:
 
@@ -381,7 +381,7 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 Good CLI responsibilities:
 
 - Validate slugs and paths. _(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)_
-- List candidate objectives from base/current status and local work-branch facts. _(shipped for active-root records: `objective list`.)_
+- List candidate objectives from checkout-local active-root records. _(shipped: `objective list`.)_
 - Detect closed markers. _(shipped for active-root records: `objective list` and `objective exec read-objective` both report closed state.)_
 - Move Objective records between active and archived roots without editing prose. _(shipped: `objective archive`.)_
 - Summarize runner-subagent session usage for Objective stack digestion. _(shipped: `objective exec runner-subagent-usage`.)_
