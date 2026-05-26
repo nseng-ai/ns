@@ -18,10 +18,12 @@
   - For each candidate in `assessment.md`, choose exactly one disposition: implement, reject with reason, park with rationale, or split into a follow-on Objective.
   - Use `candidate-cost-benefit-ranking.md` as the default ordering and reasoning source.
   - Record meaningful decisions through Objective updates as work proceeds.
-- [ ] Candidate 6 — decide and implement presentation/linkification policy first.
-  - Compare `docs/pi/extension-message-linkification.md`, `land-stack/command-stream.ts`, `worktree-status.ts`, `runner-subagent-demo.ts`, and `.pi/extensions/submit.ts`.
-  - Prefer a small shared presentation Module for URL validation, OSC 8 construction, ANSI/OSC stripping, custom-message text extraction, truncation, and PR-reference linkification.
-  - Keep status-line rendering and chat-message rendering local unless a deeper shared Interface emerges.
+- [x] Candidate 6 — decide and implement presentation/linkification policy first.
+  - Implemented `terminal-presentation.ts` as a small pure helper Module for terminal escape stripping, URL validation, OSC 8 construction, custom-message text extraction, truncation, PR-link details parsing/building, and PR-reference linkification.
+  - Migrated `command-runtime`, `land-stack`, and `runner-subagent-demo` to the shared helpers.
+  - Kept status-line and chat-message rendering policy local; `worktree-status` now reuses only the shared URL/OSC helpers, and the exploratory worktree-status message renderer was removed because it was a separate behavior change rather than consolidation.
+  - Deferred `.pi/extensions/submit.ts` helper migration to Candidate 10 / vibecoded extension promotion triage.
+  - Evidence: PR #616 and PR #617; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [~] Candidate 4 — decide and implement the Branch Memory CLI Adapter.
   - Boundary decision: `planned-branch-layer-deepening` owns saved-plan/planned-branch/attached-plan policy; this candidate may own only generic Branch Memory CLI discovery/execution plumbing.
   - Concentrate Branch Memory CLI discovery, candidate fallback, command display, and execution plumbing currently duplicated by planned-branch helpers and `worktree-status.ts` only if the shared Interface preserves caller policy differences.

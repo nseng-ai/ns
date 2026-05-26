@@ -68,7 +68,7 @@ Assumptions:
 Risks:
 
 - The candidate list is broad enough to sprawl. The roadmap must force explicit disposition before implementation expands.
-- Premature extraction could create shallow Modules whose Interfaces are nearly as complex as their Implementations.
+- Premature extraction could create shallow Modules whose Interfaces are nearly as complex as their Implementations. Candidate 6 confirmed this risk: the shared terminal helper Module is useful for security-sensitive URL/OSC policy, but the attempted worktree-status message-renderer expansion was removed because it was a separate behavior change rather than helper consolidation.
 - The risky extensions, especially `/submit`, touch Graphite and GitHub workflows; changes there require the relevant Graphite and GitHub guidance and careful fake-driven tests.
 - `land-stack` tests currently encode substantial command choreography; refactoring without first choosing better test surfaces could make safe changes look riskier than they are.
 - `worktree-status.ts` mixes session lifecycle, watchers, Git facts, Branch Memory facts, Graphite facts, and rendering; changing watcher behavior without internal Seams could create stale UI or session replacement bugs.
@@ -78,7 +78,7 @@ Risks:
 
 ## Open Questions
 
-- Which deepening candidate should be implemented first: Pi host seam, presentation/linkification, Branch Memory CLI Adapter, `/submit` promotion, `worktree-status` internal seams, `land-stack` test-surface cleanup, or runner subagent contract cleanup?
+- After Candidate 6, which ranked candidate should be implemented next: Branch Memory CLI Adapter, Clinkr Machine envelope parser, runner subagent contract cleanup, skill expansion, `/submit` promotion, Pi host seam, Objective integration, `worktree-status` internal seams, or `land-stack` test-surface cleanup?
 - Should the old command-runtime seam stay narrow, or has `/submit` and command streaming now proven a deeper command execution Module?
 - Partially answered: the planned-branch workflow is not the reason to force a generic Adapter now; Candidate 4 remains this Objective's decision for shared Branch Memory CLI plumbing across `worktree-status` or future consumers, and must not own planned-branch domain policy.
 - Should skill expansion become shared now that both Objective commands and `just-fix` use it, or is that still a shallow hypothetical Seam?
