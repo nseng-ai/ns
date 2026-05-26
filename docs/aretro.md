@@ -17,6 +17,14 @@ Python may report facts such as:
 
 Python must not emit diagnoses such as `confusion`, `missing_docs`, `bad_architecture`, `wasted_work`, `needs_refactor`, or `skill_gap`.
 
+## Recommendation Policy
+
+Human-facing retrospectives should optimize for two benefits: higher-quality future outcomes and greater agent efficiency, including lower wall time and token spend. Recommendations should be cost/benefit judgments over the deterministic evidence, not a list of every possible improvement.
+
+Treat maintenance and drift risk as first-class costs. This is especially important for documentation: a new doc only pays for itself when future agents can discover it through an existing path and when its source of truth and update trigger are clear. Prefer executable or tested affordances, such as CLI operations, task-runner targets, package scripts, or validated helpers, when the evidence points to repeated mechanical work.
+
+A good retrospective may recommend no change, a follow-up measurement, or a small routing note when the evidence is weak, the durable fix is unclear, or the drift cost of a new artifact exceeds the expected quality/efficiency benefit.
+
 ## Evidence Item Principles
 
 Evidence items should be:
@@ -47,4 +55,4 @@ These kinds are observations, not recommendations.
 - `asdl-core` session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
 - `asdl-core` evidence aggregation turns normalized session facts into deterministic `SessionEvidenceItem` observations.
 - `aretro` exposes the branch-facing CLI and renders the `aretro exec collect-evidence --format json` envelope.
-- `branch-retro` is the first skill consumer of that standalone evidence command: it consumes the JSON envelope, applies semantic judgment, and writes the final retrospective recommendations.
+- `branch-retro` is the first skill consumer of that standalone evidence command: it consumes the JSON envelope, applies semantic judgment, weighs cost, drift, and discoverability, and writes the final retrospective recommendations.
