@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Dispatch `aretro` to either a local asdl checkout (`uv run`) or an
+# ephemeral install from PyPI (`uvx`). See docs/aretro.md.
+set -euo pipefail
+
+# Bump ASDL_ARETRO_VERSION to roll out a new aretro release to skill consumers.
+ASDL_ARETRO_VERSION="0.1.0"
+
+prod_uvx() {
+  exec uvx --from "aretro==${ASDL_ARETRO_VERSION}" aretro "$@"
+}
+
+case "${ASDL_ARETRO_MODE:-}" in
+  local) exec uv run aretro "$@" ;;
+  prod)  prod_uvx "$@" ;;
+  "") ;;
+  *)
+    echo "aretro-run: unknown ASDL_ARETRO_MODE='${ASDL_ARETRO_MODE}' (expected 'local' or 'prod')" >&2
+    exit 2
+    ;;
+esac
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "$repo_root" && -f "$repo_root/packages/aretro/pyproject.toml" ]]; then
+  exec uv run --project "$repo_root" aretro "$@"
+fi
+
+prod_uvx "$@"
