@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Self
 
 import click
+from pydantic import PrivateAttr
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_objectives.list_status import ObjectiveStatus, ObjectiveStatusFilter
@@ -36,6 +37,25 @@ class ObjectiveListRecord(ClinkrModel):
     slug: str
     status: ObjectiveStatus
     latest_update_iso: str | None
+
+    _has_outstanding_changes: bool = PrivateAttr(default=False)
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        slug: str,
+        status: ObjectiveStatus,
+        latest_update_iso: str | None,
+        has_outstanding_changes: bool = False,
+    ) -> Self:
+        record = cls(slug=slug, status=status, latest_update_iso=latest_update_iso)
+        record._has_outstanding_changes = has_outstanding_changes
+        return record
+
+    @property
+    def has_outstanding_changes(self) -> bool:
+        return self._has_outstanding_changes
 
 
 class ObjectiveListResult(ClinkrModel):

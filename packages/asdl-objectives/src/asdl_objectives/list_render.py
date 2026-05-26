@@ -6,7 +6,7 @@ import click
 
 from asdl_core.console import get_console, make_table
 from asdl_core.format import format_relative_time
-from asdl_objectives.list_models import ObjectiveListResult
+from asdl_objectives.list_models import ObjectiveListRecord, ObjectiveListResult
 from asdl_objectives.list_status import ObjectiveStatus, ObjectiveStatusFilter
 
 
@@ -36,7 +36,7 @@ def render_objective_list_human(result: ObjectiveListResult) -> None:
         table.add_row(
             record.slug,
             _status_label(record.status),
-            _format_age(record.latest_update_iso),
+            _format_latest_update(record),
         )
     console.print(table)
 
@@ -59,10 +59,7 @@ def render_objective_list_markdown(result: ObjectiveListResult) -> None:
     click.echo("| --- | --- | --- |")
     for record in result.records:
         click.echo(
-            "| "
-            f"{record.slug} | "
-            f"{_status_label(record.status)} | "
-            f"{_format_age(record.latest_update_iso)} |"
+            f"| {record.slug} | {_status_label(record.status)} | {_format_latest_update(record)} |"
         )
 
 
@@ -95,6 +92,13 @@ def _empty_message(status_filter: ObjectiveStatusFilter) -> str:
     if status_filter == "closed":
         return "No closed Objective records found."
     return "No Objective records found."
+
+
+def _format_latest_update(record: ObjectiveListRecord) -> str:
+    formatted = _format_age(record.latest_update_iso)
+    if record.has_outstanding_changes:
+        return f"(x) {formatted}"
+    return formatted
 
 
 def _format_age(iso_timestamp: str | None) -> str:

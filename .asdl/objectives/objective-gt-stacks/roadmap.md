@@ -12,9 +12,9 @@ Phase 1 — checkout-local `objective list`
 - [x] Replace branch-projected `objective list` inventory with filesystem-local discovery of `.asdl/objectives/<slug>/` in the current checkout.
 - [x] Simplify `objective list` statuses to checkout-local record status and remove `in-flight` from the list command.
 - [x] Simplify list renderers to Objective, status, and latest update; remove latest work, work branches, and max slice commit columns.
-- [ ] Add `(x)` latest-update prefix when an Objective record has outstanding working-tree changes, including staged, unstaged, and untracked paths.
+- [x] Add `(x)` latest-update prefix when an Objective record has outstanding working-tree changes, including staged, unstaged, and untracked paths.
 - [x] Update `objective list` JSON and Markdown tests for untracked Objective directories, closed records, active/archive root separation, and lack of branch-wide data.
-- [ ] Add dirty-marker tests for `(x)` once outstanding-change detection lands.
+- [x] Add dirty-marker tests for `(x)` once outstanding-change detection lands.
 
 Phase 2 — structured Graphite graph support
 
@@ -43,7 +43,7 @@ Phase 5 — Pi Objective extension
 - [x] Rewrite `ts/packages/pi-extensions/src/objective-list.ts` around the new checkout-local `objective list --format json` schema.
 - [x] Update `ts/packages/pi-extensions/src/objective-picker.ts` to remove branch-count/latest-work/max-slice labels and present record-oriented picker labels using status and latest update.
 - [x] Update `/objective-next`, `/objective-current`, `/objective-update`, and `/objective-stack-impl` selection flows to call `objective list --format json` without `--current` and to use checkout-local candidates.
-- [~] Preserve changed-Objective suggestions by combining checkout-local outstanding-change facts with committed Objective diffs versus trunk, while still requiring explicit selection when multiple candidates exist. Committed Objective diff suggestions are preserved; checkout-local outstanding-change facts still wait on the dirty-marker slice.
+- [~] Preserve changed-Objective suggestions by combining checkout-local outstanding-change facts with committed Objective diffs versus trunk, while still requiring explicit selection when multiple candidates exist. Committed Objective diff suggestions are preserved; checkout-local outstanding-change facts are now available in the Python CLI, but picker suggestion integration remains future work.
 - [x] Change `/objective-list` into a thin checkout-local display wrapper: remove `--current` and `--view`, keep/pass through retained list flags such as `--names` and `--status`, and update usage/completions.
 - [ ] Add `/objective-gt-stacks` as a separate thin display wrapper around `objective gt stacks --format markdown`.
 - [x] Update TypeScript tests for the new Objective-list schema, picker labels, removed flags, and `/objective-list` display behavior. `/objective-gt-stacks` display tests remain with the wrapper.

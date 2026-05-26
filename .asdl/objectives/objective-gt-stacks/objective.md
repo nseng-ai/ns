@@ -67,7 +67,7 @@ Risks:
 - The existing `GtGateway.stack()` shape is centered on the current branch, so `objective gt stacks` may require a deeper Graphite graph model before CLI work can proceed cleanly.
 - Segment construction for many-to-many Objective/branch relationships can become complex if the implementation tries to mimic `gt ls` too early. Mitigation: v1 uses a simpler indented layout and relies on JSON for structural completeness.
 - Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, and verifies the picker/list flows against the new contract. The remaining Pi extension risk is the separate `/objective-gt-stacks` wrapper, which still waits for the Graphite command.
-- Dirty-state detection for `(x)` must account for staged, unstaged, and untracked paths without turning `objective list` into a full `git status` clone. The Pi picker still cannot combine checkout-local outstanding-change facts into suggestions until this slice lands.
+- Dirty-state detection for `(x)` is de-risked for checkout-local `objective list` by path-scoped Git status coverage of staged, unstaged, untracked, and unrelated paths. The Pi picker still needs a separate integration slice before it can use checkout-local outstanding-change facts for suggestions.
 - Ignoring archive-root paths while including active-root deletions is subtle and needs explicit tests to avoid accidentally resurrecting archived Objectives in stack output.
 - A future TUI may need richer graph data than the first human CLI renderer. Mitigation: design JSON around semantic graph facts rather than terminal glyphs.
 
@@ -77,6 +77,7 @@ Resolved during Phase 1 checkout-local list core:
 
 - `objective list --status active` remains supported as an alias for open checkout-local records.
 - The record-oriented `objective list --format json` schema exposes `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records[].slug/status/latest_update_iso`. It does not expose formatted latest-update text, dirty state, branch groups, or branch/source projection fields.
+- Dirty checkout-local Objective records are presentation-only for `objective list`: human and Markdown output prefix the latest-update cell with `(x)`, while JSON remains raw and dirty-state-free.
 
 Still open:
 
