@@ -250,6 +250,41 @@ def test_free_stack_frees_ancestors_and_descendants(cli_group: ClinkrGroup, tmp_
     ]
 
 
+def test_free_stack_downstack_only_frees_ancestor_slots(
+    cli_group: ClinkrGroup, tmp_path: Path
+) -> None:
+    """--downstack frees only ancestor slots, leaving descendant slots untouched."""
+    fakes = _build_stack_fakes(
+        tmp_path,
+        current_branch="feat/B",
+        ancestors=("main", "feat/A"),
+        descendants=("feat/C", "feat/D"),
+        assignments=(
+            ("slot-01", "feat/A"),  # ancestor -> freed
+            ("slot-02", "feat/C"),  # descendant -> untouched
+            ("slot-03", "feat/D"),  # descendant -> untouched
+        ),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "free-stack", "--downstack", "--format", "json"],
+        obj=_obj(fakes.ctx),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["data"]["noop_reason"] is None
+    assert payload["data"]["downstack"] is True
+    freed_names = [f["slot_name"] for f in payload["data"]["freed"]]
+    assert freed_names == ["slot-01"]
+    # Only the ancestor slot detached; descendant slots remain assigned.
+    assert _assigned_worktrees(fakes) == {"slot-02": "feat/C", "slot-03": "feat/D"}
+    assert fakes.git._detach_head_calls == [
+        (fakes.paths_by_slot["slot-01"], "main"),
+    ]
+
+
 def test_free_stack_keeps_current_branch_slot_untouched(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:

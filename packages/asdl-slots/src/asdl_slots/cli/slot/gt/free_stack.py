@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 import click
 
 from asdl_core import get_console
@@ -19,7 +21,14 @@ from asdl_slots.repo_context import NoRepoSentinel
 
 
 class SlotGtFreeStackRequest(ClinkrModel):
-    pass
+    downstack: Annotated[
+        bool,
+        click.Option(
+            ["--downstack"],
+            is_flag=True,
+            help="Free only ancestor (downstack) slots, matching `gt restack --downstack`.",
+        ),
+    ] = False
 
 
 class SlotGtFreeStackResult(ClinkrModel):
@@ -27,17 +36,19 @@ class SlotGtFreeStackResult(ClinkrModel):
     trunk_branch: str
     freed: tuple[FreedSlot, ...]
     noop_reason: str | None
+    downstack: bool = False
 
 
 def render_slot_gt_free_stack(result: SlotGtFreeStackResult) -> None:
     console = get_console()
+    scope_suffix = " (downstack only)" if result.downstack else ""
     if result.noop_reason == "on_trunk":
         console.print(
             f"[dim]On trunk ([yellow]{result.trunk_branch}[/yellow]); nothing to free.[/dim]"
         )
         return
     if result.noop_reason == "no_slots":
-        console.print("[dim]No slots in stack to free.[/dim]")
+        console.print(f"[dim]No slots in stack to free{scope_suffix}.[/dim]")
         return
     for entry in result.freed:
         console.print(
@@ -52,7 +63,9 @@ def render_slot_gt_free_stack(result: SlotGtFreeStackResult) -> None:
 @clinkr_operation(
     name="free-stack",
     help=(
-        "Release every slot in the current Graphite stack except the slot at the current branch."
+        "Release every slot in the current Graphite stack except the slot at the current branch. "
+        "Pass --downstack to free only ancestor (below-current) slots, matching "
+        "`gt restack --downstack`."
     ),
     human_renderer=render_slot_gt_free_stack,
 )
@@ -89,6 +102,7 @@ def run_gt_free_stack(
                 trunk_branch=trunk,
                 freed=(),
                 noop_reason="on_trunk",
+                downstack=request.downstack,
             )
         )
 
@@ -112,7 +126,9 @@ def run_gt_free_stack(
         )
     stack = stack_result
 
-    stack_branches = collect_stack_branches(stack, current=current, trunk=trunk)
+    stack_branches = collect_stack_branches(
+        stack, current=current, trunk=trunk, downstack_only=request.downstack
+    )
 
     seen: set[str] = set()
     targets: list[str] = []
@@ -137,6 +153,7 @@ def run_gt_free_stack(
                 trunk_branch=trunk,
                 freed=(),
                 noop_reason="no_slots",
+                downstack=request.downstack,
             )
         )
 
@@ -158,5 +175,6 @@ def run_gt_free_stack(
                 for entry in outcome.freed
             ),
             noop_reason=None,
+            downstack=request.downstack,
         )
     )

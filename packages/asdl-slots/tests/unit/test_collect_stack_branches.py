@@ -65,3 +65,29 @@ def test_only_trunk_in_ancestors_yields_empty() -> None:
     stack = _stack(ancestors=("master",), descendants=())
 
     assert collect_stack_branches(stack, current="feat/middle", trunk="master") == ()
+
+
+def test_downstack_only_returns_ancestors_excluding_descendants() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+
+    assert collect_stack_branches(
+        stack, current="feat/middle", trunk="master", downstack_only=True
+    ) == ("feat/base",)
+
+
+def test_downstack_default_false_returns_ancestors_and_descendants() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+
+    assert collect_stack_branches(
+        stack, current="feat/middle", trunk="master", downstack_only=False
+    ) == (
+        "feat/base",
+        "feat/child",
+        "feat/grandchild",
+    )
