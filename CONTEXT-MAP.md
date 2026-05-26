@@ -1,35 +1,37 @@
 # CONTEXT-MAP
 
-This is the entry point into the asdl repo's domain ontology. Each in-scope package owns a `CONTEXT.md` with a `Language` glossary (term, definition, `Avoid:` aliases) and a `Relationships` section; this map indexes those files, declares which packages are explicitly out of scope, and records the real cross-package edges and any cross-context naming ambiguities that survived per-package canonicalization.
+This is the entry point into the asdl repo's domain ontology. Each in-scope context owns a `CONTEXT.md` with a `Language` glossary (term, definition, `Avoid:` aliases) and a `Relationships` section; this map indexes those files, declares explicitly out-of-scope package slots, and records real cross-context edges and naming ambiguities that survived per-context canonicalization.
 
-The map and the per-package files are produced by focused grilling sessions driven by `.claude/skills/grill-with-docs`. The format is the contract — there is no linter or generator behind it; human review is the enforcement mechanism.
+The map and the per-context files are produced by focused grilling/readback sessions driven by `.claude/skills/grill-with-docs` or adjacent Objectives that land conforming context sections. The format is the contract — there is no linter or generator behind it; human review is the enforcement mechanism.
 
 ## Repo-level context
 
 - **asdl repo / Objective system** — [`CONTEXT.md`](CONTEXT.md). _Present._
-  - Checked-in durable planning vocabulary: Objective, Objective Slug, Semantic Update, Tracking Gate, Objective Update, Objective Close, and Closure Marker.
+  - Checked-in durable planning vocabulary: Objective, Active Objective Root, Objective Archive Root, Archived Objective, Objective Slug, Semantic Update, Tracking Gate, Objective Update, Objective Close, Objective Archive, and Closure Marker.
 
-## In-scope package contexts
+## In-scope package and extension contexts
 
-The current tracked workspace has 7 packages with meaningful domain language. Each gets one `CONTEXT.md`:
+The current tracked workspace has 7 Python packages with meaningful domain language plus one substantial repo-local TypeScript/Pi extension package. Each gets one `CONTEXT.md` unless explicitly parked below.
 
-- **asdl-core** — [`packages/asdl-core/CONTEXT.md`](packages/asdl-core/CONTEXT.md)
+- **asdl-core** — [`packages/asdl-core/CONTEXT.md`](packages/asdl-core/CONTEXT.md). _Present._
   - The shared substrate. One file with one H2 section per logical subdomain:
     - [`## Clinkr`](packages/asdl-core/CONTEXT.md#clinkr) — operation / group / exit-envelope CLI framework. _Present._
-    - [`## Git`](packages/asdl-core/CONTEXT.md#git) — git gateway: branches, refs, worktrees, patch-id, `NonIdealState` arms. _Present._
+    - [`## Git`](packages/asdl-core/CONTEXT.md#git) — git gateway: branches, refs, worktrees, patch-id, commit graphs, path-touch facts, `NonIdealState` arms. _Present._
     - [`## Gt`](packages/asdl-core/CONTEXT.md#gt) — Graphite gateway: stack metadata, ancestors/children/descendants, `StackInfo`. _Present._
-    - [`## Gh`](packages/asdl-core/CONTEXT.md#gh) — GitHub gateway: PRs, reviews, threads, comments, state filters. _Present._
-    - `## Top-level utilities` — `plugin.py`, `console.py`, `format.py`, `click_utils.py`. _Planned._
+    - [`## Gh`](packages/asdl-core/CONTEXT.md#gh) — GitHub PR gateway: PR lifecycle, reviews, threads, comments, state filters. _Present._
+    - [`## Top-level utilities`](packages/asdl-core/CONTEXT.md#top-level-utilities) — plugin specs, context factories, Rich console/table helpers, relative-time/state-badge rendering, Click aliases. _Present._
+- **@asdl/pi-extensions** — [`ts/packages/pi-extensions/CONTEXT.md`](ts/packages/pi-extensions/CONTEXT.md). _Present._
+  - Repo-local Pi extension architecture: `.pi/extensions/` discovery adapters vs engineered TS implementation package, planned-branch workflow, checkpoint/new-branch flow, runner subagents, terminal presentation, and runtime CLI edges.
 - **brmem** — [`packages/brmem/CONTEXT.md`](packages/brmem/CONTEXT.md). _Planned._
-  - Branch-scoped durable memory: `Entry`, `Namespace`, `EntryKey`, `RefLayout`, snapshots, prompt resolution.
+  - Branch-scoped durable memory: Branch Memory System, Branch Memory, Entry, Namespace, Entry Key, base vs namespaced Entries, Entry/Ref locators, snapshots, copy conflicts, export, and prompt resolution. Planned-branch terms belong to the Pi/planning layer; brmem is only the lower storage adapter for attached plans.
 - **asdl-pr-address** — [`packages/asdl-pr-address/CONTEXT.md`](packages/asdl-pr-address/CONTEXT.md). _Planned._
-  - PR review address book: `ReviewThread`, `ReviewComment`, `DiscussionComment`, PR discussion comments, `Reaction`, `Feedback`. Cross-references (does not redefine) `asdl-core.gh` types.
+  - PR review address book: package behavior around core `PRReviewThread`, `PRReviewComment`, `PRDiscussionComment`, reactions, feedback, thread resolution and replies. Cross-references (does not redefine) `asdl-core.gh` types; `IssueComment` is legacy command/API wording, not canonical domain language.
 - **asdl-reviewer** — [`packages/asdl-reviewer/CONTEXT.md`](packages/asdl-reviewer/CONTEXT.md). _Planned._
-  - Reviewer harness: `Reviewer`, `ReviewDefinition`, `HarnessAdapter`, `Finding`, `InlineCommentability`, severity. Explicitly disambiguates `Review` against `gh.PRReview` and `pr-address.ReviewThread`.
+  - Reviewer harness: `Reviewer`, `ReviewDefinition`, `HarnessRuntime`, `HarnessDefinition`, `HarnessReviewRequest`, `ReviewCatalog`, `ReviewSource`, `ReviewFormat`, `Finding`, `InlineCommentability`, severity/frontmatter. Explicitly disambiguates reviewer "Review" vocabulary against `gh.PRReview` and `pr-address` thread vocabulary.
 - **asdl-slots** — [`packages/asdl-slots/CONTEXT.md`](packages/asdl-slots/CONTEXT.md). _Planned._
-  - Worktree slot manager: `SlotRecord`, `SlotInventory`, `InventoryStatus`, `RepoContext`, `SlotGcPlan`, `InitPlan`, `ResizePlan`.
+  - Worktree slot manager: `SlotRecord`, `SlotInventory`, `InventoryStatus`, `RepoContext`, `SlotGcPlan`, `InitPlan`, `ResizePlan`, shell directive files, explicit `slot gt` stack operations, and `free-stack --downstack` downstack-only release.
 - **asdl-objectives** — [`packages/asdl-objectives/CONTEXT.md`](packages/asdl-objectives/CONTEXT.md). _Planned._
-  - Objective lifecycle: `Objective`, `ObjectiveListEntry`, `ObjectiveRecord`, `exec` group conventions, checked-in Markdown records.
+  - Objective CLI package: Objective records, Objective status (`open`/`closed`/`in-flight`), record status, status sources, branch slices/path-touch attribution, archive/unarchive, hidden exec read/runner-subagent-usage commands, and checked-in Markdown rather than brmem storage.
 - **packagechk** — [`packages/packagechk/CONTEXT.md`](packages/packagechk/CONTEXT.md). _Planned._
   - Standalone package-name availability and claimability CLI: `Registry`, `CheckStatus`, `RegistryCheckResult`, `PackageCheckReport`, PyPI normalization, npm validation/scoped-name caveat, claim project specs, publish gateways, and parked Homebrew support.
 
@@ -45,21 +47,24 @@ Historical or absent package names are not reserved as context slots:
 
 ## Relationships
 
-Phase 4 will finalize this section after every per-package `CONTEXT.md` exists. Current ground truth and candidate edges must remain evidence-based — discoverable from `pyproject.toml` dependencies, source imports, or runtime behavior — with no speculative storage or workflow links.
+Phase 4 will finalize this section after every planned per-package `CONTEXT.md` exists. Current ground truth and candidate edges must remain evidence-based — discoverable from `pyproject.toml` dependencies, source imports, checked-in extension adapters, or runtime CLI behavior — with no speculative storage or workflow links.
 
 Current package-level facts:
 
 - `brmem`, `asdl-pr-address`, `asdl-reviewer`, `asdl-slots`, and `asdl-objectives` depend on `asdl-core` in `pyproject.toml` and import its subdomains in source.
 - `packagechk` is standalone relative to asdl packages: its `pyproject.toml` depends on `click` only and has no `asdl-core`, `brmem`, or other asdl package dependency.
+- There is no current Python package import edge between the peer packages (`brmem`, `asdl-pr-address`, `asdl-reviewer`, `asdl-slots`, `asdl-objectives`, `packagechk`).
 - There is no current `asdl-objectives → brmem` storage edge. Objectives are checked-in Markdown records read directly by `asdl-objectives`; Branch Memory remains a CLI/skill primitive rather than Objective package storage.
+- `@asdl/pi-extensions` is not a Python workspace package. Its checked-in `.pi/extensions/*.ts` discovery adapters import implementation modules from `ts/packages/pi-extensions/src/` and shell out at runtime to `git`, `gt`, `gh`, `brmem`, `objective`, and `slot` where the command contract requires those tools.
 
 Candidate edges to confirm and sharpen during package sessions:
 
 - `brmem → asdl-core.git + asdl-core.clinkr` — repo/ref facts and clinkr CLI framework.
-- `asdl-pr-address → asdl-core.gh + asdl-core.git + asdl-core.clinkr` — PR/review/comment types, branch-to-PR lookup, and clinkr CLI framework.
-- `asdl-reviewer → asdl-core.gh + asdl-core.git + asdl-core.clinkr` — PR/inline-comment interactions, local diff facts, and clinkr CLI framework.
-- `asdl-slots → asdl-core.git + asdl-core.gh + asdl-core.gt + asdl-core.clinkr` — worktree/repo facts, PR lifecycle facts, explicit `slot gt` stack navigation, and clinkr CLI framework.
-- `asdl-objectives → asdl-core.git + asdl-core.clinkr` — deterministic branch/objective listing over git facts and clinkr CLI framework.
+- `asdl-pr-address → asdl-core.gh + asdl-core.git + asdl-core.clinkr + asdl-core.plugin` — PR/review/comment types, branch-to-PR lookup, clinkr CLI framework, and standalone/plugin construction.
+- `asdl-reviewer → asdl-core.gh + asdl-core.git + asdl-core.clinkr + asdl-core.plugin` — PR/inline-comment interactions, local diff facts, clinkr CLI framework, and standalone/plugin construction.
+- `asdl-slots → asdl-core.git + asdl-core.gh + asdl-core.gt + asdl-core.clinkr + asdl-core.console/plugin` — worktree/repo facts, PR lifecycle facts, explicit `slot gt` stack navigation, clinkr CLI framework, and shared presentation/plugin helpers.
+- `asdl-objectives → asdl-core.git + asdl-core.clinkr + asdl-core.console/format/plugin` — deterministic branch/objective listing over git facts, clinkr CLI framework, status/time rendering, and standalone/plugin construction.
+- `@asdl/pi-extensions → Pi runtime + git/gt/gh/brmem/objective/slot CLIs` — repo-local extension commands/tools are discovered by Pi and use external CLIs at runtime rather than Python imports.
 - `packagechk` — standalone/no-`asdl-core` edge; package registry and publish gateways are package-internal boundaries around external services, not repo package dependencies.
 
 ## Flagged ambiguities
@@ -68,10 +73,12 @@ Phase 4 will finalize this section once package sessions either canonicalize col
 
 Candidates to confirm or resolve during sessions:
 
-- **Review** — used differently in `asdl-core.gh` (`PRReview` = a single review submission), `asdl-pr-address` (`ReviewThread` = a conversation), and `asdl-reviewer` (a `Reviewer` runs a `ReviewDefinition`).
-- **Comment** — `asdl-core.gh` distinguishes `PRReviewComment` from `PRDiscussionComment`; `asdl-pr-address` still needs to confirm its package-local `DiscussionComment` and `ReviewComment` names against those core types.
-- **State/status** — `gh.PRState` / `gh.PRStateFilter` vs `format.state_badge` rendering vs `packagechk.CheckStatus` / `PackageCheckReport.exit_code` availability outcomes.
-- **Branch / ref / start_point** — usage across `asdl-core.git`, `asdl-core.gt`, and `asdl-slots`.
+- **Review** — `asdl-core.gh.PRReview` is a submitted review event; `asdl-pr-address` works mostly with core review threads/comments; `asdl-reviewer` uses reviewer/harness/review-definition vocabulary for local review runs.
+- **Comment** — `asdl-core.gh` distinguishes `PRReviewComment` from `PRDiscussionComment`; `asdl-pr-address` should cross-reference those terms and treat `IssueComment` as legacy/API wording when it remains in command names.
+- **State/status** — `gh.PRState` / `gh.PRStateFilter` vs `format.state_badge` rendering vs `packagechk.CheckStatus` / `PackageCheckReport.exit_code` availability outcomes vs `ObjectiveStatus` / `ObjectiveRecordStatus` / `InventoryStatus` / slot GC actions.
+- **Active** — root Objective context distinguishes **Active Objective Root** from active status filters (`open` + `in-flight`); package contexts should spell out which axis they mean.
+- **Branch / ref / start point / snapshot ref** — usage across `asdl-core.git`, `asdl-core.gt`, `asdl-slots`, `brmem` entry/snapshot refs, `asdl-objectives` status sources, and planned-branch source/target branch terms.
+- **Plan** — Objective roadmap plans, local saved plans, planned branches, attached plans, and Branch Memory entries are separate concepts; `@asdl/pi-extensions` owns planned-branch policy while `brmem` owns generic branch-scoped text storage.
 
 ## Open question — deferred
 
