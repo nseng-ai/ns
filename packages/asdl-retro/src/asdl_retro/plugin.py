@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 from asdl_core.plugin import AsdlPluginSpec
+from asdl_retro.context import build_branch_retro_context
 from asdl_retro.group import build_branch_retro_group
-
-
-def build_branch_retro_context() -> object:
-    return object()
 
 
 def build_branch_retro_plugin() -> AsdlPluginSpec:
