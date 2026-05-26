@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "brmem": {
+      "source": "skills/brmem",
+      "sourceType": "local",
+      "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
+    },
     "brmem-handoff": {
       "source": "skills/brmem-handoff",
       "sourceType": "local",
@@ -10,11 +15,6 @@
       "source": "skills/brmem-pickup-handoff",
       "sourceType": "local",
       "computedHash": "02e9525fbf0101e3f336efb7ff3afd3afe90fd5a336bd2d4b9a2c1974ac5070d"
-    },
-    "brmem": {
-      "source": "skills/brmem",
-      "sourceType": "local",
-      "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
     "dev-checkpoint": {
       "source": "skills/dev-checkpoint",
@@ -30,6 +30,11 @@
       "source": "skills/dev-gh-ci-debug",
       "sourceType": "local",
       "computedHash": "50dc6dda73bf72580e22e3bb7d6c8d664bdff562a1cb833733c51062ed7559c9"
+    },
+    "dev-gt-restack-resolve": {
+      "source": "skills/dev-gt-restack-resolve",
+      "sourceType": "local",
+      "computedHash": "2e62de0c43138b8307af78ef2051847cad6dd4442b8d3b15d5214d5e46ede5fd"
     },
     "dev-gt-stackify-branch": {
       "source": "skills/dev-gt-stackify-branch",
@@ -79,36 +84,6 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "c77b86b4332919499608f9af1880074e1fec65a59b95c70c27a9f39cd137865e"
-    },
-    "objective": {
-      "source": "skills/objective",
-      "sourceType": "local",
-      "computedHash": "aa5341fa27784b85df440ae8bba0d5c34a7459d5e85ab7382abe76d4ef2a6508"
-    },
-    "objective-close": {
-      "source": "skills/objective-close",
-      "sourceType": "local",
-      "computedHash": "082b2857f8654e5853accecb03f0ad04fd891905f5fae5b4a7abf915373b29c7"
-    },
-    "objective-create": {
-      "source": "skills/objective-create",
-      "sourceType": "local",
-      "computedHash": "PENDING_REGEN"
-    },
-    "objective-current": {
-      "source": "skills/objective-current",
-      "sourceType": "local",
-      "computedHash": "df86f3081ebca1371fafd5f992b6be552743f438c3b9c536f0c670dc28016db7"
-    },
-    "objective-next": {
-      "source": "skills/objective-next",
-      "sourceType": "local",
-      "computedHash": "b98feb38880ce70eb63017d2607f85f2d90308782979ec66180f1de1bf1086ad"
-    },
-    "objective-update": {
-      "source": "skills/objective-update",
-      "sourceType": "local",
-      "computedHash": "079f190ae86ebcba272a5e2cfecad056b4a3a31b6f845eea4f2cfc16e706a2fa"
     },
     "ns-changelog-update": {
       "source": "nseng-ai/nonslop",
@@ -189,6 +164,36 @@
       "source": "nseng-ai/nonslop",
       "sourceType": "github",
       "computedHash": "b46238d4c9f4f40df3781a4a9688b28ba0e17aece4f38b4c141e9c458ab33eae"
+    },
+    "objective": {
+      "source": "skills/objective",
+      "sourceType": "local",
+      "computedHash": "aa5341fa27784b85df440ae8bba0d5c34a7459d5e85ab7382abe76d4ef2a6508"
+    },
+    "objective-close": {
+      "source": "skills/objective-close",
+      "sourceType": "local",
+      "computedHash": "082b2857f8654e5853accecb03f0ad04fd891905f5fae5b4a7abf915373b29c7"
+    },
+    "objective-create": {
+      "source": "skills/objective-create",
+      "sourceType": "local",
+      "computedHash": "PENDING_REGEN"
+    },
+    "objective-current": {
+      "source": "skills/objective-current",
+      "sourceType": "local",
+      "computedHash": "df86f3081ebca1371fafd5f992b6be552743f438c3b9c536f0c670dc28016db7"
+    },
+    "objective-next": {
+      "source": "skills/objective-next",
+      "sourceType": "local",
+      "computedHash": "b98feb38880ce70eb63017d2607f85f2d90308782979ec66180f1de1bf1086ad"
+    },
+    "objective-update": {
+      "source": "skills/objective-update",
+      "sourceType": "local",
+      "computedHash": "079f190ae86ebcba272a5e2cfecad056b4a3a31b6f845eea4f2cfc16e706a2fa"
     },
     "pr-address": {
       "source": "skills/pr-address",
