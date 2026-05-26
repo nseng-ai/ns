@@ -8,6 +8,7 @@ import {
 	objectiveDiffPickerTitle,
 	objectiveRecordsWithChangedFirst,
 	parseObjectiveDiffChangedSlugs,
+	parseObjectiveStatusChangedSlugs,
 	type ObjectiveDiffSelection,
 } from "../src/objective-picker.ts";
 
@@ -59,6 +60,51 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 	});
 });
 
+describe("parseObjectiveStatusChangedSlugs", () => {
+	test("modified Objective path produces a slug", () => {
+		expect(parseObjectiveStatusChangedSlugs(" M .asdl/objectives/alpha/objective.md\0")).toEqual(["alpha"]);
+	});
+
+	test("deleted Objective path produces a slug", () => {
+		expect(parseObjectiveStatusChangedSlugs(" D .asdl/objectives/alpha/roadmap.md\0")).toEqual(["alpha"]);
+	});
+
+	test("untracked Objective file produces a slug", () => {
+		expect(parseObjectiveStatusChangedSlugs("?? .asdl/objectives/bravo/objective.md\0")).toEqual(["bravo"]);
+	});
+
+	test("archive-root paths are ignored", () => {
+		expect(parseObjectiveStatusChangedSlugs(" M .asdl/objective-archive/alpha/objective.md\0")).toEqual([]);
+	});
+
+	test("unrelated paths are ignored", () => {
+		expect(parseObjectiveStatusChangedSlugs(" M docs/readme.md\0")).toEqual([]);
+	});
+
+	test("duplicate slugs are deduplicated and sorted", () => {
+		const stdout = [
+			" M .asdl/objectives/zeta/objective.md",
+			" A .asdl/objectives/alpha/objective.md",
+			" D .asdl/objectives/zeta/roadmap.md",
+			"",
+		].join("\0");
+
+		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["alpha", "zeta"]);
+	});
+
+	test("rename includes old and new slugs", () => {
+		const stdout = "R  .asdl/objectives/new-name/objective.md\0.asdl/objectives/old-name/objective.md\0";
+
+		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["new-name", "old-name"]);
+	});
+
+	test("copy includes old and new slugs", () => {
+		const stdout = "C  .asdl/objectives/echo/objective.md\0.asdl/objectives/delta/objective.md\0";
+
+		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["delta", "echo"]);
+	});
+});
+
 describe("Objective picker policy", () => {
 	test("changedActiveObjectiveSelection returns undefined when there are no changed active records", () => {
 		expect(changedActiveObjectiveSelection(objectiveList(["alpha"]), "master", ["bravo"])).toBeUndefined();
@@ -67,6 +113,7 @@ describe("Objective picker policy", () => {
 	test("changedActiveObjectiveSelection returns selection when changed slugs intersect active records", () => {
 		expect(changedActiveObjectiveSelection(objectiveList(["alpha", "bravo"]), "master", ["bravo"])).toEqual({
 			trunkBranch: "master",
+			changeBasisLabel: "changed vs master",
 			allChangedSlugs: ["bravo"],
 			changedActiveSlugs: ["bravo"],
 		});
@@ -164,5 +211,5 @@ function record(slug: string, options: { status?: string; latestUpdateIso?: stri
 }
 
 function selection(allChangedSlugs: string[], changedActiveSlugs: string[]): ObjectiveDiffSelection {
-	return { trunkBranch: "master", allChangedSlugs, changedActiveSlugs };
+	return { trunkBranch: "master", changeBasisLabel: "changed vs master", allChangedSlugs, changedActiveSlugs };
 }
