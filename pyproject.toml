@@ -44,7 +44,6 @@ plugins = [
   "asdl-dispatcher",
   "asdl-objectives",
   "asdl-pr-address",
-  "aretro",
   "asdl-slots",
 ]
 
