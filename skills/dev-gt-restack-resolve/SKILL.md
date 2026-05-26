@@ -1,6 +1,6 @@
 ---
 name: dev-gt-restack-resolve
-description: "Restack the current Graphite stack downstack and resolve rebase conflicts intelligently — auto-merge mechanically-safe conflicts (verified with project checks) and escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', or a downstack restack expected to conflict."
+description: "Restack the current Graphite stack with conflict resolution — downstack by default, full stack on request. Auto-merge mechanically-safe conflicts (verified with project checks) and escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', or a restack expected to conflict."
 metadata:
   internal: true
 allowed-tools:
@@ -22,10 +22,11 @@ allowed-tools:
 
 # dev-gt-restack-resolve
 
-Drive a **downstack** Graphite restack semi-autonomously: auto-resolve the
-mechanically-safe conflicts, verify any code resolution with the project's
-checks, and escalate only the genuinely ambiguous conflicts to a human with a
-proposed resolution.
+Drive a Graphite restack semi-autonomously with an explicit **scope**:
+**downstack** by default, or **full stack** when the user asks for it.
+Auto-resolve the mechanically-safe conflicts, verify any code resolution with
+the project's checks, and escalate only the genuinely ambiguous conflicts to a
+human with a proposed resolution.
 
 This skill is **prose-only** — it adds no conflict-resolution tooling. It
 composes two existing skills and you should defer to them rather than duplicate
@@ -39,16 +40,23 @@ their content:
 ## When to use
 
 - "restack and resolve conflicts", "intelligent restack", "auto restack"
-- A downstack `gt restack` that is expected to hit conflicts
+- "full restack", "whole-stack restack", "include upstack", "not just downstack"
+- A `gt restack` (downstack or full stack) that is expected to hit conflicts
 - Resuming a restack that was already interrupted mid-rebase
 
 ## Scope and non-goals
 
-- **Downstack only.** Operate on the chain trunk → current (ancestors +
-  current). Upstack is **never** touched — no auto-checkout to the tip, no
-  "you're not at the tip" warning. ("Rebase up to the branch where I am.")
+- **Scope must be explicit.** Default to **downstack** for generic requests;
+  use **full** only when the user asks for the whole stack/upstack descendants
+  or confirms a prompt.
+- **Downstack scope:** operate on the chain trunk → current (ancestors +
+  current). Upstack is not touched.
+- **Full scope:** operate on the current Graphite stack as `gt restack` does
+  (ancestors + current + descendants). This may rewrite upstack descendants, so
+  do not use it unless requested or confirmed.
 - **Never** `gt submit` / push / land.
-- **Never** touch upstack or sibling stacks.
+- **Never** touch sibling stacks. Upstack descendants are in scope only for a
+  full restack.
 - **Never** `gt abort` without explicit confirmation.
 
 ## The decisive technique
@@ -83,41 +91,69 @@ base changes elsewhere in the file. (Key lesson.)
   straight to the **Loop** at the resolve step, following the `graphite` skill's
   "Recovering from Interrupted Rebase (Context Reset)" section.
 
-### 2. Scope
+### 2. Choose scope
 
-Operate on the downstack chain (trunk → current) only. This skill always drives
-`gt restack --downstack`. Upstack and sibling stacks are out of scope.
+Set `RESTACK_SCOPE` before running any restack command.
 
-### 3. Multi-slot check
+| User intent                                                                                | Scope                 | Slot consolidation command       | Restack command          |
+| ------------------------------------------------------------------------------------------ | --------------------- | -------------------------------- | ------------------------ |
+| Generic "restack and resolve", "rebase up to where I am", or ambiguous request             | `downstack` (default) | `slot gt free-stack --downstack` | `gt restack --downstack` |
+| Explicit "full restack", "whole stack", "include upstack/descendants", or confirmed prompt | `full`                | `slot gt free-stack`             | `gt restack`             |
+
+Rules:
+
+- If the user did **not** explicitly ask for full-stack behavior, default to
+  `downstack`. When in doubt, ask.
+- `full` means Graphite's current stack from the current branch: ancestors,
+  current, and descendants (upstack). It does **not** mean every stack in the
+  repo.
+- Do not auto-checkout to the tip. Run the command from the user's current
+  branch unless they explicitly ask to move first.
+
+### 3. Multi-slot consolidation
 
 In this repo a stack's branches can be checked out across multiple worktree
-**slots**, which locks them against rebasing. Before looping, find out whether
-any ancestor branch is locked elsewhere:
+**slots**, which locks them against rebasing. A restack can fail when another
+slot has a branch in the selected scope checked out, so consolidate only the
+selected scope before looping.
+
+The `slot gt free-stack` command is **mutating**: it releases matching slots by
+detaching them at trunk. Do not treat `--format json` as a dry-run. If the user
+has not already authorized freeing stack slots, ask before running it.
+
+For downstack scope:
 
 ```bash
-slot gt free-stack --downstack --format json
+slot gt free-stack --downstack
 ```
 
-The `data.downstack: true` field confirms ancestors-only scope. The reported
-freed slots tell you which ancestor branches are held in another slot.
+For full scope:
 
-- If **no** ancestor is locked elsewhere → go straight to the Loop.
-- If one or more ancestors are locked in another slot → **offer** to consolidate
-  them into this slot and **confirm** with the user. On **yes**:
+```bash
+slot gt free-stack
+```
 
-  ```bash
-  slot gt free-stack --downstack
-  ```
+Use `--format json` only when you need a machine-readable record of what was
+freed; the scope is still mutating. `data.downstack: true` means downstack
+scope; `data.downstack: false` means full-stack slot consolidation.
 
-  Then proceed **straight** into the Loop.
+Then proceed straight into the Loop.
 
 ### 4. Loop
 
-Start (or resume) the restack:
+If no rebase is currently in progress, start the restack with the command chosen
+in **Choose scope**:
 
 ```bash
+# downstack scope
 gt restack --downstack
+
+# full scope
+gt restack
 ```
+
+If a rebase is already interrupted, skip this start command and continue from
+the current conflict state.
 
 On each conflict, `git status` reports the stopped commit:
 
@@ -176,7 +212,7 @@ For **each conflicted file**:
 
 ### 5. Done
 
-When `gt restack --downstack` reports there is nothing left to restack:
+When the selected restack command reports there is nothing left to restack:
 
 - Run a final `git status` (clean) and `gt log` / `gt ls` to confirm a clean
   stack rooted correctly.
@@ -188,7 +224,9 @@ When `gt restack --downstack` reports there is nothing left to restack:
 Stop and hand back with a summary — never `gt abort` without explicit
 confirmation — if any of these occur:
 
-- a conflict surfaces in a branch **not** in the downstack chain (out of scope),
+- a conflict surfaces in a branch **outside the selected scope** (for example,
+  an upstack branch during downstack scope, or a sibling/unrelated stack during
+  any scope),
 - the verification gate fails repeatedly on the same resolution,
 - the repository is in an unrecognizable state you cannot safely classify.
 
