@@ -48,12 +48,14 @@ ts/packages/pi-extensions/
 
 The engineered layer is for durable behavior that benefits from tests, fake adapters, shared modules, or package-level validation. Project-local discovery adapters can stay in `.pi/extensions/` while the implementation lives in this package.
 
-Use this layer for behavior that has proven stable, has meaningful safety risk, is reused by more than one extension, or needs fake-driven tests. For TypeScript package changes, validate with:
+Use this layer for behavior that has proven stable, has meaningful safety risk, is reused by more than one extension, or needs fake-driven tests. For TypeScript package changes, validate with the canonical repo targets:
 
 ```text
-bun run --cwd ts check
-bun run --cwd ts test
+just ts-check
+just ts-test
 ```
+
+The `justfile` owns the underlying package-manager invocation so guidance stays aligned with the repo validation surface.
 
 ### Promotion criteria
 
