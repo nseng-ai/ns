@@ -152,6 +152,21 @@ _Avoid:_ diff, file list, cleanliness boolean.
 **LocalBranchTip** — A local branch name paired with its HEAD committer timestamp.
 _Avoid:_ current branch, last-touched file timestamp, remote branch tip.
 
+**LocalBranchTipRef** — A local branch name paired with its HEAD object ID for commit-graph analysis.
+_Avoid:_ LocalBranchTip, current branch, remote branch ref.
+
+**CommitGraphNode** — One commit object ID and its parent object IDs from a commit graph walk.
+_Avoid:_ CommitSummary, patch id, branch node.
+
+**BranchCommitGraph** — The branch tips and commit nodes reachable from selected local branches after excluding a base branch.
+_Avoid:_ Graphite stack, full repository graph, branch tree.
+
+**PathTouch** — The latest commit object ID and committed time touching one path within a ref or revision range.
+_Avoid:_ file timestamp, branch HEAD time, path existence.
+
+**PathChangeTouch** — One commit and the changed paths under a pathspec, newest-first for path-touch attribution.
+_Avoid:_ changed file list, diff summary, PathTouch.
+
 **CommitSummary** — One commit returned from a range query, represented by SHA, author timestamp, and subject.
 _Avoid:_ PR commit, patch id, changelog entry.
 
@@ -180,6 +195,8 @@ Use **Branch** only for local `refs/heads/*` names and branch-attached worktrees
 #### Snapshot and history reads
 
 Ref/tree readers return empty tuples or `False` for absent paths at known refs, and **GitCommandFailure** for unknown refs or unexpected command failures. History readers (`log_range`, `patch_ids_for_range`, `count_commits_in_range`) return typed summaries or a failure arm rather than raising at the gateway boundary. Path-touch history readers return the latest touching commit/time for a ref+path, or `None` when no such touch is available.
+
+**BranchCommitGraph** is a local-branch history projection, not Graphite metadata: it starts from selected local **LocalBranchTipRef** values, excludes commits reachable from a base branch, and returns **CommitGraphNode** records. **PathTouch** and **PathChangeTouch** are path-attribution facts over refs or revision ranges; callers use them to decide which Objective, snapshot, or path record a branch slice touched without parsing prose.
 
 #### Worktrees and slots
 
@@ -361,3 +378,54 @@ A **PRReviewThread** owns the **PR diff anchor** and thread state: path, line ra
 A **PR inline comment draft** is pre-submission data. After submission through a **PRReview**, GitHub may surface it as a **PRReviewComment** inside a **PRReviewThread**; do not use the persisted comment term for the draft.
 
 **PR changed files** are the source for deciding whether a **PR diff anchor** is commentable. Missing patch text means inline-commentability may be limited for that file; it is not a gateway failure by itself.
+
+## Top-level utilities
+
+The top-level `asdl_core` modules are shared presentation and plugin glue for asdl packages. They are not a separate domain like Git, Gt, or Gh, but their vocabulary matters because every standalone/plugin CLI uses the same construction and rendering seams.
+
+### Language
+
+**AsdlPluginSpec** — The declarative plugin contract shared by a standalone CLI and its mounted `asdl` plugin: a group builder plus an optional context factory.
+_Avoid:_ plugin registry, entry point object, Click command.
+
+**Context factory** — A zero-argument callable that lazily constructs the package-specific typed context for an invocation.
+_Avoid:_ global singleton, Click context, request model.
+
+**Standalone CLI builder** — The helper that turns an `AsdlPluginSpec` into a package's standalone Click group, adding `-h/--help` and package version behavior.
+_Avoid:_ plugin discovery, operation registration, console entry point.
+
+**Standalone CLI invoker** — The helper that builds and runs a standalone CLI, installing a clinkr context object only when the spec has a context factory.
+_Avoid:_ plugin mount, test runner, Click callback.
+
+**asdl console** — A fresh Rich `Console` bound to the current `sys.stdout` for one render path.
+_Avoid:_ global console singleton, logger, stderr renderer.
+
+**asdl table** — The canonical Rich table style returned by `make_table`, including header style, box, padding, and expansion behavior.
+_Avoid:_ arbitrary Rich table, CLI data model, renderer.
+
+**Relative time string** — A compact human-facing age such as `5m ago`, `2h ago`, or `just now`, derived from an ISO timestamp.
+_Avoid:_ timestamp parser, duration object, freshness state.
+
+**State badge** — A Rich-markup label for a PR/issue-like state string, currently normalizing `open` and `closed` specially and surfacing unknown states in yellow.
+_Avoid:_ PRState, status enum, package availability status.
+
+**AliasedGroup** — A Click group variant that resolves alias names to canonical command names and shows aliases inline in help.
+_Avoid:_ ClinkrGroup, dynamic registry, shell alias.
+
+### Relationships
+
+#### Plugin spec flow
+
+Packages define one **AsdlPluginSpec** so their standalone entry point and their `asdl.plugins` entry point share the same group construction. The spec's **Context factory** is passed into clinkr's context object lazily; help/version/schema paths do not need to construct package gateways.
+
+#### Presentation helpers
+
+Use **asdl console** and **asdl table** for user-facing Rich output so plugin packages share the same capture-safe stdout behavior and table look. These helpers are presentation surfaces, not result models; machine JSON still comes from clinkr result types.
+
+#### State rendering boundary
+
+**State badge** renders state-like strings for humans. It is not the source of truth for **PRState**, **PRStateFilter**, Objective status, slot inventory status, or package availability status; those domains own their typed state/status vocabularies and may feed labels into the badge renderer only at presentation time.
+
+#### Aliases
+
+**AliasedGroup** is a legacy Click-level alias helper. New clinkr operations normally use `ClinkrGroup` alias support through operation metadata; use `AliasedGroup` only where plain Click grouping still owns the surface.

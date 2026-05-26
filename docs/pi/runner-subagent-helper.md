@@ -1,6 +1,6 @@
 # Runner Subagent Helper
 
-This document describes the local runner-subagent helper tracked by the [Pi Extension Runner Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md). It is a repo-local extension/package-layer primitive, not a Pi core API.
+This document describes the local runner-subagent helper tracked by the archived [Pi Core Subagent MVP Objective](../../.asdl/objective-archive/pi-core-subagent-mvp/objective.md). It is a repo-local extension/package-layer primitive, not a Pi core API.
 
 ## Mental model
 
@@ -22,7 +22,7 @@ Important details:
 
 - `--mode json -p` gives the parent JSONL session events to parse.
 - `--no-extensions` prevents ordinary project parent extensions from recursively loading in the subagent.
-- `--extension <generated-runtime>` injects a private runtime extension containing only the requested terminal capture tools.
+- `--extension <generated-runtime>` injects a private runtime extension containing only the requested terminal capture tools when terminal mode is used.
 - `--session <file>` points at a parent-created runner subagent artifact. The returned `sessionFile` is inspectable after blocked/error/cancelled outcomes when Pi writes the session.
 - The subagent uses `ctx.cwd` by default, so it sees the same repository/worktree while starting from a fresh conversation.
 
@@ -30,7 +30,7 @@ The helper keeps the full subagent transcript out of the parent LLM context. Par
 
 ## Terminal capture tools
 
-Callers provide terminal tools with:
+Terminal-mode callers provide terminal tools with:
 
 - `name`
 - `status`: `completed` or `blocked`
@@ -74,8 +74,19 @@ Previews are compacted and truncated; inspect the returned `sessionFile` for the
 
 Do not use `pi.sendMessage(...)` for transient subagent progress: custom messages participate in the parent session and LLM context. Do not write raw progress to stdout from the extension either; subagent stdout is the JSONL protocol stream and parent Pi/TUI output is managed by Pi.
 
+## Agent-facing dispatch tool
+
+The project-local shim `.pi/extensions/dispatch-runner-subagent.ts` loads `ts/packages/pi-extensions/src/dispatch-runner-subagent.ts`, registering the `dispatch_runner_subagent` tool.
+
+That tool always uses final-text mode. It requires:
+
+- `title`: concise title for the runner subagent artifact/progress.
+- `prompt`: complete prompt for the subagent, including all necessary context.
+
+The tool returns final assistant text when the child produces it. For every non-`final-text` status, the tool result includes diagnostics and the session file path; the parent agent must inspect those before treating the delegated task as complete.
+
 ## Why not Pi core?
 
-The Objective intentionally uses the extension/package layer because current evidence only requires an awaited subprocess helper for local extensions. This avoids upstream Pi core changes, keeps terminal capture semantics local and testable, and lets future consumers prove whether a narrower core hook is necessary.
+The Objective intentionally used the extension/package layer because current evidence only required an awaited subprocess helper for local extensions. This avoided upstream Pi core changes, kept terminal capture semantics local and testable, and let future consumers prove whether a narrower core hook is necessary.
 
 Revisit Pi core only with evidence that the extension-layer helper cannot satisfy a real workflow, such as needing pre-side-effect enforcement for sibling tool batches, interactive subagent replies, durable in-flight resume, or filtered parent-context inheritance.

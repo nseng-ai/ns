@@ -68,18 +68,29 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 
 ### Current inventory
 
-| Area/file                                        | Current layer                                  | Notes                                                                                                |
-| ------------------------------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `.pi/extensions/objective.ts`                    | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates Objective behavior to package code.                   |
-| `.pi/extensions/land-stack.ts`                   | Project-local adapter over engineered behavior | Keeps `/land-stack` discovery local while durable behavior lives in the package.                     |
-| `.pi/extensions/brmem-handoff.ts`                | Project-local adapter over engineered behavior | Adds `/brmem-handoff` and `/brmem-pickup-handoff` Branch Memory handoff frontends.                   |
-| `.pi/extensions/land.ts`                         | Vibecoded implementation                       | Intentional fast path for non-Graphite users; kept local and direct.                                 |
-| `.pi/extensions/just-fix.ts`                     | Vibecoded implementation                       | Useful repo-local workflow; kept vibecoded while reusing the package skill-expansion helper.         |
-| `.pi/extensions/submit.ts`                       | Project-local adapter over engineered behavior | Keeps `/submit` discovery local while durable behavior lives in the package.                         |
-| `ts/packages/pi-extensions/src/objective.ts`     | Engineered implementation                      | Package-tested Objective extension behavior.                                                         |
-| `ts/packages/pi-extensions/src/land-stack.ts`    | Engineered implementation                      | Package-tested landing behavior; later refactors may split internals without changing `/land-stack`. |
-| `ts/packages/pi-extensions/src/brmem-handoff.ts` | Engineered implementation                      | Package-tested Branch Memory handoff command selection and prompt handoff behavior.                  |
-| `ts/packages/pi-extensions/src/submit.ts`        | Engineered implementation                      | Package-tested Graphite submit behavior with a `/submit`-specific runner seam.                       |
+| Area/file                                                         | Current layer                                  | Notes                                                                                                                  |
+| ----------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `.pi/extensions/objective.ts`                                     | Project-local adapter over engineered behavior | Loaded by Pi from `.pi/extensions/`; delegates Objective behavior to package code.                                     |
+| `.pi/extensions/land-stack.ts`                                    | Project-local adapter over engineered behavior | Keeps `/land-stack` discovery local while durable landing behavior lives in the package.                               |
+| `.pi/extensions/brmem-handoff.ts`                                 | Project-local adapter over engineered behavior | Adds `/brmem-handoff` and `/brmem-pickup-handoff` Branch Memory handoff frontends.                                     |
+| `.pi/extensions/cp.ts`                                            | Project-local adapter over engineered behavior | Adds `/cp` checkpoint commits over package-tested pending-worktree/checkpoint helpers.                                 |
+| `.pi/extensions/newbr.ts`                                         | Project-local adapter over engineered behavior | Adds `/newbr` Graphite branch creation plus checkpoint commit flow.                                                    |
+| `.pi/extensions/planned-branch.ts`                                | Project-local adapter over engineered behavior | Adds `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch`, defaulting this repo to Graphite creation.   |
+| `.pi/extensions/dispatch-runner-subagent.ts`                      | Project-local adapter over engineered behavior | Registers the `dispatch_runner_subagent` final-text tool for agents.                                                   |
+| `.pi/extensions/runner-subagent-demo.ts`                          | Project-local adapter over engineered behavior | Diagnostic command proving runner-subagent parent integration.                                                         |
+| `.pi/extensions/worktree-status.ts`                               | Project-local adapter over engineered behavior | Worktree/session status display backed by package code.                                                                |
+| `.pi/extensions/submit.ts`                                        | Project-local adapter over engineered behavior | Keeps `/submit` discovery local while durable behavior lives in the package.                                           |
+| `.pi/extensions/just-fix.ts`                                      | Vibecoded implementation                       | Useful repo-local workflow; not yet promoted or package-tested.                                                        |
+| `.pi/extensions/land.ts`                                          | Vibecoded implementation                       | Legacy landing command surface; candidate for review against `/land-stack`.                                            |
+| `ts/packages/pi-extensions/CONTEXT.md`                            | Engineered context                             | Domain language for this package and its project-local discovery adapters.                                             |
+| `ts/packages/pi-extensions/src/objective.ts`                      | Engineered implementation                      | Package-tested Objective extension behavior.                                                                           |
+| `ts/packages/pi-extensions/src/land-stack.ts` and `land-stack/*`  | Engineered implementation                      | Package-tested stack landing behavior; internals are split under `land-stack/`.                                        |
+| `ts/packages/pi-extensions/src/brmem-handoff.ts`                  | Engineered implementation                      | Package-tested Branch Memory handoff command selection and prompt handoff behavior.                                    |
+| `ts/packages/pi-extensions/src/planned-branch-extension.ts`       | Engineered implementation                      | Planned-branch command/tool wiring over `src/planned-branch/*`.                                                        |
+| `ts/packages/pi-extensions/src/cp.ts` / `newbr*.ts`               | Engineered implementation                      | Checkpoint and new-branch workflows over pending-worktree, preparation, and transaction helpers.                       |
+| `ts/packages/pi-extensions/src/submit.ts`                         | Engineered implementation                      | Package-tested Graphite submit behavior with a `/submit`-specific runner seam.                                         |
+| `ts/packages/pi-extensions/src/runner-subagent.ts` and submodules | Engineered implementation                      | Runner-subagent subprocess, JSON-event parsing, generated runtime extension, terminal capture, and final-text results. |
+| `ts/packages/pi-extensions/src/terminal-presentation.ts`          | Engineered implementation                      | Shared terminal hyperlink/linkification and custom-message text helpers.                                               |
 
 ## Planned branch workflow
 
@@ -95,7 +106,7 @@ See [Extension message linkification](./extension-message-linkification.md).
 
 ## Runner subagent helper
 
-The local runner subagent helper lets project extensions await a fresh runner subagent and receive a structured terminal result without slash-command handoff text.
+The local runner subagent helper lets project extensions await a fresh runner subagent and receive either a structured terminal-capture result or final assistant text without slash-command handoff text.
 
 See [Runner Subagent Helper](./runner-subagent-helper.md).
 
@@ -151,8 +162,8 @@ Global extensions live under:
 
 ## Core subagent and Objective stack rewrite proposals
 
-- [Pi Core Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md): canonical design record for the proposed Pi core foreground runner subagent primitive and terminal capture semantics.
-- [Pi Core Subagent MVP Roadmap](../../.asdl/objectives/pi-core-subagent-mvp/roadmap.md): review-slice plan for landing the primitive.
+- [Pi Core Subagent MVP Objective](../../.asdl/objective-archive/pi-core-subagent-mvp/objective.md): archived design record for the proposed Pi core foreground runner subagent primitive and terminal capture semantics.
+- [Pi Core Subagent MVP Roadmap](../../.asdl/objective-archive/pi-core-subagent-mvp/roadmap.md): archived review-slice plan for the primitive.
 - [Objective Stack Runner-Subagent Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on the repo-local runner subagent helper.
 
 ## Session `cwd` semantics

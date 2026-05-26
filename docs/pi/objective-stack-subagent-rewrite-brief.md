@@ -1,8 +1,10 @@
 # Objective Stack Runner-Subagent Rewrite Brief
 
+> **Staleness note:** This is a historical design brief. It still captures useful Objective-stack product constraints, but its old **child-session** API names are superseded by the repo-local **runner subagent** helper. For current helper vocabulary and statuses, read [Runner Subagent Helper](./runner-subagent-helper.md) first.
+
 ## Why this document exists
 
-This brief captures the current Objective stack implementation workflow, the failure mode that prompted a redesign, and the intended rewrite on top of the repo-local Pi extension runner-subagent helper.
+This brief captures the Objective stack implementation workflow, the failure mode that prompted a redesign, and the intended rewrite on top of the repo-local Pi extension runner-subagent helper.
 
 It is written for a fresh agent so they do **not** need to rediscover:
 
@@ -13,18 +15,18 @@ It is written for a fresh agent so they do **not** need to rediscover:
 - how the same feature should work over awaited runner subagents;
 - what risks and design decisions remain open.
 
-Read this together with the [Pi Extension Runner Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md) and the [Runner Subagent Helper](./runner-subagent-helper.md). The older Pi-core `ctx.runChildSession()` proposal and later `runChildSession(...)` prototype terminology are historical; current repo guidance uses the local `dispatchRunnerSubagent(pi, ctx, options)` helper from `ts/packages/pi-extensions/src/runner-subagent.ts`, not a Pi core API.
+Read this together with the archived [Pi Core Subagent MVP Objective](../../.asdl/objective-archive/pi-core-subagent-mvp/objective.md) and the current [Runner Subagent Helper](./runner-subagent-helper.md). The original Pi-core `ctx.runChildSession()` / repo-local `runChildSession(...)` design is superseded for this repository: use `dispatchRunnerSubagent(pi, ctx, options)` from `ts/packages/pi-extensions/src/runner-subagent.ts`, not a Pi core API.
 
 ## Current runner-subagent implementation facts
 
 The base runner-subagent abstraction now exists in this repository. These facts should guide the Objective stack rewrite:
 
 - The helper is `dispatchRunnerSubagent(pi, { cwd, signal }, options)` from `ts/packages/pi-extensions/src/runner-subagent.ts`.
-- Runner subagent runs are subprocesses shaped like `pi --mode json -p --no-extensions --extension <generated-runtime> --session <file> <prompt>`.
+- Runner subagents are subprocesses shaped like `pi --mode json -p --no-extensions --extension <generated-runtime> --session <file> <prompt>`.
 - Runner subagents start with fresh conversation history in the same cwd/worktree by default.
-- Ordinary project extensions are not loaded in the subagent; only the generated terminal-capture runtime is injected.
+- Ordinary project extensions are not loaded in the subagent; only the generated terminal-capture runtime is injected for terminal mode.
 - Terminal tools are capture-only. They validate and record input, request termination, and do not perform domain side effects.
-- Completed/blocked payloads are returned at `result.terminal.input`; there is no public `details`, `content`, or `isError` terminal-result contract.
+- Completed/blocked payloads are returned at `result.terminal.input`; final-text mode returns `result.finalText`.
 - Result statuses are `completed`, `blocked`, `final-text`, `stopped-without-terminal`, `stopped-without-useful-text`, `cancelled`, `error`, and `protocol-error`.
 - The helper is non-interactive: it cannot receive additional user replies while the subagent is running.
 - There are no stable package exports or subpaths yet; current consumers use source-local imports plus thin `.pi/extensions/*` shims.
@@ -492,12 +494,13 @@ Slice runner subagent:
 Local runner-subagent helper:
 
 - spawns a fresh subagent Pi process in JSON mode;
-- injects only the generated terminal-capture runtime;
+- injects only the generated terminal-capture runtime for terminal mode;
 - creates or discovers an inspectable runner subagent session path;
 - parses lightweight subagent progress into the final result;
 - detects terminal capture tools and protocol violations;
 - stops the subagent after terminal state;
-- returns structured terminal input to parent as `result.terminal.input`;
+- returns structured terminal input to parent as `result.terminal.input` in terminal mode;
+- can return useful assistant final text as `result.finalText` in final-text mode;
 - handles cancellation best-effort.
 
 ## Minimal runner-subagent requirements for this rewrite
@@ -508,7 +511,8 @@ Available now:
 - Same cwd/worktree sequential runner subagents.
 - Fresh subagent context by default.
 - Runner subagent session file returned when available.
-- Terminal payload returned as canonical validated `result.terminal.input`.
+- Terminal payload returned as canonical validated `result.terminal.input` in terminal mode.
+- Final assistant text returned as `result.finalText` in final-text mode.
 - Result statuses: `completed`, `blocked`, `final-text`, `stopped-without-terminal`, `stopped-without-useful-text`, `cancelled`, `error`, and `protocol-error`.
 - Lightweight progress in the final result and via `onProgress(update)` callbacks; callers can show progress plus UI-only activity in their own status/widget while waiting.
 - Cancellation returns `status: "cancelled"` when distinguishable.

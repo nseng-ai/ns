@@ -9,15 +9,21 @@ An **Objective** is a checked-in **Durable Narrative Roadmap Record** for multi-
 
 An Objective is not a workflow controller, state machine, hidden agent store, or task database.
 
-## Canonical Location
+## Canonical Locations
 
-Objective records live under the checked-in root:
+Active Objective records live under the checked-in active root:
 
 ```text
 .asdl/objectives/
 ```
 
-Each objective is keyed by its directory slug:
+Archived Objective records live under the checked-in archive root:
+
+```text
+.asdl/objective-archive/
+```
+
+Each objective is keyed by its directory slug. Active records use this shape:
 
 ```text
 .asdl/objectives/<slug>/
@@ -27,13 +33,17 @@ Each objective is keyed by its directory slug:
   closed.md        # optional; existence means closed
 ```
 
+Archived records preserve the same internal shape under `.asdl/objective-archive/<slug>/`.
+
 Rules:
 
-- `.asdl/objectives/` is first-class repository content and should be committed.
-- The `<slug>` directory name is the stable objective identity.
+- `.asdl/objectives/` and `.asdl/objective-archive/` are first-class repository content and should be committed.
+- The `<slug>` directory name is the stable objective identity in either root.
 - The markdown title may change without changing objective identity.
 - Command, product, branch, package, and prose renames do not imply Objective slug renames.
-- Moving `.asdl/objectives/<old>/` to `.asdl/objectives/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
+- Moving `.asdl/objectives/<old>/` to `.asdl/objectives/<new>/` or `.asdl/objective-archive/<old>/` to `.asdl/objective-archive/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
+- Moving `.asdl/objectives/<slug>/` to `.asdl/objective-archive/<slug>/` is Objective archive, not slug migration.
+- Open/closed state and active/archived location are orthogonal: `closed.md` records closure state; root location controls whether normal active workflows discover the record.
 - Do not add YAML frontmatter, UUIDs, registries, or hidden attachment metadata.
 - V1 starts fresh from `.asdl/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
@@ -141,17 +151,21 @@ Rules:
 
 - Closure context belongs in `objective.md` under `## Closure`.
 - `closed.md` may be minimal; its content is not the source of closure meaning.
-- A closed objective directory remains in place.
-- Closed objectives are readable by `objective-current` but are not eligible for `objective-next` by default.
+- Closing an objective does not move its directory; archive/unarchive is a separate explicit operation.
+- Closed active objectives are readable by `objective-current` but are not eligible for `objective-next` by default.
+- Archived objectives are outside normal Objective discovery regardless of whether `closed.md` exists.
 - There is no `objective-reopen` workflow in v1.
 
 ## Objective Selection
 
-When an operation needs an existing objective, resolve it in this order:
+When an operation needs an existing active objective, resolve it in this order:
 
 1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If no slug or path is explicit, list candidate objective directories under `.asdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
-3. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
+2. If the user-provided path is under `.asdl/objective-archive/<slug>/`, stop and ask whether to unarchive before running active Objective workflows.
+3. If no slug or path is explicit, list candidate objective directories under `.asdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
+4. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
+
+Archived slugs remain reserved Objective identities. Do not silently create a new active Objective with the same slug as an archived record; ask whether to unarchive, inspect, or choose a different slug.
 
 Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the active-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple active objectives exist, still present the options and ask the user to choose.
 
@@ -161,7 +175,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list` and `objective exec read-objective`) ship deterministic read mechanics that the skills delegate to; mutations remain direct Markdown edits.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list`, `objective archive`, `objective exec read-objective`, and `objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
 
 ### `objective list`
 
@@ -170,6 +184,7 @@ Lists Objective status for the local repository by inspecting local branches wit
 Contract:
 
 - Use the repository base branch (currently the configured trunk branch) as the default status source.
+- Read active Objective records only from `.asdl/objectives/`; archived records under `.asdl/objective-archive/` are excluded even when `--status all` is passed.
 - Report displayed status from the status source: direct `.asdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`; an Objective present only on non-base local work branches means `in-flight`.
 - Do not treat nested files such as `.asdl/objectives/<slug>/updates/closed.md` as closure markers.
 - Default to an Objective-level list view filtered to active Objectives (`open` + `in-flight`) with `status` labels (`○ open`, `✓ closed`, `◇ in-flight`), latest work branch, latest Objective update age, work-branch count, and max slice-commit count.
@@ -185,8 +200,8 @@ Contract:
 Shipped CLI:
 
 - Run `objective list` for the default active Objective inventory list view.
-- Run `objective list --status all` to include active and closed Objective records.
-- Run `objective list --status closed` for closed Objective records.
+- Run `objective list --status all` to include open, in-flight, and closed active-root Objective records.
+- Run `objective list --status closed` for closed active-root Objective records.
 - Run `objective list --view detail` for base/current status plus per-work-branch details.
 - Run `objective list --current` to use the current branch as the status source.
 - Run `objective list --names` to print active slugs, one per line.
@@ -216,7 +231,7 @@ User interview:
 
 Shipped CLI:
 
-- Duplicate detection: `objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no record, and otherwise emits the existing record.
+- Active-root duplicate detection: `objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Archived records should still be checked before reusing a slug.
 
 Future CLI pushdown candidates:
 
@@ -238,8 +253,8 @@ Contract:
 
 Shipped CLI:
 
-- Candidate objective listing: `objective list`.
-- Closed-marker detection and structured inventory: `objective list` (per-record) and `objective exec read-objective <slug>` (per-record raw Markdown plus closed state and missing-file notes).
+- Candidate objective listing: `objective list` (active root only).
+- Closed-marker detection and structured inventory: `objective list` (per-record) and `objective exec read-objective <slug>` (active-root per-record raw Markdown plus closed state and missing-file notes).
 
 ### `objective-next`
 
@@ -257,7 +272,7 @@ Contract:
 
 Shipped CLI:
 
-- Active candidate filtering: `objective list` lists active candidates (`open` plus `in-flight`); `objective list --status all` reports closed records too.
+- Active candidate filtering: `objective list` lists active-root candidates with active statuses (`open` plus `in-flight`); `objective list --status all` reports active-root closed records too.
 
 Future CLI pushdown candidates:
 
@@ -297,8 +312,8 @@ Contract:
 - Resolve the objective using the selection rules.
 - Update `objective.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
 - Write `closed.md` as an existence-only Closure Marker.
-- Leave the objective directory in place.
-- Do not delete or archive the objective.
+- Leave the objective directory in its current root.
+- Do not delete the objective or archive it implicitly; use `objective archive` separately when the user wants the record outside active discovery.
 - Do not create a reopen mechanism in v1.
 
 Future CLI pushdown candidates:
@@ -306,6 +321,34 @@ Future CLI pushdown candidates:
 - Closed-marker creation.
 - Refusal when already closed unless the user asks to amend closure context.
 - Verification that `objective.md` contains a `## Closure` section.
+
+### `objective archive`
+
+Moves an Objective record between active and archived roots without editing Objective Markdown.
+
+Contract:
+
+- `objective archive <slug>` moves `.asdl/objectives/<slug>/` to `.asdl/objective-archive/<slug>/`.
+- `objective archive <slug> --unarchive` moves `.asdl/objective-archive/<slug>/` back to `.asdl/objectives/<slug>/`.
+- Preserve the slug and all files, including `closed.md` when present.
+- Refuse invalid slugs, missing source directories, non-directory sources, and existing destinations.
+- Do not infer closure from archive state and do not infer archive state from closure.
+- Do not merge active and archived directories; a destination collision requires human resolution.
+
+Shipped CLI:
+
+- Run `objective archive <slug>` to remove a record from normal active discovery.
+- Run `objective archive <slug> --unarchive` to make an archived record active again.
+
+### `objective exec runner-subagent-usage`
+
+Summarizes Pi runner-subagent JSONL session files for Objective stack digest workflows.
+
+Contract:
+
+- Accept explicit session file paths.
+- Report per-session status, assistant response count, model references, token totals, cost totals, and aggregate totals.
+- Do not interpret Objective meaning or mutate Objective records.
 
 ## Tracking Gate
 
@@ -338,8 +381,10 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 Good CLI responsibilities:
 
 - Validate slugs and paths. _(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)_
-- List candidate objectives from base/current status and local work-branch facts. _(shipped: `objective list`.)_
-- Detect closed markers. _(shipped: `objective list` and `objective exec read-objective` both report closed state.)_
+- List candidate objectives from base/current status and local work-branch facts. _(shipped for active-root records: `objective list`.)_
+- Detect closed markers. _(shipped for active-root records: `objective list` and `objective exec read-objective` both report closed state.)_
+- Move Objective records between active and archived roots without editing prose. _(shipped: `objective archive`.)_
+- Summarize runner-subagent session usage for Objective stack digestion. _(shipped: `objective exec runner-subagent-usage`.)_
 - Scaffold required files and headings. _(future.)_
 - Detect missing `## Assumptions and Risks` sections. _(future.)_
 - Generate timestamped update filenames. _(future.)_
