@@ -145,7 +145,6 @@ dependencies = [
 
 [package.optional-dependencies]
 plugins = [
-    { name = "aretro" },
     { name = "asdl-dispatcher" },
     { name = "asdl-objectives" },
     { name = "asdl-pr-address" },
@@ -172,7 +171,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aretro", marker = "extra == 'plugins'", editable = "packages/aretro" },
     { name = "asdl-core", editable = "packages/asdl-core" },
     { name = "asdl-dispatcher", marker = "extra == 'plugins'", editable = "packages/asdl-dispatcher" },
     { name = "asdl-objectives", marker = "extra == 'plugins'", editable = "packages/asdl-objectives" },
