@@ -5,16 +5,19 @@ description:
   reviewing, or refactoring Python to ensure adherence to modern type syntax, LBYL exception
   handling, pathlib operations, ABC-based interfaces, and production-tested patterns.
 references:
-  - core-standards
+  - dignified-python-core
   - cli-patterns
+  - subprocess
   - versions/python-3.10
   - versions/python-3.11
   - versions/python-3.12
   - versions/python-3.13
-  - advanced/api-design
-  - advanced/exception-handling
-  - advanced/interfaces
-  - advanced/typing-advanced
+  - references/module-design
+  - references/checklists
+  - references/advanced/api-design
+  - references/advanced/exception-handling
+  - references/advanced/interfaces
+  - references/advanced/typing-advanced
 ---
 
 # Dignified Python Coding Standards Skill
@@ -72,31 +75,37 @@ detect specific patterns:
 
 Pattern detection examples:
 
-- If task mentions "click" or "CLI" -> Load `references/cli-patterns.md`
-- If task mentions "subprocess" -> Load subprocess patterns from core-standards
+- If task mentions "click" or "CLI" -> Load `cli-patterns.md`
+- If task mentions "subprocess" -> Load `subprocess.md`
 
 ## Reference Documentation Structure
 
-The `references/` directory contains detailed guidance organized by topic:
+The skill directory contains detailed guidance organized by topic:
 
 ### Core References
 
-- **`core-standards.md`** - Essential standards (always loaded)
+- **`dignified-python-core.md`** - Essential standards (always loaded)
 - **`cli-patterns.md`** - Command-line interface patterns (click, argparse)
+- **`subprocess.md`** - Subprocess patterns
 
-### Version-Specific References (`references/versions/`)
+### Version-Specific References (`versions/`)
 
-- **`python-3.10.md`** - Features available in Python 3.10+
-- **`python-3.11.md`** - Features available in Python 3.11+
-- **`python-3.12.md`** - Features available in Python 3.12+
-- **`python-3.13.md`** - Features available in Python 3.13+
+- **`versions/python-3.10.md`** - Features available in Python 3.10+
+- **`versions/python-3.11.md`** - Features available in Python 3.11+
+- **`versions/python-3.12.md`** - Features available in Python 3.12+
+- **`versions/python-3.13.md`** - Features available in Python 3.13+
+
+### Supplemental References (`references/`)
+
+- **`references/module-design.md`** - Module organization and import-time behavior
+- **`references/checklists.md`** - Review checklists
 
 ### Advanced Topics (`references/advanced/`)
 
-- **`exception-handling.md`** - LBYL patterns, error boundaries
-- **`interfaces.md`** - ABC and Protocol patterns
-- **`typing-advanced.md`** - Advanced typing patterns
-- **`api-design.md`** - API design principles
+- **`references/advanced/exception-handling.md`** - LBYL patterns, error boundaries
+- **`references/advanced/interfaces.md`** - ABC and Protocol patterns
+- **`references/advanced/typing-advanced.md`** - Advanced typing patterns
+- **`references/advanced/api-design.md`** - API design principles
 
 ## When to Read Each Reference Document
 
@@ -136,7 +145,7 @@ The `references/` directory contains detailed guidance organized by topic:
 - Seeing Path() or computation at module level
 - Considering inline imports
 
-### `references/api-design.md`
+### `references/advanced/api-design.md`
 
 **Read when**:
 

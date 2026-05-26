@@ -6,40 +6,46 @@ Production-quality Python coding standards for writing clean, maintainable, mode
 
 ### Core Standards
 
-- **[core-standards.md](./core-standards.md)** - Essential Python standards (always apply)
+- **[../dignified-python-core.md](../dignified-python-core.md)** - Essential Python standards (always apply)
   - Modern type syntax (list[str], str | None)
   - LBYL exception handling patterns
   - Pathlib operations
   - Absolute imports
   - Error boundaries
 
-- **[cli-patterns.md](./cli-patterns.md)** - Command-line interface patterns
+- **[../cli-patterns.md](../cli-patterns.md)** - Command-line interface patterns
   - Click usage patterns
   - Argparse best practices
   - CLI error handling
   - Configuration management
 
-### Version-Specific Features (`versions/`)
+- **[../subprocess.md](../subprocess.md)** - Subprocess patterns
+  - Safe command construction
+  - Capturing output
+  - Error handling
+  - Testing subprocess integrations
 
-- **[python-3.10.md](./versions/python-3.10.md)** - Python 3.10+ features
+### Version-Specific Features (`../versions/`)
+
+- **[../versions/python-3.10.md](../versions/python-3.10.md)** - Python 3.10+ features
   - Structural pattern matching (match/case)
   - Parenthesized context managers
   - Better error messages
   - Type union operator (X | Y)
 
-- **[python-3.11.md](./versions/python-3.11.md)** - Python 3.11+ features
+- **[../versions/python-3.11.md](../versions/python-3.11.md)** - Python 3.11+ features
   - Exception groups (ExceptionGroup)
   - except\* syntax
   - Self type
   - Variadic generics
 
-- **[python-3.12.md](./versions/python-3.12.md)** - Python 3.12+ features
+- **[../versions/python-3.12.md](../versions/python-3.12.md)** - Python 3.12+ features
   - Type parameter syntax (Generic[T])
   - Override decorator
   - Per-interpreter GIL
   - f-string improvements
 
-- **[python-3.13.md](./versions/python-3.13.md)** - Python 3.13+ features
+- **[../versions/python-3.13.md](../versions/python-3.13.md)** - Python 3.13+ features
   - Experimental free-threading
   - JIT compilation
   - Improved error messages
@@ -47,25 +53,25 @@ Production-quality Python coding standards for writing clean, maintainable, mode
 
 ### Advanced Topics (`advanced/`)
 
-- **[exception-handling.md](./advanced/exception-handling.md)** - Exception patterns
+- **[advanced/exception-handling.md](./advanced/exception-handling.md)** - Exception patterns
   - LBYL (Look Before You Leap) patterns
   - Error boundaries
   - Exception chaining
   - Custom exceptions
 
-- **[interfaces.md](./advanced/interfaces.md)** - Interface design
+- **[advanced/interfaces.md](./advanced/interfaces.md)** - Interface design
   - ABC (Abstract Base Class) patterns
   - Protocol types
   - Gateway layer interfaces
   - Type narrowing
 
-- **[typing-advanced.md](./advanced/typing-advanced.md)** - Advanced typing
+- **[advanced/typing-advanced.md](./advanced/typing-advanced.md)** - Advanced typing
   - Generic types
   - Type narrowing
   - Literal types
   - TypedDict and dataclasses
 
-- **[api-design.md](./advanced/api-design.md)** - API design principles
+- **[advanced/api-design.md](./advanced/api-design.md)** - API design principles
   - Function signatures
   - Parameter complexity
   - Code organization
@@ -230,25 +236,27 @@ Based on detected version, appropriate version-specific features are recommended
 
 ## Navigation Tips
 
-- **Start with core-standards.md** for essential patterns that apply to all code
-- **Check version-specific docs** based on your project's Python version
-- **Reference advanced topics** when dealing with specialized patterns
-- **Use cli-patterns.md** when building command-line tools
+- **Start with ../dignified-python-core.md** for essential patterns that apply to all code
+- **Check ../versions/** docs based on your project's Python version
+- **Reference advanced/** topics when dealing with specialized patterns
+- **Use ../cli-patterns.md** when building command-line tools
+- **Use ../subprocess.md** when working with subprocess calls
 
 ## When to Read Each Reference
 
-| Situation                  | Reference                      |
-| -------------------------- | ------------------------------ |
-| Writing any Python code    | core-standards.md              |
-| Building a CLI tool        | cli-patterns.md                |
-| Using Python 3.10 features | versions/python-3.10.md        |
-| Using Python 3.11 features | versions/python-3.11.md        |
-| Using Python 3.12 features | versions/python-3.12.md        |
-| Using Python 3.13 features | versions/python-3.13.md        |
-| Handling exceptions        | advanced/exception-handling.md |
-| Designing interfaces       | advanced/interfaces.md         |
-| Complex type hints         | advanced/typing-advanced.md    |
-| API design decisions       | advanced/api-design.md         |
+| Situation                  | Reference                         |
+| -------------------------- | --------------------------------- |
+| Writing any Python code    | ../dignified-python-core.md       |
+| Building a CLI tool        | ../cli-patterns.md                |
+| Running subprocesses       | ../subprocess.md                  |
+| Using Python 3.10 features | ../versions/python-3.10.md        |
+| Using Python 3.11 features | ../versions/python-3.11.md        |
+| Using Python 3.12 features | ../versions/python-3.12.md        |
+| Using Python 3.13 features | ../versions/python-3.13.md        |
+| Handling exceptions        | advanced/exception-handling.md    |
+| Designing interfaces       | advanced/interfaces.md            |
+| Complex type hints         | advanced/typing-advanced.md       |
+| API design decisions       | advanced/api-design.md            |
 
 ## Production Patterns
 
