@@ -83,3 +83,11 @@ Risks:
 - Should `/submit` PR-link extraction or OSC notification formatting move into `terminal-presentation.ts`, or is the current local behavior still more appropriate?
 - What future concrete consumer, if any, would prove that the `/submit` runner seam should become a broader command execution Module?
 - How should the new skill-expansion helper evolve if future skill handoffs appear, without becoming a generic Markdown or prompt-dispatch utility?
+
+## Closure
+
+Closed as completed on 2026-05-26 by explicit human decision.
+
+The Objective reached its intended outcome: the old `pi-extension-architecture-deepening` Objective was superseded and closed; the architecture assessment and cost/benefit ranking are preserved; every candidate from `assessment.md` has a recorded disposition; accepted refactors landed in coherent slices with fake-driven or focused tests; `/submit` moved from vibecoded implementation into the engineered TypeScript extension package behind a thin project-local adapter; and the durable docs/Objectives now record the vibecoded-vs-engineered extension-layer model.
+
+Validation evidence is recorded in the semantic updates: accepted TypeScript slices passed the relevant focused tests plus `bun run --cwd ts check` and `bun run --cwd ts test`. Remaining questions are intentionally follow-up/parked topics, not blockers: possible future `pi.exec` use for buffered `/submit` commands, possible terminal-presentation reuse for PR-link/OSC formatting, a broader command runtime only if another concrete consumer proves it, and cautious evolution of skill-expansion helpers without turning them into generic Markdown or prompt-dispatch utilities.
