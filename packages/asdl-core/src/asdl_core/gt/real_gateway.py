@@ -1,14 +1,16 @@
 """Real Graphite gateway implementation.
 
 ``RealGtGateway.stack()`` reads Graphite's SQLite metadata store at
-``<git-common-dir>/.graphite_metadata.db``. The supported schema contract is the
-named-column slice ``branch_name``, ``parent_branch_name``, ``children``, and
-``validation_result`` from ``branch_metadata``; callers must never depend on
-``SELECT *`` or other Graphite-owned columns. Graphite versions since 1.8.0 have
-kept this slice stable while adding nullable columns via Kysely migrations. If a
-future migration renames or removes one of these columns, stack reads return a
-schema-mismatch ``GtCommandFailure`` instead of falling back to human-facing
-``gt`` log text parsing.
+``<git-common-dir>/.graphite_metadata.db``. ``RealGtGateway.branch_graph()``
+reads that store plus ``<git-common-dir>/.graphite_repo_config`` for the
+configured trunk. The supported schema contract is the named-column slice
+``branch_name``, ``parent_branch_name``, ``children``, and ``validation_result``
+from ``branch_metadata``; callers must never depend on ``SELECT *`` or other
+Graphite-owned columns. Graphite versions since 1.8.0 have kept this slice stable
+while adding nullable columns via Kysely migrations. If a future migration
+renames or removes one of these columns, metadata reads return a schema-mismatch
+``GtCommandFailure`` instead of falling back to human-facing ``gt`` log text
+parsing.
 """
 
 from __future__ import annotations
@@ -21,8 +23,10 @@ from pathlib import Path
 
 from asdl_core.gt.gateway import GtGateway
 from asdl_core.gt.types import (
+    GtBranchGraph,
     GtBranchInfo,
     GtCommandFailure,
+    GtTrackedBranch,
     NoParent,
     StackInfo,
     UntrackedBranch,
@@ -171,8 +175,14 @@ def _load_branch_metadata(
                 """
             ).fetchall()
     except sqlite3.OperationalError as exc:
+        message = str(exc)
+        if message.startswith("no such table") or message.startswith("no such column"):
+            return GtCommandFailure(
+                message=f"Graphite metadata schema mismatch: {exc}",
+                returncode=None,
+            )
         return GtCommandFailure(
-            message=f"Graphite metadata schema mismatch: {exc}",
+            message=f"Graphite metadata store unreadable: {exc}",
             returncode=None,
         )
     except sqlite3.DatabaseError as exc:
@@ -197,6 +207,45 @@ def _load_branch_metadata(
             validation_result=validation,
         )
     return rows, warnings
+
+
+def _read_repo_config_trunk(common_dir: Path) -> str | GtCommandFailure:
+    config_path = common_dir / ".graphite_repo_config"
+    if not config_path.exists():
+        return GtCommandFailure(
+            message=f"Graphite repo config not found at {config_path}",
+            returncode=None,
+        )
+
+    try:
+        raw_config = config_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return GtCommandFailure(
+            message=f"Graphite repo config unreadable at {config_path}: {exc}",
+            returncode=None,
+        )
+
+    try:
+        config = json.loads(raw_config)
+    except json.JSONDecodeError as exc:
+        return GtCommandFailure(
+            message=f"Graphite repo config malformed at {config_path}: {exc}",
+            returncode=None,
+        )
+
+    if not isinstance(config, dict):
+        return GtCommandFailure(
+            message=f"Graphite repo config at {config_path} must be a JSON object with a trunk",
+            returncode=None,
+        )
+
+    trunk = config.get("trunk")
+    if not isinstance(trunk, str) or not trunk:
+        return GtCommandFailure(
+            message=f"Graphite repo config at {config_path} lacks a non-empty string trunk",
+            returncode=None,
+        )
+    return trunk
 
 
 def _walk_ancestors(
@@ -287,6 +336,125 @@ def _add_trunk_marker_warnings(
             "Graphite metadata trunk marker differs from ancestor-walk terminus: "
             f"{marked_trunks[0]} != {terminus_branch}"
         )
+
+
+def _add_graph_trunk_marker_warnings(
+    rows: dict[str, _BranchMetadataRow],
+    configured_trunk: str,
+    warnings: list[str],
+) -> None:
+    marked_trunks = tuple(
+        branch for branch, row in rows.items() if row.validation_result == "TRUNK"
+    )
+    disagreeing_trunks = tuple(branch for branch in marked_trunks if branch != configured_trunk)
+    if disagreeing_trunks:
+        warnings.append(
+            "Graphite metadata TRUNK marker disagrees with repo-config trunk: "
+            f"{disagreeing_trunks[0]} != {configured_trunk}"
+        )
+    if len(marked_trunks) > 1:
+        warnings.append("multiple Graphite metadata rows are marked as trunk")
+
+
+def _append_reachable_child(
+    rows: dict[str, _BranchMetadataRow],
+    parent: str,
+    child: str,
+    children_to_visit: list[str],
+    visited: set[str],
+    warnings: list[str],
+) -> None:
+    if child in visited:
+        warnings.append(
+            f"cycle detected in Graphite children metadata at {child}; edge from {parent} skipped"
+        )
+        return
+    if child not in rows:
+        warnings.append(
+            f"child branch {child} listed under {parent} is missing from Graphite metadata; skipped"
+        )
+        return
+
+    child_parent = rows[child].parent_branch_name
+    if child_parent != parent:
+        actual_parent = child_parent if child_parent is not None else "<none>"
+        warnings.append(
+            f"child branch {child} metadata parent is {actual_parent}, "
+            f"but {parent} lists it as a child"
+        )
+    children_to_visit.append(child)
+
+
+def _traverse_branch_graph(
+    rows: dict[str, _BranchMetadataRow],
+    trunk: str,
+    warnings: list[str],
+) -> tuple[str, ...]:
+    visited: set[str] = set()
+    branch_names: list[str] = []
+    branches_to_visit = [trunk]
+
+    while branches_to_visit:
+        branch = branches_to_visit.pop()
+        if branch in visited:
+            warnings.append(
+                f"cycle detected in Graphite children metadata at {branch}; branch already visited"
+            )
+            continue
+
+        visited.add(branch)
+        branch_names.append(branch)
+        children_to_visit: list[str] = []
+        for child in rows[branch].children:
+            _append_reachable_child(
+                rows,
+                branch,
+                child,
+                children_to_visit,
+                visited,
+                warnings,
+            )
+        branches_to_visit.extend(reversed(children_to_visit))
+
+    return tuple(branch_names)
+
+
+def _read_branch_graph_from_metadata_db(
+    db_path: Path,
+    trunk: str,
+) -> GtBranchGraph | GtCommandFailure:
+    if not db_path.exists():
+        return GtCommandFailure(
+            message=f"Graphite metadata store not found at {db_path}",
+            returncode=None,
+        )
+
+    loaded = _load_branch_metadata(db_path)
+    if isinstance(loaded, GtCommandFailure):
+        return loaded
+    rows, warnings = loaded
+
+    if trunk not in rows:
+        return GtCommandFailure(
+            message=f"Configured Graphite trunk {trunk} is missing from metadata",
+            returncode=None,
+        )
+
+    _add_graph_trunk_marker_warnings(rows, trunk, warnings)
+    branch_names = _traverse_branch_graph(rows, trunk, warnings)
+    return GtBranchGraph(
+        trunk=trunk,
+        branches=tuple(
+            GtTrackedBranch(
+                name=name,
+                parent=rows[name].parent_branch_name,
+                children=rows[name].children,
+                validation_result=rows[name].validation_result,
+            )
+            for name in branch_names
+        ),
+        warnings=tuple(warnings),
+    )
 
 
 def _read_stack_from_metadata_db(
@@ -395,4 +563,21 @@ class RealGtGateway(GtGateway):
         return _read_stack_from_metadata_db(
             common_dir / ".graphite_metadata.db",
             current_branch,
+        )
+
+    def branch_graph(self, cwd: Path) -> GtBranchGraph | GtCommandFailure:
+        common_dir = _resolve_git_common_dir(cwd)
+        if common_dir is None:
+            return GtCommandFailure(
+                message=("Could not resolve git common dir with `git rev-parse --git-common-dir`"),
+                returncode=None,
+            )
+
+        trunk = _read_repo_config_trunk(common_dir)
+        if isinstance(trunk, GtCommandFailure):
+            return trunk
+
+        return _read_branch_graph_from_metadata_db(
+            common_dir / ".graphite_metadata.db",
+            trunk,
         )
