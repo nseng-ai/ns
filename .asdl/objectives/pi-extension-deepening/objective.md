@@ -63,13 +63,13 @@ Assumptions:
 - The latest Objective-list changes on `master` are the current ground truth: `slice_commits` and `parent_branch` are the intended branch-entry fields, and Python Objective-list modularization has already addressed some architecture friction in that area.
 - The TypeScript extension package remains the right engineered home for durable project-local Pi extension behavior.
 - `planned-branch-layer-deepening` owns planned-branch domain policy; this Objective's Branch Memory CLI Adapter candidate may own only generic CLI discovery/execution plumbing when that creates shared leverage.
-- The old `@mariozechner/pi-coding-agent` imports in vibecoded extensions are drift against the current `@earendil-works/pi-coding-agent` docs and should be reviewed during triage.
+- The old `@mariozechner/pi-coding-agent` imports in vibecoded extensions were drift against the current `@earendil-works/pi-coding-agent` docs; Candidate 10 reviewed this drift and fixed the kept vibecoded `/land` and pending-promotion `/submit` imports.
 
 Risks:
 
 - The candidate list is broad enough to sprawl. The roadmap must force explicit disposition before implementation expands.
 - Premature extraction could create shallow Modules whose Interfaces are nearly as complex as their Implementations. Candidate 6 confirmed this risk: the shared terminal helper Module is useful for security-sensitive URL/OSC policy, but the attempted worktree-status message-renderer expansion was removed because it was a separate behavior change rather than helper consolidation. Candidate 4 refined the Branch Memory command boundary around CLI discovery and candidate fallback. Candidate 3 then proved a narrow Machine-envelope parser: framework JSON parsing, `exit_code`, diagnostics, and `data` extraction are shared, while Objective-list fields, Branch Memory `put` fields, and Branch Memory status-entry validation remain caller-local. Candidate 5 accepted the same constraint for Pi skill expansion: command provenance, Markdown reading, frontmatter stripping, base-directory fallback, and block formatting are shared, while Objective selection, `/just` failure policy, notifications, and prompt dispatch remain caller-owned.
-- The risky extensions, especially `/submit`, touch Graphite and GitHub workflows; changes there require the relevant Graphite and GitHub guidance and careful fake-driven tests.
+- The risky extensions, especially `/submit`, touch Graphite and GitHub workflows; changes there require the relevant Graphite and GitHub guidance and careful fake-driven tests. Candidate 10 accepted `/submit` promotion to the engineered layer, kept `/land` as a vibecoded fast path for non-Graphite users, and kept `/just` vibecoded now that shared skill expansion is extracted.
 - `land-stack` tests currently encode substantial command choreography; refactoring without first choosing better test surfaces could make safe changes look riskier than they are.
 - `worktree-status.ts` mixes session lifecycle, watchers, Git facts, Branch Memory facts, Graphite facts, and rendering; changing watcher behavior without internal Seams could create stale UI or session replacement bugs.
 - Branch Memory Adapter work could accidentally absorb planned-branch workflow policy; keep planned-branch namespace/key semantics, fatal diagnostics, and planning-level presentation in the planned-branch layer.
@@ -78,7 +78,7 @@ Risks:
 
 ## Open Questions
 
-- After Candidates 6, 4, 3, 9, and 5, which ranked candidate should be implemented next: `/submit` promotion, Pi host seam, Objective integration, `worktree-status` internal seams, or `land-stack` test-surface cleanup?
+- After Candidate 10, should the next implementation slice be `/submit` promotion or the narrower Pi host seam?
 - Should the old command-runtime seam stay narrow, or has `/submit` and command streaming now proven a deeper command execution Module?
 - How should the new skill-expansion helper evolve if future skill handoffs appear, without becoming a generic Markdown or prompt-dispatch utility?
-- How much of `/submit` should be promoted into the engineered layer, and should any overlap with `land-stack` become shared Graphite/PR machinery?
+- During `/submit` promotion, should any overlap with `land-stack` become shared Graphite/PR machinery, or should `/submit` stay domain-specific until repeated lifecycle semantics are clearer?

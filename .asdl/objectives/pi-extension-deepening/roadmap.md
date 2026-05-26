@@ -47,15 +47,16 @@
   - Inspected `create-brmem-plan-branch.ts` and left it unchanged because it does not perform Pi skill expansion.
   - Added focused helper tests, Objective integration coverage, and `/just` integration coverage through a dynamic import that avoids making `.pi/extensions` part of the TypeScript package check.
   - Evidence: local working diff against Graphite parent `brmem-plans/runner-subagent-contract-cleanup`; deletion-test search found no remaining non-test caller manually expanding skill commands; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
-- [ ] Candidate 10 — decide vibecoded extension promotion / retirement.
-  - Classify `.pi/extensions/submit.ts`, `.pi/extensions/land.ts`, and `.pi/extensions/just-fix.ts` as promote, retire, keep vibecoded, or split.
-  - Treat `/submit` as the likely highest-safety promotion candidate because it mutates Graphite/GitHub state and currently has raw process handling without package tests.
-  - Consult Graphite/GitHub guidance before changing `/submit` or landing behavior.
-  - Consider splitting `/submit` promotion into a follow-on Objective if the fake-driven test and workflow surface is too large for this Objective.
+- [x] Candidate 10 — decide vibecoded extension promotion / retirement.
+  - `/submit` disposition: promote to the engineered layer because it mutates Graphite/GitHub state, has raw process handling, and needs fake-driven tests before deeper command-runtime conclusions are safe.
+  - `/land` disposition: keep vibecoded as an intentional fast path for contributors who do not use Graphite and for whom `/land-stack` does not make sense.
+  - `/just` disposition: keep vibecoded; Candidate 5 already extracted the shared skill-expansion helper, and the remaining behavior is repo-local workflow glue.
+  - Fixed kept vibecoded import-path drift from the old `@mariozechner/*` Pi packages to the current `@earendil-works/*` packages in `.pi/extensions/land.ts` and `.pi/extensions/submit.ts`.
+  - Consulted Graphite/GitHub guidance for the disposition; promotion should start with `/submit` characterization/fake-driven tests rather than a broad generic command runtime.
 - [ ] Candidate 1 — decide a narrow Pi host seam, folding Candidate 12 only where useful.
   - Evaluate whether shared project-local Pi host types or test adapters should own common `ExtensionAPI`, command context, UI, message renderer, tool context, and fake host shapes.
   - Start from common behavior used by at least two callers; avoid a broad universal host Interface.
-  - Include `.pi/extensions/land.ts` and `.pi/extensions/submit.ts` import-path drift in the decision.
+  - Import-path drift was resolved during Candidate 10; keep this decision focused on common Pi host behavior rather than package-name cleanup.
 - [ ] Candidate 11 — decide Objective extension and Objective-list integration.
   - Keep tracking the TS/Python `objective list` contract, especially `parent_branch` / `slice_commits` vocabulary.
   - Prefer contract tests and Machine-envelope reuse over broad splitting of `objective.ts`.

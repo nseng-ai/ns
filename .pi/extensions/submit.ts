@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
-import { type Component, truncateToWidth } from "@mariozechner/pi-tui";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { type Component, truncateToWidth } from "@earendil-works/pi-tui";
 
 const COMMAND_NAME = "submit";
 const WIDGET_ID = "submit-output";
