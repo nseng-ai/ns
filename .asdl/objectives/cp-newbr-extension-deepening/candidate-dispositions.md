@@ -4,12 +4,25 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 ## Current Priority Order
 
-1. Candidate 2 — New-branch transaction Module shape.
-2. Candidate 5 — Branch naming policy depth.
-3. Candidate 3 — Shared small-model drafting policy.
-4. Candidate 4 — Explicit Graphite branch-creation Adapter, likely folded into Candidate 2.
-5. Candidate 6 — Test surface cleanup, applied continuously rather than as a standalone refactor.
-6. Candidate 1 — Checkpoint seam and pending worktree snapshot, implemented.
+1. Next slice — decide whether `/newbr` needs a typed preparation/plan boundary before the transaction.
+2. Candidate 6 — Test surface cleanup, applied continuously rather than as a standalone refactor.
+3. Candidate 3 — Shared small-model drafting policy, partially unparked only through the preparation-boundary decision.
+4. Candidate 5 — Branch naming policy depth, parked as a standalone extraction.
+5. Candidate 2 — New-branch transaction Module shape, implemented.
+6. Candidate 4 — Explicit Graphite branch-creation Adapter, folded into Candidate 2 with no standalone adapter.
+7. Candidate 1 — Checkpoint seam and pending worktree snapshot, implemented.
+
+## Next Slice — `/newbr` Preparation/Plan Boundary
+
+**Disposition:** Accepted as the next decision slice after Candidate 2.
+
+**Files:** `ts/packages/pi-extensions/src/newbr-flow.ts`, possible `ts/packages/pi-extensions/src/newbr-preparation.ts` or `ts/packages/pi-extensions/src/newbr-plan.ts`, `ts/packages/pi-extensions/src/branch-slug.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`, and possible new preparation/plan tests.
+
+**Problem:** Branch naming alone is too narrow. `/newbr` prepares a user-visible branch checkpoint plan by combining a pending-worktree snapshot, requested or generated slug input, fallback naming, branch availability, checkpoint-message preparation, and typed failure reporting before the transaction applies the plan.
+
+**Deletion test:** Positive only if the boundary owns real preparation decisions. Deleting it should push slug drafting/fallback, availability checks, checkpoint readiness, and typed preparation outcomes back into `newbr-flow.ts`. Negative if it merely wraps `sanitizeBranchName`, renames `branch-slug.ts`, or passes model calls through without concentrating policy.
+
+**Boundary direction:** Keep `newbr-transaction.ts` as the apply phase for stash, Graphite create, restore, and commit. Keep `newbr-flow.ts` responsible for top-level orchestration and user-facing notifications. Do not extract a shared small-model policy or standalone branch-name policy until the preparation boundary proves that shared leverage.
 
 ## Candidate 1 — Checkpoint Seam and Pending Worktree Snapshot
 
@@ -29,51 +42,55 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 ## Candidate 2 — New-Branch Transaction Module Shape
 
-**Disposition:** Implement after Candidate 1.
+**Disposition:** Implemented as Candidate 2.
 
-**Files:** `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/newbr.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
+**Files:** `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/newbr-transaction.ts`, `ts/packages/pi-extensions/src/newbr.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`, `ts/packages/pi-extensions/test/newbr-transaction.test.ts`.
 
-**Problem:** `NewBranchFlowInput` exposes many low-level operations, and tests assert shell choreography. Some order is the safety guarantee, but not every command detail should be the Interface.
+**Problem:** `NewBranchFlowInput` exposed many low-level operations, and tests asserted shell choreography. Some order is the safety guarantee, but not every command detail should be the Interface.
 
-**Deletion test:** Positive for transaction semantics. If the transaction Module is deleted, stash/create/restore/commit rollback knowledge spreads into callers and tests.
+**Deletion test:** Positive and now evidenced. If `newbr-transaction.ts` is deleted, stash push, stash-ref lookup, Graphite branch creation, rollback restoration, restore-failure stop rules, and checkpoint-commit failure outcomes reappear in `newbr-flow.ts` and its tests.
 
-**Implementation direction:** preserve safety-critical ordering as behavior: prepare before stash, stash before Graphite create, restore before commit, and stop safely on rollback failures. Avoid freezing incidental command spelling beyond what is the actual external contract.
+**Implemented Interface:** `runNewBranchTransaction` owns the safety-critical sequence: stash pending changes, find the stash ref, create the Graphite branch, restore the stash, and create the checkpoint commit. It returns typed transaction outcomes for `stash_failed`, `stash_ref_missing`, `graphite_create_failed` with restored true/false, `restore_failed_after_branch_create`, and `commit_failed_after_branch_create`.
+
+**Boundary decisions:** `newbr-flow.ts` still owns worktree snapshot loading, clean-worktree refusal, slug generation/validation, branch-name availability, checkpoint message preparation, notification wording, and final clean/dirty probing. Transaction helpers keep exact git stash and `gt create` spelling private except where Graphite branch creation is `/newbr`'s explicit command contract.
+
+**Validation:** `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check` passed after implementation.
 
 ## Candidate 3 — Shared Small-Model Drafting Policy
 
-**Disposition:** Park until Candidate 5 clarifies the shared drafting need.
+**Disposition:** Partially unparked only through the `/newbr` preparation/plan boundary decision.
 
 **Files:** `ts/packages/pi-extensions/src/cp.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/pi-runtime-modules.d.ts`.
 
 **Problem:** checkpoint message drafting uses Pi model registry and `completeSimple`; branch slug drafting shells out to `pi --print`. That creates two model-selection and failure-reporting paths.
 
-**Deletion test:** Partial. Candidate 1 moved checkpoint model drafting into `checkpoint-pi.ts`, but branch slug drafting still shells out to `pi --print`; the two call paths may have different host constraints.
+**Deletion test:** Partial. Candidate 1 moved checkpoint model drafting into `checkpoint-pi.ts`, but branch slug drafting still shells out to `pi --print`; the two call paths may have different host constraints. The next useful test is not a standalone shared-drafting Module, but whether `/newbr` preparation needs one coherent drafting/validation boundary before the transaction.
 
-**Implementation direction:** revisit after Candidate 5 clarifies branch naming. If checkpoint drafting and branch slug drafting still need the same small-drafting Interface, promote it then.
+**Implementation direction:** Do not extract shared model policy directly. First decide whether a typed `/newbr` preparation/plan Module should coordinate slug drafting, fallback selection, branch availability, and checkpoint-message readiness. Promote shared provider/model/auth/timeout/output policy only if that preparation boundary proves common leverage beyond `/newbr`.
 
 ## Candidate 4 — Explicit Graphite Branch-Creation Adapter
 
-**Disposition:** Fold into Candidate 2 unless implementation evidence shows a separate seam.
+**Disposition:** Folded into Candidate 2; no standalone adapter introduced.
 
-**Files:** `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/newbr.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
+**Files:** `ts/packages/pi-extensions/src/newbr-transaction.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/newbr.ts`, `ts/packages/pi-extensions/test/newbr-transaction.test.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
 
-**Problem:** `/newbr` explicitly has a Graphite contract, but Graphite branch creation is currently a generic `exec("gt", ...)` call interleaved with git stash and restore operations.
+**Problem:** `/newbr` explicitly has a Graphite contract, but Graphite branch creation was a generic `exec("gt", ...)` call interleaved with git stash and restore operations.
 
-**Deletion test:** Not yet independently positive. With only `/newbr` using this behavior, a standalone Graphite Adapter may be hypothetical. The seam becomes real if Candidate 2 needs to vary Graphite behavior in tests or if another caller appears.
+**Deletion test:** Independently negative for a standalone Graphite Adapter in this slice. With only `/newbr` using branch creation, an adapter would be shallow; Candidate 2 provided the useful seam by making Graphite creation one step in the transaction boundary.
 
-**Implementation direction:** keep Graphite-specific behavior local and explicit inside the new-branch transaction. Do not introduce a broader Graphite runtime dependency beyond `/newbr`'s user-facing contract.
+**Boundary decision:** keep Graphite-specific behavior local and explicit inside the new-branch transaction. Do not introduce a broader Graphite runtime dependency beyond `/newbr`'s user-facing contract. Revisit only if another caller or a richer Graphite-specific policy appears.
 
 ## Candidate 5 — Branch Naming Policy Depth
 
-**Disposition:** Implement after transaction/snapshot foundations, unless Candidate 1 reveals it should move earlier.
+**Disposition:** Parked as a standalone extraction; reframe under the `/newbr` preparation/plan boundary.
 
 **Files:** `ts/packages/pi-extensions/src/branch-slug.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
 
 **Problem:** sanitation and truncation live in `branch-slug.ts`; prompt rules, fallback slug construction, suffixing, git ref validation, and availability checks live in `newbr-flow.ts`.
 
-**Deletion test:** Positive for a deeper policy Module, negative for the current tiny helper. Deleting current `branch-slug.ts` would mostly move string rules into the caller; deleting a Module that owns generation/sanitation/fallback/collision behavior would push meaningful policy back into `newbr-flow.ts`.
+**Deletion test:** Positive only inside a larger preparation boundary, negative for the current tiny helper. Deleting current `branch-slug.ts` would mostly move string rules into the caller; deleting a Module that owns preparation-time generation, sanitation, fallback, availability, and checkpoint readiness could push meaningful policy back into `newbr-flow.ts`.
 
-**Implementation direction:** deepen only if it can own branch-name policy end-to-end. Do not merely rename the existing string helpers.
+**Implementation direction:** Do not implement branch naming as the next standalone slice. Evaluate it as one part of a typed `/newbr` preparation/plan boundary. A branch-name-only Module remains too narrow unless later evidence proves that policy independently passes the deletion test.
 
 ## Candidate 6 — Behavior-First Test Surface
 
@@ -85,4 +102,4 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 **Deletion test:** Positive as a testing policy, not as a production Module. A universal fake DSL is not justified by current evidence.
 
-**Implementation direction:** use local fake adapters and harnesses consistent with the existing TypeScript package. Assert workflow outcomes and safety invariants first; assert command order only where order is itself the safety guarantee. Candidate 1 followed this policy with direct `pending-worktree.test.ts` coverage and retained `/newbr` order assertions only for safety sequencing.
+**Implementation direction:** use local fake adapters and harnesses consistent with the existing TypeScript package. Assert workflow outcomes and safety invariants first; assert command order only where order is itself the safety guarantee. Candidate 1 followed this policy with direct `pending-worktree.test.ts` coverage and retained `/newbr` order assertions only for safety sequencing. Candidate 2 added `newbr-transaction.test.ts` for typed outcomes and rollback behavior, while `newbr-flow.test.ts` now covers user-facing failure messages for stash push failure, missing stash refs, and Graphite-create rollback failure without freezing every incidental command argument.
