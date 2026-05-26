@@ -8,7 +8,7 @@ The new Module owns requested slug normalization/rejection, untracked snippet co
 
 `newbr-flow.ts` is now the thin command workflow for snapshot loading, clean-worktree refusal, preparation warning/error notification, transaction invocation, transaction failure formatting, final cleanliness probing, and success/warning reporting. The transaction boundary remains unchanged, and `branch-slug.ts` remains the small sanitation/truncation primitive.
 
-Evidence: local working-tree implementation diff on `newbr-preparation-boundary` against Graphite parent `newbr-transaction-boundary`; no committed branch-local diff yet. Verification passed with `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check`. PR evidence was not required; local working-tree evidence and validation were sufficient.
+Evidence: local committed branch diff on `newbr-preparation-boundary` against Graphite parent `newbr-transaction-boundary`. Verification passed with `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check`. PR evidence was not required; local branch commits and validation were sufficient.
 
 ## Objective Impact
 
