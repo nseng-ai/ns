@@ -1,6 +1,6 @@
 # Branch Retrospective Evidence
 
-`aretro` collects compact, factual observations from local agent session logs so a later retrospective skill or language model can write human-facing guidance for a branch.
+`aretro` collects compact, factual observations from local agent session logs so the `branch-retro` skill or another language-model workflow can write human-facing guidance for a branch.
 
 ## Boundary
 
@@ -47,4 +47,4 @@ These kinds are observations, not recommendations.
 - `asdl-core` session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
 - `asdl-core` evidence aggregation turns normalized session facts into deterministic `SessionEvidenceItem` observations.
 - `aretro` exposes the branch-facing CLI and renders the `aretro exec collect-evidence --format json` envelope.
-- Future retrospective skills should consume the JSON envelope, apply semantic judgment, and write the final retrospective.
+- `branch-retro` is the first skill consumer of that standalone evidence command: it consumes the JSON envelope, applies semantic judgment, and writes the final retrospective recommendations.

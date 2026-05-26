@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "branch-retro": {
+      "source": "skills/branch-retro",
+      "sourceType": "local",
+      "computedHash": "858c800d126c1ef58090eb390a140138473e30aef629b81413ce8647147fcb21"
+    },
     "brmem": {
       "source": "skills/brmem",
       "sourceType": "local",
