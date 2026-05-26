@@ -190,7 +190,8 @@ Contract:
 - Provide a `--status {all,active,open,closed}` filter. The default is `active`.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
 - Compute `latest_update_iso` from the newest committed update touching `.asdl/objectives/<slug>/` when available; otherwise report `null`.
-- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`.
+- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.asdl/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
+- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state.
 - Do not parse Markdown prose, summarize Objective bodies, project records across branches, choose a canonical branch, or depend on Graphite.
 - The shipped command has no branch projection, third active status, current-branch mode, or detail view.
 
