@@ -16,15 +16,16 @@
   - Returned typed outcomes for stash failure, missing stash refs, Graphite-create rollback success/failure, restore failure after branch creation, and commit failure after branch creation.
   - Kept `newbr-flow.ts` responsible for snapshot loading, clean-worktree refusal, slug and branch-name policy, checkpoint message preparation, user-facing notifications, and the final clean/dirty probe.
   - Added transaction-level rollback tests and flow-level coverage for stash push failure, missing stash refs, and Graphite-create failure combined with restore failure.
-- [ ] Decide whether `/newbr` needs a typed preparation/plan boundary before the transaction.
-  - Treat branch naming as one concern in a larger preparation phase, not as a standalone string-policy extraction.
-  - Evaluate whether a `newbr-preparation.ts` or `newbr-plan.ts` Module should produce a typed plan with branch name, base slug/source, checkpoint message, and fallback/availability metadata.
-  - Keep `newbr-transaction.ts` as the apply phase for stash, Graphite branch creation, restore, and commit.
-  - Use the deletion test: deleting the preparation Module should push real planning complexity back into `newbr-flow.ts`, not just sanitize helpers.
-- [~] Decide whether small-model drafting should become a shared Module.
-  - Unpark only through the `/newbr` preparation-boundary decision.
-  - Compare checkpoint message drafting through Pi model registry with branch slug drafting through `pi --print`.
-  - Concentrate provider/model/auth/timeout/output policy only if the preparation boundary shows shared leverage.
+- [x] Decide whether `/newbr` needs a typed preparation/plan boundary before the transaction.
+  - Added `newbr-preparation.ts` as the preparation owner for requested slug normalization/rejection, untracked snippets, `pi --print` slug drafting, fallback naming, branch availability/suffixing, checkpoint-message preparation, typed warnings, and typed failures.
+  - Returned `NewBranchPlan` with branch name, base slug, slug source, suffix metadata, and checkpoint message before `newbr-transaction.ts` applies the transaction.
+  - Kept `newbr-flow.ts` as the thin command workflow for snapshot loading, clean-worktree refusal, notifications, transaction invocation, final cleanliness probing, and success/failure text.
+  - Kept `newbr-transaction.ts` as the apply phase for stash, Graphite branch creation, restore, and commit.
+  - Deletion test passed: deleting `newbr-preparation.ts` would push real planning complexity back into `newbr-flow.ts`.
+- [x] Decide whether small-model drafting should become a shared Module.
+  - Kept checkpoint message drafting and branch slug drafting separate for this Objective.
+  - Localized branch slug drafting, fallback warnings, and prompt construction in `newbr-preparation.ts` while preserving current `pi --print` behavior.
+  - Parked shared provider/model/auth/timeout/output policy until a future cross-command need proves enough leverage.
 - [x] Decide whether Graphite branch creation needs an explicit Adapter.
   - Decided not to introduce a standalone Graphite Adapter in this slice.
   - Kept `gt create <branch> --no-interactive --no-ai` as a private transaction helper inside `/newbr`'s explicit user-facing Graphite contract.
@@ -33,16 +34,16 @@
   - Human decision after Candidate 2: branch naming alone is too narrow for the next slice.
   - Reframe slug generation, fallback, suffixing, and availability checks as possible responsibilities of the `/newbr` preparation/plan boundary.
   - Revisit a standalone branch-name policy Module only if later evidence proves it independently passes the deletion test.
-- [~] Align tests with behavior-first fakes.
+- [x] Align tests with behavior-first fakes.
   - Candidate 1 added a local pending-worktree harness and kept `/newbr` safety-order assertions for prepare, stash, Graphite create, restore, and commit.
   - Candidate 2 added `newbr-transaction.test.ts` for typed transaction outcomes and rollback safety, while `newbr-flow.test.ts` keeps high-level user-facing failure coverage.
-  - Continue using local fake adapters or harnesses consistent with existing TypeScript package tests.
-  - Keep command-order assertions only where ordering is the safety guarantee.
-  - Add regression coverage before or alongside accepted refactors.
+  - The preparation boundary added `newbr-preparation.test.ts` for typed plans, typed failures, model fallback warnings, branch suffixing, and checkpoint-preparation failure.
+  - `newbr-flow.test.ts` now stays focused on command-level stops, safety ordering across major phases, preparation warning surfacing, and transaction failure text.
+  - A universal TypeScript fake framework remains unnecessary.
 - [x] Validate accepted TypeScript changes.
-  - `bun run --cwd ts check` passed for Candidate 1 and Candidate 2.
-  - `bun run --cwd ts test` passed for Candidate 1 and Candidate 2.
-  - `just dprint-check` passed after Candidate 2.
+  - `bun run --cwd ts check` passed for Candidate 1, Candidate 2, and the preparation boundary.
+  - `bun run --cwd ts test` passed for Candidate 1, Candidate 2, and the preparation boundary.
+  - `just dprint-check` passed after Candidate 2 and after the preparation-boundary Objective updates.
   - Run broader validation only if later changes escape the TypeScript Pi extension package.
 - [ ] Close by explicit human decision.
   - Confirm every candidate has a disposition.
@@ -53,5 +54,5 @@
 
 - [ ] Cross-reference or update `pi-extension-deepening` only if work in this Objective changes broader Pi extension architecture decisions.
 - [ ] Split a follow-on Objective if shared model drafting, `/newbr` preparation architecture, or Graphite transaction architecture becomes larger than the narrow PR #649 follow-up.
-- [ ] Keep standalone branch naming policy parked unless the `/newbr` preparation-boundary work proves it deserves an independent Module.
+- [x] Keep standalone branch naming policy parked unless the `/newbr` preparation-boundary work proves it deserves an independent Module.
 - [ ] Revisit a universal TypeScript fake framework only if multiple production seams prove the same fake Adapter shape.

@@ -1,6 +1,7 @@
 import type { CommandResult } from "./checkpoint-flow.ts";
 import { commitPreparedCheckpointMessage, prepareCheckpointMessageForPi, type ExtensionAPI, type ExtensionCommandContext } from "./checkpoint-pi.ts";
-import { createNewBranchCheckpointFlow, parseNewBranchArgs, type ParsedNewBranchArgs } from "./newbr-flow.ts";
+import { createNewBranchCheckpointFlow, parseNewBranchArgs } from "./newbr-flow.ts";
+import type { ParsedNewBranchArgs } from "./newbr-preparation.ts";
 
 const COMMAND_NAME = "newbr";
 const STATUS_KEY = "newbr";
