@@ -1,6 +1,6 @@
 ---
 name: dev-gt-restack-resolve
-description: "Restack the current Graphite stack with conflict resolution — downstack by default, full stack on request. Auto-merge mechanically-safe conflicts (verified with project checks) and escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', or a restack expected to conflict."
+description: "Restack the current Graphite stack with conflict resolution — full stack by default like `gt restack`, downstack on request. Auto-merge mechanically-safe conflicts (verified with project checks) and escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', 'downstack restack', or a restack expected to conflict."
 metadata:
   internal: true
 allowed-tools:
@@ -23,10 +23,11 @@ allowed-tools:
 # dev-gt-restack-resolve
 
 Drive a Graphite restack semi-autonomously with an explicit **scope**:
-**downstack** by default, or **full stack** when the user asks for it.
-Auto-resolve the mechanically-safe conflicts, verify any code resolution with
-the project's checks, and escalate only the genuinely ambiguous conflicts to a
-human with a proposed resolution.
+**full stack** by default, matching plain `gt restack`, or **downstack** when
+the user asks for the narrower ancestors/current scope. Auto-resolve the
+mechanically-safe conflicts, verify any code resolution with the project's
+checks, and escalate only the genuinely ambiguous conflicts to a human with a
+proposed resolution.
 
 This skill is **prose-only** — it adds no conflict-resolution tooling. It
 composes two existing skills and you should defer to them rather than duplicate
@@ -41,19 +42,20 @@ their content:
 
 - "restack and resolve conflicts", "intelligent restack", "auto restack"
 - "full restack", "whole-stack restack", "include upstack", "not just downstack"
-- A `gt restack` (downstack or full stack) that is expected to hit conflicts
+- "downstack restack", "ancestors only", "rebase up to where I am"
+- A `gt restack` (full stack or downstack) that is expected to hit conflicts
 - Resuming a restack that was already interrupted mid-rebase
 
 ## Scope and non-goals
 
-- **Scope must be explicit.** Default to **downstack** for generic requests;
-  use **full** only when the user asks for the whole stack/upstack descendants
-  or confirms a prompt.
+- **Scope must be explicit.** Default to **full** for generic restack requests,
+  matching plain `gt restack`; use **downstack** only when the user asks for the
+  narrower ancestors/current scope or confirms a prompt.
+- **Full scope:** operate on the current Graphite stack as `gt restack` does
+  (ancestors + current + descendants). This may rewrite upstack descendants, but
+  that is the expected default for this skill.
 - **Downstack scope:** operate on the chain trunk → current (ancestors +
   current). Upstack is not touched.
-- **Full scope:** operate on the current Graphite stack as `gt restack` does
-  (ancestors + current + descendants). This may rewrite upstack descendants, so
-  do not use it unless requested or confirmed.
 - **Never** `gt submit` / push / land.
 - **Never** touch sibling stacks. Upstack descendants are in scope only for a
   full restack.
@@ -95,15 +97,15 @@ base changes elsewhere in the file. (Key lesson.)
 
 Set `RESTACK_SCOPE` before running any restack command.
 
-| User intent                                                                                | Scope                 | Slot consolidation command       | Restack command          |
-| ------------------------------------------------------------------------------------------ | --------------------- | -------------------------------- | ------------------------ |
-| Generic "restack and resolve", "rebase up to where I am", or ambiguous request             | `downstack` (default) | `slot gt free-stack --downstack` | `gt restack --downstack` |
-| Explicit "full restack", "whole stack", "include upstack/descendants", or confirmed prompt | `full`                | `slot gt free-stack`             | `gt restack`             |
+| User intent                                                                                    | Scope            | Slot consolidation command       | Restack command          |
+| ---------------------------------------------------------------------------------------------- | ---------------- | -------------------------------- | ------------------------ |
+| Generic "restack and resolve", "restack", "intelligent/auto restack", or ambiguous request     | `full` (default) | `slot gt free-stack`             | `gt restack`             |
+| Explicit "downstack restack", "ancestors only", "rebase up to where I am", or confirmed prompt | `downstack`      | `slot gt free-stack --downstack` | `gt restack --downstack` |
 
 Rules:
 
-- If the user did **not** explicitly ask for full-stack behavior, default to
-  `downstack`. When in doubt, ask.
+- If the user did **not** explicitly ask for downstack-only behavior, default to
+  `full`. When in doubt, ask.
 - `full` means Graphite's current stack from the current branch: ancestors,
   current, and descendants (upstack). It does **not** mean every stack in the
   repo.
