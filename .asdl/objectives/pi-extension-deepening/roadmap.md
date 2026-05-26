@@ -59,7 +59,7 @@
   - Preserved existing command choreography: dry-run, optional restack, streamed submit, current-PR verification, restack conflict checks, semantic empty-branch failure detection, PR-link extraction, and no-UI fallback output.
   - Added package tests for registration, happy-path PR links, dry-run failure, restack decline/success/conflict, semantic failure, current-PR failure, startup error, timeout, and no-URL success fallback.
   - Updated `docs/pi/README.md` so `/submit` is recorded as a project-local adapter over engineered behavior.
-  - Evidence: local working diff against Graphite parent `update-land-stack-test-interface-cleanup`; focused submit tests passed; `bun run --cwd ts check` passed; `bun run --cwd ts test` passed.
+  - Evidence: local branch diff against Graphite parent `update-land-stack-test-interface-cleanup`; focused submit tests passed; `bun run --cwd ts check` passed; `bun run --cwd ts test` passed.
 - [x] Candidate 1 — decide a narrow Pi host seam, folding Candidate 12 only where useful.
   - Inspected the upstream Pi codebase's extension testing patterns in `/Users/schrockn/code/githubs/badlogic/pi-mono`.
   - Decision: do not introduce a broad shared project-local Pi host seam or maintained generic `FakePi` host now.

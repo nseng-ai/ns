@@ -22,7 +22,7 @@ Candidate 2 is also decided from this evidence: keep `command-runtime.ts` narrow
 
 Behavior-preserving compromise: progress truncation now uses the package-local terminal presentation helper rather than importing Pi TUI directly. The broader presentation/linkification question stays as a follow-up instead of expanding this slice.
 
-Evidence: local working diff against Graphite parent `update-land-stack-test-interface-cleanup`; PR evidence was unavailable because the branch had no PR at update time.
+Evidence: local branch diff against Graphite parent `update-land-stack-test-interface-cleanup`; PR evidence unavailable because the current branch has no PR.
 
 ## Follow-Ups
 
