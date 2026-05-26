@@ -12,6 +12,7 @@ from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_o
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead
+from asdl_core.sessions.adapters.pi_jsonl import PiJsonlSessionSource
 from asdl_core.sessions.testing import FakeSessionSource
 from asdl_core.sessions.types import (
     ParsedSession,
@@ -85,6 +86,7 @@ def test_collect_evidence_returns_json_from_fake_session_source(cli_group: Clink
     payload = json.loads(result.output)
     assert payload["exit_code"] == 0
     data = payload["data"]
+    _assert_collect_evidence_data_contract(data)
     assert data["success"] is True
     assert data["error"] is None
     assert data["repo"]["repo_root"] == "/repo"
@@ -103,9 +105,13 @@ def test_collect_evidence_returns_json_from_fake_session_source(cli_group: Clink
     assert data["aggregate_metrics"]["session_count"] == 1
     assert data["aggregate_metrics"]["message_counts"]["user"] == 1
     assert data["aggregate_metrics"]["tool_call_count"] == 1
-    assert data["sessions"][0]["session_id"] == "s1"
-    assert data["sessions"][0]["source_ref"]["path"] == "/tmp/sessions/s1.jsonl"
+    session = data["sessions"][0]
+    _assert_session_summary_contract(session)
+    assert session["session_id"] == "s1"
+    assert session["source_ref"]["path"] == "/tmp/sessions/s1.jsonl"
     assert data["warnings"] == []
+    evidence_item = data["evidence_items"][0]
+    _assert_evidence_item_contract(evidence_item)
     assert data["evidence_items"] == [
         {
             "kind": "tool_usage_count",
@@ -253,11 +259,92 @@ def test_collect_evidence_missing_session_root_warning_is_success(
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
+    _assert_collect_evidence_data_contract(data)
     assert data["success"] is True
     assert data["aggregate_metrics"]["session_count"] == 0
     assert data["aggregate_metrics"]["warning_count"] == 1
-    assert data["warnings"][0]["code"] == "session_root_missing"
-    assert data["warnings"][0]["source_ref"]["path"] == str(tmp_path / "missing")
+    warning = data["warnings"][0]
+    _assert_warning_contract(warning)
+    assert warning["code"] == "session_root_missing"
+    assert warning["source_ref"]["path"] == str(tmp_path / "missing")
+
+
+def test_collect_evidence_real_pi_missing_session_root_warning_is_success(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    repo_root = Path("/repo")
+    missing_session_root = tmp_path / "missing-sessions"
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        current_branch_by_path={repo_root: "feature/retro"},
+    )
+    source = PiJsonlSessionSource()
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "collect-evidence",
+            "--repo",
+            str(repo_root),
+            "--session-root",
+            str(missing_session_root),
+            "--format",
+            "json",
+        ],
+        obj=_obj(AretroCliContext(git_gateway=git, session_source=source)),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    _assert_collect_evidence_data_contract(data)
+    assert data["success"] is True
+    assert data["error"] is None
+    assert data["repo"]["repo_root"] == "/repo"
+    assert data["repo"]["branch"] == "feature/retro"
+    assert data["repo"]["branch_source"] == "git_current_branch"
+    assert data["query"] == {
+        "repo_root": "/repo",
+        "session_root": str(missing_session_root),
+        "max_sessions": 20,
+    }
+    assert data["source"] == {
+        "harness": "pi",
+        "adapter_name": "pi_jsonl",
+        "record_format": "jsonl",
+    }
+    assert data["aggregate_metrics"] == {
+        "session_count": 0,
+        "message_counts": {
+            "user": 0,
+            "assistant": 0,
+            "tool_result": 0,
+            "command_execution": 0,
+            "system": 0,
+            "other": 0,
+        },
+        "tool_call_count": 0,
+        "tool_result_count": 0,
+        "command_execution_count": 0,
+        "usage_event_count": 0,
+        "warning_count": 1,
+    }
+    assert data["sessions"] == []
+    assert data["evidence_items"] == []
+    assert len(data["warnings"]) == 1
+    warning = data["warnings"][0]
+    _assert_warning_contract(warning)
+    assert warning["code"] == "session_root_missing"
+    assert warning["harness"] == "pi"
+    assert warning["adapter_name"] == "pi_jsonl"
+    source_ref = warning["source_ref"]
+    _assert_source_ref_contract(source_ref)
+    assert source_ref["path"] == str(missing_session_root)
+    assert source_ref["uri"] is None
+    assert source_ref["line_number"] is None
 
 
 def test_collect_evidence_detached_head_without_branch_is_negative(cli_group: ClinkrGroup) -> None:
@@ -304,6 +391,125 @@ def test_collect_evidence_not_a_git_repo_is_negative(cli_group: ClinkrGroup) -> 
     assert data["repo"]["repo_root"] is None
     assert data["sessions"] == []
     assert source.queries == ()
+
+
+def _assert_collect_evidence_data_contract(data: object) -> None:
+    assert isinstance(data, dict)
+    assert set(data) == {
+        "success",
+        "error",
+        "repo",
+        "query",
+        "source",
+        "aggregate_metrics",
+        "sessions",
+        "warnings",
+        "evidence_items",
+    }
+    _assert_repo_contract(data["repo"])
+    _assert_query_contract(data["query"])
+    _assert_source_contract(data["source"])
+    _assert_aggregate_metrics_contract(data["aggregate_metrics"])
+    assert isinstance(data["sessions"], list)
+    assert isinstance(data["warnings"], list)
+    assert isinstance(data["evidence_items"], list)
+
+
+def _assert_repo_contract(repo: object) -> None:
+    assert isinstance(repo, dict)
+    assert set(repo) == {"repo_root", "cwd", "branch", "branch_source"}
+
+
+def _assert_query_contract(query: object) -> None:
+    assert isinstance(query, dict)
+    assert set(query) == {"repo_root", "session_root", "max_sessions"}
+
+
+def _assert_source_contract(source: object) -> None:
+    assert isinstance(source, dict)
+    assert set(source) == {"harness", "adapter_name", "record_format"}
+
+
+def _assert_aggregate_metrics_contract(metrics: object) -> None:
+    assert isinstance(metrics, dict)
+    assert set(metrics) == {
+        "session_count",
+        "message_counts",
+        "tool_call_count",
+        "tool_result_count",
+        "command_execution_count",
+        "usage_event_count",
+        "warning_count",
+    }
+    _assert_message_counts_contract(metrics["message_counts"])
+
+
+def _assert_message_counts_contract(message_counts: object) -> None:
+    assert isinstance(message_counts, dict)
+    assert set(message_counts) == {
+        "user",
+        "assistant",
+        "tool_result",
+        "command_execution",
+        "system",
+        "other",
+    }
+
+
+def _assert_source_ref_contract(source_ref: object) -> None:
+    assert isinstance(source_ref, dict)
+    assert set(source_ref) == {"path", "uri", "line_number"}
+
+
+def _assert_warning_contract(warning: object) -> None:
+    assert isinstance(warning, dict)
+    assert set(warning) == {"code", "message", "source_ref", "harness", "adapter_name"}
+    if warning["source_ref"] is not None:
+        _assert_source_ref_contract(warning["source_ref"])
+
+
+def _assert_session_summary_contract(session: object) -> None:
+    assert isinstance(session, dict)
+    assert set(session) == {
+        "session_id",
+        "started_at_iso",
+        "ended_at_iso",
+        "source_ref",
+        "association",
+        "message_counts",
+        "model_event_count",
+        "tool_call_count",
+        "tool_result_count",
+        "command_execution_count",
+        "usage_event_count",
+        "warning_count",
+    }
+    _assert_source_ref_contract(session["source_ref"])
+    _assert_association_contract(session["association"])
+    _assert_message_counts_contract(session["message_counts"])
+
+
+def _assert_association_contract(association: object) -> None:
+    assert isinstance(association, dict)
+    assert set(association) == {"repo_root", "cwd", "branch", "confidence", "evidence"}
+    assert isinstance(association["evidence"], list)
+
+
+def _assert_evidence_item_contract(evidence_item: object) -> None:
+    assert isinstance(evidence_item, dict)
+    assert set(evidence_item) == {
+        "kind",
+        "subject",
+        "summary",
+        "count",
+        "session_count",
+        "source_refs",
+        "metadata",
+    }
+    assert isinstance(evidence_item["source_refs"], list)
+    for source_ref in evidence_item["source_refs"]:
+        _assert_source_ref_contract(source_ref)
+    assert isinstance(evidence_item["metadata"], dict)
 
 
 def _obj(context: AretroCliContext) -> ClinkrContextObject:

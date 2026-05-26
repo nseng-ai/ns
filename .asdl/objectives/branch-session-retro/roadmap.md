@@ -6,7 +6,7 @@
 - [x] PR 2: add the reusable `asdl-core` session library with harness-neutral source/query models, the Pi JSONL adapter/parser, source refs, conservative repo/worktree association, warnings, fake source coverage, and tests for normal, partial, malformed, missing-root, and discovery behavior.
 - [x] PR 3: implement `aretro exec collect-evidence` as a thin consumer of `asdl-core` sessions, with typed Git/session-source context injection, conservative repo/branch resolution, `--repo`/`--branch`/`--session-root`/`--max-sessions` options, stable success/negative JSON envelope, compact session summaries, aggregate counts, warnings, and empty PR4-ready `evidence_items`.
 - [x] PR 4: add reusable `asdl-core` evidence aggregation for repeated file reads, repeated shell commands, failed tools, tools by name, token usage when present, and large outputs when measurable, then expose it through `collect-evidence`.
-- [ ] PR 5: add remaining scenario and plugin smoke coverage for the standalone CLI, hidden exec command, JSON contract, and missing-session-root behavior beyond the coverage already added with PR 4.
+- [x] PR 5: add remaining scenario and plugin smoke coverage for the standalone CLI, hidden exec command, JSON contract, and missing-session-root behavior beyond the coverage already added with PR 4.
 - [ ] PR 6: create or update the branch retrospective skill so it invokes `aretro exec collect-evidence` and writes semantic recommendations from the returned evidence.
 - [ ] PR 7: validate the multi-PR steelthread against real branch sessions, tighten payload size/limits, and update docs or skill guidance discovered during validation.
 
