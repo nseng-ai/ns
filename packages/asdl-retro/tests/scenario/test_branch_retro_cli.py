@@ -14,11 +14,14 @@ from asdl_core.sessions.testing import FakeSessionSource
 from asdl_core.sessions.types import (
     ParsedSession,
     SessionAssociation,
+    SessionCommandExecution,
     SessionMessageCounts,
     SessionModelEvent,
     SessionSourceInfo,
     SessionSourceRef,
     SessionToolCall,
+    SessionToolResult,
+    SessionUsage,
     SessionWarning,
 )
 from asdl_retro.context import BranchRetroCliContext
@@ -103,7 +106,52 @@ def test_collect_evidence_returns_json_from_fake_session_source(cli_group: Clink
     assert data["sessions"][0]["session_id"] == "s1"
     assert data["sessions"][0]["source_ref"]["path"] == "/tmp/sessions/s1.jsonl"
     assert data["warnings"] == []
-    assert data["evidence_items"] == []
+    assert data["evidence_items"] == [
+        {
+            "kind": "tool_usage_count",
+            "subject": "read",
+            "summary": "read called 1 time across 1 session",
+            "count": 1,
+            "session_count": 1,
+            "source_refs": [{"path": "/tmp/sessions/s1.jsonl", "uri": None, "line_number": 2}],
+            "metadata": {},
+        }
+    ]
+
+
+def test_collect_evidence_includes_factual_items_without_raw_outputs(
+    cli_group: ClinkrGroup,
+) -> None:
+    repo_root = Path("/repo")
+    source = FakeSessionSource(sessions=(_evidence_session(repo_root),))
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        current_branch_by_path={repo_root: "feature/retro"},
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["exec", "collect-evidence", "--repo", str(repo_root), "--format", "json"],
+        obj=_obj(BranchRetroCliContext(git_gateway=git, session_source=source)),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)["data"]
+    evidence_items = data["evidence_items"]
+    evidence_kinds = {item["kind"] for item in evidence_items}
+    assert evidence_kinds == {
+        "tool_usage_count",
+        "failed_tool_result",
+        "repeated_file_read",
+        "repeated_shell_command",
+        "token_usage_observed",
+        "large_output_observed",
+    }
+    failed_tool = _single_item(evidence_items, "failed_tool_result")
+    assert failed_tool["subject"] == "read"
+    assert failed_tool["metadata"] == {"error_message_count": 1}
+    assert "SECRET_TOOL_OUTPUT_TEXT" not in json.dumps(data)
+    assert "SECRET_COMMAND_OUTPUT_TEXT" not in json.dumps(data)
 
 
 def test_collect_evidence_passes_query_to_session_source(
@@ -291,3 +339,89 @@ def _sample_session(repo_root: Path) -> ParsedSession:
         usage_events=(),
         warnings=(),
     )
+
+
+def _evidence_session(repo_root: Path) -> ParsedSession:
+    source_path = Path("/tmp/sessions/s2.jsonl")
+    return ParsedSession(
+        source_info=SessionSourceInfo(harness="fake", adapter_name="fake", record_format="memory"),
+        source_ref=SessionSourceRef(path=source_path),
+        session_id="s2",
+        started_at_iso="2026-01-01T00:00:00Z",
+        ended_at_iso="2026-01-01T00:01:00Z",
+        association=SessionAssociation(
+            repo_root=repo_root,
+            cwd=repo_root,
+            branch=None,
+            confidence="repo_cwd",
+            evidence=("query.repo_root", "session_header.cwd"),
+        ),
+        message_counts=SessionMessageCounts(user=1, assistant=1, tool_result=1),
+        model_events=(),
+        tool_calls=(
+            SessionToolCall(
+                call_id="read-1",
+                tool_name="read",
+                argument_keys=("path",),
+                source_ref=SessionSourceRef(path=source_path, line_number=2),
+                path="packages/foo.py",
+            ),
+            SessionToolCall(
+                call_id="read-2",
+                tool_name="read",
+                argument_keys=("path",),
+                source_ref=SessionSourceRef(path=source_path, line_number=3),
+                path="packages/foo.py",
+            ),
+            SessionToolCall(
+                call_id="bash-1",
+                tool_name="bash",
+                argument_keys=("command",),
+                source_ref=SessionSourceRef(path=source_path, line_number=4),
+                command="just test",
+            ),
+        ),
+        tool_results=(
+            SessionToolResult(
+                tool_call_id="read-1",
+                tool_name="read",
+                is_error=True,
+                error_message="SECRET_TOOL_OUTPUT_TEXT",
+                text_length=25_000,
+                line_count=300,
+                truncated=True,
+                source_ref=SessionSourceRef(path=source_path, line_number=5),
+            ),
+        ),
+        command_executions=(
+            SessionCommandExecution(
+                command="just test",
+                exit_code=0,
+                cancelled=False,
+                truncated=False,
+                output_length=30_000,
+                line_count=4,
+                source_ref=SessionSourceRef(path=source_path, line_number=6),
+            ),
+        ),
+        usage_events=(
+            SessionUsage(
+                input_tokens=10,
+                output_tokens=5,
+                cache_read_tokens=None,
+                cache_write_tokens=None,
+                total_tokens=15,
+                source_ref=SessionSourceRef(path=source_path, line_number=7),
+            ),
+        ),
+        warnings=(),
+    )
+
+
+def _single_item(
+    evidence_items: list[dict[str, object]],
+    kind: str,
+) -> dict[str, object]:
+    matches = [item for item in evidence_items if item["kind"] == kind]
+    assert len(matches) == 1
+    return matches[0]
