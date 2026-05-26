@@ -133,8 +133,9 @@ Bad: putting the generic `[@-Z\\-_]` alternative first can consume only `ESC ]`,
 For TypeScript Pi extensions in this repo, use:
 
 ```bash
-bun run --cwd ts check
-bun run --cwd ts test
+just ts-check
+just ts-test
 ```
 
+These `just` targets are preferred because they route through the repo `justfile`.
 Do not use `dprint check <ts-file>` as the TS package files are not currently matched by the repo dprint config.

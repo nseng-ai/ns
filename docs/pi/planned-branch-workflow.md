@@ -162,5 +162,5 @@ Useful related files:
   pointer back to this workflow.
 
 For docs-only changes, run `just dprint-check`. If TypeScript behavior changes,
-validate the extension package with `bun run --cwd ts check` and
-`bun run --cwd ts test`.
+validate the extension package with `just ts-check` and `just ts-test`. The
+`justfile` remains the source of truth for the underlying Bun invocation.
