@@ -5,6 +5,7 @@ members = [
   "packages/asdl-dispatcher",
   "packages/asdl-objectives",
   "packages/asdl-pr-address",
+  "packages/asdl-retro",
   "packages/asdl-reviewer",
   "packages/asdl-slots",
   "packages/packagechk",
@@ -16,6 +17,7 @@ asdl-core = { workspace = true }
 asdl-dispatcher = { workspace = true }
 asdl-objectives = { workspace = true }
 asdl-pr-address = { workspace = true }
+asdl-retro = { workspace = true }
 asdl-reviewer = { workspace = true }
 asdl-slots = { workspace = true }
 packagechk = { workspace = true }
@@ -42,6 +44,7 @@ plugins = [
   "asdl-dispatcher",
   "asdl-objectives",
   "asdl-pr-address",
+  "asdl-retro",
   "asdl-slots",
 ]
 
@@ -56,6 +59,7 @@ dev = [
   "asdl-dispatcher",
   "asdl-objectives",
   "asdl-pr-address",
+  "asdl-retro",
   "asdl-reviewer",
   "asdl-slots",
   "packagechk",
@@ -79,6 +83,7 @@ src = [
   "packages/asdl-dispatcher/src",
   "packages/asdl-objectives/src",
   "packages/asdl-pr-address/src",
+  "packages/asdl-retro/src",
   "packages/asdl-reviewer/src",
   "packages/asdl-slots/src",
   "packages/packagechk/src",
@@ -103,6 +108,7 @@ known-first-party = [
   "asdl_dispatcher",
   "asdl_objectives",
   "asdl_pr_address",
+  "asdl_retro",
   "asdl_reviewer",
   "asdl_slots",
   "packagechk",
@@ -129,6 +135,7 @@ testpaths = [
   "packages/asdl-dispatcher/tests",
   "packages/asdl-objectives/tests",
   "packages/asdl-pr-address/tests",
+  "packages/asdl-retro/tests",
   "packages/asdl-reviewer/tests",
   "packages/asdl-slots/tests",
   "packages/packagechk/tests",
