@@ -24,11 +24,12 @@
   - Kept status-line and chat-message rendering policy local; `worktree-status` now reuses only the shared URL/OSC helpers, and the exploratory worktree-status message renderer was removed because it was a separate behavior change rather than consolidation.
   - Deferred `.pi/extensions/submit.ts` helper migration to Candidate 10 / vibecoded extension promotion triage.
   - Evidence: PR #616 and PR #617; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
-- [~] Candidate 4 — decide and implement the Branch Memory CLI Adapter.
-  - Boundary decision: `planned-branch-layer-deepening` owns saved-plan/planned-branch/attached-plan policy; this candidate may own only generic Branch Memory CLI discovery/execution plumbing.
-  - Concentrate Branch Memory CLI discovery, candidate fallback, command display, and execution plumbing currently duplicated by planned-branch helpers and `worktree-status.ts` only if the shared Interface preserves caller policy differences.
-  - Preserve caller policy differences: planned-branch attachment/read paths need detailed fatal errors and planning-level diagnostics; status display should degrade nonfatally.
-  - Make fake-driven tests cover candidate ordering, unavailable commands, and caller-specific failure handling.
+- [x] Candidate 4 — decide and implement the Branch Memory CLI Adapter.
+  - Boundary decision: `planned-branch-layer-deepening` owns saved-plan/planned-branch/attached-plan policy; this candidate owns only generic Branch Memory CLI discovery/execution plumbing.
+  - Implemented `brmem-cli.ts` as a narrow shared adapter for Branch Memory command discovery, candidate fallback, command display, normalized execution results, unavailable-command detection, and all-candidates-unavailable errors.
+  - Migrated `create-brmem-plan.ts` and `worktree-status.ts` to the adapter while preserving caller policy differences: `persist_brmem_plan` still surfaces detailed fatal errors, while status display still degrades nonfatally to `unavailable`.
+  - Added fake-driven tests for candidate ordering, ancestor `.venv` / `pyproject.toml` discovery, unavailable commands, fallback to `uv run --directory ... brmem`, detailed fatal errors, and nonfatal worktree-status degradation.
+  - Evidence: PR #628; Graphite parent `terminal-presentation/worktree-status-renderer`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [ ] Candidate 3 — decide and implement the Clinkr Machine envelope parser.
   - Create a small parser for framework envelope facts such as JSON parsing, `exit_code`, `data`, and malformed-envelope diagnostics.
   - Keep Objective-list and Branch Memory domain payload validation near their domain modules.

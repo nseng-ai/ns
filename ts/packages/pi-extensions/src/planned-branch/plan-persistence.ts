@@ -1,8 +1,8 @@
-import { existsSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
-import { formatCommand, formatOutputSection, tailText, type ExecResult } from "../command-runtime.ts";
+import { runFirstAvailableBrmemCommand } from "../brmem-cli.ts";
+import { formatOutputSection, tailText, type ExecResult } from "../command-runtime.ts";
 
 const BRMEM_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 10_000;
@@ -31,12 +31,7 @@ export type PlanCommandExecApi = {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 };
 
-export type BrmemCommandCandidate = {
-	command: string;
-	prefixArgs: string[];
-};
-
-export type BrmemRun = {
+type BrmemRun = {
 	result: ExecResult;
 	displayCommand: string;
 };
@@ -157,55 +152,11 @@ export async function runBrmem(
 	args: string[],
 	signal: AbortSignal | undefined,
 ): Promise<BrmemRun> {
-	const failures: string[] = [];
-	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
-		const commandArgs = [...candidate.prefixArgs, ...args];
-		const displayCommand = formatCommand(candidate.command, commandArgs);
-		try {
-			const result = await pi.exec(candidate.command, commandArgs, execOptions(cwd, BRMEM_TIMEOUT_MS, signal));
-			if (isLikelyCommandNotFound(result)) {
-				failures.push(formatCommandFailure("brmem command candidate was unavailable", displayCommand, result));
-				continue;
-			}
-			return { result, displayCommand };
-		} catch (error) {
-			failures.push(formatStartupFailure(displayCommand, error));
-		}
-	}
-
-	throw new Error(
-		[
-			"No brmem command available. Tried all configured brmem command candidates.",
-			...failures.map((failure) => `\n${failure}`),
-		].join("\n"),
-	);
-}
-
-export function resolveBrmemCommandCandidates(cwd: string): BrmemCommandCandidate[] {
-	const candidates: BrmemCommandCandidate[] = [];
-	const seen = new Set<string>();
-
-	const add = (candidate: BrmemCommandCandidate) => {
-		const key = JSON.stringify(candidate);
-		if (!seen.has(key)) {
-			seen.add(key);
-			candidates.push(candidate);
-		}
-	};
-
-	const venvRoot = findAncestorContaining(cwd, join(".venv", "bin", "brmem"));
-	if (venvRoot) {
-		add({ command: join(venvRoot, ".venv", "bin", "brmem"), prefixArgs: [] });
-	}
-
-	add({ command: "brmem", prefixArgs: [] });
-
-	const projectRoot = findAncestorContaining(cwd, "pyproject.toml");
-	if (projectRoot) {
-		add({ command: "uv", prefixArgs: ["run", "--directory", projectRoot, "brmem"] });
-	}
-
-	return candidates;
+	const run = await runFirstAvailableBrmemCommand(pi, cwd, args, {
+		timeoutMs: BRMEM_TIMEOUT_MS,
+		signal,
+	});
+	return { result: run.result, displayCommand: run.displayCommand };
 }
 
 export function parseBrmemPutData(stdout: string): BrmemPutData {
@@ -275,20 +226,6 @@ export function formatCommandFailure(title: string, displayCommand: string, resu
 	);
 }
 
-function findAncestorContaining(startDir: string, relativePath: string): string | undefined {
-	let current = resolve(startDir);
-	for (;;) {
-		if (existsSync(join(current, relativePath))) {
-			return current;
-		}
-		const parent = dirname(current);
-		if (parent === current) {
-			return undefined;
-		}
-		current = parent;
-	}
-}
-
 function malformedBrmemPutEnvelope(stdout: string, reason: string): Error {
 	return new Error(`Malformed brmem put JSON: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
 }
@@ -298,23 +235,6 @@ function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefin
 		return { cwd, timeout };
 	}
 	return { cwd, timeout, signal };
-}
-
-function formatStartupFailure(displayCommand: string, error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return tailText(`brmem command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`, {
-		maxChars: MAX_ERROR_CHARS,
-		maxLines: 80,
-	});
-}
-
-function isLikelyCommandNotFound(result: ExecResult): boolean {
-	if (result.code !== 127 || result.killed) {
-		return false;
-	}
-
-	const output = `${result.stderr}\n${result.stdout}`.toLowerCase();
-	return output.includes("command not found") || output.includes("not found") || output.includes("no such file");
 }
 
 async function realpathIfPossible(path: string): Promise<string> {

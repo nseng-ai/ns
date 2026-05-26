@@ -68,7 +68,7 @@ Assumptions:
 Risks:
 
 - The candidate list is broad enough to sprawl. The roadmap must force explicit disposition before implementation expands.
-- Premature extraction could create shallow Modules whose Interfaces are nearly as complex as their Implementations. Candidate 6 confirmed this risk: the shared terminal helper Module is useful for security-sensitive URL/OSC policy, but the attempted worktree-status message-renderer expansion was removed because it was a separate behavior change rather than helper consolidation.
+- Premature extraction could create shallow Modules whose Interfaces are nearly as complex as their Implementations. Candidate 6 confirmed this risk: the shared terminal helper Module is useful for security-sensitive URL/OSC policy, but the attempted worktree-status message-renderer expansion was removed because it was a separate behavior change rather than helper consolidation. Candidate 4 further refined the boundary: Branch Memory command discovery and candidate fallback belong in a shared CLI Adapter, while Branch Memory domain payload validation still belongs with the caller until Candidate 3 proves a shared Machine-envelope parser.
 - The risky extensions, especially `/submit`, touch Graphite and GitHub workflows; changes there require the relevant Graphite and GitHub guidance and careful fake-driven tests.
 - `land-stack` tests currently encode substantial command choreography; refactoring without first choosing better test surfaces could make safe changes look riskier than they are.
 - `worktree-status.ts` mixes session lifecycle, watchers, Git facts, Branch Memory facts, Graphite facts, and rendering; changing watcher behavior without internal Seams could create stale UI or session replacement bugs.
@@ -78,8 +78,7 @@ Risks:
 
 ## Open Questions
 
-- After Candidate 6, which ranked candidate should be implemented next: Branch Memory CLI Adapter, Clinkr Machine envelope parser, runner subagent contract cleanup, skill expansion, `/submit` promotion, Pi host seam, Objective integration, `worktree-status` internal seams, or `land-stack` test-surface cleanup?
+- After Candidates 6 and 4, which ranked candidate should be implemented next: Clinkr Machine envelope parser, runner subagent contract cleanup, skill expansion, `/submit` promotion, Pi host seam, Objective integration, `worktree-status` internal seams, or `land-stack` test-surface cleanup?
 - Should the old command-runtime seam stay narrow, or has `/submit` and command streaming now proven a deeper command execution Module?
-- Partially answered: the planned-branch workflow is not the reason to force a generic Adapter now; Candidate 4 remains this Objective's decision for shared Branch Memory CLI plumbing across `worktree-status` or future consumers, and must not own planned-branch domain policy.
 - Should skill expansion become shared now that both Objective commands and `just-fix` use it, or is that still a shallow hypothetical Seam?
 - How much of `/submit` should be promoted into the engineered layer, and should any overlap with `land-stack` become shared Graphite/PR machinery?
