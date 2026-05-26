@@ -1,4 +1,11 @@
 import { dispatchRunnerSubagent, type RunnerSubagentPi, type RunnerSubagentProgress, type RunnerSubagentResult } from "./runner-subagent.ts";
+import {
+	formatRunnerSubagentElapsed,
+	formatRunnerSubagentProgressWidgetLines,
+	runnerSubagentDisplayTitle,
+	runnerSubagentSessionFile,
+	runnerSubagentSessionFileText,
+} from "./runner-subagent/presentation.ts";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
@@ -124,12 +131,12 @@ export default function dispatchRunnerSubagentExtension(pi: ExtensionAPI): void 
 }
 
 export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult): string {
-	const sessionFile = result.sessionFile ?? result.progress.sessionFile;
+	const sessionFile = runnerSubagentSessionFile(result);
 	const lines = [
 		"dispatch_runner_subagent result",
 		`Status: ${result.status}`,
-		`Title: ${result.title ?? result.progress.title ?? "(untitled subagent session)"}`,
-		`Session file: ${sessionFile ?? "(not available)"}`,
+		`Title: ${runnerSubagentDisplayTitle(result)}`,
+		`Session file: ${runnerSubagentSessionFileText(result)}`,
 		formatProgressLine(result),
 	];
 	const stopReason = readStopReason(result);
@@ -155,7 +162,7 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 
 export function dispatchRunnerSubagentDetails(result: RunnerSubagentResult): DispatchRunnerSubagentDetails {
 	const title = result.title ?? result.progress.title;
-	const sessionFile = result.sessionFile ?? result.progress.sessionFile;
+	const sessionFile = runnerSubagentSessionFile(result);
 	const details: DispatchRunnerSubagentDetails = {
 		status: result.status,
 		...(title === undefined ? {} : { title }),
@@ -216,29 +223,20 @@ export function truncateFinalTextForToolContent(text: string): { text: string; t
 }
 
 export function formatElapsed(elapsedMs: number): string {
-	if (elapsedMs < 1_000) return `${elapsedMs}ms`;
-	return `${(elapsedMs / 1_000).toFixed(1)}s`;
+	return formatRunnerSubagentElapsed(elapsedMs);
 }
 
 export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentProgress): string {
 	const currentTool = progress.currentTool === undefined ? "" : `; current tool: ${progress.currentTool}`;
 	return [
-		`Running runner subagent: ${progress.title ?? "(untitled subagent session)"}`,
+		`Running runner subagent: ${runnerSubagentDisplayTitle(progress)}`,
 		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
-		`Session file: ${progress.sessionFile ?? "(not available)"}`,
+		`Session file: ${runnerSubagentSessionFileText(progress)}`,
 	].join("\n");
 }
 
 export function progressWidgetLines(progress: RunnerSubagentProgress): string[] {
-	const lines = [
-		`Subagent: ${progress.title ?? "(untitled subagent session)"}`,
-		`State: ${progress.state}`,
-		`Turns/tools: ${progress.turnCount}/${progress.toolCount}`,
-		`Elapsed: ${formatElapsed(progress.elapsedMs)}`,
-	];
-	if (progress.currentTool !== undefined) lines.splice(2, 0, `Tool: ${progress.currentTool}`);
-	if (progress.sessionFile !== undefined) lines.push(`Session: ${progress.sessionFile}`);
-	return lines;
+	return formatRunnerSubagentProgressWidgetLines(progress);
 }
 
 export function resultDiagnostic(result: RunnerSubagentResult): string | undefined {

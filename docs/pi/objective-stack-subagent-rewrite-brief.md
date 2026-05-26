@@ -1,8 +1,8 @@
-# Objective Stack Child-Session Rewrite Brief
+# Objective Stack Runner-Subagent Rewrite Brief
 
 ## Why this document exists
 
-This brief captures the current Objective stack implementation workflow, the failure mode that prompted a redesign, and the intended rewrite on top of the repo-local Pi extension child-session helper.
+This brief captures the current Objective stack implementation workflow, the failure mode that prompted a redesign, and the intended rewrite on top of the repo-local Pi extension runner-subagent helper.
 
 It is written for a fresh agent so they do **not** need to rediscover:
 
@@ -10,23 +10,23 @@ It is written for a fresh agent so they do **not** need to rediscover:
 - what arguments and artifacts it owns;
 - how the old implementation worked;
 - what broke in the old tool/command handoff path;
-- how the same feature should work over awaited child sessions;
+- how the same feature should work over awaited runner subagents;
 - what risks and design decisions remain open.
 
-Read this together with the [Pi Extension Child Session MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md) and the [Child Session Helper](./child-session-helper.md). The original Pi-core `ctx.runChildSession()` design is superseded for this repository: use the local `runChildSession(pi, ctx, options)` helper from `ts/packages/pi-extensions`, not a Pi core API.
+Read this together with the [Pi Extension Runner Subagent MVP Objective](../../.asdl/objectives/pi-core-subagent-mvp/objective.md) and the [Runner Subagent Helper](./runner-subagent-helper.md). The older Pi-core `ctx.runChildSession()` proposal and later `runChildSession(...)` prototype terminology are historical; current repo guidance uses the local `dispatchRunnerSubagent(pi, ctx, options)` helper from `ts/packages/pi-extensions/src/runner-subagent.ts`, not a Pi core API.
 
-## Current child-session implementation facts
+## Current runner-subagent implementation facts
 
-The base child-session abstraction now exists in this repository. These facts should guide the Objective stack rewrite:
+The base runner-subagent abstraction now exists in this repository. These facts should guide the Objective stack rewrite:
 
-- The helper is `runChildSession(pi, { cwd, signal }, options)` from `ts/packages/pi-extensions/src/run-child-session.ts`.
-- Child runs are subprocesses shaped like `pi --mode json -p --no-extensions --extension <generated-runtime> --session <file> <prompt>`.
-- Children start with fresh conversation history in the same cwd/worktree by default.
-- Ordinary project extensions are not loaded in the child; only the generated terminal-capture runtime is injected.
+- The helper is `dispatchRunnerSubagent(pi, { cwd, signal }, options)` from `ts/packages/pi-extensions/src/runner-subagent.ts`.
+- Runner subagent runs are subprocesses shaped like `pi --mode json -p --no-extensions --extension <generated-runtime> --session <file> <prompt>`.
+- Runner subagents start with fresh conversation history in the same cwd/worktree by default.
+- Ordinary project extensions are not loaded in the subagent; only the generated terminal-capture runtime is injected.
 - Terminal tools are capture-only. They validate and record input, request termination, and do not perform domain side effects.
 - Completed/blocked payloads are returned at `result.terminal.input`; there is no public `details`, `content`, or `isError` terminal-result contract.
-- Result statuses are `completed`, `blocked`, `stopped-without-terminal`, `cancelled`, `error`, and `protocol-error`.
-- The helper is non-interactive: it cannot receive additional user replies while the child is running.
+- Result statuses are `completed`, `blocked`, `final-text`, `stopped-without-terminal`, `stopped-without-useful-text`, `cancelled`, `error`, and `protocol-error`.
+- The helper is non-interactive: it cannot receive additional user replies while the subagent is running.
 - There are no stable package exports or subpaths yet; current consumers use source-local imports plus thin `.pi/extensions/*` shims.
 - Mixed terminal-plus-sibling tool batches return `protocol-error`; an earlier sibling side effect may already have occurred before the parent can observe the violation.
 
@@ -40,7 +40,7 @@ The base child-session abstraction now exists in this repository. These facts sh
 - **Slice branch**: a git/Graphite branch for one slice.
 - **Slice ledger**: branch-local Branch Memory pointer from a slice branch back to the canonical stack plan and plan hash.
 - **Completion handoff**: Branch Memory artifact whose existence marks a slice complete.
-- **Terminal tool**: child-session tool that ends the child run and returns structured data to the parent orchestrator.
+- **Terminal tool**: runner-subagent tool that ends the subagent run and returns structured data to the parent orchestrator.
 
 ## Broad product goal
 
@@ -54,12 +54,12 @@ Pi should then supervise the whole stack, one PR slice at a time:
 
 1. choose or plan the stack;
 2. create/check out each branch in order;
-3. launch a fresh focused child session for that branch;
-4. let the child agent implement, validate, update the Objective, commit/amend, and produce a handoff;
+3. launch a fresh focused runner subagent for that branch;
+4. let the subagent implement, validate, update the Objective, commit/amend, and produce a handoff;
 5. store the handoff and move to the next branch;
 6. stop cleanly when complete, blocked, cancelled, or unsafe to continue.
 
-The extension should own the mechanical control plane. The child agent owns actual implementation work.
+The extension should own the mechanical control plane. The subagent owns actual implementation work.
 
 ## Non-goals
 
@@ -74,7 +74,7 @@ The Objective stack feature should **not**:
 
 ## Current command surface
 
-The old prototype extension was `.pi/extensions/asdl-stack-impl`. In this worktree that code is not a tracked current implementation; the rewrite should live in the engineered `ts/packages/pi-extensions` layer with a thin `.pi/extensions/*` shim, following the child-session demo pattern.
+The old prototype extension was `.pi/extensions/asdl-stack-impl`. In this worktree that code is not a tracked current implementation; the rewrite should live in the engineered `ts/packages/pi-extensions` layer with a thin `.pi/extensions/*` shim, following the runner-subagent demo pattern.
 
 ### Primary Objective command
 
@@ -137,7 +137,7 @@ Current behavior:
 /stack-impl-closeout <tool-call-id>
 ```
 
-This is an implementation detail of the old design. It should disappear in the child-session rewrite.
+This is an implementation detail of the old design. It should disappear in the runner-subagent rewrite.
 
 ## Current artifact contracts
 
@@ -254,11 +254,11 @@ stack_impl_slice_blocked({
 })
 ```
 
-These schemas are good starting points for terminal tools in the child-session rewrite.
+These schemas are good starting points for terminal tools in the runner-subagent rewrite.
 
 ## What was not working before
 
-The old architecture used fresh sessions but did not have a structured way for a child session/tool to return control to the parent command.
+The old architecture used fresh sessions but did not have a structured way for a runner subagent/tool to return control to the parent command.
 
 The critical broken path:
 
@@ -302,17 +302,17 @@ Other limitations of the old design:
 - pending closeout payloads are only in memory;
 - tools receive `ExtensionContext`, not `ExtensionCommandContext`, so tools cannot call `ctx.newSession()`;
 - the internal closeout command exists only to recover command-context abilities after a tool call;
-- the extension uses command/message choreography instead of a real child-run lifecycle;
+- the extension uses command/message choreography instead of a real runner-subagent lifecycle;
 - user-facing failure mode is confusing because the literal slash text looks like it should have worked.
 
-## Desired child-session-based architecture
+## Desired runner-subagent-based architecture
 
-The Objective stack command becomes a parent orchestrator. It should run child sessions and await structured terminal results directly.
+The Objective stack command becomes a parent orchestrator. It should run runner subagents and await structured terminal results directly.
 
 High-level shape over the implemented helper:
 
 ```ts
-import { runChildSession } from "./run-child-session.ts";
+import { dispatchRunnerSubagent } from "./runner-subagent.ts";
 
 async function objectiveStackImpl(pi, args, ctx) {
   const objective = await resolveObjective(args);
@@ -324,7 +324,7 @@ async function objectiveStackImpl(pi, args, ctx) {
 
     await prepareSliceBranchAndLedger(slice);
 
-    const result = await runChildSession<StackSliceTerminalInput>(
+    const result = await dispatchRunnerSubagent<StackSliceTerminalInput>(
       pi,
       { cwd: ctx.cwd, signal: ctx.signal },
       {
@@ -355,27 +355,27 @@ The old internal command disappears:
 /stack-impl-closeout <tool-call-id>  // remove
 ```
 
-The parent already has command-context capabilities and receives the terminal tool payload directly. Domain side effects such as Branch Memory handoff writes happen in parent code after `runChildSession` returns.
+The parent already has command-context capabilities and receives the terminal tool payload directly. Domain side effects such as Branch Memory handoff writes happen in parent code after `dispatchRunnerSubagent` returns.
 
-## Planning phase over child sessions
+## Planning phase over runner subagents
 
-The planning phase can also be represented as a child session, but it has one extra UX requirement: the planner may need to collaborate with the user before final confirmation.
+The planning phase can also be represented as a runner subagent, but it has one extra UX requirement: the planner may need to collaborate with the user before final confirmation.
 
-The implemented helper is non-interactive, so the first rewrite must not depend on an interactive planning child. Use child sessions for implementation slices first. Planning should remain parent-driven or command/UI-driven until interactive child replies exist.
+The implemented helper is non-interactive, so the first rewrite must not depend on an interactive planning subagent. Use runner subagents for implementation slices first. Planning should remain parent-driven or command/UI-driven until interactive subagent replies exist.
 
 ### Current MVP path: planning remains parent/session-based initially
 
-For the first rewrite, keep planning as a normal command-driven or parent-UI flow and use child sessions only for implementation slices.
+For the first rewrite, keep planning as a normal command-driven or parent-UI flow and use runner subagents only for implementation slices.
 
 This is less clean than interactive planning but still fixes the main completion auto-advance problem.
 
 Avoid `sendUserMessage("/objective-stack-impl ...")`; use a real queued-command API if one exists, perform the continuation directly in parent code, or ask the user to rerun explicitly. The parent must validate and store/reuse/rewrite plans in Branch Memory.
 
-A non-interactive child may be useful later to draft a candidate plan, but explicit user confirmation and Branch Memory writes still belong to the parent command.
+A non-interactive subagent may be useful later to draft a candidate plan, but explicit user confirmation and Branch Memory writes still belong to the parent command.
 
-### Future option: interactive foreground child session
+### Future option: interactive foreground runner subagent
 
-If a future child-session primitive can receive user replies until a terminal tool is called, planning can move into a foreground child.
+If a future runner-subagent primitive can receive user replies until a terminal tool is called, planning can move into a foreground runner subagent.
 
 Future planning terminal tools:
 
@@ -394,7 +394,7 @@ objective_stack_plan_blocked({
 Future flow:
 
 1. `/objective-stack-impl <slug>` detects no existing plan or `--replan`.
-2. Parent launches a planning child session with Objective contents, roadmap, Semantic Updates, destination, schema, and replacement mode if applicable.
+2. Parent launches a planning runner subagent with Objective contents, roadmap, Semantic Updates, destination, schema, and replacement mode if applicable.
 3. Planner talks with the user as needed.
 4. Planner calls `objective_stack_plan_confirmed` only after explicit user confirmation.
 5. Parent validates the plan markdown and asks controlled UI confirmation before storing/replacing Branch Memory.
@@ -402,7 +402,7 @@ Future flow:
 
 This would remove XML marker scraping and slash-command auto-continuation from planning too.
 
-## Slice phase over child sessions
+## Slice phase over runner subagents
 
 For each slice:
 
@@ -417,7 +417,7 @@ For each slice:
    - fail if an existing branch has no valid ledger unless currently on that branch and recovery is safe;
    - check out the branch;
    - ensure Graphite tracking points at the intended parent.
-5. Launch a child session for exactly that slice.
+5. Launch a runner subagent for exactly that slice.
 6. Wait for `stack_impl_slice_done` or `stack_impl_slice_blocked`.
 7. On done:
    - find and validate the current branch ledger;
@@ -430,12 +430,12 @@ For each slice:
    - do not auto-advance;
    - notify and preserve session path/status for recovery.
 
-## Expected child-session prompt
+## Expected runner-subagent prompt
 
-A slice child prompt should include at least:
+A slice subagent prompt should include at least:
 
 ```text
-You are implementing one Objective stack slice in a child session.
+You are implementing one Objective stack slice in a runner subagent.
 Do not start or plan another slice.
 Do not submit PRs.
 Finish only by calling stack_impl_slice_done or stack_impl_slice_blocked.
@@ -466,7 +466,7 @@ Instructions:
 6. If blocked, call stack_impl_slice_blocked.
 ```
 
-## Parent/child responsibility split
+## Parent/subagent responsibility split
 
 Parent Objective stack command:
 
@@ -474,12 +474,12 @@ Parent Objective stack command:
 - owns Branch Memory plan storage;
 - owns branch/Graphite setup;
 - owns ledger writes and validation;
-- launches child sessions;
+- launches runner subagents;
 - stores completion handoffs;
 - decides whether to continue;
 - reports status/recovery diagnostics.
 
-Child slice session:
+Slice runner subagent:
 
 - reads plan/Objectives/handoffs;
 - edits code/docs/tests for exactly one slice;
@@ -489,70 +489,69 @@ Child slice session:
 - drafts handoff markdown;
 - calls terminal done/blocked tool.
 
-Local child-session helper:
+Local runner-subagent helper:
 
-- spawns a fresh child Pi process in JSON mode;
+- spawns a fresh subagent Pi process in JSON mode;
 - injects only the generated terminal-capture runtime;
-- creates or discovers an inspectable child session path;
-- parses lightweight child progress into the final result;
+- creates or discovers an inspectable runner subagent session path;
+- parses lightweight subagent progress into the final result;
 - detects terminal capture tools and protocol violations;
-- stops child after terminal state;
+- stops the subagent after terminal state;
 - returns structured terminal input to parent as `result.terminal.input`;
 - handles cancellation best-effort.
 
-## Minimal child-session requirements for this rewrite
+## Minimal runner-subagent requirements for this rewrite
 
 Available now:
 
-- `runChildSession(pi, { cwd: ctx.cwd, signal: ctx.signal }, { prompt, title, cwd: ctx.cwd, terminalTools })`.
-- Same cwd/worktree sequential child sessions.
-- Fresh child context by default.
-- Child session file returned when available.
+- `dispatchRunnerSubagent(pi, { cwd: ctx.cwd, signal: ctx.signal }, { prompt, title, cwd: ctx.cwd, terminalTools })`.
+- Same cwd/worktree sequential runner subagents.
+- Fresh subagent context by default.
+- Runner subagent session file returned when available.
 - Terminal payload returned as canonical validated `result.terminal.input`.
-- Result statuses: `completed`, `blocked`, `stopped-without-terminal`, `cancelled`, `error`, and `protocol-error`.
-- Lightweight progress in the final result; callers can show their own status/widget while waiting.
+- Result statuses: `completed`, `blocked`, `final-text`, `stopped-without-terminal`, `stopped-without-useful-text`, `cancelled`, `error`, and `protocol-error`.
+- Lightweight progress in the final result and via `onProgress(progress)` callbacks; callers can show their own status/widget while waiting.
 - Cancellation returns `status: "cancelled"` when distinguishable.
-- Collision checks at child startup through `pi.getAllTools()`.
+- Collision checks at subagent startup through `pi.getAllTools()`.
 - Mixed terminal-plus-sibling tool batches surface as `protocol-error`.
 
 Not available in the current helper:
 
-- `ctx.runChildSession()` on `ExtensionCommandContext`.
-- Interactive foreground child sessions that can receive user replies before terminal tool completion.
-- Live runner-level `onProgress` callbacks.
+- A built-in runner-subagent method on `ExtensionCommandContext`.
+- Interactive foreground runner subagents that can receive user replies before terminal tool completion.
 - A public terminal `details`, `content`, or `isError` result contract.
 - Stable package exports/subpaths for helper imports.
 
 Not required for v1 rewrite:
 
-- parallel child sessions;
+- parallel runner subagents;
 - background jobs;
 - worktree isolation;
 - intercom;
 - durable parent promise resume after Pi process restart;
 - model/tool overrides;
-- child-session marketplace/named agents.
+- runner-subagent marketplace/named agents.
 
 ## Testing targets for the rewrite
 
-Child-session helper tests already cover the base abstraction under `ts/packages/pi-extensions/test/`:
+Runner-subagent helper tests already cover the base abstraction under `ts/packages/pi-extensions/test/`:
 
-- child session starts with a prompt and persists a session file;
-- child progress tracks current tool/tool count;
+- runner subagent starts with a prompt and persists a session file;
+- subagent progress tracks current tool/tool count;
 - terminal tool returns structured validated input to parent;
-- terminal tool stops the child without another model turn;
-- child stopping without terminal tool returns `status: "stopped-without-terminal"`;
+- terminal tool stops the subagent without another model turn;
+- subagent stopping without terminal tool returns `status: "stopped-without-terminal"`;
 - cancellation returns `status: "cancelled"`;
 - protocol violations return `status: "protocol-error"`;
-- slash-command text is not involved in child completion.
+- slash-command text is not involved in subagent completion.
 
 Objective stack rewrite tests:
 
-- existing plan loads and first incomplete slice starts in a child session;
+- existing plan loads and first incomplete slice starts in a runner subagent;
 - no-plan path starts controlled parent/session planning fallback;
 - confirmed plan stores to `stack-plans/<slug>.md` on plan branch;
 - slice done terminal result stores derived handoff and advances to next slice;
-- final slice done reports complete and does not start another child;
+- final slice done reports complete and does not start another subagent;
 - blocked terminal result stops and does not write completion handoff;
 - dirty worktree fails before branch creation;
 - plan hash drift fails closed;
@@ -562,10 +561,10 @@ Objective stack rewrite tests:
 Regression test that would have caught the old bug:
 
 ```text
-objective-stack child calls stack_impl_slice_done
+objective-stack subagent calls stack_impl_slice_done
   -> parent receives terminal result
   -> closeout stores handoff
-  -> parent starts next child slice
+  -> parent starts next subagent slice
 ```
 
 Do not test this by directly calling the closeout handler; the bug was in the handoff path.
@@ -574,23 +573,23 @@ Do not test this by directly calling the closeout handler; the bug was in the ha
 
 ### Planning interactivity
 
-Resolved for the current helper: interactive child replies are not available. The first Objective stack rewrite should keep planning parent/session-based and use child sessions for implementation slices. Interactive foreground planning remains a future option.
+Resolved for the current helper: interactive subagent replies are not available. The first Objective stack rewrite should keep planning parent/session-based and use runner subagents for implementation slices. Interactive foreground planning remains a future option.
 
 ### Terminal tool payload source
 
 Resolved: the canonical terminal contract is validated tool input at `result.terminal.input`. Do not rely on result `details`, `content`, or `isError` for domain data.
 
-### Multiple tool calls in one child assistant message
+### Multiple tool calls in one subagent assistant message
 
-Resolved for the current helper: terminal-plus-sibling tool batches return `protocol-error`. Public Pi event ordering may still allow an earlier sibling side effect before the violation is observed, so child prompts should explicitly forbid sibling terminal batches and parent code must treat `protocol-error` as non-complete.
+Resolved for the current helper: terminal-plus-sibling tool batches return `protocol-error`. Public Pi event ordering may still allow an earlier sibling side effect before the violation is observed, so subagent prompts should explicitly forbid sibling terminal batches and parent code must treat `protocol-error` as non-complete.
 
 ### Same-worktree sequencing
 
-Still required: the Objective stack must remain sequential. Starting PR child sessions concurrently in the same worktree is unsafe.
+Still required: the Objective stack must remain sequential. Starting PR runner subagents concurrently in the same worktree is unsafe.
 
 ### Runtime isolation
 
-Resolved for the base helper: children run with `--no-extensions` plus only the generated terminal runtime. Future Objective stack children that need ordinary child extensions must opt in deliberately and re-open isolation/collision decisions.
+Resolved for the base helper: runner subagents run with `--no-extensions` plus only the generated terminal runtime. Future Objective stack subagents that need ordinary subagent extensions must opt in deliberately and re-open isolation/collision decisions.
 
 ### Helper import/package boundary
 
@@ -598,24 +597,24 @@ Resolved for the MVP: use repo-local source imports and thin `.pi/extensions/*` 
 
 ### Recovery after Pi restart
 
-Still out of scope: rely on git state, Branch Memory, and child session files for recovery. Durable in-flight child job resume is not implemented.
+Still out of scope: rely on git state, Branch Memory, and runner subagent session files for recovery. Durable in-flight runner-subagent job resume is not implemented.
 
 ## Recommended implementation sequence
 
 1. Implement the Objective stack command in the engineered `ts/packages/pi-extensions` layer and expose it through a thin `.pi/extensions/*` shim.
 2. Port or rebuild plan validation, Branch Memory plan storage, branch/Graphite setup, ledger writes, and status diagnostics in testable modules.
-3. Keep planning parent/session-based for the first rewrite; avoid slash-command auto-continuation and do not depend on interactive child replies.
-4. Launch each implementation slice with `runChildSession(pi, { cwd: ctx.cwd, signal: ctx.signal }, options)` and child-local `stack_impl_slice_done` / `stack_impl_slice_blocked` terminal tools.
+3. Keep planning parent/session-based for the first rewrite; avoid slash-command auto-continuation and do not depend on interactive subagent replies.
+4. Launch each implementation slice with `dispatchRunnerSubagent(pi, { cwd: ctx.cwd, signal: ctx.signal }, options)` and subagent-local `stack_impl_slice_done` / `stack_impl_slice_blocked` terminal tools.
 5. On `completed`, close out from `result.terminal.input`: validate ledger/plan hash/current branch, store the derived completion handoff, and continue to the next incomplete slice.
-6. On `blocked`, `cancelled`, `stopped-without-terminal`, `error`, or `protocol-error`, stop without writing a completion handoff and surface diagnostics plus the child session path when available.
+6. On `blocked`, `cancelled`, `stopped-without-terminal`, `error`, or `protocol-error`, stop without writing a completion handoff and surface diagnostics plus the runner subagent path when available.
 7. Remove `/stack-impl-closeout`, pending closeout maps, `sendUserMessage("/..." )` continuation hacks, and any tests that only exercise the old closeout command directly.
-8. Add the full done -> closeout -> next-child regression test using the real parent handoff path and a fake child-session runner.
-9. Update docs and skills to describe the new parent/child lifecycle.
+8. Add the full done -> closeout -> next-subagent regression test using the real parent handoff path and a fake runner-subagent dispatcher.
+9. Update docs and skills to describe the new parent/subagent lifecycle.
 
 ## Summary
 
-The Objective stack extension wants to be a deterministic parent orchestrator for a sequence of PR-slice child sessions.
+The Objective stack extension wants to be a deterministic parent orchestrator for a sequence of PR-slice runner subagents.
 
 The old design approximated that with fresh sessions plus slash-command follow-ups, but `sendUserMessage()` intentionally bypasses slash-command dispatch. That made auto-advance unreliable.
 
-The new design should use the repo-local child-session helper. Each child returns a terminal tool result directly to the parent, letting the parent store handoffs and continue the stack without command-text hacks.
+The new design should use the repo-local runner-subagent helper. Each subagent returns a terminal tool result directly to the parent, letting the parent store handoffs and continue the stack without command-text hacks.
