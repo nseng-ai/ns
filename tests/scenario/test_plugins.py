@@ -6,9 +6,19 @@ from pathlib import Path
 import click
 from click.testing import CliRunner
 
+from aretro.context import AretroCliContext
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
+from asdl_core.sessions.testing import FakeSessionSource
+from asdl_core.sessions.types import (
+    ParsedSession,
+    SessionAssociation,
+    SessionMessageCounts,
+    SessionSourceInfo,
+    SessionSourceRef,
+    SessionToolCall,
+)
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_reviewer.context import ReviewerCliContext
@@ -136,6 +146,107 @@ def test_aretro_plugin_integration() -> None:
     result = runner.invoke(parent, ["aretro", "exec", "--help"])
     assert result.exit_code == 0, result.output
     assert "Commands for use by branch retrospective skills." in result.output
+
+
+def test_aretro_plugin_collect_evidence_routes_json_operation() -> None:
+    parent = click.Group("test")
+    ep = FakePluginEntryPoint(
+        name="aretro",
+        value="aretro.plugin:build_aretro_plugin",
+    )
+    discover_plugins(parent, source=_entry_point_source(ep))
+
+    repo_root = Path("/repo")
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        current_branch_by_path={repo_root: "feature/retro"},
+    )
+    source = FakeSessionSource(sessions=(_aretro_plugin_session(repo_root),))
+    obj = build_clinkr_context_object(
+        lambda: AretroCliContext(git_gateway=git, session_source=source)
+    )
+
+    result = CliRunner().invoke(
+        parent,
+        ["aretro", "exec", "collect-evidence", "--repo", str(repo_root), "--format", "json"],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["exit_code"] == 0
+    data = payload["data"]
+    assert set(data) == {
+        "success",
+        "error",
+        "repo",
+        "query",
+        "source",
+        "aggregate_metrics",
+        "sessions",
+        "warnings",
+        "evidence_items",
+    }
+    assert data["success"] is True
+    assert data["error"] is None
+    assert data["repo"]["repo_root"] == "/repo"
+    assert data["repo"]["branch"] == "feature/retro"
+    assert data["repo"]["branch_source"] == "git_current_branch"
+    assert data["source"]["harness"] == "fake"
+    assert data["source"]["adapter_name"] == "fake"
+    assert data["aggregate_metrics"]["session_count"] == 1
+    assert data["aggregate_metrics"]["message_counts"]["user"] == 1
+    assert data["sessions"][0]["session_id"] == "plugin-s1"
+    assert data["warnings"] == []
+    assert data["evidence_items"] == [
+        {
+            "kind": "tool_usage_count",
+            "subject": "read",
+            "summary": "read called 1 time across 1 session",
+            "count": 1,
+            "session_count": 1,
+            "source_refs": [
+                {
+                    "path": "/tmp/plugin-sessions/plugin-s1.jsonl",
+                    "uri": None,
+                    "line_number": 2,
+                }
+            ],
+            "metadata": {},
+        }
+    ]
+
+
+def _aretro_plugin_session(repo_root: Path) -> ParsedSession:
+    source_path = Path("/tmp/plugin-sessions/plugin-s1.jsonl")
+    return ParsedSession(
+        source_info=SessionSourceInfo(harness="fake", adapter_name="fake", record_format="memory"),
+        source_ref=SessionSourceRef(path=source_path),
+        session_id="plugin-s1",
+        started_at_iso="2026-01-01T00:00:00Z",
+        ended_at_iso="2026-01-01T00:01:00Z",
+        association=SessionAssociation(
+            repo_root=repo_root,
+            cwd=repo_root,
+            branch=None,
+            confidence="repo_cwd",
+            evidence=("query.repo_root", "session_header.cwd"),
+        ),
+        message_counts=SessionMessageCounts(user=1, assistant=1),
+        model_events=(),
+        tool_calls=(
+            SessionToolCall(
+                call_id="call-1",
+                tool_name="read",
+                argument_keys=("path",),
+                source_ref=SessionSourceRef(path=source_path, line_number=2),
+            ),
+        ),
+        tool_results=(),
+        command_executions=(),
+        usage_events=(),
+        warnings=(),
+    )
 
 
 def test_pr_address_plugin_integration() -> None:
