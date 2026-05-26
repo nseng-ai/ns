@@ -150,8 +150,24 @@ describe("dispatch_runner_subagent extension", () => {
 
 		call.process.emitStdout(jsonLine({ type: "agent_start" }));
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-a", toolName: "read", args: {} }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_end", toolCallId: "tool-a", toolName: "read", result: {}, isError: false }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_update",
+				message: { role: "assistant", content: [{ type: "text", text: "Assistant preview unique." }] },
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-a", toolName: "read", args: { path: "secret-input.txt" } }),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-a",
+				toolName: "read",
+				result: { content: [{ type: "text", text: "tool result preview unique" }] },
+				isError: false,
+			}),
+		);
 		call.process.emitStdout(finalTextMessage("Subagent final answer."));
 		now = 2_250;
 		call.process.close(0);
@@ -166,7 +182,18 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(partialText).toContain("turns: 1");
 		expect(partialText).toContain("tools: 1");
 		expect(partialText).toContain(`Session file: ${SESSION_FILE}`);
+		expect(partialText).not.toContain("Assistant preview unique.");
+		expect(partialText).not.toContain("secret-input.txt");
+		expect(partialText).not.toContain("tool result preview unique");
+		for (const update of updates) {
+			const details = update.details as Record<string, unknown>;
+			expect(details.progress).toBeDefined();
+			expect(details.activity).toBeUndefined();
+		}
 		expect(statuses).toEqual([]);
+		expect(widgets.some((widget) => widget.value?.includes("Assistant: Assistant preview unique."))).toBe(true);
+		expect(widgets.some((widget) => widget.value?.includes('Input: {"path":"secret-input.txt"}'))).toBe(true);
+		expect(widgets.some((widget) => widget.value?.includes("Last result (read): tool result preview unique"))).toBe(true);
 		expect(widgets.some((widget) => widget.value?.includes("Tool: read"))).toBe(true);
 		expect(widgets.some((widget) => widget.options?.placement === "aboveEditor")).toBe(true);
 		expect(widgets.at(-1)).toEqual({
@@ -178,6 +205,10 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(finalText).toContain("Status: final-text");
 		expect(finalText).toContain("Subagent final answer.");
 		expect(finalText).not.toContain("Running runner subagent:");
+		expect(finalText).not.toContain("Assistant preview unique.");
+		expect(finalText).not.toContain("secret-input.txt");
+		expect(finalText).not.toContain("tool result preview unique");
+		expect((result.details as Record<string, unknown>).activity).toBeUndefined();
 	});
 
 	test("returns final text, status, session path, progress, and details as an ordinary tool result", async () => {
@@ -215,6 +246,7 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.finalTextChars).toBe("Subagent final answer.\nEvidence: test fixture.".length);
 		expect(details.finalTextTruncated).toBe(false);
 		expect(details.progress).toEqual(expect.objectContaining({ turnCount: 1, toolCount: 1 }));
+		expect(details.activity).toBeUndefined();
 	});
 
 	test("preserves no-useful-text as a non-complete diagnostic without throwing", async () => {

@@ -5,8 +5,8 @@ import type {
 	RunnerSubagentContext,
 	RunnerSubagentOptions,
 	RunnerSubagentPi,
-	RunnerSubagentProgress,
 	RunnerSubagentTerminalToolDefinition,
+	RunnerSubagentUpdate,
 } from "../src/runner-subagent.ts";
 import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
 
@@ -188,9 +188,9 @@ describe("runner subagent process dispatcher", () => {
 		});
 	});
 
-	test("emits progress while parsing child JSONL", async () => {
+	test("emits progress and UI-only activity while parsing child JSONL", async () => {
 		let now = 1_000;
-		const progress: RunnerSubagentProgress[] = [];
+		const updates: RunnerSubagentUpdate[] = [];
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
 		const running = dispatchRunnerSubagentProcess(
 			pi,
@@ -199,25 +199,44 @@ describe("runner subagent process dispatcher", () => {
 				prompt: "Do the delegated task.",
 				returnMode: "final-text",
 				title: "Progress task",
-				onProgress: (snapshot) => progress.push(snapshot),
+				onProgress: (update) => updates.push(update),
 			},
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
 
-		expect(progress[0]).toEqual({
-			title: "Progress task",
-			state: "starting",
-			toolCount: 0,
-			turnCount: 0,
-			elapsedMs: 0,
-			sessionFile: "/tmp/runner-subagent.jsonl",
+		expect(updates[0]).toEqual({
+			progress: {
+				title: "Progress task",
+				state: "starting",
+				toolCount: 0,
+				turnCount: 0,
+				elapsedMs: 0,
+				sessionFile: "/tmp/runner-subagent.jsonl",
+			},
+			activity: {},
 		});
 
 		call.process.emitStdout(jsonLine({ type: "agent_start" }));
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: {} }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "read", result: {}, isError: false }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_update",
+				message: { role: "assistant", content: [{ type: "text", text: "Working\nthrough it." }] },
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: { path: "README.md" } }),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "read",
+				result: { content: [{ type: "text", text: "file contents" }] },
+				isError: false,
+			}),
+		);
 		call.process.emitStdout(
 			jsonLine({
 				type: "message_end",
@@ -228,18 +247,37 @@ describe("runner subagent process dispatcher", () => {
 		call.process.close(0);
 		const result = await running;
 
-		expect(progress.some((snapshot) => snapshot.state === "running" && snapshot.turnCount === 1)).toBe(true);
-		expect(progress.some((snapshot) => snapshot.currentTool === "read")).toBe(true);
-		expect(progress.some((snapshot) => snapshot.toolCount === 1 && snapshot.currentTool === undefined)).toBe(true);
-		expect(progress.at(-1)).toEqual({
-			title: "Progress task",
-			state: "stopped",
-			toolCount: 1,
-			turnCount: 1,
-			elapsedMs: 250,
-			sessionFile: "/tmp/runner-subagent.jsonl",
+		expect(updates.some((update) => update.progress.state === "running" && update.progress.turnCount === 1)).toBe(true);
+		expect(updates.some((update) => update.activity.assistantPreview === "Working through it.")).toBe(true);
+		expect(updates.some((update) => update.progress.currentTool === "read")).toBe(true);
+		expect(updates.some((update) => update.activity.currentToolInputPreview === '{"path":"README.md"}')).toBe(true);
+		expect(
+			updates.some(
+				(update) =>
+					update.progress.toolCount === 1 &&
+					update.progress.currentTool === undefined &&
+					update.activity.lastToolResultPreview === "file contents",
+			),
+		).toBe(true);
+		expect(updates.at(-1)).toEqual({
+			progress: {
+				title: "Progress task",
+				state: "stopped",
+				toolCount: 1,
+				turnCount: 1,
+				elapsedMs: 250,
+				sessionFile: "/tmp/runner-subagent.jsonl",
+			},
+			activity: {
+				assistantPreview: "Done.",
+				lastToolName: "read",
+				lastToolResultPreview: "file contents",
+				lastToolResultIsError: false,
+			},
 		});
 		expect(result.status).toBe("final-text");
+		expect("activity" in result).toBe(false);
+		expect("activity" in result.progress).toBe(false);
 	});
 
 	test("progress callback failures do not fail the child result", async () => {
@@ -363,7 +401,7 @@ describe("runner subagent process dispatcher", () => {
 
 	test("emits terminating progress before cancelled result on parent abort", async () => {
 		const controller = new AbortController();
-		const progress: RunnerSubagentProgress[] = [];
+		const updates: RunnerSubagentUpdate[] = [];
 		const runner = createFakeRunnerSubagentDispatcher();
 		const running = dispatchRunnerSubagentProcess(
 			pi,
@@ -372,7 +410,7 @@ describe("runner subagent process dispatcher", () => {
 				prompt: "Do the delegated task.",
 				returnMode: "final-text",
 				signal: controller.signal,
-				onProgress: (snapshot) => progress.push(snapshot),
+				onProgress: (update) => updates.push(update),
 			},
 			runner.dependencies,
 		);
@@ -385,8 +423,8 @@ describe("runner subagent process dispatcher", () => {
 		call.process.close(null, "SIGTERM");
 		const result = await running;
 
-		expect(progress.some((snapshot) => snapshot.state === "terminating" && snapshot.currentTool === "read")).toBe(true);
-		expect(progress.at(-1)?.state).toBe("stopped");
+		expect(updates.some((update) => update.progress.state === "terminating" && update.progress.currentTool === "read")).toBe(true);
+		expect(updates.at(-1)?.progress.state).toBe("stopped");
 		expect(result.status).toBe("cancelled");
 	});
 

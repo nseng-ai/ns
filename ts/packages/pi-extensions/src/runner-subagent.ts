@@ -1,4 +1,7 @@
+import type { RunnerSubagentUpdate } from "./runner-subagent/activity.ts";
 import { dispatchRunnerSubagentProcess, type RunnerSubagentDispatcherDependencies } from "./runner-subagent/subagent-process.ts";
+
+export type { RunnerSubagentActivity, RunnerSubagentUpdate } from "./runner-subagent/activity.ts";
 
 export type JsonObject = Record<string, unknown>;
 export type TypeBoxLikeSchema = object;
@@ -31,7 +34,7 @@ export type RunnerSubagentProgress = {
 	sessionFile?: string;
 };
 
-export type RunnerSubagentProgressCallback = (progress: RunnerSubagentProgress) => void;
+export type RunnerSubagentProgressCallback = (update: RunnerSubagentUpdate) => void;
 
 export type RunnerSubagentOptions = {
 	title?: string;

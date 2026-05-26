@@ -60,29 +60,19 @@ Mixed terminal-plus-sibling behavior is deterministic from the parent's perspect
 
 ## Progress and UI
 
-The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, and session path. Callers may pass `onProgress(progress)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced progress snapshots while the subagent Pi process is running.
+The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, and session path. Callers may pass `onProgress(update)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced updates while the subagent Pi process is running. Each update contains minimal `progress` plus UI-only `activity` previews.
 
-`onProgress` is intentionally limited to parsed progress metadata. It never streams the subagent transcript, assistant content history, raw JSONL, or tool outputs into the parent. Parent tools should surface this metadata through display-only channels such as partial tool `onUpdate(...)` updates and/or an above-editor `ctx.ui.setWidget(...)`. Avoid `ctx.ui.setStatus(...)` for runner-subagent progress when the intent is to keep all subagent-specific live UI above the input area.
+`RunnerSubagentProgress` remains metadata-only. Activity previews are for local display surfaces such as an above-editor `ctx.ui.setWidget(...)`, not parent tool content/details. Parent tools should keep partial `onUpdate(...)` text and final tool results minimal so child assistant/tool details do not enter the parent model context.
+
+The maintained generic integration surface is `dispatch_runner_subagent`. Its MVP widget can show:
+
+- streaming visible assistant text preview
+- current tool input preview
+- last completed tool result preview
+
+Previews are compacted and truncated; inspect the returned `sessionFile` for the complete subagent transcript. The MVP does not redact secrets, so avoid treating the widget as secret-safe simply because the previews are display-only.
 
 Do not use `pi.sendMessage(...)` for transient subagent progress: custom messages participate in the parent session and LLM context. Do not write raw progress to stdout from the extension either; subagent stdout is the JSONL protocol stream and parent Pi/TUI output is managed by Pi.
-
-## Demo command
-
-The project-local shim `.pi/extensions/runner-subagent-demo.ts` loads `ts/packages/pi-extensions/src/runner-subagent-demo.ts`, making this command available through normal project Pi extension discovery:
-
-```text
-/runner-subagent-demo <task>
-```
-
-The command:
-
-1. waits for the parent session to become idle;
-2. builds a complete subagent prompt from `<task>`;
-3. launches `dispatchRunnerSubagent(pi, { cwd: ctx.cwd, signal: ctx.signal }, options)`;
-4. provides `runner_subagent_demo_complete` and `runner_subagent_demo_blocked` terminal tools;
-5. displays subagent title, state/result, terminal payload, and `sessionFile` through a custom message, falling back to notification when needed.
-
-It is intentionally diagnostic. It proves parent integration without rewriting Objective-stack workflows and without stable npm-style package exports.
 
 ## Why not Pi core?
 
