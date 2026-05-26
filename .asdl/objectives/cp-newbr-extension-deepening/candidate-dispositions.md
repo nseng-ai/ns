@@ -4,25 +4,29 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 ## Current Priority Order
 
-1. Next slice — decide whether `/newbr` needs a typed preparation/plan boundary before the transaction.
-2. Candidate 6 — Test surface cleanup, applied continuously rather than as a standalone refactor.
-3. Candidate 3 — Shared small-model drafting policy, partially unparked only through the preparation-boundary decision.
-4. Candidate 5 — Branch naming policy depth, parked as a standalone extraction.
-5. Candidate 2 — New-branch transaction Module shape, implemented.
-6. Candidate 4 — Explicit Graphite branch-creation Adapter, folded into Candidate 2 with no standalone adapter.
-7. Candidate 1 — Checkpoint seam and pending worktree snapshot, implemented.
+1. Candidate 6 — Test surface cleanup, improved by the preparation tests and retained as a behavior-first policy.
+2. Candidate 3 — Shared small-model drafting policy, parked after the preparation boundary kept slug drafting local.
+3. Candidate 5 — Branch naming policy depth, implemented only as part of the preparation boundary and parked as a standalone extraction.
+4. Candidate 2 — New-branch transaction Module shape, implemented.
+5. Candidate 4 — Explicit Graphite branch-creation Adapter, folded into Candidate 2 with no standalone adapter.
+6. Candidate 1 — Checkpoint seam and pending worktree snapshot, implemented.
+7. `/newbr` preparation/plan boundary — implemented as `newbr-preparation.ts`.
 
-## Next Slice — `/newbr` Preparation/Plan Boundary
+## Implemented Slice — `/newbr` Preparation/Plan Boundary
 
-**Disposition:** Accepted as the next decision slice after Candidate 2.
+**Disposition:** Implemented after Candidate 2.
 
-**Files:** `ts/packages/pi-extensions/src/newbr-flow.ts`, possible `ts/packages/pi-extensions/src/newbr-preparation.ts` or `ts/packages/pi-extensions/src/newbr-plan.ts`, `ts/packages/pi-extensions/src/branch-slug.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`, and possible new preparation/plan tests.
+**Files:** `ts/packages/pi-extensions/src/newbr-preparation.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/newbr.ts`, `ts/packages/pi-extensions/src/branch-slug.ts`, `ts/packages/pi-extensions/test/newbr-preparation.test.ts`, and `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
 
-**Problem:** Branch naming alone is too narrow. `/newbr` prepares a user-visible branch checkpoint plan by combining a pending-worktree snapshot, requested or generated slug input, fallback naming, branch availability, checkpoint-message preparation, and typed failure reporting before the transaction applies the plan.
+**Problem:** Branch naming alone was too narrow. `/newbr` prepares a user-visible branch checkpoint plan by combining a pending-worktree snapshot, requested or generated slug input, fallback naming, branch availability, checkpoint-message preparation, and typed failure reporting before the transaction applies the plan.
 
-**Deletion test:** Positive only if the boundary owns real preparation decisions. Deleting it should push slug drafting/fallback, availability checks, checkpoint readiness, and typed preparation outcomes back into `newbr-flow.ts`. Negative if it merely wraps `sanitizeBranchName`, renames `branch-slug.ts`, or passes model calls through without concentrating policy.
+**Deletion test:** Positive and now evidenced. Deleting `newbr-preparation.ts` would push explicit slug normalization/rejection, untracked snippet collection, `pi --print` slug drafting, model-output sanitation and fallback, branch availability/suffixing, checkpoint-message readiness, typed warnings, and typed preparation failures back into `newbr-flow.ts` and its tests.
 
-**Boundary direction:** Keep `newbr-transaction.ts` as the apply phase for stash, Graphite create, restore, and commit. Keep `newbr-flow.ts` responsible for top-level orchestration and user-facing notifications. Do not extract a shared small-model policy or standalone branch-name policy until the preparation boundary proves that shared leverage.
+**Implemented Interface:** `prepareNewBranchPlan` returns a typed `NewBranchPlan` containing `branchName`, `baseSlug`, `slugSource`, `usedSuffix`, and `checkpointMessage`. It returns `slug_model_failed` as a non-fatal warning and typed failures for `invalid_requested_slug`, `slug_generation_failed`, `branch_name_unavailable`, and `checkpoint_prepare_failed`.
+
+**Boundary decisions:** `newbr-flow.ts` remains the top-level workflow for snapshot loading, clean-worktree refusal, notification wording, transaction invocation, transaction-failure formatting, and final success/warning reporting. `newbr-transaction.ts` remains the apply phase for stash, Graphite create, restore, and commit. `branch-slug.ts` still owns only sanitation and truncation primitives. No shared small-model policy or standalone branch-name policy was introduced.
+
+**Validation:** `bun run --cwd ts check` and `bun run --cwd ts test` passed after implementation.
 
 ## Candidate 1 — Checkpoint Seam and Pending Worktree Snapshot
 
@@ -58,15 +62,15 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 ## Candidate 3 — Shared Small-Model Drafting Policy
 
-**Disposition:** Partially unparked only through the `/newbr` preparation/plan boundary decision.
+**Disposition:** Parked as a standalone shared policy after the `/newbr` preparation boundary.
 
-**Files:** `ts/packages/pi-extensions/src/cp.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/src/pi-runtime-modules.d.ts`.
+**Files:** `ts/packages/pi-extensions/src/checkpoint-pi.ts`, `ts/packages/pi-extensions/src/newbr-preparation.ts`, `ts/packages/pi-extensions/src/pi-runtime-modules.d.ts`.
 
 **Problem:** checkpoint message drafting uses Pi model registry and `completeSimple`; branch slug drafting shells out to `pi --print`. That creates two model-selection and failure-reporting paths.
 
-**Deletion test:** Partial. Candidate 1 moved checkpoint model drafting into `checkpoint-pi.ts`, but branch slug drafting still shells out to `pi --print`; the two call paths may have different host constraints. The next useful test is not a standalone shared-drafting Module, but whether `/newbr` preparation needs one coherent drafting/validation boundary before the transaction.
+**Deletion test:** Still insufficient for a shared Module in this Objective. Candidate 1 moved checkpoint model drafting into `checkpoint-pi.ts`; the preparation boundary now localizes branch slug drafting, fallback warning, and prompt construction in `newbr-preparation.ts`. Extracting a shared model policy now would mostly abstract two deliberately different call paths rather than remove repeated planning complexity.
 
-**Implementation direction:** Do not extract shared model policy directly. First decide whether a typed `/newbr` preparation/plan Module should coordinate slug drafting, fallback selection, branch availability, and checkpoint-message readiness. Promote shared provider/model/auth/timeout/output policy only if that preparation boundary proves common leverage beyond `/newbr`.
+**Boundary decision:** Keep branch slug drafting through `pi --print` unchanged for this slice. Promote provider/model/auth/timeout/output policy only if a future cross-command need appears with enough duplication or host-policy pressure to pass the deletion test.
 
 ## Candidate 4 — Explicit Graphite Branch-Creation Adapter
 
@@ -82,24 +86,24 @@ This file records the working disposition for the six PR #649 deepening candidat
 
 ## Candidate 5 — Branch Naming Policy Depth
 
-**Disposition:** Parked as a standalone extraction; reframe under the `/newbr` preparation/plan boundary.
+**Disposition:** Parked as a standalone extraction; implemented only inside the broader `/newbr` preparation boundary.
 
-**Files:** `ts/packages/pi-extensions/src/branch-slug.ts`, `ts/packages/pi-extensions/src/newbr-flow.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`.
+**Files:** `ts/packages/pi-extensions/src/branch-slug.ts`, `ts/packages/pi-extensions/src/newbr-preparation.ts`, `ts/packages/pi-extensions/test/newbr-preparation.test.ts`.
 
-**Problem:** sanitation and truncation live in `branch-slug.ts`; prompt rules, fallback slug construction, suffixing, git ref validation, and availability checks live in `newbr-flow.ts`.
+**Problem:** sanitation and truncation live in `branch-slug.ts`; prompt rules, fallback slug construction, suffixing, git ref validation, and availability checks needed one preparation owner before the transaction.
 
-**Deletion test:** Positive only inside a larger preparation boundary, negative for the current tiny helper. Deleting current `branch-slug.ts` would mostly move string rules into the caller; deleting a Module that owns preparation-time generation, sanitation, fallback, availability, and checkpoint readiness could push meaningful policy back into `newbr-flow.ts`.
+**Deletion test:** Positive inside the preparation boundary, still negative as a standalone branch-name Module. Deleting current `branch-slug.ts` would mostly move string rules into the caller, but deleting `newbr-preparation.ts` would push preparation-time generation, sanitation, fallback, availability, suffixing, and checkpoint readiness back into `newbr-flow.ts`.
 
-**Implementation direction:** Do not implement branch naming as the next standalone slice. Evaluate it as one part of a typed `/newbr` preparation/plan boundary. A branch-name-only Module remains too narrow unless later evidence proves that policy independently passes the deletion test.
+**Boundary decision:** Keep `branch-slug.ts` as the small sanitation/truncation primitive. Keep prompt rules, fallback slug selection, branch availability, and suffixing in `newbr-preparation.ts` because those decisions are part of the typed pre-transaction plan.
 
 ## Candidate 6 — Behavior-First Test Surface
 
-**Disposition:** Apply continuously; reject standalone universal fake framework for now.
+**Disposition:** Applied continuously; standalone universal fake framework remains rejected.
 
-**Files:** `ts/packages/pi-extensions/test/checkpoint-flow.test.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`, plus any tests added for accepted candidates.
+**Files:** `ts/packages/pi-extensions/test/checkpoint-flow.test.ts`, `ts/packages/pi-extensions/test/newbr-flow.test.ts`, `ts/packages/pi-extensions/test/newbr-transaction.test.ts`, and `ts/packages/pi-extensions/test/newbr-preparation.test.ts`.
 
 **Problem:** Some tests assert command order or command spellings. The order assertions are sometimes valuable safety evidence, but broad shell choreography can make implementation details look like the Interface.
 
 **Deletion test:** Positive as a testing policy, not as a production Module. A universal fake DSL is not justified by current evidence.
 
-**Implementation direction:** use local fake adapters and harnesses consistent with the existing TypeScript package. Assert workflow outcomes and safety invariants first; assert command order only where order is itself the safety guarantee. Candidate 1 followed this policy with direct `pending-worktree.test.ts` coverage and retained `/newbr` order assertions only for safety sequencing. Candidate 2 added `newbr-transaction.test.ts` for typed outcomes and rollback behavior, while `newbr-flow.test.ts` now covers user-facing failure messages for stash push failure, missing stash refs, and Graphite-create rollback failure without freezing every incidental command argument.
+**Implemented test policy:** Local harnesses now cover pending-worktree facts, transaction typed outcomes, and preparation typed outcomes. `newbr-preparation.test.ts` asserts behavior through `NewBranchPlan`, warnings, and typed failures for explicit slugs, generated slugs, fallback warnings, suffixing, exhaustion, and checkpoint-preparation failure. `newbr-flow.test.ts` stays focused on clean/detached stops, preparation-before-transaction safety ordering, preparation warning surfacing, and transaction failure messages instead of duplicating every slug case.

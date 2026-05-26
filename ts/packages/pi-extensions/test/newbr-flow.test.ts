@@ -12,6 +12,8 @@ function fail(stderr: string): CommandResult {
 }
 
 type HarnessOptions = {
+	args?: NewBranchFlowInput["args"];
+	piResult?: CommandResult;
 	prepareResult?: { ok: true; message: string } | { ok: false; error: string };
 	commitResult?: { summary: string } | { error: string };
 	stashPushFails?: boolean;
@@ -34,7 +36,7 @@ function createHarness(options: HarnessOptions = {}) {
 
 	const input: NewBranchFlowInput = {
 		cwd: "/repo",
-		args: { slug: "test-branch" },
+		args: options.args ?? { slug: "test-branch" },
 		now: () => 123,
 		exec: async (command, args) => {
 			events.push(`exec:${command} ${args.join(" ")}`);
@@ -53,6 +55,9 @@ function createHarness(options: HarnessOptions = {}) {
 			}
 			if (command === "git" && args[0] === "ls-files") {
 				return ok("");
+			}
+			if (command === "pi") {
+				return options.piResult ?? ok("generated-branch\n");
 			}
 			if (command === "git" && args[0] === "check-ref-format") {
 				return ok();
@@ -154,6 +159,17 @@ describe("createNewBranchCheckpointFlow", () => {
 		expect(harness.preparedSnapshots.at(0)?.status).toBe(" M file.ts\n");
 		expect(harness.preparedSnapshots.at(0)?.diff).toBe("diff --git a/file.ts b/file.ts\n");
 		expect(harness.notifications.at(-1)?.message).toContain("Commit: abc123 [cp] Update checkpoint tests");
+	});
+
+	test("preparation warnings surface before transaction success", async () => {
+		const harness = createHarness({ args: {}, piResult: fail("pi failed") });
+
+		await createNewBranchCheckpointFlow(harness.input);
+
+		const warning = harness.notifications.findIndex((notice) => notice.message === "Slug model failed; using fallback branch name update-file-ts.");
+		const success = harness.notifications.findIndex((notice) => notice.message.includes("New branch: update-file-ts"));
+		expect(warning).toBeGreaterThan(-1);
+		expect(success).toBeGreaterThan(warning);
 	});
 
 	test("stash push failure stops before Graphite branch creation", async () => {
