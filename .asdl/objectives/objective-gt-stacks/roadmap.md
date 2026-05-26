@@ -24,11 +24,11 @@ Phase 2 — structured Graphite graph support
 
 Phase 3 — Objective stack projection model
 
-- [ ] Compute branch-local Objective touches from each Graphite branch's parent slice, using only `.asdl/objectives/<slug>/` paths.
-- [ ] Count active-root deletions as Objective touches while ignoring `.asdl/objective-archive/` entirely.
-- [ ] Build Objective groups that support one branch touching multiple Objectives and one Objective appearing in multiple disconnected stack segments.
-- [ ] Include connector branches needed to preserve dependency shape within each segment and mark them separately from Objective-touching branches.
-- [ ] Attribute latest Objective work from Objective-path touch commits inside branch-local slices, not from branch head timestamps.
+- [x] Compute branch-local Objective touches from each Graphite branch's parent slice, using only `.asdl/objectives/<slug>/` paths.
+- [x] Count active-root deletions as Objective touches while ignoring `.asdl/objective-archive/` entirely.
+- [x] Build Objective groups that support one branch touching multiple Objectives and one Objective appearing in multiple disconnected stack segments.
+- [x] Include connector branches needed to preserve dependency shape within each segment and mark them separately from Objective-touching branches.
+- [x] Attribute latest Objective work from Objective-path touch commits inside branch-local slices, not from branch head timestamps.
 
 Phase 4 — `objective gt stacks` CLI
 
