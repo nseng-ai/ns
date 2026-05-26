@@ -177,6 +177,20 @@ function promptCommandInfo(promptPath: string): CommandInfo {
 	};
 }
 
+function skillCommandInfo(skillName: ObjectiveCommandName, skillPath: string, baseDir: string): CommandInfo {
+	return {
+		name: `skill:${skillName}`,
+		source: "skill",
+		sourceInfo: {
+			path: skillPath,
+			source: "project",
+			scope: "project",
+			origin: "top-level",
+			baseDir,
+		},
+	};
+}
+
 async function withTempPrompt<T>(callback: (promptPath: string) => Promise<T>): Promise<T> {
 	const dir = await mkdtemp(join(tmpdir(), "objective-stack-impl-"));
 	const promptPath = join(dir, "objective-stack-impl.md");
@@ -236,13 +250,14 @@ async function runObjectiveCommand(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
+	commandInfos: CommandInfo[] = [],
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script);
+	const pi = new FakePi(script, commandInfos);
 	objectiveExtension(pi);
 	const command = pi.commands.get(commandName);
 	expect(command).toBeDefined();
@@ -725,6 +740,45 @@ describe("objective command shared selection policy", () => {
 });
 
 describe("objective command prompt details", () => {
+	test("expanded skill block appears in an objective prompt for an explicit slug", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "objective-next-skill-"));
+		const skillPath = join(dir, "SKILL.md");
+		await writeFile(
+			skillPath,
+			`---
+name: objective-next
+hidden-frontmatter-token: do-not-include
+---
+
+# Objective Next Skill
+
+Use the selected Objective.
+`,
+			"utf8",
+		);
+
+		try {
+			const result = await runObjectiveCommand("objective-next", "bravo", [], {}, [
+				skillCommandInfo("objective-next", skillPath, dir),
+			]);
+
+			result.pi.assertDone();
+			const prompt = result.pi.sentUserMessages[0] ?? "";
+			expect(prompt).toContain(`<skill name="objective-next" location="${skillPath}">`);
+			expect(prompt).toContain(`References are relative to ${dir}.`);
+			expect(prompt).toContain("# Objective Next Skill\n\nUse the selected Objective.");
+			expect(prompt).not.toContain("hidden-frontmatter-token");
+			expect(prompt).toContain("Run objective-next for this explicitly selected Objective slug or path:");
+			expect(prompt).toContain("```text\nbravo\n```");
+			expect(result.notifications).toContainEqual({
+				message: "Invoking objective-next for bravo.",
+				level: "info",
+			});
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
 		const result = await runObjectiveCommand("objective-update", "bravo");
 
