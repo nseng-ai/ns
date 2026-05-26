@@ -85,5 +85,12 @@ Risks:
 
 ## Open Questions
 
-- Has a human explicitly agreed that the narrow PR #649 follow-up is complete enough to close?
-- Should future provider/model/auth policy for checkpoint drafting and branch slug drafting become a separate Objective if another cross-command need appears?
+None remaining for this Objective. Future provider/model/auth policy for checkpoint drafting and branch slug drafting should become a separate Objective only if another cross-command need appears.
+
+## Closure
+
+Closed as completed for the narrow PR #649 follow-up. The six deepening candidates have recorded dispositions in `candidate-dispositions.md`: checkpoint seam and pending worktree snapshot implemented, new-branch transaction boundary implemented, shared small-model drafting policy parked, standalone Graphite adapter folded into the transaction boundary, standalone branch naming policy parked while its useful responsibilities moved into the preparation boundary, and behavior-first test surface applied without a universal fake framework.
+
+Key evidence: `pending-worktree.ts`, `checkpoint-pi.ts`, `newbr-transaction.ts`, and `newbr-preparation.ts` now own the seams that passed the deletion test; `/cp` and `/newbr` behavior is preserved with thinner command workflows; transaction rollback and preparation outcomes have typed tests; and validation passed with `bun run --cwd ts check`, `bun run --cwd ts test`, and `just dprint-check` across the accepted TypeScript slices.
+
+Remaining caveats are intentionally outside this Objective: shared provider/model/auth policy should wait for a future cross-command need, broader Pi extension architecture belongs to `pi-extension-deepening`, and a universal TypeScript fake framework remains unjustified by current evidence. This closure is the explicit human decision that the PR #649 follow-up is complete enough to close.

@@ -45,10 +45,10 @@
   - `bun run --cwd ts test` passed for Candidate 1, Candidate 2, and the preparation boundary.
   - `just dprint-check` passed after Candidate 2 and after the preparation-boundary Objective updates.
   - Run broader validation only if later changes escape the TypeScript Pi extension package.
-- [ ] Close by explicit human decision.
-  - Confirm every candidate has a disposition.
-  - Confirm accepted refactors are implemented or split.
-  - Add closure context to `objective.md`, then add a Closure Marker.
+- [x] Close by explicit human decision.
+  - Confirmed every candidate has a disposition.
+  - Confirmed accepted refactors are implemented, parked with rationale, or folded into completed work.
+  - Added closure context to `objective.md` and a Closure Marker.
 
 ## Parked
 
