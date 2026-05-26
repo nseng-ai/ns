@@ -3,6 +3,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 
 import { runFirstAvailableBrmemCommand } from "../brmem-cli.ts";
 import { formatOutputSection, tailText, type ExecResult } from "../command-runtime.ts";
+import { parseMachineEnvelopeData } from "../machine-envelope.ts";
 
 const BRMEM_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 10_000;
@@ -160,27 +161,10 @@ export async function runBrmem(
 }
 
 export function parseBrmemPutData(stdout: string): BrmemPutData {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`Malformed brmem put JSON: ${message}\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
-	}
-
-	if (!isRecord(parsed)) {
-		throw malformedBrmemPutEnvelope(stdout, "expected an envelope object");
-	}
-
-	const envelopeExitCode = parsed.exit_code;
-	if (typeof envelopeExitCode === "number" && envelopeExitCode !== 0) {
-		throw malformedBrmemPutEnvelope(stdout, `expected envelope exit_code 0, got ${envelopeExitCode}`);
-	}
-
-	const data = parsed.data;
-	if (!isRecord(data)) {
-		throw malformedBrmemPutEnvelope(stdout, "expected a data object");
-	}
+	const data = parseMachineEnvelopeData(stdout, {
+		label: "brmem put JSON",
+		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
+	});
 
 	const namespace = data.namespace;
 	const key = data.key;
@@ -196,7 +180,7 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 		typeof commit !== "string" ||
 		typeof sourceFile !== "string"
 	) {
-		throw malformedBrmemPutEnvelope(
+		throw malformedBrmemPutData(
 			stdout,
 			"expected string fields data.namespace, data.key, data.branch, data.ref_name, data.commit, and data.source_file",
 		);
@@ -226,7 +210,7 @@ export function formatCommandFailure(title: string, displayCommand: string, resu
 	);
 }
 
-function malformedBrmemPutEnvelope(stdout: string, reason: string): Error {
+function malformedBrmemPutData(stdout: string, reason: string): Error {
 	return new Error(`Malformed brmem put JSON: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
 }
 

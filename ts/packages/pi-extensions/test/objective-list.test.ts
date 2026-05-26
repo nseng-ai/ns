@@ -47,7 +47,7 @@ describe("parseObjectiveList", () => {
 	});
 
 	test("rejects invalid JSON", () => {
-		expect(() => parseObjectiveList("{")).toThrow(/Failed to parse objective list JSON/);
+		expect(() => parseObjectiveList("{")).toThrow(/objective list JSON/);
 	});
 
 	test("rejects a non-object envelope", () => {

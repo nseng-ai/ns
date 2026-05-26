@@ -2,6 +2,7 @@ import { existsSync, type FSWatcher, readFileSync, readdirSync, statSync, unwatc
 import { basename, dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "./brmem-cli.ts";
+import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import {
 	customMessageText,
 	linkifyPrReferences,
@@ -116,13 +117,6 @@ type ExecGateway = Pick<ExtensionAPI, "exec">;
 type BrmemEntry = {
 	namespace: string | null;
 	key: string;
-};
-
-type BrmemListEnvelope = {
-	exit_code?: number;
-	data?: {
-		entries?: BrmemEntry[];
-	};
 };
 
 type GitPaths = {
@@ -566,8 +560,8 @@ async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSigna
 		if (run.result.killed || run.result.code !== 0) continue;
 
 		try {
-			const parsed = JSON.parse(run.result.stdout) as BrmemListEnvelope;
-			const entries = parsed.data?.entries ?? [];
+			const data = parseMachineEnvelopeData(run.result.stdout, { label: "brmem list JSON" });
+			const entries = Array.isArray(data.entries) ? (data.entries as BrmemEntry[]) : [];
 			const status = formatBrmemScopes(entries);
 			return status.length > 0 ? status : undefined;
 		} catch {
