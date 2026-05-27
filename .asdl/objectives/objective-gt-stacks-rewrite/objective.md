@@ -75,13 +75,13 @@ Risks:
 - Graphite metadata inconsistencies and missing local parent chains remain subtle, but the projection core now preserves pass-through Graphite warnings and emits de-duplicated skipped-branch warnings for locally present descendants severed by unavailable parents without aborting valid partial projections.
 - Full spec conformance plus strict TDD may require more small slices than a prototype rewrite, but this is accepted to keep behavior deterministic and reviewable.
 - Rendering details could leak into projection logic if glyphs or text annotations are introduced too early. The JSON model should stay semantic to protect locality.
-- Python CLI context wiring has been de-risked for `objective gt stacks`: the explicit `objective gt` path builds its own repo/git/Graphite context and does not add Graphite or generic trunk resolution to `objective list`. Remaining context risk is concentrated in the Pi wrapper and any later CLI hardening.
-- The Pi wrapper may duplicate some `/objective-list` helper structure. This is acceptable for v1 unless duplication becomes shallow enough to justify a later display-wrapper module.
+- Python CLI context wiring has been de-risked for `objective gt stacks`: the explicit `objective gt` path builds its own repo/git/Graphite context and does not add Graphite or generic trunk resolution to `objective list`. Remaining context risk is concentrated in any later CLI hardening.
+- The Pi wrapper display surface is de-risked: `/objective-gt-stacks` follows the existing `/objective-list` display-message pattern while keeping strict argument rejection and 30-second CLI execution. Some helper duplication remains accepted for v1; a shared display-wrapper module stays parked unless future commands deepen the duplication.
 
 ## Open Questions
 
 - Python renderers currently treat empty, `OK`, `VALID`, and `TRUNK` validation results as quiet; other non-restack validation results render as `gt: <result>`.
 - Skipped-branch warnings currently follow the branch-scope tests: a locally present tracked branch severed by an unavailable parent is skipped with a warning, while unrelated untracked git branches and archive-root-only touches remain outside the projection.
 - Deletion/rename testing confirmed the existing Git touch seam is adequate for v1 when implemented with name-status rename detection; no deeper Git interface is currently needed.
-- After the wrapper lands, should `/objective-list` and `/objective-gt-stacks` share a small display-wrapper module, or is the duplication below the deletion-test threshold?
+- A shared Pi display-wrapper module remains parked unless future display-wrapper commands deepen the duplication enough to justify extraction.
 - Is a live local Graphite smoke test worth running before user inspection even though it is not required for closure?
