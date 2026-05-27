@@ -73,15 +73,18 @@ Risks:
 
 - Git rename and deletion behavior has been de-risked at the existing `GitGateway.path_touches_under()` seam. The real gateway now uses `git log --name-status -M <range> -- .asdl/objectives`, so the projection can consume `PathChangeTouch.paths` without a richer Git path-change API for v1.
 - Graphite metadata inconsistencies and missing local parent chains remain subtle, but the projection core now preserves pass-through Graphite warnings and emits de-duplicated skipped-branch warnings for locally present descendants severed by unavailable parents without aborting valid partial projections.
-- Full spec conformance plus strict TDD may require more small slices than a prototype rewrite, but this is accepted to keep behavior deterministic and reviewable.
-- Rendering details could leak into projection logic if glyphs or text annotations are introduced too early. The JSON model should stay semantic to protect locality.
-- Python CLI context wiring has been de-risked for `objective gt stacks`: the explicit `objective gt` path builds its own repo/git/Graphite context and does not add Graphite or generic trunk resolution to `objective list`. Remaining context risk is concentrated in any later CLI hardening.
+- Underlying Git data-read failures are de-risked at the CLI envelope boundary: per-branch touch reads and trunk status reads now have scenario coverage for stable JSON failure envelopes.
+- Full spec conformance plus strict TDD required several small slices rather than a prototype rewrite, which kept behavior deterministic and reviewable.
+- Rendering details could leak into projection logic if glyphs or text annotations are introduced too early. The JSON model stayed semantic: glyphs and annotations live in renderers and Pi displays CLI Markdown verbatim.
+- Python CLI context wiring has been de-risked for `objective gt stacks`: the explicit `objective gt` path builds its own repo/git/Graphite context and does not add Graphite or generic trunk resolution to `objective list`.
 - The Pi wrapper display surface is de-risked: `/objective-gt-stacks` follows the existing `/objective-list` display-message pattern while keeping strict argument rejection and 30-second CLI execution. Some helper duplication remains accepted for v1; a shared display-wrapper module stays parked unless future commands deepen the duplication.
 
 ## Open Questions
 
-- Python renderers currently treat empty, `OK`, `VALID`, and `TRUNK` validation results as quiet; other non-restack validation results render as `gt: <result>`.
-- Skipped-branch warnings currently follow the branch-scope tests: a locally present tracked branch severed by an unavailable parent is skipped with a warning, while unrelated untracked git branches and archive-root-only touches remain outside the projection.
-- Deletion/rename testing confirmed the existing Git touch seam is adequate for v1 when implemented with name-status rename detection; no deeper Git interface is currently needed.
+No blocking open questions remain for the v1 implementation. Notes carried forward:
+
+- Python renderers treat empty, `OK`, `VALID`, and `TRUNK` validation results as quiet; other non-restack validation results render as `gt: <result>`.
+- Skipped-branch warnings follow the branch-scope tests: a locally present tracked branch severed by an unavailable parent is skipped with a warning, while unrelated untracked git branches and archive-root-only touches remain outside the projection.
+- Deletion/rename testing confirmed the existing Git touch seam is adequate for v1 when implemented with name-status rename detection; no deeper Git interface is needed.
 - A shared Pi display-wrapper module remains parked unless future display-wrapper commands deepen the duplication enough to justify extraction.
-- Is a live local Graphite smoke test worth running before user inspection even though it is not required for closure?
+- Live local Graphite smoke remains optional confidence evidence, not a closure requirement; deterministic unit/scenario/plugin checks plus `just check` satisfy the current completion bar.

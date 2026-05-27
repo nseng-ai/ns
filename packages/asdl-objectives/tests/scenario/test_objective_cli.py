@@ -9,7 +9,7 @@ from click.testing import CliRunner, Result
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import PathChangeTouch, PathTouch
+from asdl_core.git.types import GitCommandFailure, PathChangeTouch, PathTouch
 from asdl_core.gt.testing import FakeGtGateway
 from asdl_core.gt.types import GtBranchGraph, GtCommandFailure, GtTrackedBranch
 from asdl_objectives.context import ObjectiveCliContext, ObjectiveCliUnavailable
@@ -215,6 +215,73 @@ def test_objective_gt_stacks_graph_failure_json_and_human(
     }
     assert human_result.exit_code == 2
     assert human_result.output == "error: Graphite branch graph failed: metadata unreadable\n"
+
+
+def test_objective_gt_stacks_stack_touch_git_failure_returns_json_envelope(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    ctx = ObjectiveGtCliContext(
+        repo_root=tmp_path,
+        git=FakeGitGateway(
+            repo_root=tmp_path,
+            branches=("main", "feat/a"),
+            path_change_touches_by_ref_path={
+                ("main..feat/a", ".asdl/objectives"): GitCommandFailure(
+                    message="slice touch read failed: sentinel",
+                    returncode=128,
+                ),
+            },
+        ),
+        gt=FakeGtGateway(branch_graph=_gt_single_child_graph("feat/a")),
+    )
+
+    result = _invoke_gt_json(cli_group, ctx)
+
+    assert result.exit_code == 2
+    assert json.loads(result.output) == {
+        "exit_code": 2,
+        "error_type": "git_objective_stack_touches_failed",
+        "message": "slice touch read failed: sentinel",
+    }
+
+
+def test_objective_gt_stacks_trunk_status_git_failure_returns_json_envelope(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    ctx = ObjectiveGtCliContext(
+        repo_root=tmp_path,
+        git=FakeGitGateway(
+            repo_root=tmp_path,
+            branches=("main", "feat/a"),
+            tracked_paths_by_ref_path={
+                ("refs/heads/main", ".asdl/objectives"): GitCommandFailure(
+                    message="trunk status read failed: sentinel",
+                    returncode=128,
+                ),
+            },
+            path_change_touches_by_ref_path={
+                ("main..feat/a", ".asdl/objectives"): (
+                    _change_touch(
+                        "a-alpha",
+                        "2026-05-20T10:00:00Z",
+                        ".asdl/objectives/alpha/objective.md",
+                    ),
+                ),
+            },
+        ),
+        gt=FakeGtGateway(branch_graph=_gt_single_child_graph("feat/a")),
+    )
+
+    result = _invoke_gt_json(cli_group, ctx)
+
+    assert result.exit_code == 2
+    assert json.loads(result.output) == {
+        "exit_code": 2,
+        "error_type": "git_objective_trunk_status_failed",
+        "message": "trunk status read failed: sentinel",
+    }
 
 
 def test_objective_list_empty_result(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -1274,6 +1341,27 @@ def _gt_empty_context(repo_root: Path) -> ObjectiveGtCliContext:
     )
 
 
+def _gt_single_child_graph(branch: str) -> GtBranchGraph:
+    return GtBranchGraph(
+        trunk="main",
+        branches=(
+            GtTrackedBranch(
+                name="main",
+                parent=None,
+                children=(branch,),
+                validation_result="TRUNK",
+            ),
+            GtTrackedBranch(
+                name=branch,
+                parent="main",
+                children=(),
+                validation_result=None,
+            ),
+        ),
+        warnings=(),
+    )
+
+
 def _gt_worked_example_graph(*, warnings: tuple[str, ...]) -> GtBranchGraph:
     return GtBranchGraph(
         trunk="main",
@@ -1462,7 +1550,8 @@ def _list_context(
     repo_root: Path,
     branches: tuple[str, ...] = ("master",),
     trunk_branch: str = "master",
-    tracked_paths_by_ref_path: dict[tuple[str, str], tuple[str, ...]] | None = None,
+    tracked_paths_by_ref_path: dict[tuple[str, str], tuple[str, ...] | GitCommandFailure]
+    | None = None,
     path_touch_by_ref_path: dict[tuple[str, str], PathTouch] | None = None,
     uncommitted_changes_by_cwd_path: dict[tuple[Path, str], bool] | None = None,
 ) -> ObjectiveCliContext:

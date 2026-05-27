@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import PathChangeTouch
 from asdl_core.gt.testing import FakeGtGateway
 from asdl_core.gt.types import GtBranchGraph, GtTrackedBranch
-from asdl_objectives.gt_stack_projection import build_objective_gt_stack_projection
+from asdl_objectives.gt_stack_projection import (
+    ObjectiveGtStackProjection,
+    build_objective_gt_stack_projection,
+)
 
 
 def test_build_objective_gt_stack_projection_matches_worked_example() -> None:
@@ -147,6 +151,76 @@ def test_build_objective_gt_stack_projection_matches_worked_example() -> None:
     }
 
 
+def test_projection_ignores_archive_root_paths_when_branch_change_data_includes_them() -> None:
+    repo_root = Path("/repo")
+    git = FakeGitGateway(
+        branches=("main", "feat/alpha", "feat/archive-only"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/main", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        path_change_touches_by_ref_path={
+            ("main..feat/alpha", ".asdl/objectives"): (
+                PathChangeTouch(
+                    oid="mixed-active-and-archive",
+                    committed_iso="2026-05-20T10:00:00Z",
+                    paths=(
+                        ".asdl/objectives/alpha/objective.md",
+                        ".asdl/objective-archive/beta/objective.md",
+                    ),
+                ),
+            ),
+            ("main..feat/archive-only", ".asdl/objectives"): (
+                PathChangeTouch(
+                    oid="archive-only",
+                    committed_iso="2026-05-20T11:00:00Z",
+                    paths=(".asdl/objective-archive/gamma/objective.md",),
+                ),
+            ),
+        },
+    )
+    gt = FakeGtGateway(
+        branch_graph=GtBranchGraph(
+            trunk="main",
+            branches=(
+                GtTrackedBranch(
+                    name="main",
+                    parent=None,
+                    children=("feat/alpha", "feat/archive-only"),
+                    validation_result="TRUNK",
+                ),
+                GtTrackedBranch(
+                    name="feat/alpha",
+                    parent="main",
+                    children=(),
+                    validation_result=None,
+                ),
+                GtTrackedBranch(
+                    name="feat/archive-only",
+                    parent="main",
+                    children=(),
+                    validation_result=None,
+                ),
+            ),
+            warnings=(),
+        )
+    )
+
+    projection = build_objective_gt_stack_projection(repo_root, git, gt)
+
+    objectives = _projection_objectives_json(projection)
+    assert [objective["slug"] for objective in objectives] == ["alpha"]
+    alpha = objectives[0]
+    assert alpha["objective_branch_count"] == 1
+    assert alpha["latest_work"] == {
+        "branch": "feat/alpha",
+        "committed_iso": "2026-05-20T10:00:00Z",
+        "oid": "mixed-active-and-archive",
+    }
+    rows = alpha["segments"][0]["rows"]
+    assert [row["branch"] for row in rows] == ["feat/alpha"]
+    assert rows[0]["also_touches"] == []
+
+
 def test_projection_scans_only_trunk_connected_local_graphite_branches() -> None:
     repo_root = Path("/repo")
     git = FakeGitGateway(
@@ -214,7 +288,7 @@ def test_projection_scans_only_trunk_connected_local_graphite_branches() -> None
         "metadata warning",
         "Graphite branch 'feat/child' has unavailable local parent 'feat/missing'; skipping.",
     ]
-    assert [objective["slug"] for objective in projection.to_json_data()["objectives"]] == ["alpha"]
+    assert [objective["slug"] for objective in _projection_objectives_json(projection)] == ["alpha"]
     assert git.path_touches_under_calls == (("main..feat/good", ".asdl/objectives"),)
     assert gt.branch_graph_calls == (repo_root,)
 
@@ -274,7 +348,7 @@ def test_projection_latest_work_ties_by_timestamp_then_branch_then_oid() -> None
 
     projection = build_objective_gt_stack_projection(repo_root, git, gt)
 
-    alpha = projection.to_json_data()["objectives"][0]
+    alpha = _projection_objectives_json(projection)[0]
     assert alpha["latest_work"] == {
         "branch": "feat/a",
         "committed_iso": "2026-05-20T10:00:00Z",
@@ -325,7 +399,14 @@ def test_projection_projects_closed_status_from_trunk() -> None:
 
     projection = build_objective_gt_stack_projection(repo_root, git, gt)
 
-    assert projection.to_json_data()["objectives"][0]["status"] == "closed"
+    assert _projection_objectives_json(projection)[0]["status"] == "closed"
+
+
+def _projection_objectives_json(projection: ObjectiveGtStackProjection) -> list[dict[str, Any]]:
+    objectives = projection.to_json_data()["objectives"]
+    assert isinstance(objectives, list)
+    assert all(isinstance(objective, dict) for objective in objectives)
+    return cast("list[dict[str, Any]]", objectives)
 
 
 def _worked_example_graph() -> GtBranchGraph:
