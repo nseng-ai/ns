@@ -9,7 +9,11 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
+from asdl_core.git.types import PathChangeTouch
+from asdl_core.gt.testing import FakeGtGateway
+from asdl_core.gt.types import GtBranchGraph, GtTrackedBranch
 from asdl_objectives.context import ObjectiveCliContext
+from asdl_objectives.gt.context import ObjectiveGtCliContext
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_reviewer.context import ReviewerCliContext
 from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
@@ -93,6 +97,8 @@ def test_objective_plugin_integration(tmp_path: Path) -> None:
     assert "Archive or unarchive an Objective record" in result.output
     assert "list" in result.output
     assert "List Objective records" in result.output
+    assert "gt" in result.output
+    assert "Work with Graphite Objective stack projections." in result.output
     assert "exec" not in result.output
 
     result = runner.invoke(parent, ["objective", "exec", "--help"])
@@ -118,6 +124,52 @@ def test_objective_plugin_integration(tmp_path: Path) -> None:
         "names_only": False,
         "records": [],
     }
+
+    gt_ctx = ObjectiveGtCliContext(
+        repo_root=tmp_path,
+        git=FakeGitGateway(
+            repo_root=tmp_path,
+            branches=("main", "feat/a"),
+            path_change_touches_by_ref_path={
+                ("main..feat/a", ".asdl/objectives"): (
+                    PathChangeTouch(
+                        oid="a-alpha",
+                        committed_iso="2026-05-20T10:00:00Z",
+                        paths=(".asdl/objectives/alpha/objective.md",),
+                    ),
+                ),
+            },
+        ),
+        gt=FakeGtGateway(
+            branch_graph=GtBranchGraph(
+                trunk="main",
+                branches=(
+                    GtTrackedBranch(
+                        name="main",
+                        parent=None,
+                        children=("feat/a",),
+                        validation_result="TRUNK",
+                    ),
+                    GtTrackedBranch(
+                        name="feat/a",
+                        parent="main",
+                        children=(),
+                        validation_result=None,
+                    ),
+                ),
+                warnings=(),
+            )
+        ),
+    )
+    result = runner.invoke(
+        parent,
+        ["objective", "gt", "stacks", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: gt_ctx),
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"]["trunk_branch"] == "main"
+    assert payload["data"]["objectives"][0]["slug"] == "alpha"
 
 
 def test_aretro_is_not_mounted_as_parent_asdl_plugin() -> None:

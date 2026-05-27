@@ -10,7 +10,10 @@ from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import PathChangeTouch, PathTouch
+from asdl_core.gt.testing import FakeGtGateway
+from asdl_core.gt.types import GtBranchGraph, GtCommandFailure, GtTrackedBranch
 from asdl_objectives.context import ObjectiveCliContext, ObjectiveCliUnavailable
+from asdl_objectives.gt.context import ObjectiveGtCliContext, ObjectiveGtCliUnavailable
 from asdl_objectives.main import build_cli
 
 
@@ -30,6 +33,8 @@ def test_objective_help(cli_group: ClinkrGroup) -> None:
     assert "Archive or unarchive an Objective record" in result.output
     assert "list" in result.output
     assert "List Objective records" in result.output
+    assert "gt" in result.output
+    assert "Work with Graphite Objective stack projections." in result.output
     assert "exec" not in result.output
 
 
@@ -61,6 +66,155 @@ def test_objective_archive_help(cli_group: ClinkrGroup) -> None:
     assert "Archive or unarchive an Objective record by moving its directory" in result.output
     assert "SLUG" in result.output
     assert "--unarchive" in result.output
+
+
+def test_objective_gt_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gt", "--help"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective gt" in result.output
+    assert "Work with Graphite Objective stack projections." in result.output
+    assert "stacks" in result.output
+    assert "Show Objective work across Graphite-tracked branches." in result.output
+
+
+def test_objective_gt_stacks_help(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gt", "stacks", "--help"])
+
+    assert result.exit_code == 0
+    assert "Usage: objective gt stacks" in result.output
+    assert "Show Objective work across Graphite-tracked branches." in result.output
+    assert "--format" in result.output
+    assert "human" in result.output
+    assert "json" in result.output
+    assert "markdown" in result.output
+    assert "md" in result.output
+    assert "--json-schema" in result.output
+
+
+def test_objective_gt_stacks_json_projection(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    result = _invoke_gt_json(cli_group, _gt_worked_example_context(tmp_path))
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {
+        "exit_code": 0,
+        "data": _gt_worked_example_data(warnings=[]),
+    }
+
+
+def test_objective_gt_stacks_human_output_contract(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    result = _invoke_gt_human(
+        cli_group,
+        _gt_worked_example_context(tmp_path, warnings=("metadata warning",)),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Objective stacks" in result.output
+    assert "Graphite trunk: main" in result.output
+    assert "Warnings:" in result.output
+    assert "  - metadata warning" in result.output
+    assert "○ open alpha  3 objective branches  2 segments  latest: feat/b" in result.output
+    assert "◇ in-flight beta  1 objective branch  1 segment  latest: feat/a" in result.output
+    assert "  segment 1" in result.output
+    assert "    ◆ feat/a  (also: beta)" in result.output
+    assert "    ◇ feat/connector  (needs restack)" in result.output
+    assert "      ◆ feat/c" in result.output
+
+
+def test_objective_gt_stacks_markdown_and_md_output_contract(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    ctx = _gt_worked_example_context(tmp_path, warnings=("metadata warning",))
+
+    markdown = _invoke_gt_markdown(cli_group, ctx, format_mode="markdown")
+    md = _invoke_gt_markdown(cli_group, ctx, format_mode="md")
+
+    assert markdown.exit_code == 0, markdown.output
+    assert md.exit_code == 0, md.output
+    assert markdown.output == md.output
+    assert "# Objective stacks" in markdown.output
+    assert "Graphite trunk: `main`" in markdown.output
+    assert "Warnings:\n- metadata warning" in markdown.output
+    assert "## ○ open alpha" in markdown.output
+    assert "- objective branches: 3" in markdown.output
+    assert "- segments: 2" in markdown.output
+    assert "- latest: `feat/b` at `2026-05-20T12:00:00Z` (`b-alpha`)" in markdown.output
+    assert "```text" in markdown.output
+    assert "◆ feat/a  (also: beta)" in markdown.output
+    assert "  ◇ feat/connector  (needs restack)" in markdown.output
+    assert "    ◆ feat/c" in markdown.output
+    assert "## ◇ in-flight beta" in markdown.output
+
+
+def test_objective_gt_stacks_empty_state(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    ctx = _gt_empty_context(tmp_path)
+
+    human = _invoke_gt_human(cli_group, ctx)
+    markdown = _invoke_gt_markdown(cli_group, ctx, format_mode="markdown")
+
+    assert human.exit_code == 0, human.output
+    assert markdown.exit_code == 0, markdown.output
+    assert "No Objective stack work found." in human.output
+    assert "No Objective stack work found." in markdown.output
+
+
+def test_objective_gt_stacks_json_schema(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(cli_group, ["gt", "stacks", "--json-schema"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert set(payload) == {"input_json_schema", "output_json_schema"}
+    assert payload["input_json_schema"]["properties"] == {}
+    assert "trunk_branch" in payload["output_json_schema"]["properties"]
+    assert "objectives" in payload["output_json_schema"]["properties"]
+
+
+def test_objective_gt_stacks_unavailable_context_returns_failure_envelope(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = _invoke_gt_json(
+        cli_group,
+        ObjectiveGtCliUnavailable("Not inside a git repository."),
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.output) == {
+        "exit_code": 2,
+        "error_type": "not_in_repo",
+        "message": "Not inside a git repository.",
+    }
+
+
+def test_objective_gt_stacks_graph_failure_json_and_human(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    ctx = ObjectiveGtCliContext(
+        repo_root=tmp_path,
+        git=FakeGitGateway(repo_root=tmp_path, branches=("main",)),
+        gt=FakeGtGateway(
+            branch_graph=GtCommandFailure(message="metadata unreadable", returncode=None),
+        ),
+    )
+
+    json_result = _invoke_gt_json(cli_group, ctx)
+    human_result = _invoke_gt_human(cli_group, ctx)
+
+    assert json_result.exit_code == 2
+    assert json.loads(json_result.output) == {
+        "exit_code": 2,
+        "error_type": "gt_branch_graph_failed",
+        "message": "Graphite branch graph failed: metadata unreadable",
+    }
+    assert human_result.exit_code == 2
+    assert human_result.output == "error: Graphite branch graph failed: metadata unreadable\n"
 
 
 def test_objective_list_empty_result(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -1053,6 +1207,246 @@ def _assert_no_branch_projection_fields(data: dict[str, object]) -> None:
         "slice_commits",
     }
     assert old_fields.isdisjoint(data)
+
+
+def _gt_worked_example_context(
+    repo_root: Path,
+    *,
+    warnings: tuple[str, ...] = (),
+) -> ObjectiveGtCliContext:
+    git = FakeGitGateway(
+        repo_root=repo_root,
+        branches=("main", "feat/a", "feat/connector", "feat/c", "feat/b"),
+        tracked_paths_by_ref_path={
+            ("refs/heads/main", ".asdl/objectives"): (".asdl/objectives/alpha/objective.md",),
+        },
+        path_change_touches_by_ref_path={
+            ("main..feat/a", ".asdl/objectives"): (
+                _change_touch(
+                    "a-multi",
+                    "2026-05-20T10:00:00Z",
+                    ".asdl/objectives/alpha/objective.md",
+                    ".asdl/objectives/beta/objective.md",
+                ),
+            ),
+            ("feat/a..feat/connector", ".asdl/objectives"): (),
+            ("feat/connector..feat/c", ".asdl/objectives"): (
+                _change_touch(
+                    "c-alpha",
+                    "2026-05-20T11:00:00Z",
+                    ".asdl/objectives/alpha/updates/progress.md",
+                ),
+            ),
+            ("main..feat/b", ".asdl/objectives"): (
+                _change_touch(
+                    "b-alpha",
+                    "2026-05-20T12:00:00Z",
+                    ".asdl/objectives/alpha/updates/progress.md",
+                ),
+            ),
+        },
+    )
+    return ObjectiveGtCliContext(
+        repo_root=repo_root,
+        git=git,
+        gt=FakeGtGateway(branch_graph=_gt_worked_example_graph(warnings=warnings)),
+    )
+
+
+def _gt_empty_context(repo_root: Path) -> ObjectiveGtCliContext:
+    return ObjectiveGtCliContext(
+        repo_root=repo_root,
+        git=FakeGitGateway(repo_root=repo_root, branches=("main",)),
+        gt=FakeGtGateway(
+            branch_graph=GtBranchGraph(
+                trunk="main",
+                branches=(
+                    GtTrackedBranch(
+                        name="main",
+                        parent=None,
+                        children=(),
+                        validation_result="TRUNK",
+                    ),
+                ),
+                warnings=(),
+            )
+        ),
+    )
+
+
+def _gt_worked_example_graph(*, warnings: tuple[str, ...]) -> GtBranchGraph:
+    return GtBranchGraph(
+        trunk="main",
+        branches=(
+            GtTrackedBranch(
+                name="main",
+                parent=None,
+                children=("feat/a", "feat/b"),
+                validation_result="TRUNK",
+            ),
+            GtTrackedBranch(
+                name="feat/a",
+                parent="main",
+                children=("feat/connector",),
+                validation_result="OK",
+            ),
+            GtTrackedBranch(
+                name="feat/connector",
+                parent="feat/a",
+                children=("feat/c",),
+                validation_result="VALID",
+                needs_restack=True,
+            ),
+            GtTrackedBranch(
+                name="feat/c",
+                parent="feat/connector",
+                children=(),
+                validation_result=None,
+            ),
+            GtTrackedBranch(
+                name="feat/b",
+                parent="main",
+                children=(),
+                validation_result=None,
+            ),
+        ),
+        warnings=warnings,
+    )
+
+
+def _gt_worked_example_data(*, warnings: list[str]) -> dict[str, object]:
+    return {
+        "trunk_branch": "main",
+        "warnings": warnings,
+        "objectives": [
+            {
+                "slug": "alpha",
+                "status": "open",
+                "objective_branch_count": 3,
+                "segment_count": 2,
+                "latest_work": {
+                    "branch": "feat/b",
+                    "committed_iso": "2026-05-20T12:00:00Z",
+                    "oid": "b-alpha",
+                },
+                "segments": [
+                    {
+                        "index": 1,
+                        "rows": [
+                            {
+                                "branch": "feat/a",
+                                "parent": "main",
+                                "depth": 0,
+                                "touches_objective": True,
+                                "connector": False,
+                                "also_touches": ["beta"],
+                                "validation_result": "OK",
+                                "needs_restack": False,
+                            },
+                            {
+                                "branch": "feat/connector",
+                                "parent": "feat/a",
+                                "depth": 1,
+                                "touches_objective": False,
+                                "connector": True,
+                                "also_touches": [],
+                                "validation_result": "VALID",
+                                "needs_restack": True,
+                            },
+                            {
+                                "branch": "feat/c",
+                                "parent": "feat/connector",
+                                "depth": 2,
+                                "touches_objective": True,
+                                "connector": False,
+                                "also_touches": [],
+                                "validation_result": None,
+                                "needs_restack": False,
+                            },
+                        ],
+                    },
+                    {
+                        "index": 2,
+                        "rows": [
+                            {
+                                "branch": "feat/b",
+                                "parent": "main",
+                                "depth": 0,
+                                "touches_objective": True,
+                                "connector": False,
+                                "also_touches": [],
+                                "validation_result": None,
+                                "needs_restack": False,
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                "slug": "beta",
+                "status": "in-flight",
+                "objective_branch_count": 1,
+                "segment_count": 1,
+                "latest_work": {
+                    "branch": "feat/a",
+                    "committed_iso": "2026-05-20T10:00:00Z",
+                    "oid": "a-multi",
+                },
+                "segments": [
+                    {
+                        "index": 1,
+                        "rows": [
+                            {
+                                "branch": "feat/a",
+                                "parent": "main",
+                                "depth": 0,
+                                "touches_objective": True,
+                                "connector": False,
+                                "also_touches": ["alpha"],
+                                "validation_result": "OK",
+                                "needs_restack": False,
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+
+
+def _invoke_gt_json(
+    cli_group: ClinkrGroup,
+    ctx: ObjectiveGtCliContext | ObjectiveGtCliUnavailable,
+) -> Result:
+    return CliRunner().invoke(
+        cli_group,
+        ["gt", "stacks", "--format", "json"],
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
+
+
+def _invoke_gt_human(
+    cli_group: ClinkrGroup,
+    ctx: ObjectiveGtCliContext | ObjectiveGtCliUnavailable,
+) -> Result:
+    return CliRunner().invoke(
+        cli_group,
+        ["gt", "stacks"],
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
+
+
+def _invoke_gt_markdown(
+    cli_group: ClinkrGroup,
+    ctx: ObjectiveGtCliContext,
+    *,
+    format_mode: str,
+) -> Result:
+    return CliRunner().invoke(
+        cli_group,
+        ["gt", "stacks", "--format", format_mode],
+        obj=build_clinkr_context_object(lambda: ctx),
+    )
 
 
 def _archive_context(repo_root: Path) -> ObjectiveCliContext:
