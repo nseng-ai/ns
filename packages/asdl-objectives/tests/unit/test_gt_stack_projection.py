@@ -50,6 +50,29 @@ def test_build_objective_stack_projection_builds_single_branch_group() -> None:
     )
 
 
+def test_build_objective_stack_projection_carries_needs_restack_to_rows() -> None:
+    graph = _graph(
+        _branch("main", None, children=("feat/a",)),
+        _branch("feat/a", "main", validation_result="VALID", needs_restack=True),
+    )
+    git = FakeGitGateway(
+        path_change_touches_by_ref_path={
+            ("main..feat/a", OBJECTIVE_ROOT): (
+                _touch(
+                    "a-alpha", "2026-05-20T10:00:00-04:00", ".asdl/objectives/alpha/objective.md"
+                ),
+            ),
+        }
+    )
+
+    row = (
+        _group_for(build_objective_stack_projection(git, graph).groups, "alpha").segments[0].rows[0]
+    )
+
+    assert row.validation_result == "VALID"
+    assert row.needs_restack is True
+
+
 def test_build_objective_stack_projection_marks_also_touches_for_many_to_many_branches() -> None:
     graph = _graph(_branch("main", None, children=("feat/a",)), _branch("feat/a", "main"))
     git = FakeGitGateway(
@@ -288,12 +311,14 @@ def _branch(
     *,
     children: tuple[str, ...] = (),
     validation_result: str | None = None,
+    needs_restack: bool = False,
 ) -> GtTrackedBranch:
     return GtTrackedBranch(
         name=name,
         parent=parent,
         children=children,
         validation_result=validation_result,
+        needs_restack=needs_restack,
     )
 
 

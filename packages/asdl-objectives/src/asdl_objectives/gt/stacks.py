@@ -110,4 +110,5 @@ def _filter_branch_children(branch: GtTrackedBranch, included: frozenset[str]) -
         parent=branch.parent,
         children=tuple(child for child in branch.children if child in included),
         validation_result=branch.validation_result,
+        needs_restack=branch.needs_restack,
     )

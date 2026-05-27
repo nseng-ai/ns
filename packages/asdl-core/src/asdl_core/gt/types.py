@@ -38,6 +38,7 @@ class GtTrackedBranch:
     parent: str | None
     children: tuple[str, ...]
     validation_result: str | None
+    needs_restack: bool = False
 
     def __post_init__(self) -> None:
         if not self.name:
