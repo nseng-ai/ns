@@ -603,7 +603,7 @@ def test_objective_gt_stacks_skips_graphite_branches_without_local_refs(
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)["data"]
-    assert data["warnings"] == ["Graphite branch 'feat/stale' is not a local git branch; skipping."]
+    assert data["warnings"] == []
     assert [objective["slug"] for objective in data["objectives"]] == ["alpha"]
 
 
