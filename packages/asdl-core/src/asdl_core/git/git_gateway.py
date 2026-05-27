@@ -141,8 +141,12 @@ class GitGateway(ABC):
         """Create ``branch`` at ``start_point`` in the bound repo."""
 
     @abstractmethod
-    def delete_local_branch(self, branch: str) -> GitCommandFailure | None:
-        """Safely delete a local branch in the bound repo; failure on non-zero exit."""
+    def delete_local_branch(self, branch: str, *, force: bool) -> GitCommandFailure | None:
+        """Delete a local branch in the bound repo; failure on non-zero exit.
+
+        ``force=False`` uses safe ``git branch -d`` deletion; ``force=True`` uses
+        force ``git branch -D`` deletion.
+        """
 
     @abstractmethod
     def delete_remote_branch(self, remote: str, branch: str) -> GitCommandFailure | None:

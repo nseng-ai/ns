@@ -624,12 +624,13 @@ class RealGitGateway(GitGateway):
         cmd.extend([branch, start_point])
         _run(cmd, cwd=self._require_repo_root(), check=True)
 
-    def delete_local_branch(self, branch: str) -> GitCommandFailure | None:
-        result = _run(["git", "branch", "-d", branch], cwd=self._require_repo_root(), check=False)
+    def delete_local_branch(self, branch: str, *, force: bool) -> GitCommandFailure | None:
+        flag = "-D" if force else "-d"
+        result = _run(["git", "branch", flag, branch], cwd=self._require_repo_root(), check=False)
         if result.returncode == 0:
             return None
         return GitCommandFailure(
-            message=result.stderr.strip() or "git branch -d failed",
+            message=result.stderr.strip() or f"git branch {flag} failed",
             returncode=result.returncode,
         )
 

@@ -161,7 +161,7 @@ class FakeGitGateway(GitGateway):
         self._remove_worktree_calls: list[tuple[Path, Path]] = []
         self._checkout_calls: list[tuple[Path, str]] = []
         self._create_branch_calls: list[tuple[str, str, bool]] = []
-        self._delete_local_branch_calls: list[str] = []
+        self._delete_local_branch_calls: list[tuple[str, bool]] = []
         self._delete_remote_branch_calls: list[tuple[str, str]] = []
         self._detach_head_calls: list[tuple[Path, str]] = []
         self._fetch_calls: list[tuple[Path, str, str]] = []
@@ -326,8 +326,8 @@ class FakeGitGateway(GitGateway):
         self._create_branch_calls.append((branch, start_point, force))
         self._branches.add(branch)
 
-    def delete_local_branch(self, branch: str) -> GitCommandFailure | None:
-        self._delete_local_branch_calls.append(branch)
+    def delete_local_branch(self, branch: str, *, force: bool) -> GitCommandFailure | None:
+        self._delete_local_branch_calls.append((branch, force))
         failure = self._delete_local_branch_failure_by_branch.get(branch)
         if failure is not None:
             return failure
@@ -592,7 +592,7 @@ class FakeGitGateway(GitGateway):
         return tuple(self._update_ref_calls)
 
     @property
-    def delete_local_branch_calls(self) -> tuple[str, ...]:
+    def delete_local_branch_calls(self) -> tuple[tuple[str, bool], ...]:
         return tuple(self._delete_local_branch_calls)
 
     @property
