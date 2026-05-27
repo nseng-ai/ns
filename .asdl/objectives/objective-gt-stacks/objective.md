@@ -66,8 +66,8 @@ Risks:
 
 - The current-branch-centered `GtGateway.stack()` risk is de-risked for Phase 2: `GtGateway.branch_graph(cwd)` now provides a separate repo/trunk-centered graph model while leaving `stack()` stable.
 - Phase 3 de-risks model-level segment construction for many-to-many Objective/branch relationships, disconnected regions, and connector rows. Phase 4 now preserves that semantic model behind the CLI JSON contract and keeps renderer glyphs out of the result schema.
-- Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, and verifies the picker/list flows against the new contract. The remaining Pi extension risk is the separate `/objective-gt-stacks` wrapper, which is now unblocked by the Graphite command but still unimplemented.
-- Dirty-state detection for `(x)` is de-risked for checkout-local `objective list` by path-scoped Git status coverage of staged, unstaged, untracked, and unrelated paths. The Pi picker still needs a separate integration slice before it can use checkout-local outstanding-change facts for suggestions.
+- Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, verifies the picker/list flows against the new contract, and exposes `/objective-gt-stacks` as a separate thin display wrapper over the Graphite stack command.
+- Dirty-state detection for `(x)` is de-risked for checkout-local `objective list` by path-scoped Git status coverage of staged, unstaged, untracked, and unrelated paths. The Pi picker now collects checkout-local Objective status with `git status --porcelain=v1 -z -- .asdl/objectives`, unions those slugs with committed Objective diffs versus trunk, and still requires explicit selection when multiple changed active Objectives exist.
 - The model-level risk of ignoring archive-root paths while including active-root deletions is de-risked by Phase 3 touch extraction tests. Phase 4 scenario coverage now preserves that behavior through command wiring and renderers.
 - A future TUI may need richer graph data than the first human CLI renderer. Mitigation: design JSON around semantic graph facts rather than terminal glyphs.
 
@@ -89,6 +89,11 @@ Resolved during Phase 4 `objective gt stacks` CLI:
 - The JSON schema exposes `trunk_branch`, `warnings`, and `objectives[]`; each Objective carries `slug`, trunk-projected `status`, `objective_branch_count`, `segment_count`, optional `latest_work`, and `segments[]` with indexed branch rows.
 - Branch rows expose semantic facts rather than renderer glyphs: `branch`, `parent`, `depth`, `touches_objective`, `connector`, `also_touches`, and Graphite `validation_result` when available.
 - V1 branch annotations stop at Objective touch/connector state, multi-Objective `also_touches`, and cheap Graphite validation facts. Slot labels, richer restack health, and lifecycle interpretation remain out of v1.
+
+Resolved during Phase 5 Pi extension:
+
+- `/objective-gt-stacks` is a thin Pi display wrapper around `objective gt stacks --format markdown`; help delegates to `objective gt stacks --help`, while `--format`, `--json-schema`, unknown flags, and positional arguments are rejected by the extension before invoking the CLI.
+- Changed-Objective picker suggestions combine committed Objective diffs versus trunk with checkout-local dirty Objective paths from Git status. The display label switches from `changed vs <trunk>` to checkout-aware wording when dirty paths contribute, and multiple changed active Objectives still require explicit user selection.
 
 Still open:
 
