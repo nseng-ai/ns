@@ -64,6 +64,25 @@ context:
 
 Do not write a handoff artifact. This is only in-session context compaction.
 
+## Determine run horizon
+
+Default mode: `whole-objective`.
+
+- `whole-objective`: implement successive small Graphite stacks until no
+  unblocked non-parked Objective roadmap work remains, validation fails, a
+  product or design decision is needed, the worktree is unsafe, a subagent
+  result cannot be interpreted safely, or the user asks to stop.
+- `one-stack`: implement only the first planned 1 to 3 slice Graphite stack,
+  then stop for inspection even if roadmap work remains.
+
+Use `one-stack` only when the current user explicitly asks for a single stack,
+the first stack, or stopping after inspection. Otherwise use
+`whole-objective`.
+
+State the selected run horizon in conversation before dispatching any subagent.
+Keep this as parent-agent semantic judgment; do not add command-line flags or
+deterministic argument parsing.
+
 ## Inspect Objective and repository state
 
 Read the selected Objective records:
@@ -86,13 +105,20 @@ a short note.
 
 ## Plan a small Graphite stack in conversation
 
-Before dispatching subagents, draft a short in-conversation stack plan:
+Before creating branches or dispatching subagents, draft a short visible
+"what will happen" announcement for the next planned stack:
 
+- selected run horizon: `whole-objective` or `one-stack`;
+- first planned stack slices and branch names;
 - 1 to 3 coherent slices by default;
 - one Graphite branch per slice;
 - each slice independently reviewable;
 - expected validation for each slice;
-- expected Objective update evidence for each slice.
+- expected Objective update evidence for each slice;
+- roadmap rows expected to remain after this stack, if any;
+- exact stop conditions for this run;
+- whether the parent intends to auto-plan another stack after this planned
+  stack completes.
 
 Use this repo's Graphite workflow instructions before creating branches,
 navigating the stack, committing, amending, or restacking. Do not create a
@@ -135,7 +161,29 @@ For each planned slice:
     evidence from the slice.
 12. Commit or amend only after parent-side validation, using the repo's
     Graphite workflow.
-13. Decide whether to continue to the next slice or stop for user inspection.
+13. Continue to the next planned slice. When no planned slices remain, use the
+    planned-stack-exhausted gate instead of silently finalizing.
+
+## When a planned stack is exhausted
+
+When all currently planned slices are complete:
+
+1. Re-check worktree state.
+2. Review the selected Objective roadmap semantically, focusing on non-parked
+   `[ ]` and `[~]` work.
+3. State in conversation:
+   - planned stack complete;
+   - remaining non-parked roadmap work;
+   - proposed next stack, if any;
+   - whether validation and worktree state permit continuing.
+4. If in `whole-objective` mode and no stop condition applies, plan the next
+   1 to 3 slice stack and continue.
+5. If in `one-stack` mode and work remains, ask the user whether to continue.
+6. If no unblocked non-parked work remains, proceed to the final digest and
+   recommend inspection, Objective closure, or PR submission as appropriate.
+
+This gate is current-session-only. Do not create durable stack state, hidden
+schemas, or side ledgers.
 
 ## Subagent prompt requirements
 
@@ -194,8 +242,12 @@ Autofix policy:
 - the worktree is unsafe for branch or subagent work;
 - a subagent result is non-final or ambiguous and cannot be safely interpreted;
 - validation fails in a way that needs product or design input;
-- all planned work is complete and the remaining action is user inspection,
-  Objective closure, or PR submission.
+- the selected Objective appears complete and the remaining action is user
+  inspection, Objective closure, or PR submission;
+- in `one-stack` mode, the planned stack is complete and roadmap work remains;
+- in `whole-objective` mode, planned-stack completion is not a stop condition
+  unless no unblocked roadmap work remains or another listed stop condition
+  applies.
 
 ## Manual recovery notes
 
@@ -288,6 +340,14 @@ Use this structure, adapting details honestly to the run:
 
 - Objective updates recorded: yes/no, with file names if known.
 - Updates still needed: yes/no, with reason.
+
+### Why stopped
+
+- reason: planned stack exhausted / objective complete / validation failed /
+  awaiting user decision / unsafe worktree / subagent ambiguity / user requested
+  stop / other
+- remaining non-parked roadmap work: yes/no/unknown, with short summary
+- run horizon: whole-objective/one-stack
 
 ### Recommended next action
 
