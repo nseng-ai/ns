@@ -5,9 +5,7 @@ import { join } from "node:path";
 
 import objectiveExtension, {
 	buildObjectiveStackImplPrompt,
-	completeObjectiveGtStacksArgs,
 	completeObjectiveListArgs,
-	parseObjectiveGtStacksArgs,
 	parseObjectiveListArgs,
 	type CommandContext,
 	type ExecResult,
@@ -307,25 +305,6 @@ async function runObjectiveList(args: string, script: ScriptedExec[] = []): Prom
 	return { pi, ...context };
 }
 
-async function runObjectiveGtStacks(args: string, script: ScriptedExec[] = []): Promise<{
-	pi: FakePi;
-	notifications: Notification[];
-	selections: Selection[];
-	waitForIdleCalls: () => number;
-}> {
-	const pi = new FakePi(script);
-	objectiveExtension(pi);
-	const command = pi.commands.get("objective-gt-stacks");
-	expect(command).toBeDefined();
-	if (!command) {
-		throw new Error("objective-gt-stacks was not registered");
-	}
-
-	const context = createContext();
-	await command.handler(args, context.ctx);
-	return { pi, ...context };
-}
-
 function expectListActiveObjectivesCall(result: { pi: FakePi }): void {
 	expect(result.pi.execCalls[0]).toEqual({
 		command: "objective",
@@ -383,10 +362,6 @@ function completionValues(prefix: string): string[] {
 	return completeObjectiveListArgs(prefix)?.map((item) => item.value) ?? [];
 }
 
-function gtStacksCompletionValues(prefix: string): string[] {
-	return completeObjectiveGtStacksArgs(prefix)?.map((item) => item.value) ?? [];
-}
-
 describe("objective-list command", () => {
 	test("completions advertise checkout-local options and status values", () => {
 		expect(completionValues("")).toEqual(["--names", "--status", "--help", "-h"]);
@@ -439,126 +414,6 @@ describe("objective-list command", () => {
 		expect(view.pi.execCalls).toEqual([]);
 		expect(current.pi.sentMessages[0]?.content).toContain("--current is no longer supported");
 		expect(view.pi.sentMessages[0]?.content).toContain("--view is no longer supported");
-	});
-});
-
-describe("objective-gt-stacks command", () => {
-	test("registers the Graphite stacks display command", () => {
-		const pi = new FakePi();
-
-		objectiveExtension(pi);
-
-		expect(pi.commands.has("objective-gt-stacks")).toBe(true);
-	});
-
-	test("completions only advertise help", () => {
-		expect(gtStacksCompletionValues("")).toEqual(["--help", "-h"]);
-		expect(gtStacksCompletionValues("--h")).toEqual(["--help"]);
-		expect(gtStacksCompletionValues("--format")).toEqual([]);
-	});
-
-	test("parses help and rejects unsupported arguments", () => {
-		expect(parseObjectiveGtStacksArgs("--help")).toEqual({ help: true });
-		expect(parseObjectiveGtStacksArgs("-h")).toEqual({ help: true });
-		expect(() => parseObjectiveGtStacksArgs("--format markdown")).toThrow(/--format is controlled/);
-		expect(() => parseObjectiveGtStacksArgs("--format=markdown")).toThrow(/--format is controlled/);
-		expect(() => parseObjectiveGtStacksArgs("--json-schema")).toThrow(/--json-schema access is controlled/);
-		expect(() => parseObjectiveGtStacksArgs("--unknown")).toThrow(/Unsupported \/objective-gt-stacks argument/);
-		expect(() => parseObjectiveGtStacksArgs("bravo")).toThrow(/Unsupported \/objective-gt-stacks argument/);
-	});
-
-	test("runs objective gt stacks markdown and sends a custom message", async () => {
-		const stdout = "# Objective stacks\n\n- alpha\n";
-		const result = await runObjectiveGtStacks("", [
-			step("objective", ["gt", "stacks", "--format", "markdown"], { stdout }),
-		]);
-
-		result.pi.assertDone();
-		expect(result.waitForIdleCalls()).toBe(1);
-		expect(result.pi.execCalls[0]).toEqual({
-			command: "objective",
-			args: ["gt", "stacks", "--format", "markdown"],
-			options: { cwd: ROOT, timeout: 30_000 },
-		});
-		expect(result.pi.sentMessages[0]).toEqual({
-			customType: "objective-gt-stacks-output",
-			content: "# Objective stacks\n\n- alpha",
-			display: true,
-			details: {
-				status: "success",
-				command: "objective gt stacks --format markdown",
-				args: ["gt", "stacks", "--format", "markdown"],
-				cwd: ROOT,
-				code: 0,
-				killed: false,
-				stdoutChars: stdout.length,
-				stderrChars: 0,
-			},
-		});
-	});
-
-	test("help runs objective gt stacks help", async () => {
-		const result = await runObjectiveGtStacks("--help", [
-			step("objective", ["gt", "stacks", "--help"], { stdout: "Usage: objective gt stacks\n" }),
-		]);
-
-		result.pi.assertDone();
-		expect(result.pi.execCalls[0]?.args).toEqual(["gt", "stacks", "--help"]);
-		expect(result.pi.sentMessages[0]?.content).toBe("Usage: objective gt stacks");
-	});
-
-	test("bad arguments are rejected before invoking objective", async () => {
-		const result = await runObjectiveGtStacks("--format markdown");
-
-		expect(result.pi.execCalls).toEqual([]);
-		expect(result.pi.sentMessages[0]?.customType).toBe("objective-gt-stacks-output");
-		expect(result.pi.sentMessages[0]?.content).toContain("--format is controlled by the Pi extension");
-		expect(result.pi.sentMessages[0]?.details).toEqual({
-			status: "rejected",
-			command: "objective-gt-stacks",
-			args: ["--format", "markdown"],
-			cwd: ROOT,
-		});
-	});
-
-	test("nonzero failures include command output and exit code", async () => {
-		const result = await runObjectiveGtStacks("", [
-			step("objective", ["gt", "stacks", "--format", "markdown"], {
-				code: 2,
-				stdout: "partial stdout\n",
-				stderr: "fatal stderr\n",
-			}),
-		]);
-
-		result.pi.assertDone();
-		const content = String(result.pi.sentMessages[0]?.content);
-		expect(content).toContain("objective command failed (exit code 2)");
-		expect(content).toContain("$ objective gt stacks --format markdown");
-		expect(content).toContain("stdout:\npartial stdout");
-		expect(content).toContain("stderr:\nfatal stderr");
-		expect(result.pi.sentMessages[0]?.details).toMatchObject({ status: "failure", code: 2, killed: false });
-	});
-
-	test("killed failures say the process was killed or timed out", async () => {
-		const result = await runObjectiveGtStacks("", [
-			step("objective", ["gt", "stacks", "--format", "markdown"], { code: 124, killed: true }),
-		]);
-
-		result.pi.assertDone();
-		expect(result.pi.sentMessages[0]?.content).toContain("process was killed or timed out");
-		expect(result.pi.sentMessages[0]?.details).toMatchObject({ status: "failure", code: 124, killed: true });
-	});
-
-	test("startup failure is presented as a failure custom message", async () => {
-		const result = await runObjectiveGtStacks("", [
-			failingStep("objective", ["gt", "stacks", "--format", "markdown"], new Error("spawn ENOENT")),
-		]);
-
-		result.pi.assertDone();
-		expect(result.pi.sentMessages[0]?.customType).toBe("objective-gt-stacks-output");
-		expect(result.pi.sentMessages[0]?.content).toContain("objective command failed before completion");
-		expect(result.pi.sentMessages[0]?.content).toContain("spawn ENOENT");
-		expect(result.pi.sentMessages[0]?.details).toMatchObject({ status: "failure" });
 	});
 });
 

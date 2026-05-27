@@ -3,7 +3,7 @@
 Status: Specification (distilled from a working prototype)
 Scope: the `objective gt stacks` command and its companion Pi display command `/objective-gt-stacks`.
 
-This document specifies observable behavior only. It defines *what* the feature does, not *how* it is built. It is the authoritative contract that a production implementation must satisfy. Nothing here should be read as prescribing internal structure, storage, languages, or libraries.
+This document specifies observable behavior only. It defines _what_ the feature does, not _how_ it is built. It is the authoritative contract that a production implementation must satisfy. Nothing here should be read as prescribing internal structure, storage, languages, or libraries.
 
 ---
 
@@ -22,7 +22,7 @@ It is read-only. It inspects branches and their relationships and reports a proj
 The Objective tooling distinguishes two distinct worlds:
 
 1. **Objective records in the current checkout** — directories that physically exist in the working tree. These are reported by `objective list`. Commands that move or edit records (e.g. archiving) operate here.
-2. **Objective work distributed across branches** — branch-local changes, spread across a Graphite stack, that modify Objective records. This is a *projection*, not an inventory, and is reported by `objective gt stacks`.
+2. **Objective work distributed across branches** — branch-local changes, spread across a Graphite stack, that modify Objective records. This is a _projection_, not an inventory, and is reported by `objective gt stacks`.
 
 This specification covers only the second world (`objective gt stacks`) and the Pi command that displays it. `objective list` is referenced only as context; its contract is specified elsewhere.
 
@@ -41,7 +41,7 @@ These terms are used precisely throughout this document.
 - **Trunk** — the single configured Graphite trunk branch (e.g. `main` or `master`). All stack analysis is rooted here.
 - **Tracked branch** — a branch that Graphite records as part of a stack under the trunk, with a known parent and children.
 - **Parent / child** — the stack relationship recorded by Graphite. Each tracked branch (other than trunk) has exactly one parent.
-- **Slice** — the commits unique to a branch relative to its parent: the range `parent..branch`. A branch's slice is *only* the work added on that branch, not work inherited from lower in the stack.
+- **Slice** — the commits unique to a branch relative to its parent: the range `parent..branch`. A branch's slice is _only_ the work added on that branch, not work inherited from lower in the stack.
 - **Touch** — a branch **touches** Objective `S` if any commit in its slice changes any path inside `.asdl/objectives/S/`. "Changes" includes additions, modifications, **deletions**, and renames.
 - **Objective branch** — a branch whose slice touches the Objective in question.
 - **Connector branch** — a branch included in a segment only to preserve the stack's shape between Objective branches; its own slice does not touch that Objective.
@@ -79,11 +79,11 @@ It lives under an explicit `objective gt` command group. The `gt` segment in the
 
 ### 4.2 Options
 
-| Option | Values | Default | Behavior |
-| --- | --- | --- | --- |
-| `--format` | `human`, `json`, `markdown`, `md` | `human` | Selects output rendering. `md` is an alias for `markdown`. See §6, §7. |
-| `--json-schema` | (flag) | — | Prints a JSON Schema document describing the command's input and output shapes, then exits 0. Takes precedence over normal execution. |
-| `--help` | (flag) | — | Prints usage and exits 0. |
+| Option          | Values                            | Default | Behavior                                                                                                                              |
+| --------------- | --------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `--format`      | `human`, `json`, `markdown`, `md` | `human` | Selects output rendering. `md` is an alias for `markdown`. See §6, §7.                                                                |
+| `--json-schema` | (flag)                            | —       | Prints a JSON Schema document describing the command's input and output shapes, then exits 0. Takes precedence over normal execution. |
+| `--help`        | (flag)                            | —       | Prints usage and exits 0.                                                                                                             |
 
 `--help` output MUST include the usage line `Usage: objective gt stacks`, the command description, and the `--format` and `--json-schema` options.
 
@@ -107,7 +107,7 @@ Additional rules:
 
 - The **trunk itself is always in scope** and anchors the graph.
 - **Untracked git branches are never in scope.** The command is Graphite-backed by contract.
-- A tracked branch that is *not present locally* is excluded. If excluding it severs another in-scope branch from the trunk, that severed branch is also excluded and a warning is emitted (§9, skipped-branch warning).
+- A tracked branch that is _not present locally_ is excluded. If excluding it severs another in-scope branch from the trunk, that severed branch is also excluded and a warning is emitted (§9, skipped-branch warning).
 - The set of in-scope branches preserves the parent/child relationships among the branches that remain.
 
 ### 5.2 Computing touches per branch
@@ -133,7 +133,7 @@ Rules:
 
 - The output is grouped by Objective slug. Each touched slug produces exactly one Objective group.
 - A branch that touches multiple Objectives appears under **each** Objective it touches.
-- Within an Objective group, each branch row carries an **also-touches** list: the *other* Objective slugs that the same branch's slice touches (the current group's own slug is excluded). This list is sorted alphabetically.
+- Within an Objective group, each branch row carries an **also-touches** list: the _other_ Objective slugs that the same branch's slice touches (the current group's own slug is excluded). This list is sorted alphabetically.
 - Only Objectives that are touched by at least one in-scope branch appear in the output. (An active record that exists on trunk but has no branch work does **not** appear here — it belongs to `objective list`.)
 
 ### 5.4 Segments and connector branches
@@ -151,7 +151,7 @@ A branch in a segment whose own slice does **not** touch the Objective is a **co
 - are marked distinctly from Objective branches (see glyphs in §6),
 - do **not** count toward the Objective's branch count (§5.6),
 - do **not** participate in latest-work attribution (§5.7),
-- still carry their own also-touches list if their slice touches *other* Objectives.
+- still carry their own also-touches list if their slice touches _other_ Objectives.
 
 ### 5.5 Projected status
 
@@ -211,7 +211,7 @@ The `human` and `markdown` formats share a visual vocabulary.
 
 ### 6.3 Branch row annotations
 
-A branch row may carry a parenthesized annotation after the branch name. When present, it has the form `  (item; item; …)` (note the two leading spaces, items separated by `; `). The items, in order, are:
+A branch row may carry a parenthesized annotation after the branch name. When present, it has the form `(item; item; …)` (note the two leading spaces, items separated by `;`). The items, in order, are:
 
 1. **Also-touches** — `also: <slug>, <slug>` when the branch also touches other Objectives.
 2. **Restack health** — exactly one of:
@@ -257,7 +257,7 @@ Rules:
 - A `Warnings:` block appears only when there are warnings.
 - Counts are pluralized: `1 objective branch` / `3 objective branches`; `1 segment` / `2 segments`.
 - `latest` shows the branch name and a relative time, e.g. `feat/b (3h ago)`; if no relative time is available it shows just the branch name; if there is no latest work it shows `—`.
-- Each segment header is `  segment <index>` (1-based), preceded by a blank line.
+- Each segment header is `segment <index>` (1-based), preceded by a blank line.
 - Each branch row is indented by two spaces per depth level beneath the segment, then the glyph, branch name, and optional annotation.
 - When there are no Objective groups, the body is the single line `No Objective stack work found.` (rendered dimmed).
 
@@ -294,11 +294,11 @@ segment 2
 Rules:
 
 - The trunk name is wrapped in backticks.
-- A `Warnings:` block (with `- ` bullets) appears only when there are warnings.
+- A `Warnings:` block (with `-` bullets) appears only when there are warnings.
 - Each Objective is a `##` heading using the status label and slug.
 - The summary is three bullets: objective branches, segments, latest.
 - `latest` in markdown is `` `<branch>` at `<timestamp>` (`<commit>`) `` when present, or `—` when absent.
-- Segment rows are rendered inside a fenced ` ```text ` block. Within the block, rows are indented two spaces per depth level (one less leading indent than the human format), and a blank line separates consecutive segments.
+- Segment rows are rendered inside a fenced `` ```text `` block. Within the block, rows are indented two spaces per depth level (one less leading indent than the human format), and a blank line separates consecutive segments.
 - When there are no Objective groups, the body is the single line `No Objective stack work found.`
 
 ### 7.3 JSON format
@@ -332,50 +332,50 @@ Failure (see §8):
 
 #### 7.3.2 Result object (`data`)
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `trunk_branch` | string | The current Graphite trunk the projection is rooted on. |
-| `warnings` | string[] | Non-fatal diagnostics (§9). Empty array when none. |
-| `objectives` | object[] | Objective groups, ordered alphabetically by `slug`. Empty array when no branch work touches any Objective. |
+| Field          | Type     | Description                                                                                                |
+| -------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `trunk_branch` | string   | The current Graphite trunk the projection is rooted on.                                                    |
+| `warnings`     | string[] | Non-fatal diagnostics (§9). Empty array when none.                                                         |
+| `objectives`   | object[] | Objective groups, ordered alphabetically by `slug`. Empty array when no branch work touches any Objective. |
 
 Each entry in `objectives`:
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `slug` | string | The Objective slug. |
-| `status` | string | One of `open`, `closed`, `in-flight` (§5.5). |
-| `objective_branch_count` | integer | Distinct branches whose slice touches this Objective (connectors excluded). |
-| `segment_count` | integer | Number of segments. |
-| `latest_work` | object \| null | Latest Objective-touching commit (§5.7), or `null`. |
-| `segments` | object[] | Segments, in stable stack order. |
+| Field                    | Type           | Description                                                                 |
+| ------------------------ | -------------- | --------------------------------------------------------------------------- |
+| `slug`                   | string         | The Objective slug.                                                         |
+| `status`                 | string         | One of `open`, `closed`, `in-flight` (§5.5).                                |
+| `objective_branch_count` | integer        | Distinct branches whose slice touches this Objective (connectors excluded). |
+| `segment_count`          | integer        | Number of segments.                                                         |
+| `latest_work`            | object \| null | Latest Objective-touching commit (§5.7), or `null`.                         |
+| `segments`               | object[]       | Segments, in stable stack order.                                            |
 
 `latest_work` (when not null):
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `branch` | string | Branch owning the latest Objective-touching commit. |
-| `committed_iso` | string | Commit timestamp, ISO-8601. |
-| `oid` | string | Commit identifier. |
+| Field           | Type   | Description                                         |
+| --------------- | ------ | --------------------------------------------------- |
+| `branch`        | string | Branch owning the latest Objective-touching commit. |
+| `committed_iso` | string | Commit timestamp, ISO-8601.                         |
+| `oid`           | string | Commit identifier.                                  |
 
 Each entry in `segments`:
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `index` | integer | 1-based segment index within the Objective. |
-| `rows` | object[] | Branch rows in stack order (parents before children). |
+| Field   | Type     | Description                                           |
+| ------- | -------- | ----------------------------------------------------- |
+| `index` | integer  | 1-based segment index within the Objective.           |
+| `rows`  | object[] | Branch rows in stack order (parents before children). |
 
 Each entry in `rows`:
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `branch` | string | Branch name. |
-| `parent` | string \| null | Parent branch name; `null` only for a root with no in-scope parent. |
-| `depth` | integer | Depth within the segment; segment root is 0. |
-| `touches_objective` | boolean | True if this branch's slice touches this Objective. |
-| `connector` | boolean | True if this branch is a connector (the exact inverse of `touches_objective`). |
-| `also_touches` | string[] | Other Objective slugs this branch's slice touches, sorted. Empty when none. |
-| `validation_result` | string \| null | Graphite validation result for the branch, if known; otherwise `null`. |
-| `needs_restack` | boolean | Whether Graphite reports the branch needs restacking. |
+| Field               | Type           | Description                                                                    |
+| ------------------- | -------------- | ------------------------------------------------------------------------------ |
+| `branch`            | string         | Branch name.                                                                   |
+| `parent`            | string \| null | Parent branch name; `null` only for a root with no in-scope parent.            |
+| `depth`             | integer        | Depth within the segment; segment root is 0.                                   |
+| `touches_objective` | boolean        | True if this branch's slice touches this Objective.                            |
+| `connector`         | boolean        | True if this branch is a connector (the exact inverse of `touches_objective`). |
+| `also_touches`      | string[]       | Other Objective slugs this branch's slice touches, sorted. Empty when none.    |
+| `validation_result` | string \| null | Graphite validation result for the branch, if known; otherwise `null`.         |
+| `needs_restack`     | boolean        | Whether Graphite reports the branch needs restacking.                          |
 
 Design constraint: JSON exposes **semantic facts, not rendering decisions**. There are no glyphs in JSON; consumers derive presentation from `touches_objective`, `connector`, `also_touches`, `validation_result`, and `needs_restack`. This keeps the format stable for future consumers (including a possible interactive viewer).
 
@@ -383,7 +383,7 @@ Design constraint: JSON exposes **semantic facts, not rendering decisions**. The
 
 ## 8. Failure behavior
 
-Failures exit with code `2` and, in JSON format, produce the failure envelope of §7.3.1. In text formats, the message is written to standard error (the human format prefixes it with `error: `). A failed command produces no projection.
+Failures exit with code `2` and, in JSON format, produce the failure envelope of §7.3.1. In text formats, the message is written to standard error (the human format prefixes it with `error:`). A failed command produces no projection.
 
 Each failure carries a stable machine-readable `error_type`. The defined categories are:
 

@@ -20,24 +20,16 @@ export type { ExecResult } from "./command-runtime.ts";
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
 const OBJECTIVE_STATUS_TIMEOUT_MS = 30_000;
-const OBJECTIVE_GT_STACKS_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
-const OBJECTIVE_GT_STACKS_COMMAND_NAME = "objective-gt-stacks";
-const OBJECTIVE_GT_STACKS_MESSAGE_TYPE = "objective-gt-stacks-output";
 
 const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--names] [--status all|active|open|closed] [--help]
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_GT_STACKS_USAGE = `Usage: /objective-gt-stacks [--help]
-
-Shows \`objective gt stacks\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
-
 const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
-const OBJECTIVE_GT_STACKS_ARG_COMPLETIONS = ["--help", "-h"] as const;
 
 export type NotifyLevel = "info" | "warning" | "error";
 
@@ -121,22 +113,7 @@ export type ObjectiveListParsedArgs = {
 	help: boolean;
 };
 
-export type ObjectiveGtStacksParsedArgs = {
-	help: boolean;
-};
-
 type ObjectiveListMessageDetails = {
-	status: "success" | "failure" | "rejected";
-	command: string;
-	args: string[];
-	cwd: string;
-	code?: number;
-	killed?: boolean;
-	stdoutChars?: number;
-	stderrChars?: number;
-};
-
-type ObjectiveGtStacksMessageDetails = {
 	status: "success" | "failure" | "rejected";
 	command: string;
 	args: string[];
@@ -151,13 +128,6 @@ class ObjectiveListUsageError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "ObjectiveListUsageError";
-	}
-}
-
-class ObjectiveGtStacksUsageError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "ObjectiveGtStacksUsageError";
 	}
 }
 
@@ -652,31 +622,6 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs
 	return { args, help };
 }
 
-export function parseObjectiveGtStacksArgs(rawArgs: string): ObjectiveGtStacksParsedArgs {
-	const tokens = tokenizeArgumentString(rawArgs);
-	let help = false;
-	for (const token of tokens) {
-		if (token === "--help" || token === "-h") {
-			help = true;
-			continue;
-		}
-		if (token === "--format" || token.startsWith("--format=")) {
-			throw new ObjectiveGtStacksUsageError(
-				"--format is controlled by the Pi extension and is not supported here.",
-			);
-		}
-		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			throw new ObjectiveGtStacksUsageError(
-				"--json-schema access is controlled by the Pi extension and is not supported here.",
-			);
-		}
-
-		throw new ObjectiveGtStacksUsageError(`Unsupported /${OBJECTIVE_GT_STACKS_COMMAND_NAME} argument: ${token}.`);
-	}
-
-	return { help };
-}
-
 function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
 	for (const token of tokens) {
 		if (token === "--format" || token.startsWith("--format=")) {
@@ -700,17 +645,6 @@ function parseObjectiveListStatus(value: string): (typeof OBJECTIVE_LIST_STATUS_
 
 function objectiveListUsage(error: string): string {
 	return `Error: ${error}\n\n${OBJECTIVE_LIST_USAGE}`;
-}
-
-function objectiveGtStacksUsage(error: string): string {
-	return `Error: ${error}\n\n${OBJECTIVE_GT_STACKS_USAGE}`;
-}
-
-export function completeObjectiveGtStacksArgs(prefix: string): AutocompleteItem[] | null {
-	const tokens = tokenizeArgumentString(prefix);
-	const endsWithWhitespace = /\s$/.test(prefix);
-	const currentToken = endsWithWhitespace ? "" : (tokens[tokens.length - 1] ?? "");
-	return matchingCompletions(OBJECTIVE_GT_STACKS_ARG_COMPLETIONS, currentToken);
 }
 
 export function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | null {
@@ -788,72 +722,6 @@ async function handleObjectiveListCommand(pi: ExtensionAPI, rawArgs: string, ctx
 	presentObjectiveListMessage(pi, ctx, objectiveListOutputContent(result), objectiveListDetails("success", commandDisplay, commandArgs, ctx, result), "info");
 }
 
-async function handleObjectiveGtStacksCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
-	await ctx.waitForIdle();
-
-	let parsedArgs: ObjectiveGtStacksParsedArgs;
-	try {
-		parsedArgs = parseObjectiveGtStacksArgs(rawArgs);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		presentObjectiveGtStacksMessage(pi, ctx, objectiveGtStacksUsage(message), {
-			status: "rejected",
-			command: OBJECTIVE_GT_STACKS_COMMAND_NAME,
-			args: tokenizeArgumentString(rawArgs),
-			cwd: ctx.cwd,
-		}, "warning");
-		return;
-	}
-
-	const commandArgs = parsedArgs.help
-		? ["gt", "stacks", "--help"]
-		: ["gt", "stacks", "--format", "markdown"];
-	const commandDisplay = formatCommand("objective", commandArgs);
-
-	if (ctx.hasUI) {
-		ctx.ui.setStatus(OBJECTIVE_GT_STACKS_COMMAND_NAME, `running ${commandDisplay}…`);
-	}
-
-	let result: ExecResult;
-	try {
-		result = await pi.exec("objective", commandArgs, {
-			cwd: ctx.cwd,
-			timeout: OBJECTIVE_GT_STACKS_TIMEOUT_MS,
-		});
-	} catch (error) {
-		presentObjectiveGtStacksMessage(pi, ctx, formatExecStartupFailure(commandDisplay, error), {
-			status: "failure",
-			command: commandDisplay,
-			args: commandArgs,
-			cwd: ctx.cwd,
-		}, "error");
-		return;
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus(OBJECTIVE_GT_STACKS_COMMAND_NAME, undefined);
-		}
-	}
-
-	if (result.code !== 0 || result.killed) {
-		presentObjectiveGtStacksMessage(
-			pi,
-			ctx,
-			formatExecFailure(commandDisplay, result),
-			objectiveGtStacksDetails("failure", commandDisplay, commandArgs, ctx, result),
-			"error",
-		);
-		return;
-	}
-
-	presentObjectiveGtStacksMessage(
-		pi,
-		ctx,
-		objectiveGtStacksOutputContent(result),
-		objectiveGtStacksDetails("success", commandDisplay, commandArgs, ctx, result),
-		"info",
-	);
-}
-
 function objectiveListDetails(
 	status: "success" | "failure",
 	command: string,
@@ -861,25 +729,6 @@ function objectiveListDetails(
 	ctx: CommandContext,
 	result: ExecResult,
 ): ObjectiveListMessageDetails {
-	return {
-		status,
-		command,
-		args,
-		cwd: ctx.cwd,
-		code: result.code,
-		killed: result.killed,
-		stdoutChars: result.stdout.length,
-		stderrChars: result.stderr.length,
-	};
-}
-
-function objectiveGtStacksDetails(
-	status: "success" | "failure",
-	command: string,
-	args: string[],
-	ctx: CommandContext,
-	result: ExecResult,
-): ObjectiveGtStacksMessageDetails {
 	return {
 		status,
 		command,
@@ -932,57 +781,11 @@ function presentObjectiveListMessage(
 	console.log(content);
 }
 
-function objectiveGtStacksOutputContent(result: ExecResult): string {
-	const stdout = result.stdout.trimEnd();
-	if (stdout) {
-		return stdout;
-	}
-
-	const stderr = result.stderr.trimEnd();
-	return stderr || "(empty)";
-}
-
-function presentObjectiveGtStacksMessage(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	content: string,
-	details: ObjectiveGtStacksMessageDetails,
-	level: NotifyLevel,
-): void {
-	if (pi.sendMessage) {
-		pi.sendMessage({
-			customType: OBJECTIVE_GT_STACKS_MESSAGE_TYPE,
-			content,
-			display: true,
-			details,
-		});
-		return;
-	}
-
-	if (ctx.hasUI) {
-		ctx.ui.notify(content, level);
-		return;
-	}
-
-	if (level === "error") {
-		console.error(content);
-		return;
-	}
-
-	console.log(content);
-}
-
 export default function objectiveExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(OBJECTIVE_LIST_COMMAND_NAME, {
 		description: "List active Objectives in this repository without invoking the agent.",
 		getArgumentCompletions: completeObjectiveListArgs,
 		handler: async (args, ctx) => handleObjectiveListCommand(pi, args, ctx),
-	});
-
-	pi.registerCommand(OBJECTIVE_GT_STACKS_COMMAND_NAME, {
-		description: "Show Objective work across Graphite-tracked stacks without invoking the agent.",
-		getArgumentCompletions: completeObjectiveGtStacksArgs,
-		handler: async (args, ctx) => handleObjectiveGtStacksCommand(pi, args, ctx),
 	});
 
 	for (const spec of OBJECTIVE_COMMANDS) {
