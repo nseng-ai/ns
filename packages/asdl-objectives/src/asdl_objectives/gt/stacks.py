@@ -65,8 +65,6 @@ def _local_branch_graph(git: GitGateway, graph: GtBranchGraph) -> GtBranchGraph:
             continue
         if branch.name in local_branches:
             eligible.add(branch.name)
-        else:
-            warnings.append(f"Graphite branch {branch.name!r} is not a local git branch; skipping.")
 
     included = _connected_local_branches(graph, eligible)
     for branch_name in sorted(eligible.difference(included)):
