@@ -49,8 +49,28 @@ class FreedSlot:
 
 
 @dataclass(frozen=True)
+class SlotFreePlan:
+    targets: tuple[FreedSlot, ...]
+    trunk_branch: str
+
+
+@dataclass(frozen=True)
 class SlotFreeOutcome:
     freed: tuple[FreedSlot, ...]
+
+
+SlotFreeCleanupAction = Literal["pr", "remote_branch", "local_branch"]
+SlotFreeCleanupStatus = Literal["planned", "success", "skipped", "error"]
+
+
+@dataclass(frozen=True)
+class SlotFreeCleanupResult:
+    slot_name: str
+    branch_name: str
+    action: SlotFreeCleanupAction
+    status: SlotFreeCleanupStatus
+    pr_number: int | None = None
+    message: str | None = None
 
 
 SlotGcAction = Literal[

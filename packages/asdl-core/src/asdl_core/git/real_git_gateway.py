@@ -624,6 +624,28 @@ class RealGitGateway(GitGateway):
         cmd.extend([branch, start_point])
         _run(cmd, cwd=self._require_repo_root(), check=True)
 
+    def delete_local_branch(self, branch: str) -> GitCommandFailure | None:
+        result = _run(["git", "branch", "-d", branch], cwd=self._require_repo_root(), check=False)
+        if result.returncode == 0:
+            return None
+        return GitCommandFailure(
+            message=result.stderr.strip() or "git branch -d failed",
+            returncode=result.returncode,
+        )
+
+    def delete_remote_branch(self, remote: str, branch: str) -> GitCommandFailure | None:
+        result = _run(
+            ["git", "push", remote, "--delete", branch],
+            cwd=self._require_repo_root(),
+            check=False,
+        )
+        if result.returncode == 0:
+            return None
+        return GitCommandFailure(
+            message=result.stderr.strip() or "git push --delete failed",
+            returncode=result.returncode,
+        )
+
     def has_uncommitted_changes(self, cwd: Path) -> bool:
         status = self.get_file_status(cwd)
         return status.staged or status.modified or status.untracked

@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from asdl_core.gh.types import (
     PRChangedFile,
+    PRCloseOutcome,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -266,6 +267,18 @@ def merge_pr(
             stdout=result.stdout.strip(),
         )
     return PRMergeOutcome(number=pr_number, auto=auto)
+
+
+def close_pr(pr_number: int, *, repo: str | None = None) -> PRCloseOutcome | PRGatewayFailure:
+    """Shell out to ``gh pr close`` without branch deletion side effects."""
+    result = _run_gh(["pr", "close", str(pr_number)], repo=repo)
+    if result.returncode != 0:
+        return PRGatewayFailure(
+            stderr=result.stderr.strip(),
+            returncode=result.returncode,
+            stdout=result.stdout.strip(),
+        )
+    return PRCloseOutcome(number=pr_number)
 
 
 def get_review_threads(

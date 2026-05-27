@@ -8,6 +8,7 @@ from asdl_core.gh.real_gateway_helpers import (
     add_pr_discussion_comment,
     add_pr_discussion_comment_reaction,
     add_review_thread_reply,
+    close_pr,
     create_pr_review,
     fetch_pr_summary_for_branch,
     find_pr_discussion_comment_by_marker,
@@ -24,6 +25,7 @@ from asdl_core.gh.real_gateway_helpers import (
 )
 from asdl_core.gh.types import (
     PRChangedFile,
+    PRCloseOutcome,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -88,6 +90,10 @@ class PRGateway(ABC):
         auto: bool,
     ) -> PRMergeOutcome | PRGatewayFailure:
         """Squash-merge or enable auto-merge for ``pr_number`` with a head guard."""
+
+    @abstractmethod
+    def close_pr(self, pr_number: int) -> PRCloseOutcome | PRGatewayFailure:
+        """Close ``pr_number`` without deleting its branch."""
 
     @abstractmethod
     def resolve_review_thread(self, thread_id: str) -> PRReviewThreadState:
@@ -172,6 +178,9 @@ class RealPRGateway(PRGateway):
             auto=auto,
             repo=self._repo,
         )
+
+    def close_pr(self, pr_number: int) -> PRCloseOutcome | PRGatewayFailure:
+        return close_pr(pr_number, repo=self._repo)
 
     def resolve_review_thread(self, thread_id: str) -> PRReviewThreadState:
         return resolve_review_thread(thread_id)

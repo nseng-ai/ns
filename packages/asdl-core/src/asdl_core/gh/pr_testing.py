@@ -8,6 +8,7 @@ from dataclasses import replace
 from asdl_core.gh.pr_gateway import PRGateway
 from asdl_core.gh.types import (
     PRChangedFile,
+    PRCloseOutcome,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -17,6 +18,7 @@ from asdl_core.gh.types import (
     PRReviewComment,
     PRReviewThread,
     PRReviewThreadState,
+    PRState,
     PRStateFilter,
     PRSummary,
     Reaction,
@@ -39,6 +41,7 @@ class FakePRGateway(PRGateway):
         lookup_failure: PRGatewayFailure | None = None,
         search_failure: PRGatewayFailure | None = None,
         merge_failure: PRGatewayFailure | None = None,
+        close_failure: PRGatewayFailure | None = None,
     ) -> None:
         self._discussion_comments: dict[int, list[PRDiscussionComment]] = {
             pr_number: list(entries) for pr_number, entries in (discussion_comments or {}).items()
@@ -55,11 +58,12 @@ class FakePRGateway(PRGateway):
         self._pr_review_comments: dict[int, list[PRReviewComment]] = {
             pr_number: list(entries) for pr_number, entries in (pr_review_comments or {}).items()
         }
-        self._prs_by_branch = prs_by_branch or {}
+        self._prs_by_branch = dict(prs_by_branch or {})
         self._prs = tuple(prs)
         self._lookup_failure = lookup_failure
         self._search_failure = search_failure
         self._merge_failure = merge_failure
+        self._close_failure = close_failure
         self._next_comment_id = 1
         self._next_reaction_id = 1
 
@@ -71,6 +75,7 @@ class FakePRGateway(PRGateway):
         self._updated_comments: list[tuple[int, str]] = []
         self._reactions: list[tuple[int, str]] = []
         self._merge_calls: list[tuple[int, str, bool, bool]] = []
+        self._close_calls: list[int] = []
 
     # -- PR queries --
 
@@ -130,6 +135,13 @@ class FakePRGateway(PRGateway):
         if self._merge_failure is not None:
             return self._merge_failure
         return PRMergeOutcome(number=pr_number, auto=auto)
+
+    def close_pr(self, pr_number: int) -> PRCloseOutcome | PRGatewayFailure:
+        self._close_calls.append(pr_number)
+        if self._close_failure is not None:
+            return self._close_failure
+        self._set_pr_state(pr_number, state="CLOSED")
+        return PRCloseOutcome(number=pr_number)
 
     def resolve_review_thread(self, thread_id: str) -> PRReviewThreadState:
         self._resolved_thread_ids.append(thread_id)
@@ -255,6 +267,14 @@ class FakePRGateway(PRGateway):
                     threads[index] = replace(thread, comments=(*thread.comments, reply))
                     return
 
+    def _set_pr_state(self, pr_number: int, *, state: PRState) -> None:
+        for branch, pr in tuple(self._prs_by_branch.items()):
+            if pr.number == pr_number:
+                self._prs_by_branch[branch] = replace(pr, state=state)
+        self._prs = tuple(
+            replace(pr, state=state) if pr.number == pr_number else pr for pr in self._prs
+        )
+
     @property
     def resolved_thread_ids(self) -> tuple[str, ...]:
         return tuple(self._resolved_thread_ids)
@@ -286,3 +306,7 @@ class FakePRGateway(PRGateway):
     @property
     def merge_calls(self) -> tuple[tuple[int, str, bool, bool], ...]:
         return tuple(self._merge_calls)
+
+    @property
+    def close_calls(self) -> tuple[int, ...]:
+        return tuple(self._close_calls)

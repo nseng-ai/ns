@@ -166,6 +166,13 @@ class PRMergeOutcome:
 
 
 @dataclass(frozen=True)
+class PRCloseOutcome:
+    """Successful close outcome for a PR."""
+
+    number: int
+
+
+@dataclass(frozen=True)
 class PRLookupMiss:
     """Successful negative lookup: no PR matched the requested branch or key."""
 

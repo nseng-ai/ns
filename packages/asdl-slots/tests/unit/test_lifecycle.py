@@ -8,13 +8,20 @@ import pytest
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import PRGatewayFailure, PRState, PRSummary
 from asdl_core.git.testing import FakeGitGateway
-from asdl_core.git.types import DetachedHead, FileStatus, WorktreeInfo
+from asdl_core.git.types import DetachedHead, FileStatus, GitCommandFailure, WorktreeInfo
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.inventory import SlotInventory, SlotRecord
 from asdl_slots.lifecycle.checkout import checkout_branch, checkout_current
-from asdl_slots.lifecycle.free import free_slots
+from asdl_slots.lifecycle.free import (
+    execute_cleanup_for_freed_slots,
+    execute_free_plan,
+    expand_cleanup_actions,
+    free_slots,
+    plan_cleanup_for_free_targets,
+    plan_free_slots,
+)
 from asdl_slots.lifecycle.gc import (
     execute_gc_plan,
     garbage_collect_slots,
@@ -24,6 +31,7 @@ from asdl_slots.lifecycle.gc import (
 from asdl_slots.lifecycle.outcomes import (
     SlotCheckoutOutcome,
     SlotFreeOutcome,
+    SlotFreePlan,
     SlotGcOutcome,
     SlotInitOutcome,
     SlotLifecycleFailure,
@@ -68,6 +76,8 @@ def _lifecycle_context(
     trunk_branch: str = "main",
     file_status_by_path: dict[Path, FileStatus] | None = None,
     detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
+    delete_local_branch_failure_by_branch: dict[str, GitCommandFailure] | None = None,
+    delete_remote_branch_failure_by_args: dict[tuple[str, str], GitCommandFailure] | None = None,
     prs_by_branch: dict[str, PRSummary] | None = None,
     pr_gateway: FakePRGateway | None = None,
 ) -> tuple[SlotsCliContext, FakeGitGateway]:
@@ -95,6 +105,8 @@ def _lifecycle_context(
         trunk_branch=trunk_branch,
         file_status_by_path=file_status_by_path,
         detach_head_failures_by_path=detach_head_failures_by_path,
+        delete_local_branch_failure_by_branch=delete_local_branch_failure_by_branch,
+        delete_remote_branch_failure_by_args=delete_remote_branch_failure_by_args,
         existing_paths=existing_paths,
         repository_root_by_cwd={repo_root: repo_root},
     )
@@ -704,6 +716,253 @@ def test_free_slots_mid_loop_first_failure_omits_already_freed(tmp_path: Path) -
     assert "Already freed:" not in outcome.message
     assert git._detach_head_calls == [(first_path, "main")]
     assert git.get_current_branch(first_path) == "feat/a"
+
+
+def test_plan_free_slots_validates_without_mutating(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        trunk_branch="trunk",
+    )
+
+    plan = plan_free_slots(ctx, ("slot-01",))
+
+    assert isinstance(plan, SlotFreePlan)
+    assert plan.trunk_branch == "trunk"
+    assert len(plan.targets) == 1
+    assert plan.targets[0].branch_name == "feat/x"
+    assert git.get_current_branch(path) == "feat/x"
+    assert git._detach_head_calls == []
+
+
+def test_execute_free_plan_preserves_free_slots_behavior(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    path = _slot_path(slots_root, 1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+
+    outcome = execute_free_plan(ctx, plan)
+
+    assert isinstance(outcome, SlotFreeOutcome)
+    assert outcome.freed[0].branch_name == "feat/x"
+    assert git.get_current_branch(path) == DetachedHead()
+    assert git._detach_head_calls == [(path, "main")]
+
+
+def test_cleanup_action_expansion_dedupes_all_in_fixed_order() -> None:
+    assert expand_cleanup_actions(("branch", "all", "pr", "branch")) == (
+        "pr",
+        "remote_branch",
+        "local_branch",
+    )
+
+
+def test_cleanup_planning_for_all_does_not_mutate(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")})
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=pr,
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+
+    cleanup = plan_cleanup_for_free_targets(
+        ctx,
+        plan.targets,
+        ("pr", "remote_branch", "local_branch"),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert [(entry.action, entry.status, entry.pr_number) for entry in cleanup] == [
+        ("pr", "planned", 42),
+        ("remote_branch", "planned", None),
+        ("local_branch", "planned", None),
+    ]
+    assert git._detach_head_calls == []
+    assert git.delete_remote_branch_calls == ()
+    assert git.delete_local_branch_calls == ()
+    assert pr.close_calls == ()
+
+
+def test_pr_cleanup_success_closes_open_pr_after_detach(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")})
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=pr,
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("pr",),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert [(entry.action, entry.status, entry.pr_number) for entry in cleanup] == [
+        ("pr", "success", 42)
+    ]
+    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+    assert pr.close_calls == (42,)
+
+
+def test_pr_cleanup_no_pr_is_skipped(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, _git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+
+    cleanup = plan_cleanup_for_free_targets(ctx, plan.targets, ("pr",), trunk_branch="main")
+
+    assert cleanup[0].action == "pr"
+    assert cleanup[0].status == "skipped"
+    assert cleanup[0].message == "no matching PR"
+
+
+def test_pr_cleanup_close_failure_records_error(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    failure = PRGatewayFailure(stderr="gh auth failed", returncode=4)
+    pr = FakePRGateway(
+        prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")},
+        close_failure=failure,
+    )
+    ctx, _git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=pr,
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(ctx, outcome.freed, ("pr",), trunk_branch="main")
+
+    assert cleanup[0].status == "error"
+    assert cleanup[0].message == "gh auth failed"
+    assert pr.close_calls == (42,)
+
+
+def test_local_branch_cleanup_deletes_after_detach(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("local_branch",),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert cleanup[0].status == "success"
+    assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
+    assert git.delete_local_branch_calls == ("feat/x",)
+    assert not git.branch_exists("feat/x")
+
+
+def test_local_branch_cleanup_failure_preserves_branch(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    failure = GitCommandFailure(message="branch is not fully merged", returncode=1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        delete_local_branch_failure_by_branch={"feat/x": failure},
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("local_branch",),
+        trunk_branch="main",
+    )
+
+    assert cleanup[0].status == "error"
+    assert cleanup[0].message == "branch is not fully merged"
+    assert git.branch_exists("feat/x")
+
+
+def test_remote_branch_cleanup_records_origin_delete(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("remote_branch",),
+        trunk_branch="main",
+    )
+
+    assert cleanup[0].status == "success"
+    assert git.delete_remote_branch_calls == (("origin", "feat/x"),)
+
+
+def test_trunk_branch_cleanup_is_refused(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main",),
+        worktrees=(_slot_worktree(slots_root, 1, "main"),),
+        trunk_branch="main",
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+
+    cleanup = plan_cleanup_for_free_targets(
+        ctx,
+        plan.targets,
+        ("remote_branch", "local_branch"),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert [(entry.action, entry.status) for entry in cleanup] == [
+        ("remote_branch", "error"),
+        ("local_branch", "error"),
+    ]
+    assert git.delete_remote_branch_calls == ()
+    assert git.delete_local_branch_calls == ()
 
 
 # --- slot GC ---

@@ -11,6 +11,7 @@ import pytest
 from asdl_core.gh import real_gateway_helpers
 from asdl_core.gh.pr_gateway import RealPRGateway
 from asdl_core.gh.types import (
+    PRCloseOutcome,
     PRDiscussionComment,
     PRGatewayFailure,
     PRInlineCommentInput,
@@ -92,6 +93,9 @@ def _make_fake_run(
     merge_returncode: int = 0,
     merge_stdout: str = "",
     merge_stderr: str = "",
+    close_returncode: int = 0,
+    close_stdout: str = "",
+    close_stderr: str = "",
     calls: list[list[str]] | None = None,
     inputs: list[str | None] | None = None,
 ) -> object:
@@ -141,6 +145,13 @@ def _make_fake_run(
                 merge_returncode,
                 stdout=merge_stdout,
                 stderr=merge_stderr,
+            )
+        if cmd[:3] == ["gh", "pr", "close"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                close_returncode,
+                stdout=close_stdout,
+                stderr=close_stderr,
             )
         if cmd[:3] == ["gh", "api", "graphql"]:
             joined = " ".join(cmd)
@@ -519,6 +530,37 @@ def test_real_pr_gateway_discussion_comment_mutations_and_reaction(
     post_calls = [call for call in calls if call[:4] == ["gh", "api", "--method", "POST"]]
     assert post_calls[0][4] == "repos/dagster-io/asdl/issues/47/comments"
     assert post_calls[1][4] == "repos/dagster-io/asdl/issues/comments/5555/reactions"
+
+
+def test_real_pr_gateway_close_pr_returns_outcome(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        real_gateway_helpers.subprocess,
+        "run",
+        _make_fake_run(close_stdout="closed\n", calls=calls),
+    )
+
+    result = RealPRGateway().close_pr(42)
+
+    assert result == PRCloseOutcome(number=42)
+    assert calls == [["gh", "pr", "close", "42"]]
+
+
+def test_real_pr_gateway_close_pr_returns_gateway_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        real_gateway_helpers.subprocess,
+        "run",
+        _make_fake_run(close_returncode=1, close_stdout="debug\n", close_stderr="auth failed\n"),
+    )
+
+    result = RealPRGateway().close_pr(42)
+
+    assert isinstance(result, PRGatewayFailure)
+    assert result.returncode == 1
+    assert result.stderr == "auth failed"
+    assert result.stdout == "debug"
 
 
 def test_real_pr_gateway_merge_pr_returns_outcome_without_success_diagnostics(

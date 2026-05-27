@@ -107,6 +107,43 @@ def test_fake_list_local_branch_tips_returns_sorted_branches_and_seeded_timestam
     )
 
 
+def test_fake_delete_local_branch_removes_branch_and_tracks_call() -> None:
+    gateway = FakeGitGateway(branches=("main", "feature"))
+
+    result = gateway.delete_local_branch("feature")
+
+    assert result is None
+    assert not gateway.branch_exists("feature")
+    assert gateway.branch_exists("main")
+    assert gateway.delete_local_branch_calls == ("feature",)
+
+
+def test_fake_delete_local_branch_failure_preserves_branch() -> None:
+    failure = GitCommandFailure(message="branch is not fully merged", returncode=1)
+    gateway = FakeGitGateway(
+        branches=("main", "feature"),
+        delete_local_branch_failure_by_branch={"feature": failure},
+    )
+
+    result = gateway.delete_local_branch("feature")
+
+    assert result == failure
+    assert gateway.branch_exists("feature")
+    assert gateway.delete_local_branch_calls == ("feature",)
+
+
+def test_fake_delete_remote_branch_tracks_call_and_returns_seeded_failure() -> None:
+    failure = GitCommandFailure(message="remote rejected", returncode=1)
+    gateway = FakeGitGateway(
+        delete_remote_branch_failure_by_args={("origin", "feature"): failure},
+    )
+
+    result = gateway.delete_remote_branch("origin", "feature")
+
+    assert result == failure
+    assert gateway.delete_remote_branch_calls == (("origin", "feature"),)
+
+
 def test_fake_list_branches_merged_into_returns_branch_and_seeded_ancestors() -> None:
     gateway = FakeGitGateway(
         branches=("main", "feat/base", "feat/child", "feat/sibling"),

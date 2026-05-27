@@ -141,6 +141,14 @@ class GitGateway(ABC):
         """Create ``branch`` at ``start_point`` in the bound repo."""
 
     @abstractmethod
+    def delete_local_branch(self, branch: str) -> GitCommandFailure | None:
+        """Safely delete a local branch in the bound repo; failure on non-zero exit."""
+
+    @abstractmethod
+    def delete_remote_branch(self, remote: str, branch: str) -> GitCommandFailure | None:
+        """Delete ``remote``/``branch`` in the bound repo; failure on non-zero exit."""
+
+    @abstractmethod
     def has_uncommitted_changes(self, cwd: Path) -> bool:
         """Return True when the worktree has staged, modified, or untracked files."""
 
