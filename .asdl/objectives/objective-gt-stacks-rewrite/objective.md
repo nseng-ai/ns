@@ -72,7 +72,7 @@ Assumptions:
 Risks:
 
 - Git rename and deletion behavior has been de-risked at the existing `GitGateway.path_touches_under()` seam. The real gateway now uses `git log --name-status -M <range> -- .asdl/objectives`, so the projection can consume `PathChangeTouch.paths` without a richer Git path-change API for v1.
-- Graphite metadata inconsistencies and missing local parent chains can be subtle. The projection must preserve enough warnings for users without aborting valid partial projections.
+- Graphite metadata inconsistencies and missing local parent chains remain subtle, but the projection core now preserves pass-through Graphite warnings and emits de-duplicated skipped-branch warnings for locally present descendants severed by unavailable parents without aborting valid partial projections.
 - Full spec conformance plus strict TDD may require more small slices than a prototype rewrite, but this is accepted to keep behavior deterministic and reviewable.
 - Rendering details could leak into projection logic if glyphs or text annotations are introduced too early. The JSON model should stay semantic to protect locality.
 - Context wiring could accidentally reintroduce generic Objective Git-trunk resolution or current-branch Graphite tracking assumptions; scenario tests should pin the intended preconditions.
@@ -81,7 +81,7 @@ Risks:
 ## Open Questions
 
 - Which Graphite validation result strings should be considered routine and therefore quiet in text annotations beyond the examples `OK`, `VALID`, and trunk-like states?
-- Should skipped-branch warnings be emitted for every tracked branch missing locally, only for branches that sever otherwise local descendants, or exactly according to the branch-scope filtering tests that emerge?
+- Skipped-branch warnings currently follow the branch-scope tests: a locally present tracked branch severed by an unavailable parent is skipped with a warning, while unrelated untracked git branches and archive-root-only touches remain outside the projection.
 - Deletion/rename testing confirmed the existing Git touch seam is adequate for v1 when implemented with name-status rename detection; no deeper Git interface is currently needed.
 - After the wrapper lands, should `/objective-list` and `/objective-gt-stacks` share a small display-wrapper module, or is the duplication below the deletion-test threshold?
 - Is a live local Graphite smoke test worth running before user inspection even though it is not required for closure?
