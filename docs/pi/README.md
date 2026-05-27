@@ -168,6 +168,12 @@ Global extensions live under:
 - [Pi Core Subagent MVP Roadmap](../../.asdl/objective-archive/pi-core-subagent-mvp/roadmap.md): archived review-slice plan for the primitive.
 - [Objective Stack Runner-Subagent Rewrite Brief](./objective-stack-subagent-rewrite-brief.md): goals, command parameters, failure analysis, and rewrite plan for rebuilding Objective stack implementation on the repo-local runner subagent helper.
 
+## Session-local branch provenance ledger
+
+A proposed Pi extension can append custom session entries that record git branch/head observations without changing Pi core. `aretro` can use those observations as stronger branch-retro association evidence than cwd matching.
+
+See [Session-local branch provenance ledger](./session-branch-provenance-ledger.md).
+
 ## Session `cwd` semantics
 
 Pi's working directory is **session-bound**, not shell-command-bound.
