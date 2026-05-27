@@ -110,12 +110,12 @@ def test_fake_list_local_branch_tips_returns_sorted_branches_and_seeded_timestam
 def test_fake_delete_local_branch_removes_branch_and_tracks_call() -> None:
     gateway = FakeGitGateway(branches=("main", "feature"))
 
-    result = gateway.delete_local_branch("feature")
+    result = gateway.delete_local_branch("feature", force=True)
 
     assert result is None
     assert not gateway.branch_exists("feature")
     assert gateway.branch_exists("main")
-    assert gateway.delete_local_branch_calls == ("feature",)
+    assert gateway.delete_local_branch_calls == (("feature", True),)
 
 
 def test_fake_delete_local_branch_failure_preserves_branch() -> None:
@@ -125,11 +125,11 @@ def test_fake_delete_local_branch_failure_preserves_branch() -> None:
         delete_local_branch_failure_by_branch={"feature": failure},
     )
 
-    result = gateway.delete_local_branch("feature")
+    result = gateway.delete_local_branch("feature", force=False)
 
     assert result == failure
     assert gateway.branch_exists("feature")
-    assert gateway.delete_local_branch_calls == ("feature",)
+    assert gateway.delete_local_branch_calls == (("feature", False),)
 
 
 def test_fake_delete_remote_branch_tracks_call_and_returns_seeded_failure() -> None:

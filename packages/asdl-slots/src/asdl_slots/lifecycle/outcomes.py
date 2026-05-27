@@ -59,7 +59,7 @@ class SlotFreeOutcome:
     freed: tuple[FreedSlot, ...]
 
 
-SlotFreeCleanupAction = Literal["pr", "remote_branch", "local_branch"]
+SlotFreeCleanupAction = Literal["pr", "local_branch"]
 SlotFreeCleanupStatus = Literal["planned", "success", "skipped", "error"]
 
 

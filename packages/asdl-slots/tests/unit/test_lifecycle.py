@@ -77,7 +77,6 @@ def _lifecycle_context(
     file_status_by_path: dict[Path, FileStatus] | None = None,
     detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
     delete_local_branch_failure_by_branch: dict[str, GitCommandFailure] | None = None,
-    delete_remote_branch_failure_by_args: dict[tuple[str, str], GitCommandFailure] | None = None,
     prs_by_branch: dict[str, PRSummary] | None = None,
     pr_gateway: FakePRGateway | None = None,
 ) -> tuple[SlotsCliContext, FakeGitGateway]:
@@ -106,7 +105,6 @@ def _lifecycle_context(
         file_status_by_path=file_status_by_path,
         detach_head_failures_by_path=detach_head_failures_by_path,
         delete_local_branch_failure_by_branch=delete_local_branch_failure_by_branch,
-        delete_remote_branch_failure_by_args=delete_remote_branch_failure_by_args,
         existing_paths=existing_paths,
         repository_root_by_cwd={repo_root: repo_root},
     )
@@ -760,9 +758,13 @@ def test_execute_free_plan_preserves_free_slots_behavior(tmp_path: Path) -> None
 def test_cleanup_action_expansion_dedupes_all_in_fixed_order() -> None:
     assert expand_cleanup_actions(("branch", "all", "pr", "branch")) == (
         "pr",
-        "remote_branch",
         "local_branch",
     )
+
+
+def test_cleanup_action_expansion_rejects_removed_remote_branch() -> None:
+    with pytest.raises(ValueError, match="unknown cleanup value: remote-branch"):
+        expand_cleanup_actions(("remote-branch",))
 
 
 def test_cleanup_planning_for_all_does_not_mutate(tmp_path: Path) -> None:
@@ -780,17 +782,15 @@ def test_cleanup_planning_for_all_does_not_mutate(tmp_path: Path) -> None:
     cleanup = plan_cleanup_for_free_targets(
         ctx,
         plan.targets,
-        ("pr", "remote_branch", "local_branch"),
+        expand_cleanup_actions(("all",)),
         trunk_branch=plan.trunk_branch,
     )
 
     assert [(entry.action, entry.status, entry.pr_number) for entry in cleanup] == [
         ("pr", "planned", 42),
-        ("remote_branch", "planned", None),
         ("local_branch", "planned", None),
     ]
     assert git._detach_head_calls == []
-    assert git.delete_remote_branch_calls == ()
     assert git.delete_local_branch_calls == ()
     assert pr.close_calls == ()
 
@@ -840,14 +840,43 @@ def test_pr_cleanup_no_pr_is_skipped(tmp_path: Path) -> None:
     assert cleanup[0].message == "no matching PR"
 
 
-def test_pr_cleanup_close_failure_records_error(tmp_path: Path) -> None:
+def test_cleanup_all_with_pr_lookup_miss_continues_to_local_branch_cleanup(
+    tmp_path: Path,
+) -> None:
     slots_root = tmp_path / "slots"
-    failure = PRGatewayFailure(stderr="gh auth failed", returncode=4)
-    pr = FakePRGateway(
-        prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")},
-        close_failure=failure,
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
     )
-    ctx, _git = _lifecycle_context(
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("pr", "local_branch"),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert [(entry.action, entry.status, entry.message) for entry in cleanup] == [
+        ("pr", "skipped", "no matching PR"),
+        ("local_branch", "success", None),
+    ]
+    assert git.delete_local_branch_calls == (("feat/x", True),)
+    assert not git.branch_exists("feat/x")
+
+
+@pytest.mark.parametrize("pr_state", ["CLOSED", "MERGED"])
+def test_cleanup_all_with_completed_pr_continues_to_local_branch_cleanup(
+    tmp_path: Path,
+    pr_state: PRState,
+) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(prs_by_branch={"feat/x": _make_pr(42, pr_state, "feat/x")})
+    ctx, git = _lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
         worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
@@ -858,14 +887,87 @@ def test_pr_cleanup_close_failure_records_error(tmp_path: Path) -> None:
     outcome = execute_free_plan(ctx, plan)
     assert isinstance(outcome, SlotFreeOutcome)
 
-    cleanup = execute_cleanup_for_freed_slots(ctx, outcome.freed, ("pr",), trunk_branch="main")
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("pr", "local_branch"),
+        trunk_branch=plan.trunk_branch,
+    )
 
-    assert cleanup[0].status == "error"
-    assert cleanup[0].message == "gh auth failed"
+    assert [(entry.action, entry.status) for entry in cleanup] == [
+        ("pr", "skipped"),
+        ("local_branch", "success"),
+    ]
+    assert git.delete_local_branch_calls == (("feat/x", True),)
+    assert pr.close_calls == ()
+
+
+def test_cleanup_all_with_pr_lookup_failure_stops_before_local_branch_cleanup(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    pr = FakePRGateway(lookup_failure=PRGatewayFailure(stderr="gh auth failed", returncode=4))
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=pr,
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("pr", "local_branch"),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert [(entry.action, entry.status, entry.message) for entry in cleanup] == [
+        ("pr", "error", "gh auth failed")
+    ]
+    assert git.delete_local_branch_calls == ()
+    assert git.branch_exists("feat/x")
+
+
+def test_cleanup_all_with_pr_close_failure_stops_before_local_branch_cleanup(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    failure = PRGatewayFailure(stderr="gh auth failed", returncode=4)
+    pr = FakePRGateway(
+        prs_by_branch={"feat/x": _make_pr(42, "OPEN", "feat/x")},
+        close_failure=failure,
+    )
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        pr_gateway=pr,
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("pr", "local_branch"),
+        trunk_branch="main",
+    )
+
+    assert [(entry.action, entry.status, entry.message) for entry in cleanup] == [
+        ("pr", "error", "gh auth failed")
+    ]
     assert pr.close_calls == (42,)
+    assert git.delete_local_branch_calls == ()
+    assert git.branch_exists("feat/x")
 
 
-def test_local_branch_cleanup_deletes_after_detach(tmp_path: Path) -> None:
+def test_local_branch_cleanup_force_deletes_after_detach(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     ctx, git = _lifecycle_context(
         tmp_path,
@@ -886,13 +988,66 @@ def test_local_branch_cleanup_deletes_after_detach(tmp_path: Path) -> None:
 
     assert cleanup[0].status == "success"
     assert git._detach_head_calls == [(_slot_path(slots_root, 1), "main")]
-    assert git.delete_local_branch_calls == ("feat/x",)
+    assert git.delete_local_branch_calls == (("feat/x", True),)
     assert not git.branch_exists("feat/x")
 
 
-def test_local_branch_cleanup_failure_preserves_branch(tmp_path: Path) -> None:
+def test_local_branch_cleanup_skips_when_branch_is_already_absent(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
-    failure = GitCommandFailure(message="branch is not fully merged", returncode=1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main",),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("local_branch",),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert [(entry.status, entry.message) for entry in cleanup] == [("skipped", "already absent")]
+    assert git.delete_local_branch_calls == ()
+
+
+def test_local_branch_cleanup_skips_narrow_missing_branch_race(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    failure = GitCommandFailure(message="error: branch 'feat/x' not found.", returncode=1)
+    ctx, git = _lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/x"),
+        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
+        delete_local_branch_failure_by_branch={"feat/x": failure},
+    )
+    plan = plan_free_slots(ctx, ("slot-01",))
+    assert isinstance(plan, SlotFreePlan)
+    outcome = execute_free_plan(ctx, plan)
+    assert isinstance(outcome, SlotFreeOutcome)
+
+    cleanup = execute_cleanup_for_freed_slots(
+        ctx,
+        outcome.freed,
+        ("local_branch",),
+        trunk_branch=plan.trunk_branch,
+    )
+
+    assert [(entry.status, entry.message) for entry in cleanup] == [("skipped", "already absent")]
+    assert git.delete_local_branch_calls == (("feat/x", True),)
+
+
+def test_local_branch_cleanup_unexpected_failure_is_error_and_preserves_branch(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    failure = GitCommandFailure(
+        message="cannot delete branch 'feat/x' checked out at '/repo-other'",
+        returncode=1,
+    )
     ctx, git = _lifecycle_context(
         tmp_path,
         branches=("main", "feat/x"),
@@ -912,31 +1067,9 @@ def test_local_branch_cleanup_failure_preserves_branch(tmp_path: Path) -> None:
     )
 
     assert cleanup[0].status == "error"
-    assert cleanup[0].message == "branch is not fully merged"
+    assert cleanup[0].message == "cannot delete branch 'feat/x' checked out at '/repo-other'"
+    assert git.delete_local_branch_calls == (("feat/x", True),)
     assert git.branch_exists("feat/x")
-
-
-def test_remote_branch_cleanup_records_origin_delete(tmp_path: Path) -> None:
-    slots_root = tmp_path / "slots"
-    ctx, git = _lifecycle_context(
-        tmp_path,
-        branches=("main", "feat/x"),
-        worktrees=(_slot_worktree(slots_root, 1, "feat/x"),),
-    )
-    plan = plan_free_slots(ctx, ("slot-01",))
-    assert isinstance(plan, SlotFreePlan)
-    outcome = execute_free_plan(ctx, plan)
-    assert isinstance(outcome, SlotFreeOutcome)
-
-    cleanup = execute_cleanup_for_freed_slots(
-        ctx,
-        outcome.freed,
-        ("remote_branch",),
-        trunk_branch="main",
-    )
-
-    assert cleanup[0].status == "success"
-    assert git.delete_remote_branch_calls == (("origin", "feat/x"),)
 
 
 def test_trunk_branch_cleanup_is_refused(tmp_path: Path) -> None:
@@ -953,15 +1086,13 @@ def test_trunk_branch_cleanup_is_refused(tmp_path: Path) -> None:
     cleanup = plan_cleanup_for_free_targets(
         ctx,
         plan.targets,
-        ("remote_branch", "local_branch"),
+        ("local_branch",),
         trunk_branch=plan.trunk_branch,
     )
 
-    assert [(entry.action, entry.status) for entry in cleanup] == [
-        ("remote_branch", "error"),
-        ("local_branch", "error"),
+    assert [(entry.action, entry.status, entry.message) for entry in cleanup] == [
+        ("local_branch", "error", "refusing to delete trunk branch main")
     ]
-    assert git.delete_remote_branch_calls == ()
     assert git.delete_local_branch_calls == ()
 
 

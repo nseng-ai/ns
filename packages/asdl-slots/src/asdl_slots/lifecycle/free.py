@@ -20,7 +20,6 @@ from asdl_slots.lifecycle.outcomes import (
 
 _CLEANUP_ACTION_ORDER: tuple[SlotFreeCleanupAction, ...] = (
     "pr",
-    "remote_branch",
     "local_branch",
 )
 
@@ -31,8 +30,6 @@ def expand_cleanup_actions(cleanup_values: Sequence[str]) -> tuple[SlotFreeClean
     for value in cleanup_values:
         if value == "pr":
             requested.add("pr")
-        elif value == "remote-branch":
-            requested.add("remote_branch")
         elif value == "branch":
             requested.add("local_branch")
         elif value == "all":
@@ -205,7 +202,7 @@ def _cleanup_for_targets(
     if not targets or not cleanup_actions:
         return ()
 
-    needs_trunk = any(action in ("remote_branch", "local_branch") for action in cleanup_actions)
+    needs_trunk = any(action == "local_branch" for action in cleanup_actions)
     resolved_trunk = trunk_branch
     if needs_trunk and resolved_trunk is None:
         resolved_trunk = slots_ctx.git.get_trunk_branch()
@@ -214,27 +211,20 @@ def _cleanup_for_targets(
     for target in targets:
         for action in cleanup_actions:
             if action == "pr":
-                results.append(_cleanup_pr(slots_ctx, target, execute=execute))
-            elif action == "remote_branch":
-                assert resolved_trunk is not None
-                results.append(
-                    _cleanup_remote_branch(
-                        slots_ctx,
-                        target,
-                        trunk_branch=resolved_trunk,
-                        execute=execute,
-                    )
-                )
+                result = _cleanup_pr(slots_ctx, target, execute=execute)
             elif action == "local_branch":
                 assert resolved_trunk is not None
-                results.append(
-                    _cleanup_local_branch(
-                        slots_ctx,
-                        target,
-                        trunk_branch=resolved_trunk,
-                        execute=execute,
-                    )
+                result = _cleanup_local_branch(
+                    slots_ctx,
+                    target,
+                    trunk_branch=resolved_trunk,
+                    execute=execute,
                 )
+            else:
+                raise ValueError(f"unknown cleanup action: {action}")
+            results.append(result)
+            if result.status == "error":
+                return tuple(results)
     return tuple(results)
 
 
@@ -284,29 +274,6 @@ def _cleanup_pr(
     return _cleanup_result(target, "pr", "success", pr_number=pr_result.number)
 
 
-def _cleanup_remote_branch(
-    slots_ctx: SlotsCliContext,
-    target: FreedSlot,
-    *,
-    trunk_branch: str,
-    execute: bool,
-) -> SlotFreeCleanupResult:
-    if target.branch_name == trunk_branch:
-        return _cleanup_result(
-            target,
-            "remote_branch",
-            "error",
-            message=f"refusing to delete trunk branch {trunk_branch} from origin",
-        )
-    if not execute:
-        return _cleanup_result(target, "remote_branch", "planned")
-
-    failure = slots_ctx.git.delete_remote_branch("origin", target.branch_name)
-    if failure is not None:
-        return _cleanup_result(target, "remote_branch", "error", message=failure.message)
-    return _cleanup_result(target, "remote_branch", "success")
-
-
 def _cleanup_local_branch(
     slots_ctx: SlotsCliContext,
     target: FreedSlot,
@@ -324,10 +291,21 @@ def _cleanup_local_branch(
     if not execute:
         return _cleanup_result(target, "local_branch", "planned")
 
-    failure = slots_ctx.git.delete_local_branch(target.branch_name)
+    if not slots_ctx.git.branch_exists(target.branch_name):
+        return _cleanup_result(target, "local_branch", "skipped", message="already absent")
+
+    failure = slots_ctx.git.delete_local_branch(target.branch_name, force=True)
     if failure is not None:
+        if _is_missing_local_branch_failure(failure.message, target.branch_name):
+            return _cleanup_result(target, "local_branch", "skipped", message="already absent")
         return _cleanup_result(target, "local_branch", "error", message=failure.message)
     return _cleanup_result(target, "local_branch", "success")
+
+
+def _is_missing_local_branch_failure(message: str, branch: str) -> bool:
+    lowered = message.lower()
+    quoted = f"branch '{branch.lower()}' not found"
+    return quoted in lowered
 
 
 def _cleanup_result(
