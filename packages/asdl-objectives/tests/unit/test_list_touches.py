@@ -21,6 +21,66 @@ def test_objective_slug_from_path_extracts_slug() -> None:
     assert objective_slug_from_path("other/alpha/objective.md") is None
 
 
+def test_build_objective_touch_index_indexes_both_active_paths_from_rename_touch() -> None:
+    git = FakeGitGateway(
+        path_change_touches_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (
+                PathChangeTouch(
+                    oid="rename",
+                    committed_iso="2026-05-20T11:00:00-04:00",
+                    paths=(
+                        ".asdl/objectives/old/objective.md",
+                        ".asdl/objectives/new/objective.md",
+                    ),
+                ),
+            ),
+        }
+    )
+
+    index = build_objective_touch_index(
+        git,
+        status_source_branch="master",
+        branch_slices=(),
+        projected_slugs=("new", "old"),
+        inventory=ObjectiveBranchInventory(records_by_branch={"master": {}}),
+    )
+
+    touch = PathTouch(oid="rename", committed_iso="2026-05-20T11:00:00-04:00")
+    assert index.source_touches == {"new": touch, "old": touch}
+
+
+def test_build_objective_touch_index_ignores_archive_bare_and_invalid_paths() -> None:
+    git = FakeGitGateway(
+        path_change_touches_by_ref_path={
+            ("refs/heads/master", ".asdl/objectives"): (
+                PathChangeTouch(
+                    oid="mixed",
+                    committed_iso="2026-05-20T11:00:00-04:00",
+                    paths=(
+                        ".asdl/objectives/active/objective.md",
+                        ".asdl/objectives/bare",
+                        ".asdl/objectives/../objective.md",
+                        ".asdl/objectives/foo\\bar/objective.md",
+                        ".asdl/objective-archive/archived/objective.md",
+                    ),
+                ),
+            ),
+        }
+    )
+
+    index = build_objective_touch_index(
+        git,
+        status_source_branch="master",
+        branch_slices=(),
+        projected_slugs=("active", "archived", "bare", "foo\\bar"),
+        inventory=ObjectiveBranchInventory(records_by_branch={"master": {}}),
+    )
+
+    assert index.source_touches == {
+        "active": PathTouch(oid="mixed", committed_iso="2026-05-20T11:00:00-04:00")
+    }
+
+
 def test_build_objective_touch_index_keeps_newest_touch_per_slug() -> None:
     git = FakeGitGateway(
         path_change_touches_by_ref_path={

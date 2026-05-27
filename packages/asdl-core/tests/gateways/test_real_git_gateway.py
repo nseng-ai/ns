@@ -425,6 +425,37 @@ def test_parse_path_change_touches_output_groups_commit_paths() -> None:
     )
 
 
+def test_parse_path_change_touches_output_parses_name_status_changes_and_renames() -> None:
+    assert parse_path_change_touches_output(
+        "commit\x002026-05-20T11:00:00-04:00\n"
+        "A\t.asdl/objectives/added/objective.md\n"
+        "M\t.asdl/objectives/modified/objective.md\n"
+        "D\t.asdl/objectives/deleted/objective.md\n"
+        "R100\t.asdl/objectives/old/objective.md\t.asdl/objectives/new/objective.md\n"
+        "R100\t.asdl/objective-archive/restored/objective.md\t"
+        ".asdl/objectives/restored/objective.md\n"
+        "R100\t.asdl/objectives/retired/objective.md\t"
+        ".asdl/objective-archive/retired/objective.md\n"
+        "M\t.asdl/objective-archive/ignored/objective.md\n"
+        "M\toutside.txt\n",
+        ".asdl/objectives",
+    ) == (
+        PathChangeTouch(
+            oid="commit",
+            committed_iso="2026-05-20T11:00:00-04:00",
+            paths=(
+                ".asdl/objectives/added/objective.md",
+                ".asdl/objectives/modified/objective.md",
+                ".asdl/objectives/deleted/objective.md",
+                ".asdl/objectives/old/objective.md",
+                ".asdl/objectives/new/objective.md",
+                ".asdl/objectives/restored/objective.md",
+                ".asdl/objectives/retired/objective.md",
+            ),
+        ),
+    )
+
+
 def test_parse_path_change_touches_output_skips_malformed_blocks() -> None:
     assert parse_path_change_touches_output(
         ".asdl/objectives/before-header/objective.md\n"
@@ -565,6 +596,75 @@ def test_path_touches_under_returns_newest_first_commits_with_paths(tmp_path: Pa
         (".asdl/objectives/alpha/objective.md",),
     ]
     assert all(len(touch.oid) == 40 for touch in result)
+
+
+def test_path_touches_under_surfaces_deleted_paths(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "branch", "-M", "main")
+    record = repo / ".asdl" / "objectives" / "deleted"
+    record.mkdir(parents=True)
+    (record / "objective.md").write_text("# Deleted\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "add deleted objective")
+    base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    _git(repo, "rm", "-r", ".asdl/objectives/deleted")
+    _git(repo, "commit", "-m", "delete objective")
+
+    result = RealGitGateway(repo_root=repo).path_touches_under(
+        f"{base}..HEAD",
+        ".asdl/objectives",
+    )
+
+    assert not isinstance(result, GitCommandFailure)
+    assert result == (
+        PathChangeTouch(
+            oid=result[0].oid,
+            committed_iso=result[0].committed_iso,
+            paths=(".asdl/objectives/deleted/objective.md",),
+        ),
+    )
+    assert len(result[0].oid) == 40
+    assert "T" in result[0].committed_iso
+
+
+def test_path_touches_under_preserves_both_active_paths_for_renames(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "branch", "-M", "main")
+    old_record = repo / ".asdl" / "objectives" / "old"
+    old_record.mkdir(parents=True)
+    (old_record / "objective.md").write_text("# Old\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "add old objective")
+    base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    new_record = repo / ".asdl" / "objectives" / "new"
+    new_record.mkdir()
+    _git(
+        repo,
+        "mv",
+        ".asdl/objectives/old/objective.md",
+        ".asdl/objectives/new/objective.md",
+    )
+    old_record.rmdir()
+    _git(repo, "commit", "-m", "rename objective")
+
+    result = RealGitGateway(repo_root=repo).path_touches_under(
+        f"{base}..HEAD",
+        ".asdl/objectives",
+    )
+
+    assert not isinstance(result, GitCommandFailure)
+    assert result == (
+        PathChangeTouch(
+            oid=result[0].oid,
+            committed_iso=result[0].committed_iso,
+            paths=(
+                ".asdl/objectives/old/objective.md",
+                ".asdl/objectives/new/objective.md",
+            ),
+        ),
+    )
+    assert len(result[0].oid) == 40
+    assert "T" in result[0].committed_iso
 
 
 def test_path_touches_under_returns_failure_for_bad_ref(tmp_path: Path) -> None:
