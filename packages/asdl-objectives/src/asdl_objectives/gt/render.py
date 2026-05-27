@@ -102,7 +102,9 @@ def _row_annotation(row: ObjectiveGtStackRow) -> str:
     annotations: list[str] = []
     if row.also_touches:
         annotations.append(f"also: {', '.join(row.also_touches)}")
-    if row.validation_result is not None:
+    if row.needs_restack or row.validation_result == "NEEDS_RESTACK":
+        annotations.append("needs restack")
+    elif row.validation_result not in (None, "VALID", "TRUNK"):
         annotations.append(f"gt: {row.validation_result}")
     if not annotations:
         return ""

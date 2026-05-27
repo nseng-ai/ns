@@ -25,6 +25,8 @@ class _BranchRow:
     children: tuple[str, ...] = ()
     validation_result: str | None = None
     raw_children: str | None = None
+    parent_branch_revision: str | None = None
+    parent_head_revision: str | None = None
 
 
 def _build_metadata_db(tmp_path: Path, branches: list[_BranchRow]) -> Path:
@@ -36,7 +38,9 @@ def _build_metadata_db(tmp_path: Path, branches: list[_BranchRow]) -> Path:
                 branch_name TEXT PRIMARY KEY,
                 parent_branch_name TEXT,
                 children TEXT NOT NULL,
-                validation_result TEXT
+                validation_result TEXT,
+                parent_branch_revision TEXT,
+                parent_head_revision TEXT
             )
             """
         )
@@ -46,8 +50,10 @@ def _build_metadata_db(tmp_path: Path, branches: list[_BranchRow]) -> Path:
                 branch_name,
                 parent_branch_name,
                 children,
-                validation_result
-            ) VALUES (?, ?, ?, ?)
+                validation_result,
+                parent_branch_revision,
+                parent_head_revision
+            ) VALUES (?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -57,6 +63,8 @@ def _build_metadata_db(tmp_path: Path, branches: list[_BranchRow]) -> Path:
                     if branch.raw_children is not None
                     else json.dumps(list(branch.children)),
                     branch.validation_result,
+                    branch.parent_branch_revision,
+                    branch.parent_head_revision,
                 )
                 for branch in branches
             ],
@@ -296,6 +304,74 @@ def test_real_gt_gateway_branch_graph_reads_linear_graph(
         ),
         warnings=(),
     )
+
+
+def test_real_gt_gateway_branch_graph_marks_parent_head_drift_as_needs_restack(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _build_metadata_db(
+        tmp_path,
+        [
+            _BranchRow("main", None, ("feat/current",), "TRUNK"),
+            _BranchRow(
+                "feat/current",
+                "main",
+                validation_result="VALID",
+                parent_branch_revision="old-parent-head",
+                parent_head_revision="new-parent-head",
+            ),
+        ],
+    )
+    _write_repo_config(tmp_path, trunk="main")
+    _patch_git_common_dir_only(monkeypatch, common_dir=tmp_path)
+
+    result = RealGtGateway().branch_graph(tmp_path)
+
+    assert isinstance(result, GtBranchGraph)
+    assert result.branches[1] == GtTrackedBranch(
+        name="feat/current",
+        parent="main",
+        children=(),
+        validation_result="VALID",
+        needs_restack=True,
+    )
+
+
+def test_real_gt_gateway_branch_graph_tolerates_missing_restack_columns(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / ".graphite_metadata.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE branch_metadata (
+                branch_name TEXT PRIMARY KEY,
+                parent_branch_name TEXT,
+                children TEXT NOT NULL,
+                validation_result TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO branch_metadata (
+                branch_name,
+                parent_branch_name,
+                children,
+                validation_result
+            ) VALUES (?, ?, ?, ?)
+            """,
+            ("main", None, "[]", "TRUNK"),
+        )
+    _write_repo_config(tmp_path, trunk="main")
+    _patch_git_common_dir_only(monkeypatch, common_dir=tmp_path)
+
+    result = RealGtGateway().branch_graph(tmp_path)
+
+    assert isinstance(result, GtBranchGraph)
+    assert result.branches[0].needs_restack is False
 
 
 def test_real_gt_gateway_branch_graph_preserves_fork_child_order(

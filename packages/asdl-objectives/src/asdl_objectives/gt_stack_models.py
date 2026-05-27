@@ -37,6 +37,7 @@ class ObjectiveStackBranchRow:
     touches_objective: bool
     also_touches: tuple[str, ...]
     validation_result: str | None
+    needs_restack: bool = False
 
 
 @dataclass(frozen=True)

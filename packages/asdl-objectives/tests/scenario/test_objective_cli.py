@@ -363,7 +363,8 @@ def test_objective_gt_stacks_json_contract_groups_objective_segments(
             "feat/connector",
             "feat/a",
             children=("feat/c",),
-            validation_result="NEEDS_RESTACK",
+            validation_result="VALID",
+            needs_restack=True,
         ),
         _gt_branch("feat/c", "feat/connector"),
         _gt_branch("feat/b", "main"),
@@ -431,6 +432,7 @@ def test_objective_gt_stacks_json_contract_groups_objective_segments(
                                     "connector": False,
                                     "also_touches": ["beta"],
                                     "validation_result": "OK",
+                                    "needs_restack": False,
                                 },
                                 {
                                     "branch": "feat/connector",
@@ -439,7 +441,8 @@ def test_objective_gt_stacks_json_contract_groups_objective_segments(
                                     "touches_objective": False,
                                     "connector": True,
                                     "also_touches": [],
-                                    "validation_result": "NEEDS_RESTACK",
+                                    "validation_result": "VALID",
+                                    "needs_restack": True,
                                 },
                                 {
                                     "branch": "feat/c",
@@ -449,6 +452,7 @@ def test_objective_gt_stacks_json_contract_groups_objective_segments(
                                     "connector": False,
                                     "also_touches": [],
                                     "validation_result": None,
+                                    "needs_restack": False,
                                 },
                             ],
                         },
@@ -463,6 +467,7 @@ def test_objective_gt_stacks_json_contract_groups_objective_segments(
                                     "connector": False,
                                     "also_touches": [],
                                     "validation_result": None,
+                                    "needs_restack": False,
                                 }
                             ],
                         },
@@ -490,6 +495,7 @@ def test_objective_gt_stacks_json_contract_groups_objective_segments(
                                     "connector": False,
                                     "also_touches": ["alpha"],
                                     "validation_result": "OK",
+                                    "needs_restack": False,
                                 }
                             ],
                         }
@@ -528,6 +534,71 @@ def test_objective_gt_stacks_markdown_renders_objective_segments(
     assert "- objective branches: 1" in result.output
     assert "```text" in result.output
     assert "◆ feat/a" in result.output
+
+
+def test_objective_gt_stacks_markdown_renders_graphite_annotations_without_valid_noise(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    graph = _gt_graph(
+        _gt_branch(
+            "main",
+            None,
+            children=("feat/valid", "feat/restack", "feat/legacy", "feat/bad"),
+        ),
+        _gt_branch("feat/valid", "main", validation_result="VALID"),
+        _gt_branch(
+            "feat/restack",
+            "main",
+            validation_result="VALID",
+            needs_restack=True,
+        ),
+        _gt_branch("feat/legacy", "main", validation_result="NEEDS_RESTACK"),
+        _gt_branch("feat/bad", "main", validation_result="BAD_PARENT_NAME"),
+    )
+    ctx = _gt_context(
+        repo_root=tmp_path,
+        graph=graph,
+        path_change_touches_by_ref_path={
+            ("main..feat/valid", ".asdl/objectives"): (
+                _change_touch(
+                    "valid-alpha",
+                    "2026-05-20T10:00:00Z",
+                    ".asdl/objectives/alpha/objective.md",
+                ),
+            ),
+            ("main..feat/restack", ".asdl/objectives"): (
+                _change_touch(
+                    "restack-alpha",
+                    "2026-05-20T11:00:00Z",
+                    ".asdl/objectives/alpha/roadmap.md",
+                ),
+            ),
+            ("main..feat/legacy", ".asdl/objectives"): (
+                _change_touch(
+                    "legacy-alpha",
+                    "2026-05-20T12:00:00Z",
+                    ".asdl/objectives/alpha/updates/progress.md",
+                ),
+            ),
+            ("main..feat/bad", ".asdl/objectives"): (
+                _change_touch(
+                    "bad-alpha",
+                    "2026-05-20T13:00:00Z",
+                    ".asdl/objectives/alpha/updates/bad.md",
+                ),
+            ),
+        },
+    )
+
+    result = _invoke_gt_stacks_md(cli_group, ctx)
+
+    assert result.exit_code == 0, result.output
+    assert "◆ feat/valid" in result.output
+    assert "(gt: VALID)" not in result.output
+    assert "◆ feat/restack  (needs restack)" in result.output
+    assert "◆ feat/legacy  (needs restack)" in result.output
+    assert "◆ feat/bad  (gt: BAD_PARENT_NAME)" in result.output
 
 
 def test_objective_gt_stacks_ignores_archive_root_and_includes_active_root_touches(
@@ -1358,12 +1429,14 @@ def _gt_branch(
     *,
     children: tuple[str, ...] = (),
     validation_result: str | None = None,
+    needs_restack: bool = False,
 ) -> GtTrackedBranch:
     return GtTrackedBranch(
         name=name,
         parent=parent,
         children=children,
         validation_result=validation_result,
+        needs_restack=needs_restack,
     )
 
 

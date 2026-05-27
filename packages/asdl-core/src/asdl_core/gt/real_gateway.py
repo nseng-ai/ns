@@ -5,12 +5,13 @@
 reads that store plus ``<git-common-dir>/.graphite_repo_config`` for the
 configured trunk. The supported schema contract is the named-column slice
 ``branch_name``, ``parent_branch_name``, ``children``, and ``validation_result``
-from ``branch_metadata``; callers must never depend on ``SELECT *`` or other
-Graphite-owned columns. Graphite versions since 1.8.0 have kept this slice stable
-while adding nullable columns via Kysely migrations. If a future migration
-renames or removes one of these columns, metadata reads return a schema-mismatch
-``GtCommandFailure`` instead of falling back to human-facing ``gt`` log text
-parsing.
+from ``branch_metadata``; when Graphite's parent revision columns are present,
+``branch_graph()`` also reads them to expose cheap needs-restack facts. Callers
+must never depend on ``SELECT *`` or other Graphite-owned columns. Graphite
+versions since 1.8.0 have kept the required slice stable while adding nullable
+columns via Kysely migrations. If a future migration renames or removes one of
+the required columns, metadata reads return a schema-mismatch ``GtCommandFailure``
+instead of falling back to human-facing ``gt`` log text parsing.
 """
 
 from __future__ import annotations
@@ -38,6 +39,13 @@ class _BranchMetadataRow:
     parent_branch_name: str | None
     children: tuple[str, ...]
     validation_result: str | None
+    needs_restack: bool
+
+
+_REQUIRED_BRANCH_METADATA_COLUMNS = frozenset(
+    {"branch_name", "parent_branch_name", "children", "validation_result"}
+)
+_RESTACK_METADATA_COLUMNS = frozenset({"parent_branch_revision", "parent_head_revision"})
 
 
 def _run_gt(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -162,15 +170,50 @@ def _parse_children(
     return children
 
 
+def _metadata_text(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    if value == "":
+        return None
+    return value
+
+
+def _needs_restack(parent_revision: str | None, parent_head_revision: str | None) -> bool:
+    return (
+        parent_revision is not None
+        and parent_head_revision is not None
+        and parent_revision != parent_head_revision
+    )
+
+
 def _load_branch_metadata(
     db_path: Path,
+    *,
+    read_restack_metadata: bool,
 ) -> tuple[dict[str, _BranchMetadataRow], list[str]] | GtCommandFailure:
     warnings: list[str] = []
     try:
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as connection:
+            table_info = connection.execute("PRAGMA table_info(branch_metadata)").fetchall()
+            columns = {record[1] for record in table_info if isinstance(record[1], str)}
+            missing_required = _REQUIRED_BRANCH_METADATA_COLUMNS.difference(columns)
+            if missing_required:
+                return GtCommandFailure(
+                    message=(
+                        "Graphite metadata schema mismatch: branch_metadata missing "
+                        f"required column {sorted(missing_required)[0]}"
+                    ),
+                    returncode=None,
+                )
+
+            restack_columns = "NULL, NULL"
+            if read_restack_metadata and _RESTACK_METADATA_COLUMNS.issubset(columns):
+                restack_columns = "parent_branch_revision, parent_head_revision"
+
             records = connection.execute(
-                """
-                SELECT branch_name, parent_branch_name, children, validation_result
+                f"""
+                SELECT branch_name, parent_branch_name, children, validation_result,
+                       {restack_columns}
                 FROM branch_metadata
                 """
             ).fetchall()
@@ -193,18 +236,27 @@ def _load_branch_metadata(
 
     rows: dict[str, _BranchMetadataRow] = {}
     for record in records:
-        branch_name, parent_branch_name, raw_children, validation_result = record
+        (
+            branch_name,
+            parent_branch_name,
+            raw_children,
+            validation_result,
+            parent_branch_revision,
+            parent_head_revision,
+        ) = record
         if not isinstance(branch_name, str) or not branch_name:
             warnings.append("Graphite metadata row has an empty branch_name; row ignored")
             continue
-        parent = parent_branch_name if isinstance(parent_branch_name, str) else None
-        if parent == "":
-            parent = None
-        validation = validation_result if isinstance(validation_result, str) else None
+        parent = _metadata_text(parent_branch_name)
+        validation = _metadata_text(validation_result)
         rows[branch_name] = _BranchMetadataRow(
             parent_branch_name=parent,
             children=_parse_children(branch_name, raw_children, warnings),
             validation_result=validation,
+            needs_restack=_needs_restack(
+                _metadata_text(parent_branch_revision),
+                _metadata_text(parent_head_revision),
+            ),
         )
     return rows, warnings
 
@@ -429,7 +481,7 @@ def _read_branch_graph_from_metadata_db(
             returncode=None,
         )
 
-    loaded = _load_branch_metadata(db_path)
+    loaded = _load_branch_metadata(db_path, read_restack_metadata=True)
     if isinstance(loaded, GtCommandFailure):
         return loaded
     rows, warnings = loaded
@@ -450,6 +502,7 @@ def _read_branch_graph_from_metadata_db(
                 parent=rows[name].parent_branch_name,
                 children=rows[name].children,
                 validation_result=rows[name].validation_result,
+                needs_restack=rows[name].needs_restack,
             )
             for name in branch_names
         ),
@@ -467,7 +520,7 @@ def _read_stack_from_metadata_db(
             returncode=None,
         )
 
-    loaded = _load_branch_metadata(db_path)
+    loaded = _load_branch_metadata(db_path, read_restack_metadata=False)
     if isinstance(loaded, GtCommandFailure):
         return loaded
     rows, warnings = loaded
