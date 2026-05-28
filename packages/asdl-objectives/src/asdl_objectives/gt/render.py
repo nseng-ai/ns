@@ -102,13 +102,35 @@ def _row_annotation(row: ObjectiveGtStackRow) -> str:
     annotations: list[str] = []
     if row.also_touches:
         annotations.append(f"also: {', '.join(row.also_touches)}")
-    if row.needs_restack or row.validation_result == "NEEDS_RESTACK":
-        annotations.append("needs restack")
-    elif row.validation_result not in (None, "VALID", "TRUNK"):
-        annotations.append(f"gt: {row.validation_result}")
+
+    validation_annotation = _validation_annotation(row)
+    if validation_annotation is not None:
+        annotations.append(validation_annotation)
+
     if not annotations:
         return ""
     return f"  ({'; '.join(annotations)})"
+
+
+def _validation_annotation(row: ObjectiveGtStackRow) -> str | None:
+    validation_result = row.validation_result
+    if row.needs_restack or _is_needs_restack(validation_result):
+        return "needs restack"
+    if _is_routine_validation_result(validation_result):
+        return None
+    return f"gt: {validation_result}"
+
+
+def _is_needs_restack(validation_result: str | None) -> bool:
+    if validation_result is None:
+        return False
+    return validation_result.strip().replace("-", "_").upper() == "NEEDS_RESTACK"
+
+
+def _is_routine_validation_result(validation_result: str | None) -> bool:
+    if validation_result is None:
+        return True
+    return validation_result.strip().upper() in {"", "OK", "VALID", "TRUNK"}
 
 
 def _status_label(status: str) -> str:
@@ -137,4 +159,6 @@ def _latest_markdown(latest_work: ObjectiveGtLatestWork | None) -> str:
 def _plural(count: int, noun: str) -> str:
     if count == 1:
         return f"1 {noun}"
+    if noun == "objective branch":
+        return f"{count} objective branches"
     return f"{count} {noun}s"

@@ -137,6 +137,7 @@ type ObjectiveListMessageDetails = {
 };
 
 type ObjectiveGtStacksMessageDetails = {
+	messageType: typeof OBJECTIVE_GT_STACKS_MESSAGE_TYPE;
 	status: "success" | "failure" | "rejected";
 	command: string;
 	args: string[];
@@ -655,6 +656,7 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs
 export function parseObjectiveGtStacksArgs(rawArgs: string): ObjectiveGtStacksParsedArgs {
 	const tokens = tokenizeArgumentString(rawArgs);
 	let help = false;
+
 	for (const token of tokens) {
 		if (token === "--help" || token === "-h") {
 			help = true;
@@ -666,12 +668,15 @@ export function parseObjectiveGtStacksArgs(rawArgs: string): ObjectiveGtStacksPa
 			);
 		}
 		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			throw new ObjectiveGtStacksUsageError(
-				"--json-schema access is controlled by the Pi extension and is not supported here.",
-			);
+			throw new ObjectiveGtStacksUsageError("--json-schema is not supported by /objective-gt-stacks.");
+		}
+		if (token.startsWith("-")) {
+			throw new ObjectiveGtStacksUsageError(`Unsupported /${OBJECTIVE_GT_STACKS_COMMAND_NAME} flag: ${token}.`);
 		}
 
-		throw new ObjectiveGtStacksUsageError(`Unsupported /${OBJECTIVE_GT_STACKS_COMMAND_NAME} argument: ${token}.`);
+		throw new ObjectiveGtStacksUsageError(
+			`/${OBJECTIVE_GT_STACKS_COMMAND_NAME} does not accept positional arguments: ${token}.`,
+		);
 	}
 
 	return { help };
@@ -785,29 +790,28 @@ async function handleObjectiveListCommand(pi: ExtensionAPI, rawArgs: string, ctx
 		return;
 	}
 
-	presentObjectiveListMessage(pi, ctx, objectiveListOutputContent(result), objectiveListDetails("success", commandDisplay, commandArgs, ctx, result), "info");
+	presentObjectiveListMessage(pi, ctx, objectiveCommandOutputContent(result), objectiveListDetails("success", commandDisplay, commandArgs, ctx, result), "info");
 }
 
 async function handleObjectiveGtStacksCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
-	await ctx.waitForIdle();
-
 	let parsedArgs: ObjectiveGtStacksParsedArgs;
 	try {
 		parsedArgs = parseObjectiveGtStacksArgs(rawArgs);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		presentObjectiveGtStacksMessage(pi, ctx, objectiveGtStacksUsage(message), {
-			status: "rejected",
-			command: OBJECTIVE_GT_STACKS_COMMAND_NAME,
-			args: tokenizeArgumentString(rawArgs),
-			cwd: ctx.cwd,
-		}, "warning");
+		presentObjectiveGtStacksMessage(
+			pi,
+			ctx,
+			objectiveGtStacksUsage(message),
+			objectiveGtStacksRejectedDetails(tokenizeArgumentString(rawArgs), ctx),
+			"warning",
+		);
 		return;
 	}
 
-	const commandArgs = parsedArgs.help
-		? ["gt", "stacks", "--help"]
-		: ["gt", "stacks", "--format", "markdown"];
+	await ctx.waitForIdle();
+
+	const commandArgs = parsedArgs.help ? ["gt", "stacks", "--help"] : ["gt", "stacks", "--format", "markdown"];
 	const commandDisplay = formatCommand("objective", commandArgs);
 
 	if (ctx.hasUI) {
@@ -821,12 +825,13 @@ async function handleObjectiveGtStacksCommand(pi: ExtensionAPI, rawArgs: string,
 			timeout: OBJECTIVE_GT_STACKS_TIMEOUT_MS,
 		});
 	} catch (error) {
-		presentObjectiveGtStacksMessage(pi, ctx, formatExecStartupFailure(commandDisplay, error), {
-			status: "failure",
-			command: commandDisplay,
-			args: commandArgs,
-			cwd: ctx.cwd,
-		}, "error");
+		presentObjectiveGtStacksMessage(
+			pi,
+			ctx,
+			formatExecStartupFailure(commandDisplay, error),
+			objectiveGtStacksDetails("failure", commandDisplay, commandArgs, ctx),
+			"error",
+		);
 		return;
 	} finally {
 		if (ctx.hasUI) {
@@ -848,7 +853,7 @@ async function handleObjectiveGtStacksCommand(pi: ExtensionAPI, rawArgs: string,
 	presentObjectiveGtStacksMessage(
 		pi,
 		ctx,
-		objectiveGtStacksOutputContent(result),
+		objectiveCommandOutputContent(result),
 		objectiveGtStacksDetails("success", commandDisplay, commandArgs, ctx, result),
 		"info",
 	);
@@ -878,13 +883,22 @@ function objectiveGtStacksDetails(
 	command: string,
 	args: string[],
 	ctx: CommandContext,
-	result: ExecResult,
+	result?: ExecResult,
 ): ObjectiveGtStacksMessageDetails {
-	return {
+	const base: ObjectiveGtStacksMessageDetails = {
+		messageType: OBJECTIVE_GT_STACKS_MESSAGE_TYPE,
 		status,
 		command,
 		args,
 		cwd: ctx.cwd,
+	};
+
+	if (!result) {
+		return base;
+	}
+
+	return {
+		...base,
 		code: result.code,
 		killed: result.killed,
 		stdoutChars: result.stdout.length,
@@ -892,7 +906,17 @@ function objectiveGtStacksDetails(
 	};
 }
 
-function objectiveListOutputContent(result: ExecResult): string {
+function objectiveGtStacksRejectedDetails(args: string[], ctx: CommandContext): ObjectiveGtStacksMessageDetails {
+	return {
+		messageType: OBJECTIVE_GT_STACKS_MESSAGE_TYPE,
+		status: "rejected",
+		command: OBJECTIVE_GT_STACKS_COMMAND_NAME,
+		args,
+		cwd: ctx.cwd,
+	};
+}
+
+function objectiveCommandOutputContent(result: ExecResult): string {
 	const stdout = result.stdout.trimEnd();
 	if (stdout) {
 		return stdout;
@@ -930,16 +954,6 @@ function presentObjectiveListMessage(
 	}
 
 	console.log(content);
-}
-
-function objectiveGtStacksOutputContent(result: ExecResult): string {
-	const stdout = result.stdout.trimEnd();
-	if (stdout) {
-		return stdout;
-	}
-
-	const stderr = result.stderr.trimEnd();
-	return stderr || "(empty)";
 }
 
 function presentObjectiveGtStacksMessage(
@@ -980,7 +994,7 @@ export default function objectiveExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand(OBJECTIVE_GT_STACKS_COMMAND_NAME, {
-		description: "Show Objective work across Graphite-tracked stacks without invoking the agent.",
+		description: "Show Objective work across Graphite-tracked branches without invoking the agent.",
 		getArgumentCompletions: completeObjectiveGtStacksArgs,
 		handler: async (args, ctx) => handleObjectiveGtStacksCommand(pi, args, ctx),
 	});

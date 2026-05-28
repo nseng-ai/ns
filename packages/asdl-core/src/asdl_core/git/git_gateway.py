@@ -193,8 +193,9 @@ class GitGateway(ABC):
     ) -> tuple[PathChangeTouch, ...] | GitCommandFailure:
         """Return commits newest-first with paths touched under ``path``.
 
-        Wraps ``git log --format=%H%x00%cI --name-only <ref_or_range> -- <path>``.
-        Empty output returns an empty tuple. A non-zero exit returns
+        Wraps ``git log --format=%H%x00%cI --name-status -M <ref_or_range> -- <path>``.
+        Rename/copy rows contribute both the old and new paths when they are under
+        ``path``. Empty output returns an empty tuple. A non-zero exit returns
         :class:`GitCommandFailure`.
         """
 
