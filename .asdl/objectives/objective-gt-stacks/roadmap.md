@@ -43,17 +43,17 @@ Phase 5 — Pi Objective extension
 - [x] Rewrite `ts/packages/pi-extensions/src/objective-list.ts` around the new checkout-local `objective list --format json` schema.
 - [x] Update `ts/packages/pi-extensions/src/objective-picker.ts` to remove branch-count/latest-work/max-slice labels and present record-oriented picker labels using status and latest update.
 - [x] Update `/objective-next`, `/objective-current`, `/objective-update`, and `/objective-stack-impl` selection flows to call `objective list --format json` without `--current` and to use checkout-local candidates.
-- [~] Preserve changed-Objective suggestions by combining checkout-local outstanding-change facts with committed Objective diffs versus trunk, while still requiring explicit selection when multiple candidates exist. Committed Objective diff suggestions are preserved; checkout-local outstanding-change facts are now available in the Python CLI, but picker suggestion integration remains future work.
+- [x] Preserve changed-Objective suggestions by combining checkout-local outstanding-change facts with committed Objective diffs versus trunk, while still requiring explicit selection when multiple candidates exist.
 - [x] Change `/objective-list` into a thin checkout-local display wrapper: remove `--current` and `--view`, keep/pass through retained list flags such as `--names` and `--status`, and update usage/completions.
-- [ ] Add `/objective-gt-stacks` as a separate thin display wrapper around `objective gt stacks --format markdown`.
-- [x] Update TypeScript tests for the new Objective-list schema, picker labels, removed flags, and `/objective-list` display behavior. `/objective-gt-stacks` display tests remain with the wrapper.
+- [x] Add `/objective-gt-stacks` as a separate thin display wrapper around `objective gt stacks --format markdown`.
+- [x] Update TypeScript tests for the new Objective-list schema, picker labels, removed flags, `/objective-list` display behavior, `/objective-gt-stacks` display behavior, and dirty-plus-committed picker suggestions.
 
 Phase 6 — consumers and docs
 
 - [x] Update remaining first-party TypeScript/Pi consumers that parse `objective list` output to the new checkout-local contract or to `objective gt stacks` where branch-stack data is required.
-- [~] Update the public `objective` skill to describe `objective list` as checkout-local and `objective gt stacks` as the Graphite Objective stack projection. Checkout-local list language is updated; the Graphite stack projection language waits until the command exists.
-- [~] Update any prompt templates or repo docs that currently rely on `objective list` for branch-wide in-flight Objective discovery. Objective docs and selection/closure skills no longer describe `in-flight` candidates; later stack-specific docs still belong with `objective gt stacks`.
-- [~] Run package and repo validation appropriate to the changed Python, TypeScript, Markdown, and skill files. The Pi extension TypeScript test and typecheck suite passed for this slice; full repo validation remains for later cross-language slices.
+- [~] Update the public `objective` skill to describe `objective list` as checkout-local and `objective gt stacks` as the Graphite Objective stack projection. Checkout-local list language is updated; Graphite stack projection language remains a Phase 6 docs slice now that the command and Pi wrapper exist.
+- [~] Update any prompt templates or repo docs that currently rely on `objective list` for branch-wide in-flight Objective discovery. Objective docs and selection/closure skills no longer describe `in-flight` candidates; stack-specific docs still belong with `objective gt stacks`.
+- [~] Run package and repo validation appropriate to the changed Python, TypeScript, Markdown, and skill files. The Pi extension TypeScript test and typecheck suite passed for the Phase 5 wrapper/picker slice; full repo validation remains for later cross-language docs/skills slices.
 
 ## Parked
 
