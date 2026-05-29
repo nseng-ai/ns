@@ -142,6 +142,28 @@ def test_build_objective_branch_touch_index_ignores_archive_root_only_touches() 
     assert summary.latest_touch_by_slug["beta"].oid == "active-delete"
 
 
+def test_build_objective_branch_touch_index_counts_active_root_rename_paths() -> None:
+    graph = _graph(_branch("main", None, children=("feat/a",)), _branch("feat/a", "main"))
+    git = FakeGitGateway(
+        path_change_touches_by_ref_path={
+            ("main..feat/a", OBJECTIVE_ROOT): (
+                _touch(
+                    "rename-alpha-beta",
+                    "2026-05-20T10:00:00-04:00",
+                    ".asdl/objectives/alpha/objective.md",
+                    ".asdl/objectives/beta/objective.md",
+                ),
+            ),
+        }
+    )
+
+    summary = build_objective_branch_touch_index(git, graph).summaries_by_branch["feat/a"]
+
+    assert summary.touched_slugs == ("alpha", "beta")
+    assert summary.latest_touch_by_slug["alpha"].oid == "rename-alpha-beta"
+    assert summary.latest_touch_by_slug["beta"].oid == "rename-alpha-beta"
+
+
 def test_build_objective_branch_touch_index_raises_clinkr_failure_on_git_failure() -> None:
     graph = _graph(_branch("main", None, children=("feat/a",)), _branch("feat/a", "main"))
     git = FakeGitGateway(

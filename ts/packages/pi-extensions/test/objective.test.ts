@@ -443,7 +443,7 @@ describe("objective-list command", () => {
 });
 
 describe("objective-gt-stacks command", () => {
-	test("registers the Graphite stacks display command", () => {
+	test("registers the display wrapper command", () => {
 		const pi = new FakePi();
 
 		objectiveExtension(pi);
@@ -451,26 +451,32 @@ describe("objective-gt-stacks command", () => {
 		expect(pi.commands.has("objective-gt-stacks")).toBe(true);
 	});
 
-	test("completions only advertise help", () => {
+	test("completions advertise only help flags", () => {
 		expect(gtStacksCompletionValues("")).toEqual(["--help", "-h"]);
 		expect(gtStacksCompletionValues("--h")).toEqual(["--help"]);
 		expect(gtStacksCompletionValues("--format")).toEqual([]);
+		expect(gtStacksCompletionValues("alpha")).toEqual([]);
 	});
 
-	test("parses help and rejects unsupported arguments", () => {
+	test("parses only help flags", () => {
+		expect(parseObjectiveGtStacksArgs("")).toEqual({ help: false });
 		expect(parseObjectiveGtStacksArgs("--help")).toEqual({ help: true });
 		expect(parseObjectiveGtStacksArgs("-h")).toEqual({ help: true });
-		expect(() => parseObjectiveGtStacksArgs("--format markdown")).toThrow(/--format is controlled/);
-		expect(() => parseObjectiveGtStacksArgs("--format=markdown")).toThrow(/--format is controlled/);
-		expect(() => parseObjectiveGtStacksArgs("--json-schema")).toThrow(/--json-schema access is controlled/);
-		expect(() => parseObjectiveGtStacksArgs("--unknown")).toThrow(/Unsupported \/objective-gt-stacks argument/);
-		expect(() => parseObjectiveGtStacksArgs("bravo")).toThrow(/Unsupported \/objective-gt-stacks argument/);
 	});
 
-	test("runs objective gt stacks markdown and sends a custom message", async () => {
-		const stdout = "# Objective stacks\n\n- alpha\n";
+	test("rejects wrapper-owned formats, unknown flags, and positionals", () => {
+		expect(() => parseObjectiveGtStacksArgs("--format markdown")).toThrow(/--format is controlled/);
+		expect(() => parseObjectiveGtStacksArgs("--format=json")).toThrow(/--format is controlled/);
+		expect(() => parseObjectiveGtStacksArgs("--json-schema")).toThrow(/--json-schema is not supported/);
+		expect(() => parseObjectiveGtStacksArgs("--json-schema=true")).toThrow(/--json-schema is not supported/);
+		expect(() => parseObjectiveGtStacksArgs("--unknown")).toThrow(/Unsupported \/objective-gt-stacks flag/);
+		expect(() => parseObjectiveGtStacksArgs("-x")).toThrow(/Unsupported \/objective-gt-stacks flag/);
+		expect(() => parseObjectiveGtStacksArgs("alpha")).toThrow(/does not accept positional arguments/);
+	});
+
+	test("default invocation waits for idle then displays markdown stdout", async () => {
 		const result = await runObjectiveGtStacks("", [
-			step("objective", ["gt", "stacks", "--format", "markdown"], { stdout }),
+			step("objective", ["gt", "stacks", "--format", "markdown"], { stdout: "# Objective stacks\n" }),
 		]);
 
 		result.pi.assertDone();
@@ -482,83 +488,151 @@ describe("objective-gt-stacks command", () => {
 		});
 		expect(result.pi.sentMessages[0]).toEqual({
 			customType: "objective-gt-stacks-output",
-			content: "# Objective stacks\n\n- alpha",
+			content: "# Objective stacks",
 			display: true,
 			details: {
+				messageType: "objective-gt-stacks-output",
 				status: "success",
 				command: "objective gt stacks --format markdown",
 				args: ["gt", "stacks", "--format", "markdown"],
 				cwd: ROOT,
 				code: 0,
 				killed: false,
-				stdoutChars: stdout.length,
+				stdoutChars: "# Objective stacks\n".length,
 				stderrChars: 0,
 			},
 		});
 	});
 
-	test("help runs objective gt stacks help", async () => {
-		const result = await runObjectiveGtStacks("--help", [
+	test("help invocation displays objective gt stacks usage text", async () => {
+		const result = await runObjectiveGtStacks("-h", [
 			step("objective", ["gt", "stacks", "--help"], { stdout: "Usage: objective gt stacks\n" }),
 		]);
 
 		result.pi.assertDone();
+		expect(result.waitForIdleCalls()).toBe(1);
 		expect(result.pi.execCalls[0]?.args).toEqual(["gt", "stacks", "--help"]);
 		expect(result.pi.sentMessages[0]?.content).toBe("Usage: objective gt stacks");
 	});
 
-	test("bad arguments are rejected before invoking objective", async () => {
-		const result = await runObjectiveGtStacks("--format markdown");
+	test("rejected invocations display wrapper usage without waiting or executing", async () => {
+		for (const args of [
+			"--format markdown",
+			"--format=markdown",
+			"--json-schema",
+			"--json-schema=true",
+			"--unknown",
+			"-x",
+			"alpha",
+		]) {
+			const result = await runObjectiveGtStacks(args);
 
-		expect(result.pi.execCalls).toEqual([]);
-		expect(result.pi.sentMessages[0]?.customType).toBe("objective-gt-stacks-output");
-		expect(result.pi.sentMessages[0]?.content).toContain("--format is controlled by the Pi extension");
-		expect(result.pi.sentMessages[0]?.details).toEqual({
-			status: "rejected",
-			command: "objective-gt-stacks",
-			args: ["--format", "markdown"],
-			cwd: ROOT,
-		});
+			result.pi.assertDone();
+			expect(result.waitForIdleCalls()).toBe(0);
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.pi.sentMessages[0]?.customType).toBe("objective-gt-stacks-output");
+			expect(result.pi.sentMessages[0]?.content).toContain("Usage: /objective-gt-stacks [--help]");
+			expect(result.pi.sentMessages[0]?.details).toEqual({
+				messageType: "objective-gt-stacks-output",
+				status: "rejected",
+				command: "objective-gt-stacks",
+				args: args.trim().split(/\s+/).filter(Boolean),
+				cwd: ROOT,
+			});
+		}
 	});
 
-	test("nonzero failures include command output and exit code", async () => {
+	test("success falls back to stderr and then an empty marker", async () => {
+		const stderrResult = await runObjectiveGtStacks("", [
+			step("objective", ["gt", "stacks", "--format", "markdown"], { stdout: "\n", stderr: "warning only\n" }),
+		]);
+		const emptyResult = await runObjectiveGtStacks("", [
+			step("objective", ["gt", "stacks", "--format", "markdown"], {}),
+		]);
+
+		stderrResult.pi.assertDone();
+		emptyResult.pi.assertDone();
+		expect(stderrResult.pi.sentMessages[0]?.content).toBe("warning only");
+		expect(emptyResult.pi.sentMessages[0]?.content).toBe("(empty)");
+	});
+
+	test("command failure displays exit status and both streams with details", async () => {
 		const result = await runObjectiveGtStacks("", [
 			step("objective", ["gt", "stacks", "--format", "markdown"], {
+				stdout: "partial output\n",
+				stderr: "fatal detail\n",
 				code: 2,
-				stdout: "partial stdout\n",
-				stderr: "fatal stderr\n",
 			}),
 		]);
 
 		result.pi.assertDone();
-		const content = String(result.pi.sentMessages[0]?.content);
-		expect(content).toContain("objective command failed (exit code 2)");
-		expect(content).toContain("$ objective gt stacks --format markdown");
-		expect(content).toContain("stdout:\npartial stdout");
-		expect(content).toContain("stderr:\nfatal stderr");
-		expect(result.pi.sentMessages[0]?.details).toMatchObject({ status: "failure", code: 2, killed: false });
+		const message = result.pi.sentMessages[0];
+		expect(message?.content).toContain("objective command failed (exit code 2)");
+		expect(message?.content).toContain("$ objective gt stacks --format markdown");
+		expect(message?.content).toContain("stdout:\npartial output");
+		expect(message?.content).toContain("stderr:\nfatal detail");
+		expect(message?.details).toEqual({
+			messageType: "objective-gt-stacks-output",
+			status: "failure",
+			command: "objective gt stacks --format markdown",
+			args: ["gt", "stacks", "--format", "markdown"],
+			cwd: ROOT,
+			code: 2,
+			killed: false,
+			stdoutChars: "partial output\n".length,
+			stderrChars: "fatal detail\n".length,
+		});
 	});
 
-	test("killed failures say the process was killed or timed out", async () => {
+	test("killed or timed out commands are presented as failures", async () => {
 		const result = await runObjectiveGtStacks("", [
-			step("objective", ["gt", "stacks", "--format", "markdown"], { code: 124, killed: true }),
+			step("objective", ["gt", "stacks", "--format", "markdown"], {
+				stdout: "late output\n",
+				code: 0,
+				killed: true,
+			}),
 		]);
 
 		result.pi.assertDone();
 		expect(result.pi.sentMessages[0]?.content).toContain("process was killed or timed out");
-		expect(result.pi.sentMessages[0]?.details).toMatchObject({ status: "failure", code: 124, killed: true });
+		expect(result.pi.sentMessages[0]?.details).toMatchObject({
+			status: "failure",
+			code: 0,
+			killed: true,
+		});
 	});
 
-	test("startup failure is presented as a failure custom message", async () => {
+	test("long failure output is truncated to the tail", async () => {
+		const longStderr = `${"x".repeat(4_200)}TAIL`;
 		const result = await runObjectiveGtStacks("", [
-			failingStep("objective", ["gt", "stacks", "--format", "markdown"], new Error("spawn ENOENT")),
+			step("objective", ["gt", "stacks", "--format", "markdown"], {
+				stderr: longStderr,
+				code: 2,
+			}),
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.sentMessages[0]?.customType).toBe("objective-gt-stacks-output");
+		expect(String(result.pi.sentMessages[0]?.content).startsWith("[Output truncated to the last 4000 characters.]")).toBe(
+			true,
+		);
+		expect(String(result.pi.sentMessages[0]?.content).endsWith("TAIL")).toBe(true);
+	});
+
+	test("startup failure displays the launch error", async () => {
+		const result = await runObjectiveGtStacks("", [
+			failingStep("objective", ["gt", "stacks", "--format", "markdown"], new Error("spawn objective ENOENT")),
+		]);
+
+		result.pi.assertDone();
 		expect(result.pi.sentMessages[0]?.content).toContain("objective command failed before completion");
-		expect(result.pi.sentMessages[0]?.content).toContain("spawn ENOENT");
-		expect(result.pi.sentMessages[0]?.details).toMatchObject({ status: "failure" });
+		expect(result.pi.sentMessages[0]?.content).toContain("spawn objective ENOENT");
+		expect(result.pi.sentMessages[0]?.details).toEqual({
+			messageType: "objective-gt-stacks-output",
+			status: "failure",
+			command: "objective gt stacks --format markdown",
+			args: ["gt", "stacks", "--format", "markdown"],
+			cwd: ROOT,
+		});
 	});
 });
 

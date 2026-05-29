@@ -204,6 +204,8 @@ Shipped CLI:
 - Run `objective list --status closed` for closed active-root Objective records.
 - Run `objective list --names` to print active slugs, one per line.
 
+Related Graphite projection: `objective gt stacks` reports Objective work distributed across local Graphite-tracked stack branches. Its observable contract is specified separately in [Objective GT stacks](specs/objective-gt-stacks.md).
+
 ### `objective-create`
 
 Creates a new objective.

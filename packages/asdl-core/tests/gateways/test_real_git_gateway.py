@@ -425,6 +425,34 @@ def test_parse_path_change_touches_output_groups_commit_paths() -> None:
     )
 
 
+def test_parse_path_change_touches_output_reads_name_status_rows() -> None:
+    assert parse_path_change_touches_output(
+        "newer\x002026-05-20T11:00:00-04:00\n"
+        "A\t.asdl/objectives/alpha/objective.md\n"
+        "M\t.asdl/objectives/alpha/roadmap.md\n"
+        "D\t.asdl/objectives/deleted/objective.md\n"
+        "R100\t.asdl/objectives/old/objective.md\t.asdl/objectives/new/objective.md\n"
+        "C85\t.asdl/objectives/template/objective.md\t.asdl/objectives/copy/objective.md\n"
+        "R100\t.asdl/objective-archive/old/objective.md\t.asdl/objective-archive/new/objective.md\n"
+        "M\toutside.txt\n",
+        ".asdl/objectives",
+    ) == (
+        PathChangeTouch(
+            oid="newer",
+            committed_iso="2026-05-20T11:00:00-04:00",
+            paths=(
+                ".asdl/objectives/alpha/objective.md",
+                ".asdl/objectives/alpha/roadmap.md",
+                ".asdl/objectives/deleted/objective.md",
+                ".asdl/objectives/old/objective.md",
+                ".asdl/objectives/new/objective.md",
+                ".asdl/objectives/template/objective.md",
+                ".asdl/objectives/copy/objective.md",
+            ),
+        ),
+    )
+
+
 def test_parse_path_change_touches_output_skips_malformed_blocks() -> None:
     assert parse_path_change_touches_output(
         ".asdl/objectives/before-header/objective.md\n"
@@ -565,6 +593,84 @@ def test_path_touches_under_returns_newest_first_commits_with_paths(tmp_path: Pa
         (".asdl/objectives/alpha/objective.md",),
     ]
     assert all(len(touch.oid) == 40 for touch in result)
+
+
+def test_path_touches_under_uses_name_status_with_rename_detection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert cmd == [
+            "git",
+            "log",
+            "--format=%H%x00%cI",
+            "--name-status",
+            "-M",
+            "main..feature",
+            "--",
+            ".asdl/objectives",
+        ]
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(real_git_gateway.subprocess, "run", fake_run)
+
+    assert (
+        RealGitGateway(repo_root=Path("/repo")).path_touches_under(
+            "main..feature",
+            ".asdl/objectives",
+        )
+        == ()
+    )
+
+
+def test_path_touches_under_surfaces_deleted_active_objective_path(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "branch", "-M", "main")
+    record = repo / ".asdl" / "objectives" / "alpha"
+    record.mkdir(parents=True)
+    (record / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "alpha")
+    _git(repo, "rm", ".asdl/objectives/alpha/objective.md")
+    _git(repo, "commit", "-m", "delete alpha")
+
+    result = RealGitGateway(repo_root=repo).path_touches_under("HEAD", ".asdl/objectives")
+
+    assert not isinstance(result, GitCommandFailure)
+    assert result[0].paths == (".asdl/objectives/alpha/objective.md",)
+
+
+def test_path_touches_under_surfaces_old_and_new_active_rename_paths(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "branch", "-M", "main")
+    record = repo / ".asdl" / "objectives" / "alpha"
+    record.mkdir(parents=True)
+    (record / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "alpha")
+    _git(repo, "mv", ".asdl/objectives/alpha", ".asdl/objectives/beta")
+    _git(repo, "commit", "-m", "rename alpha beta")
+
+    result = RealGitGateway(repo_root=repo).path_touches_under("HEAD", ".asdl/objectives")
+
+    assert not isinstance(result, GitCommandFailure)
+    assert result[0].paths == (
+        ".asdl/objectives/alpha/objective.md",
+        ".asdl/objectives/beta/objective.md",
+    )
+
+
+def test_path_touches_under_filters_archive_root_only_changes(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "branch", "-M", "main")
+    record = repo / ".asdl" / "objective-archive" / "alpha"
+    record.mkdir(parents=True)
+    (record / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "archived alpha")
+
+    result = RealGitGateway(repo_root=repo).path_touches_under("HEAD", ".asdl/objectives")
+
+    assert result == ()
 
 
 def test_path_touches_under_returns_failure_for_bad_ref(tmp_path: Path) -> None:

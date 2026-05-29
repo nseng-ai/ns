@@ -305,6 +305,31 @@ def test_build_objective_stack_projection_adds_missing_parent_warning() -> None:
     )
 
 
+def test_build_objective_stack_projection_adds_cycle_warning() -> None:
+    graph = _graph(
+        _branch("main", None),
+        _branch("feat/a", "feat/b"),
+        _branch("feat/b", "feat/a"),
+    )
+    git = FakeGitGateway(
+        path_change_touches_by_ref_path={
+            ("feat/b..feat/a", OBJECTIVE_ROOT): (
+                _touch(
+                    "a-alpha",
+                    "2026-05-20T10:00:00-04:00",
+                    ".asdl/objectives/alpha/objective.md",
+                ),
+            ),
+        }
+    )
+
+    projection = build_objective_stack_projection(git, graph)
+
+    assert projection.warnings == (
+        "Objective 'alpha': cycle detected at Graphite parent 'feat/a'; ancestor walk stopped.",
+    )
+
+
 def _branch(
     name: str,
     parent: str | None,
