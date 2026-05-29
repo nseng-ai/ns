@@ -13,6 +13,7 @@ from asdl_objectives.list_branch_inventory import (
     branch_ref,
 )
 from asdl_objectives.list_branch_slices import ObjectiveBranchSlice
+from asdl_objectives.objective_paths import objective_slug_from_active_path
 
 
 @dataclass(frozen=True)
@@ -86,11 +87,4 @@ def _latest_touches_by_slug(
 
 
 def objective_slug_from_path(path: str) -> str | None:
-    prefix = f"{OBJECTIVE_ROOT}/"
-    if not path.startswith(prefix):
-        return None
-    rest = path.removeprefix(prefix)
-    slug, separator, _child_path = rest.partition("/")
-    if slug == "" or separator == "":
-        return None
-    return slug
+    return objective_slug_from_active_path(path)

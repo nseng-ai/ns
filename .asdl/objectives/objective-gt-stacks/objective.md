@@ -58,17 +58,17 @@ Assumptions:
 
 - The clean split between checkout-local records and Graphite stack projection is the right mental model, even though it is a breaking change for existing `objective list` consumers.
 - Phase 2 confirmed that the Graphite gateway can expose current-trunk graph metadata for all reachable Graphite-tracked branches without depending on human `gt ls` output.
-- Git path-change queries over `parent..branch` ranges can reliably identify Objective touches, including deletions under `.asdl/objectives/<slug>/`.
+- Phase 3 confirms the model-level slice: Git path-change queries over `parent..branch` ranges identify Objective touches, including active-root deletions, while archive-root-only edits are ignored before grouping.
 - `(x)` is an acceptable compact marker for outstanding working-tree changes in `objective list` latest-update output.
 - Markdown and JSON consumers can migrate directly to the new contracts in the same workstream.
 
 Risks:
 
 - The current-branch-centered `GtGateway.stack()` risk is de-risked for Phase 2: `GtGateway.branch_graph(cwd)` now provides a separate repo/trunk-centered graph model while leaving `stack()` stable.
-- Segment construction for many-to-many Objective/branch relationships can become complex if the implementation tries to mimic `gt ls` too early. Mitigation: v1 uses a simpler indented layout and relies on JSON for structural completeness.
+- Phase 3 de-risks model-level segment construction for many-to-many Objective/branch relationships, disconnected regions, and connector rows. The later renderer phase should keep glyphs and terminal layout separate from the semantic segment model.
 - Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, and verifies the picker/list flows against the new contract. The remaining Pi extension risk is the separate `/objective-gt-stacks` wrapper, which still waits for the Graphite command.
 - Dirty-state detection for `(x)` is de-risked for checkout-local `objective list` by path-scoped Git status coverage of staged, unstaged, untracked, and unrelated paths. The Pi picker still needs a separate integration slice before it can use checkout-local outstanding-change facts for suggestions.
-- Ignoring archive-root paths while including active-root deletions is subtle and needs explicit tests to avoid accidentally resurrecting archived Objectives in stack output.
+- The model-level risk of ignoring archive-root paths while including active-root deletions is de-risked by Phase 3 touch extraction tests. The later CLI phase still needs scenario coverage to preserve that behavior through command wiring and renderers.
 - A future TUI may need richer graph data than the first human CLI renderer. Mitigation: design JSON around semantic graph facts rather than terminal glyphs.
 
 ## Open Questions
