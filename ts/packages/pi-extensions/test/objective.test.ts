@@ -491,7 +491,6 @@ describe("objective-gt-stacks command", () => {
 			content: "# Objective stacks",
 			display: true,
 			details: {
-				messageType: "objective-gt-stacks-output",
 				status: "success",
 				command: "objective gt stacks --format markdown",
 				args: ["gt", "stacks", "--format", "markdown"],
@@ -528,12 +527,11 @@ describe("objective-gt-stacks command", () => {
 			const result = await runObjectiveGtStacks(args);
 
 			result.pi.assertDone();
-			expect(result.waitForIdleCalls()).toBe(0);
+			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.execCalls).toEqual([]);
 			expect(result.pi.sentMessages[0]?.customType).toBe("objective-gt-stacks-output");
 			expect(result.pi.sentMessages[0]?.content).toContain("Usage: /objective-gt-stacks [--help]");
 			expect(result.pi.sentMessages[0]?.details).toEqual({
-				messageType: "objective-gt-stacks-output",
 				status: "rejected",
 				command: "objective-gt-stacks",
 				args: args.trim().split(/\s+/).filter(Boolean),
@@ -572,7 +570,6 @@ describe("objective-gt-stacks command", () => {
 		expect(message?.content).toContain("stdout:\npartial output");
 		expect(message?.content).toContain("stderr:\nfatal detail");
 		expect(message?.details).toEqual({
-			messageType: "objective-gt-stacks-output",
 			status: "failure",
 			command: "objective gt stacks --format markdown",
 			args: ["gt", "stacks", "--format", "markdown"],
@@ -627,7 +624,6 @@ describe("objective-gt-stacks command", () => {
 		expect(result.pi.sentMessages[0]?.content).toContain("objective command failed before completion");
 		expect(result.pi.sentMessages[0]?.content).toContain("spawn objective ENOENT");
 		expect(result.pi.sentMessages[0]?.details).toEqual({
-			messageType: "objective-gt-stacks-output",
 			status: "failure",
 			command: "objective gt stacks --format markdown",
 			args: ["gt", "stacks", "--format", "markdown"],

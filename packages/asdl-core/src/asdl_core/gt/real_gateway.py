@@ -48,40 +48,11 @@ _REQUIRED_BRANCH_METADATA_COLUMNS = frozenset(
 _RESTACK_METADATA_COLUMNS = frozenset({"parent_branch_revision", "parent_head_revision"})
 
 
-def _run_gt(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    cmd = ["gt", *args]
+def _run(argv: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-        )
+        return subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
     except FileNotFoundError as exc:
-        return subprocess.CompletedProcess(
-            cmd,
-            127,
-            stdout="",
-            stderr=str(exc),
-        )
-
-
-def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    cmd = ["git", *args]
-    try:
-        return subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError as exc:
-        return subprocess.CompletedProcess(
-            cmd,
-            127,
-            stdout="",
-            stderr=str(exc),
-        )
+        return subprocess.CompletedProcess(argv, 127, stdout="", stderr=str(exc))
 
 
 def _failure(result: subprocess.CompletedProcess[str]) -> GtCommandFailure:
@@ -113,7 +84,7 @@ def _nonempty_lines(stdout: str) -> tuple[str, ...]:
 
 
 def _resolve_git_common_dir(cwd: Path) -> Path | None:
-    result = _run_git(["rev-parse", "--git-common-dir"], cwd=cwd)
+    result = _run(["git", "rev-parse", "--git-common-dir"], cwd=cwd)
     if result.returncode != 0:
         return None
     lines = _nonempty_lines(result.stdout)
@@ -126,7 +97,7 @@ def _resolve_git_common_dir(cwd: Path) -> Path | None:
 
 
 def _resolve_current_branch(cwd: Path) -> str | None:
-    result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
+    result = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
     if result.returncode != 0:
         return None
     lines = _nonempty_lines(result.stdout)
@@ -548,7 +519,7 @@ class RealGtGateway(GtGateway):
     """Real Graphite gateway backed by Graphite metadata and the ``gt`` CLI."""
 
     def parent_of(self, cwd: Path) -> str | NoParent | UntrackedBranch | GtCommandFailure:
-        result = _run_gt(["parent", "--no-interactive"], cwd=cwd)
+        result = _run(["gt", "parent", "--no-interactive"], cwd=cwd)
         if result.returncode != 0:
             return _untracked_or_failure(result)
         lines = _nonempty_lines(result.stdout)
@@ -557,13 +528,13 @@ class RealGtGateway(GtGateway):
         return lines[0]
 
     def children_of(self, cwd: Path) -> tuple[str, ...] | UntrackedBranch | GtCommandFailure:
-        result = _run_gt(["children", "--no-interactive"], cwd=cwd)
+        result = _run(["gt", "children", "--no-interactive"], cwd=cwd)
         if result.returncode != 0:
             return _untracked_or_failure(result)
         return _nonempty_lines(result.stdout)
 
     def trunk(self, cwd: Path) -> str | GtCommandFailure:
-        result = _run_gt(["trunk", "--no-interactive"], cwd=cwd)
+        result = _run(["gt", "trunk", "--no-interactive"], cwd=cwd)
         if result.returncode != 0:
             return _failure(result)
         lines = _nonempty_lines(result.stdout)
@@ -572,7 +543,7 @@ class RealGtGateway(GtGateway):
         return lines[0]
 
     def branch_info(self, cwd: Path) -> GtBranchInfo | UntrackedBranch | GtCommandFailure:
-        result = _run_gt(["branch", "info", "--no-interactive"], cwd=cwd)
+        result = _run(["gt", "branch", "info", "--no-interactive"], cwd=cwd)
         if result.returncode != 0:
             return _untracked_or_failure(result)
         return GtBranchInfo(raw_output=result.stdout)
@@ -581,8 +552,8 @@ class RealGtGateway(GtGateway):
         # gt restack accepts --branch even when invoked from the branch's own
         # worktree; redundant but explicit and survives if cwd inference
         # changes upstream.
-        result = _run_gt(
-            ["restack", "--branch", branch, "--upstack", "--no-interactive"],
+        result = _run(
+            ["gt", "restack", "--branch", branch, "--upstack", "--no-interactive"],
             cwd=cwd,
         )
         if result.returncode != 0:
@@ -590,10 +561,10 @@ class RealGtGateway(GtGateway):
         return None
 
     def sync(self, cwd: Path, *, restack: bool) -> GtCommandFailure | None:
-        args = ["sync", "--no-interactive", "--force"]
+        args = ["gt", "sync", "--no-interactive", "--force"]
         if not restack:
             args.append("--no-restack")
-        result = _run_gt(args, cwd=cwd)
+        result = _run(args, cwd=cwd)
         if result.returncode != 0:
             return _failure(result)
         return None

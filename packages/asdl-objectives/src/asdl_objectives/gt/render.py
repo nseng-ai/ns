@@ -11,6 +11,7 @@ from asdl_objectives.gt.models import (
     ObjectiveGtStackObjective,
     ObjectiveGtStackRow,
     ObjectiveGtStacksResult,
+    ObjectiveGtStackStatus,
 )
 
 
@@ -133,7 +134,7 @@ def _is_routine_validation_result(validation_result: str | None) -> bool:
     return validation_result.strip().upper() in {"", "OK", "VALID", "TRUNK"}
 
 
-def _status_label(status: str) -> str:
+def _status_label(status: ObjectiveGtStackStatus) -> str:
     if status == "closed":
         return "✓ closed"
     if status == "in-flight":

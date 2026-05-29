@@ -4,7 +4,7 @@ from collections.abc import Iterable
 
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.gt.types import GtBranchGraph, GtTrackedBranch
-from asdl_objectives.gt_stack_scope import local_objective_stack_graph
+from asdl_objectives.gt.scope import local_objective_stack_graph
 
 
 def test_local_objective_stack_graph_includes_trunk_when_not_local() -> None:
