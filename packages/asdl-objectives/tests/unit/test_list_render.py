@@ -2,110 +2,107 @@ from __future__ import annotations
 
 import pytest
 
-from asdl_objectives.list_models import (
-    ObjectiveBranchEntry,
-    ObjectiveListGroup,
-    ObjectiveListResult,
-    ObjectiveStatusSourceEntry,
-)
+from asdl_objectives.list_models import ObjectiveListRecord, ObjectiveListResult
 from asdl_objectives.list_render import render_objective_list_markdown
+from asdl_objectives.list_status import ObjectiveStatus, ObjectiveStatusFilter
 
 
 def test_render_objective_list_markdown_names_only_emits_slugs_without_headings(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    render_objective_list_markdown(_result(groups=(_group("alpha"), _group("beta")), names=True))
+    render_objective_list_markdown(_result(records=(_record("alpha"), _record("beta")), names=True))
 
     assert capsys.readouterr().out == "alpha\nbeta\n"
 
 
-def test_render_objective_list_markdown_empty_current_detached_message(
+def test_render_objective_list_markdown_table_has_checkout_local_columns(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    render_objective_list_markdown(_result(records=(_record("alpha"),)))
+
+    output = capsys.readouterr().out
+    assert "# Objective records in this checkout" in output
+    assert "Root: `.asdl/objectives`" in output
+    assert "| objective | status | latest update |" in output
+    assert "| alpha | ○ open |" in output
+    assert "latest work" not in output.lower()
+    assert "work branches" not in output.lower()
+    assert "max slice commits" not in output.lower()
+
+
+def test_render_objective_list_markdown_prefixes_dirty_latest_update(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     render_objective_list_markdown(
-        _result(
-            groups=(),
-            status_source="current",
-            status_source_branch=None,
-            current_branch=None,
-            filtered_to_current=True,
-        )
+        _result(records=(_record("alpha", has_outstanding_changes=True),))
     )
 
     output = capsys.readouterr().out
-    assert "Status source: `current branch`" in output
-    assert "No current branch (detached HEAD); no active Objectives to list." in output
+    assert "| alpha | ○ open | (x) " in output
 
 
-def test_render_objective_list_markdown_list_header_includes_latest_work_and_slice_columns(
+def test_render_objective_list_markdown_dirty_missing_update_renders_marker_dash(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    render_objective_list_markdown(_result(groups=(_group("alpha"),)))
-
-    output = capsys.readouterr().out
-    assert (
-        "| objective | status | latest work | latest update | work branches | max slice commits |"
-        in output
+    render_objective_list_markdown(
+        _result(records=(_record("alpha", latest_update_iso=None, has_outstanding_changes=True),))
     )
-    assert "| alpha | ○ open | `feat/alpha` |" in output
-    assert "+3 |" in output
+
+    assert "| alpha | ○ open | (x) — |" in capsys.readouterr().out
 
 
-def test_render_objective_list_markdown_detail_includes_status_source_and_work_branch_section(
+def test_render_objective_list_markdown_clean_rows_do_not_include_dirty_marker(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    render_objective_list_markdown(_result(groups=(_group("alpha"),), view="detail"))
+    render_objective_list_markdown(_result(records=(_record("alpha"),)))
 
-    output = capsys.readouterr().out
-    assert "# Objective branch details in this local repository" in output
-    assert "Base branch: master — ○ open — updated" in output
-    assert "### Work branches" in output
-    assert "| `feat/alpha` | `master` | ○ open |" in output
+    assert "(x)" not in capsys.readouterr().out
 
 
-def _group(slug: str) -> ObjectiveListGroup:
-    return ObjectiveListGroup(
+@pytest.mark.parametrize(
+    ("status_filter", "message"),
+    [
+        ("active", "No open Objective records found."),
+        ("open", "No open Objective records found."),
+        ("closed", "No closed Objective records found."),
+        ("all", "No Objective records found."),
+    ],
+)
+def test_render_objective_list_markdown_empty_messages_use_record_terminology(
+    status_filter: ObjectiveStatusFilter,
+    message: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    render_objective_list_markdown(_result(records=(), status_filter=status_filter))
+
+    assert message in capsys.readouterr().out
+
+
+def _record(
+    slug: str,
+    *,
+    status: ObjectiveStatus = "open",
+    latest_update_iso: str | None = "2026-05-20T10:00:00Z",
+    has_outstanding_changes: bool = False,
+) -> ObjectiveListRecord:
+    return ObjectiveListRecord.create(
         slug=slug,
-        status="open",
-        status_source_entry=ObjectiveStatusSourceEntry(
-            branch="master",
-            status="open",
-            updated_iso="2026-05-20T10:00:00Z",
-            present=True,
-        ),
-        branches=(
-            ObjectiveBranchEntry(
-                branch=f"feat/{slug}",
-                parent_branch="master",
-                status="open",
-                updated_iso="2026-05-20T11:00:00Z",
-                slice_commits=3,
-            ),
-        ),
-        latest_update_iso="2026-05-20T11:00:00Z",
-        latest_work_branch=f"feat/{slug}",
+        status=status,
+        latest_update_iso=latest_update_iso,
+        has_outstanding_changes=has_outstanding_changes,
     )
 
 
 def _result(
     *,
-    groups: tuple[ObjectiveListGroup, ...],
-    view: str = "list",
-    status_source: str = "base",
-    status_source_branch: str | None = "master",
-    current_branch: str | None = None,
-    filtered_to_current: bool = False,
+    records: tuple[ObjectiveListRecord, ...],
+    status_filter: ObjectiveStatusFilter = "active",
     names: bool = False,
 ) -> ObjectiveListResult:
     return ObjectiveListResult(
-        base_branch="master",
         trunk_branch="master",
-        status_source=status_source,
-        status_source_branch=status_source_branch,
-        view=view,
-        status_filter="active",
-        current_branch=current_branch,
-        filtered_to_current=filtered_to_current,
+        root_path=".asdl/objectives",
+        status_filter=status_filter,
         names_only=names,
-        groups=groups,
+        records=records,
     )

@@ -2,31 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Self
 
 import click
+from pydantic import PrivateAttr
 
 from asdl_core.clinkr.models import ClinkrModel
-from asdl_objectives.list_inventory import ObjectiveRecordStatus
-from asdl_objectives.list_status import (
-    ObjectiveStatus,
-    ObjectiveStatusFilter,
-    ObjectiveStatusSource,
-)
-
-ObjectiveListView = Literal["list", "detail"]
+from asdl_objectives.list_status import ObjectiveStatus, ObjectiveStatusFilter
 
 
 class ObjectiveListRequest(ClinkrModel):
-    current: Annotated[
-        bool,
-        click.Option(
-            ["--current"],
-            is_flag=True,
-            default=False,
-            help="Use the current branch as the Objective status source.",
-        ),
-    ] = False
     names: Annotated[
         bool,
         click.Option(
@@ -40,56 +25,42 @@ class ObjectiveListRequest(ClinkrModel):
         ObjectiveStatusFilter,
         click.Option(
             ["--status"],
-            type=click.Choice(["all", "active", "open", "closed", "in-flight"]),
+            type=click.Choice(["all", "active", "open", "closed"]),
             default="active",
             show_default=True,
-            help="Filter Objectives by repository status.",
+            help="Filter Objective records by checkout-local status.",
         ),
     ] = "active"
-    view: Annotated[
-        ObjectiveListView,
-        click.Option(
-            ["--view"],
-            type=click.Choice(["list", "detail"]),
-            default="list",
-            show_default=True,
-            help="Select objective-level list or per-branch detail view.",
-        ),
-    ] = "list"
 
 
-class ObjectiveBranchEntry(ClinkrModel):
-    branch: str
-    parent_branch: str
-    status: ObjectiveRecordStatus
-    updated_iso: str | None
-    slice_commits: int
-
-
-class ObjectiveStatusSourceEntry(ClinkrModel):
-    branch: str
-    status: ObjectiveStatus
-    updated_iso: str | None
-    present: bool
-
-
-class ObjectiveListGroup(ClinkrModel):
+class ObjectiveListRecord(ClinkrModel):
     slug: str
     status: ObjectiveStatus
-    status_source_entry: ObjectiveStatusSourceEntry
-    branches: tuple[ObjectiveBranchEntry, ...]
     latest_update_iso: str | None
-    latest_work_branch: str | None
+
+    _has_outstanding_changes: bool = PrivateAttr(default=False)
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        slug: str,
+        status: ObjectiveStatus,
+        latest_update_iso: str | None,
+        has_outstanding_changes: bool = False,
+    ) -> Self:
+        record = cls(slug=slug, status=status, latest_update_iso=latest_update_iso)
+        record._has_outstanding_changes = has_outstanding_changes
+        return record
+
+    @property
+    def has_outstanding_changes(self) -> bool:
+        return self._has_outstanding_changes
 
 
 class ObjectiveListResult(ClinkrModel):
-    base_branch: str
     trunk_branch: str
-    status_source: ObjectiveStatusSource
-    status_source_branch: str | None
-    view: ObjectiveListView
+    root_path: str
     status_filter: ObjectiveStatusFilter
-    current_branch: str | None
-    filtered_to_current: bool
     names_only: bool
-    groups: tuple[ObjectiveListGroup, ...]
+    records: tuple[ObjectiveListRecord, ...]

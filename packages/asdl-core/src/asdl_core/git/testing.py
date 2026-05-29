@@ -75,6 +75,7 @@ class FakeGitGateway(GitGateway):
         previous_branch_by_path: dict[Path, str | None] | None = None,
         trunk_branch: str = "main",
         file_status_by_path: dict[Path, FileStatus] | None = None,
+        uncommitted_changes_by_cwd_path: dict[tuple[Path, str], bool] | None = None,
         detach_head_failures_by_path: dict[Path, subprocess.CalledProcessError] | None = None,
         existing_paths: Iterable[Path] = (),
         repository_root_by_cwd: dict[Path, Path] | None = None,
@@ -123,6 +124,7 @@ class FakeGitGateway(GitGateway):
         self._previous_branch_by_path = dict(previous_branch_by_path or {})
         self._trunk_branch = trunk_branch
         self._file_status_by_path = dict(file_status_by_path or {})
+        self._uncommitted_changes_by_cwd_path = dict(uncommitted_changes_by_cwd_path or {})
         self._detach_head_failures_by_path = dict(detach_head_failures_by_path or {})
         self._existing_paths = set(existing_paths)
         self._repository_root_by_cwd = dict(repository_root_by_cwd or {})
@@ -170,6 +172,7 @@ class FakeGitGateway(GitGateway):
         self._list_tracked_paths_at_ref_calls: list[tuple[str, str]] = []
         self._tree_oids_at_refs_calls: list[tuple[tuple[str, ...], str]] = []
         self._path_last_touched_calls: list[tuple[str, str]] = []
+        self._has_uncommitted_changes_under_calls: list[tuple[Path, str]] = []
         self._path_touches_under_calls: list[tuple[str, str]] = []
         self._list_branches_merged_into_calls: list[str] = []
         self._count_commits_in_range_calls: list[str] = []
@@ -343,6 +346,10 @@ class FakeGitGateway(GitGateway):
     def has_uncommitted_changes(self, cwd: Path) -> bool:
         status = self.get_file_status(cwd)
         return status.staged or status.modified or status.untracked
+
+    def has_uncommitted_changes_under(self, cwd: Path, path: str) -> bool:
+        self._has_uncommitted_changes_under_calls.append((cwd, path))
+        return self._uncommitted_changes_by_cwd_path.get((cwd, path), False)
 
     def get_file_status(self, cwd: Path) -> FileStatus:
         return self._file_status_by_path.get(
@@ -562,6 +569,10 @@ class FakeGitGateway(GitGateway):
     @property
     def path_last_touched_calls(self) -> tuple[tuple[str, str], ...]:
         return tuple(self._path_last_touched_calls)
+
+    @property
+    def has_uncommitted_changes_under_calls(self) -> tuple[tuple[Path, str], ...]:
+        return tuple(self._has_uncommitted_changes_under_calls)
 
     @property
     def path_touches_under_calls(self) -> tuple[tuple[str, str], ...]:

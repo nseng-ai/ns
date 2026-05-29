@@ -3,14 +3,15 @@ import { resolve } from "node:path";
 
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
-import { parseObjectiveList, type ObjectiveList, type ObjectiveListGroup } from "./objective-list.ts";
+import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
 	changedActiveObjectiveSelection,
 	objectiveChoiceMap,
 	objectiveDiffPickerTitle,
-	objectiveGroupsWithChangedFirst,
+	objectiveRecordsWithChangedFirst,
 	parseObjectiveDiffChangedSlugs,
+	parseObjectiveStatusChangedSlugs,
 	type ObjectiveDiffSelection,
 } from "./objective-picker.ts";
 
@@ -18,16 +19,25 @@ export type { ExecResult } from "./command-runtime.ts";
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_DIFF_TIMEOUT_MS = 30_000;
+const OBJECTIVE_STATUS_TIMEOUT_MS = 30_000;
+const OBJECTIVE_GT_STACKS_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
+const OBJECTIVE_GT_STACKS_COMMAND_NAME = "objective-gt-stacks";
+const OBJECTIVE_GT_STACKS_MESSAGE_TYPE = "objective-gt-stacks-output";
 
-const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--current] [--names] [--view list|detail] [--help]
+const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--names] [--status all|active|open|closed] [--help]
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--current", "--names", "--view", "--help", "-h"] as const;
-const OBJECTIVE_LIST_VIEW_VALUES = ["list", "detail"] as const;
+const OBJECTIVE_GT_STACKS_USAGE = `Usage: /objective-gt-stacks [--help]
+
+Shows \`objective gt stacks\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
+
+const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
+const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
+const OBJECTIVE_GT_STACKS_ARG_COMPLETIONS = ["--help", "-h"] as const;
 
 export type NotifyLevel = "info" | "warning" | "error";
 
@@ -111,7 +121,23 @@ export type ObjectiveListParsedArgs = {
 	help: boolean;
 };
 
+export type ObjectiveGtStacksParsedArgs = {
+	help: boolean;
+};
+
 type ObjectiveListMessageDetails = {
+	status: "success" | "failure" | "rejected";
+	command: string;
+	args: string[];
+	cwd: string;
+	code?: number;
+	killed?: boolean;
+	stdoutChars?: number;
+	stderrChars?: number;
+};
+
+type ObjectiveGtStacksMessageDetails = {
+	messageType: typeof OBJECTIVE_GT_STACKS_MESSAGE_TYPE;
 	status: "success" | "failure" | "rejected";
 	command: string;
 	args: string[];
@@ -126,6 +152,13 @@ class ObjectiveListUsageError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "ObjectiveListUsageError";
+	}
+}
+
+class ObjectiveGtStacksUsageError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ObjectiveGtStacksUsageError";
 	}
 }
 
@@ -200,16 +233,16 @@ function formatExecStartupFailure(commandDisplay: string, error: unknown): strin
 	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
-async function listCurrentActiveObjectives(
+async function listActiveObjectives(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveSelectionSpec,
 ): Promise<ObjectiveList> {
 	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.statusKey, "listing current active Objectives…");
+		ctx.ui.setStatus(spec.statusKey, "listing active Objectives…");
 	}
 
-	const args = ["list", "--current", "--format", "json"];
+	const args = ["list", "--format", "json"];
 	try {
 		const result = await pi.exec("objective", args, {
 			cwd: ctx.cwd,
@@ -227,17 +260,37 @@ async function listCurrentActiveObjectives(
 	}
 }
 
-async function objectiveDiffSelection(
+async function changedObjectiveSelection(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	objectiveList: ObjectiveList,
 	spec: ObjectiveSelectionSpec,
 ): Promise<ObjectiveDiffSelection | undefined> {
 	const trunkBranch = objectiveList.trunkBranch.trim();
-	if (!trunkBranch) {
-		return undefined;
-	}
+	const committedChangedSlugs = trunkBranch
+		? await objectiveDiffChangedSlugs(pi, ctx, spec, trunkBranch)
+		: [];
+	const dirtyChangedSlugs = await objectiveStatusChangedSlugs(pi, ctx, spec);
+	const allChangedSlugs = sortedUniqueSlugs([...committedChangedSlugs, ...dirtyChangedSlugs]);
+	const dirtyChangedSlugSet = new Set(dirtyChangedSlugs);
+	const dirtyActiveSlugs = objectiveList.records.filter((record) => dirtyChangedSlugSet.has(record.slug));
+	const changeBasisLabel = dirtyActiveSlugs.length > 0
+		? trunkBranch
+			? `changed in checkout or vs ${trunkBranch}`
+			: "changed in checkout"
+		: trunkBranch
+			? `changed vs ${trunkBranch}`
+			: "changed";
 
+	return changedActiveObjectiveSelection(objectiveList, trunkBranch, allChangedSlugs, changeBasisLabel);
+}
+
+async function objectiveDiffChangedSlugs(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveSelectionSpec,
+	trunkBranch: string,
+): Promise<string[]> {
 	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".asdl/objectives"];
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(spec.statusKey, `checking Objective diff vs ${trunkBranch}…`);
@@ -249,21 +302,59 @@ async function objectiveDiffSelection(
 			timeout: OBJECTIVE_DIFF_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
-			return undefined;
+			return [];
 		}
 
-		return changedActiveObjectiveSelection(
-			objectiveList,
-			trunkBranch,
-			parseObjectiveDiffChangedSlugs(result.stdout),
-		);
+		return parseObjectiveDiffChangedSlugs(result.stdout);
 	} catch {
-		return undefined;
+		return [];
 	} finally {
 		if (ctx.hasUI) {
 			ctx.ui.setStatus(spec.statusKey, undefined);
 		}
 	}
+}
+
+async function objectiveStatusChangedSlugs(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveSelectionSpec,
+): Promise<string[]> {
+	const args = ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"];
+	if (ctx.hasUI) {
+		ctx.ui.setStatus(spec.statusKey, "checking checkout Objective changes…");
+	}
+
+	try {
+		const result = await pi.exec("git", args, {
+			cwd: ctx.cwd,
+			timeout: OBJECTIVE_STATUS_TIMEOUT_MS,
+		});
+		if (result.code !== 0 || result.killed) {
+			return [];
+		}
+
+		return parseObjectiveStatusChangedSlugs(result.stdout);
+	} catch {
+		return [];
+	} finally {
+		if (ctx.hasUI) {
+			ctx.ui.setStatus(spec.statusKey, undefined);
+		}
+	}
+}
+
+function sortedUniqueSlugs(slugs: string[]): string[] {
+	return [...new Set(slugs)].sort((left, right) => left.localeCompare(right));
+}
+
+function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): string {
+	const committedDiffLabel = selection.trunkBranch ? `changed vs ${selection.trunkBranch}` : "";
+	if (selection.changeBasisLabel === committedDiffLabel) {
+		return `from objective diff vs ${selection.trunkBranch}`;
+	}
+
+	return `with changes ${selection.changeBasisLabel.replace(/^changed\s+/, "")}`;
 }
 
 function buildObjectiveSkillPrompt(
@@ -332,10 +423,10 @@ async function invokeObjectiveStackImplPrompt(
 async function selectObjectiveSlug(
 	ctx: CommandContext,
 	title: string,
-	groups: ObjectiveListGroup[],
+	records: ObjectiveListRecord[],
 	selection: ObjectiveDiffSelection | undefined,
 ): Promise<string | undefined> {
-	const choices = objectiveChoiceMap(groups, selection);
+	const choices = objectiveChoiceMap(records, selection);
 	const selected = await ctx.ui.select(title, [...choices.keys()]);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
@@ -358,15 +449,15 @@ async function selectChangedObjectivesOrOther(
 	selection: ObjectiveDiffSelection,
 ): Promise<string | undefined> {
 	const changedSet = new Set(selection.changedActiveSlugs);
-	const changedGroups = objectiveList.groups.filter((group) => changedSet.has(group.slug));
-	const otherGroups = objectiveList.groups.filter((group) => !changedSet.has(group.slug));
-	if (changedGroups.length === 0) {
-		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.groups, undefined);
+	const changedRecords = objectiveList.records.filter((record) => changedSet.has(record.slug));
+	const otherRecords = objectiveList.records.filter((record) => !changedSet.has(record.slug));
+	if (changedRecords.length === 0) {
+		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.records, undefined);
 	}
 
-	const choices = objectiveChoiceMap(changedGroups, selection);
+	const choices = objectiveChoiceMap(changedRecords, selection);
 	const items = [...choices.keys()];
-	if (otherGroups.length > 0) {
+	if (otherRecords.length > 0) {
 		items.push(VIEW_OTHER_OBJECTIVES_CHOICE);
 	}
 
@@ -377,7 +468,7 @@ async function selectChangedObjectivesOrOther(
 	}
 
 	if (selected === VIEW_OTHER_OBJECTIVES_CHOICE) {
-		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other active Objectives)`, otherGroups, undefined);
+		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other active Objectives)`, otherRecords, undefined);
 	}
 
 	const slug = choices.get(selected);
@@ -417,8 +508,8 @@ async function chooseActiveObjectiveSlug(
 ): Promise<string | undefined> {
 	await ctx.waitForIdle();
 
-	const objectiveList = await listCurrentActiveObjectives(pi, ctx, spec);
-	if (objectiveList.groups.length === 0) {
+	const objectiveList = await listActiveObjectives(pi, ctx, spec);
+	if (objectiveList.records.length === 0) {
 		if (ctx.hasUI) {
 			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
 		}
@@ -429,23 +520,24 @@ async function chooseActiveObjectiveSlug(
 		return undefined;
 	}
 
-	const diffSelection = await objectiveDiffSelection(pi, ctx, objectiveList, spec);
-	if (diffSelection && spec.compactDiffSuggestion) {
-		return selectChangedObjectivesOrOther(ctx, spec, objectiveList, diffSelection);
+	const changedSelection = await changedObjectiveSelection(pi, ctx, objectiveList, spec);
+	if (changedSelection && spec.compactDiffSuggestion) {
+		return selectChangedObjectivesOrOther(ctx, spec, objectiveList, changedSelection);
 	}
 
-	if (diffSelection) {
-		const plural = diffSelection.changedActiveSlugs.length === 1 ? "" : "s";
+	if (changedSelection) {
+		const plural = changedSelection.changedActiveSlugs.length === 1 ? "" : "s";
+		const basis = changedSelectionNotificationBasis(changedSelection);
 		ctx.ui.notify(
-			`Found changed Objective${plural} ${diffSelection.changedActiveSlugs.join(", ")} from objective diff vs ${diffSelection.trunkBranch}.`,
+			`Found changed Objective${plural} ${changedSelection.changedActiveSlugs.join(", ")} ${basis}.`,
 			"info",
 		);
 	}
 	return selectObjectiveSlug(
 		ctx,
 		spec.selectionTitle,
-		objectiveGroupsWithChangedFirst(objectiveList.groups, diffSelection),
-		diffSelection,
+		objectiveRecordsWithChangedFirst(objectiveList.records, changedSelection),
+		changedSelection,
 	);
 }
 
@@ -527,35 +619,67 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs
 			help = true;
 			continue;
 		}
-		if (token === "--current" || token === "--names") {
+		if (token === "--names") {
 			args.push(token);
 			continue;
 		}
-		if (token === "--view") {
+		if (token === "--status") {
 			const value = tokens[index + 1];
 			if (!value || value.startsWith("--")) {
-				throw new ObjectiveListUsageError("--view requires one of: list, detail.");
+				throw new ObjectiveListUsageError("--status requires one of: all, active, open, closed.");
 			}
-			if (!isObjectiveListView(value)) {
-				throw new ObjectiveListUsageError(`Unsupported --view value: ${value}. Expected list or detail.`);
-			}
-			args.push("--view", value);
+			args.push("--status", parseObjectiveListStatus(value));
 			index += 1;
 			continue;
 		}
-		if (token.startsWith("--view=")) {
-			const value = token.slice("--view=".length);
-			if (!isObjectiveListView(value)) {
-				throw new ObjectiveListUsageError(`Unsupported --view value: ${value || "(empty)"}. Expected list or detail.`);
-			}
-			args.push("--view", value);
+		if (token.startsWith("--status=")) {
+			args.push("--status", parseObjectiveListStatus(token.slice("--status=".length)));
 			continue;
+		}
+		if (token === "--current" || token.startsWith("--current=")) {
+			throw new ObjectiveListUsageError(
+				"--current is no longer supported by the checkout-local Objective list command.",
+			);
+		}
+		if (token === "--view" || token.startsWith("--view=")) {
+			throw new ObjectiveListUsageError(
+				"--view is no longer supported by the checkout-local Objective list command.",
+			);
 		}
 
 		throw new ObjectiveListUsageError(`Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.`);
 	}
 
 	return { args, help };
+}
+
+export function parseObjectiveGtStacksArgs(rawArgs: string): ObjectiveGtStacksParsedArgs {
+	const tokens = tokenizeArgumentString(rawArgs);
+	let help = false;
+
+	for (const token of tokens) {
+		if (token === "--help" || token === "-h") {
+			help = true;
+			continue;
+		}
+		if (token === "--format" || token.startsWith("--format=")) {
+			throw new ObjectiveGtStacksUsageError(
+				"--format is controlled by the Pi extension and is not supported here.",
+			);
+		}
+		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
+			throw new ObjectiveGtStacksUsageError("--json-schema is not supported by /objective-gt-stacks.");
+		}
+		if (token.startsWith("-")) {
+			throw new ObjectiveGtStacksUsageError(`Unsupported /${OBJECTIVE_GT_STACKS_COMMAND_NAME} flag: ${token}.`);
+		}
+
+		throw new ObjectiveGtStacksUsageError(
+			`/${OBJECTIVE_GT_STACKS_COMMAND_NAME} does not accept positional arguments: ${token}.`,
+		);
+	}
+
+	return { help };
 }
 
 function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
@@ -569,12 +693,29 @@ function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
 	}
 }
 
-function isObjectiveListView(value: string): value is (typeof OBJECTIVE_LIST_VIEW_VALUES)[number] {
-	return (OBJECTIVE_LIST_VIEW_VALUES as readonly string[]).includes(value);
+function parseObjectiveListStatus(value: string): (typeof OBJECTIVE_LIST_STATUS_VALUES)[number] {
+	if ((OBJECTIVE_LIST_STATUS_VALUES as readonly string[]).includes(value)) {
+		return value as (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
+	}
+
+	throw new ObjectiveListUsageError(
+		`Unsupported --status value: ${value || "(empty)"}. Expected all, active, open, or closed.`,
+	);
 }
 
 function objectiveListUsage(error: string): string {
 	return `Error: ${error}\n\n${OBJECTIVE_LIST_USAGE}`;
+}
+
+function objectiveGtStacksUsage(error: string): string {
+	return `Error: ${error}\n\n${OBJECTIVE_GT_STACKS_USAGE}`;
+}
+
+export function completeObjectiveGtStacksArgs(prefix: string): AutocompleteItem[] | null {
+	const tokens = tokenizeArgumentString(prefix);
+	const endsWithWhitespace = /\s$/.test(prefix);
+	const currentToken = endsWithWhitespace ? "" : (tokens[tokens.length - 1] ?? "");
+	return matchingCompletions(OBJECTIVE_GT_STACKS_ARG_COMPLETIONS, currentToken);
 }
 
 export function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | null {
@@ -583,15 +724,15 @@ export function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | 
 	const currentToken = endsWithWhitespace ? "" : (tokens[tokens.length - 1] ?? "");
 	const previousToken = endsWithWhitespace ? tokens[tokens.length - 1] : tokens[tokens.length - 2];
 
-	if (currentToken.startsWith("--view=")) {
-		const valuePrefix = currentToken.slice("--view=".length);
+	if (currentToken.startsWith("--status=")) {
+		const valuePrefix = currentToken.slice("--status=".length);
 		return matchingCompletions(
-			OBJECTIVE_LIST_VIEW_VALUES.map((value) => `--view=${value}`),
-			`--view=${valuePrefix}`,
+			OBJECTIVE_LIST_STATUS_VALUES.map((value) => `--status=${value}`),
+			`--status=${valuePrefix}`,
 		);
 	}
 
-	const candidates = previousToken === "--view" ? OBJECTIVE_LIST_VIEW_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
+	const candidates = previousToken === "--status" ? OBJECTIVE_LIST_STATUS_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
 	return matchingCompletions(candidates, currentToken);
 }
 
@@ -649,7 +790,73 @@ async function handleObjectiveListCommand(pi: ExtensionAPI, rawArgs: string, ctx
 		return;
 	}
 
-	presentObjectiveListMessage(pi, ctx, objectiveListOutputContent(result), objectiveListDetails("success", commandDisplay, commandArgs, ctx, result), "info");
+	presentObjectiveListMessage(pi, ctx, objectiveCommandOutputContent(result), objectiveListDetails("success", commandDisplay, commandArgs, ctx, result), "info");
+}
+
+async function handleObjectiveGtStacksCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
+	let parsedArgs: ObjectiveGtStacksParsedArgs;
+	try {
+		parsedArgs = parseObjectiveGtStacksArgs(rawArgs);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		presentObjectiveGtStacksMessage(
+			pi,
+			ctx,
+			objectiveGtStacksUsage(message),
+			objectiveGtStacksRejectedDetails(tokenizeArgumentString(rawArgs), ctx),
+			"warning",
+		);
+		return;
+	}
+
+	await ctx.waitForIdle();
+
+	const commandArgs = parsedArgs.help ? ["gt", "stacks", "--help"] : ["gt", "stacks", "--format", "markdown"];
+	const commandDisplay = formatCommand("objective", commandArgs);
+
+	if (ctx.hasUI) {
+		ctx.ui.setStatus(OBJECTIVE_GT_STACKS_COMMAND_NAME, `running ${commandDisplay}…`);
+	}
+
+	let result: ExecResult;
+	try {
+		result = await pi.exec("objective", commandArgs, {
+			cwd: ctx.cwd,
+			timeout: OBJECTIVE_GT_STACKS_TIMEOUT_MS,
+		});
+	} catch (error) {
+		presentObjectiveGtStacksMessage(
+			pi,
+			ctx,
+			formatExecStartupFailure(commandDisplay, error),
+			objectiveGtStacksDetails("failure", commandDisplay, commandArgs, ctx),
+			"error",
+		);
+		return;
+	} finally {
+		if (ctx.hasUI) {
+			ctx.ui.setStatus(OBJECTIVE_GT_STACKS_COMMAND_NAME, undefined);
+		}
+	}
+
+	if (result.code !== 0 || result.killed) {
+		presentObjectiveGtStacksMessage(
+			pi,
+			ctx,
+			formatExecFailure(commandDisplay, result),
+			objectiveGtStacksDetails("failure", commandDisplay, commandArgs, ctx, result),
+			"error",
+		);
+		return;
+	}
+
+	presentObjectiveGtStacksMessage(
+		pi,
+		ctx,
+		objectiveCommandOutputContent(result),
+		objectiveGtStacksDetails("success", commandDisplay, commandArgs, ctx, result),
+		"info",
+	);
 }
 
 function objectiveListDetails(
@@ -671,7 +878,45 @@ function objectiveListDetails(
 	};
 }
 
-function objectiveListOutputContent(result: ExecResult): string {
+function objectiveGtStacksDetails(
+	status: "success" | "failure",
+	command: string,
+	args: string[],
+	ctx: CommandContext,
+	result?: ExecResult,
+): ObjectiveGtStacksMessageDetails {
+	const base: ObjectiveGtStacksMessageDetails = {
+		messageType: OBJECTIVE_GT_STACKS_MESSAGE_TYPE,
+		status,
+		command,
+		args,
+		cwd: ctx.cwd,
+	};
+
+	if (!result) {
+		return base;
+	}
+
+	return {
+		...base,
+		code: result.code,
+		killed: result.killed,
+		stdoutChars: result.stdout.length,
+		stderrChars: result.stderr.length,
+	};
+}
+
+function objectiveGtStacksRejectedDetails(args: string[], ctx: CommandContext): ObjectiveGtStacksMessageDetails {
+	return {
+		messageType: OBJECTIVE_GT_STACKS_MESSAGE_TYPE,
+		status: "rejected",
+		command: OBJECTIVE_GT_STACKS_COMMAND_NAME,
+		args,
+		cwd: ctx.cwd,
+	};
+}
+
+function objectiveCommandOutputContent(result: ExecResult): string {
 	const stdout = result.stdout.trimEnd();
 	if (stdout) {
 		return stdout;
@@ -711,11 +956,47 @@ function presentObjectiveListMessage(
 	console.log(content);
 }
 
+function presentObjectiveGtStacksMessage(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	content: string,
+	details: ObjectiveGtStacksMessageDetails,
+	level: NotifyLevel,
+): void {
+	if (pi.sendMessage) {
+		pi.sendMessage({
+			customType: OBJECTIVE_GT_STACKS_MESSAGE_TYPE,
+			content,
+			display: true,
+			details,
+		});
+		return;
+	}
+
+	if (ctx.hasUI) {
+		ctx.ui.notify(content, level);
+		return;
+	}
+
+	if (level === "error") {
+		console.error(content);
+		return;
+	}
+
+	console.log(content);
+}
+
 export default function objectiveExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(OBJECTIVE_LIST_COMMAND_NAME, {
 		description: "List active Objectives in this repository without invoking the agent.",
 		getArgumentCompletions: completeObjectiveListArgs,
 		handler: async (args, ctx) => handleObjectiveListCommand(pi, args, ctx),
+	});
+
+	pi.registerCommand(OBJECTIVE_GT_STACKS_COMMAND_NAME, {
+		description: "Show Objective work across Graphite-tracked branches without invoking the agent.",
+		getArgumentCompletions: completeObjectiveGtStacksArgs,
+		handler: async (args, ctx) => handleObjectiveGtStacksCommand(pi, args, ctx),
 	});
 
 	for (const spec of OBJECTIVE_COMMANDS) {

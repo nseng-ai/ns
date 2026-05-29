@@ -37,6 +37,43 @@ def test_fake_current_branch_returns_seeded_failure() -> None:
     assert gateway.get_current_branch(cwd) == failure
 
 
+def test_fake_has_uncommitted_changes_under_defaults_to_false() -> None:
+    gateway = FakeGitGateway()
+
+    assert not gateway.has_uncommitted_changes_under(Path("/repo"), ".asdl/objectives/alpha")
+
+
+def test_fake_has_uncommitted_changes_under_returns_seeded_true() -> None:
+    cwd = Path("/repo")
+    gateway = FakeGitGateway(
+        uncommitted_changes_by_cwd_path={(cwd, ".asdl/objectives/alpha"): True}
+    )
+
+    assert gateway.has_uncommitted_changes_under(cwd, ".asdl/objectives/alpha")
+
+
+def test_fake_has_uncommitted_changes_under_returns_seeded_false() -> None:
+    cwd = Path("/repo")
+    gateway = FakeGitGateway(
+        uncommitted_changes_by_cwd_path={(cwd, ".asdl/objectives/alpha"): False}
+    )
+
+    assert not gateway.has_uncommitted_changes_under(cwd, ".asdl/objectives/alpha")
+
+
+def test_fake_has_uncommitted_changes_under_tracks_calls() -> None:
+    cwd = Path("/repo")
+    gateway = FakeGitGateway()
+
+    gateway.has_uncommitted_changes_under(cwd, ".asdl/objectives/alpha")
+    gateway.has_uncommitted_changes_under(cwd, ".asdl/objectives/beta")
+
+    assert gateway.has_uncommitted_changes_under_calls == (
+        (cwd, ".asdl/objectives/alpha"),
+        (cwd, ".asdl/objectives/beta"),
+    )
+
+
 def test_fake_restructured_files_default_empty() -> None:
     gateway = FakeGitGateway()
 
