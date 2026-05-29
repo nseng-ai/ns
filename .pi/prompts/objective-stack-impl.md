@@ -84,36 +84,83 @@ recorded in the Objective, stop and ask the user to run `objective-update`
 before continuing. If evidence is absent, ambiguous, or unrelated, proceed with
 a short note.
 
-## Plan a small Graphite stack in conversation
+## Preview and confirm the execution plan
 
-Before dispatching subagents, draft a short in-conversation stack plan:
+Before creating branches, committing, amending, or dispatching subagents,
+present a concise execution preview and ask the user to confirm. Do not proceed
+until the user explicitly confirms the latest preview.
 
-- 1 to 3 coherent slices by default;
-- one Graphite branch per slice;
-- each slice independently reviewable;
-- expected validation for each slice;
-- expected Objective update evidence for each slice.
+The preview is conversational only. Do not create a durable stack schema, side
+ledger, Branch Memory record, or hidden state from it.
+
+The preview must include:
+
+- selected Objective slug;
+- whether this is one planned stack or whether the parent expects to propose
+  more work after the stack;
+- 1 to 3 planned PRs/Graphite branches by default;
+- one high-level thesis per planned PR/branch;
+- why each planned PR/branch is independently reviewable;
+- expected validation for the planned work;
+- expected Objective update evidence, if meaningful progress is made;
+- expected Objective state at the end of the planned execution;
+- exact stop conditions;
+- a reminder that PR submission is intentionally left undone unless the user
+  explicitly asks for it.
+
+Use a compact shape like:
+
+```text
+Proposed Objective implementation plan
+
+Objective: `<slug>`
+
+I plan to implement this as:
+
+1. `<branch-or-pr-name>`
+   - Thesis: <one sentence>
+   - Validation: <short command/evidence summary>
+
+2. `<branch-or-pr-name>`
+   - Thesis: <one sentence>
+   - Validation: <short command/evidence summary>
+
+Expected Objective state at the end:
+
+- <roadmap/update/closure expectation>
+- PR submission remains manual.
+
+Stop conditions: <short list>
+
+Proceed with this execution plan?
+```
+
+Proceed only after an explicit affirmative response such as `yes`, `proceed`,
+or a clear equivalent. If the user asks for changes, revise the preview and ask
+again. If the user declines, is ambiguous, or asks a question, answer or stop;
+do not execute the plan yet.
 
 Use this repo's Graphite workflow instructions before creating branches,
-navigating the stack, committing, amending, or restacking. Do not create a
-durable stack schema or side ledger.
+navigating the stack, committing, amending, or restacking.
 
 ## Execute one slice at a time
 
 For each planned slice:
 
-1. Check worktree state before branch or subagent work. Stop if it is unsafe
+1. Confirm that the user explicitly approved the latest execution preview. If
+   not, stop and ask for confirmation before doing branch or subagent work.
+2. Check worktree state before branch or subagent work. Stop if it is unsafe
    for a subagent launch.
-2. Create, navigate to, or amend the appropriate Graphite branch using the
+3. Create, navigate to, or amend the appropriate Graphite branch using the
    repo's normal Graphite workflow.
-3. Build a complete subagent prompt for exactly one focused implementation
+4. Build a complete subagent prompt for exactly one focused implementation
    slice.
-4. Call `dispatch_runner_subagent` with a concise `title` and the full
+5. Call `dispatch_runner_subagent` with a concise `title` and the full
    `prompt`.
-5. Wait for the subagent result. Do not launch another subagent while it runs.
-6. Inspect the returned status, final text, diagnostics, progress, and
+6. Wait for the subagent result. Do not launch another subagent while it runs.
+7. Inspect the returned status, final text, diagnostics, progress, and
    `sessionFile`.
-7. Immediately record a current-session slice result entry before interpreting
+8. Immediately record a current-session slice result entry before interpreting
    completion. Include:
 
    - slice title;
@@ -126,16 +173,16 @@ For each planned slice:
    - commit hash if committed;
    - blockers or ambiguity.
 
-8. Treat only `status: final-text` as a successful subagent-return candidate.
-9. Even for `final-text`, verify the work yourself with file inspection, git
-   diff, and appropriate tests or checks.
-10. For any non-final or ambiguous status, inspect diagnostics and the subagent
+9. Treat only `status: final-text` as a successful subagent-return candidate.
+10. Even for `final-text`, verify the work yourself with file inspection, git
+    diff, and appropriate tests or checks.
+11. For any non-final or ambiguous status, inspect diagnostics and the subagent
     `sessionFile` before deciding whether to retry, ask the user, or stop.
-11. If meaningful progress was made and validated, run `objective-update` with
+12. If meaningful progress was made and validated, run `objective-update` with
     evidence from the slice.
-12. Commit or amend only after parent-side validation, using the repo's
+13. Commit or amend only after parent-side validation, using the repo's
     Graphite workflow.
-13. Decide whether to continue to the next slice or stop for user inspection.
+14. Decide whether to continue to the next slice or stop for user inspection.
 
 ## Subagent prompt requirements
 
@@ -191,6 +238,10 @@ Autofix policy:
 - Objective selection is absent or ambiguous;
 - the selected Objective is closed;
 - material progress appears unrecorded in the Objective;
+- the execution preview has not been explicitly confirmed;
+- the user requests changes to the plan;
+- the parent agent needs to plan a materially different stack than the one the
+  user confirmed;
 - the worktree is unsafe for branch or subagent work;
 - a subagent result is non-final or ambiguous and cannot be safely interpreted;
 - validation fails in a way that needs product or design input;
