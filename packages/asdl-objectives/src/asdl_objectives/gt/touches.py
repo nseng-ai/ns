@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.git.git_gateway import GitGateway
 from asdl_core.git.types import GitCommandFailure, PathChangeTouch
 from asdl_core.gt.types import GtBranchGraph
-from asdl_objectives.gt_stack_models import (
-    ObjectiveBranchTouch,
-    ObjectiveBranchTouchIndex,
-    ObjectiveBranchTouchSummary,
-)
 from asdl_objectives.list_branch_inventory import (
     ObjectiveRecordStatus,
     branch_ref,
@@ -21,6 +18,27 @@ from asdl_objectives.list_branch_inventory import (
 from asdl_objectives.objective_paths import ACTIVE_OBJECTIVE_ROOT, objective_slug_from_active_path
 
 OBJECTIVE_ROOT = ACTIVE_OBJECTIVE_ROOT.as_posix()
+
+
+@dataclass(frozen=True)
+class ObjectiveBranchTouch:
+    branch: str
+    slug: str
+    oid: str
+    committed_iso: str
+
+
+@dataclass(frozen=True)
+class ObjectiveBranchTouchSummary:
+    branch: str
+    parent: str
+    touched_slugs: tuple[str, ...]
+    latest_touch_by_slug: Mapping[str, ObjectiveBranchTouch]
+
+
+@dataclass(frozen=True)
+class ObjectiveBranchTouchIndex:
+    summaries_by_branch: Mapping[str, ObjectiveBranchTouchSummary]
 
 
 def build_objective_branch_touch_index(

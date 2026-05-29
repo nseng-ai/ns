@@ -12,14 +12,13 @@ from asdl_objectives.gt.context import load_objective_gt_context
 from asdl_objectives.gt.models import (
     ObjectiveGtStacksRequest,
     ObjectiveGtStacksResult,
-    result_from_projection,
 )
+from asdl_objectives.gt.projection import build_objective_stack_projection
 from asdl_objectives.gt.render import (
     render_objective_gt_stacks_human,
     render_objective_gt_stacks_markdown,
 )
-from asdl_objectives.gt_stack_projection import build_objective_stack_projection
-from asdl_objectives.gt_stack_scope import local_objective_stack_graph
+from asdl_objectives.gt.scope import local_objective_stack_graph
 
 
 @clinkr_operation(
@@ -44,11 +43,4 @@ def run_objective_gt_stacks(
         )
 
     local_graph = local_objective_stack_graph(objective_gt_ctx.git, graph)
-    return ClinkrExit.ok(
-        result_from_projection(
-            build_objective_stack_projection(
-                objective_gt_ctx.git,
-                local_graph,
-            )
-        )
-    )
+    return ClinkrExit.ok(build_objective_stack_projection(objective_gt_ctx.git, local_graph))

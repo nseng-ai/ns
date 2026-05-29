@@ -3,8 +3,8 @@ from __future__ import annotations
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import PathChangeTouch
 from asdl_core.gt.types import GtBranchGraph, GtTrackedBranch
-from asdl_objectives.gt_stack_models import ObjectiveStackBranchRow, ObjectiveStackGroup
-from asdl_objectives.gt_stack_projection import build_objective_stack_projection
+from asdl_objectives.gt.models import ObjectiveGtStackObjective, ObjectiveGtStackRow
+from asdl_objectives.gt.projection import build_objective_stack_projection
 
 OBJECTIVE_ROOT = ".asdl/objectives"
 TRUNK_REF = "refs/heads/main"
@@ -30,22 +30,24 @@ def test_build_objective_stack_projection_builds_single_branch_group() -> None:
 
     projection = build_objective_stack_projection(git, graph)
 
-    assert projection.trunk == "main"
+    assert projection.trunk_branch == "main"
     assert projection.warnings == ()
-    group = _group_for(projection.groups, "alpha")
+    group = _group_for(projection.objectives, "alpha")
     assert group.status == "open"
     assert group.objective_branch_count == 1
-    assert group.latest_branch == "feat/a"
-    assert group.latest_committed_iso == "2026-05-20T10:00:00-04:00"
-    assert group.latest_oid == "a-alpha"
+    assert group.latest_work is not None
+    assert group.latest_work.branch == "feat/a"
+    assert group.latest_work.committed_iso == "2026-05-20T10:00:00-04:00"
+    assert group.latest_work.oid == "a-alpha"
     assert group.segments[0].rows == (
-        ObjectiveStackBranchRow(
+        ObjectiveGtStackRow(
             branch="feat/a",
             parent="main",
             depth=0,
             touches_objective=True,
             also_touches=(),
             validation_result="OK",
+            needs_restack=False,
         ),
     )
 
@@ -66,7 +68,9 @@ def test_build_objective_stack_projection_carries_needs_restack_to_rows() -> Non
     )
 
     row = (
-        _group_for(build_objective_stack_projection(git, graph).groups, "alpha").segments[0].rows[0]
+        _group_for(build_objective_stack_projection(git, graph).objectives, "alpha")
+        .segments[0]
+        .rows[0]
     )
 
     assert row.validation_result == "VALID"
@@ -90,8 +94,8 @@ def test_build_objective_stack_projection_marks_also_touches_for_many_to_many_br
 
     projection = build_objective_stack_projection(git, graph)
 
-    assert _group_for(projection.groups, "alpha").segments[0].rows[0].also_touches == ("beta",)
-    assert _group_for(projection.groups, "beta").segments[0].rows[0].also_touches == ("alpha",)
+    assert _group_for(projection.objectives, "alpha").segments[0].rows[0].also_touches == ("beta",)
+    assert _group_for(projection.objectives, "beta").segments[0].rows[0].also_touches == ("alpha",)
 
 
 def test_build_objective_stack_projection_splits_disconnected_segments() -> None:
@@ -117,7 +121,7 @@ def test_build_objective_stack_projection_splits_disconnected_segments() -> None
         }
     )
 
-    group = _group_for(build_objective_stack_projection(git, graph).groups, "alpha")
+    group = _group_for(build_objective_stack_projection(git, graph).objectives, "alpha")
 
     assert group.objective_branch_count == 2
     assert tuple(tuple(row.branch for row in segment.rows) for segment in group.segments) == (
@@ -144,25 +148,27 @@ def test_build_objective_stack_projection_includes_trunk_connector() -> None:
         }
     )
 
-    group = _group_for(build_objective_stack_projection(git, graph).groups, "alpha")
+    group = _group_for(build_objective_stack_projection(git, graph).objectives, "alpha")
 
     assert group.objective_branch_count == 1
     assert group.segments[0].rows == (
-        ObjectiveStackBranchRow(
+        ObjectiveGtStackRow(
             branch="feat/connector",
             parent="main",
             depth=0,
             touches_objective=False,
             also_touches=(),
             validation_result=None,
+            needs_restack=False,
         ),
-        ObjectiveStackBranchRow(
+        ObjectiveGtStackRow(
             branch="feat/child",
             parent="feat/connector",
             depth=1,
             touches_objective=True,
             also_touches=(),
             validation_result=None,
+            needs_restack=False,
         ),
     )
 
@@ -187,7 +193,7 @@ def test_build_objective_stack_projection_includes_connector_between_touched_bra
         }
     )
 
-    group = _group_for(build_objective_stack_projection(git, graph).groups, "alpha")
+    group = _group_for(build_objective_stack_projection(git, graph).objectives, "alpha")
 
     assert group.objective_branch_count == 2
     assert tuple(
@@ -225,11 +231,12 @@ def test_build_objective_stack_projection_uses_objective_touch_timestamps_for_la
         },
     )
 
-    group = _group_for(build_objective_stack_projection(git, graph).groups, "alpha")
+    group = _group_for(build_objective_stack_projection(git, graph).objectives, "alpha")
 
-    assert group.latest_branch == "feat/old"
-    assert group.latest_committed_iso == "2026-05-20T11:00:00-04:00"
-    assert group.latest_oid == "old-alpha"
+    assert group.latest_work is not None
+    assert group.latest_work.branch == "feat/old"
+    assert group.latest_work.committed_iso == "2026-05-20T11:00:00-04:00"
+    assert group.latest_work.oid == "old-alpha"
 
 
 def test_build_objective_stack_projection_derives_open_closed_and_in_flight_statuses() -> None:
@@ -270,9 +277,9 @@ def test_build_objective_stack_projection_derives_open_closed_and_in_flight_stat
 
     projection = build_objective_stack_projection(git, graph)
 
-    assert _group_for(projection.groups, "open").status == "open"
-    assert _group_for(projection.groups, "closed").status == "closed"
-    assert _group_for(projection.groups, "flight").status == "in-flight"
+    assert _group_for(projection.objectives, "open").status == "open"
+    assert _group_for(projection.objectives, "closed").status == "closed"
+    assert _group_for(projection.objectives, "flight").status == "in-flight"
 
 
 def test_build_objective_stack_projection_adds_missing_parent_warning() -> None:
@@ -355,7 +362,9 @@ def _touch(oid: str, committed_iso: str, *paths: str) -> PathChangeTouch:
     return PathChangeTouch(oid=oid, committed_iso=committed_iso, paths=paths)
 
 
-def _group_for(groups: tuple[ObjectiveStackGroup, ...], slug: str) -> ObjectiveStackGroup:
-    matches = [group for group in groups if group.slug == slug]
+def _group_for(
+    objectives: tuple[ObjectiveGtStackObjective, ...], slug: str
+) -> ObjectiveGtStackObjective:
+    matches = [objective for objective in objectives if objective.slug == slug]
     assert len(matches) == 1
     return matches[0]

@@ -6,8 +6,10 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import GitCommandFailure, PathChangeTouch
 from asdl_core.gt.types import GtBranchGraph, GtTrackedBranch
-from asdl_objectives.gt_stack_models import ObjectiveBranchTouch
-from asdl_objectives.gt_stack_touches import build_objective_branch_touch_index
+from asdl_objectives.gt.touches import (
+    ObjectiveBranchTouch,
+    build_objective_branch_touch_index,
+)
 from asdl_objectives.objective_paths import objective_slug_from_active_path
 
 OBJECTIVE_ROOT = ".asdl/objectives"
