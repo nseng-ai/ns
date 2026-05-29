@@ -73,8 +73,13 @@ Risks:
 
 ## Open Questions
 
+Resolved during Phase 1 checkout-local list core:
+
+- `objective list --status active` remains supported as an alias for open checkout-local records.
+- The record-oriented `objective list --format json` schema exposes `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records[].slug/status/latest_update_iso`. It does not expose formatted latest-update text, dirty state, branch groups, or branch/source projection fields.
+
+Still open:
+
 - What exact JSON schema should `objective gt stacks` expose so both tests and a future TUI can depend on it without freezing human rendering details?
-- Should `objective list --status active` remain as a supported alias for open checkout-local records, or should v1 narrow the list filters to `open`, `closed`, and `all` only?
 - How much branch annotation belongs in v1 `objective gt stacks` rows beyond Objective touch/connectors and multi-Objective markers, especially Graphite restack health and slot labels?
-- What exact record-oriented JSON fields should `objective list` expose for the Pi picker: raw `latest_update_iso`, formatted latest-update text, `has_outstanding_changes`, repository trunk metadata, or all of these?
 - Should the future TUI live as a standalone terminal application, a Python CLI subcommand, or a Pi extension surface that consumes the JSON output?
