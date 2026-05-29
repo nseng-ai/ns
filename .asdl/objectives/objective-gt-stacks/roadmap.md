@@ -32,11 +32,11 @@ Phase 3 — Objective stack projection model
 
 Phase 4 — `objective gt stacks` CLI
 
-- [ ] Add an explicit `objective gt` subgroup and `objective gt stacks` command in `asdl-objectives`.
-- [ ] Render human output as Objective-grouped segments with `◆` for Objective-touching branches and `◇` for connector branches.
-- [ ] Provide structurally complete JSON output for Objectives, segments, branch rows, parent relationships, Objective-touch markers, multi-Objective markers, and latest work branch.
-- [ ] Provide simple Markdown output with Objective summaries and fenced segment text.
-- [ ] Add scenario tests for many-to-many Objective/branch relationships, disconnected segments, connector rows, archive-root omission, active-root deletion inclusion, Graphite trunk status projection, and Graphite error cases.
+- [x] Add an explicit `objective gt` subgroup and `objective gt stacks` command in `asdl-objectives`.
+- [x] Render human output as Objective-grouped segments with `◆` for Objective-touching branches and `◇` for connector branches.
+- [x] Provide structurally complete JSON output for Objectives, segments, branch rows, parent relationships, Objective-touch markers, multi-Objective markers, and latest work branch.
+- [x] Provide simple Markdown output with Objective summaries and fenced segment text.
+- [x] Add scenario tests for many-to-many Objective/branch relationships, disconnected segments, connector rows, archive-root omission, active-root deletion inclusion, Graphite trunk status projection, and Graphite error cases.
 
 Phase 5 — Pi Objective extension
 

@@ -65,10 +65,10 @@ Assumptions:
 Risks:
 
 - The current-branch-centered `GtGateway.stack()` risk is de-risked for Phase 2: `GtGateway.branch_graph(cwd)` now provides a separate repo/trunk-centered graph model while leaving `stack()` stable.
-- Phase 3 de-risks model-level segment construction for many-to-many Objective/branch relationships, disconnected regions, and connector rows. The later renderer phase should keep glyphs and terminal layout separate from the semantic segment model.
-- Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, and verifies the picker/list flows against the new contract. The remaining Pi extension risk is the separate `/objective-gt-stacks` wrapper, which still waits for the Graphite command.
+- Phase 3 de-risks model-level segment construction for many-to-many Objective/branch relationships, disconnected regions, and connector rows. Phase 4 now preserves that semantic model behind the CLI JSON contract and keeps renderer glyphs out of the result schema.
+- Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, and verifies the picker/list flows against the new contract. The remaining Pi extension risk is the separate `/objective-gt-stacks` wrapper, which is now unblocked by the Graphite command but still unimplemented.
 - Dirty-state detection for `(x)` is de-risked for checkout-local `objective list` by path-scoped Git status coverage of staged, unstaged, untracked, and unrelated paths. The Pi picker still needs a separate integration slice before it can use checkout-local outstanding-change facts for suggestions.
-- The model-level risk of ignoring archive-root paths while including active-root deletions is de-risked by Phase 3 touch extraction tests. The later CLI phase still needs scenario coverage to preserve that behavior through command wiring and renderers.
+- The model-level risk of ignoring archive-root paths while including active-root deletions is de-risked by Phase 3 touch extraction tests. Phase 4 scenario coverage now preserves that behavior through command wiring and renderers.
 - A future TUI may need richer graph data than the first human CLI renderer. Mitigation: design JSON around semantic graph facts rather than terminal glyphs.
 
 ## Open Questions
@@ -84,8 +84,12 @@ Resolved during Phase 2 structured Graphite graph support:
 - The gateway shape for repo-level Graphite scanning is `GtGateway.branch_graph(cwd)`, returning a `GtBranchGraph` of `GtTrackedBranch` rows reachable from the configured Graphite trunk.
 - `branch_graph()` reads `.graphite_repo_config` and `.graphite_metadata.db` read-only, does not parse `gt ls`, and does not require the current checkout branch to be Graphite-tracked.
 
+Resolved during Phase 4 `objective gt stacks` CLI:
+
+- The JSON schema exposes `trunk_branch`, `warnings`, and `objectives[]`; each Objective carries `slug`, trunk-projected `status`, `objective_branch_count`, `segment_count`, optional `latest_work`, and `segments[]` with indexed branch rows.
+- Branch rows expose semantic facts rather than renderer glyphs: `branch`, `parent`, `depth`, `touches_objective`, `connector`, `also_touches`, and Graphite `validation_result` when available.
+- V1 branch annotations stop at Objective touch/connector state, multi-Objective `also_touches`, and cheap Graphite validation facts. Slot labels, richer restack health, and lifecycle interpretation remain out of v1.
+
 Still open:
 
-- What exact JSON schema should `objective gt stacks` expose so both tests and a future TUI can depend on it without freezing human rendering details?
-- How much branch annotation belongs in v1 `objective gt stacks` rows beyond Objective touch/connectors and multi-Objective markers, especially Graphite restack health and slot labels?
 - Should the future TUI live as a standalone terminal application, a Python CLI subcommand, or a Pi extension surface that consumes the JSON output?
