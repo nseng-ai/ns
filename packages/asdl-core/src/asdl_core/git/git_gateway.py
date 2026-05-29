@@ -157,6 +157,10 @@ class GitGateway(ABC):
         """Return True when the worktree has staged, modified, or untracked files."""
 
     @abstractmethod
+    def has_uncommitted_changes_under(self, cwd: Path, path: str) -> bool:
+        """Return True when staged, modified, or untracked files exist under ``path``."""
+
+    @abstractmethod
     def get_file_status(self, cwd: Path) -> FileStatus:
         """Return a ``FileStatus`` describing the worktree's dirty state."""
 

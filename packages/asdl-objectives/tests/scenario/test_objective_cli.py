@@ -214,6 +214,79 @@ def test_objective_list_latest_committed_update_from_head(
     assert "—" in markdown.output
 
 
+def test_objective_list_dirty_record_json_contract_unchanged(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    ctx = _list_context(
+        repo_root=tmp_path,
+        uncommitted_changes_by_cwd_path={(tmp_path, ".asdl/objectives/alpha"): True},
+    )
+
+    result = _invoke_list_json(cli_group, ctx)
+
+    assert result.exit_code == 0, result.output
+    records = json.loads(result.output)["data"]["records"]
+    assert records == [{"slug": "alpha", "status": "open", "latest_update_iso": None}]
+    assert set(records[0]) == {"slug", "status", "latest_update_iso"}
+
+
+def test_objective_list_dirty_record_human_and_markdown_show_marker(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    ctx = _list_context(
+        repo_root=tmp_path,
+        uncommitted_changes_by_cwd_path={(tmp_path, ".asdl/objectives/alpha"): True},
+    )
+
+    human = _invoke_list_human(cli_group, ctx)
+    markdown = _invoke_list_md(cli_group, ctx)
+
+    assert human.exit_code == 0, human.output
+    assert markdown.exit_code == 0, markdown.output
+    assert "(x)" in human.output
+    assert "| alpha | ○ open | (x) — |" in markdown.output
+
+
+def test_objective_list_dirty_record_names_only_stays_slug_only(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    ctx = _list_context(
+        repo_root=tmp_path,
+        uncommitted_changes_by_cwd_path={(tmp_path, ".asdl/objectives/alpha"): True},
+    )
+
+    result = _invoke_list_human(cli_group, ctx, names=True)
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "alpha\n"
+
+
+def test_objective_list_archive_or_unrelated_dirty_paths_do_not_mark_active_record(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    _write_objective(tmp_path / ".asdl" / "objectives", "alpha")
+    ctx = _list_context(
+        repo_root=tmp_path,
+        uncommitted_changes_by_cwd_path={
+            (tmp_path, ".asdl/objective-archive/alpha"): True,
+            (tmp_path, "README.md"): True,
+        },
+    )
+
+    result = _invoke_list_md(cli_group, ctx)
+
+    assert result.exit_code == 0, result.output
+    assert "| alpha | ○ open | — |" in result.output
+    assert "(x)" not in result.output
+
+
 def test_objective_list_removed_options_and_status_reject(
     cli_group: ClinkrGroup,
     tmp_path: Path,
@@ -993,6 +1066,7 @@ def _list_context(
     trunk_branch: str = "master",
     tracked_paths_by_ref_path: dict[tuple[str, str], tuple[str, ...]] | None = None,
     path_touch_by_ref_path: dict[tuple[str, str], PathTouch] | None = None,
+    uncommitted_changes_by_cwd_path: dict[tuple[Path, str], bool] | None = None,
 ) -> ObjectiveCliContext:
     return ObjectiveCliContext(
         repo_root=repo_root,
@@ -1003,6 +1077,7 @@ def _list_context(
             trunk_branch=trunk_branch,
             tracked_paths_by_ref_path=tracked_paths_by_ref_path,
             path_touch_by_ref_path=path_touch_by_ref_path,
+            uncommitted_changes_by_cwd_path=uncommitted_changes_by_cwd_path,
         ),
     )
 

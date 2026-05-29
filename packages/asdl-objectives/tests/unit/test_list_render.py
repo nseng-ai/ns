@@ -30,6 +30,35 @@ def test_render_objective_list_markdown_table_has_checkout_local_columns(
     assert "max slice commits" not in output.lower()
 
 
+def test_render_objective_list_markdown_prefixes_dirty_latest_update(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    render_objective_list_markdown(
+        _result(records=(_record("alpha", has_outstanding_changes=True),))
+    )
+
+    output = capsys.readouterr().out
+    assert "| alpha | ○ open | (x) " in output
+
+
+def test_render_objective_list_markdown_dirty_missing_update_renders_marker_dash(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    render_objective_list_markdown(
+        _result(records=(_record("alpha", latest_update_iso=None, has_outstanding_changes=True),))
+    )
+
+    assert "| alpha | ○ open | (x) — |" in capsys.readouterr().out
+
+
+def test_render_objective_list_markdown_clean_rows_do_not_include_dirty_marker(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    render_objective_list_markdown(_result(records=(_record("alpha"),)))
+
+    assert "(x)" not in capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     ("status_filter", "message"),
     [
@@ -54,11 +83,13 @@ def _record(
     *,
     status: ObjectiveStatus = "open",
     latest_update_iso: str | None = "2026-05-20T10:00:00Z",
+    has_outstanding_changes: bool = False,
 ) -> ObjectiveListRecord:
-    return ObjectiveListRecord(
+    return ObjectiveListRecord.create(
         slug=slug,
         status=status,
         latest_update_iso=latest_update_iso,
+        has_outstanding_changes=has_outstanding_changes,
     )
 
 

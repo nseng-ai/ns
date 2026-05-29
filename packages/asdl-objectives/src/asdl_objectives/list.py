@@ -76,8 +76,12 @@ def _build_objective_list_record(
 ) -> ObjectiveListRecord:
     relative_path = active_objective_record_path(slug).as_posix()
     touch = ctx.git.path_last_touched("HEAD", relative_path)
-    return ObjectiveListRecord(
+    return ObjectiveListRecord.create(
         slug=slug,
         status=status,
         latest_update_iso=touch_updated_iso(touch),
+        has_outstanding_changes=ctx.git.has_uncommitted_changes_under(
+            ctx.repo_root,
+            relative_path,
+        ),
     )

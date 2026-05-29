@@ -457,6 +457,65 @@ def test_path_last_touched_returns_latest_touch(tmp_path: Path) -> None:
     assert "T" in result.committed_iso
 
 
+def test_has_uncommitted_changes_under_returns_false_for_clean_path(tmp_path: Path) -> None:
+    repo = _repo_with_committed_objective(tmp_path)
+
+    assert not RealGitGateway(repo_root=repo).has_uncommitted_changes_under(
+        repo,
+        ".asdl/objectives/alpha",
+    )
+
+
+def test_has_uncommitted_changes_under_detects_staged_changes(tmp_path: Path) -> None:
+    repo = _repo_with_committed_objective(tmp_path)
+    (repo / ".asdl" / "objectives" / "alpha" / "objective.md").write_text(
+        "# Alpha\n\nStaged change.\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".asdl/objectives/alpha/objective.md")
+
+    assert RealGitGateway(repo_root=repo).has_uncommitted_changes_under(
+        repo,
+        ".asdl/objectives/alpha",
+    )
+
+
+def test_has_uncommitted_changes_under_detects_unstaged_changes(tmp_path: Path) -> None:
+    repo = _repo_with_committed_objective(tmp_path)
+    (repo / ".asdl" / "objectives" / "alpha" / "objective.md").write_text(
+        "# Alpha\n\nUnstaged change.\n",
+        encoding="utf-8",
+    )
+
+    assert RealGitGateway(repo_root=repo).has_uncommitted_changes_under(
+        repo,
+        ".asdl/objectives/alpha",
+    )
+
+
+def test_has_uncommitted_changes_under_detects_untracked_files(tmp_path: Path) -> None:
+    repo = _repo_with_committed_objective(tmp_path)
+    (repo / ".asdl" / "objectives" / "alpha" / "notes.md").write_text(
+        "# Notes\n",
+        encoding="utf-8",
+    )
+
+    assert RealGitGateway(repo_root=repo).has_uncommitted_changes_under(
+        repo,
+        ".asdl/objectives/alpha",
+    )
+
+
+def test_has_uncommitted_changes_under_ignores_unrelated_changes(tmp_path: Path) -> None:
+    repo = _repo_with_committed_objective(tmp_path)
+    (repo / "outside.txt").write_text("outside\n", encoding="utf-8")
+
+    assert not RealGitGateway(repo_root=repo).has_uncommitted_changes_under(
+        repo,
+        ".asdl/objectives/alpha",
+    )
+
+
 def test_path_last_touched_accepts_revision_range(tmp_path: Path) -> None:
     repo = _init_git_repo(tmp_path)
     _git(repo, "branch", "-M", "main")
@@ -647,6 +706,16 @@ def _init_git_repo(path: Path) -> Path:
     _git(path, "config", "user.email", "test@example.com")
     _git(path, "config", "user.name", "Test User")
     return path
+
+
+def _repo_with_committed_objective(path: Path) -> Path:
+    repo = _init_git_repo(path)
+    record = repo / ".asdl" / "objectives" / "alpha"
+    record.mkdir(parents=True)
+    (record / "objective.md").write_text("# Alpha\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "objective")
+    return repo
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:

@@ -651,6 +651,14 @@ class RealGitGateway(GitGateway):
         status = self.get_file_status(cwd)
         return status.staged or status.modified or status.untracked
 
+    def has_uncommitted_changes_under(self, cwd: Path, path: str) -> bool:
+        result = _run(
+            ["git", "status", "--porcelain", "--untracked-files=all", "--", path],
+            cwd=cwd,
+            check=True,
+        )
+        return result.stdout.strip() != ""
+
     def get_file_status(self, cwd: Path) -> FileStatus:
         result = _run(["git", "status", "--porcelain"], cwd=cwd, check=True)
         return parse_porcelain_status(result.stdout)
