@@ -33,6 +33,7 @@ class ObjectiveGtStackRow(ClinkrModel):
     connector: bool
     also_touches: tuple[str, ...]
     validation_result: str | None
+    needs_restack: bool
 
 
 class ObjectiveGtStackSegment(ClinkrModel):
@@ -110,4 +111,5 @@ def _row_from_projection(row: ObjectiveStackBranchRow) -> ObjectiveGtStackRow:
         connector=not row.touches_objective,
         also_touches=row.also_touches,
         validation_result=row.validation_result,
+        needs_restack=row.needs_restack,
     )

@@ -394,13 +394,15 @@ def _branch_row(
 ) -> ObjectiveStackBranchRow:
     summary = touch_index.summaries_by_branch.get(branch)
     touched_slugs = summary.touched_slugs if summary is not None else ()
+    tracked_branch = branch_by_name[branch]
     return ObjectiveStackBranchRow(
         branch=branch,
-        parent=branch_by_name[branch].parent,
+        parent=tracked_branch.parent,
         depth=depth,
         touches_objective=branch in touched,
         also_touches=tuple(slug for slug in touched_slugs if slug != group_slug),
-        validation_result=branch_by_name[branch].validation_result,
+        validation_result=tracked_branch.validation_result,
+        needs_restack=tracked_branch.needs_restack,
     )
 
 

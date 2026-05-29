@@ -22,14 +22,19 @@ JSON and only the non-empty string `trunk` field is part of asdl's contract.
 
 ### Stable query slice
 
-The only Graphite schema surface these metadata readers depend on is this named-column query:
+The required Graphite schema surface these metadata readers depend on is this named-column query:
 
 ```sql
 SELECT branch_name, parent_branch_name, children, validation_result
 FROM branch_metadata
 ```
 
-Do not use `SELECT *`. Do not depend on Graphite-owned columns outside this slice.
+Do not use `SELECT *`. Do not require Graphite-owned columns outside this slice.
+
+When Graphite's optional parent revision columns are present, `branch_graph()` also reads
+`parent_branch_revision` and `parent_head_revision`. If both values are non-empty and differ, the
+branch row is marked as needing restack. These columns are optional display metadata, not part of the
+required stack/graph schema contract.
 
 ### `stack()` vs `branch_graph()`
 
@@ -45,7 +50,8 @@ Do not use `SELECT *`. Do not depend on Graphite-owned columns outside this slic
 
 Graphite versions since the SQLite metadata store shipped have used additive Kysely migrations for
 this table: new nullable columns may appear, while the four-column stack/graph slice remains stable.
-Future additive columns are tolerated because the query names its columns explicitly.
+Future additive columns are tolerated because queries name their columns explicitly. The optional
+parent revision pair is used only when both columns are present.
 
 If Graphite renames one of these columns, removes one, or drops the table, metadata reads return a
 `GtCommandFailure` whose message starts with `Graphite metadata schema mismatch:`.
@@ -66,5 +72,7 @@ instead of a degraded best-effort stack or graph walk.
 
 ### What we do not read
 
-Metadata readers do not read any columns outside `branch_name`, `parent_branch_name`, `children`,
-and `validation_result`. Future Graphite columns are intentionally ignored.
+Metadata readers do not require any columns outside `branch_name`, `parent_branch_name`, `children`,
+and `validation_result`. `branch_graph()` may additionally read `parent_branch_revision` and
+`parent_head_revision` to derive `needs_restack`; every other future Graphite column is intentionally
+ignored.

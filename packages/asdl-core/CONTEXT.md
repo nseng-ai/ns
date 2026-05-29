@@ -229,7 +229,7 @@ _Avoid:_ stack graph, branch tree, full stack inventory, nullable stack snapshot
 **GtBranchGraph** — A successful repo-level Graphite graph rooted at the configured Graphite trunk. It contains the trunk row and Graphite metadata rows reachable through stored child edges, not every row in the metadata database and not every possible configured trunk.
 _Avoid:_ `StackInfo`, all branches, all metadata rows, Git commit graph.
 
-**GtTrackedBranch** — One branch row in a `GtBranchGraph`, carrying the branch name, stored Graphite parent, stored children, and raw Graphite validation marker.
+**GtTrackedBranch** — One branch row in a `GtBranchGraph`, carrying the branch name, stored Graphite parent, stored children, raw Graphite validation marker, and derived needs-restack flag.
 _Avoid:_ Git branch tip, PR summary, commit node.
 
 **Current stack branch** — The Graphite branch marked current in a successful stack snapshot for a `cwd`.
@@ -241,8 +241,11 @@ _Avoid:_ Git default branch, remote HEAD, base branch.
 **Graphite metadata store** — Graphite-owned SQLite file at `<git-common-dir>/.graphite_metadata.db`, schema-versioned by Graphite's Kysely migrations. asdl reads it read-only for stack discovery.
 _Avoid:_ repo config, Git object database, asdl cache.
 
-**Stack slice query** — The canonical four-column metadata-store query (`branch_name`, `parent_branch_name`, `children`, `validation_result`) that defines asdl's stack schema contract.
+**Stack slice query** — The canonical four-column metadata-store query (`branch_name`, `parent_branch_name`, `children`, `validation_result`) that defines asdl's required stack schema contract.
 _Avoid:_ full Graphite schema, `SELECT *`, migration contract.
+
+**Restack revision pair** — Optional metadata-store columns (`parent_branch_revision`, `parent_head_revision`) that let `GtBranchGraph` mark a branch as needing restack when both non-empty values differ.
+_Avoid:_ validation result, human `gt ls` parsing, required schema slice.
 
 **Graphite repo config** — Graphite-owned JSON file at `<git-common-dir>/.graphite_repo_config` that stores repository-level Graphite settings such as trunk name. It is distinct from the Graphite metadata store.
 _Avoid:_ metadata store, stack slice, Git config.
@@ -294,7 +297,7 @@ Graphite defines a **Graphite stack** as a sequence of PRs, each building off it
 
 #### Parent, children, ancestors, descendants
 
-**Graphite parent** and **Graphite children** are immediate relationships; `parent_of` and `children_of` return them through `gt parent` and `gt children`, while `StackInfo` and `GtBranchGraph` read them from the **Graphite metadata store**. **Graphite ancestors** and **Graphite descendants** are recursive stack directions derived from the **Stack slice query**. `StackInfo.ancestors` is trunk-first, includes **Graphite trunk** when trunk appears in the current stack walk, and excludes the current branch. `StackInfo.descendants` excludes the current branch and follows the first-child stack walk away from trunk. `StackInfo.children` is immediate-only even though children are also upstack; do not say children when the recursive relationship is descendants.
+**Graphite parent** and **Graphite children** are immediate relationships; `parent_of` and `children_of` return them through `gt parent` and `gt children`, while `StackInfo` and `GtBranchGraph` read them from the **Graphite metadata store**. **Graphite ancestors** and **Graphite descendants** are recursive stack directions derived from the **Stack slice query**. A **Restack revision pair** mismatch is a row-level health annotation, not a replacement for Graphite parentage or Graphite validation. `StackInfo.ancestors` is trunk-first, includes **Graphite trunk** when trunk appears in the current stack walk, and excludes the current branch. `StackInfo.descendants` excludes the current branch and follows the first-child stack walk away from trunk. `StackInfo.children` is immediate-only even though children are also upstack; do not say children when the recursive relationship is descendants.
 
 #### Trunk-scoped branch graph
 
@@ -306,7 +309,7 @@ Graphite defines a **Graphite stack** as a sequence of PRs, each building off it
 
 #### GtGateway vs GitGateway
 
-Use **GitGateway** for ordinary repository and worktree facts: current branch, refs, worktrees, dirty state, history, and branch existence. Use **GtGateway** only for explicitly Graphite behavior: parent/children relationships, stack snapshots, trunk-scoped Graphite branch graphs, Graphite trunk, restacking, syncing Graphite metadata, and raw Graphite branch diagnostics. `stack()` and `branch_graph()` get their structure from the **Graphite metadata store** via the **Stack slice query**; `branch_graph()` also reads **Graphite repo config** for the configured trunk. The command-oriented Graphite operations continue to use `gt` CLI commands.
+Use **GitGateway** for ordinary repository and worktree facts: current branch, refs, worktrees, dirty state, history, and branch existence. Use **GtGateway** only for explicitly Graphite behavior: parent/children relationships, stack snapshots, trunk-scoped Graphite branch graphs, Graphite trunk, restacking, syncing Graphite metadata, and raw Graphite branch diagnostics. `stack()` and `branch_graph()` get their structure from the **Graphite metadata store** via the **Stack slice query**; `branch_graph()` also reads **Graphite repo config** for the configured trunk and may use the optional **Restack revision pair** for row annotations. The command-oriented Graphite operations continue to use `gt` CLI commands.
 
 ## Gh
 

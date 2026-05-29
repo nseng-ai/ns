@@ -65,8 +65,6 @@ def _local_branch_graph(git: GitGateway, graph: GtBranchGraph) -> GtBranchGraph:
             continue
         if branch.name in local_branches:
             eligible.add(branch.name)
-        else:
-            warnings.append(f"Graphite branch {branch.name!r} is not a local git branch; skipping.")
 
     included = _connected_local_branches(graph, eligible)
     for branch_name in sorted(eligible.difference(included)):
@@ -112,4 +110,5 @@ def _filter_branch_children(branch: GtTrackedBranch, included: frozenset[str]) -
         parent=branch.parent,
         children=tuple(child for child in branch.children if child in included),
         validation_result=branch.validation_result,
+        needs_restack=branch.needs_restack,
     )
