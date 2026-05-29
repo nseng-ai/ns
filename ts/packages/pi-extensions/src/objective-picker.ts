@@ -1,4 +1,4 @@
-import type { ObjectiveBranchEntry, ObjectiveList, ObjectiveListGroup } from "./objective-list.ts";
+import type { ObjectiveList, ObjectiveListRecord } from "./objective-list.ts";
 
 export const VIEW_OTHER_OBJECTIVES_CHOICE = "View other active Objectives…";
 
@@ -37,9 +37,9 @@ export function changedActiveObjectiveSelection(
 	}
 
 	const allChangedSlugSet = new Set(allChangedSlugs);
-	const changedActiveSlugs = objectiveList.groups
-		.filter((group) => allChangedSlugSet.has(group.slug))
-		.map((group) => group.slug);
+	const changedActiveSlugs = objectiveList.records
+		.filter((record) => allChangedSlugSet.has(record.slug))
+		.map((record) => record.slug);
 	if (changedActiveSlugs.length === 0) {
 		return undefined;
 	}
@@ -48,42 +48,40 @@ export function changedActiveObjectiveSelection(
 }
 
 export function formatObjectiveChoice(
-	group: ObjectiveListGroup,
+	record: ObjectiveListRecord,
 	selection: ObjectiveDiffSelection | undefined = undefined,
 ): string {
-	const branchCount = group.branches.length;
-	const branchLabel = branchCount === 1 ? "1 branch" : `${branchCount} branches`;
-	const latestBranch = group.latestWorkBranch ?? latestObjectiveBranch(group)?.branch ?? "(none)";
 	let diffLabel = "";
-	if (selection && isOnlyChangedActiveObjective(selection, group)) {
+	if (selection && isOnlyChangedActiveObjective(selection, record)) {
 		diffLabel = `suggested: only Objective changed vs ${selection.trunkBranch} — `;
-	} else if (selection && isChangedActiveObjective(group, selection)) {
+	} else if (selection && isChangedActiveObjective(record, selection)) {
 		diffLabel = `changed vs ${selection.trunkBranch} — `;
 	}
-	return `${group.slug} — ${diffLabel}${branchLabel} — latest work ${latestBranch} — max +${maxSliceCommits(group)} slice commits`;
+
+	return `${record.slug} — ${diffLabel}${record.status} — latest update ${record.latestUpdateIso ?? "—"}`;
 }
 
-export function objectiveGroupsWithChangedFirst(
-	groups: ObjectiveListGroup[],
+export function objectiveRecordsWithChangedFirst(
+	records: ObjectiveListRecord[],
 	selection: ObjectiveDiffSelection | undefined = undefined,
-): ObjectiveListGroup[] {
+): ObjectiveListRecord[] {
 	if (!selection) {
-		return groups;
+		return records;
 	}
 
 	const changedSet = new Set(selection.changedActiveSlugs);
-	const changedGroups = groups.filter((group) => changedSet.has(group.slug));
-	const otherGroups = groups.filter((group) => !changedSet.has(group.slug));
-	return [...changedGroups, ...otherGroups];
+	const changedRecords = records.filter((record) => changedSet.has(record.slug));
+	const otherRecords = records.filter((record) => !changedSet.has(record.slug));
+	return [...changedRecords, ...otherRecords];
 }
 
 export function objectiveChoiceMap(
-	groups: ObjectiveListGroup[],
+	records: ObjectiveListRecord[],
 	selection: ObjectiveDiffSelection | undefined = undefined,
 ): Map<string, string> {
 	const choices = new Map<string, string>();
-	for (const group of groups) {
-		choices.set(formatObjectiveChoice(group, selection), group.slug);
+	for (const record of records) {
+		choices.set(formatObjectiveChoice(record, selection), record.slug);
 	}
 	return choices;
 }
@@ -120,63 +118,21 @@ function objectiveSlugFromPath(path: string): string | undefined {
 	return slug ? slug : undefined;
 }
 
-function latestObjectiveBranch(group: ObjectiveListGroup): ObjectiveBranchEntry | undefined {
-	let latest: ObjectiveBranchEntry | undefined;
-	for (const branch of group.branches) {
-		if (objectiveBranchTimestamp(branch) === undefined) {
-			continue;
-		}
-		if (!latest || compareObjectiveBranchesByLatest(branch, latest) > 0) {
-			latest = branch;
-		}
-	}
-	return latest;
-}
-
-function objectiveBranchTimestamp(branch: ObjectiveBranchEntry): number | undefined {
-	if (branch.updatedIso === null) {
-		return undefined;
-	}
-
-	const timestamp = Date.parse(branch.updatedIso);
-	return Number.isNaN(timestamp) ? undefined : timestamp;
-}
-
-function compareObjectiveBranchesByLatest(left: ObjectiveBranchEntry, right: ObjectiveBranchEntry): number {
-	const leftTimestamp = objectiveBranchTimestamp(left) ?? Number.NEGATIVE_INFINITY;
-	const rightTimestamp = objectiveBranchTimestamp(right) ?? Number.NEGATIVE_INFINITY;
-	if (leftTimestamp !== rightTimestamp) {
-		return leftTimestamp - rightTimestamp;
-	}
-
-	return right.branch.localeCompare(left.branch);
-}
-
-function maxSliceCommits(group: ObjectiveListGroup): number {
-	let maxSliceCommits = 0;
-	for (const branch of group.branches) {
-		if (branch.sliceCommits > maxSliceCommits) {
-			maxSliceCommits = branch.sliceCommits;
-		}
-	}
-	return maxSliceCommits;
-}
-
 function isChangedActiveObjective(
-	group: ObjectiveListGroup,
+	record: ObjectiveListRecord,
 	selection: ObjectiveDiffSelection | undefined,
 ): boolean {
-	return selection?.changedActiveSlugs.includes(group.slug) ?? false;
+	return selection?.changedActiveSlugs.includes(record.slug) ?? false;
 }
 
 function isOnlyChangedActiveObjective(
 	selection: ObjectiveDiffSelection | undefined,
-	group: ObjectiveListGroup,
+	record: ObjectiveListRecord,
 ): boolean {
 	return Boolean(
 		selection &&
 			selection.allChangedSlugs.length === 1 &&
 			selection.changedActiveSlugs.length === 1 &&
-			selection.changedActiveSlugs[0] === group.slug,
+			selection.changedActiveSlugs[0] === record.slug,
 	);
 }

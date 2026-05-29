@@ -7,43 +7,24 @@ describe("parseObjectiveList", () => {
 		const parsed = parseObjectiveList(envelope());
 
 		expect(parsed).toEqual({
-			baseBranch: "main",
 			trunkBranch: "main",
-			view: "list",
+			rootPath: ".asdl/objectives",
 			statusFilter: "active",
-			currentBranch: null,
-			filteredToCurrent: false,
 			namesOnly: false,
-			groups: [
+			records: [
 				{
 					slug: "alpha",
 					status: "open",
 					latestUpdateIso: "2026-05-20T10:00:00Z",
-					latestWorkBranch: "feat/alpha",
-					branches: [
-						{
-							branch: "feat/alpha",
-							parentBranch: "main",
-							updatedIso: "2026-05-20T10:00:00Z",
-							sliceCommits: 3,
-						},
-					],
 				},
 			],
 		});
 	});
 
-	test("falls back baseBranch to trunkBranch when base_branch is absent", () => {
-		const parsed = parseObjectiveList(envelope({ base_branch: undefined, trunk_branch: "master" }));
+	test("parses null latest update timestamps", () => {
+		const parsed = parseObjectiveList(envelope({ records: [record({ latest_update_iso: null })] }));
 
-		expect(parsed.baseBranch).toBe("master");
-		expect(parsed.trunkBranch).toBe("master");
-	});
-
-	test("falls back missing status_filter to an empty string", () => {
-		const parsed = parseObjectiveList(envelope({ status_filter: undefined }));
-
-		expect(parsed.statusFilter).toBe("");
+		expect(parsed.records[0]?.latestUpdateIso).toBeNull();
 	});
 
 	test("rejects invalid JSON", () => {
@@ -63,57 +44,58 @@ describe("parseObjectiveList", () => {
 	});
 
 	test("rejects invalid top-level fields", () => {
-		expect(() => parseObjectiveList(envelope({ trunk_branch: 42 }))).toThrow(/expected base_branch/);
+		expect(() => parseObjectiveList(envelope({ trunk_branch: 42 }))).toThrow(/expected trunk_branch/);
 	});
 
-	test("rejects invalid group fields", () => {
-		expect(() => parseObjectiveList(envelope({ groups: [group({ slug: 123 })] }))).toThrow(/Invalid Objective list group/);
+	test("rejects missing records", () => {
+		expect(() => parseObjectiveList(envelope({ records: undefined }))).toThrow(/expected trunk_branch/);
 	});
 
-	test("rejects invalid branch fields", () => {
+	test("rejects missing or non-string slug", () => {
+		expect(() => parseObjectiveList(envelope({ records: [record({ slug: undefined })] }))).toThrow(
+			/Invalid Objective list record/,
+		);
+		expect(() => parseObjectiveList(envelope({ records: [record({ slug: 123 })] }))).toThrow(
+			/Invalid Objective list record/,
+		);
+	});
+
+	test("rejects missing or non-string status", () => {
+		expect(() => parseObjectiveList(envelope({ records: [record({ status: undefined })] }))).toThrow(
+			/Invalid Objective list record/,
+		);
+		expect(() => parseObjectiveList(envelope({ records: [record({ status: 123 })] }))).toThrow(
+			/Invalid Objective list record/,
+		);
+	});
+
+	test("rejects latest_update_iso values that are neither string nor null", () => {
+		expect(() => parseObjectiveList(envelope({ records: [record({ latest_update_iso: undefined })] }))).toThrow(
+			/Invalid Objective list record/,
+		);
+		expect(() => parseObjectiveList(envelope({ records: [record({ latest_update_iso: 123 })] }))).toThrow(
+			/Invalid Objective list record/,
+		);
+	});
+
+	test("rejects old branch-projection envelopes", () => {
 		expect(() =>
 			parseObjectiveList(
-				envelope({
-					groups: [
-						group({ branches: [{ branch: "feat/a", parent_branch: "main", updated_iso: null, slice_commits: "3" }] }),
-					],
+				JSON.stringify({
+					exit_code: 0,
+					data: {
+						base_branch: "main",
+						trunk_branch: "main",
+						view: "list",
+						status_filter: "active",
+						current_branch: null,
+						filtered_to_current: false,
+						names_only: false,
+						groups: [],
+					},
 				}),
 			),
-		).toThrow(/Invalid Objective list branch/);
-	});
-
-	test("rejects legacy ahead_base branch shape", () => {
-		expect(() =>
-			parseObjectiveList(
-				envelope({
-					groups: [group({ branches: [{ branch: "feat/a", updated_iso: null, ahead_base: 3 }] })],
-				}),
-			),
-		).toThrow(/expected branch, parent_branch, updated_iso, and slice_commits/);
-	});
-
-	test("rejects non-finite slice_commits", () => {
-		const stdout = `{
-			"exit_code": 0,
-			"data": {
-				"base_branch": "main",
-				"trunk_branch": "main",
-				"view": "list",
-				"status_filter": "active",
-				"current_branch": null,
-				"filtered_to_current": false,
-				"names_only": false,
-				"groups": [{
-					"slug": "alpha",
-					"status": "open",
-					"latest_update_iso": null,
-					"latest_work_branch": null,
-					"branches": [{"branch": "feat/a", "parent_branch": "main", "updated_iso": null, "slice_commits": 1e999}]
-				}]
-			}
-		}`;
-
-		expect(() => parseObjectiveList(stdout)).toThrow(/Invalid Objective list branch/);
+		).toThrow(/expected trunk_branch, root_path, status_filter, names_only, and records/);
 	});
 });
 
@@ -121,33 +103,21 @@ function envelope(dataOverrides: Record<string, unknown> = {}): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			base_branch: "main",
 			trunk_branch: "main",
-			view: "list",
+			root_path: ".asdl/objectives",
 			status_filter: "active",
-			current_branch: null,
-			filtered_to_current: false,
 			names_only: false,
-			groups: [group()],
+			records: [record()],
 			...dataOverrides,
 		},
 	});
 }
 
-function group(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function record(overrides: Record<string, unknown> = {}): Record<string, unknown> {
 	return {
 		slug: "alpha",
 		status: "open",
 		latest_update_iso: "2026-05-20T10:00:00Z",
-		latest_work_branch: "feat/alpha",
-		branches: [
-			{
-				branch: "feat/alpha",
-				parent_branch: "main",
-				updated_iso: "2026-05-20T10:00:00Z",
-				slice_commits: 3,
-			},
-		],
 		...overrides,
 	};
 }

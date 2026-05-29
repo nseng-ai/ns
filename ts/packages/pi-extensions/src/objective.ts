@@ -3,13 +3,13 @@ import { resolve } from "node:path";
 
 import { formatCommand, tailText, type ExecResult } from "./command-runtime.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
-import { parseObjectiveList, type ObjectiveList, type ObjectiveListGroup } from "./objective-list.ts";
+import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
 	changedActiveObjectiveSelection,
 	objectiveChoiceMap,
 	objectiveDiffPickerTitle,
-	objectiveGroupsWithChangedFirst,
+	objectiveRecordsWithChangedFirst,
 	parseObjectiveDiffChangedSlugs,
 	type ObjectiveDiffSelection,
 } from "./objective-picker.ts";
@@ -22,12 +22,12 @@ const MAX_ERROR_CHARS = 4_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective-list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
 
-const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--current] [--names] [--view list|detail] [--help]
+const OBJECTIVE_LIST_USAGE = `Usage: /objective-list [--names] [--status all|active|open|closed] [--help]
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--current", "--names", "--view", "--help", "-h"] as const;
-const OBJECTIVE_LIST_VIEW_VALUES = ["list", "detail"] as const;
+const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
+const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
 
 export type NotifyLevel = "info" | "warning" | "error";
 
@@ -200,16 +200,16 @@ function formatExecStartupFailure(commandDisplay: string, error: unknown): strin
 	return truncateTail(`objective command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${message}`, MAX_ERROR_CHARS);
 }
 
-async function listCurrentActiveObjectives(
+async function listActiveObjectives(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveSelectionSpec,
 ): Promise<ObjectiveList> {
 	if (ctx.hasUI) {
-		ctx.ui.setStatus(spec.statusKey, "listing current active Objectives…");
+		ctx.ui.setStatus(spec.statusKey, "listing active Objectives…");
 	}
 
-	const args = ["list", "--current", "--format", "json"];
+	const args = ["list", "--format", "json"];
 	try {
 		const result = await pi.exec("objective", args, {
 			cwd: ctx.cwd,
@@ -332,10 +332,10 @@ async function invokeObjectiveStackImplPrompt(
 async function selectObjectiveSlug(
 	ctx: CommandContext,
 	title: string,
-	groups: ObjectiveListGroup[],
+	records: ObjectiveListRecord[],
 	selection: ObjectiveDiffSelection | undefined,
 ): Promise<string | undefined> {
-	const choices = objectiveChoiceMap(groups, selection);
+	const choices = objectiveChoiceMap(records, selection);
 	const selected = await ctx.ui.select(title, [...choices.keys()]);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
@@ -358,15 +358,15 @@ async function selectChangedObjectivesOrOther(
 	selection: ObjectiveDiffSelection,
 ): Promise<string | undefined> {
 	const changedSet = new Set(selection.changedActiveSlugs);
-	const changedGroups = objectiveList.groups.filter((group) => changedSet.has(group.slug));
-	const otherGroups = objectiveList.groups.filter((group) => !changedSet.has(group.slug));
-	if (changedGroups.length === 0) {
-		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.groups, undefined);
+	const changedRecords = objectiveList.records.filter((record) => changedSet.has(record.slug));
+	const otherRecords = objectiveList.records.filter((record) => !changedSet.has(record.slug));
+	if (changedRecords.length === 0) {
+		return selectObjectiveSlug(ctx, spec.selectionTitle, objectiveList.records, undefined);
 	}
 
-	const choices = objectiveChoiceMap(changedGroups, selection);
+	const choices = objectiveChoiceMap(changedRecords, selection);
 	const items = [...choices.keys()];
-	if (otherGroups.length > 0) {
+	if (otherRecords.length > 0) {
 		items.push(VIEW_OTHER_OBJECTIVES_CHOICE);
 	}
 
@@ -377,7 +377,7 @@ async function selectChangedObjectivesOrOther(
 	}
 
 	if (selected === VIEW_OTHER_OBJECTIVES_CHOICE) {
-		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other active Objectives)`, otherGroups, undefined);
+		return selectObjectiveSlug(ctx, `${spec.selectionTitle} (other active Objectives)`, otherRecords, undefined);
 	}
 
 	const slug = choices.get(selected);
@@ -417,8 +417,8 @@ async function chooseActiveObjectiveSlug(
 ): Promise<string | undefined> {
 	await ctx.waitForIdle();
 
-	const objectiveList = await listCurrentActiveObjectives(pi, ctx, spec);
-	if (objectiveList.groups.length === 0) {
+	const objectiveList = await listActiveObjectives(pi, ctx, spec);
+	if (objectiveList.records.length === 0) {
 		if (ctx.hasUI) {
 			ctx.ui.notify("No active Objectives. Create one with /skill:objective-create.", "info");
 		}
@@ -444,7 +444,7 @@ async function chooseActiveObjectiveSlug(
 	return selectObjectiveSlug(
 		ctx,
 		spec.selectionTitle,
-		objectiveGroupsWithChangedFirst(objectiveList.groups, diffSelection),
+		objectiveRecordsWithChangedFirst(objectiveList.records, diffSelection),
 		diffSelection,
 	);
 }
@@ -527,29 +527,32 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListParsedArgs
 			help = true;
 			continue;
 		}
-		if (token === "--current" || token === "--names") {
+		if (token === "--names") {
 			args.push(token);
 			continue;
 		}
-		if (token === "--view") {
+		if (token === "--status") {
 			const value = tokens[index + 1];
 			if (!value || value.startsWith("--")) {
-				throw new ObjectiveListUsageError("--view requires one of: list, detail.");
+				throw new ObjectiveListUsageError("--status requires one of: all, active, open, closed.");
 			}
-			if (!isObjectiveListView(value)) {
-				throw new ObjectiveListUsageError(`Unsupported --view value: ${value}. Expected list or detail.`);
-			}
-			args.push("--view", value);
+			args.push("--status", parseObjectiveListStatus(value));
 			index += 1;
 			continue;
 		}
-		if (token.startsWith("--view=")) {
-			const value = token.slice("--view=".length);
-			if (!isObjectiveListView(value)) {
-				throw new ObjectiveListUsageError(`Unsupported --view value: ${value || "(empty)"}. Expected list or detail.`);
-			}
-			args.push("--view", value);
+		if (token.startsWith("--status=")) {
+			args.push("--status", parseObjectiveListStatus(token.slice("--status=".length)));
 			continue;
+		}
+		if (token === "--current" || token.startsWith("--current=")) {
+			throw new ObjectiveListUsageError(
+				"--current is no longer supported by the checkout-local Objective list command.",
+			);
+		}
+		if (token === "--view" || token.startsWith("--view=")) {
+			throw new ObjectiveListUsageError(
+				"--view is no longer supported by the checkout-local Objective list command.",
+			);
 		}
 
 		throw new ObjectiveListUsageError(`Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.`);
@@ -569,8 +572,14 @@ function assertNoForbiddenObjectiveListArgs(tokens: string[]): void {
 	}
 }
 
-function isObjectiveListView(value: string): value is (typeof OBJECTIVE_LIST_VIEW_VALUES)[number] {
-	return (OBJECTIVE_LIST_VIEW_VALUES as readonly string[]).includes(value);
+function parseObjectiveListStatus(value: string): (typeof OBJECTIVE_LIST_STATUS_VALUES)[number] {
+	if ((OBJECTIVE_LIST_STATUS_VALUES as readonly string[]).includes(value)) {
+		return value as (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
+	}
+
+	throw new ObjectiveListUsageError(
+		`Unsupported --status value: ${value || "(empty)"}. Expected all, active, open, or closed.`,
+	);
 }
 
 function objectiveListUsage(error: string): string {
@@ -583,15 +592,15 @@ export function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | 
 	const currentToken = endsWithWhitespace ? "" : (tokens[tokens.length - 1] ?? "");
 	const previousToken = endsWithWhitespace ? tokens[tokens.length - 1] : tokens[tokens.length - 2];
 
-	if (currentToken.startsWith("--view=")) {
-		const valuePrefix = currentToken.slice("--view=".length);
+	if (currentToken.startsWith("--status=")) {
+		const valuePrefix = currentToken.slice("--status=".length);
 		return matchingCompletions(
-			OBJECTIVE_LIST_VIEW_VALUES.map((value) => `--view=${value}`),
-			`--view=${valuePrefix}`,
+			OBJECTIVE_LIST_STATUS_VALUES.map((value) => `--status=${value}`),
+			`--status=${valuePrefix}`,
 		);
 	}
 
-	const candidates = previousToken === "--view" ? OBJECTIVE_LIST_VIEW_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
+	const candidates = previousToken === "--status" ? OBJECTIVE_LIST_STATUS_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
 	return matchingCompletions(candidates, currentToken);
 }
 

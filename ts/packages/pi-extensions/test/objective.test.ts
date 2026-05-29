@@ -5,6 +5,8 @@ import { join } from "node:path";
 
 import objectiveExtension, {
 	buildObjectiveStackImplPrompt,
+	completeObjectiveListArgs,
+	parseObjectiveListArgs,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
@@ -58,6 +60,7 @@ class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
+	readonly sentMessages: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0][] = [];
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedExec[];
 	private readonly commandInfos: ReturnType<ExtensionAPI["getCommands"]>;
@@ -91,6 +94,10 @@ class FakePi implements ExtensionAPI {
 
 	getCommands(): ReturnType<ExtensionAPI["getCommands"]> {
 		return this.commandInfos;
+	}
+
+	sendMessage(message: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0]): void {
+		this.sentMessages.push(message);
 	}
 
 	sendUserMessage(content: string): void {
@@ -270,10 +277,29 @@ async function runObjectiveCommand(
 	return { pi, ...context };
 }
 
+async function runObjectiveList(args: string, script: ScriptedExec[] = []): Promise<{
+	pi: FakePi;
+	notifications: Notification[];
+	selections: Selection[];
+	waitForIdleCalls: () => number;
+}> {
+	const pi = new FakePi(script);
+	objectiveExtension(pi);
+	const command = pi.commands.get("objective-list");
+	expect(command).toBeDefined();
+	if (!command) {
+		throw new Error("objective-list was not registered");
+	}
+
+	const context = createContext();
+	await command.handler(args, context.ctx);
+	return { pi, ...context };
+}
+
 function expectListActiveObjectivesCall(result: { pi: FakePi }): void {
 	expect(result.pi.execCalls[0]).toEqual({
 		command: "objective",
-		args: ["list", "--current", "--format", "json"],
+		args: ["list", "--format", "json"],
 		options: { cwd: ROOT, timeout: 30_000 },
 	});
 }
@@ -292,35 +318,21 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			base_branch: trunkBranch,
 			trunk_branch: trunkBranch,
-			status_source: "current",
-			status_source_branch: "feature/current",
-			view: "list",
+			root_path: ".asdl/objectives",
 			status_filter: "active",
-			current_branch: "feature/current",
-			filtered_to_current: true,
 			names_only: false,
-			groups: slugs.map((slug, index) => ({
+			records: slugs.map((slug, index) => ({
 				slug,
 				status: "open",
 				latest_update_iso: `2026-01-0${index + 1}T00:00:00Z`,
-				latest_work_branch: `feature/${slug}`,
-				branches: [
-					{
-						branch: `feature/${slug}`,
-						parent_branch: trunkBranch,
-						updated_iso: `2026-01-0${index + 1}T00:00:00Z`,
-						slice_commits: index + 1,
-					},
-				],
 			})),
 		},
 	});
 }
 
 function listStep(slugs: string[]): ScriptedExec {
-	return step("objective", ["list", "--current", "--format", "json"], { stdout: objectiveList(slugs) });
+	return step("objective", ["list", "--format", "json"], { stdout: objectiveList(slugs) });
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
@@ -329,6 +341,65 @@ function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExe
 		...result,
 	});
 }
+
+function completionValues(prefix: string): string[] {
+	return completeObjectiveListArgs(prefix)?.map((item) => item.value) ?? [];
+}
+
+describe("objective-list command", () => {
+	test("completions advertise checkout-local options and status values", () => {
+		expect(completionValues("")).toEqual(["--names", "--status", "--help", "-h"]);
+		expect(completionValues("")).not.toContain("--current");
+		expect(completionValues("")).not.toContain("--view");
+		expect(completionValues("--status ")).toEqual(["all", "active", "open", "closed"]);
+		expect(completionValues("--status=o")).toEqual(["--status=open"]);
+		expect(completionValues("--view")).toEqual([]);
+	});
+
+	test("parses accepted checkout-local list arguments", () => {
+		expect(parseObjectiveListArgs("--names --status all")).toEqual({
+			args: ["--names", "--status", "all"],
+			help: false,
+		});
+		expect(parseObjectiveListArgs("--status=closed")).toEqual({
+			args: ["--status", "closed"],
+			help: false,
+		});
+		expect(parseObjectiveListArgs("--help")).toEqual({ args: [], help: true });
+	});
+
+	test("rejects removed and unsupported list arguments", () => {
+		expect(() => parseObjectiveListArgs("--current")).toThrow(/--current is no longer supported/);
+		expect(() => parseObjectiveListArgs("--view detail")).toThrow(/--view is no longer supported/);
+		expect(() => parseObjectiveListArgs("--status in-flight")).toThrow(/Unsupported --status value: in-flight/);
+		expect(() => parseObjectiveListArgs("--format json")).toThrow(/--format is controlled/);
+		expect(() => parseObjectiveListArgs("--json-schema")).toThrow(/--json-schema is not supported/);
+	});
+
+	test("forwards accepted status arguments with markdown format controlled by the extension", async () => {
+		const result = await runObjectiveList("--names --status all", [
+			step("objective", ["list", "--names", "--status", "all", "--format", "markdown"], { stdout: "alpha\n" }),
+		]);
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls[0]).toEqual({
+			command: "objective",
+			args: ["list", "--names", "--status", "all", "--format", "markdown"],
+			options: { cwd: ROOT, timeout: 30_000 },
+		});
+		expect(result.pi.sentMessages[0]?.content).toBe("alpha");
+	});
+
+	test("rejects removed flags before invoking objective list", async () => {
+		const current = await runObjectiveList("--current");
+		const view = await runObjectiveList("--view detail");
+
+		expect(current.pi.execCalls).toEqual([]);
+		expect(view.pi.execCalls).toEqual([]);
+		expect(current.pi.sentMessages[0]?.content).toContain("--current is no longer supported");
+		expect(view.pi.sentMessages[0]?.content).toContain("--view is no longer supported");
+	});
+});
 
 describe("objective-stack-impl command", () => {
 	test("registers the prompt-backed wrapper command", () => {
@@ -400,7 +471,7 @@ describe("objective-stack-impl command", () => {
 			expect(result.selections[0]).toEqual({
 				title: "Select an active Objective for stack implementation (only Objective changed vs master)",
 				items: [
-					"bravo — suggested: only Objective changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
+					"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 					"View other active Objectives…",
 				],
 			});
@@ -421,8 +492,8 @@ describe("objective-stack-impl command", () => {
 			expect(result.selections[1]).toEqual({
 				title: "Select an active Objective for stack implementation (other active Objectives)",
 				items: [
-					"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
-					"charlie — 1 branch — latest work feature/charlie — max +3 slice commits",
+					"alpha — open — latest update 2026-01-01T00:00:00Z",
+					"charlie — open — latest update 2026-01-03T00:00:00Z",
 				],
 			});
 			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `charlie`");
@@ -487,7 +558,7 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (only Objective changed vs master)",
 			items: [
-				"bravo — suggested: only Objective changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
+				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
 			],
 		});
@@ -509,8 +580,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[1]).toEqual({
 			title: "Select an active Objective for next-work recommendation (other active Objectives)",
 			items: [
-				"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
-				"charlie — 1 branch — latest work feature/charlie — max +3 slice commits",
+				"alpha — open — latest update 2026-01-01T00:00:00Z",
+				"charlie — open — latest update 2026-01-03T00:00:00Z",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("charlie");
@@ -529,8 +600,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 slice commits",
-				"charlie — changed vs master — 1 branch — latest work feature/charlie — max +3 slice commits",
+				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
+				"charlie — changed vs master — open — latest update 2026-01-03T00:00:00Z",
 				"View other active Objectives…",
 			],
 		});
@@ -555,8 +626,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[1]).toEqual({
 			title: "Select an active Objective for next-work recommendation (other active Objectives)",
 			items: [
-				"bravo — 1 branch — latest work feature/bravo — max +2 slice commits",
-				"delta — 1 branch — latest work feature/delta — max +4 slice commits",
+				"bravo — open — latest update 2026-01-02T00:00:00Z",
+				"delta — open — latest update 2026-01-04T00:00:00Z",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("delta");
@@ -572,8 +643,8 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — 1 branch — latest work feature/alpha — max +1 slice commits",
-				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
+				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
+				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("alpha");
@@ -588,13 +659,13 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
-			"bravo — 1 branch — latest work feature/bravo — max +2 slice commits",
+			"alpha — open — latest update 2026-01-01T00:00:00Z",
+			"bravo — open — latest update 2026-01-02T00:00:00Z",
 		]);
 		expect(items.some((item) => item.includes("suggested"))).toBe(false);
 	});
 
-	test("filters branch-closed Objectives before diff suggestions", async () => {
+	test("filters inactive changed Objective slugs before diff suggestions", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["pi-extension-deepening"]),
 			diffStep([
@@ -606,7 +677,7 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"pi-extension-deepening — changed vs master — 1 branch — latest work feature/pi-extension-deepening — max +1 slice commits",
+			"pi-extension-deepening — changed vs master — open — latest update 2026-01-01T00:00:00Z",
 		]);
 		expect(items.some((item) => item.includes("pi-extension-architecture-deepening"))).toBe(false);
 		expect(result.pi.sentUserMessages[0]).toContain("pi-extension-deepening");
@@ -626,7 +697,7 @@ describe("objective picker suggestion", () => {
 		expect(result.selections[0]).toEqual({
 			title: "Select an active Objective for next-work recommendation (changed Objectives vs master)",
 			items: [
-				"bravo — changed vs master — 1 branch — latest work feature/bravo — max +2 slice commits",
+				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
 			],
 		});
@@ -642,7 +713,7 @@ describe("objective picker suggestion", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("bravo");
 	});
 
-	test("falls back to the current picker when git diff fails", async () => {
+	test("falls back to the normal picker when git diff fails", async () => {
 		const result = await runObjectiveNext(
 			"",
 			[listStep(["alpha", "bravo"]), diffStep("", { code: 1, stderr: "fatal: bad revision" })],
@@ -652,8 +723,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — 1 branch — latest work feature/alpha — max +1 slice commits",
-			"bravo — 1 branch — latest work feature/bravo — max +2 slice commits",
+			"alpha — open — latest update 2026-01-01T00:00:00Z",
+			"bravo — open — latest update 2026-01-02T00:00:00Z",
 		]);
 		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
 		expect(result.pi.sentUserMessages).toEqual([]);
@@ -661,6 +732,22 @@ describe("objective picker suggestion", () => {
 });
 
 describe("objective command shared selection policy", () => {
+	test("empty-args picker commands never invoke the removed --current list flag", async () => {
+		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
+			const result = await runObjectiveCommand(commandName, "", [listStep([])]);
+
+			result.pi.assertDone();
+			expect(result.pi.execCalls[0]?.args).toEqual(["list", "--format", "json"]);
+			expect(result.pi.execCalls[0]?.args).not.toContain("--current");
+		}
+
+		const stackResult = await runObjectiveStackImpl("", [listStep([])]);
+
+		stackResult.pi.assertDone();
+		expect(stackResult.pi.execCalls[0]?.args).toEqual(["list", "--format", "json"]);
+		expect(stackResult.pi.execCalls[0]?.args).not.toContain("--current");
+	});
+
 	for (const commandName of OBJECTIVE_COMMAND_NAMES) {
 		describe(commandName, () => {
 			test("explicit slug or path bypasses objective list and git diff", async () => {
@@ -681,7 +768,7 @@ describe("objective command shared selection policy", () => {
 				});
 			});
 
-			test("empty args load current active candidates with objective list json", async () => {
+			test("empty args load active candidates with objective list json", async () => {
 				const result = await runObjectiveCommand(
 					commandName,
 					"",
