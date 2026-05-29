@@ -57,14 +57,14 @@ This Objective splits the model cleanly. `objective list` becomes a filesystem-l
 Assumptions:
 
 - The clean split between checkout-local records and Graphite stack projection is the right mental model, even though it is a breaking change for existing `objective list` consumers.
-- The Graphite gateway can be extended to expose enough current-trunk graph metadata for all tracked branches without depending on human `gt ls` output.
+- Phase 2 confirmed that the Graphite gateway can expose current-trunk graph metadata for all reachable Graphite-tracked branches without depending on human `gt ls` output.
 - Git path-change queries over `parent..branch` ranges can reliably identify Objective touches, including deletions under `.asdl/objectives/<slug>/`.
 - `(x)` is an acceptable compact marker for outstanding working-tree changes in `objective list` latest-update output.
 - Markdown and JSON consumers can migrate directly to the new contracts in the same workstream.
 
 Risks:
 
-- The existing `GtGateway.stack()` shape is centered on the current branch, so `objective gt stacks` may require a deeper Graphite graph model before CLI work can proceed cleanly.
+- The current-branch-centered `GtGateway.stack()` risk is de-risked for Phase 2: `GtGateway.branch_graph(cwd)` now provides a separate repo/trunk-centered graph model while leaving `stack()` stable.
 - Segment construction for many-to-many Objective/branch relationships can become complex if the implementation tries to mimic `gt ls` too early. Mitigation: v1 uses a simpler indented layout and relies on JSON for structural completeness.
 - Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, and verifies the picker/list flows against the new contract. The remaining Pi extension risk is the separate `/objective-gt-stacks` wrapper, which still waits for the Graphite command.
 - Dirty-state detection for `(x)` is de-risked for checkout-local `objective list` by path-scoped Git status coverage of staged, unstaged, untracked, and unrelated paths. The Pi picker still needs a separate integration slice before it can use checkout-local outstanding-change facts for suggestions.
@@ -78,6 +78,11 @@ Resolved during Phase 1 checkout-local list core:
 - `objective list --status active` remains supported as an alias for open checkout-local records.
 - The record-oriented `objective list --format json` schema exposes `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records[].slug/status/latest_update_iso`. It does not expose formatted latest-update text, dirty state, branch groups, or branch/source projection fields.
 - Dirty checkout-local Objective records are presentation-only for `objective list`: human and Markdown output prefix the latest-update cell with `(x)`, while JSON remains raw and dirty-state-free.
+
+Resolved during Phase 2 structured Graphite graph support:
+
+- The gateway shape for repo-level Graphite scanning is `GtGateway.branch_graph(cwd)`, returning a `GtBranchGraph` of `GtTrackedBranch` rows reachable from the configured Graphite trunk.
+- `branch_graph()` reads `.graphite_repo_config` and `.graphite_metadata.db` read-only, does not parse `gt ls`, and does not require the current checkout branch to be Graphite-tracked.
 
 Still open:
 

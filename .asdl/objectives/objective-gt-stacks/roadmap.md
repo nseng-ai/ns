@@ -18,9 +18,9 @@ Phase 1 — checkout-local `objective list`
 
 Phase 2 — structured Graphite graph support
 
-- [ ] Extend the Graphite gateway or add a focused Objective-side adapter that returns all Graphite-tracked branches under the current Graphite trunk with parent/child relationships and branch annotations needed by `objective gt stacks`.
-- [ ] Keep the implementation independent of human `gt ls` output.
-- [ ] Add fake-driven tests for current-branch-untracked operation, current-trunk scoping, Graphite metadata failures, disconnected branch regions, and branch annotations that are available in v1.
+- [x] Extend the Graphite gateway or add a focused Objective-side adapter that returns all Graphite-tracked branches under the current Graphite trunk with parent/child relationships and branch annotations needed by `objective gt stacks`.
+- [x] Keep the implementation independent of human `gt ls` output.
+- [x] Add fake-driven tests for current-branch-untracked operation, current-trunk scoping, Graphite metadata failures, disconnected branch regions, and branch annotations that are available in v1.
 
 Phase 3 — Objective stack projection model
 
