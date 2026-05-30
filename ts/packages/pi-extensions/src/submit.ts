@@ -1,5 +1,18 @@
 import { spawn } from "node:child_process";
 
+import {
+	commitPreparedCheckpointMessage,
+	prepareCheckpointMessageForPi,
+	type ExtensionAPI as CheckpointExtensionAPI,
+	type ExtensionCommandContext as CheckpointExtensionCommandContext,
+	type PreparedCheckpointMessage,
+} from "./checkpoint-pi.ts";
+import {
+	formatPendingWorktreeCommandDetails,
+	loadPendingWorktreeSnapshot,
+	type PendingWorktreeError,
+	type PendingWorktreeSnapshot,
+} from "./pending-worktree.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
@@ -17,18 +30,16 @@ type Component = {
 
 type WidgetContent = string[] | ((tui: unknown, theme: Theme) => Component) | undefined;
 
-export type ExtensionCommandContext = {
-	cwd: string;
+export type ExtensionCommandContext = Omit<CheckpointExtensionCommandContext, "ui"> & {
 	hasUI: boolean;
-	ui: {
+	ui: Omit<CheckpointExtensionCommandContext["ui"], "notify" | "setWidget"> & {
 		notify(message: string, level?: NotifyLevel): void;
 		confirm(title: string, message: string): Promise<boolean>;
 		setWidget(key: string, value: WidgetContent, options?: { placement?: WidgetPlacement }): void;
 	};
-	waitForIdle(): Promise<void>;
 };
 
-export type ExtensionAPI = {
+export type ExtensionAPI = Pick<CheckpointExtensionAPI, "exec"> & {
 	registerCommand(
 		name: string,
 		command: {
@@ -92,8 +103,20 @@ export type SubmitCommandRunner = {
 	): Promise<StreamedSubmitCommandResult>;
 };
 
+export type LoadedPendingWorktreeSnapshotResult = Awaited<ReturnType<typeof loadPendingWorktreeSnapshot>>;
+
+export type SubmitCheckpointOperations = {
+	loadSnapshot(ctx: ExtensionCommandContext): Promise<LoadedPendingWorktreeSnapshotResult>;
+	prepareMessage(
+		ctx: ExtensionCommandContext,
+		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
+	): Promise<PreparedCheckpointMessage>;
+	commit(ctx: ExtensionCommandContext, message: string): Promise<{ summary: string } | { error: string }>;
+};
+
 export type SubmitDependencies = {
 	runner?: SubmitCommandRunner;
+	checkpoint?: SubmitCheckpointOperations;
 };
 
 export default function submitExtension(pi: ExtensionAPI): void {
@@ -102,6 +125,7 @@ export default function submitExtension(pi: ExtensionAPI): void {
 
 export function submitExtensionWithDependencies(pi: ExtensionAPI, dependencies: SubmitDependencies = {}): void {
 	const runner = dependencies.runner ?? createNodeSubmitCommandRunner();
+	const checkpointOperations = dependencies.checkpoint ?? createDefaultSubmitCheckpointOperations(pi);
 
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Submit the current Graphite stack with gt submit -nps --ai",
@@ -110,148 +134,28 @@ export function submitExtensionWithDependencies(pi: ExtensionAPI, dependencies: 
 			ctx.ui.setWidget(WIDGET_ID, undefined);
 			const progress = createSubmitProgress(ctx);
 
-			const ready = await ensureStackReadyForSubmit(ctx, progress, runner);
-			if (!ready) return;
-
-			const stdoutChunks: string[] = [];
-			const stderrChunks: string[] = [];
-			let stdoutRemainder = "";
-			let stderrRemainder = "";
-			let latestLine = "running…";
-			let progressTimer: ReturnType<typeof setTimeout> | undefined;
-
-			const renderProgress = () => {
-				progress.show(`gt submit: ${latestLine}`);
-			};
-
-			const scheduleProgress = () => {
-				if (progressTimer) return;
-				progressTimer = setTimeout(() => {
-					progressTimer = undefined;
-					renderProgress();
-				}, PROGRESS_THROTTLE_MS);
-			};
-
-			const noteLine = (_source: "stdout" | "stderr", line: string) => {
-				const sanitized = sanitizeProgressText(line);
-				if (!sanitized) return;
-				latestLine = sanitized;
-				scheduleProgress();
-			};
-
-			const appendOutput = (source: "stdout" | "stderr", chunk: string) => {
-				if (source === "stdout") {
-					stdoutChunks.push(chunk);
-				} else {
-					stderrChunks.push(chunk);
-				}
-
-				const normalized = chunk.replace(/\r/g, "\n");
-				const text = (source === "stdout" ? stdoutRemainder : stderrRemainder) + normalized;
-				const lines = text.split("\n");
-				const remainder = lines.pop() ?? "";
-
-				if (source === "stdout") {
-					stdoutRemainder = remainder;
-				} else {
-					stderrRemainder = remainder;
-				}
-
-				for (const line of lines) {
-					noteLine(source, line);
-				}
-				noteLine(source, remainder);
-			};
-
-			const flushRemainders = () => {
-				noteLine("stdout", stdoutRemainder);
-				noteLine("stderr", stderrRemainder);
-				stdoutRemainder = "";
-				stderrRemainder = "";
-			};
-
-			renderProgress();
-
-			const result = await runner.runStreaming("gt", [...SUBMIT_ARGS], {
-				cwd: ctx.cwd,
-				timeoutMs: SUBMIT_TIMEOUT_MS,
-				onStdout(chunk: string): void {
-					appendOutput("stdout", chunk);
-				},
-				onStderr(chunk: string): void {
-					appendOutput("stderr", chunk);
-				},
-				onTimedOut(): void {
-					latestLine = `timed out after ${SUBMIT_TIMEOUT_MS / 1000}s; sent SIGTERM`;
-					scheduleProgress();
-				},
+			const firstAttempt = await runSubmitAttempt({
+				ctx,
+				progress,
+				runner,
+				allowNoCurrentPrRecovery: true,
 			});
-			if (result.startupError) {
-				noteLine("stderr", result.startupError);
-			}
+			if (firstAttempt.kind !== "post_submit_no_current_pr") return;
 
-			if (progressTimer) {
-				clearTimeout(progressTimer);
-				progressTimer = undefined;
-			}
-			flushRemainders();
-			if (progressTimer) {
-				clearTimeout(progressTimer);
-				progressTimer = undefined;
-			}
-			progress.clear();
-
-			const stdout = stdoutChunks.join("");
-			const stderr = stderrChunks.join("");
-
-			const submitOutput = `${stdout}\n${stderr}`;
-			const semanticFailure = detectSubmitSemanticFailure(submitOutput);
-
-			if (result.code === 0 && !result.killed) {
-				progress.show("gt pr: verifying current branch…");
-				const currentPrCheck = await runner
-					.runBuffered("gt", [...CURRENT_PR_ARGS], { cwd: ctx.cwd, timeoutMs: CURRENT_PR_TIMEOUT_MS })
-					.finally(() => progress.clear());
-				const currentPrFailure = detectCurrentPrFailure(currentPrCheck);
-
-				if (semanticFailure || currentPrFailure) {
-					const failureOutput = formatPostSubmitFailureOutput({
-						reason: formatPostSubmitFailureReason(semanticFailure, currentPrFailure),
-						stdout,
-						stderr,
-						currentPrCheck,
-					});
-					ctx.ui.setWidget(WIDGET_ID, failureOutput.split("\n"));
-					if (!ctx.hasUI) {
-						console.error(failureOutput);
-					}
-					ctx.ui.notify(failureOutput, "error");
-					return;
-				}
-
-				const prLinks = extractPrLinks(`${submitOutput}\n${currentPrCheck.stdout}\n${currentPrCheck.stderr}`);
-				const successOutput = prLinks.length > 0 ? formatSubmitSuccessText(prLinks) : formatSubmitSuccessFallbackText(stdout, stderr);
-
-				progress.clear();
-				if (!ctx.hasUI) {
-					console.log(successOutput);
-				}
-				ctx.ui.notify(formatSubmitSuccessNotification(prLinks), "info");
-				return;
-			}
-
-			const failureOutput = formatFailureOutput({
-				code: result.code,
-				killed: result.killed,
-				startupError: result.startupError,
-				stdout,
-				stderr,
+			const recovery = await offerCheckpointRecovery({
+				ctx,
+				operations: checkpointOperations,
+				originalFailure: firstAttempt,
 			});
-			ctx.ui.setWidget(WIDGET_ID, failureOutput.split("\n"));
-			if (!ctx.hasUI) {
-				console.error(failureOutput);
-			}
-			ctx.ui.notify(failureOutput, "error");
+			if (recovery !== "retry") return;
+
+			ctx.ui.setWidget(WIDGET_ID, undefined);
+			await runSubmitAttempt({
+				ctx,
+				progress,
+				runner,
+				allowNoCurrentPrRecovery: false,
+			});
 		},
 	});
 }
@@ -262,6 +166,35 @@ type PrLink = {
 };
 
 type BufferedCommandResult = BufferedSubmitCommandResult;
+
+type CurrentPrFailure =
+	| { kind: "startup_error"; message: string }
+	| { kind: "timeout"; message: string }
+	| { kind: "no_current_pr"; message: string }
+	| { kind: "failed"; message: string };
+
+type SubmitAttemptOutcome =
+	| { kind: "success" }
+	| { kind: "preflight_handled" }
+	| { kind: "failure_handled" }
+	| {
+			kind: "post_submit_no_current_pr";
+			stdout: string;
+			stderr: string;
+			currentPrCheck: BufferedCommandResult;
+			semanticFailure: string | undefined;
+			currentPrFailure: CurrentPrFailure & { kind: "no_current_pr" };
+		};
+
+type PostSubmitNoCurrentPrOutcome = Extract<SubmitAttemptOutcome, { kind: "post_submit_no_current_pr" }>;
+
+type CheckpointRecoveryDecision = "retry" | "handled";
+
+type SubmitCommandOutput = {
+	result: StreamedSubmitCommandResult;
+	stdout: string;
+	stderr: string;
+};
 
 type SubmitProgress = {
 	show(line: string): void;
@@ -277,6 +210,314 @@ function createSubmitProgress(ctx: ExtensionCommandContext): SubmitProgress {
 			ctx.ui.setWidget(WIDGET_ID, undefined);
 		},
 	};
+}
+
+function createDefaultSubmitCheckpointOperations(pi: ExtensionAPI): SubmitCheckpointOperations {
+	return {
+		loadSnapshot(ctx: ExtensionCommandContext): Promise<LoadedPendingWorktreeSnapshotResult> {
+			return loadPendingWorktreeSnapshot({
+				cwd: ctx.cwd,
+				execGit: (args, timeout) => pi.exec("git", args, { cwd: ctx.cwd, timeout }),
+			});
+		},
+		prepareMessage(
+			ctx: ExtensionCommandContext,
+			snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
+		): Promise<PreparedCheckpointMessage> {
+			return prepareCheckpointMessageForPi(pi, ctx, snapshot);
+		},
+		commit(ctx: ExtensionCommandContext, message: string): Promise<{ summary: string } | { error: string }> {
+			return commitPreparedCheckpointMessage(pi, ctx.cwd, message);
+		},
+	};
+}
+
+async function runSubmitAttempt(input: {
+	ctx: ExtensionCommandContext;
+	progress: SubmitProgress;
+	runner: SubmitCommandRunner;
+	allowNoCurrentPrRecovery: boolean;
+}): Promise<SubmitAttemptOutcome> {
+	const { ctx, progress, runner } = input;
+	const ready = await ensureStackReadyForSubmit(ctx, progress, runner);
+	if (!ready) return { kind: "preflight_handled" };
+
+	const { result, stdout, stderr } = await runStreamingSubmitCommand(ctx, progress, runner);
+	const submitOutput = `${stdout}\n${stderr}`;
+	const semanticFailure = detectSubmitSemanticFailure(submitOutput);
+
+	if (result.code === 0 && !result.killed) {
+		progress.show("gt pr: verifying current branch…");
+		const currentPrCheck = await runner
+			.runBuffered("gt", [...CURRENT_PR_ARGS], { cwd: ctx.cwd, timeoutMs: CURRENT_PR_TIMEOUT_MS })
+			.finally(() => progress.clear());
+		const currentPrFailure = detectCurrentPrFailure(currentPrCheck);
+
+		if (semanticFailure || currentPrFailure) {
+			if (currentPrFailure?.kind === "no_current_pr" && input.allowNoCurrentPrRecovery) {
+				return {
+					kind: "post_submit_no_current_pr",
+					stdout,
+					stderr,
+					currentPrCheck,
+					semanticFailure,
+					currentPrFailure,
+				};
+			}
+
+			displayPostSubmitFailure(ctx, {
+				stdout,
+				stderr,
+				currentPrCheck,
+				semanticFailure,
+				currentPrFailure,
+			});
+			return { kind: "failure_handled" };
+		}
+
+		const prLinks = extractPrLinks(`${submitOutput}\n${currentPrCheck.stdout}\n${currentPrCheck.stderr}`);
+		const successOutput = prLinks.length > 0 ? formatSubmitSuccessText(prLinks) : formatSubmitSuccessFallbackText(stdout, stderr);
+
+		progress.clear();
+		if (!ctx.hasUI) {
+			console.log(successOutput);
+		}
+		ctx.ui.notify(formatSubmitSuccessNotification(prLinks), "info");
+		return { kind: "success" };
+	}
+
+	displayFailureOutput(
+		ctx,
+		formatFailureOutput({
+			code: result.code,
+			killed: result.killed,
+			startupError: result.startupError,
+			stdout,
+			stderr,
+		}),
+	);
+	return { kind: "failure_handled" };
+}
+
+async function runStreamingSubmitCommand(
+	ctx: ExtensionCommandContext,
+	progress: SubmitProgress,
+	runner: SubmitCommandRunner,
+): Promise<SubmitCommandOutput> {
+	const stdoutChunks: string[] = [];
+	const stderrChunks: string[] = [];
+	let stdoutRemainder = "";
+	let stderrRemainder = "";
+	let latestLine = "running…";
+	let progressTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const renderProgress = () => {
+		progress.show(`gt submit: ${latestLine}`);
+	};
+
+	const scheduleProgress = () => {
+		if (progressTimer) return;
+		progressTimer = setTimeout(() => {
+			progressTimer = undefined;
+			renderProgress();
+		}, PROGRESS_THROTTLE_MS);
+	};
+
+	const noteLine = (_source: "stdout" | "stderr", line: string) => {
+		const sanitized = sanitizeProgressText(line);
+		if (!sanitized) return;
+		latestLine = sanitized;
+		scheduleProgress();
+	};
+
+	const appendOutput = (source: "stdout" | "stderr", chunk: string) => {
+		if (source === "stdout") {
+			stdoutChunks.push(chunk);
+		} else {
+			stderrChunks.push(chunk);
+		}
+
+		const normalized = chunk.replace(/\r/g, "\n");
+		const text = (source === "stdout" ? stdoutRemainder : stderrRemainder) + normalized;
+		const lines = text.split("\n");
+		const remainder = lines.pop() ?? "";
+
+		if (source === "stdout") {
+			stdoutRemainder = remainder;
+		} else {
+			stderrRemainder = remainder;
+		}
+
+		for (const line of lines) {
+			noteLine(source, line);
+		}
+		noteLine(source, remainder);
+	};
+
+	const flushRemainders = () => {
+		noteLine("stdout", stdoutRemainder);
+		noteLine("stderr", stderrRemainder);
+		stdoutRemainder = "";
+		stderrRemainder = "";
+	};
+
+	renderProgress();
+
+	const result = await runner.runStreaming("gt", [...SUBMIT_ARGS], {
+		cwd: ctx.cwd,
+		timeoutMs: SUBMIT_TIMEOUT_MS,
+		onStdout(chunk: string): void {
+			appendOutput("stdout", chunk);
+		},
+		onStderr(chunk: string): void {
+			appendOutput("stderr", chunk);
+		},
+		onTimedOut(): void {
+			latestLine = `timed out after ${SUBMIT_TIMEOUT_MS / 1000}s; sent SIGTERM`;
+			scheduleProgress();
+		},
+	});
+	if (result.startupError) {
+		noteLine("stderr", result.startupError);
+	}
+
+	if (progressTimer) {
+		clearTimeout(progressTimer);
+		progressTimer = undefined;
+	}
+	flushRemainders();
+	if (progressTimer) {
+		clearTimeout(progressTimer);
+		progressTimer = undefined;
+	}
+	progress.clear();
+
+	return {
+		result,
+		stdout: stdoutChunks.join(""),
+		stderr: stderrChunks.join(""),
+	};
+}
+
+async function offerCheckpointRecovery(input: {
+	ctx: ExtensionCommandContext;
+	operations: SubmitCheckpointOperations;
+	originalFailure: PostSubmitNoCurrentPrOutcome;
+}): Promise<CheckpointRecoveryDecision> {
+	const { ctx, operations, originalFailure } = input;
+	const originalOutput = formatOriginalPostSubmitFailure(originalFailure);
+
+	if (!ctx.hasUI) {
+		displayFailureOutput(ctx, formatCheckpointRecoveryNoUiOutput(originalOutput));
+		return "handled";
+	}
+
+	const loaded = await loadSnapshotForCheckpointRecovery(ctx, operations, originalOutput);
+	if (!loaded.ok) return "handled";
+
+	const snapshot = loaded.snapshot;
+	if (snapshot.clean) {
+		displayFailureOutput(
+			ctx,
+			formatCheckpointRecoveryUnavailableOutput(
+				originalOutput,
+				"Working tree is clean; there are no outstanding changes to checkpoint.",
+			),
+		);
+		return "handled";
+	}
+	if (snapshot.branch === "main" || snapshot.branch === "master") {
+		displayFailureOutput(
+			ctx,
+			formatCheckpointRecoveryUnavailableOutput(originalOutput, `Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`),
+		);
+		return "handled";
+	}
+
+	ctx.ui.setWidget(WIDGET_ID, undefined);
+	const prepared = await prepareMessageForCheckpointRecovery(
+		ctx,
+		operations,
+		{ status: snapshot.status, diff: snapshot.diff },
+		originalOutput,
+	);
+	if (!prepared.ok) return "handled";
+
+	const confirmed = await ctx.ui.confirm("Checkpoint pending changes?", formatCheckpointRecoveryPrompt(prepared.message));
+	if (!confirmed) {
+		ctx.ui.setWidget(WIDGET_ID, formatCheckpointRecoveryDeclinedWidgetOutput(originalOutput, prepared.message).split("\n"));
+		ctx.ui.notify("Submission cancelled. Pending changes were not checkpointed; run /cp or /submit again when ready.", "warning");
+		return "handled";
+	}
+
+	ctx.ui.setWidget(WIDGET_ID, undefined);
+	const committed = await commitCheckpointForRecovery(ctx, operations, prepared.message, originalOutput);
+	if (!committed.ok) return "handled";
+
+	ctx.ui.notify(`Checkpoint created: ${committed.summary}; retrying submit…`, "info");
+	return "retry";
+}
+
+async function loadSnapshotForCheckpointRecovery(
+	ctx: ExtensionCommandContext,
+	operations: SubmitCheckpointOperations,
+	originalOutput: string,
+): Promise<LoadedPendingWorktreeSnapshotResult> {
+	try {
+		const loaded = await operations.loadSnapshot(ctx);
+		if (!loaded.ok) {
+			displayFailureOutput(ctx, formatCheckpointSnapshotFailureOutput(originalOutput, loaded.error));
+		}
+		return loaded;
+	} catch (error) {
+		displayFailureOutput(ctx, formatCheckpointRecoveryUnavailableOutput(originalOutput, `Could not inspect pending worktree: ${errorMessage(error)}`));
+		return {
+			ok: false,
+			error: {
+				kind: "status_failed",
+				message: "Could not inspect pending worktree.",
+				result: { code: 1, stdout: "", stderr: errorMessage(error) },
+			},
+		};
+	}
+}
+
+async function prepareMessageForCheckpointRecovery(
+	ctx: ExtensionCommandContext,
+	operations: SubmitCheckpointOperations,
+	snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
+	originalOutput: string,
+): Promise<PreparedCheckpointMessage> {
+	try {
+		const prepared = await operations.prepareMessage(ctx, snapshot);
+		if (!prepared.ok) {
+			displayFailureOutput(ctx, formatCheckpointPreparationFailureOutput(originalOutput, prepared.error));
+		}
+		return prepared;
+	} catch (error) {
+		const message = errorMessage(error);
+		displayFailureOutput(ctx, formatCheckpointPreparationFailureOutput(originalOutput, message));
+		return { ok: false, error: message };
+	}
+}
+
+async function commitCheckpointForRecovery(
+	ctx: ExtensionCommandContext,
+	operations: SubmitCheckpointOperations,
+	message: string,
+	originalOutput: string,
+): Promise<{ ok: true; summary: string } | { ok: false }> {
+	try {
+		const committed = await operations.commit(ctx, message);
+		if ("error" in committed) {
+			displayFailureOutput(ctx, formatCheckpointCommitFailureOutput(originalOutput, committed.error));
+			return { ok: false };
+		}
+		return { ok: true, summary: committed.summary };
+	} catch (error) {
+		displayFailureOutput(ctx, formatCheckpointCommitFailureOutput(originalOutput, errorMessage(error)));
+		return { ok: false };
+	}
 }
 
 function setProgressWidget(ctx: ExtensionCommandContext, line: string): void {
@@ -668,25 +909,135 @@ function detectSubmitSemanticFailure(output: string): string | undefined {
 	return undefined;
 }
 
-function detectCurrentPrFailure(result: BufferedCommandResult): string | undefined {
+function detectCurrentPrFailure(result: BufferedCommandResult): CurrentPrFailure | undefined {
 	if (result.startupError) {
-		return `gt submit exited 0, but current PR verification could not start: ${result.startupError}`;
+		return {
+			kind: "startup_error",
+			message: `gt submit exited 0, but current PR verification could not start: ${result.startupError}`,
+		};
 	}
 	if (result.killed) {
-		return `gt submit exited 0, but current PR verification timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s.`;
+		return {
+			kind: "timeout",
+			message: `gt submit exited 0, but current PR verification timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s.`,
+		};
 	}
 	if (result.code !== 0) {
 		const output = stripAnsi(`${result.stdout}\n${result.stderr}`);
 		if (/No PR found/i.test(output)) {
-			return "gt submit exited 0, but the current branch still has no PR.";
+			return { kind: "no_current_pr", message: "gt submit exited 0, but the current branch still has no PR." };
 		}
-		return `gt submit exited 0, but current PR verification failed with exit code ${result.code}.`;
+		return { kind: "failed", message: `gt submit exited 0, but current PR verification failed with exit code ${result.code}.` };
 	}
 	return undefined;
 }
 
-function formatPostSubmitFailureReason(semanticFailure: string | undefined, currentPrFailure: string | undefined): string {
-	return [semanticFailure, currentPrFailure].filter((line): line is string => Boolean(line)).join("\n");
+function displayPostSubmitFailure(
+	ctx: ExtensionCommandContext,
+	failure: {
+		stdout: string;
+		stderr: string;
+		currentPrCheck: BufferedCommandResult;
+		semanticFailure: string | undefined;
+		currentPrFailure: CurrentPrFailure | undefined;
+	},
+): void {
+	displayFailureOutput(ctx, formatOriginalPostSubmitFailure(failure));
+}
+
+function formatOriginalPostSubmitFailure({
+	stdout,
+	stderr,
+	currentPrCheck,
+	semanticFailure,
+	currentPrFailure,
+}: {
+	stdout: string;
+	stderr: string;
+	currentPrCheck: BufferedCommandResult;
+	semanticFailure: string | undefined;
+	currentPrFailure: CurrentPrFailure | undefined;
+}): string {
+	return formatPostSubmitFailureOutput({
+		reason: formatPostSubmitFailureReason(semanticFailure, currentPrFailure),
+		stdout,
+		stderr,
+		currentPrCheck,
+	});
+}
+
+function formatPostSubmitFailureReason(semanticFailure: string | undefined, currentPrFailure: CurrentPrFailure | undefined): string {
+	return [semanticFailure, currentPrFailure?.message].filter((line): line is string => Boolean(line)).join("\n");
+}
+
+function formatCheckpointRecoveryPrompt(message: string): string {
+	return [
+		"gt submit completed, but Graphite still reports no PR for this branch.",
+		"The working tree has outstanding changes. /submit can checkpoint them and retry.",
+		"",
+		"This will stage and commit all outstanding changes, the same as /cp.",
+		"",
+		"Proposed checkpoint commit message:",
+		"",
+		message,
+		"",
+		"Checkpoint these changes and retry /submit?",
+	].join("\n");
+}
+
+function formatCheckpointRecoveryNoUiOutput(originalFailure: string): string {
+	return [
+		originalFailure,
+		"",
+		"No checkpoint commit was created because /submit is running without an interactive confirmation prompt.",
+		"Run /cp to checkpoint outstanding changes, then run /submit again.",
+	].join("\n");
+}
+
+function formatCheckpointSnapshotFailureOutput(originalFailure: string, error: PendingWorktreeError): string {
+	return [
+		originalFailure,
+		"",
+		"Could not inspect pending worktree for checkpoint recovery.",
+		error.message,
+		formatPendingWorktreeCommandDetails(error.result),
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+function formatCheckpointRecoveryUnavailableOutput(originalFailure: string, reason: string): string {
+	return [originalFailure, "", reason, "No checkpoint commit was created. Run /cp or /submit again after resolving this state."].join("\n");
+}
+
+function formatCheckpointPreparationFailureOutput(originalFailure: string, error: string): string {
+	return [
+		originalFailure,
+		"",
+		"Checkpoint recovery could not prepare a /cp-style commit message. Submission was not retried.",
+		error,
+	].join("\n");
+}
+
+function formatCheckpointCommitFailureOutput(originalFailure: string, error: string): string {
+	return [
+		originalFailure,
+		"",
+		"Checkpoint recovery prepared a commit message, but creating the checkpoint commit failed. Submission was not retried.",
+		error,
+	].join("\n");
+}
+
+function formatCheckpointRecoveryDeclinedWidgetOutput(originalFailure: string, message: string): string {
+	return [
+		originalFailure,
+		"",
+		"Checkpoint recovery was cancelled. Pending changes were not checkpointed.",
+		"",
+		"Proposed checkpoint commit message:",
+		"",
+		message,
+	].join("\n");
 }
 
 function formatPostSubmitFailureOutput({
@@ -711,6 +1062,10 @@ function formatPostSubmitFailureOutput({
 	]
 		.filter(Boolean)
 		.join("\n");
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 function formatBufferedCommandSection(commandDisplay: string, result: BufferedCommandResult): string {
