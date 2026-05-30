@@ -1,6 +1,6 @@
 # Objective Stack Runner-Subagent Rewrite Brief
 
-> **Staleness note:** This is a historical design brief. It still captures useful Objective-stack product constraints, but its old **child-session** API names are superseded by the repo-local **runner subagent** helper. For current helper vocabulary and statuses, read [Runner Subagent Helper](./runner-subagent-helper.md) first.
+> **Staleness note:** This is a historical design brief. It still captures useful Objective-stack product constraints, but its old **child-session** API names are superseded by the repo-local **runner subagent** helper, and older `/objective-stack-impl` examples predate the current namespaced Pi wrapper `/objective:stack-impl` plus portable skill `/skill:objective-stack-impl`. For current helper vocabulary and statuses, read [Runner Subagent Helper](./runner-subagent-helper.md) first.
 
 ## Why this document exists
 

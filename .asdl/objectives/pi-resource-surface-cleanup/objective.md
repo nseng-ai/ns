@@ -67,7 +67,8 @@ Assumptions:
 - The earlier Pi-specific framing was too narrow: Pi RPC command discovery is the right source of truth for Pi's visible command surface, but not for Codex or Claude capability coverage.
 - Repo-owned skills under `skills/<name>/SKILL.md`, surfaced through `.agents/skills/` and `.claude/skills/`, are the best first portable workflow layer for Codex and Claude.
 - `AGENTS.md` and `CLAUDE.md` are important harness instruction surfaces, but they should route to skills, docs, and CLIs rather than duplicate long workflow bodies.
-- `docs/pi/README.md` remains the right place for Pi-specific extension policy because it already describes project-local extensions and the vibecoded-vs-engineered layers; a harness-neutral companion section or adjacent doc may be needed for cross-harness policy.
+- `docs/pi/README.md` remains the right place for the current resource-surface policy because it already describes project-local extensions, the vibecoded-vs-engineered layers, and now the Pi/Codex/Claude relationship for Objective stack implementation.
+- Namespaced Pi extension commands using `/namespace:command` are a good fit for command families with portable skill counterparts, because Pi can keep a concise picker wrapper without colliding visually with `/skill:<name>` entries.
 - A staged cleanup Objective is still better than several small Objectives because the findings are linked by one surface-area policy question.
 - Remote GitHub-sourced skills can remain excluded from deep audit and remain live by default when documented as vendored/developer-aid runtime surface rather than repo-owned products.
 - Treating user-local CMUX and similar commands as personal/tool-stack-specific avoids over-generalizing workflows that depend on a narrow local environment.
@@ -75,8 +76,8 @@ Assumptions:
 
 Risks:
 
-- Internalizing or renaming a prompt/command such as `/objective-stack-impl` could accidentally remove the only convenient Codex/Claude-consumable version of the workflow if the portable core is not preserved elsewhere.
-- Over-correcting for harness neutrality could turn concise Pi commands into over-abstracted, harder-to-use workflows.
+- The Objective stack implementation rename/prompt-removal risk is de-risked by checked-in evidence: the portable workflow now lives in `skills/objective-stack-impl/SKILL.md`, Pi exposes the picker wrapper as `/objective:stack-impl`, and RPC inventory shows no remaining `objective-stack-impl` top-level prompt command.
+- Over-correcting for harness neutrality could turn concise Pi commands into over-abstracted, harder-to-use workflows; the namespaced wrapper pattern is the current mitigation for Pi command families.
 - Keeping Pi-only implementations for mutating capabilities such as `/land` without Codex/Claude guidance could leave non-Pi agents to improvise unsafe GitHub operations.
 - Remote skills remain visible by explicit policy: real-directory `.agents/skills/` entries are live developer aids, excluded from deep audit, and not removed or disabled without explicit skill-management work.
 - `/land` mutates GitHub state, so refactoring it without tests or preserving safety checks could increase operational risk.
@@ -85,8 +86,5 @@ Risks:
 
 ## Open Questions
 
-- Should the cross-harness resource policy live as a new `docs/agents/...` document, as an expanded section in `docs/pi/README.md`, or as a smaller companion linked from both `docs/README.md` and `docs/pi/README.md`?
-- Should the duplicate `/objective-stack-impl` prompt become a hidden/internal prompt asset, a repo-owned skill, a documented CLI-backed workflow, or a prompt source loaded by the Pi wrapper but not exposed as a Pi slash command?
-- What is the right Codex/Claude entrypoint for Objective-stack implementation: a skill that invokes existing CLI/Graphite steps, a shared prompt asset, a future CLI command, or explicit unsupported/manual guidance?
 - Should `/land` be promoted into a tested CLI/package path shared by Pi, Codex, and Claude, deprecated in favor of `/land-stack` plus non-Pi guidance, or retained as a small explicit Pi command with tests or rationale?
 - Is the current `AGENTS.md` plus `skills/<name>` surface sufficient for Codex, or should this repo add a dedicated Codex-specific checked-in resource if a concrete gap appears?

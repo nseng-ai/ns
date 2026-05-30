@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import objectiveExtension, {
-	buildObjectiveStackImplPrompt,
 	completeObjectiveGtStacksArgs,
 	completeObjectiveListArgs,
 	parseObjectiveGtStacksArgs,
@@ -18,19 +17,26 @@ import objectiveExtension, {
 const ROOT = "/repo";
 const TRUNK = "master";
 
-const OBJECTIVE_COMMAND_NAMES = ["objective-next", "objective-current", "objective-update"] as const;
+const OBJECTIVE_COMMAND_NAMES = ["objective:next", "objective:current", "objective:update"] as const;
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
+type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
+
+const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillName> = {
+	"objective:next": "objective-next",
+	"objective:current": "objective-current",
+	"objective:update": "objective-update",
+};
 
 const SELECTION_TITLES: Record<ObjectiveCommandName, string> = {
-	"objective-next": "Select an active Objective for next-work recommendation",
-	"objective-current": "Select an active Objective to summarize",
-	"objective-update": "Select an active Objective to update",
+	"objective:next": "Select an active Objective for next-work recommendation",
+	"objective:current": "Select an active Objective to summarize",
+	"objective:update": "Select an active Objective to update",
 };
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
-	"objective-next": "Run objective-next for this explicitly selected Objective slug or path:",
-	"objective-current": "Run objective-current for this explicitly selected Objective slug or path:",
-	"objective-update": "Run objective-update for this explicitly selected Objective slug or path:",
+	"objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
+	"objective:current": "Run objective-current for this explicitly selected Objective slug or path:",
+	"objective:update": "Run objective-update for this explicitly selected Objective slug or path:",
 };
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
@@ -173,29 +179,17 @@ function createContext(options: { cancelSelect?: boolean; selectIndex?: number; 
 	return { ctx, notifications, selections, waitForIdleCalls: () => waits };
 }
 
-const STACK_PROMPT_TEMPLATE = `---
-description: Test stack prompt
-argument-hint: "[objective-slug]"
+const STACK_SKILL_MARKDOWN = `---
+name: objective-stack-impl
+hidden-frontmatter-token: do-not-include
 ---
-# Test Objective Stack Prompt
-Objective argument: \`$ARGUMENTS\`
-Again: $ARGUMENTS
+
+# Test Objective Stack Skill
+
+Use the selected Objective.
 `;
 
-function promptCommandInfo(promptPath: string): CommandInfo {
-	return {
-		name: "objective-stack-impl",
-		source: "prompt",
-		sourceInfo: {
-			path: promptPath,
-			source: "project",
-			scope: "project",
-			origin: "top-level",
-		},
-	};
-}
-
-function skillCommandInfo(skillName: ObjectiveCommandName, skillPath: string, baseDir: string): CommandInfo {
+function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
 	return {
 		name: `skill:${skillName}`,
 		source: "skill",
@@ -209,12 +203,16 @@ function skillCommandInfo(skillName: ObjectiveCommandName, skillPath: string, ba
 	};
 }
 
-async function withTempPrompt<T>(callback: (promptPath: string) => Promise<T>): Promise<T> {
-	const dir = await mkdtemp(join(tmpdir(), "objective-stack-impl-"));
-	const promptPath = join(dir, "objective-stack-impl.md");
-	await writeFile(promptPath, STACK_PROMPT_TEMPLATE, "utf8");
+async function withTempSkill<T>(
+	skillName: string,
+	markdown: string,
+	callback: (skillPath: string, skillDir: string) => Promise<T>,
+): Promise<T> {
+	const dir = await mkdtemp(join(tmpdir(), `${skillName}-`));
+	const skillPath = join(dir, "SKILL.md");
+	await writeFile(skillPath, markdown, "utf8");
 	try {
-		return await callback(promptPath);
+		return await callback(skillPath, dir);
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
@@ -233,10 +231,10 @@ async function runObjectiveStackImpl(
 }> {
 	const pi = new FakePi(script, commandInfos);
 	objectiveExtension(pi);
-	const command = pi.commands.get("objective-stack-impl");
+	const command = pi.commands.get("objective:stack-impl");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("objective-stack-impl was not registered");
+		throw new Error("objective:stack-impl was not registered");
 	}
 
 	const context = createContext(contextOptions);
@@ -256,7 +254,7 @@ async function runObjectiveNext(
 }> {
 	const pi = new FakePi(script);
 	objectiveExtension(pi);
-	const command = pi.commands.get("objective-next");
+	const command = pi.commands.get("objective:next");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
 	await command?.handler(args, context.ctx);
@@ -296,10 +294,10 @@ async function runObjectiveList(args: string, script: ScriptedExec[] = []): Prom
 }> {
 	const pi = new FakePi(script);
 	objectiveExtension(pi);
-	const command = pi.commands.get("objective-list");
+	const command = pi.commands.get("objective:list");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("objective-list was not registered");
+		throw new Error("objective:list was not registered");
 	}
 
 	const context = createContext();
@@ -315,10 +313,10 @@ async function runObjectiveGtStacks(args: string, script: ScriptedExec[] = []): 
 }> {
 	const pi = new FakePi(script);
 	objectiveExtension(pi);
-	const command = pi.commands.get("objective-gt-stacks");
+	const command = pi.commands.get("objective:gt-stacks");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("objective-gt-stacks was not registered");
+		throw new Error("objective:gt-stacks was not registered");
 	}
 
 	const context = createContext();
@@ -387,7 +385,7 @@ function gtStacksCompletionValues(prefix: string): string[] {
 	return completeObjectiveGtStacksArgs(prefix)?.map((item) => item.value) ?? [];
 }
 
-describe("objective-list command", () => {
+describe("objective:list command", () => {
 	test("completions advertise checkout-local options and status values", () => {
 		expect(completionValues("")).toEqual(["--names", "--status", "--help", "-h"]);
 		expect(completionValues("")).not.toContain("--current");
@@ -442,13 +440,13 @@ describe("objective-list command", () => {
 	});
 });
 
-describe("objective-gt-stacks command", () => {
+describe("objective:gt-stacks command", () => {
 	test("registers the display wrapper command", () => {
 		const pi = new FakePi();
 
 		objectiveExtension(pi);
 
-		expect(pi.commands.has("objective-gt-stacks")).toBe(true);
+		expect(pi.commands.has("objective:gt-stacks")).toBe(true);
 	});
 
 	test("completions advertise only help flags", () => {
@@ -469,8 +467,8 @@ describe("objective-gt-stacks command", () => {
 		expect(() => parseObjectiveGtStacksArgs("--format=json")).toThrow(/--format is controlled/);
 		expect(() => parseObjectiveGtStacksArgs("--json-schema")).toThrow(/--json-schema is not supported/);
 		expect(() => parseObjectiveGtStacksArgs("--json-schema=true")).toThrow(/--json-schema is not supported/);
-		expect(() => parseObjectiveGtStacksArgs("--unknown")).toThrow(/Unsupported \/objective-gt-stacks flag/);
-		expect(() => parseObjectiveGtStacksArgs("-x")).toThrow(/Unsupported \/objective-gt-stacks flag/);
+		expect(() => parseObjectiveGtStacksArgs("--unknown")).toThrow(/Unsupported \/objective:gt-stacks flag/);
+		expect(() => parseObjectiveGtStacksArgs("-x")).toThrow(/Unsupported \/objective:gt-stacks flag/);
 		expect(() => parseObjectiveGtStacksArgs("alpha")).toThrow(/does not accept positional arguments/);
 	});
 
@@ -530,10 +528,10 @@ describe("objective-gt-stacks command", () => {
 			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.execCalls).toEqual([]);
 			expect(result.pi.sentMessages[0]?.customType).toBe("objective-gt-stacks-output");
-			expect(result.pi.sentMessages[0]?.content).toContain("Usage: /objective-gt-stacks [--help]");
+			expect(result.pi.sentMessages[0]?.content).toContain("Usage: /objective:gt-stacks [--help]");
 			expect(result.pi.sentMessages[0]?.details).toEqual({
 				status: "rejected",
-				command: "objective-gt-stacks",
+				command: "objective:gt-stacks",
 				args: args.trim().split(/\s+/).filter(Boolean),
 				cwd: ROOT,
 			});
@@ -632,50 +630,61 @@ describe("objective-gt-stacks command", () => {
 	});
 });
 
-describe("objective-stack-impl command", () => {
-	test("registers the prompt-backed wrapper command", () => {
+describe("objective:stack-impl command", () => {
+	test("registers the skill-backed wrapper command", () => {
 		const pi = new FakePi();
 
 		objectiveExtension(pi);
 
-		expect(pi.commands.has("objective-stack-impl")).toBe(true);
-	});
-
-	test("expands the prompt template by stripping frontmatter and replacing arguments", () => {
-		const prompt = buildObjectiveStackImplPrompt(STACK_PROMPT_TEMPLATE, "bravo$1");
-
-		expect(prompt.startsWith("# Test Objective Stack Prompt")).toBe(true);
-		expect(prompt).toContain("Objective argument: `bravo$1`");
-		expect(prompt).toContain("Again: bravo$1");
-		expect(prompt).not.toContain("$ARGUMENTS");
+		expect(pi.commands.has("objective:stack-impl")).toBe(true);
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
-		await withTempPrompt(async (promptPath) => {
-			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [promptCommandInfo(promptPath)]);
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
+			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
+				skillCommandInfo("objective-stack-impl", skillPath, skillDir),
+			]);
 
 			result.pi.assertDone();
 			expect(result.pi.execCalls).toEqual([]);
 			expect(result.selections).toEqual([]);
 			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `bravo`");
-			expect(result.pi.sentUserMessages[0]).toContain("Again: bravo");
-			expect(result.pi.sentUserMessages[0]?.startsWith("/objective-stack-impl")).toBe(false);
+			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="objective-stack-impl" location="${skillPath}">`);
+			expect(result.pi.sentUserMessages[0]).toContain("# Test Objective Stack Skill\n\nUse the selected Objective.");
+			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"Run objective-stack-impl for this explicitly selected Objective slug or path:",
+			);
+			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+			expect(result.pi.sentUserMessages[0]?.startsWith("/objective:stack-impl")).toBe(false);
 			expect(result.notifications).toContainEqual({
-				message: "Invoking objective-stack-impl for bravo.",
+				message: "Invoking objective:stack-impl for bravo.",
 				level: "info",
 			});
 		});
 	});
 
+	test("explicit slug falls back when the portable skill is unavailable", async () => {
+		const result = await runObjectiveStackImpl("bravo");
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls).toEqual([]);
+		expect(result.pi.sentUserMessages[0]).toContain("The objective-stack-impl skill was not found among loaded Pi skills.");
+		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+		expect(result.notifications).toContainEqual({
+			message: "objective-stack-impl skill was not found; using fallback prompt.",
+			level: "warning",
+		});
+	});
+
 	test("empty args load active candidates with objective list json and git evidence", async () => {
-		await withTempPrompt(async (promptPath) => {
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
 			const result = await runObjectiveStackImpl(
 				"",
 				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
 				{},
-				[promptCommandInfo(promptPath)],
+				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -690,12 +699,12 @@ describe("objective-stack-impl command", () => {
 				args: ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"],
 				options: { cwd: ROOT, timeout: 30_000 },
 			});
-			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `alpha`");
+			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 		});
 	});
 
 	test("changed Objective grouping matches objective-next", async () => {
-		await withTempPrompt(async (promptPath) => {
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
 			const result = await runObjectiveStackImpl(
 				"",
 				[
@@ -704,7 +713,7 @@ describe("objective-stack-impl command", () => {
 					statusStep(""),
 				],
 				{},
-				[promptCommandInfo(promptPath)],
+				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -715,12 +724,12 @@ describe("objective-stack-impl command", () => {
 					"View other active Objectives…",
 				],
 			});
-			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `bravo`");
+			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 		});
 	});
 
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
-		await withTempPrompt(async (promptPath) => {
+		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
 			const result = await runObjectiveStackImpl(
 				"",
 				[
@@ -729,7 +738,7 @@ describe("objective-stack-impl command", () => {
 					statusStep(""),
 				],
 				{ selectIndices: [1, 1] },
-				[promptCommandInfo(promptPath)],
+				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -740,54 +749,31 @@ describe("objective-stack-impl command", () => {
 					"charlie — open — latest update 2026-01-03T00:00:00Z",
 				],
 			});
-			expect(result.pi.sentUserMessages[0]).toContain("Objective argument: `charlie`");
+			expect(result.pi.sentUserMessages[0]).toContain("```text\ncharlie\n```");
 		});
 	});
 
 	test("picker cancellation sends no prompt", async () => {
-		await withTempPrompt(async (promptPath) => {
-			const result = await runObjectiveStackImpl(
-				"",
-				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
-				{ cancelSelect: true },
-				[promptCommandInfo(promptPath)],
-			);
+		const result = await runObjectiveStackImpl(
+			"",
+			[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+			{ cancelSelect: true },
+		);
 
-			result.pi.assertDone();
-			expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
-			expect(result.pi.sentUserMessages).toEqual([]);
-		});
+		result.pi.assertDone();
+		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
+		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
 	test("zero active Objectives sends no prompt", async () => {
-		await withTempPrompt(async (promptPath) => {
-			const result = await runObjectiveStackImpl("", [listStep([])], {}, [promptCommandInfo(promptPath)]);
+		const result = await runObjectiveStackImpl("", [listStep([])]);
 
-			result.pi.assertDone();
-			expect(result.notifications).toEqual([
-				{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
-			]);
-			expect(result.selections).toEqual([]);
-			expect(result.pi.sentUserMessages).toEqual([]);
-		});
-	});
-
-	test("missing prompt template fails visibly and sends no prompt", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "objective-stack-impl-missing-"));
-		try {
-			const missingPromptPath = join(dir, "objective-stack-impl.md");
-			const result = await runObjectiveStackImpl("bravo", [], {}, [promptCommandInfo(missingPromptPath)]);
-
-			result.pi.assertDone();
-			expect(result.pi.execCalls).toEqual([]);
-			expect(result.pi.sentUserMessages).toEqual([]);
-			expect(result.notifications).toHaveLength(1);
-			expect(result.notifications[0]?.level).toBe("error");
-			expect(result.notifications[0]?.message).toContain("Failed to read /objective-stack-impl prompt template");
-			expect(result.notifications[0]?.message).toContain(missingPromptPath);
-		} finally {
-			await rm(dir, { recursive: true, force: true });
-		}
+		result.pi.assertDone();
+		expect(result.notifications).toEqual([
+			{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
+		]);
+		expect(result.selections).toEqual([]);
+		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 });
 
@@ -1115,6 +1101,7 @@ describe("objective command shared selection policy", () => {
 			test("explicit slug or path bypasses objective list and git evidence", async () => {
 				const explicitObjective = ".asdl/objectives/bravo/objective.md";
 				const result = await runObjectiveCommand(commandName, `  ${explicitObjective}  `);
+				const skillName = OBJECTIVE_SKILLS_BY_COMMAND[commandName];
 
 				result.pi.assertDone();
 				expect(result.pi.execCalls).toEqual([]);
@@ -1122,10 +1109,10 @@ describe("objective command shared selection policy", () => {
 				expect(result.waitForIdleCalls()).toBe(1);
 				expectPromptSelectsObjective(commandName, result.pi.sentUserMessages[0], explicitObjective);
 				expect(result.pi.sentUserMessages[0]).toContain(
-					`The ${commandName} skill was not found among loaded Pi skills.`,
+					`The ${skillName} skill was not found among loaded Pi skills.`,
 				);
 				expect(result.notifications).toContainEqual({
-					message: `${commandName} skill was not found; using fallback prompt.`,
+					message: `${skillName} skill was not found; using fallback prompt.`,
 					level: "warning",
 				});
 			});
@@ -1211,7 +1198,7 @@ Use the selected Objective.
 		);
 
 		try {
-			const result = await runObjectiveCommand("objective-next", "bravo", [], {}, [
+			const result = await runObjectiveCommand("objective:next", "bravo", [], {}, [
 				skillCommandInfo("objective-next", skillPath, dir),
 			]);
 
@@ -1233,7 +1220,7 @@ Use the selected Objective.
 	});
 
 	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
-		const result = await runObjectiveCommand("objective-update", "bravo");
+		const result = await runObjectiveCommand("objective:update", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1242,7 +1229,7 @@ Use the selected Objective.
 	});
 
 	test("non-update prompts do not include the objective-update evidence workflow reminder", async () => {
-		for (const commandName of ["objective-next", "objective-current"] as const) {
+		for (const commandName of ["objective:next", "objective:current"] as const) {
 			const result = await runObjectiveCommand(commandName, "bravo");
 
 			result.pi.assertDone();
