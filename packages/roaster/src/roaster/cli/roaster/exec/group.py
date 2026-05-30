@@ -1,18 +1,18 @@
-"""Explicit builder for the hidden ``reviewer exec`` CLI subgroup."""
+"""Explicit builder for the hidden ``roaster exec`` CLI subgroup."""
 
 from __future__ import annotations
 
 from asdl_core.clinkr.group import ClinkrGroup
-from asdl_reviewer.cli.reviewer.exec.classify_inline_findings import (
+from roaster.cli.roaster.exec.classify_inline_findings import (
     classify_inline_findings_command,
 )
-from asdl_reviewer.cli.reviewer.exec.format_findings_comment import (
+from roaster.cli.roaster.exec.format_findings_comment import (
     format_findings_comment_command,
 )
-from asdl_reviewer.cli.reviewer.exec.post_findings_comment import (
+from roaster.cli.roaster.exec.post_findings_comment import (
     post_findings_comment_command,
 )
-from asdl_reviewer.cli.reviewer.exec.post_inline_findings import (
+from roaster.cli.roaster.exec.post_inline_findings import (
     post_inline_findings_command,
 )
 
@@ -20,7 +20,7 @@ from asdl_reviewer.cli.reviewer.exec.post_inline_findings import (
 def build_exec_group() -> ClinkrGroup:
     group = ClinkrGroup(
         name="exec",
-        help="Commands used by reviewer CI automation.",
+        help="Commands used by roaster CI automation.",
         hidden=True,
         operations=[classify_inline_findings_command, post_inline_findings_command],
     )

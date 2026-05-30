@@ -1,4 +1,4 @@
-"""Pure findings-publication helpers for reviewer PR comments."""
+"""Pure findings-publication helpers for roaster PR comments."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from asdl_reviewer.models import ReviewFinding
+from roaster.models import ReviewFinding
 
 _SEVERITY_LABELS: dict[str, str] = {
     "error": "⛔ error",
@@ -18,7 +18,7 @@ _SEVERITY_LABELS: dict[str, str] = {
 }
 
 _FOOTER = "_Post-only steelthread: this comment never blocks the check._"
-_INLINE_MARKER_PREFIX = "asdl-reviewer-inline"
+_INLINE_MARKER_PREFIX = "roaster-inline"
 _ACTIVITY_LOG_HEADING = "### Activity Log"
 _ACTIVITY_LOG_CAP = 10
 
@@ -83,7 +83,7 @@ FindingsCommentBodyParseResult: TypeAlias = (
 
 
 def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
-    """Parse a reviewer clinkr envelope, returning a payload or error object."""
+    """Parse a roaster clinkr envelope, returning a payload or error object."""
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -141,7 +141,7 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
 
 
 def parse_inline_posting_status_result(raw: str) -> InlinePostingStatusParseResult:
-    """Parse JSON emitted by ``reviewer exec post-inline-findings``."""
+    """Parse JSON emitted by ``roaster exec post-inline-findings``."""
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -168,7 +168,7 @@ def render_findings_comment(
 ) -> str:
     """Render the payload as a Markdown comment body."""
     marker = summary_marker_for_review(payload.review_name)
-    heading = f"## asdl-reviewer · `{payload.review_name}`"
+    heading = f"## roaster · `{payload.review_name}`"
     lines: list[str] = [marker, heading, ""]
 
     if inline_status is not None:
@@ -186,7 +186,7 @@ def render_findings_comment(
 
 
 def summary_marker_for_review(review_name: str) -> str:
-    return f"<!-- asdl-reviewer:{review_name} -->"
+    return f"<!-- roaster:{review_name} -->"
 
 
 def parse_findings_comment_body(raw: str) -> FindingsCommentBodyParseResult:
@@ -197,7 +197,7 @@ def parse_findings_comment_body(raw: str) -> FindingsCommentBodyParseResult:
     match = _get_summary_marker_pattern().match(lines[0].rstrip("\r"))
     if match is None:
         return FindingsCommentBodyParseError(
-            message="first line of body must be a `<!-- asdl-reviewer:<key> -->` marker"
+            message="first line of body must be a `<!-- roaster:<key> -->` marker"
         )
 
     return ParsedFindingsCommentBody(marker=f"<!-- {match.group(1)} -->", body=raw)
@@ -247,14 +247,14 @@ def render_inline_body(marker: str, finding: ReviewFinding) -> str:
             "",
             finding.details,
             "",
-            "_Posted by asdl-reviewer. Re-running may skip this comment by marker._",
+            "_Posted by roaster. Re-running may skip this comment by marker._",
         ]
     )
 
 
 @functools.cache
 def _get_summary_marker_pattern() -> re.Pattern[str]:
-    return re.compile(r"^<!-- (asdl-reviewer:[^ ]+) -->$")
+    return re.compile(r"^<!-- (roaster:[^ ]+) -->$")
 
 
 def _render_inline_posting_status(status: InlinePostingStatus) -> list[str]:
@@ -272,7 +272,7 @@ def _render_inline_posting_status(status: InlinePostingStatus) -> list[str]:
 
 def _render_error_body(payload: FindingsPayload) -> list[str]:
     return [
-        f"**Reviewer failed** against base `{payload.base_ref}`. ⚠️",
+        f"**Roaster failed** against base `{payload.base_ref}`. ⚠️",
         "",
         f"- **Error type:** `{payload.error_type}`",
         f"- **Message:** {payload.error_message or '(none)'}",

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from asdl_core.plugin import AsdlPluginSpec
-from asdl_reviewer.cli.reviewer.context import build_reviewer_context
-from asdl_reviewer.cli.reviewer.group import build_reviewer_group
+from roaster.cli.roaster.context import build_roaster_context
+from roaster.cli.roaster.group import build_roaster_group
 
 
-def build_reviewer_plugin() -> AsdlPluginSpec:
+def build_roaster_plugin() -> AsdlPluginSpec:
     return AsdlPluginSpec(
-        build_group=build_reviewer_group,
-        context_factory=build_reviewer_context,
+        build_group=build_roaster_group,
+        context_factory=build_roaster_context,
     )

@@ -7,8 +7,8 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.workflow import resolve_harness
+from roaster.context import RoasterCliContext
+from roaster.workflow import resolve_harness
 
 
 class HarnessShowRequest(ClinkrModel):
@@ -32,11 +32,11 @@ def run_harness_show_command(
     ctx: click.Context,
     request: HarnessShowRequest,
 ) -> ClinkrExit[HarnessShowResult]:
-    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
+    roaster_context = load_typed_context(ctx, RoasterCliContext)
 
     resolved = resolve_harness(
         requested_harness=None,
-        harness_runtime=reviewer_context.harness_runtime,
+        harness_runtime=roaster_context.harness_runtime,
     )
     harness_name = Ensure.ideal_state(resolved)
 

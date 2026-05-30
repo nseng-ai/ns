@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from asdl_reviewer.gateways.review_catalog.gateway import ReviewCatalogGateway
-from asdl_reviewer.models import (
+from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
+from roaster.models import (
     ReviewCatalog,
     ReviewDefinitionNotFound,
-    ReviewerFailure,
     ReviewSource,
+    RoasterFailure,
 )
 
 
@@ -20,9 +20,9 @@ class FakeReviewCatalogGateway(ReviewCatalogGateway):
         self,
         *,
         review_sources_by_key: dict[str, str] | None = None,
-        review_source_failures_by_key: dict[str, ReviewerFailure] | None = None,
+        review_source_failures_by_key: dict[str, RoasterFailure] | None = None,
         review_keys: tuple[str, ...] | None = None,
-        list_review_keys_failure: ReviewerFailure | None = None,
+        list_review_keys_failure: RoasterFailure | None = None,
         reviews_dir: Path = Path("/repo/reviews"),
     ) -> None:
         self._review_sources_by_key = dict(review_sources_by_key or {})
@@ -32,7 +32,7 @@ class FakeReviewCatalogGateway(ReviewCatalogGateway):
         self._reviews_dir = reviews_dir
         self._requested_review_keys: list[str] = []
 
-    def load_review_source(self, *, key: str) -> ReviewSource | ReviewerFailure:
+    def load_review_source(self, *, key: str) -> ReviewSource | RoasterFailure:
         self._requested_review_keys.append(key)
         if key in self._review_source_failures_by_key:
             return self._review_source_failures_by_key[key]
@@ -48,7 +48,7 @@ class FakeReviewCatalogGateway(ReviewCatalogGateway):
             message=f"No fake review definition configured for key {key!r} at {path}.",
         )
 
-    def list_review_keys(self) -> ReviewCatalog | ReviewerFailure:
+    def list_review_keys(self) -> ReviewCatalog | RoasterFailure:
         if self._list_review_keys_failure is not None:
             return self._list_review_keys_failure
         if self._review_keys is not None:

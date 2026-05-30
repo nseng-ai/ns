@@ -1,6 +1,6 @@
-"""Classify reviewer findings by whether GitHub can receive inline comments.
+"""Classify roaster findings by whether GitHub can receive inline comments.
 
-Reviewer findings may legitimately carry ``line: null`` in the findings schema.
+Roaster findings may legitimately carry ``line: null`` in the findings schema.
 Those findings remain valid fallback comments, but they cannot be converted into
 GitHub PR inline comments because the PR review-comments API requires a concrete
 right-side diff line.
@@ -17,7 +17,7 @@ from pydantic import model_serializer
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 from asdl_core.gh.types import PRChangedFile
-from asdl_reviewer.models import ReviewFinding
+from roaster.models import ReviewFinding
 
 FallbackReason = Literal[
     "missing_line",

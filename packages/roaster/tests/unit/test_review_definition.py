@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from asdl_reviewer.review_definition import parse_review_definition
+from roaster.review_definition import parse_review_definition
 
 _REPO_ROOT = Path(__file__).parents[4]
 _DIGNIFIED_PYTHON_REVIEW = _REPO_ROOT / "reviews" / "dignified-python.md"

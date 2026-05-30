@@ -10,8 +10,8 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.models import (
+from roaster.context import RoasterCliContext
+from roaster.models import (
     FindingsReview,
     GitDiffFailedError,
     GitInvocationFailedError,
@@ -21,7 +21,7 @@ from asdl_reviewer.models import (
     ReviewDefinitionReadError,
     ReviewExecutorInvocationError,
 )
-from asdl_reviewer.workflow import run_review_by_key
+from roaster.workflow import run_review_by_key
 
 
 class ReviewRunRequest(ClinkrModel):
@@ -104,7 +104,7 @@ def run_review_command(
     ctx: click.Context,
     request: ReviewRunRequest,
 ) -> ClinkrExit[LocalReviewResult]:
-    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
+    roaster_context = load_typed_context(ctx, RoasterCliContext)
     click.echo(f"▶ Running review '{request.key}'", err=True)
     try:
         result = run_review_by_key(
@@ -113,9 +113,9 @@ def run_review_command(
             requested_base_ref=request.base_ref,
             requested_harness=request.harness,
             requested_format=request.review_format,
-            catalog=reviewer_context.catalog,
-            diff=reviewer_context.diff,
-            harness_runtime=reviewer_context.harness_runtime,
+            catalog=roaster_context.catalog,
+            diff=roaster_context.diff,
+            harness_runtime=roaster_context.harness_runtime,
         )
     except ReviewDefinitionReadError as exc:
         raise ClinkrFailure(error_type="review_definition_read_failed", message=str(exc)) from exc

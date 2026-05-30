@@ -1,1 +1,1 @@
-"""CLI entry points for asdl-reviewer."""
+"""CLI entry points for roaster."""

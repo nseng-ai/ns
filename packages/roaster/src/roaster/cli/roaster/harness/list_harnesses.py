@@ -9,7 +9,7 @@ from asdl_core.clinkr.context import load_typed_context
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_reviewer.context import ReviewerCliContext
+from roaster.context import RoasterCliContext
 
 
 class HarnessListRequest(ClinkrModel):
@@ -61,7 +61,7 @@ def run_harness_list_command(
     ctx: click.Context,
     request: HarnessListRequest,
 ) -> ClinkrExit[HarnessListResult]:
-    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
+    roaster_context = load_typed_context(ctx, RoasterCliContext)
     entries = tuple(
         HarnessEntry(
             name=detection.name,
@@ -69,6 +69,6 @@ def run_harness_list_command(
             path=detection.path,
             available=detection.available,
         )
-        for detection in reviewer_context.harness_runtime.list_harnesses()
+        for detection in roaster_context.harness_runtime.list_harnesses()
     )
     return ClinkrExit.ok(HarnessListResult(harnesses=entries))

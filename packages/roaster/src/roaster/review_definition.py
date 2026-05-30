@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from asdl_reviewer.models import ReviewDefinition
+from roaster.models import ReviewDefinition
 
 _FRONTMATTER_FENCE = "---"
 

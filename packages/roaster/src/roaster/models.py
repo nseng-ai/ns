@@ -1,4 +1,4 @@
-"""Domain models for asdl-reviewer."""
+"""Domain models for roaster."""
 
 from __future__ import annotations
 
@@ -202,7 +202,7 @@ class ReviewKeyResolutionFailed:
     message: str
 
 
-ReviewerFailure: TypeAlias = (
+RoasterFailure: TypeAlias = (
     InvalidReviewDefinition
     | ModelNotProvided
     | ExecutorCommandMissing
@@ -232,27 +232,27 @@ ReviewerFailure: TypeAlias = (
 )
 
 
-class ReviewerError(Exception):
-    """Base class for halt-worthy reviewer failures surfaced as exceptions."""
+class RoasterError(Exception):
+    """Base class for halt-worthy roaster failures surfaced as exceptions."""
 
 
-class ReviewExecutorInvocationError(ReviewerError):
+class ReviewExecutorInvocationError(RoasterError):
     """The review executor subprocess could not be invoked at all."""
 
 
-class ReviewDefinitionReadError(ReviewerError):
+class ReviewDefinitionReadError(RoasterError):
     """The review-definition file exists but could not be read."""
 
 
-class RepoRootUnavailableError(ReviewerError):
+class RepoRootUnavailableError(RoasterError):
     """The current git repository root could not be resolved."""
 
 
-class GitInvocationFailedError(ReviewerError):
+class GitInvocationFailedError(RoasterError):
     """A ``git`` subprocess could not be invoked (e.g. binary missing)."""
 
 
-class GitDiffFailedError(ReviewerError):
+class GitDiffFailedError(RoasterError):
     """`git diff` exited non-zero while building the local diff."""
 
 
@@ -409,7 +409,7 @@ class ReviewExecutionResponse:
 
 
 class LocalReviewResult(ClinkrModel):
-    """Structured result returned by the local reviewer CLI."""
+    """Structured result returned by the local roaster CLI."""
 
     review_name: str
     review_path: str

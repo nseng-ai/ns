@@ -16,11 +16,11 @@ from asdl_core.gh.types import (
     PRReview,
     PRReviewComment,
 )
-from asdl_reviewer.cli.main import build_cli
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
-from asdl_reviewer.harness.fake import FakeHarnessRuntime
+from roaster.cli.main import build_cli
+from roaster.context import RoasterCliContext
+from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
+from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from roaster.harness.fake import FakeHarnessRuntime
 
 
 @pytest.fixture(scope="module")
@@ -32,7 +32,7 @@ _BOT = "github-actions[bot]"
 
 
 def _context_with_pr_gateway(gateway: FakePRGateway) -> ClinkrContextObject:
-    ctx = ReviewerCliContext(
+    ctx = RoasterCliContext(
         catalog=FakeReviewCatalogGateway(),
         diff=FakeLocalDiffGateway(),
         harness_runtime=FakeHarnessRuntime(),
@@ -42,7 +42,7 @@ def _context_with_pr_gateway(gateway: FakePRGateway) -> ClinkrContextObject:
     return build_clinkr_context_object(lambda: ctx)
 
 
-def test_exec_group_is_hidden_from_reviewer_help(cli_group: ClinkrGroup) -> None:
+def test_exec_group_is_hidden_from_roaster_help(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["-h"])
 
@@ -91,8 +91,8 @@ def test_format_findings_comment_renders_findings_from_stdin(
     )
 
     assert result.exit_code == 0, result.output
-    assert result.output.startswith("<!-- asdl-reviewer:dignified-python -->\n")
-    assert "## asdl-reviewer · `dignified-python`" in result.output
+    assert result.output.startswith("<!-- roaster:dignified-python -->\n")
+    assert "## roaster · `dignified-python`" in result.output
     assert "| Severity | File | Line | Summary |" in result.output
     assert "| ⚠️ warning | `app.py` | 42 | Avoid print |" in result.output
     assert "### `app.py:42` — warning" in result.output
@@ -182,7 +182,7 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     )
 
     assert result.exit_code == 0, result.output
-    assert "**Reviewer failed**" in result.output
+    assert "**Roaster failed**" in result.output
     assert "- **Error type:** `harness_binary_missing`" in result.output
     assert "- **Message:** claude not on PATH" in result.output
     assert "Post-only steelthread" not in result.output
@@ -354,7 +354,7 @@ def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
     assert len(comments) == 1
     assert comments[0].path == "app.py"
     assert comments[0].line == 1
-    assert "<!-- asdl-reviewer-inline:dignified-python:" in comments[0].body
+    assert "<!-- roaster-inline:dignified-python:" in comments[0].body
     assert "Inline this" in comments[0].body
 
 
@@ -531,7 +531,7 @@ def test_post_findings_comment_creates_comment_when_none_exists(
     cli_group: ClinkrGroup,
 ) -> None:
     fake = FakePRGateway()
-    body = "<!-- asdl-reviewer:dignified-python -->\n## asdl-reviewer · `dignified-python`\n"
+    body = "<!-- roaster:dignified-python -->\n## roaster · `dignified-python`\n"
 
     runner = CliRunner()
     result = runner.invoke(
@@ -545,7 +545,7 @@ def test_post_findings_comment_creates_comment_when_none_exists(
     assert len(fake.comments) == 1
     assert fake.comments[0][0] == 47
     posted_body = fake.comments[0][1]
-    assert posted_body.startswith("<!-- asdl-reviewer:dignified-python -->\n")
+    assert posted_body.startswith("<!-- roaster:dignified-python -->\n")
     assert "### Activity Log" in posted_body
     assert fake.updated_comments == ()
 
@@ -554,8 +554,8 @@ def test_post_findings_comment_updates_existing_bot_comment(
     cli_group: ClinkrGroup,
 ) -> None:
     existing_body = (
-        "<!-- asdl-reviewer:dignified-python -->\n"
-        "## asdl-reviewer · `dignified-python`\n"
+        "<!-- roaster:dignified-python -->\n"
+        "## roaster · `dignified-python`\n"
         "\n"
         "### Activity Log\n"
         "\n"
@@ -564,7 +564,7 @@ def test_post_findings_comment_updates_existing_bot_comment(
     fake = FakePRGateway(
         discussion_comments={47: [_make_bot_comment(101, body=existing_body)]},
     )
-    new_body = "<!-- asdl-reviewer:dignified-python -->\nfresh findings\n"
+    new_body = "<!-- roaster:dignified-python -->\nfresh findings\n"
 
     runner = CliRunner()
     result = runner.invoke(
@@ -590,7 +590,7 @@ def test_post_findings_comment_ignores_human_marker_capture(
     cli_group: ClinkrGroup,
 ) -> None:
     """A human dropping the marker into their own comment cannot hijack the bot slot."""
-    human_body = "<!-- asdl-reviewer:dignified-python -->\npretend i'm the bot\n"
+    human_body = "<!-- roaster:dignified-python -->\npretend i'm the bot\n"
     fake = FakePRGateway(
         discussion_comments={
             47: [
@@ -608,7 +608,7 @@ def test_post_findings_comment_ignores_human_marker_capture(
     result = runner.invoke(
         cli_group,
         ["exec", "post-findings-comment", "--pr-number", "47"],
-        input="<!-- asdl-reviewer:dignified-python -->\nreal findings\n",
+        input="<!-- roaster:dignified-python -->\nreal findings\n",
         obj=_context_with_pr_gateway(fake),
     )
 
@@ -644,7 +644,7 @@ def test_post_findings_comment_caps_activity_log_at_ten_entries(
     # apart from the carried-forward ones.
     prior_entries = "\n".join(f"- 2026-01-{i:02d}T12:00:00Z" for i in range(1, 11))
     existing_body = (
-        f"<!-- asdl-reviewer:dignified-python -->\nbody\n\n### Activity Log\n\n{prior_entries}\n"
+        f"<!-- roaster:dignified-python -->\nbody\n\n### Activity Log\n\n{prior_entries}\n"
     )
     fake = FakePRGateway(
         discussion_comments={47: [_make_bot_comment(42, body=existing_body)]},
@@ -654,7 +654,7 @@ def test_post_findings_comment_caps_activity_log_at_ten_entries(
     result = runner.invoke(
         cli_group,
         ["exec", "post-findings-comment", "--pr-number", "47"],
-        input="<!-- asdl-reviewer:dignified-python -->\nnew\n",
+        input="<!-- roaster:dignified-python -->\nnew\n",
         obj=_context_with_pr_gateway(fake),
     )
 

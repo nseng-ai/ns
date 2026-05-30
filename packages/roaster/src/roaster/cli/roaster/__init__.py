@@ -1,1 +1,1 @@
-"""Markdown-driven reviewer operations."""
+"""Markdown-driven roaster operations."""

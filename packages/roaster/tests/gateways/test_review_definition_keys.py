@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.gateways.review_catalog import real as review_catalog_real
-from asdl_reviewer.gateways.review_catalog.real import RealReviewCatalogGateway
-from asdl_reviewer.models import ReviewerFailure, ReviewSource
+from roaster.gateways.review_catalog import real as review_catalog_real
+from roaster.gateways.review_catalog.real import RealReviewCatalogGateway
+from roaster.models import ReviewSource, RoasterFailure
 
 
 def _write(path: Path, body: str) -> None:
@@ -32,7 +32,7 @@ def test_real_list_review_keys_is_empty_for_empty_dir(
 
     catalog = _gateway(tmp_path, monkeypatch).list_review_keys()
 
-    assert not isinstance(catalog, ReviewerFailure)
+    assert not isinstance(catalog, RoasterFailure)
     assert catalog.keys == ()
     assert catalog.reviews_dir == reviews_dir
 
@@ -49,7 +49,7 @@ def test_real_list_review_keys_reports_flat_and_nested_keys(
 
     catalog = _gateway(tmp_path, monkeypatch).list_review_keys()
 
-    assert not isinstance(catalog, ReviewerFailure)
+    assert not isinstance(catalog, RoasterFailure)
     assert catalog.keys == ("dignified-python", "python/errors", "python/typing")
     assert catalog.reviews_dir == reviews_dir
 
@@ -60,7 +60,7 @@ def test_real_list_review_keys_fails_when_dir_missing(
 ) -> None:
     result = _gateway(tmp_path, monkeypatch).list_review_keys()
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "reviews_dir_missing"
 
 
@@ -73,7 +73,7 @@ def test_real_list_review_keys_fails_when_path_is_a_file(
 
     result = _gateway(tmp_path, monkeypatch).list_review_keys()
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "reviews_dir_not_a_directory"
 
 
@@ -101,7 +101,7 @@ def test_real_load_review_source_returns_failure_for_missing_key(
 
     result = _gateway(tmp_path, monkeypatch).load_review_source(key="nope")
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "review_definition_not_found"
 
 
@@ -111,7 +111,7 @@ def test_real_load_review_source_fails_when_reviews_dir_missing(
 ) -> None:
     result = _gateway(tmp_path, monkeypatch).load_review_source(key="dignified-python")
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "reviews_dir_missing"
 
 
@@ -123,7 +123,7 @@ def test_real_load_review_source_fails_when_reviews_path_is_a_file(
 
     result = _gateway(tmp_path, monkeypatch).load_review_source(key="dignified-python")
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "reviews_dir_not_a_directory"
 
 
@@ -135,7 +135,7 @@ def test_real_load_review_source_rejects_empty_key(
 
     result = _gateway(tmp_path, monkeypatch).load_review_source(key="  ")
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "review_key_invalid"
 
 
@@ -147,7 +147,7 @@ def test_real_load_review_source_rejects_traversal(
 
     result = _gateway(tmp_path, monkeypatch).load_review_source(key="../outside")
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "review_key_invalid"
 
 
@@ -159,5 +159,5 @@ def test_real_load_review_source_rejects_absolute_path(
 
     result = _gateway(tmp_path, monkeypatch).load_review_source(key="/etc/passwd")
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "review_key_invalid"

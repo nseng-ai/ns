@@ -1,1 +1,1 @@
-"""Reviewer ``harness`` subgroup: detect and inspect the review harness."""
+"""Roaster ``harness`` subgroup: detect and inspect the review harness."""

@@ -9,11 +9,11 @@ members = [
     "asdl-dispatcher",
     "asdl-objectives",
     "asdl-pr-address",
-    "asdl-reviewer",
     "asdl-slots",
     "asdl-tools",
     "brmem",
     "packagechk",
+    "roaster",
 ]
 
 [[package]]
@@ -103,23 +103,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "asdl-reviewer"
-version = "0.1.0"
-source = { editable = "packages/asdl-reviewer" }
-dependencies = [
-    { name = "asdl-core" },
-    { name = "click" },
-    { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "asdl-core", editable = "packages/asdl-core" },
-    { name = "click", specifier = ">=8.1.7" },
-    { name = "pyyaml", specifier = ">=6" },
-]
-
-[[package]]
 name = "asdl-slots"
 version = "0.1.0"
 source = { editable = "packages/asdl-slots" }
@@ -158,13 +141,13 @@ dev = [
     { name = "asdl-dispatcher" },
     { name = "asdl-objectives" },
     { name = "asdl-pr-address" },
-    { name = "asdl-reviewer" },
     { name = "asdl-slots" },
     { name = "brmem" },
     { name = "nonslop" },
     { name = "packagechk" },
     { name = "pytest" },
     { name = "pytest-xdist" },
+    { name = "roaster" },
     { name = "ruff" },
     { name = "ty" },
 ]
@@ -187,13 +170,13 @@ dev = [
     { name = "asdl-dispatcher", editable = "packages/asdl-dispatcher" },
     { name = "asdl-objectives", editable = "packages/asdl-objectives" },
     { name = "asdl-pr-address", editable = "packages/asdl-pr-address" },
-    { name = "asdl-reviewer", editable = "packages/asdl-reviewer" },
     { name = "asdl-slots", editable = "packages/asdl-slots" },
     { name = "brmem", editable = "packages/brmem" },
     { name = "nonslop" },
     { name = "packagechk", editable = "packages/packagechk" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "roaster", editable = "packages/roaster" },
     { name = "ruff", specifier = ">=0.5.0" },
     { name = "ty", specifier = ">=0.0.1a7" },
 ]
@@ -535,6 +518,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36", size = 230680, upload-time = "2026-04-12T08:24:00.75Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb", size = 310654, upload-time = "2026-04-12T08:24:02.83Z" },
+]
+
+[[package]]
+name = "roaster"
+version = "0.1.0"
+source = { editable = "packages/roaster" }
+dependencies = [
+    { name = "asdl-core" },
+    { name = "click" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asdl-core", editable = "packages/asdl-core" },
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "pyyaml", specifier = ">=6" },
 ]
 
 [[package]]

@@ -5,19 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from asdl_reviewer.gateways.review_catalog.gateway import ReviewCatalogGateway
-from asdl_reviewer.git_toplevel import git_toplevel
-from asdl_reviewer.models import (
+from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
+from roaster.git_toplevel import git_toplevel
+from roaster.models import (
     ReviewCatalog,
     ReviewDefinitionNotAFile,
     ReviewDefinitionNotFound,
     ReviewDefinitionReadError,
-    ReviewerFailure,
     ReviewKeyInvalid,
     ReviewKeyResolutionFailed,
     ReviewsDirMissing,
     ReviewsDirNotADirectory,
     ReviewSource,
+    RoasterFailure,
 )
 
 _REVIEWS_DIRNAME = "reviews"
@@ -35,7 +35,7 @@ class RealReviewCatalogGateway(ReviewCatalogGateway):
     def __init__(self, cwd: Path) -> None:
         self._cwd = cwd
 
-    def load_review_source(self, *, key: str) -> ReviewSource | ReviewerFailure:
+    def load_review_source(self, *, key: str) -> ReviewSource | RoasterFailure:
         reviews_dir = self._reviews_dir()
         review_path_result = _resolve_review_path(reviews_dir=reviews_dir, key=key)
         if not isinstance(review_path_result, _ResolvedReviewPath):
@@ -57,7 +57,7 @@ class RealReviewCatalogGateway(ReviewCatalogGateway):
 
         return ReviewSource(key=review_path_result.key, path=path, source=source)
 
-    def list_review_keys(self) -> ReviewCatalog | ReviewerFailure:
+    def list_review_keys(self) -> ReviewCatalog | RoasterFailure:
         reviews_dir = self._reviews_dir()
         if not reviews_dir.exists():
             return ReviewsDirMissing(
@@ -85,7 +85,7 @@ class RealReviewCatalogGateway(ReviewCatalogGateway):
         return self._repo_root() / _REVIEWS_DIRNAME
 
 
-def _resolve_review_path(*, reviews_dir: Path, key: str) -> _ResolvedReviewPath | ReviewerFailure:
+def _resolve_review_path(*, reviews_dir: Path, key: str) -> _ResolvedReviewPath | RoasterFailure:
     normalized = key.strip()
     if not normalized:
         return ReviewKeyInvalid(

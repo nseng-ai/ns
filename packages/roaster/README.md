@@ -1,6 +1,6 @@
-# asdl-reviewer
+# roaster
 
-`asdl-reviewer` runs markdown-defined reviewers against the current branch
+`roaster` runs markdown-defined reviewers against the current branch
 diff. Once you've chosen a harness, adding a new reviewer is literally adding
 a markdown file under `reviews/`.
 
@@ -18,29 +18,29 @@ EOF
 
 # Run it against the current branch diff. If exactly one supported harness
 # is on PATH, it's selected automatically.
-reviewer review run demo
+roaster review run demo
 ```
 
 ## CLI
 
 ```
-reviewer harness list        # detect known harnesses on PATH
-reviewer harness show        # print which harness would be used
+roaster harness list        # detect known harnesses on PATH
+roaster harness show        # print which harness would be used
 
-reviewer review list         # enumerate reviews/**/*.md as keys
-reviewer review run <key>    # resolve reviews/<key>.md, run it, print findings
+roaster review list         # enumerate reviews/**/*.md as keys
+roaster review run <key>    # resolve reviews/<key>.md, run it, print findings
 ```
 
 Every operation also has a JSON form for machine consumers:
 
 ```bash
-reviewer review run dignified-python --format json
-reviewer harness list --format json
+roaster review run dignified-python --format json
+roaster harness list --format json
 ```
 
 ## Harness selection
 
-`asdl-reviewer` runs parsed review definitions through a unified harness
+`roaster` runs parsed review definitions through a unified harness
 runtime. The runtime owns prompt assembly, harness detection, model support,
 subprocess invocation, progress events, and stdout parsing. The first-class
 harness today is **Claude Code**; adding others is a future slice.
@@ -48,7 +48,7 @@ harness today is **Claude Code**; adding others is a future slice.
 Resolution order for which harness a review uses:
 
 1. `--harness <name>` on the `review run` command.
-2. `ASDL_REVIEWER_HARNESS` environment variable.
+2. `ASDL_ROASTER_HARNESS` environment variable.
 3. The single harness detected on `PATH`, if exactly one is available.
 4. Failure — either no harness is on `PATH`, or more than one is and the
    choice is ambiguous.
@@ -113,7 +113,7 @@ passed.
 
 ## PR comments in CI
 
-The reviewer CI workflow keeps the summary comment as the complete aggregate
+The roaster CI workflow keeps the summary comment as the complete aggregate
 record for every finding. When GitHub can place a finding on a concrete PR diff
 line, CI also attempts to post an inline review comment for that finding.
 

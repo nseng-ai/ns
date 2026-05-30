@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.git.real_git_gateway import resolve_trunk_branch
-from asdl_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from asdl_reviewer.git_toplevel import git_toplevel, run_git
-from asdl_reviewer.models import BaseRefUnavailable, GitDiffFailedError, LocalDiff
+from roaster.gateways.local_diff.gateway import LocalDiffGateway
+from roaster.git_toplevel import git_toplevel, run_git
+from roaster.models import BaseRefUnavailable, GitDiffFailedError, LocalDiff
 
 
 class RealLocalDiffGateway(LocalDiffGateway):
