@@ -1,6 +1,6 @@
 # asdl-core
 
-asdl-core is the shared substrate that every asdl plugin builds on. It is a single PyPI distribution that contains several logical subdomains (`clinkr`, `gh`, `git`, `gt`, plus top-level plugin/console/format utilities); each is documented here as its own H2 section with its own glossary and relationships.
+asdl-core is the shared substrate that every asdl plugin builds on. It is a single PyPI distribution that contains several logical subdomains (`clinkr`, `gh`, `git`, `gt`, `sessions`, plus top-level plugin/console/format utilities); each is documented here as its own H2 section with its own glossary and relationships.
 
 ## Clinkr
 
@@ -311,6 +311,12 @@ Graphite defines a **Graphite stack** as a sequence of PRs, each building off it
 
 Use **GitGateway** for ordinary repository and worktree facts: current branch, refs, worktrees, dirty state, history, and branch existence. Use **GtGateway** only for explicitly Graphite behavior: parent/children relationships, stack snapshots, trunk-scoped Graphite branch graphs, Graphite trunk, restacking, syncing Graphite metadata, and raw Graphite branch diagnostics. `stack()` and `branch_graph()` get their structure from the **Graphite metadata store** via the **Stack slice query**; `branch_graph()` also reads **Graphite repo config** for the configured trunk and may use the optional **Restack revision pair** for row annotations. The command-oriented Graphite operations continue to use `gt` CLI commands.
 
+#### Metadata-store contract and fallback policy
+
+`stack()` is current-branch-centered: it reads Graphite metadata for the branch checked out at `cwd`, returns a successful **StackInfo** when that branch is tracked, and can return **UntrackedBranch** when the current branch is absent from metadata. `branch_graph()` is repo/trunk-centered: it reads **Graphite repo config** for the configured **Graphite trunk**, walks that reachable metadata component, and does not require the current checkout's branch to be Graphite-tracked.
+
+The required Graphite schema surface is the named-column **Stack slice query**, not `SELECT *` and not the whole Graphite migration contract. The optional **Restack revision pair** is display/health metadata only. If the metadata store, repo config, or supported schema is unavailable, the gateway returns a structured **GtCommandFailure** such as a metadata schema mismatch. There is intentionally no `gt ls` human-output parser fallback.
+
 ## Gh
 
 The Gh subdomain is the shared boundary for GitHub pull-request workflows. It keeps GitHub CLI/API calls behind a PR-centered gateway so asdl packages can reason about PR lifecycle, PR feedback, review threads, inline comments, discussion comments, reactions, and guarded merge behavior without adopting GitHub's lower-level API naming leaks.
@@ -442,3 +448,83 @@ Use **asdl console** and **asdl table** for user-facing Rich output so plugin pa
 #### Aliases
 
 **AliasedGroup** is a legacy Click-level alias helper. New clinkr operations normally use `ClinkrGroup` alias support through operation metadata; use `AliasedGroup` only where plain Click grouping still owns the surface.
+
+## Sessions
+
+The Sessions subdomain is the harness-neutral boundary for local agent session facts. It defines source interfaces, compact parsed-session models, source references, and deterministic evidence aggregation without retaining raw transcript content. Harness-specific parsing stays under adapters; branch-facing retrospective envelopes live in `aretro`.
+
+### Language
+
+**Sessions subdomain** — Harness-neutral boundary for local agent session facts, source adapters, and deterministic evidence aggregation.
+_Avoid:_ Pi-only sessions, aretro-only sessions, transcript store.
+
+**SessionSource** — Readable adapter interface for one harness/session-log source, defined in `asdl_core.sessions.source`.
+_Avoid:_ session gateway, log helper, provider.
+
+**Session source adapter** — Harness-specific parser implementation, such as the Pi JSONL adapter, that normalizes one log format into shared session models.
+_Avoid:_ session model, evidence collector, generic parser.
+
+**SessionSourceInfo** — Adapter identity (`harness`, `adapter_name`, `record_format`) returned without filesystem or subprocess work.
+_Avoid:_ source status, source config, provider metadata.
+
+**SessionSourceRef** — Source reference to a path, URI, or line number without embedding raw transcript text.
+_Avoid:_ transcript excerpt, message body, log copy.
+
+**SessionQuery** — Request for sessions associated with a repo/worktree and optional session root, session count, time, or harness filters.
+_Avoid:_ retrospective request, branch query, adapter config.
+
+**SessionQueryResult** — Sessions plus non-fatal warnings from one source.
+_Avoid:_ evidence result, failure result, session list.
+
+**SessionWarning** — Non-fatal discovery or parsing issue, not a failed retrospective.
+_Avoid:_ exception, failed evidence item, recommendation.
+
+**SessionAssociation** — Conservative evidence connecting a session to repo, cwd, and branch context, including confidence and evidence strings.
+_Avoid:_ ownership, authoritative branch binding, checkout state.
+
+**ParsedSession** — Compact normalized representation of one session: identity/time, association, counts, tool/activity facts, usage, and warnings.
+_Avoid:_ raw session, transcript, conversation.
+
+**Session message counts** — Counts of normalized message/activity classes rather than transcript content.
+_Avoid:_ message text, token counts, transcript summary.
+
+**Session tool/activity facts** — Normalized tool calls, tool results, shell command executions, model events, and usage events.
+_Avoid:_ tool output, assistant prose, command stdout.
+
+**SessionEvidenceItem** — Deterministic source-backed observation aggregated from parsed sessions.
+_Avoid:_ finding, recommendation, diagnosis.
+
+**Evidence kind order** — Stable rendering/sorting order for evidence kinds, not severity or recommendation priority.
+_Avoid:_ severity, priority, ranking.
+
+**Pi JSONL session source** — First concrete adapter for Pi's local JSONL logs; an implementation detail of one harness source, not the sessions domain itself.
+_Avoid:_ sessions subsystem, default transcript store, Pi provider.
+
+**Privacy boundary** — Default rule that normalized facts include metadata, counts, bounded subjects, and source refs, but not raw prompts, assistant prose, transcript text, or tool output content.
+_Avoid:_ redaction pass, anonymization guarantee, full transcript export.
+
+### Relationships
+
+#### Adapters normalize into shared models
+
+Adapter-specific parsing stays under `asdl_core.sessions.adapters`. Shared harness-neutral models live in `asdl_core.sessions.types`, and adapters emit those models rather than exposing Pi-only, Claude-only, or Codex-only fields.
+
+#### Source references, not transcript retention
+
+**SessionSourceRef** points back to source material when a human needs to inspect the original log. Normalized session facts retain references, counts, bounded subjects, and metadata instead of copying raw transcript text or tool output content.
+
+#### Associations are conservative evidence
+
+**SessionAssociation** records repo/cwd/branch clues that make a session relevant to a retrospective. It is useful evidence for branch analysis, not an authoritative branch-ownership or checkout-state system.
+
+#### Evidence aggregation is deterministic
+
+`collect_session_evidence` emits factual **SessionEvidenceItem** observations such as tool usage counts, failed tool results, repeated file reads, repeated shell commands, token usage, and large or truncated output. The **Evidence kind order** makes rendering stable; it does not rank severity.
+
+#### Sessions vs aretro vs branch-retro
+
+`asdl-core.sessions` owns models, adapters, and deterministic aggregation. `aretro` owns the branch-facing CLI, branch resolution, and JSON DTO envelope. `branch-retro` owns semantic recommendation judgment over the emitted evidence.
+
+#### Evidence items vs findings
+
+Session evidence items are factual retrospective observations. Roaster findings are review feedback intended for humans and PR comments. Objective completion evidence is narrative proof that work progressed or criteria were satisfied.
