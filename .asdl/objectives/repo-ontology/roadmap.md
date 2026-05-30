@@ -34,7 +34,7 @@ Phase 1 — finish/refresh `packages/asdl-core/CONTEXT.md` (append H2 sections t
 
 Phase 2 — foundational primitive
 
-- [ ] Create `packages/brmem/CONTEXT.md` — Branch Memory System, Branch Memory, `Entry`, `Namespace`, `Entry Key`, base vs namespaced Entries, Entry/Ref locators, snapshots, export, prompt resolution, copy conflicts, and the difference between Branch Memory as a CLI/skill primitive vs package-level storage dependencies. Planned-branch policy should be cross-referenced to `@asdl/pi-extensions`, not owned here.
+- [x] Create `packages/brmem/CONTEXT.md` — landed via focused grilling/readback. The context now defines Branch Memory System, Branch Memory, Namespace / Base Namespace, Entry, Entry Key, Snapshot, Snapshot Ref, Entry Locator, Namespace Copy, Copy Conflict, and Export; Relationships cover branch attachment, branch/ref encoding, key safety, snapshot history, namespace-copy semantics, mutation boundaries, export materialization, small-text limits, and higher-level workflow ownership of named Namespaces. Prompt resolution stayed out of the durable ontology because `exec` commands are skill-facing/internal rather than user-facing Branch Memory behavior. Temporary package-local product/code alignment notes live in `packages/brmem/FOLLOWUP.md` while those gaps are resolved.
 
 Phase 3 — package contexts (plugins plus standalone utility)
 
