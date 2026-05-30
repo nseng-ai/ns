@@ -18,5 +18,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
 - [Slot co-autocomplete plan](slot-co-autocomplete-plan.md): slot autocomplete design notes.
+- [refactor-swarm](refactor-swarm.md): the multi-agent workflow for applying a file-local change across many files.
 
 Agents should consult this README first, then follow the narrowest relevant link instead of scanning the whole repository.
