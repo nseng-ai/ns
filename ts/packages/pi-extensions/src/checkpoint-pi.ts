@@ -88,7 +88,7 @@ export type PreparedCheckpointMessage =
 	| { ok: false; error: string };
 
 export async function prepareCheckpointMessageForPi(
-	pi: ExtensionAPI,
+	pi: Pick<ExtensionAPI, "exec">,
 	ctx: ExtensionCommandContext,
 	snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 ): Promise<PreparedCheckpointMessage> {
@@ -132,7 +132,7 @@ function selectDraftHarness(): { value: DraftHarness } | { error: string } {
 }
 
 async function draftWithHarness(
-	pi: ExtensionAPI,
+	pi: Pick<ExtensionAPI, "exec">,
 	ctx: ExtensionCommandContext,
 	harness: DraftHarness,
 	request: DraftCheckpointRequest,

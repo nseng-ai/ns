@@ -1,15 +1,25 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
-import {
-	submitExtensionWithDependencies,
-	type BufferedSubmitCommandResult,
-	type ExtensionAPI,
-	type ExtensionCommandContext,
-	type NotifyLevel,
-	type StreamedSubmitCommandResult,
-	type SubmitCommandRunner,
+import type {
+	BufferedSubmitCommandResult,
+	ExtensionAPI,
+	ExtensionCommandContext,
+	LoadedPendingWorktreeSnapshotResult,
+	NotifyLevel,
+	StreamedSubmitCommandResult,
+	SubmitCheckpointOperations,
+	SubmitCommandRunner,
 } from "../src/submit.ts";
 import { stripTerminalEscapes } from "../src/terminal-presentation.ts";
+import type { PendingWorktreeSnapshot } from "../src/pending-worktree.ts";
+
+mock.module("@earendil-works/pi-ai", () => ({
+	async completeSimple(): Promise<never> {
+		throw new Error("unexpected model call from submit tests");
+	},
+}));
+
+const { submitExtensionWithDependencies } = await import("../src/submit.ts");
 
 const ROOT = "/repo";
 const SUBMIT_ARGS = ["submit", "-nps", "--ai"];
@@ -64,11 +74,31 @@ type RunnerCall = {
 	options: { cwd: string; timeoutMs: number };
 };
 
+type ContextOptions = {
+	cwd?: string;
+	hasUI?: boolean;
+	confirms?: boolean[];
+	checkpoint?: SubmitCheckpointOperations;
+};
+
+type StatusUpdate = {
+	key: string;
+	value: string | undefined;
+};
+
+type PreparedMessageResult = Awaited<ReturnType<SubmitCheckpointOperations["prepareMessage"]>>;
+
+type CommitResult = Awaited<ReturnType<SubmitCheckpointOperations["commit"]>>;
+
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
+	}
+
+	async exec(command: string, args: string[]): ReturnType<ExtensionAPI["exec"]> {
+		return { code: 99, stdout: "", stderr: `unexpected pi.exec: ${commandDisplay(command, args)}` };
 	}
 }
 
@@ -152,22 +182,32 @@ class ScriptedSubmitRunner implements SubmitCommandRunner {
 	}
 }
 
-function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {}): {
+function createContext(options: ContextOptions = {}): {
 	ctx: ExtensionCommandContext;
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	widgets: WidgetUpdate[];
+	statuses: StatusUpdate[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
 	const confirmations: Confirmation[] = [];
 	const widgets: WidgetUpdate[] = [];
+	const statuses: StatusUpdate[] = [];
 	const confirmAnswers = [...(options.confirms ?? [true])];
 	let waits = 0;
 
 	const ctx: ExtensionCommandContext = {
 		cwd: options.cwd ?? ROOT,
 		hasUI: options.hasUI ?? true,
+		modelRegistry: {
+			find(): unknown | undefined {
+				return undefined;
+			},
+			async getApiKeyAndHeaders(): Promise<{ ok: false; error: string }> {
+				return { ok: false, error: "unexpected model auth lookup" };
+			},
+		},
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
@@ -175,6 +215,9 @@ function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: bool
 			async confirm(title: string, message: string): Promise<boolean> {
 				confirmations.push({ title, message });
 				return confirmAnswers.shift() ?? false;
+			},
+			setStatus(key: string, value: string | undefined): void {
+				statuses.push({ key, value });
 			},
 			setWidget(key: string, value: WidgetContent, widgetOptions?: WidgetOptions): void {
 				widgets.push({ key, value, options: widgetOptions });
@@ -185,28 +228,86 @@ function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: bool
 		},
 	};
 
-	return { ctx, notifications, confirmations, widgets, waitForIdleCalls: () => waits };
+	return { ctx, notifications, confirmations, widgets, statuses, waitForIdleCalls: () => waits };
 }
 
 async function runSubmit(
 	script: ScriptedStep[],
-	contextOptions: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {},
+	contextOptions: ContextOptions = {},
 ): Promise<{
 	pi: FakePi;
 	runner: ScriptedSubmitRunner;
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	widgets: WidgetUpdate[];
+	statuses: StatusUpdate[];
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi();
 	const runner = new ScriptedSubmitRunner(script);
-	submitExtensionWithDependencies(pi, { runner });
+	const dependencies = contextOptions.checkpoint ? { runner, checkpoint: contextOptions.checkpoint } : { runner };
+	submitExtensionWithDependencies(pi, dependencies);
 	const command = pi.commands.get("submit");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
 	await command?.handler("", context.ctx);
 	return { pi, runner, ...context };
+}
+
+const CHECKPOINT_MESSAGE = `[cp] Update submit recovery
+
+- Add no-PR checkpoint prompt
+- Retry submit after checkpoint`;
+
+function createCheckpointOperations(
+	options: {
+		snapshot?: Partial<PendingWorktreeSnapshot>;
+		snapshotResult?: LoadedPendingWorktreeSnapshotResult;
+		prepared?: PreparedMessageResult;
+		commit?: CommitResult;
+	} = {},
+): {
+	operations: SubmitCheckpointOperations;
+	calls: {
+		load: ExtensionCommandContext[];
+		prepare: Array<Pick<PendingWorktreeSnapshot, "status" | "diff">>;
+		commit: string[];
+	};
+} {
+	const calls = {
+		load: [] as ExtensionCommandContext[],
+		prepare: [] as Array<Pick<PendingWorktreeSnapshot, "status" | "diff">>,
+		commit: [] as string[],
+	};
+	const operations: SubmitCheckpointOperations = {
+		async loadSnapshot(ctx: ExtensionCommandContext): Promise<LoadedPendingWorktreeSnapshotResult> {
+			calls.load.push(ctx);
+			return options.snapshotResult ?? { ok: true, snapshot: pendingSnapshot(options.snapshot) };
+		},
+		async prepareMessage(
+			_ctx: ExtensionCommandContext,
+			snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
+		): Promise<PreparedMessageResult> {
+			calls.prepare.push(snapshot);
+			return options.prepared ?? { ok: true, message: CHECKPOINT_MESSAGE, source: "model" };
+		},
+		async commit(_ctx: ExtensionCommandContext, message: string): Promise<CommitResult> {
+			calls.commit.push(message);
+			return options.commit ?? { summary: "abc123 [cp] Update submit recovery" };
+		},
+	};
+	return { operations, calls };
+}
+
+function pendingSnapshot(overrides: Partial<PendingWorktreeSnapshot> = {}): PendingWorktreeSnapshot {
+	const status = overrides.status ?? " M src/submit.ts\n";
+	return {
+		root: overrides.root ?? ROOT,
+		branch: overrides.branch ?? "feature",
+		status,
+		diff: overrides.diff ?? "diff --git a/src/submit.ts b/src/submit.ts\n",
+		clean: overrides.clean ?? status.trim().length === 0,
+	};
 }
 
 function buffered(command: string, args: string[], result?: Partial<BufferedSubmitCommandResult>): BufferedStep {
@@ -436,17 +537,223 @@ describe("submit command scenarios", () => {
 		expect(arrayWidgetText(widgets)).toContain("$ gt pr (exit code 0)");
 	});
 
-	test("current PR verification failure explains that the branch still has no PR", async () => {
-		const { runner, notifications, widgets } = await runSubmit([
-			buffered("gt", DRY_RUN_ARGS),
-			streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
-			buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
-		]);
+	test("no PR with dirty worktree previews checkpoint, commits on confirmation, and retries once", async () => {
+		const checkpoint = createCheckpointOperations();
+		const { runner, notifications, confirmations } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "Submitted https://github.com/acme/widgets/pull/126\n" }),
+				buffered("gt", CURRENT_PR_ARGS),
+			],
+			{ confirms: [true], checkpoint: checkpoint.operations },
+		);
 
 		runner.assertDone();
+		expect(callDisplays(runner.calls)).toEqual([
+			"buffered gt submit -nps --ai --dry-run",
+			"streaming gt submit -nps --ai",
+			"buffered gt pr",
+			"buffered gt submit -nps --ai --dry-run",
+			"streaming gt submit -nps --ai",
+			"buffered gt pr",
+		]);
+		expect(checkpoint.calls.load).toHaveLength(1);
+		expect(checkpoint.calls.prepare).toEqual([{ status: " M src/submit.ts\n", diff: "diff --git a/src/submit.ts b/src/submit.ts\n" }]);
+		expect(checkpoint.calls.commit).toEqual([CHECKPOINT_MESSAGE]);
+		expect(confirmations).toHaveLength(1);
+		expect(confirmations[0]?.title).toBe("Checkpoint pending changes?");
+		expect(confirmations[0]?.message).toContain("Graphite still reports no PR");
+		expect(confirmations[0]?.message).toContain("stage and commit all outstanding changes");
+		expect(confirmations[0]?.message).toContain(CHECKPOINT_MESSAGE);
+		expect(notifications.map((notification) => stripTerminalEscapes(notification.message))).toEqual([
+			"Checkpoint created: abc123 [cp] Update submit recovery; retrying submit…",
+			"gt submit succeeded: #126",
+		]);
+	});
+
+	test("no PR with dirty worktree does not commit or retry when user declines", async () => {
+		const checkpoint = createCheckpointOperations();
+		const { runner, notifications, confirmations, widgets } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+			],
+			{ confirms: [false], checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(callDisplays(runner.calls)).toEqual([
+			"buffered gt submit -nps --ai --dry-run",
+			"streaming gt submit -nps --ai",
+			"buffered gt pr",
+		]);
+		expect(confirmations[0]?.message).toContain(CHECKPOINT_MESSAGE);
+		expect(checkpoint.calls.commit).toEqual([]);
+		expect(notifications).toEqual([
+			{
+				message: "Submission cancelled. Pending changes were not checkpointed; run /cp or /submit again when ready.",
+				level: "warning",
+			},
+		]);
+		const widgetText = arrayWidgetText(widgets);
+		expect(widgetText).toContain("current branch still has no PR");
+		expect(widgetText).toContain(CHECKPOINT_MESSAGE);
+	});
+
+	test("no PR with clean worktree keeps the original failure visible", async () => {
+		const checkpoint = createCheckpointOperations({ snapshot: { status: "", diff: "", clean: true } });
+		const { runner, notifications, widgets } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+			],
+			{ checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(checkpoint.calls.load).toHaveLength(1);
+		expect(checkpoint.calls.prepare).toEqual([]);
+		expect(checkpoint.calls.commit).toEqual([]);
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain("current branch still has no PR");
+		expect(notifications[0]?.message).toContain("Working tree is clean");
 		expect(arrayWidgetText(widgets)).toContain("$ gt pr (exit code 1)");
+	});
+
+	test("no PR on trunk refuses checkpoint recovery", async () => {
+		const checkpoint = createCheckpointOperations({ snapshot: { branch: "main" } });
+		const { runner, notifications } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+			],
+			{ checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(checkpoint.calls.prepare).toEqual([]);
+		expect(checkpoint.calls.commit).toEqual([]);
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("Refusing to create checkpoint commit on trunk branch: main");
+	});
+
+	test("no PR in non-UI mode suggests /cp and does not inspect or mutate", async () => {
+		const checkpoint = createCheckpointOperations();
+		const { result, errors } = await captureConsole(() =>
+			runSubmit(
+				[
+					buffered("gt", DRY_RUN_ARGS),
+					streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+					buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+				],
+				{ hasUI: false, checkpoint: checkpoint.operations },
+			),
+		);
+
+		result.runner.assertDone();
+		expect(result.confirmations).toEqual([]);
+		expect(checkpoint.calls.load).toEqual([]);
+		expect(checkpoint.calls.commit).toEqual([]);
+		expect(errors.join("\n")).toContain("Run /cp to checkpoint outstanding changes, then run /submit again.");
+		expect(result.notifications[0]?.level).toBe("error");
+	});
+
+	test("checkpoint message preparation failure preserves Graphite evidence and does not retry", async () => {
+		const checkpoint = createCheckpointOperations({ prepared: { ok: false, error: "model unavailable" } });
+		const { runner, notifications, widgets } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+			],
+			{ checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(checkpoint.calls.prepare).toHaveLength(1);
+		expect(checkpoint.calls.commit).toEqual([]);
+		expect(callDisplays(runner.calls)).toEqual([
+			"buffered gt submit -nps --ai --dry-run",
+			"streaming gt submit -nps --ai",
+			"buffered gt pr",
+		]);
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("model unavailable");
+		expect(notifications[0]?.message).toContain("current branch still has no PR");
+		expect(arrayWidgetText(widgets)).toContain("$ gt pr (exit code 1)");
+	});
+
+	test("checkpoint commit failure preserves Graphite evidence and does not retry", async () => {
+		const checkpoint = createCheckpointOperations({ commit: { error: "Checkpoint commit failed.\nexit 1: hook failed" } });
+		const { runner, notifications, widgets } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+			],
+			{ confirms: [true], checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(checkpoint.calls.commit).toEqual([CHECKPOINT_MESSAGE]);
+		expect(callDisplays(runner.calls)).toEqual([
+			"buffered gt submit -nps --ai --dry-run",
+			"streaming gt submit -nps --ai",
+			"buffered gt pr",
+		]);
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("hook failed");
+		expect(notifications[0]?.message).toContain("current branch still has no PR");
+		expect(arrayWidgetText(widgets)).toContain("$ gt pr (exit code 1)");
+	});
+
+	test("retry still having no PR displays normal failure without prompting again", async () => {
+		const checkpoint = createCheckpointOperations();
+		const { runner, notifications, confirmations, widgets } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "first submit\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "second submit\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 1, stderr: "No PR found for current branch\n" }),
+			],
+			{ confirms: [true], checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(confirmations).toHaveLength(1);
+		expect(checkpoint.calls.load).toHaveLength(1);
+		expect(checkpoint.calls.commit).toEqual([CHECKPOINT_MESSAGE]);
+		expect(notifications.map((notification) => notification.level)).toEqual(["info", "error"]);
+		expect(notifications.at(-1)?.message).toContain("current branch still has no PR");
+		expect(notifications.at(-1)?.message).toContain("second submit");
+		expect(arrayWidgetText(widgets)).toContain("$ gt pr (exit code 1)");
+	});
+
+	test("non-no-PR current PR verification failure remains hard without checkpoint prompt", async () => {
+		const checkpoint = createCheckpointOperations();
+		const { runner, notifications, confirmations } = await runSubmit(
+			[
+				buffered("gt", DRY_RUN_ARGS),
+				streaming("gt", SUBMIT_ARGS, { stdout: "submit succeeded\n" }),
+				buffered("gt", CURRENT_PR_ARGS, { code: 2, stderr: "Graphite auth failed\n" }),
+			],
+			{ checkpoint: checkpoint.operations },
+		);
+
+		runner.assertDone();
+		expect(confirmations).toEqual([]);
+		expect(checkpoint.calls.load).toEqual([]);
+		expect(checkpoint.calls.commit).toEqual([]);
+		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.message).toContain("current PR verification failed with exit code 2");
 	});
 
 	test("submit startup errors include the startup failure and output sections", async () => {
