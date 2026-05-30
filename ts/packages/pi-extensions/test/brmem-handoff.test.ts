@@ -244,7 +244,7 @@ describe("brmem handoff extension", () => {
 			expect(result.pi.sentUserMessages[0]).toContain("Store a handoff from the skill body.");
 			expect(result.pi.sentUserMessages[0]).toContain("resume extension frontend work");
 			expect(result.notifications).toEqual([
-				{ message: "Starting Branch Memory handoff creation…", level: "info" },
+				{ message: "Starting handoff save workflow…", level: "info" },
 			]);
 		});
 	});
@@ -256,7 +256,7 @@ describe("brmem handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
 		expect(result.pi.sentUserMessages[0]).toContain("handoff focus");
 		expect(result.notifications).toEqual([
-			{ message: "brmem-handoff skill was not found; using fallback workflow prompt.", level: "warning" },
+			{ message: "brmem-handoff skill was not found; using fallback save-handoff workflow prompt.", level: "warning" },
 		]);
 	});
 
@@ -316,7 +316,7 @@ describe("brmem handoff extension", () => {
 		result.pi.assertDone();
 		expect(result.selections).toEqual([
 			{
-				title: `Select Branch Memory handoff on ${BRANCH}`,
+				title: `Select handoff on ${BRANCH}`,
 				items: ["handoffs/alpha.md", "handoffs/bravo.md"],
 			},
 		]);
@@ -340,7 +340,7 @@ describe("brmem handoff extension", () => {
 
 		result.pi.assertDone();
 		expect(result.notifications).toEqual([
-			{ message: `No handoffs found on branch ${BRANCH} in namespace session-artifacts.`, level: "info" },
+			{ message: `No saved handoffs found on branch ${BRANCH}.`, level: "info" },
 		]);
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
