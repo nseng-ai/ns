@@ -1,4 +1,4 @@
-# refactor-swarm
+# refactor-swarm-workflow
 
 A reusable, multi-agent workflow for applying one file-local change across many
 files. It is the **execute** half of a refactor: a swarm of agents makes the edits
@@ -8,20 +8,28 @@ report back.
 The matching planning half is not a tool — it's the orchestrator (the agent you're
 talking to) doing its job in the session.
 
+> **Not the `ns-refactor-swarm` skill.** This `refactor-swarm-workflow` is a
+> [`Workflow`-tool](../.claude/workflows/refactor-swarm-workflow.js) script that runs
+> detached and returns a structured report. The separately-named `ns-refactor-swarm`
+> skill is a different, in-session procedure that spawns `Task` subagents in two waves
+> (source files, then tests). Same idea, different machinery — they share no code.
+> Reach for the skill when you want the lighter interactive flow; reach for this
+> workflow when you want the detached plan/execute engine with adversarial verify.
+
 ## How you use it
 
 Type:
 
 ```
-refactor-swarm: <one-line intent>
+refactor-swarm-workflow: <one-line intent>
 ```
 
-for example `refactor-swarm: rename the OLD identifier to NEW everywhere`.
+for example `refactor-swarm-workflow: rename the OLD identifier to NEW everywhere`.
 
 That kicks off two phases:
 
 1. **Plan** — interactive, in this chat session.
-2. **Execute** — the `refactor-swarm` workflow runs detached and returns a report.
+2. **Execute** — the `refactor-swarm-workflow` workflow runs detached and returns a report.
 
 ## Plan is interactive in the session
 
