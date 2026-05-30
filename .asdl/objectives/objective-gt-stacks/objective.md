@@ -98,3 +98,13 @@ Resolved during Phase 5 Pi extension:
 Still open:
 
 - Should the future TUI live as a standalone terminal application, a Python CLI subcommand, or a Pi extension surface that consumes the JSON output?
+
+## Closure
+
+Outcome: completed on 2026-05-30.
+
+The Objective delivered the intended split: `objective list` is checkout-local record inventory, `objective gt stacks` is an explicit Graphite stack projection, the Pi Objective extension has separate checkout-local and stack-projection surfaces, and first-party docs plus the public `objective` skill describe the new model.
+
+Evidence is recorded across the Phase 1-6 Semantic Updates: implementation phases carried targeted and full validation where appropriate, the post-Phase-5 hardening/spec slice landed with expanded Python coverage, and the final public-skill docs slice passed `git diff --check` and `just dprint-check`. Full repo validation was not rerun after the final docs-only skill wording change; this is accepted as a closure caveat rather than remaining active work.
+
+Follow-ups are parked outside this Objective: a future interactive Objective stack TUI, richer stack health beyond the cheap deterministic annotations, lifecycle summaries, cross-trunk inventory, non-Graphite branch inventory, and exact `gt ls` connector art remain deferred unless a later Objective reopens those product questions.
