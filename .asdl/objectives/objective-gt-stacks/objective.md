@@ -58,7 +58,7 @@ Assumptions:
 
 - The clean split between checkout-local records and Graphite stack projection is the right mental model, even though it is a breaking change for existing `objective list` consumers.
 - Phase 2 confirmed that the Graphite gateway can expose current-trunk graph metadata for all reachable Graphite-tracked branches without depending on human `gt ls` output.
-- Phase 3 confirms the model-level slice: Git path-change queries over `parent..branch` ranges identify Objective touches, including active-root deletions, while archive-root-only edits are ignored before grouping.
+- Phase 3 confirms the model-level slice: Git path-change queries over `parent..branch` ranges identify Objective touches, including active-root deletions and, after post-Phase-5 hardening, renames and copies (old and new paths via `--name-status -M`), while archive-root-only edits are ignored before grouping.
 - `(x)` is an acceptable compact marker for outstanding working-tree changes in `objective list` latest-update output.
 - Markdown and JSON consumers can migrate directly to the new contracts in the same workstream.
 
@@ -68,7 +68,7 @@ Risks:
 - Phase 3 de-risks model-level segment construction for many-to-many Objective/branch relationships, disconnected regions, and connector rows. Phase 4 now preserves that semantic model behind the CLI JSON contract and keeps renderer glyphs out of the result schema.
 - Removing old `objective list` JSON fields was a TypeScript Objective picker breakage risk; the Pi Objective extension now consumes the record-oriented schema, removes branch-count/latest-work labels, verifies the picker/list flows against the new contract, and exposes `/objective-gt-stacks` as a separate thin display wrapper over the Graphite stack command.
 - Dirty-state detection for `(x)` is de-risked for checkout-local `objective list` by path-scoped Git status coverage of staged, unstaged, untracked, and unrelated paths. The Pi picker now collects checkout-local Objective status with `git status --porcelain=v1 -z -- .asdl/objectives`, unions those slugs with committed Objective diffs versus trunk, and still requires explicit selection when multiple changed active Objectives exist.
-- The model-level risk of ignoring archive-root paths while including active-root deletions is de-risked by Phase 3 touch extraction tests. Phase 4 scenario coverage now preserves that behavior through command wiring and renderers.
+- The model-level risk of ignoring archive-root paths while including active-root deletions is de-risked by Phase 3 touch extraction tests, extended post-Phase-5 with rename/copy-aware `--name-status -M` parsing and real Git gateway coverage. Phase 4 scenario coverage preserves that behavior through command wiring and renderers.
 - A future TUI may need richer graph data than the first human CLI renderer. Mitigation: design JSON around semantic graph facts rather than terminal glyphs.
 
 ## Open Questions
@@ -86,9 +86,9 @@ Resolved during Phase 2 structured Graphite graph support:
 
 Resolved during Phase 4 `objective gt stacks` CLI:
 
-- The JSON schema exposes `trunk_branch`, `warnings`, and `objectives[]`; each Objective carries `slug`, trunk-projected `status`, `objective_branch_count`, `segment_count`, optional `latest_work`, and `segments[]` with indexed branch rows.
+- The JSON schema exposes `trunk_branch`, `warnings`, and `objectives[]`; each Objective carries `slug`, trunk-projected `status` (`open`, `closed`, or stack-only `in-flight`), `objective_branch_count`, `segment_count`, optional `latest_work`, and `segments[]` with indexed branch rows.
 - Branch rows expose semantic facts rather than renderer glyphs: `branch`, `parent`, `depth`, `touches_objective`, `connector`, `also_touches`, and Graphite `validation_result` when available.
-- V1 branch annotations stop at Objective touch/connector state, multi-Objective `also_touches`, and cheap Graphite validation facts. Slot labels, richer restack health, and lifecycle interpretation remain out of v1.
+- V1 branch annotations cover Objective touch/connector state, multi-Objective `also_touches`, cheap Graphite `validation_result` facts, and (added post-Phase-5) a cheap, deterministic `needs_restack` flag derived from optional Graphite parent-revision metadata columns. Slot labels, richer restack health beyond `needs_restack`, and lifecycle interpretation remain out of v1.
 
 Resolved during Phase 5 Pi extension:
 
