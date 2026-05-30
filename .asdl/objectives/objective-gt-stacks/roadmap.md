@@ -51,9 +51,9 @@ Phase 5 — Pi Objective extension
 Phase 6 — consumers and docs
 
 - [x] Update remaining first-party TypeScript/Pi consumers that parse `objective list` output to the new checkout-local contract or to `objective gt stacks` where branch-stack data is required.
-- [~] Update the public `objective` skill to describe `objective list` as checkout-local and `objective gt stacks` as the Graphite Objective stack projection. Checkout-local list language is updated; Graphite stack projection language remains a Phase 6 docs slice now that the command and Pi wrapper exist.
+- [x] Update the public `objective` skill to describe `objective list` as checkout-local and `objective gt stacks` as the Graphite Objective stack projection. Public skill language now names `objective list` as checkout-local inventory, describes `objective gt stacks` as read-only Graphite stack projection, and keeps stack output out of active-record selection.
 - [x] Update any prompt templates or repo docs that currently rely on `objective list` for branch-wide in-flight Objective discovery. Objective docs and selection/closure skills no longer describe `in-flight` candidates, and the Graphite stack projection now has dedicated repo docs: `docs/specs/objective-gt-stacks.md` plus an `objective gt stacks` cross-reference from `docs/objective-system.md`. The only remaining `in-flight` references are the stack-projection-correct ones inside that spec; the public-skill language is tracked separately in the row above.
-- [~] Run package and repo validation appropriate to the changed Python, TypeScript, Markdown, and skill files. The Pi extension TypeScript test and typecheck suite passed for the Phase 5 wrapper/picker slice; full repo validation remains for later cross-language docs/skills slices.
+- [~] Run package and repo validation appropriate to the changed Python, TypeScript, Markdown, and skill files. The Pi extension TypeScript test and typecheck suite passed for the Phase 5 wrapper/picker slice; `git diff --check` and `just dprint-check` passed for the public-skill docs slice; full repo validation remains.
 
 ## Parked
 
