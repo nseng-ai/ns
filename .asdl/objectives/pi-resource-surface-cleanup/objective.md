@@ -53,7 +53,9 @@ This Objective can close when all of the following are true:
 - The remote-skill runtime policy is explicitly decided and documented for `.agents/skills/` and `.claude/skills/`; any implementation required by that decision is complete, or removal is explicitly declared unnecessary.
 - Low-risk checked-in metadata cleanup has either been completed or deliberately rejected with rationale, including local command-skill descriptions and distinct status command descriptions.
 - The duplicate `/objective-stack-impl` visible Pi surface has been resolved or intentionally retained with a clear documented rationale that avoids autocomplete/entrypoint confusion, and Codex/Claude retain a documented way to invoke or follow the same Objective-stack implementation capability.
-- `/gh:land` has a recorded disposition appropriate to its risk as a mutating GitHub command: promoted and tested from the former `/land`, deprecated/replaced, or retained with explicit rationale, safety expectations, and Codex/Claude guidance.
+- The single-PR GitHub landing capability has a recorded disposition appropriate to its risk as a mutating GitHub command: promoted and tested from the former `/land`, deprecated/replaced, or retained with explicit rationale, safety expectations, and Codex/Claude guidance.
+- The local development/source-control Pi command cluster currently represented by `/cp`, `/newbr`, `/submit`, `/gh:land`, and `/gt:land-stack` has a settled namespace, checked-in implementation, updated tests, updated docs, and no unintended legacy aliases.
+- The remaining repo-owned workflow command families have explicit dispositions before closure: planned-branch commands (`/write-plan`, `/create-planned-branch`, `/impl-planned-branch`), Branch Memory handoff commands (`/brmem-handoff`, `/brmem-pickup-handoff`), and branch retrospective / `aretro` surfaces (`/skill:branch-retro` and related evidence-collection paths) are each renamed, namespaced, retained as-is, or documented as intentionally skill/CLI-centered.
 - User-local CMUX/`gh-pr`/`stack-latest` findings are captured as advisory/personal-resource context rather than closure-critical repo work, unless a later explicit user request changes scope.
 - A fresh Pi RPC command inventory has been run after material changes and summarized in either docs or an Objective update.
 - A fresh skill/instruction-surface inventory for Codex/Claude-relevant checked-in resources has been run after material changes and summarized in either docs or an Objective update.
@@ -69,6 +71,7 @@ Assumptions:
 - `AGENTS.md` and `CLAUDE.md` are important harness instruction surfaces, but they should route to skills, docs, and CLIs rather than duplicate long workflow bodies.
 - `docs/pi/README.md` remains the right place for the current resource-surface policy because it already describes project-local extensions, the vibecoded-vs-engineered layers, and now the Pi/Codex/Claude relationship for Objective stack implementation.
 - Namespaced Pi extension commands using `/namespace:command` are a good fit for command families with portable skill counterparts, because Pi can keep a concise picker wrapper without colliding visually with `/skill:<name>` entries.
+- The local development/source-control command cluster should use the `/dev:*` Pi namespace; the separate decision about renaming existing `dev-` prefixed skills is parked and should not block this Pi command cleanup.
 - A staged cleanup Objective is still better than several small Objectives because the findings are linked by one surface-area policy question.
 - Remote GitHub-sourced skills can remain excluded from deep audit and remain live by default when documented as vendored/developer-aid runtime surface rather than repo-owned products.
 - Treating user-local CMUX and similar commands as personal/tool-stack-specific avoids over-generalizing workflows that depend on a narrow local environment.
@@ -78,32 +81,14 @@ Risks:
 
 - The Objective stack implementation rename/prompt-removal risk is de-risked by checked-in evidence: the portable workflow now lives in `skills/objective-stack-impl/SKILL.md`, Pi exposes the picker wrapper as `/objective:stack-impl`, and RPC inventory shows no remaining `objective-stack-impl` top-level prompt command.
 - Over-correcting for harness neutrality could turn concise Pi commands into over-abstracted, harder-to-use workflows; the namespaced wrapper pattern is the current mitigation for Pi command families.
-- The former `/land` mutating-command risk is de-risked by checked-in evidence: Pi now exposes the package-tested `/gh:land` command from `.pi/extensions/gh.ts`, the old `/land` alias is absent from fresh RPC inventory, and docs give Codex/Claude the equivalent guarded `gh pr merge -s --match-head-commit ...` path.
+- The former `/land` mutating-command risk is de-risked by checked-in evidence: Pi exposes a package-tested GitHub landing command, the old `/land` alias is absent from fresh RPC inventory, and docs give Codex/Claude the equivalent guarded `gh pr merge -s --match-head-commit ...` path. Any `/dev:*` rename must preserve those safety expectations and docs.
 - Remote skills remain visible by explicit policy: real-directory `.agents/skills/` entries are live developer aids, excluded from deep audit, and not removed or disabled without explicit skill-management work.
-- `/gt:land-stack` is intentionally Pi-only for now; no Codex/Claude stack-landing workflow is claimed until a future explicit design promotes one.
+- Graphite stack landing is intentionally Pi-only for now; no Codex/Claude stack-landing workflow is claimed until a future explicit design promotes one.
 - Documentation-only dispositions can drift from actual Pi, Codex, and Claude surfaces unless they are paired with fresh discovery/inventory evidence; the latest `/gh:land` and `/gt:land-stack` slice includes that evidence.
 - Because user-local resources are outside the repo, audit findings about them can become stale or machine-specific.
 
 ## Open Questions
 
-- No open questions remain for this Objective. A dedicated Codex-specific checked-in resource is not needed unless a future concrete gap appears beyond `AGENTS.md`, repo-owned skills, and CLI/docs workflows.
-
-## Closure
-
-Outcome: completed.
-
-The harness-neutral agent resource surface cleanup is complete. Checked-in docs now record the resource-surface policy and important dispositions for repo-owned Pi resources, portable repo-owned skills, remote/vendored skills, user-local personal resources, and the first-class Pi/Codex/Claude entrypoint expectations.
-
-Completion evidence:
-
-- `docs/pi/README.md` records the cross-harness resource-surface policy, remote-skill runtime policy, user-local boundary, Pi extension namespace convention, and per-capability dispositions.
-- The Objective stack implementation duplicate was resolved by making `skills/objective-stack-impl/SKILL.md` the portable core, `/objective:stack-impl` the Pi wrapper, and Codex/Claude skill surfaces the non-Pi path; fresh inventory showed no remaining top-level duplicate.
-- The former `/land` mutating-command risk was resolved by promoting the single-PR GitHub landing behavior into package-tested `/gh:land`, removing the legacy `/land` alias, renaming stack landing to Pi-only `/gt:land-stack`, and documenting Codex/Claude guidance for the guarded `gh pr merge` flow.
-- Fresh Pi RPC command inventory and Codex/Claude-relevant skill/instruction inventory were recorded after material changes.
-- Verification passed for touched areas: focused landing tests, `just ts-check`, `just ts-test`, `just dprint-check`, and `git diff --check`.
-
-Caveats and follow-ups:
-
-- User-local CMUX, `gh-pr`, and `stack-latest` implementation changes remain parked and explicit-request-only.
-- Remote/vendored skill deep review remains out of scope unless separately requested.
-- A portable Codex/Claude Graphite stack-landing workflow is not claimed; `/gt:land-stack` remains Pi-only until a future explicit design promotes one.
+- The `/dev:*` namespace is selected for the local development/source-control Pi command cluster, but the exact subcommand names should be finalized before implementation.
+- Should the branch retrospective skill remain `/skill:branch-retro`, or should it be renamed/reframed around the `aretro` CLI now that deterministic evidence collection is the core implementation boundary?
+- A dedicated Codex-specific checked-in resource is not needed unless a future concrete gap appears beyond `AGENTS.md`, repo-owned skills, and CLI/docs workflows.
