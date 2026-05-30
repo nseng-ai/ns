@@ -26,7 +26,7 @@ The current tracked workspace has 7 Python packages with meaningful domain langu
   - Branch-scoped durable memory: Branch Memory System, Branch Memory, Entry, Namespace, Entry Key, base vs namespaced Entries, Entry/Ref locators, snapshots, copy conflicts, export, and prompt resolution. Planned-branch terms belong to the Pi/planning layer; brmem is only the lower storage adapter for attached plans.
 - **asdl-pr-address** — [`packages/asdl-pr-address/CONTEXT.md`](packages/asdl-pr-address/CONTEXT.md). _Planned._
   - PR review address book: package behavior around core `PRReviewThread`, `PRReviewComment`, `PRDiscussionComment`, reactions, feedback, thread resolution and replies. Cross-references (does not redefine) `asdl-core.gh` types; `IssueComment` is legacy command/API wording, not canonical domain language.
-- **asdl-reviewer** — [`packages/asdl-reviewer/CONTEXT.md`](packages/asdl-reviewer/CONTEXT.md). _Planned._
+- **roaster** — [`packages/roaster/CONTEXT.md`](packages/roaster/CONTEXT.md). _Planned._
   - Reviewer harness: `Reviewer`, `ReviewDefinition`, `HarnessRuntime`, `HarnessDefinition`, `HarnessReviewRequest`, `ReviewCatalog`, `ReviewSource`, `ReviewFormat`, `Finding`, `InlineCommentability`, severity/frontmatter. Explicitly disambiguates reviewer "Review" vocabulary against `gh.PRReview` and `pr-address` thread vocabulary.
 - **asdl-slots** — [`packages/asdl-slots/CONTEXT.md`](packages/asdl-slots/CONTEXT.md). _Planned._
   - Worktree slot manager: `SlotRecord`, `SlotInventory`, `InventoryStatus`, `RepoContext`, `SlotGcPlan`, `InitPlan`, `ResizePlan`, shell directive files, explicit `slot gt` stack operations, and `free-stack --downstack` downstack-only release.
@@ -51,9 +51,9 @@ Phase 4 will finalize this section after every planned per-package `CONTEXT.md` 
 
 Current package-level facts:
 
-- `brmem`, `asdl-pr-address`, `asdl-reviewer`, `asdl-slots`, and `asdl-objectives` depend on `asdl-core` in `pyproject.toml` and import its subdomains in source.
+- `brmem`, `asdl-pr-address`, `roaster`, `asdl-slots`, and `asdl-objectives` depend on `asdl-core` in `pyproject.toml` and import its subdomains in source.
 - `packagechk` is standalone relative to asdl packages: its `pyproject.toml` depends on `click` only and has no `asdl-core`, `brmem`, or other asdl package dependency.
-- There is no current Python package import edge between the peer packages (`brmem`, `asdl-pr-address`, `asdl-reviewer`, `asdl-slots`, `asdl-objectives`, `packagechk`).
+- There is no current Python package import edge between the peer packages (`brmem`, `asdl-pr-address`, `roaster`, `asdl-slots`, `asdl-objectives`, `packagechk`).
 - There is no current `asdl-objectives → brmem` storage edge. Objectives are checked-in Markdown records read directly by `asdl-objectives`; Branch Memory remains a CLI/skill primitive rather than Objective package storage.
 - `@asdl/pi-extensions` is not a Python workspace package. Its checked-in `.pi/extensions/*.ts` discovery adapters import implementation modules from `ts/packages/pi-extensions/src/` and shell out at runtime to `git`, `gt`, `gh`, `brmem`, `objective`, and `slot` where the command contract requires those tools.
 
@@ -61,7 +61,7 @@ Candidate edges to confirm and sharpen during package sessions:
 
 - `brmem → asdl-core.git + asdl-core.clinkr` — repo/ref facts and clinkr CLI framework.
 - `asdl-pr-address → asdl-core.gh + asdl-core.git + asdl-core.clinkr + asdl-core.plugin` — PR/review/comment types, branch-to-PR lookup, clinkr CLI framework, and standalone/plugin construction.
-- `asdl-reviewer → asdl-core.gh + asdl-core.git + asdl-core.clinkr + asdl-core.plugin` — PR/inline-comment interactions, local diff facts, clinkr CLI framework, and standalone/plugin construction.
+- `roaster → asdl-core.gh + asdl-core.git + asdl-core.clinkr + asdl-core.plugin` — PR/inline-comment interactions, local diff facts, clinkr CLI framework, and standalone/plugin construction.
 - `asdl-slots → asdl-core.git + asdl-core.gh + asdl-core.gt + asdl-core.clinkr + asdl-core.console/plugin` — worktree/repo facts, PR lifecycle facts, explicit `slot gt` stack navigation, clinkr CLI framework, and shared presentation/plugin helpers.
 - `asdl-objectives → asdl-core.git + asdl-core.clinkr + asdl-core.console/format/plugin` — deterministic branch/objective listing over git facts, clinkr CLI framework, status/time rendering, and standalone/plugin construction.
 - `@asdl/pi-extensions → Pi runtime + git/gt/gh/brmem/objective/slot CLIs` — repo-local extension commands/tools are discovered by Pi and use external CLIs at runtime rather than Python imports.
@@ -73,7 +73,7 @@ Phase 4 will finalize this section once package sessions either canonicalize col
 
 Candidates to confirm or resolve during sessions:
 
-- **Review** — `asdl-core.gh.PRReview` is a submitted review event; `asdl-pr-address` works mostly with core review threads/comments; `asdl-reviewer` uses reviewer/harness/review-definition vocabulary for local review runs.
+- **Review** — `asdl-core.gh.PRReview` is a submitted review event; `asdl-pr-address` works mostly with core review threads/comments; `roaster` uses reviewer/harness/review-definition vocabulary for local review runs.
 - **Comment** — `asdl-core.gh` distinguishes `PRReviewComment` from `PRDiscussionComment`; `asdl-pr-address` should cross-reference those terms and treat `IssueComment` as legacy/API wording when it remains in command names.
 - **State/status** — `gh.PRState` / `gh.PRStateFilter` vs `format.state_badge` rendering vs `packagechk.CheckStatus` / `PackageCheckReport.exit_code` availability outcomes vs `ObjectiveStatus` / `ObjectiveRecordStatus` / `InventoryStatus` / slot GC actions.
 - **Active** — root Objective context distinguishes **Active Objective Root** from active status filters (`open` + `in-flight`); package contexts should spell out which axis they mean.
