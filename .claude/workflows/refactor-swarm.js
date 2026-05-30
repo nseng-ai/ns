@@ -62,6 +62,9 @@
  *     "verifyModel":  "sonnet"       // VERIFY-tier model   (default = complexModel)
  *   }
  *
+ * `args` may arrive as a parsed object OR as a JSON string (the harness passes it
+ * verbatim); the script normalizes either form.
+ *
  * If both `simple` and `complex` are empty, the run is a no-op and returns
  * immediately without spawning agents. If `invariants` is empty the verify phase
  * is skipped entirely.
@@ -158,14 +161,28 @@ const VERIFY_SCHEMA = {
 
 // ── Read + normalize args ─────────────────────────────────────────────────────
 
-const simple = Array.isArray(args?.simple) ? args.simple : []
-const complex = Array.isArray(args?.complex) ? args.complex : []
-const invariants = Array.isArray(args?.invariants) ? args.invariants : []
-const brief = typeof args?.brief === 'string' ? args.brief : ''
-const repoRoot = typeof args?.repoRoot === 'string' ? args.repoRoot : ''
-const simpleModel = args?.model || 'haiku'
-const complexModel = args?.complexModel || 'sonnet'
-const verifyModel = args?.verifyModel || complexModel
+// `args` is delivered verbatim by the harness. Depending on how the caller passes
+// it, it can arrive as an already-parsed object OR as a JSON string. Normalize to
+// a plain object so the tool is robust either way.
+let input = args
+if (typeof input === 'string') {
+  try {
+    input = JSON.parse(input)
+  } catch (e) {
+    log(`refactor-swarm: args was a string but not valid JSON (${e}); treating as empty.`)
+    input = {}
+  }
+}
+if (input === null || typeof input !== 'object') input = {}
+
+const simple = Array.isArray(input.simple) ? input.simple : []
+const complex = Array.isArray(input.complex) ? input.complex : []
+const invariants = Array.isArray(input.invariants) ? input.invariants : []
+const brief = typeof input.brief === 'string' ? input.brief : ''
+const repoRoot = typeof input.repoRoot === 'string' ? input.repoRoot : ''
+const simpleModel = input.model || 'haiku'
+const complexModel = input.complexModel || 'sonnet'
+const verifyModel = input.verifyModel || complexModel
 
 // ── 1. Validate / guard ───────────────────────────────────────────────────────
 
