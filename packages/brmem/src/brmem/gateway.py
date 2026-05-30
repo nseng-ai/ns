@@ -10,7 +10,7 @@ from brmem.ref_layout import EntryRef
 
 @dataclass(frozen=True)
 class EntryDiagnostic:
-    """Probe data for a single entry ref."""
+    """Probe data for a single Entry Locator."""
 
     head_sha: str
     head_date: str
@@ -19,7 +19,7 @@ class EntryDiagnostic:
 
 
 class BrmemCopyConflictError(Exception):
-    """Raised when ``copy_entries`` finds existing destination keys and ``overwrite`` is false."""
+    """Raised when ``copy_entries`` would replace destination Entries without consent."""
 
     def __init__(self, conflicts: tuple[EntryRef, ...]) -> None:
         self.conflicts = conflicts
@@ -32,7 +32,7 @@ class KeyNotFoundError(Exception):
 
     Carries the ``(namespace, key, branch)`` identity so callers (in particular
     the CLI layer) can build a human-readable failure message without
-    re-deriving the locator.
+    re-deriving the Entry Locator.
     """
 
     def __init__(self, namespace: str | None, key: str, branch: str) -> None:
@@ -117,22 +117,25 @@ class BranchMemoryGateway(ABC):
     def copy_entries(
         self,
         *,
-        namespace: str,
+        namespace: str | None,
         from_branch: str,
         to_branch: str,
         overwrite: bool,
         key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
-        """Atomically copy entries in ``namespace`` from ``from_branch`` to ``to_branch``.
+        """Atomically copy entries in a Namespace from ``from_branch`` to ``to_branch``.
+
+        ``namespace=None`` copies the Base Namespace. Any string value copies a
+        named Namespace.
 
         When ``key_glob`` is ``None`` this is a snapshot-level operation: the
         destination snapshot ref is pointed at the **same commit SHA** as the
         source snapshot — no new blob, tree, or commit is created. When
-        ``overwrite`` is ``False`` and the destination snapshot already exists,
-        raises :class:`BrmemCopyConflictError` before mutating any ref. When
-        ``overwrite`` is ``True``, the destination snapshot is **replaced
-        entirely** (any keys that existed only on the destination are dropped,
-        since the snapshot ref is reassigned).
+        ``overwrite`` is ``False`` and the destination contains Entries that
+        would be replaced, raises :class:`BrmemCopyConflictError` before
+        mutating any ref. When ``overwrite`` is ``True``, the destination
+        snapshot is **replaced entirely** (any keys that existed only on the
+        destination are dropped, since the snapshot ref is reassigned).
 
         When ``key_glob`` is a non-empty ``fnmatch`` pattern, only source keys
         where ``fnmatch.fnmatchcase(key, key_glob)`` is true are copied. The

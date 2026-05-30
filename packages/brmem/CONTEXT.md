@@ -26,7 +26,7 @@ _Avoid:_ file path, ref name, locator, slug.
 _Avoid:_ Entry, export, working-tree snapshot, branch snapshot.
 
 **Snapshot Ref** — The real Git ref that points to the current Snapshot for one Namespace on one branch: `refs/brmem/base/<encoded-branch>` for the Base Namespace or `refs/brmem/ns/<namespace>/<encoded-branch>` for a named Namespace.
-_Avoid:_ Entry locator, branch ref, snapshot locator.
+_Avoid:_ Entry Locator, branch ref, snapshot locator.
 
 **Entry Locator** — The copy-pastable `git show` locator for one Entry, formed as `<snapshot-ref-or-commit>:<entry-key>`.
 _Avoid:_ ref name, Entry Ref, file path, branch path.
@@ -60,7 +60,7 @@ _Avoid:_ checkout, copy, snapshot, restore.
 - Deleting the last **Entry** leaves an empty current **Snapshot** for that **Namespace**; historical Snapshots remain inspectable by commit.
 - During **Export**, each **Entry Key** becomes a relative file path under the output directory; unsafe keys must not escape or alias the export root.
 - **Entries** are for small UTF-8 text context; generated assets, secrets, binary files, and large datasets are outside Branch Memory's intended use.
-- Named **Namespaces** are primarily for higher-level workflows to store tool- or skill-owned records; the schema and lifecycle of those records belong to the workflow, not to `brmem`.
+- Named **Namespaces** are primarily for higher-level workflows to store workflow-owned records; the schema and lifecycle of those records belong to the workflow, not to `brmem`.
 
 ## Example dialogue
 

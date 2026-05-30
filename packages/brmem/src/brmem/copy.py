@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import subprocess
-from typing import Annotated, Any
+from typing import Annotated
 
 import click
 
@@ -15,7 +15,7 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from brmem.context import BrmemCliContext
-from brmem.gateway import BrmemCopyConflictError
+from brmem.gateway import BranchMemoryGateway, BrmemCopyConflictError
 from brmem.ref_layout import (
     EntryRef,
     check_branch_name,
@@ -27,14 +27,23 @@ from brmem.validation import check_key_glob, first_failure
 
 class CopyRequest(ClinkrModel):
     namespace: Annotated[
-        str,
+        str | None,
         click.Option(
             ["--namespace"],
-            required=True,
             type=click.STRING,
-            help="Namespace (e.g. 'notes').",
+            default=None,
+            help="Named Namespace to copy (e.g. 'notes'). Mutually exclusive with --base.",
         ),
-    ]
+    ] = None
+    base: Annotated[
+        bool,
+        click.Option(
+            ["--base"],
+            is_flag=True,
+            default=False,
+            help="Copy ad-hoc Base Namespace Entries.",
+        ),
+    ] = False
     from_branch: Annotated[
         str,
         click.Option(
@@ -64,7 +73,7 @@ class CopyRequest(ClinkrModel):
                 "(e.g. 'my-slug/*'). '*' matches any characters including "
                 "'/', '?' matches one character, '[seq]' matches a class. "
                 "Non-matching destination Entries are preserved. When absent, "
-                "every Entry in the Namespace is copied and the destination "
+                "every Entry in the selected Namespace is copied and the destination "
                 "Branch Memory is replaced entirely."
             ),
         ),
@@ -75,13 +84,14 @@ class CopyRequest(ClinkrModel):
 
 class CopyPlanItem(ClinkrModel):
     key: str
+    # JSON compatibility: these fields carry Entry Locator strings.
     source_ref: str
     destination_ref: str
     source_sha: str
 
 
 class CopyResult(ClinkrModel):
-    namespace: str
+    namespace: str | None
     from_branch: str
     to_branch: str
     overwrite: bool
@@ -95,20 +105,23 @@ def render_copy(result: CopyResult) -> None:
     click.echo(
         f"{verb} {len(result.copied)} Entr"
         f"{'y' if len(result.copied) == 1 else 'ies'} "
-        f"in Namespace {result.namespace} from Branch {result.from_branch} "
+        f"in {_scope_label(result.namespace)} from Branch {result.from_branch} "
         f"to Branch {result.to_branch}."
     )
     if result.key_glob is not None:
         click.echo(f"  (filtered by --key-glob {result.key_glob!r})")
     for item in result.copied:
         click.echo(f"  {item.key}  {item.source_sha}")
-        click.echo(f"    {item.source_ref}")
-        click.echo(f"    -> {item.destination_ref}")
+        click.echo(f"    Source Entry Locator: {item.source_ref}")
+        click.echo(f"    Destination Entry Locator: {item.destination_ref}")
 
 
 @clinkr_operation(
     name="copy",
-    help=("Atomically copy every Entry within a Namespace from one Branch Memory to another."),
+    help=(
+        "Atomically copy every Entry within the Base Namespace or a named Namespace "
+        "from one Branch Memory to another."
+    ),
     human_renderer=render_copy,
 )
 def run_copy(
@@ -117,9 +130,24 @@ def run_copy(
 ) -> ClinkrExit[CopyResult]:
     brmem_context = load_typed_context(ctx, BrmemCliContext)
 
+    Ensure.true(
+        not (request.base and request.namespace is not None),
+        error_type="base_and_namespace_conflict",
+        message="--base and --namespace are mutually exclusive.",
+    )
+    Ensure.true(
+        request.base or request.namespace is not None,
+        error_type="copy_scope_missing",
+        message="Pass --base or --namespace <name> to choose the Namespace to copy.",
+    )
+
+    namespace = _request_namespace(request)
     key_glob_message = check_key_glob(request.key_glob) if request.key_glob is not None else None
     validation_failure = first_failure(
-        ("invalid_namespace", check_namespace(request.namespace)),
+        (
+            "invalid_namespace",
+            None if namespace is None else check_namespace(namespace),
+        ),
         ("invalid_from_branch", check_branch_name(request.from_branch)),
         ("invalid_to_branch", check_branch_name(request.to_branch)),
         ("invalid_key_glob", key_glob_message),
@@ -131,11 +159,10 @@ def run_copy(
         message=message,
     )
 
-    all_source_entries = list(
-        brmem_context.brmem_gateway.list_entries(
-            namespace=request.namespace,
-            branch=request.from_branch,
-        )
+    all_source_entries = _list_scope_entries(
+        brmem_context.brmem_gateway,
+        namespace,
+        request.from_branch,
     )
 
     if request.key_glob is not None:
@@ -147,24 +174,24 @@ def run_copy(
     else:
         source_entries = all_source_entries
 
+    scope_label = _scope_label(namespace)
     if request.key_glob is not None:
-        message = (
-            f"No Entries on Branch {request.from_branch} in Namespace "
-            f"{request.namespace} match --key-glob {request.key_glob!r}."
+        empty_message = (
+            f"No Entries on Branch {request.from_branch} in {scope_label} "
+            f"match --key-glob {request.key_glob!r}."
         )
     else:
-        message = (
-            f"No Entries found on Branch {request.from_branch} in Namespace {request.namespace}."
-        )
+        empty_message = f"No Entries found on Branch {request.from_branch} in {scope_label}."
     source_entries = Ensure.truthy(
         source_entries,
         error_type="no_matching_entries",
-        message=message,
+        message=empty_message,
     )
 
-    all_dest_entries = brmem_context.brmem_gateway.list_entries(
-        namespace=request.namespace,
-        branch=request.to_branch,
+    all_dest_entries = _list_scope_entries(
+        brmem_context.brmem_gateway,
+        namespace,
+        request.to_branch,
     )
     if request.key_glob is not None:
         # Non-matching destination keys are preserved and never conflict.
@@ -175,7 +202,7 @@ def run_copy(
         }
     else:
         existing_dest_keys = {entry.key for entry in all_dest_entries}
-    conflicting_keys = sorted({entry.key for entry in source_entries} & existing_dest_keys)
+    conflicting_keys = sorted(existing_dest_keys)
     Ensure.true(
         not conflicting_keys or request.overwrite,
         error_type="destination_conflict",
@@ -188,7 +215,7 @@ def run_copy(
     source_shas = {
         entry.key: _source_sha(
             brmem_context.brmem_gateway,
-            request.namespace,
+            namespace,
             entry.key,
             request.from_branch,
         )
@@ -202,7 +229,7 @@ def run_copy(
     )
 
     plan = _build_plan(
-        request.namespace,
+        namespace,
         request.from_branch,
         request.to_branch,
         source_entries,
@@ -214,7 +241,7 @@ def run_copy(
 
     try:
         brmem_context.brmem_gateway.copy_entries(
-            namespace=request.namespace,
+            namespace=namespace,
             from_branch=request.from_branch,
             to_branch=request.to_branch,
             overwrite=request.overwrite,
@@ -235,8 +262,30 @@ def run_copy(
     return ClinkrExit.ok(_result(request, plan))
 
 
+def _request_namespace(request: CopyRequest) -> str | None:
+    if request.base:
+        return None
+    return request.namespace
+
+
+def _scope_label(namespace: str | None) -> str:
+    if namespace is None:
+        return "Base Namespace"
+    return f"Namespace {namespace}"
+
+
+def _list_scope_entries(
+    gateway: BranchMemoryGateway,
+    namespace: str | None,
+    branch: str,
+) -> list[EntryRef]:
+    if namespace is not None:
+        return gateway.list_entries(namespace=namespace, branch=branch)
+    return [entry for entry in gateway.list_entries(branch=branch) if entry.namespace is None]
+
+
 def _build_plan(
-    namespace: str,
+    namespace: str | None,
     from_branch: str,
     to_branch: str,
     source_entries: list[EntryRef],
@@ -259,7 +308,7 @@ def _build_plan(
 
 def _result(request: CopyRequest, plan: list[CopyPlanItem]) -> CopyResult:
     return CopyResult(
-        namespace=request.namespace,
+        namespace=_request_namespace(request),
         from_branch=request.from_branch,
         to_branch=request.to_branch,
         overwrite=request.overwrite,
@@ -269,7 +318,12 @@ def _result(request: CopyRequest, plan: list[CopyPlanItem]) -> CopyResult:
     )
 
 
-def _source_sha(gateway: Any, namespace: str, key: str, branch: str) -> str | None:
+def _source_sha(
+    gateway: BranchMemoryGateway,
+    namespace: str | None,
+    key: str,
+    branch: str,
+) -> str | None:
     diagnostic = gateway.check(namespace, key, branch)
     if diagnostic is None:
         return None

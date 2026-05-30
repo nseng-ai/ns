@@ -2,7 +2,7 @@
 
 Keys become path components inside the snapshot commit's tree (e.g.
 ``foo/body.md``). They are also serialized after a ``:`` into the
-``<snapshot-ref>:<key>`` locator returned by the ref-layout helper, so
+``<snapshot-ref>:<key>`` Entry Locator returned by the ref-layout helper, so
 the validation here keeps keys both git-path-safe and locator-safe.
 Restrictions mirror ``git-check-ref-format(1)``
 (https://git-scm.com/docs/git-check-ref-format) where applicable so any key
@@ -23,7 +23,7 @@ def _get_key_segment_pattern() -> re.Pattern[str]:
 
 
 class InvalidKeyError(ValueError):
-    """Raised when a key cannot be used in an entry ref."""
+    """Raised when a key cannot be used in an Entry Locator."""
 
     def __init__(self, key: str, reason: str) -> None:
         self.key = key

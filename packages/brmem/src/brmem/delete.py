@@ -57,7 +57,7 @@ def render_delete(result: DeleteResult) -> None:
         "\n".join(
             [
                 f"Deleted Entry Key {result.key} from {scope} on Branch {result.branch}.",
-                f"Ref: {result.ref_name}",
+                f"Entry Locator: {result.ref_name}",
                 f"Commit: {result.commit}",
             ]
         )

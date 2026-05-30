@@ -1,6 +1,6 @@
 """Ingestion-time guardrails for Branch Memory Entries.
 
-`brmem put` is intended for small text notes and tool-owned records. Two cheap
+`brmem put` is intended for small text notes and workflow-owned records. Two cheap
 checks at the door keep stray binaries and oversized files out of the ref pack,
 where they would otherwise become hard-to-reclaim storage weight once a brmem
 ref pinned them.

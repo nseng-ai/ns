@@ -9,7 +9,7 @@ It is primarily a low-level primitive for higher-level skills and tools.
 Use cases include:
 
 - a plan or handoff note created before implementation starts
-- tool-owned documents attached to a branch
+- workflow-owned documents attached to a branch
 - agent session summaries captured for later harvesting
 - "lessons learned" notes from an agent session, kept on the branch that
   produced them
@@ -40,14 +40,15 @@ See [Planned Branch Workflow](../../docs/pi/planned-branch-workflow.md) for
 There are five ideas to keep in mind:
 
 - **Branch Memory System**: the `brmem` CLI and Git-ref storage layer.
-- **Branch Memory**: the Entries attached to one branch, either in the ad-hoc
-  base area or in a Namespace.
+- **Branch Memory**: the Entries attached to one branch, either in the Base
+  Namespace or in a named Namespace.
 - **Entry**: a small UTF-8 text blob stored under an Entry Key, such as
   `plan.md` or `dashboard-revamp/body.md`.
 - **Entry Key**: the path-like name for an Entry within Branch Memory.
-- **Namespace**: a domain-owned bucket for Entries. For example, `notes`
-  is a Namespace where each Entry has a well-defined schema and is under tool
-  control. Omitting `--namespace` stores an ad-hoc base Entry.
+- **Namespace**: a scope for Entries on one branch. The Base Namespace is
+  reserved by `brmem` for ad-hoc Entries when `--namespace` is omitted. Named
+  Namespaces are workflow-owned buckets such as `notes`, where each Entry has a
+  workflow-defined schema and lifecycle.
 
 Most commands target the current checked-out branch unless you pass `--branch`.
 
@@ -59,22 +60,22 @@ before the parent branch lands.
 
 The write boundary is explicit. `put` and `delete` change one Entry on one
 branch. `copy` copies Entries from one Branch Memory to another. `get`,
-`check`, `list`, `export`, and prompt resolution do not change stored Branch
-Memory. `export` writes working-tree-adjacent files only in the output
-directory you provide.
+`check`, `list`, and `export` do not change stored Branch Memory. `export`
+writes working-tree-adjacent files only in the output directory you provide.
+Skill-facing prompt resolution is read-only automation support, not a normal
+user-facing Branch Memory operation.
 
 ## Which Command to Use
 
-| You want to...                              | Use                         | Writes to  |
-| ------------------------------------------- | --------------------------- | ---------- |
-| Store a text Entry on the current branch    | `brmem put`                 | Branch     |
-| Print an Entry's content                    | `brmem get`                 | Nothing    |
-| See whether an Entry exists and where it is | `brmem check`               | Nothing    |
-| List stored Entries                         | `brmem list`                | Nothing    |
-| Export Entries to files                     | `brmem export`              | Filesystem |
-| Remove one Entry                            | `brmem delete`              | Branch     |
-| Copy a Namespace from one branch to another | `brmem copy`                | Branch     |
-| Resolve a prompt override for a skill       | `brmem exec resolve-prompt` | Nothing    |
+| You want to...                                           | Use            | Writes to  |
+| -------------------------------------------------------- | -------------- | ---------- |
+| Store a text Entry on the current branch                 | `brmem put`    | Branch     |
+| Print an Entry's content                                 | `brmem get`    | Nothing    |
+| See whether an Entry exists and where it is              | `brmem check`  | Nothing    |
+| List stored Entries                                      | `brmem list`   | Nothing    |
+| Export Entries to files                                  | `brmem export` | Filesystem |
+| Remove one Entry                                         | `brmem delete` | Branch     |
+| Copy the Base Namespace or a named Namespace to a branch | `brmem copy`   | Branch     |
 
 ## Normal Workflow
 
@@ -88,18 +89,19 @@ brmem put plan.md --file /tmp/plan.md
 ```
 
 `put` reads the file and stores its content under `plan.md` for the current
-branch. The command prints the Entry locator and commit so the result is
+branch. The command prints the Entry Locator and commit so the result is
 inspectable.
 
-For domain-owned state, use a Namespace:
+For workflow-owned state, use a named Namespace:
 
 ```text
 brmem put dashboard-revamp/body.md --namespace notes --file body.md
 ```
 
-Namespaces keep unrelated tools from colliding. A scratch `plan.md` Entry and
-a `notes/dashboard-revamp/body.md` Entry can coexist on the same branch
-without meaning the same thing.
+Use named Namespaces for workflow-owned records. Use the Base Namespace for
+ad-hoc Entries. A scratch `plan.md` Entry and a
+`notes/dashboard-revamp/body.md` Entry can coexist on the same branch without
+meaning the same thing.
 
 ### 2. Read it in a later session
 
@@ -118,7 +120,7 @@ brmem list --base
 brmem list --namespace notes
 ```
 
-`check` reports the Entry locator, Branch Memory head commit, blob, and size.
+`check` reports the Entry Locator, Branch Memory head commit, blob, and size.
 `list` shows the Entries visible for the current branch, optionally narrowed to
 base Entries or a Namespace.
 
@@ -138,7 +140,18 @@ mean "all Namespaces." Existing files make export fail unless you pass
 `--overwrite`. Use `--dry-run` to preview planned writes without creating the
 output directory or files.
 
-### 3. Carry namespaced Branch Memory to another branch
+### 3. Carry Branch Memory to another branch
+
+Copy the Base Namespace explicitly with `--base`:
+
+```text
+brmem copy \
+  --base \
+  --from-branch master \
+  --to-branch feature/table-filtering
+```
+
+Copy a named Namespace with `--namespace <name>`:
 
 ```text
 brmem copy \
@@ -148,13 +161,17 @@ brmem copy \
   --key-glob 'dashboard-revamp/*'
 ```
 
-`copy` is how Branch Memory moves forward between branches. With `--key-glob`,
-it copies only matching Entry Keys and preserves unrelated destination Entries.
-Without `--key-glob`, it copies the whole Namespace.
+`copy` is how Branch Memory moves forward between branches. Choose exactly one
+scope: `--base` for the Base Namespace or `--namespace <name>` for a named
+Namespace. With `--key-glob`, it copies only matching Entry Keys and preserves
+unrelated destination Entries. Without `--key-glob`, it copies the whole
+Namespace.
 
-If the destination already has matching Entries, `copy` aborts instead of
-merging silently. Pass `--dry-run` to preview the plan, or `--overwrite` when
-replacing destination Entries is intentional.
+Conflicts are Entry-based. If the destination already has Entries that would be
+replaced, `copy` aborts instead of merging silently. An existing but empty
+destination Snapshot is not a conflict because it contains no Entries to
+replace. Pass `--dry-run` to preview the plan, or `--overwrite` when replacing
+destination Entries is intentional.
 
 ### 4. Delete stale Branch Memory when it is no longer useful
 
@@ -165,7 +182,10 @@ brmem delete plan.md
 Deleting Branch Memory removes that Entry from the branch. It does not touch
 working-tree files or source commits.
 
-## Prompt Plugins
+## Skill-facing Prompt Plugins
+
+Prompt Plugin resolution is for skills and automation; it is not a normal
+user-facing Branch Memory operation.
 
 A prompt plugin lets a repo customize one narrow part of a skill's behavior
 without forking the whole skill. The skill still owns the workflow; the plugin
@@ -179,7 +199,7 @@ Prompt plugins live in two places:
 Project-local prompts win. If neither path exists, resolution fails with both
 checked paths in the error message.
 
-Skills resolve prompts with:
+Skill authors can resolve prompts with:
 
 ```text
 brmem exec resolve-prompt <name>
@@ -197,12 +217,14 @@ customizations.
 
 - Branch Memory is branch-scoped. Pass `--branch` when automation should not
   depend on the current checkout.
-- Use Namespaces for tool-owned records. Leave base Entries for ad-hoc scratch
-  state.
+- Use named Namespaces for workflow-owned records. Use the Base Namespace for
+  ad-hoc Entries; it is reserved by `brmem` and is selected by omitting
+  `--namespace` on single-Entry commands or by passing `--base` to `copy`.
 - Keep Entries small and textual. `brmem` is not a place for generated assets,
   secrets, or large datasets.
-- `copy` is exact and conflict-aware. Use `--dry-run`, `--key-glob`, and
-  `--overwrite` deliberately.
+- `copy` is exact and conflict-aware. Choose `--base` or `--namespace <name>`
+  deliberately, and use `--dry-run`, `--key-glob`, and `--overwrite`
+  deliberately.
 - `export` defaults to base entries only. Pass `--namespace` deliberately and
   use `--overwrite` only when replacing files is intended.
 - Prompt plugins should customize one explicit repo-specific decision, not
@@ -225,9 +247,9 @@ but still part of the repository — is a well-trodden pattern:
   design is the relevant precedent here.)
 
 `brmem` applies the same idea to branch-scoped agent state: Branch Memory lives
-in refs (for example, `refs/brmem/ns/<namespace>/<encoded-branch>:<key>`) so it
-is durable, inspectable, and pushable, but stays out of commits, PRs, and the
-working tree.
+in refs, and Entries are inspectable through Entry Locators (for example,
+`refs/brmem/ns/<namespace>/<encoded-branch>:<key>`), but stays out of commits,
+PRs, and the working tree.
 
 ## See Also
 
