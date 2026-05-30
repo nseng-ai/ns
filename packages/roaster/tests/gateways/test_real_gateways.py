@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from asdl_reviewer.gateways.local_diff import real as local_diff_real
-from asdl_reviewer.gateways.local_diff.real import RealLocalDiffGateway
-from asdl_reviewer.gateways.review_catalog import real as review_catalog_real
-from asdl_reviewer.gateways.review_catalog.real import RealReviewCatalogGateway
-from asdl_reviewer.models import LocalDiff, ReviewSource
+from roaster.gateways.local_diff import real as local_diff_real
+from roaster.gateways.local_diff.real import RealLocalDiffGateway
+from roaster.gateways.review_catalog import real as review_catalog_real
+from roaster.gateways.review_catalog.real import RealReviewCatalogGateway
+from roaster.models import LocalDiff, ReviewSource
 
 
 def test_real_review_catalog_loads_review_source(

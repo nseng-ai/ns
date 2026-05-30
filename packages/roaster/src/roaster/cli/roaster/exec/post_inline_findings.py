@@ -1,4 +1,4 @@
-"""Post inline PR review comments for reviewer findings."""
+"""Post inline PR review comments for roaster findings."""
 
 from __future__ import annotations
 
@@ -14,14 +14,14 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.gh.types import PRInlineCommentInput
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.findings_publication import (
+from roaster.context import RoasterCliContext
+from roaster.findings_publication import (
     extract_inline_markers,
     inline_marker_for_finding,
     parse_findings_payload_result,
     render_inline_body,
 )
-from asdl_reviewer.inline_commentability import FallbackOnlyFinding, classify_inline_findings
+from roaster.inline_commentability import FallbackOnlyFinding, classify_inline_findings
 
 _BOT_AUTHOR_LOGIN = "github-actions[bot]"
 
@@ -47,7 +47,7 @@ class PostInlineFindingsResult(ClinkrModel):
 
 @clinkr_operation(
     name="post-inline-findings",
-    help="Post inline PR review comments for commentable reviewer findings from stdin.",
+    help="Post inline PR review comments for commentable roaster findings from stdin.",
 )
 def post_inline_findings_command(
     ctx: click.Context,
@@ -56,7 +56,7 @@ def post_inline_findings_command(
     raw = sys.stdin.read()
     payload = Ensure.ideal_state(parse_findings_payload_result(raw))
 
-    pr_gateway = load_typed_context(ctx, ReviewerCliContext).pr_gateway
+    pr_gateway = load_typed_context(ctx, RoasterCliContext).pr_gateway
     changed_files = pr_gateway.get_pr_changed_files(request.pr_number)
     classification = classify_inline_findings(payload.findings, changed_files)
 

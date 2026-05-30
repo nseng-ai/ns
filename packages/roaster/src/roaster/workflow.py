@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import os
 
-from asdl_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from asdl_reviewer.gateways.review_catalog.gateway import ReviewCatalogGateway
-from asdl_reviewer.harness.invocation import HarnessReviewRequest, HarnessRuntime
-from asdl_reviewer.models import (
+from roaster.gateways.local_diff.gateway import LocalDiffGateway
+from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
+from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
+from roaster.models import (
     BaseRefUnavailable,
     HarnessDetection,
     HarnessNotConfigured,
@@ -16,14 +16,14 @@ from asdl_reviewer.models import (
     LocalReviewResult,
     ModelNotProvided,
     ReviewDefinition,
-    ReviewerFailure,
     ReviewExecutionResponse,
     ReviewFormat,
     ReviewSource,
+    RoasterFailure,
 )
-from asdl_reviewer.review_definition import parse_review_definition
+from roaster.review_definition import parse_review_definition
 
-ENV_HARNESS = "ASDL_REVIEWER_HARNESS"
+ENV_HARNESS = "ASDL_ROASTER_HARNESS"
 
 
 def run_review_by_key(
@@ -36,7 +36,7 @@ def run_review_by_key(
     catalog: ReviewCatalogGateway,
     diff: LocalDiffGateway,
     harness_runtime: HarnessRuntime,
-) -> LocalReviewResult | ReviewerFailure:
+) -> LocalReviewResult | RoasterFailure:
     """Run a markdown-defined reviewer identified by ``key``."""
     review_source = catalog.load_review_source(key=key)
     if not isinstance(review_source, ReviewSource):
@@ -109,10 +109,10 @@ def resolve_harness(
     *,
     requested_harness: str | None,
     harness_runtime: HarnessRuntime,
-) -> str | ReviewerFailure:
+) -> str | RoasterFailure:
     """Resolve which harness to dispatch through.
 
-    Order: explicit ``--harness`` flag → ``ASDL_REVIEWER_HARNESS`` env var →
+    Order: explicit ``--harness`` flag → ``ASDL_ROASTER_HARNESS`` env var →
     the single detected harness on PATH. Errors if zero or 2+ harnesses are
     detected and no explicit choice was made.
     """
@@ -148,7 +148,7 @@ def resolve_harness(
     )
 
 
-def _validate_harness(name: str, detections: tuple[HarnessDetection, ...]) -> str | ReviewerFailure:
+def _validate_harness(name: str, detections: tuple[HarnessDetection, ...]) -> str | RoasterFailure:
     known_names = {detection.name for detection in detections}
     if name not in known_names:
         known = _known_harness_names(detections)

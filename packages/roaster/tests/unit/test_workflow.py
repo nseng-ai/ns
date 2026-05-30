@@ -6,19 +6,19 @@ from pathlib import Path
 import pytest
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
-from asdl_reviewer.harness.fake import FakeHarnessRuntime
-from asdl_reviewer.models import (
+from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
+from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from roaster.harness.fake import FakeHarnessRuntime
+from roaster.models import (
     FindingsReview,
     LocalDiff,
     LocalReviewResult,
     ModelNotSupportedByHarness,
-    ReviewerFailure,
     ReviewExecutionResponse,
     ReviewFormat,
+    RoasterFailure,
 )
-from asdl_reviewer.workflow import ENV_HARNESS, run_review_by_key
+from roaster.workflow import ENV_HARNESS, run_review_by_key
 
 REVIEW_KEY = "dignified-python"
 SAMPLE_SOURCE = (
@@ -37,7 +37,7 @@ def _fakes(
     *,
     review_sources_by_key: dict[str, str] | None = None,
     paths_by_binary: dict[str, str] | None = None,
-    default_response: ReviewExecutionResponse | ReviewerFailure | None = None,
+    default_response: ReviewExecutionResponse | RoasterFailure | None = None,
 ) -> _Fakes:
     if review_sources_by_key is None:
         review_sources_by_key = {REVIEW_KEY: SAMPLE_SOURCE}
@@ -69,7 +69,7 @@ def _run(
     requested_harness: str | None = None,
     requested_format: ReviewFormat = "findings",
     fakes: _Fakes | None = None,
-) -> LocalReviewResult | ReviewerFailure:
+) -> LocalReviewResult | RoasterFailure:
     if fakes is None:
         fakes = _fakes()
     return run_review_by_key(
@@ -135,14 +135,14 @@ def test_unknown_harness_is_rejected() -> None:
         fakes=_fakes(paths_by_binary={}),
     )
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "harness_unknown"
 
 
 def test_no_harness_detected_surfaces_install_hint() -> None:
     result = _run(fakes=_fakes(paths_by_binary={}))
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "harness_not_configured"
     assert "No harness detected" in result.message
 
@@ -152,7 +152,7 @@ def test_unknown_key_returns_failure_before_execution() -> None:
 
     result = _run(key="nope", fakes=fakes)
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "review_definition_not_found"
     assert fakes.harness_runtime.executed_requests == ()
 
@@ -192,6 +192,6 @@ def test_unsupported_default_model_failure_propagates_after_harness_selection() 
 
     result = _run(fakes=fakes)
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "model_not_supported_by_harness"
     assert fakes.harness_runtime.executed_requests[0].model == "gpt-5-mini"

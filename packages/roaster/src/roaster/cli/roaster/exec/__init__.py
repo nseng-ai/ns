@@ -1,1 +1,1 @@
-"""Reviewer ``exec`` subgroup: commands used by CI automation."""
+"""Roaster ``exec`` subgroup: commands used by CI automation."""

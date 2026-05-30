@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from asdl_reviewer import git_toplevel as git_toplevel_module
-from asdl_reviewer.git_toplevel import git_toplevel, run_git
-from asdl_reviewer.models import GitInvocationFailedError, RepoRootUnavailableError
+from roaster import git_toplevel as git_toplevel_module
+from roaster.git_toplevel import git_toplevel, run_git
+from roaster.models import GitInvocationFailedError, RepoRootUnavailableError
 
 
 def test_run_git_returns_completed_process(monkeypatch: pytest.MonkeyPatch) -> None:

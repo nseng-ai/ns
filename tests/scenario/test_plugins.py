@@ -11,21 +11,21 @@ from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.git.testing import FakeGitGateway
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
-from asdl_reviewer.harness.fake import FakeHarnessRuntime
-from asdl_reviewer.models import (
-    FindingsReview,
-    LocalDiff,
-    ReviewExecutionResponse,
-    ReviewFinding,
-)
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import RepoContext, discover_repo_or_sentinel
 from asdl_tools.cli.plugins import PluginEntryPointSource, discover_plugins
+from roaster.context import RoasterCliContext
+from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
+from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from roaster.harness.fake import FakeHarnessRuntime
+from roaster.models import (
+    FindingsReview,
+    LocalDiff,
+    ReviewExecutionResponse,
+    ReviewFinding,
+)
 
 
 class FakePluginEntryPoint:
@@ -225,18 +225,18 @@ def test_slots_plugin_integration(tmp_path: Path) -> None:
     assert all(row["status"] == "available" for row in rows)
 
 
-def test_reviewer_plugin_integration() -> None:
+def test_roaster_plugin_integration() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
-        name="reviewer",
-        value="asdl_reviewer.cli.plugin:build_reviewer_plugin",
+        name="roaster",
+        value="roaster.cli.plugin:build_roaster_plugin",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))
 
     runner = CliRunner()
 
-    obj = ReviewerCliContext(
+    obj = RoasterCliContext(
         catalog=FakeReviewCatalogGateway(
             review_sources_by_key={
                 "dignified-python": (
@@ -279,7 +279,7 @@ def test_reviewer_plugin_integration() -> None:
 
     result = runner.invoke(
         parent,
-        ["reviewer", "review", "run", "dignified-python"],
+        ["roaster", "review", "run", "dignified-python"],
         obj=clinkr_obj,
     )
     assert result.exit_code == 0, result.output
@@ -287,7 +287,7 @@ def test_reviewer_plugin_integration() -> None:
 
     result = runner.invoke(
         parent,
-        ["reviewer", "review", "run", "dignified-python", "--format", "json"],
+        ["roaster", "review", "run", "dignified-python", "--format", "json"],
         obj=clinkr_obj,
     )
     assert result.exit_code == 0, result.output

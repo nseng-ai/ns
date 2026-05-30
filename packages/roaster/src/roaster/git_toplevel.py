@@ -1,11 +1,11 @@
-"""Shared git helpers used across reviewer gateways."""
+"""Shared git helpers used across roaster gateways."""
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
 
-from asdl_reviewer.models import GitInvocationFailedError, RepoRootUnavailableError
+from roaster.models import GitInvocationFailedError, RepoRootUnavailableError
 
 
 def run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from asdl_reviewer.findings_publication import (
+from roaster.findings_publication import (
     FindingsCommentBodyParseError,
     FindingsPayload,
     FindingsPayloadParseError,
@@ -23,7 +23,7 @@ from asdl_reviewer.findings_publication import (
     render_inline_body,
     summary_marker_for_review,
 )
-from asdl_reviewer.models import ReviewFinding
+from roaster.models import ReviewFinding
 
 
 def _single_finding(**overrides: object) -> ReviewFinding:
@@ -95,8 +95,8 @@ def _parse_comment_body_error(raw: str) -> FindingsCommentBodyParseError:
 def test_render_empty_findings_produces_summary_body() -> None:
     body = render_findings_comment(_payload())
 
-    assert body.startswith("<!-- asdl-reviewer:dignified-python -->\n")
-    assert "## asdl-reviewer · `dignified-python`" in body
+    assert body.startswith("<!-- roaster:dignified-python -->\n")
+    assert "## roaster · `dignified-python`" in body
     assert "**No findings** against base `master`. ✅" in body
     assert "| Severity |" not in body
 
@@ -172,8 +172,8 @@ def test_render_error_payload_flags_failure_without_footer() -> None:
 
     body = render_findings_comment(payload)
 
-    assert "<!-- asdl-reviewer:dignified-python -->" in body
-    assert "**Reviewer failed** against base `master`. ⚠️" in body
+    assert "<!-- roaster:dignified-python -->" in body
+    assert "**Roaster failed** against base `master`. ⚠️" in body
     assert "- **Error type:** `harness_binary_missing`" in body
     assert "- **Message:** claude not on PATH" in body
     assert "Post-only steelthread" not in body
@@ -493,7 +493,7 @@ def test_inline_marker_for_finding_uses_stable_public_marker_format() -> None:
     finding = _single_finding()
     marker = inline_marker_for_finding("dignified-python", finding)
 
-    assert re.fullmatch(r"<!-- asdl-reviewer-inline:dignified-python:[0-9a-f]{16} -->", marker)
+    assert re.fullmatch(r"<!-- roaster-inline:dignified-python:[0-9a-f]{16} -->", marker)
     assert inline_marker_for_finding("dignified-python", finding) == marker
     assert inline_marker_for_finding("other-review", finding) != marker
 
@@ -514,21 +514,19 @@ def test_render_inline_body_includes_marker_finding_and_footer() -> None:
     assert body.startswith(f"{marker}\n")
     assert "**warning: Avoid print**" in body
     assert "Use click.echo() instead." in body
-    assert "_Posted by asdl-reviewer. Re-running may skip this comment by marker._" in body
+    assert "_Posted by roaster. Re-running may skip this comment by marker._" in body
 
 
 # -- summary marker and activity log helpers --------------------------------
 
 
 def test_summary_marker_for_review_uses_public_marker_format() -> None:
-    assert summary_marker_for_review("dignified-python") == (
-        "<!-- asdl-reviewer:dignified-python -->"
-    )
+    assert summary_marker_for_review("dignified-python") == ("<!-- roaster:dignified-python -->")
 
 
 def test_parse_findings_comment_body_extracts_first_line_summary_marker() -> None:
     marker = summary_marker_for_review("dignified-python")
-    body = f"{marker}\n## asdl-reviewer · `dignified-python`\n"
+    body = f"{marker}\n## roaster · `dignified-python`\n"
 
     parsed = _parse_comment_body(body)
 

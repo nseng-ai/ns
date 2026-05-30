@@ -3,11 +3,11 @@ from __future__ import annotations
 import pytest
 
 from asdl_core.gh.types import PRChangedFile
-from asdl_reviewer.inline_commentability import (
+from roaster.inline_commentability import (
     classify_inline_findings,
     commentable_right_side_lines,
 )
-from asdl_reviewer.models import ReviewFinding
+from roaster.models import ReviewFinding
 
 _PATCH = """@@ -10,4 +10,5 @@ def main():
  context

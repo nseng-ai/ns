@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from asdl_reviewer.cli.reviewer.review.list_reviews import (
+from roaster.cli.roaster.review.list_reviews import (
     ReviewKeyGroup,
     build_review_key_groups,
 )

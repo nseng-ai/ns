@@ -12,8 +12,8 @@ from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.models import GitInvocationFailedError, RepoRootUnavailableError
+from roaster.context import RoasterCliContext
+from roaster.models import GitInvocationFailedError, RepoRootUnavailableError
 
 
 class ReviewListRequest(ClinkrModel):
@@ -85,10 +85,10 @@ def run_review_list_command(
     ctx: click.Context,
     request: ReviewListRequest,
 ) -> ClinkrExit[ReviewListResult]:
-    reviewer_context = load_typed_context(ctx, ReviewerCliContext)
+    roaster_context = load_typed_context(ctx, RoasterCliContext)
 
     try:
-        catalog = Ensure.ideal_state(reviewer_context.catalog.list_review_keys())
+        catalog = Ensure.ideal_state(roaster_context.catalog.list_review_keys())
     except RepoRootUnavailableError as exc:
         raise ClinkrFailure(error_type="repo_root_unavailable", message=str(exc)) from exc
     except GitInvocationFailedError as exc:

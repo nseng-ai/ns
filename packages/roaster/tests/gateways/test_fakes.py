@@ -3,20 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
-from asdl_reviewer.harness.fake import FakeHarnessRuntime
-from asdl_reviewer.harness.invocation import HarnessReviewRequest
-from asdl_reviewer.models import (
+from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
+from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from roaster.harness.fake import FakeHarnessRuntime
+from roaster.harness.invocation import HarnessReviewRequest
+from roaster.models import (
     BaseRefUnavailable,
     FindingsReview,
     LocalDiff,
     ReviewDefinition,
     ReviewDefinitionNotFound,
-    ReviewerFailure,
     ReviewExecutionResponse,
     ReviewFinding,
     ReviewsDirMissing,
+    RoasterFailure,
 )
 
 
@@ -69,7 +69,7 @@ def test_fake_load_review_source_returns_not_found_for_unknown_key() -> None:
 
     result = gateway.load_review_source(key="missing")
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "review_definition_not_found"
 
 

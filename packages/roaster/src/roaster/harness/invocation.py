@@ -13,7 +13,7 @@ from importlib.resources import files
 from types import MappingProxyType
 from typing import Any, TextIO
 
-from asdl_reviewer.models import (
+from roaster.models import (
     ClaudeCodeEmptyOutput,
     ClaudeCodeInvalidFindings,
     ClaudeCodeInvalidJson,
@@ -30,11 +30,11 @@ from asdl_reviewer.models import (
     ModelNotSupportedByHarness,
     ProseReview,
     ReviewDefinition,
-    ReviewerFailure,
     ReviewExecutionResponse,
     ReviewFinding,
     ReviewFormat,
     ReviewUsage,
+    RoasterFailure,
 )
 
 ProgressWriter = Callable[[str], None]
@@ -68,7 +68,7 @@ class HarnessDefinition:
     binary: str
     supports_model: Callable[[str], bool]
     build_invocation: Callable[[HarnessReviewRequest], HarnessProcessInvocation]
-    parse_stdout: Callable[[HarnessReviewRequest, str], ReviewExecutionResponse | ReviewerFailure]
+    parse_stdout: Callable[[HarnessReviewRequest, str], ReviewExecutionResponse | RoasterFailure]
     describe_event: Callable[[str], str | None]
 
 
@@ -116,12 +116,12 @@ def _no_event_description(_line: str) -> str | None:
 
 
 def _read_prompt(filename: str) -> str:
-    return files("asdl_reviewer.prompts").joinpath(filename).read_text(encoding="utf-8").strip()
+    return files("roaster.prompts").joinpath(filename).read_text(encoding="utf-8").strip()
 
 
 @cache
 def _review_prompt_template() -> str:
-    return files("asdl_reviewer.prompts").joinpath("review_prompt.md").read_text(encoding="utf-8")
+    return files("roaster.prompts").joinpath("review_prompt.md").read_text(encoding="utf-8")
 
 
 @cache
@@ -199,7 +199,7 @@ def _claude_code_build_invocation(request: HarnessReviewRequest) -> HarnessProce
 def _parse_findings_payload(
     payload: Any,
     usage: ReviewUsage | None,
-) -> ReviewExecutionResponse | ReviewerFailure:
+) -> ReviewExecutionResponse | RoasterFailure:
     if not isinstance(payload, dict):
         return ClaudeCodeInvalidFindings(
             message="Claude Code review output must be a JSON object with a `findings` array.",
@@ -270,7 +270,7 @@ def _extract_usage(result_event: dict[str, Any]) -> ReviewUsage | None:
     )
 
 
-def _iter_json_lines(stdout: str) -> list[dict[str, Any]] | ReviewerFailure:
+def _iter_json_lines(stdout: str) -> list[dict[str, Any]] | RoasterFailure:
     events: list[dict[str, Any]] = []
     for raw_line in stdout.splitlines():
         line = raw_line.strip()
@@ -296,14 +296,14 @@ def _truncate_prose(text: str, limit: int = _PROSE_SNIPPET_MAX_CHARS) -> str:
     return text[:limit].rstrip() + "…"
 
 
-def _extract_result_event(stdout: str) -> dict[str, Any] | ReviewerFailure:
+def _extract_result_event(stdout: str) -> dict[str, Any] | RoasterFailure:
     if not stdout.strip():
         return ClaudeCodeEmptyOutput(
             message="Claude Code returned no output.",
         )
 
     events = _iter_json_lines(stdout)
-    if isinstance(events, ReviewerFailure):
+    if isinstance(events, RoasterFailure):
         return events
 
     for event in events:
@@ -321,9 +321,9 @@ def _extract_result_event(stdout: str) -> dict[str, Any] | ReviewerFailure:
 def _claude_code_parse_stdout(
     request: HarnessReviewRequest,
     stdout: str,
-) -> ReviewExecutionResponse | ReviewerFailure:
+) -> ReviewExecutionResponse | RoasterFailure:
     result_event = _extract_result_event(stdout)
-    if isinstance(result_event, ReviewerFailure):
+    if isinstance(result_event, RoasterFailure):
         return result_event
 
     usage = _extract_usage(result_event)
@@ -461,7 +461,7 @@ class HarnessRuntime:
     def run_review(
         self,
         request: HarnessReviewRequest,
-    ) -> ReviewExecutionResponse | ReviewerFailure:
+    ) -> ReviewExecutionResponse | RoasterFailure:
         """Execute a semantic review request through its selected harness."""
         definition = self._harnesses.get(request.harness_name)
         if definition is None:

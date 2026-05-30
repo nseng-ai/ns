@@ -1,12 +1,12 @@
 """Post or update the findings comment on a PR in place.
 
 Reads a rendered Markdown body on stdin — the exact output of
-``reviewer exec format-findings-comment`` — extracts the ``<!-- asdl-reviewer:... -->``
+``roaster exec format-findings-comment`` — extracts the ``<!-- roaster:... -->``
 marker from the first line, and either PATCHes the matching bot comment in place
 or POSTs a new comment if none is found.
 
 The bot-author check guards against a human adding the marker to their own
-comment and tricking the reviewer into overwriting it on a later run.
+comment and tricking the roaster into overwriting it on a later run.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ import click
 
 from asdl_core.clinkr.context import load_typed_context
 from asdl_core.gh.types import PRDiscussionComment
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.findings_publication import (
+from roaster.context import RoasterCliContext
+from roaster.findings_publication import (
     FindingsCommentBodyParseError,
     parse_findings_comment_body,
     preserve_activity_log,
@@ -31,7 +31,7 @@ _BOT_AUTHOR_LOGIN = "github-actions[bot]"
 @click.command(
     name="post-findings-comment",
     help=(
-        "Post or update the reviewer findings comment on a PR. Reads the "
+        "Post or update the roaster findings comment on a PR. Reads the "
         "rendered Markdown body from stdin."
     ),
 )
@@ -56,7 +56,7 @@ def post_findings_comment_command(
         click.echo(f"post-findings-comment: {parsed.message}", err=True)
         sys.exit(1)
 
-    pr_gateway = load_typed_context(ctx, ReviewerCliContext).pr_gateway
+    pr_gateway = load_typed_context(ctx, RoasterCliContext).pr_gateway
 
     run_summary = _format_run_summary(run_url)
     existing = pr_gateway.find_pr_discussion_comment_by_marker(

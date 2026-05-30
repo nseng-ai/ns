@@ -9,17 +9,17 @@ from typing import Any
 import pytest
 
 from asdl_core.clinkr.non_ideal_state import error_type_for
-from asdl_reviewer.harness import invocation as harness_invocation
-from asdl_reviewer.harness.invocation import HarnessReviewRequest, HarnessRuntime
-from asdl_reviewer.models import (
+from roaster.harness import invocation as harness_invocation
+from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
+from roaster.models import (
     FindingsReview,
     LocalDiff,
     ProseReview,
     ReviewDefinition,
-    ReviewerFailure,
     ReviewExecutionResponse,
     ReviewFormat,
     ReviewUsage,
+    RoasterFailure,
 )
 
 
@@ -134,7 +134,7 @@ def _run_with_process(
     stderr_text: str = "",
     returncode: int = 0,
     progress_messages: list[str] | None = None,
-) -> tuple[ReviewExecutionResponse | ReviewerFailure, dict[str, Any], _FakePopen]:
+) -> tuple[ReviewExecutionResponse | RoasterFailure, dict[str, Any], _FakePopen]:
     captured: dict[str, Any] = {}
     fake_process: dict[str, _FakePopen] = {}
 
@@ -300,7 +300,7 @@ def test_unsupported_model_returns_failure(model: str) -> None:
 
     result = runtime.run_review(_request(model=model))
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "model_not_supported_by_harness"
 
 
@@ -309,7 +309,7 @@ def test_unknown_harness_returns_failure() -> None:
 
     result = runtime.run_review(_request(harness_name="banana"))
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "harness_unknown"
     assert "claude-code" in result.message
 
@@ -319,7 +319,7 @@ def test_missing_binary_returns_failure() -> None:
 
     result = runtime.run_review(_request())
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "harness_binary_missing"
 
 
@@ -332,7 +332,7 @@ def test_invocation_os_error_returns_failure(monkeypatch: pytest.MonkeyPatch) ->
 
     result = runtime.run_review(_request())
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "harness_invocation_failed"
     assert "permission denied" in result.message
 
@@ -344,7 +344,7 @@ def test_non_zero_exit_returns_failure(monkeypatch: pytest.MonkeyPatch) -> None:
         returncode=1,
     )
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "harness_execution_failed"
     assert "model unavailable" in result.message
 
@@ -447,14 +447,14 @@ def test_parse_stdout_text_format_ignores_structured_output(
 def test_parse_stdout_fails_on_empty_output(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(monkeypatch, stdout_lines=["   \n"])
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_empty_output"
 
 
 def test_parse_stdout_fails_on_non_json_line(monkeypatch: pytest.MonkeyPatch) -> None:
     result, _captured, _process = _run_with_process(monkeypatch, stdout_lines=["not json at all\n"])
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_invalid_json"
 
 
@@ -464,7 +464,7 @@ def test_parse_stdout_fails_on_missing_result_event(monkeypatch: pytest.MonkeyPa
         stdout_lines=_stream_lines(include_result=False),
     )
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_missing_result_event"
 
 
@@ -478,7 +478,7 @@ def test_parse_stdout_fails_when_structured_output_missing_in_findings_mode(
         stdout_lines=_stream_lines(result_text=prose, include_structured_output=False),
     )
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_non_json_result"
     assert "Model response:" in result.message
     assert prose in result.message
@@ -492,7 +492,7 @@ def test_parse_stdout_truncates_long_prose_in_error(monkeypatch: pytest.MonkeyPa
         stdout_lines=_stream_lines(result_text=prose, include_structured_output=False),
     )
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_non_json_result"
     assert "ALPHA-" in result.message
     assert "…" in result.message
@@ -505,7 +505,7 @@ def test_parse_stdout_fails_on_missing_findings_key(monkeypatch: pytest.MonkeyPa
         stdout_lines=_stream_lines(structured_output={"something_else": []}),
     )
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_invalid_findings"
 
 
@@ -515,7 +515,7 @@ def test_parse_stdout_fails_on_malformed_finding(monkeypatch: pytest.MonkeyPatch
         stdout_lines=_stream_lines(structured_output={"findings": [{"path": "app.py"}]}),
     )
 
-    assert isinstance(result, ReviewerFailure)
+    assert isinstance(result, RoasterFailure)
     assert error_type_for(result) == "claude_code_invalid_findings"
 
 

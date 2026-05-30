@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from asdl_reviewer.gateways.local_diff.gateway import LocalDiffGateway
-from asdl_reviewer.models import BaseRefUnavailable, LocalDiff
+from roaster.gateways.local_diff.gateway import LocalDiffGateway
+from roaster.models import BaseRefUnavailable, LocalDiff
 
 
 class FakeLocalDiffGateway(LocalDiffGateway):

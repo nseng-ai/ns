@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from asdl_reviewer.harness.invocation import (
+from roaster.harness.invocation import (
     HarnessReviewRequest,
     HarnessRuntime,
 )
-from asdl_reviewer.models import (
+from roaster.models import (
     FindingsReview,
-    ReviewerFailure,
     ReviewExecutionResponse,
+    RoasterFailure,
 )
 
 
@@ -20,9 +20,8 @@ class FakeHarnessRuntime(HarnessRuntime):
         self,
         *,
         paths_by_binary: dict[str, str] | None = None,
-        responses_by_review_name: dict[str, ReviewExecutionResponse | ReviewerFailure]
-        | None = None,
-        default_response: ReviewExecutionResponse | ReviewerFailure | None = None,
+        responses_by_review_name: dict[str, ReviewExecutionResponse | RoasterFailure] | None = None,
+        default_response: ReviewExecutionResponse | RoasterFailure | None = None,
     ) -> None:
         paths = dict(paths_by_binary or {})
         super().__init__(binary_locator=lambda binary: paths.get(binary))
@@ -35,7 +34,7 @@ class FakeHarnessRuntime(HarnessRuntime):
     def run_review(
         self,
         request: HarnessReviewRequest,
-    ) -> ReviewExecutionResponse | ReviewerFailure:
+    ) -> ReviewExecutionResponse | RoasterFailure:
         self._executed_requests.append(request)
         review_name = request.review_definition.name
         if review_name in self._responses_by_review_name:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from asdl_reviewer.models import BaseRefUnavailable, LocalDiff
+from roaster.models import BaseRefUnavailable, LocalDiff
 
 
 class LocalDiffGateway(ABC):

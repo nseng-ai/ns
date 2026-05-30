@@ -9,18 +9,18 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_reviewer.cli.main import build_cli
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
-from asdl_reviewer.harness.fake import FakeHarnessRuntime
+from roaster.cli.main import build_cli
+from roaster.context import RoasterCliContext
+from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
+from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from roaster.harness.fake import FakeHarnessRuntime
 
 
 def _context(
     *,
     paths_by_binary: dict[str, str] | None = None,
 ) -> ClinkrContextObject:
-    ctx = ReviewerCliContext(
+    ctx = RoasterCliContext(
         catalog=FakeReviewCatalogGateway(),
         diff=FakeLocalDiffGateway(),
         harness_runtime=FakeHarnessRuntime(paths_by_binary=paths_by_binary),

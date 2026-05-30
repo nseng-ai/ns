@@ -9,12 +9,12 @@ from click.testing import CliRunner
 from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_reviewer.cli.main import build_cli
-from asdl_reviewer.context import ReviewerCliContext
-from asdl_reviewer.gateways.local_diff.fake import FakeLocalDiffGateway
-from asdl_reviewer.gateways.review_catalog.fake import FakeReviewCatalogGateway
-from asdl_reviewer.harness.fake import FakeHarnessRuntime
-from asdl_reviewer.models import (
+from roaster.cli.main import build_cli
+from roaster.context import RoasterCliContext
+from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
+from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
+from roaster.harness.fake import FakeHarnessRuntime
+from roaster.models import (
     FindingsReview,
     LocalDiff,
     ProseReview,
@@ -47,11 +47,11 @@ def _build_context(
     harness_detected: bool = True,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
-) -> ReviewerCliContext:
+) -> RoasterCliContext:
     paths_by_binary = {"claude": "/usr/local/bin/claude"} if harness_detected else {}
     if payload is None:
         payload = FindingsReview(findings=())
-    return ReviewerCliContext(
+    return RoasterCliContext(
         catalog=FakeReviewCatalogGateway(
             review_sources_by_key={REVIEW_KEY: _sample_source()},
             review_keys=keys,
@@ -97,18 +97,18 @@ def cli_group() -> ClinkrGroup:
     return build_cli()
 
 
-def test_reviewer_help_lists_subgroups(cli_group: ClinkrGroup) -> None:
+def test_roaster_help_lists_subgroups(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["-h"])
 
     assert result.exit_code == 0
-    assert "Markdown-driven reviewer operations." in result.output
+    assert "Markdown-driven roaster operations." in result.output
     assert "review" in result.output
     assert "harness" in result.output
     assert "--version" in result.output
 
 
-def test_reviewer_version_option(cli_group: ClinkrGroup) -> None:
+def test_roaster_version_option(cli_group: ClinkrGroup) -> None:
     runner = CliRunner()
     result = runner.invoke(cli_group, ["--version"])
 

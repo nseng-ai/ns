@@ -1,7 +1,7 @@
 [project]
-name = "asdl-reviewer"
+name = "roaster"
 version = "0.1.0"
-description = "Markdown-driven local reviewer for asdl"
+description = "Markdown-driven local roaster for asdl"
 requires-python = ">=3.11"
 dependencies = [
   "click>=8.1.7",
@@ -10,14 +10,14 @@ dependencies = [
 ]
 
 [project.scripts]
-reviewer = "asdl_reviewer.cli.main:main"
+roaster = "roaster.cli.main:main"
 
 [project.entry-points."asdl.plugins"]
-reviewer = "asdl_reviewer.cli.plugin:build_reviewer_plugin"
+roaster = "roaster.cli.plugin:build_roaster_plugin"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/asdl_reviewer"]
+packages = ["src/roaster"]

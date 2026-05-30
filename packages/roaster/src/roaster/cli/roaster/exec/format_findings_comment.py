@@ -1,6 +1,6 @@
-"""Render a reviewer findings JSON blob as a PR-ready Markdown comment.
+"""Render a roaster findings JSON blob as a PR-ready Markdown comment.
 
-Consumed by the reviewer CI workflow: `reviewer json review run` emits a
+Consumed by the roaster CI workflow: `roaster json review run` emits a
 machine-readable blob on stdout; this command turns that blob into the
 Markdown body posted via `gh pr comment`.
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from asdl_reviewer.findings_publication import (
+from roaster.findings_publication import (
     FindingsPayloadParseError,
     InlinePostingStatus,
     InlinePostingStatusParseError,
@@ -25,14 +25,13 @@ from asdl_reviewer.findings_publication import (
 @click.command(
     name="format-findings-comment",
     help=(
-        "Render a reviewer findings JSON blob (from stdin) as a PR-ready "
-        "Markdown comment on stdout."
+        "Render a roaster findings JSON blob (from stdin) as a PR-ready Markdown comment on stdout."
     ),
 )
 @click.option(
     "--inline-result-file",
     type=click.Path(path_type=Path, exists=True, dir_okay=False, readable=True),
-    help="JSON result file from reviewer exec post-inline-findings.",
+    help="JSON result file from roaster exec post-inline-findings.",
 )
 def format_findings_comment_command(inline_result_file: Path | None) -> None:
     raw = sys.stdin.read()
