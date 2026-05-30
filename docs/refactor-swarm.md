@@ -60,7 +60,7 @@ A structured report:
 
 - **summary** — counts: files changed, changesets done, invariants failed, judgment
   calls surfaced.
-- **skips** — the headline feature. Every change an agent deliberately *didn't* make
+- **skips** — the headline feature. Every change an agent deliberately _didn't_ make
   because it was ambiguous or risky, with a one-line reason. This is where you look
   for the calls that need a human.
 - **failures** — invariants that did not cleanly hold, with concrete evidence.
@@ -70,9 +70,9 @@ A structured report:
 
 The workflow is the middle of the sandwich. It does **not**:
 
-- move files (`git mv`) — the orchestrator does any moves *before* the run;
+- move files (`git mv`) — the orchestrator does any moves _before_ the run;
 - run the build/test gate — the orchestrator runs `uv sync` / `just` / `pytest`
-  *after* the run and reports the result.
+  _after_ the run and reports the result.
 
 ## When to use / when not
 
