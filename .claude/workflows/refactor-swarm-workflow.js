@@ -34,7 +34,19 @@
  * splits into two halves:
  *
  *   1. PLAN — interactive, happens in the chat session, done by the orchestrator
- *      (you, the main agent), NOT here. When the user types `refactor-swarm-workflow: <intent>`
+ *      (you, the main agent), NOT here.
+ *
+ *      STEP 0 — REQUIRE AN INTENT BEFORE DOING ANYTHING. If the command was invoked
+ *      with no refactor intent (e.g. a bare `/refactor-swarm-workflow` with nothing
+ *      after it, and no intent established earlier in the conversation), the
+ *      orchestrator MUST stop and ASK THE USER what to refactor, then wait for a
+ *      reply. Do NOT call `Workflow({ name: "refactor-swarm-workflow" })` with empty
+ *      or placeholder args — with no `simple`/`complex` entries the run is a no-op
+ *      and the user gets nothing back. Prompt for the intent (and optionally a scope
+ *      to search and any paths to exclude); only continue once an intent exists.
+ *
+ *      Then, when the user supplies the intent — typed as
+ *      `refactor-swarm-workflow: <intent>` or given in reply to the Step 0 prompt —
  *      the orchestrator:
  *        a. drafts the shared `brief` from the intent,
  *        b. discovers candidate files (`git grep` + judgment), excluding generated

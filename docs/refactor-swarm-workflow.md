@@ -26,6 +26,10 @@ refactor-swarm-workflow: <one-line intent>
 
 for example `refactor-swarm-workflow: rename the OLD identifier to NEW everywhere`.
 
+If you invoke it with **no intent** — a bare `/refactor-swarm-workflow` with nothing
+after it — it doesn't run an empty no-op. The orchestrator stops and asks you what to
+refactor first, and only proceeds once you've given it an intent.
+
 That kicks off two phases:
 
 1. **Plan** — interactive, in this chat session.
