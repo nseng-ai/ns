@@ -1,4 +1,4 @@
-export const COMMAND_NAME = "land-stack";
+export const COMMAND_NAME = "gt:land-stack";
 export const STATUS_KEY = "land-stack";
 export const COMMAND_STREAM_MESSAGE_TYPE = "land-stack-command-stream";
 

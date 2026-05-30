@@ -21,7 +21,7 @@ In scope:
 - Low-risk metadata cleanup, including local command-skill descriptions and distinct descriptions for related status commands.
 - Resolution of the duplicate `/objective-stack-impl` surface in a way that avoids Pi autocomplete/entrypoint confusion while preserving a portable Objective-stack implementation path for Codex and Claude.
 - A documented runtime policy decision for GitHub-sourced `npx skills` / remote skills that are live under `.agents/skills/` and `.claude/skills/` but excluded from deep review.
-- A disposition for checked-in risky or mutating commands, especially `/land`, such as promotion into tested package/CLI code, replacement/deprecation, or an explicit retained-as-is rationale that also says what Codex and Claude users should do.
+- A disposition for checked-in risky or mutating commands, especially the former `/land` GitHub merge command, such as promotion into tested package/CLI code, replacement/deprecation, or an explicit retained-as-is rationale that also says what Codex and Claude users should do.
 - Audit narrative and advisory disposition for user-local resources such as CMUX slot commands, `gh-pr`, `stack-latest`, and user-local skills when they affect the visible Pi surface from this checkout.
 
 Confirmed boundaries:
@@ -53,7 +53,7 @@ This Objective can close when all of the following are true:
 - The remote-skill runtime policy is explicitly decided and documented for `.agents/skills/` and `.claude/skills/`; any implementation required by that decision is complete, or removal is explicitly declared unnecessary.
 - Low-risk checked-in metadata cleanup has either been completed or deliberately rejected with rationale, including local command-skill descriptions and distinct status command descriptions.
 - The duplicate `/objective-stack-impl` visible Pi surface has been resolved or intentionally retained with a clear documented rationale that avoids autocomplete/entrypoint confusion, and Codex/Claude retain a documented way to invoke or follow the same Objective-stack implementation capability.
-- `/land` has a recorded disposition appropriate to its risk as a mutating GitHub command: promoted and tested, deprecated/replaced, or retained with explicit rationale, safety expectations, and Codex/Claude guidance.
+- `/gh:land` has a recorded disposition appropriate to its risk as a mutating GitHub command: promoted and tested from the former `/land`, deprecated/replaced, or retained with explicit rationale, safety expectations, and Codex/Claude guidance.
 - User-local CMUX/`gh-pr`/`stack-latest` findings are captured as advisory/personal-resource context rather than closure-critical repo work, unless a later explicit user request changes scope.
 - A fresh Pi RPC command inventory has been run after material changes and summarized in either docs or an Objective update.
 - A fresh skill/instruction-surface inventory for Codex/Claude-relevant checked-in resources has been run after material changes and summarized in either docs or an Objective update.
@@ -78,13 +78,12 @@ Risks:
 
 - The Objective stack implementation rename/prompt-removal risk is de-risked by checked-in evidence: the portable workflow now lives in `skills/objective-stack-impl/SKILL.md`, Pi exposes the picker wrapper as `/objective:stack-impl`, and RPC inventory shows no remaining `objective-stack-impl` top-level prompt command.
 - Over-correcting for harness neutrality could turn concise Pi commands into over-abstracted, harder-to-use workflows; the namespaced wrapper pattern is the current mitigation for Pi command families.
-- Keeping Pi-only implementations for mutating capabilities such as `/land` without Codex/Claude guidance could leave non-Pi agents to improvise unsafe GitHub operations.
+- The former `/land` mutating-command risk is de-risked by checked-in evidence: Pi now exposes the package-tested `/gh:land` command from `.pi/extensions/gh.ts`, the old `/land` alias is absent from fresh RPC inventory, and docs give Codex/Claude the equivalent guarded `gh pr merge -s --match-head-commit ...` path.
 - Remote skills remain visible by explicit policy: real-directory `.agents/skills/` entries are live developer aids, excluded from deep audit, and not removed or disabled without explicit skill-management work.
-- `/land` mutates GitHub state, so refactoring it without tests or preserving safety checks could increase operational risk.
-- Documentation-only dispositions can drift from actual Pi, Codex, and Claude surfaces unless the work ends with fresh discovery/inventory evidence.
+- `/gt:land-stack` is intentionally Pi-only for now; no Codex/Claude stack-landing workflow is claimed until a future explicit design promotes one.
+- Documentation-only dispositions can drift from actual Pi, Codex, and Claude surfaces unless they are paired with fresh discovery/inventory evidence; the latest `/gh:land` and `/gt:land-stack` slice includes that evidence.
 - Because user-local resources are outside the repo, audit findings about them can become stale or machine-specific.
 
 ## Open Questions
 
-- Should `/land` be promoted into a tested CLI/package path shared by Pi, Codex, and Claude, deprecated in favor of `/land-stack` plus non-Pi guidance, or retained as a small explicit Pi command with tests or rationale?
-- Is the current `AGENTS.md` plus `skills/<name>` surface sufficient for Codex, or should this repo add a dedicated Codex-specific checked-in resource if a concrete gap appears?
+- No open questions remain for this Objective. A dedicated Codex-specific checked-in resource is not needed unless a future concrete gap appears beyond `AGENTS.md`, repo-owned skills, and CLI/docs workflows.
