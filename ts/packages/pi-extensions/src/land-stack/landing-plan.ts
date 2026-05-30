@@ -58,7 +58,7 @@ export async function buildLandingPlan(
 	const landingManualConflicts = landingConflicts.filter((conflict) => conflict.kind === "manual-worktree");
 	if (landingManualConflicts.length > 0) {
 		fail(formatManualWorktreeConflict(landingManualConflicts), {
-			suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /gt:land-stack.",
+			suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /dev:land-stack.",
 		});
 	}
 

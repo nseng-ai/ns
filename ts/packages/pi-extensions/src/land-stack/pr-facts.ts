@@ -68,7 +68,7 @@ export function validateStrictMergeGate(input: { branch: string; localSha: strin
 		fail(`PR #${input.pr.number} targets ${input.pr.baseRefName}, expected ${input.trunk}; restack/submit it first.`, {
 			failedBranch: input.branch,
 			failedPr: input.pr.number,
-			suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /gt:land-stack.`,
+			suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /dev:land-stack.`,
 		});
 	}
 }

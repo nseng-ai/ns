@@ -247,7 +247,7 @@ async function runSubmit(
 	const runner = new ScriptedSubmitRunner(script);
 	const dependencies = contextOptions.checkpoint ? { runner, checkpoint: contextOptions.checkpoint } : { runner };
 	submitExtensionWithDependencies(pi, dependencies);
-	const command = pi.commands.get("submit");
+	const command = pi.commands.get("dev:submit");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
 	await command?.handler("", context.ctx);
@@ -391,7 +391,7 @@ async function captureConsole<T>(run: () => Promise<T>): Promise<{ result: T; lo
 }
 
 describe("submit extension registration", () => {
-	test("registers /submit, waits for idle, and clears the output widget before work", async () => {
+	test("registers /dev:submit, waits for idle, and clears the output widget before work", async () => {
 		const { pi, runner, widgets, waitForIdleCalls } = await runSubmit([
 			buffered("gt", DRY_RUN_ARGS),
 			streaming("gt", SUBMIT_ARGS, { stdout: "submitted\n" }),
@@ -399,7 +399,9 @@ describe("submit extension registration", () => {
 		]);
 
 		runner.assertDone();
-		expect(pi.commands.get("submit")?.description).toBe("Submit the current Graphite stack with gt submit -nps --ai");
+		expect([...pi.commands.keys()]).toEqual(["dev:submit"]);
+		expect(pi.commands.has("submit")).toBe(false);
+		expect(pi.commands.get("dev:submit")?.description).toBe("Submit the current Graphite stack with gt submit -nps --ai");
 		expect(waitForIdleCalls()).toBe(1);
 		expect(widgets[0]).toEqual({ key: "submit-output", value: undefined, options: undefined });
 		expect(widgets.some((widget) => typeof widget.value === "function" && widget.options?.placement === "aboveEditor")).toBe(true);
@@ -463,7 +465,7 @@ describe("submit command scenarios", () => {
 		]);
 		expect(notifications).toEqual([
 			{
-				message: "Submission cancelled. Run `gt restack` when ready, then /submit again.",
+				message: "Submission cancelled. Run `gt restack` when ready, then /dev:submit again.",
 				level: "warning",
 			},
 		]);
@@ -595,7 +597,7 @@ describe("submit command scenarios", () => {
 		expect(checkpoint.calls.commit).toEqual([]);
 		expect(notifications).toEqual([
 			{
-				message: "Submission cancelled. Pending changes were not checkpointed; run /cp or /submit again when ready.",
+				message: "Submission cancelled. Pending changes were not checkpointed; run /dev:cp or /dev:submit again when ready.",
 				level: "warning",
 			},
 		]);
@@ -643,7 +645,7 @@ describe("submit command scenarios", () => {
 		expect(notifications[0]?.message).toContain("Refusing to create checkpoint commit on trunk branch: main");
 	});
 
-	test("no PR in non-UI mode suggests /cp and does not inspect or mutate", async () => {
+	test("no PR in non-UI mode suggests /dev:cp and does not inspect or mutate", async () => {
 		const checkpoint = createCheckpointOperations();
 		const { result, errors } = await captureConsole(() =>
 			runSubmit(
@@ -660,7 +662,7 @@ describe("submit command scenarios", () => {
 		expect(result.confirmations).toEqual([]);
 		expect(checkpoint.calls.load).toEqual([]);
 		expect(checkpoint.calls.commit).toEqual([]);
-		expect(errors.join("\n")).toContain("Run /cp to checkpoint outstanding changes, then run /submit again.");
+		expect(errors.join("\n")).toContain("Run /dev:cp to checkpoint outstanding changes, then run /dev:submit again.");
 		expect(result.notifications[0]?.level).toBe("error");
 	});
 

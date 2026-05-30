@@ -3,12 +3,12 @@ import { commitPreparedCheckpointMessage, prepareCheckpointMessageForPi, type Ex
 import { createNewBranchCheckpointFlow, parseNewBranchArgs } from "./newbr-flow.ts";
 import type { ParsedNewBranchArgs } from "./newbr-preparation.ts";
 
-const COMMAND_NAME = "newbr";
-const STATUS_KEY = "newbr";
+const COMMAND_NAME = "dev:autobranch";
+const STATUS_KEY = "autobranch";
 
 export default function newBranchExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Create a Graphite branch from the current diff, then checkpoint it with /cp logic",
+		description: "Create a Graphite branch from current uncommitted changes, generating the branch name and checkpoint commit message",
 		handler: async (args, ctx) => {
 			await createNewBranchCheckpoint(pi, ctx, parseNewBranchArgs(args));
 		},

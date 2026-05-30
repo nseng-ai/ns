@@ -55,11 +55,12 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `/brmem-handoff`         | `.pi/extensions/brmem-handoff.ts`  | Starts the Branch Memory handoff creation workflow.                                                 |
 | `/brmem-pickup-handoff`  | `.pi/extensions/brmem-handoff.ts`  | Picks a Branch Memory handoff artifact and injects its pickup prompt.                               |
-| `/cp`                    | `.pi/extensions/cp.ts`             | Creates a checkpoint commit for the current diff.                                                   |
-| `/gh:land`               | `.pi/extensions/gh.ts`             | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
-| `/gt:land-stack`         | `.pi/extensions/gt.ts`             | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
+| `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
+| `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
+| `/dev:submit`            | `.pi/extensions/dev.ts`            | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
+| `/dev:land`              | `.pi/extensions/dev.ts`            | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
+| `/dev:land-stack`        | `.pi/extensions/dev.ts`            | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
 | `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `dev-just-fix` workflow prompt when the suite fails.                    |
-| `/newbr`                 | `.pi/extensions/newbr.ts`          | Creates a Graphite branch from the current diff and checkpoints the restored changes.               |
 | `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
 | `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |
 | `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` for the selected slug.                       |
@@ -69,7 +70,6 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | `/write-plan`            | `.pi/extensions/planned-branch.ts` | Starts a reviewed implementation-plan authoring flow and saves the approved plan.                   |
 | `/create-planned-branch` | `.pi/extensions/planned-branch.ts` | Creates a planned branch from a saved plan and attaches the plan in Branch Memory.                  |
 | `/impl-planned-branch`   | `.pi/extensions/planned-branch.ts` | Loads the current branch's attached plan and injects an implementation prompt.                      |
-| `/submit`                | `.pi/extensions/submit.ts`         | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
 
 ## Project Pi custom tools
 

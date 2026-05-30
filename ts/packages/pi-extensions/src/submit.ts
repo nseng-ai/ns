@@ -49,7 +49,8 @@ export type ExtensionAPI = Pick<CheckpointExtensionAPI, "exec"> & {
 	): void;
 };
 
-const COMMAND_NAME = "submit";
+const COMMAND_NAME = "dev:submit";
+const CHECKPOINT_COMMAND_NAME = "dev:cp";
 const WIDGET_ID = "submit-output";
 const SUBMIT_ARGS = ["submit", "-nps", "--ai"] as const;
 const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--ai", "--dry-run"] as const;
@@ -446,7 +447,7 @@ async function offerCheckpointRecovery(input: {
 	const confirmed = await ctx.ui.confirm("Checkpoint pending changes?", formatCheckpointRecoveryPrompt(prepared.message));
 	if (!confirmed) {
 		ctx.ui.setWidget(WIDGET_ID, formatCheckpointRecoveryDeclinedWidgetOutput(originalOutput, prepared.message).split("\n"));
-		ctx.ui.notify("Submission cancelled. Pending changes were not checkpointed; run /cp or /submit again when ready.", "warning");
+		ctx.ui.notify(`Submission cancelled. Pending changes were not checkpointed; run /${CHECKPOINT_COMMAND_NAME} or /${COMMAND_NAME} again when ready.`, "warning");
 		return "handled";
 	}
 
@@ -598,7 +599,7 @@ async function ensureStackReadyForSubmit(
 	);
 	if (!confirmed) {
 		progress.clear();
-		ctx.ui.notify("Submission cancelled. Run `gt restack` when ready, then /submit again.", "warning");
+		ctx.ui.notify(`Submission cancelled. Run \`gt restack\` when ready, then /${COMMAND_NAME} again.`, "warning");
 		return false;
 	}
 
@@ -973,15 +974,15 @@ function formatPostSubmitFailureReason(semanticFailure: string | undefined, curr
 function formatCheckpointRecoveryPrompt(message: string): string {
 	return [
 		"gt submit completed, but Graphite still reports no PR for this branch.",
-		"The working tree has outstanding changes. /submit can checkpoint them and retry.",
+		`The working tree has outstanding changes. /${COMMAND_NAME} can checkpoint them and retry.`,
 		"",
-		"This will stage and commit all outstanding changes, the same as /cp.",
+		`This will stage and commit all outstanding changes, the same as /${CHECKPOINT_COMMAND_NAME}.`,
 		"",
 		"Proposed checkpoint commit message:",
 		"",
 		message,
 		"",
-		"Checkpoint these changes and retry /submit?",
+		`Checkpoint these changes and retry /${COMMAND_NAME}?`,
 	].join("\n");
 }
 
@@ -989,8 +990,8 @@ function formatCheckpointRecoveryNoUiOutput(originalFailure: string): string {
 	return [
 		originalFailure,
 		"",
-		"No checkpoint commit was created because /submit is running without an interactive confirmation prompt.",
-		"Run /cp to checkpoint outstanding changes, then run /submit again.",
+		`No checkpoint commit was created because /${COMMAND_NAME} is running without an interactive confirmation prompt.`,
+		`Run /${CHECKPOINT_COMMAND_NAME} to checkpoint outstanding changes, then run /${COMMAND_NAME} again.`,
 	].join("\n");
 }
 
@@ -1007,14 +1008,19 @@ function formatCheckpointSnapshotFailureOutput(originalFailure: string, error: P
 }
 
 function formatCheckpointRecoveryUnavailableOutput(originalFailure: string, reason: string): string {
-	return [originalFailure, "", reason, "No checkpoint commit was created. Run /cp or /submit again after resolving this state."].join("\n");
+	return [
+		originalFailure,
+		"",
+		reason,
+		`No checkpoint commit was created. Run /${CHECKPOINT_COMMAND_NAME} or /${COMMAND_NAME} again after resolving this state.`,
+	].join("\n");
 }
 
 function formatCheckpointPreparationFailureOutput(originalFailure: string, error: string): string {
 	return [
 		originalFailure,
 		"",
-		"Checkpoint recovery could not prepare a /cp-style commit message. Submission was not retried.",
+		`Checkpoint recovery could not prepare a /${CHECKPOINT_COMMAND_NAME}-style commit message. Submission was not retried.`,
 		error,
 	].join("\n");
 }
@@ -1120,7 +1126,7 @@ function formatPreflightFailureOutput(result: BufferedCommandResult): string {
 
 function formatRestackRequiredNoUiOutput(result: BufferedCommandResult): string {
 	return [
-		"Graphite requires a restack before submission. Run `gt restack`, resolve any conflicts, then run /submit again.",
+		`Graphite requires a restack before submission. Run \`gt restack\`, resolve any conflicts, then run /${COMMAND_NAME} again.`,
 		"Submission was not attempted.",
 		"",
 		"$ gt submit -nps --ai --dry-run",
@@ -1139,7 +1145,7 @@ function formatRestackConflictOutput(result: BufferedCommandResult, conflictedFi
 		"`gt restack` hit merge conflicts. Submission was not attempted.",
 		"",
 		...fileLines,
-		"Resolve the conflicts, continue or abort the rebase as appropriate, then run /submit again.",
+		`Resolve the conflicts, continue or abort the rebase as appropriate, then run /${COMMAND_NAME} again.`,
 		"",
 		"$ gt restack --no-interactive",
 		"",

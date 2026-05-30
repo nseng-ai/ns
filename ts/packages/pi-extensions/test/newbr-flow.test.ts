@@ -131,13 +131,13 @@ describe("createNewBranchCheckpointFlow", () => {
 		expect(harness.notifications).toContainEqual({ message: "Working tree is clean; nothing to move to a new branch.", level: "warning" });
 	});
 
-	test("detached HEAD reports the newbr-specific checkout guidance", async () => {
+	test("detached HEAD reports the autobranch-specific checkout guidance", async () => {
 		const harness = createHarness({ detachedHead: true });
 
 		await createNewBranchCheckpointFlow(harness.input);
 
 		expect(harness.events).not.toContain("prepare");
-		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /newbr."))).toBe(true);
+		expect(harness.notifications.some((notice) => notice.level === "error" && notice.message.includes("Detached HEAD; check out a branch before running /dev:autobranch."))).toBe(true);
 	});
 
 	test("successful path prepares before stash, branch creation, restore, and commit", async () => {

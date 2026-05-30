@@ -14,7 +14,7 @@ import {
 } from "./newbr-preparation.ts";
 import { runNewBranchTransaction, type NewBranchTransactionResult } from "./newbr-transaction.ts";
 
-export const NEWBR_COMMAND_NAME = "newbr";
+export const NEWBR_COMMAND_NAME = "dev:autobranch";
 const GIT_TIMEOUT_MS = 30_000;
 
 export type NewBranchFlowInput = {
