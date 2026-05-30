@@ -1,9 +1,31 @@
 /**
- * refactor-swarm — a reusable, generic multi-agent refactor execution engine.
+ * refactor-swarm-workflow — a reusable, generic multi-agent refactor execution engine.
  *
  * This is the EXECUTE half of a refactor. It is a pure execution engine: it does
  * no discovery and contains no domain content. Every piece of task content arrives
  * through `args`. The same script runs any file-local refactor.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * NOT the `ns-refactor-swarm` skill — do not confuse the two
+ * ──────────────────────────────────────────────────────────────────────────────
+ * This `refactor-swarm-workflow` (a `Workflow`-tool script at
+ * `.claude/workflows/refactor-swarm-workflow.js`) is a DIFFERENT, independent thing
+ * from the `ns-refactor-swarm` SKILL at `.claude/skills/ns-refactor-swarm/`. They
+ * solve a similar problem but share no code and are invoked in entirely different
+ * ways:
+ *
+ *   - refactor-swarm-workflow (THIS FILE) — runs via the `Workflow` tool. It runs
+ *     detached (cannot pause to ask anything), follows the plan/execute handshake
+ *     below, edits with disjoint concurrent agents, runs an adversarial verify pass,
+ *     and returns a structured report. Invoke with
+ *     `Workflow({ name: "refactor-swarm-workflow", args })`.
+ *
+ *   - ns-refactor-swarm (the SKILL, separate) — an in-session procedure the
+ *     orchestrator drives by hand, spawning `Task` subagents in two waves (source
+ *     files, then tests). No `Workflow` tool, no detached run, no structured report.
+ *
+ * If you reached here looking for the lighter, interactive, two-wave Task approach,
+ * stop and read `.claude/skills/ns-refactor-swarm/SKILL.md` instead.
  *
  * ──────────────────────────────────────────────────────────────────────────────
  * The plan/execute handshake (read this first)
@@ -12,7 +34,7 @@
  * splits into two halves:
  *
  *   1. PLAN — interactive, happens in the chat session, done by the orchestrator
- *      (you, the main agent), NOT here. When the user types `refactor-swarm: <intent>`
+ *      (you, the main agent), NOT here. When the user types `refactor-swarm-workflow: <intent>`
  *      the orchestrator:
  *        a. drafts the shared `brief` from the intent,
  *        b. discovers candidate files (`git grep` + judgment), excluding generated
@@ -21,7 +43,7 @@
  *           `complex[]` (coordinated multi-file changesets),
  *        d. asks the user the ambiguous calls and iterates until approved,
  *        e. runs any pre-flight `git mv`,
- *        f. THEN calls `Workflow({ name: "refactor-swarm", args })` with the locked
+ *        f. THEN calls `Workflow({ name: "refactor-swarm-workflow", args })` with the locked
  *           partition.
  *
  *   2. EXECUTE — this script. It fans out one agent per simple file and one per
@@ -89,8 +111,9 @@
  */
 
 export const meta = {
-  name: 'refactor-swarm',
-  description: 'Execute a planned file-local refactor across many files via a swarm of agents, then verify invariants',
+  name: 'refactor-swarm-workflow',
+  description:
+    'Workflow-tool execution engine for a planned file-local refactor: fans out disjoint concurrent edit agents, runs an adversarial verify pass, returns a structured report. Distinct from the ns-refactor-swarm skill (a separate in-session, two-wave Task-agent procedure).',
   phases: [
     { title: 'Edit', detail: 'one agent per simple file + one per complex changeset (disjoint, concurrent)' },
     { title: 'Verify', detail: 'adversarial read-only invariant checks across the tree' },
@@ -169,7 +192,7 @@ if (typeof input === 'string') {
   try {
     input = JSON.parse(input)
   } catch (e) {
-    log(`refactor-swarm: args was a string but not valid JSON (${e}); treating as empty.`)
+    log(`refactor-swarm-workflow: args was a string but not valid JSON (${e}); treating as empty.`)
     input = {}
   }
 }
@@ -187,7 +210,7 @@ const verifyModel = input.verifyModel || complexModel
 // ── 1. Validate / guard ───────────────────────────────────────────────────────
 
 if (simple.length === 0 && complex.length === 0) {
-  log('refactor-swarm: no simple or complex entries — nothing to do.')
+  log('refactor-swarm-workflow: no simple or complex entries — nothing to do.')
   return {
     summary: {
       simpleFilesChanged: 0,
@@ -220,7 +243,7 @@ for (const s of simple) claim(s.path, 'simple')
 for (const cs of complex) for (const f of (Array.isArray(cs.files) ? cs.files : [])) claim(f, `complex:${cs.id}`)
 const collisions = [...owners.entries()].filter(([, who]) => who.length > 1)
 if (collisions.length > 0) {
-  log(`refactor-swarm: WARNING — ${collisions.length} file(s) assigned to multiple agents; concurrent edits may collide:`)
+  log(`refactor-swarm-workflow: WARNING — ${collisions.length} file(s) assigned to multiple agents; concurrent edits may collide:`)
   for (const [path, who] of collisions) log(`  ${path} ← ${who.join(', ')}`)
 }
 
@@ -354,7 +377,7 @@ const summary = {
 }
 
 log(
-  `refactor-swarm: ${summary.simpleFilesChanged}/${summary.simpleTotal} files changed, `
+  `refactor-swarm-workflow: ${summary.simpleFilesChanged}/${summary.simpleTotal} files changed, `
     + `${summary.changesetsDone}/${summary.changesetsTotal} changesets done, `
     + `${summary.invariantsFailed}/${summary.invariantsChecked} invariants failed, `
     + `${summary.skips} judgment call(s) surfaced.`,
