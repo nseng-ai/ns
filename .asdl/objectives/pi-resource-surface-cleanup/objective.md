@@ -87,3 +87,23 @@ Risks:
 ## Open Questions
 
 - No open questions remain for this Objective. A dedicated Codex-specific checked-in resource is not needed unless a future concrete gap appears beyond `AGENTS.md`, repo-owned skills, and CLI/docs workflows.
+
+## Closure
+
+Outcome: completed.
+
+The harness-neutral agent resource surface cleanup is complete. Checked-in docs now record the resource-surface policy and important dispositions for repo-owned Pi resources, portable repo-owned skills, remote/vendored skills, user-local personal resources, and the first-class Pi/Codex/Claude entrypoint expectations.
+
+Completion evidence:
+
+- `docs/pi/README.md` records the cross-harness resource-surface policy, remote-skill runtime policy, user-local boundary, Pi extension namespace convention, and per-capability dispositions.
+- The Objective stack implementation duplicate was resolved by making `skills/objective-stack-impl/SKILL.md` the portable core, `/objective:stack-impl` the Pi wrapper, and Codex/Claude skill surfaces the non-Pi path; fresh inventory showed no remaining top-level duplicate.
+- The former `/land` mutating-command risk was resolved by promoting the single-PR GitHub landing behavior into package-tested `/gh:land`, removing the legacy `/land` alias, renaming stack landing to Pi-only `/gt:land-stack`, and documenting Codex/Claude guidance for the guarded `gh pr merge` flow.
+- Fresh Pi RPC command inventory and Codex/Claude-relevant skill/instruction inventory were recorded after material changes.
+- Verification passed for touched areas: focused landing tests, `just ts-check`, `just ts-test`, `just dprint-check`, and `git diff --check`.
+
+Caveats and follow-ups:
+
+- User-local CMUX, `gh-pr`, and `stack-latest` implementation changes remain parked and explicit-request-only.
+- Remote/vendored skill deep review remains out of scope unless separately requested.
+- A portable Codex/Claude Graphite stack-landing workflow is not claimed; `/gt:land-stack` remains Pi-only until a future explicit design promotes one.
