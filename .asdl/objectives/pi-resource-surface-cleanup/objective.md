@@ -72,6 +72,9 @@ Assumptions:
 - `docs/pi/README.md` remains the right place for the current resource-surface policy because it already describes project-local extensions, the vibecoded-vs-engineered layers, and now the Pi/Codex/Claude relationship for Objective stack implementation.
 - Namespaced Pi extension commands using `/namespace:command` are a good fit for command families with portable skill counterparts, because Pi can keep a concise picker wrapper without colliding visually with `/skill:<name>` entries.
 - The local development/source-control command cluster uses the `/dev:*` Pi namespace. The separate decision about renaming existing `dev-` prefixed skills is parked and should not block this Pi command cleanup.
+- The planned-branch workflow remains an intentionally Pi planning-layer command sequence for now; its saved-plan and Branch Memory storage contracts are documented so non-Pi agents can inspect or recover state without claiming a dedicated Codex/Claude shortcut.
+- The Branch Memory handoff workflow is intentionally skill/CLI-centered: Pi keeps explicit `/brmem-handoff` and `/brmem-pickup-handoff` frontends that mirror the installed skill names, while Codex and Claude use the skills directly.
+- The branch retrospective workflow remains named for the human-facing retrospective task; `aretro exec collect-evidence` is the deterministic evidence boundary behind `branch-retro`, not the public skill name.
 - A staged cleanup Objective is still better than several small Objectives because the findings are linked by one surface-area policy question.
 - Remote GitHub-sourced skills can remain excluded from deep audit and remain live by default when documented as vendored/developer-aid runtime surface rather than repo-owned products.
 - Treating user-local CMUX and similar commands as personal/tool-stack-specific avoids over-generalizing workflows that depend on a narrow local environment.
@@ -89,5 +92,4 @@ Risks:
 
 ## Open Questions
 
-- Should the branch retrospective skill remain `/skill:branch-retro`, or should it be renamed/reframed around the `aretro` CLI now that deterministic evidence collection is the core implementation boundary?
 - A dedicated Codex-specific checked-in resource is not needed unless a future concrete gap appears beyond `AGENTS.md`, repo-owned skills, and CLI/docs workflows.
