@@ -24,7 +24,7 @@ Confirmed boundaries:
 
 - User-local implementation changes under `~/.pi/agent/...` are advisory and explicit-request-only. Closure-critical implementation work should be checked into the repository unless a later user request explicitly changes that boundary.
 - CMUX commands are tailored to a specific personal stack of tools. They should not be presented as generalized repo products merely because they are complex.
-- The Objective may decide whether remote skills should remain live, but removal or disabling of those skills is not required for closure unless that policy decision explicitly says they should be removed.
+- Real-directory remote or vendored skills under `.agents/skills/` remain live by default as developer aids. Removal or disabling requires explicit skill-management work; no implementation change is required by this Objective's current remote-skill runtime policy.
 
 ## Non-Goals
 
@@ -57,23 +57,19 @@ Assumptions:
 - Pi RPC command discovery is the right source of truth for the visible extension, prompt-template, and skill command surface.
 - `docs/pi/README.md` is the right first documentation surface for durable repo-specific Pi resource policy because it already describes project-local extensions and the vibecoded-vs-engineered layers.
 - A staged cleanup Objective is better than several small Objectives because the findings are linked by one surface-area policy question.
-- Remote GitHub-sourced skills can remain excluded from deep audit while still requiring a runtime visibility policy decision.
+- Remote GitHub-sourced skills can remain excluded from deep audit and remain live by default when documented as vendored/developer-aid runtime surface rather than repo-owned products.
 - Treating user-local CMUX and similar commands as personal/tool-stack-specific avoids over-generalizing workflows that depend on a narrow local environment.
 - Checked-in repo changes are the right closure-critical implementation unit; user-local changes are harder to review and reproduce.
 
 Risks:
 
 - Internalizing or renaming a prompt/command such as `/objective-stack-impl` could break muscle memory or hidden workflows if not documented.
-- Leaving remote skills live without a clear policy may keep the Pi surface noisy even after repo-local cleanup.
-- Removing or disabling remote skills could unexpectedly remove useful workflows; this should be an explicit policy decision rather than incidental cleanup.
+- Remote skills remain visible by explicit policy: real-directory `.agents/skills/` entries are live developer aids, excluded from deep audit, and not removed or disabled without explicit skill-management work.
 - `/land` mutates GitHub state, so refactoring it without tests or preserving safety checks could increase operational risk.
 - Documentation-only dispositions can drift from the actual Pi surface unless the work ends with a fresh RPC inventory.
 - Because user-local resources are outside the repo, audit findings about them can become stale or machine-specific.
 
 ## Open Questions
 
-- What should be the first implementation slice: metadata/docs first, duplicate `/objective-stack-impl` first, or `/land` hardening first?
 - Should the duplicate `/objective-stack-impl` prompt be moved to an internal asset, renamed as a raw/internal prompt, or kept visible with documented rationale?
-- Should GitHub-sourced remote skills remain live in this repository's Pi runtime by default?
 - Should `/land` be promoted into `ts/packages/pi-extensions/`, deprecated in favor of `/land-stack`, or retained as a small explicit command with tests or rationale?
-- Which exact user-local resource findings belong in checked-in docs versus only Objective updates?

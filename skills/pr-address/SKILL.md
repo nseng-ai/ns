@@ -1,6 +1,6 @@
 ---
 name: pr-address
-description: Command
+description: "Command: pr-address"
 # Original description (preserved for reference):
 # Address PR review comments end-to-end on the current branch's PR. Use only when the user explicitly invokes `pr-address` by name in their current harness; do not trigger from generic natural-language requests. Fetches unresolved review threads and discussion comments, classifies them with LLM judgment (actionable vs informational, bot noise, pre-existing issues), plans batched execution, implements changes, commits in batches, and resolves threads. Never pushes - the user pushes manually after reviewing local commits.
 allowed-tools:
