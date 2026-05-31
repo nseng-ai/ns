@@ -10,7 +10,7 @@ import {
 	type PendingWorktreeError,
 } from "./pending-worktree.ts";
 
-const COMMAND_NAME = "cp";
+const COMMAND_NAME = "dev:cp";
 
 export default function checkpointExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {

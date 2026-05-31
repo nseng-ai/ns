@@ -4,7 +4,7 @@
 
 The Objective was closed after the landing-surface slice, but active command-surface cleanup continued immediately afterward. The visible status commands `/worktree-status`, `/brmem-status`, and `/gt-status` were pruned while preserving automatic status-line refresh through extension lifecycle hooks. The remaining local development/source-control Pi commands are now being treated as one cluster: `/cp`, `/newbr`, `/submit`, `/gh:land`, and `/gt:land-stack`.
 
-The user selected `/dev:*` as the namespace for that cluster. The separate convention question for existing `dev-` prefixed skills is parked in Branch Memory rather than blocking this Pi command cleanup.
+The user selected and then locked `/dev:*` as the namespace for that cluster: all commands in the local development/source-control cluster should move under `dev:`. The separate convention question for existing `dev-` prefixed skills is parked in Branch Memory rather than blocking this Pi command cleanup.
 
 The user also identified additional repo-owned workflow surfaces that should be categorized before the Objective closes again: planned-branch commands (`/write-plan`, `/create-planned-branch`, `/impl-planned-branch`), Branch Memory handoff commands (`/brmem-handoff`, `/brmem-pickup-handoff`), and branch retrospective / `aretro` surfaces (`/skill:branch-retro` and related evidence-collection paths). The `branch-retro` naming question remains open: it may want to be named after `aretro` now that the CLI is the deterministic evidence boundary.
 
@@ -18,7 +18,7 @@ The previous landing and Objective-stack surface work remains completed. The new
 
 ## Follow-Ups
 
-- Finalize the exact `/dev:*` subcommand names before implementation.
+- Finalize the exact subcommand names under the locked `/dev:*` namespace before implementation.
 - Implement one consolidated project-local adapter extension for the selected namespace.
 - Remove or replace the separate `.pi/extensions/cp.ts`, `newbr.ts`, `submit.ts`, `gh.ts`, and `gt.ts` discovery adapters after the consolidated adapter is ready.
 - Categorize planned-branch commands, Branch Memory handoff commands, and branch retrospective / `aretro` surfaces as renamed, namespaced, retained as-is, or intentionally skill/CLI-centered.

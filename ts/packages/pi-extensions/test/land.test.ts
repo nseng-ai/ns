@@ -117,7 +117,7 @@ async function runLand(script: ScriptedExec[]): Promise<{
 }> {
 	const pi = new FakePi(script);
 	landExtension(pi);
-	const command = pi.commands.get("gh:land");
+	const command = pi.commands.get("dev:land");
 	expect(command).toBeDefined();
 	const context = createContext();
 	await command?.handler("", context.ctx);
@@ -157,18 +157,19 @@ function expectedMergeArgs(options: { number?: number; sha?: string; title?: str
 	];
 }
 
-describe("gh land extension registration", () => {
-	test("registers only the namespaced gh:land command", () => {
+describe("dev land extension registration", () => {
+	test("registers only the namespaced dev:land command", () => {
 		const pi = new FakePi();
 		landExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["gh:land"]);
+		expect([...pi.commands.keys()]).toEqual(["dev:land"]);
+		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
-		expect(pi.commands.get("gh:land")?.description).toBe("Squash-merge the current branch's GitHub PR into master");
+		expect(pi.commands.get("dev:land")?.description).toBe("Squash-merge the current branch's GitHub PR into master");
 	});
 });
 
-describe("gh land command", () => {
+describe("dev land command", () => {
 	test("squash-merges the current PR with the PR title and body", async () => {
 		const { pi, notifications, waitForIdleCalls } = await runLand([
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
