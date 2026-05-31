@@ -1,95 +1,87 @@
-# Harness-Neutral Agent Resource Surface Cleanup
+# Agent Skill and Command Surface Consolidation
 
 ## Thesis
 
-The repo's agent-facing command, skill, prompt, and documentation surface should be intentional, legible, and portable across the first-class harnesses this project actually uses: Pi, Codex, and Claude. Pi still matters: a Pi RPC inventory found 74 visible slash commands, a duplicate `/objective-stack-impl` extension/prompt exposure, low-signal local skill descriptions, status commands with indistinct descriptions, GitHub-sourced remote skills that are live but intentionally excluded from deep audit, and several large user-local extensions that are personal tool-stack workflows rather than repo-general products. Those findings are now treated as the Pi projection of a broader agent-resource problem, not as the whole problem.
+The repo's agent-facing surface has grown again. The original Pi command cleanup succeeded for the then-current problem, but the current bottleneck is broader: there are many first-party skills, many installed remote or vendored skills, several Pi slash-command families, command-wrapper skills, internal prototype skills, CLI `exec` helpers, and routing instructions in `AGENTS.md` / `CLAUDE.md`. More surface is now making agent routing harder: similar workflows compete for attention, internal prototypes look like durable products, command skills can carry stale scaffolding, and Pi commands, portable skills, and CLI primitives do not always communicate their relationship clearly.
 
-This Objective turns the audit into staged cleanup and durable cross-harness policy. The desired outcome is not to generalize every useful personal Pi workflow or to force every harness to expose identical slash commands. The desired outcome is to clarify which capabilities are repo-owned, where their portable core lives, how Pi exposes them, how Codex and Claude can invoke or follow them, and which personal or vendored resources remain advisory. Pi-specific wrappers should be thin where practical; reusable workflow meaning should live in checked-in skills, CLI operations, prompt assets, or docs that Codex and Claude can also discover.
+This Objective now owns a renewed consolidation pass. The desired outcome is a smaller and more coherent agent workflow surface, not merely a lower count. Each durable capability should have one clear public story: what problem it solves, which harness or CLI entrypoints are first class, which skill is the portable semantic layer if one exists, which commands are implementation details, and which experimental, internal, vendored, or user-local resources are intentionally outside the primary product surface.
+
+The Objective slug remains `pi-resource-surface-cleanup` for continuity, but the working title and scope are now agent skill and command surface consolidation. Historical Pi cleanup evidence remains useful background; closure now depends on the current skill/command inventory and the consolidation decisions made from it.
 
 ## Scope
 
 In scope:
 
-- A harness-neutral policy for repo-owned agent capabilities, distinguishing portable core workflow semantics from harness-specific entrypoints and adapters.
-- First-class target harnesses: Pi, Codex, and Claude. Other harnesses may benefit, but they are not closure-critical for this Objective.
-- Checked-in project-local Pi resources under `.pi/extensions/` and `.pi/prompts/`, including whether a Pi command is an adapter over a portable capability or a Pi-only workflow.
-- Repo-owned skills under `skills/<name>/SKILL.md` and their installed surfaces under `.agents/skills/` and `.claude/skills/`, because these are the primary checked-in Codex/Claude/Pi shared workflow documents in this repo.
-- Repo agent instruction surfaces such as `AGENTS.md` and `CLAUDE.md` when they affect discoverability, routing, or harness-specific boundaries.
-- Engineered Pi extension code and tests under `ts/packages/pi-extensions/` when a checked-in extension behavior needs testing, promotion, or disposition.
-- Repo-specific documentation under `docs/pi/` and any adjacent harness-neutral agent docs needed to explain the cross-harness policy without pretending all resources are Pi-only.
-- Pi RPC command inventory as the source of truth for the Pi visible command surface during this work, plus filesystem/provenance inspection of skills and agent instruction files as the corresponding Codex/Claude evidence.
-- Low-risk metadata cleanup, including local command-skill descriptions and distinct descriptions for related status commands.
-- Resolution of the duplicate `/objective-stack-impl` surface in a way that avoids Pi autocomplete/entrypoint confusion while preserving a portable Objective-stack implementation path for Codex and Claude.
-- A documented runtime policy decision for GitHub-sourced `npx skills` / remote skills that are live under `.agents/skills/` and `.claude/skills/` but excluded from deep review.
-- A disposition for checked-in risky or mutating commands, especially the former `/land` GitHub merge command, such as promotion into tested package/CLI code, replacement/deprecation, or an explicit retained-as-is rationale that also says what Codex and Claude users should do.
-- Audit narrative and advisory disposition for user-local resources such as CMUX slot commands, `gh-pr`, `stack-latest`, and user-local skills when they affect the visible Pi surface from this checkout.
+- First-party skills under `skills/<name>/SKILL.md`, including trigger descriptions, frontmatter, internal metadata, command-skill conventions, H1/body shape, token burden, progressive disclosure, and CLI push-down opportunities.
+- Installed skill surfaces under `.agents/skills/` and `.claude/skills/`, including symlink correctness for first-party skills, real-directory remote or vendored skills, and `skills-lock.json` provenance or stale hash state.
+- Project-local Pi command surfaces under `.pi/extensions/` and engineered extension code under `ts/packages/pi-extensions/` when command naming, grouping, visibility, or wrappers affect the agent resource surface.
+- Any project prompt surface under `.pi/prompts/` if it reappears, with duplicate prompt/extension/skill exposure treated as consolidation debt.
+- CLI command groups and `exec` helpers that are invoked by skills or Pi wrappers, especially when they can replace long procedural prompt bodies or clarify public-vs-internal boundaries.
+- Repo instruction and catalog docs such as `AGENTS.md`, `CLAUDE.md`, `docs/pi/README.md`, `docs/agent-resource-catalog.md`, and skill-related standards or workflow docs when they route agents to skills, commands, or harness-specific entrypoints.
+- Naming and lifecycle policy for categories such as public portable workflow skills, command skills, internal/dev skills, prototypes, Pi-only adapters, CLI primitives, remote/vendored skills, and user-local personal resources.
+- A fresh inventory of the current checkout's skill and command surface. Preliminary evidence at rephase time: `skills/` has 21 first-party skills; `.agents/skills/` and `.claude/skills/` each expose 45 entries; `.pi/extensions/` has 9 project-local adapters; `.pi/prompts/` is absent.
+- Low-risk cleanup that follows directly from the audit, such as stale `Original description` headings in command skills, over-broad trigger descriptions, missing H1s, excessive SKILL.md bodies, or internal/prototype skills that should not read as durable public workflows.
 
 Confirmed boundaries:
 
-- The Objective slug remains `pi-resource-surface-cleanup`; title/prose broadening does not imply a slug migration.
-- User-local implementation changes under `~/.pi/agent/...` are advisory and explicit-request-only. Closure-critical implementation work should be checked into the repository unless a later user request explicitly changes that boundary.
-- CMUX commands are tailored to a specific personal stack of tools. They should not be presented as generalized repo products merely because they are complex.
-- Real-directory remote or vendored skills under `.agents/skills/` remain live by default as developer aids. Removal or disabling requires explicit skill-management work; no implementation change is required by this Objective's current remote-skill runtime policy.
-- No dedicated `.codex/` surface exists in this checkout today. Codex support should therefore start from `AGENTS.md`, repo-owned skills, and CLI/docs workflows unless evidence shows a Codex-specific checked-in surface is needed.
+- The Objective slug remains `pi-resource-surface-cleanup`; do not rename or recreate the Objective directory as part of this rephase.
+- Consolidation should improve routing, safety, ownership, and maintainability. Do not remove useful workflows simply to make a count smaller.
+- User-local Pi resources under `~/.pi/agent/...` remain advisory and explicit-request-only; closure-critical implementation changes should be checked into the repo.
+- Remote or vendored real-directory skills under `.agents/skills/` remain live until an explicit skill-management decision changes that. They should be inventoried and dispositioned, not silently edited as first-party code.
+- Pi, Codex, and Claude remain the first-class harnesses for this repo, but not every capability needs identical UX in all three. A Pi slash command, a portable skill, and a CLI operation can be different entrypoints to the same capability when the relationship is explicit.
 
 ## Non-Goals
 
-- Do not deeply audit or rewrite GitHub-sourced remote skills that were excluded from the audit scope.
-- Do not mutate user-local Pi resources under `~/.pi/agent/...` unless the user explicitly asks for that edit.
-- Do not promote CMUX, `gh-pr`, `stack-latest`, or other user-local workflows into `ts/packages/pi-extensions/` as a default. Complexity alone is not a promotion criterion, and CMUX remains personal/tool-stack-specific by current decision.
-- Do not redesign Pi core, Codex, Claude, their resource discovery systems, or the Objective system.
-- Do not create a hidden registry, YAML database, or state machine for harness resources. Policy and dispositions should be recorded in Markdown and validated through actual discovery evidence.
-- Do not remove useful repo workflows merely to reduce command count; cleanup should improve clarity, safety, portability, and ownership.
-- Do not require every capability to have identical UX in Pi, Codex, and Claude. It is acceptable for Pi to have a slash-command wrapper while Codex and Claude use a skill or documented CLI workflow, as long as the relationship is explicit.
+- Do not deeply rewrite GitHub-sourced or vendored skills by default. Audit their presence, provenance, trigger cost, and keep/remove disposition; edit vendored content only with an explicit decision.
+- Do not mutate user-local Pi resources, CMUX workflows, `gh-pr`, `stack-latest`, or other personal-machine resources unless explicitly requested.
+- Do not redesign Pi, Codex, Claude, their discovery systems, or the Objective system.
+- Do not create a hidden registry, UUID layer, YAML task database, or state machine for skills and commands. Use checked-in Markdown, actual discovery evidence, tests, and existing skill-management tooling.
+- Do not force every workflow into a skill or every skill into a slash command. The right surface may be a skill, a Pi wrapper, a CLI command, documentation, or no public surface.
+- Do not reopen already-settled historical Pi command migrations unless current inventory shows they are stale, confusing, duplicated, or contradicted by newer workflows.
 
 ## Completion Criteria
 
 This Objective can close when all of the following are true:
 
-- The final command/resource-surface policy and important dispositions are recorded in checked-in docs, either in `docs/pi/README.md` with clear cross-harness framing or in an adjacent harness-neutral agent doc linked from the Pi docs.
-- The docs identify the boundary between checked-in repo resources, remote/vendored skills, and user-local personal resources.
-- The docs identify the first-class target harnesses, currently Pi, Codex, and Claude, and describe each harness's primary repo-owned entrypoint surface.
-- For each closure-critical capability touched by this Objective, the disposition names the portable core, the Pi entrypoint, the Codex path, and the Claude path, or explicitly records why the capability is intentionally harness-specific.
-- The remote-skill runtime policy is explicitly decided and documented for `.agents/skills/` and `.claude/skills/`; any implementation required by that decision is complete, or removal is explicitly declared unnecessary.
-- Low-risk checked-in metadata cleanup has either been completed or deliberately rejected with rationale, including local command-skill descriptions and distinct status command descriptions.
-- The duplicate `/objective-stack-impl` visible Pi surface has been resolved or intentionally retained with a clear documented rationale that avoids autocomplete/entrypoint confusion, and Codex/Claude retain a documented way to invoke or follow the same Objective-stack implementation capability.
-- The single-PR GitHub landing capability has a recorded disposition appropriate to its risk as a mutating GitHub command: promoted and tested from the former `/land`, deprecated/replaced, or retained with explicit rationale, safety expectations, and Codex/Claude guidance.
-- The local development/source-control Pi command cluster is exposed under the settled `/dev:*` namespace, with checked-in implementation, updated tests, updated docs, and no unintended legacy aliases: `/dev:cp`, `/dev:autobranch`, `/dev:submit`, `/dev:land`, and `/dev:land-stack` replace `/cp`, `/newbr`, `/submit`, `/gh:land`, and `/gt:land-stack`.
-- The remaining repo-owned workflow command families have explicit dispositions before closure: planned-branch commands (`/write-plan`, `/create-planned-branch`, `/impl-planned-branch`), Branch Memory handoff commands (`/brmem-handoff`, `/brmem-pickup-handoff`), and branch retrospective / `aretro` surfaces (`/skill:branch-retro` and related evidence-collection paths) are each renamed, namespaced, retained as-is, or documented as intentionally skill/CLI-centered.
-- User-local CMUX/`gh-pr`/`stack-latest` findings are captured as advisory/personal-resource context rather than closure-critical repo work, unless a later explicit user request changes scope.
-- A fresh Pi RPC command inventory has been run after material changes and summarized in either docs or an Objective update.
-- A fresh skill/instruction-surface inventory for Codex/Claude-relevant checked-in resources has been run after material changes and summarized in either docs or an Objective update.
-- Relevant validation has passed for touched areas, such as `just ts-check`/`just ts-test` for TypeScript extension changes and formatter/lint checks for edited docs or skills.
-- Meaningful decisions, assumptions, risks, and completion evidence have been recorded through Objective updates when they occur.
+- A fresh cross-surface inventory has been recorded after the current growth phase, covering first-party skills, installed `.agents` / `.claude` skills, `skills-lock.json`, Pi RPC commands, `.pi/extensions/`, `.pi/prompts/` presence or absence, relevant CLI `exec` helpers, and agent instruction/catalog docs.
+- The repo has a documented taxonomy for agent workflow resources: public portable workflow skills, command skills, internal/dev skills, prototype skills, Pi-only adapters, CLI primitives, remote/vendored skills, and user-local personal resources.
+- Every first-party skill has an explicit disposition: keep as public workflow, keep as command/internal wrapper, merge, rename, split, delete, push deterministic work down into a CLI, move material to references/README, or defer with rationale.
+- The obvious first-party quality issues found during inventory are resolved or explicitly accepted, including stale command-skill headings such as `Original description`, missing or mismatched H1s, command descriptions that do not follow convention, over-broad trigger descriptions, and large prompt bodies that should be progressively disclosed or pushed down.
+- Command and wrapper families have coherent public stories across Pi, skills, and CLI entrypoints. At minimum, Objective/prototype runners, handoff/Branch Memory, branch retrospective, dev/source-control, GitHub/Graphite, PR-address/review, and Pi UI/internal surfaces have been dispositioned against the taxonomy.
+- Any skill additions, removals, or renames are performed through the repo's skill-management conventions so `skills/`, `.agents/skills/`, `.claude/skills/`, and `skills-lock.json` remain consistent.
+- Remote/vendored skills have a deliberate keep/remove policy for this repo's installed surface, with no accidental deep-audit requirement placed on them.
+- Pi command exposure has been re-inventoried after material changes; duplicate commands, unintended legacy aliases, and confusing namespace collisions are either absent or intentionally documented.
+- `AGENTS.md`, `CLAUDE.md`, `docs/agent-resource-catalog.md`, `docs/pi/README.md`, and any relevant skill docs route agents to the consolidated surface without preserving stale names from earlier phases.
+- Relevant validation has passed for touched areas: at least `git diff --check` and Markdown formatting for docs/skills, plus TypeScript or Python checks when implementation files change.
+- Meaningful decisions, assumptions, risks, and completion evidence have been recorded through Objective updates as the consolidation proceeds.
 
 ## Assumptions and Risks
 
 Assumptions:
 
-- The earlier Pi-specific framing was too narrow: Pi RPC command discovery is the right source of truth for Pi's visible command surface, but not for Codex or Claude capability coverage.
-- Repo-owned skills under `skills/<name>/SKILL.md`, surfaced through `.agents/skills/` and `.claude/skills/`, are the best first portable workflow layer for Codex and Claude.
-- `AGENTS.md` and `CLAUDE.md` are important harness instruction surfaces, but they should route to skills, docs, and CLIs rather than duplicate long workflow bodies.
-- `docs/pi/README.md` remains the right place for the current resource-surface policy because it already describes project-local extensions, the vibecoded-vs-engineered layers, and now the Pi/Codex/Claude relationship for Objective stack implementation.
-- Namespaced Pi extension commands using `/namespace:command` are a good fit for command families with portable skill counterparts, because Pi can keep a concise picker wrapper without colliding visually with `/skill:<name>` entries.
-- The local development/source-control command cluster uses the `/dev:*` Pi namespace. The separate decision about renaming existing `dev-` prefixed skills is parked and should not block this Pi command cleanup.
-- The planned-branch workflow remains an intentionally Pi planning-layer command sequence for now; its saved-plan and Branch Memory storage contracts are documented so non-Pi agents can inspect or recover state without claiming a dedicated Codex/Claude shortcut.
-- The handoff/pickup workflow should be reframed as directed saved handoff artifacts, with Branch Memory treated as an implementation detail rather than the public user model. The follow-up Objective `directed-handoff-artifacts` owns that design and implementation; this Objective only records the disposition and relationship.
-- The branch retrospective workflow remains named for the human-facing retrospective task; `aretro exec collect-evidence` is the deterministic evidence boundary behind `branch-retro`, not the public skill name.
-- A staged cleanup Objective is still better than several small Objectives because the findings are linked by one surface-area policy question.
-- Remote GitHub-sourced skills can remain excluded from deep audit and remain live by default when documented as vendored/developer-aid runtime surface rather than repo-owned products.
-- Treating user-local CMUX and similar commands as personal/tool-stack-specific avoids over-generalizing workflows that depend on a narrow local environment.
-- Checked-in repo changes are the right closure-critical implementation unit; user-local changes are harder to review and reproduce.
+- The previous Pi-specific cleanup was successful but no longer sufficient: the primary problem has shifted from a few duplicate or poorly named Pi commands to overall skill/command proliferation and routing ambiguity.
+- The automatically visible skill description surface has real cost. A large number of installed skills can degrade agent routing even when each individual skill is useful.
+- First-party `skills/<name>` documents are the right place for portable semantic workflow guidance when a workflow should be usable by Codex, Claude, and Pi.
+- Pi slash commands are best treated as concise harness adapters or pickers over portable skills and CLI primitives, except when a workflow is intentionally Pi-only.
+- Command skills should stay terse and mechanical; long procedural logic, repeated shell parsing, or deterministic evidence collection should move toward tested CLI operations when the push-down win is large enough.
+- Internal and prototype skills can be valuable, but their names, descriptions, frontmatter, and docs should make their lifecycle obvious so they do not crowd the durable public workflow surface.
+- Remote/vendored skills may remain useful developer aids, but their trigger descriptions and installation count affect the same agent routing surface as first-party skills.
+- The existing `docs/agent-resource-catalog.md` and `docs/pi/README.md` are likely still useful homes for the consolidated policy, but they may need to become less Pi-centric and more explicit about skills, commands, prototypes, and vendored resources.
 
 Risks:
 
-- The Objective stack implementation rename/prompt-removal risk is de-risked by checked-in evidence: the portable workflow now lives in `skills/objective-stack-impl/SKILL.md`, Pi exposes the picker wrapper as `/objective:stack-impl`, and RPC inventory shows no remaining `objective-stack-impl` top-level prompt command.
-- Over-correcting for harness neutrality could turn concise Pi commands into over-abstracted, harder-to-use workflows; the namespaced wrapper pattern is the current mitigation for Pi command families.
-- The former `/land` mutating-command risk is de-risked by checked-in evidence: Pi exposes a package-tested GitHub landing command, the old `/land` alias is absent from fresh RPC inventory, and docs give Codex/Claude the equivalent guarded `gh pr merge -s --match-head-commit ...` path. Any `/dev:*` rename must preserve those safety expectations and docs.
-- Remote skills remain visible by explicit policy: real-directory `.agents/skills/` entries are live developer aids, excluded from deep audit, and not removed or disabled without explicit skill-management work.
-- Graphite stack landing is intentionally Pi-only for now; no Codex/Claude stack-landing workflow is claimed until a future explicit design promotes one.
-- Documentation-only dispositions can drift from actual Pi, Codex, and Claude surfaces unless they are paired with fresh discovery/inventory evidence; the latest `/dev:*` migration includes Pi RPC evidence showing the new commands present and legacy aliases absent.
-- Because user-local resources are outside the repo, audit findings about them can become stale or machine-specific.
+- Over-consolidation could hide useful expert workflows behind too few generic names. Consolidation should preserve affordances that materially improve agent performance.
+- Under-consolidation could leave the repo with many near-duplicate ways to start the same workflow, causing future agents to choose stale or unsafe paths.
+- Prototype workflows such as `proto-objective-impl` can become permanent by accident if no lifecycle decision is made.
+- Internal backend skills such as `pi-grill-ui` can confuse non-Pi agents if they look like public workflows.
+- The Objective/standing-objective/prototype runner area is likely to churn; decisions there should distinguish current cleanup from deeper product design that belongs in separate Objectives.
+- Removing or renaming installed skills without skill-management discipline can leave broken symlinks, stale lock entries, or mismatched `.agents` / `.claude` surfaces.
+- Documentation-only policy can drift unless paired with actual inventory commands, tests, and post-change evidence.
 
 ## Open Questions
 
-- A dedicated Codex-specific checked-in resource is not needed unless a future concrete gap appears beyond `AGENTS.md`, repo-owned skills, and CLI/docs workflows.
+- Which first-party skills are part of the durable public workflow surface, and which should be internal, prototype-only, merged, renamed, or removed?
+- Should `proto-objective-impl` remain a separate prototype skill/command, merge into `objective-stack-impl`, or retire after its experiment informs the Objective runner design?
+- Should existing `dev-` prefixed skills remain installed and visible as dev-only skills, be renamed, be internalized further, or move behind Pi/CLI command surfaces?
+- How aggressively should this repo prune remote/vendored skills from `.agents/skills/` and `.claude/skills/` versus keeping them as explicit developer aids?
+- What target should guide closure: a lower visible count, fewer ambiguous entrypoints, clearer categories, or a combination of all three?
