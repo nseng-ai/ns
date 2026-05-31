@@ -1,82 +1,40 @@
 ---
-title: asdl
-description: Agent-native CLI tools for parallel work, branch memory, review workflows, objectives, retrospectives, and review harnesses.
-template: splash
-hero:
-  title: Agent-native CLI tools, adoptable one at a time.
-  tagline: asdl is a suite of standalone development tools that keep branch context, review work, and multi-session plans durable without forcing one workflow.
-  image:
-    html: |
-      <div class="hero-command"><span>$</span> slot checkout feature-x<br/><span>→</span> cd ~/.slots/repos/myrepo/worktrees/slot-01</div>
-  actions:
-    - text: Start with Quickstart
-      link: /start/quickstart/
-      variant: primary
-    - text: View llms.txt
-      link: /llms.txt
-      variant: secondary
+title: Documentation
+description: Documentation for asdl's standalone CLI tools.
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+asdl is a collection of small CLI tools for branch-local development workflows.
+Each tool is installable and usable on its own. Where the umbrella command is
+available, the same tools can also be invoked as `asdl <tool>`.
 
-asdl is one brand containing several co-equal CLI tools. Install one tool for one
-job, or compose them under the umbrella `asdl` command when you want a shared
-agent-native toolkit.
+```bash
+uv tool install asdl-slots
+slot init --size 3
+slot checkout feature-x
+```
 
-<CardGrid>
-  <Card title="slot">
-    Work on many branches at once, each in its own worktree; switching is just
-    `cd`.
+## Start here
 
-    `slot checkout feature-x`
+1. [Quickstart](/start/quickstart/) — create a `slot` pool and check out your
+   first branch-backed worktree.
+2. [Installation](/start/installation/) — install individual tools or use the
+   umbrella command.
+3. [CLI conventions](/concepts/conventions/) — output formats, exit codes, JSON
+   envelopes, and hidden `exec` commands.
 
-    [Read more →](/tools/slot/)
-  </Card>
+## Tools
 
-  <Card title="brmem">
-    Branch-scoped memory for plans and handoffs, off your commits and out of your
-    tree.
+| Tool | Use it for | First command |
+| ---- | ---------- | ------------- |
+| [`slot`](/tools/slot/) | Parallel branch worktrees. | `slot checkout feature-x` |
+| [`brmem`](/tools/brmem/) | Branch-scoped memory for plans and handoffs. | `brmem get plan.md` |
+| [`pr-address`](/tools/pr-address/) | Fetching and answering PR review comments. | `pr-address exec get-reviews` |
+| [`aretro`](/tools/aretro/) | Collecting deterministic branch retrospective evidence. | `aretro exec collect-evidence` |
+| [`objective`](/tools/objective/) | Durable objective records for multi-session work. | `objective list` |
+| [`roaster`](/tools/roaster/) | Markdown-driven review harnesses. | `roaster exec format-findings-comment` |
 
-    `brmem get plan.md`
+## For agents
 
-    [Read more →](/tools/brmem/)
-  </Card>
-
-  <Card title="pr-address">
-    Fetch and answer PR review comments end-to-end; reply and resolve threads.
-
-    `pr-address exec get-reviews`
-
-    [Read more →](/tools/pr-address/)
-  </Card>
-
-  <Card title="aretro">
-    Deterministic branch retrospectives: collect the evidence of what a session
-    did.
-
-    `aretro exec collect-evidence`
-
-    [Read more →](/tools/aretro/)
-  </Card>
-
-  <Card title="objective">
-    Durable, checked-in objectives that structure multi-session work.
-
-    `objective list`
-
-    [Read more →](/tools/objective/)
-  </Card>
-
-  <Card title="roaster">
-    A markdown-driven code-review harness for running and posting reviewer output.
-
-    `roaster exec format-findings-comment`
-
-    [Read more →](/tools/roaster/)
-  </Card>
-</CardGrid>
-
-Adopt one tool or the whole suite. The shared [CLI conventions](/concepts/conventions/)
-make output formats, exit codes, and hidden agent surfaces predictable, while the
-[asdl umbrella](/concepts/umbrella/) explains how standalone CLIs also compose as
-`asdl <tool>` subcommands.
+The docs corpus also publishes [`llms.txt`](/llms.txt),
+[`llms-small.txt`](/llms-small.txt), and [`llms-full.txt`](/llms-full.txt). Agent
+workflows should prefer JSON-producing `exec` commands when a tool provides one.
