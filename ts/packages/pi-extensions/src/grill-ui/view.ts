@@ -1,8 +1,4 @@
-import type {
-	GrillAskOption,
-	GrillAskSelectorEntry,
-	NormalizedGrillAskInput,
-} from "../grill-ui.ts";
+import type { GrillAskOption, NormalizedGrillAskInput } from "../grill-ui.ts";
 
 export type GrillAskMode = "choices" | "freeform";
 
@@ -108,32 +104,22 @@ export function footerText(mode: GrillAskMode): string {
 		: "↑↓/j/k navigate • number/Enter select • Esc cancel";
 }
 
-export function selectorEntryForRow(row: GrillAskRow): GrillAskSelectorEntry {
+export function rowSelectDisplay(row: GrillAskRow): string {
 	switch (row.kind) {
 		case "choice": {
 			const marker = row.recommended ? "★ " : "";
 			const description = row.option.description === undefined ? "" : ` — ${singleLine(row.option.description)}`;
-			return {
-				kind: "choice",
-				display: `${row.index}. ${marker}${singleLine(row.option.label)}${description}`,
-				index: row.index,
-				option: row.option,
-				recommended: row.recommended,
-			};
+			return `${row.index}. ${marker}${singleLine(row.option.label)}${description}`;
 		}
 		case "freeform":
-			return { kind: "freeform", display: `${row.index}. ✎ Other / freeform answer` };
+			return `${row.index}. ✎ Other / freeform answer`;
 		case "end_grill":
-			return { kind: "end_grill", display: `${row.index}. ⏹ End grilling session` };
+			return `${row.index}. ⏹ End grilling session`;
 		default: {
 			const exhaustive: never = row;
 			return exhaustive;
 		}
 	}
-}
-
-export function buildGrillAskSelectorEntriesFromRows(input: NormalizedGrillAskInput): GrillAskSelectorEntry[] {
-	return buildGrillAskRows(input).map(selectorEntryForRow);
 }
 
 function singleLine(value: string): string {

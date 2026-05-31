@@ -30,7 +30,7 @@ export function renderGrillAskInlineUi(
 ): string[] {
 	const renderWidth = Math.max(1, width);
 	const lines: string[] = [];
-	const add = (line = "") => lines.push(truncate(line, renderWidth, primitives));
+	const add = (line = "") => lines.push(line);
 
 	add(style(theme, "accent", bold(theme, "grill_ask")));
 	add("");

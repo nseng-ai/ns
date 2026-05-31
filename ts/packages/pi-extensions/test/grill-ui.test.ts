@@ -92,7 +92,6 @@ function commandContext(options: { hasUI?: boolean; editorResult?: string; notif
 		ui: {
 			editor: async () => options.editorResult,
 			notify: (message, level) => options.notifications?.push({ message, level }),
-			setStatus: () => {},
 		},
 		waitForIdle: async () => {},
 	};
