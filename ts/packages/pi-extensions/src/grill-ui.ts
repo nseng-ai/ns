@@ -1,5 +1,5 @@
 import type { GrillAskOutcome } from "./grill-ui/controller.ts";
-import { runGrillAskOverlay } from "./grill-ui/overlay.ts";
+import { runGrillAskInlineUi } from "./grill-ui/inline-ui.ts";
 import { buildGrillAskSelectorEntriesFromRows, type GrillAskChoiceRow } from "./grill-ui/view.ts";
 import { expandSkillBlock, type SkillExpansionHost } from "./skill-expansion.ts";
 
@@ -88,13 +88,13 @@ export type GrillAskValidationResult =
 	| { ok: true; input: NormalizedGrillAskInput }
 	| { ok: false; errors: string[] };
 
-export type GrillAskOverlayRunner = (
+export type GrillAskUiRunner = (
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
 ) => Promise<GrillAskOutcome | undefined>;
 
 export type GrillAskExecutionOptions = {
-	overlayRunner?: GrillAskOverlayRunner;
+	uiRunner?: GrillAskUiRunner;
 	signal?: AbortSignal | undefined;
 };
 
@@ -123,11 +123,6 @@ export type GrillAskCustomComponent = {
 	dispose?(): void;
 };
 
-export type GrillAskCustomOptions = {
-	overlay?: boolean;
-	overlayOptions?: unknown;
-};
-
 export type GrillAskToolContext = {
 	hasUI: boolean;
 	ui: {
@@ -135,7 +130,7 @@ export type GrillAskToolContext = {
 		editor?(title: string, initialText?: string): Promise<string | undefined>;
 		custom?<T>(
 			factory: (tui: unknown, theme: unknown, keybindings: unknown, done: (value: T) => void) => GrillAskCustomComponent,
-			options?: GrillAskCustomOptions,
+			options?: unknown,
 		): Promise<T>;
 	};
 };
@@ -460,9 +455,9 @@ export async function executeGrillAsk(
 	}
 
 	if (ctx.hasUI && ctx.ui.custom !== undefined) {
-		const overlayRunner = executionOptions.overlayRunner ?? runGrillAskOverlay;
+		const uiRunner = executionOptions.uiRunner ?? runGrillAskInlineUi;
 		try {
-			const outcome = await overlayRunner(input, ctx);
+			const outcome = await uiRunner(input, ctx);
 			if (outcome === undefined) {
 				return cancelledResult(input.question, "User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.");
 			}
@@ -471,7 +466,7 @@ export async function executeGrillAsk(
 			if (executionOptions.signal?.aborted) {
 				return cancelledResult(input.question, "User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.");
 			}
-			// Overlay support can be absent or drift across Pi runtimes. Fall back to the stable legacy dialogs.
+			// Custom UI support can be absent or drift across Pi runtimes. Fall back to the stable legacy dialogs.
 		}
 	}
 

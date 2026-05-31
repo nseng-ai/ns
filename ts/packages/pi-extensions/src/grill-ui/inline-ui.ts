@@ -1,8 +1,8 @@
 import type { GrillAskToolContext, NormalizedGrillAskInput } from "../grill-ui.ts";
 import { GrillAskController, type GrillAskOutcome } from "./controller.ts";
-import { renderGrillAskOverlay, type GrillAskRenderPrimitives, type GrillAskRenderTheme } from "./render.ts";
+import { renderGrillAskInlineUi, type GrillAskRenderPrimitives, type GrillAskRenderTheme } from "./render.ts";
 
-export type GrillAskOverlayComponent = {
+export type GrillAskInlineComponent = {
 	focused?: boolean;
 	render(width: number): string[];
 	handleInput?(data: string): void;
@@ -21,7 +21,7 @@ type EditorLike = {
 
 type EditorConstructor = new (tui: unknown, theme: unknown) => EditorLike;
 
-export type GrillAskOverlayRuntime = {
+export type GrillAskInlineRuntime = {
 	Editor: EditorConstructor;
 	Key?: Record<string, string>;
 	matchesKey(data: string, key: string): boolean;
@@ -32,45 +32,44 @@ export type GrillAskOverlayRuntime = {
 	markdownTheme?: unknown;
 };
 
-export async function runGrillAskOverlay(
+export async function runGrillAskInlineUi(
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
 ): Promise<GrillAskOutcome | undefined> {
 	if (!ctx.hasUI || ctx.ui.custom === undefined) return undefined;
-	const runtime = await loadGrillAskOverlayRuntime();
-	return ctx.ui.custom<GrillAskOutcome>(
-		(tui, theme, _keybindings, done) => createGrillAskOverlayComponent(input, runtime, tui, theme as GrillAskRenderTheme, done),
-		{
-			overlay: true,
-			overlayOptions: {
-				width: "82%",
-				minWidth: 54,
-				maxHeight: "85%",
-				anchor: "center",
-				margin: 1,
-			},
-		},
+	const runtime = await loadGrillAskInlineRuntime();
+	return runGrillAskInlineUiWithRuntime(input, ctx, runtime);
+}
+
+export function runGrillAskInlineUiWithRuntime(
+	input: NormalizedGrillAskInput,
+	ctx: GrillAskToolContext,
+	runtime: GrillAskInlineRuntime,
+): Promise<GrillAskOutcome | undefined> {
+	if (!ctx.hasUI || ctx.ui.custom === undefined) return Promise.resolve(undefined);
+	return ctx.ui.custom<GrillAskOutcome>((tui, theme, _keybindings, done) =>
+		createGrillAskInlineComponent(input, runtime, tui, theme as GrillAskRenderTheme, done),
 	);
 }
 
-export function createGrillAskOverlayComponent(
+export function createGrillAskInlineComponent(
 	input: NormalizedGrillAskInput,
-	runtime: GrillAskOverlayRuntime,
+	runtime: GrillAskInlineRuntime,
 	tui: unknown,
 	theme: GrillAskRenderTheme,
 	done: (outcome: GrillAskOutcome) => void,
-): GrillAskOverlayComponent {
-	return new GrillAskOverlay(input, runtime, tui, theme, done);
+): GrillAskInlineComponent {
+	return new GrillAskInlineUi(input, runtime, tui, theme, done);
 }
 
-class GrillAskOverlay implements GrillAskOverlayComponent {
+class GrillAskInlineUi implements GrillAskInlineComponent {
 	private readonly controller: GrillAskController;
 	private readonly editor: EditorLike;
 	private focusedValue = false;
 
 	constructor(
 		private readonly input: NormalizedGrillAskInput,
-		private readonly runtime: GrillAskOverlayRuntime,
+		private readonly runtime: GrillAskInlineRuntime,
 		private readonly tui: unknown,
 		private readonly theme: GrillAskRenderTheme,
 		private readonly done: (outcome: GrillAskOutcome) => void,
@@ -109,24 +108,27 @@ class GrillAskOverlay implements GrillAskOverlayComponent {
 			return;
 		}
 
-		if (matches(this.runtime, data, "up")) {
+		if (matches(this.runtime, data, "up") || data === "k") {
 			this.controller.moveFocus(-1);
 			this.requestRender();
 			return;
 		}
-		if (matches(this.runtime, data, "down")) {
+		if (matches(this.runtime, data, "down") || data === "j") {
 			this.controller.moveFocus(1);
 			this.requestRender();
 			return;
 		}
-		if (matches(this.runtime, data, "enter")) {
-			const outcome = this.controller.submitFocused();
-			if (outcome === undefined) {
-				this.editor.setText("");
-				this.requestRender();
-				return;
+		const shortcutIndex = rowShortcutIndex(data);
+		if (shortcutIndex !== undefined) {
+			const targetIndex = this.controller.rows.findIndex((row) => row.index === shortcutIndex);
+			if (targetIndex >= 0) {
+				this.controller.setFocus(targetIndex);
+				this.submitFocusedSelection();
 			}
-			this.done(outcome);
+			return;
+		}
+		if (matches(this.runtime, data, "enter")) {
+			this.submitFocusedSelection();
 			return;
 		}
 		if (matches(this.runtime, data, "escape")) {
@@ -137,7 +139,7 @@ class GrillAskOverlay implements GrillAskOverlayComponent {
 	render(width: number): string[] {
 		const editorWidth = Math.max(1, width - 2);
 		const primitives = renderPrimitives(this.runtime);
-		return renderGrillAskOverlay(
+		return renderGrillAskInlineUi(
 			this.input,
 			{
 				mode: this.controller.mode,
@@ -156,6 +158,16 @@ class GrillAskOverlay implements GrillAskOverlayComponent {
 	}
 
 	dispose(): void {}
+
+	private submitFocusedSelection(): void {
+		const outcome = this.controller.submitFocused();
+		if (outcome === undefined) {
+			this.editor.setText("");
+			this.requestRender();
+			return;
+		}
+		this.done(outcome);
+	}
 
 	private requestRender(): void {
 		if (isRecord(this.tui) && typeof this.tui.requestRender === "function") {
@@ -177,7 +189,7 @@ function editorTheme(theme: GrillAskRenderTheme): unknown {
 	};
 }
 
-function renderPrimitives(runtime: GrillAskOverlayRuntime): GrillAskRenderPrimitives {
+function renderPrimitives(runtime: GrillAskInlineRuntime): GrillAskRenderPrimitives {
 	return {
 		truncateToWidth: runtime.truncateToWidth,
 		...(runtime.wrapTextWithAnsi === undefined ? {} : { wrapTextWithAnsi: runtime.wrapTextWithAnsi }),
@@ -191,18 +203,23 @@ function renderPrimitives(runtime: GrillAskOverlayRuntime): GrillAskRenderPrimit
 	};
 }
 
-function matches(runtime: GrillAskOverlayRuntime, data: string, keyName: "up" | "down" | "enter" | "escape"): boolean {
+function rowShortcutIndex(data: string): number | undefined {
+	if (!/^[1-9]$/.test(data)) return undefined;
+	return Number.parseInt(data, 10);
+}
+
+function matches(runtime: GrillAskInlineRuntime, data: string, keyName: "up" | "down" | "enter" | "escape"): boolean {
 	const key = runtime.Key?.[keyName] ?? keyName;
 	if (runtime.matchesKey(data, key)) return true;
 	if (keyName === "enter") return runtime.matchesKey(data, "return");
 	return false;
 }
 
-async function loadGrillAskOverlayRuntime(): Promise<GrillAskOverlayRuntime> {
-	const tuiModule = (await import("@earendil-works/pi-tui")) as Partial<GrillAskOverlayRuntime>;
+async function loadGrillAskInlineRuntime(): Promise<GrillAskInlineRuntime> {
+	const tuiModule = (await import("@earendil-works/pi-tui")) as Partial<GrillAskInlineRuntime>;
 	const markdownTheme = await loadMarkdownTheme();
 	if (tuiModule.Editor === undefined || tuiModule.matchesKey === undefined || tuiModule.truncateToWidth === undefined) {
-		throw new Error("Pi TUI runtime does not provide the components required by grill_ask overlay");
+		throw new Error("Pi TUI runtime does not provide the components required by grill_ask inline UI");
 	}
 	return {
 		Editor: tuiModule.Editor,
