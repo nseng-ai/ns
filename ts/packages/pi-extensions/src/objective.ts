@@ -94,7 +94,7 @@ export type ExtensionAPI = {
 type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
 type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
 
-type ObjectiveSelectionSpec = {
+export type ObjectiveSelectionSpec = {
 	statusKey: string;
 	selectionTitle: string;
 	compactDiffSuggestion?: boolean;
@@ -491,7 +491,7 @@ async function invokeObjectiveSkill(
 	pi.sendUserMessage(buildObjectiveSkillPrompt(spec, skill?.block, objective));
 }
 
-async function chooseActiveObjectiveSlug(
+export async function chooseActiveObjectiveSlug(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveSelectionSpec,
