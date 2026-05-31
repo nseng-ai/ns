@@ -75,6 +75,20 @@ jobs:
       - name: Run TypeScript tests
         run: bun run --cwd ts test
 
+  docs-build:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install docs dependencies
+        run: bun install --cwd docs-site --frozen-lockfile
+      - name: Run docs typecheck
+        run: bun run --cwd docs-site check
+      - name: Build docs site
+        run: bun run --cwd docs-site build
+
   nonslop-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest

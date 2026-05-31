@@ -42,6 +42,18 @@ ts-check: ts-install
 ts-test: ts-install
     bun run --cwd ts test
 
+docs-install:
+    bun install --cwd docs-site
+
+docs-dev: docs-install
+    bun run --cwd docs-site dev
+
+docs-build: docs-install
+    bun run --cwd docs-site build
+
+docs-check: docs-install
+    bun run --cwd docs-site check
+
 js-test: ts-test
 
 test:
