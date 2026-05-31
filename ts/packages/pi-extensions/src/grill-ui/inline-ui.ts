@@ -1,14 +1,6 @@
-import type { GrillAskToolContext, NormalizedGrillAskInput } from "../grill-ui.ts";
+import type { GrillAskCustomComponent, GrillAskToolContext, NormalizedGrillAskInput } from "../grill-ui.ts";
 import { GrillAskController, type GrillAskOutcome } from "./controller.ts";
 import { renderGrillAskInlineUi, type GrillAskRenderPrimitives, type GrillAskRenderTheme } from "./render.ts";
-
-export type GrillAskInlineComponent = {
-	focused?: boolean;
-	render(width: number): string[];
-	handleInput?(data: string): void;
-	invalidate(): void;
-	dispose?(): void;
-};
 
 type EditorLike = {
 	focused?: boolean;
@@ -58,11 +50,11 @@ export function createGrillAskInlineComponent(
 	tui: unknown,
 	theme: GrillAskRenderTheme,
 	done: (outcome: GrillAskOutcome) => void,
-): GrillAskInlineComponent {
+): GrillAskCustomComponent {
 	return new GrillAskInlineUi(input, runtime, tui, theme, done);
 }
 
-class GrillAskInlineUi implements GrillAskInlineComponent {
+class GrillAskInlineUi implements GrillAskCustomComponent {
 	private readonly controller: GrillAskController;
 	private readonly editor: EditorLike;
 	private focusedValue = false;
@@ -156,8 +148,6 @@ class GrillAskInlineUi implements GrillAskInlineComponent {
 	invalidate(): void {
 		this.editor.invalidate?.();
 	}
-
-	dispose(): void {}
 
 	private submitFocusedSelection(): void {
 		const outcome = this.controller.submitFocused();
