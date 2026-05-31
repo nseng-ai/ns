@@ -112,6 +112,8 @@ Allowed states:
 - `[~]` active or partial
 - `[x]` complete
 
+Roadmap rows are semantic work guidance: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up. Routine validation and CI/CD checks such as running `just`, tests, dprint, waiting for CI, or full repo validation are completion evidence, not standalone roadmap work. Record that evidence under the relevant roadmap row, in a Semantic Update, or in closure context. Validation can be roadmap work only when the Objective's scope is validation infrastructure, test coverage, CI behavior, release qualification, or a non-routine investigation where validation changes the Objective outcome.
+
 Do not add task IDs, owners, priority fields, due dates, lifecycle metadata, or automation semantics.
 
 ### `updates/`
@@ -215,6 +217,7 @@ Contract:
 - Require an explicit slug or explicit user confirmation of an LM-proposed slug.
 - Create `.asdl/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
 - Write LM-authored initial content using the standardized headings, including a concrete `## Assumptions and Risks` section.
+- Keep initial roadmap rows substantive; put routine validation expectations under semantic rows as expected evidence instead of standalone validation-only items.
 - Do not create an initial update file; the initial durable files are the birth record.
 - Do not create `closed.md`.
 

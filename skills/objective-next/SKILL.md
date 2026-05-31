@@ -49,8 +49,10 @@ Before recommending work:
 2. Read `objective.md`, `roadmap.md`, and relevant `updates/` files.
 3. Apply the Tracking Gate. If it triggers and the user confirms or preauthorized update-and-continue, perform the `objective-update` handoff for this same Objective, then restart from step 2 with refreshed files/evidence.
 4. Recommend the smallest coherent next step grounded in the Objective narrative, roadmap, active assumptions, and open or not-yet-de-risked risks.
-5. Explain why this is next, likely files or areas, which assumption or risk it exercises if relevant, and what completion evidence should be recorded afterward.
-6. If no active or planned work remains, say the Objective may be ready for `objective-close` instead of inventing work.
+5. Recommend only semantic Objective work; do not select generic validation-only rows such as `just`, tests, waiting for CI, or full repo validation unless validation/test/CI behavior or a non-routine validation investigation is itself the deliverable.
+6. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
+7. Otherwise, explain why the selected semantic step is next, likely files or areas, which assumption or risk it exercises if relevant, and what completion evidence should be recorded afterward.
+8. If no active or planned semantic work remains, say the Objective may be ready for `objective-close` instead of inventing work.
 
 ## Stop / ask
 
