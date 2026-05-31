@@ -1,6 +1,6 @@
 ---
 name: dev-just-fix
-description: Command
+description: "Command: dev-just-fix"
 # Original description (preserved for reference):
 # Run `just` and fix all failures (lint, format, type errors, test failures) by fixing the underlying code — not by deleting or weakening tests. If user input is needed, ask the user. If the current harness is in a planning or read-only mode, present a plan to fix the failures instead of applying changes.
 allowed-tools:

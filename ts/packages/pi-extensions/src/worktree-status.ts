@@ -479,7 +479,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	}
 
 	pi.registerCommand("worktree-status", {
-		description: "Refresh and show brmem and Graphite worktree status",
+		description: "Refresh and show combined Branch Memory and Graphite worktree status",
 		handler: async (argsText, ctx) => {
 			if (argsText.trim().length > 0) {
 				const message = "Usage: /worktree-status";
@@ -492,14 +492,14 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("brmem-status", {
-		description: "Refresh and show brmem and Graphite worktree status",
+		description: "Open the shared worktree status view from the Branch Memory alias",
 		handler: async (_argsText, ctx) => {
 			await showStatus(ctx);
 		},
 	});
 
 	pi.registerCommand("gt-status", {
-		description: "Refresh and show brmem and Graphite worktree status",
+		description: "Open the shared worktree status view from the Graphite alias",
 		handler: async (_argsText, ctx) => {
 			await showStatus(ctx);
 		},

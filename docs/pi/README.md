@@ -94,6 +94,46 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `ts/packages/pi-extensions/src/runner-subagent.ts` and submodules | Engineered implementation                      | Runner-subagent subprocess, JSON-event parsing, generated runtime extension, terminal capture, and final-text results. |
 | `ts/packages/pi-extensions/src/terminal-presentation.ts`          | Engineered implementation                      | Shared terminal hyperlink/linkification and custom-message text helpers.                                               |
 
+## Resource surface policy
+
+Pi's visible slash-command inventory for this repo is the RPC `get_commands` result. When auditing the visible surface, capture each command's `name`, `description`, `source`, and `sourceInfo` or `path` instead of inferring ownership from command names.
+
+Repo-owned project surface:
+
+- `.pi/extensions/...` project-local extension commands.
+- `.pi/prompts/*.md` project prompt templates.
+- `skills/<name>/SKILL.md`, exposed through symlinks under `.agents/skills/<name>` for local asdl skills.
+
+External or personal surface:
+
+- Real directories under `.agents/skills/<name>/` are vendored or GitHub-sourced skills. They are live in Pi by default, but they are not repo products. Keep them as-shipped and exclude them from deep audits unless a task explicitly updates that vendored skill. Runtime policy: keep them enabled by default as developer aids; remove or disable them only through explicit skill-management work. No repo implementation change is required by this policy.
+- User-local resources under `~/.pi/agent/...` may appear in a developer's Pi RPC inventory. Treat CMUX, `gh-pr`, `stack-latest`, and similar local workflow commands as advisory personal-resource findings, not closure-critical repo cleanup.
+
+Rules:
+
+- Avoid duplicate public slash-command names. If a wrapper and prompt share a name, choose one public entrypoint and make the other an internal asset, rename it, or document the intentional duplication.
+- Mutating commands that touch git or GitHub state need either engineered tests/adapters or explicit docs saying why the vibecoded command is retained and what safety checks it owns.
+- Command descriptions should distinguish adjacent commands in autocomplete. If two command names intentionally share behavior, say which one is the alias or focused entrypoint.
+- For local command skills, use `description: "Command: <skill-name>"` rather than bare `Command`; keep richer routing in the skill body or original-description comment.
+
+## Current cleanup ordering and dispositions
+
+The resource-surface cleanup proceeds in small slices:
+
+1. Metadata/docs first: record policy, normalize low-risk descriptions, and make aliases legible.
+2. Resolve the duplicate `/objective-stack-impl` extension/prompt surface.
+3. Decide the `/land` disposition: promote and test, deprecate/replace, or retain with explicit safety rationale.
+4. Re-run Pi RPC command inventory after material changes and record the final surface as closure evidence.
+
+| Surface                                                | Disposition                                                                                                                 |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `skills/<name>` local symlinked skills                 | Repo-owned; metadata cleanup is allowed. Command skills should use the explicit `Command: <skill-name>` description marker. |
+| Real-directory skills under `.agents/skills/<name>/`   | External/vendored runtime skills; remain live by default, excluded from deep review, and edited only by explicit request.   |
+| `worktree-status`, `brmem-status`, and `gt-status`     | Shared behavior is acceptable, but autocomplete descriptions should distinguish the combined view from alias entrypoints.   |
+| `/objective-stack-impl` extension plus prompt template | Known duplicate visible surface; next cleanup slice should make the public wrapper and internal prompt relationship clear.  |
+| `/land`                                                | Legacy mutating GitHub command; retained temporarily pending the explicit risk disposition slice.                           |
+| User-local CMUX, `gh-pr`, `stack-latest`, and skills   | Personal-resource findings only; do not promote or mutate unless explicitly requested.                                      |
+
 ## Planned branch workflow
 
 The planned-branch workflow uses `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` to save reviewed plans, create implementation branches, attach plans through Branch Memory, and load them for implementation.

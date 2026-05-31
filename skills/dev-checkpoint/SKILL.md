@@ -1,6 +1,6 @@
 ---
 name: dev-checkpoint
-description: Command
+description: "Command: dev-checkpoint"
 model: claude-haiku-4-5
 allowed-tools:
   - "Bash(git status:*)"
