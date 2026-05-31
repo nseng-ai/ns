@@ -17,22 +17,22 @@ const MAX_ERROR_CHARS = 4_000;
 
 const PICKUP_HANDOFF_USAGE = `Usage: /${PICKUP_HANDOFF_COMMAND_NAME} [options] [entry-key|semantic-slug|search words]
 
-Pick up a Branch Memory handoff from this branch and continue from its content.
+Load a saved handoff from this branch and continue from its content.
 
 Options:
-  --branch <branch>  Read handoffs from an explicit branch instead of the current branch.
+  --branch <branch>  Load handoffs from an explicit branch instead of the current branch.
   --help, -h         Show this help.
 
 With no selector, the command loads the only handoff when exactly one exists, or opens a picker when several exist.`;
 
-const CREATE_HANDOFF_FALLBACK = `Use the Branch Memory handoff workflow to create and store a concise Markdown handoff artifact.
+const CREATE_HANDOFF_FALLBACK = `Use the handoff artifact workflow to save a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
 
 Storage contract:
 - Namespace: \`${HANDOFF_NAMESPACE}\`
 - Entry key shape: \`${HANDOFF_KEY_PREFIX}<semantic-slug>${HANDOFF_KEY_SUFFIX}\`
 - Use \`brmem put ${HANDOFF_KEY_PREFIX}<semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file <artifact.md>\`.
 
-Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, and report branch, namespace, entry, locator/ref, and commit.`;
+Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug, check for an existing artifact before writing, report the saved handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -203,28 +203,30 @@ export function resolveHandoffKey(selector: string[], handoffKeys: string[]): { 
 }
 
 export function buildPickupHandoffPrompt(branch: string, key: string, artifact: string): string {
-	return `Resume work from this Branch Memory handoff artifact.
+	return `Load this saved handoff artifact as active context for the session.
 
 Branch: ${branch}
-Namespace: ${HANDOFF_NAMESPACE}
-Entry: ${key}
+Handoff: ${handoffSlug(key)}
+Technical locator:
+- Namespace: ${HANDOFF_NAMESPACE}
+- Entry: ${key}
 
-Treat the artifact below as active context for this session. Briefly report the branch, namespace, entry, and what was loaded, then continue with the concrete next step identified by the artifact. If the artifact is stale or incomplete, verify the current repository state before acting and proceed from the present state.
+Briefly report the branch and handoff slug loaded, then continue with the concrete next step identified by the artifact. If the artifact is stale or incomplete, verify the current repository state before acting and proceed from the present state.
 
 ${fencedBlock("markdown", artifact)}`;
 }
 
 export function buildCreateHandoffPrompt(skillBlock: string | undefined, focus: string): string {
-	const focusText = focus.trim() || "(none provided; ask for a meaningful focus/title if needed)";
+	const focusText = focus.trim() || "(none provided; ask for a meaningful continuation focus/title if needed)";
 	return `${skillBlock ?? CREATE_HANDOFF_FALLBACK}
 
-Create and store a Branch Memory handoff artifact for this session.
+Save a directed handoff artifact for this session.
 
-User-specified handoff focus, slug, branch, or context:
+User-specified continuation focus, slug, branch, or context:
 
 ${fencedBlock("text", focusText)}
 
-Treat this as an explicit request to run the brmem-handoff workflow. Derive a semantic slug if one was not provided, avoid overwriting an existing artifact unless replacement was explicitly requested, and report the stored Branch Memory evidence.`;
+Treat this as an explicit request to run the handoff save workflow. The handoff must be directed toward a future continuation; ask for a meaningful focus if one was not provided. Derive a semantic slug if one was not provided, avoid overwriting an existing artifact unless replacement was explicitly requested, report the saved handoff first, and include Branch Memory details only as technical storage evidence.`;
 }
 
 function normalizeSelectorToKey(selector: string): string | undefined {
@@ -330,7 +332,7 @@ async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx
 	}
 
 	if (handoffKeys.length === 0) {
-		ctx.ui.notify(`No handoffs found on branch ${branch} in namespace ${HANDOFF_NAMESPACE}.`, "info");
+		ctx.ui.notify(`No saved handoffs found on branch ${branch}.`, "info");
 		return;
 	}
 
@@ -362,19 +364,19 @@ async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx
 	}
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(`Loaded ${selectedKey} from ${branch}. Continuing from handoff…`, "info");
+		ctx.ui.notify(`Loaded handoff ${handoffSlug(selectedKey)} from ${branch}. Continuing…`, "info");
 	}
 	pi.sendUserMessage(buildPickupHandoffPrompt(branch, selectedKey, artifact));
 }
 
 function createHandoffStartMessage(skill: Awaited<ReturnType<typeof expandSkill>>, skillReadError: string | undefined): string {
 	if (skill !== undefined) {
-		return "Starting Branch Memory handoff creation…";
+		return "Starting handoff save workflow…";
 	}
 	if (skillReadError !== undefined) {
-		return `Could not read brmem-handoff skill; using fallback workflow prompt. ${skillReadError}`;
+		return `Could not read brmem-handoff skill; using fallback save-handoff workflow prompt. ${skillReadError}`;
 	}
-	return "brmem-handoff skill was not found; using fallback workflow prompt.";
+	return "brmem-handoff skill was not found; using fallback save-handoff workflow prompt.";
 }
 
 async function expandSkill(pi: ExtensionAPI, skillName: string): Promise<{ name: string; block: string } | undefined> {
@@ -449,9 +451,9 @@ async function chooseAmbiguousHandoff(ctx: CommandContext, branch: string, keys:
 		return undefined;
 	}
 
-	const selected = await ctx.ui.select(`Select Branch Memory handoff on ${branch}`, keys);
+	const selected = await ctx.ui.select(`Select handoff on ${branch}`, keys);
 	if (selected === undefined) {
-		ctx.ui.notify("Handoff pickup cancelled.", "info");
+		ctx.ui.notify("Handoff load cancelled.", "info");
 		return undefined;
 	}
 	return selected;
@@ -484,12 +486,12 @@ function truncateError(message: string): string {
 
 export default function brmemHandoffExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
-		description: "Create and store a Branch Memory handoff artifact.",
+		description: "Save a directed handoff artifact for a future continuation.",
 		handler: async (args, ctx) => handleCreateHandoffCommand(pi, args, ctx),
 	});
 
 	pi.registerCommand(PICKUP_HANDOFF_COMMAND_NAME, {
-		description: "Pick up a Branch Memory handoff artifact by slug or picker.",
+		description: "Load a saved handoff by slug, selector, or picker.",
 		handler: async (args, ctx) => handlePickupHandoffCommand(pi, args, ctx),
 	});
 }

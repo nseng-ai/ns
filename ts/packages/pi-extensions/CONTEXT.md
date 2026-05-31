@@ -43,6 +43,15 @@ _Avoid:_ saved plan, local plan store file, prompt template.
 **Branch Memory attachment** — The planning-layer use of `brmem put/get/list/check` to store or read an attached plan under the `brmem-plans` namespace contract.
 _Avoid:_ Branch Memory policy, brmem-owned workflow, package import edge.
 
+**Handoff artifact** — A directed, saved, loadable work-context artifact for a specific future continuation.
+_Avoid:_ Branch Memory entry as the user model, generic session summary, compaction.
+
+**Continuation focus** — The future work a handoff prepares: what the next session should continue, decide, verify, or implement.
+_Avoid:_ vague title, undirected summary, branch name as sufficient context.
+
+**Handoff technical locator** — Storage evidence for a handoff, currently branch plus Branch Memory namespace `session-artifacts` and key `handoffs/<semantic-slug>.md`.
+_Avoid:_ public command vocabulary, picker label, default success copy.
+
 **Branch creation method** — The selected planned-branch creation strategy, currently `plain-git` or `graphite`.
 _Avoid:_ branch type, storage backend, target branch name.
 
@@ -109,4 +118,4 @@ A **Runner subagent** is an extension-layer subprocess primitive. The parent mus
 
 ### Runtime edges
 
-The package shells out through Pi extension APIs rather than importing Python packages. Runtime edges include `git` for repo/worktree facts, `gt` for Graphite branch and stack behavior, `gh` for PR facts and merging, `brmem` for Branch Memory attachments and handoffs, `objective` for Objective facts, and `slot` for managed worktree cleanup in stack landing workflows.
+The package shells out through Pi extension APIs rather than importing Python packages. Runtime edges include `git` for repo/worktree facts, `gt` for Graphite branch and stack behavior, `gh` for PR facts and merging, `brmem` for Branch Memory attachments and handoff artifact storage, `objective` for Objective facts, and `slot` for managed worktree cleanup in stack landing workflows.

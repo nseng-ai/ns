@@ -24,8 +24,8 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | ------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `/skill:branch-retro`           | `skills/branch-retro/SKILL.md`           | Collects deterministic branch/session evidence and turns it into retrospective recommendations.    |
 | `/skill:brmem`                  | `skills/brmem/SKILL.md`                  | Guides use of the `brmem` CLI for branch-scoped durable memory.                                    |
-| `/skill:brmem-handoff`          | `skills/brmem-handoff/SKILL.md`          | Creates and stores branch/session handoff artifacts in Branch Memory.                              |
-| `/skill:brmem-pickup-handoff`   | `skills/brmem-pickup-handoff/SKILL.md`   | Loads a stored Branch Memory handoff artifact so another session can resume work.                  |
+| `/skill:brmem-handoff`          | `skills/brmem-handoff/SKILL.md`          | Saves a directed handoff artifact for a specific future continuation.                              |
+| `/skill:brmem-pickup-handoff`   | `skills/brmem-pickup-handoff/SKILL.md`   | Loads a saved handoff artifact so another session can resume focused work.                         |
 | `/skill:dev-checkpoint`         | `skills/dev-checkpoint/SKILL.md`         | Creates a terse checkpoint commit for the current non-main branch diff.                            |
 | `/skill:dev-gh`                 | `skills/dev-gh/SKILL.md`                 | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                     |
 | `/skill:dev-gh-ci-debug`        | `skills/dev-gh-ci-debug/SKILL.md`        | Diagnoses GitHub Actions failures from a run URL or run ID.                                        |
@@ -53,8 +53,8 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 | Command                  | Source                             | Description                                                                                         |
 | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `/brmem-handoff`         | `.pi/extensions/brmem-handoff.ts`  | Starts the Branch Memory handoff creation workflow.                                                 |
-| `/brmem-pickup-handoff`  | `.pi/extensions/brmem-handoff.ts`  | Picks a Branch Memory handoff artifact and injects its pickup prompt.                               |
+| `/brmem-handoff`         | `.pi/extensions/brmem-handoff.ts`  | Starts the current save-handoff flow for a directed handoff artifact.                               |
+| `/brmem-pickup-handoff`  | `.pi/extensions/brmem-handoff.ts`  | Loads a saved handoff artifact by slug, selector, or picker and injects its resume prompt.          |
 | `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
 | `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
 | `/dev:submit`            | `.pi/extensions/dev.ts`            | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
@@ -80,11 +80,11 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 ## Repo-owned workflow family dispositions
 
-| Family                   | Disposition                                                                                                                                                                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planned branches         | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed.      |
-| Handoff/pickup artifacts | Carved out to Objective `directed-handoff-artifacts`: current `/brmem-handoff` and `/brmem-pickup-handoff` remain factual inventory, but the follow-up target is save/load handoff UX that hides Branch Memory as implementation detail. |
-| Branch retrospectives    | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                    |
+| Family                   | Disposition                                                                                                                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Planned branches         | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed.                                               |
+| Handoff/pickup artifacts | Carved out to Objective `directed-handoff-artifacts`: the public vocabulary is directed handoff artifacts that users save, load, list, and resume from; current `/brmem-handoff` and `/brmem-pickup-handoff` remain factual inventory until command-name and listing slices land. |
+| Branch retrospectives    | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                                             |
 
 ## Engineered Pi extension package
 
@@ -127,6 +127,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance. |
 | `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                       |
+| `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.        |
 | `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                            |
 | `docs/pi/planned-branch-workflow.md`                    | Documents the planned-branch flow from saved plans to implementation branches and Branch Memory attachments.              |
 | `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                    |
