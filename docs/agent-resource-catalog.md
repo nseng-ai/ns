@@ -80,11 +80,11 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 ## Repo-owned workflow family dispositions
 
-| Family                 | Disposition                                                                                                                                                                                                                         |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planned branches       | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed. |
-| Branch Memory handoffs | Retain `/brmem-handoff` and `/brmem-pickup-handoff` as Pi frontends over the installed `brmem-handoff` and `brmem-pickup-handoff` skills; Codex/Claude use the skills and `brmem` CLI contract directly.                            |
-| Branch retrospectives  | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.               |
+| Family                   | Disposition                                                                                                                                                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Planned branches         | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed.      |
+| Handoff/pickup artifacts | Carved out to Objective `directed-handoff-artifacts`: current `/brmem-handoff` and `/brmem-pickup-handoff` remain factual inventory, but the follow-up target is save/load handoff UX that hides Branch Memory as implementation detail. |
+| Branch retrospectives    | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                    |
 
 ## Engineered Pi extension package
 
