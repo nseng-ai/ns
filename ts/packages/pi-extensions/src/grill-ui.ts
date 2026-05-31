@@ -1,3 +1,6 @@
+import type { GrillAskOutcome } from "./grill-ui/controller.ts";
+import { runGrillAskOverlay } from "./grill-ui/overlay.ts";
+import { buildGrillAskSelectorEntriesFromRows, type GrillAskChoiceRow } from "./grill-ui/view.ts";
 import { expandSkillBlock, type SkillExpansionHost } from "./skill-expansion.ts";
 
 export const GRILL_UI_COMMAND_NAME = "grill-ui";
@@ -85,6 +88,16 @@ export type GrillAskValidationResult =
 	| { ok: true; input: NormalizedGrillAskInput }
 	| { ok: false; errors: string[] };
 
+export type GrillAskOverlayRunner = (
+	input: NormalizedGrillAskInput,
+	ctx: GrillAskToolContext,
+) => Promise<GrillAskOutcome | undefined>;
+
+export type GrillAskExecutionOptions = {
+	overlayRunner?: GrillAskOverlayRunner;
+	signal?: AbortSignal | undefined;
+};
+
 export type GrillAskSelectorEntry =
 	| {
 			kind: "choice";
@@ -102,11 +115,28 @@ export type GrillAskSelectorEntry =
 			display: string;
 	  };
 
+export type GrillAskCustomComponent = {
+	render(width: number): string[];
+	handleInput?(data: string): void;
+	invalidate(): void;
+	focused?: boolean;
+	dispose?(): void;
+};
+
+export type GrillAskCustomOptions = {
+	overlay?: boolean;
+	overlayOptions?: unknown;
+};
+
 export type GrillAskToolContext = {
 	hasUI: boolean;
 	ui: {
 		select?(title: string, options: string[]): Promise<string | undefined>;
 		editor?(title: string, initialText?: string): Promise<string | undefined>;
+		custom?<T>(
+			factory: (tui: unknown, theme: unknown, keybindings: unknown, done: (value: T) => void) => GrillAskCustomComponent,
+			options?: GrillAskCustomOptions,
+		): Promise<T>;
 	};
 };
 
@@ -411,72 +441,41 @@ export function buildGrillAskSelectTitle(input: NormalizedGrillAskInput): string
 }
 
 export function buildGrillAskSelectorEntries(input: NormalizedGrillAskInput): GrillAskSelectorEntry[] {
-	const entries: GrillAskSelectorEntry[] = input.options.map((option, index) => {
-		const recommended = input.recommended.optionValue === option.value;
-		const marker = recommended ? "★ " : "";
-		const description = option.description === undefined ? "" : ` — ${singleLine(option.description)}`;
-		return {
-			kind: "choice",
-			display: `${index + 1}. ${marker}${singleLine(option.label)}${description}`,
-			index: index + 1,
-			option,
-			recommended,
-		};
-	});
-
-	if (input.allowFreeform) {
-		entries.push({ kind: "freeform", display: "✎ Other / freeform answer" });
-	}
-	if (input.allowEnd) {
-		entries.push({ kind: "end_grill", display: "⏹ End grilling session" });
-	}
-
-	return entries;
+	return buildGrillAskSelectorEntriesFromRows(input);
 }
 
-export async function executeGrillAsk(params: unknown, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
+export async function executeGrillAsk(
+	params: unknown,
+	ctx: GrillAskToolContext,
+	executionOptions: GrillAskExecutionOptions = {},
+): Promise<ToolResult<GrillAskDetails>> {
 	const validation = validateGrillAskInput(params);
 	if (!validation.ok) {
 		return invalidToolInputResult(validation.errors);
 	}
 
 	const input = validation.input;
-	if (!ctx.hasUI || ctx.ui.select === undefined) {
-		return textResult(
-			"Structured grill question UI is unavailable. Ask the same one question normally with numbered choices.",
-			{ action: "ui_unavailable", question: input.question },
-		);
-	}
-
-	const entries = buildGrillAskSelectorEntries(input);
-	const selectedDisplay = await ctx.ui.select(
-		buildGrillAskSelectTitle(input),
-		entries.map((entry) => entry.display),
-	);
-	if (selectedDisplay === undefined) {
+	if (executionOptions.signal?.aborted) {
 		return cancelledResult(input.question, "User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.");
 	}
 
-	const selectedEntry = entries.find((entry) => entry.display === selectedDisplay);
-	if (selectedEntry === undefined) {
-		return cancelledResult(input.question, "The structured grill question returned an unknown selection. Do not treat this as an answer; summarize what is known or ask whether to continue.");
-	}
-
-	switch (selectedEntry.kind) {
-		case "choice":
-			return selectedChoiceResult(input.question, selectedEntry);
-		case "freeform":
-			return executeFreeformAnswer(input, ctx);
-		case "end_grill":
-			return textResult(
-				"User chose to end the grilling session. Stop asking questions and summarize resolved decisions, unresolved branches, and your final recommendation.",
-				{ action: "end_grill", question: input.question },
-			);
-		default: {
-			const exhaustive: never = selectedEntry;
-			return exhaustive;
+	if (ctx.hasUI && ctx.ui.custom !== undefined) {
+		const overlayRunner = executionOptions.overlayRunner ?? runGrillAskOverlay;
+		try {
+			const outcome = await overlayRunner(input, ctx);
+			if (outcome === undefined) {
+				return cancelledResult(input.question, "User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.");
+			}
+			return grillAskOutcomeResult(input.question, outcome);
+		} catch {
+			if (executionOptions.signal?.aborted) {
+				return cancelledResult(input.question, "User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.");
+			}
+			// Overlay support can be absent or drift across Pi runtimes. Fall back to the stable legacy dialogs.
 		}
 	}
+
+	return executeLegacyGrillAsk(input, ctx);
 }
 
 export function registerGrillUiExtension(pi: ExtensionAPI): void {
@@ -499,7 +498,7 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 			"If grill_ask returns action: \"ui_unavailable\", ask the same one question normally with numbered choices.",
 		],
 		parameters: GRILL_ASK_PARAMETERS,
-		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => executeGrillAsk(params, ctx),
+		execute: async (_toolCallId, params, signal, _onUpdate, ctx) => executeGrillAsk(params, ctx, { signal }),
 	});
 }
 
@@ -534,7 +533,43 @@ async function resolveGrillTarget(args: string, ctx: GrillUiCommandContext): Pro
 	return (await ctx.ui.editor("What plan or design should be grilled?", "")) ?? "";
 }
 
-async function executeFreeformAnswer(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
+async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
+	if (!ctx.hasUI || ctx.ui.select === undefined) {
+		return textResult(
+			"Structured grill question UI is unavailable. Ask the same one question normally with numbered choices.",
+			{ action: "ui_unavailable", question: input.question },
+		);
+	}
+
+	const entries = buildGrillAskSelectorEntries(input);
+	const selectedDisplay = await ctx.ui.select(
+		buildGrillAskSelectTitle(input),
+		entries.map((entry) => entry.display),
+	);
+	if (selectedDisplay === undefined) {
+		return cancelledResult(input.question, "User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.");
+	}
+
+	const selectedEntry = entries.find((entry) => entry.display === selectedDisplay);
+	if (selectedEntry === undefined) {
+		return cancelledResult(input.question, "The structured grill question returned an unknown selection. Do not treat this as an answer; summarize what is known or ask whether to continue.");
+	}
+
+	switch (selectedEntry.kind) {
+		case "choice":
+			return selectedChoiceResult(input.question, selectedEntry);
+		case "freeform":
+			return executeLegacyFreeformAnswer(input, ctx);
+		case "end_grill":
+			return endGrillResult(input.question);
+		default: {
+			const exhaustive: never = selectedEntry;
+			return exhaustive;
+		}
+	}
+}
+
+async function executeLegacyFreeformAnswer(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
 	if (ctx.ui.editor === undefined) {
 		return textResult(
 			"Structured grill freeform editor is unavailable. Ask the same one question normally with numbered choices and an Other/freeform option.",
@@ -545,16 +580,44 @@ async function executeFreeformAnswer(input: NormalizedGrillAskInput, ctx: GrillA
 	if (answer === undefined || answer.trim().length === 0) {
 		return cancelledResult(input.question, "User cancelled the freeform answer or left it blank. Do not treat this as an answer; summarize what is known or ask whether to continue.");
 	}
+	return freeformAnswerResult(input.question, answer);
+}
+
+function grillAskOutcomeResult(question: string, outcome: GrillAskOutcome): ToolResult<GrillAskDetails> {
+	switch (outcome.action) {
+		case "choice":
+			return selectedChoiceResult(question, outcome.entry);
+		case "freeform":
+			return freeformAnswerResult(question, outcome.answer);
+		case "end_grill":
+			return endGrillResult(question);
+		case "cancelled":
+			return cancelledResult(question, "User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.");
+		default: {
+			const exhaustive: never = outcome;
+			return exhaustive;
+		}
+	}
+}
+
+function freeformAnswerResult(question: string, answer: string): ToolResult<GrillAskDetails> {
 	const trimmedAnswer = answer.trim();
 	return textResult(`User provided a freeform answer: ${trimmedAnswer}`, {
 		action: "answer",
 		kind: "freeform",
-		question: input.question,
+		question,
 		answer: trimmedAnswer,
 	});
 }
 
-function selectedChoiceResult(question: string, selectedEntry: Extract<GrillAskSelectorEntry, { kind: "choice" }>): ToolResult<GrillAskDetails> {
+function endGrillResult(question: string): ToolResult<GrillAskDetails> {
+	return textResult(
+		"User chose to end the grilling session. Stop asking questions and summarize resolved decisions, unresolved branches, and your final recommendation.",
+		{ action: "end_grill", question },
+	);
+}
+
+function selectedChoiceResult(question: string, selectedEntry: Extract<GrillAskSelectorEntry, { kind: "choice" }> | GrillAskChoiceRow): ToolResult<GrillAskDetails> {
 	const details: GrillAskDetails = {
 		action: "answer",
 		kind: "choice",
@@ -591,10 +654,6 @@ function textResult<Details extends GrillAskDetails>(text: string, details: Deta
 function notify(ctx: GrillUiCommandContext, message: string, level: NotifyLevel): void {
 	if (!ctx.hasUI) return;
 	ctx.ui.notify?.(message, level);
-}
-
-function singleLine(value: string): string {
-	return value.replace(/\s+/g, " ").trim();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
