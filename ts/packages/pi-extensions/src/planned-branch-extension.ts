@@ -191,6 +191,29 @@ export function buildWritePlanPrompt(steering: string): string {
 
 ${formatSteeringBlock(steering)}
 
+Plan audience and context contract:
+- Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
+- Make the plan self-contained. Do not rely on this conversation, hidden context, tool transcripts, or "as discussed" references.
+- Embed all relevant context discovered during planning, including user goals, constraints, current behavior, important files/symbols/tests/docs, decisions made, rationale, rejected alternatives, assumptions, risks, and validation commands.
+- Prefer concrete file paths, symbol names, command names, expected outcomes, and implementation order over vague instructions.
+- If you inspected evidence during planning, summarize the discovered facts in the plan so the downstream agent does not need to rediscover them unless verification is required.
+
+External research/context contract:
+- If planning used anything outside the repository — web searches, external docs, GitHub issues/PRs, API docs, CLIs hitting remote services, local files outside the repo, or other non-repo resources — include the relevant findings inline in the saved plan.
+- Do not merely link to external resources. Summarize the concrete facts, constraints, examples, decisions, and caveats the downstream agent needs.
+- Include source/provenance where useful: URL, command, document name, issue/PR number, accessed date/time if known, and why it mattered.
+- If external findings may become stale, mark what should be revalidated during implementation.
+- Do not include secrets, credentials, private tokens, or unnecessary sensitive data.
+
+Recommended saved plan sections:
+- Goal and user-visible outcome.
+- Planning context and discovered facts, including relevant repository state.
+- External/off-repo research context, or a note that none was used when that helps remove ambiguity.
+- Files, symbols, commands, and tests likely to change.
+- Step-by-step implementation approach.
+- Validation commands and expected results.
+- Risks, assumptions, edge cases, and open questions.
+
 Workflow:
 1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
 2. Produce a detailed Markdown implementation plan.
@@ -503,12 +526,14 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 		name: WRITE_SOURCE_BRANCH_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed Markdown implementation plan file in the local plan store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
-			"Create a reviewed Markdown implementation plan file in the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
+			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
 			"Use write_source_branch_plan_file for `/write-plan` after producing a reviewed final Markdown plan.",
 			"write_source_branch_plan_file writes the local plan store under `~/.asdl/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"write_source_branch_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
+			"If planning used external/off-repo research, write_source_branch_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
 			"If write_source_branch_plan_file reports that the saved plan file already exists, choose a different semantic slug that still reflects the final plan content; never overwrite the existing file.",
 		],
 		parameters: {
@@ -521,7 +546,8 @@ function buildWriteSourceBranchPlanFileTool(pi: ExtensionAPI, options: PlannedBr
 				},
 				content: {
 					type: "string",
-					description: "Full reviewed Markdown plan content to write.",
+					description:
+						"Complete reviewed, self-contained Markdown plan content to write, including relevant planning context and external research findings.",
 				},
 				summary: {
 					type: "string",
