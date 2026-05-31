@@ -70,3 +70,13 @@ Resolved for this prototype:
 Still deferred:
 
 - After prototype dogfooding, decide whether this should graduate to `/objective:impl`, remain `proto-`, or fold into `objective-stack-impl` as a mode.
+
+## Closure
+
+Outcome: completed.
+
+The prototype standing Objective runner shipped as an isolated island, exactly as scoped. `proto-objective-impl` exists as an internal prototype skill (`metadata.internal: true`) documenting the v1 runner contract: explicit Objective resolution, context compaction, autonomy-designed versus human-assisted mode, an upfront preview/confirmation gate before material git work, serial subagent execution, keep/discard/materialization rules, Objective-tracking boundaries, and preview-scoped PR submission via `gt submit --no-interactive`. The opt-in command surface `/proto:objective-impl` lives behind a dedicated project-local `.pi/extensions/proto.ts` adapter backed by `ts/packages/pi-extensions/src/proto.ts`; it accepts an explicit Objective slug/path or falls back to the existing active Objective picker, expands `proto-objective-impl`, and leaves every canonical `/objective:*` command name and behavior unchanged. The isolation boundary held: no Objective file contract, CLI status model, lifecycle semantics, `docs/objective-system.md`, or main Objective command was changed; no daemon, scheduler, sweeper, hidden run ledger, registry, or task database was added.
+
+Evidence: all three `## Work` roadmap rows are `[x]` with shipped/validation evidence captured in `updates/`. `skills/proto-objective-impl/SKILL.md` exists with `.agents`/`.claude` links resolving to the canonical source and a `skills-lock.json` entry; `ts/packages/pi-extensions/test/proto.test.ts` covers registration, explicit slug/path routing, skill-expansion fallback, active picker behavior, cancellation/no-active/non-UI paths, changed-Objective suggestions, and command-surface separation from `objective:stack-impl`. Validation passed at the recorded slices: `just ts-check`, `just ts-test`, `just dprint-check`, and `dprint check skills/proto-objective-impl/SKILL.md skills-lock.json`. Landed-state basis: branch commits `4e1fb987` (skill), `07999ed4` (wrapper + tests), and `e9dd7444` (design brief).
+
+Caveats and follow-ups (all parked, none blocking): real dogfooding of `/proto:objective-impl` on bounded and standing Objectives is the natural next step but was explicitly not required for closure; the three deferred decisions remain parked — graduating the prototype to a main `/objective:impl` surface, promoting standing/autoobjective conventions into `docs/objective-system.md`, and defining a repo-wide `proto-` naming convention. These should graduate into their own future Objective(s) once dogfooding informs them.
