@@ -6,7 +6,6 @@ import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import {
 	customMessageText,
 	linkifyPrReferences,
-	prLinksDetailsFor,
 	prLinksFromDetails,
 	sanitizeTerminalHyperlinkUrl,
 	terminalHyperlink,
@@ -41,8 +40,6 @@ const IGNORED_WORKTREE_PATH_PARTS = new Set([
 	"build",
 ]);
 
-export type NotifyLevel = "info" | "success" | "warning" | "error";
-
 export type ExecResult = {
 	stdout: string;
 	stderr: string;
@@ -56,18 +53,11 @@ type ExecOptions = {
 	signal?: AbortSignal;
 };
 
-type AutocompleteItem = {
-	value: string;
-	label?: string;
-	description?: string;
-};
-
 export type ExtensionContext = {
 	cwd: string;
 	hasUI: boolean;
 	ui: {
 		theme: StatusTheme;
-		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget(key: string, value: undefined): void;
 	};
@@ -96,20 +86,11 @@ type ToolResultEvent = {
 };
 
 export type ExtensionAPI = {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-			handler(args: string, ctx: ExtensionContext): Promise<void> | void;
-		},
-	): void;
 	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void): void;
 	on(event: "tool_result", handler: (event: ToolResultEvent) => Promise<void> | void): void;
 	on(event: "agent_end" | "session_shutdown", handler: () => Promise<void> | void): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(message: CustomMessage): void;
 };
 
 type ExecGateway = Pick<ExtensionAPI, "exec">;
@@ -464,47 +445,6 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		scheduleGitWatcherRetry(session);
 	}
 
-	async function showStatus(ctx: ExtensionContext): Promise<void> {
-		const cwd = ctx.cwd;
-		const status = await loadWorktreeStatus(pi, cwd);
-		const lines = formatWorktreeStatus(status, ctx.ui.theme);
-		const messageLines = formatPlainWorktreeStatus(status);
-		try {
-			renderLines(ctx, lines);
-			lastLinesKey = JSON.stringify(lines);
-			sendWorktreeStatusMessage(pi, messageLines, worktreeStatusDetails(status));
-		} catch {
-			// Ignore command-display races during session replacement/reload.
-		}
-	}
-
-	pi.registerCommand("worktree-status", {
-		description: "Refresh and show combined Branch Memory and Graphite worktree status",
-		handler: async (argsText, ctx) => {
-			if (argsText.trim().length > 0) {
-				const message = "Usage: /worktree-status";
-				pi.sendMessage?.({ customType: "worktree-status", content: message, display: true });
-				if (ctx.hasUI) ctx.ui.notify(message, "error");
-				return;
-			}
-			await showStatus(ctx);
-		},
-	});
-
-	pi.registerCommand("brmem-status", {
-		description: "Open the shared worktree status view from the Branch Memory alias",
-		handler: async (_argsText, ctx) => {
-			await showStatus(ctx);
-		},
-	});
-
-	pi.registerCommand("gt-status", {
-		description: "Open the shared worktree status view from the Graphite alias",
-		handler: async (_argsText, ctx) => {
-			await showStatus(ctx);
-		},
-	});
-
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
 		setupGitWatchers(session);
@@ -806,42 +746,6 @@ function renderWorktreeStatusLine(line: string, prLinks: ReadonlyMap<number, str
 
 function worktreeStatusLineColor(line: string): string {
 	return line.startsWith("[gt]") ? "accent" : "dim";
-}
-
-function sendWorktreeStatusMessage(
-	pi: ExtensionAPI,
-	messageLines: string[],
-	details: ReturnType<typeof worktreeStatusDetails>,
-): void {
-	const message: CustomMessage = {
-		customType: UI_KEY,
-		content: messageLines.join("\n"),
-		display: true,
-	};
-	if (details) {
-		message.details = details;
-	}
-	pi.sendMessage?.(message);
-}
-
-function worktreeStatusDetails(status: WorktreeStatus): ReturnType<typeof prLinksDetailsFor> {
-	return status.gt.pr ? prLinksDetailsFor([status.gt.pr]) : undefined;
-}
-
-function formatPlainWorktreeStatus(status: WorktreeStatus): string[] {
-	const lines: string[] = [];
-	if (status.brmem !== undefined) {
-		lines.push(`[brmem] ${status.brmem}`);
-	}
-	lines.push(formatPlainGtStatus(status.gt));
-	return lines;
-}
-
-function formatPlainGtStatus(status: GtStatus): string {
-	const commits = status.commits === "yes" ? " (commits)" : status.commits === "?" ? " (commits: ?)" : ` ${EMPTY_BRANCH_ICON}`;
-	const dirty = status.dirty === "yes" ? " (x)" : "";
-	const pr = status.pr ? ` (pr: #${status.pr.number})` : "";
-	return `[gt]${pr} (↓: ${status.down}) (↑: ${status.up})${commits}${dirty}`;
 }
 
 export type StatusTheme = {

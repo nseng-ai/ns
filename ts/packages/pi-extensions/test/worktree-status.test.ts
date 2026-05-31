@@ -5,7 +5,15 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { stripTerminalEscapes } from "../src/command-runtime.ts";
-import { formatGtStatus, loadGtStatus, loadWorktreeStatus, renderWorktreeStatusMessage, type ExecResult, type StatusTheme } from "../src/worktree-status.ts";
+import worktreeStatusExtension, {
+	formatGtStatus,
+	loadGtStatus,
+	loadWorktreeStatus,
+	renderWorktreeStatusMessage,
+	type ExecResult,
+	type ExtensionAPI,
+	type StatusTheme,
+} from "../src/worktree-status.ts";
 
 const ROOT = "/repo";
 
@@ -78,6 +86,30 @@ class OrderlessFakePi {
 	assertDone(): void {
 		expect(this.errors).toEqual([]);
 		expect(this.script).toEqual([]);
+	}
+}
+
+type RegisteredEventName = "session_start" | "tool_result" | "agent_end" | "session_shutdown";
+
+class RegistrationFakePi {
+	readonly commands: string[] = [];
+	readonly events: RegisteredEventName[] = [];
+	readonly renderers: string[] = [];
+
+	registerCommand(name: string): void {
+		this.commands.push(name);
+	}
+
+	on(event: RegisteredEventName): void {
+		this.events.push(event);
+	}
+
+	async exec(): Promise<ExecResult> {
+		return execResult({ code: 99 });
+	}
+
+	registerMessageRenderer(customType: string): void {
+		this.renderers.push(customType);
 	}
 }
 
@@ -163,6 +195,17 @@ const TEST_THEME: StatusTheme = {
 		return `\x1B[4m${value}\x1B[24m`;
 	},
 };
+
+describe("worktree status extension registration", () => {
+	test("registers automatic status hooks without visible slash commands", () => {
+		const pi = new RegistrationFakePi();
+		worktreeStatusExtension(pi as unknown as ExtensionAPI);
+
+		expect(pi.commands).toEqual([]);
+		expect(pi.renderers).toEqual(["worktree-status"]);
+		expect(pi.events).toEqual(["session_start", "tool_result", "agent_end", "session_shutdown"]);
+	});
+});
 
 describe("worktree status message rendering", () => {
 	test("renders PR references from message details as terminal hyperlinks", () => {
