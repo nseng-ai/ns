@@ -35,7 +35,7 @@ their content:
 
 - **`graphite`** — `gt` mental model, stack navigation, and the "Recovering
   from Interrupted Rebase" section.
-- **`ns-resolve-merge-conflicts`** — per-file conflict-resolution mechanics,
+- **`resolve-merge-conflicts`** — per-file conflict-resolution mechanics,
   auto-generated-file handling, and the conflict-marker anatomy.
 
 ## When to use
@@ -182,7 +182,7 @@ For **each conflicted file**:
    - `one-side strict-superset` — one side fully contains the other; keep the
      superset.
 
-   - **Auto-generated files** (per `ns-resolve-merge-conflicts`): accept either
+   - **Auto-generated files** (per `resolve-merge-conflicts`): accept either
      side now, regenerate after the restack completes.
    - **Edit only the conflict region** to keep the chosen side(s). Never
      `git checkout --theirs/--ours` the whole file.
@@ -219,7 +219,7 @@ When the selected restack command reports there is nothing left to restack:
 - Run a final `git status` (clean) and `gt log` / `gt ls` to confirm a clean
   stack rooted correctly.
 - Regenerate any auto-generated files that were touched (per
-  `ns-resolve-merge-conflicts` step 6) and stage/commit them as appropriate.
+  `resolve-merge-conflicts` step 6) and stage/commit them as appropriate.
 
 ### 6. Bail-out
 

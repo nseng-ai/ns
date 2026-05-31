@@ -17,12 +17,10 @@ def _default_npx() -> FakeNpxSkills:
     return FakeNpxSkills(
         catalog={
             "dagster-io/asdl-tools": {
-                "ns-install": SkillFiles(files={"SKILL.md": "---\nname: ns-install\n---\n"}),
-                "ns-skill-management": SkillFiles(
-                    files={"SKILL.md": "---\nname: ns-skill-management\n---\n"}
+                "skill-management": SkillFiles(
+                    files={"SKILL.md": "---\nname: skill-management\n---\n"}
                 ),
-                "ns-skillx": SkillFiles(files={"SKILL.md": "---\nname: ns-skillx\n---\n"}),
-                "nsx": SkillFiles(files={"SKILL.md": "---\nname: nsx\n---\n"}),
+                "skillx": SkillFiles(files={"SKILL.md": "---\nname: skillx\n---\n"}),
             }
         }
     )
@@ -51,16 +49,12 @@ def test_create_project_creates_expected_structure(tmp_path) -> None:
     project = tmp_path / "myapp"
 
     # Directories exist
-    assert (project / ".agents" / "skills" / "ns-install").is_dir()
-    assert (project / ".agents" / "skills" / "ns-skill-management").is_dir()
-    assert (project / ".agents" / "skills" / "ns-skillx").is_dir()
-    assert (project / ".agents" / "skills" / "nsx").is_dir()
+    assert (project / ".agents" / "skills" / "skill-management").is_dir()
+    assert (project / ".agents" / "skills" / "skillx").is_dir()
 
     # Claude symlinks exist and resolve
-    assert (project / ".claude" / "skills" / "ns-install").is_symlink()
-    assert (project / ".claude" / "skills" / "ns-skill-management").is_symlink()
-    assert (project / ".claude" / "skills" / "ns-skillx").is_symlink()
-    assert (project / ".claude" / "skills" / "nsx").is_symlink()
+    assert (project / ".claude" / "skills" / "skill-management").is_symlink()
+    assert (project / ".claude" / "skills" / "skillx").is_symlink()
 
     # Generated files
     assert (project / "AGENTS.md").is_file()
@@ -155,7 +149,7 @@ def test_create_project_npx_invocation_default_agents(tmp_path) -> None:
     assert len(fake_npx.invocations) == 1
     inv = fake_npx.invocations[0]
     assert inv.repo == "dagster-io/asdl-tools"
-    assert inv.skills == ("ns-install", "ns-skill-management", "ns-skillx", "nsx")
+    assert inv.skills == ("skill-management", "skillx")
     assert inv.agents == ("codex", "claude-code")
     assert inv.cwd == tmp_path / "myapp"
 

@@ -57,21 +57,3 @@ def test_skillx_fetch_requires_npx() -> None:
         )
     assert result.exit_code != 0
     assert "npx is required" in result.output
-
-
-def test_nsx_list_requires_gh() -> None:
-    with patch("areg.preconditions.shutil.which", autospec=True, return_value=None):
-        result = CliRunner().invoke(main, ["exec", "nsx", "list"], obj=_ctx())
-    assert result.exit_code != 0
-    assert "gh CLI is required" in result.output
-
-
-def test_nsx_fetch_requires_npx() -> None:
-    with patch("areg.preconditions.shutil.which", autospec=True, return_value=None):
-        result = CliRunner().invoke(
-            main,
-            ["exec", "nsx", "fetch", "--skill", "my-skill"],
-            obj=_ctx(),
-        )
-    assert result.exit_code != 0
-    assert "npx is required" in result.output

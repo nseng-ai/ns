@@ -1,8 +1,8 @@
-# Plan: Trim `dev-gh/SKILL.md` (ns-skill-audit)
+# Plan: Trim `dev-gh/SKILL.md` (skill-audit)
 
 **Status:** Ready, not yet applied (user chose "hold — plan only").
 **Target:** `skills/dev-gh/SKILL.md` (canonical first-party source; `.agents/skills/dev-gh` and `.claude/skills/dev-gh` are symlinks to it).
-**Author of plan:** `ns-skill-audit` pass, 2026-05-26.
+**Author of plan:** `skill-audit` pass, 2026-05-26.
 **Expected outcome:** body 360 → ~45 lines (~315 lines / ~87% cut), plus a tightened frontmatter `description`. Zero behavior change.
 
 ---
@@ -22,7 +22,7 @@ The references stay **untouched**. This plan only rewrites `SKILL.md`.
 
 ### Why this is the strongest audit target
 
-The `SKILL.md` **body is loaded into context on every trigger**, while references load on demand. `ns-skill-audit` explicitly targets, for the body:
+The `SKILL.md` **body is loaded into context on every trigger**, while references load on demand. `skill-audit` explicitly targets, for the body:
 
 - onboarding tone / introductions / "philosophical" prose → delete or move to a human-only `README.md`;
 - repeated rules and obvious AI behavior → delete;
@@ -58,7 +58,7 @@ Both must be redirected to `references/graphql.md` (no dangling anchors left beh
 
 1. **Frontmatter `description`: tighten.** (User-approved optional extra.) Reduces always-in-context tokens and removes the passive opener; keeps discovery keywords.
 2. **Coordination pointers (`dev-gh-ci-debug`, `graphite`): excluded.** (User declined.) Keeps the change purely subtractive plus the description rewrite — no invented content.
-3. **No `README.md` created.** The deleted prose is generic `gh` facts already in `gh.md`, not project-specific philosophy worth preserving for humans. `ns-skill-audit`: "Do not create extra docs by default."
+3. **No `README.md` created.** The deleted prose is generic `gh` facts already in `gh.md`, not project-specific philosophy worth preserving for humans. `skill-audit`: "Do not create extra docs by default."
 4. **`metadata.internal: true` and the PUBLIC SKILL HTML comment stay.**
 
 ---
@@ -77,7 +77,7 @@ description: This skill should be used when working with GitHub CLI (gh) for pul
 description: "Use when working with the GitHub CLI (gh): pull requests, issues, releases, repos, automation, or GitHub REST/GraphQL API access. Routes to detailed gh command and API references."
 ```
 
-Rationale: preserves the trigger keywords (`gh`, pull requests, issues, releases, automation, API, workflows-via-automation) so discovery/triggering is unchanged; drops the passive "This skill should be used when…" opener and the redundant "Essential for understanding the mental model" tail that `ns-skill-audit` flags as description-repeats-body.
+Rationale: preserves the trigger keywords (`gh`, pull requests, issues, releases, automation, API, workflows-via-automation) so discovery/triggering is unchanged; drops the passive "This skill should be used when…" opener and the redundant "Essential for understanding the mental model" tail that `skill-audit` flags as description-repeats-body.
 
 ---
 
@@ -163,4 +163,4 @@ Notes on what the body retains and why:
 
 ## 9. How to resume
 
-Trigger `ns-skill-audit` on `dev-gh`, or say "apply the dev-gh trim plan". Everything needed to execute without re-deriving is in this file.
+Trigger `skill-audit` on `dev-gh`, or say "apply the dev-gh trim plan". Everything needed to execute without re-deriving is in this file.

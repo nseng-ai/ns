@@ -1,218 +1,210 @@
 # Agent Resource Catalog
 
-Fresh inventory from the repo checkout and Pi RPC `get_commands` on 2026-05-31.
+Generated from the repo checkout on 2026-05-31.
 
-This catalog separates repo-owned resources from live but non-owned runtime resources. Counts from Pi RPC include user-local and package-installed resources because those affect the visible command menu on this machine; first-party ownership is determined from checked-in paths and `skills-lock.json`, not from command names alone.
+This catalog covers repo-defined agent and harness resources with command-level rows where a resource exposes commands or tools.
 
-## Inventory method
-
-Evidence used for this refresh:
-
-- `find skills -mindepth 1 -maxdepth 1 -type d`
-- symlink/provenance scan of `.agents/skills/` and `.claude/skills/`
-- `skills-lock.json`
-- Pi RPC: `PI_OFFLINE=1 pi --mode rpc --no-session --offline`, request `{"type":"get_commands"}`
-- `.pi/extensions/`, `.pi/prompts/`, and `.pi/skills/` filesystem scan
-- `objective exec --help`, `brmem exec --help`, `aretro exec --help`, `pr-address exec --help`, and `roaster exec --help`
-- checked-in `AGENTS.md` and `CLAUDE.md` inventory, excluding `node_modules`
+Vendored, external, and user-local artifacts are intentionally separated at the bottom so first-party repo-owned surfaces stay distinct from live but non-owned developer aids.
 
 ## Summary
 
-| Surface                                      | Count | Notes                                                                             |
-| -------------------------------------------- | ----: | --------------------------------------------------------------------------------- |
-| First-party skills under `skills/`           |    21 | Symlinked into `.agents/skills/` and then `.claude/skills/`.                      |
-| Installed project skills in Pi RPC           |    45 | 21 first-party symlinks plus 24 real-directory remote/vendored skills.            |
-| `.agents/skills/` entries                    |    45 | 21 symlinks to `skills/`, 24 real directories.                                    |
-| `.claude/skills/` entries                    |    45 | All 45 are symlinks into `.agents/skills/`.                                       |
-| `skills-lock.json` entries                   |    45 | 21 local and 24 GitHub-sourced entries; 2 local hashes are `PENDING_REGEN`.       |
-| Pi RPC commands, all visible scopes          |    81 | 31 extension commands and 50 skill commands; no duplicate command names observed. |
-| Pi RPC project extension commands            |    20 | Registered by checked-in `.pi/extensions/*.ts` adapters.                          |
-| Pi RPC project skill commands                |    45 | Includes first-party and vendored project-installed skills.                       |
-| Pi RPC user-scope extension commands         |    11 | User-local or user package resources; advisory only for this repo.                |
-| Pi RPC user-scope skill commands             |     5 | User-local or user package skills; advisory only for this repo.                   |
-| Project Pi extension adapter files           |     9 | 7 command adapters, 2 tool/status-only adapters.                                  |
-| Project Pi custom tools                      |     3 | `dispatch_runner_subagent`, `grill_ask`, and `write_source_branch_plan_file`.     |
-| Project Pi prompt templates                  |     0 | `.pi/prompts/` is absent.                                                         |
-| Project Pi-specific skill directory          |     0 | `.pi/skills/` is absent; project skills are exposed through `.agents/skills/`.    |
-| Checked-in agent instruction files           |    14 | `AGENTS.md` / `CLAUDE.md` files outside ignored dependency directories.           |
-| Relevant skill-facing CLI `exec` subcommands |    22 | Across `objective`, `brmem`, `aretro`, `pr-address`, and `roaster`.               |
+| Surface                                  | Count | Description                                                                                                            |
+| ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
+| First-party skill commands               |    38 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
+| Project Pi extension commands            |    18 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| Project Pi custom tools                  |     2 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
+| Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
+| Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
+| Harness instruction files                |     6 | `AGENTS.md` and `CLAUDE.md` files that define repo or package-level agent instructions.                                |
+| Ignored vendored/external skill commands |     8 | Real-directory external skills are listed at the bottom for awareness but excluded from first-party ownership.         |
 
-## Fresh findings
+## Skill modes and catalog categories
 
-- The first-party visible skill set grew from the previous catalog's 19 to 21: `pi-grill-ui` and `proto-objective-impl` are now installed and visible as `/skill:*` commands.
-- The project Pi command surface grew from 18 to 20 commands: `/grill-ui` and `/proto:objective-impl` are now visible project extension commands.
-- No project prompt templates are present, so duplicate prompt/extension exposure is not currently a problem.
-- Several first-party skill quality issues are mechanical and low risk: stale `Original description (preserved for reference):` H1s, missing H1 in `pi-grill-ui`, large `SKILL.md` files, and two `PENDING_REGEN` lock hashes.
-- Internal skills with `metadata.internal: true` are still visible through Pi as `/skill:<name>` commands in this runtime inventory. The consolidation pass should decide whether that is acceptable, whether descriptions are enough, or whether some internals should move out of the installed skill command surface.
-- User-local Pi extensions and skills add 16 visible commands on this machine. They should stay advisory unless explicitly promoted or removed by user request.
+The promoted first-party catalog uses flat semantic names instead of an organization prefix. Skill mode is encoded in the `SKILL.md` frontmatter:
 
-## First-party skills
+- **Explicit invocation skills** use `description: "Command: <skill-name>"` and should only run when the user names the skill/command.
+- **Ambient knowledge skills** use ordinary `Use when...` descriptions and may trigger from task matching.
+- **Project-creation/scaffolding skills** are explicit-only and are not installed by default in generated `areg create-project` projects.
 
-| Skill                    | Category now                     | Lines | Current disposition / audit note                                                                                      |
-| ------------------------ | -------------------------------- | ----: | --------------------------------------------------------------------------------------------------------------------- |
-| `branch-retro`           | Public workflow                  |   147 | Keep as human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic boundary.       |
-| `brmem`                  | Public infrastructure workflow   |   271 | Keep, but audit for progressive disclosure; large enough to consider references or more CLI push-down.                |
-| `dev-checkpoint`         | Internal command skill           |    74 | Keep as dev helper; lock hash is `PENDING_REGEN`.                                                                     |
-| `dev-gh`                 | Internal routing/reference skill |    32 | Keep as GitHub API/CLI routing skill; H1 differs from skill name, likely acceptable only if deliberate.               |
-| `dev-gh-ci-debug`        | Internal command skill           |   136 | Cleanup candidate: stale `Original description` H1.                                                                   |
-| `dev-gt-restack-resolve` | Internal workflow                |   237 | Keep as specialized Graphite conflict workflow; audit size and push-down opportunities.                               |
-| `dev-gt-stackify-branch` | Internal command skill           |   199 | Cleanup candidate: stale `Original description` H1; near large-skill threshold.                                       |
-| `dev-just-fix`           | Internal command skill           |   101 | Cleanup candidate: stale `Original description` H1; clarify relationship to `/just`.                                  |
-| `dev-stacker-agent`      | Internal command/prototype skill |   230 | Cleanup candidate: stale H1 and large body; decide whether it remains installed or yields to planned/objective flows. |
-| `handoff-load`           | Public workflow                  |   115 | Keep as directed handoff pickup/list skill; coordinate with `/handoff:*` Pi commands.                                 |
-| `handoff-save`           | Public workflow                  |   140 | Keep as directed handoff creation skill; coordinate with `/handoff:create`.                                           |
-| `objective`              | Public grounding skill           |   105 | Keep as shared read-only Objective vocabulary.                                                                        |
-| `objective-close`        | Command skill                    |    60 | Keep; command marker and H1 are clean.                                                                                |
-| `objective-create`       | Command skill                    |    97 | Keep; lock hash is `PENDING_REGEN`.                                                                                   |
-| `objective-current`      | Command skill                    |    52 | Keep; command marker and H1 are clean.                                                                                |
-| `objective-next`         | Command skill                    |    69 | Keep; command marker and H1 are clean.                                                                                |
-| `objective-stack-impl`   | Public workflow                  |   276 | Audit high priority: large body, H1 differs, and overlaps with prototype runner decisions.                            |
-| `objective-update`       | Command skill                    |   191 | Keep; close to large-skill threshold but owns important semantic update rules.                                        |
-| `pi-grill-ui`            | Internal backend skill           |    15 | Cleanup/visibility candidate: missing H1 and visible as `/skill:pi-grill-ui` despite being a Pi backend asset.        |
-| `pr-address`             | Command workflow                 |   361 | Audit high priority: stale `Original description` H1 and largest first-party skill; likely reference/push-down win.   |
-| `proto-objective-impl`   | Internal prototype workflow      |   236 | Audit high priority: prototype lifecycle decision; large body and H1 differs from skill name.                         |
+| Mode     | Category                       | Skills                                                                                             |
+| -------- | ------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Explicit | Skill tooling                  | `skillx`                                                                                           |
+| Explicit | Project creation / scaffolding | `create-bun-typescript-project`, `create-python-dev-cli`, `create-python-package`                  |
+| Explicit | Repo setup and release         | `setup-dprint`, `setup-dprint-gh-ci`, `setup-python-gh-ci`, `setup-pypi-publish`, `setup-graphite` |
+| Explicit | Maintenance                    | `changelog-update`                                                                                 |
+| Ambient  | Skill authoring                | `skill-management`, `skill-audit`, `cli-push-down`                                                 |
+| Ambient  | Python standards and testing   | `dignified-python`, `python-fake-driven-testing`, `python-fake-driven-test-layout`, `pytest`       |
+| Ambient  | Workflow operations            | `refactor-swarm`, `resolve-merge-conflicts`                                                        |
 
-## Installed skill surfaces and lock state
+Generated projects install only `skill-management` and `skillx` by default from `dagster-io/asdl-tools`.
 
-| Artifact            | Current state                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------- |
-| `.agents/skills/`   | 45 entries: 21 symlinks to first-party `skills/<name>` and 24 real-directory remote skills.       |
-| `.claude/skills/`   | 45 symlinks to `.agents/skills/<name>`; vendored-vs-first-party follows the target.               |
-| `skills-lock.json`  | 45 entries: 21 `local`, 24 `github`; `dev-checkpoint` and `objective-create` are `PENDING_REGEN`. |
-| Remote skill policy | Current repo policy says real-directory entries are live developer aids, not first-party code.    |
+## First-party skill commands
 
-### Remote/vendored installed skills by source
+| Command                                 | Source                                           | Description                                                                                                         |
+| --------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `/skill:branch-retro`                   | `skills/branch-retro/SKILL.md`                   | Collects deterministic branch/session evidence and turns it into retrospective recommendations.                     |
+| `/skill:brmem`                          | `skills/brmem/SKILL.md`                          | Guides use of the `brmem` CLI for branch-scoped durable memory.                                                     |
+| `/skill:handoff-save`                   | `skills/handoff-save/SKILL.md`                   | Saves a directed handoff artifact for a specific future continuation.                                               |
+| `/skill:handoff-load`                   | `skills/handoff-load/SKILL.md`                   | Picks up, chooses, or lists saved handoff artifacts so another session can resume focused work.                     |
+| `/skill:dev-checkpoint`                 | `skills/dev-checkpoint/SKILL.md`                 | Creates a terse checkpoint commit for the current non-main branch diff.                                             |
+| `/skill:dev-gh`                         | `skills/dev-gh/SKILL.md`                         | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                                      |
+| `/skill:dev-gh-ci-debug`                | `skills/dev-gh-ci-debug/SKILL.md`                | Diagnoses GitHub Actions failures from a run URL or run ID.                                                         |
+| `/skill:dev-gt-restack-resolve`         | `skills/dev-gt-restack-resolve/SKILL.md`         | Restacks a Graphite stack and resolves mechanically safe conflicts with verification.                               |
+| `/skill:dev-gt-stackify-branch`         | `skills/dev-gt-stackify-branch/SKILL.md`         | Splits a mixed branch into an ordered Graphite stack while preserving the source branch.                            |
+| `/skill:dev-just-fix`                   | `skills/dev-just-fix/SKILL.md`                   | Runs `just`, categorizes failures, fixes root causes, and reruns the suite until green or blocked.                  |
+| `/skill:dev-stacker-agent`              | `skills/dev-stacker-agent/SKILL.md`              | Executes a multi-slice implementation plan as a serial local branch stack or commit series.                         |
+| `/skill:changelog-update`               | `skills/changelog-update/SKILL.md`               | Runs the changelog update command workflow.                                                                         |
+| `/skill:create-bun-typescript-project`  | `skills/create-bun-typescript-project/SKILL.md`  | Creates a Bun TypeScript project with strict linting, formatting, and test setup.                                   |
+| `/skill:create-python-dev-cli`          | `skills/create-python-dev-cli/SKILL.md`          | Creates a Python developer CLI project.                                                                             |
+| `/skill:create-python-package`          | `skills/create-python-package/SKILL.md`          | Creates a Python package project scaffold.                                                                          |
+| `/skill:dignified-python`               | `skills/dignified-python/SKILL.md`               | Applies modern production Python coding standards and version-specific guidance.                                    |
+| `/skill:python-fake-driven-test-layout` | `skills/python-fake-driven-test-layout/SKILL.md` | Defines per-package test directory layout for fake-driven Python projects.                                          |
+| `/skill:python-fake-driven-testing`     | `skills/python-fake-driven-testing/SKILL.md`     | Guides Python gateway and fake-driven testing architecture.                                                         |
+| `/skill:pytest`                         | `skills/pytest/SKILL.md`                         | Provides pytest style guidance for fixtures, helpers, parametrization, and test cleanup.                            |
+| `/skill:cli-push-down`                  | `skills/cli-push-down/SKILL.md`                  | Identifies deterministic prompt work that should move into tested CLI commands.                                     |
+| `/skill:refactor-swarm`                 | `skills/refactor-swarm/SKILL.md`                 | Coordinates parallel file-local refactors across many independent files.                                            |
+| `/skill:resolve-merge-conflicts`        | `skills/resolve-merge-conflicts/SKILL.md`        | Resolves merge conflicts from an in-progress rebase.                                                                |
+| `/skill:setup-dprint`                   | `skills/setup-dprint/SKILL.md`                   | Sets up dprint formatting.                                                                                          |
+| `/skill:setup-dprint-gh-ci`             | `skills/setup-dprint-gh-ci/SKILL.md`             | Adds GitHub Actions CI for dprint checks.                                                                           |
+| `/skill:setup-pypi-publish`             | `skills/setup-pypi-publish/SKILL.md`             | Sets up PyPI publishing.                                                                                            |
+| `/skill:setup-python-gh-ci`             | `skills/setup-python-gh-ci/SKILL.md`             | Sets up Python GitHub Actions CI.                                                                                   |
+| `/skill:setup-graphite`                 | `skills/setup-graphite/SKILL.md`                 | Configures a repo to use Graphite (`gt`).                                                                           |
+| `/skill:skill-audit`                    | `skills/skill-audit/SKILL.md`                    | Audits and improves skills for trigger quality, concision, progressive disclosure, and CLI push-down opportunities. |
+| `/skill:skill-management`               | `skills/skill-management/SKILL.md`               | Manages skills with `npx skills` across local and installed skill surfaces.                                         |
+| `/skill:skillx`                         | `skills/skillx/SKILL.md`                         | Runs a GitHub-hosted skill transiently with `areg exec skillx`.                                                     |
+| `/skill:objective`                      | `skills/objective/SKILL.md`                      | Provides read-only shared vocabulary and rules for asdl Objectives.                                                 |
+| `/skill:objective-close`                | `skills/objective-close/SKILL.md`                | Closes one Objective by adding closure narrative and a `closed.md` marker.                                          |
+| `/skill:objective-create`               | `skills/objective-create/SKILL.md`               | Creates a new Objective record under `.asdl/objectives/<slug>/`.                                                    |
+| `/skill:objective-current`              | `skills/objective-current/SKILL.md`              | Reads and summarizes the current state of one Objective without mutation.                                           |
+| `/skill:objective-next`                 | `skills/objective-next/SKILL.md`                 | Recommends the next useful work for one active Objective after checking for stale tracking.                         |
+| `/skill:objective-stack-impl`           | `skills/objective-stack-impl/SKILL.md`           | Orchestrates implementing one Objective as a small Graphite stack from the current session.                         |
+| `/skill:objective-update`               | `skills/objective-update/SKILL.md`               | Updates durable tracking for exactly one selected Objective using landed-state semantics.                           |
+| `/skill:pr-address`                     | `skills/pr-address/SKILL.md`                     | Addresses current-branch PR review feedback end-to-end without pushing.                                             |
 
-| Source                           | Skills                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dagster-io/fake-driven-testing` | `fdt-refactor-mock-to-fake`                                                                                                                                                                                                                                                                                                                                    |
-| `withgraphite/agent-skills`      | `graphite`                                                                                                                                                                                                                                                                                                                                                     |
-| `mattpocock/skills`              | `grill-me`, `grill-with-docs`, `handoff`, `improve-codebase-architecture`                                                                                                                                                                                                                                                                                      |
-| `nseng-ai/nonslop`               | `ns-changelog-update`, `ns-create-py-dev-cli`, `ns-create-pypackage-project`, `ns-dignified-python`, `ns-fake-driven-test-layout`, `ns-py-fake-driven-testing`, `ns-pytest`, `ns-refac-cli-push-down`, `ns-refactor-swarm`, `ns-resolve-merge-conflicts`, `ns-setup-dprint`, `ns-setup-python-ci`, `ns-skill-audit`, `ns-skill-management`, `ns-skillx`, `nsx` |
-| `anthropics/skills`              | `skill-creator`                                                                                                                                                                                                                                                                                                                                                |
-| `cursor/plugins`                 | `thermo-nuclear-code-quality-review`                                                                                                                                                                                                                                                                                                                           |
+## Skill installation surfaces
 
-Notable remote/vendored routing issues to decide, not edit in place by default:
-
-- `handoff` overlaps conceptually with first-party directed handoff skills.
-- `graphite` overlaps with first-party `dev-gt-*` skills but remains the general Graphite workflow reference required by repo instructions.
-- `grill-me` overlaps with `/grill-ui` and `pi-grill-ui`, though the latter is an internal structured-UI backend.
-- `ns-setup-python-ci` and `skill-creator` expose bare `Command` descriptions, but they are vendored and should not be normalized as first-party edits without a skill-management decision.
+| Artifact                             | Description                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `.agents/skills/<first-party-skill>` | Symlink installation surface for every first-party skill in `skills/<name>/`.                       |
+| `.claude/skills/<skill>`             | Claude Code skill mirror that symlinks each project-visible skill through `.agents/skills/<skill>`. |
 
 ## Project Pi extension commands
 
-| Command                  | Source                             | Disposition / relationship                                                                                          |
-| ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `/dev:cp`                | `.pi/extensions/dev.ts`            | Project dev/source-control command; related to `dev-checkpoint`.                                                    |
-| `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Project dev/source-control command; Graphite branch creation wrapper.                                               |
-| `/dev:submit`            | `.pi/extensions/dev.ts`            | Project dev/source-control command; Graphite submit wrapper.                                                        |
-| `/dev:land`              | `.pi/extensions/dev.ts`            | Project dev/source-control command; GitHub single-PR landing wrapper.                                               |
-| `/dev:land-stack`        | `.pi/extensions/dev.ts`            | Project dev/source-control command; Pi-only Graphite stack landing wrapper.                                         |
-| `/grill-ui`              | `.pi/extensions/grill-ui.ts`       | Structured grill session wrapper; should be the user-facing Pi command, with `pi-grill-ui` treated as backend text. |
-| `/handoff:create`        | `.pi/extensions/handoff.ts`        | Pi command for first-party directed handoff creation; related to `handoff-save`.                                    |
-| `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pi command for first-party directed handoff pickup; related to `handoff-load`.                                      |
-| `/handoff:list`          | `.pi/extensions/handoff.ts`        | Pi command for first-party directed handoff listing; related to `handoff-load`.                                     |
-| `/just`                  | `.pi/extensions/just-fix.ts`       | Top-level convenience command; clarify relationship to `dev-just-fix` during audit.                                 |
-| `/objective:list`        | `.pi/extensions/objective.ts`      | Direct Objective inventory command; no agent skill required.                                                        |
-| `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Direct Objective stack projection command; no agent skill required.                                                 |
-| `/objective:next`        | `.pi/extensions/objective.ts`      | Picker wrapper that invokes `objective-next`.                                                                       |
-| `/objective:current`     | `.pi/extensions/objective.ts`      | Picker wrapper that invokes `objective-current`.                                                                    |
-| `/objective:update`      | `.pi/extensions/objective.ts`      | Picker wrapper that invokes `objective-update`.                                                                     |
-| `/objective:stack-impl`  | `.pi/extensions/objective.ts`      | Picker wrapper that invokes `objective-stack-impl`; compare with `/proto:objective-impl`.                           |
-| `/write-plan`            | `.pi/extensions/planned-branch.ts` | Top-level planned-branch command; consider whether a future namespace would reduce surface ambiguity.               |
-| `/create-planned-branch` | `.pi/extensions/planned-branch.ts` | Top-level planned-branch command; no portable skill shortcut is currently claimed.                                  |
-| `/impl-planned-branch`   | `.pi/extensions/planned-branch.ts` | Top-level planned-branch command; uses Branch Memory plan attachment contract.                                      |
-| `/proto:objective-impl`  | `.pi/extensions/proto.ts`          | Prototype Objective implementation wrapper; lifecycle decision needed before it becomes permanent by default.       |
-
-Project extension files that do not register public slash commands:
-
-| File                                         | Surface                                                                        |
-| -------------------------------------------- | ------------------------------------------------------------------------------ |
-| `.pi/extensions/dispatch-runner-subagent.ts` | Registers `dispatch_runner_subagent`.                                          |
-| `.pi/extensions/worktree-status.ts`          | Automatic worktree/session status display; no public command in RPC inventory. |
+| Command                  | Source                             | Description                                                                                         |
+| ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `/handoff:create`        | `.pi/extensions/handoff.ts`        | Create a directed handoff artifact for a future continuation.                                       |
+| `/handoff:pickup`        | `.pi/extensions/handoff.ts`        | Pick up a saved handoff by slug, selector, or picker.                                               |
+| `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches with a card-style renderer.               |
+| `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
+| `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
+| `/dev:submit`            | `.pi/extensions/dev.ts`            | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
+| `/dev:land`              | `.pi/extensions/dev.ts`            | Squash-merges the current branch's GitHub PR into `master` with guarded package-tested behavior.    |
+| `/dev:land-stack`        | `.pi/extensions/dev.ts`            | Lands the current Graphite stack path bottom-to-current through the Pi-only stack landing workflow. |
+| `/just`                  | `.pi/extensions/just-fix.ts`       | Runs `just` and injects the `dev-just-fix` workflow prompt when the suite fails.                    |
+| `/objective:list`        | `.pi/extensions/objective.ts`      | Lists active Objectives without invoking the agent.                                                 |
+| `/objective:gt-stacks`   | `.pi/extensions/objective.ts`      | Shows Objective work across Graphite-tracked branches without invoking the agent.                   |
+| `/objective:next`        | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-next` for the selected slug.                       |
+| `/objective:current`     | `.pi/extensions/objective.ts`      | Picks an Objective and invokes `objective-current` for the selected slug.                           |
+| `/objective:update`      | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes `objective-update` for the selected slug.                     |
+| `/objective:stack-impl`  | `.pi/extensions/objective.ts`      | Picks an active Objective and invokes the portable Objective stack implementation skill.            |
+| `/write-plan`            | `.pi/extensions/planned-branch.ts` | Starts a reviewed implementation-plan authoring flow and saves the approved plan.                   |
+| `/create-planned-branch` | `.pi/extensions/planned-branch.ts` | Creates a planned branch from a saved plan and attaches the plan in Branch Memory.                  |
+| `/impl-planned-branch`   | `.pi/extensions/planned-branch.ts` | Loads the current branch's attached plan and injects an implementation prompt.                      |
 
 ## Project Pi custom tools
 
-| Tool                            | Source                                       | Disposition                                                                         |
-| ------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `dispatch_runner_subagent`      | `.pi/extensions/dispatch-runner-subagent.ts` | Keep as Pi runner helper for focused subagents; used by Objective stack workflows.  |
-| `grill_ask`                     | `.pi/extensions/grill-ui.ts`                 | Keep as structured UI helper for `/grill-ui`; not a general public skill by itself. |
-| `write_source_branch_plan_file` | `.pi/extensions/planned-branch.ts`           | Keep as plan-store writer for `/write-plan`; local plan store is documented.        |
+| Tool                            | Source                                       | Description                                                                                      |
+| ------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `dispatch_runner_subagent`      | `.pi/extensions/dispatch-runner-subagent.ts` | Launches a focused Pi runner subagent in the current cwd and returns final-text/status evidence. |
+| `write_source_branch_plan_file` | `.pi/extensions/planned-branch.ts`           | Writes a reviewed Markdown implementation plan into the local source-branch plan store.          |
 
-## Skill-facing CLI `exec` helpers
+## Repo-owned workflow family dispositions
 
-| CLI               | Hidden exec operations                                                                                                                                                                                                                                                                           | Skill/wrapper relationship                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `objective exec`  | `read-objective`, `runner-subagent-usage`                                                                                                                                                                                                                                                        | Used by Objective command skills and Objective stack implementation.             |
-| `brmem exec`      | `resolve-prompt`                                                                                                                                                                                                                                                                                 | Used by `brmem` and prompt-resolution workflows.                                 |
-| `aretro exec`     | `collect-evidence`                                                                                                                                                                                                                                                                               | Used by `branch-retro`.                                                          |
-| `pr-address exec` | `prepare-run`, `get-pr-for-branch`, `get-feedback`, `get-reviews`, `get-review-comments`, `get-discussion-comments`, `add-review-thread-reply`, `reply-to-review`, `reply-to-discussion`, `resolve-thread`, `resolve-thread-with-reply`, `unresolve-thread`, `add-issue-comment`, `add-reaction` | Used by `pr-address`; substantial deterministic workflow is already pushed down. |
-| `roaster exec`    | `classify-inline-findings`, `format-findings-comment`, `post-findings-comment`, `post-inline-findings`                                                                                                                                                                                           | CI/review automation surface; no first-party skill currently routes to it.       |
+| Family                | Disposition                                                                                                                                                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Planned branches      | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed.                  |
+| Handoff artifacts     | Final first-party surface: `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. List output uses grouped cards with copyable pickup commands. No old `brmem`-named handoff aliases are retained. |
+| Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                |
 
-## Cluster and disposition map
+## Engineered Pi extension package
 
-| Cluster                             | Current surfaces                                                                                                                                                               | Initial disposition / next decision                                                                                                                                                                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Objective command skills            | `objective`, `objective-create`, `objective-current`, `objective-next`, `objective-update`, `objective-close`; `/objective:*`; `objective exec`                                | Keep the core Objective command skills and Pi wrappers. Audit whether every command skill should stay visible as `/skill:*` or whether some are Pi-wrapper-only in practice.                                                                                 |
-| Objective implementation runners    | `objective-stack-impl`, `proto-objective-impl`, `/objective:stack-impl`, `/proto:objective-impl`, `dispatch_runner_subagent`, `objective exec runner-subagent-usage`           | Highest-priority decision cluster. Decide prototype lifecycle: merge, retire, or keep explicitly experimental. Avoid two durable Objective implementation entrypoints with unclear semantics.                                                                |
-| Handoff and Branch Memory           | `handoff-save`, `handoff-load`, `brmem`, `/handoff:create`, `/handoff:pickup`, `/handoff:list`, `brmem exec resolve-prompt`, vendored `handoff`                                | Keep first-party directed handoff as repo public UX and `brmem` as storage/infrastructure. Decide whether vendored `handoff` should remain installed despite conceptual overlap.                                                                             |
-| Branch retrospective                | `branch-retro`, `aretro exec collect-evidence`                                                                                                                                 | Keep as skill/CLI-centered. No Pi command needed unless a future UI adds clear value.                                                                                                                                                                        |
-| Dev/source-control/GitHub/Graphite  | `dev-checkpoint`, `dev-gh`, `dev-gh-ci-debug`, `dev-gt-restack-resolve`, `dev-gt-stackify-branch`, `dev-just-fix`, `dev-stacker-agent`, `/dev:*`, `/just`, vendored `graphite` | Keep as internal developer surface for now, but clean stale skill scaffolding and clarify how `/dev:*` relates to `dev-*` skills. Decide whether `dev-stacker-agent` remains separate from planned/objective implementation flows.                           |
-| PR addressing and review automation | `pr-address`, `pr-address exec *`, `roaster exec *`, vendored review skills where present                                                                                      | Audit `pr-address` first: large skill and stale H1 despite strong CLI push-down. Keep `roaster exec` cataloged as CLI automation, not a visible skill unless a workflow needs it.                                                                            |
-| Grill / structured questioning      | `/grill-ui`, `pi-grill-ui`, vendored `grill-me`, vendored `grill-with-docs`, `grill_ask`                                                                                       | Make `/grill-ui` the Pi public structured-UI path. Decide whether `pi-grill-ui` should stay installed as visible `/skill:pi-grill-ui` or move to an internal prompt asset. Keep vendored grill skills if their generic trigger value justifies surface cost. |
-| Planned branch workflow             | `/write-plan`, `/create-planned-branch`, `/impl-planned-branch`, `write_source_branch_plan_file`, docs under `docs/pi/`                                                        | Retained historically, but names are still top-level and not skill-centered. Decide whether to leave as a Pi planning layer or eventually namespace as `/plan:*`.                                                                                            |
-| Remote/vendored skills              | 24 real-directory `.agents/skills/*` entries and `.claude` symlinks                                                                                                            | Decide keep/remove/document policy. Do not edit as first-party. Main consolidation lever is installation policy and trigger-surface cost.                                                                                                                    |
-| User-local/personal runtime         | 11 user extension commands and 5 user skill commands in Pi RPC                                                                                                                 | Advisory only. Do not mutate under this Objective unless explicitly requested.                                                                                                                                                                               |
+| Artifact                                 | Description                                                                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `ts/packages/pi-extensions/package.json` | Defines the private TypeScript workspace package that holds tested implementations for project-local Pi behavior.                       |
+| `ts/packages/pi-extensions/CONTEXT.md`   | Defines the package's domain language for discovery adapters, engineered behavior, planned branches, checkpoints, and runner subagents. |
+| `ts/packages/pi-extensions/src/`         | Contains the tested implementation modules used by the thin `.pi/extensions/*.ts` discovery adapters.                                   |
+| `ts/packages/pi-extensions/test/`        | Contains Bun tests for the engineered Pi extension package and its promoted workflows.                                                  |
 
-## User-local and package runtime commands observed by Pi RPC
+## Claude workflow artifacts
 
-These commands are visible on this machine but are outside the repo-owned closure-critical surface.
+| Artifact                                       | Description                                                                                                                       |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `.claude/workflows/refactor-swarm-workflow.js` | Runs a detached Claude workflow for executing disjoint file-local refactor slices and returning a structured verification report. |
 
-| Kind                       | Commands                                                                                                                |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| User-local Pi extensions   | `/cmux-dispatch`, `/cmux-refresh-meta`, `/cmux-slot:dispatch-plan`, `/cmux-slot:open-branch`, `/gh-pr`, `/stack-latest` |
-| User/package Pi extensions | `/diff-review`, `/websearch`, `/curator`, `/google-account`, `/search`                                                  |
-| User/package skills        | `/skill:bk`, `/skill:obsidian-cli`, `/skill:pi`, `/skill:find-skills`, `/skill:librarian`                               |
+## Harness instruction files
 
-## Checked-in instruction and documentation surfaces
+| Artifact                       | Description                                                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `AGENTS.md`                    | Defines repo-wide agent rules for skills, package imports, formatting, GitHub usage, Graphite workflow, and CLI testing. |
+| `CLAUDE.md`                    | Defines Claude-facing project context, status, tech stack, and development principles for the asdl repo.                 |
+| `packages/asdl-core/AGENTS.md` | Defines asdl-core labs/incubator layering and import rules.                                                              |
+| `packages/asdl-core/CLAUDE.md` | Points Claude agents at the package-level asdl-core `AGENTS.md` rules.                                                   |
+| `packages/brmem/AGENTS.md`     | Defines Branch Memory package boundaries, allowed imports, and self-contained testing rules.                             |
+| `packages/brmem/CLAUDE.md`     | Points Claude agents at the package-level brmem `AGENTS.md` rules.                                                       |
 
-Checked-in instruction files outside dependency directories:
+## Pi settings, prompt templates, and package hooks
 
-- `AGENTS.md`
-- `CLAUDE.md`
-- `packages/asdl-core/AGENTS.md`
-- `packages/asdl-core/CLAUDE.md`
-- `packages/asdl-core/src/asdl_core/clinkr/AGENTS.md`
-- `packages/asdl-core/src/asdl_core/clinkr/CLAUDE.md`
-- `packages/asdl-core/src/asdl_core/gh/AGENTS.md`
-- `packages/asdl-core/src/asdl_core/gh/CLAUDE.md`
-- `packages/asdl-core/src/asdl_core/gt/AGENTS.md`
-- `packages/asdl-core/src/asdl_core/gt/CLAUDE.md`
-- `packages/asdl-core/src/asdl_core/sessions/AGENTS.md`
-- `packages/asdl-core/src/asdl_core/sessions/CLAUDE.md`
-- `packages/brmem/AGENTS.md`
-- `packages/brmem/CLAUDE.md`
+| Artifact            | Description                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `.pi/settings.json` | Defines project-local Pi settings and currently declares no additional Pi packages.                              |
+| `.pi/prompts/`      | Is absent, so the repo currently defines no project-local Pi prompt templates.                                   |
+| `.pi/skills/`       | Is absent, so repo-local skills are exposed through `.agents/skills/` rather than Pi-specific skill directories. |
+| `ts/package.json`   | Defines the TypeScript workspace scripts used to check and test the Pi extension package.                        |
 
-Primary docs that route or describe agent resources:
+## Harness-facing documentation and specs
 
-- `docs/agent-resource-catalog.md`
-- `docs/pi/README.md`
-- `docs/pi/handoff-artifacts.md`
-- `docs/pi/planned-branch-workflow.md`
-- `docs/pi/runner-subagent-helper.md`
-- `docs/pi/objective-stack-subagent-rewrite-brief.md`
-- `docs/dev-gh-skill-trim-plan.md`
-- `docs/objective-system.md`
-- `docs/aretro.md`
+| Artifact                                                | Description                                                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `docs/pi/README.md`                                     | Documents repo-specific Pi extension layers, resource-surface policy, current dispositions, and reload/worktree guidance. |
+| `docs/pi/extension-message-linkification.md`            | Describes how Pi extension custom messages should carry and render clickable links.                                       |
+| `docs/pi/handoff-artifacts.md`                          | Defines the directed handoff artifact vocabulary and distinguishes handoffs from compaction and generic summaries.        |
+| `docs/pi/objective-stack-subagent-rewrite-brief.md`     | Preserves the historical Objective stack subagent rewrite design with current staleness notes.                            |
+| `docs/pi/planned-branch-workflow.md`                    | Documents the planned-branch flow from saved plans to implementation branches and Branch Memory attachments.              |
+| `docs/pi/runner-subagent-helper.md`                     | Documents the repo-local runner subagent helper, return modes, statuses, and parent integration rules.                    |
+| `docs/pi/session-cwd-semantics.md`                      | Explains Pi session-bound working-directory semantics and cross-worktree patterns.                                        |
+| `docs/specs/objective-gt-stacks.md`                     | Specifies `objective gt stacks` and the companion `/objective:gt-stacks` Pi display command.                              |
+| `docs/dev-gh-skill-trim-plan.md`                        | Records a plan for trimming and restructuring the `dev-gh` skill and its references.                                      |
+| `docs/objective-stack-prompt-smoke-test/README.md`      | Documents historical smoke-test setup for the Objective stack prompt workflow.                                            |
+| `docs/objective-stack-prompt-smoke-test/walkthrough.md` | Provides the historical Objective stack prompt smoke-test walkthrough.                                                    |
 
-## Immediate cleanup candidates
+## Absent first-party surfaces
 
-Do these after disposition decisions, not as part of raw inventory:
+| Surface        | Description                                                              |
+| -------------- | ------------------------------------------------------------------------ |
+| `.codex/`      | No Codex-specific checked-in resource directory exists in this checkout. |
+| `.pi/prompts/` | No project-local Pi prompt template directory exists in this checkout.   |
+| `.pi/skills/`  | No Pi-specific project skill directory exists in this checkout.          |
 
-1. Fix first-party stale H1 scaffolding in `dev-gh-ci-debug`, `dev-gt-stackify-branch`, `dev-just-fix`, `dev-stacker-agent`, and `pr-address`.
-2. Add a proper H1 to `pi-grill-ui` or move it out of the visible skill command surface.
-3. Decide whether `objective-stack-impl` and `proto-objective-impl` are one durable capability, a durable-plus-experiment pair, or a prototype that should retire.
-4. Audit large first-party skills: `pr-address`, `objective-stack-impl`, `brmem`, `proto-objective-impl`, `dev-gt-restack-resolve`, and `dev-stacker-agent`.
-5. Regenerate or otherwise settle `PENDING_REGEN` hashes for `dev-checkpoint` and `objective-create` through the repo's skill-management workflow.
-6. Decide whether overlapping vendored skills (`handoff`, `grill-me`, `grill-with-docs`) should remain installed in this repo or be treated as removable surface-area noise.
-7. Update `docs/pi/README.md` after decisions; its older current-inventory section should not remain the authoritative catalog once this consolidation pass lands.
+## Ignored vendored or external artifacts
+
+These artifacts are live in some harnesses but are not first-party asdl-owned resources for this catalog's main sections.
+
+### Checked-in vendored or external skill commands
+
+| Command                                     | Source                                                       | Description                                                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `/skill:fdt-refactor-mock-to-fake`          | `.agents/skills/fdt-refactor-mock-to-fake/SKILL.md`          | Refactors Python tests from `unittest.mock` or `MagicMock` patterns to gateway-based fakes.                    |
+| `/skill:graphite`                           | `.agents/skills/graphite/SKILL.md`                           | Guides Graphite stacked-PR creation, navigation, submission, and stack management.                             |
+| `/skill:grill-me`                           | `.agents/skills/grill-me/SKILL.md`                           | Interviews the user to stress-test a plan until key design branches are resolved.                              |
+| `/skill:grill-with-docs`                    | `.agents/skills/grill-with-docs/SKILL.md`                    | Stress-tests a plan against project language and documentation while updating docs as decisions crystallize.   |
+| `/skill:handoff`                            | `.agents/skills/handoff/SKILL.md`                            | Compacts the current conversation into a handoff document for another agent.                                   |
+| `/skill:improve-codebase-architecture`      | `.agents/skills/improve-codebase-architecture/SKILL.md`      | Finds architecture-deepening opportunities using project domain language and ADRs.                             |
+| `/skill:skill-creator`                      | `.agents/skills/skill-creator/SKILL.md`                      | Provides tooling and evaluation assets for creating, packaging, and improving Agent Skills.                    |
+| `/skill:thermo-nuclear-code-quality-review` | `.agents/skills/thermo-nuclear-code-quality-review/SKILL.md` | Runs an extremely strict maintainability review focused on abstraction quality and spaghetti-condition growth. |
+
+### External runtime surfaces not defined by this repo
+
+| Surface                                                                  | Description                                                                                              |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| User-local Pi extensions under `~/.pi/agent/extensions/`                 | User-local Pi commands may appear in RPC inventory but are personal runtime resources outside this repo. |
+| User-local Pi skills under `~/.pi/agent/skills/` and `~/.agents/skills/` | User-local skills may appear in a developer's available-skill list but are not repo-defined artifacts.   |

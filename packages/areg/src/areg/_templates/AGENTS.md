@@ -37,4 +37,4 @@ is for project instructions, not a hand-maintained skill index.
 
 ### Managing Skills With `npx skills`
 
-All skill-management procedures -- adding, editing, removing, updating, listing, and publishing skills -- are documented in the `ns-skill-management` skill at `.agents/skills/ns-skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical areg install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink to them for universal agent discovery.
+All skill-management procedures -- adding, editing, removing, updating, listing, and publishing skills -- are documented in the `skill-management` skill at `.agents/skills/skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical areg install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink to them for universal agent discovery.

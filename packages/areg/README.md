@@ -22,10 +22,8 @@ uvx areg create-project my-project
 
 Creates a new `my-project/` directory in the current working directory, pre-wired with skill infrastructure. Default skills are installed from `dagster-io/asdl-tools`:
 
-- **ns-install** -- install local project skill infrastructure
-- **ns-skill-management** -- manage persistent skills with `npx skills`
-- **ns-skillx** -- invoke any skill ephemerally from a GitHub repo, like `npx` for skills
-- **nsx** -- shorthand for fetching asdl `ns-*` skills from the default source
+- **skill-management** -- manage persistent skills with `npx skills`
+- **skillx** -- invoke any skill ephemerally from a GitHub repo, like `npx` for skills
 
 ## Example: creating a Python project
 
@@ -34,21 +32,21 @@ From your new project, invoke `skillx` to scaffold a Python package:
 In **Claude Code**:
 
 ```text
-/ns-skillx dagster-io/asdl-tools --skill ns-create-pypackage-project
+/skillx dagster-io/asdl-tools --skill create-python-package
 ```
 
 In **Codex**:
 
 ```text
-$ns-skillx dagster-io/asdl-tools --skill ns-create-pypackage-project
+$skillx dagster-io/asdl-tools --skill create-python-package
 ```
 
 For lower-level agent workflows, `areg` also exposes hidden exec helpers:
 
 ```bash
-uv run areg exec skillx parse "dagster-io/asdl-tools --skill ns-create-pypackage-project"
+uv run areg exec skillx parse "dagster-io/asdl-tools --skill create-python-package"
 uv run areg exec skillx list --repo dagster-io/asdl-tools
-uv run areg exec skillx fetch --repo dagster-io/asdl-tools --skill ns-create-pypackage-project
+uv run areg exec skillx fetch --repo dagster-io/asdl-tools --skill create-python-package
 ```
 
 The skill is fetched, executed, and discarded -- your project gets the Python scaffolding without permanently installing anything.

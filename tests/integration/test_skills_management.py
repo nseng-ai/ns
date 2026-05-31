@@ -47,8 +47,8 @@ def _git_tracked_skill_names() -> set[str]:
 def _untracked_lock_skills() -> set[str]:
     """Skills in the lock file whose directories are not tracked by git.
 
-    These are skills symlinked via local.just (e.g. from a nonslop checkout)
-    that appear in skills-lock.json but whose files are not committed.
+    These are checkout-local skills symlinked via local.just that appear in
+    skills-lock.json but whose files are not committed.
     Works identically in local dev and CI — no reliance on .git/info/exclude.
     """
     return set(_lock_skills()) - _git_tracked_skill_names()
@@ -77,8 +77,8 @@ def test_lock_file_is_well_formed():
 def test_lock_only_contains_tracked_skills():
     """Every skill in skills-lock.json must have its files tracked by git.
 
-    If this fails, a locally-installed skill (e.g. from ``just install-nonslop``)
-    leaked into the lock file. Revert the skills-lock.json changes before committing.
+    If this fails, a checkout-local skill leaked into the lock file. Revert the
+    skills-lock.json changes before committing.
     """
     untracked = _untracked_lock_skills()
     assert not untracked, (
