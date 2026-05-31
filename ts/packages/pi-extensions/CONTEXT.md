@@ -31,7 +31,7 @@ _Avoid:_ planned-branch slug, Branch Memory key, target branch.
 **Source branch plan file** — One saved plan file scoped to the repository and source branch where planning happened.
 _Avoid:_ attached plan, implementation branch plan, source file unqualified.
 
-**Content-derived planned-branch slug** — The implementation slug derived by `/create-planned-branch` from the saved plan body through a mandatory tiny Pi model call. It drives the default target branch and the attached-plan key.
+**Content-derived planned-branch slug** — The implementation slug derived by `/create-planned-branch` from the saved plan body through a mandatory tiny Pi model call, then deterministically normalized/repaired without using the filename or path as a fallback. It drives the default target branch and the attached-plan key.
 _Avoid:_ saved-plan filename slug, path stem, deterministic fallback.
 
 **Planned branch** — An implementation branch created from a saved plan and carrying that plan as branch-scoped context.

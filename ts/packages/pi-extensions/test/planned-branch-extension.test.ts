@@ -1065,6 +1065,24 @@ describe("plan workflow commands", () => {
 		}
 	});
 
+	test("create-planned-branch dry-run repairs overlong model slug output", async () => {
+		const filePath = await makeNamedPlanFile();
+		const rawOutput = "asdl docs site slot page conventions skeleton theme foundation\n";
+		const repairedSlug = "asdl-docs-site-slot-page-conventions-skeleton";
+		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT, repairedSlug, { stdout: rawOutput })]);
+		registerPlannedBranchExtension(pi);
+		const command = pi.commands.get("create-planned-branch");
+
+		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["pi"]);
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${repairedSlug}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${repairedSlug}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${repairedSlug}.md`);
+	});
+
 	test("create-planned-branch ignores missing session file and falls back to disk latest", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
