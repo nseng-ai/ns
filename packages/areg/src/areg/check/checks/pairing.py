@@ -42,7 +42,13 @@ def _iter_pairing_dirs(project_dir: Path) -> Iterator[Path]:
                 continue
             if (rel / d) in _PAIRING_PRUNED_RELPATHS:
                 continue
-            if templates_dir is not None and (current / d).resolve() == templates_dir:
+            candidate = current / d
+            is_own_templates_dir = (
+                templates_dir is not None
+                and candidate.exists()
+                and candidate.resolve() == templates_dir
+            )
+            if is_own_templates_dir:
                 continue
             kept.append(d)
         dirnames[:] = sorted(kept)

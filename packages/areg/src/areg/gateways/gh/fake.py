@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from areg.gateways.gh.gateway import GhCli, GhError, GhNotFound
+from areg.gateways.gh.gateway import GhCli, GhNotFound
 
 
 class FakeGhCli(GhCli):
@@ -37,7 +37,4 @@ class FakeGhCli(GhCli):
             raise self._raise_for[(repo, path)]
         if repo not in self._catalog or path not in self._catalog[repo]:
             raise GhNotFound(f"No {path}/ directory found in {repo}")
-        try:
-            return list(self._catalog[repo][path])
-        except KeyError as e:  # pragma: no cover - defensive
-            raise GhError(f"FakeGhCli misconfigured for {repo}/{path}") from e
+        return list(self._catalog[repo][path])
