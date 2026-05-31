@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from brmem.ref_layout import (
+    BASE_NAMESPACE,
     EntryRef,
     InvalidBranchNameError,
     InvalidNamespaceError,
@@ -11,6 +12,7 @@ from brmem.ref_layout import (
     check_namespace,
     decode_branch_segment,
     encode_branch_segment,
+    normalize_namespace_option,
     parse_entry_ref,
     parse_snapshot_ref,
     ref_name_for_entry,
@@ -21,11 +23,11 @@ from brmem.ref_layout import (
 
 
 def test_snapshot_ref_name_builds_and_parses_base_ref() -> None:
-    ref = snapshot_ref_name(None, "feat/x")
+    ref = snapshot_ref_name(BASE_NAMESPACE, "feat/x")
 
     assert ref == "refs/brmem/base/feat---x"
     assert parse_snapshot_ref(ref) == SnapshotRef(
-        namespace=None,
+        namespace=BASE_NAMESPACE,
         branch="feat/x",
         ref_name="refs/brmem/base/feat---x",
     )
@@ -43,15 +45,21 @@ def test_snapshot_ref_name_builds_and_parses_namespaced_ref() -> None:
 
 
 def test_ref_name_for_entry_builds_and_parses_base_entry_locator() -> None:
-    locator = ref_name_for_entry(None, "scratchpad", "feat/x")
+    locator = ref_name_for_entry(BASE_NAMESPACE, "scratchpad", "feat/x")
 
     assert locator == "refs/brmem/base/feat---x:scratchpad"
     assert parse_entry_ref(locator) == EntryRef(
-        namespace=None,
+        namespace=BASE_NAMESPACE,
         key="scratchpad",
         branch="feat/x",
         ref_name="refs/brmem/base/feat---x:scratchpad",
     )
+
+
+def test_normalize_namespace_option_defaults_to_base_namespace() -> None:
+    assert normalize_namespace_option(None) == BASE_NAMESPACE
+    assert normalize_namespace_option(BASE_NAMESPACE) == BASE_NAMESPACE
+    assert normalize_namespace_option("notes") == "notes"
 
 
 def test_ref_name_for_entry_builds_and_parses_namespaced_entry_locator() -> None:
@@ -87,6 +95,7 @@ def test_parse_entry_ref_preserves_nested_keys_after_colon() -> None:
         "refs/brmem/ns/",
         "refs/brmem/ns/onlytwo",
         "refs/brmem/ns/scratch/feat---x/extra",
+        "refs/brmem/ns/base/feat---x",
         "refs/brmem/brs/feat---legacy",
         "refs/brmem/other/feat---x",
     ],
@@ -111,6 +120,7 @@ def test_parse_snapshot_ref_returns_none_for_malformed_refs(ref: str) -> None:
         "refs/brmem/ns/onlytwo",
         "refs/brmem/ns/scratch/feat---x",
         "refs/brmem/ns/scratch/feat---x/extra:key",
+        "refs/brmem/ns/base/feat---x:plan",
         "refs/brmem/brs/feat---legacy:plan",
         "refs/brmem/other/feat---x:plan",
     ],

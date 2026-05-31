@@ -25,6 +25,8 @@ from brmem.ref_layout import (
     EntryRef,
     check_branch_name,
     check_namespace,
+    namespace_display_label,
+    normalize_namespace_option,
     ref_name_for_entry,
 )
 from brmem.validation import first_failure
@@ -62,7 +64,7 @@ class PutRequest(ClinkrModel):
 
 
 class PutResult(ClinkrModel):
-    namespace: str | None
+    namespace: str
     key: str
     branch: str
     ref_name: str
@@ -72,7 +74,7 @@ class PutResult(ClinkrModel):
 
 def render_put(result: PutResult) -> None:
     source = "stdin" if result.source_file == "<stdin>" else result.source_file
-    scope = f"Namespace {result.namespace}" if result.namespace is not None else "Base"
+    scope = namespace_display_label(result.namespace)
     click.echo(
         "\n".join(
             [
@@ -168,11 +170,10 @@ def run_put(
         else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
     )
 
+    namespace = normalize_namespace_option(request.namespace)
+
     validation_failure = first_failure(
-        (
-            "invalid_namespace",
-            None if request.namespace is None else check_namespace(request.namespace),
-        ),
+        ("invalid_namespace", check_namespace(namespace)),
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
@@ -184,10 +185,10 @@ def run_put(
     )
 
     entry_ref = EntryRef(
-        namespace=request.namespace,
+        namespace=namespace,
         key=request.key,
         branch=branch,
-        ref_name=ref_name_for_entry(request.namespace, request.key, branch),
+        ref_name=ref_name_for_entry(namespace, request.key, branch),
     )
 
     try:

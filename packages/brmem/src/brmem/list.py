@@ -13,8 +13,17 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from brmem.context import BrmemCliContext
 from brmem.key_validation import check_key
-from brmem.ref_layout import EntryRef, check_branch_name, check_namespace
+from brmem.ref_layout import (
+    BASE_NAMESPACE,
+    EntryRef,
+    check_branch_name,
+    check_namespace,
+    namespace_display_label,
+    normalize_namespace_option,
+)
 from brmem.validation import first_failure
+
+_ALL_NAMESPACES_SCOPE = "all"
 
 
 class ListEntriesRequest(ClinkrModel):
@@ -25,17 +34,19 @@ class ListEntriesRequest(ClinkrModel):
 
 
 class ListEntriesResult(ClinkrModel):
-    namespace: str | None
+    namespace_scope: str
     key: str | None
-    branch: str | None
+    branch: str
     base: bool
     entries: list[EntryRef]
 
 
 def render_list_entries(result: ListEntriesResult) -> None:
     for entry in result.entries:
-        scope = f"Namespace {entry.namespace}" if entry.namespace is not None else "Base"
-        click.echo(f"{scope} | Entry Key {entry.key} | Branch {entry.branch}")
+        click.echo(
+            f"{namespace_display_label(entry.namespace)} | "
+            f"Entry Key {entry.key} | Branch {entry.branch}"
+        )
 
 
 @clinkr_operation(
@@ -59,10 +70,12 @@ def run_list_entries(
         message="--base and --namespace are mutually exclusive.",
     )
 
+    all_namespaces = not request.base and request.namespace is None
+    scope_namespace = _scope_namespace(request)
     validation_failure = first_failure(
         (
             "invalid_namespace",
-            None if request.namespace is None else check_namespace(request.namespace),
+            None if all_namespaces else check_namespace(scope_namespace),
         ),
         ("invalid_key", None if request.key is None else check_key(request.key)),
         (
@@ -83,21 +96,32 @@ def run_list_entries(
         else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
     )
 
-    entries = brmem_context.brmem_gateway.list_entries(
-        namespace=request.namespace,
-        key=request.key,
-        branch=branch,
-    )
-
-    if request.base:
-        entries = [e for e in entries if e.namespace is None]
+    if all_namespaces:
+        entries = brmem_context.brmem_gateway.list_all_entries(
+            key=request.key,
+            branch=branch,
+        )
+        namespace_scope = _ALL_NAMESPACES_SCOPE
+    else:
+        entries = brmem_context.brmem_gateway.list_entries(
+            namespace=scope_namespace,
+            key=request.key,
+            branch=branch,
+        )
+        namespace_scope = scope_namespace
 
     return ClinkrExit.ok(
         ListEntriesResult(
-            namespace=request.namespace,
+            namespace_scope=namespace_scope,
             key=request.key,
             branch=branch,
             base=request.base,
             entries=entries,
         )
     )
+
+
+def _scope_namespace(request: ListEntriesRequest) -> str:
+    if request.base:
+        return BASE_NAMESPACE
+    return normalize_namespace_option(request.namespace)

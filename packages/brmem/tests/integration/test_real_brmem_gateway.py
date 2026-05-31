@@ -7,7 +7,7 @@ import pytest
 
 from brmem.gateway import BrmemCopyConflictError, KeyNotFoundError
 from brmem.real import RealBranchMemoryGateway
-from brmem.ref_layout import InvalidBranchNameError, parse_entry_ref
+from brmem.ref_layout import BASE_NAMESPACE, InvalidBranchNameError, parse_entry_ref
 
 
 def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -102,7 +102,7 @@ def test_real_brmem_list_entries_encodes_and_decodes_branch(tmp_path: Path) -> N
 
     gateway.put("scratch", "plan", "feature/foo", "a\n")
 
-    entries = gateway.list_entries()
+    entries = gateway.list_all_entries()
 
     assert len(entries) == 1
     assert entries[0].ref_name == "refs/brmem/ns/scratch/feature---foo:plan"
@@ -119,7 +119,7 @@ def test_real_brmem_list_entries_preserves_native_slashes_in_keys(tmp_path: Path
 
     gateway.put("scratch", "plan/plan.md", "feat/x", "a\n")
 
-    entries = gateway.list_entries()
+    entries = gateway.list_all_entries()
 
     assert len(entries) == 1
     assert entries[0].ref_name == "refs/brmem/ns/scratch/feat---x:plan/plan.md"
@@ -146,7 +146,7 @@ def test_real_brmem_list_entries_filters(tmp_path: Path) -> None:
         ("scratch", "plan", "feat/y"),
     ]
 
-    fx = gateway.list_entries(branch="feat/x")
+    fx = gateway.list_all_entries(branch="feat/x")
     assert [(e.namespace, e.key, e.branch) for e in fx] == [
         ("notes", "obj-1", "feat/x"),
         ("scratch", "plan", "feat/x"),
@@ -163,7 +163,7 @@ def test_real_brmem_list_entries_silently_skips_malformed_snapshot_refs(tmp_path
     # the single encoded-branch segment that the snapshot layout allows).
     _run_git(repo, "update-ref", "refs/brmem/ns/scratch/extra/feat---y", head)
 
-    entries = gateway.list_entries()
+    entries = gateway.list_all_entries()
 
     assert [e.ref_name for e in entries] == ["refs/brmem/ns/scratch/feat---x:plan"]
 
@@ -179,7 +179,7 @@ def test_real_brmem_list_entries_ignores_refs_outside_base_and_ns_subtrees(
     # A stray ref that does not live under refs/brmem/base/ or refs/brmem/ns/.
     _run_git(repo, "update-ref", "refs/brmem/brs/feat---legacy", head)
 
-    entries = gateway.list_entries()
+    entries = gateway.list_all_entries()
 
     assert [e.ref_name for e in entries] == ["refs/brmem/ns/scratch/feat---x:plan"]
 
@@ -188,15 +188,15 @@ def test_real_brmem_base_namespace_round_trip(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    first = gateway.put(None, "scratchpad", "feat/x", "one\n")
-    second = gateway.put(None, "scratchpad", "feat/x", "two-and-three\n")
+    first = gateway.put(BASE_NAMESPACE, "scratchpad", "feat/x", "one\n")
+    second = gateway.put(BASE_NAMESPACE, "scratchpad", "feat/x", "two-and-three\n")
 
     snapshot_ref = "refs/brmem/base/feat---x"
     assert _run_git(repo, "rev-parse", snapshot_ref).stdout.strip() == second
-    assert gateway.get(None, "scratchpad", "feat/x") == "two-and-three\n"
-    assert gateway.get(None, "scratchpad", "feat/x", at=first) == "one\n"
+    assert gateway.get(BASE_NAMESPACE, "scratchpad", "feat/x") == "two-and-three\n"
+    assert gateway.get(BASE_NAMESPACE, "scratchpad", "feat/x", at=first) == "one\n"
 
-    diagnostic = gateway.check(None, "scratchpad", "feat/x")
+    diagnostic = gateway.check(BASE_NAMESPACE, "scratchpad", "feat/x")
     assert diagnostic is not None
     assert diagnostic.head_sha == second
 
@@ -205,15 +205,15 @@ def test_real_brmem_base_and_namespaced_entries_coexist(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put(None, "plan.md", "feat/x", "base\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "base\n")
     gateway.put("scratch", "plan.md", "feat/x", "ns\n")
 
-    assert gateway.get(None, "plan.md", "feat/x") == "base\n"
+    assert gateway.get(BASE_NAMESPACE, "plan.md", "feat/x") == "base\n"
     assert gateway.get("scratch", "plan.md", "feat/x") == "ns\n"
 
-    entries = gateway.list_entries()
+    entries = gateway.list_all_entries()
     assert [(e.namespace, e.ref_name) for e in entries] == [
-        (None, "refs/brmem/base/feat---x:plan.md"),
+        (BASE_NAMESPACE, "refs/brmem/base/feat---x:plan.md"),
         ("scratch", "refs/brmem/ns/scratch/feat---x:plan.md"),
     ]
 
@@ -222,12 +222,12 @@ def test_real_brmem_copy_entries_supports_base_namespace(tmp_path: Path) -> None
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put(None, "plan.md", "master", "plan\n")
-    source_head = gateway.put(None, "notes/session.md", "master", "session\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "master", "plan\n")
+    source_head = gateway.put(BASE_NAMESPACE, "notes/session.md", "master", "session\n")
     gateway.put("notes", "plan.md", "master", "named\n")
 
     copied = gateway.copy_entries(
-        namespace=None,
+        namespace=BASE_NAMESPACE,
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -240,8 +240,8 @@ def test_real_brmem_copy_entries_supports_base_namespace(tmp_path: Path) -> None
     ]
     assert _run_git(repo, "rev-parse", "refs/brmem/base/feat---x").stdout.strip() == source_head
     assert _run_git(repo, "rev-parse", "refs/brmem/base/master").stdout.strip() == source_head
-    assert gateway.get(None, "plan.md", "feat/x") == "plan\n"
-    assert gateway.get(None, "notes/session.md", "feat/x") == "session\n"
+    assert gateway.get(BASE_NAMESPACE, "plan.md", "feat/x") == "plan\n"
+    assert gateway.get(BASE_NAMESPACE, "notes/session.md", "feat/x") == "session\n"
     assert gateway.get("notes", "plan.md", "feat/x") is None
 
 
@@ -249,12 +249,12 @@ def test_real_brmem_copy_entries_base_key_glob_rebuilds_tree(tmp_path: Path) -> 
     repo = _init_repo(tmp_path)
     gateway = RealBranchMemoryGateway(cwd=repo)
 
-    gateway.put(None, "plans/a.md", "master", "a\n")
-    gateway.put(None, "notes/a.md", "master", "notes\n")
-    gateway.put(None, "keep.md", "feat/x", "keep\n")
+    gateway.put(BASE_NAMESPACE, "plans/a.md", "master", "a\n")
+    gateway.put(BASE_NAMESPACE, "notes/a.md", "master", "notes\n")
+    gateway.put(BASE_NAMESPACE, "keep.md", "feat/x", "keep\n")
 
     copied = gateway.copy_entries(
-        namespace=None,
+        namespace=BASE_NAMESPACE,
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -263,13 +263,18 @@ def test_real_brmem_copy_entries_base_key_glob_rebuilds_tree(tmp_path: Path) -> 
 
     assert [e.key for e in copied] == ["plans/a.md"]
     dest_ref = "refs/brmem/base/feat---x"
+    commit_message = _run_git(repo, "log", "-1", "--format=%B", dest_ref).stdout
+    assert (
+        "brmem copy --base --from-branch master --to-branch feat/x --key-glob plans/*"
+        in commit_message
+    )
     tree_output = sorted(
         _run_git(repo, "ls-tree", "-r", "--name-only", dest_ref).stdout.splitlines()
     )
     assert tree_output == ["keep.md", "plans/a.md"]
-    assert gateway.get(None, "plans/a.md", "feat/x") == "a\n"
-    assert gateway.get(None, "keep.md", "feat/x") == "keep\n"
-    assert gateway.get(None, "notes/a.md", "feat/x") is None
+    assert gateway.get(BASE_NAMESPACE, "plans/a.md", "feat/x") == "a\n"
+    assert gateway.get(BASE_NAMESPACE, "keep.md", "feat/x") == "keep\n"
+    assert gateway.get(BASE_NAMESPACE, "notes/a.md", "feat/x") is None
 
 
 def test_real_brmem_copy_entries_empty_dest_snapshot_is_not_conflict(tmp_path: Path) -> None:

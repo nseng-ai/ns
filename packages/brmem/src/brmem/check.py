@@ -18,6 +18,8 @@ from brmem.ref_layout import (
     EntryRef,
     check_branch_name,
     check_namespace,
+    namespace_value_label,
+    normalize_namespace_option,
     ref_name_for_entry,
 )
 from brmem.validation import first_failure
@@ -42,7 +44,7 @@ class CheckRequest(ClinkrModel):
 
 
 class CheckResult(ClinkrModel):
-    namespace: str | None
+    namespace: str
     key: str
     branch: str
     ref_name: str
@@ -55,7 +57,7 @@ class CheckResult(ClinkrModel):
 
 
 def render_check(result: CheckResult) -> None:
-    namespace_label = result.namespace if result.namespace is not None else "(base)"
+    namespace_label = namespace_value_label(result.namespace)
     lines = [
         f"Namespace: {namespace_label}",
         f"Entry Key: {result.key}",
@@ -85,11 +87,10 @@ def run_check(
         else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
     )
 
+    namespace = normalize_namespace_option(request.namespace)
+
     failure = first_failure(
-        (
-            "invalid_namespace",
-            None if request.namespace is None else check_namespace(request.namespace),
-        ),
+        ("invalid_namespace", check_namespace(namespace)),
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
@@ -101,10 +102,10 @@ def run_check(
     )
 
     entry_ref = EntryRef(
-        namespace=request.namespace,
+        namespace=namespace,
         key=request.key,
         branch=branch,
-        ref_name=ref_name_for_entry(request.namespace, request.key, branch),
+        ref_name=ref_name_for_entry(namespace, request.key, branch),
     )
 
     target = request.at if request.at is not None else entry_ref.ref_name
@@ -129,7 +130,7 @@ def run_check(
             blob_sha=None,
             size_bytes=None,
         )
-        namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
+        namespace_label = namespace_value_label(entry_ref.namespace)
         raise ClinkrExit.negative(
             absent,
             message=(

@@ -21,6 +21,9 @@ from brmem.ref_layout import (
     EntryRef,
     check_branch_name,
     check_namespace,
+    namespace_display_label,
+    namespace_value_label,
+    normalize_namespace_option,
     ref_name_for_entry,
 )
 from brmem.validation import first_failure
@@ -44,7 +47,7 @@ class DeleteRequest(ClinkrModel):
 
 
 class DeleteResult(ClinkrModel):
-    namespace: str | None
+    namespace: str
     key: str
     branch: str
     ref_name: str
@@ -52,7 +55,7 @@ class DeleteResult(ClinkrModel):
 
 
 def render_delete(result: DeleteResult) -> None:
-    scope = f"Namespace {result.namespace}" if result.namespace is not None else "Base"
+    scope = namespace_display_label(result.namespace)
     click.echo(
         "\n".join(
             [
@@ -80,11 +83,10 @@ def run_delete(
         else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
     )
 
+    namespace = normalize_namespace_option(request.namespace)
+
     validation_failure = first_failure(
-        (
-            "invalid_namespace",
-            None if request.namespace is None else check_namespace(request.namespace),
-        ),
+        ("invalid_namespace", check_namespace(namespace)),
         ("invalid_key", check_key(request.key)),
         ("invalid_branch_name", check_branch_name(branch)),
     )
@@ -96,10 +98,10 @@ def run_delete(
     )
 
     entry_ref = EntryRef(
-        namespace=request.namespace,
+        namespace=namespace,
         key=request.key,
         branch=branch,
-        ref_name=ref_name_for_entry(request.namespace, request.key, branch),
+        ref_name=ref_name_for_entry(namespace, request.key, branch),
     )
 
     try:
@@ -109,7 +111,7 @@ def run_delete(
             entry_ref.branch,
         )
     except KeyNotFoundError as exc:
-        namespace_label = entry_ref.namespace if entry_ref.namespace is not None else "(base)"
+        namespace_label = namespace_value_label(entry_ref.namespace)
         raise ClinkrFailure(
             error_type="key_not_found",
             message=(

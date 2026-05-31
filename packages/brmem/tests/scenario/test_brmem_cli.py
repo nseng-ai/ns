@@ -13,6 +13,7 @@ from asdl_core.git.types import DetachedHead, GitCommandFailure
 from brmem.context import BrmemCliContext
 from brmem.fake import FakeBranchMemoryGateway
 from brmem.main import build_cli
+from brmem.ref_layout import BASE_NAMESPACE, namespace_display_label
 
 
 @pytest.fixture(scope="module")
@@ -24,9 +25,8 @@ def _json_output(text: str) -> dict[str, object]:
     return json.loads(text)
 
 
-def _list_line(namespace: str | None, key: str, branch: str = "feat/x") -> str:
-    scope = f"Namespace {namespace}" if namespace is not None else "Base"
-    return f"{scope} | Entry Key {key} | Branch {branch}"
+def _list_line(namespace: str, key: str, branch: str = "feat/x") -> str:
+    return f"{namespace_display_label(namespace)} | Entry Key {key} | Branch {branch}"
 
 
 def _make_obj(
@@ -875,7 +875,7 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
     assert result.exit_code == 0, result.output
     assert payload["exit_code"] == 0
     assert payload["data"] == {
-        "namespace": "scratch",
+        "namespace_scope": "scratch",
         "key": None,
         "branch": "feat/x",
         "base": False,
@@ -1127,13 +1127,31 @@ def test_brmem_put_without_namespace_writes_to_base_ref(
     assert put_result.exit_code == 0, put_result.output
     assert put_payload["exit_code"] == 0
     assert put_payload["data"] == {
-        "namespace": None,
+        "namespace": BASE_NAMESPACE,
         "key": "scratchpad",
         "branch": "feat/x",
         "ref_name": "refs/brmem/base/feat---x:scratchpad",
         "commit": "fake-0001",
         "source_file": str(source_file),
     }
+
+
+def test_brmem_namespace_base_alias_writes_base_ref(cli_group: ClinkrGroup, tmp_path: Path) -> None:
+    source_file = tmp_path / "local.txt"
+    source_file.write_text("hello\n", encoding="utf-8")
+    obj = _make_obj()
+
+    put_result = CliRunner().invoke(
+        cli_group,
+        ["put", "scratchpad", "--namespace", BASE_NAMESPACE, "--file", str(source_file)],
+        obj=obj,
+    )
+    get_result = CliRunner().invoke(cli_group, ["get", "scratchpad"], obj=obj)
+
+    assert put_result.exit_code == 0, put_result.output
+    assert "Entry Locator: refs/brmem/base/feat---x:scratchpad" in put_result.output
+    assert get_result.exit_code == 0, get_result.output
+    assert get_result.output == "hello\n"
 
 
 def test_brmem_put_without_namespace_human_output(cli_group: ClinkrGroup, tmp_path: Path) -> None:
@@ -1149,14 +1167,15 @@ def test_brmem_put_without_namespace_human_output(cli_group: ClinkrGroup, tmp_pa
 
     assert result.exit_code == 0, result.output
     assert (
-        f"Stored Entry Key scratchpad from {source_file} in Base on Branch feat/x." in result.output
+        f"Stored Entry Key scratchpad from {source_file} in Base Namespace on Branch feat/x."
+        in result.output
     )
     assert "Entry Locator: refs/brmem/base/feat---x:scratchpad" in result.output
 
 
 def test_brmem_get_without_namespace_reads_base_ref(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "scratchpad", "feat/x", "hi\n")
+    gateway.put(BASE_NAMESPACE, "scratchpad", "feat/x", "hi\n")
     obj = _make_obj(gateway=gateway)
 
     get_result = CliRunner().invoke(
@@ -1171,7 +1190,7 @@ def test_brmem_get_without_namespace_reads_base_ref(cli_group: ClinkrGroup) -> N
 
 def test_brmem_check_without_namespace_hit(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "scratchpad", "feat/x", "hello\n")
+    gateway.put(BASE_NAMESPACE, "scratchpad", "feat/x", "hello\n")
 
     result = CliRunner().invoke(
         cli_group,
@@ -1247,7 +1266,7 @@ def test_brmem_list_returns_base_and_namespaced_entries_intermixed(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "scratch", "feat/x", "a\n")
+    gateway.put(BASE_NAMESPACE, "scratch", "feat/x", "a\n")
     gateway.put("scratch", "plan", "feat/x", "b\n")
     obj = _make_obj(gateway=gateway)
 
@@ -1255,7 +1274,7 @@ def test_brmem_list_returns_base_and_namespaced_entries_intermixed(
 
     assert result.exit_code == 0, result.output
     assert result.output.splitlines() == [
-        _list_line(None, "scratch"),
+        _list_line(BASE_NAMESPACE, "scratch"),
         _list_line("scratch", "plan"),
     ]
 
@@ -1264,7 +1283,7 @@ def test_brmem_list_namespace_filter_excludes_base_entries(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "scratch", "feat/x", "a\n")
+    gateway.put(BASE_NAMESPACE, "scratch", "feat/x", "a\n")
     gateway.put("scratch", "plan", "feat/x", "b\n")
     obj = _make_obj(gateway=gateway)
 
@@ -1276,14 +1295,26 @@ def test_brmem_list_namespace_filter_excludes_base_entries(
 
 def test_brmem_list_base_flag_returns_only_base_entries(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "scratch", "feat/x", "a\n")
+    gateway.put(BASE_NAMESPACE, "scratch", "feat/x", "a\n")
     gateway.put("scratch", "plan", "feat/x", "b\n")
     obj = _make_obj(gateway=gateway)
 
     result = CliRunner().invoke(cli_group, ["list", "--base"], obj=obj)
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == [_list_line(None, "scratch")]
+    assert result.output.splitlines() == [_list_line(BASE_NAMESPACE, "scratch")]
+
+
+def test_brmem_list_namespace_base_alias_returns_base_entries(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(BASE_NAMESPACE, "scratch", "feat/x", "a\n")
+    gateway.put("scratch", "plan", "feat/x", "b\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(cli_group, ["list", "--namespace", BASE_NAMESPACE], obj=obj)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [_list_line(BASE_NAMESPACE, "scratch")]
 
 
 def test_brmem_list_base_and_namespace_are_mutually_exclusive(
@@ -1319,8 +1350,8 @@ def test_brmem_export_help_lists_flags(cli_group: ClinkrGroup) -> None:
 
 def test_brmem_export_base_entries_by_default(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "feat/x", "base plan\n")
-    gateway.put(None, "notes/session.md", "feat/x", "base session\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "base plan\n")
+    gateway.put(BASE_NAMESPACE, "notes/session.md", "feat/x", "base session\n")
     gateway.put("scratch", "notes/scratch.md", "feat/x", "scratch\n")
     output_dir = tmp_path / "brmem"
 
@@ -1348,7 +1379,7 @@ def test_brmem_export_defaults_to_unique_temp_dir(
 
     def _run() -> tuple[int, str]:
         gateway = FakeBranchMemoryGateway()
-        gateway.put(None, "plan.md", "feat/x", "base plan\n")
+        gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "base plan\n")
         result = CliRunner().invoke(
             cli_group,
             ["export", "--format", "json"],
@@ -1375,7 +1406,7 @@ def test_brmem_export_defaults_to_unique_temp_dir(
 
 def test_brmem_export_namespace_entries(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "feat/x", "base\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "base\n")
     gateway.put("scratch", "notes/a.md", "feat/x", "scratch a\n")
     gateway.put("scratch", "notes/b.md", "feat/x", "scratch b\n")
     gateway.put("objectives", "obj/body.md", "feat/x", "objective\n")
@@ -1402,7 +1433,7 @@ def test_brmem_export_nested_keys_create_directories(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plans/foo/body.md", "feat/x", "body\n")
+    gateway.put(BASE_NAMESPACE, "plans/foo/body.md", "feat/x", "body\n")
     output_dir = tmp_path / "nested"
 
     result = CliRunner().invoke(
@@ -1419,8 +1450,8 @@ def test_brmem_export_explicit_branch_overrides_current(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "feat/current", "current\n")
-    gateway.put(None, "plan.md", "feat/other", "other\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/current", "current\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/other", "other\n")
     output_dir = tmp_path / "other"
 
     result = CliRunner().invoke(
@@ -1437,8 +1468,8 @@ def test_brmem_export_fails_on_existing_file_without_overwrite(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "feat/x", "new plan\n")
-    gateway.put(None, "notes/new.md", "feat/x", "new note\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "new plan\n")
+    gateway.put(BASE_NAMESPACE, "notes/new.md", "feat/x", "new note\n")
     output_dir = tmp_path / "conflict"
     output_dir.mkdir()
     (output_dir / "plan.md").write_text("original\n", encoding="utf-8")
@@ -1459,7 +1490,7 @@ def test_brmem_export_overwrite_replaces_existing_file(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "feat/x", "replacement\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "replacement\n")
     output_dir = tmp_path / "overwrite"
     output_dir.mkdir()
     (output_dir / "plan.md").write_text("original\n", encoding="utf-8")
@@ -1476,7 +1507,7 @@ def test_brmem_export_overwrite_replaces_existing_file(
 
 def test_brmem_export_dry_run_writes_nothing(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "feat/x", "plan\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "plan\n")
     output_dir = tmp_path / "dry-run"
 
     result = CliRunner().invoke(
@@ -1510,7 +1541,7 @@ def test_brmem_export_empty_selection_is_negative(cli_group: ClinkrGroup, tmp_pa
 
 def test_brmem_export_json_output(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "feat/x", "base\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "feat/x", "base\n")
     output_dir = tmp_path / "json"
 
     result = CliRunner().invoke(
@@ -1523,7 +1554,7 @@ def test_brmem_export_json_output(cli_group: ClinkrGroup, tmp_path: Path) -> Non
     assert result.exit_code == 0, result.output
     assert payload["exit_code"] == 0
     assert payload["data"] == {
-        "namespace": None,
+        "namespace": BASE_NAMESPACE,
         "branch": "feat/x",
         "output_dir": str(output_dir),
         "overwrite": False,
@@ -1581,8 +1612,8 @@ def test_brmem_copy_base_happy_path_copies_base_entries(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "master", "plan\n")
-    gateway.put(None, "notes/session.md", "master", "session\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "master", "plan\n")
+    gateway.put(BASE_NAMESPACE, "notes/session.md", "master", "session\n")
     gateway.put("notes", "plan.md", "master", "named\n")
     obj = _make_obj(gateway=gateway)
 
@@ -1601,8 +1632,8 @@ def test_brmem_copy_base_happy_path_copies_base_entries(
 
     assert result.exit_code == 0, result.output
     assert "Copied 2 Entries in Base Namespace from Branch master to Branch feat/x" in result.output
-    assert gateway.get(None, "plan.md", "feat/x") == "plan\n"
-    assert gateway.get(None, "notes/session.md", "feat/x") == "session\n"
+    assert gateway.get(BASE_NAMESPACE, "plan.md", "feat/x") == "plan\n"
+    assert gateway.get(BASE_NAMESPACE, "notes/session.md", "feat/x") == "session\n"
     assert gateway.get("notes", "plan.md", "feat/x") is None
 
 
@@ -1610,9 +1641,9 @@ def test_brmem_copy_base_with_key_glob_filters_entries(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plans/a.md", "master", "a\n")
-    gateway.put(None, "plans/nested/b.md", "master", "b\n")
-    gateway.put(None, "notes/a.md", "master", "notes\n")
+    gateway.put(BASE_NAMESPACE, "plans/a.md", "master", "a\n")
+    gateway.put(BASE_NAMESPACE, "plans/nested/b.md", "master", "b\n")
+    gateway.put(BASE_NAMESPACE, "notes/a.md", "master", "notes\n")
     obj = _make_obj(gateway=gateway)
 
     result = CliRunner().invoke(
@@ -1632,9 +1663,9 @@ def test_brmem_copy_base_with_key_glob_filters_entries(
 
     assert result.exit_code == 0, result.output
     assert "Base Namespace" in result.output
-    assert gateway.get(None, "plans/a.md", "feat/x") == "a\n"
-    assert gateway.get(None, "plans/nested/b.md", "feat/x") == "b\n"
-    assert gateway.get(None, "notes/a.md", "feat/x") is None
+    assert gateway.get(BASE_NAMESPACE, "plans/a.md", "feat/x") == "a\n"
+    assert gateway.get(BASE_NAMESPACE, "plans/nested/b.md", "feat/x") == "b\n"
+    assert gateway.get(BASE_NAMESPACE, "notes/a.md", "feat/x") is None
 
 
 def test_brmem_copy_requires_scope(cli_group: ClinkrGroup) -> None:
@@ -1668,11 +1699,11 @@ def test_brmem_copy_rejects_base_and_namespace_together(cli_group: ClinkrGroup) 
     assert "--base and --namespace are mutually exclusive" in result.output
 
 
-def test_brmem_copy_base_json_envelope_reports_null_namespace(
+def test_brmem_copy_base_json_envelope_reports_base_namespace(
     cli_group: ClinkrGroup,
 ) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "master", "plan\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "master", "plan\n")
     obj = _make_obj(gateway=gateway)
 
     result = CliRunner().invoke(
@@ -1694,11 +1725,39 @@ def test_brmem_copy_base_json_envelope_reports_null_namespace(
     assert result.exit_code == 0, result.output
     assert payload["exit_code"] == 0
     data = payload["data"]
-    assert data["namespace"] is None
+    assert data["namespace"] == BASE_NAMESPACE
     assert [item["key"] for item in data["copied"]] == ["plan.md"]
     copied = data["copied"][0]
     assert copied["source_ref"].startswith("refs/brmem/base/master:")
     assert copied["destination_ref"].startswith("refs/brmem/base/feat---x:")
+
+
+def test_brmem_copy_namespace_base_alias_copies_base_entries(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put(BASE_NAMESPACE, "plan.md", "master", "plan\n")
+    gateway.put("notes", "plan.md", "master", "named\n")
+    obj = _make_obj(gateway=gateway)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "copy",
+            "--namespace",
+            BASE_NAMESPACE,
+            "--from-branch",
+            "master",
+            "--to-branch",
+            "feat/x",
+        ],
+        obj=obj,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Copied 1 Entry in Base Namespace from Branch master to Branch feat/x" in result.output
+    assert gateway.get(BASE_NAMESPACE, "plan.md", "feat/x") == "plan\n"
+    assert gateway.get("notes", "plan.md", "feat/x") is None
 
 
 def test_brmem_copy_empty_destination_snapshot_does_not_conflict(
@@ -2045,7 +2104,7 @@ def test_brmem_delete_json_missing_key_reports_failure(cli_group: ClinkrGroup) -
 
 def test_brmem_delete_without_namespace_targets_base_entry(cli_group: ClinkrGroup) -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "scratchpad", "feat/x", "hi\n")
+    gateway.put(BASE_NAMESPACE, "scratchpad", "feat/x", "hi\n")
     obj = _make_obj(gateway=gateway)
 
     runner = CliRunner()
@@ -2053,7 +2112,9 @@ def test_brmem_delete_without_namespace_targets_base_entry(cli_group: ClinkrGrou
     get_result = runner.invoke(cli_group, ["get", "scratchpad"], obj=obj)
 
     assert delete_result.exit_code == 0, delete_result.output
-    assert "Deleted Entry Key scratchpad from Base on Branch feat/x." in delete_result.output
+    assert (
+        "Deleted Entry Key scratchpad from Base Namespace on Branch feat/x." in delete_result.output
+    )
     assert "Entry Locator: refs/brmem/base/feat---x:scratchpad" in delete_result.output
     assert get_result.exit_code == 2
 

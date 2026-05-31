@@ -5,7 +5,7 @@ import pytest
 from brmem.fake import EntryKey, FakeBranchMemoryGateway
 from brmem.gateway import BrmemCopyConflictError, KeyNotFoundError
 from brmem.key_validation import InvalidKeyError
-from brmem.ref_layout import InvalidBranchNameError, InvalidNamespaceError
+from brmem.ref_layout import BASE_NAMESPACE, InvalidBranchNameError, InvalidNamespaceError
 from brmem.validation import InvalidKeyGlobError
 
 
@@ -147,7 +147,7 @@ def test_fake_brmem_list_entries_no_filters_returns_all_sorted() -> None:
     gateway.put("scratch", "plan", "feat/y", "a\n")
     gateway.put("notes", "obj-1", "feat/x", "a\n")
 
-    entries = gateway.list_entries()
+    entries = gateway.list_all_entries()
 
     assert [(e.namespace, e.key, e.branch) for e in entries] == [
         ("notes", "obj-1", "feat/x"),
@@ -173,7 +173,7 @@ def test_fake_brmem_list_entries_filters_by_key_and_branch() -> None:
     gateway.put("scratch", "notes", "feat/x", "a\n")
     gateway.put("scratch", "plan", "feat/y", "a\n")
 
-    entries = gateway.list_entries(key="plan", branch="feat/y")
+    entries = gateway.list_all_entries(key="plan", branch="feat/y")
 
     assert [(e.namespace, e.key, e.branch) for e in entries] == [("scratch", "plan", "feat/y")]
 
@@ -183,7 +183,7 @@ def test_fake_brmem_list_entries_matches_keys_with_slashes() -> None:
     gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
     gateway.put("scratch", "plan/b.md", "feat/x", "b\n")
 
-    entries = gateway.list_entries(key="plan/a.md")
+    entries = gateway.list_all_entries(key="plan/a.md")
 
     assert [(e.namespace, e.key, e.branch) for e in entries] == [
         ("scratch", "plan/a.md", "feat/x"),
@@ -194,7 +194,7 @@ def test_fake_brmem_list_entries_rejects_malformed_filters() -> None:
     gateway = FakeBranchMemoryGateway()
 
     with pytest.raises(InvalidBranchNameError):
-        gateway.list_entries(branch="")
+        gateway.list_all_entries(branch="")
     with pytest.raises(InvalidNamespaceError):
         gateway.list_entries(namespace="ns/with/slash")
 
@@ -202,12 +202,12 @@ def test_fake_brmem_list_entries_rejects_malformed_filters() -> None:
 def test_fake_brmem_base_namespace_round_trip() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    commit = gateway.put(None, "scratchpad", "feat/x", "hello\n")
+    commit = gateway.put(BASE_NAMESPACE, "scratchpad", "feat/x", "hello\n")
 
     assert commit == "fake-0001"
-    assert gateway.get(None, "scratchpad", "feat/x") == "hello\n"
+    assert gateway.get(BASE_NAMESPACE, "scratchpad", "feat/x") == "hello\n"
 
-    diagnostic = gateway.check(None, "scratchpad", "feat/x")
+    diagnostic = gateway.check(BASE_NAMESPACE, "scratchpad", "feat/x")
     assert diagnostic is not None
     assert diagnostic.size_bytes == 6
 
@@ -215,27 +215,27 @@ def test_fake_brmem_base_namespace_round_trip() -> None:
 def test_fake_brmem_base_and_namespaced_entries_do_not_collide() -> None:
     gateway = FakeBranchMemoryGateway()
 
-    gateway.put(None, "scratchpad", "feat/x", "base\n")
+    gateway.put(BASE_NAMESPACE, "scratchpad", "feat/x", "base\n")
     gateway.put("scratch", "scratchpad", "feat/x", "ns\n")
 
-    assert gateway.get(None, "scratchpad", "feat/x") == "base\n"
+    assert gateway.get(BASE_NAMESPACE, "scratchpad", "feat/x") == "base\n"
     assert gateway.get("scratch", "scratchpad", "feat/x") == "ns\n"
 
-    entries = gateway.list_entries()
+    entries = gateway.list_all_entries()
     assert [(e.namespace, e.ref_name) for e in entries] == [
-        (None, "refs/brmem/base/feat---x:scratchpad"),
+        (BASE_NAMESPACE, "refs/brmem/base/feat---x:scratchpad"),
         ("scratch", "refs/brmem/ns/scratch/feat---x:scratchpad"),
     ]
 
 
 def test_fake_brmem_copy_entries_supports_base_namespace() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plan.md", "master", "plan\n")
-    source_head = gateway.put(None, "notes/session.md", "master", "session\n")
+    gateway.put(BASE_NAMESPACE, "plan.md", "master", "plan\n")
+    source_head = gateway.put(BASE_NAMESPACE, "notes/session.md", "master", "session\n")
     gateway.put("notes", "plan.md", "master", "named\n")
 
     copied = gateway.copy_entries(
-        namespace=None,
+        namespace=BASE_NAMESPACE,
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -246,23 +246,23 @@ def test_fake_brmem_copy_entries_supports_base_namespace() -> None:
         ("notes/session.md", "refs/brmem/base/feat---x:notes/session.md"),
         ("plan.md", "refs/brmem/base/feat---x:plan.md"),
     ]
-    assert gateway.get(None, "plan.md", "feat/x") == "plan\n"
-    assert gateway.get(None, "notes/session.md", "feat/x") == "session\n"
+    assert gateway.get(BASE_NAMESPACE, "plan.md", "feat/x") == "plan\n"
+    assert gateway.get(BASE_NAMESPACE, "notes/session.md", "feat/x") == "session\n"
     assert gateway.get("notes", "plan.md", "feat/x") is None
 
-    diagnostic = gateway.check(None, "plan.md", "feat/x")
+    diagnostic = gateway.check(BASE_NAMESPACE, "plan.md", "feat/x")
     assert diagnostic is not None
     assert diagnostic.head_sha == source_head
 
 
 def test_fake_brmem_copy_entries_base_key_glob_preserves_non_matching_dest_keys() -> None:
     gateway = FakeBranchMemoryGateway()
-    gateway.put(None, "plans/a.md", "master", "a\n")
-    gateway.put(None, "notes/a.md", "master", "notes\n")
-    gateway.put(None, "keep.md", "feat/x", "keep\n")
+    gateway.put(BASE_NAMESPACE, "plans/a.md", "master", "a\n")
+    gateway.put(BASE_NAMESPACE, "notes/a.md", "master", "notes\n")
+    gateway.put(BASE_NAMESPACE, "keep.md", "feat/x", "keep\n")
 
     copied = gateway.copy_entries(
-        namespace=None,
+        namespace=BASE_NAMESPACE,
         from_branch="master",
         to_branch="feat/x",
         overwrite=False,
@@ -270,9 +270,9 @@ def test_fake_brmem_copy_entries_base_key_glob_preserves_non_matching_dest_keys(
     )
 
     assert [e.key for e in copied] == ["plans/a.md"]
-    assert gateway.get(None, "plans/a.md", "feat/x") == "a\n"
-    assert gateway.get(None, "keep.md", "feat/x") == "keep\n"
-    assert gateway.get(None, "notes/a.md", "feat/x") is None
+    assert gateway.get(BASE_NAMESPACE, "plans/a.md", "feat/x") == "a\n"
+    assert gateway.get(BASE_NAMESPACE, "keep.md", "feat/x") == "keep\n"
+    assert gateway.get(BASE_NAMESPACE, "notes/a.md", "feat/x") is None
 
 
 def test_fake_brmem_copy_entries_empty_dest_snapshot_is_not_conflict() -> None:

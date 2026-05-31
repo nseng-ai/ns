@@ -24,7 +24,9 @@ from brmem.gateway import (
 )
 from brmem.key_validation import validate_key
 from brmem.ref_layout import (
+    BASE_NAMESPACE,
     EntryRef,
+    entry_ref_sort_key,
     ref_name_for_entry,
     validate_branch_name,
     validate_namespace,
@@ -35,13 +37,13 @@ _FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 class EntryKey(NamedTuple):
-    namespace: str | None
+    namespace: str
     key: str
     branch: str
 
 
 class _SnapshotKey(NamedTuple):
-    namespace: str | None
+    namespace: str
     branch: str
 
 
@@ -70,12 +72,11 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         self._commits: dict[str, _Snapshot] = {}
         self._snapshot_heads: dict[_SnapshotKey, str] = {}
         self._commit_dates_by_sha: dict[str, str] = {}
-        self._put_calls: list[tuple[str | None, str, str, str]] = []
+        self._put_calls: list[tuple[str, str, str, str]] = []
         self._next_commit_number = 1
 
         for entry_key, content in (initial_entries or {}).items():
-            if entry_key.namespace is not None:
-                validate_namespace(entry_key.namespace)
+            validate_namespace(entry_key.namespace)
             validate_key(entry_key.key)
             validate_branch_name(entry_key.branch)
             self._put(entry_key.namespace, entry_key.key, entry_key.branch, content)
@@ -83,49 +84,39 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
     def list_entries(
         self,
         *,
-        namespace: str | None = None,
+        namespace: str,
         key: str | None = None,
         branch: str | None = None,
     ) -> list[EntryRef]:
-        if namespace is not None:
-            validate_namespace(namespace)
-        if key is not None:
-            validate_key(key)
-        if branch is not None:
-            validate_branch_name(branch)
+        validate_namespace(namespace)
+        return self._collect_entries(
+            all_namespaces=False,
+            namespace=namespace,
+            key=key,
+            branch=branch,
+        )
 
-        entries: list[EntryRef] = []
-        for snapshot_key, head_sha in self._snapshot_heads.items():
-            if namespace is not None and snapshot_key.namespace != namespace:
-                continue
-            if branch is not None and snapshot_key.branch != branch:
-                continue
-            for tree_entry in self._commits[head_sha].tree:
-                if key is not None and tree_entry.key != key:
-                    continue
-                entries.append(
-                    EntryRef(
-                        namespace=snapshot_key.namespace,
-                        key=tree_entry.key,
-                        branch=snapshot_key.branch,
-                        ref_name=ref_name_for_entry(
-                            snapshot_key.namespace, tree_entry.key, snapshot_key.branch
-                        ),
-                    )
-                )
-
-        entries.sort(key=lambda e: (e.namespace or "", e.key, e.branch))
-        return entries
+    def list_all_entries(
+        self,
+        *,
+        key: str | None = None,
+        branch: str | None = None,
+    ) -> list[EntryRef]:
+        return self._collect_entries(
+            all_namespaces=True,
+            namespace=BASE_NAMESPACE,
+            key=key,
+            branch=branch,
+        )
 
     def put(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         content: str,
     ) -> str:
-        if namespace is not None:
-            validate_namespace(namespace)
+        validate_namespace(namespace)
         validate_key(key)
         validate_branch_name(branch)
         commit_sha = self._put(namespace, key, branch, content)
@@ -134,12 +125,11 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
 
     def delete(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
     ) -> str:
-        if namespace is not None:
-            validate_namespace(namespace)
+        validate_namespace(namespace)
         validate_key(key)
         validate_branch_name(branch)
 
@@ -166,14 +156,13 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
 
     def get(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         *,
         at: str | None = None,
     ) -> str | None:
-        if namespace is not None:
-            validate_namespace(namespace)
+        validate_namespace(namespace)
         validate_key(key)
         validate_branch_name(branch)
 
@@ -187,14 +176,13 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
 
     def check(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         *,
         at: str | None = None,
     ) -> EntryDiagnostic | None:
-        if namespace is not None:
-            validate_namespace(namespace)
+        validate_namespace(namespace)
         validate_key(key)
         validate_branch_name(branch)
 
@@ -216,14 +204,13 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
     def copy_entries(
         self,
         *,
-        namespace: str | None,
+        namespace: str,
         from_branch: str,
         to_branch: str,
         overwrite: bool,
         key_glob: str | None,
     ) -> tuple[EntryRef, ...]:
-        if namespace is not None:
-            validate_namespace(namespace)
+        validate_namespace(namespace)
         validate_branch_name(from_branch)
         validate_branch_name(to_branch)
         if key_glob is not None:
@@ -322,7 +309,43 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
 
     # -- internals -----------------------------------------------------------
 
-    def _put(self, namespace: str | None, key: str, branch: str, content: str) -> str:
+    def _collect_entries(
+        self,
+        *,
+        all_namespaces: bool,
+        namespace: str,
+        key: str | None,
+        branch: str | None,
+    ) -> list[EntryRef]:
+        if key is not None:
+            validate_key(key)
+        if branch is not None:
+            validate_branch_name(branch)
+
+        entries: list[EntryRef] = []
+        for snapshot_key, head_sha in self._snapshot_heads.items():
+            if not all_namespaces and snapshot_key.namespace != namespace:
+                continue
+            if branch is not None and snapshot_key.branch != branch:
+                continue
+            for tree_entry in self._commits[head_sha].tree:
+                if key is not None and tree_entry.key != key:
+                    continue
+                entries.append(
+                    EntryRef(
+                        namespace=snapshot_key.namespace,
+                        key=tree_entry.key,
+                        branch=snapshot_key.branch,
+                        ref_name=ref_name_for_entry(
+                            snapshot_key.namespace, tree_entry.key, snapshot_key.branch
+                        ),
+                    )
+                )
+
+        entries.sort(key=entry_ref_sort_key)
+        return entries
+
+    def _put(self, namespace: str, key: str, branch: str, content: str) -> str:
         snapshot_key = _SnapshotKey(namespace, branch)
         parent = self._snapshot_heads.get(snapshot_key)
         if parent is not None:
@@ -349,7 +372,7 @@ class FakeBranchMemoryGateway(BranchMemoryGateway):
         self._snapshot_heads[snapshot_key] = sha
         return sha
 
-    def _resolve_target(self, namespace: str | None, branch: str, at: str | None) -> str | None:
+    def _resolve_target(self, namespace: str, branch: str, at: str | None) -> str | None:
         if at is None:
             return self._snapshot_heads.get(_SnapshotKey(namespace, branch))
         return at if at in self._commits else None

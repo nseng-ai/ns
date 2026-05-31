@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from brmem.ref_layout import EntryRef
+from brmem.ref_layout import EntryRef, namespace_value_label
 
 
 @dataclass(frozen=True)
@@ -32,44 +32,54 @@ class KeyNotFoundError(Exception):
 
     Carries the ``(namespace, key, branch)`` identity so callers (in particular
     the CLI layer) can build a human-readable failure message without
-    re-deriving the Entry Locator.
+    re-deriving the Entry Locator. ``namespace=\"base\"`` identifies the Base
+    Namespace.
     """
 
-    def __init__(self, namespace: str | None, key: str, branch: str) -> None:
+    def __init__(self, namespace: str, key: str, branch: str) -> None:
         self.namespace = namespace
         self.key = key
         self.branch = branch
-        ns_label = namespace if namespace is not None else "(base)"
+        ns_label = namespace_value_label(namespace)
         super().__init__(f"key {key!r} not found in namespace {ns_label} on branch {branch!r}")
 
 
 class BranchMemoryGateway(ABC):
     """Store small per-branch blobs outside the working tree.
 
-    Entries are keyed by ``(namespace, key, branch)`` where ``namespace`` may
-    be ``None`` to store under the ad-hoc base subtree. Each
-    ``(namespace, branch)`` pair maps to a single snapshot commit whose tree
-    holds every entry as a blob at path ``key``.
+    Entries are keyed by ``(namespace, key, branch)`` where ``namespace`` is a
+    canonical string identity. ``namespace=\"base\"`` stores under the reserved
+    Base Namespace subtree. Each ``(namespace, branch)`` pair maps to a single
+    snapshot commit whose tree holds every entry as a blob at path ``key``.
     """
 
     @abstractmethod
     def list_entries(
         self,
         *,
-        namespace: str | None = None,
+        namespace: str,
         key: str | None = None,
         branch: str | None = None,
     ) -> list[EntryRef]:
-        """Return entries, optionally filtered by namespace/key/branch.
+        """Return entries in exactly one namespace, optionally filtered by key/branch."""
 
-        ``namespace=None`` means "no namespace filter" — both base and
-        namespaced entries are returned.
+    @abstractmethod
+    def list_all_entries(
+        self,
+        *,
+        key: str | None = None,
+        branch: str | None = None,
+    ) -> list[EntryRef]:
+        """Return entries from every namespace, optionally filtered by key/branch.
+
+        This is the only all-namespace read path. ``None`` is not a namespace
+        identity.
         """
 
     @abstractmethod
     def put(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         content: str,
@@ -79,7 +89,7 @@ class BranchMemoryGateway(ABC):
     @abstractmethod
     def get(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         *,
@@ -90,7 +100,7 @@ class BranchMemoryGateway(ABC):
     @abstractmethod
     def check(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
         *,
@@ -101,7 +111,7 @@ class BranchMemoryGateway(ABC):
     @abstractmethod
     def delete(
         self,
-        namespace: str | None,
+        namespace: str,
         key: str,
         branch: str,
     ) -> str:
@@ -117,7 +127,7 @@ class BranchMemoryGateway(ABC):
     def copy_entries(
         self,
         *,
-        namespace: str | None,
+        namespace: str,
         from_branch: str,
         to_branch: str,
         overwrite: bool,
@@ -125,8 +135,8 @@ class BranchMemoryGateway(ABC):
     ) -> tuple[EntryRef, ...]:
         """Atomically copy entries in a Namespace from ``from_branch`` to ``to_branch``.
 
-        ``namespace=None`` copies the Base Namespace. Any string value copies a
-        named Namespace.
+        ``namespace=\"base\"`` copies the Base Namespace. Any other string value
+        copies a named Namespace.
 
         When ``key_glob`` is ``None`` this is a snapshot-level operation: the
         destination snapshot ref is pointed at the **same commit SHA** as the

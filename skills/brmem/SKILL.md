@@ -26,9 +26,9 @@ delete, or explain Branch Memory.
 - **Entry**: a small text blob stored under an Entry Key such as `plan.md` or
   `plans/table-filter.md`.
 - **Entry Key**: the path-like name for an Entry within Branch Memory.
-- **Namespace**: a branch-scoped Entry bucket. The Base Namespace is reserved by
-  `brmem` for ad-hoc Entries when `--namespace` is omitted. Named Namespaces
-  are workflow-owned buckets such as `notes`.
+- **Namespace**: a branch-scoped Entry bucket. The Base Namespace has canonical
+  name `base` and is reserved by `brmem` for ad-hoc Entries when `--namespace`
+  is omitted. Named Namespaces are workflow-owned buckets such as `notes`.
 - **Entry Locator**: the copy-pastable `git show` locator printed by commands,
   shaped like `<snapshot-ref>:<entry-key>`.
 
@@ -51,8 +51,10 @@ private tokens, binary assets, generated build output, or large datasets.
 | Copy named Namespace Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
 
 Add `--namespace <ns>` to `put`, `get`, `check`, `delete`, `list`, or `export`
-for named Namespace Entries. Omit it for Base Namespace Entries. For `copy`,
-choose exactly one scope: `--base` or `--namespace <ns>`.
+for named Namespace Entries. Omit it for Base Namespace Entries. The canonical
+Base Namespace name is `base`; where `--namespace base` is accepted, it selects
+Base Namespace Entries. For `copy`, choose exactly one scope: `--base` or
+`--namespace <ns>`.
 
 ## Operating rules
 
@@ -65,7 +67,8 @@ choose exactly one scope: `--base` or `--namespace <ns>`.
    workflows do not collide. Namespaces are single path segments: no `/`.
 3. **Choose the copy scope explicitly.** Use `brmem copy --base ...` for the
    Base Namespace, or `brmem copy --namespace <ns> ...` for a named Namespace.
-   Do not omit the scope and do not pass both flags.
+   `brmem copy --namespace base ...` targets the Base Namespace too. Do not
+   omit the scope and do not pass both flags.
 4. **Use simple Entry Keys.** Prefer POSIX-like relative paths such as
    `plans/add-cache.md` or `session/summary.md`. Avoid spaces and punctuation.
    Entry Keys cannot be empty, start/end with `/`, contain `//`, contain `:`,

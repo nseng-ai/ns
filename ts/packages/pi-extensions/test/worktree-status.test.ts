@@ -291,6 +291,28 @@ describe("loadWorktreeStatus", () => {
 		}
 	});
 
+	test("formats base namespace brmem entries from canonical namespace strings", async () => {
+		const pi = new OrderlessFakePi([
+			brmemListStep({
+				stdout: JSON.stringify({
+					exit_code: 0,
+					data: {
+						entries: [
+							{ namespace: "base", key: "scratch/plan.md" },
+							{ namespace: "plans", key: "adapter/details.md" },
+						],
+					},
+				}),
+			}),
+			...basicGtScript(),
+		]);
+
+		const status = await loadWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.brmem).toBe("(base: scratch) (plans: adapter)");
+	});
+
 	test("uses a later brmem candidate after an earlier candidate returns a nonzero envelope", async () => {
 		const root = makePyprojectRoot();
 		try {
