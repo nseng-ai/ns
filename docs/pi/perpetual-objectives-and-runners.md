@@ -1,89 +1,342 @@
-# Perpetual Objectives & Runners — Design Brief (WIP)
+# Standing Objectives & Objective Impl Runners — Design Brief
 
-**Status:** Draft / in-progress. Captured mid-grill on 2026-05-31.
-**Context:** Comparison of `aigorahub/elves` and Karpathy's `autoresearch` against asdl's Objective system surfaced a new capability: objectives that pursue a goal continuously rather than draining a predefined plan to closure.
+**Status:** Consolidated design direction after grill on 2026-05-31.
+**Context:** Comparison of `aigorahub/elves`, Karpathy's `autoresearch`, Sakana AI Scientist, and Ralph against asdl's Objective system surfaced a missing capability: Objectives that can be advanced autonomously or continuously without turning the Objective record into a workflow controller.
 
----
-
-## 1. The core idea
-
-There are **two orthogonal axes**, and they map cleanly onto the two nouns we already separated (the durable record vs. the harness that advances it):
-
-| Axis        | Question                | Property of              | Values                              |
-| ----------- | ----------------------- | ------------------------ | ----------------------------------- |
-| **Horizon** | Does the goal ever end? | the **Objective** (noun) | **bounded** (today) ↔ **permanent** |
-| **Drive**   | Who advances it?        | the **Runner** (verb)    | **human** ↔ **autonomous**          |
-
-The runner/objective split is _why_ the axes are orthogonal: the objective never needs to know who is driving; the runner never needs to know whether the goal terminates.
-
-|                       | **Bounded** (defined end)                                        | **Permanent** (may never hit it)                            |
-| --------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
-| **Human-driven**      | Today's default — work a plan objective to closure               | Person pursues a standing goal over time                    |
-| **Autonomous-driven** | `objective-stack-impl` / elves run a finite objective to its end | autoresearch / Ralph — perpetual optimization toward a goal |
-
-Today's entire system lives in the **left column**. The right column and the autonomous row are _independent_ unlocks.
-
-### Two flavors inside "permanent" (texture, not a third axis)
-
-- **Optimize-forever** (autoresearch): no ceiling, monotone push; _keep-iff-improved_ is the engine.
-- **Maintain-forever** (SRE setpoint): hold within a band; act on drift; escalate on breach.
+This document is a design brief, not the canonical Objective spec. The canonical checked-in Objective mechanics remain in [`docs/objective-system.md`](../objective-system.md).
 
 ---
 
-## 2. Prior art (researched)
+## 1. Core model
 
-- **Karpathy `autoresearch`** (released 2026-03-07, ~630 LOC). Loop: human writes `program.md` (a "super-lightweight skill" = goal + process); agent rewrites `train.py`; objective metric is `val_bpb`; each pass runs a fixed 5-min job, **keep if metric improved else roll back**; ~12 experiments/hr. Principle: **"if you have an objective metric, you should not be in the loop."**
-- **Sakana AI Scientist**: same loop shape + an explicit **idea archive + novelty check** so iteration N doesn't re-derive N−1; LLM reviewer as soft metric.
-- **Ralph** (Huntley, 2025-07): the generic `while true`, fresh context per pass, memory in `progress.txt` / `prd.json` / git, stop when "all PRD items complete." Direct ancestor of elves.
+There are two orthogonal axes:
 
-Sources: github.com/karpathy/autoresearch, sakana.ai/ai-scientist, ghuntley.com/ralph.
+| Axis        | Question                        | Property of              | Values                     |
+| ----------- | ------------------------------- | ------------------------ | -------------------------- |
+| **Horizon** | Does the goal naturally finish? | the **Objective** (noun) | **bounded** ↔ **standing** |
+| **Drive**   | Who advances it?                | the **Runner** (verb)    | **human** ↔ **autonomous** |
 
----
+The Objective/Runner split is load-bearing:
 
-## 3. Architectural boundary (carried from the elves comparison)
+- The **Objective** is the durable narrative spec: goal, boundaries, assumptions, progress rubric, and reusable learnings.
+- The **Runner** is the harness that advances the Objective: it chooses moves, manages branches, validates, keeps or rejects work, and stops.
 
-> **The Objective owns the _spec_ of the loop. The harness owns the _state_ of the loop.**
+Today's system mostly lives in the bounded/human quadrant, with `objective-stack-impl` occupying a bounded/autonomous-ish specialized runner role.
 
-- **In the Objective record (durable, semantic, markdown):** the goal, the process/policy, the learnings archive. Describes the loop the way `program.md` describes the research org — it never _is_ the loop.
-- **Outside the Objective (branch-local, ephemeral, regenerable):** iteration counters, keep/rollback ledger, candidate-move queue, stop gate, continuation guard. Throwaway run-state.
+|                       | **Bounded**                                             | **Standing**                                            |
+| --------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
+| **Human-driven**      | Human works a finite Objective to closure               | Human tends an ongoing goal over time                   |
+| **Autonomous-driven** | Runner advances as far as it can under a bounded launch | Runner repeatedly improves or maintains a standing goal |
 
-This preserves the existing invariant: **"An Objective is not a workflow controller, state machine, hidden agent store, or task database."**
+### Standing, not permanent
 
-### Emergent-roadmap rule (load-bearing)
+Use **standing Objective** for the horizon term. It means the Objective has no natural goal-met finish line, but it can still be closed when it is retired, superseded, obsolete, or intentionally abandoned.
 
-A permanent objective _discovers_ its next move; it must not store a checklist (that would become the banned task DB). The agent may append **learnings** ("tried X, regressed, ruled out"), but the **next move is always re-derived from `(goal, current repo state, learnings)` at the top of each pass** — never read from a stored queue.
+Avoid adding lifecycle states up front. The Objective system remains `active / closed`; assumption divergence and review needs are events or findings, not new statuses.
 
----
+### Autoobjective is colloquial
 
-## 4. Settled decisions (from the grill)
+**Autoobjective** is useful shorthand for “an Objective designed for autonomous pursuit.” It is not a formal third noun in the ontology.
 
-1. **Architecture: B-with-a-thin-slice-of-A.** A new _runner_ skill (the continuous sibling of `objective-stack-impl`) carries the novelty. We bless only a thin slice of objective schema: `{North Star, process/definition-of-progress}` (+ an optional metric when one happens to exist). The durable record stays nearly untouched. Prototype as a `dev-`-prefixed skill, dogfood, then graduate.
+- A bounded Objective can be an autoobjective.
+- A standing Objective can be human-driven and therefore not an autoobjective.
+- A standing autoobjective is the autoresearch/Ralph-like quadrant.
 
-2. **No new closure vocabulary.** "Retiring" a permanent objective is just **closing** it. We do not invent a separate term; a permanent objective is closed by human decision rather than by goal-met evidence, but it's still `closed`.
+### Standing flavors
 
-3. **Metric NOT required** — even for autonomous runners. A permanent objective may be purely qualitative. _Consequence:_ without a metric there's no automatic keep/rollback signal, so the loop leans on a qualitative rubric (see #4).
+Standing Objectives can have different textures without adding a third axis:
 
-4. **Progress rubric lives IN the objective.** `objective.md` carries a qualitative _definition-of-progress_ in its process section. **Every** runner — human on Monday, autonomous overnight — applies the same bar. The bar is durable intent (noun); the _act_ of judging (subagent, checklist, adversarial verify) is execution (verb), and stays in the runner.
-
-5. **Staleness is reframed as assumption-divergence, not recency.** A permanent objective sitting quiet in steady state is **healthy**. It becomes stale only when **the assumptions undergirding it have changed** — new external facts or code changes. (Implies the objective should record its load-bearing assumptions; detection mechanism TBD — see open questions.)
-
-6. **Lifecycle: `active / closed` only — for now.** Default to simplicity. We explicitly rejected adding `paused` / `dormant` states up front. States will be added iteratively as we experiment if the need proves real. (Human pause/resume is treated as an ephemeral per-session runner choice, not recorded on the objective.)
-
----
-
-## 5. Open questions (interrupted — NOT yet answered)
-
-These were asked in a bad batch (grill-me malfunction, see below) and were **not** truly answered; treat them as open:
-
-1. **Stale-detection mechanism.** Explicit `Assumptions` section that a runner re-checks each pass (recommended) vs. human-only marking vs. assumptions + automated tripwire commands. _(Strong simplicity signal from the user suggests: explicit assumptions + agent re-check, no daemon.)_
-2. **Validity term** for "assumptions no longer hold," distinct from time-stale: `out-of-date` / `invalidated` / `needs-review` / `drifted`. _(May be moot given #6's simplicity stance — possibly defer until we have the state.)_
-3. **Autonomous gate.** How does "leave this objective to humans" persist so an autonomous runner skips it? Candidate: a durable **drive-policy** in the objective's spec section (`autonomous: yes|no`), defaulting to human-only (opt-in to autonomy) vs. scoping it at runner launch vs. overloading `needs-review`.
-4. **Stop condition** for one autonomous launch: budget + no-progress escalation (recommended) vs. budget-only vs. progress-stall-only.
-5. **Pass output / git materialization:** one small PR per kept pass (recommended, reuses gt/PR review surface) vs. long-lived branch + batch review vs. bounded Graphite stack then recycle.
+- **Optimize-forever**: no fixed ceiling; keep pushing when evidence shows improvement.
+- **Maintain-forever**: hold a system within a healthy band; act on drift; escalate when assumptions fail.
 
 ---
 
-## 6. Next steps
+## 2. Prior-art loop shape
 
-- Resume the grill **one question at a time** to close §5.
-- Then draft: (a) the concrete `objective.md` shape for a permanent objective (North Star + process/definition-of-progress + Assumptions), and (b) the `objective-pursue` (working name) runner loop contract.
+- **Karpathy `autoresearch`**: human writes `program.md`; agent rewrites `train.py`; a fixed job reports `val_bpb`; keep if metric improves, otherwise roll back. Principle: if there is a real objective metric, the human should not be in the inner loop.
+- **Sakana AI Scientist**: similar loop shape, plus idea archive and novelty checks so later iterations do not rediscover earlier attempts.
+- **Ralph**: generic `while true` loop with fresh context per pass and memory in durable text/git artifacts.
+
+The useful transplant is not “make Objectives into programs.” It is:
+
+1. start each pass from durable intent plus current repo state;
+2. attempt one candidate move;
+3. keep only clearly evidenced progress;
+4. preserve only reusable semantic learnings;
+5. keep loop control state outside the Objective.
+
+---
+
+## 3. Objective record convention
+
+Standing Objectives and autoobjectives remain normal Objective records:
+
+```text
+.asdl/objectives/<slug>/
+  objective.md
+  roadmap.md
+  updates/
+  closed.md  # optional; existence means closed
+```
+
+No alternate record shape, YAML schema, registry, hidden state, or task database is introduced.
+
+### Required Objective sections still apply
+
+The existing required headings stay valid:
+
+- `## Thesis`
+- `## Scope`
+- `## Non-Goals`
+- `## Completion Criteria`
+- `## Assumptions and Risks`
+- `## Open Questions`
+
+For a **standing Objective**, `## Completion Criteria` should describe **retirement / closure criteria**, not a natural finish line. Example:
+
+```md
+## Completion Criteria
+
+This is a standing Objective. It has no goal-met finish line. Close it when the goal is obsolete, superseded by another Objective, no longer worth maintaining, or intentionally abandoned by a human.
+```
+
+`## Assumptions and Risks` is the durable home for load-bearing assumptions. When an assumption no longer holds, record that as an **assumption invalidated** event/finding, not as a new Objective status.
+
+### Optional autoobjective sections
+
+Autoobjectives may add optional top-level prose sections to make autonomous pursuit safe and legible:
+
+```md
+## North Star
+
+The stable goal the runner should optimize or maintain over time.
+
+## Definition of Progress
+
+Light rubric for deciding whether a pass should be kept.
+
+Progress looks like:
+
+- ...
+
+Do not keep changes that:
+
+- ...
+
+Useful evidence includes:
+
+- ...
+
+## Runner Policy
+
+This Objective is designed for autonomous pursuit under the boundaries below.
+
+- Launch shape: ...
+- Materialization: ...
+- External access: ...
+- Ask or stop when: ...
+```
+
+The `## Runner Policy` signal is prose, not a key-value permission bit. Prefer wording like:
+
+> This Objective is designed for autonomous pursuit under the boundaries below.
+
+If this signal is absent or ambiguous, a runner must not assume the Objective is autonomy-designed. It may still operate in human-assisted mode when a human confirms an explicit execution preview.
+
+Minimum durable content before treating an Objective as autonomy-designed:
+
+1. a North Star;
+2. a Definition of Progress;
+3. load-bearing assumptions in `## Assumptions and Risks`;
+4. runner boundaries / escalation guidance.
+
+Metrics are optional. When present, a metric is part of the Definition of Progress, not a replacement for the qualitative rubric and boundaries.
+
+### `roadmap.md` for standing Objectives
+
+`roadmap.md` remains required, but standing Objectives should use it as **standing operating guidance**, not as a durable queue of next moves.
+
+Recommended shape:
+
+```md
+# Roadmap
+
+## Work
+
+- [~] Keep improving/maintaining <standing direction>.
+  - Guidance: ...
+  - Evidence: ...
+
+## Parked
+
+- [ ] Direction intentionally not pursued right now because ...
+```
+
+A standing row may remain `[~]` until the direction is retired, replaced, or the Objective is closed. Marking it `[x]` means the standing direction ended, not that one runner pass finished the whole Objective.
+
+The runner may use `roadmap.md` case-by-case, based on the Objective's prose. For standing Objectives, it must not treat roadmap entries as a hidden pass queue. The next move is re-derived from:
+
+```text
+(goal, current repo state, durable learnings, current launch scope)
+```
+
+### `updates/` as semantic memory, not a run log
+
+The existing Semantic Update log is sufficient durable history. Do not add a separate run ledger.
+
+Write updates only when there is meaningful Objective impact:
+
+- kept progress;
+- changed assumptions or risk knowledge;
+- reusable learnings;
+- ruled-out approaches future runs should not rediscover;
+- changed roadmap or progress-rubric understanding.
+
+Do not write ceremonial launch summaries, iteration counters, or rejected-attempt ledgers.
+
+---
+
+## 4. `dev-objective-impl`: first runner direction
+
+Prototype the general runner as a dogfood-only skill/command named **`dev-objective-impl`**.
+
+Here, **impl** is broad: making durable progress on an Objective. It can include code, docs, tests, research artifacts, maintenance work, or Objective-only semantic learnings when those are the correct output.
+
+### Relationship to `objective-stack-impl`
+
+Keep the existing `objective-stack-impl` runner as the specialized planned-stack runner for now.
+
+`dev-objective-impl` is the more general emergent runner:
+
+- explicit Objective selection;
+- derive the next move from Objective + repo + learnings;
+- proceed as far as the confirmed launch scope allows;
+- materialize kept progress as reviewable git changes.
+
+Later, `objective-stack-impl` may become a mode or wrapper of the broader runner if dogfooding proves the abstraction.
+
+### Launch contract
+
+A `dev-objective-impl` launch should:
+
+1. resolve exactly one explicit Objective;
+2. read `objective.md`, `roadmap.md`, and relevant `updates/`;
+3. determine whether the Objective is clearly designed for autonomous pursuit;
+4. present a concise execution preview;
+5. wait for human confirmation;
+6. run only within the confirmed scope;
+7. stop with a prose explanation.
+
+The preview should include:
+
+- selected Objective;
+- whether the run is autonomous or human-assisted;
+- proposed bounded budget/scope;
+- likely materialization shape;
+- expected validation;
+- external access expectations;
+- when the runner should stop or ask;
+- whether Objective updates are expected.
+
+There is no fixed default pass count. The runner proposes a bounded scope in the preview, and the human confirms it.
+
+### Autonomy-designed vs. human-assisted mode
+
+If the Objective is clearly designed for autonomous pursuit, the runner may proceed inside the confirmed launch scope without asking after every pass.
+
+If the Objective is not clearly designed for autonomous pursuit, the runner may still help in **human-assisted mode**. Human-assisted mode uses an upfront confirmed plan/preview, similar to `objective-stack-impl`; the preview must carry more human-authored specificity because the Objective itself does not provide the autonomy-ready rubric.
+
+### Execution architecture
+
+Use a parent orchestrator with fresh serial runner subagents:
+
+- The parent owns Objective selection, preview, branch control, subagent prompts, keep/reject judgment, Objective updates, commits, and stop decisions.
+- Each candidate pass runs in a fresh focused subagent when delegation is useful.
+- Run one pass/subagent at a time in the current worktree.
+- Do not run parallel implementation passes in v1.
+
+Loop state such as counters, candidate notes, and rejected-attempt ledgers stays in-session and in ephemeral git state. Durable state is limited to kept repo changes and meaningful Objective updates.
+
+### External access
+
+Read-only external research is allowed by default for assumption checks and move derivation.
+
+External side effects are not allowed by default. Publishing, deploying, mutating GitHub issues/PRs, calling write APIs, or changing external systems requires explicit launch scope or Runner Policy guidance.
+
+---
+
+## 5. Keep, reject, and materialize
+
+A runner pass is kept only when it can cite concrete evidence against the Objective's Definition of Progress and pass evidence-appropriate validation.
+
+Validation is artifact-specific:
+
+- code changes should run relevant tests/checks;
+- docs/Markdown changes should run relevant formatting or docs checks when available;
+- research-only outputs should cite sources/evidence;
+- skipped validation must be explicitly justified.
+
+Ambiguous changes are not kept.
+
+### Git materialization
+
+For v1, materialize each kept pass as one small local Graphite branch/commit. PR submission remains a separate explicit human request.
+
+Rejected candidates should be discarded: reset/delete the candidate branch or dirty state, and preserve only reusable semantic learnings when they matter.
+
+A launch can still be successful with no branch or Objective update when the runner credibly checks the Objective and finds no safe/useful progress to keep. That is especially important for maintain-forever standing Objectives, where healthy steady state should not create churn.
+
+### Objective updates in kept branches
+
+When a kept pass materially advances the Objective, include concise Objective tracking changes in the same branch:
+
+- edit `objective.md` or `roadmap.md` when durable narrative/guidance changes;
+- add a Semantic Update when there is meaningful Objective impact;
+- update assumptions/risks when assumptions are invalidated or risk knowledge changes.
+
+Do not write Objective updates solely to memorialize a no-op launch.
+
+---
+
+## 6. Anti-goals and guardrails
+
+Do not turn Objectives into:
+
+- workflow controllers;
+- state machines;
+- task databases;
+- hidden agent stores;
+- run ledgers;
+- branch attachment systems;
+- automation registries.
+
+Do not add new lifecycle states for standing or autonomy-designed Objectives in v1. `active` and `closed` remain sufficient.
+
+Do not formalize “autoobjective” as schema or a required type field. It is colloquial language for an Objective whose prose is shaped well enough for autonomous pursuit.
+
+Do not require metrics. Numeric metrics are powerful when available, but qualitative Definitions of Progress are valid.
+
+---
+
+## 7. Deferred decisions
+
+These are intentionally left for prototype dogfooding:
+
+- exact `dev-objective-impl` skill text and launch flags;
+- exact execution-preview format;
+- branch naming and candidate-branch cleanup mechanics;
+- how much `dev-objective-impl` should reuse `objective-stack-impl` internals;
+- whether `objective-stack-impl` eventually becomes a mode of `objective-impl`;
+- whether stable parts of this brief should be promoted into `docs/objective-system.md`;
+- whether `## Runner Policy` should gain more standard example bullets after real use.
+
+---
+
+## 8. Next concrete slice
+
+A credible first implementation slice is documentation and skill scaffolding only:
+
+1. keep this design brief as the dogfood reference;
+2. create a `dev-objective-impl` skill that implements the v1 launch contract;
+3. dogfood it on one bounded Objective and one standing Objective;
+4. only then decide which conventions belong in the canonical Objective system spec.
