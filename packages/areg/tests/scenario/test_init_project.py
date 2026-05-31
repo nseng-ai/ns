@@ -1,0 +1,364 @@
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+from click.testing import CliRunner
+
+from areg.cli import main
+from areg.context import AregContext
+from areg.gateways.gh.fake import FakeGhCli
+from areg.gateways.npx_skills.fake import FakeNpxSkills
+from areg.gateways.npx_skills.gateway import NpxSkillsError, SkillFiles
+
+BOOTSTRAP_REPO = "dagster-io/asdl-tools"
+
+
+def _default_npx() -> FakeNpxSkills:
+    return FakeNpxSkills(
+        catalog={
+            BOOTSTRAP_REPO: {
+                "skill-management": SkillFiles(
+                    files={"SKILL.md": "---\nname: skill-management\n---\n"}
+                ),
+                "skillx": SkillFiles(files={"SKILL.md": "---\nname: skillx\n---\n"}),
+            }
+        }
+    )
+
+
+def _ctx(*, npx: FakeNpxSkills | None = None) -> AregContext:
+    return AregContext(
+        gh=FakeGhCli(),
+        npx_skills=npx or _default_npx(),
+    )
+
+
+def _git_init(project_dir: Path) -> None:
+    project_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "init"],
+        cwd=project_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_init_initializes_existing_git_root(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / ".agents" / "skills" / "skill-management").is_dir()
+    assert (tmp_path / ".agents" / "skills" / "skillx").is_dir()
+    assert (tmp_path / ".claude" / "skills" / "skill-management").is_symlink()
+    assert (tmp_path / ".claude" / "skills" / "skillx").is_symlink()
+    assert (tmp_path / "skills-lock.json").is_file()
+    assert _read_json(tmp_path / "areg.json") == {"agents": ["codex", "claude-code"]}
+    assert "<!-- areg:skills:start -->" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    claude_md = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "<!-- areg:claude-skills:start -->" in claude_md
+    assert "Claude Code discovers installed skills" in claude_md
+    assert (tmp_path / ".claude" / "settings.local.json").is_file()
+    assert not (tmp_path / ".gitignore").exists()
+    assert f"Initialized areg in {tmp_path}" in result.output
+    assert "Bootstrap skills installed: skill-management, skillx" in result.output
+    assert "Review and commit generated files" in result.output
+    assert "npx skills add" in result.output
+
+
+def test_init_defaults_to_current_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _git_init(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(main, ["init"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "AGENTS.md").is_file()
+    assert (tmp_path / "areg.json").is_file()
+
+
+def test_init_uses_custom_agents(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    fake_npx = _default_npx()
+
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path), "--agent", "codex", "--agent", "windsurf"],
+        obj=_ctx(npx=fake_npx),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert _read_json(tmp_path / "areg.json") == {"agents": ["codex", "windsurf"]}
+    assert len(fake_npx.invocations) == 1
+    invocation = fake_npx.invocations[0]
+    assert invocation.repo == BOOTSTRAP_REPO
+    assert invocation.skills == ("skill-management", "skillx")
+    assert invocation.agents == ("codex", "windsurf")
+    assert invocation.cwd == tmp_path
+
+
+def test_init_overwrites_existing_areg_json(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "areg.json").write_text(
+        json.dumps({"agents": ["old"], "unknown": True}),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert _read_json(tmp_path / "areg.json") == {"agents": ["codex", "claude-code"]}
+
+
+def test_init_leaves_existing_claude_settings_unchanged(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    settings = tmp_path / ".claude" / "settings.local.json"
+    settings.parent.mkdir()
+    settings.write_text("custom settings\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert settings.read_text(encoding="utf-8") == "custom settings\n"
+
+
+def test_init_rejects_nonexistent_target(tmp_path: Path) -> None:
+    result = CliRunner().invoke(main, ["init", str(tmp_path / "missing")], obj=_ctx())
+
+    assert result.exit_code != 0
+    assert "does not exist" in result.output
+
+
+def test_init_rejects_non_git_directory(tmp_path: Path) -> None:
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+
+    assert result.exit_code != 0
+    assert "must be a Git worktree root" in result.output
+    assert "Run git init first" in result.output
+
+
+def test_init_rejects_git_subdirectory(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+
+    result = CliRunner().invoke(main, ["init", str(subdir)], obj=_ctx())
+
+    assert result.exit_code != 0
+    assert "is inside a Git worktree but is not the root" in result.output
+    assert f"Run areg init {tmp_path}" in result.output
+
+
+def test_init_existing_agents_md_prompt_no_leaves_file_unchanged(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("# Existing instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="n\n")
+
+    assert result.exit_code == 0, result.output
+    assert agents.read_text(encoding="utf-8") == "# Existing instructions\n"
+
+
+def test_init_existing_agents_md_prompt_yes_appends_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("# Existing instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="y\n")
+
+    assert result.exit_code == 0, result.output
+    content = agents.read_text(encoding="utf-8")
+    assert "# Existing instructions" in content
+    assert "<!-- areg:skills:start -->" in content
+
+
+def test_init_existing_agents_md_yes_flag_appends_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("# Existing instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert "<!-- areg:skills:start -->" in agents.read_text(encoding="utf-8")
+
+
+def test_init_existing_agents_md_no_append_skips_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("# Existing instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--no-append"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert agents.read_text(encoding="utf-8") == "# Existing instructions\n"
+    assert (tmp_path / "CLAUDE.md").is_file()
+
+
+def test_init_existing_claude_md_prompt_no_leaves_file_unchanged(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="n\n")
+
+    assert result.exit_code == 0, result.output
+    assert claude.read_text(encoding="utf-8") == "# Existing Claude instructions\n"
+
+
+def test_init_existing_claude_md_prompt_yes_appends_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="y\n")
+
+    assert result.exit_code == 0, result.output
+    content = claude.read_text(encoding="utf-8")
+    assert "# Existing Claude instructions" in content
+    assert "<!-- areg:claude-skills:start -->" in content
+    assert "@AGENTS.md" in content
+
+
+def test_init_existing_claude_md_yes_flag_appends_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert "<!-- areg:claude-skills:start -->" in claude.read_text(encoding="utf-8")
+
+
+def test_init_existing_claude_md_no_append_skips_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("# Existing Claude instructions\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--no-append"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert claude.read_text(encoding="utf-8") == "# Existing Claude instructions\n"
+    assert (tmp_path / "AGENTS.md").is_file()
+
+
+def test_init_claude_md_does_not_duplicate_existing_agents_include(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("# Existing Claude instructions\n\n@AGENTS.md\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    content = claude.read_text(encoding="utf-8")
+    assert content.count("@AGENTS.md") == 1
+    assert "Claude Code discovers installed skills" in content
+
+
+def test_init_existing_marked_agents_block_prompt_no_leaves_old_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    original = "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n"
+    agents.write_text(original, encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="n\n")
+
+    assert result.exit_code == 0, result.output
+    assert agents.read_text(encoding="utf-8") == original
+
+
+def test_init_existing_marked_agents_block_prompt_yes_replaces_old_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx(), input="y\n")
+
+    assert result.exit_code == 0, result.output
+    content = agents.read_text(encoding="utf-8")
+    assert "old" not in content
+    assert "Discover installed skills" in content
+
+
+def test_init_existing_marked_agents_block_yes_flag_replaces_old_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert "old" not in agents.read_text(encoding="utf-8")
+
+
+def test_init_existing_marked_agents_block_no_append_leaves_old_block(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    original = "# Agents\n\n<!-- areg:skills:start -->\nold\n<!-- areg:skills:end -->\n"
+    agents.write_text(original, encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--no-append"], obj=_ctx())
+
+    assert result.exit_code == 0, result.output
+    assert agents.read_text(encoding="utf-8") == original
+
+
+def test_init_malformed_agents_marker_errors(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    (tmp_path / "AGENTS.md").write_text("<!-- areg:skills:start -->\nold\n", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["init", str(tmp_path)], obj=_ctx())
+
+    assert result.exit_code != 0
+    assert "malformed areg-managed block" in result.output
+
+
+def test_init_rejects_yes_with_no_append(tmp_path: Path) -> None:
+    result = CliRunner().invoke(main, ["init", str(tmp_path), "--yes", "--no-append"], obj=_ctx())
+
+    assert result.exit_code != 0
+    assert "--yes and --no-append cannot be used together" in result.output
+
+
+def test_init_npx_failure_is_non_destructive(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    readme = tmp_path / "README.md"
+    readme.write_text("keep me\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        main,
+        ["init", str(tmp_path)],
+        obj=_ctx(npx=FakeNpxSkills(raise_on_add=NpxSkillsError("boom"))),
+    )
+
+    assert result.exit_code != 0
+    assert "npx skills add failed: boom" in result.output
+    assert tmp_path.is_dir()
+    assert readme.read_text(encoding="utf-8") == "keep me\n"
+
+
+def test_create_project_command_is_removed() -> None:
+    result = CliRunner().invoke(main, ["create-project", "x"], obj=_ctx())
+
+    assert result.exit_code != 0
+    assert "No such command 'create-project'" in result.output

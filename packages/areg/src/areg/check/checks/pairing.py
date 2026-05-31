@@ -21,7 +21,7 @@ _PAIRING_PRUNED_RELPATHS = {
 def _templates_dir() -> Path | None:
     """Resolve areg's bundled _templates dir, or None if not on a real filesystem.
 
-    Prunes areg's OWN scaffolding templates from the pairing check regardless
+    Prunes areg's OWN initialization templates from the pairing check regardless
     of where the package sits relative to the checked project root.
     """
     candidate = Path(str(importlib.resources.files("areg") / "_templates"))

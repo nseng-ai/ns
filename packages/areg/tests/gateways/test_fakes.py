@@ -113,6 +113,32 @@ def test_fake_npx_writes_lock_file_by_default(tmp_path: Path) -> None:
     assert lock["skills"]["my-skill"]["source"] == "owner/repo"
 
 
+def test_fake_npx_merges_lock_file_entries(tmp_path: Path) -> None:
+    (tmp_path / "skills-lock.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "skills": {
+                    "existing-skill": {
+                        "source": "someone/else",
+                        "sourceType": "github",
+                        "computedHash": "old",
+                    }
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    npx = FakeNpxSkills(catalog={"owner/repo": {"my-skill": SkillFiles(files={"SKILL.md": "x"})}})
+
+    npx.add("owner/repo", skills=["my-skill"], agents=["codex"], cwd=tmp_path)
+
+    lock = json.loads((tmp_path / "skills-lock.json").read_text(encoding="utf-8"))
+    assert lock["skills"]["existing-skill"]["source"] == "someone/else"
+    assert lock["skills"]["my-skill"]["source"] == "owner/repo"
+
+
 def test_fake_npx_skip_lock_and_symlinks_when_disabled(tmp_path: Path) -> None:
     npx = FakeNpxSkills(
         catalog={"owner/repo": {"my-skill": SkillFiles(files={"SKILL.md": "x"})}},

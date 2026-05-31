@@ -24,7 +24,7 @@ The promoted first-party catalog uses flat semantic names instead of an organiza
 
 - **Explicit invocation skills** use `description: "Command: <skill-name>"` and should only run when the user names the skill/command.
 - **Ambient knowledge skills** use ordinary `Use when...` descriptions and may trigger from task matching.
-- **Project-creation/scaffolding skills** are explicit-only and are not installed by default in generated `areg create-project` projects.
+- **Project-creation/scaffolding skills** are explicit-only and are not installed by default in projects initialized with `areg init`.
 
 | Mode     | Category                       | Skills                                                                                             |
 | -------- | ------------------------------ | -------------------------------------------------------------------------------------------------- |
@@ -36,7 +36,7 @@ The promoted first-party catalog uses flat semantic names instead of an organiza
 | Ambient  | Python standards and testing   | `dignified-python`, `python-fake-driven-testing`, `python-fake-driven-test-layout`, `pytest`       |
 | Ambient  | Workflow operations            | `refactor-swarm`, `resolve-merge-conflicts`                                                        |
 
-Generated projects install only `skill-management` and `skillx` by default from `dagster-io/asdl-tools`.
+Projects initialized with `areg init` install only `skill-management` and `skillx` by default from `dagster-io/asdl-tools`.
 
 ## First-party skill commands
 
