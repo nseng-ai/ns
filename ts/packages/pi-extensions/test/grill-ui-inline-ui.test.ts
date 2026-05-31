@@ -9,8 +9,8 @@ import {
 import { renderGrillAskInlineUi } from "../src/grill-ui/render.ts";
 import {
 	buildGrillAskRows,
+	choiceDetailLines,
 	defaultGrillAskRowIndex,
-	focusedDetailLines,
 	rowLabel,
 	rowRecommendationTag,
 	rowValue,
@@ -58,7 +58,7 @@ describe("grill_ask view helpers", () => {
 		expect(rowLabel(rows[1]!)).not.toContain("(recommended)");
 		expect(rowRecommendationTag(rows[1]!)).toBe("★ recommended");
 		expect(rowRecommendationTag(rows[0]!)).toBeUndefined();
-		expect(focusedDetailLines(input, rows[1]!)).toEqual([
+		expect(choiceDetailLines(input, rows[1]!)).toEqual([
 			"Use one custom inline UI with visible exceptional rows.",
 			"Why: It improves the user interaction while preserving the tool result shape.",
 		]);
@@ -111,26 +111,24 @@ describe("grill_ask render helpers", () => {
 		expect(output).not.toContain("Choices");
 		expect(output).not.toContain("Other paths");
 		expect(output).toContain("↑↓/j/k navigate • number/Enter select • Esc cancel");
-		expect(output).not.toContain("This is safe but keeps the awkward two-dialog freeform flow.");
+		expect(output).toContain("This is safe but keeps the awkward two-dialog freeform flow.");
 		expect(lines.every((line) => line.length <= 72)).toBe(true);
 	});
 
-	test("focused choice details follow focus", () => {
+	test("all choice descriptions stay visible while the focus marker follows selection", () => {
 		const input = normalizedInput();
 		const rows = buildGrillAskRows(input);
-		const firstChoiceLines = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 0 }, 90);
-		const secondChoiceLines = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 1 }, 90);
-		const firstChoiceOutput = firstChoiceLines.join("\n");
-		const secondChoiceOutput = secondChoiceLines.join("\n");
+		const firstFocused = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 0 }, 90).join("\n");
+		const secondFocused = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 1 }, 90).join("\n");
 
-		expect(firstChoiceOutput).toContain("This is safe but keeps the awkward two-dialog freeform flow.");
-		expect(firstChoiceOutput).not.toContain("Use one custom inline UI with visible exceptional rows.");
-		expect(firstChoiceOutput).not.toContain("Why: It improves the user interaction");
-		expect(secondChoiceOutput).not.toContain("This is safe but keeps the awkward two-dialog freeform flow.");
-		expect(secondChoiceOutput).toContain("Use one custom inline UI with visible exceptional rows.");
-		expect(secondChoiceOutput).toContain("Why: It improves the user interaction");
-		expect(firstChoiceLines.every((line) => line.length <= 90)).toBe(true);
-		expect(secondChoiceLines.every((line) => line.length <= 90)).toBe(true);
+		for (const output of [firstFocused, secondFocused]) {
+			expect(output).toContain("This is safe but keeps the awkward two-dialog freeform flow.");
+			expect(output).toContain("Use one custom inline UI with visible exceptional rows.");
+		}
+		expect(firstFocused).toContain("Why: It improves the user interaction");
+		expect(secondFocused).toContain("Why: It improves the user interaction");
+		expect(firstFocused).toContain("❯ 1  Keep the legacy dialogs");
+		expect(secondFocused).toContain("❯ 2  Ship the focused inline UI");
 	});
 
 	test("unmapped recommendation renders as compact read-zone support", () => {

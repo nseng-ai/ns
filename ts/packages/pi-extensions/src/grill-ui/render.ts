@@ -1,5 +1,5 @@
 import type { NormalizedGrillAskInput } from "../grill-ui.ts";
-import { focusedDetailLines, footerText, rowRecommendationTag, type GrillAskMode, type GrillAskRow } from "./view.ts";
+import { choiceDetailLines, footerText, rowRecommendationTag, type GrillAskMode, type GrillAskRow } from "./view.ts";
 
 export type GrillAskRenderTheme = {
 	fg?(color: string, text: string): string;
@@ -95,31 +95,33 @@ function renderChoicesStacked(
 
 		const selected = index === state.focusIndex;
 		lines.push(renderRow(row, selected, width, theme, primitives));
-		if (selected) {
-			renderFocusedDetails(input, row, width, theme, primitives).forEach((line) => lines.push(line));
-			if (state.mode === "freeform" && row.kind === "freeform") {
-				renderFreeformEditor(state.editorLines ?? [], width, theme, primitives).forEach((line) => lines.push(line));
-			}
+		if (row.kind === "choice") {
+			renderChoiceDetails(input, row, selected, width, theme, primitives).forEach((line) => lines.push(line));
+		}
+		if (selected && state.mode === "freeform" && row.kind === "freeform") {
+			renderFreeformEditor(state.editorLines ?? [], width, theme, primitives).forEach((line) => lines.push(line));
 		}
 	}
 
 	return lines;
 }
 
-function renderFocusedDetails(
+function renderChoiceDetails(
 	input: NormalizedGrillAskInput,
 	row: GrillAskRow,
+	selected: boolean,
 	width: number,
 	theme: GrillAskRenderTheme,
 	primitives: GrillAskRenderPrimitives,
 ): string[] {
 	const indent = "     ";
 	const detailWidth = Math.max(1, width - visibleWidth(indent, primitives));
+	const detailColor = selected ? "muted" : "dim";
 	const lines: string[] = [];
 
-	for (const detail of focusedDetailLines(input, row)) {
+	for (const detail of choiceDetailLines(input, row)) {
 		for (const detailLine of renderRichText(detail, detailWidth, primitives)) {
-			lines.push(`${indent}${style(theme, "muted", detailLine)}`);
+			lines.push(`${indent}${style(theme, detailColor, detailLine)}`);
 		}
 	}
 
