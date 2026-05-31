@@ -70,7 +70,7 @@ def create_project(
         try:
             ctx.npx_skills.add(
                 _DEFAULT_SKILL_REPO,
-                skills=["ns-install", "ns-skill-management", "ns-skillx", "nsx"],
+                skills=["skill-management", "skillx"],
                 agents=list(agents),
                 cwd=project_dir,
             )
@@ -97,5 +97,5 @@ def create_project(
         raise
 
     click.echo(f"\nCreated areg project at {project_dir}")
-    click.echo("Skills installed: ns-install, ns-skill-management, ns-skillx, nsx")
+    click.echo("Skills installed: skill-management, skillx")
     click.echo(f"\n  cd {project_name}\n")

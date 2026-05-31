@@ -1,8 +1,5 @@
 import? 'local.just'
 
-# Skills sourced from nseng-ai/nonslop. Keep in sync with skills-lock.json.
-nonslop_skills := "ns-changelog-update ns-create-py-dev-cli ns-create-pypackage-project ns-dignified-python ns-fake-driven-test-layout ns-py-fake-driven-testing ns-pytest ns-refac-cli-push-down ns-refactor-swarm ns-resolve-merge-conflicts ns-setup-dprint ns-setup-python-ci ns-skill-management ns-skillx nsx"
-
 default: check
 
 pbcopy-source-activate:
@@ -68,9 +65,8 @@ test-all:
 areg-check:
     uv run areg check
 
-refresh-nonslop:
-    uv sync --upgrade-package nonslop
-    npx skills add nseng-ai/nonslop --skill {{nonslop_skills}} --agent codex claude-code -y
+refresh-skills:
+    uv run areg update-skills
 
 # Install slot, brmem, and asdl-objectives as editable uv tools.
 # Note: slot ships from asdl-slots; brmem ships from packages/brmem.

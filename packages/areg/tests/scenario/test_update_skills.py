@@ -16,11 +16,11 @@ OTHER = "someone/other-repo"
 
 def _catalog_all_default() -> dict[str, dict[str, SkillFiles]]:
     names = [
-        "ns-dignified-python",
-        "ns-pytest",
-        "ns-skill-management",
-        "ns-skillx",
-        "nsx",
+        "dignified-python",
+        "pytest",
+        "skill-audit",
+        "skill-management",
+        "skillx",
     ]
     return {
         DEFAULT_REPO: {n: SkillFiles(files={"SKILL.md": f"---\nname: {n}\n---\n"}) for n in names},
@@ -60,9 +60,9 @@ def test_update_skills_calls_npx_per_skill(tmp_path) -> None:
     _write_lockfile(
         project,
         {
-            "ns-pytest": _github_entry(),
-            "ns-skillx": _github_entry(),
-            "nsx": _github_entry(),
+            "pytest": _github_entry(),
+            "skill-audit": _github_entry(),
+            "skillx": _github_entry(),
         },
     )
     fake = FakeNpxSkills(catalog=_catalog_all_default())
@@ -73,9 +73,9 @@ def test_update_skills_calls_npx_per_skill(tmp_path) -> None:
     assert len(fake.invocations) == 3
     # Deterministic order (sorted by name)
     assert [inv.skills for inv in fake.invocations] == [
-        ("ns-pytest",),
-        ("ns-skillx",),
-        ("nsx",),
+        ("pytest",),
+        ("skill-audit",),
+        ("skillx",),
     ]
     for inv in fake.invocations:
         assert inv.repo == DEFAULT_REPO
@@ -88,7 +88,7 @@ def test_update_skills_skips_local_entries(tmp_path) -> None:
     _write_lockfile(
         project,
         {
-            "ns-pytest": _github_entry(),
+            "pytest": _github_entry(),
             "my-local": _local_entry("my-local"),
         },
     )
@@ -97,7 +97,7 @@ def test_update_skills_skips_local_entries(tmp_path) -> None:
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
     assert result.exit_code == 0, result.output
-    assert [inv.skills for inv in fake.invocations] == [("ns-pytest",)]
+    assert [inv.skills for inv in fake.invocations] == [("pytest",)]
 
 
 # ---------------------------------------------------------------------------
@@ -110,26 +110,26 @@ def test_update_skills_filter_by_skill_name(tmp_path) -> None:
     _write_lockfile(
         project,
         {
-            "ns-pytest": _github_entry(),
-            "ns-skillx": _github_entry(),
-            "nsx": _github_entry(),
+            "pytest": _github_entry(),
+            "skill-audit": _github_entry(),
+            "skillx": _github_entry(),
         },
     )
     fake = FakeNpxSkills(catalog=_catalog_all_default())
 
     result = CliRunner().invoke(
         main,
-        ["update-skills", "--path", str(project), "--skill", "nsx", "--skill", "ns-pytest"],
+        ["update-skills", "--path", str(project), "--skill", "skillx", "--skill", "pytest"],
         obj=_ctx(fake),
     )
 
     assert result.exit_code == 0, result.output
-    assert [inv.skills for inv in fake.invocations] == [("ns-pytest",), ("nsx",)]
+    assert [inv.skills for inv in fake.invocations] == [("pytest",), ("skillx",)]
 
 
 def test_update_skills_unknown_skill_name_errors(tmp_path) -> None:
     project = tmp_path / "proj"
-    _write_lockfile(project, {"ns-pytest": _github_entry()})
+    _write_lockfile(project, {"pytest": _github_entry()})
     fake = FakeNpxSkills(catalog=_catalog_all_default())
 
     result = CliRunner().invoke(
@@ -148,7 +148,7 @@ def test_update_skills_filter_by_source(tmp_path) -> None:
     _write_lockfile(
         project,
         {
-            "ns-pytest": _github_entry(DEFAULT_REPO),
+            "pytest": _github_entry(DEFAULT_REPO),
             "other-skill": _github_entry(OTHER),
         },
     )
@@ -162,7 +162,7 @@ def test_update_skills_filter_by_source(tmp_path) -> None:
 
     assert result.exit_code == 0, result.output
     assert [inv.repo for inv in fake.invocations] == [DEFAULT_REPO]
-    assert [inv.skills for inv in fake.invocations] == [("ns-pytest",)]
+    assert [inv.skills for inv in fake.invocations] == [("pytest",)]
 
 
 # ---------------------------------------------------------------------------
@@ -175,8 +175,8 @@ def test_update_skills_dry_run_makes_no_calls(tmp_path) -> None:
     _write_lockfile(
         project,
         {
-            "ns-pytest": _github_entry(),
-            "nsx": _github_entry(),
+            "pytest": _github_entry(),
+            "skillx": _github_entry(),
         },
     )
     fake = FakeNpxSkills(catalog=_catalog_all_default())
@@ -189,8 +189,8 @@ def test_update_skills_dry_run_makes_no_calls(tmp_path) -> None:
 
     assert result.exit_code == 0, result.output
     assert fake.invocations == []
-    assert "ns-pytest" in result.output
-    assert "nsx" in result.output
+    assert "pytest" in result.output
+    assert "skillx" in result.output
     assert "dry-run" in result.output
 
 
@@ -201,7 +201,7 @@ def test_update_skills_dry_run_makes_no_calls(tmp_path) -> None:
 
 def test_update_skills_reads_agents_from_areg_json(tmp_path) -> None:
     project = tmp_path / "proj"
-    _write_lockfile(project, {"ns-pytest": _github_entry()})
+    _write_lockfile(project, {"pytest": _github_entry()})
     (project / "areg.json").write_text(
         json.dumps({"agents": ["codex", "cursor"]}), encoding="utf-8"
     )
@@ -215,7 +215,7 @@ def test_update_skills_reads_agents_from_areg_json(tmp_path) -> None:
 
 def test_update_skills_explicit_agent_overrides_areg_json(tmp_path) -> None:
     project = tmp_path / "proj"
-    _write_lockfile(project, {"ns-pytest": _github_entry()})
+    _write_lockfile(project, {"pytest": _github_entry()})
     (project / "areg.json").write_text(
         json.dumps({"agents": ["codex", "cursor"]}), encoding="utf-8"
     )
@@ -233,7 +233,7 @@ def test_update_skills_explicit_agent_overrides_areg_json(tmp_path) -> None:
 
 def test_update_skills_default_agents_when_no_areg_json(tmp_path) -> None:
     project = tmp_path / "proj"
-    _write_lockfile(project, {"ns-pytest": _github_entry()})
+    _write_lockfile(project, {"pytest": _github_entry()})
     fake = FakeNpxSkills(catalog=_catalog_all_default())
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
@@ -269,11 +269,11 @@ def test_update_skills_empty_after_filter(tmp_path) -> None:
 
 def test_update_skills_propagates_npx_failure(tmp_path) -> None:
     project = tmp_path / "proj"
-    _write_lockfile(project, {"ns-pytest": _github_entry()})
+    _write_lockfile(project, {"pytest": _github_entry()})
     fake = FakeNpxSkills(raise_on_add=NpxSkillsError("boom"))
 
     result = CliRunner().invoke(main, ["update-skills", "--path", str(project)], obj=_ctx(fake))
 
     assert result.exit_code != 0
-    assert "ns-pytest" in result.output
+    assert "pytest" in result.output
     assert "failed" in result.output.lower()

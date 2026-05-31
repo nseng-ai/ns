@@ -28,7 +28,7 @@ Public skills (those with a `skills/<name>` symlink for external discoverability
 - `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party asdl work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`; the vendored-vs-first-party distinction follows through the chain to the underlying directory.
 - For repo-local skills, `skills/<name>/` is the canonical source — edit files there directly. `.agents/skills/<name>` is a symlink back to that source, and editing through either path is equivalent.
-- Do not apply first-party Python standards or refactoring skills such as `ns-dignified-python`, `ns-py-fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files inside vendored (real-directory) entries under `.agents/skills/` unless the user explicitly asks to modify the vendored dependency itself.
+- Do not apply first-party Python standards or refactoring skills such as `dignified-python`, `python-fake-driven-testing`, or `fdt-refactor-mock-to-fake` to Python files inside vendored (real-directory) entries under `.agents/skills/` unless the user explicitly asks to modify the vendored dependency itself.
 - When reviewing or editing the repo, exclude vendored entries — real directories under `.agents/skills/**/*.py` — from normal linting, typechecking, code review, and cleanup expectations; assume those files should remain as-shipped unless the task is specifically about updating vendored skill code.
 
 ### Dev Skill Naming Convention

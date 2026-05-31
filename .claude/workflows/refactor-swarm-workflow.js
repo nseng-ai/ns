@@ -6,11 +6,11 @@
  * through `args`. The same script runs any file-local refactor.
  *
  * ──────────────────────────────────────────────────────────────────────────────
- * NOT the `ns-refactor-swarm` skill — do not confuse the two
+ * NOT the `refactor-swarm` skill — do not confuse the two
  * ──────────────────────────────────────────────────────────────────────────────
  * This `refactor-swarm-workflow` (a `Workflow`-tool script at
  * `.claude/workflows/refactor-swarm-workflow.js`) is a DIFFERENT, independent thing
- * from the `ns-refactor-swarm` SKILL at `.claude/skills/ns-refactor-swarm/`. They
+ * from the `refactor-swarm` SKILL at `.claude/skills/refactor-swarm/`. They
  * solve a similar problem but share no code and are invoked in entirely different
  * ways:
  *
@@ -20,12 +20,12 @@
  *     and returns a structured report. Invoke with
  *     `Workflow({ name: "refactor-swarm-workflow", args })`.
  *
- *   - ns-refactor-swarm (the SKILL, separate) — an in-session procedure the
+ *   - refactor-swarm (the SKILL, separate) — an in-session procedure the
  *     orchestrator drives by hand, spawning `Task` subagents in two waves (source
  *     files, then tests). No `Workflow` tool, no detached run, no structured report.
  *
  * If you reached here looking for the lighter, interactive, two-wave Task approach,
- * stop and read `.claude/skills/ns-refactor-swarm/SKILL.md` instead.
+ * stop and read `.claude/skills/refactor-swarm/SKILL.md` instead.
  *
  * ──────────────────────────────────────────────────────────────────────────────
  * The plan/execute handshake (read this first)
@@ -125,7 +125,7 @@
 export const meta = {
   name: 'refactor-swarm-workflow',
   description:
-    'Workflow-tool execution engine for a planned file-local refactor: fans out disjoint concurrent edit agents, runs an adversarial verify pass, returns a structured report. Distinct from the ns-refactor-swarm skill (a separate in-session, two-wave Task-agent procedure).',
+    'Workflow-tool execution engine for a planned file-local refactor: fans out disjoint concurrent edit agents, runs an adversarial verify pass, returns a structured report. Distinct from the refactor-swarm skill (a separate in-session, two-wave Task-agent procedure).',
   phases: [
     { title: 'Edit', detail: 'one agent per simple file + one per complex changeset (disjoint, concurrent)' },
     { title: 'Verify', detail: 'adversarial read-only invariant checks across the tree' },

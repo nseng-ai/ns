@@ -1,0 +1,620 @@
+---
+name: fake-driven-testing-testing-strategy
+description: Six-layer testing approach and test placement decisions
+---
+
+# Testing Strategy by Layer
+
+**Read this when**: You need to decide where to add a test, or understand the six-layer testing approach.
+
+## Overview
+
+This skill uses a **defense-in-depth testing strategy** with six layers for Python applications:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Layer 6 "conformance": Gateway Contract Tests (OPTIONAL)  │ ← Heavyweight; adopt only when worth it
+├────────────────────────────────────────────────────────────┤
+│ Layer 5 "smoke": Business Logic Integration Tests         │ ← Sparse real-system workflows
+├────────────────────────────────────────────────────────────┤
+│ Layer 4 "logic": Business Logic Tests                     │ ← Tests over fakes (MOST TESTS)
+├────────────────────────────────────────────────────────────┤
+│ Layer 3 "pure": Pure Unit Tests                           │ ← Zero dependencies, isolated testing
+├────────────────────────────────────────────────────────────┤
+│ Layer 2 "real-sanity": Integration Sanity Tests           │ ← Fast validation with mocking
+├────────────────────────────────────────────────────────────┤
+│ Layer 1 "fake-check": Fake Infrastructure Tests           │ ← Verify test doubles work
+└────────────────────────────────────────────────────────────┘
+```
+
+**Philosophy**: Test business logic extensively over fast in-memory fakes. Use real implementations sparingly and deliberately: mocked for real-sanity, broad real workflows only for smoke, and shared-contract conformance only when fake/real parity is high-value enough to justify dedicated infrastructure.
+
+**Test distribution guidance**: Most tests should be Layer 4 "logic". Add Layer 1 when fakes change, Layer 2 when real gateways change, and Layer 5 only for sparse critical workflows. Layer 6 "conformance" is opt-in per gateway — many gateways will never have a conformance suite, and that is fine.
+
+## Layer 1 "fake-check": Unit Tests of Fakes
+
+**Purpose**: Verify test infrastructure is reliable.
+
+**Location**: `tests/gateways/test_fakes.py` (see `python-fake-driven-test-layout`)
+
+**When to write**: When adding or changing fake implementations.
+
+**Why**: If fakes are broken, all higher-layer tests become unreliable. These tests validate that your test doubles behave correctly.
+
+### Pattern: Test the Fake Itself
+
+```python
+def test_fake_database_tracks_queries(tmp_path: Path) -> None:
+    """Verify FakeDatabaseAdapter tracks database operations."""
+    # Arrange
+    fake_db = FakeDatabaseAdapter()
+
+    # Act
+    fake_db.execute("INSERT INTO users (name) VALUES ('Alice')")
+    result = fake_db.query("SELECT * FROM users WHERE name = 'Alice'")
+
+    # Assert fake tracked the operations
+    assert len(fake_db.executed_queries) == 2
+    assert fake_db.executed_queries[0].startswith("INSERT")
+    assert fake_db.executed_queries[1].startswith("SELECT")
+
+    # Assert fake returns expected data
+    assert len(result) == 1
+    assert result[0]["name"] == "Alice"
+```
+
+### Three Required Test Categories
+
+Every fake method needs three test categories:
+
+| Category              | What it verifies                         | Why it matters                                        |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| **Default success**   | No-arg construction returns success      | Proves fakes are zero-config for happy paths          |
+| **Error injection**   | Constructor-configured error is returned | Proves failure paths work without modifying internals |
+| **Mutation tracking** | Operations record calls via properties   | Proves assertions can verify what operations occurred |
+
+Organize tests **by operation** (one test class per ABC method), not by category. Each class covers all three categories for its operation.
+
+### What to Test
+
+- **State mutations**: Verify operations update internal state correctly
+- **Mutation tracking**: Verify read-only properties track operations
+- **Error simulation**: Verify fakes can inject errors when configured
+- **State queries**: Verify read operations return expected data
+
+### Example Tests
+
+- `tests/gateways/test_fakes.py` - Tests of every Fake* class defined in `src/<package>/gateways/*/fake.py`
+  (one test class per fake; see `python-fake-driven-test-layout` for layout)
+
+## Layer 2 "real-sanity": Integration Sanity Tests (with Mocking)
+
+**Purpose**: Quick validation of real implementations without slow I/O. Catch syntax errors and basic issues.
+
+**Location**: `tests/gateways/test_real_gateways.py` (see `python-fake-driven-test-layout`)
+
+**When to write**: When adding or changing real implementations.
+
+**Why**: Ensures code coverage even when underlying systems (database, network, filesystem) are mocked. Sanity checks prevent deployment of obviously broken code.
+
+### Pattern: Mock External Systems, Verify Calls
+
+```python
+def test_real_database_executes_correct_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify RealDatabaseAdapter calls correct SQL."""
+    # Mock the database connection
+    mock_connection = Mock()
+    mock_cursor = Mock()
+    mock_connection.cursor.return_value = mock_cursor
+    mock_cursor.fetchall.return_value = [{"id": 1, "name": "Alice"}]
+
+    def mock_connect(**kwargs):
+        return mock_connection
+
+    monkeypatch.setattr("psycopg2.connect", mock_connect)
+
+    # Act
+    db = RealDatabaseAdapter(connection_string="postgresql://...")
+    result = db.query("SELECT * FROM users")
+
+    # Assert correct command was constructed
+    mock_cursor.execute.assert_called_once_with("SELECT * FROM users")
+    assert result == [{"id": 1, "name": "Alice"}]
+```
+
+### What to Test
+
+- **Command construction**: Verify correct SQL/API calls are built
+- **Error handling**: Verify exceptions from external systems are handled correctly
+- **Parsing logic**: Verify response parsing works correctly (can use mock responses)
+- **Edge cases**: Verify handling of unusual inputs or error conditions
+
+### Tools
+
+- `monkeypatch` fixture for mocking database connections, HTTP clients, etc.
+- Mock return values to simulate various responses
+- Test error paths by raising exceptions from mocks
+
+### Example Tests
+
+All real-gateway sanity tests live in `tests/gateways/test_real_gateways.py`.
+Group them by gateway using a `TestReal<GatewayName>` class or `# region`
+comment — one section per real implementation (RealDatabaseAdapter,
+RealApiClient, …). Note: this file is for _mock-based_ sanity checks. Real
+end-to-end integration tests against actual systems live in `tests/integration/`.
+
+## Layer 3 "pure": Pure Unit Tests
+
+**Purpose**: Test isolated utilities, helpers, and pure functions with zero dependencies.
+
+**Location**: `tests/unit/`
+
+**When to write**: For utilities, parsers, data transformations, or any code with no external dependencies.
+
+**Why**: These tests run extremely fast and are rock-solid reliable since they have no dependencies. Perfect for foundational building blocks.
+
+### Pattern: No Dependencies, Pure Logic Testing
+
+```python
+def test_sanitize_branch_name() -> None:
+    """Verify branch name sanitization logic."""
+    # No setup needed - pure function
+    assert sanitize_branch_name("feat/FOO-123") == "feat-foo-123"
+    assert sanitize_branch_name("feature__test") == "feature-test"
+    assert sanitize_branch_name("UPPER") == "upper"
+
+
+def test_parse_git_status() -> None:
+    """Verify git status output parsing."""
+    output = "## main...origin/main"
+    result = parse_git_status(output)
+
+    assert result["branch"] == "main"
+    assert result["remote"] == "origin/main"
+    assert result["ahead"] == 0
+    assert result["behind"] == 0
+
+
+def test_calculate_percentage() -> None:
+    """Verify percentage calculation with edge cases."""
+    assert calculate_percentage(50, 100) == 50.0
+    assert calculate_percentage(0, 100) == 0.0
+    assert calculate_percentage(100, 100) == 100.0
+
+    # Edge case: divide by zero
+    assert calculate_percentage(0, 0) == 0.0
+```
+
+### Key Characteristics
+
+- **Zero imports of Fake\* classes** - if you import a fake, this is Layer 4 "logic", not Layer 3 "pure"
+- **No mocking** - no `mock.patch`, no `monkeypatch`
+- **No external state** - no filesystem, database, network, subprocess
+- **Pure logic only** - string manipulation, parsing, calculations, data structure operations
+
+### What to Test
+
+- **String utilities**: sanitization, formatting, parsing
+- **Parsers**: CLI output parsing, config file parsing, response parsing
+- **Calculations**: mathematical operations, business calculations
+- **Data structures**: custom lists, trees, graphs (in-memory only)
+- **Validators**: input validation logic (without external checks)
+- **Transformers**: data transformation, mapping, filtering
+
+### What NOT to Test Here
+
+- ❌ Code that uses fakes → That's Layer 4 "logic"
+- ❌ Code that makes subprocess calls → That's Layer 2 "real-sanity", Layer 5 "smoke", or Layer 6 "conformance"
+- ❌ Code that reads/writes files → That's Layer 2 "real-sanity", Layer 5 "smoke", or Layer 6 "conformance"
+- ❌ Code that hits databases/APIs → That's Layer 2 "real-sanity", Layer 5 "smoke", or Layer 6 "conformance"
+
+### Performance
+
+Pure unit tests are the **fastest tests possible**. They run in microseconds to milliseconds with zero setup overhead.
+
+### Example Tests
+
+- `tests/unit/test_string_utils.py` - String manipulation utilities
+- `tests/unit/test_parsers.py` - CLI output parsers
+- `tests/unit/test_validators.py` - Input validation logic
+- `tests/unit/test_calculations.py` - Business calculation logic
+
+## Layer 4 "logic": Business Logic Tests over Fakes (MAJORITY)
+
+**Purpose**: Test application logic extensively with fast in-memory fakes.
+
+**Location**: `tests/scenario/` (end-to-end shape) or `tests/unit/` (narrow logic-over-fakes). See `python-fake-driven-test-layout` for the directory convention.
+
+**When to write**: For EVERY feature and bug fix. This is the default testing layer.
+
+**Why**: Fast, reliable, easy to debug. Tests run in milliseconds, not seconds. This is where most testing happens.
+
+### Pattern: Configure Fakes, Execute Logic, Assert Outcomes
+
+```python
+def test_user_service_creates_user() -> None:
+    """Verify user service creates users correctly."""
+    # Arrange: Configure fake with desired state
+    fake_db = FakeDatabaseAdapter(tables={"users": []})
+    fake_email = FakeEmailClient()
+
+    service = UserService(database=fake_db, email_client=fake_email)
+
+    # Act: Execute business logic
+    user = service.create_user(
+        name="Alice",
+        email="alice@example.com"
+    )
+
+    # Assert: Check behavior
+    assert user.id == 1
+    assert user.name == "Alice"
+    assert user.email == "alice@example.com"
+
+    # Assert: Check resulting fake state
+    assert len(fake_db.tables["users"]) == 1
+    assert fake_db.tables["users"][0]["email"] == "alice@example.com"
+    assert len(fake_email.sent_emails) == 1
+    assert fake_email.sent_emails[0]["to"] == "alice@example.com"
+```
+
+For end-to-end scenario tests, assert exit code, user-visible output, and final fake state before you reach for public mutation-tracking properties. Private `_foo_calls` fields are never a scenario-test assertion surface.
+
+### Key Tools
+
+- **Fake implementations**: `FakeDatabaseAdapter`, `FakeApiClient`, `FakeCache`, etc.
+- **Builder patterns**: Create complex test data easily
+- **pytest fixtures**: Share common test setup
+- **`tmp_path`**: pytest fixture for real directories when needed
+- **CliRunner**: For testing Click CLI commands
+
+### What to Test
+
+- **Feature behavior**: Does the feature work as expected?
+- **Error handling**: How does code handle error conditions?
+- **Edge cases**: Unusual inputs, empty states, boundary conditions
+- **Business rules**: Validation, calculations, state transitions
+- **Side effects**: Did operations modify state correctly? Prefer final fake state; use public tracking only when no stable after-state exists
+
+### Performance
+
+Tests over fakes run in **milliseconds**. A typical test suite of 100+ tests runs in seconds, enabling rapid iteration.
+
+### The Fast Scenario Pattern
+
+The dominant shape of Layer 4 "logic" tests for CLIs and top-level workflows is the **fast scenario test**: configure state in fakes, invoke an end-to-end entry point exactly once, and assert on exit code, output, and the resulting fake state. It is not a separate layer — it is the canonical Layer 4 shape for any feature that crosses multiple gateways.
+
+See `fast-scenario-testing.md` for the full pattern, infrastructure recipe (in-memory env, smart context builder, CLI assertion helpers), and worked single- and multi-gateway examples.
+
+### Example Tests
+
+- `tests/scenario/test_user_service.py` - End-to-end service flows over fakes
+- `tests/scenario/test_order_service.py` - End-to-end business logic over fakes
+- `tests/scenario/test_cli.py` - CLI command tests with CliRunner over fakes
+- `tests/unit/test_pricing.py` - Narrow domain model tests (logic-over-fakes)
+
+## Layer 5 "smoke": Business Logic Integration Tests
+
+**Purpose**: Smoke tests over real systems to catch broad workflow integration issues.
+
+**Location**: `tests/integration/` (see `python-fake-driven-test-layout`)
+
+**When to write**: Sparingly, for critical user-facing workflows.
+
+**Why**: Catches issues that mocks and gateway-level conformance miss, but slow and potentially brittle.
+
+### Pattern: Real Systems, Actual External Calls
+
+```python
+def test_user_registration_e2e(test_database_url: str) -> None:
+    """End-to-end test: user registration with real database."""
+    # Setup: Use real database (possibly dockerized for tests)
+    db = RealDatabaseAdapter(connection_string=test_database_url)
+
+    # Clean slate
+    db.execute("DELETE FROM users")
+
+    service = UserService(
+        database=db,
+        email_client=RealEmailClient(api_key="test_key")
+    )
+
+    # Act: Execute real operation
+    user = service.register_user(
+        name="Alice",
+        email="alice@example.com",
+        password="secure123"
+    )
+
+    # Assert: Verify in real database
+    users = db.query("SELECT * FROM users WHERE email = 'alice@example.com'")
+    assert len(users) == 1
+    assert users[0]["name"] == "Alice"
+
+    # Verify email was actually sent (might check test email service)
+    # This depends on your test infrastructure
+```
+
+### What to Test
+
+- **Critical workflows**: Core user-facing features (signup, checkout, payment)
+- **Integration points**: Where multiple systems interact
+- **Real system quirks**: Behavior that's hard to mock accurately
+- **Data persistence**: Verify data is actually saved and retrievable
+
+### Characteristics
+
+- **Slow**: Tests take seconds, not milliseconds
+- **Brittle**: Can fail due to environment issues (database down, network problems)
+- **High value**: Catches real integration bugs that lower layers miss
+
+### When NOT to Use Smoke Tests
+
+- ❌ Testing business logic (use Layer 4 "logic" instead)
+- ❌ Testing gateway contract parity (use Layer 6 "conformance" instead, if that gateway warrants it)
+- ❌ Testing error handling (use Layer 4 "logic" with fakes configured for errors, or Layer 6 if it is a gateway contract worth sharing)
+- ❌ Testing calculations or validation (use Layer 3 "pure" for pure logic, Layer 4 "logic" for logic with dependencies)
+- ❌ Rapid iteration during development (use Layer 3 "pure" or Layer 4 "logic")
+
+Use smoke tests as **final validation**, not primary testing strategy.
+
+## Layer 6 "conformance": Gateway Contract Tests (Optional)
+
+**Purpose**: Verify every implementation of a gateway obeys the same public contract.
+
+**Location**: `tests/conformance/` (see `python-fake-driven-test-layout`)
+
+**When to write**: Only when fake/real parity is high-value enough to justify dedicated contract infrastructure — typically gateways with multiple real implementations, subtle externally visible semantics (idempotency, ordering, error mapping), or a history of fake/real drift bugs. Most gateways will never need this layer, and that is the correct default. Do not introduce a conformance suite just because a gateway exists.
+
+**Why it is opt-in**: Conformance tests require a per-gateway factory fixture, parametrization across implementations, and (when live) credential plumbing, fixture isolation, and a separate CI lane. That is real infrastructure cost. Adopt it deliberately when the parity guarantee is worth the maintenance burden; otherwise rely on Layers 1, 2, and 4 to cover the same ground at lower cost.
+
+**Why it sits above smoke**: Fake-check proves the fake's own mechanics. Real-sanity proves the real implementation builds/parses calls under mocks. Smoke proves a few critical workflows end-to-end. Conformance is the heaviest layer because it pins shared semantics across every implementation, including opt-in live ones.
+
+### Pattern: Shared Public-Contract Cases
+
+Write implementation-neutral tests against a gateway factory. Reuse the same test body for each implementation that should satisfy the contract: Fake, Real-with-test-double, and opt-in live Real when available.
+
+```python
+def test_missing_user_returns_not_found(
+    user_store_factory: Callable[[], UserStore],
+) -> None:
+    """Every UserStore implementation returns the same not-found result."""
+    store = user_store_factory()
+
+    result = store.get_user("missing")
+
+    assert isinstance(result, UserNotFound)
+```
+
+Live conformance cases must be explicitly gated with markers, env vars, or a separate CI job. For example, a live GitHub gateway conformance suite should require credentials and an isolated fixture repository.
+
+### When a Conformance Suite Is Worth It
+
+Adopt Layer 6 for a gateway when **two or more** of the following are true:
+
+- The gateway has, or will soon have, more than one real implementation (e.g., Postgres + SQLite, GitHub + GitLab).
+- Public semantics include subtle behaviors that are easy to get wrong differently across implementations: not-found vs. error, idempotency, ordering/pagination, conflict resolution, retryable error mapping.
+- You have seen, or expect, fake/real drift bugs that Layer 1 and Layer 2 missed.
+- A live implementation exists that you want to exercise periodically with a shared spec.
+
+If none of these apply, skip the conformance suite — Layers 1, 2, and 4 are sufficient.
+
+### What to Test
+
+- **Public return semantics**: success, not-found, conflict, permission-denied, retryable failure
+- **Mutation visibility**: writes are observable through public reads
+- **Idempotency and duplicate handling**: repeated calls match the ABC contract
+- **Ordering/pagination/filter semantics**: list-like operations behave consistently
+- **Error-result mapping**: implementation-specific exceptions map to shared result types
+
+### What NOT to Test Here
+
+- ❌ Fake-only mutation tracking or constructor error injection → Layer 1 "fake-check"
+- ❌ Real request construction, headers, SQL, subprocess args, or parser branches → Layer 2 "real-sanity"
+- ❌ Business workflows over fakes → Layer 4 "logic"
+- ❌ Broad user journeys over live systems → Layer 5 "smoke"
+
+### Characteristics
+
+- **Optional per gateway**: not every gateway has or needs a conformance suite.
+- **Implementation-neutral**: assert only gateway public API behavior.
+- **Reusable**: one contract case should run against multiple implementations.
+- **Opt-in when live**: live-real implementations require explicit credentials/markers and isolated fixtures.
+- **No internals**: do not assert fake private fields, mock calls, HTTP payloads, SQL strings, or global external-system counts.
+
+### Example Tests
+
+- `tests/conformance/test_user_store.py` - Shared `UserStore` contract examples over fake and real implementations
+- `tests/conformance/test_live_github_issue_gateway.py` - Opt-in live GitHub contract examples using an isolated fixture repo
+
+## Decision Tree: Where Should My Test Go?
+
+```
+┌─ I need to test...
+│
+├─ A NEW FEATURE or BUG FIX WITH EXTERNAL DEPENDENCIES
+│  └─> Layer 4 "logic": tests/scenario/ (e2e) or tests/unit/ (narrow) ← START HERE
+│
+├─ A PURE UTILITY/HELPER WITH NO DEPENDENCIES
+│  └─> Layer 3 "pure": tests/unit/ (pure unit tests, no fakes/mocks)
+│
+├─ A FAKE IMPLEMENTATION (test infrastructure)
+│  └─> Layer 1 "fake-check": tests/gateways/test_fakes.py
+│
+├─ A REAL ADAPTER IMPLEMENTATION (code coverage with mocks)
+│  └─> Layer 2 "real-sanity": tests/gateways/test_real_gateways.py
+│
+├─ CRITICAL USER WORKFLOW (smoke test)
+│  └─> Layer 5 "smoke": tests/integration/ (real systems, sparingly)
+│
+└─ SHARED CONTRACT ACROSS MULTIPLE GATEWAY IMPLEMENTATIONS (and worth the cost)
+   └─> Layer 6 "conformance": tests/conformance/ (optional, heavyweight)
+```
+
+**Default**:
+
+- For business logic with dependencies → Layer 4 "logic" (tests over fakes)
+- For pure utilities with no dependencies → Layer 3 "pure" (pure unit tests)
+
+## Test Distribution Example
+
+For a typical feature (e.g., "add payment processing"):
+
+- **1-2 fake tests** (Layer 1 "fake-check"): Verify `FakePaymentGateway.charge()` works
+- **1-2 sanity tests** (Layer 2 "real-sanity"): Verify `RealPaymentGateway.charge()` calls correct API
+- **2-3 pure unit tests** (Layer 3 "pure"): Test payment amount formatting, currency conversion logic
+  - `format_currency(1234.56, "USD")` → `"$1,234.56"`
+  - `convert_currency(100, "USD", "EUR")` → calculation logic
+  - `validate_card_number("4111...")` → Luhn algorithm check
+- **10-12 business logic tests** (Layer 4 "logic"): Test payment flow over fakes
+  - Successful payment
+  - Insufficient funds
+  - Invalid card
+  - Network timeout
+  - Duplicate transaction
+  - Refund processing
+  - Tax calculation
+  - Receipt generation
+- **1 integration test** (Layer 5 "smoke"): Smoke test entire payment flow with test payment gateway
+- **0 conformance tests** (Layer 6 "conformance"): Skip unless the payment gateway has multiple real implementations whose parity is worth pinning with shared contract tests.
+
+**Total**: ~20 tests, with 70% over fakes (Layer 4 "logic"), 10% pure unit (Layer 3 "pure"), 10% sanity (Layer 2 "real-sanity"), 5% integration (Layer 5 "smoke"), 5% fake tests (Layer 1 "fake-check"). Layer 6 "conformance" is not in the typical distribution — it is added only for gateways where the parity guarantee is worth the infrastructure.
+
+## Classifying Existing Tests
+
+**Read this when**: You need to understand which layer an existing test belongs to, or you're auditing test coverage.
+
+### Classification Decision Tree
+
+Use this flowchart to classify existing tests into the correct layer:
+
+```
+Does the test use ANY external dependencies? (files, git, network, etc.)
+├─ NO → Is it testing a fake implementation itself?
+│  ├─ YES → Layer 1 "fake-check": Fake Infrastructure Test
+│  └─ NO → Layer 3 "pure": Pure Unit Test
+└─ YES → Does it use real implementations?
+   ├─ NO (uses fakes) → Layer 4 "logic": Business Logic Test
+   └─ YES → Does it mock the I/O operations?
+      ├─ YES → Layer 2 "real-sanity": Integration Sanity Test
+      └─ NO (real I/O) → Layer 5 "smoke" (or Layer 6 "conformance" if it is a shared gateway contract case)
+```
+
+### Quick Classification Guide
+
+**Ask these questions in order:**
+
+1. **Does the test import any Fake\* classes?**
+   - YES → Layer 4 "logic" (Business Logic Test)
+   - NO → Continue to question 2
+
+2. **Does the test use mocking (mock.patch, monkeypatch)?**
+   - YES → Layer 2 "real-sanity" (Integration Sanity Test)
+   - NO → Continue to question 3
+
+3. **Does the test make real external calls (subprocess, filesystem, network)?**
+   - YES → Layer 5 "smoke" (or Layer 6 "conformance" if it is an implementation-neutral shared contract case)
+   - NO → Continue to question 4
+
+4. **Is the test testing a Fake implementation itself?**
+   - YES → Layer 1 "fake-check" (Fake Infrastructure Test)
+   - NO → Layer 3 "pure" (Pure Unit Test)
+
+### Common Patterns and Their Layer Assignments
+
+**Layer 1 "fake-check" patterns:**
+
+```python
+def test_fake_git_tracks_branches():
+    fake = FakeDatabase()  # Testing the fake itself
+    fake.execute("INSERT INTO users VALUES (1, 'Alice')")
+    assert len(fake.executed_commands) == 1  # Checking fake's internal state
+```
+
+**Layer 2 "real-sanity" patterns:**
+
+```python
+def test_real_git_create_branch(monkeypatch):
+    mock_run = Mock()
+    monkeypatch.setattr("subprocess.run", mock_run)
+
+    real_git = RealGit()
+    real_git.create_branch("feature")
+
+    # Verifying correct command was called (sanity check)
+    mock_run.assert_called_once()
+```
+
+**Layer 3 "pure" patterns:**
+
+```python
+def test_sanitize_branch_name():
+    # No imports, no dependencies
+    result = sanitize_branch_name("feat/FOO")
+    assert result == "feat-foo"
+```
+
+**Layer 4 "logic" patterns:**
+
+```python
+def test_create_worktree_command():
+    fake_db = FakeDatabase()  # Using fake
+    service = UserService(database=fake_db)
+    result = service.create_user("Alice")
+    assert result.id is not None
+    assert len(fake_db.executed_commands) == 1
+```
+
+**Layer 5 "smoke" / Layer 6 "conformance" patterns:**
+
+```python
+def test_complete_pr_workflow(tmp_path):
+    # Real git operations, real filesystem
+    repo = git.Repo.init(tmp_path)
+    # ... real git commands ...
+    # ... real file operations ...
+```
+
+### What to Do If a Test Doesn't Fit Cleanly
+
+**Scenario 1: Test uses both fakes and real I/O**
+
+- **Classification**: Layer 4 "logic" (Business Logic Test)
+- **Recommendation**: Consider refactoring to isolate the I/O behind an integration interface
+
+**Scenario 2: Test has minimal logic, mostly setup**
+
+- **Classification**: Probably not worth testing separately
+- **Recommendation**: Consider if this test adds value or is just testing framework behavior
+
+**Scenario 3: Test mocks at multiple levels**
+
+- **Classification**: Layer 2 "real-sanity" (Integration Sanity Test) if mocking real implementation
+- **Recommendation**: Simplify mocking strategy if possible
+
+**Scenario 4: Test is very slow but uses fakes**
+
+- **Classification**: Still Layer 4 "logic", but investigate performance issue
+- **Recommendation**: Profile the test to find the bottleneck
+
+### Migration Guidance
+
+**You don't need to move tests just because of new taxonomy.** The layer classification is primarily for:
+
+1. **Understanding current coverage distribution**
+2. **Deciding where NEW tests should go**
+3. **Identifying gaps in testing strategy**
+
+**Only refactor tests if:**
+
+- Test is in wrong location AND causing confusion
+- Test is slow because it's using wrong layer
+- Test is brittle because it's over-mocking or over-integrating
+
+## Related Documentation
+
+- `gateway-architecture.md` - Understanding the gateway layer being tested
+- `workflows.md` - Step-by-step guides for adding tests
+- `patterns.md` - Common testing patterns (CliRunner, builders, etc.)
+- `anti-patterns.md` - What to avoid when writing tests
+- `python-specific.md` - pytest fixtures, mocking, and Python tools

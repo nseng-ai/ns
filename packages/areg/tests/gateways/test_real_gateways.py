@@ -120,7 +120,7 @@ def test_real_npx_builds_correct_command_with_skills(tmp_path: Path) -> None:
     ) as mock_run:
         RealNpxSkills().add(
             "dagster-io/asdl-tools",
-            skills=["ns-skill-management", "ns-skillx"],
+            skills=["skill-management", "skillx"],
             agents=["codex", "claude-code"],
             cwd=tmp_path,
         )
@@ -132,8 +132,8 @@ def test_real_npx_builds_correct_command_with_skills(tmp_path: Path) -> None:
         "add",
         "dagster-io/asdl-tools",
         "--skill",
-        "ns-skill-management",
-        "ns-skillx",
+        "skill-management",
+        "skillx",
         "--agent",
         "codex",
         "claude-code",

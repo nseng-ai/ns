@@ -121,61 +121,6 @@ def test_skillx_cleanup_failure_exit_code() -> None:
 
 
 # ---------------------------------------------------------------------------
-# CLI integration: exec nsx
-# ---------------------------------------------------------------------------
-
-
-def test_nsx_list_uses_default_repo() -> None:
-    fake_gh = FakeGhCli(catalog={"dagster-io/asdl-tools": {"skills": ["skill-a"]}})
-    result = CliRunner().invoke(
-        main,
-        ["exec", "nsx", "list"],
-        obj=_ctx(gh=fake_gh),
-    )
-    assert result.exit_code == 0
-    data = json.loads(result.output)
-    assert data["repo"] == "dagster-io/asdl-tools"
-    assert fake_gh.calls == [("dagster-io/asdl-tools", "skills")]
-
-
-def test_nsx_fetch_uses_default_repo() -> None:
-    fake_npx = FakeNpxSkills(
-        catalog={
-            "dagster-io/asdl-tools": {
-                "my-skill": SkillFiles(files={"SKILL.md": "---\nname: my-skill\n---\n"})
-            }
-        }
-    )
-    result = CliRunner().invoke(
-        main,
-        ["exec", "nsx", "fetch", "--skill", "my-skill"],
-        obj=_ctx(npx=fake_npx),
-    )
-    assert result.exit_code == 0
-    data = json.loads(result.output)
-    assert data["repo"] == "dagster-io/asdl-tools"
-
-    assert len(fake_npx.invocations) == 1
-    assert fake_npx.invocations[0].repo == "dagster-io/asdl-tools"
-
-    tmp = Path(data["tmp_dir"])
-    if tmp.exists():
-        __import__("shutil").rmtree(tmp)
-
-
-def test_nsx_cleanup_works() -> None:
-    tmp_dir = tempfile.mkdtemp(prefix="skillx.")
-    result = CliRunner().invoke(
-        main,
-        ["exec", "nsx", "cleanup", "--dir", tmp_dir],
-        obj=_ctx(),
-    )
-    assert result.exit_code == 0
-    data = json.loads(result.output)
-    assert data["success"] is True
-
-
-# ---------------------------------------------------------------------------
 # exec group is hidden
 # ---------------------------------------------------------------------------
 

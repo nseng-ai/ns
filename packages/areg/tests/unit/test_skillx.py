@@ -38,15 +38,15 @@ def _two_skill_files(*names: str) -> dict[str, SkillFiles]:
     "raw, expected_repo, expected_skill, expected_format",
     [
         (
-            "https://github.com/dagster-io/asdl-tools/blob/master/skills/ns-setup-dprint",
+            "https://github.com/dagster-io/asdl-tools/blob/master/skills/setup-dprint",
             "dagster-io/asdl-tools",
-            "ns-setup-dprint",
+            "setup-dprint",
             "url",
         ),
         (
-            "https://github.com/dagster-io/asdl-tools/tree/main/skills/ns-pytest",
+            "https://github.com/dagster-io/asdl-tools/tree/main/skills/pytest",
             "dagster-io/asdl-tools",
-            "ns-pytest",
+            "pytest",
             "url",
         ),
         (
@@ -56,21 +56,21 @@ def _two_skill_files(*names: str) -> dict[str, SkillFiles]:
             "url",
         ),
         (
-            "dagster-io/asdl-tools --skill ns-setup-dprint",
+            "dagster-io/asdl-tools --skill setup-dprint",
             "dagster-io/asdl-tools",
-            "ns-setup-dprint",
+            "setup-dprint",
             "skill_flag",
         ),
         (
-            "dagster-io/asdl-tools -s ns-setup-dprint",
+            "dagster-io/asdl-tools -s setup-dprint",
             "dagster-io/asdl-tools",
-            "ns-setup-dprint",
+            "setup-dprint",
             "skill_flag",
         ),
         (
-            "dagster-io/asdl-tools ns-setup-dprint",
+            "dagster-io/asdl-tools setup-dprint",
             "dagster-io/asdl-tools",
-            "ns-setup-dprint",
+            "setup-dprint",
             "plain",
         ),
         (
@@ -107,7 +107,7 @@ def test_parse_skill_input_rejects_invalid_input() -> None:
 
 
 def test_parse_skill_input_rejects_legacy_at_syntax() -> None:
-    result = parse_skill_input("dagster-io/asdl-tools@ns-setup-dprint")
+    result = parse_skill_input("dagster-io/asdl-tools@setup-dprint")
     assert result.success is False
 
 
@@ -128,12 +128,12 @@ def test_parse_skill_input_url_with_nested_skills_path() -> None:
 
 
 def test_parse_skill_input_to_dict_success() -> None:
-    result = parse_skill_input("dagster-io/asdl-tools --skill ns-setup-dprint")
+    result = parse_skill_input("dagster-io/asdl-tools --skill setup-dprint")
     d = result.to_dict()
     assert d == {
         "success": True,
         "repo": "dagster-io/asdl-tools",
-        "skill": "ns-setup-dprint",
+        "skill": "setup-dprint",
         "format": "skill_flag",
     }
 
@@ -206,11 +206,11 @@ def test_list_skills_to_dict_with_hint() -> None:
 
 
 def test_fetch_skill_single() -> None:
-    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("ns-setup-dprint")})
-    result = fetch_skill("dagster-io/asdl-tools", "ns-setup-dprint", npx_skills=npx)
+    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("setup-dprint")})
+    result = fetch_skill("dagster-io/asdl-tools", "setup-dprint", npx_skills=npx)
 
     assert result.success is True
-    assert result.skill == "ns-setup-dprint"
+    assert result.skill == "setup-dprint"
     assert result.tmp_dir is not None
     assert result.skill_md.endswith("SKILL.md")
     assert "SKILL.md" in result.files
@@ -221,11 +221,11 @@ def test_fetch_skill_single() -> None:
 
 
 def test_fetch_skill_all_single_result() -> None:
-    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("ns-setup-dprint")})
+    npx = FakeNpxSkills(catalog={"dagster-io/asdl-tools": _two_skill_files("setup-dprint")})
     result = fetch_skill("dagster-io/asdl-tools", None, npx_skills=npx)
 
     assert result.success is True
-    assert result.skill == "ns-setup-dprint"
+    assert result.skill == "setup-dprint"
     assert result.needs_selection is False
 
     Path(result.tmp_dir).exists() and __import__("shutil").rmtree(result.tmp_dir)

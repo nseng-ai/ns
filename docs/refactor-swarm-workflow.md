@@ -8,9 +8,9 @@ report back.
 The matching planning half is not a tool — it's the orchestrator (the agent you're
 talking to) doing its job in the session.
 
-> **Not the `ns-refactor-swarm` skill.** This `refactor-swarm-workflow` is a
+> **Not the `refactor-swarm` skill.** This `refactor-swarm-workflow` is a
 > [`Workflow`-tool](../.claude/workflows/refactor-swarm-workflow.js) script that runs
-> detached and returns a structured report. The separately-named `ns-refactor-swarm`
+> detached and returns a structured report. The separately-named `refactor-swarm`
 > skill is a different, in-session procedure that spawns `Task` subagents in two waves
 > (source files, then tests). Same idea, different machinery — they share no code.
 > Reach for the skill when you want the lighter interactive flow; reach for this

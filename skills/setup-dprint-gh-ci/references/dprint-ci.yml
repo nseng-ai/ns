@@ -1,0 +1,24 @@
+name: dprint
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dprint-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dprint-check:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dprint/check@v2.2

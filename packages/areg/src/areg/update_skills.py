@@ -17,7 +17,7 @@ so the curated skill set is preserved.
 Once the upstream ``update`` command respects the lockfile (or a dedicated
 ``skills install`` / ``skills sync`` lands — see vercel-labs/skills#283,
 #549), delete this module, its tests, and the registration in
-``cli.py``, and update ``skills/ns-skill-management/SKILL.md`` section 4
+``cli.py``, and update ``skills/skill-management/SKILL.md`` section 4
 to point back at ``npx skills update``.
 """
 
