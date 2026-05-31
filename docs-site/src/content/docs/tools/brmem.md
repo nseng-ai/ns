@@ -1,40 +1,49 @@
 ---
-title: Branch Memory
-description: Branch-scoped storage for plans, handoffs, and other agent workflow context.
+title: brmem
+description: Branch-scoped memory for plans, handoffs, and other agent workflow context.
 sidebar:
-  order: 1
+  order: 2
 ---
 
-`brmem` gives skills and agents a place to keep branch-local context without
-putting that context in commits, PR comments, GitHub issues, or working-tree
-files.
+`brmem` stores small text entries on a branch without committing them or leaving
+files in your working tree.
 
-Use Branch Memory when context should stay attached to a branch until a tool
-explicitly reads, copies, updates, or deletes it.
+```bash
+brmem get plan.md
+```
 
 ## Mental model
 
-Branch Memory has five core concepts:
+Branch Memory is branch-scoped text storage. Entries live in namespaces, have
+path-like keys, and are read by tools or skills when a future session needs the
+context.
 
-- **Branch Memory System**: the `brmem` CLI and Git-ref storage layer.
-- **Branch Memory**: entries attached to one branch, either in the base
-  namespace or in a named namespace.
-- **Entry**: a small UTF-8 text blob stored under a path-like key.
-- **Entry Key**: the key for an entry, such as `plan.md` or
-  `handoff/session.md`.
-- **Namespace**: a workflow-owned bucket for entries with a shared lifecycle.
+## Install
+
+```bash
+uv tool install brmem
+brmem --help
+asdl brmem --help
+```
 
 ## Common commands
 
-| Goal                                | Command        | Writes to     |
-| ----------------------------------- | -------------- | ------------- |
-| Store context on the current branch | `brmem put`    | Branch Memory |
-| Read a stored entry                 | `brmem get`    | Nothing       |
-| Check whether an entry exists       | `brmem check`  | Nothing       |
-| List stored entries                 | `brmem list`   | Nothing       |
-| Export entries to files             | `brmem export` | Filesystem    |
-| Remove an entry                     | `brmem delete` | Branch Memory |
-| Copy entries to another branch      | `brmem copy`   | Branch Memory |
+| Goal               | Command        | Boundary      |
+| ------------------ | -------------- | ------------- |
+| Store context      | `brmem put`    | Branch Memory |
+| Read context       | `brmem get`    | Read-only     |
+| Check for an entry | `brmem check`  | Read-only     |
+| List entries       | `brmem list`   | Read-only     |
+| Export entries     | `brmem export` | Filesystem    |
+| Remove an entry    | `brmem delete` | Branch Memory |
+| Copy entries       | `brmem copy`   | Branch Memory |
 
-The write boundary is explicit. Read-only commands are safe for inspection;
-mutating commands are deliberate workflow actions.
+## Agent interface
+
+Skills use `brmem` to keep plans and handoffs attached to the branch that owns
+them. See the [brmem skill](/skills/brmem/) and [CLI conventions](/concepts/conventions/).
+
+## See also
+
+- [Context across sessions](/guides/context-across-sessions/)
+- [The asdl umbrella](/concepts/umbrella/)

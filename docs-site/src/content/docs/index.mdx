@@ -1,23 +1,40 @@
 ---
-title: asdl docs
-description: Public documentation for asdl's agent-native development workflows.
-template: splash
-hero:
-  title: asdl docs
-  tagline: Durable context and polished workflows for agent-assisted software development.
-  actions:
-    - text: Start reading
-      link: /docs/
-      variant: primary
-    - text: View llms.txt
-      link: /llms.txt
-      variant: secondary
+title: Documentation
+description: Documentation for asdl's standalone CLI tools.
 ---
 
-asdl turns the practices around long-running agent work into durable, reviewable
-artifacts: objectives, branch-local memory, review-addressing workflows, and
-retrospective evidence.
+asdl is a collection of small CLI tools for branch-local development workflows.
+Each tool is installable and usable on its own. Where the umbrella command is
+available, the same tools can also be invoked as `asdl <tool>`.
 
-This portal is intentionally built from the same Markdown corpus that agents read.
-Phase 1 proves the publishing pipeline; Phase 2 will sync the broader allowlisted
-repo documentation into this site.
+```bash
+uv tool install asdl-slots
+slot init --size 3
+slot checkout feature-x
+```
+
+## Start here
+
+1. [Quickstart](/start/quickstart/) — create a `slot` pool and check out your
+   first branch-backed worktree.
+2. [Installation](/start/installation/) — install individual tools or use the
+   umbrella command.
+3. [CLI conventions](/concepts/conventions/) — output formats, exit codes, JSON
+   envelopes, and hidden `exec` commands.
+
+## Tools
+
+| Tool | Use it for | First command |
+| ---- | ---------- | ------------- |
+| [`slot`](/tools/slot/) | Parallel branch worktrees. | `slot checkout feature-x` |
+| [`brmem`](/tools/brmem/) | Branch-scoped memory for plans and handoffs. | `brmem get plan.md` |
+| [`pr-address`](/tools/pr-address/) | Fetching and answering PR review comments. | `pr-address exec get-reviews` |
+| [`aretro`](/tools/aretro/) | Collecting deterministic branch retrospective evidence. | `aretro exec collect-evidence` |
+| [`objective`](/tools/objective/) | Durable objective records for multi-session work. | `objective list` |
+| [`roaster`](/tools/roaster/) | Markdown-driven review harnesses. | `roaster exec format-findings-comment` |
+
+## For agents
+
+The docs corpus also publishes [`llms.txt`](/llms.txt),
+[`llms-small.txt`](/llms-small.txt), and [`llms-full.txt`](/llms-full.txt). Agent
+workflows should prefer JSON-producing `exec` commands when a tool provides one.
