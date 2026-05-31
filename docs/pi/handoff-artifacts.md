@@ -83,7 +83,9 @@ Saved handoff `address-review-feedback` on branch `feature/review`.
 Optional technical detail:
 
 ```text
-Technical locator: session-artifacts / handoffs/address-review-feedback.md
+Technical locator:
+Namespace: handoffs
+Entry: address-review-feedback.md
 ```
 
 ## Load and list flow implications
@@ -106,24 +108,56 @@ Recommended list columns:
 - updated/stored time when available
 - optional technical locator only in expanded or diagnostic output
 
-## Branch Memory boundary
+## Current commands and skills
 
-The current storage contract remains:
+Project-local Pi commands:
 
 ```text
-namespace: session-artifacts
-key:       handoffs/<semantic-slug>.md
+/handoff:save <continuation focus>
+/handoff:load [--branch <branch>] [semantic-slug|search words]
+/handoff:list [--branch <branch> | --all-branches]
+```
+
+Examples:
+
+```text
+/handoff:save address review feedback after test cleanup
+/handoff:load address-review-feedback
+/handoff:list
+/handoff:list --all-branches
+```
+
+Portable first-party skills:
+
+- `handoff-save`
+- `handoff-load`
+
+`/handoff:save` requires a meaningful continuation focus. If the user omits it, the command asks:
+
+```text
+What should the future session continue from this handoff?
+```
+
+and does not save until the user answers.
+
+## Branch Memory boundary
+
+The current storage contract is:
+
+```text
+namespace: handoffs
+key:       <semantic-slug>.md
 branch:    <branch carrying the handoff>
 ```
 
-Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public save/load UX should hide those details until the user needs technical evidence.
+Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi harnesses that need to implement the storage contract directly. Public save/load/list UX should hide those details until the user needs technical evidence.
 
-Existing artifacts using this contract should remain loadable after command names or copy change.
+Useful recovery commands:
 
-## Current transition state
+```text
+brmem list --namespace handoffs --branch <branch> --format json
+brmem list --namespace handoffs --all-branches --format json
+brmem get <semantic-slug>.md --namespace handoffs --branch <branch>
+```
 
-The current checked-in Pi commands are still `/brmem-handoff` and `/brmem-pickup-handoff`, and the current portable skills are still `brmem-handoff` and `brmem-pickup-handoff`. They are historical implementation names, not the target vocabulary.
-
-Future implementation slices should rename all handoff-related public commands and skills to non-`brmem` names. Old `brmem`-named handoff surfaces should be removed or, if needed, kept only as explicitly deprecated compatibility/recovery shims. The generic low-level `brmem` CLI and skill remain valid storage/recovery surfaces.
-
-Until that rename lands, docs and skills should still teach the artifact model: save a directed handoff, load a saved handoff, and treat Branch Memory as the technical storage layer.
+There is no backwards compatibility shim, alias, or migration for earlier handoff storage names because there are no users to preserve. Older design notes may mention previous names only as historical context.

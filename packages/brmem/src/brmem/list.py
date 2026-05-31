@@ -31,6 +31,7 @@ class ListEntriesRequest(ClinkrModel):
     key: str | None = None
     branch: str | None = None
     base: bool = False
+    all_branches: bool = False
 
 
 class ListEntriesResult(ClinkrModel):
@@ -38,6 +39,7 @@ class ListEntriesResult(ClinkrModel):
     key: str | None
     branch: str
     base: bool
+    all_branches: bool
     entries: list[EntryRef]
 
 
@@ -53,8 +55,8 @@ def render_list_entries(result: ListEntriesResult) -> None:
     name="list",
     help=(
         "List Branch Memory Entries. Defaults to the current branch; "
-        "pass --branch to override. --namespace and --key further filter. "
-        "Pass --base to restrict to ad-hoc base Entries."
+        "pass --branch to override or --all-branches to include every branch. "
+        "--namespace and --key further filter. Pass --base to restrict to ad-hoc base Entries."
     ),
     human_renderer=render_list_entries,
 )
@@ -68,6 +70,11 @@ def run_list_entries(
         not (request.base and request.namespace is not None),
         error_type="base_and_namespace_conflict",
         message="--base and --namespace are mutually exclusive.",
+    )
+    Ensure.true(
+        not (request.branch is not None and request.all_branches),
+        error_type="branch_and_all_branches_conflict",
+        message="--branch and --all-branches are mutually exclusive.",
     )
 
     all_namespaces = not request.base and request.namespace is None
@@ -90,11 +97,13 @@ def run_list_entries(
         message=message,
     )
 
-    branch = (
-        request.branch
-        if request.branch is not None
-        else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
-    )
+    branch = None
+    if not request.all_branches:
+        branch = (
+            request.branch
+            if request.branch is not None
+            else Ensure.ideal_state(brmem_context.git_gateway.get_current_branch(Path.cwd()))
+        )
 
     if all_namespaces:
         entries = brmem_context.brmem_gateway.list_all_entries(
@@ -116,6 +125,7 @@ def run_list_entries(
             key=request.key,
             branch=branch,
             base=request.base,
+            all_branches=request.all_branches,
             entries=entries,
         )
     )

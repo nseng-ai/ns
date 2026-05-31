@@ -32,7 +32,7 @@ delete, or explain Branch Memory.
 - **Entry Locator**: the copy-pastable `git show` locator printed by commands,
   shaped like `<snapshot-ref>:<entry-key>`.
 
-Commands default to the current branch unless you pass `--branch`.
+Commands default to the current branch unless you pass `--branch`. For read-only listing across branches, pass `brmem list --all-branches`.
 
 `brmem` is durable and inspectable, not secret. Do not store credentials,
 private tokens, binary assets, generated build output, or large datasets.
@@ -44,11 +44,12 @@ private tokens, binary assets, generated build output, or large datasets.
 | Store or update text                          | `brmem put <key> --file <path>`                                 | Yes     |
 | Print one Entry's content                     | `brmem get <key>`                                               | No      |
 | Probe one Entry and get Entry Locator/size    | `brmem check <key>`                                             | No      |
-| List Entries on a branch                      | `brmem list`                                                    | No      |
+| List Entries on one branch or all branches    | `brmem list [--all-branches]`                                   | No      |
 | Export Entries to files                       | `brmem export [--output-dir <dir>]`                             | Files   |
 | Remove one Entry                              | `brmem delete <key>`                                            | Yes     |
 | Copy Base Entries between branches            | `brmem copy --base --from-branch <a> --to-branch <b>`           | Yes     |
 | Copy named Namespace Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
+| Resolve a repo/global prompt plugin           | `brmem exec resolve-prompt <name>`                              | No      |
 
 Add `--namespace <ns>` to `put`, `get`, `check`, `delete`, `list`, or `export`
 for named Namespace Entries. Omit it for Base Namespace Entries. The canonical
@@ -116,6 +117,7 @@ List first when you do not already know the Entry Key:
 brmem list --branch feature/add-cache --format json
 brmem list --base --branch feature/add-cache
 brmem list --namespace scratch --branch feature/add-cache --format json
+brmem list --namespace scratch --all-branches --format json
 ```
 
 Then read Entries by Entry Key:

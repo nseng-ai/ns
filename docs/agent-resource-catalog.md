@@ -11,7 +11,7 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | Surface                                  | Count | Description                                                                                                            |
 | ---------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
 | First-party skill commands               |    19 | Repo-owned Agent Skills exposed through `/skill:<name>` in Pi and through installed skill mirrors for other harnesses. |
-| Project Pi extension commands            |    17 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
+| Project Pi extension commands            |    18 | Project-local Pi slash commands registered by checked-in files under `.pi/extensions/`.                                |
 | Project Pi custom tools                  |     2 | Project-local Pi tools registered by checked-in extensions for agent invocation.                                       |
 | Project Pi prompt templates              |     0 | No project prompt templates are currently defined under `.pi/prompts/`.                                                |
 | Claude workflow scripts                  |     1 | Claude-only workflow scripts invoked through Claude's `Workflow` tool.                                                 |
@@ -24,8 +24,8 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 | ------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `/skill:branch-retro`           | `skills/branch-retro/SKILL.md`           | Collects deterministic branch/session evidence and turns it into retrospective recommendations.    |
 | `/skill:brmem`                  | `skills/brmem/SKILL.md`                  | Guides use of the `brmem` CLI for branch-scoped durable memory.                                    |
-| `/skill:brmem-handoff`          | `skills/brmem-handoff/SKILL.md`          | Saves a directed handoff artifact for a specific future continuation.                              |
-| `/skill:brmem-pickup-handoff`   | `skills/brmem-pickup-handoff/SKILL.md`   | Loads a saved handoff artifact so another session can resume focused work.                         |
+| `/skill:handoff-save`           | `skills/handoff-save/SKILL.md`           | Saves a directed handoff artifact for a specific future continuation.                              |
+| `/skill:handoff-load`           | `skills/handoff-load/SKILL.md`           | Loads, chooses, or lists saved handoff artifacts so another session can resume focused work.       |
 | `/skill:dev-checkpoint`         | `skills/dev-checkpoint/SKILL.md`         | Creates a terse checkpoint commit for the current non-main branch diff.                            |
 | `/skill:dev-gh`                 | `skills/dev-gh/SKILL.md`                 | Routes GitHub CLI, REST, and GraphQL work to the right command/API references.                     |
 | `/skill:dev-gh-ci-debug`        | `skills/dev-gh-ci-debug/SKILL.md`        | Diagnoses GitHub Actions failures from a run URL or run ID.                                        |
@@ -53,8 +53,9 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 | Command                  | Source                             | Description                                                                                         |
 | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `/brmem-handoff`         | `.pi/extensions/brmem-handoff.ts`  | Starts the current save-handoff flow for a directed handoff artifact.                               |
-| `/brmem-pickup-handoff`  | `.pi/extensions/brmem-handoff.ts`  | Loads a saved handoff artifact by slug, selector, or picker and injects its resume prompt.          |
+| `/handoff:save`          | `.pi/extensions/handoff.ts`        | Save a directed handoff artifact for a future continuation.                                         |
+| `/handoff:load`          | `.pi/extensions/handoff.ts`        | Load a saved handoff by slug, selector, or picker.                                                  |
+| `/handoff:list`          | `.pi/extensions/handoff.ts`        | List saved handoffs on this branch or across all branches.                                          |
 | `/dev:cp`                | `.pi/extensions/dev.ts`            | Creates a checkpoint commit for the current diff.                                                   |
 | `/dev:autobranch`        | `.pi/extensions/dev.ts`            | Creates a Graphite branch from current uncommitted changes, generating branch and commit messages.  |
 | `/dev:submit`            | `.pi/extensions/dev.ts`            | Submits or updates the current Graphite stack with the repo's guarded submit workflow.              |
@@ -80,11 +81,11 @@ Vendored, external, and user-local artifacts are intentionally separated at the 
 
 ## Repo-owned workflow family dispositions
 
-| Family                   | Disposition                                                                                                                                                                                                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planned branches         | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed.                                               |
-| Handoff/pickup artifacts | Carved out to Objective `directed-handoff-artifacts`: the public vocabulary is directed handoff artifacts that users save, load, list, and resume from; current `/brmem-handoff` and `/brmem-pickup-handoff` remain factual inventory until command-name and listing slices land. |
-| Branch retrospectives    | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.                                                             |
+| Family                | Disposition                                                                                                                                                                                                                         |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Planned branches      | Retain `/write-plan`, `/create-planned-branch`, and `/impl-planned-branch` as the Pi planning-layer sequence; storage contracts are documented for inspection/recovery by other harnesses, but no Codex/Claude shortcut is claimed. |
+| Handoff artifacts     | Final first-party surface: `/handoff:save`, `/handoff:load`, `/handoff:list`, `/skill:handoff-save`, and `/skill:handoff-load`. No old `brmem`-named handoff aliases are retained.                                                  |
+| Branch retrospectives | Retain `/skill:branch-retro` as the human-facing retrospective workflow; `aretro exec collect-evidence` remains the deterministic evidence-collection command behind the skill rather than a replacement public name.               |
 
 ## Engineered Pi extension package
 

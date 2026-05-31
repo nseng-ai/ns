@@ -879,6 +879,7 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
         "key": None,
         "branch": "feat/x",
         "base": False,
+        "all_branches": False,
         "entries": [
             {
                 "namespace": "scratch",
@@ -888,6 +889,85 @@ def test_brmem_json_list(cli_group: ClinkrGroup) -> None:
             }
         ],
     }
+
+
+def test_brmem_json_list_all_branches(cli_group: ClinkrGroup) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/a.md", "feat/y", "b\n")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--namespace", "scratch", "--all-branches", "--format", "json"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead()),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 0, result.output
+    assert payload["exit_code"] == 0
+    assert payload["data"] == {
+        "namespace": "scratch",
+        "key": None,
+        "branch": None,
+        "base": False,
+        "all_branches": True,
+        "entries": [
+            {
+                "namespace": "scratch",
+                "key": "plan/a.md",
+                "branch": "feat/x",
+                "ref_name": "refs/brmem/ns/scratch/feat---x:plan/a.md",
+            },
+            {
+                "namespace": "scratch",
+                "key": "plan/a.md",
+                "branch": "feat/y",
+                "ref_name": "refs/brmem/ns/scratch/feat---y:plan/a.md",
+            },
+        ],
+    }
+
+
+def test_brmem_list_all_branches_human_output_includes_branches(
+    cli_group: ClinkrGroup,
+) -> None:
+    gateway = FakeBranchMemoryGateway()
+    gateway.put("scratch", "plan/a.md", "feat/x", "a\n")
+    gateway.put("scratch", "plan/b.md", "feat/y", "b\n")
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["list", "--namespace", "scratch", "--all-branches"],
+        obj=_make_obj(gateway=gateway, branch=DetachedHead()),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [
+        _list_line("scratch", "plan/a.md", branch="feat/x"),
+        _list_line("scratch", "plan/b.md", branch="feat/y"),
+    ]
+
+
+def test_brmem_list_branch_and_all_branches_conflict(cli_group: ClinkrGroup) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "list",
+            "--namespace",
+            "scratch",
+            "--branch",
+            "feat/x",
+            "--all-branches",
+            "--format",
+            "json",
+        ],
+        obj=_make_obj(),
+    )
+    payload = _json_output(result.output)
+
+    assert result.exit_code == 2
+    assert payload["error_type"] == "branch_and_all_branches_conflict"
+    assert "--branch and --all-branches are mutually exclusive." in payload["message"]
 
 
 # ---------------------------------------------------------------------------
